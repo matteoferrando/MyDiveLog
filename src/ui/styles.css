@@ -224,6 +224,24 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 20px 20px calc(32px + var(--safe-bottom));
+  /*
+   * `position: relative` NON è decorativo: senza, la pagina acquisisce una
+   * seconda barra di scorrimento e un vuoto nero sotto il contenuto.
+   *
+   * Il guscio dell'applicazione è alto quanto la finestra e a scorrere è solo
+   * `.main`. Ma un elemento in `position: absolute` cerca il primo antenato
+   * posizionato, e se non lo trova si aggancia al blocco contenitore iniziale,
+   * cioè al documento. Le tabelle equivalenti per gli screen reader
+   * (`.solo-lettori`) stanno in fondo a un contenuto lungo qualche migliaio di
+   * pixel: fuori dal flusso e ancorate al documento, allungavano lo scroll
+   * dell'elemento `html` fino alla loro posizione — 3515 px su una finestra da
+   * 1000 — pur essendo alte un pixel e invisibili. L'effetto per chi usa l'app è
+   * che dopo l'ultima scheda si continua a scorrere dentro il nulla.
+   *
+   * Con `relative` qui, quegli elementi appartengono al contenitore che già
+   * scorre fino a quell'altezza, e il documento torna alto quanto la finestra.
+   */
+  position: relative;
 }
 
 .page {

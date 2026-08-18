@@ -339,6 +339,37 @@ await page.click('button:has-text("Gas")');
 await page.waitForTimeout(700);
 await shots(page, 'screenshots/9b-mobile-gas', 4);
 
+/*
+ * Scorrimento fantasma: la pagina che scorre nel vuoto.
+ *
+ * Il guscio è alto quanto la finestra e a scorrere deve essere SOLO `.main`.
+ * Quando un elemento in `position: absolute` non trova un antenato posizionato
+ * si aggancia al documento, e se sta in fondo a un contenuto lungo allunga lo
+ * scroll dell'elemento `html` fino a lì: dopo l'ultima scheda si continua a
+ * scorrere dentro il nero. È successo con le tabelle nascoste per gli screen
+ * reader, alte un pixel e invisibili, e nessuna fotografia lo mostra — si vede
+ * solo confrontando `scrollHeight` con `clientHeight`.
+ */
+const fantasma = [];
+for (const tab of ['Logbook', 'Statistiche', 'Coach', 'Gas', 'Confronta', 'Attrezzatura', 'Importa', 'Sincronizza']) {
+  await page.click(`button:has-text("${tab}")`).catch(() => {});
+  await page.waitForTimeout(400);
+  const d = await page.evaluate(() => ({
+    doc: document.documentElement.scrollHeight - document.documentElement.clientHeight,
+    body: document.body.scrollHeight - document.body.clientHeight,
+  }));
+  if (d.doc > 1 || d.body > 1) fantasma.push(`${tab}: documento +${d.doc}px, body +${d.body}px`);
+}
+// E la scheda di un'immersione, che è la pagina più lunga di tutte.
+await page.click('button:has-text("Logbook")');
+await page.waitForTimeout(400);
+await page.locator('tbody tr').first().click();
+await page.waitForTimeout(1200);
+{
+  const d = await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight);
+  if (d > 1) fantasma.push(`scheda immersione: documento +${d}px`);
+}
+
 // Trabocco orizzontale a larghezza telefono.
 // Una pagina che scorre in orizzontale su un telefono è un difetto che nessuna
 // schermata rende evidente — la fotografia si allarga insieme al contenuto — e
@@ -386,5 +417,6 @@ console.log('LIVELLI:'); console.log(curvaCard.slice(0, 300));
 console.log('TABELLA SOSTE:'); console.log(tabella.slice(0, 600));
 console.log('CONTINGENZE DECO:'); console.log(decoContingenze.slice(0, 700));
 console.log('CURVA RICREATIVA:'); console.log(curva.slice(0, 600));
+console.log('SCORRIMENTO FANTASMA:', fantasma.length ? fantasma : 'nessuno');
 console.log('TRABOCCO A 390 px:', overflow.length ? overflow : 'nessuno');
 console.log('CONSOLE ERRORS:', errors.length ? errors.slice(0, 10) : 'nessuno');
