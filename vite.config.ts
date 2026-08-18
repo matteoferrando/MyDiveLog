@@ -35,5 +35,13 @@ export default defineConfig({
     // con `// @vitest-environment jsdom` in testa al file, così gli altri 200
     // test restano in ambiente Node e girano in un secondo.
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+    // I 5 secondi predefiniti sono tarati su una macchina da sviluppo. I runner
+    // condivisi della CI sono parecchie volte più lenti, e il test che costruisce
+    // un albero B da 2000 righe con pagine da 512 byte — un secondo scarso qui —
+    // là sforava e faceva fallire tutta la suite per un motivo che non è un bug.
+    // Un limite alto non nasconde niente: serve a distinguere «lento» da «rotto»,
+    // e un test davvero bloccato sfora comunque.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });

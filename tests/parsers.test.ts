@@ -163,9 +163,16 @@ describe('CSV di riepilogo', () => {
 
   it('preferisce il formato data europeo', () => {
     // 03/07/2026 per un logbook italiano è 3 luglio, non 7 marzo.
-    const iso = parseDateTime('03/07/2026', '10:30');
-    expect(new Date(iso!).getMonth()).toBe(6);
-    expect(new Date(iso!).getDate()).toBe(3);
+    //
+    // Il confronto è sulla stringa e non su `new Date(iso).getMonth()`: quei
+    // getter leggono nel fuso della macchina, e `parseDateTime` costruisce
+    // l'istante in UTC apposta — un foglio di calcolo non porta il fuso. A
+    // Kiritimati (UTC+14) le 10:30 UTC del 3 sono già il 4, e il test falliva
+    // pur essendo il parser corretto. È il motivo per cui esiste `npm run
+    // test:tz`.
+    expect(parseDateTime('03/07/2026', '10:30')).toBe('2026-07-03T10:30:00.000Z');
+    // E la disambiguazione americana, che sulla stessa riga cambia risposta.
+    expect(parseDateTime('03/25/2026', '10:30')).toBe('2026-03-25T10:30:00.000Z');
   });
 
   it('interpreta le durate', () => {

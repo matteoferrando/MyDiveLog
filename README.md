@@ -309,3 +309,20 @@ Su desktop il database è un file SQLite nella cartella dati
 dell'app: copiabile, versionabile e ispezionabile con qualsiasi strumento
 SQLite. Il guscio nativo ha i permessi del solo plugin SQL — niente shell,
 niente accesso al filesystem arbitrario.
+
+---
+
+## Licenza e riconoscimenti
+
+MIT — vedi [LICENSE](LICENSE).
+
+I decoder binari di `src/core/parsers/uwatecSmart.ts` (Uwatec Smart) e
+`src/core/parsers/shearwaterPnf.ts` (log nativo Shearwater) sono stati riscritti
+leggendo i sorgenti di [libdivecomputer](https://libdivecomputer.org), che è
+LGPL-2.1: senza quel lavoro di reverse engineering, durato anni e fatto da altri,
+questi formati sarebbero illeggibili. Il debito è dichiarato in testa ai due file.
+
+L'algoritmo Bühlmann ZH-L16C è di Albert A. Bühlmann; l'interpolazione dei
+gradient factor segue il lavoro di Erik Baker. VPM-B è di David E. Yount,
+Eric B. Maiken e Erik C. Baker. Le tabelle CNS e OTU vengono dal NOAA Diving
+Manual.
