@@ -345,7 +345,12 @@ export function bestGasAt(depthM: number, gases: PlanGas[], s: DecoSettings): nu
   const available = (g: PlanGas) => (g.tankL ?? 0) * (g.startBar ?? 0);
   for (let i = 0; i < gases.length; i++) {
     if (gases[i].role === 'bailout') continue;
-    if (switchDepthOf(gases[i], s) + 0.01 < depthM) continue;
+    // Un gas di loop non ha MOD nel senso del circuito aperto: la pressione
+    // parziale la fa il setpoint, non la frazione della bombola. Escluderlo dalla
+    // sua MOD teorica mandava il piano a cercarne un altro proprio quando il
+    // diluente andava benissimo.
+    const loopGas = gases[i].setpointBar !== undefined;
+    if (!loopGas && switchDepthOf(gases[i], s) + 0.01 < depthM) continue;
     const o2 = gases[i].mix.o2;
     const vol = available(gases[i]);
     // A parità di miscela vince la bombola più capiente.
@@ -367,8 +372,18 @@ export function bestGasAt(depthM: number, gases: PlanGas[], s: DecoSettings): nu
   // lista, come faceva prima, significava scegliere in base all'ordine in cui
   // erano stati scritti i gas.
   if (best < 0) {
-    let fallback = 0;
-    for (let i = 1; i < gases.length; i++) {
+    // Il ripiego deve rispettare la stessa esclusione del ciclo sopra: la bombola
+    // di BAILOUT non è collegata al circuito, per definizione. Senza questo
+    // controllo, appena il diluente superava la propria MOD teorica il piano
+    // cominciava a respirare il bailout dentro il loop — e siccome era un
+    // trimix, l'elio ACCORCIAVA la decompressione: 51 m davano 148 minuti e
+    // 54 m ne davano 115. Tre metri più giù, mezz'ora di deco in meno, su un
+    // piano ineseguibile perché quella bombola sta appesa di lato.
+    const eligible: number[] = [];
+    for (let i = 0; i < gases.length; i++) if (gases[i].role !== 'bailout') eligible.push(i);
+    const pool = eligible.length ? eligible : gases.map((_, i) => i);
+    let fallback = pool[0];
+    for (const i of pool) {
       const a = gases[i];
       const b = gases[fallback];
       if (a.mix.o2 < b.mix.o2 || (a.mix.o2 === b.mix.o2 && available(a) > available(b))) fallback = i;
@@ -413,20 +428,118 @@ export function breathedAt(depthM: number, gas: PlanGas, setpointBar: number | u
  * in superficie, interpolato in mezzo — e la prima sosta si conosce solo dopo
  * averla calcolata, quindi si ancora al primo tetto incontrato e non si sposta più.
  */
+/**
+ * Riporta un'impostazione numerica dentro il possibile.
+ *
+ * Serve perché ogni campo di questo modulo può arrivare da una casella di testo,
+ * e `parseFloat('')` è `NaN`. Un `NaN` non fa saltare niente: si propaga in
+ * silenzio dentro le pressioni parziali, esce dai tessuti come `NaN`, e il
+ * confronto `tetto > 0` con un `NaN` è falso — cioè il piano dichiara «in curva»
+ * un'immersione decompressiva. È il modo peggiore in cui questo programma possa
+ * sbagliare, e costa quattro righe evitarlo.
+ *
+ * La scelta è tornare al PREDEFINITO e non al valore più vicino: un campo vuoto
+ * significa «non l'ho impostato», e il predefinito è la risposta giusta a quella
+ * domanda. Un valore fuori scala invece viene tagliato, perché lì l'intenzione
+ * c'è ed è solo sbagliata di misura.
+ */
+export function sane(value: number | undefined, fallback: number, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Come `sane`, ma per le grandezze in cui zero e i negativi non sono «piccoli»:
+ * sono «non impostato».
+ *
+ * Un passo fra le soste di zero metri non è una tabella fittissima, è l'assenza
+ * di una tabella; una velocità di risalita di zero non è una risalita lenta, è
+ * una risalita che non finisce. Tagliarli al minimo darebbe un risultato
+ * formalmente valido e praticamente assurdo — con lo zero tagliato a mezzo metro
+ * il VPM produceva 43 soste — quindi si torna al predefinito, che è la risposta
+ * giusta alla domanda «non l'ho impostato».
+ */
+export function sanePositive(value: number | undefined, fallback: number, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return fallback;
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Le impostazioni ripulite, in un posto solo.
+ *
+ * Prima le difese erano quattro — passo delle soste, ultima sosta, velocità — e
+ * coprivano i campi che avevano già fatto danni. I test randomizzati hanno
+ * mostrato che gli altri dodici erano scoperti: `rmvLpm` negativo produceva un
+ * consumo di −184 litri presentato come controllo superato, `switchMin` infinito
+ * un runtime infinito dichiarato in curva, `surfacePressureBar` NaN un piano
+ * decompressivo dichiarato in curva. Vale per tutti la stessa regola.
+ */
+function saneSettings(s: DecoSettings): DecoSettings {
+  return {
+    ...s,
+    // Sotto il metro il passo non è una tabella fitta, è un ciclo che non
+    // finisce: a 1e-9 il motore costruiva array da miliardi di elementi.
+    stopIntervalM: sanePositive(s.stopIntervalM, DEFAULT_DECO.stopIntervalM, 1, 30),
+    lastStopM: sanePositive(s.lastStopM, DEFAULT_DECO.lastStopM, 1, 30),
+    ascentRateMpm: sanePositive(s.ascentRateMpm, DEFAULT_DECO.ascentRateMpm, 1, 60),
+    descentRateMpm: sanePositive(s.descentRateMpm, DEFAULT_DECO.descentRateMpm, 1, 120),
+    // Dalla cima dell'Everest (0.33 bar) al livello del mare abbondante.
+    surfacePressureBar: sane(s.surfacePressureBar, DEFAULT_DECO.surfacePressureBar, 0.3, 1.2),
+    // Un gradient factor non valido NON deve stringere la risalita: `gfLow: NaN`
+    // dava 26 minuti di deco invece di 29 e la prima sosta tre metri più su.
+    gfLow: sane(s.gfLow, DEFAULT_DECO.gfLow, 0.05, 1),
+    gfHigh: sane(s.gfHigh, DEFAULT_DECO.gfHigh, 0.05, 1),
+    maxPpo2Work: sane(s.maxPpo2Work, DEFAULT_DECO.maxPpo2Work, 0.16, 2),
+    maxPpo2Deco: sane(s.maxPpo2Deco, DEFAULT_DECO.maxPpo2Deco, 0.16, 2),
+    rmvLpm: sanePositive(s.rmvLpm, DEFAULT_DECO.rmvLpm, 1, 200),
+    decoRmvLpm: sanePositive(s.decoRmvLpm, DEFAULT_DECO.decoRmvLpm, 1, 200),
+    switchMin: sane(s.switchMin, DEFAULT_DECO.switchMin, 0, 30),
+    morLpm: sane(s.morLpm, DEFAULT_DECO.morLpm, 0.1, 5),
+    decoMorLpm: sane(s.decoMorLpm, DEFAULT_DECO.decoMorLpm, 0.1, 5),
+    loopVolumeL: sane(s.loopVolumeL, DEFAULT_DECO.loopVolumeL, 1, 20),
+  };
+}
+
+/**
+ * La profondità massima che questo pianificatore accetta.
+ *
+ * Il record mondiale a circuito aperto sta sotto i 333 metri. Oltre non c'è
+ * niente da pianificare, e i numeri enormi servono solo a far girare il motore
+ * per un minuto — a 1e6 metri ci metteva 69 secondi — o a farlo cadere con
+ * «Invalid array length».
+ */
+export const MAX_PLANNABLE_DEPTH_M = 350;
+/** Un'immersione più lunga di un giorno non è un'immersione. */
+export const MAX_PLANNABLE_MINUTES = 1440;
+
 export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partial<DecoSettings> = {}): DecoResult {
-  const s: DecoSettings = { ...DEFAULT_DECO, ...settings };
-  // Valori degeneri: un passo fra le soste a zero faceva `Invalid array length`,
-  // e nel VPM produceva in silenzio una tabella senza soste. Si torna al
-  // predefinito invece di calcolare qualcosa di indefinito.
-  if (!(s.stopIntervalM > 0)) s.stopIntervalM = DEFAULT_DECO.stopIntervalM;
-  if (!(s.lastStopM > 0)) s.lastStopM = DEFAULT_DECO.lastStopM;
-  if (!(s.ascentRateMpm > 0)) s.ascentRateMpm = DEFAULT_DECO.ascentRateMpm;
-  if (!(s.descentRateMpm > 0)) s.descentRateMpm = DEFAULT_DECO.descentRateMpm;
+  const s: DecoSettings = saneSettings({ ...DEFAULT_DECO, ...settings });
   const segments: DecoSegment[] = [];
   const warnings: DecoResult['warnings'] = [];
   const icd: IcdWarning[] = [];
 
-  const usable = levels.filter((l) => l.depthM > 0 && l.minutes >= 0);
+  // I livelli passano dallo stesso filtro delle impostazioni: una profondità
+  // `NaN` arrivava fino ai tessuti e li rendeva tutti `NaN`, e un livello da
+  // centomila metri faceva girare il motore per un minuto prima di cadere.
+  const usable = levels
+    .filter((l) => Number.isFinite(l.depthM) && l.depthM > 0 && Number.isFinite(l.minutes) && l.minutes >= 0)
+    .map((l) => ({
+      ...l,
+      depthM: Math.min(l.depthM, MAX_PLANNABLE_DEPTH_M),
+      minutes: Math.min(l.minutes, MAX_PLANNABLE_MINUTES),
+    }));
+  if (levels.length && !usable.length) {
+    warnings.push({
+      level: 'critical',
+      text: 'Nessun livello utilizzabile: profondità o tempi mancanti, negativi o non numerici. Il piano qui sotto è vuoto perché non c\u2019è niente da pianificare, non perché l\u2019immersione non richieda soste.',
+    });
+  }
+  if (levels.some((l) => Number.isFinite(l.depthM) && l.depthM > MAX_PLANNABLE_DEPTH_M)) {
+    warnings.push({
+      level: 'critical',
+      text: `Profondità oltre i ${MAX_PLANNABLE_DEPTH_M} m: il piano è stato calcolato a ${MAX_PLANNABLE_DEPTH_M} m, che è già oltre il record mondiale a circuito aperto.`,
+    });
+  }
   if (!usable.length || !gases.length) {
     return emptyResult(s, warnings);
   }
@@ -607,23 +720,44 @@ export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partia
     if (!safety || safetyDone || to > 0.01) return from;
     if (decoMin > 0) return from;
     if (deepestSoFar < SAFETY_STOP_MIN_DEPTH_M) return from;
-    if (from <= safety.depthM) return from;
+    if (from <= 0.01) return from;
+    /*
+     * La sosta si fa alla quota nominale se ci si arriva dall'alto, ALTRIMENTI
+     * dove si è già.
+     *
+     * Il controllo di prima era `if (from <= safety.depthM) return from`, e
+     * saltava la sosta ogni volta che la risalita era già stata spezzata più in
+     * su. Succedeva esattamente sulle immersioni al limite della curva: a 18 m
+     * per 43 minuti la sosta c'era, a 44 il tetto impediva di salire dritti, il
+     * piano si fermava a 3 m come tappa — e da lì `from` valeva 3, cioè meno di
+     * 5, e la sosta spariva. Senza avvisi, su 43 combinazioni di quota e tempo
+     * fra gli 11 e i 50 metri: tutta la diagonale delle immersioni ricreative
+     * tirate, cioè proprio quelle in cui la sosta di sicurezza è meno
+     * facoltativa che mai. Faceva anche uscire la contingenza «tre metri più
+     * giù» PIÙ CORTA del piano nominale, che è il contrario di quello che quel
+     * pannello dice di mostrare.
+     *
+     * Risalire per fare la sosta non è un'opzione: si sosta dove si è.
+     */
+    const stopAt = Math.min(from, safety.depthM);
     const wanted = bestGasAt(from, gases, s);
     if (wanted !== gasIndex) {
       switchTo(from, gasIndex, wanted);
       gasIndex = wanted;
     }
-    advance('ascent', from, safety.depthM, (from - safety.depthM) / s.ascentRateMpm, gasIndex, levelSetpoint, s.decoRmvLpm);
-    const atStop = bestGasAt(safety.depthM, gases, s);
+    if (from > stopAt + 0.01) {
+      advance('ascent', from, stopAt, (from - stopAt) / s.ascentRateMpm, gasIndex, levelSetpoint, s.decoRmvLpm);
+    }
+    const atStop = bestGasAt(stopAt, gases, s);
     if (atStop !== gasIndex) {
-      switchTo(safety.depthM, gasIndex, atStop);
+      switchTo(stopAt, gasIndex, atStop);
       gasIndex = atStop;
     }
     safetyStopSegments.add(segments.length);
-    advance('stop', safety.depthM, safety.depthM, safety.minutes, gasIndex, levelSetpoint, s.decoRmvLpm);
+    advance('stop', stopAt, stopAt, safety.minutes, gasIndex, levelSetpoint, s.decoRmvLpm);
     safetyStopMin += safety.minutes;
     safetyDone = true;
-    return safety.depthM;
+    return stopAt;
   };
   let guard = 0;
 

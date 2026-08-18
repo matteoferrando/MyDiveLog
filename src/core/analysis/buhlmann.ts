@@ -269,6 +269,12 @@ export interface ProfileResult {
   /** Minuti con un tetto attivo. */
   decoMinutes: number;
   state: TissueState;
+  /**
+   * Quanti campioni sono stati scartati perché illeggibili (tempo o profondità
+   * non numerici, profondità negativa). Diverso da zero significa che questi
+   * numeri descrivono un profilo con dei buchi, e chi li mostra deve dirlo.
+   */
+  skippedSamples?: number;
 }
 
 /**
@@ -303,6 +309,28 @@ export function runProfile(
   } = options;
 
   const amb = (depth: number) => ambientBar(depth, salinity, surfacePressureBar);
+
+  /*
+   * I campioni inutilizzabili si buttano PRIMA, non si integrano.
+   *
+   * Basta un `depth: NaN` in mezzo al profilo — e i parser di formati binari
+   * malformati ne producono — perché tutti e sedici i compartimenti diventino
+   * `NaN` per il resto dell'immersione. Il guaio non è il `NaN` in sé: è che poi
+   * `gf99` esce **zero** e il tetto esce **zero**, cioè l'immersione viene
+   * fotografata come la più tranquilla dell'archivio proprio perché il conto non
+   * è stato fatto. Zero è il valore più rassicurante che quel numero possa
+   * avere, ed è l'ultimo che dovrebbe comparire quando il dato manca.
+   *
+   * Saltare il campione e tenere il resto è meglio che rifiutare l'immersione:
+   * un buco di qualche secondo in un profilo di quaranta minuti non cambia i
+   * tessuti in modo apprezzabile, mentre perdere l'immersione intera spezza
+   * anche la catena delle ripetitive.
+   */
+  const clean = samples.filter(
+    (sm) => Number.isFinite(sm.t) && Number.isFinite(sm.depth) && sm.depth >= 0,
+  );
+  const skipped = samples.length - clean.length;
+  samples = clean;
 
   let state = initial ?? surfacedTissues(surfacePressureBar);
   let gf99Max = 0;
@@ -344,6 +372,7 @@ export function runProfile(
   const surfaceGf = gf99(state, surfacePressureBar);
   return {
     gf99End: surfaceGf.percent,
+    ...(skipped > 0 ? { skippedSamples: skipped } : {}),
     // Il massimo comprende il valore ALL'USCITA, non solo quelli ai campioni.
     //
     // Molti computer smettono di registrare sopra il metro di quota, e su quei

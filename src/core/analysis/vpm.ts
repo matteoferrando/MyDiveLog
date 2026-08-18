@@ -113,7 +113,15 @@ import { COMPARTMENTS, WATER_VAPOUR_BAR, step, surfacedTissues, type TissueState
 // come si calcola la risalita. Si importa invece di riscriverla — `deco.ts` non
 // importa questo file (il pianificatore riceve le soste dall'esterno con
 // `imposedStops`), quindi la dipendenza va in una direzione sola.
-import { afterSurfaceInterval, barometric, tissuesAtAltitude } from './deco';
+import {
+  MAX_PLANNABLE_DEPTH_M,
+  MAX_PLANNABLE_MINUTES,
+  afterSurfaceInterval,
+  barometric,
+  sane,
+  sanePositive,
+  tissuesAtAltitude,
+} from './deco';
 
 // ---------------------------------------------------------------------------
 // Le costanti del modello
@@ -450,12 +458,43 @@ export function planVpm(
   decoGases: { mix: GasMix; switchDepthM: number }[],
   settings: Partial<VpmSettings> = {},
 ): VpmResult {
-  const asked: VpmSettings = { ...DEFAULT_VPM, ...settings };
+  /*
+   * Le impostazioni ripulite PRIMA di qualunque conto, con le stesse regole del
+   * Bühlmann (`sane` sta in `deco.ts`, una sola definizione per due motori).
+   *
+   * Qui non era una precauzione teorica. Con `stopIntervalM: 0` o `NaN`, con
+   * `conservatism: NaN`, con `surfacePressureBar: NaN` o con una quota di
+   * centomila metri, `planVpm` restituiva una tabella VUOTA — zero soste, zero
+   * minuti, nessun avviso, nessuna eccezione — su un profilo che con le
+   * impostazioni buone ne chiedeva otto per 58 minuti. «Nessuna sosta» è
+   * esattamente ciò che il subacqueo vuole leggere e non ha modo di smentire.
+   * Con una velocità di risalita nulla o negativa, o con un passo fra le soste
+   * negativo o infinitesimo, il ciclo di risalita non terminava affatto e
+   * l'applicazione si piantava senza dire niente.
+   */
+  const asked: VpmSettings = {
+    ...DEFAULT_VPM,
+    ...settings,
+    conservatism: Math.round(sane(settings.conservatism, DEFAULT_VPM.conservatism, 0, CONSERVATISM_FACTORS.length - 1)),
+    stopIntervalM: sanePositive(settings.stopIntervalM, DEFAULT_VPM.stopIntervalM, 1, 30),
+    lastStopM: sanePositive(settings.lastStopM, DEFAULT_VPM.lastStopM, 1, 30),
+    ascentRateMpm: sanePositive(settings.ascentRateMpm, DEFAULT_VPM.ascentRateMpm, 1, 60),
+    descentRateMpm: sanePositive(settings.descentRateMpm, DEFAULT_VPM.descentRateMpm, 1, 120),
+    altitudeM: settings.altitudeM === undefined ? undefined : sane(settings.altitudeM, 0, 0, 9000),
+    hoursAtAltitude:
+      settings.hoursAtAltitude === undefined ? undefined : sane(settings.hoursAtAltitude, 0, 0, 8760),
+    surfaceIntervalMin:
+      settings.surfaceIntervalMin === undefined ? undefined : sane(settings.surfaceIntervalMin, 0, 0, 525_600),
+  };
   // La pressione di superficie: quella scritta a mano vince sempre, altrimenti la
   // ricava la formula barometrica standard dalla quota.
-  const surfacePressureBar =
+  const surfacePressureBar = sane(
     settings.surfacePressureBar ??
-    (asked.altitudeM && asked.altitudeM > 0 ? barometric(asked.altitudeM) : DEFAULT_VPM.surfacePressureBar);
+      (asked.altitudeM && asked.altitudeM > 0 ? barometric(asked.altitudeM) : DEFAULT_VPM.surfacePressureBar),
+    DEFAULT_VPM.surfacePressureBar,
+    0.3,
+    1.2,
+  );
   const s: VpmSettings = { ...asked, surfacePressureBar };
 
   const zeros = () => new Array<number>(COMPARTMENTS).fill(0);
@@ -553,7 +592,13 @@ export function planVpm(
     maxActualGradient,
   });
 
-  const usable = levels.filter((l) => l.depthM > 0 && l.minutes >= 0);
+  const usable = levels
+    .filter((l) => Number.isFinite(l.depthM) && l.depthM > 0 && Number.isFinite(l.minutes) && l.minutes >= 0)
+    .map((l) => ({
+      ...l,
+      depthM: Math.min(l.depthM, MAX_PLANNABLE_DEPTH_M),
+      minutes: Math.min(l.minutes, MAX_PLANNABLE_MINUTES),
+    }));
   if (!usable.length) {
     return {
       stops: [],
@@ -1009,7 +1054,14 @@ export function planVpm(
 
     const stops: VpmStop[] = [];
     let depthNow = zoneM;
-    while (stopM > 0) {
+    // Il contatore è una rete, non la correzione: le impostazioni degeneri sono
+    // già state riportate in scala all'ingresso. Sta qui perché un ciclo che non
+    // termina non produce un numero sbagliato — congela l'applicazione, e chi la
+    // usa non ha modo di capire che cosa sia successo. Con un passo minimo di
+    // mezzo metro dalla profondità massima pianificabile, settecento giri sono
+    // già il doppio del necessario.
+    let giri = 0;
+    while (stopM > 0 && giri++ < 700) {
       const up = ramp(cur, depthNow, stopM, mixAt(depthNow), s.ascentRateMpm);
       cur = up.state;
       elapsed += up.minutes;
