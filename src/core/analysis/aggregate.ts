@@ -216,9 +216,7 @@ export function aggregate(dives: Dive[], now: number = Date.now()): Aggregates {
   const gf99 = series(sorted, (d) => d.metrics?.gf99Pct);
   const gf99Reported = series(sorted, (d) => d.reported?.gf99End);
   // Quanto i due modelli vanno d'accordo, misurato qui e non affermato altrove.
-  const bothGf = sorted.filter(
-    (d) => d.metrics?.gf99Pct !== undefined && d.reported?.gf99End !== undefined,
-  );
+  const bothGf = sorted.filter((d) => d.metrics?.gf99Pct !== undefined && d.reported?.gf99End !== undefined);
   const trim = series(sorted, (d) => d.metrics?.bottomVerticalTravelMpm);
   const ascent = series(sorted, (d) => d.metrics?.maxAscentRateMpm);
 
@@ -297,8 +295,9 @@ export function aggregate(dives: Dive[], now: number = Date.now()): Aggregates {
     ascentTrend: trend(ascent, true),
     fastAscentRate: withProfile.length
       ? round(
-          withProfile.filter((d) => (d.metrics?.fastAscentS ?? 0) + (d.metrics?.fastShallowAscentS ?? 0) >= 30)
-            .length / withProfile.length,
+          withProfile.filter(
+            (d) => (d.metrics?.fastAscentS ?? 0) + (d.metrics?.fastShallowAscentS ?? 0) >= 30,
+          ).length / withProfile.length,
           3,
         )
       : undefined,
@@ -311,7 +310,11 @@ export function aggregate(dives: Dive[], now: number = Date.now()): Aggregates {
     ceilingViolations: sorted.filter((d) => (d.metrics?.ceilingViolationS ?? 0) > 10).length,
     ceilingEligible: sorted.filter((d) => d.metrics?.quality?.hasCeiling).length,
     lowReserveRate: reserveEligible.length
-      ? round(reserveEligible.filter((d) => (d.metrics!.endPressureBar ?? 0) < 50).length / reserveEligible.length, 3)
+      ? round(
+          reserveEligible.filter((d) => (d.metrics!.endPressureBar ?? 0) < 50).length /
+            reserveEligible.length,
+          3,
+        )
       : undefined,
     lowReserveEligible: reserveEligible.length,
     oxygen: oxygenLoad(sorted),
@@ -695,7 +698,9 @@ export function tempByMonth(dives: Dive[]): Bucket[] {
  * immersioni il «quarto peggiore» è una sola immersione, e chiamarla tendenza
  * sarebbe una bugia con l'aria della statistica.
  */
-export function quartilesOf(values: number[]): { p25: number; p50: number; p75: number; n: number } | undefined {
+export function quartilesOf(
+  values: number[],
+): { p25: number; p50: number; p75: number; n: number } | undefined {
   if (values.length < 5) return undefined;
   const v = [...values].sort((a, b) => a - b);
   const at = (q: number) => v[Math.min(v.length - 1, Math.floor(q * v.length))];
@@ -745,9 +750,7 @@ function repetitiveStats(dives: Dive[]): {
   repetitiveCostWorst?: { points: number; dive: Dive; surfaceIntervalMin?: number };
   surfaceIntervalMedian?: number;
 } {
-  const rip = dives.filter(
-    (d) => d.metrics?.gf99CleanPct !== undefined && d.metrics.gf99Pct !== undefined,
-  );
+  const rip = dives.filter((d) => d.metrics?.gf99CleanPct !== undefined && d.metrics.gf99Pct !== undefined);
   if (!rip.length) return { repetitiveDives: 0 };
 
   const costs = rip.map((d) => ({

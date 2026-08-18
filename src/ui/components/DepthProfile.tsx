@@ -115,7 +115,10 @@ export function DepthProfile({
   const hasCeiling = samples.some((s) => (s.ceiling ?? s.stopDepth ?? 0) > 0);
   const ceilingLine = hasCeiling
     ? samples
-        .map((s, i) => `${i === 0 ? 'M' : 'L'}${px(s.t).toFixed(1)} ${py(s.ceiling ?? s.stopDepth ?? 0).toFixed(1)}`)
+        .map(
+          (s, i) =>
+            `${i === 0 ? 'M' : 'L'}${px(s.t).toFixed(1)} ${py(s.ceiling ?? s.stopDepth ?? 0).toFixed(1)}`,
+        )
         .join(' ')
     : null;
   const ceilingArea = ceilingLine
@@ -133,7 +136,8 @@ export function DepthProfile({
     const rows: { label: string; value: string }[] = [
       { label: 'Profondità', value: `${sample.depth.toFixed(1)} m` },
     ];
-    if (sample.tempC !== undefined) rows.push({ label: 'Temperatura', value: `${sample.tempC.toFixed(1)} °C` });
+    if (sample.tempC !== undefined)
+      rows.push({ label: 'Temperatura', value: `${sample.tempC.toFixed(1)} °C` });
     const pressure = sample.pressureBar?.find((p) => p !== undefined);
     if (pressure !== undefined) rows.push({ label: 'Bombola', value: `${Math.round(pressure)} bar` });
     const ceiling = sample.ceiling ?? sample.stopDepth;
@@ -147,7 +151,8 @@ export function DepthProfile({
     if (sample.cns !== undefined && sample.cns > 0) rows.push({ label: 'CNS', value: `${sample.cns}%` });
     if (sample.ppo2 !== undefined) rows.push({ label: 'PPO2', value: `${sample.ppo2.toFixed(2)} bar` });
     if (sample.rbtMin !== undefined) rows.push({ label: 'RBT', value: `${sample.rbtMin} min` });
-    if (sample.bearing !== undefined) rows.push({ label: 'Bussola', value: `${Math.round(sample.bearing)}°` });
+    if (sample.bearing !== undefined)
+      rows.push({ label: 'Bussola', value: `${Math.round(sample.bearing)}°` });
     setTip({ x: px(sample.t), y: py(sample.depth), title: formatDuration(sample.t), rows });
   };
 
@@ -190,7 +195,9 @@ export function DepthProfile({
   // è, per chi non vede lo schermo, una funzione che non esiste.
   const descrizione =
     riassuntoProfilo(dive) +
-    (sync ? ' Frecce per muovere il cursore, Maiusc più freccia per saltare di un minuto, Inizio e Fine per gli estremi.' : '');
+    (sync
+      ? ' Frecce per muovere il cursore, Maiusc più freccia per saltare di un minuto, Inizio e Fine per gli estremi.'
+      : '');
 
   return (
     <div className="chart" ref={ref}>
@@ -198,9 +205,17 @@ export function DepthProfile({
         items={[
           { label: 'Profondità', color: 'var(--series-1)', kind: 'area' },
           ...(hasCeiling
-            ? [{ label: 'Tetto di decompressione letto dal computer', color: 'var(--series-2)', kind: 'line' as const }]
+            ? [
+                {
+                  label: 'Tetto di decompressione letto dal computer',
+                  color: 'var(--series-2)',
+                  kind: 'line' as const,
+                },
+              ]
             : []),
-          ...(dive.events?.length ? [{ label: 'Segnalibri sul computer', color: 'var(--series-3)', kind: 'line' as const }] : []),
+          ...(dive.events?.length
+            ? [{ label: 'Segnalibri sul computer', color: 'var(--series-3)', kind: 'line' as const }]
+            : []),
         ]}
       />
       <svg
@@ -239,7 +254,14 @@ export function DepthProfile({
         {/* Fascia della sosta di sicurezza: contesto, non dato — quindi tenue e
             con l'etichetta, perché una banda colorata senza spiegazione è rumore. */}
         <g aria-hidden="true">
-          <rect x={pad.left} y={py(lo)} width={plotW} height={py(hi) - py(lo)} fill="var(--series-3)" opacity={0.07} />
+          <rect
+            x={pad.left}
+            y={py(lo)}
+            width={plotW}
+            height={py(hi) - py(lo)}
+            fill="var(--series-3)"
+            opacity={0.07}
+          />
           <text
             className="axis-label"
             x={width - pad.right - 4}
@@ -254,7 +276,14 @@ export function DepthProfile({
         {/* Griglia orizzontale e verticale, in tono recessivo. */}
         {depthTicks.map((t) => (
           <g key={`h${t}`} aria-hidden="true">
-            <line x1={pad.left} x2={width - pad.right} y1={py(t)} y2={py(t)} stroke="var(--grid)" strokeWidth={1} />
+            <line
+              x1={pad.left}
+              x2={width - pad.right}
+              y1={py(t)}
+              y2={py(t)}
+              stroke="var(--grid)"
+              strokeWidth={1}
+            />
             <text className="axis-label" x={pad.left - 8} y={py(t) + 3.5} textAnchor="end">
               {t === 0 ? '0 m' : t}
             </text>
@@ -277,7 +306,14 @@ export function DepthProfile({
         <path aria-hidden="true" d={areaPath} fill={`url(#${gradientId})`} />
         {ceilingArea && <path aria-hidden="true" d={ceilingArea} fill="var(--series-2)" opacity={0.1} />}
         {ceilingLine && (
-          <path aria-hidden="true" d={ceilingLine} fill="none" stroke="var(--series-2)" strokeWidth={1.75} strokeLinejoin="round" />
+          <path
+            aria-hidden="true"
+            d={ceilingLine}
+            fill="none"
+            stroke="var(--series-2)"
+            strokeWidth={1.75}
+            strokeLinejoin="round"
+          />
         )}
         <path
           aria-hidden="true"
@@ -352,7 +388,15 @@ export function DepthProfile({
           nella descrizione e il cursore che si muove con le frecce, cioè lo
           stesso patto che ha chi guarda: la forma subito, il singolo istante su
           richiesta. */}
-      {fuoco && <AnnuncioCursore testo={cursorSample ? annuncioCampione(cursorSample) : 'Cursore non posizionato: usa le frecce per esplorare il profilo.'} />}
+      {fuoco && (
+        <AnnuncioCursore
+          testo={
+            cursorSample
+              ? annuncioCampione(cursorSample)
+              : 'Cursore non posizionato: usa le frecce per esplorare il profilo.'
+          }
+        />
+      )}
       <Tooltip state={tip} containerWidth={width} />
     </div>
   );
@@ -447,7 +491,9 @@ export function MiniSeries({
   const px = (t: number) => pad.left + (t / maxT) * plotW;
   const py = (v: number) => pad.top + plotH - ((v - yLo) / (yHi - yLo || 1)) * plotH;
 
-  const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${px(p.t).toFixed(1)} ${py(p.v).toFixed(1)}`).join(' ');
+  const line = points
+    .map((p, i) => `${i === 0 ? 'M' : 'L'}${px(p.t).toFixed(1)} ${py(p.v).toFixed(1)}`)
+    .join(' ');
   const area = `${line} L${px(points[points.length - 1].t).toFixed(1)} ${py(yLo)} L${px(points[0].t).toFixed(1)} ${py(yLo)} Z`;
   const otherLine = otherPoints
     .map((p, i) => `${i === 0 ? 'M' : 'L'}${px(p.t).toFixed(1)} ${py(p.v).toFixed(1)}`)
@@ -535,7 +581,14 @@ export function MiniSeries({
         <desc id={`${uid}-desc`}>{descrizione}</desc>
         {ticks.map((t) => (
           <g key={t} aria-hidden="true">
-            <line x1={pad.left} x2={width - pad.right} y1={py(t)} y2={py(t)} stroke="var(--grid)" strokeWidth={1} />
+            <line
+              x1={pad.left}
+              x2={width - pad.right}
+              y1={py(t)}
+              y2={py(t)}
+              stroke="var(--grid)"
+              strokeWidth={1}
+            />
             <text className="axis-label" x={pad.left - 8} y={py(t) + 3.5} textAnchor="end">
               {t.toFixed(digits)}
             </text>
@@ -594,7 +647,15 @@ export function MiniSeries({
             strokeLinecap="round"
           />
         )}
-        <path aria-hidden="true" d={line} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+        <path
+          aria-hidden="true"
+          d={line}
+          fill="none"
+          stroke={color}
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
         {cursorPoint && (
           <g aria-hidden="true">
             <line
@@ -737,7 +798,9 @@ export function riassuntoProfilo(dive: Dive): string {
   // così che lo racconterebbe chi guarda il grafico.
   const conTetto = samples.filter((s) => (s.ceiling ?? s.stopDepth ?? 0) > 0);
   if (conTetto.length > 0) {
-    const piuAlto = conTetto.reduce((a, b) => ((b.ceiling ?? b.stopDepth ?? 0) > (a.ceiling ?? a.stopDepth ?? 0) ? b : a));
+    const piuAlto = conTetto.reduce((a, b) =>
+      (b.ceiling ?? b.stopDepth ?? 0) > (a.ceiling ?? a.stopDepth ?? 0) ? b : a,
+    );
     parti.push(
       `Tetto di decompressione presente dal minuto ${Math.round(conTetto[0].t / 60)} al minuto ` +
         `${Math.round(conTetto[conTetto.length - 1].t / 60)}, il più profondo ` +

@@ -183,7 +183,13 @@ describe('configurazione contata sui log', () => {
   });
 
   it('raggruppa per numero di bombole e per modalità', () => {
-    const rows = configurationRows([conBombole(1), conBombole(1), conBombole(2), conBombole(0), conBombole(1, 'ccr')]);
+    const rows = configurationRows([
+      conBombole(1),
+      conBombole(1),
+      conBombole(2),
+      conBombole(0),
+      conBombole(1, 'ccr'),
+    ]);
     const byLabel = Object.fromEntries(rows.map((r) => [r.label, r.dives]));
     expect(byLabel['Una bombola']).toBe(2);
     expect(byLabel['Due bombole']).toBe(1);
@@ -214,7 +220,13 @@ describe('migrazione dalla lista unica', () => {
 
   it('l’attrezzatura vera diventa attrezzatura, con la sua manutenzione', () => {
     const { equipment } = migrateGear([
-      vecchio({ kind: 'cylinder', name: 'D12', serial: 'AB123', lastServiceDate: '2025-03-01', intervalMonths: 24 }),
+      vecchio({
+        kind: 'cylinder',
+        name: 'D12',
+        serial: 'AB123',
+        lastServiceDate: '2025-03-01',
+        intervalMonths: 24,
+      }),
     ]);
     expect(equipment).toHaveLength(1);
     expect(equipment[0]).toMatchObject({
@@ -229,7 +241,12 @@ describe('migrazione dalla lista unica', () => {
 
   it('i brevetti diventano brevetti, e il livello NON viene indovinato', () => {
     const { certifications, equipment } = migrateGear([
-      vecchio({ kind: 'certification', name: 'Advanced Open Water', serial: 'PADI-99', lastServiceDate: '2019-07-01' }),
+      vecchio({
+        kind: 'certification',
+        name: 'Advanced Open Water',
+        serial: 'PADI-99',
+        lastServiceDate: '2019-07-01',
+      }),
     ]);
     expect(equipment).toHaveLength(0);
     expect(certifications[0]).toMatchObject({
@@ -249,7 +266,13 @@ describe('migrazione dalla lista unica', () => {
     // ha scritto è il modo più rapido di fargli perdere fiducia nell'archivio.
     const { equipment, certifications } = migrateGear([
       vecchio({ id: 'm', kind: 'medical', name: 'Dott. Rossi', expiresOn: '2027-01-15' }),
-      vecchio({ id: 'i', kind: 'insurance', name: 'DAN Europe', lastServiceDate: '2026-01-01', intervalMonths: 12 }),
+      vecchio({
+        id: 'i',
+        kind: 'insurance',
+        name: 'DAN Europe',
+        lastServiceDate: '2026-01-01',
+        intervalMonths: 12,
+      }),
     ]);
     expect(certifications).toHaveLength(0);
     expect(equipment).toHaveLength(2);

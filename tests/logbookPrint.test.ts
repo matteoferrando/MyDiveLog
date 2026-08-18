@@ -246,7 +246,12 @@ describe('stampa del logbook — il profilo', () => {
     expect(diveProfileSvg([])).toBe('');
     expect(diveProfileSvg([{ t: 0, depth: 0 }])).toBe('');
     // Due campioni allo stesso istante: nessun asse dei tempi possibile.
-    expect(diveProfileSvg([{ t: 30, depth: 10 }, { t: 30, depth: 12 }])).toBe('');
+    expect(
+      diveProfileSvg([
+        { t: 30, depth: 10 },
+        { t: 30, depth: 12 },
+      ]),
+    ).toBe('');
   });
 
   it('il profilo ha l’asse invertito e un punto per campione', () => {
@@ -267,7 +272,14 @@ describe('stampa del logbook — il profilo', () => {
   it('un fondo scala comune rende confrontabili due profili a occhio', () => {
     const bassa = diveProfileSvg(profilo(12, 20), { maxDepthM: 40 });
     const profonda = diveProfileSvg(profilo(40, 20), { maxDepthM: 40 });
-    const picco = (svg: string) => Math.max(...(/points="([^"]+)"/.exec(svg)![1]).trim().split(/\s+/).map((p) => Number(p.split(',')[1])));
+    const picco = (svg: string) =>
+      Math.max(
+        .../points="([^"]+)"/
+          .exec(svg)![1]
+          .trim()
+          .split(/\s+/)
+          .map((p) => Number(p.split(',')[1])),
+      );
     // Stesso fondo scala: 12 m occupano meno di un terzo dell'altezza di 40 m.
     expect(picco(bassa)).toBeLessThan(picco(profonda) * 0.45);
   });
@@ -290,9 +302,9 @@ describe('stampa del logbook — sicurezza dei campi liberi', () => {
   it('sito, compagno, muta ed etichette passano tutti dall’escape', () => {
     const d = immersione({
       site: { name: 'Secca "del Diavolo" & Co.', region: '<b>Liguria</b>' },
-      buddy: "Anna <img src=x onerror=alert(1)>",
+      buddy: 'Anna <img src=x onerror=alert(1)>',
       suit: 'Stagna & sottomuta',
-      tags: ['<em>corrente</em>', "notte & buio"],
+      tags: ['<em>corrente</em>', 'notte & buio'],
     });
     const html = logbookHtml([d], profiliDi(d));
 

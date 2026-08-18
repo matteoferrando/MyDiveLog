@@ -30,9 +30,7 @@ export { ParseError };
 export type { DiveParser, ParseInput, ParseResult };
 
 /** Estensioni accettate dal selettore di file. */
-export const ACCEPTED_EXTENSIONS = [
-  ...new Set(PARSERS.flatMap((p) => p.extensions)),
-].sort();
+export const ACCEPTED_EXTENSIONS = [...new Set(PARSERS.flatMap((p) => p.extensions))].sort();
 
 export function detectParser(input: ParseInput): DiveParser | undefined {
   return PARSERS.find((p) => {

@@ -18,6 +18,7 @@ import {
   backupFileName,
   checkBackup,
   planRestore,
+  restoreBlockers,
   type BackupFile,
   type RestorePlan,
 } from '../../core/export/backup';
@@ -99,8 +100,8 @@ export function SyncPage() {
       <div className="card">
         <h2>Database condiviso</h2>
         <p className="card-sub">
-          Un solo archivio per tutti i dispositivi. L'app continua a funzionare offline: la
-          sincronizzazione è un'operazione che lanci tu, non una condizione per aprire il logbook.
+          Un solo archivio per tutti i dispositivi. L'app continua a funzionare offline: la sincronizzazione è
+          un'operazione che lanci tu, non una condizione per aprire il logbook.
         </p>
 
         <div style={{ display: 'grid', gap: 12, maxWidth: 620 }}>
@@ -127,8 +128,8 @@ export function SyncPage() {
               autoComplete="off"
             />
             <span className="muted" style={{ fontSize: 11 }}>
-              Resta su questo dispositivo. Non viene inviato a nessuno tranne che a Turso, e non è nel
-              codice dell'applicazione.
+              Resta su questo dispositivo. Non viene inviato a nessuno tranne che a Turso, e non è nel codice
+              dell'applicazione.
             </span>
           </label>
           <DoveStannoLeCredenziali />
@@ -172,9 +173,9 @@ export function SyncPage() {
       <div className="card">
         <h2>Sincronizza ora</h2>
         <p className="card-sub">
-          Prima scarica, poi carica. Niente viene cancellato: le immersioni si aggiungono e si
-          completano a vicenda — il riepilogo più recente e il profilo più ricco, anche quando arrivano
-          da dispositivi diversi.
+          Prima scarica, poi carica. Niente viene cancellato: le immersioni si aggiungono e si completano a
+          vicenda — il riepilogo più recente e il profilo più ricco, anche quando arrivano da dispositivi
+          diversi.
         </p>
         <div className="row">
           <button
@@ -225,26 +226,22 @@ export function SyncPage() {
         )}
       </div>
 
-      <ClaudeSettings
-        credentials={aiCredentials}
-        onSave={saveAiCredentials}
-        onTest={testAiKey}
-      />
+      <ClaudeSettings credentials={aiCredentials} onSave={saveAiCredentials} onTest={testAiKey} />
 
       <div className="card">
         <h2>Come ottenere le credenziali del database</h2>
         <ol style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)', fontSize: 13 }}>
           <li>
-            Su <b>turso.tech</b>, apri il database e copia l'indirizzo che comincia per{' '}
-            <code>libsql://</code>.
+            Su <b>turso.tech</b>, apri il database e copia l'indirizzo che comincia per <code>libsql://</code>
+            .
           </li>
           <li>
-            Sempre da lì, <b>Create Token</b>: il token compare una volta sola, copialo e incollalo qui
-            sopra. Genera un token per dispositivo, così se ne perdi uno revochi solo quello.
+            Sempre da lì, <b>Create Token</b>: il token compare una volta sola, copialo e incollalo qui sopra.
+            Genera un token per dispositivo, così se ne perdi uno revochi solo quello.
           </li>
           <li>
-            La prima sincronizzazione crea le tabelle e carica l'archivio. Sugli altri dispositivi le
-            stesse credenziali scaricano tutto.
+            La prima sincronizzazione crea le tabelle e carica l'archivio. Sugli altri dispositivi le stesse
+            credenziali scaricano tutto.
           </li>
         </ol>
       </div>
@@ -256,12 +253,11 @@ export function SyncPage() {
       <div className="card">
         <h2>Esporta l'archivio</h2>
         <p className="card-sub">
-          Un file UDDF con tutte le {imm(dives.length)} e i loro profili. È il formato standard che
-          gli altri programmi del settore leggono, ed è lo stesso che questa app importa: il giro si
-          chiude, e l'archivio non è prigioniero di nessuno.{' '}
-          <b>Non è un backup</b>: UDDF non sa esprimere una quindicina di campi — modalità, compagno,
-          voto, zavorra, muta, fuso, valori del computer — e non porta niente di quello che sta fuori
-          dalle immersioni. Per quello c'è la scheda qui sotto.
+          Un file UDDF con tutte le {imm(dives.length)} e i loro profili. È il formato standard che gli altri
+          programmi del settore leggono, ed è lo stesso che questa app importa: il giro si chiude, e
+          l'archivio non è prigioniero di nessuno. <b>Non è un backup</b>: UDDF non sa esprimere una
+          quindicina di campi — modalità, compagno, voto, zavorra, muta, fuso, valori del computer — e non
+          porta niente di quello che sta fuori dalle immersioni. Per quello c'è la scheda qui sotto.
         </p>
         <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
           <button
@@ -314,11 +310,13 @@ export function SyncPage() {
         </div>
         {exported && (
           <div className="notice" style={{ marginTop: 12 }}>
-            <b>{imm(exported.dives)} {exported.dives === 1 ? 'esportata' : 'esportate'}.</b>{' '}
+            <b>
+              {imm(exported.dives)} {exported.dives === 1 ? 'esportata' : 'esportate'}.
+            </b>{' '}
             {exported.omitted.length > 0 && (
               <>
-                Quello che UDDF non sa rappresentare resta fuori: {exported.omitted.join('; ')}. Per una
-                copia completa dell'archivio serve la sincronizzazione, non questo file.
+                Quello che UDDF non sa rappresentare resta fuori: {exported.omitted.join('; ')}. Per una copia
+                completa dell'archivio serve la sincronizzazione, non questo file.
               </>
             )}
           </div>
@@ -329,30 +327,30 @@ export function SyncPage() {
         <h2>Cosa fa e cosa non fa</h2>
         <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)', fontSize: 13 }}>
           <li>
-            <b>Non cancella.</b> Se elimini un'immersione su un dispositivo, la sincronizzazione
-            successiva la riscarica: propagare le cancellazioni richiede tenere un registro di ciò che è
-            stato eliminato, e finché non c'è la scelta è dichiarata — meglio un'immersione di troppo che
-            una perduta. Per cancellarla davvero, eliminala e poi rimuovila anche dal database remoto.
+            <b>Non cancella.</b> Se elimini un'immersione su un dispositivo, la sincronizzazione successiva la
+            riscarica: propagare le cancellazioni richiede tenere un registro di ciò che è stato eliminato, e
+            finché non c'è la scelta è dichiarata — meglio un'immersione di troppo che una perduta. Per
+            cancellarla davvero, eliminala e poi rimuovila anche dal database remoto.
           </li>
           <li>
             <b>Non duplica.</b> L'identificativo di un'immersione dipende dal suo contenuto: la stessa
             immersione importata su due dispositivi resta una.
           </li>
           <li>
-            <b>Viaggiano anche il piano gas e le analisi già generate.</b> Il modulo del
-            pianificatore compilato e le analisi pagate a token si ritrovano sull'altro dispositivo,
-            e fra due versioni vince la più recente. Le credenziali no: token e chiave API restano su
-            ogni dispositivo, e un token che viaggia dentro il proprio stesso database sarebbe un
-            cerchio sciocco oltre che pericoloso.
+            <b>Viaggiano anche il piano gas e le analisi già generate.</b> Il modulo del pianificatore
+            compilato e le analisi pagate a token si ritrovano sull'altro dispositivo, e fra due versioni
+            vince la più recente. Le credenziali no: token e chiave API restano su ogni dispositivo, e un
+            token che viaggia dentro il proprio stesso database sarebbe un cerchio sciocco oltre che
+            pericoloso.
           </li>
           <li>
             <b>Riepilogo e profilo viaggiano separati.</b> Un dispositivo può avere le note e l'altro il
             profilo campione per campione: dopo la sincronizzazione entrambi hanno entrambi.
           </li>
           <li>
-            <b>Sincronizzare due volte di fila non fa niente la seconda volta.</b> Se il resoconto
-            mostra numeri diversi da zero due volte in fila senza che tu abbia toccato niente, è un bug —
-            vale la pena segnalarlo.
+            <b>Sincronizzare due volte di fila non fa niente la seconda volta.</b> Se il resoconto mostra
+            numeri diversi da zero due volte in fila senza che tu abbia toccato niente, è un bug — vale la
+            pena segnalarlo.
           </li>
         </ul>
       </div>
@@ -374,7 +372,10 @@ function ClaudeSettings({
 }: {
   credentials: { apiKey: string; model?: string } | null;
   onSave: (c: { apiKey: string; model?: string } | null) => Promise<void>;
-  onTest: (c: { apiKey: string; model?: string }) => Promise<{ ok: true; models: AiModel[] } | { ok: false; error: string }>;
+  onTest: (c: {
+    apiKey: string;
+    model?: string;
+  }) => Promise<{ ok: true; models: AiModel[] } | { ok: false; error: string }>;
 }) {
   const [key, setKey] = useState(credentials?.apiKey ?? '');
   const [model, setModel] = useState(credentials?.model ?? '');
@@ -407,9 +408,9 @@ function ClaudeSettings({
     <div className="card">
       <h2>Analisi con Claude</h2>
       <p className="card-sub">
-        Con una chiave API di Anthropic l'app può far analizzare i dati veri — singola immersione,
-        archivio, piano. I numeri restano quelli misurati: al modello vengono dati i valori calcolati
-        dall'app e quelli letti dai computer, tenuti distinti, con l'istruzione di non stimare niente.
+        Con una chiave API di Anthropic l'app può far analizzare i dati veri — singola immersione, archivio,
+        piano. I numeri restano quelli misurati: al modello vengono dati i valori calcolati dall'app e quelli
+        letti dai computer, tenuti distinti, con l'istruzione di non stimare niente.
       </p>
 
       <div style={{ display: 'grid', gap: 12, maxWidth: 620 }}>
@@ -425,8 +426,8 @@ function ClaudeSettings({
           />
           <span className="muted" style={{ fontSize: 11 }}>
             Resta su questo dispositivo e viene inviata solo all'API di Anthropic. Non è nel codice
-            dell'applicazione. Sulla versione web pubblicata una chiave nel browser sarebbe comunque
-            esposta: lì è meglio non metterla.
+            dell'applicazione. Sulla versione web pubblicata una chiave nel browser sarebbe comunque esposta:
+            lì è meglio non metterla.
           </span>
         </label>
         <DoveStannoLeCredenziali />
@@ -478,7 +479,11 @@ function ClaudeSettings({
           )}
         </div>
 
-        {ok && <p className="muted" style={{ margin: 0, fontSize: 12 }}>Chiave valida, {models.length} modelli disponibili.</p>}
+        {ok && (
+          <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+            Chiave valida, {models.length} modelli disponibili.
+          </p>
+        )}
         {error && <p style={{ margin: 0, fontSize: 12, color: 'var(--critical)' }}>{error}</p>}
       </div>
     </div>
@@ -493,7 +498,6 @@ function Row({ label, value }: { label: string; value: number | string }) {
     </tr>
   );
 }
-
 
 /**
  * Salvataggio di un file dal browser.
@@ -594,8 +598,17 @@ function BackupCard() {
     if (candidato) setPiano(planRestore(candidato, dives, m));
   };
 
+  /*
+   * Quello che il modo scelto rende impossibile, ricalcolato a ogni cambio.
+   *
+   * Non è un avviso: finché c'è, il bottone resta spento. Vedi
+   * `restoreBlockers` per il perché un backup vuoto in «ricostruisci da zero»
+   * non sia una scelta legittima da lasciar prendere.
+   */
+  const impedimenti = candidato ? restoreBlockers(candidato, modo, dives.length) : [];
+
   const ripristina = () => {
-    if (!candidato) return;
+    if (!candidato || impedimenti.length) return;
     if (
       modo === 'replace' &&
       !confirm(
@@ -627,15 +640,19 @@ function BackupCard() {
     <div className="card">
       <h2>Backup completo e ripristino</h2>
       <p className="card-sub">
-        Un file JSON con <b>tutto</b>: immersioni con i profili e i secondi profili, attrezzatura,
-        brevetti, piani salvati, analisi generate, obiettivo e periodo. Non lo legge nessun altro
-        programma — quel mestiere lo fa l'UDDF qui sopra — e in cambio non perde niente. Le
-        credenziali di sincronizzazione e la chiave API restano fuori: un backup finisce su un disco
-        esterno o in Download, e non deve portarsi dietro i tuoi segreti.
+        Un file JSON con <b>tutto</b>: immersioni con i profili e i secondi profili, attrezzatura, brevetti,
+        piani salvati, analisi generate, obiettivo e periodo. Non lo legge nessun altro programma — quel
+        mestiere lo fa l'UDDF qui sopra — e in cambio non perde niente. Le credenziali di sincronizzazione e
+        la chiave API restano fuori: un backup finisce su un disco esterno o in Download, e non deve portarsi
+        dietro i tuoi segreti.
       </p>
 
       <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
-        <button className="btn btn-primary" disabled={lavoro !== 'idle' || dives.length === 0} onClick={scarica}>
+        <button
+          className="btn btn-primary"
+          disabled={lavoro !== 'idle' || dives.length === 0}
+          onClick={scarica}
+        >
           {lavoro === 'export' ? 'Preparazione…' : 'Scarica il backup'}
         </button>
         <button disabled={lavoro !== 'idle'} onClick={() => fileRef.current?.click()}>
@@ -679,7 +696,9 @@ function BackupCard() {
             </li>
             <li>
               <b>{piano.merged.length}</b> già presenti verranno{' '}
-              {modo === 'merge' ? 'arricchite senza perdere quello che hai scritto a mano' : 'sostituite con la versione del file'}
+              {modo === 'merge'
+                ? 'arricchite senza perdere quello che hai scritto a mano'
+                : 'sostituite con la versione del file'}
             </li>
             <li>
               <b>{piano.onlyLocal}</b> che hai solo qui{' '}
@@ -701,8 +720,17 @@ function BackupCard() {
               </span>
             </label>
           </div>
+          {impedimenti.length > 0 && (
+            <div className="notice notice-error" role="alert" style={{ marginBottom: 10 }}>
+              {impedimenti.join(' ')}
+            </div>
+          )}
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn" disabled={lavoro !== 'idle'} onClick={ripristina}>
+            <button
+              className="btn"
+              disabled={lavoro !== 'idle' || impedimenti.length > 0}
+              onClick={ripristina}
+            >
               {lavoro === 'restore' ? 'Ripristino…' : 'Ripristina'}
             </button>
             <button
@@ -725,8 +753,8 @@ function BackupCard() {
       )}
 
       <p className="muted" style={{ fontSize: 11, marginTop: 12, marginBottom: 0 }}>
-        L'archivio vive in {storeLocation}. Il backup è una copia di quel contenuto in un file che
-        puoi tenere dove vuoi: il senso di averlo è che stia altrove.
+        L'archivio vive in {storeLocation}. Il backup è una copia di quel contenuto in un file che puoi tenere
+        dove vuoi: il senso di averlo è che stia altrove.
       </p>
     </div>
   );
@@ -761,9 +789,9 @@ function TrashCard() {
       <div className="card">
         <h2>Cestino</h2>
         <p className="card-sub" style={{ marginBottom: 0 }}>
-          Vuoto. Quello che cancelli finisce qui e resta recuperabile per {TRASH_DAYS} giorni: nel
-          frattempo sparisce dall'archivio e non si sincronizza, ma non è ancora perduto. Passati i
-          trenta giorni la cancellazione diventa definitiva su tutti i dispositivi.
+          Vuoto. Quello che cancelli finisce qui e resta recuperabile per {TRASH_DAYS} giorni: nel frattempo
+          sparisce dall'archivio e non si sincronizza, ma non è ancora perduto. Passati i trenta giorni la
+          cancellazione diventa definitiva su tutti i dispositivi.
         </p>
       </div>
     );
@@ -775,9 +803,9 @@ function TrashCard() {
         <div>
           <h2 style={{ margin: 0 }}>Cestino</h2>
           <p className="card-sub" style={{ marginBottom: 0 }}>
-            {items.length} {items.length === 1 ? 'immersione cancellata' : 'immersioni cancellate'}, con
-            il loro profilo. Sono fuori dall'archivio e fuori dalla sincronizzazione, ma non ancora
-            perdute: finché sono qui, «Rimetti a posto» le riporta esattamente com'erano.
+            {items.length} {items.length === 1 ? 'immersione cancellata' : 'immersioni cancellate'}, con il
+            loro profilo. Sono fuori dall'archivio e fuori dalla sincronizzazione, ma non ancora perdute:
+            finché sono qui, «Rimetti a posto» le riporta esattamente com'erano.
           </p>
         </div>
         <button
@@ -798,8 +826,8 @@ function TrashCard() {
 
       {items.length > TRASH_SOFT_LIMIT && (
         <div className="notice" style={{ marginTop: 12 }}>
-          Il cestino contiene {imm(items.length)} con i loro profili: comincia a pesare
-          sull'archivio locale. Svuotarlo libera lo spazio — e rende definitive le cancellazioni.
+          Il cestino contiene {imm(items.length)} con i loro profili: comincia a pesare sull'archivio locale.
+          Svuotarlo libera lo spazio — e rende definitive le cancellazioni.
         </div>
       )}
 
@@ -829,12 +857,18 @@ function TrashCard() {
                   </div>
                 </td>
                 <td className="num tabular muted">{dateShort(item.at)}</td>
-                <td className="num tabular" style={{ color: daysLeft(item) <= 3 ? 'var(--warning)' : undefined }}>
+                <td
+                  className="num tabular"
+                  style={{ color: daysLeft(item) <= 3 ? 'var(--warning)' : undefined }}
+                >
                   {daysLeft(item)} giorni
                 </td>
                 <td style={{ textAlign: 'right' }}>
                   <span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
-                    <button style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => void restoreDive(item.dive.id)}>
+                    <button
+                      style={{ fontSize: 11, padding: '3px 8px' }}
+                      onClick={() => void restoreDive(item.dive.id)}
+                    >
                       Rimetti a posto
                     </button>
                     <button

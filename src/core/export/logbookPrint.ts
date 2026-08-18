@@ -103,8 +103,18 @@ const sv = (v: number): string => String(Number(v.toFixed(2)));
  * costano meno di quella incertezza.
  */
 const MESI = [
-  'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
-  'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre',
+  'gennaio',
+  'febbraio',
+  'marzo',
+  'aprile',
+  'maggio',
+  'giugno',
+  'luglio',
+  'agosto',
+  'settembre',
+  'ottobre',
+  'novembre',
+  'dicembre',
 ];
 const GIORNI = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
 
@@ -268,12 +278,8 @@ export function diveProfileSvg(samples: Sample[], opts: ProfiloSvgOptions = {}):
       `text-anchor="${xp > W - pad.right - 60 ? 'end' : 'start'}">${piuProfondo.depth.toFixed(1)} m</text>`,
   );
 
-  parti.push(
-    `<text class="asse" x="${sv(pad.left - 6)}" y="${sv(H - 8)}" text-anchor="end">m</text>`,
-  );
-  parti.push(
-    `<text class="asse" x="${sv(W - pad.right)}" y="${sv(H - 8)}" text-anchor="end">minuti</text>`,
-  );
+  parti.push(`<text class="asse" x="${sv(pad.left - 6)}" y="${sv(H - 8)}" text-anchor="end">m</text>`);
+  parti.push(`<text class="asse" x="${sv(W - pad.right)}" y="${sv(H - 8)}" text-anchor="end">minuti</text>`);
   parti.push('</svg>');
   return parti.join('');
 }
@@ -330,13 +336,7 @@ export function logbookHtml(
   samplesById: Map<string, Sample[]>,
   opts: LogbookPrintOptions = {},
 ): string {
-  const {
-    title = 'Logbook',
-    owner,
-    now = new Date().toISOString(),
-    signature = true,
-    maxDepthM,
-  } = opts;
+  const { title = 'Logbook', owner, now = new Date().toISOString(), signature = true, maxDepthM } = opts;
 
   const ordinate = [...dives].sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
 
@@ -413,9 +413,7 @@ function paginaImmersione(
   // c'è. Quando non c'è NON se ne inventa uno che sembri suo: si dichiara la
   // posizione dentro questo fascicolo, che è un'informazione diversa e vera.
   const progressivo =
-    dive.number !== undefined
-      ? `n. ${dive.number}`
-      : `${ctx.indice + 1}ª di questo fascicolo`;
+    dive.number !== undefined ? `n. ${dive.number}` : `${ctx.indice + 1}ª di questo fascicolo`;
 
   const luogo = [dive.site?.name, dive.site?.region, dive.site?.country]
     .filter((s): s is string => !!s)
@@ -448,7 +446,9 @@ function paginaImmersione(
 
   out.push('<header class="testa">');
   out.push('<div class="testa-sinistra">');
-  out.push(`<div class="fascicolo">${escapeHtml(ctx.titolo)}${ctx.owner ? ` · ${escapeHtml(ctx.owner)}` : ''}</div>`);
+  out.push(
+    `<div class="fascicolo">${escapeHtml(ctx.titolo)}${ctx.owner ? ` · ${escapeHtml(ctx.owner)}` : ''}</div>`,
+  );
   out.push(`<h1>${luogo ? escapeHtml(luogo) : 'Sito non indicato'}</h1>`);
   out.push(
     `<p class="quando">${escapeHtml(dataLunga(dive.startTime, dive.utcOffsetMinutes))} · ` +
@@ -501,16 +501,26 @@ function paginaImmersione(
 
   out.push('<section class="blocco note">');
   out.push('<h2>Note</h2>');
-  out.push(dive.notes ? `<p class="testo-note">${escapeHtml(dive.notes)}</p>` : '<p class="assente">Nessuna nota.</p>');
+  out.push(
+    dive.notes
+      ? `<p class="testo-note">${escapeHtml(dive.notes)}</p>`
+      : '<p class="assente">Nessuna nota.</p>',
+  );
   out.push('</section>');
 
   if (ctx.firma) {
     out.push('<section class="blocco firma">');
     out.push('<div class="riga-firma">');
-    out.push('<div class="campo-firma"><span class="riga"></span><span class="etichetta">Firma del subacqueo</span></div>');
-    out.push('<div class="campo-firma"><span class="riga"></span><span class="etichetta">Firma dell’istruttore o della guida</span></div>');
+    out.push(
+      '<div class="campo-firma"><span class="riga"></span><span class="etichetta">Firma del subacqueo</span></div>',
+    );
+    out.push(
+      '<div class="campo-firma"><span class="riga"></span><span class="etichetta">Firma dell’istruttore o della guida</span></div>',
+    );
     out.push('</div>');
-    out.push('<div class="riquadro-timbro"><span class="etichetta">Timbro del centro o della didattica</span></div>');
+    out.push(
+      '<div class="riquadro-timbro"><span class="etichetta">Timbro del centro o della didattica</span></div>',
+    );
     out.push('</section>');
   }
 
@@ -548,9 +558,7 @@ function descriviBombola(c: Cylinder): string {
   const da = c.startBar !== undefined ? `${Math.round(c.startBar)}` : '?';
   const a = c.endBar !== undefined ? `${Math.round(c.endBar)}` : '?';
   const usati =
-    c.startBar !== undefined && c.endBar !== undefined
-      ? ` (${Math.round(c.startBar - c.endBar)} usati)`
-      : '';
+    c.startBar !== undefined && c.endBar !== undefined ? ` (${Math.round(c.startBar - c.endBar)} usati)` : '';
   return `${testa} · ${da} → ${a} bar${usati}`;
 }
 

@@ -88,7 +88,7 @@ describe('decodifica del blob Uwatec', () => {
     });
   });
 
-  it('legge i campi dell\'intestazione nelle unità giuste', () => {
+  it("legge i campi dell'intestazione nelle unità giuste", () => {
     const d = decodeUwatecSmart(bytes, { model: 0x17 });
     expect(d.maxDepth).toBeCloseTo(Math.max(...PROFILE), 1);
     // La durata è in minuti nell'intestazione, in secondi nel modello.
@@ -102,7 +102,7 @@ describe('decodifica del blob Uwatec', () => {
     expect(d.mode).toBe('oc');
   });
 
-  it('la profondità media dell\'intestazione coincide con la media dei campioni', () => {
+  it("la profondità media dell'intestazione coincide con la media dei campioni", () => {
     // libdivecomputer marca l'offset 24 come sconosciuto: questo test è la
     // verifica dell'inferenza, e vale anche come regressione se cambiasse.
     const d = decodeUwatecSmart(bytes, { model: 0x17 });
@@ -123,7 +123,7 @@ describe('decodifica del blob Uwatec', () => {
     expect(d.gasMixes[0].startBar!).toBeCloseTo(240, 0);
   });
 
-  it('gestisce l\'acqua dolce', () => {
+  it("gestisce l'acqua dolce", () => {
     const fresh = encodeUwatecSmart({ ...spec, salt: false });
     const d = decodeUwatecSmart(fresh, { model: 0x17 });
     expect(d.salinity).toBe('fresh');
@@ -134,7 +134,7 @@ describe('decodifica del blob Uwatec', () => {
     expect(() => decodeUwatecSmart(new Uint8Array(200), { model: 0x17 })).toThrow(/Firma Uwatec/);
   });
 
-  it('deduce la dimensione dell\'intestazione se il modello è ignoto', () => {
+  it("deduce la dimensione dell'intestazione se il modello è ignoto", () => {
     const d = decodeUwatecSmart(bytes);
     expect(d.samples.length).toBe(PROFILE.length);
     expect(d.warnings.join(' ')).toContain('84 byte');
@@ -203,7 +203,10 @@ describe('ritaglio della superficie', () => {
 });
 
 describe('parser LogTRAK', () => {
-  const text = toLogtrak([spec, { ...spec, startTime: new Date('2026-07-11T13:20:00Z'), depths: PROFILE.map((x) => x * 0.6) }]);
+  const text = toLogtrak([
+    spec,
+    { ...spec, startTime: new Date('2026-07-11T13:20:00Z'), depths: PROFILE.map((x) => x * 0.6) },
+  ]);
 
   it('viene riconosciuto e non confuso con altri formati', () => {
     expect(detectParser({ fileName: 'export.logtrak', text })?.format).toBe('logtrak');
@@ -254,7 +257,7 @@ describe('parser LogTRAK', () => {
     expect(warnings.join(' ')).toContain('non hanno il profilo');
   });
 
-  it('importa comunque l\'immersione se il profilo è corrotto', async () => {
+  it("importa comunque l'immersione se il profilo è corrotto", async () => {
     const broken = JSON.parse(toLogtrak([spec]));
     broken.dives[0].diveLogBase64 = 'QUJDREVGRw==';
     const { dives, warnings } = await parseFile({

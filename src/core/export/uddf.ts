@@ -183,7 +183,8 @@ export function exportUddf(dives: Dive[], options: UddfExportOptions = {}): Uddf
 
     out.push('        <informationafterdive>');
     out.push(`          <greatestdepth>${n(dive.maxDepth, 2)}</greatestdepth>`);
-    if (dive.avgDepth !== undefined) out.push(`          <averagedepth>${n(dive.avgDepth, 2)}</averagedepth>`);
+    if (dive.avgDepth !== undefined)
+      out.push(`          <averagedepth>${n(dive.avgDepth, 2)}</averagedepth>`);
     out.push(`          <diveduration>${n(dive.durationS, 0)}</diveduration>`);
     if (dive.minTempC !== undefined) {
       out.push(`          <lowesttemperature>${n(cToKelvin(dive.minTempC), 2)}</lowesttemperature>`);

@@ -40,11 +40,7 @@ describe('finestra temporale', () => {
 
   it('tiene solo le immersioni dentro la finestra', () => {
     const scope = applyPeriod(archive, '12m', NOW);
-    expect(scope.dives.map((d) => d.startTime.slice(0, 7))).toEqual([
-      '2025-10',
-      '2026-03',
-      '2026-07',
-    ]);
+    expect(scope.dives.map((d) => d.startTime.slice(0, 7))).toEqual(['2025-10', '2026-03', '2026-07']);
     expect(scope.excluded).toBe(3);
   });
 

@@ -50,6 +50,24 @@ export function Gear() {
   const [bozzaBrevetto, setBozzaBrevetto] = useState<Certification | null>(null);
   const [mostraRitirati, setMostraRitirati] = useState(false);
 
+  /*
+   * Una scheda alla volta.
+   *
+   * Con due stati indipendenti si arrivava ad avere il modulo di un erogatore e
+   * quello di un brevetto aperti insieme, uno sopra l'altro, entrambi con il
+   * bottone «Salva»: a quel punto quale dei due si stia modificando lo si capisce
+   * solo leggendo i campi. Aprire una cosa ne chiude un'altra è il comportamento
+   * che chiunque si aspetta da un elenco con un dettaglio sotto.
+   */
+  const apriAttrezzo = (a: Equipment | null) => {
+    setBozzaBrevetto(null);
+    setBozzaAttrezzo(a);
+  };
+  const apriBrevetto = (c: Certification | null) => {
+    setBozzaAttrezzo(null);
+    setBozzaBrevetto(c);
+  };
+
   const attrezzi = useMemo(() => sortEquipment(gear.equipment), [gear.equipment]);
   const visibili = mostraRitirati ? attrezzi : attrezzi.filter((a) => !a.retired);
   const ritirati = attrezzi.filter((a) => a.retired).length;
@@ -62,13 +80,15 @@ export function Gear() {
     const esiste = gear.equipment.some((g) => g.id === item.id);
     void saveGear({
       ...gear,
-      equipment: esiste ? gear.equipment.map((g) => (g.id === item.id ? item : g)) : [...gear.equipment, item],
+      equipment: esiste
+        ? gear.equipment.map((g) => (g.id === item.id ? item : g))
+        : [...gear.equipment, item],
     });
-    setBozzaAttrezzo(null);
+    apriAttrezzo(null);
   };
   const eliminaAttrezzo = (id: string) => {
     void saveGear({ ...gear, equipment: gear.equipment.filter((g) => g.id !== id) });
-    setBozzaAttrezzo(null);
+    apriAttrezzo(null);
   };
   const salvaBrevetto = (item: Certification) => {
     const esiste = gear.certifications.some((g) => g.id === item.id);
@@ -78,11 +98,11 @@ export function Gear() {
         ? gear.certifications.map((g) => (g.id === item.id ? item : g))
         : [...gear.certifications, item],
     });
-    setBozzaBrevetto(null);
+    apriBrevetto(null);
   };
   const eliminaBrevetto = (id: string) => {
     void saveGear({ ...gear, certifications: gear.certifications.filter((g) => g.id !== id) });
-    setBozzaBrevetto(null);
+    apriBrevetto(null);
   };
 
   return (
@@ -100,15 +120,21 @@ export function Gear() {
           <div style={{ flex: '1 1 320px', minWidth: 0 }}>
             <h2 style={{ margin: 0 }}>Quello che porti in acqua</h2>
             <p className="card-sub" style={{ marginBottom: 0 }}>
-              Bombole, erogatori, sacco, computer, muta. Dove ha senso c'è la manutenzione: il
-              collaudo idraulico segue la normativa, la revisione il libretto del costruttore, e
-              l'intervallo lo decidi tu pezzo per pezzo.
+              Bombole, erogatori, sacco, computer, muta. Dove ha senso c'è la manutenzione: il collaudo
+              idraulico segue la normativa, la revisione il libretto del costruttore, e l'intervallo lo decidi
+              tu pezzo per pezzo.
             </p>
           </div>
           <button
             className="btn"
             onClick={() =>
-              setBozzaAttrezzo({ id: nuovoId(), kind: 'regulator', name: '', service: 'overhaul', intervalMonths: 12 })
+              apriAttrezzo({
+                id: nuovoId(),
+                kind: 'regulator',
+                name: '',
+                service: 'overhaul',
+                intervalMonths: 12,
+              })
             }
           >
             Aggiungi
@@ -117,9 +143,8 @@ export function Gear() {
 
         {visibili.length === 0 ? (
           <p className="muted" style={{ fontSize: 13, margin: 0 }}>
-            Niente ancora. Il pezzo che vale più la pena registrare è la bombola: la matricola e la
-            data del collaudo sono le due cose che al centro ricarica ti chiedono e che non ti
-            ricordi mai.
+            Niente ancora. Il pezzo che vale più la pena registrare è la bombola: la matricola e la data del
+            collaudo sono le due cose che al centro ricarica ti chiedono e che non ti ricordi mai.
           </p>
         ) : (
           <div className="table-scroll">
@@ -138,7 +163,7 @@ export function Gear() {
                 {visibili.map((a) => {
                   const f = serviceFacts(a);
                   return (
-                    <tr key={a.id} className="clickable" onClick={() => setBozzaAttrezzo(a)}>
+                    <tr key={a.id} className="clickable" onClick={() => apriAttrezzo(a)}>
                       <td>
                         <div style={{ fontWeight: 550 }}>
                           {a.name || 'senza nome'} {a.retired && <span className="muted">· ritirato</span>}
@@ -198,7 +223,10 @@ export function Gear() {
           </div>
         )}
         {ritirati > 0 && (
-          <label className="planner-check" style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
+          <label
+            className="planner-check"
+            style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}
+          >
             <input
               type="checkbox"
               data-check="ritirati"
@@ -212,12 +240,25 @@ export function Gear() {
         )}
       </div>
 
+      {/*
+       * `key` NON è decorativo qui.
+       *
+       * La scheda copia l'oggetto in uno `useState` iniziale, e uno stato
+       * iniziale si legge UNA VOLTA SOLA: al montaggio. Senza `key`, chi apre un
+       * erogatore, lo chiude e ne apre un altro resta con i campi del primo —
+       * React vede lo stesso componente nella stessa posizione e non rimonta
+       * niente. Il titolo, che leggeva la prop, mostrava però il nome nuovo: due
+       * pezzi diversi nello stesso riquadro, e il «Salva» scriveva sull'id
+       * sbagliato. Con la chiave legata all'id, cambiare pezzo è un montaggio
+       * nuovo e la bozza riparte dai dati giusti.
+       */}
       {bozzaAttrezzo && (
         <SchedaAttrezzo
+          key={bozzaAttrezzo.id}
           item={bozzaAttrezzo}
           onSave={salvaAttrezzo}
           onDelete={eliminaAttrezzo}
-          onCancel={() => setBozzaAttrezzo(null)}
+          onCancel={() => apriAttrezzo(null)}
         />
       )}
 
@@ -227,14 +268,14 @@ export function Gear() {
           <div style={{ flex: '1 1 320px', minWidth: 0 }}>
             <h2 style={{ margin: 0 }}>Brevetti</h2>
             <p className="card-sub" style={{ marginBottom: 0 }}>
-              Non hanno una scadenza e non si revisionano: dicono fino a dove sei addestrato. Il
-              livello che scegli qui è l'unica cosa che l'applicazione legge — i nomi commerciali
-              delle didattiche sono decine e non si possono mettere in fila.
+              Non hanno una scadenza e non si revisionano: dicono fino a dove sei addestrato. Il livello che
+              scegli qui è l'unica cosa che l'applicazione legge — i nomi commerciali delle didattiche sono
+              decine e non si possono mettere in fila.
             </p>
           </div>
           <button
             className="btn"
-            onClick={() => setBozzaBrevetto({ id: nuovoId(), agency: '', name: '', level: 'base' })}
+            onClick={() => apriBrevetto({ id: nuovoId(), agency: '', name: '', level: 'base' })}
           >
             Aggiungi
           </button>
@@ -242,9 +283,9 @@ export function Gear() {
 
         {brevetti.length === 0 ? (
           <p className="muted" style={{ fontSize: 13, margin: 0 }}>
-            Nessun brevetto registrato. Serve per una cosa sola, ma concreta: la scheda di prontezza
-            dei <b>Suggerimenti</b> confronta le tue immersioni con i prerequisiti del passo
-            successivo, e senza sapere da dove parti non può dire quanto manca.
+            Nessun brevetto registrato. Serve per una cosa sola, ma concreta: la scheda di prontezza dei{' '}
+            <b>Suggerimenti</b> confronta le tue immersioni con i prerequisiti del passo successivo, e senza
+            sapere da dove parti non può dire quanto manca.
           </p>
         ) : (
           <>
@@ -261,7 +302,7 @@ export function Gear() {
                 </thead>
                 <tbody>
                   {brevetti.map((c) => (
-                    <tr key={c.id} className="clickable" onClick={() => setBozzaBrevetto(c)}>
+                    <tr key={c.id} className="clickable" onClick={() => apriBrevetto(c)}>
                       <td>
                         <div style={{ fontWeight: 550 }}>{c.name || 'senza nome'}</div>
                         {(c.number || c.instructor) && (
@@ -298,10 +339,11 @@ export function Gear() {
 
       {bozzaBrevetto && (
         <SchedaBrevetto
+          key={bozzaBrevetto.id}
           item={bozzaBrevetto}
           onSave={salvaBrevetto}
           onDelete={eliminaBrevetto}
-          onCancel={() => setBozzaBrevetto(null)}
+          onCancel={() => apriBrevetto(null)}
         />
       )}
 
@@ -309,16 +351,16 @@ export function Gear() {
       <div className="card">
         <h2>Zavorra e configurazione</h2>
         <p className="card-sub">
-          Questa sezione non si compila: viene dalle immersioni, che portano già muta e chili. E sta
-          accanto all'oscillazione d'assetto misurata sul profilo, perché la domanda vera non è
-          «quanti chili ho usato» ma «con quanti chili tengo meglio la quota».
+          Questa sezione non si compila: viene dalle immersioni, che portano già muta e chili. E sta accanto
+          all'oscillazione d'assetto misurata sul profilo, perché la domanda vera non è «quanti chili ho
+          usato» ma «con quanti chili tengo meglio la quota».
         </p>
 
         {zavorra.length === 0 ? (
           <p className="muted" style={{ fontSize: 13, margin: 0 }}>
             Nessuna immersione porta insieme la muta e la zavorra. Sono due campi che i computer non
-            registrano quasi mai: si scrivono nella scheda dell'immersione, e da due immersioni con
-            la stessa muta questa tabella comincia a dire qualcosa.
+            registrano quasi mai: si scrivono nella scheda dell'immersione, e da due immersioni con la stessa
+            muta questa tabella comincia a dire qualcosa.
           </p>
         ) : (
           <div className="table-scroll">
@@ -345,7 +387,9 @@ export function Gear() {
                         <>
                           {r.medianTrimMpm.toFixed(1)} m/min
                           <div className="muted" style={{ fontSize: 11 }}>
-                            {r.medianTrimMpm <= LIMITS.goodTrimMpm ? 'quota tenuta bene' : 'quota da migliorare'}
+                            {r.medianTrimMpm <= LIMITS.goodTrimMpm
+                              ? 'quota tenuta bene'
+                              : 'quota da migliorare'}
                             {` · su ${r.trimBasis}`}
                           </div>
                         </>
@@ -368,8 +412,8 @@ export function Gear() {
             </div>
             <p className="planner-hint" style={{ marginTop: 0 }}>
               Ricavata dal numero di bombole registrate e dalla modalità. È grossolana di proposito:
-              distinguere un bibombola da due mono in sidemount guardando il log non si può, e
-              inventare la distinzione sarebbe peggio che ammetterlo.
+              distinguere un bibombola da due mono in sidemount guardando il log non si può, e inventare la
+              distinzione sarebbe peggio che ammetterlo.
             </p>
             <table>
               <tbody>
@@ -390,7 +434,15 @@ export function Gear() {
 
 // ---------------------------------------------------------------------------
 
-function Campo({ etichetta, unita, children }: { etichetta: string; unita?: string; children: React.ReactNode }) {
+function Campo({
+  etichetta,
+  unita,
+  children,
+}: {
+  etichetta: string;
+  unita?: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="stack" style={{ gap: 4, fontSize: 12 }}>
       <span className="muted">
@@ -398,6 +450,56 @@ function Campo({ etichetta, unita, children }: { etichetta: string; unita?: stri
       </span>
       {children}
     </label>
+  );
+}
+
+/**
+ * Salva, annulla, elimina — con la conferma sull'eliminazione.
+ *
+ * Prima «Elimina» cancellava al primo clic, e su un elenco dove ogni riga apre
+ * la scheda basta un tocco fuori bersaglio su un telefono per perdere la
+ * matricola di una bombola che nessuno si ricorda a memoria. Non c'è un annulla,
+ * perché l'attrezzatura non ha cestino: quindi la conferma serve.
+ *
+ * NON è un `window.confirm`: una finestra modale del browser blocca tutto il
+ * thread e su iOS compare con un testo che non si può tradurre. Il bottone si
+ * trasforma nella domanda, e chiunque clicchi altrove torna indietro da solo.
+ */
+function BottoniScheda({
+  onSave,
+  onCancel,
+  onDelete,
+  cosa,
+}: {
+  onSave: () => void;
+  onCancel: () => void;
+  onDelete: () => void;
+  cosa: string;
+}) {
+  const [conferma, setConferma] = useState(false);
+  return (
+    <div className="row" style={{ gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+      <button className="btn" onClick={onSave}>
+        Salva
+      </button>
+      <button onClick={onCancel}>Annulla</button>
+      <span style={{ flex: 1 }} />
+      {conferma ? (
+        <>
+          <span className="muted" style={{ fontSize: 12, alignSelf: 'center' }}>
+            Elimino {cosa}? Non si recupera.
+          </span>
+          <button onClick={() => setConferma(false)}>No</button>
+          <button onClick={onDelete} style={{ color: 'var(--critical)' }}>
+            Sì, elimina
+          </button>
+        </>
+      ) : (
+        <button onClick={() => setConferma(true)} style={{ color: 'var(--critical)' }}>
+          Elimina
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -417,7 +519,7 @@ function SchedaAttrezzo({
 
   return (
     <div className="card">
-      <h2>{item.name ? item.name : 'Nuovo pezzo'}</h2>
+      <h2>{d.name || 'Nuovo pezzo'}</h2>
       <div className="grid grid-3" style={{ marginBottom: 8 }}>
         <Campo etichetta="Tipo">
           <select
@@ -426,12 +528,21 @@ function SchedaAttrezzo({
               // Cambiando tipo si propongono la manutenzione e l'intervallo
               // tipici, ma solo come punto di partenza: restano modificabili,
               // perché il libretto del costruttore vince su qualunque tabella.
+              //
+              // Volume e pressione d'esercizio si vedono SOLO sulle bombole, ma
+              // restavano nell'oggetto anche dopo il cambio di tipo: un erogatore
+              // che era stato per un istante una bombola si salvava con «12 L ·
+              // 232 bar» attaccati, invisibili nel modulo e ben visibili nella
+              // riga dell'elenco. Un campo che sparisce dallo schermo deve
+              // sparire anche dal dato.
               const kind = e.target.value as EquipmentKind;
               setD((p) => ({
                 ...p,
                 kind,
                 service: TYPICAL_SERVICE[kind],
                 intervalMonths: TYPICAL_INTERVAL_MONTHS[kind],
+                sizeL: kind === 'cylinder' ? p.sizeL : undefined,
+                workingBar: kind === 'cylinder' ? p.workingBar : undefined,
               }));
             }}
           >
@@ -446,7 +557,11 @@ function SchedaAttrezzo({
           <input type="text" value={d.name} onChange={(e) => set('name', e.target.value)} />
         </Campo>
         <Campo etichetta="Matricola">
-          <input type="text" value={d.serial ?? ''} onChange={(e) => set('serial', e.target.value || undefined)} />
+          <input
+            type="text"
+            value={d.serial ?? ''}
+            onChange={(e) => set('serial', e.target.value || undefined)}
+          />
         </Campo>
       </div>
 
@@ -474,7 +589,21 @@ function SchedaAttrezzo({
 
       <div className="grid grid-3" style={{ marginBottom: 8 }}>
         <Campo etichetta="Manutenzione">
-          <select value={d.service} onChange={(e) => set('service', e.target.value as ServiceKind)}>
+          <select
+            value={d.service}
+            onChange={(e) => {
+              // Idem per la manutenzione: con «nessuna» le due date sparirebbero
+              // dal modulo restando nel record, e la colonna «Ultima»
+              // dell'elenco continuerebbe a mostrarle.
+              const service = e.target.value as ServiceKind;
+              setD((p) => ({
+                ...p,
+                service,
+                lastServiceOn: service === 'none' ? undefined : p.lastServiceOn,
+                intervalMonths: service === 'none' ? undefined : p.intervalMonths,
+              }));
+            }}
+          >
             {(Object.keys(SERVICE_LABEL) as ServiceKind[]).map((k) => (
               <option key={k} value={k}>
                 {SERVICE_LABEL[k]}
@@ -503,7 +632,11 @@ function SchedaAttrezzo({
         ) : (
           <>
             <Campo etichetta="Comprato il">
-              <input type="date" value={d.boughtOn ?? ''} onChange={(e) => set('boughtOn', e.target.value || undefined)} />
+              <input
+                type="date"
+                value={d.boughtOn ?? ''}
+                onChange={(e) => set('boughtOn', e.target.value || undefined)}
+              />
             </Campo>
             <div />
           </>
@@ -511,24 +644,31 @@ function SchedaAttrezzo({
       </div>
 
       <Campo etichetta="Note">
-        <textarea rows={2} value={d.notes ?? ''} onChange={(e) => set('notes', e.target.value || undefined)} />
+        <textarea
+          rows={2}
+          value={d.notes ?? ''}
+          onChange={(e) => set('notes', e.target.value || undefined)}
+        />
       </Campo>
 
-      <label className="planner-check" style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
-        <input type="checkbox" checked={!!d.retired} onChange={(e) => set('retired', e.target.checked || undefined)} />
+      <label
+        className="planner-check"
+        style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}
+      >
+        <input
+          type="checkbox"
+          checked={!!d.retired}
+          onChange={(e) => set('retired', e.target.checked || undefined)}
+        />
         <span>Non lo uso più (resta in archivio, fuori dall'elenco)</span>
       </label>
 
-      <div className="row" style={{ gap: 8, marginTop: 14 }}>
-        <button className="btn" onClick={() => onSave(d)}>
-          Salva
-        </button>
-        <button onClick={onCancel}>Annulla</button>
-        <span style={{ flex: 1 }} />
-        <button onClick={() => onDelete(d.id)} style={{ color: 'var(--critical)' }}>
-          Elimina
-        </button>
-      </div>
+      <BottoniScheda
+        cosa={d.name ? `«${d.name}»` : 'questo pezzo'}
+        onSave={() => onSave(d)}
+        onCancel={onCancel}
+        onDelete={() => onDelete(d.id)}
+      />
     </div>
   );
 }
@@ -549,7 +689,7 @@ function SchedaBrevetto({
 
   return (
     <div className="card">
-      <h2>{item.name ? item.name : 'Nuovo brevetto'}</h2>
+      <h2>{d.name || 'Nuovo brevetto'}</h2>
       <div className="grid grid-3" style={{ marginBottom: 8 }}>
         <Campo etichetta="Didattica">
           <input
@@ -574,10 +714,18 @@ function SchedaBrevetto({
       </div>
       <div className="grid grid-3" style={{ marginBottom: 8 }}>
         <Campo etichetta="Preso il">
-          <input type="date" value={d.issuedOn ?? ''} onChange={(e) => set('issuedOn', e.target.value || undefined)} />
+          <input
+            type="date"
+            value={d.issuedOn ?? ''}
+            onChange={(e) => set('issuedOn', e.target.value || undefined)}
+          />
         </Campo>
         <Campo etichetta="Numero">
-          <input type="text" value={d.number ?? ''} onChange={(e) => set('number', e.target.value || undefined)} />
+          <input
+            type="text"
+            value={d.number ?? ''}
+            onChange={(e) => set('number', e.target.value || undefined)}
+          />
         </Campo>
         <Campo etichetta="Istruttore">
           <input
@@ -588,18 +736,18 @@ function SchedaBrevetto({
         </Campo>
       </div>
       <Campo etichetta="Note">
-        <textarea rows={2} value={d.notes ?? ''} onChange={(e) => set('notes', e.target.value || undefined)} />
+        <textarea
+          rows={2}
+          value={d.notes ?? ''}
+          onChange={(e) => set('notes', e.target.value || undefined)}
+        />
       </Campo>
-      <div className="row" style={{ gap: 8, marginTop: 14 }}>
-        <button className="btn" onClick={() => onSave(d)}>
-          Salva
-        </button>
-        <button onClick={onCancel}>Annulla</button>
-        <span style={{ flex: 1 }} />
-        <button onClick={() => onDelete(d.id)} style={{ color: 'var(--critical)' }}>
-          Elimina
-        </button>
-      </div>
+      <BottoniScheda
+        cosa={d.name ? `«${d.name}»` : 'questo brevetto'}
+        onSave={() => onSave(d)}
+        onCancel={onCancel}
+        onDelete={() => onDelete(d.id)}
+      />
     </div>
   );
 }

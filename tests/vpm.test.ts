@@ -199,8 +199,7 @@ describe('monotonie che devono valere sempre', () => {
 
   it('il conservatorismo allunga a ogni gradino, da 0 a 5', () => {
     const times = [0, 1, 2, 3, 4, 5].map(
-      (conservatism) =>
-        planVpm([{ depthM: 45, minutes: 30, mix: AIR }], gases, { conservatism }).decoMin,
+      (conservatism) => planVpm([{ depthM: 45, minutes: 30, mix: AIR }], gases, { conservatism }).decoMin,
     );
     for (let i = 1; i < times.length; i++) expect(times[i]).toBeGreaterThan(times[i - 1]);
     // Fra il nominale e il massimo ci deve essere una differenza sostanziale: se
@@ -385,7 +384,11 @@ describe('casi limite: deve fermarsi sempre', () => {
   });
 
   it('una miscela senza azoto non manda in NaN il calcolo dei gradienti pesati', () => {
-    const r = planVpm([{ depthM: 30, minutes: 40, mix: { o2: 0.4, he: 0.6 } }], [{ mix: OXY, switchDepthM: 6 }], {});
+    const r = planVpm(
+      [{ depthM: 30, minutes: 40, mix: { o2: 0.4, he: 0.6 } }],
+      [{ mix: OXY, switchDepthM: 6 }],
+      {},
+    );
     finito(r);
     expect(r.decoMin).toBeGreaterThan(0);
   });
@@ -687,7 +690,7 @@ describe('quota: le proprietà che devono valere comunque', () => {
     expect(at(3000, 0)).toBeGreaterThan(at(3000, 72));
   });
 
-  it("la penalità di chi è appena salito si esaurisce con le ore passate in quota", () => {
+  it('la penalità di chi è appena salito si esaurisce con le ore passate in quota', () => {
     const serie = [0, 1, 3, 12, 48].map((h) => at(2000, h));
     for (let i = 1; i < serie.length; i++) expect(serie[i]).toBeLessThanOrEqual(serie[i - 1]);
     expect(serie[serie.length - 1]).toBeLessThan(serie[0]);

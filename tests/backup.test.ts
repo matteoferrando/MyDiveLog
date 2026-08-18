@@ -19,6 +19,7 @@ import {
   buildBackup,
   checkBackup,
   planRestore,
+  restoreBlockers,
   type ArchiveSource,
   type BackupFile,
 } from '../src/core/export/backup';
@@ -33,7 +34,7 @@ function fakeStore(dives: Dive[], settings: Record<string, unknown> = {}): Archi
     listDives: async () => dives.map(({ samples: _s, altSamples: _a, ...rest }) => rest as Dive),
     getSamples: async (id) => dives.find((d) => d.id === id)?.samples ?? [],
     getAltSamples: async (id) => dives.find((d) => d.id === id)?.altSamples ?? [],
-    getSetting: async <T,>(key: string) => settings[key] as T | undefined,
+    getSetting: async <T>(key: string) => settings[key] as T | undefined,
   };
 }
 
@@ -202,7 +203,10 @@ describe('piano del ripristino', () => {
 
   it('le credenziali eventualmente presenti in un file vecchio non vengono riscritte', async () => {
     const f = await buildBackup(fakeStore([dive('a', '2026-06-01T09:00:00Z')], { goal: 'tech' }));
-    const sporco: BackupFile = { ...f, settings: { ...f.settings, sync: { authToken: 'x' }, ai: { apiKey: 'y' } } };
+    const sporco: BackupFile = {
+      ...f,
+      settings: { ...f.settings, sync: { authToken: 'x' }, ai: { apiKey: 'y' } },
+    };
     const p = planRestore(sporco, []);
     expect(p.settings.goal).toBe('tech');
     expect(p.settings.sync).toBeUndefined();
@@ -214,8 +218,16 @@ describe('il giro chiuso', () => {
   it('backup e ripristino su un archivio vuoto restituiscono esattamente quello che c’era', async () => {
     // Il test che vale per tutti gli altri: se questo passa, il file serve
     // davvero a quello per cui esiste.
-    const originali = [dive('a', '2026-06-01T09:00:00Z'), dive('b', '2026-07-15T10:30:00Z'), dive('c', '2026-08-01T08:00:00Z', false)];
-    const impostazioni = { goal: 'tech', period: '24m', gear: { equipment: [{ id: 'e1' }], certifications: [] } };
+    const originali = [
+      dive('a', '2026-06-01T09:00:00Z'),
+      dive('b', '2026-07-15T10:30:00Z'),
+      dive('c', '2026-08-01T08:00:00Z', false),
+    ];
+    const impostazioni = {
+      goal: 'tech',
+      period: '24m',
+      gear: { equipment: [{ id: 'e1' }], certifications: [] },
+    };
 
     // Il viaggio vero: JSON.stringify e ritorno, come nel file scaricato.
     const file = await buildBackup(fakeStore(originali, impostazioni));
@@ -258,5 +270,45 @@ describe('il giro chiuso', () => {
     expect(secondo.merged).toHaveLength(1);
     expect(secondo.onlyLocal).toBe(0);
     expect(secondo.merged[0].samples?.length).toBe(originali[0].samples!.length);
+  });
+});
+
+/**
+ * Quello che il modo scelto rende impossibile.
+ *
+ * Un file vuoto in «ricostruisci da zero» era solo un avviso giallo, in mezzo
+ * agli altri avvisi, sotto a un bottone acceso. L'operazione che ne segue è
+ * «cancella tutte le immersioni» — nel momento esatto in cui chi la lancia
+ * crede di star rimettendo le cose a posto.
+ */
+describe('impedimenti che dipendono dal modo', () => {
+  const vuoto = (): BackupFile => ({
+    format: 'mydivelog-backup',
+    version: 1,
+    createdAt: '2026-08-17T10:00:00Z',
+    app: { name: 'MyDiveLog', store: 'sqlite' },
+    summary: { dives: 0, withProfile: 0, samples: 0, settings: [] },
+    dives: [],
+    settings: {},
+  });
+
+  it('un backup vuoto NON si può usare per ricostruire da zero', () => {
+    const b = restoreBlockers(vuoto(), 'replace', 42);
+    expect(b).toHaveLength(1);
+    expect(b[0]).toMatch(/nessuna immersione/i);
+    expect(b[0]).toMatch(/42/);
+  });
+
+  it('lo stesso file si può fondere: non fa niente, e non c’è niente da impedire', () => {
+    expect(restoreBlockers(vuoto(), 'merge', 42)).toEqual([]);
+  });
+
+  it('su un archivio già vuoto non c’è niente da perdere', () => {
+    expect(restoreBlockers(vuoto(), 'replace', 0)).toEqual([]);
+  });
+
+  it('un backup con dentro qualcosa non è impedito da niente', async () => {
+    const file = await buildBackup(fakeStore([dive('a', '2026-06-01T09:00:00Z')]));
+    expect(restoreBlockers(file, 'replace', 42)).toEqual([]);
   });
 });

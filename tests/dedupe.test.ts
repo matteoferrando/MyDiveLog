@@ -79,7 +79,7 @@ describe('id stabile', () => {
     expect(stableId(['a', 1])).not.toBe(stableId(['a', 2]));
   });
 
-  it('preferisce l\'identificativo del computer quando esiste', () => {
+  it("preferisce l'identificativo del computer quando esiste", () => {
     const withDc = diveIdFor({
       startTime: '2026-06-14T10:38:00.000Z',
       maxDepth: 32,
@@ -195,19 +195,28 @@ describe('scelta del profilo fra due computer', () => {
   });
 
   it('tiene il profilo con i dati di decompressione anche se ha meno campioni', () => {
-    const merged = mergeDive(base(dense), { ...base(rich), source: { format: 'shearwater-cloud', file: 'b.db', importedAt: 'x' } });
+    const merged = mergeDive(base(dense), {
+      ...base(rich),
+      source: { format: 'shearwater-cloud', file: 'b.db', importedAt: 'x' },
+    });
     expect(merged.samples).toHaveLength(240);
     expect(merged.samples?.[0].ttsS).toBe(120);
   });
 
   it('e non lo perde quando le fonti arrivano nell’ordine opposto', () => {
-    const merged = mergeDive(base(rich), { ...base(dense), source: { format: 'logtrak', file: 'c.logtrak', importedAt: 'x' } });
+    const merged = mergeDive(base(rich), {
+      ...base(dense),
+      source: { format: 'logtrak', file: 'c.logtrak', importedAt: 'x' },
+    });
     expect(merged.samples).toHaveLength(240);
   });
 
   it('a pari canali tiene il profilo più fitto', () => {
     const denser = Array.from({ length: 1200 }, (_, i) => ({ t: i * 2, depth: 20, tempC: 18 }));
-    const merged = mergeDive(base(dense), { ...base(denser), source: { format: 'uddf', file: 'd.uddf', importedAt: 'x' } });
+    const merged = mergeDive(base(dense), {
+      ...base(denser),
+      source: { format: 'uddf', file: 'd.uddf', importedAt: 'x' },
+    });
     expect(merged.samples).toHaveLength(1200);
   });
 });

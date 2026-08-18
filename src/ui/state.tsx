@@ -7,15 +7,7 @@
  * caricano su richiesta quando si apre una scheda.
  */
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Dive, Sample } from '../core/model';
 import { TRASH_KEY, partitionTrash, type TrashedDive } from '../storage/trash';
 import { computeMetrics } from '../core/analysis/metrics';
@@ -28,12 +20,7 @@ import {
   type GasPlanInput,
 } from '../core/analysis/gasPlan';
 import { buildPlan, type GoalId, type Plan } from '../core/analysis/coaching';
-import {
-  applyPeriod,
-  DEFAULT_PERIOD,
-  type PeriodId,
-  type Scope,
-} from '../core/analysis/window';
+import { applyPeriod, DEFAULT_PERIOD, type PeriodId, type Scope } from '../core/analysis/window';
 import { mergeDive, mergeImports } from '../core/dedupe';
 import { buildBackup, planRestore, type BackupFile } from '../core/export/backup';
 import { parseBrowserFile } from '../core/parsers';
@@ -45,6 +32,7 @@ import {
   connect,
   describeSyncError,
   syncArchive,
+  mergeKeyed,
   testConnection,
   TOMBSTONE_KEY,
   type SyncCredentials,
@@ -52,14 +40,14 @@ import {
 } from '../sync/turso';
 import { ask, testKey, type AiCredentials, type AiModel, type AiResult } from '../ai/client';
 import { archiveContext, decoPlanContext, diveContext, gasPlanContext, planContext } from '../ai/context';
-import { archiveAnalysis, decoPlanAnalysis, diveAnalysis, gasPlanAnalysis, planAnalysis } from '../ai/prompts';
-import type {
-  DecoContingency,
-  DecoResult,
-  DecoSettings,
-  PlanGas,
-  PlanLevel,
-} from '../core/analysis/deco';
+import {
+  archiveAnalysis,
+  decoPlanAnalysis,
+  diveAnalysis,
+  gasPlanAnalysis,
+  planAnalysis,
+} from '../ai/prompts';
+import type { DecoContingency, DecoResult, DecoSettings, PlanGas, PlanLevel } from '../core/analysis/deco';
 
 /** Un piano tecnico messo da parte con un nome. */
 export interface SavedDecoPlan {
@@ -93,6 +81,15 @@ export interface ImportOutcome {
 
 interface DiveLogValue {
   ready: boolean;
+  /**
+   * Che cosa è andato storto durante l'apertura, se è andato storto qualcosa.
+   *
+   * Nullo nel caso normale. Quando c'è, l'applicazione è partita LO STESSO ma
+   * incompleta, e chi la usa deve saperlo prima di scriverci dentro: un archivio
+   * che non si è aperto e uno vuoto si assomigliano troppo per lasciar
+   * indovinare quale dei due si ha davanti.
+   */
+  initError: string | null;
   /** Tutte le immersioni in archivio: il logbook mostra sempre tutto. */
   dives: Dive[];
   /**
@@ -119,6 +116,12 @@ interface DiveLogValue {
    */
   createDive: (dive: Dive) => Promise<{ merged: boolean }>;
   removeDive: (id: string) => Promise<void>;
+  /**
+   * Cancella più immersioni in una volta sola. Non è `removeDive` in ciclo: il
+   * cestino si scrive UNA volta, altrimenti l'ultima scrittura sovrascrive le
+   * precedenti e le immersioni non finiscono da nessuna parte.
+   */
+  removeDives: (ids: string[]) => Promise<void>;
   clearAll: () => Promise<void>;
   /**
    * Il cestino: le immersioni cancellate ma non ancora perdute.
@@ -174,7 +177,9 @@ interface DiveLogValue {
    * o, dove non esiste, nell'archivio locale in chiaro. Va mostrato, non dedotto.
    */
   secretPlace: SecretPlace;
-  testAiKey: (creds: AiCredentials) => Promise<{ ok: true; models: AiModel[] } | { ok: false; error: string }>;
+  testAiKey: (
+    creds: AiCredentials,
+  ) => Promise<{ ok: true; models: AiModel[] } | { ok: false; error: string }>;
   /** Analisi già generate, per non farle pagare due volte. */
   analysis: (kind: AnalysisKind, subject?: string) => StoredAnalysis | undefined;
   runAnalysis: (
@@ -223,10 +228,31 @@ export interface StoredAnalysis {
 
 const Ctx = createContext<DiveLogValue | null>(null);
 
+/**
+ * Fonde una raccolta di impostazioni con quella già in archivio.
+ *
+ * `gear` sono due elenchi dentro un oggetto, `decoPlans` è un elenco: la forma
+ * è diversa, la regola no — si fondono per identificativo e a parità vince il
+ * timbro più recente, che è esattamente `mergeKeyed`, la funzione che la
+ * sincronizzazione usa per lo stesso problema fra due dispositivi. Ripristinare
+ * un backup è la stessa situazione: due versioni della stessa raccolta, e
+ * nessuna delle due è «quella giusta» per intero.
+ */
+function fondiRaccolta(key: string, attuale: unknown, dalFile: unknown): unknown {
+  if (key === 'decoPlans') return mergeKeyed(attuale, dalFile, 'id').value;
+  const a = (attuale ?? {}) as { equipment?: unknown; certifications?: unknown };
+  const f = (dalFile ?? {}) as { equipment?: unknown; certifications?: unknown };
+  return {
+    equipment: mergeKeyed(a.equipment, f.equipment, 'id').value,
+    certifications: mergeKeyed(a.certifications, f.certifications, 'id').value,
+  };
+}
+
 export function DiveLogProvider({ children }: { children: ReactNode }) {
   const [store, setStore] = useState<DiveStore | null>(null);
   const [dives, setDives] = useState<Dive[]>([]);
   const [ready, setReady] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   const [goalId, setGoalIdState] = useState<GoalId>('general');
   const [period, setPeriodState] = useState<PeriodId>(DEFAULT_PERIOD);
   const [syncCredentials, setSyncCredentials] = useState<SyncCredentials | null>(null);
@@ -244,41 +270,86 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       const s = await getStore();
-      const segreti = await openSecretStore(s);
-      if (!cancelled) setSecretPlace(segreti.place);
+      /*
+       * L'ARCHIVIO SI REGISTRA SUBITO.
+       *
+       * Stava dopo il `Promise.all`, e quella riga di distanza era un guasto
+       * serio: se UNA sola di quelle letture falliva — tipicamente un `read` di
+       * un segreto, che è una chiamata al guscio nativo e quindi la più fragile
+       * del gruppo — l'intera funzione saltava al `catch` finale, che metteva
+       * `ready` a vero. Risultato: l'applicazione si apriva, dichiarava di
+       * essere pronta, mostrava zero immersioni e `store` restava NULLO, cioè
+       * ogni salvataggio successivo non scriveva da nessuna parte. Un archivio
+       * pieno che sembra vuoto e che accetta scritture nel vuoto è il modo
+       * peggiore in cui questa applicazione possa rompersi.
+       *
+       * L'archivio aperto è l'unica cosa che serve per non perdere dati: appena
+       * c'è, si registra. Tutto quello che viene dopo sono preferenze, e una
+       * preferenza che non si legge vale il suo valore predefinito.
+       */
+      if (cancelled) return;
+      setStore(s);
+
+      /*
+       * Ogni lettura risponde per sé.
+       *
+       * `Promise.all` è tutto-o-niente, e qui non è la semantica giusta: che il
+       * portachiavi non risponda non è un motivo per non mostrare le
+       * immersioni. Ciascuna lettura torna `undefined` in caso di errore e il
+       * motivo viene raccolto, così l'avvio parziale si può DIRE invece di
+       * farlo sembrare un archivio vuoto.
+       */
+      const guasti: string[] = [];
+      const prova = async <T,>(cosa: string, f: () => Promise<T>): Promise<T | undefined> => {
+        try {
+          return await f();
+        } catch (err) {
+          console.error(`Lettura fallita (${cosa}):`, err);
+          guasti.push(cosa);
+          return undefined;
+        }
+      };
+
+      const segreti = await prova('portachiavi', () => openSecretStore(s));
+      if (!cancelled && segreti) setSecretPlace(segreti.place);
+
       const [list, savedGoal, savedPeriod, savedSync, savedAi, savedAnalyses, savedGas, savedGear] =
         await Promise.all([
-          s.listDives(),
-          s.getSetting<GoalId>('goal'),
-          s.getSetting<PeriodId>('period'),
+          prova('immersioni', () => s.listDives()),
+          prova('obiettivo', () => s.getSetting<GoalId>('goal')),
+          prova('periodo', () => s.getSetting<PeriodId>('period')),
           // Le credenziali NON passano più da `getSetting`: le legge il negozio
           // dei segreti, che su macOS è il portachiavi di sistema e che al primo
           // avvio migra da solo quelle rimaste in chiaro nell'archivio.
-          segreti.read<SyncCredentials>('sync'),
-          segreti.read<AiCredentials>('ai'),
-          s.getSetting<Record<string, StoredAnalysis>>('analyses'),
-          s.getSetting<GasPlanInput>('gasPlan'),
-          s.getSetting<unknown>('gear'),
+          prova('credenziali di sincronizzazione', async () => segreti?.read<SyncCredentials>('sync')),
+          prova('chiave dell’API', async () => segreti?.read<AiCredentials>('ai')),
+          prova('analisi', () => s.getSetting<Record<string, StoredAnalysis>>('analyses')),
+          prova('piano gas', () => s.getSetting<GasPlanInput>('gasPlan')),
+          prova('attrezzatura', () => s.getSetting<unknown>('gear')),
         ]);
-      const savedDeco = await s.getSetting<unknown>('decoPlan');
-      const savedPlans = (await s.getSetting<SavedDecoPlan[]>('decoPlans')) ?? [];
-      const savedTrash = (await s.getSetting<TrashedDive[]>(TRASH_KEY)) ?? [];
+      const savedDeco = await prova('piano deco', () => s.getSetting<unknown>('decoPlan'));
+      const savedPlans =
+        (await prova('piani salvati', () => s.getSetting<SavedDecoPlan[]>('decoPlans'))) ?? [];
+      const savedTrash = (await prova('cestino', () => s.getSetting<TrashedDive[]>(TRASH_KEY))) ?? [];
       if (cancelled) return;
-      setStore(s);
+      if (guasti.length) {
+        setInitError(
+          `Alcune parti dell'archivio non si sono aperte: ${guasti.join(', ')}. Il resto funziona, ` +
+            'ma prima di aggiungere immersioni conviene capire perché — la console del sistema ne ' +
+            'riporta il motivo esatto.',
+        );
+      }
 
       // Riparazione all'avvio: se una correzione al calcolo delle metriche o alla
       // fusione fra due computer è arrivata dopo l'import, i numeri in archivio
       // sono vecchi. Ricalcolarli qui evita di chiedere all'utente di reimportare
       // per far tornare un dato che l'app ha già.
-      const { report, dives: healed } = await repairArchive(s, list).catch((err) => {
+      const { report, dives: healed } = await repairArchive(s, list ?? []).catch((err) => {
         console.error('Riparazione dell’archivio non riuscita:', err);
-        return { report: { checked: 0, repaired: 0, reasons: {} }, dives: list };
+        return { report: { checked: 0, repaired: 0, reasons: {} }, dives: list ?? [] };
       });
       if (report.repaired > 0) {
-        console.info(
-          `Metriche ricalcolate su ${report.repaired} immersioni:`,
-          report.reasons,
-        );
+        console.info(`Metriche ricalcolate su ${report.repaired} immersioni:`, report.reasons);
       }
       setDives(healed);
 
@@ -313,7 +384,16 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       setGearState(migrateGear(savedGear as never));
       setReady(true);
     })().catch((err) => {
+      // Qui ci si arriva solo se `getStore()` stesso è fallito: l'archivio non
+      // esiste proprio. Si parte lo stesso — con la barra di navigazione si
+      // raggiunge almeno il pianificatore, che non ha bisogno di archivio — ma
+      // il motivo si scrive a schermo, perché senza si vede una applicazione
+      // vuota e nient'altro.
       console.error('Inizializzazione archivio fallita:', err);
+      setInitError(
+        `L'archivio locale non si è aperto: ${err instanceof Error ? err.message : String(err)}. ` +
+          'Quello che aggiungi adesso NON viene salvato.',
+      );
       setReady(true);
     });
     return () => {
@@ -497,31 +577,54 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     [dives, store],
   );
 
-  const removeDive = useCallback(
-    async (id: string) => {
-      const dive = dives.find((d) => d.id === id);
-      if (store && dive) {
+  /**
+   * Cancella una o più immersioni, mettendole nel cestino.
+   *
+   * PRENDE UN ELENCO, e non è un vezzo: la versione che accettava un solo id
+   * veniva chiamata in ciclo dalla modifica in blocco, e ogni chiamata leggeva
+   * `trash` dalla CHIUSURA del render corrente — cioè sempre lo stesso valore,
+   * quello di partenza. Ogni giro riscriveva la chiave del cestino da capo con
+   * «vecchio + questa», e l'ultima scrittura vinceva: su tre immersioni
+   * selezionate, l'archivio ne perdeva tre e il cestino ne conteneva UNA. Le
+   * altre due non erano da nessuna parte, e il dialogo aveva appena promesso
+   * trenta giorni di ripensamento. Sopravviveva al riavvio, perché il danno era
+   * già sul disco.
+   *
+   * Un elenco solo, una scrittura sola, nessuna chiusura da cui leggere.
+   */
+  const removeDives = useCallback(
+    async (ids: string[]) => {
+      if (!store || !ids.length) {
+        setDives((prev) => prev.filter((d) => !ids.includes(d.id)));
+        return;
+      }
+      const daCancellare = dives.filter((d) => ids.includes(d.id));
+      const nuovi: TrashedDive[] = [];
+      for (const dive of daCancellare) {
         // Il profilo va salvato PRIMA di cancellare: dopo non c'è più da leggere.
         const [samples, altSamples] = await Promise.all([
-          store.getSamples(id).catch(() => [] as Sample[]),
-          store.getAltSamples(id).catch(() => [] as Sample[]),
+          store.getSamples(dive.id).catch(() => [] as Sample[]),
+          store.getAltSamples(dive.id).catch(() => [] as Sample[]),
         ]);
         const { samples: _s, altSamples: _a, ...doc } = dive;
-        const item: TrashedDive = {
+        nuovi.push({
           dive: doc as Dive,
           ...(samples.length ? { samples } : {}),
           ...(altSamples.length ? { altSamples } : {}),
           at: new Date().toISOString(),
-        };
-        const next = [...trash.filter((t) => t.dive.id !== id), item];
-        await store.setSetting(TRASH_KEY, next);
-        await store.deleteDive(id);
-        setTrash(next);
+        });
       }
-      setDives((prev) => prev.filter((d) => d.id !== id));
+      const cancellati = new Set(nuovi.map((t) => t.dive.id));
+      const next = [...trash.filter((t) => !cancellati.has(t.dive.id)), ...nuovi];
+      await store.setSetting(TRASH_KEY, next);
+      for (const id of cancellati) await store.deleteDive(id);
+      setTrash(next);
+      setDives((prev) => prev.filter((d) => !cancellati.has(d.id)));
     },
     [store, dives, trash],
   );
+
+  const removeDive = useCallback((id: string) => removeDives([id]), [removeDives]);
 
   /** Rimette un'immersione in archivio esattamente com'era, profilo compreso. */
   const restoreDive = useCallback(
@@ -585,7 +688,8 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     const existing = (await store.getSetting<{ id: string; at: string }[]>(TOMBSTONE_KEY)) ?? [];
     const now = new Date().toISOString();
     const merged = [...existing];
-    for (const t of trash) if (!merged.some((x) => x.id === t.dive.id)) merged.push({ id: t.dive.id, at: now });
+    for (const t of trash)
+      if (!merged.some((x) => x.id === t.dive.id)) merged.push({ id: t.dive.id, at: now });
     await store.setSetting(TOMBSTONE_KEY, merged);
     await store.setSetting(TRASH_KEY, []);
     setTrash([]);
@@ -741,11 +845,10 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
 
   const exportArchive = useCallback(
     async ({ includeProfiles = true }: { includeProfiles?: boolean } = {}) => {
-      const full = includeProfiles && store
-        ? await Promise.all(
-            dives.map(async (d) => ({ ...d, samples: await store.getSamples(d.id) })),
-          )
-        : dives;
+      const full =
+        includeProfiles && store
+          ? await Promise.all(dives.map(async (d) => ({ ...d, samples: await store.getSamples(d.id) })))
+          : dives;
       return exportUddf(full, { includeProfiles });
     },
     [dives, store],
@@ -776,22 +879,100 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   const restoreBackup = useCallback(
     async (file: BackupFile, mode: 'merge' | 'replace' = 'merge') => {
       if (!store) throw new Error('Archivio non ancora aperto.');
-      const plan = planRestore(file, dives, mode);
 
-      // `replace` cancella l'archivio PRIMA di riscriverlo. È l'unico punto di
-      // non ritorno di questa funzione, ed è per questo che l'interfaccia lo fa
-      // confermare a parte invece di offrirlo come una casella qualunque.
-      if (mode === 'replace') await store.clear();
+      /*
+       * I PROFILI SI IDRATANO PRIMA DI FONDERE.
+       *
+       * `dives` è la lista in memoria e per scelta architetturale NON contiene i
+       * campioni. Passandola così a `planRestore`, `mergeDive` contava zero
+       * canali sul profilo esistente e faceva vincere qualunque cosa arrivasse
+       * dal file: un backup di gennaio, fatto quando c'era solo il profilo
+       * dell'Aladin, cancellava il profilo del Peregrine importato a marzo — con
+       * tetto, TTS e NDL — in modalità «Fondi», quella che l'interfaccia
+       * descrive come «arricchite senza perdere niente».
+       *
+       * `hydrateForMerge` esiste da mesi esattamente per questo e l'import lo
+       * usa già. Il ripristino se l'era dimenticato.
+       */
+      const idratate = await hydrateForMerge(store, dives, file.dives);
+      const plan = planRestore(file, idratate, mode);
 
+      /*
+       * NON si cancella prima di scrivere.
+       *
+       * `clear()` seguito dalla riscrittura a blocchi lasciava l'archivio
+       * mutilato quando la scrittura falliva a metà — disco pieno, quota
+       * IndexedDB, scheda chiusa, app terminata da iOS: con 120 immersioni e un
+       * guasto al terzo blocco ne restavano 25, e con un guasto al primo
+       * restava un archivio VUOTO. Su un'operazione che si lancia per
+       * recuperare, un punto di non ritorno lungo minuti è inaccettabile.
+       *
+       * Stessa semantica, ordine invertito: prima si scrive tutto il file, poi —
+       * solo in `replace`, e solo se la scrittura è andata a buon fine — si
+       * tolgono gli id che il file non contiene. Il punto di non ritorno dura
+       * quanto le cancellazioni finali invece che quanto l'intero ripristino.
+       */
       const daScrivere = [...plan.added, ...plan.merged];
-      // A blocchi: un archivio grande con i profili dentro è decine di megabyte,
-      // e una sola transazione con tutto dentro è il modo di far esaurire la
-      // memoria proprio mentre si sta recuperando da un guaio.
       for (let i = 0; i < daScrivere.length; i += 25) {
         await store.putDives(daScrivere.slice(i, i + 25));
       }
+
+      /*
+       * Le lapidi degli id che stiamo rimettendo vanno revocate, e il timbro
+       * aggiornato.
+       *
+       * Senza, un'immersione ripristinata da backup spariva alla prima
+       * sincronizzazione — definitivamente e senza passare dal cestino — perché
+       * il suo `updatedAt` è quello del FILE, cioè per costruzione precedente
+       * alla cancellazione che ha prodotto la lapide. `restoreDive` fa già
+       * queste due cose da tempo (vedi il commento lì sopra): qui mancavano.
+       */
+      const rimessi = new Set(daScrivere.map((d) => d.id));
+      const now = new Date().toISOString();
+      const timbrate = daScrivere.map((d) => ({ ...d, updatedAt: now }));
+      for (let i = 0; i < timbrate.length; i += 25) {
+        await store.putDives(timbrate.slice(i, i + 25));
+      }
+      const lapidi = (await store.getSetting<{ id: string; at: string }[]>(TOMBSTONE_KEY)) ?? [];
+      const restano = lapidi.filter((t) => !rimessi.has(t.id));
+      if (restano.length !== lapidi.length) await store.setSetting(TOMBSTONE_KEY, restano);
+
+      // E via dal cestino ciò che è tornato in archivio: due verità sulla stessa
+      // immersione sono peggio di nessuna delle due. Senza, «svuota il cestino»
+      // avrebbe poi riscritto la lapide su un'immersione perfettamente viva.
+      const cestinoDopo = trash.filter((t) => !rimessi.has(t.dive.id));
+      if (cestinoDopo.length !== trash.length) {
+        await store.setSetting(TRASH_KEY, cestinoDopo);
+        setTrash(cestinoDopo);
+      }
+
+      if (mode === 'replace') {
+        // Adesso, e non prima: quello che il file non contiene se ne va solo
+        // quando il file è già tutto sul disco.
+        const presenti = await store.listDives();
+        for (const d of presenti) if (!rimessi.has(d.id)) await store.deleteDive(d.id);
+      }
+
       for (const [key, value] of Object.entries(plan.settings)) {
-        await store.setSetting(key, value);
+        /*
+         * Le raccolte si FONDONO, non si sostituiscono.
+         *
+         * È la stessa conclusione che la sincronizzazione ha già tratto e
+         * scritto in `mergeKeyed`: chi salva un piano su un dispositivo e uno
+         * sull'altro ne perdeva uno. La modalità che si chiama «Fondi» usava la
+         * regola che la sincronizzazione ha abbandonato, e ripristinare un
+         * backup di gennaio cancellava la muta stagna, il brevetto Rescue e il
+         * piano compilato a giugno.
+         */
+        if (mode === 'merge' && (key === 'gear' || key === 'decoPlans')) {
+          const attuale = await store.getSetting<unknown>(key);
+          await store.setSetting(key, fondiRaccolta(key, attuale, value));
+        } else if (mode === 'merge' && key === 'analyses') {
+          const attuale = (await store.getSetting<Record<string, StoredAnalysis>>(key)) ?? {};
+          await store.setSetting(key, { ...(value as Record<string, StoredAnalysis>), ...attuale });
+        } else {
+          await store.setSetting(key, value);
+        }
       }
 
       // Rilettura e riparazione: le metriche e la catena dei tessuti vanno
@@ -800,14 +981,24 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       const healed = await repairArchive(store, list).catch(() => ({ dives: list }));
       setDives(healed.dives);
 
-      const [savedGear, savedAnalyses, savedGas] = await Promise.all([
+      /*
+       * Si rilegge TUTTO quello che vive anche in memoria, `decoPlans` compreso.
+       *
+       * Mancava, e la conseguenza era muta: dopo il ripristino i piani a schermo
+       * erano quelli di prima, sul disco quelli del file, e la divergenza si
+       * manifestava al riavvio successivo — staccata dalla sua causa, cioè nel
+       * modo in cui è più difficile capire cos'è successo.
+       */
+      const [savedGear, savedAnalyses, savedGas, savedPlans] = await Promise.all([
         store.getSetting<unknown>('gear'),
         store.getSetting<Record<string, StoredAnalysis>>('analyses'),
         store.getSetting<GasPlanInput>('gasPlan'),
+        store.getSetting<SavedDecoPlan[]>('decoPlans'),
       ]);
       setGearState(migrateGear(savedGear as never));
       if (savedAnalyses) setAnalyses(savedAnalyses);
       if (savedGas?.depthM) setGasInputState(savedGas);
+      if (savedPlans) setDecoPlans(savedPlans);
 
       return {
         added: plan.added.length,
@@ -816,7 +1007,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         settings: Object.keys(plan.settings).length,
       };
     },
-    [dives, store],
+    [dives, store, trash],
   );
 
   const saveGasInput = useCallback(
@@ -967,6 +1158,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
 
   const value: DiveLogValue = {
     ready,
+    initError,
     dives,
     period,
     setPeriod,
@@ -983,6 +1175,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     saveDive,
     createDive,
     removeDive,
+    removeDives,
     clearAll,
     trash,
     restoreDive,

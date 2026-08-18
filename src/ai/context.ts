@@ -24,12 +24,7 @@
 import type { Dive, Sample } from '../core/model';
 import { LIMITS } from '../core/model';
 import type { Aggregates } from '../core/analysis/aggregate';
-import type {
-  Contingency,
-  GasPlan,
-  MeasuredRmv,
-  SimilarDives,
-} from '../core/analysis/gasPlan';
+import type { Contingency, GasPlan, MeasuredRmv, SimilarDives } from '../core/analysis/gasPlan';
 import type { Plan } from '../core/analysis/coaching';
 import {
   label as gasLabel,
@@ -206,7 +201,11 @@ export function diveContext(dive: Dive): string {
 }
 
 /** Contesto dell'intero archivio: aggregate calcolate più una riga per immersione. */
-export function archiveContext(dives: Dive[], aggregates: Aggregates, windowLabel = 'tutto l’archivio'): string {
+export function archiveContext(
+  dives: Dive[],
+  aggregates: Aggregates,
+  windowLabel = 'tutto l’archivio',
+): string {
   const a = aggregates;
   const rows = [...dives]
     .sort((x, y) => Date.parse(x.startTime) - Date.parse(y.startTime))
@@ -224,7 +223,9 @@ export function archiveContext(dives: Dive[], aggregates: Aggregates, windowLabe
       d.metrics?.gf99Pct ?? null,
       d.computer?.gfLow != null ? `${d.computer.gfLow}/${d.computer.gfHigh}` : '',
       n1(d.minTempC),
-      d.cylinders[0]?.mix ? `${Math.round(d.cylinders[0].mix.o2 * 100)}/${Math.round(d.cylinders[0].mix.he * 100)}` : '',
+      d.cylinders[0]?.mix
+        ? `${Math.round(d.cylinders[0].mix.o2 * 100)}/${Math.round(d.cylinders[0].mix.he * 100)}`
+        : '',
     ]);
 
   const context = {
@@ -267,9 +268,7 @@ export function archiveContext(dives: Dive[], aggregates: Aggregates, windowLabe
       immersioniConIlTettoRegistrato: a.ceilingEligible,
       velocitaMedianaUltimoTrattoMMin: n1(
         a.finalAscent.length
-          ? [...a.finalAscent.map((p) => p.value)].sort((x, y) => x - y)[
-              Math.floor(a.finalAscent.length / 2)
-            ]
+          ? [...a.finalAscent.map((p) => p.value)].sort((x, y) => x - y)[Math.floor(a.finalAscent.length / 2)]
           : undefined,
       ),
       immersioniConUltimoTrattoSopra60MMin: a.fastFinalAscents,
@@ -278,7 +277,7 @@ export function archiveContext(dives: Dive[], aggregates: Aggregates, windowLabe
       cambiDiGasSottoLaMod: a.badGasSwitches,
     },
     esposizioneAllOssigeno: {
-      nota: 'CNS e OTU calcolati dall\'app sul profilo con le tabelle NOAA dei manuali TDI; il CNS usa i limiti per singola esposizione e si dimezza ogni 90 minuti in superficie, le OTU non recuperano mai.',
+      nota: "CNS e OTU calcolati dall'app sul profilo con le tabelle NOAA dei manuali TDI; il CNS usa i limiti per singola esposizione e si dimezza ogni 90 minuti in superficie, le OTU non recuperano mai.",
       immersioniConIlDato: a.oxygen.eligible,
       giornatePeggiori: {
         cnsPct: a.oxygen.worstCnsDay
@@ -307,7 +306,7 @@ export function archiveContext(dives: Dive[], aggregates: Aggregates, windowLabe
     },
     immersioni: {
       colonne:
-        'data, sito, profMax(m), durata(min), profMedia(m), consumo(L/min), assetto(m/min), risalitaMax(m/min), sostaSicurezza(s), barFinali, gf99(calcolato dall\'app), gfImpostati, tempMin(°C), miscela(O2/He)',
+        "data, sito, profMax(m), durata(min), profMedia(m), consumo(L/min), assetto(m/min), risalitaMax(m/min), sostaSicurezza(s), barFinali, gf99(calcolato dall'app), gfImpostati, tempMin(°C), miscela(O2/He)",
       nota: 'un campo nullo significa dato assente, non zero',
       righe: rows,
     },
@@ -361,7 +360,10 @@ export function planContext(plan: Plan, aggregates: Aggregates, windowLabel = 't
   return JSON.stringify(context, null, 1);
 }
 
-function trend(t: { slopePerYear: number; firstHalf: number; secondHalf: number; n: number; direction: string } | undefined) {
+function trend(
+  t:
+    { slopePerYear: number; firstHalf: number; secondHalf: number; n: number; direction: string } | undefined,
+) {
   if (!t) return null;
   return {
     direzione: t.direction,
@@ -371,7 +373,6 @@ function trend(t: { slopePerYear: number; firstHalf: number; secondHalf: number;
     puntiConfrontati: t.n,
   };
 }
-
 
 /**
  * Contesto del pianificatore di gas.
@@ -513,7 +514,9 @@ export function decoPlanContext(
         sostaDiSicurezza: settings.safetyStop
           ? `${settings.safetyStop.minutes} min a ${settings.safetyStop.depthM} m`
           : 'non prevista',
-        circuitoChiuso: result.ccr ? `setpoint dai livelli, MOR ${settings.morLpm}/${settings.decoMorLpm} L/min` : 'no',
+        circuitoChiuso: result.ccr
+          ? `setpoint dai livelli, MOR ${settings.morLpm}/${settings.decoMorLpm} L/min`
+          : 'no',
       },
       livelli: levels.map((l) => ({
         profonditaM: l.depthM,

@@ -162,9 +162,7 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
           void handle(e.dataTransfer.files);
         }}
       >
-        <p style={{ margin: '0 0 12px', fontWeight: 600 }}>
-          Trascina qui i file, o scegli dal disco
-        </p>
+        <p style={{ margin: '0 0 12px', fontWeight: 600 }}>Trascina qui i file, o scegli dal disco</p>
         <p className="muted" style={{ margin: '0 0 16px', fontSize: 12 }}>
           Puoi selezionarne più di uno: le immersioni presenti in due file diversi vengono unite, non
           duplicate.
@@ -242,8 +240,8 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
       <div className="card">
         <h2>Formati supportati</h2>
         <p className="card-sub">
-          Il formato viene riconosciuto dal contenuto del file, non dall'estensione: un `.xml` può
-          essere UDDF, Subsurface o Shearwater e vengono distinti correttamente.
+          Il formato viene riconosciuto dal contenuto del file, non dall'estensione: un `.xml` può essere
+          UDDF, Subsurface o Shearwater e vengono distinti correttamente.
         </p>
         <table>
           <thead>
@@ -269,9 +267,9 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
         <h2>Cosa aspettarsi da ciascuna fonte</h2>
         <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)', fontSize: 13 }}>
           <li>
-            <b>Shearwater</b> (XML o UDDF): profilo completo, temperatura, tetto deco, PPO2. Nell'export
-            UDDF il collegamento fra bombole e miscele è incompleto — un limite noto del formato — quindi
-            verifica il gas nella scheda.
+            <b>Shearwater</b> (XML o UDDF): profilo completo, temperatura, tetto deco, PPO2. Nell'export UDDF
+            il collegamento fra bombole e miscele è incompleto — un limite noto del formato — quindi verifica
+            il gas nella scheda.
           </li>
           <li>
             <b>Garmin FIT</b>: profilo completo e pressione dai trasmettitori. Il volume della bombola non
@@ -283,14 +281,14 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
             composizione della miscela. Vanno completati nella scheda.
           </li>
           <li>
-            <b>Scubapro LogTRAK</b>: profilo, temperatura, volume e pressioni della bombola, zavorra,
-            fuso orario e condizioni. Il formato Uwatec non contiene dati di decompressione — né tetto né
-            NDL — quindi le soste obbligatorie vengono riconosciute dal profilo e non dal file. Le
-            immersioni inserite a mano in LogTRAK non hanno profilo: entrano con i soli dati di sintesi.
+            <b>Scubapro LogTRAK</b>: profilo, temperatura, volume e pressioni della bombola, zavorra, fuso
+            orario e condizioni. Il formato Uwatec non contiene dati di decompressione — né tetto né NDL —
+            quindi le soste obbligatorie vengono riconosciute dal profilo e non dal file. Le immersioni
+            inserite a mano in LogTRAK non hanno profilo: entrano con i soli dati di sintesi.
           </li>
           <li>
-            <b>CSV</b>: nessun profilo, solo riepilogo. Utile per recuperare uno storico da foglio di
-            calcolo; le metriche di assetto e risalita non saranno disponibili per quelle immersioni.
+            <b>CSV</b>: nessun profilo, solo riepilogo. Utile per recuperare uno storico da foglio di calcolo;
+            le metriche di assetto e risalita non saranno disponibili per quelle immersioni.
           </li>
         </ul>
       </div>

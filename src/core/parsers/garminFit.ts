@@ -66,7 +66,9 @@ export async function parseFit(input: ParseInput): Promise<ParseResult> {
     convertDateTimesToDates: true,
   });
   if (errors?.length) {
-    warnings.push(`Il decoder FIT ha segnalato ${errors.length} anomalie; l'import continua sui dati validi.`);
+    warnings.push(
+      `Il decoder FIT ha segnalato ${errors.length} anomalie; l'import continua sui dati validi.`,
+    );
   }
 
   const m = messages as FitMessages;
@@ -264,7 +266,9 @@ function pressureAt(tank: TankStream, at: number): number | undefined {
 
 function matchSummary(m: FitMessages, sessionIndex: number): FitDiveSummary | undefined {
   const summaries = m.diveSummaryMesgs ?? [];
-  const forSession = summaries.filter((s) => s.referenceMesg === undefined || /session/i.test(String(s.referenceMesg)));
+  const forSession = summaries.filter(
+    (s) => s.referenceMesg === undefined || /session/i.test(String(s.referenceMesg)),
+  );
   return forSession[sessionIndex] ?? forSession[0] ?? summaries[sessionIndex] ?? summaries[0];
 }
 
@@ -299,9 +303,7 @@ export function prettyProduct(raw: string): string {
 
 /** Il punto d'ingresso in acqua, se il computer ha registrato il GPS. */
 function siteFromRecords(records: FitRecord[]): { name: string; lat?: number; lon?: number } | undefined {
-  const fix = records.find(
-    (r) => typeof r.positionLat === 'number' && typeof r.positionLong === 'number',
-  );
+  const fix = records.find((r) => typeof r.positionLat === 'number' && typeof r.positionLong === 'number');
   if (!fix) return undefined;
   const lat = semicirclesToDegrees(fix.positionLat!);
   const lon = semicirclesToDegrees(fix.positionLong!);

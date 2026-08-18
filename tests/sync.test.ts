@@ -325,7 +325,9 @@ describe('syncArchive contro un SQLite vero', () => {
     // Il remoto ha una versione più recente del riepilogo ma nessun profilo:
     // scaricarla deve arricchire l'immersione, non amputarla. Ed è anche il giro
     // in cui il profilo locale sale: le due direzioni convivono.
-    const other = memoryStore([dive('a', { notes: 'da un altro dispositivo', updatedAt: '2027-01-01T00:00:00Z' })]);
+    const other = memoryStore([
+      dive('a', { notes: 'da un altro dispositivo', updatedAt: '2027-01-01T00:00:00Z' }),
+    ]);
     await syncArchive(other, sql);
 
     const mine = memoryStore([dive('a', { samples: profile(120), updatedAt: '2026-01-01T00:00:00Z' })]);
@@ -364,7 +366,12 @@ describe('syncArchive contro un SQLite vero', () => {
     expect(await beta.getSamples('a')).toHaveLength(150);
 
     for (const s of [alpha, beta]) {
-      expect(await syncArchive(s, sql)).toMatchObject({ pushed: 0, pulled: 0, pushedProfiles: 0, pulledProfiles: 0 });
+      expect(await syncArchive(s, sql)).toMatchObject({
+        pushed: 0,
+        pulled: 0,
+        pushedProfiles: 0,
+        pulledProfiles: 0,
+      });
     }
   });
 
@@ -417,14 +424,11 @@ describe('syncArchive contro un SQLite vero', () => {
 
 describe('secondo profilo attraverso la sincronizzazione', () => {
   const dense = (n: number) => profile(n, 4);
-  const sparse = (n: number) =>
-    profile(n, 10).map((s) => ({ ...s, ndlS: 600, ttsS: 120, cns: 2 }));
+  const sparse = (n: number) => profile(n, 10).map((s) => ({ ...s, ndlS: 600, ttsS: 120, cns: 2 }));
 
   it('viaggia insieme al principale', async () => {
     const sql = sqliteExecutor();
-    const source = memoryStore([
-      dive('a', { samples: sparse(240), altSamples: dense(600) }),
-    ]);
+    const source = memoryStore([dive('a', { samples: sparse(240), altSamples: dense(600) })]);
     const report = await syncArchive(source, sql);
     expect(report.pushedProfiles).toBe(1);
 
@@ -507,7 +511,7 @@ describe('cancellazioni fra due dispositivi', () => {
     // non deve riuscire a farla resuscitare.
     const tardivo = memoryStore([dive('a')]);
     await syncArchive(tardivo, sql);
-    expect((await tardivo.listDives())).toHaveLength(0);
+    expect(await tardivo.listDives()).toHaveLength(0);
   });
 });
 
@@ -551,9 +555,19 @@ describe('il cestino ferma la sincronizzazione in entrambi i versi', () => {
 });
 
 describe('fusione delle analisi', () => {
+  /*
+   * Il campo si chiama `at`, ed è il nome che `StoredAnalysis` usa davvero.
+   *
+   * Il test precedente lo chiamava `createdAt` — lo stesso nome sbagliato che
+   * usava il codice — e quindi confermava il difetto invece di trovarlo: due
+   * errori uguali si annullano e il test passa verde su un comportamento che in
+   * produzione non è mai successo. È il motivo per cui un test che costruisce da
+   * sé il proprio dato deve costruirlo con la FORMA vera, non con una forma
+   * comoda: qui la forma vera è quella che scrive `runAnalysis`.
+   */
   it('tiene quelle di entrambi i dispositivi invece di sostituirle in blocco', () => {
-    const locale = { 'dive:1': { createdAt: '2026-01-01T00:00:00Z' } };
-    const remoto = { 'dive:2': { createdAt: '2026-02-01T00:00:00Z' } };
+    const locale = { 'dive:1': { at: '2026-01-01T00:00:00Z' } };
+    const remoto = { 'dive:2': { at: '2026-02-01T00:00:00Z' } };
     const m = mergeAnalyses(locale, remoto);
     expect(Object.keys(m.value).sort()).toEqual(['dive:1', 'dive:2']);
     expect(m.changedLocally).toBe(true);
@@ -561,14 +575,22 @@ describe('fusione delle analisi', () => {
   });
 
   it('sulla stessa chiave vince l’analisi generata più tardi, non l’ultimo che sincronizza', () => {
-    const vecchia = { 'dive:1': { createdAt: '2026-01-01T00:00:00Z', text: 'vecchia' } };
-    const nuova = { 'dive:1': { createdAt: '2026-03-01T00:00:00Z', text: 'nuova' } };
+    const vecchia = { 'dive:1': { at: '2026-01-01T00:00:00Z', text: 'vecchia' } };
+    const nuova = { 'dive:1': { at: '2026-03-01T00:00:00Z', text: 'nuova' } };
     expect(mergeAnalyses(vecchia, nuova).value['dive:1']).toMatchObject({ text: 'nuova' });
     expect(mergeAnalyses(nuova, vecchia).value['dive:1']).toMatchObject({ text: 'nuova' });
+    // E la propria più recente deve risalire, non restare ferma qui.
+    expect(mergeAnalyses(nuova, vecchia).changedRemotely).toBe(true);
+  });
+
+  it('legge anche il nome vecchio del campo, per gli archivi già sincronizzati', () => {
+    const vecchioNome = { 'dive:1': { createdAt: '2026-01-01T00:00:00Z', text: 'vecchia' } };
+    const nuova = { 'dive:1': { at: '2026-03-01T00:00:00Z', text: 'nuova' } };
+    expect(mergeAnalyses(vecchioNome, nuova).value['dive:1']).toMatchObject({ text: 'nuova' });
   });
 
   it('quando sono identiche non muove niente', () => {
-    const same = { 'dive:1': { createdAt: '2026-01-01T00:00:00Z' } };
+    const same = { 'dive:1': { at: '2026-01-01T00:00:00Z' } };
     const m = mergeAnalyses(same, { ...same });
     expect(m.changedLocally).toBe(false);
     expect(m.changedRemotely).toBe(false);

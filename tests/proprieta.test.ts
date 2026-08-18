@@ -88,7 +88,7 @@ const SEME_BASE = 20260817;
  * sarebbe sproporzionato rispetto a quello che serve qui.
  */
 function generatore(seme: number): () => number {
-  let s = (seme >>> 0) || 1;
+  let s = seme >>> 0 || 1;
   return () => {
     s = (s + 0x9e3779b9) >>> 0;
     let t = s;
@@ -151,7 +151,8 @@ function generaCaso(seme: number): Caso {
   const gases: PlanGas[] = [
     { mix: { o2, he }, role: 'bottom', tankL: intero(10, 24), startBar: intero(150, 232) },
   ];
-  if (r() < 0.65) gases.push({ mix: { o2: scegli([0.4, 0.5, 0.5, 0.8]), he: 0 }, role: 'deco', tankL: 11, startBar: 200 });
+  if (r() < 0.65)
+    gases.push({ mix: { o2: scegli([0.4, 0.5, 0.5, 0.8]), he: 0 }, role: 'deco', tankL: 11, startBar: 200 });
   if (r() < 0.45) gases.push({ mix: { o2: 1, he: 0 }, role: 'deco', tankL: 11, startBar: 200 });
 
   const gfLow = intero(10, 90) / 100;
@@ -188,7 +189,9 @@ function generaCaso(seme: number): Caso {
 /** Il caso in una riga, perché un fallimento senza il caso è un fallimento inutile. */
 function descrivi(c: Caso): string {
   const profilo = c.levels.map((l) => `${l.depthM}m×${l.minutes}min`).join(' → ');
-  const miscele = c.gases.map((g) => `${Math.round(g.mix.o2 * 100)}/${Math.round(g.mix.he * 100)} ${g.role}`).join(', ');
+  const miscele = c.gases
+    .map((g) => `${Math.round(g.mix.o2 * 100)}/${Math.round(g.mix.he * 100)} ${g.role}`)
+    .join(', ');
   const s = c.settings;
   return (
     `${profilo} | gas ${miscele} | GF ${s.gfLow}/${s.gfHigh} | ` +
@@ -268,14 +271,16 @@ function campioniDi(c: Caso): Sample[] {
   for (const l of c.levels) {
     const partenza = out[out.length - 1].depth;
     const transito = Math.max(10, Math.round((Math.abs(l.depthM - partenza) / 18) * 60));
-    for (let k = 10; k <= transito; k += 10) out.push({ t: t + k, depth: partenza + (l.depthM - partenza) * (k / transito) });
+    for (let k = 10; k <= transito; k += 10)
+      out.push({ t: t + k, depth: partenza + (l.depthM - partenza) * (k / transito) });
     t += transito;
     for (let k = 10; k <= l.minutes * 60; k += 10) out.push({ t: t + k, depth: l.depthM });
     t += l.minutes * 60;
   }
   const ultima = out[out.length - 1].depth;
   const risalita = Math.max(10, Math.round((ultima / 9) * 60));
-  for (let k = 10; k <= risalita; k += 10) out.push({ t: t + k, depth: Math.max(0, ultima * (1 - k / risalita)) });
+  for (let k = 10; k <= risalita; k += 10)
+    out.push({ t: t + k, depth: Math.max(0, ultima * (1 - k / risalita)) });
   return out;
 }
 
@@ -304,7 +309,9 @@ function livelliVpm(c: Caso): VpmLevel[] {
 /** I gas di deco nella forma che il VPM si aspetta: miscela e quota di cambio. */
 function decoVpm(c: Caso): { mix: { o2: number; he: number }; switchDepthM: number }[] {
   const s: DecoSettings = { ...DEFAULT_DECO, ...c.settings };
-  return c.gases.filter((g) => g.role === 'deco').map((g) => ({ mix: g.mix, switchDepthM: switchDepthOf(g, s) }));
+  return c.gases
+    .filter((g) => g.role === 'deco')
+    .map((g) => ({ mix: g.mix, switchDepthM: switchDepthOf(g, s) }));
 }
 
 const ARIA: PlanGas = { mix: { o2: 0.21, he: 0 }, role: 'bottom', tankL: 12, startBar: 200 };
@@ -441,7 +448,8 @@ describe('1. nessun NaN e nessun Infinity in nessun campo', () => {
       if (guastiDopo.length) return `desaturate: ${guastiDopo.join(', ')}`;
       for (let i = 0; i < dopo.he.length; i++) {
         if (dopo.he[i] < 0) return `elio negativo nel compartimento ${i + 1}: ${dopo.he[i]}`;
-        if (dopo.he[i] > r.finalTissues.he[i] + 1e-12) return `l'elio del compartimento ${i + 1} è cresciuto in superficie`;
+        if (dopo.he[i] > r.finalTissues.he[i] + 1e-12)
+          return `l'elio del compartimento ${i + 1} è cresciuto in superficie`;
       }
       const dueSettimane = desaturate(r.finalTissues, 14 * 24 * 60, superficie);
       return dueSettimane.he.some((v) => v > 1e-3)
@@ -474,7 +482,8 @@ describe('2. niente valori negativi, e la tabella è internamente coerente', () 
         if (u.litres < 0) return `gas ${u.gasIndex}: ${u.litres} L`;
         if (u.bar !== undefined && u.bar < 0) return `gas ${u.gasIndex}: ${u.bar} bar`;
       }
-      if (r.runtimeMin < 0 || r.decoMin < 0 || r.ascentMin < 0 || r.safetyStopMin < 0) return 'totali negativi';
+      if (r.runtimeMin < 0 || r.decoMin < 0 || r.ascentMin < 0 || r.safetyStopMin < 0)
+        return 'totali negativi';
       if (r.oxygen.cnsPercent < 0 || r.oxygen.otu < 0) return 'esposizione all’ossigeno negativa';
       return undefined;
     });
@@ -506,7 +515,8 @@ describe('2. niente valori negativi, e la tabella è internamente coerente', () 
         if (r.stops[i].depthM > r.stops[i - 1].depthM) {
           return `sosta a ${r.stops[i].depthM} m dopo una a ${r.stops[i - 1].depthM} m`;
         }
-        if (r.stops[i].runtimeMin < r.stops[i - 1].runtimeMin) return 'runtime che torna indietro fra due soste';
+        if (r.stops[i].runtimeMin < r.stops[i - 1].runtimeMin)
+          return 'runtime che torna indietro fra due soste';
       }
       // Nessuna sosta più profonda del fondo, e nessuna sotto l'ultima quota
       // dichiarata: sono i due modi in cui una tabella diventa ineseguibile.
@@ -528,8 +538,10 @@ describe('2. niente valori negativi, e la tabella è internamente coerente', () 
       // non si sa quale.
       const obbligo = r.stops.filter((s) => s.mandatory).reduce((a, s) => a + s.minutes, 0);
       const sicurezza = r.stops.filter((s) => !s.mandatory).reduce((a, s) => a + s.minutes, 0);
-      if (Math.abs(obbligo - r.decoMin) > 0.01) return `decoMin ${r.decoMin} ≠ soste obbligate in tabella ${obbligo}`;
-      if (Math.abs(sicurezza - r.safetyStopMin) > 0.01) return `safetyStopMin ${r.safetyStopMin} ≠ ${sicurezza}`;
+      if (Math.abs(obbligo - r.decoMin) > 0.01)
+        return `decoMin ${r.decoMin} ≠ soste obbligate in tabella ${obbligo}`;
+      if (Math.abs(sicurezza - r.safetyStopMin) > 0.01)
+        return `safetyStopMin ${r.safetyStopMin} ≠ ${sicurezza}`;
       if (r.noDeco !== (obbligo === 0)) return `noDeco = ${r.noDeco} con ${obbligo} minuti di obbligo`;
       return undefined;
     });
@@ -563,8 +575,10 @@ describe('3. gradient factor più stretti non possono costare meno', () => {
       const stretto = planDeco(c.levels, c.gases, { ...c.settings, ...stretti });
       if (!converge(largo) || !converge(stretto)) return undefined;
       if (stretto.decoMin < largo.decoMin) {
-        return `GF ${c.settings.gfLow}/${c.settings.gfHigh} → ${stretti.gfLow}/${stretti.gfHigh}: ` +
-          `la decompressione scende da ${largo.decoMin} a ${stretto.decoMin} minuti`;
+        return (
+          `GF ${c.settings.gfLow}/${c.settings.gfHigh} → ${stretti.gfLow}/${stretti.gfHigh}: ` +
+          `la decompressione scende da ${largo.decoMin} a ${stretto.decoMin} minuti`
+        );
       }
       if (largo.noDeco === false && stretto.noDeco === true) return 'stringendo i GF l’obbligo sparisce';
       return undefined;
@@ -586,8 +600,10 @@ describe('3. gradient factor più stretti non possono costare meno', () => {
       // violazione della monotonia fa cadere il test.
       const eccezioneNota = largo.safetyStopMin > 0 && stretto.safetyStopMin === 0;
       if (!eccezioneNota && stretto.runtimeMin < largo.runtimeMin - 1e-6) {
-        return `GF ${c.settings.gfLow}/${c.settings.gfHigh} → ${stretti.gfLow}/${stretti.gfHigh}: ` +
-          `runtime da ${largo.runtimeMin} a ${stretto.runtimeMin} minuti`;
+        return (
+          `GF ${c.settings.gfLow}/${c.settings.gfHigh} → ${stretti.gfLow}/${stretti.gfHigh}: ` +
+          `runtime da ${largo.runtimeMin} a ${stretto.runtimeMin} minuti`
+        );
       }
       if (!eccezioneNota && stretto.ascentMin < largo.ascentMin - 1e-6) {
         return `risalita da ${largo.ascentMin} a ${stretto.ascentMin} minuti stringendo i GF`;
@@ -617,9 +633,11 @@ describe('3. gradient factor più stretti non possono costare meno', () => {
       const gradino = c.settings.stopIntervalM ?? DEFAULT_DECO.stopIntervalM;
       const differenza = (largo.firstStopM ?? 0) - (stretto.firstStopM ?? 0);
       if (differenza > gradino + 1e-6) {
-        return `prima sosta da ${largo.firstStopM} m a ${stretto.firstStopM} m stringendo i GF ` +
+        return (
+          `prima sosta da ${largo.firstStopM} m a ${stretto.firstStopM} m stringendo i GF ` +
           `(${c.settings.gfLow}/${c.settings.gfHigh} → ${stretti.gfLow}/${stretti.gfHigh}), ` +
-          `deco ${largo.decoMin} → ${stretto.decoMin} min`;
+          `deco ${largo.decoMin} → ${stretto.decoMin} min`
+        );
       }
       return undefined;
     });
@@ -637,8 +655,10 @@ describe('3. gradient factor più stretti non possono costare meno', () => {
       ]);
       for (let i = 1; i < ipotesi.length; i++) {
         if (ipotesi[i].maxCeilingM < ipotesi[i - 1].maxCeilingM - 1e-9) {
-          return `tetto ${ipotesi[i - 1].maxCeilingM} m con ${ipotesi[i - 1].gfLow}/${ipotesi[i - 1].gfHigh} ` +
-            `e ${ipotesi[i].maxCeilingM} m con ${ipotesi[i].gfLow}/${ipotesi[i].gfHigh}`;
+          return (
+            `tetto ${ipotesi[i - 1].maxCeilingM} m con ${ipotesi[i - 1].gfLow}/${ipotesi[i - 1].gfHigh} ` +
+            `e ${ipotesi[i].maxCeilingM} m con ${ipotesi[i].gfLow}/${ipotesi[i].gfHigh}`
+          );
         }
         if (ipotesi[i].decoMinutes < ipotesi[i - 1].decoMinutes) {
           return `minuti di obbligo ${ipotesi[i - 1].decoMinutes} → ${ipotesi[i].decoMinutes} stringendo i GF`;
@@ -654,7 +674,8 @@ describe('3. gradient factor più stretti non possono costare meno', () => {
 // ---------------------------------------------------------------------------
 
 /** L'indice del gas respirato sul primo tratto di fondo, per capire se i due piani sono confrontabili. */
-const gasAlFondo = (r: DecoResult): number | undefined => r.segments.find((s) => s.kind === 'level')?.gasIndex;
+const gasAlFondo = (r: DecoResult): number | undefined =>
+  r.segments.find((s) => s.kind === 'level')?.gasIndex;
 
 describe('4. più giù o più a lungo non può costare meno', () => {
   it('sei metri più giù a parità di tempo', () => {
@@ -787,7 +808,8 @@ describe('5. il bailout non è mai più corto né più povero di gas del piano n
       // dove ne servivano cinquanta minuti e centoquaranta.
       const piuProfondo = daMeta.segments.reduce((a, s) => Math.max(a, s.fromM, s.toM), 0);
       if (piuProfondo > meta + 0.01) return `bailout da ${meta} m che passa da ${piuProfondo} m`;
-      if ((daMeta.firstStopM ?? 0) > meta + 0.01) return `prima sosta a ${daMeta.firstStopM} m su un bailout da ${meta} m`;
+      if ((daMeta.firstStopM ?? 0) > meta + 0.01)
+        return `prima sosta a ${daMeta.firstStopM} m su un bailout da ${meta} m`;
       if (dalFondo.stops.filter((s) => s.mandatory).length > 3 && daMeta.decoMin === 0) {
         return `dal fondo (${massima} m) l'obbligo è di ${dalFondo.decoMin} minuti, da ${meta} m è zero`;
       }
@@ -849,8 +871,10 @@ describe('6. le contingenze peggiori escono con più obbligo di quella nominale'
         // i due piani, arrotondata, e non un conto fatto una seconda volta.
         const attesoRuntime = Math.round(k.result.runtimeMin - base.runtimeMin);
         const attesoDeco = Math.round(k.result.decoMin - base.decoMin);
-        if (k.extraRuntimeMin !== attesoRuntime) return `${k.id}: extraRuntimeMin ${k.extraRuntimeMin} invece di ${attesoRuntime}`;
-        if (k.extraDecoMin !== attesoDeco) return `${k.id}: extraDecoMin ${k.extraDecoMin} invece di ${attesoDeco}`;
+        if (k.extraRuntimeMin !== attesoRuntime)
+          return `${k.id}: extraRuntimeMin ${k.extraRuntimeMin} invece di ${attesoRuntime}`;
+        if (k.extraDecoMin !== attesoDeco)
+          return `${k.id}: extraDecoMin ${k.extraDecoMin} invece di ${attesoDeco}`;
       }
       return undefined;
     });
@@ -897,13 +921,18 @@ describe('7. impostazioni degeneri: o un risultato sensato, o un errore esplicit
       const intero = (a: number, b: number) => a + Math.floor(r() * (b - a + 1));
       const impostazioni: Record<string, number> = {};
       for (let k = 0, quanti = intero(1, 3); k < quanti; k++) {
-        impostazioni[CAMPI_DEGENERI[intero(0, CAMPI_DEGENERI.length - 1)]] = VALORI_DEGENERI[intero(0, VALORI_DEGENERI.length - 1)];
+        impostazioni[CAMPI_DEGENERI[intero(0, CAMPI_DEGENERI.length - 1)]] =
+          VALORI_DEGENERI[intero(0, VALORI_DEGENERI.length - 1)];
       }
       const profondita = [12, 30, 45, 70][intero(0, 3)];
       const minuti = [8, 25, 45][intero(0, 2)];
       const descrizione = `${profondita} m × ${minuti} min con ${JSON.stringify(impostazioni)}`;
       try {
-        const res = planDeco([{ depthM: profondita, minutes: minuti }], [ARIA, EAN50], impostazioni as Partial<DecoSettings>);
+        const res = planDeco(
+          [{ depthM: profondita, minutes: minuti }],
+          [ARIA, EAN50],
+          impostazioni as Partial<DecoSettings>,
+        );
         const guasti = nonFiniti(res);
         if (guasti.length) falliti.push(`  seme ${seme} — ${descrizione}: ${guasti.join(', ')}`);
         // UNA TABELLA VUOTA È LA COSA PEGGIORE. Un'impostazione assurda può
@@ -912,7 +941,8 @@ describe('7. impostazioni degeneri: o un risultato sensato, o un errore esplicit
         // non può fare è restituire zero segmenti, perché zero segmenti letti
         // dall'interfaccia diventano «nessuna sosta»: la stessa schermata di
         // un'immersione in curva, e nessun modo di distinguerle.
-        else if (res.segments.length === 0) falliti.push(`  seme ${seme} — ${descrizione}: piano vuoto senza avvisi`);
+        else if (res.segments.length === 0)
+          falliti.push(`  seme ${seme} — ${descrizione}: piano vuoto senza avvisi`);
       } catch {
         // Un'eccezione va benissimo: è la forma esplicita del rifiuto.
       }
@@ -925,7 +955,13 @@ describe('7. impostazioni degeneri: o un risultato sensato, o un errore esplicit
     // risultato vuoto è la risposta giusta. Quello che si controlla è che sia vuoto
     // DAVVERO — runtime zero, nessun segmento — e non un piano con dentro dei
     // numeri che sembrano validi.
-    for (const livelli of [[], [{ depthM: 0, minutes: 30 }], [{ depthM: -20, minutes: 30 }], [{ depthM: NaN, minutes: 30 }], [{ depthM: 30, minutes: NaN }]]) {
+    for (const livelli of [
+      [],
+      [{ depthM: 0, minutes: 30 }],
+      [{ depthM: -20, minutes: 30 }],
+      [{ depthM: NaN, minutes: 30 }],
+      [{ depthM: 30, minutes: NaN }],
+    ]) {
       const r = planDeco(livelli, [ARIA], {});
       expect(r.segments).toHaveLength(0);
       expect(r.stops).toHaveLength(0);
@@ -998,11 +1034,13 @@ describe('8. decoTableText non stampa mai undefined, NaN o null', () => {
       const bailout = bailoutPlan(c.levels, c.gases, c.settings);
       if (bailout) {
         const testo = decoTableText(bailout, c.levels, c.gases, c.settings);
-        if (/undefined|NaN|null|Infinity/.test(testo)) return `bailout: ${testo.split('\n').find((l) => /undefined|NaN|null|Infinity/.test(l))}`;
+        if (/undefined|NaN|null|Infinity/.test(testo))
+          return `bailout: ${testo.split('\n').find((l) => /undefined|NaN|null|Infinity/.test(l))}`;
       }
       for (const k of decoContingencies(c.levels, c.gases, c.settings)) {
         const testo = decoTableText(k.result, c.levels, c.gases, c.settings);
-        if (/undefined|NaN|null|Infinity/.test(testo)) return `contingenza ${k.id}: ${testo.split('\n').find((l) => /undefined|NaN|null|Infinity/.test(l))}`;
+        if (/undefined|NaN|null|Infinity/.test(testo))
+          return `contingenza ${k.id}: ${testo.split('\n').find((l) => /undefined|NaN|null|Infinity/.test(l))}`;
       }
       return undefined;
     });
@@ -1142,7 +1180,9 @@ describe('bachi trovati dalla batteria, ora corretti', () => {
     // ha nessuna sosta. Il pannello delle contingenze mostra «−3 min» accanto a
     // uno scenario peggiorativo.
     const nominale = planDeco([{ depthM: 12, minutes: 69 }], [ARIA], {});
-    const piuGiu = decoContingencies([{ depthM: 12, minutes: 69 }], [ARIA], {}).find((k) => k.id === 'deeper');
+    const piuGiu = decoContingencies([{ depthM: 12, minutes: 69 }], [ARIA], {}).find(
+      (k) => k.id === 'deeper',
+    );
     expect(nominale.safetyStopMin).toBe(3);
     expect(piuGiu?.extraRuntimeMin).toBeGreaterThanOrEqual(0);
   });

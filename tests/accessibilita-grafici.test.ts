@@ -246,7 +246,13 @@ describe('nome e descrizione di ogni grafico', () => {
 
   it('serie secondaria allineata al profilo', () => {
     const host = rendi(
-      e(MiniSeries, { samples: CAMPIONI, pick: (s: Sample) => s.depth, label: 'Profondità', unit: 'm', digits: 1 }),
+      e(MiniSeries, {
+        samples: CAMPIONI,
+        pick: (s: Sample) => s.depth,
+        label: 'Profondità',
+        unit: 'm',
+        digits: 1,
+      }),
     );
     const { nome, descrizione } = verificaEtichette(host);
     expect(nome).toBe('Profondità (m)');
@@ -320,9 +326,7 @@ describe('cursore da tastiera', () => {
     const senza = rendi(e(DepthProfile, { dive: immersione() }));
     expect(svgDi(senza).getAttribute('tabindex')).toBeNull();
 
-    const con = rendi(
-      e(DepthProfile, { dive: immersione(), cursor: { t: null, onChange: () => {} } }),
-    );
+    const con = rendi(e(DepthProfile, { dive: immersione(), cursor: { t: null, onChange: () => {} } }));
     expect(svgDi(con).getAttribute('tabindex')).toBe('0');
   });
 
@@ -366,9 +370,7 @@ describe('cursore da tastiera', () => {
     // Il cursore è CONDIVISO fra il profilo e gli otto grafici sotto: se ognuno
     // tenesse una regione viva sempre presente, una freccia premuta produrrebbe
     // nove annunci uguali.
-    const vista = monta(
-      e(DepthProfile, { dive: immersione(), cursor: { t: 120, onChange: () => {} } }),
-    );
+    const vista = monta(e(DepthProfile, { dive: immersione(), cursor: { t: 120, onChange: () => {} } }));
     expect(vista.host.querySelector('[role="status"]')).toBeNull();
     const svg = vista.host.querySelector('svg')!;
     act(() => {
@@ -480,9 +482,7 @@ describe('l’istruzione da tastiera è annunciata', () => {
    * del grafico, che è l'unica cosa che lo screen reader legge quando ci arriva.
    */
   it('il profilo spiega le frecce quando il cursore c’è, e tace quando non c’è', () => {
-    const con = rendi(
-      e(DepthProfile, { dive: immersione(), cursor: { t: null, onChange: () => {} } }),
-    );
+    const con = rendi(e(DepthProfile, { dive: immersione(), cursor: { t: null, onChange: () => {} } }));
     expect(svgDi(con).querySelector('desc')!.textContent).toContain('Frecce per muovere il cursore');
 
     const senza = rendi(e(DepthProfile, { dive: immersione() }));

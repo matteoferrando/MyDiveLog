@@ -56,11 +56,7 @@ const TOLERANCE = {
  */
 export function likelySame(a: Dive, b: Dive, clockOffsetMs = 0): boolean {
   if (!similar(a.maxDepth, b.maxDepth, TOLERANCE.depthM)) return false;
-  if (
-    a.avgDepth &&
-    b.avgDepth &&
-    !similar(a.avgDepth, b.avgDepth, TOLERANCE.depthM)
-  ) {
+  if (a.avgDepth && b.avgDepth && !similar(a.avgDepth, b.avgDepth, TOLERANCE.depthM)) {
     return false;
   }
   if (!a.durationS || !b.durationS) return false;
@@ -341,7 +337,14 @@ function mergeCylinders(
     const other = incoming[i];
     if (!other) return cyl;
     const merged = { ...cyl };
-    for (const key of ['sizeL', 'workPressureBar', 'startBar', 'endBar', 'material', 'description'] as const) {
+    for (const key of [
+      'sizeL',
+      'workPressureBar',
+      'startBar',
+      'endBar',
+      'material',
+      'description',
+    ] as const) {
       if (merged[key] === undefined && other[key] !== undefined) {
         // @ts-expect-error assegnazione per chiave omogenea
         merged[key] = other[key];
@@ -443,8 +446,7 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
   if (newSamples > 0) {
     const baseChannels = profileChannels(base);
     const newChannels = profileChannels(incoming);
-    const better =
-      newChannels !== baseChannels ? newChannels > baseChannels : newSamples > baseSamples;
+    const better = newChannels !== baseChannels ? newChannels > baseChannels : newSamples > baseSamples;
     if (!better) {
       // Anche quando il profilo in arrivo non vince, può essere il più fitto.
       const candidate = denserOf(incoming.samples, out.altSamples, incoming.altSamples);
@@ -479,9 +481,24 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
   }
 
   (
-    ['number', 'avgDepth', 'minTempC', 'airTempC', 'buddy', 'notes', 'site', 'rating',
-      'visibilityM', 'salinity', 'surfacePressureBar', 'surfaceIntervalS', 'computer',
-      'weightKg', 'suit', 'utcOffsetMinutes'] as const
+    [
+      'number',
+      'avgDepth',
+      'minTempC',
+      'airTempC',
+      'buddy',
+      'notes',
+      'site',
+      'rating',
+      'visibilityM',
+      'salinity',
+      'surfacePressureBar',
+      'surfaceIntervalS',
+      'computer',
+      'weightKg',
+      'suit',
+      'utcOffsetMinutes',
+    ] as const
   ).forEach(takeIfEmpty);
 
   // `reported` e `annotations` si fondono per chiave: due computer possono
@@ -560,7 +577,7 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
 
   // Un secondo profilo più rado del principale non serve a niente: la sua unica
   // ragione di esistere è avere una base più fitta per le velocità.
-  if (out.altSamples && (out.altSamples.length <= (out.samples?.length ?? 0))) {
+  if (out.altSamples && out.altSamples.length <= (out.samples?.length ?? 0)) {
     const altInterval = intervalOf(out.altSamples);
     const mainInterval = intervalOf(out.samples ?? []);
     if (!(altInterval < mainInterval)) out.altSamples = undefined;
@@ -569,9 +586,7 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
   // Segnalibri premuti sul computer: si sommano, non si sostituiscono.
   if (incoming.events?.length) {
     const known = new Set((out.events ?? []).map((e) => `${e.t}|${e.bearing ?? ''}|${e.label ?? ''}`));
-    const added = incoming.events.filter(
-      (e) => !known.has(`${e.t}|${e.bearing ?? ''}|${e.label ?? ''}`),
-    );
+    const added = incoming.events.filter((e) => !known.has(`${e.t}|${e.bearing ?? ''}|${e.label ?? ''}`));
     if (added.length) {
       out.events = [...(out.events ?? []), ...added].sort((a, b) => a.t - b.t);
       changed = true;
@@ -608,7 +623,7 @@ export function stableId(parts: (string | number | undefined)[]): string {
     h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
     h2 = Math.imul(h2 ^ ((c << 3) | (i & 7)), 0x85ebca6b) >>> 0;
   }
-  return (h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0'));
+  return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
 }
 
 /**

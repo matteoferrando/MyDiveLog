@@ -75,10 +75,7 @@ function headers(apiKey: string): Record<string, string> {
 }
 
 /** Modelli disponibili per questa chiave, dal più recente. */
-export async function listModels(
-  creds: AiCredentials,
-  fetchImpl: FetchLike = fetch,
-): Promise<AiModel[]> {
+export async function listModels(creds: AiCredentials, fetchImpl: FetchLike = fetch): Promise<AiModel[]> {
   const res = await withTimeout(
     fetchImpl(`${API}/models?limit=50`, { method: 'GET', headers: headers(creds.apiKey) }),
     30_000,
@@ -86,10 +83,12 @@ export async function listModels(
   const body = await readJson(res);
   if (!res.ok) throw apiError(res.status, body);
   const data = Array.isArray((body as { data?: unknown[] }).data) ? (body as { data: unknown[] }).data : [];
-  return data.map((m) => {
-    const row = m as { id?: string; display_name?: string; created_at?: string };
-    return { id: String(row.id ?? ''), displayName: row.display_name, createdAt: row.created_at };
-  }).filter((m) => m.id);
+  return data
+    .map((m) => {
+      const row = m as { id?: string; display_name?: string; created_at?: string };
+      return { id: String(row.id ?? ''), displayName: row.display_name, createdAt: row.created_at };
+    })
+    .filter((m) => m.id);
 }
 
 export interface AskOptions {
@@ -138,7 +137,10 @@ export async function ask(creds: AiCredentials, opts: AskOptions): Promise<AiRes
       model?: string;
     };
     return {
-      text: (body.content ?? []).filter((c) => c.type === 'text').map((c) => c.text ?? '').join(''),
+      text: (body.content ?? [])
+        .filter((c) => c.type === 'text')
+        .map((c) => c.text ?? '')
+        .join(''),
       model: body.model ?? model,
       usage: { inputTokens: body.usage?.input_tokens, outputTokens: body.usage?.output_tokens },
     };

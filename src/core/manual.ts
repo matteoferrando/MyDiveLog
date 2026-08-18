@@ -74,7 +74,9 @@ export interface ManualDiveResult {
 /** Errori che impediscono di costruire l'immersione. */
 export function validateManualDive(input: Partial<ManualDiveInput>): string[] {
   const errors: string[] = [];
-  const when = input.localDateTime ? Date.parse(localToUtcIso(input.localDateTime, input.utcOffsetMinutes)) : NaN;
+  const when = input.localDateTime
+    ? Date.parse(localToUtcIso(input.localDateTime, input.utcOffsetMinutes))
+    : NaN;
   if (!input.localDateTime || Number.isNaN(when)) {
     errors.push('Serve una data e un’ora: senza, l’immersione non ha posto nella catena delle ripetitive.');
   }

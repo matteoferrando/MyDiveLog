@@ -146,10 +146,7 @@ export interface SyncReport {
  * "vince chi sincronizza per ultimo" — cancellerebbe in silenzio il lavoro fatto
  * sull'altro dispositivo.
  */
-async function syncSettings(
-  store: DiveStore,
-  sql: SqlExecutor,
-): Promise<{ pushed: number; pulled: number }> {
+async function syncSettings(store: DiveStore, sql: SqlExecutor): Promise<{ pushed: number; pulled: number }> {
   let pushed = 0;
   let pulled = 0;
   const { rows } = await sql.execute('SELECT key, updated_at, doc FROM settings');
@@ -230,21 +227,41 @@ async function syncSettings(
   return { pushed, pulled };
 }
 
+/** Analisi vista dalla sincronizzazione: solo il timbro, il resto non la riguarda. */
+type AnalysisStamp = { at?: string; createdAt?: string };
+
+/**
+ * Quando è stata generata quest'analisi.
+ *
+ * QUI STAVA IL GUASTO. Questa funzione leggeva `createdAt`, ma `StoredAnalysis`
+ * — la forma che l'applicazione scrive davvero — il campo lo chiama `at`. Su un
+ * dato reale il confronto era quindi sempre `'' > ''`, cioè falso in entrambe le
+ * direzioni: quando la stessa analisi esisteva su due dispositivi vinceva
+ * SEMPRE quella locale, in silenzio, e `changedRemotely` non si accendeva mai,
+ * quindi nemmeno la propria risaliva. Le analisi restavano ferme dove erano
+ * state generate e nessuno se ne accorgeva, perché un'analisi che non arriva
+ * assomiglia a un'analisi che non è mai stata fatta.
+ *
+ * `createdAt` resta come ripiego: costa una `??` e copre qualunque record
+ * scritto da una versione che usava quel nome.
+ */
+const generataIl = (a: AnalysisStamp | undefined): string => a?.at ?? a?.createdAt ?? '';
+
 /**
  * Unisce due raccolte di analisi chiave per chiave.
  *
- * Il criterio dentro una chiave è la data di generazione dell'analisi stessa
- * (`createdAt`), non quella della sincronizzazione: quello che conta è quale delle
- * due analisi è più recente, e la data di sincronizzazione dice solo chi ha
- * parlato per ultimo.
+ * Il criterio dentro una chiave è la data di generazione dell'analisi stessa,
+ * non quella della sincronizzazione: quello che conta è quale delle due analisi
+ * è più recente, e la data di sincronizzazione dice solo chi ha parlato per
+ * ultimo.
  */
 export function mergeAnalyses(
   localRaw: unknown,
   remoteRaw: unknown,
-): { value: Record<string, { createdAt?: string }>; changedLocally: boolean; changedRemotely: boolean } {
-  const local = (localRaw ?? {}) as Record<string, { createdAt?: string }>;
-  const remote = (remoteRaw ?? {}) as Record<string, { createdAt?: string }>;
-  const out: Record<string, { createdAt?: string }> = { ...local };
+): { value: Record<string, AnalysisStamp>; changedLocally: boolean; changedRemotely: boolean } {
+  const local = (localRaw ?? {}) as Record<string, AnalysisStamp>;
+  const remote = (remoteRaw ?? {}) as Record<string, AnalysisStamp>;
+  const out: Record<string, AnalysisStamp> = { ...local };
   let changedLocally = false;
   let changedRemotely = false;
 
@@ -253,10 +270,10 @@ export function mergeAnalyses(
     if (!mine) {
       out[k] = v;
       changedLocally = true;
-    } else if ((v.createdAt ?? '') > (mine.createdAt ?? '')) {
+    } else if (generataIl(v) > generataIl(mine)) {
       out[k] = v;
       changedLocally = true;
-    } else if ((mine.createdAt ?? '') > (v.createdAt ?? '')) {
+    } else if (generataIl(mine) > generataIl(v)) {
       changedRemotely = true;
     }
   }
@@ -299,10 +316,10 @@ export async function syncDeletions(
 
   for (const chunk of chunks(pending, PUSH_CHUNK)) {
     for (const t of chunk) {
-      await sql.execute(
-        'INSERT INTO deletions (id, deleted_at) VALUES (?, ?) ON CONFLICT(id) DO NOTHING',
-        [t.id, t.at],
-      );
+      await sql.execute('INSERT INTO deletions (id, deleted_at) VALUES (?, ?) ON CONFLICT(id) DO NOTHING', [
+        t.id,
+        t.at,
+      ]);
       await sql.execute('DELETE FROM dives WHERE id = ?', [t.id]);
       await sql.execute('DELETE FROM dive_samples WHERE dive_id = ?', [t.id]);
       await sql.execute('DELETE FROM dive_alt_samples WHERE dive_id = ?', [t.id]);
@@ -389,7 +406,8 @@ export function mergeKeyed(
       changedRemotely = true;
     }
   }
-  for (const x of local) if (!remote.some((r) => String(r[keyField]) === String(x[keyField]))) changedRemotely = true;
+  for (const x of local)
+    if (!remote.some((r) => String(r[keyField]) === String(x[keyField]))) changedRemotely = true;
 
   return { value: [...byKey.values()], changedLocally, changedRemotely };
 }
@@ -478,13 +496,9 @@ export async function syncArchive(
 
   const localDives = (await store.listDives()).filter((d) => !inTrash.has(d.id));
   const local = localFingerprints(localDives, await store.sampleCounts(), await store.altSampleCounts());
-  const remote = (await remoteFingerprints(sql)).filter(
-    (f) => !deleted.ids.has(f.id) && !inTrash.has(f.id),
-  );
+  const remote = (await remoteFingerprints(sql)).filter((f) => !deleted.ids.has(f.id) && !inTrash.has(f.id));
   const plan = planSync(local, remote);
-  say(
-    `${plan.push.length} da caricare, ${plan.pull.length} da scaricare, ${plan.unchanged} già allineate.`,
-  );
+  say(`${plan.push.length} da caricare, ${plan.pull.length} da scaricare, ${plan.unchanged} già allineate.`);
 
   // --- scarico -------------------------------------------------------------
   let pulled = 0;
@@ -705,7 +719,9 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, message: string):
 }
 
 /** Verifica credenziali e raggiungibilità senza modificare niente. */
-export async function testConnection(creds: SyncCredentials): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function testConnection(
+  creds: SyncCredentials,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   let sql: SqlExecutor | undefined;
   try {
     sql = await connect(creds);

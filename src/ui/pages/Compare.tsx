@@ -73,8 +73,20 @@ export function Compare({ onOpen }: { onOpen: (id: string) => void }) {
 
       <div className="card">
         <div className="grid grid-2" style={{ gap: 12 }}>
-          <DivePicker label="Prima immersione" dives={dives} value={leftId} onChange={setLeftId} colour="var(--series-1)" />
-          <DivePicker label="Seconda immersione" dives={dives} value={rightId} onChange={setRightId} colour="var(--series-2)" />
+          <DivePicker
+            label="Prima immersione"
+            dives={dives}
+            value={leftId}
+            onChange={setLeftId}
+            colour="var(--series-1)"
+          />
+          <DivePicker
+            label="Seconda immersione"
+            dives={dives}
+            value={rightId}
+            onChange={setRightId}
+            colour="var(--series-2)"
+          />
         </div>
       </div>
 
@@ -83,8 +95,8 @@ export function Compare({ onOpen }: { onOpen: (id: string) => void }) {
           <div className="card">
             <h2>I due profili</h2>
             <p className="card-sub">
-              Stesso asse dei tempi, nessuno dei due riscalato: se una dura meno, si vede. La scala
-              delle profondità è quella della più profonda delle due.
+              Stesso asse dei tempi, nessuno dei due riscalato: se una dura meno, si vede. La scala delle
+              profondità è quella della più profonda delle due.
             </p>
             <TwoProfiles
               left={{ dive: left, samples: profiles[leftId] ?? [] }}
@@ -96,8 +108,8 @@ export function Compare({ onOpen }: { onOpen: (id: string) => void }) {
             <h2>Le differenze</h2>
             <p className="card-sub">
               Dove un valore manca da una parte sola, la riga resta e lo dichiara: è la differenza più
-              importante da vedere, perché significa che le due immersioni non sono confrontabili su
-              quella misura.
+              importante da vedere, perché significa che le due immersioni non sono confrontabili su quella
+              misura.
             </p>
             <ComparisonTable left={left} right={right} onOpen={onOpen} />
           </div>
@@ -178,7 +190,14 @@ function TwoProfiles({
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img">
         {[0, maxD / 2, maxD].map((d) => (
           <g key={d}>
-            <line x1={pad.left} x2={width - pad.right} y1={y(d)} y2={y(d)} stroke="var(--grid)" strokeWidth={1} />
+            <line
+              x1={pad.left}
+              x2={width - pad.right}
+              y1={y(d)}
+              y2={y(d)}
+              stroke="var(--grid)"
+              strokeWidth={1}
+            />
             <text className="axis-label" x={pad.left - 6} y={y(d) + 3} textAnchor="end">
               {Math.round(d)}
             </text>
@@ -219,10 +238,34 @@ function ComparisonTable({ left, right, onOpen }: { left: Dive; right: Dive; onO
       { label: 'Profondità media', unit: 'm', a: l?.avgDepth, b: r?.avgDepth, lower: null },
       { label: 'Durata', unit: 'min', a: left.durationS / 60, b: right.durationS / 60, lower: null },
       { label: 'Consumo di superficie', unit: 'L/min', a: l?.rmvLpm, b: r?.rmvLpm, lower: true },
-      { label: 'Assetto', unit: 'm/min', a: l?.bottomVerticalTravelMpm, b: r?.bottomVerticalTravelMpm, lower: true },
-      { label: 'Risalita di picco', unit: 'm/min', a: l?.maxAscentRateMpm, b: r?.maxAscentRateMpm, lower: true },
-      { label: 'Ultimo tratto', unit: 'm/min', a: l?.finalAscentRateMpm, b: r?.finalAscentRateMpm, lower: true },
-      { label: 'Sosta di sicurezza', unit: 'min', a: (l?.safetyStopS ?? 0) / 60, b: (r?.safetyStopS ?? 0) / 60, lower: false },
+      {
+        label: 'Assetto',
+        unit: 'm/min',
+        a: l?.bottomVerticalTravelMpm,
+        b: r?.bottomVerticalTravelMpm,
+        lower: true,
+      },
+      {
+        label: 'Risalita di picco',
+        unit: 'm/min',
+        a: l?.maxAscentRateMpm,
+        b: r?.maxAscentRateMpm,
+        lower: true,
+      },
+      {
+        label: 'Ultimo tratto',
+        unit: 'm/min',
+        a: l?.finalAscentRateMpm,
+        b: r?.finalAscentRateMpm,
+        lower: true,
+      },
+      {
+        label: 'Sosta di sicurezza',
+        unit: 'min',
+        a: (l?.safetyStopS ?? 0) / 60,
+        b: (r?.safetyStopS ?? 0) / 60,
+        lower: false,
+      },
       { label: 'CNS calcolato', unit: '%', a: l?.cnsPct, b: r?.cnsPct, lower: true },
       { label: 'OTU', unit: '', a: l?.otu, b: r?.otu, lower: true },
       { label: 'Temperatura minima', unit: '°C', a: left.minTempC, b: right.minTempC, lower: null },
@@ -269,7 +312,12 @@ function ComparisonTable({ left, right, onOpen }: { left: Dive; right: Dive; onO
                   className="num tabular"
                   style={{
                     fontWeight: 650,
-                    color: better === undefined ? 'var(--text-muted)' : better ? 'var(--good-text)' : 'var(--warning)',
+                    color:
+                      better === undefined
+                        ? 'var(--text-muted)'
+                        : better
+                          ? 'var(--good-text)'
+                          : 'var(--warning)',
                   }}
                 >
                   {delta === undefined

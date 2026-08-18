@@ -188,9 +188,7 @@ function readDive(
     avgDepth: roundOrUndef(depthValue(attr(depthNode, 'mean')), 2),
     minTempC: minTemp(samples),
     airTempC: tempValue(attr(node, 'airtemp')),
-    site: siteName
-      ? { name: siteName, lat: site?.lat, lon: site?.lon, region: site?.region }
-      : undefined,
+    site: siteName ? { name: siteName, lat: site?.lat, lon: site?.lon, region: site?.region } : undefined,
     buddy: text(child(node, 'buddy')),
     notes: text(child(node, 'notes')),
     mode,

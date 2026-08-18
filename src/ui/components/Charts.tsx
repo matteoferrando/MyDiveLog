@@ -305,7 +305,11 @@ export function media(valori: number[]): number | undefined {
  * vede non ci legge. La soglia è il 5% dell'escursione della serie stessa,
  * perché una soglia assoluta non può valere sia per i bar che per i m/min.
  */
-export function versoTendenza(prima: number, dopo: number, escursione: number): 'aumento' | 'diminuzione' | 'stabile' {
+export function versoTendenza(
+  prima: number,
+  dopo: number,
+  escursione: number,
+): 'aumento' | 'diminuzione' | 'stabile' {
   const soglia = Math.abs(escursione) * 0.05;
   if (Math.abs(dopo - prima) <= soglia) return 'stabile';
   return dopo > prima ? 'aumento' : 'diminuzione';
@@ -550,7 +554,13 @@ export function Meter({ value, max = 1 }: { value: number; max?: number }) {
   const pct = Math.max(0, Math.min(1, value / max));
   const color = pct >= 0.85 ? 'var(--good)' : pct >= 0.5 ? 'var(--warning)' : 'var(--serious)';
   return (
-    <div className="meter" role="progressbar" aria-valuenow={Math.round(pct * 100)} aria-valuemin={0} aria-valuemax={100}>
+    <div
+      className="meter"
+      role="progressbar"
+      aria-valuenow={Math.round(pct * 100)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
       <div style={{ width: `${pct * 100}%`, background: color }} />
     </div>
   );
@@ -657,9 +667,7 @@ export function ColumnChart({
                 }
                 onMouseLeave={() => setTip(null)}
               />
-              {d.value > 0 && (
-                <path d={roundedTopBar(x, y, barW, h, 4)} fill="var(--series-1)" />
-              )}
+              {d.value > 0 && <path d={roundedTopBar(x, y, barW, h, 4)} fill="var(--series-1)" />}
               {i % labelStep === 0 && (
                 <text
                   className="axis-label"
@@ -844,7 +852,11 @@ export function TimeSeriesChart({
   const uid = useId();
 
   if (points.length === 0) {
-    return <p className="muted" style={{ fontSize: 12, margin: 0 }}>Nessun dato disponibile per questa serie.</p>;
+    return (
+      <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+        Nessun dato disponibile per questa serie.
+      </p>
+    );
   }
 
   const pad = { top: 16, right: 44, bottom: 22, left: 36 };
@@ -865,7 +877,9 @@ export function TimeSeriesChart({
   const px = (at: number) => pad.left + ((at - minX) / spanX) * plotW;
   const py = (v: number) => pad.top + plotH - ((v - yLo) / (yHi - yLo || 1)) * plotH;
 
-  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${px(p.at).toFixed(1)} ${py(p.value).toFixed(1)}`).join(' ');
+  const path = points
+    .map((p, i) => `${i === 0 ? 'M' : 'L'}${px(p.at).toFixed(1)} ${py(p.value).toFixed(1)}`)
+    .join(' ');
   const last = points[points.length - 1];
   // Oltre ~24 punti i pallini si toccano e la linea sembra tratteggiata: li
   // nascondiamo, ma il bersaglio invisibile per il tooltip resta su ognuno.
@@ -894,7 +908,14 @@ export function TimeSeriesChart({
         <desc id={`${uid}-desc`}>{descrizione}</desc>
         {ticks.map((t) => (
           <g key={t} aria-hidden="true">
-            <line x1={pad.left} x2={width - pad.right} y1={py(t)} y2={py(t)} stroke="var(--grid)" strokeWidth={1} />
+            <line
+              x1={pad.left}
+              x2={width - pad.right}
+              y1={py(t)}
+              y2={py(t)}
+              stroke="var(--grid)"
+              strokeWidth={1}
+            />
             <text className="axis-label" x={pad.left - 6} y={py(t) + 3} textAnchor="end">
               {format(t)}
             </text>
@@ -914,19 +935,22 @@ export function TimeSeriesChart({
               opacity={0.5}
             />
             {referenceLabel && (
-              <text
-                x={width - pad.right + 4}
-                y={py(reference) + 3}
-                fontSize={10}
-                fill="var(--text-muted)"
-              >
+              <text x={width - pad.right + 4} y={py(reference) + 3} fontSize={10} fill="var(--text-muted)">
                 {referenceLabel}
               </text>
             )}
           </g>
         )}
 
-        <path aria-hidden="true" d={path} fill="none" stroke="var(--series-1)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <path
+          aria-hidden="true"
+          d={path}
+          fill="none"
+          stroke="var(--series-1)"
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
 
         {points.map((p) => (
           <g key={`${p.at}-${p.value}`} aria-hidden="true">
@@ -1198,14 +1222,28 @@ export function ScatterChart({
         <desc id={`${uid}-desc`}>{descrizione}</desc>
         {yTicks.map((t) => (
           <g key={`y${t}`} aria-hidden="true">
-            <line x1={pad.left} x2={width - pad.right} y1={py(t)} y2={py(t)} stroke="var(--grid)" strokeWidth={1} />
+            <line
+              x1={pad.left}
+              x2={width - pad.right}
+              y1={py(t)}
+              y2={py(t)}
+              stroke="var(--grid)"
+              strokeWidth={1}
+            />
             <text className="axis-label" x={pad.left - 8} y={py(t) + 3.5} textAnchor="end">
               {yFormat(t)}
             </text>
           </g>
         ))}
         {xTicks.map((t) => (
-          <text aria-hidden="true" key={`x${t}`} className="axis-label" x={px(t)} y={height - 16} textAnchor="middle">
+          <text
+            aria-hidden="true"
+            key={`x${t}`}
+            className="axis-label"
+            x={px(t)}
+            y={height - 16}
+            textAnchor="middle"
+          >
             {xFormat(t)}
           </text>
         ))}
@@ -1466,7 +1504,14 @@ export function CurveChart({
         )}
 
         {[xLo, (xLo + xHi) / 2, xHi].map((t) => (
-          <text aria-hidden="true" key={t} className="axis-label" x={px(t)} y={height - 14} textAnchor="middle">
+          <text
+            aria-hidden="true"
+            key={t}
+            className="axis-label"
+            x={px(t)}
+            y={height - 14}
+            textAnchor="middle"
+          >
             {xFormat(t)}
           </text>
         ))}

@@ -219,16 +219,10 @@ export function Planner() {
             </p>
           </div>
           <div className="row" style={{ gap: 6 }}>
-            <button
-              className={mode === 'rec' ? 'btn btn-primary' : 'btn'}
-              onClick={() => setMode('rec')}
-            >
+            <button className={mode === 'rec' ? 'btn btn-primary' : 'btn'} onClick={() => setMode('rec')}>
               Ricreativa
             </button>
-            <button
-              className={mode === 'tec' ? 'btn btn-primary' : 'btn'}
-              onClick={() => setMode('tec')}
-            >
+            <button className={mode === 'tec' ? 'btn btn-primary' : 'btn'} onClick={() => setMode('tec')}>
               Tecnica
             </button>
           </div>
@@ -238,15 +232,15 @@ export function Planner() {
       <div className="card">
         <h2>Il tuo consumo</h2>
         <p className="card-sub">
-          Calcolato da volume della bombola e pressioni, immersione per immersione. Non è una stima:
-          dove le pressioni mancano, il valore non esiste e non viene inventato.
+          Calcolato da volume della bombola e pressioni, immersione per immersione. Non è una stima: dove le
+          pressioni mancano, il valore non esiste e non viene inventato.
         </p>
         {rmv.n === 0 ? (
           <p className="muted" style={{ fontSize: 13, margin: 0 }}>
             Nelle {scope.dives.length} immersioni del periodo non ce n'è nessuna con volume bombola e
-            pressione di partenza e uscita: senza quei tre dati il consumo non è calcolabile. Inserisci
-            le pressioni in una scheda immersione, oppure usa il valore predefinito qui sotto sapendo
-            che non è tuo.
+            pressione di partenza e uscita: senza quei tre dati il consumo non è calcolabile. Inserisci le
+            pressioni in una scheda immersione, oppure usa il valore predefinito qui sotto sapendo che non è
+            tuo.
           </p>
         ) : (
           <div className="grid grid-tiles">
@@ -406,11 +400,22 @@ export function Planner() {
               ))}
             </div>
           </div>
-          <NumField label="Pressione di partenza" unit="bar" value={input.startBar} step={10} min={50} max={350} onChange={(v) => set('startBar', v)} />
+          <NumField
+            label="Pressione di partenza"
+            unit="bar"
+            value={input.startBar}
+            step={10}
+            min={50}
+            max={350}
+            onChange={(v) => set('startBar', v)}
+          />
           <MixField mix={input.mix} onChange={(m) => set('mix', m)} />
           <label className="planner-field">
             <span className="planner-label">Acqua</span>
-            <select value={input.salinity} onChange={(e) => set('salinity', e.target.value as GasPlanInput['salinity'])}>
+            <select
+              value={input.salinity}
+              onChange={(e) => set('salinity', e.target.value as GasPlanInput['salinity'])}
+            >
               <option value="salt">Mare</option>
               <option value="fresh">Lago</option>
             </select>
@@ -429,9 +434,8 @@ export function Planner() {
         {(input.altitudeM ?? 0) > 0 && (
           <p className="planner-hint" style={{ marginTop: 8 }}>
             A {input.altitudeM} m la pressione di superficie è {barometric(input.altitudeM ?? 0).toFixed(3)}{' '}
-            bar invece di 1.013: a parità di profondità respiri meno gas, e la curva di sicurezza si
-            accorcia. Quota e salinità sono campi separati di proposito — al lago di montagna valgono
-            tutte e due.
+            bar invece di 1.013: a parità di profondità respiri meno gas, e la curva di sicurezza si accorcia.
+            Quota e salinità sono campi separati di proposito — al lago di montagna valgono tutte e due.
           </p>
         )}
 
@@ -452,7 +456,10 @@ export function Planner() {
             />
             <label className="planner-field">
               <span className="planner-label">Sosta di sicurezza</span>
-              <label className="planner-check" style={{ display: 'flex', gap: 8, alignItems: 'center', minHeight: 32 }}>
+              <label
+                className="planner-check"
+                style={{ display: 'flex', gap: 8, alignItems: 'center', minHeight: 32 }}
+              >
                 <input
                   type="checkbox"
                   data-check="safety-stop"
@@ -473,9 +480,9 @@ export function Planner() {
                 <span>{input.stopMin > 0 ? 'la faccio' : 'non la faccio'}</span>
               </label>
               <span className="planner-hint">
-                Non è obbligatoria e nessun modello la impone: su un'immersione bassa il piano ci arriva
-                in superficie senza fermarsi. Contarla serve perché tre minuti non calcolati sono tre
-                minuti di gas non calcolato.
+                Non è obbligatoria e nessun modello la impone: su un'immersione bassa il piano ci arriva in
+                superficie senza fermarsi. Contarla serve perché tre minuti non calcolati sono tre minuti di
+                gas non calcolato.
               </span>
             </label>
             {input.stopMin > 0 && (
@@ -487,7 +494,9 @@ export function Planner() {
                   step={1}
                   min={1}
                   max={10}
-                  onChange={(v) => setInput((p) => ({ ...p, stopMin: v, totalMin: p.totalMin + (v - p.stopMin) }))}
+                  onChange={(v) =>
+                    setInput((p) => ({ ...p, stopMin: v, totalMin: p.totalMin + (v - p.stopMin) }))
+                  }
                 />
                 <NumField
                   label="Profondità della sosta"
@@ -529,9 +538,9 @@ export function Planner() {
       <div className="card">
         <h2>Riserva e regola di rientro</h2>
         <p className="card-sub">
-          Due scuole, e la scelta è tua: il gas minimo calcolato della subacquea tecnica, o la riserva
-          fissa di quella ricreativa. Se il gas minimo non lo vuoi, non viene calcolato — non è un
-          numero nascosto da qualche parte.
+          Due scuole, e la scelta è tua: il gas minimo calcolato della subacquea tecnica, o la riserva fissa
+          di quella ricreativa. Se il gas minimo non lo vuoi, non viene calcolato — non è un numero nascosto
+          da qualche parte.
         </p>
 
         <label className="planner-check">
@@ -544,8 +553,8 @@ export function Planner() {
           <span>
             <strong>Calcola il gas minimo per l'emergenza</strong> (rock bottom)
             <span className="planner-hint" style={{ display: 'block' }}>
-              Il gas per riportare due persone in superficie dal punto più profondo, condividendo una
-              bombola. Dipende da profondità, tempo e respiro: è la regola della subacquea tecnica.
+              Il gas per riportare due persone in superficie dal punto più profondo, condividendo una bombola.
+              Dipende da profondità, tempo e respiro: è la regola della subacquea tecnica.
             </span>
           </span>
         </label>
@@ -618,9 +627,9 @@ export function Planner() {
           <span>
             <strong>Bombola di decompressione separata</strong>
             <span className="planner-hint" style={{ display: 'block' }}>
-              Le soste si pagano con lei, alla sua profondità e col suo consumo. Il manuale impone un
-              margine del 50% sul gas di deco: se una parte va al compagno o il respiro accelera, deve
-              bastare comunque.
+              Le soste si pagano con lei, alla sua profondità e col suo consumo. Il manuale impone un margine
+              del 50% sul gas di deco: se una parte va al compagno o il respiro accelera, deve bastare
+              comunque.
             </span>
           </span>
         </label>
@@ -659,7 +668,10 @@ export function Planner() {
             {plan.deco && (
               <div className="tile" style={{ gridColumn: 'span 2' }}>
                 <div className="tile-label">Ti serve</div>
-                <div className="tile-value tabular" style={{ color: plan.deco.short ? 'var(--critical)' : undefined }}>
+                <div
+                  className="tile-value tabular"
+                  style={{ color: plan.deco.short ? 'var(--critical)' : undefined }}
+                >
                   {plan.deco.requiredBar} <small style={{ fontSize: 13, fontWeight: 500 }}>bar</small>
                 </div>
                 <div className="tile-note">
@@ -732,21 +744,21 @@ export function Planner() {
         <TimeSplitBar plan={plan} />
 
         <p className="muted" style={{ fontSize: 11, margin: '10px 0 0' }}>
-          La velocità di risalita non si imposta: si ricava. {formatRuntime(plan.split.travelMin)} per
-          coprire {plan.input.depthM} m verticali fanno{' '}
-          {plan.plannedAscentRateMpm === undefined ? '—' : `${plan.plannedAscentRateMpm.toFixed(1)} m/min`}
-          , contro i {LIMITS.ascentRateDeepMpm} m/min massimi raccomandati. La media dell'intera
-          immersione è quella che il computer scriverà a fine immersione: è il modo di verificare il
-          piano dopo averlo eseguito.
+          La velocità di risalita non si imposta: si ricava. {formatRuntime(plan.split.travelMin)} per coprire{' '}
+          {plan.input.depthM} m verticali fanno{' '}
+          {plan.plannedAscentRateMpm === undefined ? '—' : `${plan.plannedAscentRateMpm.toFixed(1)} m/min`},
+          contro i {LIMITS.ascentRateDeepMpm} m/min massimi raccomandati. La media dell'intera immersione è
+          quella che il computer scriverà a fine immersione: è il modo di verificare il piano dopo averlo
+          eseguito.
         </p>
       </div>
 
       <div className="card">
         <h2>Il profilo pianificato</h2>
         <p className="card-sub">
-          Il tempo di fondo è disegnato alla sua profondità media, non come una discesa: di quello che
-          succede là sotto il piano conosce la media e il punto più profondo, e inventare la forma
-          sarebbe disegnare un dato che non c'è. La riga tratteggiata è la massima.
+          Il tempo di fondo è disegnato alla sua profondità media, non come una discesa: di quello che succede
+          là sotto il piano conosce la media e il punto più profondo, e inventare la forma sarebbe disegnare
+          un dato che non c'è. La riga tratteggiata è la massima.
         </p>
         <ProfileChart plan={plan} />
         <PhaseTable phases={plan.planned} total={plan.plannedL} tankL={shown.tankL} />
@@ -812,7 +824,15 @@ export function Planner() {
         <StatTile
           label="Uscita prevista"
           value={
-            <span className="tabular" style={{ color: plan.expectedEndBar < Math.max(plan.reserveBar, LIMITS.minReserveBar) ? 'var(--critical)' : undefined }}>
+            <span
+              className="tabular"
+              style={{
+                color:
+                  plan.expectedEndBar < Math.max(plan.reserveBar, LIMITS.minReserveBar)
+                    ? 'var(--critical)'
+                    : undefined,
+              }}
+            >
               {plan.expectedEndBar} <small style={{ fontSize: 14, fontWeight: 500 }}>bar</small>
             </span>
           }
@@ -822,7 +842,8 @@ export function Planner() {
           label="Fondo consentito dal gas"
           value={
             <span className="tabular" style={{ color: plan.overBudget ? 'var(--critical)' : undefined }}>
-              {plan.gasLimitedBottomMin.toFixed(0)} <small style={{ fontSize: 14, fontWeight: 500 }}>min</small>
+              {plan.gasLimitedBottomMin.toFixed(0)}{' '}
+              <small style={{ fontSize: 14, fontWeight: 500 }}>min</small>
             </span>
           }
           note={`${plan.overBudget ? 'hai pianificato' : 'pianificati'} ${input.bottomMin} min, a ${plan.input.avgDepthM} m di media`}
@@ -848,8 +869,8 @@ export function Planner() {
         <h2>Bilancio della bombola</h2>
         <p className="card-sub">
           {shown.startBar} bar × {shown.tankL} L = {startL} L di gas a bordo.{' '}
-          {input.reserveRule === 'rockBottom' ? 'Il gas minimo' : 'La riserva'} non è disponibile: è la
-          parte che resta ferma perché serva se qualcosa va storto.
+          {input.reserveRule === 'rockBottom' ? 'Il gas minimo' : 'La riserva'} non è disponibile: è la parte
+          che resta ferma perché serva se qualcosa va storto.
         </p>
         <PressureBudget plan={plan} />
       </div>
@@ -858,9 +879,9 @@ export function Planner() {
         <div className="card">
           <h2>Il gas minimo, fase per fase</h2>
           <p className="card-sub">
-            Quattro fasi con le loro ipotesi: un numero unico non si può controllare, quattro sì. Ogni
-            fase usa la pressione ambiente alla sua profondità media, e parte dalla profondità
-            massima — in emergenza è da lì che si risale.
+            Quattro fasi con le loro ipotesi: un numero unico non si può controllare, quattro sì. Ogni fase
+            usa la pressione ambiente alla sua profondità media, e parte dalla profondità massima — in
+            emergenza è da lì che si risale.
           </p>
           <AscentSchematic plan={plan} />
           <PhaseTable phases={plan.reserve} total={plan.reserveL} tankL={shown.tankL} />
@@ -869,10 +890,10 @@ export function Planner() {
         <div className="card">
           <h2>Gas d'emergenza: non calcolato</h2>
           <p className="card-sub" style={{ marginBottom: 0 }}>
-            Hai scelto la riserva fissa di {plan.reserveBar} bar, quindi il gas minimo per riportare
-            due persone in superficie non viene calcolato e non compare da nessuna parte in questa
-            pagina. Se vuoi sapere se {plan.reserveBar} bar bastano a {shown.depthM} m, la casella
-            «calcola il gas minimo per l'emergenza» qui sopra risponde a quella domanda con un numero.
+            Hai scelto la riserva fissa di {plan.reserveBar} bar, quindi il gas minimo per riportare due
+            persone in superficie non viene calcolato e non compare da nessuna parte in questa pagina. Se vuoi
+            sapere se {plan.reserveBar} bar bastano a {shown.depthM} m, la casella «calcola il gas minimo per
+            l'emergenza» qui sopra risponde a quella domanda con un numero.
           </p>
         </div>
       )}
@@ -887,19 +908,18 @@ export function Planner() {
           )}
         </div>
         <p className="card-sub">
-          La pressione che dovresti leggere sul manometro a ogni tappa, se respiri al consumo
-          pianificato e stai sul profilo. Serve ad accorgersi di uno scostamento{' '}
-          <em>mentre puoi ancora rimediare</em>: la pressione di rientro da sola dice se tornare
-          adesso, non se stai consumando più del previsto.
+          La pressione che dovresti leggere sul manometro a ogni tappa, se respiri al consumo pianificato e
+          stai sul profilo. Serve ad accorgersi di uno scostamento <em>mentre puoi ancora rimediare</em>: la
+          pressione di rientro da sola dice se tornare adesso, non se stai consumando più del previsto.
         </p>
         <PressureTimeline plan={plan} schedule={schedule} turnAt={turnAt} />
         <ScheduleTable schedule={schedule} plan={plan} turnAt={turnAt} />
         <p className="muted" style={{ fontSize: 11, marginTop: 10, marginBottom: 0 }}>
-          Questa tabella non è una procedura standard. La didattica tecnica insegna due cose
-          separate: il <em>run time schedule</em> — azione, profondità, sosta, tempo trascorso — che si
-          porta sott'acqua su una lavagnetta e non ha nessuna colonna di pressione, e la{' '}
-          <em>turn pressure</em>, che è un numero solo. La colonna dei bar è costruita con le formule
-          del manuale (tempo × ATA medi × consumo) ma è un'aggiunta nostra.
+          Questa tabella non è una procedura standard. La didattica tecnica insegna due cose separate: il{' '}
+          <em>run time schedule</em> — azione, profondità, sosta, tempo trascorso — che si porta sott'acqua su
+          una lavagnetta e non ha nessuna colonna di pressione, e la <em>turn pressure</em>, che è un numero
+          solo. La colonna dei bar è costruita con le formule del manuale (tempo × ATA medi × consumo) ma è
+          un'aggiunta nostra.
         </p>
       </div>
 
@@ -907,8 +927,8 @@ export function Planner() {
         <div className="card">
           <h2>Se scendi più giù</h2>
           <p className="card-sub">
-            Tempo di fondo che il gas consente, al variare della profondità. La media segue la massima
-            in proporzione, come nel modulo; il resto del piano resta com'è.
+            Tempo di fondo che il gas consente, al variare della profondità. La media segue la massima in
+            proporzione, come nel modulo; il resto del piano resta com'è.
           </p>
           <CurveChart
             points={byDepth.map((d) => ({ x: d.x, y: d.bottom }))}
@@ -924,8 +944,8 @@ export function Planner() {
           <div className="card">
             <h2>Gas minimo per profondità</h2>
             <p className="card-sub">
-              Quanti bar restano bloccati per l'emergenza. Cresce più che linearmente: la risalita è più
-              lunga e ogni minuto costa di più. È esattamente ciò che una riserva fissa non vede.
+              Quanti bar restano bloccati per l'emergenza. Cresce più che linearmente: la risalita è più lunga
+              e ogni minuto costa di più. È esattamente ciò che una riserva fissa non vede.
             </p>
             <CurveChart
               points={byDepth.map((d) => ({ x: d.x, y: d.reserve }))}
@@ -942,8 +962,8 @@ export function Planner() {
         <div className="card">
           <h2>Quanto conta il tuo respiro</h2>
           <p className="card-sub">
-            A {shown.depthM} m, tempo di fondo consentito al variare del consumo. La distanza fra la
-            tua mediana e il tuo peggiore è la ragione per cui si pianifica sul 75° percentile.
+            A {shown.depthM} m, tempo di fondo consentito al variare del consumo. La distanza fra la tua
+            mediana e il tuo peggiore è la ragione per cui si pianifica sul 75° percentile.
           </p>
           <CurveChart
             points={byRmv}
@@ -959,9 +979,9 @@ export function Planner() {
         <div className="card">
           <h2>Esposizione all'ossigeno</h2>
           <p className="card-sub">
-            Tabelle NOAA come le riportano i manuali TDI. Il CNS è il rischio di crisi convulsiva e si
-            dimezza ogni 90 minuti in superficie; gli OTU sono il danno polmonare cumulativo e non
-            recuperano fra un'immersione e l'altra.
+            Tabelle NOAA come le riportano i manuali TDI. Il CNS è il rischio di crisi convulsiva e si dimezza
+            ogni 90 minuti in superficie; gli OTU sono il danno polmonare cumulativo e non recuperano fra
+            un'immersione e l'altra.
           </p>
           <div className="grid grid-tiles" style={{ gap: 10 }}>
             <StatTile
@@ -1002,7 +1022,10 @@ export function Planner() {
             <StatTile
               label="PPO2 al fondo"
               value={
-                <span className="tabular" style={{ color: plan.ppo2AtDepth > shown.maxPpo2 ? 'var(--critical)' : undefined }}>
+                <span
+                  className="tabular"
+                  style={{ color: plan.ppo2AtDepth > shown.maxPpo2 ? 'var(--critical)' : undefined }}
+                >
                   {plan.ppo2AtDepth.toFixed(2)}
                 </span>
               }
@@ -1031,13 +1054,13 @@ export function Planner() {
         <h2>Il piano contro la realtà</h2>
         <p className="card-sub">
           Un pianificatore generico si ferma al numero. Qui accanto c'è come sono andate le immersioni a
-          profondità simile (±5 m) nel periodo scelto: se il piano promette un'uscita più generosa di
-          quelle, il piano è ottimista.
+          profondità simile (±5 m) nel periodo scelto: se il piano promette un'uscita più generosa di quelle,
+          il piano è ottimista.
         </p>
         {similar.n === 0 ? (
           <p className="muted" style={{ fontSize: 13, margin: 0 }}>
-            Nessuna immersione con pressione d'uscita fra {Math.max(0, shown.depthM - 5)} e{' '}
-            {shown.depthM + 5} m nel periodo scelto: niente con cui confrontare.
+            Nessuna immersione con pressione d'uscita fra {Math.max(0, shown.depthM - 5)} e {shown.depthM + 5}{' '}
+            m nel periodo scelto: niente con cui confrontare.
           </p>
         ) : (
           <>
@@ -1059,7 +1082,12 @@ export function Planner() {
               <StatTile
                 label="Uscita più bassa"
                 value={
-                  <span className="tabular" style={{ color: (similar.minEndBar ?? 999) < LIMITS.minReserveBar ? 'var(--warning)' : undefined }}>
+                  <span
+                    className="tabular"
+                    style={{
+                      color: (similar.minEndBar ?? 999) < LIMITS.minReserveBar ? 'var(--warning)' : undefined,
+                    }}
+                  >
                     {similar.minEndBar} bar
                   </span>
                 }
@@ -1090,9 +1118,9 @@ export function Planner() {
       <div className="card">
         <h2>E se…</h2>
         <p className="card-sub">
-          Gli schedule di contingenza che la didattica chiede di avere in tasca prima di entrare: lo
-          stesso piano con un parametro cambiato. La domanda «e se resto giù cinque minuti in più» va
-          fatta adesso, non a quaranta metri.
+          Gli schedule di contingenza che la didattica chiede di avere in tasca prima di entrare: lo stesso
+          piano con un parametro cambiato. La domanda «e se resto giù cinque minuti in più» va fatta adesso,
+          non a quaranta metri.
         </p>
         <div className="table-scroll">
           <table>
@@ -1113,34 +1141,46 @@ export function Planner() {
                       <span style={{ fontWeight: 550 }}>{c.label}</span>
                     </div>
                   </td>
-                  <td className="num tabular" style={{ textAlign: 'right', fontWeight: 650, color: c.fits ? undefined : 'var(--critical)' }}>
+                  <td
+                    className="num tabular"
+                    style={{
+                      textAlign: 'right',
+                      fontWeight: 650,
+                      color: c.fits ? undefined : 'var(--critical)',
+                    }}
+                  >
                     {c.plan.expectedEndBar} bar
                   </td>
                   <td className="num tabular muted" style={{ textAlign: 'right' }}>
                     {c.endBarDelta > 0 ? `+${c.endBarDelta}` : c.endBarDelta}
                   </td>
-                  <td className="muted" style={{ fontSize: 12 }}>{c.change}</td>
+                  <td className="muted" style={{ fontSize: 12 }}>
+                    {c.change}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <p className="muted" style={{ fontSize: 11, marginTop: 10, marginBottom: 0 }}>
-          Il pallino rosso significa che quello scenario consuma la riserva: non che sia vietato, ma
-          che se succede il piano cambia e devi saperlo prima.
+          Il pallino rosso significa che quello scenario consuma la riserva: non che sia vietato, ma che se
+          succede il piano cambia e devi saperlo prima.
         </p>
       </div>
 
       <div className="card">
         <h2>Prima di scendere</h2>
         <p className="card-sub">
-          Il controllo in cinque lettere della didattica tecnica. Non è un promemoria generico: ogni
-          lettera corrisponde a qualcosa che si guarda insieme al compagno, in superficie.
+          Il controllo in cinque lettere della didattica tecnica. Non è un promemoria generico: ogni lettera
+          corrisponde a qualcosa che si guarda insieme al compagno, in superficie.
         </p>
         <div className="stack" style={{ gap: 10 }}>
           {[
-            ['S — Drill', 'Prova dell\'esaurimento gas e controllo delle bolle: erogatore di scorta in mano, non in teoria.'],
-            ['T — Team', 'Controllo incrociato dell\'attrezzatura: chi ha cosa, dove, e come si apre.'],
+            [
+              'S — Drill',
+              "Prova dell'esaurimento gas e controllo delle bolle: erogatore di scorta in mano, non in teoria.",
+            ],
+            ['T — Team', "Controllo incrociato dell'attrezzatura: chi ha cosa, dove, e come si apre."],
             [
               'A — Aria',
               plan.turnBar !== undefined
@@ -1155,7 +1195,9 @@ export function Planner() {
           ].map(([letter, text]) => (
             <div key={letter} className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
               <span style={{ fontWeight: 700, minWidth: 78, fontSize: 13 }}>{letter}</span>
-              <span className="secondary" style={{ fontSize: 13 }}>{text}</span>
+              <span className="secondary" style={{ fontSize: 13 }}>
+                {text}
+              </span>
             </div>
           ))}
         </div>
@@ -1173,38 +1215,36 @@ export function Planner() {
         <h2>Cosa questo pianificatore non fa</h2>
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--text-secondary)' }}>
           <li>
-            <strong>Non calcola la decompressione.</strong> Le soste obbligatorie dipendono dal modello,
-            dai gradient factor e dalla storia dei tessuti: sono il dominio del computer e del corso, non
-            di una sottrazione. Se il tuo piano prevede soste, inseriscile come minuti aggiuntivi e
-            l'aritmetica del gas le include.
+            <strong>Non calcola la decompressione.</strong> Le soste obbligatorie dipendono dal modello, dai
+            gradient factor e dalla storia dei tessuti: sono il dominio del computer e del corso, non di una
+            sottrazione. Se il tuo piano prevede soste, inseriscile come minuti aggiuntivi e l'aritmetica del
+            gas le include.
           </li>
           <li>
-            Il gas di ogni fase è calcolato alla profondità media della fase. Non è un'approssimazione:
-            la pressione ambiente è affine nella profondità, quindi la sua media nel tempo è esattamente
-            il valore alla profondità media. È anche il motivo per cui non ti viene chiesta la velocità
-            di discesa — non cambierebbe nessun risultato.
+            Il gas di ogni fase è calcolato alla profondità media della fase. Non è un'approssimazione: la
+            pressione ambiente è affine nella profondità, quindi la sua media nel tempo è esattamente il
+            valore alla profondità media. È anche il motivo per cui non ti viene chiesta la velocità di
+            discesa — non cambierebbe nessun risultato.
           </li>
           <li>
-            La profondità narcotica considera narcotico anche l'ossigeno, non solo l'azoto: è la
-            convenzione della didattica tecnica — «non immergerti col nitrox più in profondità di
-            quanto faresti con l'aria» — e per una miscela senza elio l'END coincide con la
-            profondità. La convenzione opposta, che conta solo l'azoto, dice che col nitrox sei meno
-            narcotizzato: è la meno prudente delle due.
+            La profondità narcotica considera narcotico anche l'ossigeno, non solo l'azoto: è la convenzione
+            della didattica tecnica — «non immergerti col nitrox più in profondità di quanto faresti con
+            l'aria» — e per una miscela senza elio l'END coincide con la profondità. La convenzione opposta,
+            che conta solo l'azoto, dice che col nitrox sei meno narcotizzato: è la meno prudente delle due.
           </li>
           <li>
-            Del tempo di fondo il piano conosce la media e il massimo, non la forma. Due profili diversi
-            con la stessa media consumano lo stesso gas, quindi la forma non serve: serve però al
-            computer per la decompressione, ed è un'altra ragione per cui le soste vengono da lui.
+            Del tempo di fondo il piano conosce la media e il massimo, non la forma. Due profili diversi con
+            la stessa media consumano lo stesso gas, quindi la forma non serve: serve però al computer per la
+            decompressione, ed è un'altra ragione per cui le soste vengono da lui.
           </li>
           <li>
-            La regola dei terzi presuppone un ritorno obbligato. Su un'immersione lineare con risalita
-            libera è più severa del necessario: il numero utile lì è il gas minimo, non la pressione di
-            rientro.
+            La regola dei terzi presuppone un ritorno obbligato. Su un'immersione lineare con risalita libera
+            è più severa del necessario: il numero utile lì è il gas minimo, non la pressione di rientro.
           </li>
           <li>
-            Il consumo misurato viene dalle immersioni che avevano le pressioni:{' '}
-            {rmv.n} su {scope.dives.length} nel periodo, {dives.length} in archivio. Un consumo calcolato
-            su poche immersioni è un consumo poco conosciuto.
+            Il consumo misurato viene dalle immersioni che avevano le pressioni: {rmv.n} su{' '}
+            {scope.dives.length} nel periodo, {dives.length} in archivio. Un consumo calcolato su poche
+            immersioni è un consumo poco conosciuto.
           </li>
         </ul>
       </div>
@@ -1445,9 +1485,23 @@ function PressureBudget({ plan }: { plan: GasPlan }) {
           if (bw < 0.5) return null;
           return (
             <g key={b.label}>
-              <rect x={x(b.from)} y={pad.top} width={bw} height={trackH} fill={b.fill} stroke={b.stroke} strokeWidth={1} />
+              <rect
+                x={x(b.from)}
+                y={pad.top}
+                width={bw}
+                height={trackH}
+                fill={b.fill}
+                stroke={b.stroke}
+                strokeWidth={1}
+              />
               {bw > 60 && (
-                <text x={x(b.from) + bw / 2} y={pad.top + trackH / 2 + 4} textAnchor="middle" fontSize={10} fill="var(--text-primary)">
+                <text
+                  x={x(b.from) + bw / 2}
+                  y={pad.top + trackH / 2 + 4}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fill="var(--text-primary)"
+                >
                   {b.label}
                 </text>
               )}
@@ -1457,14 +1511,27 @@ function PressureBudget({ plan }: { plan: GasPlan }) {
 
         {/* Scala in bar: zero a sinistra, partenza a destra. */}
         {[0, Math.round(start / 2), start].map((t) => (
-          <text key={t} className="axis-label" x={x(t)} y={height - 6} textAnchor={t === 0 ? 'start' : t === start ? 'end' : 'middle'}>
+          <text
+            key={t}
+            className="axis-label"
+            x={x(t)}
+            y={height - 6}
+            textAnchor={t === 0 ? 'start' : t === start ? 'end' : 'middle'}
+          >
             {t} bar
           </text>
         ))}
 
         {marks.map((m, i) => (
           <g key={m.label}>
-            <line x1={x(m.bar)} x2={x(m.bar)} y1={pad.top - 7} y2={pad.top + trackH + 7} stroke={m.color} strokeWidth={1.5} />
+            <line
+              x1={x(m.bar)}
+              x2={x(m.bar)}
+              y1={pad.top - 7}
+              y2={pad.top + trackH + 7}
+              stroke={m.color}
+              strokeWidth={1.5}
+            />
             <text
               x={Math.min(width - 4, Math.max(4, x(m.bar)))}
               y={i === 0 ? pad.top - 11 : pad.top + trackH + 19}
@@ -1516,7 +1583,14 @@ function AscentSchematic({ plan }: { plan: GasPlan }) {
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img">
         {[0, maxD / 2, maxD].map((d) => (
           <g key={d}>
-            <line x1={pad.left} x2={width - pad.right} y1={y(d)} y2={y(d)} stroke="var(--grid)" strokeWidth={1} />
+            <line
+              x1={pad.left}
+              x2={width - pad.right}
+              y1={y(d)}
+              y2={y(d)}
+              stroke="var(--grid)"
+              strokeWidth={1}
+            />
             <text className="axis-label" x={pad.left - 6} y={y(d) + 3} textAnchor="end">
               {Math.round(d)}
             </text>
@@ -1536,15 +1610,43 @@ function AscentSchematic({ plan }: { plan: GasPlan }) {
           return (
             <g key={s.phase.label}>
               <path d={area} fill="var(--series-1)" opacity={0.1 + i * 0.05} />
-              <line x1={x(s.startMin)} x2={x(s.startMin)} y1={pad.top} y2={y(0)} stroke="var(--axis)" strokeWidth={1} strokeDasharray="2 3" />
-              <line x1={x(s.startMin)} x2={x(s.endMin)} y1={y(s.fromM)} y2={y(s.toM)} stroke="var(--series-1)" strokeWidth={2} />
+              <line
+                x1={x(s.startMin)}
+                x2={x(s.startMin)}
+                y1={pad.top}
+                y2={y(0)}
+                stroke="var(--axis)"
+                strokeWidth={1}
+                strokeDasharray="2 3"
+              />
+              <line
+                x1={x(s.startMin)}
+                x2={x(s.endMin)}
+                y1={y(s.fromM)}
+                y2={y(s.toM)}
+                stroke="var(--series-1)"
+                strokeWidth={2}
+              />
               {w > 34 && (
-                <text x={x(s.startMin) + w / 2} y={Math.max(pad.top + 10, midY - 8)} textAnchor="middle" fontSize={10} fontWeight={650} fill="var(--text-primary)">
+                <text
+                  x={x(s.startMin) + w / 2}
+                  y={Math.max(pad.top + 10, midY - 8)}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fontWeight={650}
+                  fill="var(--text-primary)"
+                >
                   {s.phase.litres} L
                 </text>
               )}
               {w > 34 && (
-                <text x={x(s.startMin) + w / 2} y={height - 16} textAnchor="middle" fontSize={9} fill="var(--text-muted)">
+                <text
+                  x={x(s.startMin) + w / 2}
+                  y={height - 16}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fill="var(--text-muted)"
+                >
                   {s.phase.minutes.toFixed(s.phase.minutes < 1 ? 1 : 0)}′
                 </text>
               )}
@@ -1649,7 +1751,13 @@ function TimeSplitBar({ plan }: { plan: GasPlan }) {
             <g key={p.label}>
               <rect x={left} y={0} width={Math.max(0, w - 1)} height={barH} fill={p.fill} rx={3} />
               {w > 64 && (
-                <text x={left + w / 2} y={barH / 2 + 4} textAnchor="middle" fontSize={11} fill="var(--text-primary)">
+                <text
+                  x={left + w / 2}
+                  y={barH / 2 + 4}
+                  textAnchor="middle"
+                  fontSize={11}
+                  fill="var(--text-primary)"
+                >
                   {p.label}
                 </text>
               )}
@@ -1666,7 +1774,13 @@ function TimeSplitBar({ plan }: { plan: GasPlan }) {
                 </text>
               )}
               {w > 40 && (
-                <text x={left + w / 2} y={barH + 30} textAnchor="middle" fontSize={10} fill="var(--text-muted)">
+                <text
+                  x={left + w / 2}
+                  y={barH + 30}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fill="var(--text-muted)"
+                >
                   {Math.round((p.min / total) * 100)}%
                 </text>
               )}
@@ -1705,7 +1819,14 @@ function ProfileChart({ plan }: { plan: GasPlan }) {
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img">
         {[0, maxD / 2, maxD].map((d) => (
           <g key={d}>
-            <line x1={pad.left} x2={width - pad.right} y1={y(d)} y2={y(d)} stroke="var(--grid)" strokeWidth={1} />
+            <line
+              x1={pad.left}
+              x2={width - pad.right}
+              y1={y(d)}
+              y2={y(d)}
+              stroke="var(--grid)"
+              strokeWidth={1}
+            />
             <text className="axis-label" x={pad.left - 6} y={y(d) + 3} textAnchor="end">
               {Math.round(d)}
             </text>
@@ -1722,7 +1843,13 @@ function ProfileChart({ plan }: { plan: GasPlan }) {
           strokeWidth={1.5}
           strokeDasharray="5 4"
         />
-        <text className="axis-label" x={width - pad.right} y={y(maxD) - 5} textAnchor="end" fill="var(--series-2)">
+        <text
+          className="axis-label"
+          x={width - pad.right}
+          y={y(maxD) - 5}
+          textAnchor="end"
+          fill="var(--series-2)"
+        >
           massima {plan.input.depthM} m
         </text>
 
@@ -1760,7 +1887,13 @@ function ProfileChart({ plan }: { plan: GasPlan }) {
                 </text>
               )}
               {w > 44 && (
-                <text x={x(s.startMin) + w / 2} y={height - 18} textAnchor="middle" fontSize={9} fill="var(--text-muted)">
+                <text
+                  x={x(s.startMin) + w / 2}
+                  y={height - 18}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fill="var(--text-muted)"
+                >
                   {formatRuntime(s.phase.minutes)}
                 </text>
               )}
@@ -1829,7 +1962,9 @@ function PressureTimeline({
   const maxD = Math.max(1, plan.input.depthM);
   const yDepth = (d: number) => pad.top + barH + 10 + (d / maxD) * (depthH - 10);
 
-  const line = schedule.map((p, i) => `${i ? 'L' : 'M'}${x(p.runMin).toFixed(1)},${yBar(p.bar).toFixed(1)}`).join(' ');
+  const line = schedule
+    .map((p, i) => `${i ? 'L' : 'M'}${x(p.runMin).toFixed(1)},${yBar(p.bar).toFixed(1)}`)
+    .join(' ');
   const depthLine = schedule
     .map((p, i) => `${i ? 'L' : 'M'}${x(p.runMin).toFixed(1)},${yDepth(p.depthM).toFixed(1)}`)
     .join(' ');
@@ -1867,13 +2002,25 @@ function PressureTimeline({
           height={Math.max(0, pad.top + barH - yBar(plan.reserveBar))}
           fill="var(--series-2-wash)"
         />
-        <text className="axis-label" x={width - pad.right + 4} y={yBar(plan.reserveBar) + 10} fill="var(--series-2)">
+        <text
+          className="axis-label"
+          x={width - pad.right + 4}
+          y={yBar(plan.reserveBar) + 10}
+          fill="var(--series-2)"
+        >
           riserva
         </text>
 
         {[0, Math.round(start / 2), start].map((b) => (
           <g key={b}>
-            <line x1={pad.left} x2={width - pad.right} y1={yBar(b)} y2={yBar(b)} stroke="var(--grid)" strokeWidth={1} />
+            <line
+              x1={pad.left}
+              x2={width - pad.right}
+              y1={yBar(b)}
+              y2={yBar(b)}
+              stroke="var(--grid)"
+              strokeWidth={1}
+            />
             <text className="axis-label" x={pad.left - 6} y={yBar(b) + 3} textAnchor="end">
               {b}
             </text>
@@ -1882,8 +2029,22 @@ function PressureTimeline({
 
         {turnAt !== undefined && plan.turnBar !== undefined && (
           <g>
-            <line x1={x(turnAt)} x2={x(turnAt)} y1={pad.top} y2={pad.top + barH} stroke="var(--text-primary)" strokeWidth={1.5} strokeDasharray="4 3" />
-            <text x={x(turnAt) + 4} y={pad.top + 10} fontSize={10} fontWeight={650} fill="var(--text-primary)">
+            <line
+              x1={x(turnAt)}
+              x2={x(turnAt)}
+              y1={pad.top}
+              y2={pad.top + barH}
+              stroke="var(--text-primary)"
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+            />
+            <text
+              x={x(turnAt) + 4}
+              y={pad.top + 10}
+              fontSize={10}
+              fontWeight={650}
+              fill="var(--text-primary)"
+            >
               rientro {plan.turnBar}
             </text>
           </g>
@@ -1957,7 +2118,10 @@ function ScheduleTable({
             const atTurn = turnAt !== undefined && Math.abs(p.runMin - turnAt) < 0.51;
             return (
               <tr key={`${p.runMin}-${p.phase}`}>
-                <td className="num tabular" style={{ textAlign: 'right', fontWeight: p.boundary ? 700 : 400 }}>
+                <td
+                  className="num tabular"
+                  style={{ textAlign: 'right', fontWeight: p.boundary ? 700 : 400 }}
+                >
                   {p.runMin}
                 </td>
                 <td className="num tabular" style={{ textAlign: 'right' }}>
@@ -1965,7 +2129,11 @@ function ScheduleTable({
                 </td>
                 <td
                   className="num tabular"
-                  style={{ textAlign: 'right', fontWeight: 650, color: belowReserve ? 'var(--critical)' : undefined }}
+                  style={{
+                    textAlign: 'right',
+                    fontWeight: 650,
+                    color: belowReserve ? 'var(--critical)' : undefined,
+                  }}
                 >
                   {p.bar} bar
                 </td>
@@ -1974,7 +2142,11 @@ function ScheduleTable({
                 </td>
                 <td className="muted" style={{ fontSize: 12 }}>
                   {p.phase}
-                  {atTurn && <span className="badge" style={{ marginLeft: 6 }}>rientro</span>}
+                  {atTurn && (
+                    <span className="badge" style={{ marginLeft: 6 }}>
+                      rientro
+                    </span>
+                  )}
                 </td>
               </tr>
             );
@@ -2003,25 +2175,36 @@ function CurveCard({ curve, plan }: { curve: PlanCurveResult; plan: GasPlan }) {
     <div className="card">
       <h2>Curva di sicurezza</h2>
       <p className="card-sub">
-        Bühlmann ZH-L16C con gradient factor 40/85, la scelta ricreativa più comune. Il gas del fondo
-        per tutta la durata: se scendi con un computer impostato diversamente, i minuti cambiano, ed è
-        il computer ad avere ragione.
+        Bühlmann ZH-L16C con gradient factor 40/85, la scelta ricreativa più comune. Il gas del fondo per
+        tutta la durata: se scendi con un computer impostato diversamente, i minuti cambiano, ed è il computer
+        ad avere ragione.
       </p>
       <div className="grid grid-tiles">
         <StatTile
           label="Curva alla massima"
-          value={<span className="tabular">{curve.ndlAtMaxMin.toFixed(0)} <small style={{ fontSize: 14 }}>min</small></span>}
+          value={
+            <span className="tabular">
+              {curve.ndlAtMaxMin.toFixed(0)} <small style={{ fontSize: 14 }}>min</small>
+            </span>
+          }
           note={`fermo a ${shown.depthM} m con ${mixName(shown.mix)}`}
         />
         <StatTile
           label="Curva alla media"
-          value={<span className="tabular">{curve.ndlAtAvgMin.toFixed(0)} <small style={{ fontSize: 14 }}>min</small></span>}
+          value={
+            <span className="tabular">
+              {curve.ndlAtAvgMin.toFixed(0)} <small style={{ fontSize: 14 }}>min</small>
+            </span>
+          }
           note={`a ${shown.avgDepthM} m, la profondità a cui stai davvero`}
         />
         <StatTile
           label="Il tuo piano"
           value={
-            <span className="tabular" style={{ color: esce !== undefined ? 'var(--critical)' : 'var(--good-text)' }}>
+            <span
+              className="tabular"
+              style={{ color: esce !== undefined ? 'var(--critical)' : 'var(--good-text)' }}
+            >
               {esce !== undefined ? `esce al ${esce.toFixed(0)}°` : 'in curva'}
             </span>
           }
@@ -2040,9 +2223,9 @@ function CurveCard({ curve, plan }: { curve: PlanCurveResult; plan: GasPlan }) {
       {esce !== undefined && (
         <div className="notice notice-error" style={{ marginTop: 12 }}>
           <strong style={{ fontWeight: 650 }}>Questo piano non è ricreativo. </strong>
-          Al minuto {esce.toFixed(0)} prendi un obbligo di decompressione, e da lì risalire dritti non è
-          più un'opzione. Accorcia il fondo, tira su la media, oppure passa alla modalità tecnica e
-          pianifica le soste con i gas giusti — che è la cosa che richiede un corso, non un bottone.
+          Al minuto {esce.toFixed(0)} prendi un obbligo di decompressione, e da lì risalire dritti non è più
+          un'opzione. Accorcia il fondo, tira su la media, oppure passa alla modalità tecnica e pianifica le
+          soste con i gas giusti — che è la cosa che richiede un corso, non un bottone.
         </div>
       )}
     </div>

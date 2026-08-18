@@ -38,7 +38,10 @@ export function Mark({ size = 28 }: { size?: number }) {
       </defs>
       <rect width="1024" height="1024" rx="228" fill="url(#mark-water)" />
       <g clipPath="url(#mark-card)">
-        <path d="M150 318 L352 756 L566 756 L694 536 L792 536 L878 330 L878 318 L150 318 Z" fill="url(#mark-column)" />
+        <path
+          d="M150 318 L352 756 L566 756 L694 536 L792 536 L878 330 L878 318 L150 318 Z"
+          fill="url(#mark-column)"
+        />
         <path
           d="M150 318 L352 756 L566 756 L694 536 L792 536 L878 330"
           stroke="#9ac6f8"

@@ -110,9 +110,7 @@ function sganciaFile(host: HTMLElement, nomi: string[]) {
 }
 
 function premi(host: HTMLElement, etichetta: string) {
-  const bottone = [...host.querySelectorAll('button')].find((b) =>
-    (b.textContent ?? '').includes(etichetta),
-  );
+  const bottone = [...host.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes(etichetta));
   if (!bottone) throw new Error(`nessun pulsante con «${etichetta}»`);
   act(() => {
     bottone.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -224,9 +222,7 @@ describe('annunci della pagina di import', () => {
     expect(stato(vista.host)).toContain('1 file su 2 letti');
     // …quello che non è entrato interrompe, con il nome del file e il perché:
     // senza il nome, chi ha trascinato sei file non sa quale rimettere in coda.
-    expect(allarme(vista.host)).toBe(
-      '1 file su 2 non letti: rotto.xml (formato non riconosciuto).',
-    );
+    expect(allarme(vista.host)).toBe('1 file su 2 non letti: rotto.xml (formato non riconosciuto).');
     vista.smonta();
   });
 

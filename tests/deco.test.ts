@@ -152,7 +152,14 @@ describe('scelta del gas', () => {
     // Il difetto trovato provando il motore: salendo da 40 a 20 metri il piano
     // passava all'EAN50 PRIMA di risalire, cioè prevedeva di respirarlo a
     // quaranta metri, a 2.5 bar di PPO2.
-    const r = planDeco([{ depthM: 40, minutes: 15 }, { depthM: 20, minutes: 20 }], [AIR, EAN50], GF);
+    const r = planDeco(
+      [
+        { depthM: 40, minutes: 15 },
+        { depthM: 20, minutes: 20 },
+      ],
+      [AIR, EAN50],
+      GF,
+    );
     const profondi = r.segments.filter((x) => Math.max(x.fromM, x.toM) > 25);
     for (const seg of profondi) expect(seg.ppo2).toBeLessThan(1.7);
   });
@@ -242,7 +249,10 @@ describe('quota e tempo di volo', () => {
 
   it('un’immersione impegnativa allunga l’attesa prima del volo', () => {
     const leggera = planDeco([{ depthM: 15, minutes: 30 }], [AIR], GF);
-    const pesante = planDeco([{ depthM: 45, minutes: 30 }], [TX2135, EAN50, OXY], { gfLow: 0.3, gfHigh: 0.8 });
+    const pesante = planDeco([{ depthM: 45, minutes: 30 }], [TX2135, EAN50, OXY], {
+      gfLow: 0.3,
+      gfHigh: 0.8,
+    });
     expect(pesante.timeToFlyH!).toBeGreaterThanOrEqual(leggera.timeToFlyH!);
   });
 });
@@ -580,7 +590,10 @@ describe('la giornata, non l’immersione', () => {
 
   it('una serie di una sola immersione è identica al piano singolo', () => {
     const singola = planDeco([{ depthM: 32, minutes: 40 }], [air24], GF);
-    const serie = planSeries([{ levels: [{ depthM: 32, minutes: 40 }], gases: [air24], surfaceIntervalMin: 0 }], GF);
+    const serie = planSeries(
+      [{ levels: [{ depthM: 32, minutes: 40 }], gases: [air24], surfaceIntervalMin: 0 }],
+      GF,
+    );
     expect(serie).toHaveLength(1);
     expect(serie[0].decoMin).toBe(singola.decoMin);
     expect(serie[0].runtimeMin).toBeCloseTo(singola.runtimeMin, 3);
@@ -736,7 +749,13 @@ describe('difetti trovati dalla revisione', () => {
   });
 
   it('dichiara che sopra 1.6 bar il CNS è una sottostima', () => {
-    const ricco: PlanGas = { mix: { o2: 1, he: 0 }, role: 'bottom', tankL: 11, startBar: 200, switchDepthM: 30 };
+    const ricco: PlanGas = {
+      mix: { o2: 1, he: 0 },
+      role: 'bottom',
+      tankL: 11,
+      startBar: 200,
+      switchDepthM: 30,
+    };
     const r = planDeco([{ depthM: 30, minutes: 20 }], [ricco], GF);
     expect(r.warnings.some((w) => w.text.includes('SOTTOSTIMA'))).toBe(true);
   });

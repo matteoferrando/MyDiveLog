@@ -59,9 +59,7 @@ function render(text: string): ReactNode[] {
       const content = inline(heading[2]);
       // Le intestazioni delle analisi partono da ## : le mappiamo su h3/h4 per
       // non competere con il titolo della carta che le contiene.
-      out.push(
-        level <= 2 ? <h3 key={key++}>{content}</h3> : <h4 key={key++}>{content}</h4>,
-      );
+      out.push(level <= 2 ? <h3 key={key++}>{content}</h3> : <h4 key={key++}>{content}</h4>);
       continue;
     }
 

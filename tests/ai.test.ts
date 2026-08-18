@@ -165,7 +165,11 @@ describe('client', () => {
     const calls: { url: string; init: RequestInit }[] = [];
     const fake = vi.fn(async (url: string, init: RequestInit) => {
       calls.push({ url, init });
-      return jsonResponse({ content: [{ type: 'text', text: 'ciao' }], model: 'test-model', usage: { input_tokens: 10, output_tokens: 3 } });
+      return jsonResponse({
+        content: [{ type: 'text', text: 'ciao' }],
+        model: 'test-model',
+        usage: { input_tokens: 10, output_tokens: 3 },
+      });
     });
     const result = await ask(CREDS, { system: 'S', prompt: 'P', fetchImpl: fake });
     expect(result.text).toBe('ciao');
@@ -204,7 +208,11 @@ describe('client', () => {
 
   it('traduce gli errori dell’API in messaggi utili', async () => {
     await expect(
-      ask(CREDS, { system: 'S', prompt: 'P', fetchImpl: async () => jsonResponse({ error: { message: 'x' } }, 401) }),
+      ask(CREDS, {
+        system: 'S',
+        prompt: 'P',
+        fetchImpl: async () => jsonResponse({ error: { message: 'x' } }, 401),
+      }),
     ).rejects.toThrow(/non valida/);
     await expect(
       ask(CREDS, { system: 'S', prompt: 'P', fetchImpl: async () => jsonResponse({}, 429) }),
@@ -314,7 +322,7 @@ describe('istruzioni tarate sul contesto', () => {
     expect(SYSTEM).toMatch(/compilati a mano/);
     expect(SYSTEM).toMatch(/Non elencarli uno per uno/);
   });
-})
+});
 
 /**
  * Il contesto del piano di decompressione.
@@ -333,7 +341,14 @@ describe('contesto del piano di decompressione', () => {
   ];
   const settings: DecoSettings = { ...DEFAULT_DECO, gfLow: 0.3, gfHigh: 0.8, lastStopM: 6 };
   const result = planDeco(levels, gases, settings);
-  const ctx = decoPlanContext(result, levels, gases, settings, decoContingencies(levels, gases, settings), 'Bühlmann ZH-L16C con GF 30/80');
+  const ctx = decoPlanContext(
+    result,
+    levels,
+    gases,
+    settings,
+    decoContingencies(levels, gases, settings),
+    'Bühlmann ZH-L16C con GF 30/80',
+  );
   const parsed = JSON.parse(ctx);
 
   it('porta il piano intero: soste, gas, ossigeno, contingenze', () => {
@@ -370,4 +385,4 @@ describe('contesto del piano di decompressione', () => {
     expect(spec.prompt).toMatch(/sta inventando numeri/);
     expect(spec.prompt).toContain(ctx);
   });
-})
+});

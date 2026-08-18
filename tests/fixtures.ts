@@ -83,7 +83,7 @@ export interface Synthetic {
   avgDepth: number;
 }
 
-const G_DENSITY = 1030 * 9.80665 / 100_000; // bar per metro, acqua salata
+const G_DENSITY = (1030 * 9.80665) / 100_000; // bar per metro, acqua salata
 const ATM = 1.01325;
 
 export function synthesise(overrides: Partial<SyntheticSpec> = {}): Synthetic {
@@ -290,7 +290,10 @@ ${rows}
 // Shearwater XML — mezzi PSI, millibar, e con opzione imperiale.
 // ---------------------------------------------------------------------------
 
-export function toShearwaterXml(s: Synthetic, opts: { imperial?: boolean; diveNumber?: number } = {}): string {
+export function toShearwaterXml(
+  s: Synthetic,
+  opts: { imperial?: boolean; diveNumber?: number } = {},
+): string {
   const { spec, samples } = s;
   const imperial = opts.imperial ?? false;
   const num = opts.diveNumber ?? 1;
@@ -305,7 +308,7 @@ export function toShearwaterXml(s: Synthetic, opts: { imperial?: boolean; diveNu
       <currentTime>${w.t * 1000}</currentTime>
       <currentDepth>${depth(w.depth)}</currentDepth>
       <waterTemp>${temp(w.tempC)}</waterTemp>
-      <averagePPO2>${Math.round(spec.o2 * (1.01325 + w.depth * 0.1010) * 100)}</averagePPO2>
+      <averagePPO2>${Math.round(spec.o2 * (1.01325 + w.depth * 0.101) * 100)}</averagePPO2>
       <currentNdl>${Math.round(w.ndlS / 60)}</currentNdl>
       <firstStopDepth>${w.ceiling > 0 ? depth(w.ceiling) : '0'}</firstStopDepth>
       <firstStopTime>${w.ceiling > 0 ? 1 : 0}</firstStopTime>
@@ -567,7 +570,8 @@ export function encodeUwatecSmart(spec: UwatecFixtureSpec): Uint8Array {
     if (rawTemp.length) {
       const dt = rawTemp[i] - prevTemp;
       if (dt !== 0) {
-        if (dt >= -8 && dt <= 7) body.push(0xb0 | (dt & 0x0f)); // 1011dddd, 4 bit con segno
+        if (dt >= -8 && dt <= 7)
+          body.push(0xb0 | (dt & 0x0f)); // 1011dddd, 4 bit con segno
         else body.push(0xf3, (rawTemp[i] >> 8) & 0xff, rawTemp[i] & 0xff);
         prevTemp = rawTemp[i];
       }
@@ -615,9 +619,11 @@ export function toLogtrak(specs: UwatecFixtureSpec[], opts: { withProfile?: bool
     for (const v of b) s += String.fromCharCode(v);
     return typeof btoa === 'function'
       ? btoa(s)
-      : (globalThis as unknown as {
-          Buffer: { from(x: Uint8Array): { toString(e: string): string } };
-        }).Buffer.from(b).toString('base64');
+      : (
+          globalThis as unknown as {
+            Buffer: { from(x: Uint8Array): { toString(e: string): string } };
+          }
+        ).Buffer.from(b).toString('base64');
   };
 
   return JSON.stringify({

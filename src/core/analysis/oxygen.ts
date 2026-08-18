@@ -128,9 +128,7 @@ const EMPTY: OxygenExposure = {
 };
 
 /** Somma l'esposizione di una sequenza di tratti a PPO2 costante. */
-export function exposureOfSegments(
-  segments: { ppo2: number; minutes: number }[],
-): OxygenExposure {
+export function exposureOfSegments(segments: { ppo2: number; minutes: number }[]): OxygenExposure {
   const out = { ...EMPTY };
   for (const { ppo2, minutes } of segments) {
     if (!(minutes > 0)) continue;

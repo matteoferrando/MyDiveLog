@@ -18,7 +18,7 @@
  * da ottimizzazione.
  */
 
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { imm } from './format';
 import { Logbook } from './pages/Logbook';
 import { CLAIM, Mark } from './components/Mark';
@@ -71,12 +71,65 @@ const TABS: { id: View; label: string }[] = [
  * `aria-busy` dice a un lettore di schermo che quella regione è in transizione,
  * visto che non c'è testo a dirlo.
  */
+/**
+ * La rete sotto l'interfaccia.
+ *
+ * NON c'era, e il costo si è visto: un solo record senza `maxDepth` — arrivato
+ * da un backup malformato — faceva `undefined.toFixed(1)` nel logbook, React
+ * smontava l'intero albero, e restava una pagina BIANCA. Siccome il record era
+ * già sul disco, restava bianca anche dopo il riavvio: l'unico modo di rientrare
+ * era cancellare l'archivio del browser, cioè perdere tutto per colpa di una riga.
+ *
+ * Un'applicazione che scrive su un archivio persistente non può permettersi che
+ * un dato avvelenato la renda inavviabile. Qui l'errore resta confinato al
+ * contenuto — la barra di navigazione sopravvive, quindi si può andare in
+ * Impostazioni e ripristinare un backup — e viene mostrato invece che nascosto:
+ * chi legge deve poterlo copiare in una segnalazione.
+ */
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="page">
+        <div className="card">
+          <h2>Qualcosa si è rotto in questa pagina</h2>
+          <p className="card-sub">
+            Il resto dell'applicazione funziona: le altre schede sono raggiungibili dalla barra qui sopra. Se
+            succede sempre sulla stessa pagina, di solito è un dato d'archivio malformato — da{' '}
+            <b>Impostazioni</b> puoi ripristinare un backup o esportare quello che c'è prima di toccare altro.
+          </p>
+          <pre
+            style={{
+              fontSize: 12,
+              whiteSpace: 'pre-wrap',
+              background: 'var(--surface-3)',
+              padding: 10,
+              borderRadius: 'var(--radius-sm)',
+            }}
+          >
+            {this.state.error.message}
+          </pre>
+          <button className="btn" onClick={() => this.setState({ error: null })}>
+            Riprova
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
+
 function PagePlaceholder() {
   return <div className="page" aria-busy="true" style={{ minHeight: '70vh' }} />;
 }
 
 export function App() {
-  const { ready, dives } = useDiveLog();
+  const { ready, dives, initError } = useDiveLog();
   const [view, setView] = useState<View>('logbook');
   const [openDive, setOpenDive] = useState<string | null>(null);
 
@@ -134,27 +187,45 @@ export function App() {
        * ha appena finito di premerne uno.
        */}
       <main className="main">
-        <Suspense fallback={<PagePlaceholder />}>
-          {openDive ? (
-            <DiveDetail id={openDive} onBack={() => setOpenDive(null)} />
-          ) : view === 'logbook' ? (
-            <Logbook onOpen={setOpenDive} />
-          ) : view === 'stats' ? (
-            <Stats onOpen={setOpenDive} />
-          ) : view === 'coach' ? (
-            <Coach />
-          ) : view === 'planner' ? (
-            <Planner />
-          ) : view === 'compare' ? (
-            <Compare onOpen={setOpenDive} />
-          ) : view === 'gear' ? (
-            <Gear />
-          ) : view === 'sync' ? (
-            <SyncPage />
-          ) : (
-            <ImportPage onDone={() => go('logbook')} />
-          )}
-        </Suspense>
+        {/*
+         * L'avvio parziale si dichiara, e sta FUORI dall'ErrorBoundary.
+         *
+         * Se una parte dell'archivio non si è aperta, l'applicazione parte
+         * comunque — è la scelta giusta, meglio metà che niente — ma senza
+         * questa riga metà archivio e archivio vuoto sono indistinguibili, e la
+         * reazione naturale a «non ci sono le mie immersioni» è reimportarle,
+         * cioè scrivere sopra a un archivio che c'era già.
+         */}
+        {initError && (
+          <div className="page" style={{ paddingBottom: 0 }}>
+            <div className="notice notice-error" role="alert">
+              {initError}
+            </div>
+          </div>
+        )}
+        <ErrorBoundary>
+          <Suspense fallback={<PagePlaceholder />}>
+            {openDive ? (
+              <DiveDetail id={openDive} onBack={() => setOpenDive(null)} />
+            ) : view === 'logbook' ? (
+              <Logbook onOpen={setOpenDive} />
+            ) : view === 'stats' ? (
+              <Stats onOpen={setOpenDive} />
+            ) : view === 'coach' ? (
+              <Coach />
+            ) : view === 'planner' ? (
+              <Planner />
+            ) : view === 'compare' ? (
+              <Compare onOpen={setOpenDive} />
+            ) : view === 'gear' ? (
+              <Gear />
+            ) : view === 'sync' ? (
+              <SyncPage />
+            ) : (
+              <ImportPage onDone={() => go('logbook')} />
+            )}
+          </Suspense>
+        </ErrorBoundary>
       </main>
     </div>
   );

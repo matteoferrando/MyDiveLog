@@ -30,7 +30,7 @@ describe('niceTicks', () => {
     expect(niceTicks(0, 47, 4)).toEqual([0, 20, 40, 60]);
   });
 
-  it('l\'ultima tacca non è MAI sotto il massimo', () => {
+  it("l'ultima tacca non è MAI sotto il massimo", () => {
     // Questo è il bug che ha fatto uscire il profilo dal grafico: con hi = 28 e
     // passo 10 la sequenza si fermava a 20, e una profondità di 26 m veniva
     // disegnata fuori dall'area.
@@ -85,7 +85,7 @@ describe('geometria delle marche', () => {
     expect(d.startsWith('M0 100')).toBe(true);
   });
 
-  it('la barra orizzontale arrotonda solo l\'estremo del dato', () => {
+  it("la barra orizzontale arrotonda solo l'estremo del dato", () => {
     const d = roundedRightBar(50, 10, 100, 14, 4);
     expect(d.startsWith('M50 10')).toBe(true);
     expect(d).not.toContain('NaN');
@@ -212,9 +212,7 @@ describe('riassuntoSerie', () => {
 
   it('resta ordinato anche se i punti arrivano in disordine', () => {
     const disordinati = [punti[3], punti[0], punti[2], punti[1]];
-    expect(riassuntoSerie(disordinati, { unita: 'L/min' })).toBe(
-      riassuntoSerie(punti, { unita: 'L/min' }),
-    );
+    expect(riassuntoSerie(disordinati, { unita: 'L/min' })).toBe(riassuntoSerie(punti, { unita: 'L/min' }));
   });
 
   it('dichiara l’assenza di dati invece di stampare NaN', () => {
@@ -305,7 +303,10 @@ describe('campionaCurva', () => {
   });
 
   it('non duplica niente quando i punti sono già pochi', () => {
-    const punti = [{ x: 1, y: 1 }, { x: 2, y: 2 }];
+    const punti = [
+      { x: 1, y: 1 },
+      { x: 2, y: 2 },
+    ];
     expect(campionaCurva(punti, 6)).toEqual(punti);
   });
 });

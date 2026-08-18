@@ -43,7 +43,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
-    const by: Record<SortKey, (a: typeof out[0], b: typeof out[0]) => number> = {
+    const by: Record<SortKey, (a: (typeof out)[0], b: (typeof out)[0]) => number> = {
       date: (a, b) => +new Date(b.startTime) - +new Date(a.startTime),
       depth: (a, b) => b.maxDepth - a.maxDepth,
       duration: (a, b) => b.durationS - a.durationS,
@@ -58,8 +58,8 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
         <div className="empty">
           <h2>Nessuna immersione in archivio</h2>
           <p className="secondary" style={{ maxWidth: 460, margin: '0 auto' }}>
-            Importa un export dal tuo computer subacqueo per iniziare. Puoi caricare file da computer
-            diversi: le immersioni doppie vengono riconosciute e unite.
+            Importa un export dal tuo computer subacqueo per iniziare. Puoi caricare file da computer diversi:
+            le immersioni doppie vengono riconosciute e unite.
           </p>
         </div>
       </div>
@@ -83,8 +83,15 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
 
       {/* I filtri stanno su una riga sola sopra il contenuto. */}
       <div className="filters">
+        {/*
+         * `aria-label` e non il solo `placeholder`: il segnaposto sparisce al
+         * primo carattere digitato, quindi un lettore di schermo che torni sul
+         * campo a metà ricerca annuncia «casella di testo» e basta. Il nome di
+         * un controllo deve esistere anche quando il controllo è pieno.
+         */}
         <input
           type="search"
+          aria-label="Cerca fra le immersioni"
           placeholder="Cerca sito, compagno, note…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -124,6 +131,18 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
       {selezione.size > 0 && (
         <BulkEdit
           ids={[...selezione]}
+          /*
+           * Quante delle selezionate i filtri attuali NON mostrano.
+           *
+           * Selezionare e poi filtrare è un gesto legittimo, quindi la selezione
+           * non si pota da sola; ma scrivere su cinquanta record senza vederli è
+           * il rischio che questa carta dice di voler evitare, e il numero va
+           * dichiarato insieme al modo di ridurre la selezione a ciò che si vede.
+           */
+          nascoste={[...selezione].filter((id) => !filtered.some((d) => d.id === id)).length}
+          onSoloVisibili={() =>
+            setSelezione(new Set(filtered.filter((d) => selezione.has(d.id)).map((d) => d.id)))
+          }
           onDone={() => setSelezione(new Set())}
         />
       )}
@@ -138,15 +157,26 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                   aria-label="Seleziona tutte le immersioni mostrate"
                   checked={filtered.length > 0 && filtered.every((d) => selezione.has(d.id))}
                   ref={(el) => {
-                    // Lo stato «alcune sì e alcune no» non è né spuntato né
-                    // vuoto: senza il trattino, dopo aver selezionato tre righe
-                    // la casella in testa sembra dire che non è selezionato
-                    // niente.
-                    if (el) el.indeterminate = selezione.size > 0 && !filtered.every((d) => selezione.has(d.id));
+                    // Il trattino riguarda SOLO le righe mostrate: la condizione
+                    // di prima era `selezione.size > 0`, quindi la casella diceva
+                    // «alcune di queste» mentre la verità era «alcune altrove».
+                    if (el) {
+                      const scelte = filtered.filter((d) => selezione.has(d.id)).length;
+                      el.indeterminate = scelte > 0 && scelte < filtered.length;
+                    }
                   }}
-                  onChange={(e) =>
-                    setSelezione(e.target.checked ? new Set(filtered.map((d) => d.id)) : new Set())
-                  }
+                  onChange={(e) => {
+                    // Aggiunge o toglie le righe MOSTRATE, senza toccare quello
+                    // che è selezionato fuori dal filtro: prima spuntarla
+                    // sostituiva l'intera selezione e toglierla la azzerava,
+                    // buttando via scelte fatte con un filtro precedente.
+                    const next = new Set(selezione);
+                    for (const d of filtered) {
+                      if (e.target.checked) next.add(d.id);
+                      else next.delete(d.id);
+                    }
+                    setSelezione(next);
+                  }}
                 />
               </th>
               <th className="num" style={{ width: 44 }}>
@@ -205,8 +235,29 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                   />
                 </td>
                 <td className="num muted">{d.number ?? '—'}</td>
+                {/*
+                 * La data è un BOTTONE VERO, non una riga cliccabile e basta.
+                 *
+                 * `onClick` su un `<tr>` funziona col mouse e con niente altro:
+                 * la riga non prende il fuoco, non risponde a Invio, e per chi
+                 * usa la tastiera o un lettore di schermo il logbook era un
+                 * elenco di dati senza modo di aprirne uno. Mettere `tabIndex`
+                 * sulla riga avrebbe rotto la semantica della tabella; un
+                 * bottone dentro la cella no, ed è anche quello che dà il nome
+                 * all'azione — «apri l'immersione del 14 giugno» — invece di un
+                 * «riga» muto. Il clic sulla riga resta, come comodità del
+                 * mouse.
+                 */}
                 <td>
-                  <div>{dateShort(d.startTime, d.utcOffsetMinutes)}</div>
+                  <button
+                    className="cell-link"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpen(d.id);
+                    }}
+                  >
+                    {dateShort(d.startTime, d.utcOffsetMinutes)}
+                  </button>
                   <div className="muted" style={{ fontSize: 11 }}>
                     {timeShort(d.startTime, d.utcOffsetMinutes)}
                   </div>
@@ -277,8 +328,8 @@ function NextDive({ dives }: { dives: Dive[] }) {
         <div>
           <h2 style={{ margin: 0 }}>Prima della prossima immersione</h2>
           <p className="card-sub" style={{ marginBottom: 0 }}>
-            Le cose che hanno una scadenza, in ordine di quanto stringe il tempo. Nessun semaforo
-            complessivo: i fatti, e il giudizio a chi lo deve dare.
+            Le cose che hanno una scadenza, in ordine di quanto stringe il tempo. Nessun semaforo complessivo:
+            i fatti, e il giudizio a chi lo deve dare.
           </p>
         </div>
         <button style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => setOpen((v) => !v)}>
@@ -340,8 +391,18 @@ function NoteRow({ note }: { note: NextDiveNote }) {
  * «scrivi questo valore», «svuota». Il terzo esiste perché correggere un errore
  * fatto in blocco richiede di poterlo disfare in blocco.
  */
-function BulkEdit({ ids, onDone }: { ids: string[]; onDone: () => void }) {
-  const { dives, saveDive, removeDive } = useDiveLog();
+function BulkEdit({
+  ids,
+  nascoste,
+  onSoloVisibili,
+  onDone,
+}: {
+  ids: string[];
+  nascoste: number;
+  onSoloVisibili: () => void;
+  onDone: () => void;
+}) {
+  const { dives, saveDive, removeDives } = useDiveLog();
   const [sito, setSito] = useState('');
   const [compagno, setCompagno] = useState('');
   const [muta, setMuta] = useState('');
@@ -360,6 +421,16 @@ function BulkEdit({ ids, onDone }: { ids: string[]; onDone: () => void }) {
 
   const qualcosaDaFare =
     [sito, compagno, muta, zavorra, etichetta].some((v) => v.trim() !== '') || salinita !== '';
+  /*
+   * La zavorra deve essere un numero, o niente.
+   *
+   * `Number('sei chili')` è `NaN`, e finiva in archivio: la scheda mostrava
+   * «Zavorra NaN kg» e quelle immersioni sparivano dalla tabella della zavorra
+   * in Attrezzatura — cioè proprio da quella che il suggerimento qui sotto
+   * invita a popolare. Un valore non numerico non entra.
+   */
+  const zavorraRotta =
+    zavorra.trim() !== '' && zavorra.trim() !== VUOTA && !Number.isFinite(Number(zavorra.replace(',', '.')));
 
   const applica = () => {
     void (async () => {
@@ -376,11 +447,22 @@ function BulkEdit({ ids, onDone }: { ids: string[]; onDone: () => void }) {
           const m = valore(muta);
           if (m !== null) next.suit = m;
           const z = valore(zavorra);
-          if (z !== null) next.weightKg = z === undefined ? undefined : Number(z.replace(',', '.'));
+          if (z !== null) {
+            const n = z === undefined ? undefined : Number(z.replace(',', '.'));
+            if (n === undefined || Number.isFinite(n)) next.weightKg = n;
+          }
           if (salinita !== '') next.salinity = salinita;
+          /*
+           * Il trattino qui NON svuota tutte le etichette.
+           *
+           * La regola generale della carta è «`-` svuota», ma questo campo si
+           * chiama «Aggiungi etichetta», e con un carattere cancellava anche
+           * `nitrox` e `trimix` — messe dai parser, usate da ricerca e
+           * statistiche — su tutte le immersioni selezionate, senza conferma e
+           * senza modo di tornare indietro. Un campo che aggiunge, aggiunge.
+           */
           const e = valore(etichetta);
           if (e !== null && e !== undefined && !next.tags.includes(e)) next.tags = [...next.tags, e];
-          if (e === undefined) next.tags = [];
           await saveDive(next);
           toccate++;
         }
@@ -405,7 +487,9 @@ function BulkEdit({ ids, onDone }: { ids: string[]; onDone: () => void }) {
     void (async () => {
       setLavoro(true);
       try {
-        for (const id of ids) await removeDive(id);
+        // Una chiamata sola con tutti gli id: `removeDive` in ciclo faceva
+        // finire nel cestino solo l'ultima, e le altre da nessuna parte.
+        await removeDives(ids);
         onDone();
       } catch (err) {
         setErrore(err instanceof Error ? err.message : String(err));
@@ -429,6 +513,21 @@ function BulkEdit({ ids, onDone }: { ids: string[]; onDone: () => void }) {
         </div>
         <button onClick={onDone}>Deseleziona</button>
       </div>
+
+      {nascoste > 0 && (
+        <div className="notice" style={{ marginBottom: 10 }}>
+          <b>
+            {nascoste}{' '}
+            {nascoste === 1
+              ? 'immersione selezionata non è mostrata'
+              : 'immersioni selezionate non sono mostrate'}
+          </b>{' '}
+          dai filtri attuali. Applicando, verranno modificate anche quelle.{' '}
+          <button style={{ marginLeft: 6 }} onClick={onSoloVisibili}>
+            Tieni solo quelle visibili
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-3" style={{ marginBottom: 8 }}>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
@@ -455,7 +554,12 @@ function BulkEdit({ ids, onDone }: { ids: string[]; onDone: () => void }) {
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">Zavorra (kg)</span>
-          <input type="text" inputMode="decimal" value={zavorra} onChange={(e) => setZavorra(e.target.value)} />
+          <input
+            type="text"
+            inputMode="decimal"
+            value={zavorra}
+            onChange={(e) => setZavorra(e.target.value)}
+          />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">Aggiungi etichetta</span>
@@ -467,9 +571,9 @@ function BulkEdit({ ids, onDone }: { ids: string[]; onDone: () => void }) {
           la scheda Attrezzatura ricava quale configurazione ti fa tenere meglio
           la quota, e sono anche i due che i computer non registrano mai. */}
       <p className="planner-hint" style={{ marginTop: 0 }}>
-        Muta e zavorra sono i campi che nessun computer registra, e sono proprio quelli su cui si
-        basa la tabella della zavorra in <b>Attrezzatura</b>: compilarli su un gruppo di immersioni
-        fatte con la stessa configurazione è il modo più rapido di far comparire quel confronto.
+        Muta e zavorra sono i campi che nessun computer registra, e sono proprio quelli su cui si basa la
+        tabella della zavorra in <b>Attrezzatura</b>: compilarli su un gruppo di immersioni fatte con la
+        stessa configurazione è il modo più rapido di far comparire quel confronto.
       </p>
 
       {errore && (
@@ -483,8 +587,15 @@ function BulkEdit({ ids, onDone }: { ids: string[]; onDone: () => void }) {
         </div>
       )}
 
+      {zavorraRotta && (
+        <div className="notice notice-error" role="alert" style={{ marginTop: 10 }}>
+          La zavorra deve essere un numero: «{zavorra}» non lo è. Senza questo controllo finiva in archivio
+          come <code>NaN</code>, e quelle immersioni sparivano dalla tabella della zavorra.
+        </div>
+      )}
+
       <div className="row" style={{ gap: 8, marginTop: 12 }}>
-        <button className="btn" disabled={!qualcosaDaFare || lavoro} onClick={applica}>
+        <button className="btn" disabled={!qualcosaDaFare || zavorraRotta || lavoro} onClick={applica}>
           {lavoro ? 'Scrivo…' : `Applica a ${ids.length}`}
         </button>
         <span style={{ flex: 1 }} />

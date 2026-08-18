@@ -158,9 +158,7 @@ describe('valori presi dall’archivio', () => {
   });
 
   it('per pianificare usa il 75° percentile, non la media', () => {
-    const dives = [14, 16, 18, 20, 30].map((rmv) =>
-      dive({ metrics: { rmvLpm: rmv } as Dive['metrics'] }),
-    );
+    const dives = [14, 16, 18, 20, 30].map((rmv) => dive({ metrics: { rmvLpm: rmv } as Dive['metrics'] }));
     const r = measuredRmv(dives);
     expect(r.n).toBe(5);
     expect(r.median).toBe(18);
@@ -292,9 +290,9 @@ describe('profondità media', () => {
     const flat = planGas(input({ depthM: 40, avgDepthM: 40 }));
     const real = planGas(input({ depthM: 40, avgDepthM: 26 }));
     // Il fondo può essere spezzato in due tratti: quello che conta è la somma.
-const bottomOf = (p: ReturnType<typeof planGas>) => ({
-  litres: p.planned.filter((f) => f.kind === 'bottom').reduce((a, f) => a + f.litres, 0),
-});
+    const bottomOf = (p: ReturnType<typeof planGas>) => ({
+      litres: p.planned.filter((f) => f.kind === 'bottom').reduce((a, f) => a + f.litres, 0),
+    });
     expect(bottomOf(real).litres).toBeLessThan(bottomOf(flat).litres * 0.75);
     // E il tempo di fondo consentito cresce di conseguenza: è il senso della modifica.
     expect(real.gasLimitedBottomMin).toBeGreaterThan(flat.gasLimitedBottomMin);
@@ -331,8 +329,7 @@ const bottomOf = (p: ReturnType<typeof planGas>) => ({
 
   it('la media dell’intera immersione è la media pesata delle fasi', () => {
     const plan = planGas(input({ depthM: 30, avgDepthM: 24, bottomMin: 20, totalMin: 27, stopMin: 3 }));
-    const byHand =
-      plan.planned.reduce((a, p) => a + p.meanDepthM * p.minutes, 0) / plan.totalRuntimeMin;
+    const byHand = plan.planned.reduce((a, p) => a + p.meanDepthM * p.minutes, 0) / plan.totalRuntimeMin;
     expect(plan.wholeDiveAvgDepthM).toBeCloseTo(byHand, 1);
     // Ed è più bassa della media del fondo: la risalita e la sosta la tirano su.
     expect(plan.wholeDiveAvgDepthM).toBeLessThan(24);
@@ -389,7 +386,16 @@ describe('regola della riserva', () => {
 
   it('avvisa se il piano consuma la riserva scelta', () => {
     const plan = planGas(
-      input({ depthM: 30, avgDepthM: 30, bottomMin: 40, totalMin: 48, tankL: 12, startBar: 200, reserveRule: 'fixedBar', reserveBarFixed: 70 }),
+      input({
+        depthM: 30,
+        avgDepthM: 30,
+        bottomMin: 40,
+        totalMin: 48,
+        tankL: 12,
+        startBar: 200,
+        reserveRule: 'fixedBar',
+        reserveBarFixed: 70,
+      }),
     );
     expect(plan.overBudget).toBe(true);
     expect(texts(plan)).toMatch(/Il gas basta per \d+ minuti di fondo, non 40/);
@@ -490,7 +496,13 @@ describe('coerenza interna, dai casi trovati dall’audit', () => {
         expect(f.litres).toBeGreaterThanOrEqual(0);
         expect(f.minutes).toBeGreaterThanOrEqual(0);
       }
-      for (const v of [plan.reserveL, plan.plannedL, plan.usableL, plan.gasLimitedBottomMin, plan.wholeDiveAvgDepthM]) {
+      for (const v of [
+        plan.reserveL,
+        plan.plannedL,
+        plan.usableL,
+        plan.gasLimitedBottomMin,
+        plan.wholeDiveAvgDepthM,
+      ]) {
         expect(Number.isFinite(v)).toBe(true);
       }
     }
@@ -514,7 +526,16 @@ describe('coerenza interna, dai casi trovati dall’audit', () => {
     // Il caso esatto trovato dall'audit: due strade di arrotondamento diverse che
     // sul filo davano lo stesso numero due volte.
     const plan = planGas(
-      input({ depthM: 30, avgDepthM: 22, bottomMin: 20, totalMin: 27, stopMin: 3, tankL: 12, startBar: 210.58, rmvLpm: 19.4 }),
+      input({
+        depthM: 30,
+        avgDepthM: 22,
+        bottomMin: 20,
+        totalMin: 27,
+        stopMin: 3,
+        tankL: 12,
+        startBar: 210.58,
+        rmvLpm: 19.4,
+      }),
     );
     expect(plan.overBudget).toBe(true);
     expect(texts(plan)).not.toMatch(/per 20 minuti di fondo, non 20/);
@@ -545,7 +566,15 @@ describe('tempo alla profondità massima e piano delle pressioni', () => {
 
   it('il piano delle pressioni parte dalla pressione di partenza e arriva a quella d’uscita', () => {
     const plan = planGas(
-      input({ depthM: 40, avgDepthM: 25, bottomMin: 20, maxTimeMin: 8, totalMin: 30, tankL: 15, startBar: 220 }),
+      input({
+        depthM: 40,
+        avgDepthM: 25,
+        bottomMin: 20,
+        maxTimeMin: 8,
+        totalMin: 30,
+        tankL: 15,
+        startBar: 220,
+      }),
     );
     const schedule = pressureSchedule(plan);
     expect(schedule[0].runMin).toBe(0);
@@ -558,7 +587,15 @@ describe('tempo alla profondità massima e piano delle pressioni', () => {
 
   it('le pressioni scendono sempre, e più in fretta quando si sta profondi', () => {
     const plan = planGas(
-      input({ depthM: 40, avgDepthM: 25, bottomMin: 20, maxTimeMin: 8, totalMin: 30, tankL: 15, startBar: 220 }),
+      input({
+        depthM: 40,
+        avgDepthM: 25,
+        bottomMin: 20,
+        maxTimeMin: 8,
+        totalMin: 30,
+        tankL: 15,
+        startBar: 220,
+      }),
     );
     const s = pressureSchedule(plan, 1);
     for (let i = 1; i < s.length; i++) expect(s[i].bar).toBeLessThanOrEqual(s[i - 1].bar);
@@ -570,7 +607,15 @@ describe('tempo alla profondità massima e piano delle pressioni', () => {
 
   it('traduce la pressione di rientro in un minuto', () => {
     const plan = planGas(
-      input({ depthM: 30, avgDepthM: 22, bottomMin: 20, maxTimeMin: 6, totalMin: 27, tankL: 15, startBar: 200 }),
+      input({
+        depthM: 30,
+        avgDepthM: 22,
+        bottomMin: 20,
+        maxTimeMin: 6,
+        totalMin: 27,
+        tankL: 15,
+        startBar: 200,
+      }),
     );
     const minute = turnMinute(plan);
     expect(minute).toBeDefined();
@@ -610,7 +655,15 @@ describe('esposizione all’ossigeno del piano', () => {
 
   it('un piano lungo e profondo in nitrox accumula CNS, e il piano lo dice', () => {
     const plan = planGas(
-      input({ depthM: 38, avgDepthM: 30, bottomMin: 45, maxTimeMin: 10, totalMin: 60, mix: { o2: 0.32, he: 0 }, maxPpo2: 1.6 }),
+      input({
+        depthM: 38,
+        avgDepthM: 30,
+        bottomMin: 45,
+        maxTimeMin: 10,
+        totalMin: 60,
+        mix: { o2: 0.32, he: 0 },
+        maxPpo2: 1.6,
+      }),
     );
     expect(plan.oxygen.cnsPercent).toBeGreaterThan(20);
     expect(plan.oxygen.otu).toBeGreaterThan(30);
@@ -704,7 +757,15 @@ describe('gas di decompressione separato', () => {
 
 describe('schedule di contingenza', () => {
   const base = () =>
-    input({ depthM: 35, avgDepthM: 26, bottomMin: 22, maxTimeMin: 8, totalMin: 32, tankL: 15, startBar: 220 });
+    input({
+      depthM: 35,
+      avgDepthM: 26,
+      bottomMin: 22,
+      maxTimeMin: 8,
+      totalMin: 32,
+      tankL: 15,
+      startBar: 220,
+    });
 
   it('produce i quattro scenari del manuale, più quello del gas perso quando serve', () => {
     expect(contingencies(base()).map((c) => c.label)).toEqual([

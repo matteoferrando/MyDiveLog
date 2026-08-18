@@ -66,8 +66,7 @@ export function AnalysisCard({
   const [annuncio, setAnnuncio] = useState('');
 
   const configured = Boolean(aiCredentials?.apiKey && aiCredentials.model);
-  const stale =
-    stored && currentFingerprint !== undefined && stored.fingerprint !== currentFingerprint;
+  const stale = stored && currentFingerprint !== undefined && stored.fingerprint !== currentFingerprint;
 
   const run = async () => {
     setBusy(true);

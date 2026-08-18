@@ -12,14 +12,7 @@ import { detectParser, parseFile } from '../src/core/parsers';
 import { parseFit } from '../src/core/parsers/garminFit';
 import { detectTimeScale } from '../src/core/parsers/shearwater';
 import { parseDateTime, parseDurationCell, splitRow } from '../src/core/parsers/csv';
-import {
-  synthesise,
-  toCsv,
-  toFit,
-  toShearwaterXml,
-  toSubsurface,
-  toUddf,
-} from './fixtures';
+import { synthesise, toCsv, toFit, toShearwaterXml, toSubsurface, toUddf } from './fixtures';
 
 const synth = synthesise();
 const maxDepth = Math.max(...synth.samples.map((s) => s.depth));
@@ -31,7 +24,7 @@ describe('riconoscimento del formato', () => {
     expect(detectParser({ fileName: 'c.xml', text: toShearwaterXml(synth) })?.format).toBe('shearwater-xml');
   });
 
-  it('riconosce il FIT dalla firma binaria, non dall\'estensione', () => {
+  it("riconosce il FIT dalla firma binaria, non dall'estensione", () => {
     const bytes = toFit(synth);
     expect(detectParser({ fileName: 'senza-estensione', bytes })?.format).toBe('garmin-fit');
   });
@@ -217,7 +210,7 @@ describe('coerenza fra formati', () => {
     }
   });
 
-  it('l\'XML Shearwater non porta il volume bombola e lo dichiara', async () => {
+  it("l'XML Shearwater non porta il volume bombola e lo dichiara", async () => {
     // Il formato non ha un campo per i litri: la scelta corretta è dirlo,
     // non inventare un valore plausibile.
     const { dives } = await parseFile({ fileName: 'c.xml', text: toShearwaterXml(synth) });
@@ -253,13 +246,17 @@ describe('confini dei file, difetti della revisione', () => {
   it('una data illeggibile scarta l’immersione e lo dice, invece di mandarla al 1970', async () => {
     // Prima: `14.06.2026 10:38:00` diventava il 1° gennaio 1970 — e con TUTTE le
     // immersioni del file allo stesso istante, la deduplica ne fondeva a due a due.
-    const r = await parse(uddf('14.06.2026 10:38:00', '<diveduration>1200</diveduration><greatestdepth>30</greatestdepth>'));
+    const r = await parse(
+      uddf('14.06.2026 10:38:00', '<diveduration>1200</diveduration><greatestdepth>30</greatestdepth>'),
+    );
     expect(r.dives).toHaveLength(0);
     expect(r.warnings.some((w) => w.includes('data') && w.includes('14.06.2026'))).toBe(true);
   });
 
   it('una data valida passa come prima', async () => {
-    const r = await parse(uddf('2026-06-14T10:38:00', '<diveduration>1200</diveduration><greatestdepth>30</greatestdepth>'));
+    const r = await parse(
+      uddf('2026-06-14T10:38:00', '<diveduration>1200</diveduration><greatestdepth>30</greatestdepth>'),
+    );
     expect(r.dives).toHaveLength(1);
     expect(r.dives[0].startTime).toContain('2026-06-14');
   });
@@ -276,7 +273,9 @@ describe('confini dei file, difetti della revisione', () => {
   it('il generatore del file non diventa un computer subacqueo', async () => {
     // Reimportando un nostro export, ogni immersione si portava dietro un secondo
     // «computer» chiamato MyDiveLog.
-    const r = await parse(uddf('2026-06-14T10:38:00', '<diveduration>1200</diveduration><greatestdepth>30</greatestdepth>'));
+    const r = await parse(
+      uddf('2026-06-14T10:38:00', '<diveduration>1200</diveduration><greatestdepth>30</greatestdepth>'),
+    );
     expect(r.dives[0].computer?.model).toBeUndefined();
     expect(r.warnings.some((w) => w.includes('QualcheProgramma'))).toBe(true);
   });

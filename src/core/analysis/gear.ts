@@ -249,9 +249,7 @@ export function configurationRows(dives: Dive[]): { label: string; dives: number
                 : `${n} bombole`;
     counts.set(label, (counts.get(label) ?? 0) + 1);
   }
-  return [...counts.entries()]
-    .map(([label, dives]) => ({ label, dives }))
-    .sort((a, b) => b.dives - a.dives);
+  return [...counts.entries()].map(([label, dives]) => ({ label, dives })).sort((a, b) => b.dives - a.dives);
 }
 
 // ---------------------------------------------------------------------------
@@ -396,20 +394,28 @@ export function migrateGear(legacy: LegacyGearItem[] | GearArchive | null | unde
       ? (old.kind as EquipmentKind)
       : 'other';
     const scaduto = old.kind === 'medical' || old.kind === 'insurance';
-    const scadenza = old.expiresOn ?? (old.lastServiceDate && old.intervalMonths
-      ? addMonths(old.lastServiceDate, old.intervalMonths)
-      : undefined);
+    const scadenza =
+      old.expiresOn ??
+      (old.lastServiceDate && old.intervalMonths
+        ? addMonths(old.lastServiceDate, old.intervalMonths)
+        : undefined);
     equipment.push({
       id: old.id,
       kind,
-      name: scaduto ? `${old.kind === 'medical' ? 'Certificato medico' : 'Assicurazione'} — ${old.name}` : old.name,
+      name: scaduto
+        ? `${old.kind === 'medical' ? 'Certificato medico' : 'Assicurazione'} — ${old.name}`
+        : old.name,
       serial: old.serial,
       service: scaduto ? 'none' : TYPICAL_SERVICE[kind],
       lastServiceOn: scaduto ? undefined : old.lastServiceDate,
       intervalMonths: scaduto ? undefined : old.intervalMonths,
-      notes: [old.notes, scaduto && scadenza ? `Scadenza registrata nella versione precedente: ${scadenza}` : undefined]
-        .filter(Boolean)
-        .join(' · ') || undefined,
+      notes:
+        [
+          old.notes,
+          scaduto && scadenza ? `Scadenza registrata nella versione precedente: ${scadenza}` : undefined,
+        ]
+          .filter(Boolean)
+          .join(' · ') || undefined,
       savedAt: old.savedAt,
     });
   }

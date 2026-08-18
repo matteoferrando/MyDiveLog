@@ -52,16 +52,7 @@ const MAX_CHUNK_KB = 420;
 const MAX_EAGER_GZIP_KB = 190;
 
 /** Le pagine che devono restare in un pezzo proprio, caricato solo se si apre. */
-const PAGINE_PIGRE = [
-  'Planner',
-  'Stats',
-  'Coach',
-  'Compare',
-  'Gear',
-  'ImportPage',
-  'SyncPage',
-  'DiveDetail',
-];
+const PAGINE_PIGRE = ['Planner', 'Stats', 'Coach', 'Compare', 'Gear', 'ImportPage', 'SyncPage', 'DiveDetail'];
 
 const kb = (n: number) => Math.round((n / 1024) * 10) / 10;
 
@@ -106,9 +97,7 @@ describe.skipIf(!existsSync(join(DIST, 'index.html')))('bilancio del bundle', ()
 
   it('nessun pezzo singolo supera la soglia', () => {
     const troppoGrossi = chunks().filter((c) => c.raw > MAX_CHUNK_KB * 1024);
-    expect(
-      troppoGrossi.map((c) => `${c.name}: ${kb(c.raw)} kB (limite ${MAX_CHUNK_KB})`),
-    ).toEqual([]);
+    expect(troppoGrossi.map((c) => `${c.name}: ${kb(c.raw)} kB (limite ${MAX_CHUNK_KB})`)).toEqual([]);
   });
 
   it('ogni pagina pesante ha un pezzo proprio', () => {

@@ -43,13 +43,50 @@ import { planDeco, type PlanGas } from '../src/core/analysis/deco';
 function archivio() {
   const day = (d: number, h: number) => new Date(Date.UTC(2026, 5, d, h, 0, 0));
   return [
-    synthesise({ startTime: day(1, 9), maxDepth: 38, durationS: 34 * 60, decoCeilingM: 6, o2: 0.28, siteName: 'Relitto', minTempC: 13 }),
+    synthesise({
+      startTime: day(1, 9),
+      maxDepth: 38,
+      durationS: 34 * 60,
+      decoCeilingM: 6,
+      o2: 0.28,
+      siteName: 'Relitto',
+      minTempC: 13,
+    }),
     // Ripetitiva della stessa giornata, due ore dopo: il caso che ha fatto
     // scoprire l'errore sul carico residuo.
-    synthesise({ startTime: day(1, 13), maxDepth: 22, durationS: 48 * 60, siteName: 'Relitto', minTempC: 14 }),
-    synthesise({ startTime: day(2, 10), maxDepth: 9, durationS: 62 * 60, minTempC: 8, surfaceTempC: 17, siteName: 'Lago', o2: 0.21, wobbleM: 3.2 }),
-    synthesise({ startTime: day(9, 10), maxDepth: 45, durationS: 26 * 60, decoCeilingM: 9, o2: 0.21, siteName: 'Secca', ascentRateMpm: 14 }),
-    synthesise({ startTime: day(9, 14), maxDepth: 12, durationS: 18 * 60, siteName: 'Secca', safetyStopS: 0 }),
+    synthesise({
+      startTime: day(1, 13),
+      maxDepth: 22,
+      durationS: 48 * 60,
+      siteName: 'Relitto',
+      minTempC: 14,
+    }),
+    synthesise({
+      startTime: day(2, 10),
+      maxDepth: 9,
+      durationS: 62 * 60,
+      minTempC: 8,
+      surfaceTempC: 17,
+      siteName: 'Lago',
+      o2: 0.21,
+      wobbleM: 3.2,
+    }),
+    synthesise({
+      startTime: day(9, 10),
+      maxDepth: 45,
+      durationS: 26 * 60,
+      decoCeilingM: 9,
+      o2: 0.21,
+      siteName: 'Secca',
+      ascentRateMpm: 14,
+    }),
+    synthesise({
+      startTime: day(9, 14),
+      maxDepth: 12,
+      durationS: 18 * 60,
+      siteName: 'Secca',
+      safetyStopS: 0,
+    }),
     synthesise({ startTime: day(20, 9), maxDepth: 30, durationS: 55 * 60, siteName: 'Punta', rmvLpm: 14 }),
   ];
 }
@@ -216,7 +253,9 @@ describe('il giro completo su un archivio nuovo', () => {
     const back = await parseFile({ fileName: 'giro.uddf', bytes: new TextEncoder().encode(xml), text: xml });
     expect(back.dives).toHaveLength(healed.length);
     for (const d of back.dives) {
-      const original = healed.find((o) => Math.abs(Date.parse(o.startTime) - Date.parse(d.startTime)) < 60_000);
+      const original = healed.find(
+        (o) => Math.abs(Date.parse(o.startTime) - Date.parse(d.startTime)) < 60_000,
+      );
       expect(original).toBeDefined();
       expect(d.maxDepth).toBeCloseTo(original!.maxDepth, 0);
     }

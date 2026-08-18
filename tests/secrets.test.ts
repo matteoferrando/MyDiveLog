@@ -18,8 +18,8 @@ function fakeArchive(iniziale: Record<string, unknown> = {}) {
   const dati = { ...iniziale };
   return {
     dati,
-    getSetting: async <T,>(key: string) => dati[key] as T | undefined,
-    setSetting: async <T,>(key: string, value: T) => {
+    getSetting: async <T>(key: string) => dati[key] as T | undefined,
+    setSetting: async <T>(key: string, value: T) => {
       dati[key] = value;
     },
   };
@@ -32,7 +32,9 @@ function fakeArchive(iniziale: Record<string, unknown> = {}) {
  * intercetta il modulo. È l'unico punto in cui questo test finge qualcosa: tutto
  * il resto — migrazione, azzeramento, ripiego — è il codice vero.
  */
-function montaPortachiavi(opts: { disponibile: boolean; iniziale?: Record<string, string> } = { disponibile: true }) {
+function montaPortachiavi(
+  opts: { disponibile: boolean; iniziale?: Record<string, string> } = { disponibile: true },
+) {
   const chiavi: Record<string, string> = { ...(opts.iniziale ?? {}) };
   const invoke = vi.fn(async (cmd: string, args: Record<string, string>) => {
     if (!opts.disponibile) throw new Error('comando non registrato');
@@ -118,6 +120,42 @@ describe('dentro Tauri, col portachiavi', () => {
 
     // E la seconda lettura viene dal portachiavi, non ripete la migrazione.
     expect(await store.read('sync')).toEqual(letto);
+  });
+
+  it('se l’azzeramento dell’archivio fallisce, si riprova alla lettura dopo', async () => {
+    /*
+     * La migrazione sono DUE scritture su due sistemi che non condividono una
+     * transazione. Se la seconda cade — archivio in sola lettura, quota
+     * esaurita, app che si sta spegnendo — il token è nel portachiavi ma è
+     * ancora in chiaro nel file, e la lettura successiva trovava il portachiavi
+     * pieno e usciva subito: la copia in chiaro restava lì PER SEMPRE, mentre
+     * l'interfaccia dichiarava «nel portachiavi di sistema». È la peggiore
+     * combinazione possibile — il segreto è esposto e l'utente è convinto del
+     * contrario.
+     */
+    const { chiavi } = montaPortachiavi({ disponibile: true });
+    const { openSecretStore } = await import('../src/storage/secrets');
+    const archivio = fakeArchive({ sync: { url: 'libsql://x', authToken: 'DAMIGRARE' } });
+
+    // Prima lettura: la scrittura sul portachiavi passa, l'azzeramento no.
+    let rompi = true;
+    const setVero = archivio.setSetting;
+    archivio.setSetting = async <T>(key: string, value: T) => {
+      if (rompi) throw new Error('archivio in sola lettura');
+      await setVero(key, value);
+    };
+
+    const store = await openSecretStore(archivio);
+    expect(await store.read('sync')).toMatchObject({ authToken: 'DAMIGRARE' });
+    // Il portachiavi ce l'ha…
+    expect(chiavi.sync).toContain('DAMIGRARE');
+    // …ma l'archivio anche, ed è esattamente la situazione da recuperare.
+    expect(JSON.stringify(archivio.dati)).toContain('DAMIGRARE');
+
+    // Seconda lettura, con l'archivio di nuovo scrivibile: deve ripulire.
+    rompi = false;
+    expect(await store.read('sync')).toMatchObject({ authToken: 'DAMIGRARE' });
+    expect(archivio.dati.sync).toBeNull();
   });
 
   it('una voce che non c’è è «non salvata», non un errore', async () => {

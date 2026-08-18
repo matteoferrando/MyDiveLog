@@ -86,7 +86,10 @@ describe('carico residuo', () => {
     const first = dive('a', '2026-06-01T09:00:00Z', 30, 25);
     const endMs = Date.parse(first.startTime) + first.durationS * 1000;
     const next = dive('b', new Date(endMs + (CHAIN_BREAK_HOURS + 1) * 3600_000).toISOString(), 20, 20);
-    const e = entryState(next, { state: { n2: new Array(16).fill(1.6), he: new Array(16).fill(0) }, endTimeMs: endMs });
+    const e = entryState(next, {
+      state: { n2: new Array(16).fill(1.6), he: new Array(16).fill(0) },
+      endTimeMs: endMs,
+    });
     expect(e.residualN2Bar).toBe(0);
     expect(e.surfaceIntervalMin).toBeUndefined();
   });
@@ -97,7 +100,10 @@ describe('carico residuo', () => {
     const first = dive('a', '2026-06-01T09:00:00Z', 30, 25);
     const endMs = Date.parse(first.startTime) + first.durationS * 1000;
     const overlapping = dive('b', new Date(endMs - 600_000).toISOString(), 30, 25);
-    const e = entryState(overlapping, { state: { n2: new Array(16).fill(1.6), he: new Array(16).fill(0) }, endTimeMs: endMs });
+    const e = entryState(overlapping, {
+      state: { n2: new Array(16).fill(1.6), he: new Array(16).fill(0) },
+      endTimeMs: endMs,
+    });
     expect(e.residualN2Bar).toBe(0);
   });
 
@@ -377,4 +383,4 @@ describe('curva e obbligo lungo l’immersione', () => {
     expect(decoTimeline(profondo, [])).toEqual([]);
     expect(decoTimeline(profondo, [{ t: 0, depth: 0 }])).toEqual([]);
   });
-})
+});

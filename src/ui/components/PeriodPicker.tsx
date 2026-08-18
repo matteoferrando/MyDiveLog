@@ -58,8 +58,8 @@ export function PeriodPicker() {
 
       {thin && (
         <div className="notice" style={{ marginTop: 12 }}>
-          Con {imm(scope.dives.length)} le medie e le tendenze di questo periodo sono fragili:
-          ogni singola immersione le sposta. Per un giudizio più solido allarga la finestra.
+          Con {imm(scope.dives.length)} le medie e le tendenze di questo periodo sono fragili: ogni singola
+          immersione le sposta. Per un giudizio più solido allarga la finestra.
         </div>
       )}
     </div>

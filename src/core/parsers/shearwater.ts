@@ -23,13 +23,7 @@
  */
 
 import { AIR, type Cylinder, type Dive, type DiveMode, type GasMix, type Sample } from '../model';
-import {
-  fahrenheitToC,
-  feetToM,
-  mbarToBar,
-  shearwaterTankToBar,
-  wallClockToIso,
-} from '../units';
+import { fahrenheitToC, feetToM, mbarToBar, shearwaterTankToBar, wallClockToIso } from '../units';
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
 import { child, children, num, parseXml, text } from './xml';
@@ -68,12 +62,7 @@ export const shearwaterParser: DiveParser = {
 
 // ---------------------------------------------------------------------------
 
-function readLog(
-  log: unknown,
-  fileName: string,
-  importedAt: string,
-  warnings: string[],
-): Dive | null {
+function readLog(log: unknown, fileName: string, importedAt: string, warnings: string[]): Dive | null {
   const imperial = (num(child(log, 'imperialUnits')) ?? 0) === 1;
   const depth = (v: number | undefined) => (v === undefined ? undefined : imperial ? feetToM(v) : v);
   const temp = (v: number | undefined) => (v === undefined ? undefined : imperial ? fahrenheitToC(v) : v);

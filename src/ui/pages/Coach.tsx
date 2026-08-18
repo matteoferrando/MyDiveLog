@@ -48,13 +48,13 @@ export function Coach() {
         <div className="empty">
           <h2>Servono più immersioni</h2>
           <p className="secondary" style={{ maxWidth: 480, margin: '0 auto' }}>
-            Il piano si basa su medie e tendenze: con meno di una manciata di immersioni ogni giudizio
-            sarebbe rumore. {dives.length > scope.dives.length
+            Il piano si basa su medie e tendenze: con meno di una manciata di immersioni ogni giudizio sarebbe
+            rumore.{' '}
+            {dives.length > scope.dives.length
               ? `Nel periodo scelto ce ne sono ${scope.dives.length} su ${dives.length} in archivio: allarga la finestra dalla scheda Statistiche o immergiti di più.`
               : 'Importa lo storico e torna qui.'}
           </p>
         </div>
-
       </div>
     );
   }
@@ -197,8 +197,8 @@ export function Coach() {
           </li>
           <li>
             Le metriche derivate esistono solo dove c'è il dato: {aggregates.withProfile} immersioni su{' '}
-            {aggregates.count} hanno un profilo campionato, {aggregates.rmv.length} permettono di calcolare
-            il consumo.
+            {aggregates.count} hanno un profilo campionato, {aggregates.rmv.length} permettono di calcolare il
+            consumo.
           </li>
           <li>
             Sulle scelte che riguardano la sicurezza — decompressione, progressione in profondità — questo
@@ -292,9 +292,7 @@ function FindingCard({ finding: f, collapsed = false }: { finding: Finding; coll
       )}
       {collapsed && f.drills.length > 0 && (
         <details>
-          <summary
-            style={{ cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}
-          >
+          <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
             {f.drills.length} esercizi
           </summary>
           <ul style={{ marginTop: 6 }}>

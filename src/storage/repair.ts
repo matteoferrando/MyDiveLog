@@ -95,8 +95,7 @@ export function inconsistencies(dive: Dive, sampleCount: number, altCount = 0): 
   }
   if (!m) return reasons;
 
-  const hasGasData =
-    cyl?.sizeL !== undefined && cyl.startBar !== undefined && cyl.endBar !== undefined;
+  const hasGasData = cyl?.sizeL !== undefined && cyl.startBar !== undefined && cyl.endBar !== undefined;
   if (hasGasData && m.rmvLpm === undefined && dive.avgDepth !== undefined) {
     reasons.push('volume e pressioni noti ma consumo assente');
   }
@@ -249,11 +248,7 @@ const WINDOW_MS = 36 * 3600 * 1000;
  * arrivo, con una finestra abbastanza larga per gli orologi sfasati. Il costo
  * resta proporzionale a quello che si importa, non all'archivio.
  */
-export async function hydrateForMerge(
-  store: DiveStore,
-  existing: Dive[],
-  incoming: Dive[],
-): Promise<Dive[]> {
+export async function hydrateForMerge(store: DiveStore, existing: Dive[], incoming: Dive[]): Promise<Dive[]> {
   if (!existing.length || !incoming.length) return existing;
   const counts = await store.sampleCounts();
   const times = incoming.map((d) => Date.parse(d.startTime)).filter((t) => Number.isFinite(t));

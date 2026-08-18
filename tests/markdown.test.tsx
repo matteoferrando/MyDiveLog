@@ -25,7 +25,7 @@ Immersione **pulita**: 32 m per 40 minuti.
 1. prima cosa
 2. seconda cosa`);
     expect(out).toContain('<h3>');
-    expect(out).toContain("Com&#x27;è andata");
+    expect(out).toContain('Com&#x27;è andata');
     expect(out).toContain('<strong>pulita</strong>');
     expect(out).toContain('<ul>');
     expect(out).toContain('<ol>');

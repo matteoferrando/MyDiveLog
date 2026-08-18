@@ -29,14 +29,7 @@
 
 import type { GasMix, Salinity } from '../model';
 import { ambientAta, ambientBar, ead, end as endOf, mod, ppn2At, ppo2At } from '../units';
-import {
-  ceilingM,
-  desaturate,
-  gf99,
-  step,
-  surfacedTissues,
-  type TissueState,
-} from './buhlmann';
+import { ceilingM, desaturate, gf99, step, surfacedTissues, type TissueState } from './buhlmann';
 import { exposureOfSegments, type OxygenExposure } from './oxygen';
 
 // ---------------------------------------------------------------------------
@@ -401,7 +394,12 @@ export function bestGasAt(depthM: number, gases: PlanGas[], s: DecoSettings): nu
  * resto è diluente in proporzione. È la ragione per cui un rebreather a 1.3 bar di
  * setpoint respira quasi ossigeno puro a sei metri.
  */
-export function breathedAt(depthM: number, gas: PlanGas, setpointBar: number | undefined, s: DecoSettings): GasMix {
+export function breathedAt(
+  depthM: number,
+  gas: PlanGas,
+  setpointBar: number | undefined,
+  s: DecoSettings,
+): GasMix {
   const sp = setpointBar ?? gas.setpointBar;
   if (sp === undefined) return gas.mix;
   const amb = ambientBar(depthM, s.salinity, s.surfacePressureBar);
@@ -512,7 +510,11 @@ export const MAX_PLANNABLE_DEPTH_M = 350;
 /** Un'immersione più lunga di un giorno non è un'immersione. */
 export const MAX_PLANNABLE_MINUTES = 1440;
 
-export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partial<DecoSettings> = {}): DecoResult {
+export function planDeco(
+  levels: PlanLevel[],
+  gases: PlanGas[],
+  settings: Partial<DecoSettings> = {},
+): DecoResult {
   const s: DecoSettings = saneSettings({ ...DEFAULT_DECO, ...settings });
   const segments: DecoSegment[] = [];
   const warnings: DecoResult['warnings'] = [];
@@ -582,9 +584,7 @@ export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partia
     // per cui un rebreather permette immersioni lunghe e profonde con bombole
     // piccole.
     const closed = (setpointBar ?? gas.setpointBar) !== undefined;
-    const litres = closed
-      ? 0
-      : rmv * minutes * ambientAta(meanM, s.salinity, s.surfacePressureBar);
+    const litres = closed ? 0 : rmv * minutes * ambientAta(meanM, s.salinity, s.surfacePressureBar);
     litresByGas.set(gasIndex, (litresByGas.get(gasIndex) ?? 0) + litres);
     if (closed) {
       ccrO2Litres += (kind === 'stop' || kind === 'switch' ? s.decoMorLpm : s.morLpm) * minutes;
@@ -623,8 +623,7 @@ export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partia
     const before = breathedAt(depthM, gases[fromIndex], levelSetpoint, s);
     const after = breathedAt(depthM, gases[toIndex], levelSetpoint, s);
     const n2Rise = ppn2At(after, depthM, s.salinity) - ppn2At(before, depthM, s.salinity);
-    const heDrop =
-      (before.he - after.he) * ambientBar(depthM, s.salinity, s.surfacePressureBar);
+    const heDrop = (before.he - after.he) * ambientBar(depthM, s.salinity, s.surfacePressureBar);
     // Regola dei quinti: passare a un gas che aggiunge più di un quinto dell'elio
     // che toglie è il caso in cui la controdiffusione isobarica è documentata.
     if (heDrop > 0 && n2Rise > heDrop / 5) {
@@ -658,7 +657,9 @@ export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partia
     if (i > 0 && travelGas !== gasIndex) switchTo(currentDepth, gasIndex, travelGas);
     gasIndex = travelGas;
 
-    const travelMin = Math.abs(level.depthM - currentDepth) / (level.depthM > currentDepth ? s.descentRateMpm : s.ascentRateMpm);
+    const travelMin =
+      Math.abs(level.depthM - currentDepth) /
+      (level.depthM > currentDepth ? s.descentRateMpm : s.ascentRateMpm);
     advance(
       level.depthM > currentDepth ? 'descent' : 'ascent',
       currentDepth,
@@ -754,7 +755,15 @@ export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partia
       gasIndex = wanted;
     }
     if (from > stopAt + 0.01) {
-      advance('ascent', from, stopAt, (from - stopAt) / s.ascentRateMpm, gasIndex, levelSetpoint, s.decoRmvLpm);
+      advance(
+        'ascent',
+        from,
+        stopAt,
+        (from - stopAt) / s.ascentRateMpm,
+        gasIndex,
+        levelSetpoint,
+        s.decoRmvLpm,
+      );
     }
     const atStop = bestGasAt(stopAt, gases, s);
     if (atStop !== gasIndex) {
@@ -798,7 +807,15 @@ export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partia
         gasIndex = wanted;
       }
       currentDepth = maybeSafetyStop(currentDepth, stop.depthM);
-      advance('ascent', currentDepth, stop.depthM, (currentDepth - stop.depthM) / s.ascentRateMpm, gasIndex, levelSetpoint, s.decoRmvLpm);
+      advance(
+        'ascent',
+        currentDepth,
+        stop.depthM,
+        (currentDepth - stop.depthM) / s.ascentRateMpm,
+        gasIndex,
+        levelSetpoint,
+        s.decoRmvLpm,
+      );
       currentDepth = stop.depthM;
       if (firstStopImposed === undefined) firstStopImposed = stop.depthM;
       const atStop = bestGasAt(currentDepth, gases, s);
@@ -811,7 +828,15 @@ export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partia
     }
     if (currentDepth > 0) {
       currentDepth = maybeSafetyStop(currentDepth, 0);
-      advance('ascent', currentDepth, 0, currentDepth / s.ascentRateMpm, gasIndex, levelSetpoint, s.decoRmvLpm);
+      advance(
+        'ascent',
+        currentDepth,
+        0,
+        currentDepth / s.ascentRateMpm,
+        gasIndex,
+        levelSetpoint,
+        s.decoRmvLpm,
+      );
       currentDepth = 0;
     }
   }
@@ -854,7 +879,15 @@ export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partia
     }
     if (offgassingFromM === undefined) offgassingFromM = currentDepth;
     currentDepth = maybeSafetyStop(currentDepth, next);
-    advance('ascent', currentDepth, next, (currentDepth - next) / s.ascentRateMpm, gasIndex, levelSetpoint, s.decoRmvLpm);
+    advance(
+      'ascent',
+      currentDepth,
+      next,
+      (currentDepth - next) / s.ascentRateMpm,
+      gasIndex,
+      levelSetpoint,
+      s.decoRmvLpm,
+    );
     currentDepth = next;
   }
 
@@ -878,8 +911,7 @@ export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partia
     // `g.tankL === 0` è una bombola VUOTA, non una bombola sconosciuta: trattarla
     // come sconosciuta faceva dichiarare che il gas bastava. Solo `undefined`
     // significa «non lo so».
-    const bar =
-      g.tankL === undefined ? undefined : g.tankL > 0 ? Math.ceil(litres / g.tankL) : Infinity;
+    const bar = g.tankL === undefined ? undefined : g.tankL > 0 ? Math.ceil(litres / g.tankL) : Infinity;
     return {
       gasIndex: i,
       mix: g.mix,
@@ -942,7 +974,8 @@ export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partia
   // per momento sbagliava sull'ultimo pezzo di risalita: sei metri respirando
   // ossigeno puro sono 1.61 bar, il piano li segnalava come PPO2 di lavoro fuori
   // limite, ed è la sosta finale di qualunque procedura di decompressione.
-  const isDeco = (x: DecoSegment) => x.runtimeMin > bottomRuntime + 1e-9 || x.kind === 'stop' || x.kind === 'switch';
+  const isDeco = (x: DecoSegment) =>
+    x.runtimeMin > bottomRuntime + 1e-9 || x.kind === 'stop' || x.kind === 'switch';
   const worstWork = Math.max(0, ...segments.filter((x) => !isDeco(x)).map((x) => x.ppo2));
   const worstDeco = Math.max(0, ...segments.filter(isDeco).map((x) => x.ppo2));
   // La tolleranza di cinque centesimi non è indulgenza: l'ossigeno puro alla sosta
@@ -1005,7 +1038,10 @@ export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partia
     });
   }
   if (oxygen.cnsPercent >= 100) {
-    warnings.push({ level: 'critical', text: `Orologio CNS al ${oxygen.cnsPercent.toFixed(0)}%: oltre il limite per singola esposizione.` });
+    warnings.push({
+      level: 'critical',
+      text: `Orologio CNS al ${oxygen.cnsPercent.toFixed(0)}%: oltre il limite per singola esposizione.`,
+    });
   }
   // Sopra 1.6 bar la tabella NOAA non esiste più e il CNS viene contato come se
   // fossero 1.6: venti minuti a 3 bar davano lo stesso numero di venti minuti a
@@ -1019,7 +1055,10 @@ export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partia
     });
   }
   if (deepestM > 40 && !segments.some((x) => x.kind === 'stop')) {
-    warnings.push({ level: 'info', text: 'Oltre i 40 metri senza soste obbligate: verifica che il tuo computer, con i suoi gradient factor, sia d’accordo.' });
+    warnings.push({
+      level: 'info',
+      text: 'Oltre i 40 metri senza soste obbligate: verifica che il tuo computer, con i suoi gradient factor, sia d’accordo.',
+    });
   }
 
   return {
@@ -1267,7 +1306,8 @@ export function bailoutPlan(
   //
   // Il diluente si riconosce dal fatto che l'immersione è a circuito chiuso — il
   // setpoint sta sui livelli, non sul gas — e che quel gas fa da gas di fondo.
-  const closedCircuit = usable.some((l) => l.setpointBar !== undefined) || gases.some((g) => g.setpointBar !== undefined);
+  const closedCircuit =
+    usable.some((l) => l.setpointBar !== undefined) || gases.some((g) => g.setpointBar !== undefined);
   const hasBailout = gases.some((g) => g.role === 'bailout');
   const openCircuit: PlanGas[] = gases
     .filter((g) => !(closedCircuit && hasBailout && (g.role === 'bottom' || g.setpointBar !== undefined)))
@@ -1308,10 +1348,7 @@ export interface SeriesDive {
  * dichiarato, e li passa alla successiva. È la stessa catena che l'app percorre
  * sull'archivio, applicata a immersioni che non esistono ancora.
  */
-export function planSeries(
-  series: SeriesDive[],
-  settings: Partial<DecoSettings> = {},
-): DecoResult[] {
+export function planSeries(series: SeriesDive[], settings: Partial<DecoSettings> = {}): DecoResult[] {
   const s: DecoSettings = { ...DEFAULT_DECO, ...settings };
   const out: DecoResult[] = [];
   let tissues = s.initial;
@@ -1321,7 +1358,11 @@ export function planSeries(
     const initial =
       i === 0
         ? tissues
-        : afterSurfaceInterval(tissues ?? surfacedTissues(s.surfacePressureBar), d.surfaceIntervalMin, s.surfacePressureBar);
+        : afterSurfaceInterval(
+            tissues ?? surfacedTissues(s.surfacePressureBar),
+            d.surfaceIntervalMin,
+            s.surfacePressureBar,
+          );
     const result = planDeco(d.levels, d.gases, { ...settings, initial });
     out.push(result);
     tissues = result.finalTissues;
@@ -1376,9 +1417,19 @@ export function decoContingencies(
   const longer = levels.map((l, i) => (i === 0 ? { ...l, minutes: l.minutes + 5 } : l));
   const both = deeper.map((l, i) => (i === 0 ? { ...l, minutes: l.minutes + 5 } : l));
 
-  add('deeper', '3 metri più giù', 'Sceso più del previsto sul primo livello.', planDeco(deeper, gases, settings));
+  add(
+    'deeper',
+    '3 metri più giù',
+    'Sceso più del previsto sul primo livello.',
+    planDeco(deeper, gases, settings),
+  );
   add('longer', '5 minuti in più', 'Rimasto al fondo più del previsto.', planDeco(longer, gases, settings));
-  add('both', 'Più giù e più a lungo', 'Le due cose insieme: è il caso che costa di più.', planDeco(both, gases, settings));
+  add(
+    'both',
+    'Più giù e più a lungo',
+    'Le due cose insieme: è il caso che costa di più.',
+    planDeco(both, gases, settings),
+  );
 
   // Gas perso: uno scenario per ciascun gas di decompressione, perché perdere
   // l'ossigeno e perdere l'EAN50 non costano la stessa cosa.
@@ -1485,7 +1536,9 @@ export function decoTableText(
     L.push(`  ${label(gases[u.gasIndex]).padEnd(10)} ${bar}${su}${u.insufficient ? '   ⚠ NON BASTA' : ''}`);
   }
   if (result.ccr) {
-    L.push(`  ${'O₂ metab.'.padEnd(10)} ${result.ccr.o2Litres} L${result.ccr.o2Bar ? ` (${result.ccr.o2Bar} bar)` : ''}`);
+    L.push(
+      `  ${'O₂ metab.'.padEnd(10)} ${result.ccr.o2Litres} L${result.ccr.o2Bar ? ` (${result.ccr.o2Bar} bar)` : ''}`,
+    );
     L.push(`  ${'diluente'.padEnd(10)} ${result.ccr.diluentLitres} L`);
   }
   L.push('');
@@ -1499,7 +1552,8 @@ export function decoTableText(
   if (result.warnings.length) {
     L.push('');
     L.push('AVVISI');
-    for (const w of result.warnings) L.push(`  [${w.level === 'critical' ? '!!' : w.level === 'warning' ? '! ' : '  '}] ${w.text}`);
+    for (const w of result.warnings)
+      L.push(`  [${w.level === 'critical' ? '!!' : w.level === 'warning' ? '! ' : '  '}] ${w.text}`);
   }
 
   L.push('');

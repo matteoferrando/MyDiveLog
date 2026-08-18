@@ -74,8 +74,7 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
   }
 
   const theirs = dive.reported?.gf99End;
-  const costo =
-    m.gf99CleanPct !== undefined ? Math.round((m.gf99Pct - m.gf99CleanPct) * 10) / 10 : undefined;
+  const costo = m.gf99CleanPct !== undefined ? Math.round((m.gf99Pct - m.gf99CleanPct) * 10) / 10 : undefined;
 
   return (
     <div className="card">
@@ -95,18 +94,16 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
       */}
       {m.tissuesEstimated && (
         <div className="notice" style={{ marginBottom: 14 }}>
-          <b>Numeri stimati.</b> Senza campioni, il carico si calcola su un profilo quadro —
-          discesa, permanenza alla profondità media, risalita — costruito da durata e profondità
-          media. È il modello con cui si pianifica un'immersione a tavolino, e sbaglia molto meno
-          che considerarti a tessuti puliti: prima di questa stima l'immersione spezzava la catena e
-          la successiva risultava più pulita del vero. Ma resta una ricostruzione, e più la tua
-          immersione si allontana da un quadro — multilivello, yo-yo — più si allontana anche
-          questo numero.{' '}
+          <b>Numeri stimati.</b> Senza campioni, il carico si calcola su un profilo quadro — discesa,
+          permanenza alla profondità media, risalita — costruito da durata e profondità media. È il modello
+          con cui si pianifica un'immersione a tavolino, e sbaglia molto meno che considerarti a tessuti
+          puliti: prima di questa stima l'immersione spezzava la catena e la successiva risultava più pulita
+          del vero. Ma resta una ricostruzione, e più la tua immersione si allontana da un quadro —
+          multilivello, yo-yo — più si allontana anche questo numero.{' '}
           {dive.avgDepth === undefined && (
             <>
-              Qui manca anche la profondità media, quindi è stato usato il 70% della massima:
-              scriverla nella scheda migliora subito la stima, e con lei il calcolo delle ripetitive
-              che seguono.
+              Qui manca anche la profondità media, quindi è stato usato il 70% della massima: scriverla nella
+              scheda migliora subito la stima, e con lei il calcolo delle ripetitive che seguono.
             </>
           )}
         </div>
@@ -153,14 +150,14 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
             <>
               <b>L'intervallo di superficie è costato {costo.toFixed(1)} punti.</b> Con{' '}
               {fmtInterval(m.surfaceIntervalMin)} di pausa sei entrato con {m.residualN2Bar?.toFixed(2)} bar
-              di azoto in più e sei uscito al {m.gf99Pct.toFixed(0)}%: la stessa identica immersione
-              fatta da tessuti puliti sarebbe finita al {m.gf99CleanPct.toFixed(0)}%.
+              di azoto in più e sei uscito al {m.gf99Pct.toFixed(0)}%: la stessa identica immersione fatta da
+              tessuti puliti sarebbe finita al {m.gf99CleanPct.toFixed(0)}%.
             </>
           ) : (
             <>
-              <b>Il residuo non ha inciso.</b> {capitalise(fmtInterval(m.surfaceIntervalMin))} di
-              superficie sono bastati: partendo da tessuti puliti saresti uscito al{' '}
-              {m.gf99CleanPct.toFixed(0)}% invece del {m.gf99Pct.toFixed(0)}%.
+              <b>Il residuo non ha inciso.</b> {capitalise(fmtInterval(m.surfaceIntervalMin))} di superficie
+              sono bastati: partendo da tessuti puliti saresti uscito al {m.gf99CleanPct.toFixed(0)}% invece
+              del {m.gf99Pct.toFixed(0)}%.
             </>
           )}
         </div>
@@ -170,11 +167,11 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
         <>
           <h3 style={{ margin: '18px 0 4px', fontSize: 14 }}>I sedici compartimenti all'uscita</h3>
           <p className="card-sub">
-            È il grafico che ogni computer subacqueo mostra sott'acqua e che nessun logbook mostra
-            dopo. Ogni barra è un compartimento, dal più veloce (4 minuti) al più lento (635): l'altezza
-            è l'azoto che contiene, la tacca scura è il valore M — il limite del modello — e la tacca
-            chiara è il limite che ti sei imposto con i tuoi gradient factor. La barra che arriva più
-            vicina alla sua tacca è quella che comanda.
+            È il grafico che ogni computer subacqueo mostra sott'acqua e che nessun logbook mostra dopo. Ogni
+            barra è un compartimento, dal più veloce (4 minuti) al più lento (635): l'altezza è l'azoto che
+            contiene, la tacca scura è il valore M — il limite del modello — e la tacca chiara è il limite che
+            ti sei imposto con i tuoi gradient factor. La barra che arriva più vicina alla sua tacca è quella
+            che comanda.
           </p>
           <TissueBars
             state={m.tissuesEnd}
@@ -187,19 +184,34 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
 
       <h3 style={{ margin: '18px 0 4px', fontSize: 14 }}>E se avessi usato altri gradient factor?</h3>
       <p className="card-sub">
-        Il GF99 non compare qui sotto perché non cambia: misura quanto eri sovrasaturo rispetto al
-        modello nudo, e i gradient factor non spostano il modello — spostano il limite che ti imponi.
-        Quello che cambia è il tetto, e quindi se questa immersione sarebbe stata in curva o no.
+        Il GF99 non compare qui sotto perché non cambia: misura quanto eri sovrasaturo rispetto al modello
+        nudo, e i gradient factor non spostano il modello — spostano il limite che ti imponi. Quello che
+        cambia è il tetto, e quindi se questa immersione sarebbe stata in curva o no.
       </p>
 
       <div className="grid grid-2" style={{ gap: 12, marginTop: 10 }}>
-        <GfSlider label="GF basso" value={low} min={5} max={100} onChange={(v) => setLow(Math.min(v, high))} />
-        <GfSlider label="GF alto" value={high} min={30} max={100} onChange={(v) => setHigh(Math.max(v, low))} />
+        <GfSlider
+          label="GF basso"
+          value={low}
+          min={5}
+          max={100}
+          onChange={(v) => setLow(Math.min(v, high))}
+        />
+        <GfSlider
+          label="GF alto"
+          value={high}
+          min={30}
+          max={100}
+          onChange={(v) => setHigh(Math.max(v, low))}
+        />
       </div>
 
       {custom && (
         <div className="notice" style={{ marginTop: 12 }}>
-          Con <b>{low}/{high}</b>
+          Con{' '}
+          <b>
+            {low}/{high}
+          </b>
           {low === Math.round(actual.low * 100) && high === Math.round(actual.high * 100) && (
             <span className="muted"> (quelli che avevi davvero impostato)</span>
           )}{' '}
@@ -209,7 +221,9 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
               <b>{custom.decoMinutes} min</b> con un obbligo attivo.
             </>
           ) : (
-            <>questa immersione sarebbe rimasta <b>in curva</b>, senza nessun obbligo.</>
+            <>
+              questa immersione sarebbe rimasta <b>in curva</b>, senza nessun obbligo.
+            </>
           )}
         </div>
       )}
@@ -329,7 +343,8 @@ export function riassuntoCompartimenti(
   // Se chi ci chiama non dichiara il compartimento che comanda, lo si deduce dal
   // gradiente usato — è la stessa definizione con cui viene scelto altrove, e
   // dedurlo è meglio che tacerlo.
-  const capo = list.find((c) => c.index === comanda) ?? list.reduce((a, b) => (b.percent > a.percent ? b : a));
+  const capo =
+    list.find((c) => c.index === comanda) ?? list.reduce((a, b) => (b.percent > a.percent ? b : a));
   const piuCarico = list.reduce((a, b) => (b.total > a.total ? b : a));
   const oltre = list.filter((c) => c.total > c.limit);
   const parti = [
@@ -377,7 +392,7 @@ function TissueBars({
   const slot = plotW / list.length;
   const barW = Math.max(4, slot * 0.62);
 
-  const nome = 'I sedici compartimenti di Bühlmann all\'uscita';
+  const nome = "I sedici compartimenti di Bühlmann all'uscita";
   const descrizione = riassuntoCompartimenti(list, { comanda: leading });
 
   return (
@@ -437,7 +452,14 @@ function TissueBars({
                 rx={1}
               />
               {/* Valore M: il limite del modello nudo. */}
-              <line x1={x - 1} x2={x + barW + 1} y1={y(c.mValue)} y2={y(c.mValue)} stroke="var(--text)" strokeWidth={1.5} />
+              <line
+                x1={x - 1}
+                x2={x + barW + 1}
+                y1={y(c.mValue)}
+                y2={y(c.mValue)}
+                stroke="var(--text)"
+                strokeWidth={1.5}
+              />
               {/* Limite con i gradient factor impostati. */}
               <line
                 x1={x - 1}

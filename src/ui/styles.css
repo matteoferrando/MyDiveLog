@@ -54,6 +54,17 @@
   --critical: #c62d2d;
   --good-text: #006300;
 
+  /* Il blu dei BOTTONI pieni, separato da `--series-1`.
+     Erano lo stesso colore, ma i due lavori sono diversi: `--series-1` è scelto
+     per staccare da uno sfondo (una linea in un grafico), il riempimento di un
+     bottone è scelto per reggere il testo BIANCO che ci sta sopra. #2a78d6 con
+     il bianco sta a 4.42:1 sul chiaro e a 3.64:1 sullo scuro, cioè sotto la
+     soglia proprio sul bottone di conferma, quello che si legge in fretta.
+     #1f6fd0 sta a 4.95:1 col bianco e non scende sotto 3.5:1 contro nessuna
+     delle due superfici, quindi vale in tutti e due i temi e non ha bisogno di
+     essere ridefinito nel blocco scuro. */
+  --accent-solid: #1f6fd0;
+
   --radius: 10px;
   --radius-sm: 6px;
   --shadow: 0 1px 2px rgba(11, 11, 11, 0.05), 0 8px 24px rgba(11, 11, 11, 0.04);
@@ -378,8 +389,59 @@ tbody tr.clickable {
   cursor: pointer;
 }
 
+/*
+ * Il testo di una cella che è anche l'azione della riga.
+ *
+ * Sembra testo perché in una tabella un bottone disegnato come bottone in ogni
+ * riga sarebbe rumore, ma È un bottone: prende il fuoco, risponde a Invio e ha
+ * un nome accessibile. La sottolineatura arriva al passaggio e al fuoco, così
+ * chi naviga da tastiera vede dove si trova.
+ */
+.cell-link {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cell-link:hover,
+.cell-link:focus-visible {
+  text-decoration: underline;
+}
+
 tbody tr.clickable:hover {
   background: var(--surface-3);
+}
+
+/*
+ * Le caselle di spunta su uno schermo che si tocca.
+ *
+ * Quella di sistema misura circa 13×13 px: con un mouse è un bersaglio scomodo,
+ * con un dito è una lotteria — e nel logbook la casella sbagliata significa
+ * cancellare o modificare in blocco l'immersione sbagliata. Le linee guida
+ * parlano di 44 px di bersaglio; qui si allarga il quadrato a 18 px e si tiene
+ * il resto con il padding della cella, che sul telefono porta l'area toccabile
+ * oltre i 40.
+ *
+ * `pointer: coarse` e non una larghezza di finestra: quello che conta è il
+ * dito, non i pixel. Un iPad in split view resta un dito; una finestra stretta
+ * sul portatile resta un mouse.
+ */
+@media (pointer: coarse) {
+  input[type='checkbox'],
+  input[type='radio'] {
+    width: 18px;
+    height: 18px;
+  }
+
+  tbody td:first-child {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
 }
 
 /* ------------------------------------------------------------------ badges */
@@ -419,6 +481,47 @@ tbody tr.clickable:hover {
 
 /* ------------------------------------------------------------------ buttons */
 
+/*
+ * Il bottone NUDO, senza classi.
+ *
+ * Non esisteva, e mezza applicazione lo usa: «Annulla», «Chiudi», «Apri»,
+ * «Elimina». Senza una regola, il browser disegna il bottone di SISTEMA — grigio
+ * chiaro, con il suo bordo — e quel grigio non cambia col tema: sul fondo scuro
+ * restava un rettangolo chiaro in mezzo alle card, e un `color: var(--critical)`
+ * scritto in linea sopra quel grigio scendeva a 1.77:1, cioè la scritta
+ * «Elimina» era il testo meno leggibile di tutta l'interfaccia proprio dove
+ * serviva leggerla.
+ *
+ * `:where()` azzera la specificità: qualunque regola già scritta — `.nav
+ * button`, `button.btn`, `button[aria-pressed]` — continua a vincere senza
+ * dover aggiungere `!important` da nessuna parte. Questa è la base, non
+ * un'eccezione.
+ */
+:where(button) {
+  appearance: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+:where(button):hover {
+  background: var(--surface-3);
+}
+
+:where(button):disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 button.btn,
 label.btn {
   appearance: none;
@@ -443,7 +546,7 @@ label.btn:hover {
 
 button.btn-primary,
 label.btn-primary {
-  background: var(--series-1);
+  background: var(--accent-solid);
   border-color: transparent;
   color: #fff;
 }
@@ -703,7 +806,9 @@ textarea {
   padding: 32px 20px;
   text-align: center;
   background: var(--surface-1);
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .dropzone.over {

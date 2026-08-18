@@ -143,7 +143,6 @@ ${context}`,
   };
 }
 
-
 /** Analisi del piano gas: un secondo parere prima di entrare in acqua. */
 export function gasPlanAnalysis(context: string): AnalysisSpec {
   return {

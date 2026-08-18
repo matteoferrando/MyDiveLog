@@ -203,13 +203,58 @@ export function checkBackup(raw: unknown): BackupCheck {
   }
   if (!Array.isArray(f.dives)) errors.push('Manca l’elenco delle immersioni.');
   else {
-    const rotte = f.dives.filter(
-      (d) => !d || typeof d.id !== 'string' || !d.id || typeof d.startTime !== 'string' || !d.startTime,
-    ).length;
-    if (rotte) errors.push(`${rotte} immersioni non hanno un identificativo o una data: il file è danneggiato.`);
+    /*
+     * Si controllano TUTTI i campi che l'interfaccia dà per scontati, non solo
+     * id e data.
+     *
+     * Il commento qui sopra prometteva «i campi senza cui non sono immersioni» e
+     * ne verificava due. Un'immersione senza `maxDepth` passava, entrava in
+     * archivio, e alla prima apertura del logbook `d.maxDepth.toFixed(1)` faceva
+     * schermata bianca — con il record ormai scritto, quindi bianca anche dopo
+     * il riavvio. Un ripristino non deve poter rendere l'applicazione
+     * inavviabile: è l'operazione che si fa proprio quando si stanno rimettendo
+     * le cose a posto.
+     */
+    const incompleta = (d: Partial<Dive>) =>
+      !d ||
+      typeof d.id !== 'string' ||
+      !d.id ||
+      typeof d.startTime !== 'string' ||
+      !d.startTime ||
+      !Number.isFinite(d.maxDepth) ||
+      !Number.isFinite(d.durationS) ||
+      !Array.isArray(d.cylinders) ||
+      !Array.isArray(d.tags) ||
+      !d.source ||
+      typeof d.source !== 'object';
+    const rotte = f.dives.filter(incompleta).length;
+    if (rotte) {
+      errors.push(
+        `${rotte} immersioni sono incomplete — manca l’identificativo, la data, la profondità, la durata o la provenienza. Il file è danneggiato, e ripristinarlo renderebbe il logbook inapribile.`,
+      );
+    }
+    const doppi = f.dives.length - new Set(f.dives.map((d) => d?.id)).size;
+    if (doppi > 0) {
+      warnings.push(
+        `${doppi} immersioni compaiono più di una volta nel file: le copie verranno fuse fra loro invece di contarsi due volte.`,
+      );
+    }
     if (!f.dives.length) warnings.push('Il backup non contiene nessuna immersione.');
   }
   if (f.settings && typeof f.settings !== 'object') errors.push('Le impostazioni non sono leggibili.');
+  /*
+   * Una chiave che il programma non scrive MAI non è un'impostazione da
+   * ripristinare: è qualcosa che qualcun altro ha messo lì. La più pericolosa è
+   * `deletedDives`, il registro delle cancellazioni.
+   */
+  const sconosciute = Object.keys((f.settings as object) ?? {}).filter(
+    (k) => !SETTING_KEYS.includes(k) && !SECRET_KEYS.includes(k),
+  );
+  if (sconosciute.length) {
+    errors.push(
+      `Il file contiene impostazioni che questa applicazione non scrive mai (${sconosciute.join(', ')}). Non viene ripristinato: fra queste può esserci il registro delle cancellazioni, che si propagherebbe a tutti i dispositivi collegati.`,
+    );
+  }
   for (const k of SECRET_KEYS) {
     if (f.settings && k in (f.settings as object)) {
       warnings.push(
@@ -219,6 +264,35 @@ export function checkBackup(raw: unknown): BackupCheck {
   }
 
   return { ok: errors.length === 0, errors, warnings, file: errors.length ? undefined : (raw as BackupFile) };
+}
+
+/**
+ * Quello che impedisce di ripristinare, quando dipende dal MODO scelto.
+ *
+ * Sta separata da `checkBackup` perché il modo si sceglie dopo aver aperto il
+ * file — e cambiando modo la stessa identica coppia file/archivio passa da
+ * innocua a distruttiva.
+ *
+ * Il caso che conta è uno solo, ed era un semplice avviso: un backup con ZERO
+ * immersioni in modalità «ricostruisci da zero». La ricostruzione cancella
+ * tutto quello che il file non contiene; se il file non contiene niente,
+ * l'operazione è «cancella l'archivio» scritta in un altro modo. Chi la lancia
+ * pensa di star rimettendo a posto le cose — è il momento in cui si ripristina
+ * un backup — e un avviso giallo fra gli altri avvisi non lo ferma. Questo lo
+ * ferma: non è un file di cui valga la pena permettere il ripristino, ed è
+ * sempre e solo un file sbagliato o troncato.
+ *
+ * La fusione resta permessa: fondere un file vuoto non fa niente, e «non fa
+ * niente» non ha bisogno di essere impedito.
+ */
+export function restoreBlockers(file: BackupFile, mode: 'merge' | 'replace', currentDives: number): string[] {
+  const out: string[] = [];
+  if (mode === 'replace' && file.dives.length === 0 && currentDives > 0) {
+    out.push(
+      `Questo backup non contiene nessuna immersione, e «ricostruisci da zero» cancellerebbe le ${currentDives} che hai adesso senza rimetterne nessuna. Il file è vuoto o troncato: o ne usi un altro, oppure scegli «fondi», che con un file vuoto non fa niente.`,
+    );
+  }
+  return out;
 }
 
 export interface RestorePlan {
@@ -249,7 +323,19 @@ export function planRestore(
   const added: Dive[] = [];
   const merged: Dive[] = [];
 
-  for (const incoming of file.dives) {
+  /*
+   * Lo stesso id due volte nello stesso file si fonde, non si conta due volte.
+   *
+   * Prima l'interfaccia annunciava «2 aggiunte» e in archivio ne compariva una:
+   * vinceva l'ULTIMA copia scritta, non la migliore.
+   */
+  const daFile = new Map<string, Dive>();
+  for (const d of file.dives) {
+    const gia = daFile.get(d.id);
+    daFile.set(d.id, gia ? mergeDive(gia, d) : d);
+  }
+
+  for (const incoming of daFile.values()) {
     const existing = byId.get(incoming.id);
     if (!existing) {
       added.push(incoming);
@@ -264,12 +350,24 @@ export function planRestore(
     }
   }
 
-  const inFile = new Set(file.dives.map((d) => d.id));
+  const inFile = new Set(daFile.keys());
   const onlyLocal = current.filter((d) => !inFile.has(d.id)).length;
 
+  /*
+   * In ingresso si accettano SOLO le chiavi che il programma scrive.
+   *
+   * La scrittura aveva una lista bianca (`SETTING_KEYS`) e la lettura no, e
+   * quell'asimmetria era un buco: un file che passa ogni controllo può portare
+   * `deletedDives`, cioè le lapidi della sincronizzazione. Ripristinandolo, le
+   * lapidi entrano nell'archivio, la sincronizzazione successiva le applica e
+   * le propaga — e le immersioni spariscono da TUTTI i dispositivi collegati.
+   * Con una data nel futuro la lapide vince anche contro le immersioni toccate
+   * di recente. Basta un file `.json` chiamato «backup».
+   */
   const settings: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(file.settings ?? {})) {
-    if (!SECRET_KEYS.includes(k)) settings[k] = v;
+    if (SECRET_KEYS.includes(k) || !SETTING_KEYS.includes(k)) continue;
+    settings[k] = v;
   }
 
   return { added, merged, onlyLocal, settings };

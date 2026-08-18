@@ -68,7 +68,8 @@ for (const raw of file.dives ?? []) {
     // Media pesata sul tempo sul profilo ritagliato.
     let area = 0;
     for (let i = 1; i < trimmed.length; i++) {
-      area += (((trimmed[i].depth ?? 0) + (trimmed[i - 1].depth ?? 0)) / 2) * (trimmed[i].t - trimmed[i - 1].t);
+      area +=
+        (((trimmed[i].depth ?? 0) + (trimmed[i - 1].depth ?? 0)) / 2) * (trimmed[i].t - trimmed[i - 1].t);
     }
     const span = trimmed.length > 1 ? trimmed[trimmed.length - 1].t - trimmed[0].t : 0;
 
@@ -79,7 +80,9 @@ for (const raw of file.dives ?? []) {
         temps.length && raw.waterTempCelsiusMin != null
           ? Math.max(
               Math.abs(Math.min(...temps) - Number(raw.waterTempCelsiusMin)),
-              raw.waterTempCelsiusMax != null ? Math.abs(Math.max(...temps) - Number(raw.waterTempCelsiusMax)) : 0,
+              raw.waterTempCelsiusMax != null
+                ? Math.abs(Math.max(...temps) - Number(raw.waterTempCelsiusMax))
+                : 0,
             )
           : null,
       dDur: span - d.durationS,
@@ -109,19 +112,45 @@ const stat = (label: string, values: (number | null)[], unit: string, tolerance:
 };
 
 console.log(`\nFile: ${path}`);
-console.log(`Immersioni: ${(file.dives ?? []).length} · con profilo: ${rows.length} · senza profilo: ${noProfile}`);
-const models = [...new Set([...computers.values()].map((c) => `${c.deviceType} (0x${(c.deviceTypeNumber ?? 0).toString(16)})`))];
+console.log(
+  `Immersioni: ${(file.dives ?? []).length} · con profilo: ${rows.length} · senza profilo: ${noProfile}`,
+);
+const models = [
+  ...new Set(
+    [...computers.values()].map((c) => `${c.deviceType} (0x${(c.deviceTypeNumber ?? 0).toString(16)})`),
+  ),
+];
 console.log(`Computer nel file: ${models.join(', ') || 'nessuno dichiarato'}`);
 
 console.log('\nConfronto fra profilo decodificato e riepilogo del computer:');
-stat('profondità massima', rows.map((r) => r.dMax), 'm', 0.5);
-stat('temperature min/max', rows.map((r) => r.dTemp), '°C', 0.5);
+stat(
+  'profondità massima',
+  rows.map((r) => r.dMax),
+  'm',
+  0.5,
+);
+stat(
+  'temperature min/max',
+  rows.map((r) => r.dTemp),
+  '°C',
+  0.5,
+);
 // Tolleranza larga sulla durata, e per due ragioni legittime: l'intestazione la
 // esprime in minuti interi (quindi tronca fino a 59 s) e il computer esclude dal
 // tempo mostrato le escursioni sotto gli 0.8 m, che nel profilo invece ci sono.
 // Uno scostamento di un paio di minuti è normale; uno di dieci non lo è.
-stat('durata', rows.map((r) => r.dDur), 's', 180);
-stat('profondità media (off. 24)', rows.map((r) => r.dAvg), 'm', 1.5);
+stat(
+  'durata',
+  rows.map((r) => r.dDur),
+  's',
+  180,
+);
+stat(
+  'profondità media (off. 24)',
+  rows.map((r) => r.dAvg),
+  'm',
+  1.5,
+);
 
 const leftover = rows.filter((r) => r.leftover !== 0);
 console.log(
@@ -138,7 +167,8 @@ const a = aggregate(parsed.dives);
 console.log('\nImport completo:');
 console.log(`  ${a.count} immersioni · ${(a.totalS / 3600).toFixed(0)} h · massima ${a.maxDepthEver} m`);
 console.log(`  consumo calcolabile su ${a.rmv.length}, assetto su ${a.trim.length}`);
-if (a.avgRmv !== undefined) console.log(`  consumo medio ${a.avgRmv} L/min (tendenza: ${a.rmvTrend?.direction ?? 'n/d'})`);
+if (a.avgRmv !== undefined)
+  console.log(`  consumo medio ${a.avgRmv} L/min (tendenza: ${a.rmvTrend?.direction ?? 'n/d'})`);
 if (parsed.warnings.length) {
   console.log('\nAvvisi:');
   parsed.warnings.forEach((w) => console.log(`  - ${w}`));

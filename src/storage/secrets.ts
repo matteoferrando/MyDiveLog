@@ -87,11 +87,38 @@ export async function openSecretStore(archive: {
 
   if (!(await keychainAvailable())) return archiveStore;
 
+  /*
+   * L'AZZERAMENTO SI RIPROVA, a ogni lettura, finché non riesce.
+   *
+   * È la parte che mancava e che rendeva la migrazione una cosa sola a metà. Lo
+   * spostamento è fatto di due scritture su due sistemi diversi — il portachiavi
+   * e l'archivio — e non esiste una transazione che li tenga insieme: se la
+   * seconda fallisce (database in sola lettura, quota esaurita, archivio chiuso
+   * mentre l'app si sta spegnendo), il token è nel portachiavi MA È ANCORA IN
+   * CHIARO nel file. E la lettura successiva trovava il portachiavi pieno e
+   * usciva subito, senza più guardare l'archivio: la copia in chiaro restava lì
+   * per sempre, proprio nel caso in cui l'utente è convinto di averla spostata
+   * perché l'interfaccia gli dice «nel portachiavi di sistema».
+   *
+   * Quindi la pulizia non è un passo della migrazione: è un controllo che si fa
+   * a ogni lettura, costa una `getSetting` su una tabella di poche righe e vale
+   * finché il segreto in chiaro esiste. Il fallimento non si propaga — non deve
+   * impedire l'avvio — ma nemmeno si dimentica: la prossima lettura riprova.
+   */
+  const ripuliscoArchivio = async (key: SecretKey) => {
+    try {
+      if ((await archive.getSetting(key)) != null) await archive.setSetting(key, null);
+    } catch {
+      /* si riproverà alla lettura successiva */
+    }
+  };
+
   return {
     place: 'keychain',
     async read<T>(key: SecretKey): Promise<T | undefined> {
       const testo = await invoke<string | null>('segreto_leggi', { chiave: key });
       if (testo) {
+        await ripuliscoArchivio(key);
         try {
           return JSON.parse(testo) as T;
         } catch {
@@ -108,11 +135,16 @@ export async function openSecretStore(archive: {
        * portachiavi e si AZZERA nell'archivio. Chiedere all'utente di farlo a
        * mano significherebbe che non lo fa nessuno, e la credenziale resterebbe
        * in chiaro per sempre proprio sui dispositivi che la usano da più tempo.
+       *
+       * L'ordine è obbligato: prima si SCRIVE nel posto nuovo, poi si cancella
+       * dal vecchio. Al contrario, un'interruzione fra i due passi perderebbe la
+       * credenziale invece di duplicarla — e una credenziale duplicata si
+       * ripulisce alla lettura dopo, una persa va rigenerata a mano.
        */
       const vecchio = await archive.getSetting<T>(key);
       if (vecchio) {
         await invoke('segreto_scrivi', { chiave: key, valore: JSON.stringify(vecchio) });
-        await archive.setSetting(key, null);
+        await ripuliscoArchivio(key);
         return vecchio;
       }
       return undefined;

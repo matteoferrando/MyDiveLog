@@ -47,7 +47,7 @@ const SERIES_META: Record<
     referenceLabel: 'buon assetto',
     digits: 1,
     blurb:
-      'Metri verticali percorsi al minuto nei tratti in cui tieni la quota — discesa e risalita sono escluse — al netto dello spostamento voluto in ciascun tratto. È il proxy più diretto del controllo d\'assetto: sotto 2 m/min la quota è tenuta bene.',
+      "Metri verticali percorsi al minuto nei tratti in cui tieni la quota — discesa e risalita sono escluse — al netto dello spostamento voluto in ciascun tratto. È il proxy più diretto del controllo d'assetto: sotto 2 m/min la quota è tenuta bene.",
   },
   ascent: {
     label: 'Velocità di risalita di picco',
@@ -91,15 +91,15 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
 
   const meta = SERIES_META[series];
   const points =
-    series === 'rmv'
-      ? a.rmv
-      : series === 'trim'
-        ? a.trim
-        : series === 'gf99'
-          ? a.gf99
-          : a.maxAscentRate;
+    series === 'rmv' ? a.rmv : series === 'trim' ? a.trim : series === 'gf99' ? a.gf99 : a.maxAscentRate;
   const trend =
-    series === 'rmv' ? a.rmvTrend : series === 'trim' ? a.trimTrend : series === 'ascent' ? a.ascentTrend : undefined;
+    series === 'rmv'
+      ? a.rmvTrend
+      : series === 'trim'
+        ? a.trimTrend
+        : series === 'ascent'
+          ? a.ascentTrend
+          : undefined;
 
   return (
     <div className="page">
@@ -158,8 +158,8 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
         <div className="page-title-row" style={{ marginBottom: 12 }}>
           <h2 style={{ margin: 0 }}>Come ti immergi, di solito</h2>
           <span className="muted" style={{ fontSize: 12 }}>
-            Mediane sul periodo. Ogni tessera dichiara su quante immersioni si basa: dove il dato non
-            c'è, il valore non viene stimato.
+            Mediane sul periodo. Ogni tessera dichiara su quante immersioni si basa: dove il dato non c'è, il
+            valore non viene stimato.
           </span>
         </div>
         <div className="grid grid-tiles">
@@ -187,11 +187,7 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
             unit="m/min"
             digits={1}
             trend={a.ascentTrend}
-            extra={
-              a.fastAscentRate !== undefined
-                ? `${pct(a.fastAscentRate)} oltre il limite`
-                : undefined
-            }
+            extra={a.fastAscentRate !== undefined ? `${pct(a.fastAscentRate)} oltre il limite` : undefined}
             missing="Serve un profilo campionato."
           />
           <MedianTile
@@ -210,23 +206,21 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
           <div className="page-title-row" style={{ marginBottom: 12 }}>
             <h2 style={{ margin: 0 }}>Le ripetitive</h2>
             <span className="muted" style={{ fontSize: 12 }}>
-              {a.repetitiveDives} immersioni del periodo sono cominciate con dell'azoto ancora in
-              circolo.
+              {a.repetitiveDives} immersioni del periodo sono cominciate con dell'azoto ancora in circolo.
             </span>
           </div>
           <p className="card-sub">
-            Il costo è la differenza fra il GF99 con cui sei uscito e quello con cui saresti uscito
-            facendo la <em>stessa identica immersione</em> da tessuti puliti. È un confronto fra due
-            esecuzioni dello stesso profilo, non una stima — e nessun computer subacqueo può dirtelo,
-            perché richiede di guardare due immersioni insieme.
+            Il costo è la differenza fra il GF99 con cui sei uscito e quello con cui saresti uscito facendo la{' '}
+            <em>stessa identica immersione</em> da tessuti puliti. È un confronto fra due esecuzioni dello
+            stesso profilo, non una stima — e nessun computer subacqueo può dirtelo, perché richiede di
+            guardare due immersioni insieme.
           </p>
           <div className="grid grid-tiles">
             <StatTile
               label="Costo mediano"
               value={
                 <span className="tabular">
-                  +{(a.repetitiveCostMedian ?? 0).toFixed(1)}{' '}
-                  <small style={{ fontSize: 14 }}>punti</small>
+                  +{(a.repetitiveCostMedian ?? 0).toFixed(1)} <small style={{ fontSize: 14 }}>punti</small>
                 </span>
               }
               note="di GF99 all'uscita, rispetto a partire da pulito"
@@ -269,8 +263,8 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
           <div className="page-title-row" style={{ marginBottom: 12 }}>
             <h2 style={{ margin: 0 }}>Esposizione all'ossigeno</h2>
             <span className="muted" style={{ fontSize: 12 }}>
-              Calcolata da noi sul profilo con le tabelle NOAA, su {a.oxygen.eligible} immersioni del
-              periodo. Il valore che scrive il computer è un'altra cosa: modello diverso.
+              Calcolata da noi sul profilo con le tabelle NOAA, su {a.oxygen.eligible} immersioni del periodo.
+              Il valore che scrive il computer è un'altra cosa: modello diverso.
             </span>
           </div>
           <div className="grid grid-tiles">
@@ -279,7 +273,9 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               value={
                 <span
                   className="tabular"
-                  style={{ color: (a.oxygen.worstCnsDay?.peakCnsPercent ?? 0) >= 100 ? 'var(--critical)' : undefined }}
+                  style={{
+                    color: (a.oxygen.worstCnsDay?.peakCnsPercent ?? 0) >= 100 ? 'var(--critical)' : undefined,
+                  }}
                 >
                   {a.oxygen.worstCnsDay?.peakCnsPercent ?? 0}%
                 </span>
@@ -295,7 +291,9 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               value={
                 <span
                   className="tabular"
-                  style={{ color: (a.oxygen.worstOtuDay?.otu ?? 0) > OTU_DAILY_MAX ? 'var(--critical)' : undefined }}
+                  style={{
+                    color: (a.oxygen.worstOtuDay?.otu ?? 0) > OTU_DAILY_MAX ? 'var(--critical)' : undefined,
+                  }}
                 >
                   {a.oxygen.worstOtuDay?.otu ?? 0}
                 </span>
@@ -328,9 +326,7 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
             <div style={{ marginTop: 16 }}>
               <div className="mini-title">
                 <span>OTU per giornata di immersione</span>
-                <span className="mini-last">
-                  {a.oxygen.days[a.oxygen.days.length - 1].otu} l'ultima
-                </span>
+                <span className="mini-last">{a.oxygen.days[a.oxygen.days.length - 1].otu} l'ultima</span>
               </div>
               <ColumnChart
                 data={a.oxygen.days.map((d) => ({
@@ -345,11 +341,11 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
           )}
 
           <p className="muted" style={{ fontSize: 11, marginTop: 12, marginBottom: 0 }}>
-            Il CNS della giornata tiene conto del dimezzamento ogni 90 minuti in superficie: la somma
-            nuda sovrastimerebbe, l'ultimo valore sottostimerebbe. Le OTU invece non recuperano —
-            né in giornata né fra un giorno e l'altro — ed è per questo che le due cose stanno
-            insieme. Il tratto finale è misurato punto a punto e non su finestra mobile: dura pochi
-            secondi, ed è esattamente il motivo per cui di solito non si vede.
+            Il CNS della giornata tiene conto del dimezzamento ogni 90 minuti in superficie: la somma nuda
+            sovrastimerebbe, l'ultimo valore sottostimerebbe. Le OTU invece non recuperano — né in giornata né
+            fra un giorno e l'altro — ed è per questo che le due cose stanno insieme. Il tratto finale è
+            misurato punto a punto e non su finestra mobile: dura pochi secondi, ed è esattamente il motivo
+            per cui di solito non si vede.
           </p>
         </div>
       )}
@@ -358,7 +354,10 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
 
       <div className="card">
         <h2>Attività mese per mese</h2>
-        <p className="card-sub">Ultimi 24 mesi. I mesi vuoti sono lasciati visibili: la stagionalità e le pause sono parte dell'informazione.</p>
+        <p className="card-sub">
+          Ultimi 24 mesi. I mesi vuoti sono lasciati visibili: la stagionalità e le pause sono parte
+          dell'informazione.
+        </p>
         <ColumnChart data={a.byMonth} unit="immersioni" height={170} />
       </div>
 
@@ -415,7 +414,10 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
         <div className="card">
           <h2>Siti più frequentati</h2>
           <p className="card-sub">Per numero di immersioni.</p>
-          <BarChart data={a.topSites.map((s) => ({ key: s.name, label: s.name, value: s.dives }))} unit="immersioni" />
+          <BarChart
+            data={a.topSites.map((s) => ({ key: s.name, label: s.name, value: s.dives }))}
+            unit="immersioni"
+          />
         </div>
       </div>
 
@@ -460,9 +462,7 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               />
               <DisciplineRow
                 label="Parte profonda per prima"
-                value={pct(
-                  a.deepestFirstEligible ? a.deepestFirstDives / a.deepestFirstEligible : undefined,
-                )}
+                value={pct(a.deepestFirstEligible ? a.deepestFirstDives / a.deepestFirstEligible : undefined)}
                 basis={`${a.deepestFirstEligible} immersioni con profilo`}
                 eligible={a.deepestFirstEligible}
                 good={a.deepestFirstDives >= a.deepestFirstEligible * 0.8}
@@ -609,7 +609,6 @@ function DisciplineRow({
   );
 }
 
-
 // ---------------------------------------------------------------------------
 // Analisi che rispondono a "perché", non a "quanto"
 // ---------------------------------------------------------------------------
@@ -627,28 +626,44 @@ function Correlations({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) =
     {
       title: 'Consumo e profondità media',
       hint: 'Se il consumo cresce con la profondità oltre l’effetto della pressione, di solito è affaticamento o assetto.',
-      points: pairsOf(dives, (d) => d.avgDepth, (d) => d.metrics?.rmvLpm),
+      points: pairsOf(
+        dives,
+        (d) => d.avgDepth,
+        (d) => d.metrics?.rmvLpm,
+      ),
       xLabel: 'profondità media (m)',
       yLabel: 'consumo (L/min)',
     },
     {
       title: 'Consumo e temperatura',
       hint: 'Il freddo alza il consumo: quanto, su questi dati, si vede qui.',
-      points: pairsOf(dives, (d) => d.minTempC, (d) => d.metrics?.rmvLpm),
+      points: pairsOf(
+        dives,
+        (d) => d.minTempC,
+        (d) => d.metrics?.rmvLpm,
+      ),
       xLabel: 'temperatura minima (°C)',
       yLabel: 'consumo (L/min)',
     },
     {
       title: 'Assetto e consumo',
       hint: 'Muoversi in verticale costa gas: se i due si muovono insieme, lavorare sull’assetto abbassa anche il consumo.',
-      points: pairsOf(dives, (d) => d.metrics?.bottomVerticalTravelMpm, (d) => d.metrics?.rmvLpm),
+      points: pairsOf(
+        dives,
+        (d) => d.metrics?.bottomVerticalTravelMpm,
+        (d) => d.metrics?.rmvLpm,
+      ),
       xLabel: 'oscillazione a quota tenuta (m/min)',
       yLabel: 'consumo (L/min)',
     },
     {
       title: 'Zavorra e assetto',
       hint: 'La sovra-zavorra è la prima causa di assetto instabile, e questo grafico la mette alla prova.',
-      points: pairsOf(dives, (d) => d.weightKg, (d) => d.metrics?.bottomVerticalTravelMpm),
+      points: pairsOf(
+        dives,
+        (d) => d.weightKg,
+        (d) => d.metrics?.bottomVerticalTravelMpm,
+      ),
       xLabel: 'zavorra (kg)',
       yLabel: 'oscillazione (m/min)',
     },
@@ -660,9 +675,9 @@ function Correlations({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) =
     <div className="card">
       <h2>Cosa dipende da cosa</h2>
       <p className="card-sub">
-        Ogni punto è un'immersione, e si può cliccare per aprirla. La retta tratteggiata è la tendenza
-        dei minimi quadrati; <b>r</b> è il coefficiente di correlazione: 0 nessuna relazione, ±1
-        relazione perfetta. È una correlazione osservata su questo archivio, non una causa dimostrata.
+        Ogni punto è un'immersione, e si può cliccare per aprirla. La retta tratteggiata è la tendenza dei
+        minimi quadrati; <b>r</b> è il coefficiente di correlazione: 0 nessuna relazione, ±1 relazione
+        perfetta. È una correlazione osservata su questo archivio, non una causa dimostrata.
       </p>
       <div className="grid grid-2">
         {sets.map((s) => {
@@ -738,8 +753,8 @@ function Distributions({ dives }: { dives: Dive[] }) {
     <div className="card">
       <h2>Distribuzioni</h2>
       <p className="card-sub">
-        Quante immersioni cadono in ciascun intervallo. È la vista che mostra le code, cioè i casi che
-        una media nasconde.
+        Quante immersioni cadono in ciascun intervallo. È la vista che mostra le code, cioè i casi che una
+        media nasconde.
       </p>
       <div className="grid grid-3">
         {blocks.map((b) => (
@@ -778,8 +793,8 @@ function SettingsHistory({ dives }: { dives: Dive[] }) {
     <div className="card">
       <h2>Impostazioni del computer nel tempo</h2>
       <p className="card-sub">
-        Il GF99 all'uscita dipende da queste impostazioni: confrontarlo fra periodi diversi senza
-        tenerne conto porta a conclusioni sbagliate.
+        Il GF99 all'uscita dipende da queste impostazioni: confrontarlo fra periodi diversi senza tenerne
+        conto porta a conclusioni sbagliate.
       </p>
       <table>
         <thead>
@@ -876,7 +891,8 @@ function MedianTile({
         {median.toFixed(digits)} <small style={{ fontSize: 13, fontWeight: 500 }}>{unit}</small>
       </div>
       <div className="tile-note">
-        {imm(points.length)}{extra ? ` · ${extra}` : ''}
+        {imm(points.length)}
+        {extra ? ` · ${extra}` : ''}
       </div>
       {trend && trend.direction !== 'flat' && (
         <div className="row" style={{ gap: 5, marginTop: 4, fontSize: 11 }}>
@@ -897,7 +913,6 @@ function gfLabel(dives: Dive[]): string | undefined {
   const last = periods[periods.length - 1].label;
   return periods.length > 1 ? `${last} (cambiati nel periodo)` : `${last} impostati`;
 }
-
 
 /**
  * Dove ti immergi.
@@ -961,9 +976,8 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
         </span>
       </div>
       <p className="card-sub">
-        Non è una mappa: sotto non c'è nessuna cartografia. È la disposizione reciproca dei siti, con
-        la grandezza della bolla proporzionale alle immersioni fatte lì. Serve a vedere i gruppi, non
-        a navigare.
+        Non è una mappa: sotto non c'è nessuna cartografia. È la disposizione reciproca dei siti, con la
+        grandezza della bolla proporzionale alle immersioni fatte lì. Serve a vedere i gruppi, non a navigare.
       </p>
       <div className="chart" ref={ref}>
         <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img">

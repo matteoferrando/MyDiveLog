@@ -99,14 +99,19 @@ export function computeMetrics(dive: Dive): DiveMetrics {
   // dichiarato dal formato sorgente. Se non c'è nessuno dei due resta ignota:
   // niente stime, perché da qui passa il calcolo del consumo.
   const avgDepth = hasProfile
-    ? round(timeWeightedMean(samples, (s) => s.depth), 2)
+    ? round(
+        timeWeightedMean(samples, (s) => s.depth),
+        2,
+      )
     : dive.avgDepth;
-  const avgAta =
-    hasProfile
-      ? round(timeWeightedMean(samples, (s) => ambientAta(s.depth, salinity, dive.surfacePressureBar)), 3)
-      : avgDepth !== undefined
-        ? round(ambientAta(avgDepth, salinity, dive.surfacePressureBar), 3)
-        : undefined;
+  const avgAta = hasProfile
+    ? round(
+        timeWeightedMean(samples, (s) => ambientAta(s.depth, salinity, dive.surfacePressureBar)),
+        3,
+      )
+    : avgDepth !== undefined
+      ? round(ambientAta(avgDepth, salinity, dive.surfacePressureBar), 3)
+      : undefined;
 
   // LE VELOCITÀ VERTICALI SI MISURANO SUL PROFILO PIÙ FITTO DISPONIBILE.
   //
@@ -473,8 +478,7 @@ function analyseShape(
   const half = samples[samples.length - 1].t / 2;
   const first = samples.filter((s) => s.t <= half);
   const second = samples.filter((s) => s.t > half);
-  const mean = (list: Sample[]) =>
-    list.length ? list.reduce((a, s) => a + s.depth, 0) / list.length : 0;
+  const mean = (list: Sample[]) => (list.length ? list.reduce((a, s) => a + s.depth, 0) / list.length : 0);
 
   // Il verso del profilo come GRANDEZZA, non come sì/no.
   //
@@ -603,9 +607,7 @@ function analyseGas(dive: Dive, samples: Sample[], avgAta: number | undefined, c
       );
     }
   } else if (hasTankPressure && !hasCylinderVolume) {
-    caveats.push(
-      'Volume bombola non indicato: calcolabile solo il SAC in bar/min, non il consumo in L/min.',
-    );
+    caveats.push('Volume bombola non indicato: calcolabile solo il SAC in bar/min, non il consumo in L/min.');
   } else if (!hasTankPressure) {
     caveats.push('Nessuna pressione bombola: consumo gas non calcolabile.');
   }
@@ -653,7 +655,10 @@ function analyseOxygen(dive: Dive, samples: Sample[], maxDepth: number, salinity
     for (const s of samples) {
       const mix = dive.cylinders[s.gasIndex ?? 0]?.mix ?? dive.cylinders[0]?.mix;
       if (!mix) continue;
-      const p = mix.o2 * ambientAta(s.depth, salinity, dive.surfacePressureBar) * (dive.surfacePressureBar ?? 1.01325);
+      const p =
+        mix.o2 *
+        ambientAta(s.depth, salinity, dive.surfacePressureBar) *
+        (dive.surfacePressureBar ?? 1.01325);
       if (p > peak) peak = p;
     }
     if (peak > 0) maxPpo2 = round(peak, 2);
@@ -667,13 +672,14 @@ function analyseOxygen(dive: Dive, samples: Sample[], maxDepth: number, salinity
   // CNS e OTU calcolati da NOI dal profilo, con le tabelle NOAA. Il computer ne
   // scrive una sua versione (`cnsEndPct`): sono due numeri diversi con due
   // modelli diversi, e vanno tenuti separati invece di sovrascriversi.
-  const exposure = samples.length > 1
-    ? exposureOfProfile(
-        samples,
-        (sample: Sample) => dive.cylinders[sample.gasIndex ?? 0]?.mix ?? dive.cylinders[0]?.mix,
-        salinity,
-      )
-    : undefined;
+  const exposure =
+    samples.length > 1
+      ? exposureOfProfile(
+          samples,
+          (sample: Sample) => dive.cylinders[sample.gasIndex ?? 0]?.mix ?? dive.cylinders[0]?.mix,
+          salinity,
+        )
+      : undefined;
 
   return {
     maxPpo2,

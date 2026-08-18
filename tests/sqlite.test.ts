@@ -52,7 +52,19 @@ describe('tipi di valore', () => {
         i_6 integer, r real, s text, b blob, zero integer, one integer
       )`);
       const st = db.prepare('insert into t values (?,?,?,?,?,?,?,?,?,?,?)');
-      st.run(null, 7, 300, 100_000, 70_000_000, 5_000_000_000, 17.256, 'Recco, Gonzatti', new Uint8Array([0, 255, 16]), 0, 1);
+      st.run(
+        null,
+        7,
+        300,
+        100_000,
+        70_000_000,
+        5_000_000_000,
+        17.256,
+        'Recco, Gonzatti',
+        new Uint8Array([0, 255, 16]),
+        0,
+        1,
+      );
       st.run(null, -7, -300, -100_000, -70_000_000, -5_000_000_000, -0.5, '', new Uint8Array(), 0, 1);
     });
     const t = readSqliteTables(bytes).get('t')!;
@@ -113,22 +125,29 @@ describe('pagine di overflow', () => {
       const got = row.blob1 as Uint8Array;
       expect(got.length, `riga ${i}: lunghezza`).toBe(big.length);
       // Confronto integrale: un solo byte fuori posto significa catena rotta.
-      expect(got.every((v, j) => v === big[j]), `riga ${i}: contenuto`).toBe(true);
+      expect(
+        got.every((v, j) => v === big[j]),
+        `riga ${i}: contenuto`,
+      ).toBe(true);
       expect(row.note).toBe(text);
       expect(row.id).toBe(`log-${i}`);
     }
   });
 
-  it('non tronca al confine del payload locale (bug dell\'arrotondamento)', () => {
+  it("non tronca al confine del payload locale (bug dell'arrotondamento)", () => {
     // Con pagine da 512 byte la soglia del payload locale cade su un valore che
     // l'aritmetica in virgola mobile sbaglia di uno. Il dato DEVE essere non
     // banale: con un blob di soli zeri un troncamento passerebbe inosservato,
     // perché il risultato sbagliato è indistinguibile da quello giusto.
     const blob = new Uint8Array(6000).map((_, i) => (i * 7 + 1) & 0xff);
-    const bytes = build('boundary', (db) => {
-      db.exec('create table t (a blob)');
-      db.prepare('insert into t values (?)').run(blob);
-    }, 512);
+    const bytes = build(
+      'boundary',
+      (db) => {
+        db.exec('create table t (a blob)');
+        db.prepare('insert into t values (?)').run(blob);
+      },
+      512,
+    );
     const got = readSqliteTables(bytes).get('t')!.rows[0].a as Uint8Array;
     expect(got.length).toBe(blob.length);
     const firstDiff = [...got].findIndex((v, i) => v !== blob[i]);
@@ -138,14 +157,21 @@ describe('pagine di overflow', () => {
   it('funziona con tutte le dimensioni di pagina', () => {
     const blob = new Uint8Array(6000).map((_, i) => (i * 13 + 5) & 0xff);
     for (const pageSize of [512, 1024, 4096, 8192, 65536]) {
-      const bytes = build(`ps${pageSize}`, (db) => {
-        db.exec('create table t (a blob)');
-        db.prepare('insert into t values (?)').run(blob);
-      }, pageSize);
+      const bytes = build(
+        `ps${pageSize}`,
+        (db) => {
+          db.exec('create table t (a blob)');
+          db.prepare('insert into t values (?)').run(blob);
+        },
+        pageSize,
+      );
       const t = readSqliteTables(bytes).get('t')!;
       const got = t.rows[0].a as Uint8Array;
       expect(got.length, `pagina ${pageSize}`).toBe(blob.length);
-      expect(got.every((v, j) => v === blob[j]), `pagina ${pageSize}`).toBe(true);
+      expect(
+        got.every((v, j) => v === blob[j]),
+        `pagina ${pageSize}`,
+      ).toBe(true);
     }
   });
 });
@@ -154,11 +180,15 @@ describe('alberi B su più livelli', () => {
   it('legge tutte le righe attraversando le pagine interne', () => {
     // Con pagine da 512 byte e 2000 righe l'albero ha più di un livello, quindi
     // il lettore deve seguire le pagine interne e non solo le foglie.
-    const bytes = build('many', (db) => {
-      db.exec('create table dives (n integer, site text, depth real)');
-      const st = db.prepare('insert into dives values (?,?,?)');
-      for (let i = 1; i <= 2000; i++) st.run(i, `Sito numero ${i}`, i / 10);
-    }, 512);
+    const bytes = build(
+      'many',
+      (db) => {
+        db.exec('create table dives (n integer, site text, depth real)');
+        const st = db.prepare('insert into dives values (?,?,?)');
+        for (let i = 1; i <= 2000; i++) st.run(i, `Sito numero ${i}`, i / 10);
+      },
+      512,
+    );
     const t = readSqliteTables(bytes).get('dives')!;
     expect(t.rows).toHaveLength(2000);
     // Ordine per rowid: le righe devono tornare nell'ordine di inserimento.
@@ -207,7 +237,7 @@ describe('lettura dello schema', () => {
     ).toEqual(['a', 'b c', 'd', 'e']);
   });
 
-  it('riconosce l\'alias del rowid nelle sue forme', () => {
+  it("riconosce l'alias del rowid nelle sue forme", () => {
     expect(parseSchema('CREATE TABLE t (Id INTEGER PRIMARY KEY, x)').rowidAlias).toBe('Id');
     expect(parseSchema('CREATE TABLE t (Id integer primary key autoincrement, x)').rowidAlias).toBe('Id');
     expect(parseSchema('CREATE TABLE t (Id INTEGER, x, PRIMARY KEY (Id))').rowidAlias).toBe('Id');
@@ -219,7 +249,7 @@ describe('lettura dello schema', () => {
   });
 
   it('gestisce le virgole dentro i tipi e le virgolette', () => {
-    expect(parseColumns('CREATE TABLE t (a decimal(10, 2), b varchar(5), c text default \'x, y\')')).toEqual([
+    expect(parseColumns("CREATE TABLE t (a decimal(10, 2), b varchar(5), c text default 'x, y')")).toEqual([
       'a',
       'b',
       'c',

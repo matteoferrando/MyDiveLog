@@ -146,12 +146,12 @@ describe('coefficienti ZH-L16C', () => {
   // Bühlmann, Tauchmedizin, tabella ZH-L16C per l'azoto. La serie `b` è comune
   // alle tre varianti; è la `a` che distingue A, B e C.
   const A = [
-    1.2599, 1.0, 0.8618, 0.7562, 0.62, 0.5043, 0.441, 0.4, 0.375, 0.35, 0.3295, 0.3065, 0.2835,
-    0.261, 0.248, 0.2327,
+    1.2599, 1.0, 0.8618, 0.7562, 0.62, 0.5043, 0.441, 0.4, 0.375, 0.35, 0.3295, 0.3065, 0.2835, 0.261, 0.248,
+    0.2327,
   ];
   const B = [
-    0.505, 0.6514, 0.7222, 0.7825, 0.8126, 0.8434, 0.8693, 0.891, 0.9092, 0.9222, 0.9319, 0.9403,
-    0.9477, 0.9544, 0.9602, 0.9653,
+    0.505, 0.6514, 0.7222, 0.7825, 0.8126, 0.8434, 0.8693, 0.891, 0.9092, 0.9222, 0.9319, 0.9403, 0.9477,
+    0.9544, 0.9602, 0.9653,
   ];
 
   it('ha sedici compartimenti', () => {
@@ -282,4 +282,4 @@ describe('compartimenti per il grafico', () => {
     expect(worst.index - 1).toBe(gf99(loaded, amb).leading);
     expect(worst.percent).toBeCloseTo(gf99(loaded, amb).percent, 0);
   });
-})
+});

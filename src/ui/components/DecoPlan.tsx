@@ -178,7 +178,10 @@ export function DecoPlanner({
   // Il setpoint entra dai livelli, non dalle impostazioni: su un rebreather si
   // cambia in acqua, ed è normale scendere a 0.7 e passare a 1.3 sul fondo.
   const effectiveLevels = useMemo(
-    () => (ccr ? levels.map((l) => ({ ...l, setpointBar: l.setpointBar ?? setpoint })) : levels.map(({ setpointBar: _s, ...l }) => l)),
+    () =>
+      ccr
+        ? levels.map((l) => ({ ...l, setpointBar: l.setpointBar ?? setpoint }))
+        : levels.map(({ setpointBar: _s, ...l }) => l),
     [levels, ccr, setpoint],
   );
 
@@ -187,7 +190,11 @@ export function DecoPlanner({
   const vpm = useMemo(() => {
     const bottomMix = gases[0]?.mix ?? { o2: 0.21, he: 0 };
     return planVpm(
-      effectiveLevels.map((l) => ({ depthM: l.depthM, minutes: l.minutes, mix: gases[l.gasIndex ?? 0]?.mix ?? bottomMix })),
+      effectiveLevels.map((l) => ({
+        depthM: l.depthM,
+        minutes: l.minutes,
+        mix: gases[l.gasIndex ?? 0]?.mix ?? bottomMix,
+      })),
       gases
         .filter((g) => g.role === 'deco')
         .map((g) => ({ mix: g.mix, switchDepthM: switchDepthOf(g, settings) })),
@@ -204,7 +211,10 @@ export function DecoPlanner({
     );
   }, [effectiveLevels, gases, settings, conservatism]);
 
-  const buhlmann = useMemo(() => planDeco(effectiveLevels, gases, settings), [effectiveLevels, gases, settings]);
+  const buhlmann = useMemo(
+    () => planDeco(effectiveLevels, gases, settings),
+    [effectiveLevels, gases, settings],
+  );
 
   /**
    * La tabella che comanda davvero.
@@ -272,7 +282,23 @@ export function DecoPlanner({
     );
 
     return () => clearTimeout(t);
-  }, [onChange, levels, gases, base, model, conservatism, ccr, setpoint, altitudeM, hoursAtAltitude, salinity, previousId, surfaceMin, second, bailFrom]);
+  }, [
+    onChange,
+    levels,
+    gases,
+    base,
+    model,
+    conservatism,
+    ccr,
+    setpoint,
+    altitudeM,
+    hoursAtAltitude,
+    salinity,
+    previousId,
+    surfaceMin,
+    second,
+    bailFrom,
+  ]);
 
   /** Lo stato completo, per salvarlo con un nome. */
   const current = (): DecoPlanState => ({
@@ -327,14 +353,21 @@ export function DecoPlanner({
       <div className="card">
         <h2>Dove sei, e cosa hai fatto prima</h2>
         <p className="card-sub">
-          Quota e immersione precedente cambiano la tabella prima ancora di scrivere il primo livello,
-          e si sommano: chi fa la seconda immersione a un lago di montagna se le porta addosso
-          entrambe. La salinità resta un campo a sé — immergersi in quota quasi sempre vuol dire acqua
-          dolce, e trattarla come acqua di mare è la scorciatoia che prendono quasi tutti i
-          pianificatori.
+          Quota e immersione precedente cambiano la tabella prima ancora di scrivere il primo livello, e si
+          sommano: chi fa la seconda immersione a un lago di montagna se le porta addosso entrambe. La
+          salinità resta un campo a sé — immergersi in quota quasi sempre vuol dire acqua dolce, e trattarla
+          come acqua di mare è la scorciatoia che prendono quasi tutti i pianificatori.
         </p>
         <div className="grid grid-3" style={{ gap: 10 }}>
-          <NumField label="Quota del sito" unit="m slm" value={altitudeM} min={0} max={4000} step={50} onChange={setAltitudeM} />
+          <NumField
+            label="Quota del sito"
+            unit="m slm"
+            value={altitudeM}
+            min={0}
+            max={4000}
+            step={50}
+            onChange={setAltitudeM}
+          />
           <NumField
             label="Ore già passate in quota"
             unit="h"
@@ -369,20 +402,28 @@ export function DecoPlanner({
             )}
           </label>
           {previousId && (
-            <NumField label="Intervallo di superficie" unit="min" value={surfaceMin} min={5} max={1440} step={5} onChange={setSurfaceMin} />
+            <NumField
+              label="Intervallo di superficie"
+              unit="min"
+              value={surfaceMin}
+              min={5}
+              max={1440}
+              step={5}
+              onChange={setSurfaceMin}
+            />
           )}
         </div>
         {(altitudeM > 0 || previousId) && (
           <div className="notice" style={{ marginTop: 12 }}>
             {altitudeM > 0 && (
               <>
-                A {altitudeM} m la pressione di superficie è {barometric(altitudeM).toFixed(3)} bar invece
-                di 1.013: il gas che consumi cala, la decompressione si allunga.
+                A {altitudeM} m la pressione di superficie è {barometric(altitudeM).toFixed(3)} bar invece di
+                1.013: il gas che consumi cala, la decompressione si allunga.
                 {hoursAtAltitude < 12 && (
                   <>
                     {' '}
-                    Con sole {hoursAtAltitude} ore in quota non sei ancora acclimatato, e questo entra
-                    nel conto.
+                    Con sole {hoursAtAltitude} ore in quota non sei ancora acclimatato, e questo entra nel
+                    conto.
                   </>
                 )}{' '}
               </>
@@ -450,14 +491,16 @@ export function DecoPlanner({
           <div>
             <h2 style={{ margin: 0 }}>La seconda immersione della giornata</h2>
             <p className="card-sub" style={{ marginBottom: 0 }}>
-              Si pianifica adesso, insieme alla prima, perché è adesso che serve saperlo: la pausa la
-              decidi a colazione, non quando risali. Stessa attrezzatura e stesse miscele — se cambi
-              anche quelle, conviene farne due piani separati.
+              Si pianifica adesso, insieme alla prima, perché è adesso che serve saperlo: la pausa la decidi a
+              colazione, non quando risali. Stessa attrezzatura e stesse miscele — se cambi anche quelle,
+              conviene farne due piani separati.
             </p>
           </div>
           <button
             onClick={() =>
-              setSecond((p) => (p ? null : { depthM: Math.max(6, levels[0].depthM - 10), minutes: 40, surfaceMin: 90 }))
+              setSecond((p) =>
+                p ? null : { depthM: Math.max(6, levels[0].depthM - 10), minutes: 40, surfaceMin: 90 },
+              )
             }
           >
             {second ? 'Togli' : 'Aggiungi'}
@@ -467,9 +510,33 @@ export function DecoPlanner({
         {second && (
           <>
             <div className="grid grid-3" style={{ gap: 10, marginTop: 12 }}>
-              <NumField label="Intervallo di superficie" unit="min" value={second.surfaceMin} min={10} max={600} step={5} onChange={(v) => setSecond((p) => p && { ...p, surfaceMin: v })} />
-              <NumField label="Profondità" unit="m" value={second.depthM} min={3} max={150} step={1} onChange={(v) => setSecond((p) => p && { ...p, depthM: v })} />
-              <NumField label="Minuti" unit="min" value={second.minutes} min={1} max={300} step={1} onChange={(v) => setSecond((p) => p && { ...p, minutes: v })} />
+              <NumField
+                label="Intervallo di superficie"
+                unit="min"
+                value={second.surfaceMin}
+                min={10}
+                max={600}
+                step={5}
+                onChange={(v) => setSecond((p) => p && { ...p, surfaceMin: v })}
+              />
+              <NumField
+                label="Profondità"
+                unit="m"
+                value={second.depthM}
+                min={3}
+                max={150}
+                step={1}
+                onChange={(v) => setSecond((p) => p && { ...p, depthM: v })}
+              />
+              <NumField
+                label="Minuti"
+                unit="min"
+                value={second.minutes}
+                min={1}
+                max={300}
+                step={1}
+                onChange={(v) => setSecond((p) => p && { ...p, minutes: v })}
+              />
             </div>
             {giornata && (
               <div className="table-scroll" style={{ marginTop: 12 }}>
@@ -507,9 +574,8 @@ export function DecoPlanner({
               </div>
             )}
             <p className="planner-hint" style={{ marginTop: 8 }}>
-              Sposta l'intervallo di superficie e guarda la riga di sotto: è il modo più diretto di
-              vedere quanto vale un'ora in più di pausa. La prima immersione non cambia mai — è la
-              seconda a pagare.
+              Sposta l'intervallo di superficie e guarda la riga di sotto: è il modo più diretto di vedere
+              quanto vale un'ora in più di pausa. La prima immersione non cambia mai — è la seconda a pagare.
             </p>
           </>
         )}
@@ -577,7 +643,9 @@ export function DecoPlanner({
                       max={150}
                       onChange={(v) => setGas(i, { switchDepthM: v })}
                     />
-                    <div className="muted" style={{ fontSize: 10 }}>m</div>
+                    <div className="muted" style={{ fontSize: 10 }}>
+                      m
+                    </div>
                   </td>
                   <td className="num">
                     <Cell
@@ -627,18 +695,93 @@ export function DecoPlanner({
       <div className="card">
         <h2>Come risali</h2>
         <div className="grid grid-3" style={{ gap: 10 }}>
-          <NumField label="GF basso" unit="%" value={Math.round(base.gfLow * 100)} min={5} max={100} step={5} onChange={(v) => set('gfLow', v / 100)} />
-          <NumField label="GF alto" unit="%" value={Math.round(base.gfHigh * 100)} min={30} max={100} step={5} onChange={(v) => set('gfHigh', v / 100)} />
-          <NumField label="Risalita" unit="m/min" value={base.ascentRateMpm} min={3} max={18} step={1} onChange={(v) => set('ascentRateMpm', v)} />
-          <NumField label="Discesa" unit="m/min" value={base.descentRateMpm} min={6} max={40} step={1} onChange={(v) => set('descentRateMpm', v)} />
-          <NumField label="Ultima sosta" unit="m" value={base.lastStopM} min={3} max={9} step={3} onChange={(v) => set('lastStopM', v)} />
-          <NumField label="Passo fra le soste" unit="m" value={base.stopIntervalM} min={1} max={6} step={1} onChange={(v) => set('stopIntervalM', v)} />
-          <NumField label="Consumo al fondo" unit="L/min" value={base.rmvLpm} min={8} max={40} step={1} onChange={(v) => set('rmvLpm', v)} />
-          <NumField label="Consumo in deco" unit="L/min" value={base.decoRmvLpm} min={8} max={40} step={1} onChange={(v) => set('decoRmvLpm', v)} />
-          <NumField label="Tempo di cambio gas" unit="min" value={base.switchMin} min={0} max={5} step={1} onChange={(v) => set('switchMin', v)} />
+          <NumField
+            label="GF basso"
+            unit="%"
+            value={Math.round(base.gfLow * 100)}
+            min={5}
+            max={100}
+            step={5}
+            onChange={(v) => set('gfLow', v / 100)}
+          />
+          <NumField
+            label="GF alto"
+            unit="%"
+            value={Math.round(base.gfHigh * 100)}
+            min={30}
+            max={100}
+            step={5}
+            onChange={(v) => set('gfHigh', v / 100)}
+          />
+          <NumField
+            label="Risalita"
+            unit="m/min"
+            value={base.ascentRateMpm}
+            min={3}
+            max={18}
+            step={1}
+            onChange={(v) => set('ascentRateMpm', v)}
+          />
+          <NumField
+            label="Discesa"
+            unit="m/min"
+            value={base.descentRateMpm}
+            min={6}
+            max={40}
+            step={1}
+            onChange={(v) => set('descentRateMpm', v)}
+          />
+          <NumField
+            label="Ultima sosta"
+            unit="m"
+            value={base.lastStopM}
+            min={3}
+            max={9}
+            step={3}
+            onChange={(v) => set('lastStopM', v)}
+          />
+          <NumField
+            label="Passo fra le soste"
+            unit="m"
+            value={base.stopIntervalM}
+            min={1}
+            max={6}
+            step={1}
+            onChange={(v) => set('stopIntervalM', v)}
+          />
+          <NumField
+            label="Consumo al fondo"
+            unit="L/min"
+            value={base.rmvLpm}
+            min={8}
+            max={40}
+            step={1}
+            onChange={(v) => set('rmvLpm', v)}
+          />
+          <NumField
+            label="Consumo in deco"
+            unit="L/min"
+            value={base.decoRmvLpm}
+            min={8}
+            max={40}
+            step={1}
+            onChange={(v) => set('decoRmvLpm', v)}
+          />
+          <NumField
+            label="Tempo di cambio gas"
+            unit="min"
+            value={base.switchMin}
+            min={0}
+            max={5}
+            step={1}
+            onChange={(v) => set('switchMin', v)}
+          />
         </div>
 
-        <label className="planner-check" style={{ marginTop: 14, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <label
+          className="planner-check"
+          style={{ marginTop: 14, display: 'flex', gap: 8, alignItems: 'center' }}
+        >
           <input
             type="checkbox"
             checked={base.safetyStop !== null}
@@ -672,8 +815,8 @@ export function DecoPlanner({
               Non è obbligatoria e nessun modello la impone: su un'immersione bassa il piano che esce dal
               modello arriva in superficie senza fermarsi. La si conta perché quasi tutti la fanno, e tre
               minuti non calcolati sono tre minuti di gas non calcolato. L'app non la aggiunge quando il
-              modello impone già una sosta a quella quota o più bassa — in decompressione l'ultima sosta
-              fa già quel mestiere — né sotto i {SAFETY_STOP_MIN_DEPTH_M} metri di profondità massima.
+              modello impone già una sosta a quella quota o più bassa — in decompressione l'ultima sosta fa
+              già quel mestiere — né sotto i {SAFETY_STOP_MIN_DEPTH_M} metri di profondità massima.
             </p>
           </>
         )}
@@ -688,17 +831,25 @@ export function DecoPlanner({
             </select>
           </label>
           {model !== 'buhlmann' && (
-            <NumField label="Conservatorismo VPM" unit="0-5" value={conservatism} min={0} max={5} step={1} onChange={setConservatism} />
+            <NumField
+              label="Conservatorismo VPM"
+              unit="0-5"
+              value={conservatism}
+              min={0}
+              max={5}
+              step={1}
+              onChange={setConservatism}
+            />
           )}
         </div>
         {model !== 'buhlmann' && (
           <div className="notice" style={{ marginTop: 10 }}>
             <strong style={{ fontWeight: 650 }}>Due cose da sapere sul nostro VPM-B. </strong>
             Le tabelle escono dal 5 al 10 per cento più corte di V-Planner e MultiDeco a parità di
-            conservatorismo — il confronto con le schedule pubblicate sta nei test, e se vuoi
-            allinearti al tuo pianificatore alza di un livello. E soprattutto: <b>manca l'algoritmo
-            ripetitivo del VPM</b>, quindi sulla seconda immersione della giornata il modello è
-            ottimista. Con Bühlmann il carico residuo invece è tenuto in conto.
+            conservatorismo — il confronto con le schedule pubblicate sta nei test, e se vuoi allinearti al
+            tuo pianificatore alza di un livello. E soprattutto: <b>manca l'algoritmo ripetitivo del VPM</b>,
+            quindi sulla seconda immersione della giornata il modello è ottimista. Con Bühlmann il carico
+            residuo invece è tenuto in conto.
             {vpm.iterations >= 12 && (
               <>
                 {' '}
@@ -709,25 +860,76 @@ export function DecoPlanner({
           </div>
         )}
 
-        <label className="planner-check" style={{ marginTop: 14, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <label
+          className="planner-check"
+          style={{ marginTop: 14, display: 'flex', gap: 8, alignItems: 'center' }}
+        >
           <input type="checkbox" checked={ccr} onChange={(e) => setCcr(e.target.checked)} />
           <span>Circuito chiuso (rebreather)</span>
         </label>
         {ccr && (
           <>
             <p className="planner-hint" style={{ marginTop: 6 }}>
-              Con il circuito chiuso il gas non se ne va con la ventilazione ma con il metabolismo, che
-              della profondità non sa niente: è il motivo per cui un rebreather fa immersioni lunghe e
-              profonde con bombole piccole. Il primo gas dell'elenco diventa il diluente; i gas marcati
-              «bailout» non si usano nel piano ma entrano nella risalita d'emergenza qui sotto.
+              Con il circuito chiuso il gas non se ne va con la ventilazione ma con il metabolismo, che della
+              profondità non sa niente: è il motivo per cui un rebreather fa immersioni lunghe e profonde con
+              bombole piccole. Il primo gas dell'elenco diventa il diluente; i gas marcati «bailout» non si
+              usano nel piano ma entrano nella risalita d'emergenza qui sotto.
             </p>
             <div className="grid grid-3" style={{ gap: 10, marginTop: 10 }}>
-              <NumField label="Setpoint" unit="bar" value={setpoint} min={0.4} max={1.6} step={0.1} onChange={setSetpoint} />
-              <NumField label="Consumo O₂ al fondo" unit="L/min" value={base.morLpm} min={0.3} max={2} step={0.1} onChange={(v) => set('morLpm', v)} />
-              <NumField label="Consumo O₂ in deco" unit="L/min" value={base.decoMorLpm} min={0.3} max={2} step={0.1} onChange={(v) => set('decoMorLpm', v)} />
-              <NumField label="Volume del circuito" unit="L" value={base.loopVolumeL} min={2} max={12} step={1} onChange={(v) => set('loopVolumeL', v)} />
-              <NumField label="Bombola O₂" unit="L" value={base.ccrO2TankL ?? 3} min={1} max={10} step={1} onChange={(v) => set('ccrO2TankL', v)} />
-              <NumField label="O₂ di partenza" unit="bar" value={base.ccrO2StartBar ?? 200} min={50} max={300} step={10} onChange={(v) => set('ccrO2StartBar', v)} />
+              <NumField
+                label="Setpoint"
+                unit="bar"
+                value={setpoint}
+                min={0.4}
+                max={1.6}
+                step={0.1}
+                onChange={setSetpoint}
+              />
+              <NumField
+                label="Consumo O₂ al fondo"
+                unit="L/min"
+                value={base.morLpm}
+                min={0.3}
+                max={2}
+                step={0.1}
+                onChange={(v) => set('morLpm', v)}
+              />
+              <NumField
+                label="Consumo O₂ in deco"
+                unit="L/min"
+                value={base.decoMorLpm}
+                min={0.3}
+                max={2}
+                step={0.1}
+                onChange={(v) => set('decoMorLpm', v)}
+              />
+              <NumField
+                label="Volume del circuito"
+                unit="L"
+                value={base.loopVolumeL}
+                min={2}
+                max={12}
+                step={1}
+                onChange={(v) => set('loopVolumeL', v)}
+              />
+              <NumField
+                label="Bombola O₂"
+                unit="L"
+                value={base.ccrO2TankL ?? 3}
+                min={1}
+                max={10}
+                step={1}
+                onChange={(v) => set('ccrO2TankL', v)}
+              />
+              <NumField
+                label="O₂ di partenza"
+                unit="bar"
+                value={base.ccrO2StartBar ?? 200}
+                min={50}
+                max={300}
+                step={10}
+                onChange={(v) => set('ccrO2StartBar', v)}
+              />
             </div>
           </>
         )}
@@ -752,7 +954,10 @@ export function DecoPlanner({
         <StatTile
           label="Decompressione"
           value={
-            <span className="tabular" style={{ color: plan.decoMin > 0 ? 'var(--warning)' : 'var(--good-text)' }}>
+            <span
+              className="tabular"
+              style={{ color: plan.decoMin > 0 ? 'var(--warning)' : 'var(--good-text)' }}
+            >
               {plan.decoMin} <small style={{ fontSize: 14 }}>min</small>
               <Was before={before?.deco} now={plan.decoMin} />
             </span>
@@ -792,7 +997,11 @@ export function DecoPlanner({
           {plan.warnings.map((w) => (
             <div key={w.text} className={w.level === 'critical' ? 'notice notice-error' : 'notice'}>
               <strong style={{ fontWeight: 650 }}>
-                {w.level === 'critical' ? 'Il piano non regge: ' : w.level === 'warning' ? 'Attenzione: ' : 'Da sapere: '}
+                {w.level === 'critical'
+                  ? 'Il piano non regge: '
+                  : w.level === 'warning'
+                    ? 'Attenzione: '
+                    : 'Da sapere: '}
               </strong>
               {w.text}
             </div>
@@ -828,11 +1037,20 @@ export function DecoPlanner({
                     {seg.fromM === seg.toM ? `${seg.toM} m` : `${seg.fromM}→${seg.toM} m`}
                   </td>
                   <td className="num tabular">{seg.minutes.toFixed(seg.minutes % 1 ? 1 : 0)}</td>
-                  <td className="num tabular" style={{ fontWeight: 650 }}>{seg.runtimeMin.toFixed(0)}</td>
+                  <td className="num tabular" style={{ fontWeight: 650 }}>
+                    {seg.runtimeMin.toFixed(0)}
+                  </td>
                   <td>{gasLabel(gases[seg.gasIndex])}</td>
                   <td
                     className="num tabular"
-                    style={{ color: seg.ppo2 > settings.maxPpo2Deco + 0.05 ? 'var(--critical)' : seg.ppo2 > settings.maxPpo2Work ? 'var(--warning)' : undefined }}
+                    style={{
+                      color:
+                        seg.ppo2 > settings.maxPpo2Deco + 0.05
+                          ? 'var(--critical)'
+                          : seg.ppo2 > settings.maxPpo2Work
+                            ? 'var(--warning)'
+                            : undefined,
+                    }}
                   >
                     {seg.ppo2.toFixed(2)}
                   </td>
@@ -847,8 +1065,8 @@ export function DecoPlanner({
         </div>
         {plan.offgassingFromM !== undefined && (
           <p className="planner-hint" style={{ marginTop: 8 }}>
-            La desaturazione comincia a {plan.offgassingFromM} m: sopra quella quota i tessuti che
-            comandano scaricano invece di caricare.
+            La desaturazione comincia a {plan.offgassingFromM} m: sopra quella quota i tessuti che comandano
+            scaricano invece di caricare.
           </p>
         )}
       </div>
@@ -874,7 +1092,11 @@ export function DecoPlanner({
             >
               {copied ? 'Copiato' : 'Copia'}
             </button>
-            <button onClick={() => downloadText(tableText, `piano-${levels[0]?.depthM ?? 0}m-${levels[0]?.minutes ?? 0}min.txt`)}>
+            <button
+              onClick={() =>
+                downloadText(tableText, `piano-${levels[0]?.depthM ?? 0}m-${levels[0]?.minutes ?? 0}min.txt`)
+              }
+            >
               Scarica
             </button>
           </div>
@@ -912,7 +1134,9 @@ export function DecoPlanner({
               <tbody>
                 {plan.stops.map((s) => (
                   <tr key={`${s.depthM}-${s.mandatory}`}>
-                    <td className="num tabular" style={{ fontWeight: 650 }}>{s.depthM} m</td>
+                    <td className="num tabular" style={{ fontWeight: 650 }}>
+                      {s.depthM} m
+                    </td>
                     <td className="num tabular">{s.minutes}</td>
                     <td className="num tabular">{s.runtimeMin}</td>
                     <td>
@@ -951,7 +1175,10 @@ export function DecoPlanner({
                     <tr key={u.gasIndex}>
                       <td>{gasLabel(gases[u.gasIndex])}</td>
                       <td className="num tabular">{u.litres}</td>
-                      <td className="num tabular" style={{ color: u.insufficient ? 'var(--critical)' : undefined }}>
+                      <td
+                        className="num tabular"
+                        style={{ color: u.insufficient ? 'var(--critical)' : undefined }}
+                      >
                         {u.bar ?? '—'}
                       </td>
                       <td className="num tabular muted">{u.startBar ?? '—'}</td>
@@ -968,7 +1195,10 @@ export function DecoPlanner({
             <StatTile
               label="Orologio CNS"
               value={
-                <span className="tabular" style={{ color: plan.oxygen.cnsPercent >= 100 ? 'var(--critical)' : undefined }}>
+                <span
+                  className="tabular"
+                  style={{ color: plan.oxygen.cnsPercent >= 100 ? 'var(--critical)' : undefined }}
+                >
                   {plan.oxygen.cnsPercent.toFixed(0)}%
                 </span>
               }
@@ -981,15 +1211,19 @@ export function DecoPlanner({
             />
             <StatTile
               label="Prima di volare"
-              value={<span className="tabular">{plan.timeToFlyH !== undefined ? `${plan.timeToFlyH} h` : '—'}</span>}
+              value={
+                <span className="tabular">
+                  {plan.timeToFlyH !== undefined ? `${plan.timeToFlyH} h` : '—'}
+                </span>
+              }
               note="secondo il modello, non secondo le didattiche"
             />
           </div>
           <p className="planner-hint" style={{ marginTop: 10 }}>
-            Le ore prima del volo sono l'uscita di un modello: dicono quando il tetto scende sotto la
-            quota di cabina. Le 12, 18 o 24 ore che insegnano i corsi sono regole costruite su
-            statistiche di incidenti, e sono l'unica cosa a cui attenersi. Il numero qui sopra serve a
-            capire perché quelle regole esistono, non a scavalcarle.
+            Le ore prima del volo sono l'uscita di un modello: dicono quando il tetto scende sotto la quota di
+            cabina. Le 12, 18 o 24 ore che insegnano i corsi sono regole costruite su statistiche di
+            incidenti, e sono l'unica cosa a cui attenersi. Il numero qui sopra serve a capire perché quelle
+            regole esistono, non a scavalcarle.
           </p>
         </div>
       </div>
@@ -998,14 +1232,17 @@ export function DecoPlanner({
         <div className="card">
           <h2>Il circuito chiuso</h2>
           <p className="card-sub">
-            L'ossigeno metabolico non dipende dalla profondità; il diluente serve solo a riempire il
-            circuito scendendo, perché risalendo il gas in eccesso esce dalla valvola e non si consuma.
+            L'ossigeno metabolico non dipende dalla profondità; il diluente serve solo a riempire il circuito
+            scendendo, perché risalendo il gas in eccesso esce dalla valvola e non si consuma.
           </p>
           <div className="grid grid-tiles" style={{ gap: 10 }}>
             <StatTile
               label="Ossigeno metabolico"
               value={
-                <span className="tabular" style={{ color: plan.ccr.insufficientO2 ? 'var(--critical)' : undefined }}>
+                <span
+                  className="tabular"
+                  style={{ color: plan.ccr.insufficientO2 ? 'var(--critical)' : undefined }}
+                >
                   {plan.ccr.o2Litres} <small style={{ fontSize: 14 }}>L</small>
                 </span>
               }
@@ -1017,12 +1254,20 @@ export function DecoPlanner({
             />
             <StatTile
               label="Diluente"
-              value={<span className="tabular">{plan.ccr.diluentLitres} <small style={{ fontSize: 14 }}>L</small></span>}
+              value={
+                <span className="tabular">
+                  {plan.ccr.diluentLitres} <small style={{ fontSize: 14 }}>L</small>
+                </span>
+              }
               note="solo per riempire il circuito in discesa"
             />
             <StatTile
               label="Runtime"
-              value={<span className="tabular">{plan.runtimeMin.toFixed(0)} <small style={{ fontSize: 14 }}>min</small></span>}
+              value={
+                <span className="tabular">
+                  {plan.runtimeMin.toFixed(0)} <small style={{ fontSize: 14 }}>min</small>
+                </span>
+              }
               note={`${plan.decoMin} min di decompressione`}
             />
           </div>
@@ -1031,9 +1276,9 @@ export function DecoPlanner({
             <>
               <h3 style={{ margin: '18px 0 4px', fontSize: 14 }}>Bailout</h3>
               <p className="card-sub">
-                Il circuito si chiude e si esce a circuito aperto. Dal fondo è il caso peggiore ed è
-                quello da guardare per primo; se il gas non basta, la domanda diventa «da dove in su ce
-                la faccio», e quella si risponde solo provando quote diverse.
+                Il circuito si chiude e si esce a circuito aperto. Dal fondo è il caso peggiore ed è quello da
+                guardare per primo; se il gas non basta, la domanda diventa «da dove in su ce la faccio», e
+                quella si risponde solo provando quote diverse.
               </p>
               <label className="planner-field" style={{ maxWidth: 320, marginBottom: 10 }}>
                 <span className="planner-label">Il guasto avviene a</span>
@@ -1057,7 +1302,11 @@ export function DecoPlanner({
               <div className="grid grid-tiles" style={{ gap: 10 }}>
                 <StatTile
                   label="Risalita d'emergenza"
-                  value={<span className="tabular">{bailout.runtimeMin.toFixed(0)} <small style={{ fontSize: 14 }}>min</small></span>}
+                  value={
+                    <span className="tabular">
+                      {bailout.runtimeMin.toFixed(0)} <small style={{ fontSize: 14 }}>min</small>
+                    </span>
+                  }
                   note={`${bailout.decoMin} min di soste, prima a ${bailout.firstStopM ?? '—'} m`}
                 />
                 {bailout.gasUsage
@@ -1067,8 +1316,12 @@ export function DecoPlanner({
                       key={u.gasIndex}
                       label={`Ti serve ${gasLabel(gases[u.gasIndex])}`}
                       value={
-                        <span className="tabular" style={{ color: u.insufficient ? 'var(--critical)' : undefined }}>
-                          {u.bar ?? u.litres} <small style={{ fontSize: 14 }}>{u.bar !== undefined ? 'bar' : 'L'}</small>
+                        <span
+                          className="tabular"
+                          style={{ color: u.insufficient ? 'var(--critical)' : undefined }}
+                        >
+                          {u.bar ?? u.litres}{' '}
+                          <small style={{ fontSize: 14 }}>{u.bar !== undefined ? 'bar' : 'L'}</small>
                         </span>
                       }
                       note={u.startBar !== undefined ? `su ${u.startBar} a bordo` : `${u.litres} litri`}
@@ -1092,10 +1345,10 @@ export function DecoPlanner({
         <h2>I due modelli a confronto</h2>
         <p className="card-sub">
           Stesso profilo, stessi gas, due teorie diverse su cosa succede alle bolle. Bühlmann conta la
-          sovrasaturazione dei tessuti e lascia risalire finché sta sotto una soglia; VPM-B conta i
-          nuclei gassosi e li vuole schiacciati presto, quindi mette le soste più in profondità e ne
-          toglie in superficie. Non c'è un vincitore: c'è che vederli affiancati dice quanto di quello
-          che stai per fare dipende dal modello e non dalla fisica.
+          sovrasaturazione dei tessuti e lascia risalire finché sta sotto una soglia; VPM-B conta i nuclei
+          gassosi e li vuole schiacciati presto, quindi mette le soste più in profondità e ne toglie in
+          superficie. Non c'è un vincitore: c'è che vederli affiancati dice quanto di quello che stai per fare
+          dipende dal modello e non dalla fisica.
         </p>
         <div className="table-scroll">
           <table>
@@ -1139,9 +1392,9 @@ export function DecoPlanner({
       <div className="card">
         <h2>Piani messi da parte</h2>
         <p className="card-sub">
-          Il piano su cui stai lavorando si salva da sé. Questi sono quelli che vuoi ritrovare: un
-          piano tecnico è una configurazione che si riusa — il relitto, la parete, il corso — non un
-          modulo da ricompilare ogni volta.
+          Il piano su cui stai lavorando si salva da sé. Questi sono quelli che vuoi ritrovare: un piano
+          tecnico è una configurazione che si riusa — il relitto, la parete, il corso — non un modulo da
+          ricompilare ogni volta.
         </p>
         <div className="row" style={{ gap: 8, alignItems: 'flex-end' }}>
           <label className="planner-field" style={{ flex: 1, maxWidth: 320 }}>
@@ -1181,7 +1434,10 @@ export function DecoPlanner({
                     <td className="num tabular muted">{dateShort(p.savedAt)}</td>
                     <td style={{ textAlign: 'right' }}>
                       <span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
-                        <button style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => onLoadPlan?.(p.state)}>
+                        <button
+                          style={{ fontSize: 11, padding: '3px 8px' }}
+                          onClick={() => onLoadPlan?.(p.state)}
+                        >
                           Carica
                         </button>
                         <button
@@ -1223,8 +1479,8 @@ export function DecoPlanner({
       <div className="card">
         <h2>Se qualcosa cambia</h2>
         <p className="card-sub">
-          Le quattro cose che succedono: sei sceso più giù, sei rimasto più a lungo, tutt'e due, e hai
-          perso un gas. Il momento di sapere quanto costano è adesso.
+          Le quattro cose che succedono: sei sceso più giù, sei rimasto più a lungo, tutt'e due, e hai perso
+          un gas. Il momento di sapere quanto costano è adesso.
         </p>
         <div className="table-scroll">
           <table>
@@ -1242,15 +1498,23 @@ export function DecoPlanner({
                 <tr key={c.id}>
                   <td>
                     <div style={{ fontWeight: 550 }}>{c.label}</div>
-                    <div className="muted" style={{ fontSize: 11 }}>{c.description}</div>
+                    <div className="muted" style={{ fontSize: 11 }}>
+                      {c.description}
+                    </div>
                   </td>
                   <td className="num tabular">
                     {c.result.runtimeMin.toFixed(0)}{' '}
-                    <span className="muted">({c.extraRuntimeMin >= 0 ? '+' : ''}{c.extraRuntimeMin})</span>
+                    <span className="muted">
+                      ({c.extraRuntimeMin >= 0 ? '+' : ''}
+                      {c.extraRuntimeMin})
+                    </span>
                   </td>
                   <td className="num tabular">
                     {c.result.decoMin}{' '}
-                    <span className="muted">({c.extraDecoMin >= 0 ? '+' : ''}{c.extraDecoMin})</span>
+                    <span className="muted">
+                      ({c.extraDecoMin >= 0 ? '+' : ''}
+                      {c.extraDecoMin})
+                    </span>
                   </td>
                   <td className="num tabular">{c.result.firstStopM ?? '—'}</td>
                   <td style={{ textAlign: 'right' }}>

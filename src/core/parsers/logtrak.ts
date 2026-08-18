@@ -26,12 +26,7 @@
 import { AIR, type Cylinder, type Dive, type DiveMode, type Sample } from '../model';
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
-import {
-  decodeUwatecSmart,
-  trimSurface,
-  type UwatecDive,
-  type UwatecSample,
-} from './uwatecSmart';
+import { decodeUwatecSmart, trimSurface, type UwatecDive, type UwatecSample } from './uwatecSmart';
 import type { DiveParser, ParseInput, ParseResult } from './types';
 
 export const logtrakParser: DiveParser = {
@@ -91,7 +86,9 @@ export const logtrakParser: DiveParser = {
       );
     }
     if (profileFailures > 0) {
-      warnings.push(`${profileFailures} profili non decodificabili: le immersioni sono state importate senza profilo.`);
+      warnings.push(
+        `${profileFailures} profili non decodificabili: le immersioni sono state importate senza profilo.`,
+      );
     }
     if (dives.length === 0) warnings.push('Nessuna immersione valida nel file LogTRAK.');
     return { format: 'logtrak', dives, warnings };

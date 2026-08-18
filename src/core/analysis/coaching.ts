@@ -21,14 +21,7 @@ import { LIMITS, type Dive } from '../model';
 import { formatDuration } from '../units';
 import { medianOf, type Aggregates } from './aggregate';
 
-export type CoachArea =
-  | 'gas'
-  | 'buoyancy'
-  | 'ascent'
-  | 'safety'
-  | 'deco'
-  | 'experience'
-  | 'data';
+export type CoachArea = 'gas' | 'buoyancy' | 'ascent' | 'safety' | 'deco' | 'experience' | 'data';
 
 export type Severity = 'critical' | 'serious' | 'warning' | 'good';
 
@@ -178,9 +171,7 @@ const ruleGasLevel: Rule = (agg) => {
     `Consumo medio di superficie ${rmv.toFixed(1)} L/min su ${n} immersioni con pressione e volume bombola.`,
     // "Ultime 10" solo quando sono davvero dieci: con sei immersioni la frase
     // mostrava la media di sei chiamandola dieci, ed era identica alla riga sopra.
-    recent !== undefined && agg.rmv.length > 10
-      ? `Ultime 10 immersioni: ${recent.toFixed(1)} L/min.`
-      : '',
+    recent !== undefined && agg.rmv.length > 10 ? `Ultime 10 immersioni: ${recent.toFixed(1)} L/min.` : '',
     agg.rmvTrend
       ? `Tendenza: ${rmv2(agg.rmvTrend.firstHalf)} → ${rmv2(agg.rmvTrend.secondHalf)} L/min fra prima e seconda metà dello storico.`
       : '',
@@ -210,13 +201,13 @@ const ruleGasLevel: Rule = (agg) => {
     detail:
       rmv > BENCHMARK.rmvHigh
         ? "Sopra i 25 L/min il gas diventa il vincolo dominante dell'immersione e riduce i margini nella pianificazione tecnica. Nella maggior parte dei casi la causa non è polmonare: è assetto, pinneggiata e sovra-zavorra."
-        : 'Un consumo in questa fascia è normale ma comprimibile. Il guadagno più rapido viene dall\'assetto, non dalla respirazione.',
+        : "Un consumo in questa fascia è normale ma comprimibile. Il guadagno più rapido viene dall'assetto, non dalla respirazione.",
     evidence,
     target: `Portare la media sotto ${BENCHMARK.rmvGood} L/min nelle prossime 10 immersioni.`,
     drills: [
       'Prova di zavorra a fine immersione con 50 bar: devi restare fermo a 5 m con polmoni a metà. Togli piombo finché non ci riesci.',
       'Sospensione statica: 5 minuti a 6 m senza toccare il jacket e senza usare le pinne. Fallo in piscina il venerdì.',
-      'Pinneggiata a rana per tutta la fase di fondo di un\'immersione: riduce la spinta parassita e il consumo con essa.',
+      "Pinneggiata a rana per tutta la fase di fondo di un'immersione: riduce la spinta parassita e il consumo con essa.",
       'Ripeti lo stesso sito due volte a un mese di distanza e confronta il consumo: elimina la variabile "immersione diversa".',
     ],
     priority: rmv > BENCHMARK.rmvHigh ? 78 : 58,
@@ -241,7 +232,7 @@ const ruleGasTrend: Rule = (agg) => {
     target: 'Riportare la media delle prossime 10 immersioni al livello della prima metà dello storico.',
     drills: [
       'Confronta il consumo su immersioni allo stesso sito e stagione: se il delta sparisce, è la condizione e non la tecnica.',
-      'Controlla la regolazione dell\'erogatore: uno sforzo inspiratorio alto si paga in consumo.',
+      "Controlla la regolazione dell'erogatore: uno sforzo inspiratorio alto si paga in consumo.",
     ],
     priority: 62,
     basis: t.n,
@@ -289,7 +280,7 @@ const ruleBuoyancy: Rule = (agg) => {
       'Hover a testa in giù e poi orizzontale per 3 minuti ciascuno: rivela dove è concentrato il peso.',
       'Riposiziona la zavorra: se le gambe cadono, spostane una parte verso le spalle o usa una piastra più pesante.',
       'Correzioni piccole col respiro, il jacket solo per i cambi di quota veri.',
-      'Passa un\'immersione a seguire una parete a quota costante e guarda il profilo dopo: il grafico è il giudice.',
+      "Passa un'immersione a seguire una parete a quota costante e guarda il profilo dopo: il grafico è il giudice.",
     ],
     priority: trim > BENCHMARK.trimPoor ? 82 : 66,
     basis: n,
@@ -310,7 +301,8 @@ const ruleAscentRate: Rule = (agg, dives) => {
       area: 'ascent',
       severity: 'good',
       headline: 'Velocità di risalita sotto controllo',
-      detail: 'Le risalite rispettano i limiti in modo costante, anche nella fascia finale, che è quella che conta di più.',
+      detail:
+        'Le risalite rispettano i limiti in modo costante, anche nella fascia finale, che è quella che conta di più.',
       evidence: [`${offenders.length} immersioni su ${withProfile.length} con almeno 30 s fuori limite.`],
       drills: [],
       priority: 10,
@@ -318,7 +310,8 @@ const ruleAscentRate: Rule = (agg, dives) => {
     };
   }
 
-  const severity: Severity = rate > 0.3 ? 'critical' : rate > BENCHMARK.fastAscentRate ? 'serious' : 'warning';
+  const severity: Severity =
+    rate > 0.3 ? 'critical' : rate > BENCHMARK.fastAscentRate ? 'serious' : 'warning';
   const shallow = offenders.filter((d) => (d.metrics?.fastShallowAscentS ?? 0) >= 30).length;
   return {
     id: 'ascent-rate',
@@ -356,8 +349,11 @@ const ruleSafetyStop: Rule = (agg) => {
       area: 'safety',
       severity: 'good',
       headline: 'Sosta di sicurezza sistematica',
-      detail: 'La sosta di sicurezza è un\'abitudine, non un\'eccezione. È esattamente la disciplina che serve quando le soste diventano obbligatorie.',
-      evidence: [`Completata nel ${pct(rate)} delle ${agg.safetyStopEligible} immersioni in curva sopra i 10 m.`],
+      detail:
+        "La sosta di sicurezza è un'abitudine, non un'eccezione. È esattamente la disciplina che serve quando le soste diventano obbligatorie.",
+      evidence: [
+        `Completata nel ${pct(rate)} delle ${agg.safetyStopEligible} immersioni in curva sopra i 10 m.`,
+      ],
       drills: [],
       priority: 10,
       basis: agg.safetyStopEligible,
@@ -397,17 +393,17 @@ const ruleCeilingViolations: Rule = (agg, dives) => {
     severity: 'critical',
     headline:
       agg.ceilingViolations === 1
-        ? 'Un\'immersione con violazione del tetto di decompressione'
+        ? "Un'immersione con violazione del tetto di decompressione"
         : `${agg.ceilingViolations} immersioni con violazione del tetto di decompressione`,
     detail:
-      'Il profilo è salito sopra il tetto imposto dal computer. È il tipo di errore che va chiuso prima di aggiungere complessità, e vale la pena rivederlo con l\'istruttore guardando i profili insieme.',
+      "Il profilo è salito sopra il tetto imposto dal computer. È il tipo di errore che va chiuso prima di aggiungere complessità, e vale la pena rivederlo con l'istruttore guardando i profili insieme.",
     evidence: worst.map(
       (d) =>
         `${formatDate(d.startTime)}${d.site?.name ? ` · ${d.site.name}` : ''}: ${formatDuration(d.metrics!.ceilingViolationS)} sopra il tetto (max ${d.metrics!.maxCeilingM?.toFixed(1) ?? '—'} m).`,
     ),
     target: 'Zero violazioni. Non è un obiettivo da migliorare gradualmente.',
     drills: [
-      'Rivedi i profili con l\'istruttore: capire perché è successo conta più di sapere che è successo.',
+      "Rivedi i profili con l'istruttore: capire perché è successo conta più di sapere che è successo.",
       'Verifica di leggere il tetto e non la profondità della prossima tappa: sono due numeri diversi sullo stesso schermo.',
       'Allena il mantenimento della quota a 6 e 3 m con un compito in mano.',
     ],
@@ -426,7 +422,9 @@ const ruleGasReserve: Rule = (agg, dives) => {
       severity: 'good',
       headline: 'Riserva di gas rispettata',
       detail: 'Chiudi le immersioni con margine. È la premessa della pianificazione a regola dei terzi.',
-      evidence: [`Solo il ${pct(rate)} delle ${agg.lowReserveEligible} immersioni sotto i 50 bar all'uscita.`],
+      evidence: [
+        `Solo il ${pct(rate)} delle ${agg.lowReserveEligible} immersioni sotto i 50 bar all'uscita.`,
+      ],
       drills: [],
       priority: 8,
       basis: agg.lowReserveEligible,
@@ -444,9 +442,10 @@ const ruleGasReserve: Rule = (agg, dives) => {
     detail:
       'Una riserva sottile funziona finché tutto va secondo previsione. Nel percorso verso il tecnico la logica cambia: il gas di riserva non è "quello che resta" ma una quantità calcolata prima di entrare in acqua.',
     evidence: low.map(
-      (d) => `${formatDate(d.startTime)}: uscita a ${d.metrics!.endPressureBar} bar da ${d.maxDepth.toFixed(0)} m.`,
+      (d) =>
+        `${formatDate(d.startTime)}: uscita a ${d.metrics!.endPressureBar} bar da ${d.maxDepth.toFixed(0)} m.`,
     ),
-    target: 'Nessuna immersione sotto i 50 bar; risalita iniziata alla pressione decisa prima dell\'ingresso.',
+    target: "Nessuna immersione sotto i 50 bar; risalita iniziata alla pressione decisa prima dell'ingresso.",
     drills: [
       'Fissa la pressione di risalita prima di entrare e comunicala al compagno. Poi rispettala anche se "c\'era ancora tempo".',
       'Con il consumo che hai, calcola il gas necessario per risalire in due da profondità massima: è quella la riserva minima.',
@@ -464,7 +463,8 @@ const ruleCurrency: Rule = (agg) => {
   // che la finestra aveva già ridotto a sei: su «Ultimi 6 mesi» accusava di
   // scarsa frequenza chi ne fa 2.6 al mese, con una cifra falsa nell'evidenza.
   const mesi = agg.spanMonths;
-  const periodo = mesi >= 11.5 ? 'negli ultimi 12 mesi' : `negli ultimi ${mesi.toFixed(mesi < 2 ? 1 : 0)} mesi`;
+  const periodo =
+    mesi >= 11.5 ? 'negli ultimi 12 mesi' : `negli ultimi ${mesi.toFixed(mesi < 2 ? 1 : 0)} mesi`;
   if (agg.count < 5) return null;
   const days = agg.daysSinceLastDive ?? 0;
   const perMonth = agg.perMonthLast12m;
@@ -517,7 +517,8 @@ const ruleCurrency: Rule = (agg) => {
       area: 'experience',
       severity: 'good',
       headline: `In allenamento: ${perMonth} immersioni al mese`,
-      detail: 'La frequenza è quella giusta per far attecchire i miglioramenti tecnici invece di ricominciare ogni volta.',
+      detail:
+        'La frequenza è quella giusta per far attecchire i miglioramenti tecnici invece di ricominciare ogni volta.',
       evidence: [`${agg.divesLast12m} immersioni ${periodo}, ultima ${days} giorni fa.`],
       drills: [],
       priority: 6,
@@ -549,7 +550,7 @@ const ruleDataQuality: Rule = (agg, dives) => {
     id: 'data-coverage',
     area: 'data',
     severity: 'warning',
-    headline: 'Una parte dell\'analisi è bloccata da dati mancanti',
+    headline: "Una parte dell'analisi è bloccata da dati mancanti",
     // «Manca soprattutto il volume» era una frase comoda che i numeri smentivano:
     // sull'archivio vero 33 immersioni su 35 sono senza consumo perché manca la
     // PRESSIONE, e compilare i volumi ne sbloccava due. Adesso la causa dichiarata
@@ -588,11 +589,13 @@ const ruleDecoExposure: Rule = (agg, dives) => {
     severity: 'good',
     headline: `${decoDives.length} immersioni con obbligo decompressivo, gestite senza violazioni`,
     detail:
-      'L\'esposizione alla decompressione sta crescendo e i profili sono stati rispettati. Il passo successivo è rendere ripetibile la parte noiosa: soste stabili al metro, tempi rispettati anche quando fa freddo e il gas scarseggia.',
+      "L'esposizione alla decompressione sta crescendo e i profili sono stati rispettati. Il passo successivo è rendere ripetibile la parte noiosa: soste stabili al metro, tempi rispettati anche quando fa freddo e il gas scarseggia.",
     evidence: [
       `${formatDuration(totalDeco)} di obbligo decompressivo cumulato su ${decoDives.length} immersioni.`,
       `Obbligo massimo su una singola immersione: ${formatDuration(
-        Math.max(...decoDives.map((d) => Math.max(d.metrics?.decoS ?? 0, d.reported?.maxDecoObligationS ?? 0))),
+        Math.max(
+          ...decoDives.map((d) => Math.max(d.metrics?.decoS ?? 0, d.reported?.maxDecoObligationS ?? 0)),
+        ),
       )}.`,
       'Nessuna violazione del tetto registrata.',
     ],
@@ -627,8 +630,7 @@ const ruleGf99: Rule = (agg, dives) => {
   // Il gradient factor alto è per immersione, non per archivio: si risale dal
   // `diveId` della serie, perché l'archivio è passato da 45/95 a 20/85 e
   // confrontare i due periodi con la stessa soglia è confrontare due cose diverse.
-  const gfHighOf = (diveId: string) =>
-    dives.find((d) => d.id === diveId)?.computer?.gfHigh ?? 85;
+  const gfHighOf = (diveId: string) => dives.find((d) => d.id === diveId)?.computer?.gfHigh ?? 85;
   const high = agg.gf99.filter((p) => p.value / gfHighOf(p.diveId) >= 0.85).length;
 
   const evidence = [
@@ -650,7 +652,7 @@ const ruleGf99: Rule = (agg, dives) => {
       severity: 'warning',
       headline: `Di solito esci con margine, ma ${high} ${high === 1 ? 'immersione' : 'immersioni'} vicine al tuo limite`,
       detail:
-        'La mediana dice che il margine c\'è quasi sempre; il caso isolato è quello da guardare, perché nasce da una circostanza specifica e non da un\'abitudine.',
+        "La mediana dice che il margine c'è quasi sempre; il caso isolato è quello da guardare, perché nasce da una circostanza specifica e non da un'abitudine.",
       evidence,
       drills: [
         'Apri le immersioni vicine al limite e confronta la risalita con quella delle altre: di solito la differenza sta lì.',
@@ -667,7 +669,7 @@ const ruleGf99: Rule = (agg, dives) => {
       severity: 'good',
       headline: `Esci con margine: GF99 mediano ${median.toFixed(0)}%`,
       detail:
-        'Il gradiente residuo all\'uscita lascia spazio rispetto al limite impostato sul computer. È la condizione che rende ripetibili le immersioni multiple e le giornate consecutive.',
+        "Il gradiente residuo all'uscita lascia spazio rispetto al limite impostato sul computer. È la condizione che rende ripetibili le immersioni multiple e le giornate consecutive.",
       evidence,
       drills: [],
       priority: 13,
@@ -681,12 +683,12 @@ const ruleGf99: Rule = (agg, dives) => {
     severity: 'warning',
     headline: `GF99 mediano all'uscita ${median.toFixed(0)}%: margine ridotto`,
     detail:
-      'Esci con una sovrasaturazione vicina a quella che il tuo computer ammette. Non è una violazione — il computer te lo consente — ma significa usare quasi tutto il margine, e su immersioni ripetitive o giornate consecutive il margine è ciò che si accumula. Quanto sia accettabile dipende dai gradient factor che hai impostato: verifica quali sono e parlane con l\'istruttore prima di cambiare qualcosa.',
+      "Esci con una sovrasaturazione vicina a quella che il tuo computer ammette. Non è una violazione — il computer te lo consente — ma significa usare quasi tutto il margine, e su immersioni ripetitive o giornate consecutive il margine è ciò che si accumula. Quanto sia accettabile dipende dai gradient factor che hai impostato: verifica quali sono e parlane con l'istruttore prima di cambiare qualcosa.",
     evidence,
     target: 'Abbassare il GF99 mediano allungando la sosta negli ultimi metri, a impostazioni invariate.',
     drills: [
       'Allunga la sosta fra 3 e 6 m: è la leva che abbassa il GF99 senza toccare le impostazioni.',
-      'Risali gli ultimi 6 metri in almeno un minuto: è il tratto dove l\'espansione conta di più.',
+      "Risali gli ultimi 6 metri in almeno un minuto: è il tratto dove l'espansione conta di più.",
       'Guarda il GF99 sul computer appena riemergi e annotalo: diventa un numero su cui lavorare.',
       'Verifica quali gradient factor hai impostato — molti non lo sanno, e senza quel dato il GF99 non si interpreta.',
     ],
@@ -694,7 +696,6 @@ const ruleGf99: Rule = (agg, dives) => {
     basis: n,
   };
 };
-
 
 /**
  * Velocità sull'ultimo tratto, dalla sosta alla superficie.
@@ -744,7 +745,7 @@ const ruleFinalAscent: Rule = (agg) => {
     drills: [
       'Conta: da 5 metri alla superficie devono passare almeno 50 secondi.',
       'Sgonfia il jacket PRIMA di lasciare la sosta: la maggior parte delle risalite veloci finali è aria che si espande, non pinneggiata.',
-      'Guarda il computer nell\'ultimo tratto, non la barca.',
+      "Guarda il computer nell'ultimo tratto, non la barca.",
     ],
     priority: fast > 0 ? 62 : 42,
     basis: n,
@@ -777,7 +778,7 @@ const ruleOxygen: Rule = (agg) => {
       severity: 'good',
       headline: `Esposizione all'ossigeno larga: ${cns}% di CNS nella giornata peggiore`,
       detail:
-        'C\'è margine per aggiungere immersioni in giornata o giorni consecutivi senza avvicinarsi ai limiti di tossicità.',
+        "C'è margine per aggiungere immersioni in giornata o giorni consecutivi senza avvicinarsi ai limiti di tossicità.",
       evidence,
       drills: [],
       priority: 8,
@@ -794,16 +795,13 @@ const ruleOxygen: Rule = (agg) => {
     // Prima diceva «10 OTU nella giornata peggiore» quando a scattare era il CNS
     // al 55%: un avviso intitolato a un numero trenta volte sotto il proprio
     // riferimento, mentre quello che contava non compariva.
-    headline:
-      cns >= 50
-        ? `Orologio CNS al ${cns}% in una giornata`
-        : `${otu} OTU nella giornata peggiore`,
+    headline: cns >= 50 ? `Orologio CNS al ${cns}% in una giornata` : `${otu} OTU nella giornata peggiore`,
     detail:
-      'L\'esposizione all\'ossigeno si somma fra le immersioni della giornata: il CNS recupera a metà ogni novanta minuti in superficie, le OTU non recuperano affatto e si sommano anche da un giorno all\'altro.',
+      "L'esposizione all'ossigeno si somma fra le immersioni della giornata: il CNS recupera a metà ogni novanta minuti in superficie, le OTU non recuperano affatto e si sommano anche da un giorno all'altro.",
     evidence,
     target: 'CNS sotto il 100% nella giornata e OTU sotto le 300 quando si fanno più giorni di fila.',
     drills: [
-      'Allunga l\'intervallo di superficie fra la prima e la seconda: novanta minuti dimezzano il CNS accumulato.',
+      "Allunga l'intervallo di superficie fra la prima e la seconda: novanta minuti dimezzano il CNS accumulato.",
       'Su più giorni di fila guarda le OTU, non il CNS: sono loro a limitare.',
       'Se usi miscele ricche, la stessa immersione costa più ossigeno: controlla la PPO2 di fondo prima di scegliere il gas.',
     ],
@@ -894,9 +892,9 @@ const ruleProfileShape: Rule = (agg) => {
     detail:
       'Risalire e riscendere carica e scarica i tessuti veloci più volte, e il modello decompressivo non lo gestisce come un profilo che scende una volta sola e poi risale. Andare prima sul punto più profondo e poi risalire progressivamente è la forma da cercare.',
     evidence,
-    target: 'Un solo passaggio: giù al punto più profondo all\'inizio, poi verso l\'alto.',
+    target: "Un solo passaggio: giù al punto più profondo all'inizio, poi verso l'alto.",
     drills: [
-      'Pianifica il giro in modo che il punto più profondo sia all\'inizio, non a metà.',
+      "Pianifica il giro in modo che il punto più profondo sia all'inizio, non a metà.",
       'Quando risali per superare un ostacolo, resta alla quota nuova invece di riscendere.',
     ],
     priority: 26,
@@ -919,7 +917,7 @@ const ruleGasSwitch: Rule = (agg) => {
     severity: 'critical',
     headline: `${agg.badGasSwitches} cambi di gas fatti sotto la profondità operativa del gas`,
     detail:
-      'Passare a una miscela più ricca prima di essere risaliti alla sua MOD porta la pressione parziale di ossigeno oltre il limite. Il passo D dell\'acronimo MODS esiste per questo: verificare la profondità prima di cambiare erogatore.',
+      "Passare a una miscela più ricca prima di essere risaliti alla sua MOD porta la pressione parziale di ossigeno oltre il limite. Il passo D dell'acronimo MODS esiste per questo: verificare la profondità prima di cambiare erogatore.",
     evidence: [
       `Rilevati sui profili con più di una bombola, confrontando la profondità del cambio con la MOD a 1.6 bar del gas di destinazione.`,
     ],
@@ -1105,7 +1103,13 @@ function readinessFor(goal: Goal, agg: Aggregates): Readiness {
       { label: 'Immersioni registrate', have: agg.count, need: 40, unit: '', met: agg.count >= 40 },
       // Il criterio è 24 m e adesso il numero è quello: prima usava il conteggio
       // oltre i 30, quindi otto immersioni a 27 m risultavano zero.
-      { label: 'Immersioni oltre i 24 m', have: agg.deepDives24, need: 5, unit: '', met: agg.deepDives24 >= 5 },
+      {
+        label: 'Immersioni oltre i 24 m',
+        have: agg.deepDives24,
+        need: 5,
+        unit: '',
+        met: agg.deepDives24 >= 5,
+      },
       {
         label: 'Immersioni negli ultimi 12 mesi',
         have: agg.divesLast12m,
@@ -1170,7 +1174,7 @@ function readinessFor(goal: Goal, agg: Aggregates): Readiness {
 
   const verdict =
     score === 1
-      ? 'Tutti i criteri di riferimento sono soddisfatti. Il passo successivo è una verifica in acqua con l\'istruttore, non un altro numero.'
+      ? "Tutti i criteri di riferimento sono soddisfatti. Il passo successivo è una verifica in acqua con l'istruttore, non un altro numero."
       : missing.length === 1
         ? `Manca un criterio: ${missing[0].label.toLowerCase()}.`
         : `Mancano ${missing.length} criteri su ${items.length}. I più vicini: ${missing
@@ -1236,7 +1240,10 @@ export function debriefDive(dive: Dive): Observation[] {
   if (m.bottomVerticalTravelMpm !== undefined) {
     out.push(
       m.bottomVerticalTravelMpm <= LIMITS.goodTrimMpm
-        ? { severity: 'good', text: `Quota tenuta bene: ${m.bottomVerticalTravelMpm.toFixed(1)} m/min di oscillazione.` }
+        ? {
+            severity: 'good',
+            text: `Quota tenuta bene: ${m.bottomVerticalTravelMpm.toFixed(1)} m/min di oscillazione.`,
+          }
         : {
             severity: m.bottomVerticalTravelMpm > 4 ? 'serious' : 'warning',
             text: `${m.bottomVerticalTravelMpm.toFixed(1)} m/min di oscillazione a quota tenuta (obiettivo sotto ${LIMITS.goodTrimMpm}).`,
@@ -1249,16 +1256,20 @@ export function debriefDive(dive: Dive): Observation[] {
         ? { severity: 'good', text: `Sosta di sicurezza di ${formatDuration(m.safetyStopS)}.` }
         : {
             severity: 'warning',
-            text: m.safetyStopS > 0
-              ? `Sosta di sicurezza breve: ${formatDuration(m.safetyStopS)} fra 3 e 6 m.`
-              : 'Nessuna sosta di sicurezza fra 3 e 6 m.',
+            text:
+              m.safetyStopS > 0
+                ? `Sosta di sicurezza breve: ${formatDuration(m.safetyStopS)} fra 3 e 6 m.`
+                : 'Nessuna sosta di sicurezza fra 3 e 6 m.',
           },
     );
   }
   if (m.endPressureBar !== undefined) {
     out.push(
       m.endPressureBar < LIMITS.minReserveBar
-        ? { severity: 'serious', text: `Uscita a ${m.endPressureBar} bar, sotto la riserva di ${LIMITS.minReserveBar} bar.` }
+        ? {
+            severity: 'serious',
+            text: `Uscita a ${m.endPressureBar} bar, sotto la riserva di ${LIMITS.minReserveBar} bar.`,
+          }
         : { severity: 'good', text: `Uscita a ${m.endPressureBar} bar.` },
     );
   }
@@ -1291,7 +1302,6 @@ function mean(v: number[]): number | undefined {
   if (v.length === 0) return undefined;
   return v.reduce((a, b) => a + b, 0) / v.length;
 }
-
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });

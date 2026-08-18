@@ -101,7 +101,10 @@ const recent = dives.slice(30); // 18 immersioni, le più recenti
 
 writeFileSync(join(OUT, 'shearwater-cloud-export.uddf'), multiUddf(recent, 31));
 writeFileSync(join(OUT, 'subsurface-archivio.ssrf'), multiSubsurface(dives.slice(0, 30)));
-writeFileSync(join(OUT, 'shearwater-peregrine.xml'), toShearwaterXml(dives[dives.length - 1], { diveNumber: TOTAL }));
+writeFileSync(
+  join(OUT, 'shearwater-peregrine.xml'),
+  toShearwaterXml(dives[dives.length - 1], { diveNumber: TOTAL }),
+);
 writeFileSync(join(OUT, 'garmin-descent.fit'), toFit(dives[dives.length - 2]));
 writeFileSync(join(OUT, 'vecchio-logbook.csv'), toCsv(dives.slice(0, 18)));
 

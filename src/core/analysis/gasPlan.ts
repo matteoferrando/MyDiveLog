@@ -482,7 +482,18 @@ export function planGas(raw: GasPlanInput): GasPlan {
     divers: number,
     sal: Salinity,
     kind?: GasPhase['kind'],
-  ) => phaseAt(label, fromM, toM, minutes, rmvLpm, divers, sal, kind ?? (fromM === toM ? 'stop' : 'travel'), surfaceBar);
+  ) =>
+    phaseAt(
+      label,
+      fromM,
+      toM,
+      minutes,
+      rmvLpm,
+      divers,
+      sal,
+      kind ?? (fromM === toM ? 'stop' : 'travel'),
+      surfaceBar,
+    );
 
   const input: GasPlanInput = {
     ...raw,
@@ -625,8 +636,24 @@ export function planGas(raw: GasPlanInput): GasPlan {
     reserveRule === 'fixedBar'
       ? []
       : [
-          phase('Gestione del problema sul fondo', depthM, depthM, Math.max(0, problemMin), stressRmvLpm, divers, salinity),
-          phase('Risalita fino alla sosta', depthM, stopDepthM, emergencyToStopMin, stressRmvLpm, divers, salinity),
+          phase(
+            'Gestione del problema sul fondo',
+            depthM,
+            depthM,
+            Math.max(0, problemMin),
+            stressRmvLpm,
+            divers,
+            salinity,
+          ),
+          phase(
+            'Risalita fino alla sosta',
+            depthM,
+            stopDepthM,
+            emergencyToStopMin,
+            stressRmvLpm,
+            divers,
+            salinity,
+          ),
           phase(
             extraStopMin > 0 ? 'Soste (sicurezza e deco)' : 'Sosta di sicurezza',
             stopDepthM,
@@ -636,7 +663,15 @@ export function planGas(raw: GasPlanInput): GasPlan {
             divers,
             salinity,
           ),
-          phase('Ultimo tratto in superficie', stopDepthM, 0, emergencyFromStopMin, stressRmvLpm, divers, salinity),
+          phase(
+            'Ultimo tratto in superficie',
+            stopDepthM,
+            0,
+            emergencyFromStopMin,
+            stressRmvLpm,
+            divers,
+            salinity,
+          ),
         ];
   const reserveBar =
     reserveRule === 'fixedBar'
@@ -669,9 +704,7 @@ export function planGas(raw: GasPlanInput): GasPlan {
   // simmetrici, la regola ricreativa. Nessuna: su una discesa lineare con
   // risalita libera qualunque numero sarebbe arbitrario, e non lo diamo.
   const turnBar =
-    turnRule === 'none'
-      ? undefined
-      : Math.floor(startBar - usableBar / (turnRule === 'thirds' ? 3 : 2));
+    turnRule === 'none' ? undefined : Math.floor(startBar - usableBar / (turnRule === 'thirds' ? 3 : 2));
 
   // --- ossigeno e narcosi ---------------------------------------------------
   const modAtLimit = mod(mix, maxPpo2, salinity);
@@ -1077,7 +1110,7 @@ export function contingencies(input: GasPlanInput): Contingency[] {
     },
     {
       label: 'Fondo più corto',
-      change: '−5 minuti: la via d\'uscita se qualcosa non va',
+      change: "−5 minuti: la via d'uscita se qualcosa non va",
       input: {
         ...input,
         bottomMin: Math.max(1, input.bottomMin - 5),
@@ -1200,8 +1233,7 @@ export function measuredRmv(dives: Dive[]): MeasuredRmv {
   if (!values.length) return { n: 0 };
   const at = (q: number) => values[Math.min(values.length - 1, Math.floor(q * values.length))];
   const mid = Math.floor(values.length / 2);
-  const median =
-    values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+  const median = values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
   return {
     median: round1(median),
     p75: round1(at(0.75)),
@@ -1287,7 +1319,7 @@ export function similarDives(
   if (!pool.length) return { n: 0, belowReserve: 0, byDurationToo: false };
   const ends = pool.map((d) => d.metrics!.endPressureBar as number).sort((a, b) => a - b);
   const durations = pool.map((d) => d.durationS / 60).sort((a, b) => a - b);
-  const mid = <T,>(v: T[]) => v[Math.floor(v.length / 2)];
+  const mid = <T>(v: T[]) => v[Math.floor(v.length / 2)];
   return {
     n: pool.length,
     medianEndBar: Math.round(mid(ends)),

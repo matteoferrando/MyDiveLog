@@ -124,7 +124,8 @@ export function nextDiveBriefing(
       id: 'no-dives',
       level: 'info',
       headline: 'Archivio vuoto',
-      detail: 'Importa un export dal tuo computer o dal logbook che usavi prima: da lì in poi tutto il resto si calcola da solo.',
+      detail:
+        'Importa un export dal tuo computer o dal logbook che usavi prima: da lì in poi tutto il resto si calcola da solo.',
       goTo: 'import',
       priority: 5,
     });
@@ -143,7 +144,8 @@ export function nextDiveBriefing(
       id: 'rusty',
       level: 'info',
       headline: `${daysSinceLast} giorni dall'ultima immersione`,
-      detail: 'Non è una pausa lunga, ma la prima immersione dopo due mesi consuma sempre un po’ più del solito. Vale la pena saperlo prima di pianificare il gas al minuto.',
+      detail:
+        'Non è una pausa lunga, ma la prima immersione dopo due mesi consuma sempre un po’ più del solito. Vale la pena saperlo prima di pianificare il gas al minuto.',
       goTo: 'planner',
       priority: 55,
     });
@@ -155,7 +157,8 @@ export function nextDiveBriefing(
       id: 'focus',
       level: 'info',
       headline: `Su cosa lavorare: ${topSuggestion.headline}`,
-      detail: 'È la prima delle osservazioni sull’archivio. Una cosa sola per immersione: due non si tengono a mente sott’acqua.',
+      detail:
+        'È la prima delle osservazioni sull’archivio. Una cosa sola per immersione: due non si tengono a mente sott’acqua.',
       goTo: 'coach',
       priority: 40,
     });

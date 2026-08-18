@@ -37,14 +37,7 @@
  * nel blob.
  */
 
-import {
-  AIR,
-  type Cylinder,
-  type Dive,
-  type DiveMode,
-  type ReportedSummary,
-  type Salinity,
-} from '../model';
+import { AIR, type Cylinder, type Dive, type DiveMode, type ReportedSummary, type Salinity } from '../model';
 import { psiToBar, wallClockToIso } from '../units';
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
@@ -237,7 +230,9 @@ function readDive(
 
   dive.metrics = computeMetrics(dive);
   if (dive.avgDepth === undefined) {
-    warnings.push(`Immersione del ${base.startTime.slice(0, 10)} senza profondità media: consumo non calcolabile.`);
+    warnings.push(
+      `Immersione del ${base.startTime.slice(0, 10)} senza profondità media: consumo non calcolabile.`,
+    );
   }
   return dive;
 }
@@ -336,7 +331,8 @@ function readSite(row: SqlRow, native: PnfLog | undefined): Dive['site'] {
   // sono di ingresso, che per un sito è il punto giusto. Un'immersione senza nome
   // ma con coordinate vale comunque la pena di essere geolocalizzata.
   const coords = native?.entry ?? native?.exit;
-  if (!name) return coords ? { name: 'Posizione dal GPS del computer', lat: coords.lat, lon: coords.lon } : undefined;
+  if (!name)
+    return coords ? { name: 'Posizione dal GPS del computer', lat: coords.lat, lon: coords.lon } : undefined;
   return {
     name,
     region: site && location ? location : undefined,
@@ -372,8 +368,7 @@ function readNativeLog(
         // I codici visti si accumulano in un elenco unico: dire QUALI sono è
         // l'informazione utile, ripeterla per ogni immersione no.
         for (const code of note.match(/\d+/g) ?? []) eventCodes.add(code);
-      }
-      else warnings.push(`${when ?? 'Immersione'}: ${note}`);
+      } else warnings.push(`${when ?? 'Immersione'}: ${note}`);
     }
     return decoded;
   } catch (err) {
@@ -555,7 +550,9 @@ function parseJson(value: unknown): Record<string, unknown> | undefined {
 }
 
 function asArray(value: unknown): Record<string, unknown>[] {
-  return Array.isArray(value) ? value.filter((v): v is Record<string, unknown> => !!v && typeof v === 'object') : [];
+  return Array.isArray(value)
+    ? value.filter((v): v is Record<string, unknown> => !!v && typeof v === 'object')
+    : [];
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {

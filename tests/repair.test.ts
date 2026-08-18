@@ -19,7 +19,9 @@ import {
   dedupeDiveComputers,
   hydrateForMerge,
   inconsistencies,
-  repairArchive, normaliseDive } from '../src/storage/repair';
+  repairArchive,
+  normaliseDive,
+} from '../src/storage/repair';
 import { mergeImports } from '../src/core/dedupe';
 import { computeMetrics } from '../src/core/analysis/metrics';
 import type { Dive, Sample } from '../src/core/model';
@@ -190,8 +192,7 @@ describe('riparazione', () => {
 });
 
 describe('profili caricati prima di una fusione', () => {
-  const rich = (n: number): Sample[] =>
-    profile(n).map((s) => ({ ...s, ndlS: 600, ttsS: 120, cns: 3 }));
+  const rich = (n: number): Sample[] => profile(n).map((s) => ({ ...s, ndlS: 600, ttsS: 120, cns: 3 }));
 
   it('carica il profilo delle immersioni vicine a quelle in arrivo', async () => {
     const stored = dive({ id: 'd1', samples: undefined });
@@ -260,10 +261,12 @@ describe('profili caricati prima di una fusione', () => {
       otherComputers: [{ ...peregrine }, { model: 'Scubapro Aladin Sport Matrix', serial: '63' }],
       samples: profile(300),
     });
-    const merged = mergeImports([stored], [dive({ id: 'd1', notes: 'nota nuova', samples: profile(300) })], 'x');
-    expect(merged.dives[0].otherComputers?.map((c) => c.model)).toEqual([
-      'Scubapro Aladin Sport Matrix',
-    ]);
+    const merged = mergeImports(
+      [stored],
+      [dive({ id: 'd1', notes: 'nota nuova', samples: profile(300) })],
+      'x',
+    );
+    expect(merged.dives[0].otherComputers?.map((c) => c.model)).toEqual(['Scubapro Aladin Sport Matrix']);
   });
 });
 
@@ -369,8 +372,7 @@ describe('secondo profilo: il meglio dei due computer', () => {
     // E l'inverso non accade: nessun secondo profilo più rado di quello mostrato.
     const back = mergeImports([poor], [rich], 'x').dives[0];
     const altInterval = back.altSamples
-      ? (back.altSamples[back.altSamples.length - 1].t - back.altSamples[0].t) /
-        (back.altSamples.length - 1)
+      ? (back.altSamples[back.altSamples.length - 1].t - back.altSamples[0].t) / (back.altSamples.length - 1)
       : Infinity;
     const mainInterval =
       (back.samples![back.samples!.length - 1].t - back.samples![0].t) / (back.samples!.length - 1);
@@ -394,7 +396,9 @@ describe('secondo profilo: il meglio dei due computer', () => {
     expect(report.reasons['velocità misurate sul profilo rado mentre esiste quello fitto']).toBeUndefined();
     expect(dives[0].metrics?.bottomVerticalTravelMpm).toBe(metrics.bottomVerticalTravelMpm);
     expect(dives[0].metrics?.gf99Pct).toBeGreaterThan(0);
-    expect(written[0]?.every((d) => d.metrics?.bottomVerticalTravelMpm === metrics.bottomVerticalTravelMpm)).toBe(true);
+    expect(
+      written[0]?.every((d) => d.metrics?.bottomVerticalTravelMpm === metrics.bottomVerticalTravelMpm),
+    ).toBe(true);
   });
 
   it('la riparazione ricalcola usando il profilo fitto quando c’è', async () => {
@@ -434,9 +438,7 @@ describe('pulizia di ciò che arriva dalla rete', () => {
   });
 
   it('toglie dall’elenco il computer che è già quello principale', () => {
-    const cleaned = normaliseDive(
-      dive({ computer: peregrine, otherComputers: [peregrine, aladin] }),
-    );
+    const cleaned = normaliseDive(dive({ computer: peregrine, otherComputers: [peregrine, aladin] }));
     expect(cleaned.otherComputers).toHaveLength(1);
     expect(cleaned.otherComputers![0].model).toMatch(/Aladin/);
   });
@@ -444,9 +446,7 @@ describe('pulizia di ciò che arriva dalla rete', () => {
   it('deduplica l’elenco anche contro se stesso', () => {
     // Lo stesso computer due volte fra gli "altri", con campi diversi: prima
     // sopravvivevano entrambi e la scheda mostrava due volte lo stesso strumento.
-    const cleaned = normaliseDive(
-      dive({ computer: aladin, otherComputers: [peregrine, peregrineParziale] }),
-    );
+    const cleaned = normaliseDive(dive({ computer: aladin, otherComputers: [peregrine, peregrineParziale] }));
     expect(cleaned.otherComputers).toHaveLength(1);
     // E i campi delle due letture si sommano invece di perdersi.
     expect(cleaned.otherComputers![0]).toMatchObject({ gfLow: 20, gfHigh: 85, firmware: 'v89' });

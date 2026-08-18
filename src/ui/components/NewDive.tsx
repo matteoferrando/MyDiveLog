@@ -11,10 +11,25 @@
  * stimati i tessuti, quindi è lei a decidere quanto azoto passa all'immersione
  * successiva. È l'unico campo di questo modulo che cambia un numero di un'ALTRA
  * immersione, e lasciarlo in fondo fra gli optional lo farebbe saltare sempre.
+ *
+ * I campi con i decimali sono `type="text"` con `inputMode="decimal"`, non
+ * `type="number"`. Non è una svista: un campo numerico HTML accetta come
+ * separatore SOLO quello della lingua della webview, e su un sistema in inglese
+ * — o su una WKWebView che non ha ereditato la lingua di sistema — la virgola
+ * non è un carattere valido. Il browser non segnala niente: `e.target.value`
+ * arriva vuoto o troncato, quindi chi scrive «27,5» salva un'immersione a 0 m o
+ * a 275 m senza accorgersene. Con un campo di testo la stringa arriva intera e
+ * la converte `num()`, che accetta entrambi i separatori. Si perde la
+ * spinnerina, che qui non serve a nessuno.
  */
 
 import { useMemo, useState } from 'react';
-import { buildManualDive, deviceOffsetMinutes, validateManualDive, type ManualDiveInput } from '../../core/manual';
+import {
+  buildManualDive,
+  deviceOffsetMinutes,
+  validateManualDive,
+  type ManualDiveInput,
+} from '../../core/manual';
 import { mixName, withFraction } from '../../core/units';
 import type { DiveMode, GasMix, Salinity } from '../../core/model';
 import { useDiveLog } from '../state';
@@ -158,25 +173,23 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
           <div style={{ flex: '1 1 320px', minWidth: 0 }}>
             <h2 style={{ margin: 0 }}>Aggiungi un'immersione a mano</h2>
             <p className="card-sub" style={{ marginBottom: 0 }}>
-              Per quelle senza file: computer a noleggio, batteria scarica, il libretto di carta. Non
-              è solo una riga in più in elenco — la saturazione residua si calcola sull'archivio, e
-              un'immersione che manca fa risultare più pulita quella che la segue.
+              Per quelle senza file: computer a noleggio, batteria scarica, il libretto di carta. Non è solo
+              una riga in più in elenco — la saturazione residua si calcola sull'archivio, e un'immersione che
+              manca fa risultare più pulita quella che la segue.
             </p>
           </div>
-          <button className="btn" onClick={() => setAperto(true)}>
+          <button
+            className="btn"
+            onClick={() => {
+              setEsito(null);
+              setErrore(null);
+              setAperto(true);
+            }}
+          >
             Nuova immersione
           </button>
         </div>
-        {esito && (
-          <div className="notice" style={{ marginTop: 12 }}>
-            {esito.merged
-              ? 'Quell’immersione era già in archivio: invece di duplicarla, i dati che hai scritto hanno riempito i campi vuoti di quella esistente.'
-              : 'Immersione aggiunta.'}{' '}
-            <button className="btn" style={{ marginLeft: 8 }} onClick={() => onDone(esito.id)}>
-              Aprila
-            </button>
-          </div>
-        )}
+        {esito && <Esito esito={esito} onDone={onDone} />}
       </div>
     );
   }
@@ -187,11 +200,18 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
         <div style={{ flex: '1 1 320px', minWidth: 0 }}>
           <h2 style={{ margin: 0 }}>Nuova immersione</h2>
           <p className="card-sub" style={{ marginBottom: 0 }}>
-            I primi tre campi bastano per salvare. Tutto il resto migliora i numeri che l'app sa
-            calcolare, e ogni campo dice quali.
+            I primi tre campi bastano per salvare. Tutto il resto migliora i numeri che l'app sa calcolare, e
+            ogni campo dice quali.
           </p>
         </div>
-        <button onClick={() => { setAperto(false); setD(vuoto()); }}>Chiudi</button>
+        <button
+          onClick={() => {
+            setAperto(false);
+            setD(vuoto());
+          }}
+        >
+          Chiudi
+        </button>
       </div>
 
       {/* --- senza questi l'immersione non esiste ---------------------------- */}
@@ -205,13 +225,17 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
           />
         </Campo>
         <Campo etichetta="Durata" unita="min">
-          <input type="number" min={1} value={d.durationMin} onChange={(e) => set('durationMin', e.target.value)} />
+          <input
+            type="number"
+            min={1}
+            value={d.durationMin}
+            onChange={(e) => set('durationMin', e.target.value)}
+          />
         </Campo>
         <Campo etichetta="Profondità massima" unita="m">
           <input
-            type="number"
-            step="0.1"
-            min={0}
+            type="text"
+            inputMode="decimal"
             value={d.maxDepthM}
             onChange={(e) => set('maxDepthM', e.target.value)}
           />
@@ -221,9 +245,8 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
       <div className="grid grid-3" style={{ marginBottom: 6 }}>
         <Campo etichetta="Profondità media" unita="m">
           <input
-            type="number"
-            step="0.1"
-            min={0}
+            type="text"
+            inputMode="decimal"
             value={d.avgDepthM}
             onChange={(e) => set('avgDepthM', e.target.value)}
           />
@@ -245,13 +268,16 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
         </Campo>
       </div>
       <p className="planner-hint" style={{ marginTop: 0 }}>
-        La media è facoltativa ma è il campo più importante di questa fascia: da lei si ricostruisce
-        il profilo con cui vengono stimati i tessuti, cioè quanto azoto risulta ancora in circolo
-        quando cominci l'immersione dopo. Senza, si assume il 70% della massima — il rapporto mediano
-        delle tue immersioni con profilo.
+        La media è facoltativa ma è il campo più importante di questa fascia: da lei si ricostruisce il
+        profilo con cui vengono stimati i tessuti, cioè quanto azoto risulta ancora in circolo quando cominci
+        l'immersione dopo. Senza, si assume il 70% della massima — il rapporto mediano delle tue immersioni
+        con profilo.
       </p>
 
-      <label className="planner-check" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+      <label
+        className="planner-check"
+        style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}
+      >
         <input
           type="checkbox"
           data-check="fuso"
@@ -274,9 +300,9 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
           </Campo>
           <div style={{ gridColumn: 'span 2' }}>
             <p className="planner-hint" style={{ marginTop: 22 }}>
-              Serve a mettere l'immersione nell'ora giusta: senza, l'orario viene letto nel fuso di
-              questo computer, e due immersioni di una giornata alle Maldive inserite da casa
-              potrebbero risultare nell'ordine sbagliato.
+              Serve a mettere l'immersione nell'ora giusta: senza, l'orario viene letto nel fuso di questo
+              computer, e due immersioni di una giornata alle Maldive inserite da casa potrebbero risultare
+              nell'ordine sbagliato.
             </p>
           </div>
         </div>
@@ -304,7 +330,12 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
           />
         </Campo>
         <Campo etichetta="Volume bombola" unita="L">
-          <input type="number" step="0.1" min={0} value={d.tankSizeL} onChange={(e) => set('tankSizeL', e.target.value)} />
+          <input
+            type="text"
+            inputMode="decimal"
+            value={d.tankSizeL}
+            onChange={(e) => set('tankSizeL', e.target.value)}
+          />
         </Campo>
       </div>
       <div className="grid grid-3" style={{ marginBottom: 6 }}>
@@ -315,13 +346,18 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
           <input type="number" min={0} value={d.endBar} onChange={(e) => set('endBar', e.target.value)} />
         </Campo>
         <Campo etichetta="Temperatura minima" unita="°C">
-          <input type="number" step="0.5" value={d.minTempC} onChange={(e) => set('minTempC', e.target.value)} />
+          <input
+            type="text"
+            inputMode="text"
+            value={d.minTempC}
+            onChange={(e) => set('minTempC', e.target.value)}
+          />
         </Campo>
       </div>
       <p className="planner-hint" style={{ marginTop: 0 }}>
-        Volume e le due pressioni insieme danno il consumo in litri al minuto riportato alla
-        superficie, che è l'unico numero confrontabile fra bombole e profondità diverse. Mancandone
-        anche uno solo, questa immersione resta fuori da tutte le statistiche sul consumo.
+        Volume e le due pressioni insieme danno il consumo in litri al minuto riportato alla superficie, che è
+        l'unico numero confrontabile fra bombole e profondità diverse. Mancandone anche uno solo, questa
+        immersione resta fuori da tutte le statistiche sul consumo.
       </p>
 
       {/* --- il racconto ---------------------------------------------------- */}
@@ -339,13 +375,29 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
       </div>
       <div className="grid grid-3" style={{ marginBottom: 6 }}>
         <Campo etichetta="Zavorra" unita="kg">
-          <input type="number" step="0.5" min={0} value={d.weightKg} onChange={(e) => set('weightKg', e.target.value)} />
+          <input
+            type="text"
+            inputMode="decimal"
+            value={d.weightKg}
+            onChange={(e) => set('weightKg', e.target.value)}
+          />
         </Campo>
         <Campo etichetta="Visibilità" unita="m">
-          <input type="number" min={0} value={d.visibilityM} onChange={(e) => set('visibilityM', e.target.value)} />
+          <input
+            type="number"
+            min={0}
+            value={d.visibilityM}
+            onChange={(e) => set('visibilityM', e.target.value)}
+          />
         </Campo>
         <Campo etichetta="Voto" unita="1-5">
-          <input type="number" min={1} max={5} value={d.rating} onChange={(e) => set('rating', e.target.value)} />
+          <input
+            type="number"
+            min={1}
+            max={5}
+            value={d.rating}
+            onChange={(e) => set('rating', e.target.value)}
+          />
         </Campo>
       </div>
       <Campo etichetta="Note">
@@ -353,7 +405,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
       </Campo>
 
       {/* --- che cosa succede se salvo -------------------------------------- */}
-      {errori.length > 0 && (
+      {errori.length > 0 && !esito && (
         <div className="notice notice-error" style={{ marginTop: 14 }}>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             {errori.map((e) => (
@@ -374,18 +426,20 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
       )}
       {giaPresente && (
         <div className="notice" style={{ marginTop: 14 }}>
-          In archivio c'è già un'immersione con questo orario, questa profondità e questa durata.
-          Salvando non ne nasce una seconda: i campi che hai compilato riempiranno quelli vuoti di
-          quella esistente, e il suo profilo resta dov'è.
+          In archivio c'è già un'immersione con questo orario, questa profondità e questa durata. Salvando non
+          ne nasce una seconda: i campi che hai compilato riempiranno quelli vuoti di quella esistente, e il
+          suo profilo resta dov'è.
         </div>
       )}
 
       {errore && (
         <div className="notice notice-error" role="alert" style={{ marginTop: 14 }}>
-          Non è stato possibile salvare: {errore}. L'immersione non è in archivio, e quello che hai
-          scritto è ancora qui nel modulo.
+          Non è stato possibile salvare: {errore}. L'immersione non è in archivio, e quello che hai scritto è
+          ancora qui nel modulo.
         </div>
       )}
+
+      {esito && <Esito esito={esito} onDone={onDone} />}
 
       <div className="row" style={{ gap: 8, marginTop: 14 }}>
         <button
@@ -396,8 +450,43 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
         >
           {salvando ? 'Salvo…' : giaPresente ? 'Unisci a quella esistente' : 'Salva immersione'}
         </button>
-        <button onClick={() => setD(vuoto())}>Svuota il modulo</button>
+        <button
+          onClick={() => {
+            setD(vuoto());
+            setEsito(null);
+            setErrore(null);
+          }}
+        >
+          Svuota il modulo
+        </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * La conferma del salvataggio.
+ *
+ * Sta in una funzione perché va mostrata in DUE posti: sotto al modulo aperto —
+ * dove resta chi ne inserisce cinque di fila — e sulla scheda chiusa, per chi
+ * chiude subito. Prima esisteva solo il secondo caso, e siccome il salvataggio
+ * non chiude il modulo, l'unica cosa che compariva dopo un salvataggio RIUSCITO
+ * era il riquadro ROSSO degli errori del modulo appena svuotato: la conferma non
+ * si vedeva da nessuna parte e l'ultimo messaggio in pagina diceva il contrario
+ * di quello che era appena successo.
+ *
+ * `role="status"` e non `role="alert"`: è una buona notizia, non deve
+ * interrompere chi sta già scrivendo la riga successiva.
+ */
+function Esito({ esito, onDone }: { esito: { merged: boolean; id: string }; onDone: (id: string) => void }) {
+  return (
+    <div className="notice" role="status" style={{ marginTop: 12 }}>
+      {esito.merged
+        ? 'Quell’immersione era già in archivio: invece di duplicarla, i dati che hai scritto hanno riempito i campi vuoti di quella esistente.'
+        : 'Immersione aggiunta.'}{' '}
+      <button className="btn" style={{ marginLeft: 8 }} onClick={() => onDone(esito.id)}>
+        Aprila
+      </button>
     </div>
   );
 }

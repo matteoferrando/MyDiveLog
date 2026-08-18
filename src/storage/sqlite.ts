@@ -54,7 +54,7 @@ const SCHEMA = [
 
 export class SqliteStore implements DiveStore {
   readonly kind = 'sqlite' as const;
-  readonly location = 'File SQLite nella cartella dati dell\'app';
+  readonly location = "File SQLite nella cartella dati dell'app";
   private db: SqlDatabase | null = null;
 
   async init(): Promise<void> {
@@ -71,9 +71,7 @@ export class SqliteStore implements DiveStore {
   }
 
   async listDives(): Promise<Dive[]> {
-    const rows = await this.sql.select<{ doc: string }[]>(
-      'SELECT doc FROM dives ORDER BY start_time DESC',
-    );
+    const rows = await this.sql.select<{ doc: string }[]>('SELECT doc FROM dives ORDER BY start_time DESC');
     return rows.map((r) => JSON.parse(r.doc) as Dive);
   }
 
@@ -88,10 +86,9 @@ export class SqliteStore implements DiveStore {
   }
 
   async getSamples(id: string): Promise<Sample[]> {
-    const rows = await this.sql.select<{ doc: string }[]>(
-      'SELECT doc FROM dive_samples WHERE dive_id = ?',
-      [id],
-    );
+    const rows = await this.sql.select<{ doc: string }[]>('SELECT doc FROM dive_samples WHERE dive_id = ?', [
+      id,
+    ]);
     return rows.length ? (JSON.parse(rows[0].doc) as Sample[]) : [];
   }
 

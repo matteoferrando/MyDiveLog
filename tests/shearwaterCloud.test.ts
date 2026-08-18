@@ -84,7 +84,9 @@ function buildShearwaterDb(name: string, dives: SwDive[]): Uint8Array {
     calculated_values_from_samples varchar, data_bytes_1 BLOB, data_bytes_2 BLOB, data_bytes_3 BLOB
   )`);
 
-  const det = db.prepare(`insert into dive_details values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  const det = db.prepare(
+    `insert into dive_details values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+  );
   const log = db.prepare('insert into log_data values (?,?,?,?,?,?,?)');
 
   dives.forEach((d, i) => {
@@ -93,7 +95,15 @@ function buildShearwaterDb(name: string, dives: SwDive[]): Uint8Array {
     // Il campo si chiama epoch ma contiene la lettura dell'orologio letta come UTC.
     const epochS = Math.round(Date.parse(`${d.clock.replace(' ', 'T')}Z`) / 1000);
     const tankProfile = JSON.stringify({
-      GasProfiles: [{ profileIndex: 0, O2Percent: d.o2 ?? 21, HePercent: 0, CircuitMode: 1, AverageDepthInMeters: d.avgDepth }],
+      GasProfiles: [
+        {
+          profileIndex: 0,
+          O2Percent: d.o2 ?? 21,
+          HePercent: 0,
+          CircuitMode: 1,
+          AverageDepthInMeters: d.avgDepth,
+        },
+      ],
       TankData: [
         {
           StartPressurePSI: d.startPsi ?? '',
@@ -104,18 +114,47 @@ function buildShearwaterDb(name: string, dives: SwDive[]): Uint8Array {
       ],
     });
     det.run(
-      id, fileName, d.clock, String(d.depth), 'A1B2C3D4', String(d.durationS),
-      d.location ?? null, d.site ?? null, d.buddy ?? null, String(i + 1),
-      d.weather ? 'Ocean/Sea' : null, null, d.weather ?? null, null, d.weather ? 'Small boat' : null,
-      null, tankProfile, null, null, null, d.tankSize ?? null,
-      d.weight !== undefined ? String(d.weight) : null, d.dress ?? null, 'Single Tank',
-      null, d.workload ?? null, null, null,
+      id,
+      fileName,
+      d.clock,
+      String(d.depth),
+      'A1B2C3D4',
+      String(d.durationS),
+      d.location ?? null,
+      d.site ?? null,
+      d.buddy ?? null,
+      String(i + 1),
+      d.weather ? 'Ocean/Sea' : null,
+      null,
+      d.weather ?? null,
+      null,
+      d.weather ? 'Small boat' : null,
+      null,
+      tankProfile,
+      null,
+      null,
+      null,
+      d.tankSize ?? null,
+      d.weight !== undefined ? String(d.weight) : null,
+      d.dress ?? null,
+      'Single Tank',
+      null,
+      d.workload ?? null,
+      null,
+      null,
     );
     log.run(
-      id, 'sw-pnf', fileName,
+      id,
+      'sw-pnf',
+      fileName,
       JSON.stringify({
-        AverageDepth: d.avgDepth, AverageTemp: 19.3, MinTemp: 18, MaxTemp: 22,
-        EndGF99: d.gf99, MinNDL: 99, MaxDecoObligation: d.decoMin,
+        AverageDepth: d.avgDepth,
+        AverageTemp: 19.3,
+        MinTemp: 18,
+        MaxTemp: 22,
+        EndGF99: d.gf99,
+        MinNDL: 99,
+        MaxDecoObligation: d.decoMin,
       }),
       d.withNativeLog
         ? Buffer.from(
@@ -140,7 +179,16 @@ function buildShearwaterDb(name: string, dives: SwDive[]): Uint8Array {
           )
         : new Uint8Array([0x80, 0x33, 0, 0, 0x1f, 0x8b]),
       Buffer.from(JSON.stringify({ DIVE_NUMBER_KEY: i + 1, DIVE_START_TIME: epochS, DB_VERSION: 12 })),
-      Buffer.from(JSON.stringify({ StartTime: epochS, DiveTimeInSeconds: d.durationS, MaxDepth: d.depth, DiveNumber: i + 1, UnitSystem: 0, Mode: 6 })),
+      Buffer.from(
+        JSON.stringify({
+          StartTime: epochS,
+          DiveTimeInSeconds: d.durationS,
+          MaxDepth: d.depth,
+          DiveNumber: i + 1,
+          UnitSystem: 0,
+          Mode: 6,
+        }),
+      ),
     );
   });
   db.close();
@@ -148,15 +196,68 @@ function buildShearwaterDb(name: string, dives: SwDive[]): Uint8Array {
 }
 
 const SW: SwDive[] = [
-  { clock: '2025-05-31 10:15:02', depth: 33.8, durationS: 2890, avgDepth: 17.25, gf99: 67, decoMin: 0, site: 'Gonzatti', location: 'Recco', buddy: 'Miriam', weight: 8, dress: 'Wet Suit', weather: 'Sunny', workload: 'Light', tankSize: '15lt', startPsi: '2900', endPsi: '725' },
-  { clock: '2025-05-31 12:49:34', depth: 34.5, durationS: 2879, avgDepth: 16.78, gf99: 66, decoMin: 0, site: 'Colombara', location: 'Recco' },
-  { clock: '2025-06-01 10:11:32', depth: 43.5, durationS: 2121, avgDepth: 20.71, gf99: 69, decoMin: 2, site: 'Mohawk Deer', location: 'Arenzano' },
+  {
+    clock: '2025-05-31 10:15:02',
+    depth: 33.8,
+    durationS: 2890,
+    avgDepth: 17.25,
+    gf99: 67,
+    decoMin: 0,
+    site: 'Gonzatti',
+    location: 'Recco',
+    buddy: 'Miriam',
+    weight: 8,
+    dress: 'Wet Suit',
+    weather: 'Sunny',
+    workload: 'Light',
+    tankSize: '15lt',
+    startPsi: '2900',
+    endPsi: '725',
+  },
+  {
+    clock: '2025-05-31 12:49:34',
+    depth: 34.5,
+    durationS: 2879,
+    avgDepth: 16.78,
+    gf99: 66,
+    decoMin: 0,
+    site: 'Colombara',
+    location: 'Recco',
+  },
+  {
+    clock: '2025-06-01 10:11:32',
+    depth: 43.5,
+    durationS: 2121,
+    avgDepth: 20.71,
+    gf99: 69,
+    decoMin: 2,
+    site: 'Mohawk Deer',
+    location: 'Arenzano',
+  },
   { clock: '2025-06-14 10:07:00', depth: 40.6, durationS: 2447, avgDepth: 17.39, gf99: 59, decoMin: 0 },
   { clock: '2025-06-14 14:51:00', depth: 31.6, durationS: 2923, avgDepth: 16.52, gf99: 65, decoMin: 0 },
   { clock: '2025-07-05 10:16:00', depth: 39.9, durationS: 2940, avgDepth: 18.18, gf99: 78, decoMin: 3 },
   // Con il log nativo del computer, come sono i file veri.
-  { clock: '2025-07-19 10:13:03', depth: 28.4, durationS: 2600, avgDepth: 14.2, gf99: 71, decoMin: 0, site: 'Punta Chiappa', withNativeLog: true },
-  { clock: '2025-07-23 11:09:56', depth: 36.2, durationS: 2200, avgDepth: 17.1, gf99: 74, decoMin: 4, site: 'Isuela', withNativeLog: true },
+  {
+    clock: '2025-07-19 10:13:03',
+    depth: 28.4,
+    durationS: 2600,
+    avgDepth: 14.2,
+    gf99: 71,
+    decoMin: 0,
+    site: 'Punta Chiappa',
+    withNativeLog: true,
+  },
+  {
+    clock: '2025-07-23 11:09:56',
+    depth: 36.2,
+    durationS: 2200,
+    avgDepth: 17.1,
+    gf99: 74,
+    decoMin: 4,
+    site: 'Isuela',
+    withNativeLog: true,
+  },
 ];
 
 describe('conversioni', () => {
@@ -243,7 +344,7 @@ describe('parser Shearwater Cloud', () => {
     expect(withDeco.metrics!.maxCeilingM).toBeUndefined();
   });
 
-  it('non registra il fondo scala dell\'NDL come una misura', () => {
+  it("non registra il fondo scala dell'NDL come una misura", () => {
     // MinNDL = 99 significa "mai avvicinati al limite", non "il limite era 99'".
     const { dives } = shearwaterCloudParser.parse({ fileName: 'sw.db', bytes });
     expect(dives.every((d) => d.reported?.minNdlS === undefined)).toBe(true);
@@ -332,7 +433,7 @@ function logtrakFor(dives: SwDive[], offsetHours: number[]): string {
 }
 
 describe('deduplica fra fonti con orologi sfasati', () => {
-  it('riconosce le stesse immersioni nonostante un\'ora di scarto', () => {
+  it("riconosce le stesse immersioni nonostante un'ora di scarto", () => {
     const swBytes = buildShearwaterDb('sfasate', SW);
     const sw = shearwaterCloudParser.parse({ fileName: 'sw.db', bytes: swBytes }).dives;
     const lt = logtrakParser.parse({ fileName: 'lt.logtrak', text: logtrakFor(SW, [1]) }).dives;
@@ -368,7 +469,7 @@ describe('deduplica fra fonti con orologi sfasati', () => {
     expect(rep.added).toBe(0);
   });
 
-  it('non inventa uno sfasamento quando non c\'è', () => {
+  it("non inventa uno sfasamento quando non c'è", () => {
     const swBytes = buildShearwaterDb('allineate', SW);
     const sw = shearwaterCloudParser.parse({ fileName: 'sw.db', bytes: swBytes }).dives;
     const lt = logtrakParser.parse({ fileName: 'lt.logtrak', text: logtrakFor(SW, [0]) }).dives;
@@ -378,7 +479,7 @@ describe('deduplica fra fonti con orologi sfasati', () => {
     expect(rep.clockOffsets).toHaveLength(0);
   });
 
-  it('non fonde immersioni diverse solo perché c\'è uno sfasamento plausibile', () => {
+  it("non fonde immersioni diverse solo perché c'è uno sfasamento plausibile", () => {
     // Due immersioni ripetitive con profondità e durata ben diverse non devono
     // essere confuse fra loro nemmeno provando gli sfasamenti candidati.
     const swBytes = buildShearwaterDb('ripetitive', SW);

@@ -139,7 +139,9 @@ function readDive(
   const cylinders: Cylinder[] = [];
   let linkFallbackUsed = false;
   for (const tank of children(node, 'tankdata')) {
-    const refs = asArray(child(tank, 'link')).map((l) => attr(l, 'ref')).filter(Boolean) as string[];
+    const refs = asArray(child(tank, 'link'))
+      .map((l) => attr(l, 'ref'))
+      .filter(Boolean) as string[];
     let mix = refs.map((r) => mixes.get(r)).find(Boolean);
     if (!mix && mixIds.length) {
       mix = mixes.get(mixIds[0]);
@@ -156,7 +158,7 @@ function readDive(
   }
   if (linkFallbackUsed) {
     warnings.push(
-      'Alcune bombole non hanno il collegamento alla miscela (limite noto dell\'export UDDF di Shearwater): assegnata la prima miscela definita.',
+      "Alcune bombole non hanno il collegamento alla miscela (limite noto dell'export UDDF di Shearwater): assegnata la prima miscela definita.",
     );
   }
   if (cylinders.length === 0 && mixIds.length) {
@@ -194,17 +196,15 @@ function readDive(
       t: Math.round(t),
       depth,
       tempC: mapDefined(num(child(wp, 'temperature')), kelvinToC),
-      pressureBar: tankPressurePa !== undefined ? indexed(currentGas ?? 0, pascalToBar(tankPressurePa)) : undefined,
+      pressureBar:
+        tankPressurePa !== undefined ? indexed(currentGas ?? 0, pascalToBar(tankPressurePa)) : undefined,
       ndlS: num(child(wp, 'nodecotime')),
       ttsS: num(child(wp, 'remainingbottomtime')),
       stopDepth,
       stopTimeS: stopTime,
       inDeco: kind === 'mandatory' || (stopDepth !== undefined && stopDepth > 0),
       cns: mapDefined(num(child(wp, 'cns')), (v) => (v <= 1 ? v * 100 : v)),
-      ppo2: mapDefined(
-        num(child(wp, 'measuredpo2')) ?? num(child(wp, 'calculatedpo2')),
-        pascalToBar,
-      ),
+      ppo2: mapDefined(num(child(wp, 'measuredpo2')) ?? num(child(wp, 'calculatedpo2')), pascalToBar),
       setpoint: mapDefined(num(child(wp, 'setpo2')), pascalToBar),
       gasIndex: currentGas,
       heartRate: num(child(wp, 'heartrate')) ?? num(child(wp, 'pulserate')),
@@ -237,7 +237,9 @@ function readDive(
     return null;
   }
 
-  const siteRef = asArray(child(before, 'link')).map((l) => attr(l, 'ref')).find(Boolean);
+  const siteRef = asArray(child(before, 'link'))
+    .map((l) => attr(l, 'ref'))
+    .find(Boolean);
   const site = siteRef ? sites.get(siteRef) : undefined;
 
   const apparatus = text(child(before, 'apparatus'));

@@ -19,7 +19,13 @@ import { readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 const { chromium } = pw;
 
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
+const MIME = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.svg': 'image/svg+xml',
+};
 const server = createServer(async (req, res) => {
   let p = decodeURIComponent((req.url || '/').split('?')[0]);
   if (p === '/') p = '/index.html';
@@ -27,21 +33,25 @@ const server = createServer(async (req, res) => {
     const body = await readFile(join(process.cwd(), 'dist', p));
     res.writeHead(200, { 'content-type': MIME[extname(p)] || 'application/octet-stream' });
     res.end(body);
-  } catch { res.writeHead(404); res.end('not found'); }
+  } catch {
+    res.writeHead(404);
+    res.end('not found');
+  }
 });
 await new Promise((r) => server.listen(4173, r));
 
 // Un file per argomento sovrascrive l'elenco dimostrativo: utile per provare
 // l'app su un export vero senza modificare lo script.
-const files = process.argv.length > 2
-  ? process.argv.slice(2)
-  : [
-      'demo/shearwater-cloud-export.uddf',
-      'demo/subsurface-archivio.ssrf',
-      'demo/shearwater-peregrine.xml',
-      'demo/garmin-descent.fit',
-      'demo/vecchio-logbook.csv',
-    ];
+const files =
+  process.argv.length > 2
+    ? process.argv.slice(2)
+    : [
+        'demo/shearwater-cloud-export.uddf',
+        'demo/subsurface-archivio.ssrf',
+        'demo/shearwater-peregrine.xml',
+        'demo/garmin-descent.fit',
+        'demo/vecchio-logbook.csv',
+      ];
 
 import { mkdirSync } from 'node:fs';
 mkdirSync('screenshots', { recursive: true });
@@ -63,9 +73,12 @@ async function shots(page, prefix, max = 6) {
   const view = page.viewportSize().height;
   const steps = Math.min(max, Math.ceil(height / view));
   for (let i = 0; i < steps; i++) {
-    await page.evaluate((y) => {
-      document.querySelector('.main').scrollTop = y;
-    }, i * (view - 60));
+    await page.evaluate(
+      (y) => {
+        document.querySelector('.main').scrollTop = y;
+      },
+      i * (view - 60),
+    );
     await page.waitForTimeout(250);
     await page.screenshot({ path: `${prefix}-${i + 1}.png` });
   }
@@ -80,7 +93,9 @@ const browser = await chromium.launch(
 const VW = +(process.env.VW || 1280);
 const page = await browser.newPage({ viewport: { width: VW, height: 1000 }, deviceScaleFactor: 1 });
 const errors = [];
-page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+page.on('console', (m) => {
+  if (m.type() === 'error') errors.push(m.text());
+});
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
 
 await page.goto('http://localhost:4173/', { waitUntil: 'networkidle' });
@@ -90,7 +105,7 @@ await page.waitForTimeout(500);
 await page.screenshot({ path: 'screenshots/1-import-vuoto.png', fullPage: true });
 
 await page.setInputFiles('input[type=file]', files);
-await page.waitForSelector('text=Esito dell\'import', { timeout: 60000 });
+await page.waitForSelector("text=Esito dell'import", { timeout: 60000 });
 await page.waitForTimeout(800);
 await page.screenshot({ path: 'screenshots/2-import-esito.png', fullPage: true });
 
@@ -119,16 +134,50 @@ const campo = async (etichetta, valore) => {
   await page.locator('label', { hasText: etichetta }).first().locator('input').fill(String(valore));
 };
 await campo('Durata', 44);
-await campo('Profondità massima', 27.5);
-await campo('Profondità media', 16.4);
+/*
+ * Con la VIRGOLA, non con il punto.
+ *
+ * È il separatore che una tastiera italiana produce, ed era il difetto: con
+ * `type="number"` il campo accetta solo il separatore della lingua della
+ * webview, quindi «27,5» arrivava vuoto o troncato a 275 senza un segnale.
+ * Ora i campi decimali sono di testo e la conversione la fa `num()`. Se questa
+ * riga tornasse a `27.5` il difetto potrebbe rientrare senza che nessuno lo
+ * veda: il valore va scritto qui come lo scrive una persona.
+ */
+await campo('Profondità massima', '27,5');
+await campo('Profondità media', '16,4');
 await campo('Sito', 'Ricopiata dal libretto');
 await page.waitForTimeout(300);
 await page.screenshot({ path: 'screenshots/3b-nuova-immersione.png', fullPage: true });
-const avvisiNuova = await page.locator('.notice').first().innerText().catch(() => 'nessun avviso');
+const avvisiNuova = await page
+  .locator('.notice')
+  .first()
+  .innerText()
+  .catch(() => 'nessun avviso');
 await page.click('button:has-text("Salva immersione")');
 await page.waitForTimeout(900);
+/*
+ * Dopo un salvataggio RIUSCITO deve comparire la conferma, non il riquadro
+ * rosso degli errori del modulo appena svuotato. Il modulo resta aperto — chi
+ * ricopia un libretto ne inserisce cinque di fila — e prima l'unico messaggio
+ * in pagina diceva il contrario di quello che era appena successo.
+ */
+const esitoSalvataggio = await page
+  .locator('.notice')
+  .filter({ hasText: 'Immersione aggiunta' })
+  .count()
+  .catch(() => 0);
+const rossoDopoSalvataggio = await page.locator('.notice-error').count();
+await page.click('button:has-text("Chiudi")');
+await page.waitForTimeout(400);
 const dopoInserimento = await page.locator('tbody tr').count();
 await page.screenshot({ path: 'screenshots/3c-dopo-inserimento.png', fullPage: true });
+
+const rigaManuale = await page
+  .locator('tbody tr', { hasText: 'Ricopiata dal libretto' })
+  .first()
+  .innerText()
+  .catch(() => 'RIGA MANCANTE');
 
 // Apri quella appena inserita e leggi la carta della saturazione: deve dire che
 // i numeri sono stimati, altrimenti un GF99 ricostruito passa per misurato.
@@ -183,7 +232,10 @@ if (box) {
   await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.5);
   await page.waitForTimeout(400);
 }
-await page.screenshot({ path: 'screenshots/5-tooltip.png', clip: box ? { x: box.x - 40, y: box.y - 60, width: box.width + 80, height: box.height + 120 } : undefined });
+await page.screenshot({
+  path: 'screenshots/5-tooltip.png',
+  clip: box ? { x: box.x - 40, y: box.y - 60, width: box.width + 80, height: box.height + 120 } : undefined,
+});
 
 await page.click('button:has-text("Statistiche")');
 await page.waitForTimeout(700);
@@ -215,7 +267,10 @@ await shots(page, 'screenshots/13b-gas');
 // pagina, non restare come numero calcolato e non mostrato.
 await page.uncheck('[data-check="rock-bottom"]');
 await page.waitForTimeout(500);
-const gasFixed = await page.locator('.card', { hasText: 'Gas d\'emergenza: non calcolato' }).first().innerText();
+const gasFixed = await page
+  .locator('.card', { hasText: "Gas d'emergenza: non calcolato" })
+  .first()
+  .innerText();
 await page.selectOption('select:below(:text("Regola di rientro"))', 'none').catch(() => {});
 await page.waitForTimeout(400);
 await shots(page, 'screenshots/13c-gas-ricreativa', 3);
@@ -250,31 +305,60 @@ await page.screenshot({ path: 'screenshots/12-analisi.png', fullPage: true });
 // Le carte nuove del pianificatore: contingenze, START, e il gas di deco.
 await page.click('button:has-text("Gas")');
 await page.waitForTimeout(700);
-const contingenze = await page.locator('.card', { hasText: 'E se…' }).first().innerText().catch(() => 'CARTA MANCANTE');
-const start = await page.locator('.card', { hasText: 'Prima di scendere' }).first().innerText().catch(() => 'CARTA MANCANTE');
+const contingenze = await page
+  .locator('.card', { hasText: 'E se…' })
+  .first()
+  .innerText()
+  .catch(() => 'CARTA MANCANTE');
+const start = await page
+  .locator('.card', { hasText: 'Prima di scendere' })
+  .first()
+  .innerText()
+  .catch(() => 'CARTA MANCANTE');
 // Le caselle si prendono per nome, non per posizione: aggiungerne una nuova
 // altrove nella pagina non deve far puntare i test a quella sbagliata.
 await page.check('[data-check="deco-mix"]');
 await page.waitForTimeout(500);
-const decoBox = await page.locator('.tile', { hasText: 'Ti serve' }).first().innerText().catch(() => 'NESSUN RIQUADRO DECO');
+const decoBox = await page
+  .locator('.tile', { hasText: 'Ti serve' })
+  .first()
+  .innerText()
+  .catch(() => 'NESSUN RIQUADRO DECO');
 await shots(page, 'screenshots/14-gas-deco', 5);
 await page.uncheck('[data-check="deco-mix"]');
 
 // Modalità tecnica: la tabella di decompressione deve comparire con soste vere.
 await page.click('button:has-text("Tecnica")');
 await page.waitForTimeout(700);
-const curvaCard = await page.locator('.card', { hasText: 'I livelli' }).first().innerText().catch(() => 'CARTA LIVELLI MANCANTE');
+const curvaCard = await page
+  .locator('.card', { hasText: 'I livelli' })
+  .first()
+  .innerText()
+  .catch(() => 'CARTA LIVELLI MANCANTE');
 // Un profilo che la deco la prende di sicuro: 45 m per 30 minuti.
 const livelli = page.locator('.card', { hasText: 'I livelli' }).first().locator('input[type=number]');
 await livelli.nth(0).fill('45');
 await livelli.nth(1).fill('30');
 await page.waitForTimeout(600);
-const tabella = await page.locator('.card', { hasText: 'Da portare in acqua' }).first().innerText().catch(() => 'NESSUNA TABELLA DI SOSTE');
-const decoContingenze = await page.locator('.card', { hasText: 'Se qualcosa cambia' }).first().innerText().catch(() => 'NESSUNA CONTINGENZA');
+const tabella = await page
+  .locator('.card', { hasText: 'Da portare in acqua' })
+  .first()
+  .innerText()
+  .catch(() => 'NESSUNA TABELLA DI SOSTE');
+const decoContingenze = await page
+  .locator('.card', { hasText: 'Se qualcosa cambia' })
+  .first()
+  .innerText()
+  .catch(() => 'NESSUNA CONTINGENZA');
 await shots(page, 'screenshots/14b-deco-tecnica', 6);
 await page.click('button:has-text("Ricreativa")');
 await page.waitForTimeout(600);
-const curva = await page.locator('.card').filter({ has: page.locator('h2', { hasText: 'Curva di sicurezza' }) }).first().innerText().catch(() => 'NESSUNA CARTA CURVA');
+const curva = await page
+  .locator('.card')
+  .filter({ has: page.locator('h2', { hasText: 'Curva di sicurezza' }) })
+  .first()
+  .innerText()
+  .catch(() => 'NESSUNA CARTA CURVA');
 
 // Export UDDF dalle impostazioni: il file deve scaricarsi davvero.
 await page.click('button:has-text("Impostazioni")');
@@ -286,7 +370,10 @@ const uddfName = uddf ? uddf.suggestedFilename() : 'NESSUN DOWNLOAD';
 let uddfBytes = 0;
 if (uddf) {
   const path = await uddf.path();
-  if (path) uddfBytes = (await import('node:fs/promises')).then ? (await (await import('node:fs/promises')).stat(path)).size : 0;
+  if (path)
+    uddfBytes = (await import('node:fs/promises')).then
+      ? (await (await import('node:fs/promises')).stat(path)).size
+      : 0;
 }
 await page.waitForTimeout(400);
 await page.screenshot({ path: 'screenshots/15-export.png', fullPage: true });
@@ -295,7 +382,11 @@ await page.screenshot({ path: 'screenshots/15-export.png', fullPage: true });
 await page.click('button:has-text("Confronta")');
 await page.waitForTimeout(900);
 await page.screenshot({ path: 'screenshots/16-confronta.png', fullPage: true });
-const confronto = await page.locator('.card', { hasText: 'Le differenze' }).first().innerText().catch(() => 'CARTA MANCANTE');
+const confronto = await page
+  .locator('.card', { hasText: 'Le differenze' })
+  .first()
+  .innerText()
+  .catch(() => 'CARTA MANCANTE');
 
 /*
  * Attrezzatura: rifatta in tre sezioni ad agosto 2026, quindi il percorso qui
@@ -316,9 +407,49 @@ await page.waitForTimeout(600);
 await page.locator('button:has-text("Aggiungi")').nth(1).click();
 await page.waitForTimeout(300);
 await page.locator('label', { hasText: 'Didattica' }).first().locator('input').fill('PADI');
-await page.locator('label', { hasText: 'Nome sulla tessera' }).first().locator('input').fill('Advanced Open Water');
+await page
+  .locator('label', { hasText: 'Nome sulla tessera' })
+  .first()
+  .locator('input')
+  .fill('Advanced Open Water');
 await page.locator('button:has-text("Salva")').first().click();
 await page.waitForTimeout(600);
+
+/*
+ * DUE PEZZI DI FILA: si apre il primo, si annulla, si apre il secondo.
+ *
+ * Senza `key` sulla scheda, React non rimontava il componente e lo `useState`
+ * iniziale restava quello del primo pezzo: nel modulo comparivano i campi
+ * dell'erogatore mentre il titolo diceva il nome della bombola, e «Salva»
+ * scriveva sull'identificativo sbagliato. Qui si aggiunge un secondo pezzo e si
+ * verifica che aprendo il primo dopo il secondo il modulo mostri il primo.
+ */
+await page.locator('button:has-text("Aggiungi")').first().click();
+await page.waitForTimeout(300);
+await page.locator('label', { hasText: 'Marca e modello' }).first().locator('input').fill('Faber D12');
+await page.locator('button:has-text("Salva")').first().click();
+await page.waitForTimeout(600);
+
+await page.locator('tbody tr', { hasText: 'Faber D12' }).first().click();
+await page.waitForTimeout(300);
+await page.locator('button:has-text("Annulla")').first().click();
+await page.waitForTimeout(300);
+await page.locator('tbody tr', { hasText: 'Scubapro MK25' }).first().click();
+await page.waitForTimeout(400);
+const schedaDopoDueAperture = await page
+  .locator('label', { hasText: 'Marca e modello' })
+  .first()
+  .locator('input')
+  .inputValue()
+  .catch(() => 'CAMPO MANCANTE');
+// E l'eliminazione chiede conferma invece di cancellare al primo clic.
+await page.locator('button:has-text("Elimina")').first().click();
+await page.waitForTimeout(300);
+const chiedeConferma = await page.locator('button:has-text("Sì, elimina")').count();
+await page.locator('button:has-text("No")').first().click();
+await page.waitForTimeout(200);
+await page.locator('button:has-text("Annulla")').first().click();
+await page.waitForTimeout(400);
 
 const attrezzatura = await page
   .locator('.card', { hasText: 'Quello che porti in acqua' })
@@ -340,7 +471,11 @@ await page.screenshot({ path: 'screenshots/17-attrezzatura.png', fullPage: true 
 // La mappa dei siti, dentro le statistiche.
 await page.click('button:has-text("Statistiche")');
 await page.waitForTimeout(700);
-const mappa = await page.locator('.card', { hasText: 'Dove ti immergi' }).first().innerText().catch(() => 'CARTA MANCANTE');
+const mappa = await page
+  .locator('.card', { hasText: 'Dove ti immergi' })
+  .first()
+  .innerText()
+  .catch(() => 'CARTA MANCANTE');
 await shots(page, 'screenshots/18-statistiche', 6);
 
 // Modalità scura.
@@ -371,7 +506,16 @@ await shots(page, 'screenshots/9b-mobile-gas', 4);
  * solo confrontando `scrollHeight` con `clientHeight`.
  */
 const fantasma = [];
-for (const tab of ['Logbook', 'Statistiche', 'Coach', 'Gas', 'Confronta', 'Attrezzatura', 'Importa', 'Sincronizza']) {
+for (const tab of [
+  'Logbook',
+  'Statistiche',
+  'Coach',
+  'Gas',
+  'Confronta',
+  'Attrezzatura',
+  'Importa',
+  'Sincronizza',
+]) {
   await page.click(`button:has-text("${tab}")`).catch(() => {});
   await page.waitForTimeout(400);
   const d = await page.evaluate(() => ({
@@ -386,7 +530,9 @@ await page.waitForTimeout(400);
 await page.locator('tbody tr').first().click();
 await page.waitForTimeout(1200);
 {
-  const d = await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight);
+  const d = await page.evaluate(
+    () => document.documentElement.scrollHeight - document.documentElement.clientHeight,
+  );
   if (d > 1) fantasma.push(`scheda immersione: documento +${d}px`);
 }
 
@@ -396,7 +542,16 @@ await page.waitForTimeout(1200);
 // che invece si misura in una riga: se `scrollWidth` supera la larghezza della
 // finestra, qualcosa dentro non ha accettato di stringersi.
 const overflow = [];
-for (const tab of ['Logbook', 'Statistiche', 'Coach', 'Gas', 'Confronta', 'Attrezzatura', 'Importa', 'Sincronizza']) {
+for (const tab of [
+  'Logbook',
+  'Statistiche',
+  'Coach',
+  'Gas',
+  'Confronta',
+  'Attrezzatura',
+  'Importa',
+  'Sincronizza',
+]) {
   await page.click(`button:has-text("${tab}")`).catch(() => {});
   await page.waitForTimeout(400);
   const info = await page.evaluate(() => {
@@ -428,16 +583,35 @@ console.log('START:\n' + start.slice(0, 300));
 console.log('DECO:\n' + decoBox);
 console.log('EXPORT UDDF:', uddfName, uddfBytes ? `(${Math.round(uddfBytes / 1024)} kB)` : '');
 console.log('CONFRONTO:\n' + confronto.slice(0, 300));
+console.log('VIRGOLA DECIMALE:', rigaManuale.replace(/\n/g, ' | ').slice(0, 200));
+console.log(
+  'ESITO SALVATAGGIO:',
+  esitoSalvataggio > 0 ? 'conferma mostrata' : 'CONFERMA MANCANTE',
+  '· riquadri rossi:',
+  rossoDopoSalvataggio,
+);
+console.log('SCHEDA DOPO DUE APERTURE:', schedaDopoDueAperture, '(atteso: Scubapro MK25)');
+console.log('ELIMINA CHIEDE CONFERMA:', chiedeConferma > 0 ? 'sì' : 'NO — cancella al primo clic');
 console.log('ATTREZZATURA:\n' + attrezzatura.slice(0, 420));
 console.log('BREVETTI:\n' + brevetti.slice(0, 300));
 console.log('ZAVORRA:\n' + zavorra.slice(0, 500));
 console.log('MAPPA:\n' + mappa.slice(0, 220));
-console.log('CURVA MINUTO PER MINUTO:'); console.log(decoTl.slice(0, 700));
-console.log('LIVELLI:'); console.log(curvaCard.slice(0, 300));
-console.log('TABELLA SOSTE:'); console.log(tabella.slice(0, 600));
-console.log('CONTINGENZE DECO:'); console.log(decoContingenze.slice(0, 700));
-console.log('CURVA RICREATIVA:'); console.log(curva.slice(0, 600));
-console.log('MODIFICA IN BLOCCO:', bloccoOk ? 'compagno scritto, sito non toccato' : `SBAGLIATA\nprima: ${primaDelBlocco}\ndopo: ${dopoIlBlocco}`);
+console.log('CURVA MINUTO PER MINUTO:');
+console.log(decoTl.slice(0, 700));
+console.log('LIVELLI:');
+console.log(curvaCard.slice(0, 300));
+console.log('TABELLA SOSTE:');
+console.log(tabella.slice(0, 600));
+console.log('CONTINGENZE DECO:');
+console.log(decoContingenze.slice(0, 700));
+console.log('CURVA RICREATIVA:');
+console.log(curva.slice(0, 600));
+console.log(
+  'MODIFICA IN BLOCCO:',
+  bloccoOk
+    ? 'compagno scritto, sito non toccato'
+    : `SBAGLIATA\nprima: ${primaDelBlocco}\ndopo: ${dopoIlBlocco}`,
+);
 console.log('SCORRIMENTO FANTASMA:', fantasma.length ? fantasma : 'nessuno');
 console.log('TRABOCCO A 390 px:', overflow.length ? overflow : 'nessuno');
 console.log('CONSOLE ERRORS:', errors.length ? errors.slice(0, 10) : 'nessuno');

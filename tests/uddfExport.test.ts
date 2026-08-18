@@ -101,7 +101,11 @@ describe('export UDDF', () => {
       startTime: '2026-06-15T10:00:00.000Z',
       cylinders: [{ mix: { o2: 0.32, he: 0 }, sizeL: 15, startBar: 220, endBar: 80 }],
     });
-    const { xml } = exportUddf([dive(), nitrox, dive({ id: 'terzo', startTime: '2026-06-16T10:00:00.000Z' })]);
+    const { xml } = exportUddf([
+      dive(),
+      nitrox,
+      dive({ id: 'terzo', startTime: '2026-06-16T10:00:00.000Z' }),
+    ]);
     // Tre immersioni, due gas distinti: le definizioni non si duplicano.
     expect(xml.match(/<mix id=/g)).toHaveLength(2);
     const back = await parseFile({ fileName: 'e.uddf', text: xml });

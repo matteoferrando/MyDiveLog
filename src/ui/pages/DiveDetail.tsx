@@ -91,7 +91,12 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
         <div>
           <h1 className="page-title">
             {dive.site?.name ?? 'Immersione'}
-            {dive.number !== undefined && <span className="muted" style={{ fontWeight: 400 }}> · #{dive.number}</span>}
+            {dive.number !== undefined && (
+              <span className="muted" style={{ fontWeight: 400 }}>
+                {' '}
+                · #{dive.number}
+              </span>
+            )}
           </h1>
           <div className="secondary" style={{ fontSize: 13 }}>
             {capitalise(dateLong(dive.startTime, dive.utcOffsetMinutes))} ·{' '}
@@ -116,15 +121,23 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
       {stampaBloccata && (
         <div className="notice">
-          La finestra di stampa non si è aperta: il browser ha bloccato l’apertura di una nuova
-          finestra. Consentila per questo sito e riprova — la stampa non modifica nulla
-          nell’archivio, apre soltanto una copia del foglio da stampare.
+          La finestra di stampa non si è aperta: il browser ha bloccato l’apertura di una nuova finestra.
+          Consentila per questo sito e riprova — la stampa non modifica nulla nell’archivio, apre soltanto una
+          copia del foglio da stampare.
         </div>
       )}
 
       <div className="grid grid-tiles">
-        <StatTile label="Profondità massima" value={`${dive.maxDepth.toFixed(1)} m`} note={m?.avgDepth !== undefined ? `media ${m.avgDepth.toFixed(1)} m` : 'media non disponibile'} />
-        <StatTile label="Durata" value={formatDuration(dive.durationS)} note={m ? `fondo ${formatDuration(m.phases.bottomS)}` : undefined} />
+        <StatTile
+          label="Profondità massima"
+          value={`${dive.maxDepth.toFixed(1)} m`}
+          note={m?.avgDepth !== undefined ? `media ${m.avgDepth.toFixed(1)} m` : 'media non disponibile'}
+        />
+        <StatTile
+          label="Durata"
+          value={formatDuration(dive.durationS)}
+          note={m ? `fondo ${formatDuration(m.phases.bottomS)}` : undefined}
+        />
         <StatTile
           label="Consumo di superficie"
           value={m?.rmvLpm !== undefined ? `${m.rmvLpm.toFixed(1)}` : '—'}
@@ -221,7 +234,11 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
               cursor={{ t: cursorT, onChange: setCursorT }}
               reference={[
                 { value: LIMITS.ascentRateDeepMpm, label: `limite ${LIMITS.ascentRateDeepMpm} sotto i 10 m` },
-                { value: LIMITS.ascentRateShallowMpm, label: `limite ${LIMITS.ascentRateShallowMpm} sopra i 10 m`, color: 'var(--warning)' },
+                {
+                  value: LIMITS.ascentRateShallowMpm,
+                  label: `limite ${LIMITS.ascentRateShallowMpm} sopra i 10 m`,
+                  color: 'var(--warning)',
+                },
               ]}
             />
           </div>
@@ -343,9 +360,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                 value={
                   m?.maxPpo2 !== undefined
                     ? `${m.maxPpo2.toFixed(2)} bar${
-                        m.minutesAbovePpo214
-                          ? ` · ${m.minutesAbovePpo214.toFixed(0)} min sopra 1.4`
-                          : ''
+                        m.minutesAbovePpo214 ? ` · ${m.minutesAbovePpo214.toFixed(0)} min sopra 1.4` : ''
                       }`
                     : '—'
                 }
@@ -398,10 +413,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                 }
               />
               {m !== undefined && m.badGasSwitches > 0 && (
-                <Row
-                  label="Cambi di gas sotto la MOD"
-                  value={`${m.badGasSwitches} — errore di procedura`}
-                />
+                <Row label="Cambi di gas sotto la MOD" value={`${m.badGasSwitches} — errore di procedura`} />
               )}
               {m?.minPpo2 !== undefined && m.minPpo2 < 0.21 && (
                 <Row label="PPO2 minima" value={`${m.minPpo2.toFixed(2)} bar`} />
@@ -415,8 +427,8 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
         <div className="card">
           <h2>Bombole e miscele</h2>
           <p className="card-sub">
-            Il volume in litri è ciò che permette di calcolare il consumo in L/min: senza di esso resta
-            solo bar/min, che non è confrontabile fra bombole diverse.
+            Il volume in litri è ciò che permette di calcolare il consumo in L/min: senza di esso resta solo
+            bar/min, che non è confrontabile fra bombole diverse.
           </p>
           <table>
             <thead>
@@ -452,7 +464,9 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
         </div>
       </div>
 
-      {timeline.length > 2 && <DecoTimelineCard dive={dive} timeline={timeline} cursorT={cursorT} setCursorT={setCursorT} />}
+      {timeline.length > 2 && (
+        <DecoTimelineCard dive={dive} timeline={timeline} cursorT={cursorT} setCursorT={setCursorT} />
+      )}
 
       <SaturationCard dive={dive} dives={dives} />
 
@@ -464,8 +478,8 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <div className="card">
               <h2>Letto dal computer</h2>
               <p className="card-sub">
-                Valori che il computer ha calcolato durante l'immersione, tenuti distinti da quelli
-                ricavati qui dal profilo.
+                Valori che il computer ha calcolato durante l'immersione, tenuti distinti da quelli ricavati
+                qui dal profilo.
               </p>
               <table>
                 <tbody>
@@ -508,7 +522,9 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
         </div>
       )}
 
-      {editing && <EditPanel dive={dive} onSave={saveDive} onDelete={() => void removeDive(dive.id).then(onBack)} />}
+      {editing && (
+        <EditPanel dive={dive} onSave={saveDive} onDelete={() => void removeDive(dive.id).then(onBack)} />
+      )}
 
       <AnalysisCard
         kind="dive"
@@ -692,8 +708,8 @@ function SingleComputerSettings({
     <div className="card">
       <h2>{title}</h2>
       <p className="card-sub">
-        Lette dal log del computer, non inserite a mano. Il GF99 e l'obbligo decompressivo che vedi
-        sopra sono stati calcolati con queste impostazioni.
+        Lette dal log del computer, non inserite a mano. Il GF99 e l'obbligo decompressivo che vedi sopra sono
+        stati calcolati con queste impostazioni.
       </p>
       <table>
         <tbody>
@@ -760,8 +776,8 @@ function EditPanel({
     <div className="card">
       <h2>Modifica dati</h2>
       <p className="card-sub">
-        Salvando, le metriche di questa immersione vengono ricalcolate. Un import successivo non
-        sovrascrive i campi che compili qui.
+        Salvando, le metriche di questa immersione vengono ricalcolate. Un import successivo non sovrascrive i
+        campi che compili qui.
       </p>
 
       <div className="grid grid-3" style={{ marginBottom: 14 }}>
@@ -822,7 +838,9 @@ function EditPanel({
                   step="0.1"
                   style={{ width: 76 }}
                   value={c.sizeL ?? ''}
-                  onChange={(e) => setCylinder(i, { sizeL: e.target.value ? Number(e.target.value) : undefined })}
+                  onChange={(e) =>
+                    setCylinder(i, { sizeL: e.target.value ? Number(e.target.value) : undefined })
+                  }
                 />
               </td>
               <td className="num">
@@ -830,7 +848,9 @@ function EditPanel({
                   type="number"
                   style={{ width: 76 }}
                   value={c.startBar ?? ''}
-                  onChange={(e) => setCylinder(i, { startBar: e.target.value ? Number(e.target.value) : undefined })}
+                  onChange={(e) =>
+                    setCylinder(i, { startBar: e.target.value ? Number(e.target.value) : undefined })
+                  }
                 />
               </td>
               <td className="num">
@@ -838,7 +858,9 @@ function EditPanel({
                   type="number"
                   style={{ width: 76 }}
                   value={c.endBar ?? ''}
-                  onChange={(e) => setCylinder(i, { endBar: e.target.value ? Number(e.target.value) : undefined })}
+                  onChange={(e) =>
+                    setCylinder(i, { endBar: e.target.value ? Number(e.target.value) : undefined })
+                  }
                 />
               </td>
             </tr>
@@ -867,7 +889,11 @@ function EditPanel({
         >
           Salva
         </button>
-        {saved && <span className="muted" style={{ fontSize: 12 }}>Salvato e metriche ricalcolate.</span>}
+        {saved && (
+          <span className="muted" style={{ fontSize: 12 }}>
+            Salvato e metriche ricalcolate.
+          </span>
+        )}
         <span className="topbar-spacer" />
         <button
           className="btn btn-danger"
@@ -960,10 +986,10 @@ function DecoTimelineCard({
     <div className="card">
       <h2>Curva e obbligo, minuto per minuto</h2>
       <p className="card-sub">
-        Ricalcolati da noi sul profilo con Bühlmann ZH-L16C e i gradient factor {gf}, tenendo conto
-        dell'azoto residuo dall'immersione precedente. Dove il tuo computer ha scritto i suoi, li trovi
-        tratteggiati sullo stesso grafico: non per correggerlo — era lui in acqua — ma perché due
-        implementazioni che divergono dicono qualcosa.
+        Ricalcolati da noi sul profilo con Bühlmann ZH-L16C e i gradient factor {gf}, tenendo conto dell'azoto
+        residuo dall'immersione precedente. Dove il tuo computer ha scritto i suoi, li trovi tratteggiati
+        sullo stesso grafico: non per correggerlo — era lui in acqua — ma perché due implementazioni che
+        divergono dicono qualcosa.
       </p>
 
       <MiniSeries
@@ -991,7 +1017,11 @@ function DecoTimelineCard({
         <MiniSeries
           samples={points}
           pick={(_s, i) => at(i)?.ceilingM}
-          label={maxCeiling > 0 ? 'Tetto di decompressione, calcolato da noi' : 'Tetto di decompressione: mai comparso'}
+          label={
+            maxCeiling > 0
+              ? 'Tetto di decompressione, calcolato da noi'
+              : 'Tetto di decompressione: mai comparso'
+          }
           unit="m"
           color="var(--critical)"
           cursor={cursor}
@@ -1040,7 +1070,13 @@ function DecoTimelineCard({
           fill
           reference={
             dive.computer?.gfHigh
-              ? [{ value: dive.computer.gfHigh, label: `GF alto ${dive.computer.gfHigh}`, color: 'var(--warning)' }]
+              ? [
+                  {
+                    value: dive.computer.gfHigh,
+                    label: `GF alto ${dive.computer.gfHigh}`,
+                    color: 'var(--warning)',
+                  },
+                ]
               : []
           }
         />
@@ -1048,17 +1084,17 @@ function DecoTimelineCard({
 
       <ul style={{ margin: '12px 0 0', paddingLeft: 18, fontSize: 12, color: 'var(--text-secondary)' }}>
         <li>
-          I minuti in curva sono calcolati <b>dal carico che avevi in quel momento</b>, non da tessuti
-          puliti: è la differenza fra un computer e una tabella. Il limite è tagliato a 99 minuti, come
-          fanno i computer — oltre il centinaio smette di essere un limite e diventa «tanto».
+          I minuti in curva sono calcolati <b>dal carico che avevi in quel momento</b>, non da tessuti puliti:
+          è la differenza fra un computer e una tabella. Il limite è tagliato a 99 minuti, come fanno i
+          computer — oltre il centinaio smette di essere un limite e diventa «tanto».
         </li>
         <li>
-          Il TTS suppone risalita a 9 m/min, soste di un minuto e <b>nessun cambio di gas</b>: è il
-          conto pessimista, lo stesso che fa un computer che non sa cosa ti sei portato dietro.
+          Il TTS suppone risalita a 9 m/min, soste di un minuto e <b>nessun cambio di gas</b>: è il conto
+          pessimista, lo stesso che fa un computer che non sa cosa ti sei portato dietro.
         </li>
         <li>
-          Se il tuo computer aveva gradient factor diversi da {gf}, i suoi numeri e i nostri divergono
-          per costruzione — e la distanza fra le due curve è esattamente quella differenza.
+          Se il tuo computer aveva gradient factor diversi da {gf}, i suoi numeri e i nostri divergono per
+          costruzione — e la distanza fra le due curve è esattamente quella differenza.
         </li>
       </ul>
     </div>

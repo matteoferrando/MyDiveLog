@@ -191,8 +191,7 @@ export function decodePnf(data: Uint8Array): PnfLog {
     gfLow: at(data, o(0, 4)),
     gfHigh: at(data, o(0, 5)),
     decoModel: decoModelCode !== undefined ? DECO_MODELS[decoModelCode] : undefined,
-    conservatism:
-      decoModelCode === 1 || decoModelCode === 2 ? at(data, o(2, 19)) : undefined,
+    conservatism: decoModelCode === 1 || decoModelCode === 2 ? at(data, o(2, 19)) : undefined,
     waterDensity: u16(data, o(3, 3)),
     surfacePressureBar: divide(u16(data, o(1, 16)), 1000),
     units,
@@ -376,7 +375,8 @@ export function decodePnf(data: Uint8Array): PnfLog {
         const extra: (number | undefined)[] = [];
         for (let i = 0; i < 2; i++) {
           const rawP = u16(data, offset + 1 + i * 2);
-          extra[i] = rawP !== undefined && rawP < 0xfff0 && (rawP & 0x0fff) ? psi2ToBar(rawP & 0x0fff) : undefined;
+          extra[i] =
+            rawP !== undefined && rawP < 0xfff0 && rawP & 0x0fff ? psi2ToBar(rawP & 0x0fff) : undefined;
         }
         if (extra.some((p) => p !== undefined)) {
           last.pressureBar = [...(last.pressureBar ?? [undefined, undefined]), ...extra];
@@ -436,9 +436,7 @@ export function decodePnf(data: Uint8Array): PnfLog {
 
   // --- pressioni iniziali e finali per bombola ----------------------------
   for (let i = 0; i < Math.max(tanks.length, 2); i++) {
-    const values = samples
-      .map((s) => s.pressureBar?.[i])
-      .filter((v): v is number => v !== undefined);
+    const values = samples.map((s) => s.pressureBar?.[i]).filter((v): v is number => v !== undefined);
     if (!values.length) continue;
     while (tanks.length <= i) tanks.push({});
     tanks[i].startBar = values[0];
@@ -536,8 +534,7 @@ function bcd(d: Uint8Array, i: number | undefined, bytes: number): number | unde
 const bcdByte = (v: number) => (v >> 4) * 10 + (v & 0x0f);
 
 /** Unità di 2 psi → bar. */
-const psi2ToBar = (v: number | undefined) =>
-  v === undefined ? undefined : (v * 2 * 6894.75729) / 100000;
+const psi2ToBar = (v: number | undefined) => (v === undefined ? undefined : (v * 2 * 6894.75729) / 100000);
 
 const divide = (v: number | undefined, by: number) => (v === undefined ? undefined : v / by);
 

@@ -56,7 +56,7 @@ describe('fisica', () => {
     }
   });
 
-  it('l\'acqua dolce pesa meno', () => {
+  it("l'acqua dolce pesa meno", () => {
     expect(ambientBar(30, 'fresh')).toBeLessThan(ambientBar(30, 'salt'));
   });
 
@@ -101,7 +101,7 @@ describe('fisica', () => {
     expect(ppn2At({ o2: 0.21, he: 0 }, 40)).toBeCloseTo(3.97, 1);
   });
 
-  it('l\'elio riduce la profondità narcotica', () => {
+  it("l'elio riduce la profondità narcotica", () => {
     expect(end({ o2: 0.21, he: 0.35 }, 45)).toBeLessThan(45);
   });
 

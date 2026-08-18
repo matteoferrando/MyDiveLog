@@ -122,10 +122,7 @@ const SMART_PRO_SAMPLES: RecordInfo[] = [
   rec('temperature', 1, 0, 8, 0, 2),
 ];
 
-const ALADIN_SAMPLES: RecordInfo[] = [
-  ...SMART_PRO_SAMPLES,
-  rec('alarms', 1, 1, 9, 0, 0),
-];
+const ALADIN_SAMPLES: RecordInfo[] = [...SMART_PRO_SAMPLES, rec('alarms', 1, 1, 9, 0, 0)];
 
 const SMART_COM_SAMPLES: RecordInfo[] = [
   rec('pressureDepth', 0, 0, 1, 0, 1),
@@ -207,16 +204,76 @@ const TRIMIX_HEADER = {
 };
 
 export const UWATEC_MODELS: Record<number, HeaderLayout> = {
-  0x10: { maxDepth: 18, diveTime: 20, tempMin: 22, tempMax: -1, size: 92, samples: SMART_PRO_SAMPLES, trimix: false, identify: 'leadingOnes' }, // Smart PRO
+  0x10: {
+    maxDepth: 18,
+    diveTime: 20,
+    tempMin: 22,
+    tempMax: -1,
+    size: 92,
+    samples: SMART_PRO_SAMPLES,
+    trimix: false,
+    identify: 'leadingOnes',
+  }, // Smart PRO
   0x11: GALILEO_HEADER, // Galileo Sol/Terra/Luna
-  0x12: { maxDepth: 22, diveTime: 24, tempMin: 26, tempMax: 28, tempSurface: 32, timezone: 16, settings: 52, size: 108, samples: ALADIN_SAMPLES, trimix: false, identify: 'leadingOnes' }, // Aladin TEC
-  0x13: { maxDepth: 22, diveTime: 26, tempMin: 30, tempMax: 28, tempSurface: 32, timezone: 16, settings: 60, size: 116, samples: ALADIN_SAMPLES, trimix: false, identify: 'leadingOnes' }, // Aladin TEC 2G
-  0x14: { maxDepth: 18, diveTime: 20, tempMin: 22, tempMax: -1, size: 100, samples: SMART_COM_SAMPLES, trimix: false, identify: 'leadingOnes' }, // Smart COM
+  0x12: {
+    maxDepth: 22,
+    diveTime: 24,
+    tempMin: 26,
+    tempMax: 28,
+    tempSurface: 32,
+    timezone: 16,
+    settings: 52,
+    size: 108,
+    samples: ALADIN_SAMPLES,
+    trimix: false,
+    identify: 'leadingOnes',
+  }, // Aladin TEC
+  0x13: {
+    maxDepth: 22,
+    diveTime: 26,
+    tempMin: 30,
+    tempMax: 28,
+    tempSurface: 32,
+    timezone: 16,
+    settings: 60,
+    size: 116,
+    samples: ALADIN_SAMPLES,
+    trimix: false,
+    identify: 'leadingOnes',
+  }, // Aladin TEC 2G
+  0x14: {
+    maxDepth: 18,
+    diveTime: 20,
+    tempMin: 22,
+    tempMax: -1,
+    size: 100,
+    samples: SMART_COM_SAMPLES,
+    trimix: false,
+    identify: 'leadingOnes',
+  }, // Smart COM
   0x15: GALILEO_HEADER, // Aladin 2G / Tec 3G / Aladin Sport (IrDA)
   0x17: TRIMIX_HEADER, // Aladin Sport Matrix / H Matrix (Bluetooth)
-  0x18: { maxDepth: 18, diveTime: 20, tempMin: 22, tempMax: -1, size: 132, samples: SMART_TEC_SAMPLES, trimix: false, identify: 'leadingOnes' }, // Smart TEC
+  0x18: {
+    maxDepth: 18,
+    diveTime: 20,
+    tempMin: 22,
+    tempMax: -1,
+    size: 132,
+    samples: SMART_TEC_SAMPLES,
+    trimix: false,
+    identify: 'leadingOnes',
+  }, // Smart TEC
   0x19: GALILEO_HEADER, // Galileo Trimix
-  0x1c: { maxDepth: 18, diveTime: 20, tempMin: 22, tempMax: -1, size: 132, samples: SMART_TEC_SAMPLES, trimix: false, identify: 'leadingOnes' }, // Smart Z
+  0x1c: {
+    maxDepth: 18,
+    diveTime: 20,
+    tempMin: 22,
+    tempMax: -1,
+    size: 132,
+    samples: SMART_TEC_SAMPLES,
+    trimix: false,
+    identify: 'leadingOnes',
+  }, // Smart Z
   0x20: GALILEO_HEADER, // Meridian
   0x22: GALILEO_HEADER, // Aladin Square
   0x24: GALILEO_HEADER, // Chromis
@@ -373,9 +430,10 @@ export function decodeUwatecSmart(bytes: Uint8Array, opts: DecodeOptions = {}): 
   }
   const headerSize = opts.headerSize ?? layout.size;
 
-  const settings = layout.settings !== undefined && layout.settings + 4 <= bytes.length
-    ? view.getUint32(layout.settings, true)
-    : 0;
+  const settings =
+    layout.settings !== undefined && layout.settings + 4 <= bytes.length
+      ? view.getUint32(layout.settings, true)
+      : 0;
   const salinity = (settings & SETTING.salinity) !== 0 ? 'salt' : 'fresh';
   const density = salinity === 'salt' ? DENSITY_SALT : DENSITY_FRESH;
   const freedive = (settings & SETTING.freedive) !== 0;
@@ -386,8 +444,7 @@ export function decodeUwatecSmart(bytes: Uint8Array, opts: DecodeOptions = {}): 
   // Il tempo del dispositivo è in MEZZI secondi dal 2000-01-01.
   const devTime = view.getUint32(8, true);
   const startMs = UWATEC_EPOCH_MS + (devTime / 2) * 1000;
-  const utcOffsetMinutes =
-    layout.timezone !== undefined ? view.getInt8(layout.timezone) * 15 : undefined;
+  const utcOffsetMinutes = layout.timezone !== undefined ? view.getInt8(layout.timezone) * 15 : undefined;
 
   const readTemp = (off: number | undefined) =>
     off !== undefined && off >= 0 && off + 2 <= bytes.length ? view.getInt16(off, true) / 10 : undefined;
@@ -439,8 +496,7 @@ export function decodeUwatecSmart(bytes: Uint8Array, opts: DecodeOptions = {}): 
 
   while (offset < limit) {
     const first = bytes[offset];
-    const id =
-      layout.identify === 'galileo' ? identifyGalileo(first) : identifyLeadingOnes(bytes, offset);
+    const id = layout.identify === 'galileo' ? identifyGalileo(first) : identifyLeadingOnes(bytes, offset);
     if (id < 0 || id >= table.length) {
       throw new Error(
         `Record sconosciuto (byte 0x${first.toString(16)}, indice ${id}) a offset ${offset}: intestazione da ${headerSize} byte probabilmente sbagliata.`,
@@ -491,8 +547,8 @@ export function decodeUwatecSmart(bytes: Uint8Array, opts: DecodeOptions = {}): 
 
       case 'pressureDepth':
         // Un solo record porta entrambi: byte alto pressione, byte basso profondità.
-        pressure += (signed >> 8) << 24 >> 24;
-        depth += (signed & 0xff) << 24 >> 24;
+        pressure += ((signed >> 8) << 24) >> 24;
+        depth += ((signed & 0xff) << 24) >> 24;
         havePressure = true;
         complete = 1;
         break;

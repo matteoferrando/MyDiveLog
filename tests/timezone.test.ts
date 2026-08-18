@@ -135,7 +135,10 @@ describe('quello che si LEGGE non dipende dal fuso della macchina', () => {
       process.env.TZ = zone;
       expect(dateShort(capodanno), zone).toBe('31/12/25');
       const buckets = aggregate([dive(capodanno)]).byYear;
-      expect(buckets.map((b) => b.label), zone).toEqual(['2025']);
+      expect(
+        buckets.map((b) => b.label),
+        zone,
+      ).toEqual(['2025']);
     }
   });
 

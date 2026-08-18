@@ -48,9 +48,7 @@ for (const file of await filesFrom(arg)) {
     // Un percorso sbagliato è l'errore più probabile qui, e una pila di
     // eccezioni non aiuta chi sta cercando il file giusto.
     console.error(`Non riesco a leggere ${file}.`);
-    console.error(
-      'Serve il database di Shearwater Cloud (un file .db), oppure la cartella che lo contiene.',
-    );
+    console.error('Serve il database di Shearwater Cloud (un file .db), oppure la cartella che lo contiene.');
     process.exit(1);
   }
   let result;
@@ -128,7 +126,9 @@ for (const { dive, theirs, ours } of rows.sort((a, b) => a.dive.startTime.locale
   }
   console.log(
     `${dive.startTime.slice(0, 10).padEnd(12)} ${dive.maxDepth.toFixed(1).padStart(6)} ` +
-      `${Math.round(dive.durationS / 60).toString().padStart(7)} ` +
+      `${Math.round(dive.durationS / 60)
+        .toString()
+        .padStart(7)} ` +
       `${`${dive.computer?.gfLow ?? '?'}/${dive.computer?.gfHigh ?? '?'}`.padStart(7)} ` +
       `${(rows.find((r) => r.dive === dive)?.repetitive ? 'sì' : '—').padStart(4)} ` +
       `${theirs.toFixed(0).padStart(6)} ${ours.toFixed(0).padStart(6)} ` +
@@ -148,7 +148,9 @@ console.log(
     `ripetitive (${rip.length}): ${media(rip).toFixed(2)}.`,
 );
 console.log('Se le due cifre ora si somigliano, il carico residuo era la causa principale.');
-console.log(`Scarto medio con segno: ${(sum / n).toFixed(2)} punti — dice se siamo sistematicamente sopra o sotto.`);
+console.log(
+  `Scarto medio con segno: ${(sum / n).toFixed(2)} punti — dice se siamo sistematicamente sopra o sotto.`,
+);
 console.log(`Scarto medio assoluto:  ${(sumAbs / n).toFixed(2)} punti.`);
 console.log(`Caso peggiore: ${worst.delta > 0 ? '+' : ''}${worst.delta.toFixed(1)} su ${worst.label}.`);
 console.log(

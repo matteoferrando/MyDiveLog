@@ -28,7 +28,10 @@ export interface DiveParser {
 }
 
 export class ParseError extends Error {
-  constructor(message: string, readonly fileName?: string) {
+  constructor(
+    message: string,
+    readonly fileName?: string,
+  ) {
     super(message);
     this.name = 'ParseError';
   }

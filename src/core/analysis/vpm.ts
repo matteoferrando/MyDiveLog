@@ -229,8 +229,7 @@ function repetitiveRadius(
   surfaceIntervalMin: number,
 ): number {
   if (!(maxActualGradientBar > initialGradientBar)) return critBase;
-  const denominator =
-    maxActualGradientBar * PA_PER_BAR * GAMMA_C - GAMMA * adjustedCrushBar * PA_PER_BAR;
+  const denominator = maxActualGradientBar * PA_PER_BAR * GAMMA_C - GAMMA * adjustedCrushBar * PA_PER_BAR;
   if (!(denominator > 0)) return critBase;
   const probed = (2 * GAMMA * (GAMMA_C - GAMMA)) / denominator;
   const regenerated =
@@ -475,7 +474,9 @@ export function planVpm(
   const asked: VpmSettings = {
     ...DEFAULT_VPM,
     ...settings,
-    conservatism: Math.round(sane(settings.conservatism, DEFAULT_VPM.conservatism, 0, CONSERVATISM_FACTORS.length - 1)),
+    conservatism: Math.round(
+      sane(settings.conservatism, DEFAULT_VPM.conservatism, 0, CONSERVATISM_FACTORS.length - 1),
+    ),
     stopIntervalM: sanePositive(settings.stopIntervalM, DEFAULT_VPM.stopIntervalM, 1, 30),
     lastStopM: sanePositive(settings.lastStopM, DEFAULT_VPM.lastStopM, 1, 30),
     ascentRateMpm: sanePositive(settings.ascentRateMpm, DEFAULT_VPM.ascentRateMpm, 1, 60),
@@ -484,7 +485,9 @@ export function planVpm(
     hoursAtAltitude:
       settings.hoursAtAltitude === undefined ? undefined : sane(settings.hoursAtAltitude, 0, 0, 8760),
     surfaceIntervalMin:
-      settings.surfaceIntervalMin === undefined ? undefined : sane(settings.surfaceIntervalMin, 0, 0, 525_600),
+      settings.surfaceIntervalMin === undefined
+        ? undefined
+        : sane(settings.surfaceIntervalMin, 0, 0, 525_600),
   };
   // La pressione di superficie: quella scritta a mano vince sempre, altrimenti la
   // ricava la formula barometrica standard dalla quota.

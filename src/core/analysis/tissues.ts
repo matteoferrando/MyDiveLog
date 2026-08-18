@@ -349,9 +349,7 @@ export async function chainArchive(
       leadingCompartment: result.leadingCompartment,
       ...(entry.residualN2Bar > 0 ? { residualN2Bar: entry.residualN2Bar } : {}),
       ...(clean !== undefined ? { gf99CleanPct: clean } : {}),
-      ...(entry.surfaceIntervalMin !== undefined
-        ? { surfaceIntervalMin: entry.surfaceIntervalMin }
-        : {}),
+      ...(entry.surfaceIntervalMin !== undefined ? { surfaceIntervalMin: entry.surfaceIntervalMin } : {}),
       tissuesEnd: result.state,
     };
 
@@ -528,7 +526,14 @@ export function curveOfPlan(
     for (let i = 1; i < samples.length; i++) {
       const minutes = (samples[i].t - samples[i - 1].t) / 60;
       if (!(minutes > 0)) continue;
-      state = stepAt((samples[i - 1].depth + samples[i].depth) / 2, state, mix, minutes, salinity, surfacePressureBar);
+      state = stepAt(
+        (samples[i - 1].depth + samples[i].depth) / 2,
+        state,
+        mix,
+        minutes,
+        salinity,
+        surfacePressureBar,
+      );
       if (ceilingM(state, gfHigh, salinity, surfacePressureBar) > 0) {
         leaves = Math.round((samples[i].t / 60) * 10) / 10;
         break;
@@ -665,9 +670,7 @@ export function decoTimeline(
       if (deep > 0) anchorM = Math.max(3, Math.ceil(deep / 3) * 3);
     }
     const gfHere =
-      anchorM && anchorM > 0
-        ? high + ((low - high) * Math.min(depthM, anchorM)) / anchorM
-        : high;
+      anchorM && anchorM > 0 ? high + ((low - high) * Math.min(depthM, anchorM)) / anchorM : high;
     const direct = ceilingM(state, high, salinity, surface);
     // L'OBBLIGO lo decide `gfHigh`, la QUOTA a cui fermarsi i gradient factor
     // interpolati. Senza la prima condizione, un'immersione a dodici metri

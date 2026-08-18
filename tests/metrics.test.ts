@@ -94,7 +94,7 @@ describe('assetto', () => {
     expect(m.bottomVerticalTravelMpm!).toBeLessThan(0.3);
   });
 
-  it('misura l\'oscillazione di un assetto instabile', () => {
+  it("misura l'oscillazione di un assetto instabile", () => {
     const wobbly = synthesise({ wobbleM: 2.5, wobblePeriodS: 60 });
     const flat = synthesise({ wobbleM: 0 });
     const a = computeMetrics(makeDive(wobbly.samples.map((s) => ({ t: s.t, depth: s.depth }))));
@@ -108,7 +108,8 @@ describe('assetto', () => {
     const samples: Sample[] = [];
     for (let t = 0; t <= 120; t += 10) samples.push({ t, depth: (t / 120) * 40 });
     for (let t = 130; t <= 1200; t += 10) samples.push({ t, depth: 40 - ((t - 130) / 1070) * 8 });
-    for (let t = 1210; t <= 1500; t += 10) samples.push({ t, depth: Math.max(0, 32 - ((t - 1200) / 300) * 32) });
+    for (let t = 1210; t <= 1500; t += 10)
+      samples.push({ t, depth: Math.max(0, 32 - ((t - 1200) / 300) * 32) });
     const m = computeMetrics(makeDive(samples));
     expect(m.bottomVerticalTravelMpm!).toBeLessThan(0.5);
   });
@@ -121,7 +122,8 @@ describe('sosta di sicurezza', () => {
     for (let t = 110; t <= 1500; t += 10) samples.push({ t, depth: 25 });
     for (let t = 1510; t <= 1640; t += 10) samples.push({ t, depth: 25 - ((t - 1500) / 140) * 20 });
     for (let t = 1650; t <= 1890; t += 10) samples.push({ t, depth: 5 });
-    for (let t = 1900; t <= 1990; t += 10) samples.push({ t, depth: Math.max(0, 5 - ((t - 1890) / 100) * 5) });
+    for (let t = 1900; t <= 1990; t += 10)
+      samples.push({ t, depth: Math.max(0, 5 - ((t - 1890) / 100) * 5) });
     const m = computeMetrics(makeDive(samples));
     expect(m.safetyStopS).toBeGreaterThan(200);
     expect(m.didSafetyStop).toBe(true);
@@ -184,7 +186,11 @@ describe('consumo gas', () => {
   });
 
   it('spiega perché non può calcolare il consumo quando manca il volume', () => {
-    const samples: Sample[] = [{ t: 0, depth: 0 }, { t: 600, depth: 20 }, { t: 1200, depth: 0 }];
+    const samples: Sample[] = [
+      { t: 0, depth: 0 },
+      { t: 600, depth: 20 },
+      { t: 1200, depth: 0 },
+    ];
     const m = computeMetrics(makeDive(samples, { cylinders: [{ mix: AIR, startBar: 200, endBar: 80 }] }));
     expect(m.rmvLpm).toBeUndefined();
     expect(m.sacBarPerMin).toBeDefined();
@@ -208,7 +214,7 @@ describe('qualità del dato', () => {
     expect(m.quality.caveats.join(' ')).toContain('approssimate');
   });
 
-  it('gestisce un\'immersione senza profilo senza esplodere', () => {
+  it("gestisce un'immersione senza profilo senza esplodere", () => {
     const dive = makeDive([{ t: 0, depth: 0 }]);
     dive.samples = [];
     dive.durationS = 2400;
@@ -251,10 +257,7 @@ describe('esposizione all’ossigeno', () => {
     });
     // Due immersioni, 90 minuti esatti di superficie fra la fine della prima e
     // l'inizio della seconda: il 20% residuo diventa 10, più il nuovo 20.
-    const load = oxygenLoad([
-      dive('2026-06-14T10:00:00Z', 20, 40),
-      dive('2026-06-14T12:10:00Z', 20, 40),
-    ]);
+    const load = oxygenLoad([dive('2026-06-14T10:00:00Z', 20, 40), dive('2026-06-14T12:10:00Z', 20, 40)]);
     expect(load.days).toHaveLength(1);
     expect(load.days[0].otu).toBe(80);
     expect(load.days[0].peakCnsPercent).toBe(30);

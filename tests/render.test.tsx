@@ -90,9 +90,7 @@ describe('profilo di profondità', () => {
 
 describe('serie secondaria', () => {
   it('non disegna niente quando la misura non c’è', () => {
-    const view = mount(
-      <MiniSeries samples={profile(50)} pick={() => undefined} label="Assente" unit="x" />,
-    );
+    const view = mount(<MiniSeries samples={profile(50)} pick={() => undefined} label="Assente" unit="x" />);
     expect(view.host.querySelector('svg')).toBeNull();
     view.unmount();
   });
@@ -133,7 +131,9 @@ describe('curva del pianificatore', () => {
     const view = mount(<CurveChart points={curve(1)} xLabel="m" yLabel="min" />);
     // Con un punto solo non c'è curva: lo dice invece di disegnare una riga.
     expect(view.host.textContent).toMatch(/insufficienti/);
-    expect(() => view.update(<CurveChart points={curve(26)} xLabel="m" yLabel="min" marker={30} />)).not.toThrow();
+    expect(() =>
+      view.update(<CurveChart points={curve(26)} xLabel="m" yLabel="min" marker={30} />),
+    ).not.toThrow();
     expect(view.host.querySelector('svg')).not.toBeNull();
     expect(() => view.update(<CurveChart points={curve(1)} xLabel="m" yLabel="min" />)).not.toThrow();
     view.unmount();
