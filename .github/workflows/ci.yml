@@ -32,6 +32,17 @@ jobs:
       - name: Tipi
         run: npm run typecheck
 
+      # Il formato entra QUI e il lint no, ed è una scelta.
+      #
+      # `format:check` diventa verde subito dopo il primo `npm run format`;
+      # `npm run lint` esce ancora 1 per dodici errori storici. Un controllo che
+      # nasce rosso e resta rosso insegna a ignorare la spunta, e da quel momento
+      # anche il rosso vero non lo guarda più nessuno. Si aggiungono man mano che
+      # passano, così una spunta rossa significa sempre «è appena cambiato
+      # qualcosa».
+      - name: Formato
+        run: npm run format:check
+
       - name: Test
         run: npm test
 
