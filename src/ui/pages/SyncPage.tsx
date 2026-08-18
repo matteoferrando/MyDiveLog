@@ -8,11 +8,19 @@
  * barca non si apre.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useDiveLog } from '../state';
 import { TRASH_DAYS, TRASH_SOFT_LIMIT, daysLeft, sortTrash } from '../../storage/trash';
 import { formatDuration } from '../../core/units';
 import { dateShort, imm } from '../format';
+import { describePlace } from '../../storage/secrets';
+import {
+  backupFileName,
+  checkBackup,
+  planRestore,
+  type BackupFile,
+  type RestorePlan,
+} from '../../core/export/backup';
 import type { SyncReport } from '../../sync/turso';
 import type { AiModel } from '../../ai/client';
 
@@ -119,10 +127,11 @@ export function SyncPage() {
               autoComplete="off"
             />
             <span className="muted" style={{ fontSize: 11 }}>
-              Resta su questo dispositivo, nell'archivio locale ({storeLocation}). Non viene inviato a
-              nessuno tranne che a Turso, e non è nel codice dell'applicazione.
+              Resta su questo dispositivo. Non viene inviato a nessuno tranne che a Turso, e non è nel
+              codice dell'applicazione.
             </span>
           </label>
+          <DoveStannoLeCredenziali />
 
           <div className="row">
             <button className="btn btn-primary" onClick={() => void save()} disabled={!dirty}>
@@ -220,7 +229,6 @@ export function SyncPage() {
         credentials={aiCredentials}
         onSave={saveAiCredentials}
         onTest={testAiKey}
-        storeLocation={storeLocation}
       />
 
       <div className="card">
@@ -243,12 +251,17 @@ export function SyncPage() {
 
       <TrashCard />
 
+      <BackupCard />
+
       <div className="card">
         <h2>Esporta l'archivio</h2>
         <p className="card-sub">
-          Un file UDDF con tutte le {dives.length} immersioni e i loro profili. È il formato standard
-          che gli altri programmi del settore leggono, ed è lo stesso che questa app importa: il giro
-          si chiude, e l'archivio non è prigioniero di nessuno. Questo file è anche il backup.
+          Un file UDDF con tutte le {imm(dives.length)} e i loro profili. È il formato standard che
+          gli altri programmi del settore leggono, ed è lo stesso che questa app importa: il giro si
+          chiude, e l'archivio non è prigioniero di nessuno.{' '}
+          <b>Non è un backup</b>: UDDF non sa esprimere una quindicina di campi — modalità, compagno,
+          voto, zavorra, muta, fuso, valori del computer — e non porta niente di quello che sta fuori
+          dalle immersioni. Per quello c'è la scheda qui sotto.
         </p>
         <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
           <button
@@ -358,12 +371,10 @@ function ClaudeSettings({
   credentials,
   onSave,
   onTest,
-  storeLocation,
 }: {
   credentials: { apiKey: string; model?: string } | null;
   onSave: (c: { apiKey: string; model?: string } | null) => Promise<void>;
   onTest: (c: { apiKey: string; model?: string }) => Promise<{ ok: true; models: AiModel[] } | { ok: false; error: string }>;
-  storeLocation: string;
 }) {
   const [key, setKey] = useState(credentials?.apiKey ?? '');
   const [model, setModel] = useState(credentials?.model ?? '');
@@ -413,11 +424,12 @@ function ClaudeSettings({
             autoComplete="off"
           />
           <span className="muted" style={{ fontSize: 11 }}>
-            Resta su questo dispositivo, nell'archivio locale ({storeLocation}), e viene inviata solo
-            all'API di Anthropic. Non è nel codice dell'applicazione. Sulla versione web pubblicata,
-            invece, una chiave nel browser sarebbe esposta: lì è meglio non metterla.
+            Resta su questo dispositivo e viene inviata solo all'API di Anthropic. Non è nel codice
+            dell'applicazione. Sulla versione web pubblicata una chiave nel browser sarebbe comunque
+            esposta: lì è meglio non metterla.
           </span>
         </label>
+        <DoveStannoLeCredenziali />
 
         {models.length > 0 && (
           <label style={{ display: 'grid', gap: 5, fontSize: 12, color: 'var(--text-secondary)' }}>
@@ -490,8 +502,238 @@ function Row({ label, value }: { label: string; value: number | string }) {
  * per il gestore del sistema. L'URL temporaneo va revocato: senza, il testo
  * dell'intero archivio resta in memoria fino alla chiusura dell'app.
  */
-function download(text: string, filename: string): void {
-  const blob = new Blob([text], { type: 'application/xml;charset=utf-8' });
+/**
+ * Backup e ripristino.
+ *
+ * Sta sotto all'export UDDF e non al suo posto, perché rispondono a due domande
+ * diverse: «voglio i miei dati altrove» e «voglio poter tornare indietro». Averle
+ * confuse è il motivo per cui la frase qui sopra prometteva un backup che non era.
+ *
+ * Il ripristino mostra il piano PRIMA di eseguirlo. Un'operazione che si lancia
+ * quando le cose sono già andate male non può chiedere fiducia: deve dire quante
+ * immersioni aggiunge, quante ne aggiorna e quante ne lascia dove sono.
+ */
+/**
+ * Dove stanno le credenziali, detto e non lasciato intendere.
+ *
+ * Una riga sola, accanto ai campi in cui si incollano. Sta qui e non in una
+ * pagina di documentazione perché è nel momento in cui incolli un token che ti
+ * interessa sapere dove finirà, e perché la risposta cambia col dispositivo:
+ * sull'app desktop è il portachiavi di macOS, nel browser è l'archivio locale in
+ * chiaro. Dichiarare il caso peggiore quando è quello vero è l'unico modo di far
+ * valere qualcosa la dichiarazione nel caso buono.
+ */
+function DoveStannoLeCredenziali() {
+  const { secretPlace } = useDiveLog();
+  return (
+    <p className="muted" style={{ fontSize: 11, marginTop: 12, marginBottom: 0 }}>
+      <b>{secretPlace === 'keychain' ? 'Portachiavi di sistema.' : 'Archivio locale, in chiaro.'}</b>{' '}
+      {describePlace(secretPlace)}
+    </p>
+  );
+}
+
+function BackupCard() {
+  const { dives, buildFullBackup, restoreBackup, storeLocation } = useDiveLog();
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [lavoro, setLavoro] = useState<'idle' | 'export' | 'restore'>('idle');
+  const [errore, setErrore] = useState<string | null>(null);
+  const [avvisi, setAvvisi] = useState<string[]>([]);
+  const [candidato, setCandidato] = useState<BackupFile | null>(null);
+  const [piano, setPiano] = useState<RestorePlan | null>(null);
+  const [modo, setModo] = useState<'merge' | 'replace'>('merge');
+  const [esito, setEsito] = useState<string | null>(null);
+
+  const scarica = () => {
+    void (async () => {
+      setLavoro('export');
+      setErrore(null);
+      setEsito(null);
+      try {
+        const file = await buildFullBackup();
+        download(JSON.stringify(file), backupFileName(), 'application/json');
+        setEsito(
+          `Backup scritto: ${imm(file.summary.dives)}, ${file.summary.samples.toLocaleString('it')} campioni, ${file.summary.settings.length} impostazioni.`,
+        );
+      } catch (err) {
+        setErrore(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLavoro('idle');
+      }
+    })();
+  };
+
+  const leggi = (input: HTMLInputElement) => {
+    const f = input.files?.[0];
+    input.value = '';
+    if (!f) return;
+    setErrore(null);
+    setEsito(null);
+    setCandidato(null);
+    setPiano(null);
+    void (async () => {
+      try {
+        const check = checkBackup(JSON.parse(await f.text()));
+        setAvvisi(check.warnings);
+        if (!check.ok || !check.file) {
+          setErrore(check.errors.join(' '));
+          return;
+        }
+        setCandidato(check.file);
+        setPiano(planRestore(check.file, dives, modo));
+      } catch (err) {
+        setErrore(
+          `Il file non è JSON valido: ${err instanceof Error ? err.message : String(err)}. Se è un UDDF, va nella scheda Importa.`,
+        );
+      }
+    })();
+  };
+
+  const cambiaModo = (m: 'merge' | 'replace') => {
+    setModo(m);
+    if (candidato) setPiano(planRestore(candidato, dives, m));
+  };
+
+  const ripristina = () => {
+    if (!candidato) return;
+    if (
+      modo === 'replace' &&
+      !confirm(
+        `Ricostruire l'archivio da zero cancella le ${dives.length} immersioni che hai adesso, comprese quelle che il backup non contiene. Non si torna indietro.\n\nProcedere?`,
+      )
+    ) {
+      return;
+    }
+    void (async () => {
+      setLavoro('restore');
+      setErrore(null);
+      try {
+        const r = await restoreBackup(candidato, modo);
+        setEsito(
+          `Ripristino fatto: ${r.added} aggiunte, ${r.merged} aggiornate, ${r.settings} impostazioni riscritte.` +
+            (r.onlyLocal > 0 ? ` ${r.onlyLocal} che avevi solo qui sono rimaste dov'erano.` : ''),
+        );
+        setCandidato(null);
+        setPiano(null);
+      } catch (err) {
+        setErrore(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLavoro('idle');
+      }
+    })();
+  };
+
+  return (
+    <div className="card">
+      <h2>Backup completo e ripristino</h2>
+      <p className="card-sub">
+        Un file JSON con <b>tutto</b>: immersioni con i profili e i secondi profili, attrezzatura,
+        brevetti, piani salvati, analisi generate, obiettivo e periodo. Non lo legge nessun altro
+        programma — quel mestiere lo fa l'UDDF qui sopra — e in cambio non perde niente. Le
+        credenziali di sincronizzazione e la chiave API restano fuori: un backup finisce su un disco
+        esterno o in Download, e non deve portarsi dietro i tuoi segreti.
+      </p>
+
+      <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+        <button className="btn btn-primary" disabled={lavoro !== 'idle' || dives.length === 0} onClick={scarica}>
+          {lavoro === 'export' ? 'Preparazione…' : 'Scarica il backup'}
+        </button>
+        <button disabled={lavoro !== 'idle'} onClick={() => fileRef.current?.click()}>
+          Ripristina da un file…
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          aria-label="File di backup da ripristinare"
+          style={{ display: 'none' }}
+          onChange={(e) => leggi(e.currentTarget)}
+        />
+      </div>
+
+      {errore && (
+        <div className="notice notice-error" role="alert" style={{ marginTop: 12 }}>
+          {errore}
+        </div>
+      )}
+      {avvisi.length > 0 && (
+        <div className="notice" style={{ marginTop: 12 }}>
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {avvisi.map((a) => (
+              <li key={a}>{a}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {candidato && piano && (
+        <div className="notice" style={{ marginTop: 12 }}>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>
+            Backup del {dateShort(candidato.createdAt)} · {imm(candidato.summary.dives)} ·{' '}
+            {candidato.summary.samples.toLocaleString('it')} campioni
+          </div>
+          {/* Il piano PRIMA dell'esecuzione: senza, «ripristina» è un salto nel buio. */}
+          <ul style={{ margin: '0 0 10px', paddingLeft: 18 }}>
+            <li>
+              <b>{piano.added.length}</b> immersioni verranno aggiunte
+            </li>
+            <li>
+              <b>{piano.merged.length}</b> già presenti verranno{' '}
+              {modo === 'merge' ? 'arricchite senza perdere quello che hai scritto a mano' : 'sostituite con la versione del file'}
+            </li>
+            <li>
+              <b>{piano.onlyLocal}</b> che hai solo qui{' '}
+              {modo === 'merge' ? 'resteranno dove sono' : <b>verranno cancellate</b>}
+            </li>
+            <li>
+              <b>{Object.keys(piano.settings).length}</b> impostazioni verranno riscritte
+            </li>
+          </ul>
+          <div className="row" style={{ gap: 14, flexWrap: 'wrap', marginBottom: 10 }}>
+            <label className="planner-check" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input type="radio" checked={modo === 'merge'} onChange={() => cambiaModo('merge')} />
+              <span>Fondi con quello che c'è (consigliato)</span>
+            </label>
+            <label className="planner-check" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input type="radio" checked={modo === 'replace'} onChange={() => cambiaModo('replace')} />
+              <span style={{ color: modo === 'replace' ? 'var(--critical)' : undefined }}>
+                Ricostruisci da zero
+              </span>
+            </label>
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn" disabled={lavoro !== 'idle'} onClick={ripristina}>
+              {lavoro === 'restore' ? 'Ripristino…' : 'Ripristina'}
+            </button>
+            <button
+              onClick={() => {
+                setCandidato(null);
+                setPiano(null);
+                setAvvisi([]);
+              }}
+            >
+              Annulla
+            </button>
+          </div>
+        </div>
+      )}
+
+      {esito && (
+        <div className="notice" role="status" style={{ marginTop: 12 }}>
+          {esito}
+        </div>
+      )}
+
+      <p className="muted" style={{ fontSize: 11, marginTop: 12, marginBottom: 0 }}>
+        L'archivio vive in {storeLocation}. Il backup è una copia di quel contenuto in un file che
+        puoi tenere dove vuoi: il senso di averlo è che stia altrove.
+      </p>
+    </div>
+  );
+}
+
+function download(text: string, filename: string, type = 'application/xml;charset=utf-8'): void {
+  const blob = new Blob([text], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

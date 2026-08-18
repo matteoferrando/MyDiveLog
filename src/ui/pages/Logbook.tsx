@@ -13,6 +13,17 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
   const { dives } = useDiveLog();
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('date');
+  /*
+   * La selezione multipla.
+   *
+   * Serve alle immersioni inserite a mano e a quelle arrivate da un CSV di
+   * riepilogo: sono quelle con più campi vuoti — sito, compagno, muta, zavorra —
+   * e sono anche quelle che nessuno correggerà mai una per una, perché aprire
+   * diciannove schede e riscrivere lo stesso nome diciannove volte è un lavoro
+   * che semplicemente non si fa. Il risultato è che quei campi restano vuoti per
+   * sempre, e con loro restano vuote le statistiche che ci si appoggiano.
+   */
+  const [selezione, setSelezione] = useState<Set<string>>(new Set());
   const [site, setSite] = useState('');
   const [minDepth, setMinDepth] = useState('');
 
@@ -110,10 +121,34 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
         </label>
       </div>
 
+      {selezione.size > 0 && (
+        <BulkEdit
+          ids={[...selezione]}
+          onDone={() => setSelezione(new Set())}
+        />
+      )}
+
       <div className="card table-scroll" style={{ padding: '4px 18px 8px' }}>
         <table>
           <thead>
             <tr>
+              <th style={{ width: 30 }}>
+                <input
+                  type="checkbox"
+                  aria-label="Seleziona tutte le immersioni mostrate"
+                  checked={filtered.length > 0 && filtered.every((d) => selezione.has(d.id))}
+                  ref={(el) => {
+                    // Lo stato «alcune sì e alcune no» non è né spuntato né
+                    // vuoto: senza il trattino, dopo aver selezionato tre righe
+                    // la casella in testa sembra dire che non è selezionato
+                    // niente.
+                    if (el) el.indeterminate = selezione.size > 0 && !filtered.every((d) => selezione.has(d.id));
+                  }}
+                  onChange={(e) =>
+                    setSelezione(e.target.checked ? new Set(filtered.map((d) => d.id)) : new Set())
+                  }
+                />
+              </th>
               <th className="num" style={{ width: 44 }}>
                 #
               </th>
@@ -135,7 +170,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
             */}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={9} style={{ padding: '28px 4px', textAlign: 'center' }}>
+                <td colSpan={10} style={{ padding: '28px 4px', textAlign: 'center' }}>
                   <div style={{ fontWeight: 600, marginBottom: 4 }}>Nessuna immersione con questi filtri</div>
                   <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
                     {imm(dives.length)} in archivio: prova ad allargare la ricerca.
@@ -155,6 +190,20 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
             )}
             {filtered.map((d) => (
               <tr key={d.id} className="clickable" onClick={() => onOpen(d.id)}>
+                {/* `stopPropagation`: la riga apre l'immersione, la casella no. */}
+                <td onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    aria-label={`Seleziona l'immersione del ${dateShort(d.startTime, d.utcOffsetMinutes)}`}
+                    checked={selezione.has(d.id)}
+                    onChange={(e) => {
+                      const next = new Set(selezione);
+                      if (e.target.checked) next.add(d.id);
+                      else next.delete(d.id);
+                      setSelezione(next);
+                    }}
+                  />
+                </td>
                 <td className="num muted">{d.number ?? '—'}</td>
                 <td>
                   <div>{dateShort(d.startTime, d.utcOffsetMinutes)}</div>
@@ -274,6 +323,175 @@ function NoteRow({ note }: { note: NextDiveNote }) {
         <b style={{ fontWeight: 650 }}>{note.headline}</b>
       </div>
       <div style={{ fontSize: 12, marginTop: 4 }}>{note.detail}</div>
+    </div>
+  );
+}
+
+/**
+ * Modifica in blocco.
+ *
+ * Compare solo quando qualcosa è selezionato, e scrive SOLO i campi che tocchi.
+ * È la regola che rende l'operazione usabile senza paura: una modifica in blocco
+ * che riscrive tutto quello che ha in modulo cancellerebbe, su ogni immersione
+ * selezionata, i campi che avevi compilato una per una — e siccome sono
+ * cinquanta righe alla volta, nessuno se ne accorgerebbe finché non è tardi.
+ *
+ * Ogni campo ha quindi tre stati e non due: «non toccare» (predefinito),
+ * «scrivi questo valore», «svuota». Il terzo esiste perché correggere un errore
+ * fatto in blocco richiede di poterlo disfare in blocco.
+ */
+function BulkEdit({ ids, onDone }: { ids: string[]; onDone: () => void }) {
+  const { dives, saveDive, removeDive } = useDiveLog();
+  const [sito, setSito] = useState('');
+  const [compagno, setCompagno] = useState('');
+  const [muta, setMuta] = useState('');
+  const [zavorra, setZavorra] = useState('');
+  const [salinita, setSalinita] = useState<'' | 'salt' | 'fresh'>('');
+  const [etichetta, setEtichetta] = useState('');
+  const [lavoro, setLavoro] = useState(false);
+  const [fatto, setFatto] = useState<string | null>(null);
+  const [errore, setErrore] = useState<string | null>(null);
+
+  const scelte = dives.filter((d) => ids.includes(d.id));
+  /** Il trattino significa «svuota», e va scritto perché non è indovinabile. */
+  const VUOTA = '-';
+  const valore = (v: string): string | undefined | null =>
+    v.trim() === '' ? null : v.trim() === VUOTA ? undefined : v.trim();
+
+  const qualcosaDaFare =
+    [sito, compagno, muta, zavorra, etichetta].some((v) => v.trim() !== '') || salinita !== '';
+
+  const applica = () => {
+    void (async () => {
+      setLavoro(true);
+      setErrore(null);
+      try {
+        let toccate = 0;
+        for (const d of scelte) {
+          const next = { ...d };
+          const s = valore(sito);
+          if (s !== null) next.site = s === undefined ? undefined : { ...(d.site ?? {}), name: s };
+          const c = valore(compagno);
+          if (c !== null) next.buddy = c;
+          const m = valore(muta);
+          if (m !== null) next.suit = m;
+          const z = valore(zavorra);
+          if (z !== null) next.weightKg = z === undefined ? undefined : Number(z.replace(',', '.'));
+          if (salinita !== '') next.salinity = salinita;
+          const e = valore(etichetta);
+          if (e !== null && e !== undefined && !next.tags.includes(e)) next.tags = [...next.tags, e];
+          if (e === undefined) next.tags = [];
+          await saveDive(next);
+          toccate++;
+        }
+        setFatto(`${toccate} ${toccate === 1 ? 'immersione aggiornata' : 'immersioni aggiornate'}.`);
+        onDone();
+      } catch (err) {
+        setErrore(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLavoro(false);
+      }
+    })();
+  };
+
+  const cestina = () => {
+    if (
+      !confirm(
+        `Spostare ${ids.length} ${ids.length === 1 ? 'immersione' : 'immersioni'} nel cestino?\n\nRestano recuperabili per ${30} giorni: la cancellazione diventa definitiva solo svuotando il cestino.`,
+      )
+    ) {
+      return;
+    }
+    void (async () => {
+      setLavoro(true);
+      try {
+        for (const id of ids) await removeDive(id);
+        onDone();
+      } catch (err) {
+        setErrore(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLavoro(false);
+      }
+    })();
+  };
+
+  return (
+    <div className="card">
+      <div className="spread" style={{ alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+        <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+          <h2 style={{ margin: 0 }}>
+            {imm(ids.length)} {ids.length === 1 ? 'selezionata' : 'selezionate'}
+          </h2>
+          <p className="card-sub" style={{ marginBottom: 0 }}>
+            Vengono scritti <b>solo i campi che compili</b>: quelli lasciati vuoti restano come sono,
+            immersione per immersione. Scrivi <code>{VUOTA}</code> per svuotare un campo su tutte.
+          </p>
+        </div>
+        <button onClick={onDone}>Deseleziona</button>
+      </div>
+
+      <div className="grid grid-3" style={{ marginBottom: 8 }}>
+        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+          <span className="muted">Sito</span>
+          <input type="text" value={sito} onChange={(e) => setSito(e.target.value)} />
+        </label>
+        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+          <span className="muted">Compagno</span>
+          <input type="text" value={compagno} onChange={(e) => setCompagno(e.target.value)} />
+        </label>
+        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+          <span className="muted">Acqua</span>
+          <select value={salinita} onChange={(e) => setSalinita(e.target.value as '' | 'salt' | 'fresh')}>
+            <option value="">non toccare</option>
+            <option value="salt">salata</option>
+            <option value="fresh">dolce (lago)</option>
+          </select>
+        </label>
+      </div>
+      <div className="grid grid-3" style={{ marginBottom: 8 }}>
+        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+          <span className="muted">Muta</span>
+          <input type="text" value={muta} onChange={(e) => setMuta(e.target.value)} />
+        </label>
+        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+          <span className="muted">Zavorra (kg)</span>
+          <input type="text" inputMode="decimal" value={zavorra} onChange={(e) => setZavorra(e.target.value)} />
+        </label>
+        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+          <span className="muted">Aggiungi etichetta</span>
+          <input type="text" value={etichetta} onChange={(e) => setEtichetta(e.target.value)} />
+        </label>
+      </div>
+
+      {/* Muta e zavorra insieme non sono un dettaglio: sono i due campi da cui
+          la scheda Attrezzatura ricava quale configurazione ti fa tenere meglio
+          la quota, e sono anche i due che i computer non registrano mai. */}
+      <p className="planner-hint" style={{ marginTop: 0 }}>
+        Muta e zavorra sono i campi che nessun computer registra, e sono proprio quelli su cui si
+        basa la tabella della zavorra in <b>Attrezzatura</b>: compilarli su un gruppo di immersioni
+        fatte con la stessa configurazione è il modo più rapido di far comparire quel confronto.
+      </p>
+
+      {errore && (
+        <div className="notice notice-error" role="alert" style={{ marginTop: 10 }}>
+          {errore}
+        </div>
+      )}
+      {fatto && (
+        <div className="notice" role="status" style={{ marginTop: 10 }}>
+          {fatto}
+        </div>
+      )}
+
+      <div className="row" style={{ gap: 8, marginTop: 12 }}>
+        <button className="btn" disabled={!qualcosaDaFare || lavoro} onClick={applica}>
+          {lavoro ? 'Scrivo…' : `Applica a ${ids.length}`}
+        </button>
+        <span style={{ flex: 1 }} />
+        <button disabled={lavoro} onClick={cestina} style={{ color: 'var(--critical)' }}>
+          Sposta nel cestino
+        </button>
+      </div>
     </div>
   );
 }

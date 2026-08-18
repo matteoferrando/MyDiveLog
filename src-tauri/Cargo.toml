@@ -21,6 +21,16 @@ tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# Il portachiavi di sistema, solo dove esiste davvero.
+#
+# Dipendenza per bersaglio e non globale: `keyring` sceglie il backend con le
+# feature, e attivare quella di Linux su macOS trascinerebbe dentro dbus e
+# secret-service — roba che su un Mac non c'è e che farebbe fallire la build.
+# Sugli altri sistemi il modulo non viene compilato affatto e l'interfaccia
+# ripiega sull'archivio locale, dichiarandolo.
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+
 [features]
 # Attivato automaticamente da `tauri build`.
 custom-protocol = ["tauri/custom-protocol"]

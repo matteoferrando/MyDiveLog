@@ -143,6 +143,26 @@ await page.screenshot({ path: 'screenshots/3d-saturazione-stimata.png', fullPage
 await page.click('button:has-text("Logbook")');
 await page.waitForTimeout(600);
 
+/*
+ * Modifica in blocco: si selezionano due immersioni e si scrive un campo solo.
+ * La proprietà da verificare non è che il modulo compaia — quella si vede in
+ * fotografia — ma che scriva SOLO il campo compilato e lasci stare gli altri.
+ */
+const primaDelBlocco = await page.locator('tbody tr').nth(1).innerText();
+await page.locator('tbody tr').nth(1).locator('input[type=checkbox]').check();
+await page.locator('tbody tr').nth(2).locator('input[type=checkbox]').check();
+await page.waitForTimeout(400);
+await page.locator('label', { hasText: 'Compagno' }).first().locator('input').fill('Squadra di prova');
+await page.waitForTimeout(200);
+await page.screenshot({ path: 'screenshots/3e-modifica-in-blocco.png', fullPage: true });
+await page.click('button:has-text("Applica a 2")');
+await page.waitForTimeout(1500);
+const dopoIlBlocco = await page.locator('tbody tr').nth(1).innerText();
+const bloccoOk =
+  dopoIlBlocco.includes('Squadra di prova') &&
+  // Il sito NON doveva essere toccato: era vuoto nel modulo.
+  primaDelBlocco.split('\n')[2] === dopoIlBlocco.split('\n')[2];
+
 // Apri la prima immersione.
 await page.locator('tbody tr').first().click();
 await page.waitForTimeout(900);
@@ -417,6 +437,7 @@ console.log('LIVELLI:'); console.log(curvaCard.slice(0, 300));
 console.log('TABELLA SOSTE:'); console.log(tabella.slice(0, 600));
 console.log('CONTINGENZE DECO:'); console.log(decoContingenze.slice(0, 700));
 console.log('CURVA RICREATIVA:'); console.log(curva.slice(0, 600));
+console.log('MODIFICA IN BLOCCO:', bloccoOk ? 'compagno scritto, sito non toccato' : `SBAGLIATA\nprima: ${primaDelBlocco}\ndopo: ${dopoIlBlocco}`);
 console.log('SCORRIMENTO FANTASMA:', fantasma.length ? fantasma : 'nessuno');
 console.log('TRABOCCO A 390 px:', overflow.length ? overflow : 'nessuno');
 console.log('CONSOLE ERRORS:', errors.length ? errors.slice(0, 10) : 'nessuno');

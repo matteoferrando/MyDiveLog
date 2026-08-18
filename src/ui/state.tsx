@@ -35,8 +35,10 @@ import {
   type Scope,
 } from '../core/analysis/window';
 import { mergeDive, mergeImports } from '../core/dedupe';
+import { buildBackup, planRestore, type BackupFile } from '../core/export/backup';
 import { parseBrowserFile } from '../core/parsers';
 import { getStore, type DiveStore } from '../storage';
+import { openSecretStore, type SecretPlace } from '../storage/secrets';
 import { hydrateForMerge, repairArchive } from '../storage/repair';
 import { digestOf } from '../sync/plan';
 import {
@@ -167,6 +169,11 @@ interface DiveLogValue {
   /** Chiave dell'API di Anthropic, salvata nell'archivio locale. */
   aiCredentials: AiCredentials | null;
   saveAiCredentials: (creds: AiCredentials | null) => Promise<void>;
+  /**
+   * Dove stanno le credenziali su questo dispositivo: nel portachiavi di sistema
+   * o, dove non esiste, nell'archivio locale in chiaro. Va mostrato, non dedotto.
+   */
+  secretPlace: SecretPlace;
   testAiKey: (creds: AiCredentials) => Promise<{ ok: true; models: AiModel[] } | { ok: false; error: string }>;
   /** Analisi già generate, per non farle pagare due volte. */
   analysis: (kind: AnalysisKind, subject?: string) => StoredAnalysis | undefined;
@@ -187,6 +194,13 @@ interface DiveLogValue {
    * backup a metà senza dirlo.
    */
   exportArchive: (options?: { includeProfiles?: boolean }) => Promise<UddfExportResult>;
+  /** Backup completo: immersioni con profili e ogni impostazione, credenziali escluse. */
+  buildFullBackup: () => Promise<BackupFile>;
+  /** Ripristina da un backup già verificato con `checkBackup`. */
+  restoreBackup: (
+    file: BackupFile,
+    mode?: 'merge' | 'replace',
+  ) => Promise<{ added: number; merged: number; onlyLocal: number; settings: number }>;
 }
 
 export type AnalysisKind = 'dive' | 'archive' | 'plan' | 'gas' | 'deco';
@@ -221,6 +235,8 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   const [decoInput, setDecoInputState] = useState<unknown>(null);
   const [decoPlans, setDecoPlans] = useState<SavedDecoPlan[]>([]);
   const [gear, setGearState] = useState<GearArchive>({ equipment: [], certifications: [] });
+  /** Dove finiscono davvero le credenziali su QUESTO dispositivo. */
+  const [secretPlace, setSecretPlace] = useState<SecretPlace>('archive');
   const [analyses, setAnalyses] = useState<Record<string, StoredAnalysis>>({});
   const [trash, setTrash] = useState<TrashedDive[]>([]);
 
@@ -228,13 +244,18 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       const s = await getStore();
+      const segreti = await openSecretStore(s);
+      if (!cancelled) setSecretPlace(segreti.place);
       const [list, savedGoal, savedPeriod, savedSync, savedAi, savedAnalyses, savedGas, savedGear] =
         await Promise.all([
           s.listDives(),
           s.getSetting<GoalId>('goal'),
           s.getSetting<PeriodId>('period'),
-          s.getSetting<SyncCredentials>('sync'),
-          s.getSetting<AiCredentials>('ai'),
+          // Le credenziali NON passano più da `getSetting`: le legge il negozio
+          // dei segreti, che su macOS è il portachiavi di sistema e che al primo
+          // avvio migra da solo quelle rimaste in chiaro nell'archivio.
+          segreti.read<SyncCredentials>('sync'),
+          segreti.read<AiCredentials>('ai'),
           s.getSetting<Record<string, StoredAnalysis>>('analyses'),
           s.getSetting<GasPlanInput>('gasPlan'),
           s.getSetting<unknown>('gear'),
@@ -614,9 +635,14 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   const saveSyncCredentials = useCallback(
     async (creds: SyncCredentials | null) => {
       setSyncCredentials(creds);
-      // Nell'archivio locale, non in un file del progetto: il token è una
-      // credenziale di chi usa l'app, e nel repository non ci deve entrare.
-      if (store) await store.setSetting('sync', creds ?? null);
+      // Nel portachiavi di sistema dove c'è, altrimenti nell'archivio locale.
+      // Mai in un file del progetto: il token è una credenziale di chi usa
+      // l'app, e nel repository non ci deve entrare in nessun caso.
+      if (store) {
+        const segreti = await openSecretStore(store);
+        if (creds) await segreti.write('sync', creds);
+        else await segreti.remove('sync');
+      }
     },
     [store],
   );
@@ -672,7 +698,11 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   const saveAiCredentials = useCallback(
     async (creds: AiCredentials | null) => {
       setAiCredentials(creds);
-      if (store) await store.setSetting('ai', creds ?? null);
+      if (store) {
+        const segreti = await openSecretStore(store);
+        if (creds) await segreti.write('ai', creds);
+        else await segreti.remove('ai');
+      }
     },
     [store],
   );
@@ -717,6 +747,74 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
           )
         : dives;
       return exportUddf(full, { includeProfiles });
+    },
+    [dives, store],
+  );
+
+  /**
+   * Il backup completo: tutto quello che l'applicazione sa, in un file.
+   *
+   * Diverso dall'export UDDF che sta accanto, e la differenza va detta a chi
+   * preme: UDDF serve a far leggere le immersioni a un'altra applicazione e per
+   * riuscirci perde una quindicina di campi più tutto ciò che sta fuori dalle
+   * immersioni; questo non lo legge nessun altro programma e non perde niente.
+   */
+  const buildFullBackup = useCallback(async (): Promise<BackupFile> => {
+    if (!store) throw new Error('Archivio non ancora aperto.');
+    return buildBackup(store);
+  }, [store]);
+
+  /**
+   * Ripristina da un backup.
+   *
+   * Due passaggi separati apposta: `checkBackup` verifica il file PRIMA che
+   * l'archivio venga toccato, e `planRestore` dice che cosa succederà. Un
+   * ripristino si lancia quando le cose sono già andate male, e un errore a metà
+   * strada lascerebbe un archivio mezzo sovrascritto — cioè peggio del punto di
+   * partenza.
+   */
+  const restoreBackup = useCallback(
+    async (file: BackupFile, mode: 'merge' | 'replace' = 'merge') => {
+      if (!store) throw new Error('Archivio non ancora aperto.');
+      const plan = planRestore(file, dives, mode);
+
+      // `replace` cancella l'archivio PRIMA di riscriverlo. È l'unico punto di
+      // non ritorno di questa funzione, ed è per questo che l'interfaccia lo fa
+      // confermare a parte invece di offrirlo come una casella qualunque.
+      if (mode === 'replace') await store.clear();
+
+      const daScrivere = [...plan.added, ...plan.merged];
+      // A blocchi: un archivio grande con i profili dentro è decine di megabyte,
+      // e una sola transazione con tutto dentro è il modo di far esaurire la
+      // memoria proprio mentre si sta recuperando da un guaio.
+      for (let i = 0; i < daScrivere.length; i += 25) {
+        await store.putDives(daScrivere.slice(i, i + 25));
+      }
+      for (const [key, value] of Object.entries(plan.settings)) {
+        await store.setSetting(key, value);
+      }
+
+      // Rilettura e riparazione: le metriche e la catena dei tessuti vanno
+      // ricalcolate sull'archivio come è adesso, non come era nel file.
+      const list = await store.listDives();
+      const healed = await repairArchive(store, list).catch(() => ({ dives: list }));
+      setDives(healed.dives);
+
+      const [savedGear, savedAnalyses, savedGas] = await Promise.all([
+        store.getSetting<unknown>('gear'),
+        store.getSetting<Record<string, StoredAnalysis>>('analyses'),
+        store.getSetting<GasPlanInput>('gasPlan'),
+      ]);
+      setGearState(migrateGear(savedGear as never));
+      if (savedAnalyses) setAnalyses(savedAnalyses);
+      if (savedGas?.depthM) setGasInputState(savedGas);
+
+      return {
+        added: plan.added.length,
+        merged: plan.merged.length,
+        onlyLocal: mode === 'replace' ? 0 : plan.onlyLocal,
+        settings: Object.keys(plan.settings).length,
+      };
     },
     [dives, store],
   );
@@ -903,6 +1001,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     saveGasInput,
     aiCredentials,
     saveAiCredentials,
+    secretPlace,
     testAiKey,
     analysis,
     runAnalysis,
@@ -910,6 +1009,8 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     gear,
     saveGear,
     exportArchive,
+    buildFullBackup,
+    restoreBackup,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
