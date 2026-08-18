@@ -18,6 +18,14 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+
+# Il Bluetooth verso i computer subacquei.
+#
+# Non ha feature per bersaglio: il crate sceglie da sé CoreBluetooth su Apple,
+# BlueZ su Linux, WinRT su Windows. Su una piattaforma dove lo stack non c'è
+# `try_init` restituisce un errore invece di far cadere l'applicazione, e il
+# lato TypeScript lo dichiara.
+tauri-plugin-blec = "0.12"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

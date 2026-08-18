@@ -495,6 +495,33 @@ await page.waitForTimeout(700);
 await shots(page, 'screenshots/9b-mobile-gas', 4);
 
 /*
+ * Scarico Bluetooth: il percorso che nel browser NON può funzionare.
+ *
+ * È il caso più importante da inchiodare, perché è quello che l'harness può
+ * vedere davvero: qui non c'è Tauri, quindi premere «Cerca il computer» deve
+ * produrre una spiegazione — non un pulsante che gira, non un errore in
+ * console, non un elenco vuoto che sembra «non trovo il tuo computer». E la
+ * scheda deve dichiarare che nessun protocollo è ancora supportato, invece di
+ * far cercare a vuoto.
+ */
+await page.setViewportSize({ width: 1180, height: 900 });
+await page.click('button:has-text("Importa")');
+await page.waitForTimeout(600);
+const bleCard = await page
+  .locator('.card', { hasText: 'Scarica dal computer subacqueo' })
+  .first()
+  .innerText()
+  .catch(() => 'CARTA BLUETOOTH MANCANTE');
+await page.locator('button:has-text("Cerca il computer")').first().click();
+await page.waitForTimeout(600);
+const bleErrore = await page
+  .locator('.notice-error')
+  .first()
+  .innerText()
+  .catch(() => 'NESSUNA SPIEGAZIONE');
+await page.screenshot({ path: 'screenshots/18-bluetooth.png', fullPage: true });
+
+/*
  * Scorrimento fantasma: la pagina che scorre nel vuoto.
  *
  * Il guscio è alto quanto la finestra e a scorrere deve essere SOLO `.main`.
@@ -612,6 +639,8 @@ console.log(
     ? 'compagno scritto, sito non toccato'
     : `SBAGLIATA\nprima: ${primaDelBlocco}\ndopo: ${dopoIlBlocco}`,
 );
+console.log('BLUETOOTH CARTA:\n' + bleCard.slice(0, 400));
+console.log('BLUETOOTH NEL BROWSER:', bleErrore.replace(/\n/g, ' ').slice(0, 220));
 console.log('SCORRIMENTO FANTASMA:', fantasma.length ? fantasma : 'nessuno');
 console.log('TRABOCCO A 390 px:', overflow.length ? overflow : 'nessuno');
 console.log('CONSOLE ERRORS:', errors.length ? errors.slice(0, 10) : 'nessuno');

@@ -1,0 +1,321 @@
+/**
+ * Scaricare le immersioni dal computer subacqueo.
+ *
+ * Il pezzo di interfaccia più esposto al fallimento di tutta l'applicazione:
+ * dipende da un adattatore radio, da un permesso di sistema, da un dispositivo a
+ * batteria che si addormenta, e da un protocollo che nessun costruttore
+ * documenta. Quindi è scritto al contrario del solito — prima i modi in cui va
+ * male, poi il caso in cui va bene.
+ *
+ * TRE COSE CHE NON SONO ESTETICHE.
+ *
+ * *Ogni causa di indisponibilità ha un rimedio diverso*, e un solo «Bluetooth non
+ * disponibile» li nasconderebbe tutti: il browser non si aggiusta, l'adattatore
+ * spento sì con un interruttore, il permesso negato nelle Impostazioni di
+ * Sistema. Il messaggio dice quale delle tre.
+ *
+ * *I dispositivi che non sappiamo leggere restano nell'elenco*, in fondo e
+ * dichiarati. Nasconderli è la scelta che sembra pulita e che fa perdere un'ora:
+ * chi ha un computer non supportato deve poter vedere che l'app lo TROVA e non
+ * lo sa leggere, che è un'informazione diversa da «non lo trova».
+ *
+ * *Uno scarico interrotto conserva quello che è arrivato.* Sono minuti di
+ * trasferimento; un errore che azzera il lavoro fatto è il motivo per cui la
+ * gente rinuncia e ricopia a mano. Qui l'interruzione produce «ne ho prese 40 su
+ * 104» e le importa comunque.
+ */
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { downloadFromComputer } from '../../core/ble/download';
+import { DRIVERS, recognise, type RecognisedDevice } from '../../core/ble/registry';
+import type { BleUnavailable, DownloadEvent } from '../../core/ble/types';
+import { TauriBleTransport } from '../../storage/ble';
+import { useDiveLog } from '../state';
+import { imm } from '../format';
+
+type Stato =
+  | { fase: 'iniziale' }
+  | { fase: 'non-disponibile'; motivo: BleUnavailable }
+  | { fase: 'cerca' }
+  | { fase: 'scarica'; nome: string; fatte: number; totale?: number; passo: string }
+  | { fase: 'finito'; testo: string; avvisi: string[]; parziale: boolean };
+
+const transport = new TauriBleTransport();
+
+export function BleDownload() {
+  const { importDives } = useDiveLog();
+  const [stato, setStato] = useState<Stato>({ fase: 'iniziale' });
+  const [trovati, setTrovati] = useState<RecognisedDevice[]>([]);
+  const ricerca = useRef<AbortController | null>(null);
+  const scarico = useRef<AbortController | null>(null);
+
+  /*
+   * La ricerca si ferma smontando il componente.
+   *
+   * Una scansione BLE lasciata accesa consuma batteria — sul portatile si
+   * sente — e continua a chiamare `setState` su un componente che non c'è più.
+   * Cambiare scheda mentre si cerca è la cosa più naturale del mondo.
+   */
+  useEffect(() => {
+    return () => {
+      ricerca.current?.abort();
+      scarico.current?.abort();
+    };
+  }, []);
+
+  const cerca = useCallback(async () => {
+    const disponibile = await transport.available();
+    if (disponibile !== true) {
+      setStato({ fase: 'non-disponibile', motivo: disponibile });
+      return;
+    }
+    const ctl = new AbortController();
+    ricerca.current = ctl;
+    setTrovati([]);
+    setStato({ fase: 'cerca' });
+    try {
+      await transport.scan((devs) => setTrovati(recognise(devs, DRIVERS)), ctl.signal);
+    } catch (err) {
+      setStato({
+        fase: 'non-disponibile',
+        motivo: {
+          reason: 'unsupported',
+          detail: `La ricerca non è partita: ${err instanceof Error ? err.message : String(err)}`,
+        },
+      });
+    }
+  }, []);
+
+  /*
+   * Stabile fra un render e l'altro, e senza leggere `stato`.
+   *
+   * Serve dentro `scarica`, che è memorizzata: una funzione ricreata a ogni
+   * render la invaliderebbe di continuo. E l'aggiornamento passa dalla forma
+   * funzionale di `setStato` invece di leggere `stato` dalla chiusura — così
+   * non c'è una dipendenza da uno stato che cambia, e soprattutto non si può
+   * riportare la fase a «iniziale» partendo da una lettura vecchia, che
+   * cancellerebbe dallo schermo uno scarico appena partito.
+   */
+  const fermaRicerca = useCallback(() => {
+    ricerca.current?.abort();
+    ricerca.current = null;
+    setStato((p) => (p.fase === 'cerca' ? { fase: 'iniziale' } : p));
+  }, []);
+
+  const scarica = useCallback(
+    async (scelto: RecognisedDevice) => {
+      if (!scelto.driver) return;
+      fermaRicerca();
+      const ctl = new AbortController();
+      scarico.current = ctl;
+      const nome = scelto.device.name || 'computer';
+      setStato({ fase: 'scarica', nome, fatte: 0, passo: 'Mi collego…' });
+
+      const onEvent = (e: DownloadEvent) => {
+        setStato((p) =>
+          p.fase !== 'scarica'
+            ? p
+            : e.kind === 'identified'
+              ? { ...p, nome: e.model, passo: 'Chiedo quante immersioni ci sono…' }
+              : e.kind === 'counted'
+                ? { ...p, totale: e.total, passo: 'Leggo…' }
+                : e.kind === 'record'
+                  ? { ...p, fatte: e.done, totale: e.total ?? p.totale, passo: 'Leggo…' }
+                  : p,
+        );
+      };
+
+      const esito = await downloadFromComputer(transport, scelto.device, scelto.driver, {
+        onEvent,
+        signal: ctl.signal,
+      });
+      scarico.current = null;
+
+      /*
+       * Si importa anche quando lo scarico è finito male.
+       *
+       * `status: 'partial'` con quaranta immersioni in mano significa quaranta
+       * immersioni, non un fallimento: buttarle costringerebbe a rifare tutto
+       * il trasferimento per riavere quello che si aveva già.
+       */
+      const avvisi = [...esito.warnings];
+      let testo: string;
+      if (esito.dives.length === 0) {
+        testo = esito.error
+          ? `Non è arrivata nessuna immersione: ${esito.error}`
+          : 'Il computer non ha immersioni in memoria da scaricare.';
+      } else {
+        const r = await importDives(esito.dives, `${esito.model ?? nome} via Bluetooth`);
+        if (!r.ok) {
+          testo = `Le ${esito.dives.length} immersioni sono arrivate ma non si sono potute salvare: ${r.error}`;
+        } else {
+          testo =
+            `${imm(r.found)} lette dal computer: ${r.added} nuove, ${r.merged} arricchite, ` +
+            `${r.duplicates} già in archivio.`;
+          if (esito.status === 'partial') {
+            testo += ` Il trasferimento si è interrotto prima della fine${
+              esito.total ? ` (${esito.dives.length} su ${esito.total})` : ''
+            }: quello che è arrivato è salvato, il resto si riprende riscaricando.`;
+          }
+          avvisi.push(...r.warnings);
+        }
+      }
+      if (esito.error) avvisi.push(esito.error);
+      setStato({ fase: 'finito', testo, avvisi, parziale: esito.status === 'partial' });
+    },
+    [importDives, fermaRicerca],
+  );
+
+  return (
+    <div className="card">
+      <div className="spread" style={{ alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+        <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+          <h2 style={{ margin: 0 }}>Scarica dal computer subacqueo</h2>
+          <p className="card-sub" style={{ marginBottom: 0 }}>
+            Via Bluetooth, senza passare dall'applicazione del costruttore. Le immersioni entrano nello stesso
+            modo dei file: quelle che ci sono già vengono arricchite, non duplicate.
+          </p>
+        </div>
+        {stato.fase === 'cerca' ? (
+          <button onClick={fermaRicerca}>Ferma la ricerca</button>
+        ) : stato.fase === 'scarica' ? (
+          <button onClick={() => scarico.current?.abort()}>Interrompi</button>
+        ) : (
+          <button className="btn" onClick={() => void cerca()}>
+            Cerca il computer
+          </button>
+        )}
+      </div>
+
+      {/*
+       * Il caso senza driver è il primo, non un dettaglio in fondo.
+       *
+       * Finché non c'è un protocollo provato contro il suo computer, l'elenco
+       * dei driver è vuoto di proposito: un driver scritto leggendo
+       * `libdivecomputer` e mai eseguito su un dispositivo vero fallirebbe in un
+       * modo che sembra un guasto dell'applicazione. Dirlo qui è più onesto che
+       * far cercare a vuoto.
+       */}
+      {DRIVERS.length === 0 && (
+        <div className="notice">
+          <b>Nessun computer è ancora supportato per lo scarico diretto.</b> Il collegamento Bluetooth è
+          pronto e provato, ma i protocolli — che nessun costruttore pubblica — si aggiungono uno alla volta,
+          ognuno verificato contro il computer vero. Finché non c'è quello del tuo, la strada resta l'export
+          dall'applicazione del costruttore e l'import del file qui sopra.
+        </div>
+      )}
+
+      {stato.fase === 'non-disponibile' && (
+        <div className="notice notice-error" role="alert">
+          {stato.motivo.detail}
+        </div>
+      )}
+
+      {stato.fase === 'cerca' && (
+        <>
+          <p className="planner-hint" style={{ marginTop: 0 }}>
+            Accendi il computer e mettilo in modalità trasferimento o Bluetooth — quasi tutti annunciano solo
+            per qualche minuto dopo che li hai toccati, e si riaddormentano da soli. La ricerca continua
+            finché non la fermi.
+          </p>
+          {trovati.length === 0 ? (
+            <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+              Sto cercando…
+            </p>
+          ) : (
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Dispositivo</th>
+                    <th>Segnale</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {trovati.map(({ device, driver }) => (
+                    <tr key={device.id}>
+                      <td>
+                        <div style={{ fontWeight: 550 }}>{device.name || 'senza nome'}</div>
+                        <div className="muted" style={{ fontSize: 11 }}>
+                          {driver ? driver.label : 'non riconosciuto come computer subacqueo'}
+                        </div>
+                      </td>
+                      <td className="muted tabular" style={{ fontSize: 12 }}>
+                        {device.rssi !== undefined ? `${device.rssi} dBm` : '—'}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        {driver ? (
+                          <button className="btn" onClick={() => void scarica({ device, driver })}>
+                            Scarica
+                          </button>
+                        ) : (
+                          <span className="muted" style={{ fontSize: 11 }}>
+                            —
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {stato.fase === 'scarica' && (
+        <div className="notice" role="status" aria-live="polite">
+          <b>{stato.nome}</b> — {stato.passo}{' '}
+          {stato.fatte > 0 && (
+            <>
+              {stato.totale ? `${stato.fatte} di ${stato.totale} immersioni.` : `${stato.fatte} immersioni.`}
+            </>
+          )}
+          {/*
+           * La barra c'è solo quando il totale si conosce.
+           *
+           * Alcuni protocolli non dicono quante immersioni ci sono: si legge
+           * finché la memoria non finisce. Una barra che avanza verso un totale
+           * inventato è peggio di nessuna barra — promette una fine che non sa
+           * dove sia.
+           */}
+          {stato.totale ? (
+            <div
+              style={{
+                marginTop: 8,
+                height: 6,
+                borderRadius: 3,
+                background: 'var(--surface-3)',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  width: `${Math.round((stato.fatte / stato.totale) * 100)}%`,
+                  height: '100%',
+                  background: 'var(--accent-solid)',
+                }}
+              />
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {stato.fase === 'finito' && (
+        <>
+          <div className={stato.parziale ? 'notice notice-error' : 'notice'} role="status">
+            {stato.testo}
+          </div>
+          {stato.avvisi.length > 0 && (
+            <ul className="muted" style={{ fontSize: 12, margin: '8px 0 0', paddingLeft: 18 }}>
+              {stato.avvisi.map((a, i) => (
+                <li key={i}>{a}</li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

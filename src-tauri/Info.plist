@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Aggiunte all'Info.plist di macOS.
+
+  Tauri unisce questo file a quello che genera. Serve per una cosa sola: dal
+  Mojave in poi macOS non lascia toccare il Bluetooth a un'applicazione che non
+  dichiara PERCHÉ lo vuole. Senza questa chiave non compare un errore — compare
+  il pannello di sistema con una descrizione vuota, oppure l'applicazione viene
+  terminata dal sistema al primo accesso, che è il fallimento peggiore da
+  diagnosticare perché assomiglia a un crash nostro.
+
+  Il testo è quello che l'utente legge nel pannello, quindi è scritto per lui e
+  non per noi: dice a che cosa serve e implicitamente che cosa NON facciamo.
+
+  Per iOS la stessa chiave va nell'Info.plist del progetto Xcode generato
+  (`src-tauri/gen/apple/`), che nasce con `npm run ios:init` e non esiste ancora.
+-->
+<plist version="1.0">
+  <dict>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>MyDiveLog usa il Bluetooth per scaricare le immersioni dal tuo computer subacqueo. Non si collega a nessun altro dispositivo e non manda niente in rete.</string>
+  </dict>
+</plist>

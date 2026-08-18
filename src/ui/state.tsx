@@ -106,6 +106,17 @@ interface DiveLogValue {
   goalId: GoalId;
   setGoalId: (id: GoalId) => void;
   importFiles: (files: File[]) => Promise<ImportOutcome[]>;
+  /**
+   * Come `importFiles`, ma partendo da immersioni già decodificate.
+   *
+   * È la porta d'ingresso per lo scarico Bluetooth: dal computer subacqueo non
+   * arriva un file, arrivano byte che il driver ha già trasformato in
+   * immersioni. Tutto il resto — idratazione dei profili prima di fondere,
+   * deduplica, sfasamenti d'orologio, salvataggio del solo cambiato — deve
+   * essere ESATTAMENTE lo stesso: una seconda strada per entrare in archivio
+   * sarebbe una seconda strada per perdere un profilo.
+   */
+  importDives: (dives: Dive[], origine: string) => Promise<ImportOutcome>;
   loadSamples: (id: string) => Promise<Sample[]>;
   /** Entrambi i profili: il principale e, quando c'è, quello più fitto. */
   loadProfiles: (id: string) => Promise<{ samples: Sample[]; altSamples?: Sample[] }>;
@@ -472,6 +483,57 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       // istantanea con migliaia di immersioni.
       setDives(current.map(stripForList));
       return outcomes;
+    },
+    [dives, store],
+  );
+
+  /**
+   * Immersioni che arrivano da qualcosa che non è un file.
+   *
+   * Ripercorre gli stessi passi di `importFiles` per un solo lotto. È scritta a
+   * parte e non riusando quella — che vuole degli `File` — perché fabbricare un
+   * finto `File` per far contenta una firma è il genere di scorciatoia che
+   * poi qualcuno legge come «questi dati vengono da un file» e ci costruisce
+   * sopra.
+   */
+  const importDives = useCallback(
+    async (arrivate: Dive[], origine: string): Promise<ImportOutcome> => {
+      try {
+        let current = dives;
+        if (store) current = await hydrateForMerge(store, current, arrivate);
+        const report = mergeImports(current, arrivate);
+        const warnings: string[] = [];
+        for (const c of report.clockOffsets) {
+          const hours = c.offsetMs / 3_600_000;
+          warnings.push(
+            `Riconosciuto uno sfasamento di ${formatOffset(hours)} fra l'orologio del computer e quello delle immersioni già in archivio (su ${c.pairs} corrispondenze): le immersioni sono state unite comunque.`,
+          );
+        }
+        const previous = new Map(dives.map((d) => [d.id, d]));
+        const changed = report.dives.filter((d) => previous.get(d.id) !== d);
+        if (store && changed.length) await store.putDives(changed);
+        setDives(report.dives.map(stripForList));
+        return {
+          fileName: origine,
+          ok: true,
+          found: arrivate.length,
+          added: report.added,
+          merged: report.merged,
+          duplicates: report.duplicates,
+          warnings,
+        };
+      } catch (err) {
+        return {
+          fileName: origine,
+          ok: false,
+          found: arrivate.length,
+          added: 0,
+          merged: 0,
+          duplicates: 0,
+          warnings: [],
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
     },
     [dives, store],
   );
@@ -1170,6 +1232,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     goalId,
     setGoalId,
     importFiles,
+    importDives,
     loadSamples,
     loadProfiles,
     saveDive,

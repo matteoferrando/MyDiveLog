@@ -64,6 +64,30 @@ mod segreti {
 pub fn run() {
     let builder = tauri::Builder::default().plugin(tauri_plugin_sql::Builder::default().build());
 
+    /*
+     * Il Bluetooth, che può non esserci senza che l'app muoia.
+     *
+     * `try_init` e non `init`: l'inizializzazione tocca lo stack Bluetooth del
+     * sistema, e fallisce per ragioni che non sono colpa nostra — adattatore
+     * assente su una macchina virtuale, servizio di sistema non partito, sandbox
+     * senza il permesso. Con `init()` un fallimento diventa un panic all'avvio,
+     * cioè l'applicazione non si apre e l'utente non può nemmeno leggere il
+     * proprio logbook: un guasto in una funzione accessoria spegnerebbe quella
+     * principale.
+     *
+     * Così invece il plugin semplicemente non c'è, i comandi dal lato
+     * TypeScript falliscono, e `TauriBleTransport.available()` risponde
+     * «Bluetooth non disponibile in questa versione» con il motivo. Tutto il
+     * resto funziona.
+     */
+    let builder = match tauri_plugin_blec::try_init() {
+        Ok(plugin) => builder.plugin(plugin),
+        Err(e) => {
+            eprintln!("Bluetooth non inizializzato: {e:?}");
+            builder
+        }
+    };
+
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         segreti::segreto_leggi,

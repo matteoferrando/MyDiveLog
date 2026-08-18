@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { ACCEPTED_EXTENSIONS, PARSERS } from '../../core/parsers';
 import { imm, plural } from '../format';
 import { useDiveLog, type ImportOutcome } from '../state';
+import { BleDownload } from '../components/BleDownload';
 
 export function ImportPage({ onDone }: { onDone: () => void }) {
   const { importFiles, dives, storeLocation, clearAll } = useDiveLog();
@@ -236,6 +237,17 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
           )}
         </div>
       )}
+
+      {/*
+       * Lo scarico diretto sta DOPO l'import da file, non prima.
+       *
+       * L'ordine dice quale delle due strade funziona oggi: il file è quella che
+       * porta in archivio sei anni di immersioni adesso, il Bluetooth è quella
+       * che eviterà il giro dall'applicazione del costruttore quando ci sarà il
+       * protocollo del computer giusto. Metterlo in cima lo farebbe provare per
+       * primo a chi apre la pagina per importare, e fallire.
+       */}
+      <BleDownload />
 
       <div className="card">
         <h2>Formati supportati</h2>
