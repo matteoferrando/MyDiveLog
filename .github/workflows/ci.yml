@@ -32,16 +32,24 @@ jobs:
       - name: Tipi
         run: npm run typecheck
 
-      # Il formato entra QUI e il lint no, ed è una scelta.
+      # Formato e lint entrano solo ora che passano entrambi.
       #
-      # `format:check` diventa verde subito dopo il primo `npm run format`;
-      # `npm run lint` esce ancora 1 per dodici errori storici. Un controllo che
-      # nasce rosso e resta rosso insegna a ignorare la spunta, e da quel momento
-      # anche il rosso vero non lo guarda più nessuno. Si aggiungono man mano che
-      # passano, così una spunta rossa significa sempre «è appena cambiato
-      # qualcosa».
+      # Un controllo che nasce rosso e resta rosso insegna a ignorare la spunta, e
+      # da quel momento anche il rosso vero non lo guarda più nessuno: è lo stesso
+      # difetto per cui l'attrezzatura non ha più pallini di scadenza. Prima si
+      # correggono i sei errori, poi si accende la guardia — così una spunta rossa
+      # significa sempre «è appena cambiato qualcosa», che è l'unica cosa che
+      # rende utile guardarla.
+      #
+      # Il lint passa con avvisi (oggi undici) e non li tratta come errori: gli
+      # avvisi sono suggerimenti del compilatore di React su pattern discussi, non
+      # difetti, e trasformarli in un blocco vorrebbe dire riscrivere codice
+      # funzionante per far contento un controllo.
       - name: Formato
         run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
 
       - name: Test
         run: npm test

@@ -24,17 +24,51 @@ const ALIASES: Record<string, string[]> = {
   number: ['number', 'dive number', 'divenumber', 'no', 'n', 'numero', 'num', '#'],
   date: ['date', 'dive date', 'divedate', 'data', 'datum', 'date time', 'datetime', 'start time', 'start'],
   time: ['time', 'ora', 'start time', 'entry time', 'zeit'],
-  duration: ['duration', 'dive time', 'divetime', 'runtime', 'durata', 'tempo', 'bottom time', 'total time', 'minutes'],
-  maxDepth: ['max depth', 'maxdepth', 'depth', 'profondita max', 'profondita massima', 'profondita', 'tiefe', 'max. depth'],
+  duration: [
+    'duration',
+    'dive time',
+    'divetime',
+    'runtime',
+    'durata',
+    'tempo',
+    'bottom time',
+    'total time',
+    'minutes',
+  ],
+  maxDepth: [
+    'max depth',
+    'maxdepth',
+    'depth',
+    'profondita max',
+    'profondita massima',
+    'profondita',
+    'tiefe',
+    'max. depth',
+  ],
   avgDepth: ['avg depth', 'average depth', 'mean depth', 'profondita media'],
   site: ['site', 'dive site', 'divesite', 'location', 'place', 'sito', 'luogo', 'ort'],
   region: ['region', 'area', 'zona', 'regione', 'city'],
   country: ['country', 'paese', 'nazione', 'land'],
   buddy: ['buddy', 'partner', 'compagno', 'buddies'],
   notes: ['notes', 'note', 'comment', 'comments', 'remarks', 'description'],
-  minTemp: ['min temp', 'water temp', 'temp', 'temperature', 'bottom temp', 'temperatura', 'temperatura acqua'],
+  minTemp: [
+    'min temp',
+    'water temp',
+    'temp',
+    'temperature',
+    'bottom temp',
+    'temperatura',
+    'temperatura acqua',
+  ],
   airTemp: ['air temp', 'air temperature', 'temperatura aria'],
-  startBar: ['start pressure', 'pressure start', 'tank start', 'bar start', 'pressione iniziale', 'begin pressure'],
+  startBar: [
+    'start pressure',
+    'pressure start',
+    'tank start',
+    'bar start',
+    'pressione iniziale',
+    'begin pressure',
+  ],
   endBar: ['end pressure', 'pressure end', 'tank end', 'bar end', 'pressione finale'],
   tankSize: ['tank size', 'cylinder size', 'tank volume', 'volume', 'litri', 'bombola'],
   o2: ['o2', 'oxygen', 'ean', 'nitrox', 'o2 %', 'fo2'],
@@ -130,9 +164,7 @@ function rowToDive(row: Record<string, string>, fileName: string, importedAt: st
     avgDepth: parseMeasure(row.avgDepth, 'depth'),
     minTempC: parseMeasure(row.minTemp, 'temp'),
     airTempC: parseMeasure(row.airTemp, 'temp'),
-    site: row.site
-      ? { name: row.site, region: row.region, country: row.country }
-      : undefined,
+    site: row.site ? { name: row.site, region: row.region, country: row.country } : undefined,
     buddy: row.buddy,
     notes: row.notes,
     mode: 'oc',
@@ -199,7 +231,7 @@ const normalise = (h: string) =>
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
-    .replace(/[\[\]().]/g, ' ')
+    .replace(/[[\]().]/g, ' ')
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();

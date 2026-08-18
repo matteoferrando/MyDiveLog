@@ -47,9 +47,7 @@ function archive(
       minTempC: s.spec.minTempC,
       site: { name: s.spec.siteName },
       mode: 'oc',
-      cylinders: [
-        { mix: AIR, sizeL: s.spec.tankSizeL, startBar: s.spec.startBar, endBar: s.endBar },
-      ],
+      cylinders: [{ mix: AIR, sizeL: s.spec.tankSizeL, startBar: s.spec.startBar, endBar: s.endBar }],
       salinity: 'salt',
       source: { format: 'uddf', file: 'synth', importedAt: new Date(NOW).toISOString() },
       tags: [],
@@ -164,13 +162,15 @@ describe('piano di miglioramento', () => {
   });
 });
 
-describe('preparazione all\'obiettivo', () => {
+describe("preparazione all'obiettivo", () => {
   it('un archivio scarso non è pronto per il tecnico', () => {
     const dives = archive(8, { maxDepth: 18 });
     const plan = buildPlan(dives, aggregate(dives, NOW), 'tec');
-    expect(plan.readiness.score).toBeLessThan
-      ? expect(plan.readiness.score).toBeLessThan(0.7)
-      : undefined;
+    // Era scritto come un ternario su `expect(...).toBeLessThan`, cioè su una
+    // condizione sempre vera: l'asserzione girava lo stesso, ma la forma
+    // suggeriva un dubbio che non c'era e nascondeva il fatto che il ramo `else`
+    // non asseriva niente.
+    expect(plan.readiness.score).toBeLessThan(0.7);
     expect(plan.readiness.items.some((i) => !i.met)).toBe(true);
   });
 
@@ -203,7 +203,7 @@ describe('debrief di una singola immersione', () => {
     expect(indices).toEqual([...indices].sort((a, b) => a - b));
   });
 
-  it('riconosce un\'immersione ben eseguita', () => {
+  it("riconosce un'immersione ben eseguita", () => {
     const dives = archive(1, { ascentRateMpm: 8, safetyStopS: 300, rmvLpm: 15, wobbleM: 0.2 });
     const obs = debriefDive(dives[0]);
     expect(obs.every((o) => o.severity === 'good')).toBe(true);
@@ -230,7 +230,14 @@ describe('analisi aggiuntive sull’archivio', () => {
   });
 
   it('la correlazione tace sotto le cinque coppie', () => {
-    expect(correlation([{ x: 1, y: 1 }, { x: 2, y: 2 }, { x: 3, y: 3 }, { x: 4, y: 4 }])).toBeUndefined();
+    expect(
+      correlation([
+        { x: 1, y: 1 },
+        { x: 2, y: 2 },
+        { x: 3, y: 3 },
+        { x: 4, y: 4 },
+      ]),
+    ).toBeUndefined();
     expect(correlation([1, 2, 3, 4, 5, 6].map((v) => ({ x: v, y: v })))).toBe(1);
     expect(correlation([1, 2, 3, 4, 5, 6].map((v) => ({ x: v, y: -v })))).toBe(-1);
   });
@@ -247,7 +254,11 @@ describe('analisi aggiuntive sull’archivio', () => {
       dive({ avgDepth: undefined, metrics: { rmvLpm: 19 } as Dive['metrics'] }),
       dive({ avgDepth: 22, metrics: undefined }),
     ];
-    const pairs = pairsOf(dives, (d) => d.avgDepth, (d) => d.metrics?.rmvLpm);
+    const pairs = pairsOf(
+      dives,
+      (d) => d.avgDepth,
+      (d) => d.metrics?.rmvLpm,
+    );
     expect(pairs).toHaveLength(1);
     expect(pairs[0]).toMatchObject({ x: 20, y: 18 });
   });
@@ -264,9 +275,21 @@ describe('analisi aggiuntive sull’archivio', () => {
       // non da quello del computer: è l'unico che esiste su tutte le immersioni
       // con un profilo, quindi l'unico su cui una media per periodo non abbia
       // buchi a seconda di quale strumento ha scritto il file.
-      dive({ startTime: '2025-05-31T10:00:00Z', computer: { gfLow: 45, gfHigh: 95 }, metrics: { gf99Pct: 67 } as Dive['metrics'] }),
-      dive({ startTime: '2025-07-05T10:00:00Z', computer: { gfLow: 45, gfHigh: 95 }, metrics: { gf99Pct: 71 } as Dive['metrics'] }),
-      dive({ startTime: '2026-03-08T10:00:00Z', computer: { gfLow: 20, gfHigh: 85 }, metrics: { gf99Pct: 60 } as Dive['metrics'] }),
+      dive({
+        startTime: '2025-05-31T10:00:00Z',
+        computer: { gfLow: 45, gfHigh: 95 },
+        metrics: { gf99Pct: 67 } as Dive['metrics'],
+      }),
+      dive({
+        startTime: '2025-07-05T10:00:00Z',
+        computer: { gfLow: 45, gfHigh: 95 },
+        metrics: { gf99Pct: 71 } as Dive['metrics'],
+      }),
+      dive({
+        startTime: '2026-03-08T10:00:00Z',
+        computer: { gfLow: 20, gfHigh: 85 },
+        metrics: { gf99Pct: 60 } as Dive['metrics'],
+      }),
     ];
     const periods = settingsPeriods(dives);
     expect(periods).toHaveLength(2);
@@ -359,7 +382,7 @@ describe('ripetitive', () => {
     expect(agg.repetitiveCostMedian).toBeUndefined();
     expect(buildPlan([], agg).findings.some((f) => f.id.startsWith('repetitive'))).toBe(false);
   });
-})
+});
 
 /**
  * Una grandezza, una mediana.
