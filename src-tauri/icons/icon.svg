@@ -1,0 +1,60 @@
+<!--
+  Il marchio di MyDiveLog: il profilo di un'immersione.
+
+  Non una maschera, non una bombola, non una bandiera sub. Il profilo è la cosa
+  che questa app fa e che le altre non fanno bene: discesa, tempo sul fondo,
+  sosta di sicurezza, risalita — leggibile come sagoma anche a 16 px, dove
+  qualunque disegno di attrezzatura diventa una macchia.
+
+  Due regole di costruzione, le stesse del grafico dentro l'app:
+  - il riempimento sta FRA la superficie e la traccia (la colonna d'acqua che il
+    subacqueo ha attraversato), e va dal chiaro in superficie allo scuro in
+    profondità;
+  - il punto bianco marca la sosta di sicurezza: è l'unico dettaglio, e in un
+    logbook che misura la disciplina è il dettaglio giusto.
+-->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="water" x1="512" y1="0" x2="512" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1c5c9e" />
+      <stop offset="0.52" stop-color="#123d71" />
+      <stop offset="1" stop-color="#07203c" />
+    </linearGradient>
+    <linearGradient id="column" x1="512" y1="318" x2="512" y2="792" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9fcbfa" stop-opacity="0.42" />
+      <stop offset="1" stop-color="#9fcbfa" stop-opacity="0.04" />
+    </linearGradient>
+    <clipPath id="card">
+      <rect width="1024" height="1024" rx="228" />
+    </clipPath>
+  </defs>
+
+  <rect width="1024" height="1024" rx="228" fill="url(#water)" />
+
+  <g clip-path="url(#card)">
+    <!-- La colonna d'acqua attraversata: chiude sulla superficie, non sul fondo. -->
+    <path
+      d="M150 318 L352 756 L566 756 L694 536 L792 536 L878 330 L878 318 L150 318 Z"
+      fill="url(#column)"
+    />
+
+    <!--
+      La traccia. Estremi a taglio netto e non arrotondati: con la punta tonda la
+      traccia sporgeva SOPRA la superficie, che è la cosa che un profilo non fa.
+      La riga della superficie viene disegnata dopo, e copre il taglio.
+    -->
+    <path
+      d="M150 318 L352 756 L566 756 L694 536 L792 536 L878 330"
+      stroke="#9ac6f8"
+      stroke-width="80"
+      stroke-linecap="butt"
+      stroke-linejoin="round"
+    />
+
+    <!-- La superficie: una riga sola, piena, il riferimento di tutto il resto. -->
+    <rect x="128" y="302" width="768" height="32" rx="16" fill="#ffffff" fill-opacity="0.96" />
+
+    <!-- La sosta di sicurezza. -->
+    <circle cx="694" cy="536" r="60" fill="#ffffff" />
+  </g>
+</svg>

@@ -1,0 +1,558 @@
+/**
+ * Modello canonico delle immersioni.
+ *
+ * Regola d'oro del progetto: OGNI parser converte nel modello qui sotto e in
+ * QUESTE unità. Nessuna unità imperiale, nessun millimetro, nessun Pascal
+ * sopravvive all'import. Le conversioni stanno tutte in `units.ts`.
+ *
+ *   profondità .... metri              (numero reale, positivo verso il basso)
+ *   tempo ......... secondi            (interi, dall'inizio dell'immersione)
+ *   pressione ..... bar
+ *   temperatura ... gradi Celsius
+ *   volume ........ litri
+ *   frazioni gas .. 0..1               (0.21 = 21% O2, NON 21)
+ *
+ * Questo file non importa nulla: è condiviso senza modifiche fra desktop
+ * (Tauri/macOS), iOS e web.
+ */
+
+export type SourceFormat =
+  | 'uddf'
+  | 'subsurface'
+  | 'shearwater-xml'
+  | 'shearwater-cloud'
+  | 'garmin-fit'
+  | 'logtrak'
+  | 'csv';
+
+export type DiveMode = 'oc' | 'ccr' | 'scr' | 'gauge' | 'freedive';
+
+export type Salinity = 'salt' | 'fresh';
+
+/** Miscela respiratoria. Frazioni 0..1. Il resto è azoto. */
+export interface GasMix {
+  o2: number;
+  he: number;
+}
+
+export interface Cylinder {
+  /** Etichetta libera: "D12 200", "S80", "stage 40%". */
+  description?: string;
+  /**
+   * Materiale, quando la fonte lo dichiara. Non è un dettaglio da inventario:
+   * acciaio e alluminio hanno assetto diverso a bombola vuota, ed è una delle
+   * spiegazioni possibili di un'oscillazione che peggiora verso la fine.
+   */
+  material?: 'steel' | 'alu' | 'carbon';
+  /** Volume d'acqua in litri (12 = bombola da 12 L). */
+  sizeL?: number;
+  workPressureBar?: number;
+  startBar?: number;
+  endBar?: number;
+  mix: GasMix;
+}
+
+/**
+ * Un campione del profilo. Tutti i campi oltre `t` e `depth` sono opzionali:
+ * dipende da cosa il computer registra e da cosa il formato di export salva.
+ */
+export interface Sample {
+  /** Secondi dall'inizio dell'immersione. */
+  t: number;
+  /** Metri. */
+  depth: number;
+  tempC?: number;
+  /** Pressione per bombola, indicizzata come `Dive.cylinders`. bar. */
+  pressureBar?: (number | undefined)[];
+  /** No-deco limit residuo, secondi. */
+  ndlS?: number;
+  /** Time to surface, secondi. */
+  ttsS?: number;
+  /** Profondità della prossima tappa deco, metri (0 = nessuna). */
+  stopDepth?: number;
+  /** Durata della prossima tappa deco, secondi. */
+  stopTimeS?: number;
+  /** Tetto di decompressione calcolato dal computer, metri. */
+  ceiling?: number;
+  inDeco?: boolean;
+  /** Percentuale CNS, 0..100+. */
+  cns?: number;
+  /** PPO2 in bar (misurata o media celle). */
+  ppo2?: number;
+  /** Setpoint CCR in bar. */
+  setpoint?: number;
+  /**
+   * Tempo di fondo residuo secondo il computer, minuti: quanto puoi restare a
+   * questa profondità prima che la bombola scenda alla riserva. Lo calcolano solo
+   * i computer con il trasmettitore collegato, e non è la stessa cosa dell'NDL —
+   * quello è il limite della decompressione, questo è il limite del gas.
+   */
+  rbtMin?: number;
+  /** Rilevamento della bussola, gradi. */
+  bearing?: number;
+  /** Indice in `Dive.cylinders` del gas respirato in questo istante. */
+  gasIndex?: number;
+  heartRate?: number;
+}
+
+/** Un istante marcato dal subacqueo durante l'immersione. */
+export interface DiveEvent {
+  /** Secondi dall'inizio. */
+  t: number;
+  /** Rilevamento della bussola al momento del segnalibro, gradi. */
+  bearing?: number;
+  /** Etichetta o valore numerico che il computer associa al segnalibro. */
+  label?: string;
+}
+
+export interface DiveSite {
+  name: string;
+  region?: string;
+  country?: string;
+  lat?: number;
+  lon?: number;
+}
+
+export interface ComputerInfo {
+  model?: string;
+  serial?: string;
+  /** Identificativo del dispositivo così come lo scrive il formato sorgente. */
+  deviceId?: string;
+  /** Identificativo dell'immersione assegnato dal computer: chiave di dedup forte. */
+  diveId?: string;
+  firmware?: string;
+  decoModel?: string;
+  /**
+   * Gradient factor IMPOSTATI sul computer per questa immersione.
+   *
+   * Non sono un dettaglio da collezionisti: il GF99 all'uscita e l'obbligo
+   * decompressivo che il computer ha mostrato dipendono da questi due numeri.
+   * Confrontare la disciplina in risalita fra due immersioni fatte con
+   * impostazioni diverse senza saperlo porta a conclusioni sbagliate.
+   */
+  gfLow?: number;
+  gfHigh?: number;
+  /** Conservatorismo, per i modelli VPM-B. */
+  conservatism?: number;
+  /** Densità dell'acqua impostata sul computer, kg/m³ (1000 = dolce). */
+  waterDensityKgM3?: number;
+  /** Passo di campionamento del computer, secondi. */
+  sampleIntervalS?: number;
+  /** Versione del formato di log: serve a sapere quali campi aspettarsi. */
+  logVersion?: number;
+  /** Stato dell'integrazione aria, come lo descrive il computer. */
+  aiMode?: string;
+  /** Limiti di PPO2 impostati sul computer, bar. */
+  ppo2MaxBar?: number;
+  ppo2MinBar?: number;
+  /** Versione hardware, quando la fonte la dichiara. */
+  hwVersion?: string;
+  /** Modalità impostata: circuito aperto ricreativo/tecnico, CCR, gauge, apnea. */
+  computerMode?: string;
+}
+
+/**
+ * Valori di sintesi che il COMPUTER ha calcolato, tenuti separati dalle nostre
+ * `DiveMetrics`.
+ *
+ * La separazione è il punto: un tetto di decompressione letto dal computer e uno
+ * dedotto da noi dal profilo sono due cose diverse, e mostrarli nella stessa
+ * colonna renderebbe impossibile distinguerli. Qui dentro c'è solo ciò che è
+ * stato letto, mai ciò che è stato calcolato.
+ */
+export interface ReportedSummary {
+  /**
+   * GF99 all'uscita: quanto il subacqueo era sovrasaturo rispetto al gradiente
+   * ammesso, in percentuale, nel momento in cui è arrivato in superficie.
+   * Lo calcolano i computer Shearwater; nessun altro formato qui supportato lo dà.
+   */
+  gf99End?: number;
+  /** Obbligo decompressivo massimo incontrato, secondi. */
+  maxDecoObligationS?: number;
+  /** NDL minimo raggiunto, secondi. */
+  minNdlS?: number;
+  /** Consumo medio dichiarato dal computer, bar/min o L/min secondo la fonte. */
+  avgSac?: string;
+}
+
+export interface SourceInfo {
+  format: SourceFormat;
+  /** Nome del file importato, per tracciabilità. */
+  file: string;
+  /** ISO 8601. */
+  importedAt: string;
+}
+
+export interface Dive {
+  /** Hash stabile e deterministico: reimportare lo stesso file dà lo stesso id. */
+  id: string;
+  /**
+   * Quando questo record è cambiato l'ultima volta, ISO 8601.
+   *
+   * Serve alla sincronizzazione per decidere quale versione vince quando la
+   * stessa immersione è stata toccata su due dispositivi. Lo scrive chi modifica
+   * — import, modifica manuale, merge — e NON viene riscritto quando il record
+   * arriva da remoto, altrimenti ogni sincronizzazione sembrerebbe una modifica.
+   */
+  updatedAt?: string;
+  /** Numero progressivo dal computer/logbook sorgente. */
+  number?: number;
+  /** ISO 8601 con offset. Inizio immersione. */
+  startTime: string;
+  /**
+   * Offset del fuso orario nel LUOGO dell'immersione, in minuti.
+   *
+   * Serve per mostrare l'ora che il computer subacqueo mostrava. Senza questo
+   * campo un'immersione fatta alle 9 del mattino in Mar Rosso apparirebbe alle 8
+   * a chi guarda il logbook dall'Italia, che per un logbook è un errore: l'orario
+   * di un'immersione è quello del posto in cui l'hai fatta.
+   */
+  utcOffsetMinutes?: number;
+  durationS: number;
+  maxDepth: number;
+  avgDepth?: number;
+  minTempC?: number;
+  airTempC?: number;
+  site?: DiveSite;
+  buddy?: string;
+  notes?: string;
+  mode: DiveMode;
+  cylinders: Cylinder[];
+  salinity?: Salinity;
+  surfacePressureBar?: number;
+  /** Intervallo di superficie dall'immersione precedente, secondi. */
+  surfaceIntervalS?: number;
+  computer?: ComputerInfo;
+  /**
+   * Gli altri computer che hanno registrato la stessa immersione.
+   *
+   * `computer` è quello da cui viene il profilo tenuto; questi sono gli altri, con
+   * le loro impostazioni. Un Aladin dichiara i limiti di PPO2 e un Peregrine i
+   * gradient factor: sono dati diversi sullo stesso tuffo, e tenere solo il
+   * computer "vincente" ne butterebbe via metà.
+   */
+  otherComputers?: ComputerInfo[];
+  /** La fonte da cui questo record è nato. */
+  source: SourceInfo;
+  /**
+   * Le altre fonti che hanno contribuito, quando la stessa immersione è arrivata
+   * da più file (vedi `dedupe.ts`).
+   *
+   * Serve perché senza questo campo un'immersione fusa da LogTRAK e da Shearwater
+   * mostra una sola provenienza, e sembra che i dati dell'altro computer non siano
+   * entrati. Sono entrati: questo elenco lo rende verificabile.
+   */
+  extraSources?: SourceInfo[];
+  /** 1..5, dal logbook sorgente se presente. */
+  rating?: number;
+  /** Visibilità in metri se il formato la esprime così. */
+  visibilityM?: number;
+  /**
+   * Zavorra usata, chilogrammi. La teniamo perché la sovra-zavorra è la prima
+   * causa di assetto instabile e di consumo alto: avere il peso accanto
+   * all'oscillazione misurata rende il consiglio verificabile.
+   */
+  weightKg?: number;
+  /** Muta o sistema di protezione termica, come dichiarato dal logbook di origine. */
+  suit?: string;
+  /**
+   * Annotazioni del logbook di origine che non hanno un posto nel modello:
+   * carico di lavoro, comfort termico, tipo di uscita, problemi riscontrati.
+   *
+   * Un sacchetto libero invece di un campo per ciascuna, e non per pigrizia:
+   * ogni produttore ne inventa di proprie, e mappare a forza "ThermalComfort:
+   * Cool" in un campo nostro significherebbe scegliere una scala che non è la
+   * loro. Così il dato arriva intatto e la scheda lo mostra come lo ha scritto
+   * chi lo ha registrato.
+   */
+  annotations?: Record<string, string>;
+  /** Valori di sintesi letti dal computer, distinti da quelli calcolati da noi. */
+  reported?: ReportedSummary;
+  /**
+   * Segnalibri e rilevamenti registrati durante l'immersione premendo un tasto sul
+   * computer. Sono gli unici dati del profilo messi lì dal subacqueo e non dal
+   * sensore: marcano il punto in cui è successo qualcosa.
+   */
+  events?: DiveEvent[];
+  tags: string[];
+  /**
+   * Profilo. Staccato dallo storage: la lista del logbook non lo carica mai,
+   * la scheda immersione sì. Vedi `storage/types.ts`.
+   *
+   * Quando la stessa immersione arriva da due computer, questo è il profilo con
+   * più CANALI — quello che porta tetto di decompressione, NDL, TTS, CNS.
+   */
+  samples?: Sample[];
+  /**
+   * Il secondo profilo, quando due computer hanno registrato la stessa immersione
+   * e il perdente è più FITTO del vincente.
+   *
+   * Non è una copia di scorta: serve a misurare. L'oscillazione d'assetto dipende
+   * dalla densità di campionamento, e sui dati reali di questo archivio un profilo
+   * a 10 s la legge un terzo più bassa di uno a 4 s sulla stessa immersione. Se le
+   * immersioni recenti usassero il profilo rado e quelle vecchie quello fitto, la
+   * tendenza dell'assetto mostrerebbe un miglioramento che è solo un cambio di
+   * strumento. Con entrambi i profili in archivio, le metriche che dipendono dalla
+   * risoluzione si calcolano sempre sul più fitto disponibile.
+   */
+  altSamples?: Sample[];
+  /** Calcolato da `analysis/metrics.ts`, salvato per non ricalcolare ogni volta. */
+  metrics?: DiveMetrics;
+}
+
+/** Le tre fasi in cui l'analisi divide un'immersione. */
+export interface DivePhases {
+  descentEndS: number;
+  ascentStartS: number;
+  /** Secondi. */
+  descentS: number;
+  bottomS: number;
+  ascentS: number;
+}
+
+export interface DiveMetrics {
+  /**
+   * Profondità media pesata sul tempo, metri.
+   *
+   * `undefined` quando non è ricavabile: senza profilo campionato e senza un
+   * valore dichiarato dal computer non esiste. Stimarla come metà della
+   * profondità massima sarebbe comodo e sbagliato — e siccome il consumo si
+   * calcola da qui, un'ipotesi qui diventa un consumo credibile e falso.
+   */
+  avgDepth?: number;
+  /** Pressione ambiente media durante l'immersione, in ATA. `undefined` se la media è ignota. */
+  avgAta?: number;
+  phases: DivePhases;
+
+  // --- consumo gas ---
+  /** Consumo di superficie (Respiratory Minute Volume), L/min. */
+  rmvLpm?: number;
+  /** SAC in bar/min sulla bombola principale (dipende dalla bombola: meno confrontabile). */
+  sacBarPerMin?: number;
+  /** Pressione a fine immersione sulla bombola principale, bar. */
+  endPressureBar?: number;
+  /** Frazione di gas rimasta: 50/200 = 0.25. */
+  reserveFraction?: number;
+
+  // --- controllo verticale ---
+  /** Velocità media di discesa, m/min. */
+  descentRateMpm?: number;
+  /** Velocità media di risalita nella fase finale, m/min. */
+  ascentRateMpm?: number;
+  /** Picco di risalita su finestra mobile di 30 s, m/min. */
+  maxAscentRateMpm?: number;
+  /** Secondi passati a risalire oltre 10 m/min. */
+  fastAscentS: number;
+  /** Secondi passati a risalire oltre 6 m/min sopra i 10 m (la zona che conta). */
+  fastShallowAscentS: number;
+
+  // --- assetto ---
+  /**
+   * Metri verticali percorsi per minuto nei tratti in cui il subacqueo TIENE la
+   * quota (esclusi discesa, risalita e ogni transito), al netto dello spostamento
+   * voluto in ciascun tratto.
+   *
+   * Proxy diretto del controllo d'assetto: chi tiene la quota sta sotto 2 m/min.
+   * Il nome resta `bottom...` per compatibilità con gli archivi già salvati.
+   */
+  bottomVerticalTravelMpm?: number;
+  /** Deviazione standard della profondità nei tratti a quota tenuta, metri. */
+  bottomDepthStdM?: number;
+  /** Secondi su cui la misura d'assetto è stata calcolata (quota tenuta, non transito). */
+  holdingS?: number;
+
+  // --- sicurezza / deco ---
+  /** Secondi nella finestra 3-6 m durante la risalita finale. */
+  safetyStopS: number;
+  didSafetyStop: boolean;
+  /** Secondi con obbligo deco attivo. */
+  decoS: number;
+  /** Secondi in cui la profondità era inferiore al tetto (violazione). */
+  ceilingViolationS: number;
+  maxCeilingM?: number;
+  cnsEndPct?: number;
+
+  // --- esposizione ---
+  minTempC?: number;
+  /** Frazione massima di O2 respirata e relativa PPO2 di picco, bar. */
+  maxPpo2?: number;
+  /** Profondità equivalente in aria alla massima profondità, metri (solo trimix). */
+  endM?: number;
+  /**
+   * Percentuale dell'orologio CNS accumulata in questa immersione, con i limiti
+   * NOAA per singola esposizione. È un valore CALCOLATO da noi dal profilo: il
+   * `cnsEndPct` qui sopra è invece quello che ha scritto il computer, con il suo
+   * modello. Divergono, e vanno mostrati separati.
+   */
+  cnsPct?: number;
+  /** OTU accumulate, dose polmonare cumulativa. */
+  otu?: number;
+  /** Minuti passati sopra 1.4 e sopra 1.6 bar di PPO2. */
+  minutesAbovePpo214?: number;
+  minutesAbovePpo216?: number;
+  /**
+   * Velocità media sull'ULTIMO tratto, dalla sosta di sicurezza alla superficie.
+   *
+   * Esiste come metrica a sé perché la finestra mobile di 30 secondi la nasconde:
+   * cinque metri percorsi a 30 m/min durano dieci secondi, e dentro una finestra
+   * di trenta si diluiscono in un valore innocuo. È il tratto in cui DAN misura
+   * una media reale di 60 m/min (TDI Advanced Nitrox p. 38), cioè il difetto di
+   * comportamento più diffuso e insieme il meno visibile.
+   */
+  finalAscentRateMpm?: number;
+  /** Da che profondità è partito quel tratto finale, metri. */
+  finalAscentFromM?: number;
+  /** Secondi passati in sosta profonda, attorno a metà della profondità massima. */
+  deepStopS: number;
+  /** A che profondità è stata fatta, metri. */
+  deepStopDepthM?: number;
+  /**
+   * Metri verticali "sprecati" in ridiscese dopo essere già risaliti, per ora di
+   * immersione: l'indice del profilo a dente di sega, che la didattica dice di
+   * evitare senza darne una soglia numerica. Va letto in relativo, confrontandolo
+   * con le proprie immersioni, non contro un limite.
+   */
+  sawtoothMPerHour?: number;
+  /**
+   * Di quanti metri la prima metà dell'immersione è più profonda della seconda.
+   *
+   * Positivo è il verso raccomandato («deeper portion first»). Esiste come numero
+   * e non solo come `deepestPartFirst` perché due metri di differenza e venti non
+   * sono la stessa cosa, e un booleano li appiattiva sullo stesso giudizio.
+   */
+  depthTrendM?: number;
+  /** Vero se la parte profonda dell'immersione viene per prima, come si raccomanda. */
+  deepestPartFirst?: boolean;
+  /** PPO2 minima respirata, bar: conta sui rebreather e sulle miscele ipossiche. */
+  minPpo2?: number;
+  /**
+   * Cambi di gas fatti a una profondità superiore alla MOD del gas su cui si è
+   * passati. È un errore grave e verificabile a posteriori.
+   */
+  badGasSwitches: number;
+
+  // --- saturazione, dal nostro Bühlmann ---
+  /**
+   * GF99 all'uscita calcolato da noi, percentuale.
+   *
+   * Distinto da `reported.gf99End`, che è quello scritto dal computer: modelli
+   * diversi, numeri diversi, e vanno letti separati. Questo però c'è su TUTTE le
+   * immersioni con un profilo, anche quelle di computer che il GF99 non lo
+   * scrivono, ed è calcolato tenendo conto del carico residuo dalla precedente.
+   * Validato contro Shearwater su 38 immersioni: scarto medio 0.8 punti.
+   */
+  gf99Pct?: number;
+  /** Il GF99 più alto toccato durante l'immersione, non solo all'uscita. */
+  gf99MaxPct?: number;
+  /**
+   * Azoto in eccesso all'ingresso rispetto all'equilibrio in superficie, bar.
+   *
+   * Presente solo sulle ripetitive. Non è un GF99 d'ingresso: a un bar di
+   * pressione non si è sovrasaturi quasi mai, ma l'azoto in più c'è, e si paga
+   * riscendendo.
+   */
+  residualN2Bar?: number;
+  /**
+   * Quanto sarebbe uscita questa stessa immersione partendo da tessuti puliti.
+   *
+   * La differenza con `gf99Pct` è il prezzo dell'intervallo di superficie, ed è
+   * l'unico modo di dire una cosa comprensibile sul carico residuo.
+   */
+  gf99CleanPct?: number;
+  /** Compartimento che comandava all'uscita, 1-16. Basso = tessuto veloce. */
+  leadingCompartment?: number;
+  /** Minuti di superficie dalla precedente. Assente se la catena parte qui. */
+  surfaceIntervalMin?: number;
+  /**
+   * Azoto ed elio nei sedici compartimenti a fine immersione, bar.
+   *
+   * Serve a incatenare la ripetitiva successiva senza rileggere questo profilo.
+   * Sta dentro `metrics` di proposito: la sincronizzazione esclude le metriche dal
+   * digest, quindi ricalcolarle non fa rispedire l'archivio intero.
+   */
+  tissuesEnd?: { n2: number[]; he: number[] };
+
+  /** Qualità del dato: quali metriche sono affidabili. */
+  quality: MetricQuality;
+}
+
+export interface MetricQuality {
+  /** Numero di campioni usati. */
+  sampleCount: number;
+  /** Intervallo medio fra campioni, secondi. Sopra 20 s le velocità sono grossolane. */
+  sampleIntervalS: number;
+  hasProfile: boolean;
+  hasTankPressure: boolean;
+  hasCylinderVolume: boolean;
+  hasCeiling: boolean;
+  /**
+   * Passo del profilo su cui sono state calcolate le metriche che dipendono dalla
+   * risoluzione (assetto, velocità verticali), secondi. Può essere diverso da
+   * `sampleIntervalS` quando l'immersione ha due profili e il più fitto è il
+   * secondo: è il dato che rende confrontabili fra loro immersioni registrate da
+   * computer con passi diversi.
+   */
+  ratesIntervalS: number;
+  /** Vero se le velocità vengono dal secondo profilo, più fitto del principale. */
+  ratesFromAlt: boolean;
+  /** Note leggibili sui limiti del calcolo, mostrate nella UI. */
+  caveats: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Costanti di dominio. Cambiare qui, non nel codice di analisi.
+// ---------------------------------------------------------------------------
+
+export const AIR: GasMix = { o2: 0.21, he: 0 };
+
+export const LIMITS = {
+  /** Velocità di risalita massima raccomandata sotto i 10 m, m/min. */
+  ascentRateDeepMpm: 10,
+  /** Velocità di risalita massima raccomandata sopra i 10 m, m/min. */
+  ascentRateShallowMpm: 6,
+  /** Velocità di discesa oltre cui si parla di discesa "in caduta", m/min. */
+  descentRateMpm: 20,
+  /**
+   * Durata minima di una sosta di sicurezza per considerarla fatta, secondi.
+   *
+   * Tre minuti, non due e mezzo: «the traditional shallow safety stop would also
+   * be conducted for three to five minutes» (TDI Advanced Nitrox 2013, p. 76). La
+   * soglia precedente di 150 s era più permissiva del manuale e faceva risultare
+   * completa una sosta che la didattica considera corta.
+   */
+  safetyStopMinS: 180,
+  /** Durata piena raccomandata: il limite superiore della fascia 3-5 minuti. */
+  safetyStopFullS: 300,
+  /**
+   * Sosta profonda: la regola pratica è a metà della profondità massima per uno o
+   * due minuti (TDI Advanced Nitrox 2013, pp. 75-76; il metodo Pyle in cinque
+   * passi è in Decompression Procedures 2011, p. 70). La fascia è larga perché
+   * nessuno la centra al metro, e la durata minima è un minuto.
+   */
+  deepStopBandFraction: [0.4, 0.6] as [number, number],
+  deepStopMinS: 60,
+  /**
+   * Sotto questa PPO2 la miscela è pericolosa, sopra i 0.12 ata è potenzialmente
+   * fatale (TDI Advanced Nitrox p. 30). Riguarda i rebreather e le miscele
+   * ipossiche: su circuito aperto con aria non si raggiunge.
+   */
+  minPpo2Hazardous: 0.16,
+  minPpo2Fatal: 0.12,
+  /**
+   * Velocità media che DAN misura sul tratto dopo la sosta di sicurezza
+   * (TDI Advanced Nitrox p. 38). Non è un limite raccomandato: è il
+   * comportamento reale misurato, e serve come termine di paragone.
+   */
+  danFinalAscentMpm: 60,
+  /** Oltre questa frazione di ossigeno serve attrezzatura pulita per l'ossigeno (p. 55). */
+  o2CleanThreshold: 0.4,
+  safetyStopBandM: [3, 6] as [number, number],
+  /** Riserva minima a fine immersione, bar. */
+  minReserveBar: 50,
+  /** Soglia di buon assetto: metri verticali per minuto a quota tenuta. */
+  goodTrimMpm: 2,
+  /** PPO2 massima in fase di fondo, bar. */
+  maxPpo2Bottom: 1.4,
+  /** PPO2 massima in deco, bar. */
+  maxPpo2Deco: 1.6,
+} as const;

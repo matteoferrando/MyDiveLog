@@ -1,0 +1,26 @@
+# Dipendenze e prodotti di compilazione
+node_modules
+dist
+dist-ssr
+.vite
+coverage
+src-tauri/target
+src-tauri/gen
+
+# Roba del sistema e dell'editor
+.DS_Store
+*.local
+
+# Le schermate le rigenera `npm run screenshot`: sono un prodotto, non una fonte.
+screenshots/
+
+# L'ARCHIVIO REALE DI MATTEO. Non entra nel repository per nessun motivo: è il
+# suo logbook, con date, luoghi, compagni e coordinate. Serve solo a
+# `npm run validate:gf`, che è una verifica che si fa su questa macchina.
+test.db
+*.db-journal
+*.db-wal
+
+# Log di sviluppo e cartella di scarto: transitori, non storia del progetto.
+_dev.log
+_to_delete/

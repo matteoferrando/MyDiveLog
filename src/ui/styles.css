@@ -1,0 +1,946 @@
+/*
+ * Token di design.
+ *
+ * La palette dei grafici è validata: le tre tinte categoriche usate (blu,
+ * arancio, verde-acqua) superano i controlli di separazione per daltonismo su
+ * tutte le coppie, in chiaro e in scuro. Il verde-acqua in modalità chiara ha
+ * contrasto 2.74:1 sulla superficie, sotto la soglia di 3:1 — per questo ogni
+ * grafico che lo usa porta SEMPRE etichette dirette o legenda visibile: il
+ * colore non è mai l'unico canale di identità.
+ *
+ * Le versioni scure non sono un'inversione automatica: sono passi scelti per
+ * la superficie scura e validati separatamente.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --surface-1: #fcfcfb;
+  --surface-2: #f9f9f7;
+  --surface-3: #f2f2ee;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  /* 5.0:1 sulla superficie chiara: il grigio precedente (#898781) stava a 3.5 e
+     su questi caratteri da 11-12 px non si leggeva contro luce. */
+  --text-muted: #6f6d67;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+  --border-strong: rgba(11, 11, 11, 0.18);
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-1-wash: rgba(42, 120, 214, 0.12);
+  --series-2-wash: rgba(235, 104, 52, 0.12);
+  --seq-100: #cde2fb;
+  --seq-250: #86b6ef;
+  --seq-450: #2a78d6;
+  --seq-600: #184f95;
+
+  /* 3.6:1 sul chiaro: il verde precedente (#0ca30c) stava a 2.99 sulla
+     superficie terziaria, cioè un pallino «tutto a posto» che sul chiaro
+     scompariva proprio nelle tabelle a righe alternate. */
+  --good: #0b9a0b;
+  /* Giallo e arancio scelti per la superficie CHIARA: quelli pensati per il
+     fondo scuro (#fab219, #ec835a) stavano a 1.8 e 2.6, cioè un pallino di
+     avviso che sul chiaro semplicemente non si vedeva. Le versioni brillanti
+     tornano nel blocco scuro, dove sono giuste. */
+  --warning: #b9760a;
+  --serious: #cc5c2a;
+  /* Il rosso è quasi sempre COLORE DI TESTO (bar sotto riserva, CNS oltre 100,
+     errori di sincronizzazione): serve il rapporto del testo, non quello dei
+     grafici. #d03b3b stava a 4.3 sulla superficie terziaria. */
+  --critical: #c62d2d;
+  --good-text: #006300;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgba(11, 11, 11, 0.05), 0 8px 24px rgba(11, 11, 11, 0.04);
+
+  --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) {
+    --surface-1: #1a1a19;
+    --surface-2: #0d0d0d;
+    --surface-3: #232322;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    /* Sul fondo scuro il grigio va schiarito, non riusato: #898781 su #1a1a19
+       stava a 4.4 sulla superficie intermedia. */
+    --text-muted: #9d9b94;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-strong: rgba(255, 255, 255, 0.2);
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-1-wash: rgba(57, 135, 229, 0.16);
+    --series-2-wash: rgba(217, 89, 38, 0.16);
+    --seq-100: #104281;
+    --seq-250: #184f95;
+    --seq-450: #3987e5;
+    --seq-600: #9ec5f4;
+
+    --good-text: #0ca30c;
+    --warning: #fab219;
+    --serious: #ec835a;
+    /* Sul fondo scuro il rosso chiaro è l'unico che passa: #c62d2d starebbe a
+       2.6, cioè illeggibile proprio sulle righe che segnalano un problema. */
+    --critical: #ef6b6b;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+}
+
+:root[data-theme='dark'] {
+  --surface-1: #1a1a19;
+  --surface-2: #0d0d0d;
+  --surface-3: #232322;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #9d9b94;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-1-wash: rgba(57, 135, 229, 0.16);
+  --series-2-wash: rgba(217, 89, 38, 0.16);
+  --seq-100: #104281;
+  --seq-250: #184f95;
+  --seq-450: #3987e5;
+  --seq-600: #9ec5f4;
+  --good-text: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #ef6b6b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------------------------------------------------------ shell */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: calc(10px + var(--safe-top)) 20px 10px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  /* Spazio per i semafori macOS quando la barra del titolo è trasparente. */
+  padding-left: 88px;
+}
+
+@media (max-width: 700px) {
+  .topbar {
+    padding-left: 20px;
+  }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.brand small {
+  display: block;
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.nav {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nav button:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.nav button[aria-current='page'] {
+  background: var(--surface-3);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.topbar-spacer {
+  flex: 1;
+}
+
+.main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 20px calc(32px + var(--safe-bottom));
+}
+
+.page {
+  /* 1600 e non 1100: su uno schermo da 27" la colonna stretta comprimeva il
+   * profilo di profondità a metà finestra, ed è il grafico che ha più bisogno di
+   * spazio orizzontale — un'immersione di 50 minuti in 500 px non si legge.
+   * Oltre i 1600 px il testo diventa scomodo da leggere, quindi lì si ferma. */
+  max-width: 1600px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ------------------------------------------------------------------ cards */
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+
+.card h2,
+.card h3 {
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+
+.card-sub {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.grid {
+  display: grid;
+  gap: 14px;
+}
+
+.grid-2 {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.grid-3 {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.grid-tiles {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+/* ------------------------------------------------------------------ tiles */
+
+.tile {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.tile-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: none;
+  margin-bottom: 2px;
+}
+
+.tile-value {
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.tile-note {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.hero {
+  font-size: 48px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+/* ------------------------------------------------------------------ table */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 6px 14px 6px 0;
+  border-bottom: 1px solid var(--grid);
+  white-space: nowrap;
+}
+
+td {
+  padding: 7px 14px 7px 0;
+  border-bottom: 1px solid var(--grid);
+  vertical-align: baseline;
+}
+
+/* L'ultima colonna non ha bisogno di aria a destra: la porta il bordo della carta. */
+th:last-child,
+td:last-child {
+  padding-right: 0;
+}
+
+/* Le colonne numeriche restano allineate a destra ma MANTENGONO il margine
+ * destro: senza di esso il numero si attacca all'intestazione successiva. */
+td.num,
+th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+tbody tr.clickable {
+  cursor: pointer;
+}
+
+tbody tr.clickable:hover {
+  background: var(--surface-3);
+}
+
+/* ------------------------------------------------------------------ badges */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.dot-good {
+  background: var(--good);
+}
+.dot-warning {
+  background: var(--warning);
+}
+.dot-serious {
+  background: var(--serious);
+}
+.dot-critical {
+  background: var(--critical);
+}
+
+/* ------------------------------------------------------------------ buttons */
+
+button.btn,
+label.btn {
+  appearance: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+button.btn:hover,
+label.btn:hover {
+  background: var(--surface-3);
+}
+
+button.btn-primary,
+label.btn-primary {
+  background: var(--series-1);
+  border-color: transparent;
+  color: #fff;
+}
+
+button.btn-primary:hover,
+label.btn-primary:hover {
+  filter: brightness(0.94);
+}
+
+button.btn-quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+button.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.btn-danger {
+  color: var(--critical);
+}
+
+select,
+input[type='text'],
+input[type='number'],
+input[type='search'],
+input[type='password'],
+textarea {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+/* Riga dei filtri: sempre sopra i grafici, su una riga sola. */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.filters label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ------------------------------------------------------------------ charts */
+
+.chart {
+  position: relative;
+  width: 100%;
+}
+
+.chart svg {
+  /* Nessun `width: 100%`: la larghezza arriva dall'attributo, misurata dal
+   * contenitore. Con una larghezza CSS diversa da quella del viewBox, l'SVG
+   * riscalerebbe TUTTO il disegno in proporzione — comprese le altezze — e il
+   * grafico uscirebbe dalla sua carta. */
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-key {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  z-index: 10;
+  min-width: 120px;
+  transform: translate(-50%, -100%);
+  white-space: nowrap;
+}
+
+.tooltip b {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.axis-label {
+  font-size: 10px;
+  fill: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------ coach */
+
+.finding {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.finding-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.finding h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  flex: 1;
+}
+
+.finding p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.finding ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.finding li {
+  margin-bottom: 3px;
+}
+
+.finding-section-label {
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.evidence {
+  background: var(--surface-3);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.evidence div + div {
+  margin-top: 3px;
+}
+
+.meter {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--seq-100);
+  overflow: hidden;
+}
+
+.meter > div {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--series-1);
+}
+
+.readiness-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--grid);
+  font-size: 13px;
+}
+
+.readiness-row:last-child {
+  border-bottom: 0;
+}
+
+.readiness-row .label {
+  flex: 1;
+}
+
+.readiness-row .value {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+/* ------------------------------------------------------------------ misc */
+
+.muted {
+  color: var(--text-muted);
+}
+
+.secondary {
+  color: var(--text-secondary);
+}
+
+.empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-secondary);
+}
+
+.empty h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.dropzone {
+  border: 1.5px dashed var(--axis);
+  border-radius: var(--radius);
+  padding: 32px 20px;
+  text-align: center;
+  background: var(--surface-1);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.dropzone.over {
+  border-color: var(--series-1);
+  background: var(--series-1-wash);
+}
+
+.notice {
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  font-size: 12px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-3);
+  color: var(--text-secondary);
+}
+
+.notice-error {
+  border-color: var(--critical);
+  color: var(--critical);
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.spread {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+h1.page-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.page-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Titolo dei grafici secondari, con il valore corrente a destra: l'etichetta
+ * diretta evita di dover cercare il numero sull'asse. */
+.mini-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.mini-last {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------- analisi AI */
+
+.markdown {
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: var(--text-primary);
+  /* Le analisi sono testo da leggere: una misura di riga da lettura, non la
+   * larghezza della finestra. Oltre gli 80 caratteri l'occhio perde la riga. */
+  max-width: 76ch;
+}
+
+.markdown h3 {
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 18px 0 6px;
+}
+
+.markdown h3:first-child {
+  margin-top: 0;
+}
+
+.markdown h4 {
+  font-size: 13px;
+  font-weight: 650;
+  margin: 14px 0 4px;
+}
+
+.markdown p {
+  margin: 0 0 10px;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0 0 10px;
+  padding-left: 20px;
+}
+
+.markdown li {
+  margin-bottom: 4px;
+}
+
+.markdown code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: var(--surface-3);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.markdown strong {
+  font-weight: 650;
+}
+
+/* Il testo che arriva in streaming: un cursore che lampeggia in coda dice che
+ * la risposta sta ancora arrivando, senza uno spinner che copre il testo. */
+.streaming::after {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: var(--series-1);
+  animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+.ai-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--grid);
+}
+
+/* Pulsante di un gruppo di scelta: quello attivo si distingue per riempimento,
+ * non solo per colore del testo. */
+button.btn[aria-pressed='true'] {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------- campi del pianificatore */
+
+/* Etichetta sopra, campo sotto, spiegazione in fondo: su un modulo di dodici
+ * voci l'allineamento a colonne costringe a leggere in zigzag. */
+.planner-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.planner-label {
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--text-secondary);
+}
+
+.planner-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.planner-field input[type='number'],
+.planner-field select {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Un pulsante premuto è uno stato, e non basta il colore: cambia anche il peso
+ * del bordo. */
+button[aria-pressed='true'] {
+  border-color: var(--border-strong);
+  background: var(--surface-3);
+  font-weight: 650;
+}
+
+/* Casella di spunta con la sua spiegazione: la spunta decide se un calcolo viene
+ * fatto, quindi accanto deve starci il perché, non solo l'etichetta. */
+.planner-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.planner-check input {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* La durata totale: il numero che si guarda per primo. */
+.runtime {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.runtime-parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.runtime-parts > div {
+  display: flex;
+  flex-direction: column;
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.runtime-parts small {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
