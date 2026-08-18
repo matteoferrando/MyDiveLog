@@ -101,6 +101,48 @@ await page.waitForTimeout(600);
 const diveCount = await page.locator('tbody tr').count();
 await page.screenshot({ path: 'screenshots/3-logbook.png', fullPage: true });
 
+/*
+ * Inserimento a mano, dal modulo vero.
+ *
+ * Vale la pena farlo qui e non solo nei test: i test del nucleo provano che
+ * `buildManualDive` costruisce l'immersione giusta, ma non che il modulo la
+ * salvi davvero, che l'elenco si aggiorni e che la saturazione compaia con la
+ * dichiarazione di stima. Fra le due cose c'è tutto lo stato dell'applicazione.
+ */
+await page.click('button:has-text("Nuova immersione")');
+await page.waitForTimeout(400);
+// Datata PRIMA della più vecchia dell'archivio dimostrativo: così finisce in
+// fondo all'elenco e i passi successivi continuano ad aprire la stessa
+// immersione di sempre, invece di trovarsi davanti una senza profilo.
+await page.fill('input[type=datetime-local]', '2025-09-01T10:00');
+const campo = async (etichetta, valore) => {
+  await page.locator('label', { hasText: etichetta }).first().locator('input').fill(String(valore));
+};
+await campo('Durata', 44);
+await campo('Profondità massima', 27.5);
+await campo('Profondità media', 16.4);
+await campo('Sito', 'Ricopiata dal libretto');
+await page.waitForTimeout(300);
+await page.screenshot({ path: 'screenshots/3b-nuova-immersione.png', fullPage: true });
+const avvisiNuova = await page.locator('.notice').first().innerText().catch(() => 'nessun avviso');
+await page.click('button:has-text("Salva immersione")');
+await page.waitForTimeout(900);
+const dopoInserimento = await page.locator('tbody tr').count();
+await page.screenshot({ path: 'screenshots/3c-dopo-inserimento.png', fullPage: true });
+
+// Apri quella appena inserita e leggi la carta della saturazione: deve dire che
+// i numeri sono stimati, altrimenti un GF99 ricostruito passa per misurato.
+await page.locator('tbody tr', { hasText: 'Ricopiata dal libretto' }).first().click();
+await page.waitForTimeout(900);
+const saturazioneStimata = await page
+  .locator('.card', { hasText: 'Saturazione' })
+  .first()
+  .innerText()
+  .catch(() => 'CARTA SATURAZIONE MANCANTE');
+await page.screenshot({ path: 'screenshots/3d-saturazione-stimata.png', fullPage: true });
+await page.click('button:has-text("Logbook")');
+await page.waitForTimeout(600);
+
 // Apri la prima immersione.
 await page.locator('tbody tr').first().click();
 await page.waitForTimeout(900);
@@ -291,7 +333,9 @@ for (const tab of ['Logbook', 'Statistiche', 'Coach', 'Gas', 'Confronta', 'Attre
 await browser.close();
 server.close();
 console.log('IMPORT SUMMARY:\n' + summary);
-console.log('DIVE ROWS:', diveCount);
+console.log('DIVE ROWS:', diveCount, '→ dopo inserimento a mano:', dopoInserimento);
+console.log('AVVISI DEL MODULO:\n' + avvisiNuova.slice(0, 400));
+console.log('SATURAZIONE STIMATA:\n' + saturazioneStimata.slice(0, 700));
 console.log('SYNC CARD:\n' + syncMessage);
 console.log('AI CARD:\n' + aiCard);
 console.log('GAS CONSUMO:\n' + gasTiles);

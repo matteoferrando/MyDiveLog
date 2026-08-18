@@ -16,9 +16,29 @@
  *  - griglia e assi in tono recessivo; il dato è l'unica cosa che urla.
  *  - il colore non è mai l'unico canale: legenda o etichette dirette sempre
  *    presenti quando ci sono due o più serie.
+ *  - **ogni disegno si può anche leggere.** Un SVG senza nome accessibile è, per
+ *    chi usa uno screen reader, un buco nella pagina: metà di questa applicazione
+ *    sono grafici, e senza nome e descrizione quella metà semplicemente non
+ *    esiste. Quindi ogni grafico porta `role="img"`, un `aria-label` che dice CHE
+ *    COSA mostra, e una descrizione CALCOLATA dai dati veri — mai una frase
+ *    scritta a mano, che il giorno dopo descrive un grafico diverso da quello
+ *    disegnato. Dove la tabella è corta, accanto al disegno c'è anche la tabella
+ *    equivalente, invisibile ma leggibile.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
+// Il coefficiente di Pearson è già scritto e già testato in `analysis`: riscriverlo
+// qui darebbe due implementazioni che possono divergere, e la descrizione a voce
+// direbbe un numero diverso da quello stampato accanto al grafico.
+import { correlation } from '../../core/analysis/aggregate';
 
 // ---------------------------------------------------------------------------
 // Misura del contenitore: serve per disegnare in pixel reali invece di
@@ -114,6 +134,394 @@ export function Legend({ items }: { items: { label: string; color: string; kind?
 }
 
 // ---------------------------------------------------------------------------
+// Accessibilità: lo stesso grafico, letto invece che guardato
+// ---------------------------------------------------------------------------
+
+/**
+ * Nascosto agli occhi, non agli screen reader.
+ *
+ * `display:none` e `visibility:hidden` tolgono l'elemento anche dall'albero di
+ * accessibilità: chi legge con la voce si ritrova esattamente al punto di prima,
+ * cioè senza niente. La ritagliatura a un pixel invece lascia l'elemento nel
+ * documento e nell'albero, e lo toglie solo dal disegno — è il trucco con cui si
+ * mette una tabella accanto a un grafico senza raddoppiare la pagina.
+ *
+ * Sta qui come oggetto di stile in linea e non come regola in `styles.css`
+ * perché così viaggia con il componente che la usa: una classe che vive in un
+ * altro file si può cancellare per sbaglio durante una ripulitura del CSS, e il
+ * risultato sarebbe una tabella di duecento numeri che ricompare in mezzo alla
+ * scheda. La classe `.solo-lettori` resta sull'elemento come appiglio per chi
+ * volesse un giorno spostare la regola nel foglio di stile.
+ */
+export const STILE_SOLO_LETTORI: CSSProperties = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+};
+
+/**
+ * La tabella equivalente al disegno.
+ *
+ * Il riassunto in una frase dice la forma; questa dice i numeri. Serve dove le
+ * righe sono poche e ognuna è una risposta — le colonne di un istogramma, le
+ * barre dei siti, i quartili di una dispersione: lì l'elenco completo è ciò che
+ * un vedente ottiene guardando, e negarlo sarebbe dare meno, non di più.
+ *
+ * NON va messa sui profili campionati: duemila righe lette a voce non sono una
+ * tabella, sono una punizione. Lì il riassunto è tutto ciò che serve.
+ */
+export function TabellaEquivalente({
+  didascalia,
+  intestazioni,
+  righe,
+}: {
+  didascalia: string;
+  intestazioni: string[];
+  righe: (string | number)[][];
+}) {
+  if (righe.length === 0) return null;
+  return (
+    <div className="solo-lettori" style={STILE_SOLO_LETTORI}>
+      <table>
+        <caption>{didascalia}</caption>
+        <thead>
+          <tr>
+            {intestazioni.map((h) => (
+              <th key={h} scope="col">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {righe.map((r, i) => (
+            <tr key={`${r[0]}-${i}`}>
+              {r.map((c, j) => (
+                <td key={j}>{c}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
+ * Il testo che annuncia il valore sotto il cursore mosso da tastiera.
+ *
+ * `role="status"` e non `aria-live="assertive"`: muovendosi con la freccia si
+ * generano dieci annunci al secondo, e la modalità assertiva interromperebbe sé
+ * stessa a ogni tasto lasciando sentire solo l'ultimo pezzo di ogni frase. Con
+ * la modalità cortese lo screen reader aspetta la pausa e legge una frase
+ * intera, che è l'unica utile.
+ */
+export function AnnuncioCursore({ testo }: { testo: string }) {
+  return (
+    <div className="solo-lettori" style={STILE_SOLO_LETTORI} role="status" aria-live="polite">
+      {testo}
+    </div>
+  );
+}
+
+/**
+ * Il contorno del fuoco, in linea.
+ *
+ * Un contenitore che si può raggiungere con il tabulatore e non mostra dove si
+ * trova il fuoco è peggio di uno non raggiungibile: chi naviga da tastiera senza
+ * screen reader si perde. Il contorno è in linea perché `styles.css` non ha —
+ * oggi — nessuna regola di fuoco su cui appoggiarsi.
+ */
+export const contornoFuoco = (attivo: boolean): CSSProperties =>
+  attivo ? { outline: '2px solid var(--series-1)', outlineOffset: 2 } : {};
+
+// ---------------------------------------------------------------------------
+// Riassunti: che cosa dice il disegno, in una frase
+// ---------------------------------------------------------------------------
+
+/**
+ * Perché queste funzioni sono pure, esportate e fuori dai componenti.
+ *
+ * Perché la descrizione di un grafico è un'affermazione sui dati, e le
+ * affermazioni sui dati vanno verificate. Scritta a mano dentro il JSX —
+ * «andamento del consumo, in miglioramento» — resterebbe lì per sempre, vera il
+ * giorno in cui è stata scritta e falsa alla prima importazione successiva:
+ * l'errore peggiore possibile, perché chi la sente non ha modo di accorgersene.
+ * Calcolata dai punti che vengono disegnati, invece, non può divergere dal
+ * disegno; ed essendo una funzione pura, il test le passa dei numeri e controlla
+ * la frase senza montare mezza applicazione.
+ */
+
+/** Interi senza decimali, il resto con uno: «12» e «17.4», mai «12.0». */
+export function numeroBreve(v: number): string {
+  const r = Math.round(v * 10) / 10;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1);
+}
+
+export interface Quartili {
+  min: number;
+  q1: number;
+  mediana: number;
+  q3: number;
+  max: number;
+}
+
+/**
+ * Quartili con interpolazione lineare (lo stesso metodo dei fogli di calcolo).
+ *
+ * Servono nella tabella equivalente delle dispersioni: minimo e massimo da soli
+ * descrivono le code e nascondono dove sta il grosso dei punti, che su una nuvola
+ * è proprio ciò che si vede a colpo d'occhio e che a voce andrebbe altrimenti
+ * perso.
+ */
+export function quartili(valori: number[]): Quartili | undefined {
+  const v = valori.filter((x) => Number.isFinite(x)).sort((a, b) => a - b);
+  if (v.length === 0) return undefined;
+  const a = (p: number) => {
+    const pos = p * (v.length - 1);
+    const basso = Math.floor(pos);
+    const alto = Math.ceil(pos);
+    return v[basso] + (v[alto] - v[basso]) * (pos - basso);
+  };
+  return { min: v[0], q1: a(0.25), mediana: a(0.5), q3: a(0.75), max: v[v.length - 1] };
+}
+
+/** Media aritmetica; `undefined` su un elenco vuoto, che è diverso da zero. */
+export function media(valori: number[]): number | undefined {
+  if (valori.length === 0) return undefined;
+  return valori.reduce((a, b) => a + b, 0) / valori.length;
+}
+
+/**
+ * Verso di una tendenza, con una zona morta.
+ *
+ * Senza la zona morta qualunque rumore diventa «in aumento»: due decimali di
+ * differenza su una serie che oscilla di dieci sono niente, e annunciarli come
+ * una direzione sarebbe raccontare a chi non vede il grafico una cosa che chi lo
+ * vede non ci legge. La soglia è il 5% dell'escursione della serie stessa,
+ * perché una soglia assoluta non può valere sia per i bar che per i m/min.
+ */
+export function versoTendenza(prima: number, dopo: number, escursione: number): 'aumento' | 'diminuzione' | 'stabile' {
+  const soglia = Math.abs(escursione) * 0.05;
+  if (Math.abs(dopo - prima) <= soglia) return 'stabile';
+  return dopo > prima ? 'aumento' : 'diminuzione';
+}
+
+/** Data estesa in italiano: «12 luglio 2026». */
+export const dataLunga = (ms: number) =>
+  new Date(ms).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+
+/**
+ * Riassunto di un istogramma o di un elenco di barre.
+ *
+ * Dice il totale, dove sta il picco e dove sta il buco: sono le tre cose che un
+ * vedente ricava dalla forma in mezzo secondo. Le colonne a zero sono nominate a
+ * parte perché in questo archivio significano qualcosa — un mese senza
+ * immersioni è un'informazione, non un dato mancante.
+ */
+export function riassuntoDistribuzione(
+  dati: ColumnDatum[],
+  { unita = '', elemento = 'colonne' }: { unita?: string; elemento?: string } = {},
+): string {
+  if (dati.length === 0) return 'Nessun dato da mostrare.';
+  const valori = dati.map((d) => d.value);
+  const totale = valori.reduce((a, b) => a + b, 0);
+  const alto = dati.reduce((a, b) => (b.value > a.value ? b : a));
+  const basso = dati.reduce((a, b) => (b.value < a.value ? b : a));
+  const u = unita ? ` ${unita}` : '';
+  const parti = [
+    `${dati.length} ${elemento}, totale ${numeroBreve(totale)}${u}, media ${numeroBreve(totale / dati.length)}${u}.`,
+    `Massimo ${alto.label} con ${numeroBreve(alto.value)}${u}, minimo ${basso.label} con ${numeroBreve(basso.value)}${u}.`,
+  ];
+  // «A zero: 2 su 24» e non «2 colonne a zero»: la forma con il denominatore si
+  // accorda con qualunque parola passata in `elemento` e dice anche quanto pesa.
+  const vuote = valori.filter((v) => v === 0).length;
+  if (vuote > 0) parti.push(`A zero: ${vuote} su ${dati.length}.`);
+  return parti.join(' ');
+}
+
+/**
+ * Riassunto di una serie temporale.
+ *
+ * L'ordine delle informazioni non è casuale: prima quante misure e su quale arco
+ * di tempo (senza le quali i numeri seguenti non si sanno pesare), poi il valore
+ * tipico e l'escursione, poi la direzione. È l'ordine in cui le legge chi guarda
+ * il grafico, e chi ascolta non deve tenere a mente niente per capire la frase
+ * dopo.
+ */
+export function riassuntoSerie(
+  punti: TimePoint[],
+  {
+    unita,
+    formato = (v: number) => v.toFixed(1),
+    riferimento,
+    etichettaRiferimento,
+  }: {
+    unita: string;
+    formato?: (v: number) => string;
+    riferimento?: number;
+    etichettaRiferimento?: string;
+  },
+): string {
+  if (punti.length === 0) return 'Nessun dato disponibile per questa serie.';
+  const ordinati = [...punti].sort((a, b) => a.at - b.at);
+  const valori = ordinati.map((p) => p.value);
+  const q = quartili(valori)!;
+  const ultimo = ordinati[ordinati.length - 1];
+  const parti = [
+    `${punti.length} ${punti.length === 1 ? 'rilevazione' : 'rilevazioni'} dal ${dataLunga(ordinati[0].at)} al ${dataLunga(ultimo.at)}.`,
+    `Mediana ${formato(q.mediana)} ${unita}, da ${formato(q.min)} a ${formato(q.max)}; ultimo valore ${formato(ultimo.value)}.`,
+  ];
+  // Le due metà invece della retta dei minimi quadrati: la pendenza di una retta
+  // in unità al millisecondo non si può dire a voce, «prima 18.5, poi 15.9» sì.
+  const metà = Math.floor(ordinati.length / 2);
+  if (metà >= 2) {
+    const prima = media(valori.slice(0, metà))!;
+    const dopo = media(valori.slice(valori.length - metà))!;
+    const verso = versoTendenza(prima, dopo, q.max - q.min);
+    parti.push(
+      `Prima metà ${formato(prima)}, seconda metà ${formato(dopo)}: ` +
+        (verso === 'stabile' ? 'stabile.' : verso === 'aumento' ? 'in aumento.' : 'in diminuzione.'),
+    );
+  }
+  if (riferimento !== undefined) {
+    const sopra = valori.filter((v) => v > riferimento).length;
+    const nome = etichettaRiferimento ?? `riferimento ${formato(riferimento)}`;
+    parti.push(`${sopra} su ${valori.length} sopra ${nome}.`);
+  }
+  return parti.join(' ');
+}
+
+/**
+ * Una serie temporale ridotta a righe che si possono ascoltare.
+ *
+ * Un archivio serio ha centinaia di immersioni: la tabella equivalente punto per
+ * punto sarebbe tecnicamente completa e praticamente inservibile — nessuno
+ * ascolta trecento date. Raggruppando per mese si ottiene la stessa cosa che
+ * l'occhio prende dalla curva (dove sale, dove scende, dove non c'è niente); e
+ * quando anche i mesi diventano troppi si sale di un livello, agli anni, invece
+ * di troncare l'elenco: un elenco troncato mente sulla fine della serie, che è
+ * proprio la parte che interessa.
+ */
+export function aggregaPerPeriodo(
+  punti: TimePoint[],
+  { maxPeriodi = 24 }: { maxPeriodi?: number } = {},
+): { periodo: string; conteggio: number; mediana: number }[] {
+  if (punti.length === 0) return [];
+  const perMese = raggruppa(punti, (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  const scelto = perMese.length <= maxPeriodi ? perMese : raggruppa(punti, (d) => String(d.getFullYear()));
+  return scelto;
+}
+
+function raggruppa(
+  punti: TimePoint[],
+  chiave: (d: Date) => string,
+): { periodo: string; conteggio: number; mediana: number }[] {
+  const mappa = new Map<string, number[]>();
+  for (const p of punti) {
+    const k = chiave(new Date(p.at));
+    const lista = mappa.get(k);
+    if (lista) lista.push(p.value);
+    else mappa.set(k, [p.value]);
+  }
+  return [...mappa.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([periodo, valori]) => ({
+      periodo,
+      conteggio: valori.length,
+      mediana: quartili(valori)!.mediana,
+    }));
+}
+
+/**
+ * Riassunto di una nuvola di punti.
+ *
+ * La correlazione è l'unica cosa che qui vale la pena dire per prima, ed è anche
+ * l'unica che chi guarda non legge con precisione: a occhio si distingue «salgono
+ * insieme» da «niente», non un 0.31 da un 0.62. Resta dichiarata per quello che
+ * è, una correlazione su questo archivio — la stessa cautela che sta scritta
+ * nella scheda per chi legge con gli occhi.
+ */
+export function riassuntoDispersione(
+  punti: { x: number; y: number }[],
+  {
+    xLabel,
+    yLabel,
+    xFormat = (v: number) => v.toFixed(0),
+    yFormat = (v: number) => v.toFixed(1),
+  }: {
+    xLabel: string;
+    yLabel: string;
+    xFormat?: (v: number) => string;
+    yFormat?: (v: number) => string;
+  },
+): string {
+  if (punti.length === 0) return 'Nessun punto da confrontare.';
+  const qx = quartili(punti.map((p) => p.x))!;
+  const qy = quartili(punti.map((p) => p.y))!;
+  const parti = [
+    `${punti.length} ${punti.length === 1 ? 'immersione' : 'immersioni'}.`,
+    `In orizzontale ${xLabel} da ${xFormat(qx.min)} a ${xFormat(qx.max)}, metà dei punti fra ${xFormat(qx.q1)} e ${xFormat(qx.q3)}.`,
+    `In verticale ${yLabel} da ${yFormat(qy.min)} a ${yFormat(qy.max)}, metà dei punti fra ${yFormat(qy.q1)} e ${yFormat(qy.q3)}.`,
+  ];
+  const r = correlation(punti);
+  if (r === undefined) {
+    parti.push('Correlazione non calcolabile su così pochi punti.');
+  } else {
+    const forza = Math.abs(r) >= 0.7 ? 'forte' : Math.abs(r) >= 0.4 ? 'moderata' : 'debole';
+    parti.push(
+      `Correlazione ${r > 0 ? '+' : ''}${r.toFixed(2)}, ${forza}: al crescere di ${xLabel} ${yLabel} ` +
+        (r > 0 ? 'tende a crescere.' : 'tende a calare.'),
+    );
+  }
+  return parti.join(' ');
+}
+
+/**
+ * Riassunto di una curva su asse X numerico.
+ *
+ * Di una curva conta la PENDENZA, non i punti: «da 24 minuti a 30 m si scende a
+ * 9 minuti a 45 m» è tutto ciò che il grafico dice, e dirlo con gli estremi e il
+ * punto marcato è più fedele che elencare quaranta coppie di numeri.
+ */
+export function riassuntoCurva(
+  punti: { x: number; y: number }[],
+  {
+    xLabel,
+    yLabel,
+    xFormat = (v: number) => v.toFixed(0),
+    yFormat = (v: number) => v.toFixed(0),
+    marcatore,
+  }: {
+    xLabel: string;
+    yLabel: string;
+    xFormat?: (v: number) => string;
+    yFormat?: (v: number) => string;
+    marcatore?: { x: number; y: number };
+  },
+): string {
+  if (punti.length < 2) return 'Dati insufficienti per disegnare la curva.';
+  const ordinati = [...punti].sort((a, b) => a.x - b.x);
+  const primo = ordinati[0];
+  const ultimo = ordinati[ordinati.length - 1];
+  const ys = ordinati.map((p) => p.y);
+  const q = quartili(ys)!;
+  const verso = versoTendenza(primo.y, ultimo.y, q.max - q.min);
+  const parti = [
+    `${yLabel} al variare di ${xLabel}, da ${xFormat(primo.x)} a ${xFormat(ultimo.x)}.`,
+    `Si va da ${yFormat(primo.y)} a ${yFormat(ultimo.y)} ` +
+      (verso === 'stabile' ? '(curva piatta).' : verso === 'aumento' ? '(in aumento).' : '(in diminuzione).'),
+    `Minimo ${yFormat(q.min)}, massimo ${yFormat(q.max)}.`,
+  ];
+  if (marcatore) parti.push(`Nel punto marcato, ${xFormat(marcatore.x)}: ${yFormat(marcatore.y)}.`);
+  return parti.join(' ');
+}
+
+// ---------------------------------------------------------------------------
 // Tessere numeriche
 // ---------------------------------------------------------------------------
 
@@ -164,15 +572,25 @@ export function ColumnChart({
   unit = '',
   /** Mostra un'etichetta ogni N colonne, per non affollare l'asse. */
   labelEvery,
+  titolo,
 }: {
   data: ColumnDatum[];
   height?: number;
   unit?: string;
   /** Se omesso, il passo delle etichette si adatta alla larghezza disponibile. */
   labelEvery?: number;
+  /**
+   * Nome accessibile del grafico. È opzionale e non obbligatorio di proposito:
+   * ogni istogramma di questa applicazione sta già dentro una carta con il suo
+   * titolo visibile, e rendere la proprietà obbligatoria avrebbe significato
+   * toccare tutte le pagine per ripetere una parola che c'è già. Quando la carta
+   * non basta a capire di cosa si tratta, si passa qui.
+   */
+  titolo?: string;
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const [tip, setTip] = useState<TooltipState | null>(null);
+  const uid = useId();
 
   const pad = { top: 24, right: 4, bottom: 22, left: 30 };
   const plotW = width - pad.left - pad.right;
@@ -187,13 +605,28 @@ export function ColumnChart({
   // Un'etichetta ogni quanto: serve almeno ~46px per non farle collidere.
   const labelStep = labelEvery ?? Math.max(1, Math.ceil(46 / Math.max(1, band)));
 
+  const nome = titolo ?? `Istogramma a colonne${unit ? ` — ${unit}` : ''}`;
+  const descrizione = riassuntoDistribuzione(data, { unita: unit });
+
   return (
     <div className="chart" ref={ref}>
-      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img">
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={nome}
+        aria-describedby={`${uid}-desc`}
+      >
+        <title>{nome}</title>
+        <desc id={`${uid}-desc`}>{descrizione}</desc>
         {ticks.map((t) => {
           const y = pad.top + plotH - (t / yMax) * plotH;
           return (
-            <g key={t}>
+            // La griglia è arredamento: senza `aria-hidden` uno screen reader
+            // annuncia una lista di nodi vuoti lunga quanto le tacche, prima ancora
+            // di arrivare al dato.
+            <g key={t} aria-hidden="true">
               <line x1={pad.left} x2={width - pad.right} y1={y} y2={y} stroke="var(--grid)" strokeWidth={1} />
               <text className="axis-label" x={pad.left - 6} y={y + 3} textAnchor="end">
                 {t}
@@ -206,7 +639,7 @@ export function ColumnChart({
           const x = pad.left + i * band + (band - barW) / 2;
           const y = pad.top + plotH - h;
           return (
-            <g key={d.key}>
+            <g key={d.key} aria-hidden="true">
               {/* Bersaglio di hover più grande della marca. */}
               <rect
                 x={pad.left + i * band}
@@ -243,6 +676,7 @@ export function ColumnChart({
         {/* Etichetta diretta solo sul massimo: il resto lo legge l'asse. */}
         {peak && peak.value > 0 && (
           <text
+            aria-hidden="true"
             x={pad.left + data.indexOf(peak) * band + band / 2}
             y={pad.top + plotH - (peak.value / yMax) * plotH - 5}
             textAnchor="middle"
@@ -254,6 +688,7 @@ export function ColumnChart({
           </text>
         )}
         <line
+          aria-hidden="true"
           x1={pad.left}
           x2={width - pad.right}
           y1={pad.top + plotH}
@@ -262,6 +697,13 @@ export function ColumnChart({
           strokeWidth={1}
         />
       </svg>
+      {/* Le colonne sono poche e ognuna è una risposta: qui la tabella completa
+          vale più del riassunto, ed è corta abbastanza da poterla ascoltare. */}
+      <TabellaEquivalente
+        didascalia={nome}
+        intestazioni={['Colonna', unit || 'Valore']}
+        righe={data.map((d) => [d.label, numeroBreve(d.value)])}
+      />
       <Tooltip state={tip} containerWidth={width} />
     </div>
   );
@@ -275,21 +717,32 @@ export function BarChart({
   data,
   unit = '',
   maxRows = 10,
+  titolo,
 }: {
   data: ColumnDatum[];
   unit?: string;
   maxRows?: number;
+  titolo?: string;
 }) {
   const rows = data.slice(0, maxRows);
   const max = Math.max(1, ...rows.map((d) => d.value));
   const { ref, width } = useWidth<HTMLDivElement>();
   const [tip, setTip] = useState<TooltipState | null>(null);
+  const uid = useId();
 
   const labelW = Math.min(160, Math.max(70, width * 0.32));
   const valueW = 40;
   const trackW = Math.max(20, width - labelW - valueW - 12);
   const rowH = 26;
   const barH = 14;
+
+  const nome = titolo ?? `Barre orizzontali${unit ? ` — ${unit}` : ''}`;
+  // Il riassunto descrive le righe DISEGNATE, non tutte quelle ricevute: se
+  // `maxRows` ne taglia via metà, dire il totale di tutte racconterebbe un grafico
+  // che non è quello sullo schermo. Il taglio viene dichiarato a parte.
+  const descrizione =
+    riassuntoDistribuzione(rows, { unita: unit, elemento: 'voci' }) +
+    (data.length > rows.length ? ` Mostrate le prime ${rows.length} voci su ${data.length}.` : '');
 
   return (
     <div className="chart" ref={ref}>
@@ -298,13 +751,18 @@ export function BarChart({
         height={rows.length * rowH + 4}
         viewBox={`0 0 ${width} ${rows.length * rowH + 4}`}
         role="img"
+        aria-label={nome}
+        aria-describedby={`${uid}-desc`}
       >
+        <title>{nome}</title>
+        <desc id={`${uid}-desc`}>{descrizione}</desc>
         {rows.map((d, i) => {
           const y = i * rowH + 4;
           const w = (d.value / max) * trackW;
           return (
             <g
               key={d.key}
+              aria-hidden="true"
               onMouseEnter={() =>
                 setTip({
                   x: labelW + w,
@@ -334,6 +792,14 @@ export function BarChart({
           );
         })}
       </svg>
+      {/* Le etichette qui sono TRONCATE nel disegno per stare nella colonna: la
+          tabella porta il nome intero del sito, che è proprio il dato che un
+          troncamento a metà parola rende inservibile. */}
+      <TabellaEquivalente
+        didascalia={nome}
+        intestazioni={['Voce', unit || 'Valore']}
+        righe={rows.map((d) => [d.label, numeroBreve(d.value)])}
+      />
       <Tooltip state={tip} containerWidth={width} />
     </div>
   );
@@ -358,6 +824,7 @@ export function TimeSeriesChart({
   referenceLabel,
   format = (v: number) => v.toFixed(1),
   onPick,
+  titolo,
 }: {
   points: TimePoint[];
   height?: number;
@@ -366,9 +833,15 @@ export function TimeSeriesChart({
   referenceLabel?: string;
   format?: (v: number) => string;
   onPick?: (id: string) => void;
+  titolo?: string;
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const [tip, setTip] = useState<TooltipState | null>(null);
+  // `useId` PRIMA del return anticipato qui sotto, e non è pignoleria: React conta
+  // gli hook a ogni render, e una serie che al primo giro è vuota e al secondo no
+  // cambierebbe il conteggio facendo cadere il componente. È lo stesso incidente
+  // documentato in `DepthProfile`, e questo è il punto in cui si ripeterebbe.
+  const uid = useId();
 
   if (points.length === 0) {
     return <p className="muted" style={{ fontSize: 12, margin: 0 }}>Nessun dato disponibile per questa serie.</p>;
@@ -398,11 +871,29 @@ export function TimeSeriesChart({
   // nascondiamo, ma il bersaglio invisibile per il tooltip resta su ognuno.
   const showDots = points.length <= 24;
 
+  const nome = titolo ?? `Andamento nel tempo — ${unit}`;
+  const descrizione = riassuntoSerie(points, {
+    unita: unit,
+    formato: format,
+    riferimento: reference,
+    etichettaRiferimento: referenceLabel,
+  });
+  const periodi = aggregaPerPeriodo(points);
+
   return (
     <div className="chart" ref={ref}>
-      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img">
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={nome}
+        aria-describedby={`${uid}-desc`}
+      >
+        <title>{nome}</title>
+        <desc id={`${uid}-desc`}>{descrizione}</desc>
         {ticks.map((t) => (
-          <g key={t}>
+          <g key={t} aria-hidden="true">
             <line x1={pad.left} x2={width - pad.right} y1={py(t)} y2={py(t)} stroke="var(--grid)" strokeWidth={1} />
             <text className="axis-label" x={pad.left - 6} y={py(t) + 3} textAnchor="end">
               {format(t)}
@@ -411,7 +902,7 @@ export function TimeSeriesChart({
         ))}
 
         {reference !== undefined && (
-          <>
+          <g aria-hidden="true">
             <line
               x1={pad.left}
               x2={width - pad.right}
@@ -432,13 +923,13 @@ export function TimeSeriesChart({
                 {referenceLabel}
               </text>
             )}
-          </>
+          </g>
         )}
 
-        <path d={path} fill="none" stroke="var(--series-1)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <path aria-hidden="true" d={path} fill="none" stroke="var(--series-1)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
 
         {points.map((p) => (
-          <g key={`${p.at}-${p.value}`}>
+          <g key={`${p.at}-${p.value}`} aria-hidden="true">
             {showDots && (
               <circle
                 cx={px(p.at)}
@@ -475,39 +966,50 @@ export function TimeSeriesChart({
         ))}
 
         {/* Etichetta diretta solo sull'ultimo punto, con la sua marca. */}
-        <circle
-          cx={px(last.at)}
-          cy={py(last.value)}
-          r={4}
-          fill="var(--series-1)"
-          stroke="var(--surface-1)"
-          strokeWidth={2}
-        />
-        <text
-          x={px(last.at) + 8}
-          y={py(last.value) + 4}
-          fontSize={11}
-          fontWeight={650}
-          fill="var(--text-secondary)"
-        >
-          {format(last.value)}
-        </text>
+        <g aria-hidden="true">
+          <circle
+            cx={px(last.at)}
+            cy={py(last.value)}
+            r={4}
+            fill="var(--series-1)"
+            stroke="var(--surface-1)"
+            strokeWidth={2}
+          />
+          <text
+            x={px(last.at) + 8}
+            y={py(last.value) + 4}
+            fontSize={11}
+            fontWeight={650}
+            fill="var(--text-secondary)"
+          >
+            {format(last.value)}
+          </text>
 
-        <line
-          x1={pad.left}
-          x2={width - pad.right}
-          y1={pad.top + plotH}
-          y2={pad.top + plotH}
-          stroke="var(--axis)"
-          strokeWidth={1}
-        />
-        <text className="axis-label" x={pad.left} y={height - 6}>
-          {shortDate(minX)}
-        </text>
-        <text className="axis-label" x={width - pad.right} y={height - 6} textAnchor="end">
-          {shortDate(maxX)}
-        </text>
+          <line
+            x1={pad.left}
+            x2={width - pad.right}
+            y1={pad.top + plotH}
+            y2={pad.top + plotH}
+            stroke="var(--axis)"
+            strokeWidth={1}
+          />
+          <text className="axis-label" x={pad.left} y={height - 6}>
+            {shortDate(minX)}
+          </text>
+          <text className="axis-label" x={width - pad.right} y={height - 6} textAnchor="end">
+            {shortDate(maxX)}
+          </text>
+        </g>
       </svg>
+      {/* Non un punto per riga: una serie di trecento immersioni letta a voce
+          punto per punto è inutilizzabile. Raggruppata per mese — o per anno
+          quando i mesi sono troppi — resta la stessa informazione che si legge
+          guardando la forma della curva, e sta in venti righe. */}
+      <TabellaEquivalente
+        didascalia={`${nome}: valori raggruppati per periodo`}
+        intestazioni={['Periodo', 'Rilevazioni', `Mediana (${unit})`]}
+        righe={periodi.map((p) => [p.periodo, p.conteggio, format(p.mediana)])}
+      />
       <Tooltip state={tip} containerWidth={width} />
     </div>
   );
@@ -614,6 +1116,7 @@ export function ScatterChart({
   yFormat = (v: number) => v.toFixed(1),
   onPick,
   showFit = true,
+  titolo,
 }: {
   points: { x: number; y: number; diveId: string; label: string }[];
   xLabel: string;
@@ -623,9 +1126,11 @@ export function ScatterChart({
   yFormat?: (v: number) => string;
   onPick?: (id: string) => void;
   showFit?: boolean;
+  titolo?: string;
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const [tip, setTip] = useState<TooltipState | null>(null);
+  const uid = useId();
 
   if (points.length < 3) {
     return (
@@ -673,11 +1178,26 @@ export function ScatterChart({
     }
   }
 
+  const nome = titolo ?? `Dispersione: ${yLabel} in funzione di ${xLabel}`;
+  const descrizione = riassuntoDispersione(points, { xLabel, yLabel, xFormat, yFormat });
+  const qx = quartili(points.map((p) => p.x))!;
+  const qy = quartili(points.map((p) => p.y))!;
+
   return (
     <div className="chart" ref={ref}>
-      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" style={{ display: 'block' }}>
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={nome}
+        aria-describedby={`${uid}-desc`}
+        style={{ display: 'block' }}
+      >
+        <title>{nome}</title>
+        <desc id={`${uid}-desc`}>{descrizione}</desc>
         {yTicks.map((t) => (
-          <g key={`y${t}`}>
+          <g key={`y${t}`} aria-hidden="true">
             <line x1={pad.left} x2={width - pad.right} y1={py(t)} y2={py(t)} stroke="var(--grid)" strokeWidth={1} />
             <text className="axis-label" x={pad.left - 8} y={py(t) + 3.5} textAnchor="end">
               {yFormat(t)}
@@ -685,13 +1205,14 @@ export function ScatterChart({
           </g>
         ))}
         {xTicks.map((t) => (
-          <text key={`x${t}`} className="axis-label" x={px(t)} y={height - 16} textAnchor="middle">
+          <text aria-hidden="true" key={`x${t}`} className="axis-label" x={px(t)} y={height - 16} textAnchor="middle">
             {xFormat(t)}
           </text>
         ))}
 
         {fit && (
           <line
+            aria-hidden="true"
             x1={fit.x1}
             y1={fit.y1}
             x2={fit.x2}
@@ -704,6 +1225,7 @@ export function ScatterChart({
 
         {points.map((p) => (
           <circle
+            aria-hidden="true"
             key={`${p.diveId}-${p.x}-${p.y}`}
             cx={px(p.x)}
             cy={py(p.y)}
@@ -727,21 +1249,34 @@ export function ScatterChart({
           />
         ))}
 
-        <line
-          x1={pad.left}
-          x2={width - pad.right}
-          y1={pad.top + plotH}
-          y2={pad.top + plotH}
-          stroke="var(--axis)"
-          strokeWidth={1}
-        />
-        <text className="axis-label" x={width - pad.right} y={height - 3} textAnchor="end">
-          {xLabel}
-        </text>
-        <text className="axis-label" x={pad.left} y={height - 3} textAnchor="start">
-          {yLabel} ↑
-        </text>
+        <g aria-hidden="true">
+          <line
+            x1={pad.left}
+            x2={width - pad.right}
+            y1={pad.top + plotH}
+            y2={pad.top + plotH}
+            stroke="var(--axis)"
+            strokeWidth={1}
+          />
+          <text className="axis-label" x={width - pad.right} y={height - 3} textAnchor="end">
+            {xLabel}
+          </text>
+          <text className="axis-label" x={pad.left} y={height - 3} textAnchor="start">
+            {yLabel} ↑
+          </text>
+        </g>
       </svg>
+      {/* Sulla nuvola la tabella non può essere l'elenco dei punti — sono decine e
+          in ordine sparso non dicono niente — ma i quartili sì: sono la forma
+          della nuvola detta in cinque numeri per asse. */}
+      <TabellaEquivalente
+        didascalia={`${nome}: distribuzione dei due assi`}
+        intestazioni={['Misura', 'Minimo', 'Primo quartile', 'Mediana', 'Terzo quartile', 'Massimo']}
+        righe={[
+          [xLabel, xFormat(qx.min), xFormat(qx.q1), xFormat(qx.mediana), xFormat(qx.q3), xFormat(qx.max)],
+          [yLabel, yFormat(qy.min), yFormat(qy.q1), yFormat(qy.mediana), yFormat(qy.q3), yFormat(qy.max)],
+        ]}
+      />
       <Tooltip state={tip} containerWidth={width} />
     </div>
   );
@@ -773,6 +1308,7 @@ export function CurveChart({
   referenceLabel,
   color = 'var(--series-1)',
   fill = true,
+  titolo,
 }: {
   points: { x: number; y: number }[];
   height?: number;
@@ -787,9 +1323,11 @@ export function CurveChart({
   referenceLabel?: string;
   color?: string;
   fill?: boolean;
+  titolo?: string;
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const [tip, setTip] = useState<TooltipState | null>(null);
+  const uid = useId();
   useDismissOnLeave(() => setTip(null));
 
   if (points.length < 2) {
@@ -833,6 +1371,12 @@ export function CurveChart({
   };
   const markPoint = marker !== undefined ? at(marker) : undefined;
 
+  const nome = titolo ?? `Curva: ${yLabel} al variare di ${xLabel}`;
+  const descrizione = riassuntoCurva(points, { xLabel, yLabel, xFormat, yFormat, marcatore: markPoint });
+  // Sei righe campionate a passo regolare invece dell'intera curva: la curva è
+  // fitta per essere liscia da guardare, non perché ogni suo punto sia un dato.
+  const campioni = campionaCurva(points, 6);
+
   return (
     <div className="chart" ref={ref}>
       <svg
@@ -840,6 +1384,8 @@ export function CurveChart({
         height={height}
         viewBox={`0 0 ${width} ${height}`}
         role="img"
+        aria-label={nome}
+        aria-describedby={`${uid}-desc`}
         onMouseMove={(e) => {
           const p = nearest(e.clientX, e.currentTarget.getBoundingClientRect());
           setTip({
@@ -851,8 +1397,10 @@ export function CurveChart({
         }}
         onMouseLeave={() => setTip(null)}
       >
+        <title>{nome}</title>
+        <desc id={`${uid}-desc`}>{descrizione}</desc>
         {yTicks.map((t) => (
-          <g key={t}>
+          <g key={t} aria-hidden="true">
             <line
               x1={pad.left}
               x2={width - pad.right}
@@ -868,7 +1416,7 @@ export function CurveChart({
         ))}
 
         {reference !== undefined && (
-          <g>
+          <g aria-hidden="true">
             <line
               x1={pad.left}
               x2={width - pad.right}
@@ -889,11 +1437,11 @@ export function CurveChart({
           </g>
         )}
 
-        {fill && <path d={area} fill={color} opacity={0.12} />}
-        <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
+        {fill && <path aria-hidden="true" d={area} fill={color} opacity={0.12} />}
+        <path aria-hidden="true" d={line} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
 
         {markPoint && (
-          <g>
+          <g aria-hidden="true">
             <line
               x1={px(markPoint.x)}
               x2={px(markPoint.x)}
@@ -918,23 +1466,46 @@ export function CurveChart({
         )}
 
         {[xLo, (xLo + xHi) / 2, xHi].map((t) => (
-          <text key={t} className="axis-label" x={px(t)} y={height - 14} textAnchor="middle">
+          <text aria-hidden="true" key={t} className="axis-label" x={px(t)} y={height - 14} textAnchor="middle">
             {xFormat(t)}
           </text>
         ))}
-        <line
-          x1={pad.left}
-          x2={width - pad.right}
-          y1={pad.top + plotH}
-          y2={pad.top + plotH}
-          stroke="var(--axis)"
-          strokeWidth={1}
-        />
-        <text className="axis-label" x={width - pad.right} y={height - 2} textAnchor="end">
-          {xLabel}
-        </text>
+        <g aria-hidden="true">
+          <line
+            x1={pad.left}
+            x2={width - pad.right}
+            y1={pad.top + plotH}
+            y2={pad.top + plotH}
+            stroke="var(--axis)"
+            strokeWidth={1}
+          />
+          <text className="axis-label" x={width - pad.right} y={height - 2} textAnchor="end">
+            {xLabel}
+          </text>
+        </g>
       </svg>
+      <TabellaEquivalente
+        didascalia={`${nome}: valori campionati`}
+        intestazioni={[xLabel, yLabel]}
+        righe={campioni.map((p) => [xFormat(p.x), yFormat(p.y)])}
+      />
       <Tooltip state={tip} containerWidth={width} />
     </div>
   );
+}
+
+/**
+ * Prende `quanti` punti equidistanti lungo una curva, estremi compresi.
+ *
+ * Gli estremi devono esserci sempre: sono i due valori che il riassunto nomina,
+ * e una tabella che comincia dal secondo punto e finisce sul penultimo
+ * contraddirebbe la frase letta un attimo prima.
+ */
+export function campionaCurva(punti: { x: number; y: number }[], quanti = 6): { x: number; y: number }[] {
+  const ordinati = [...punti].sort((a, b) => a.x - b.x);
+  if (ordinati.length <= quanti) return ordinati;
+  const passo = (ordinati.length - 1) / (quanti - 1);
+  const out: { x: number; y: number }[] = [];
+  for (let i = 0; i < quanti; i++) out.push(ordinati[Math.round(i * passo)]);
+  return out;
 }

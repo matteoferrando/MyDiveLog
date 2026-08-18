@@ -944,3 +944,55 @@ button[aria-pressed='true'] {
   font-weight: 400;
   color: var(--text-muted);
 }
+
+/* ------------------------------------------------ accessibilità: fuoco e SR */
+
+/*
+ * Il contorno del fuoco da tastiera.
+ *
+ * In questo foglio non c'era NESSUNA regola di fuoco, in tutta l'applicazione.
+ * Non significa che non ci fosse contorno: significa che c'era solo quello
+ * predefinito del browser, che su elementi ristilizzati — bottoni con sfondo
+ * proprio, celle di tabella, SVG con `tabIndex` — sparisce o si confonde col
+ * bordo. Chi naviga con Tab non ha modo di sapere dove si trova, e in un
+ * pianificatore con sessanta campi questo è sufficiente a renderlo inutilizzabile.
+ *
+ * `:focus-visible` e non `:focus`: il contorno deve comparire per la TASTIERA e
+ * non dopo un clic del mouse, dove sarebbe rumore. È il motivo per cui questa
+ * regola sostituisce i contorni disegnati a mano dentro i componenti.
+ */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Sulle superfici scure il blu di riferimento è più chiaro: la regola sopra usa
+   già la variabile, quindi non serve altro. Qui si tolgono invece i contorni
+   doppi quando l'elemento ha già un bordo proprio. */
+.btn:focus-visible,
+button:focus-visible {
+  outline-offset: 1px;
+}
+
+/*
+ * Visibile solo agli screen reader.
+ *
+ * `display: none` e `visibility: hidden` nascondono l'elemento a TUTTI, screen
+ * reader compresi: sono il modo classico di rendere inutile una tabella
+ * equivalente. Questa combinazione invece lo toglie dal disegno lasciandolo
+ * nell'albero di accessibilità. `clip` è deprecato ma serve ancora ai browser
+ * più vecchi, `clip-path` è il sostituto moderno: si scrivono entrambi.
+ */
+.solo-lettori {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  padding: 0;
+  margin: -1px;
+}

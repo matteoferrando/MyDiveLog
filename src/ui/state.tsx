@@ -34,7 +34,7 @@ import {
   type PeriodId,
   type Scope,
 } from '../core/analysis/window';
-import { mergeImports } from '../core/dedupe';
+import { mergeDive, mergeImports } from '../core/dedupe';
 import { parseBrowserFile } from '../core/parsers';
 import { getStore, type DiveStore } from '../storage';
 import { hydrateForMerge, repairArchive } from '../storage/repair';
@@ -111,6 +111,11 @@ interface DiveLogValue {
   /** Entrambi i profili: il principale e, quando c'è, quello più fitto. */
   loadProfiles: (id: string) => Promise<{ samples: Sample[]; altSamples?: Sample[] }>;
   saveDive: (dive: Dive) => Promise<void>;
+  /**
+   * Inserisce un'immersione scritta a mano. Restituisce `merged: true` quando
+   * l'immersione esisteva già ed è stata arricchita invece che duplicata.
+   */
+  createDive: (dive: Dive) => Promise<{ merged: boolean }>;
   removeDive: (id: string) => Promise<void>;
   clearAll: () => Promise<void>;
   /**
@@ -407,6 +412,66 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
    * dall'archivio e fuori dalla sincronizzazione, ma il suo documento e il suo
    * profilo sono al sicuro e si possono rimettere a posto.
    */
+  /**
+   * Crea un'immersione inserita a mano.
+   *
+   * Separata da `saveDive` perché due cose sono diverse: qui l'id non esiste
+   * ancora, e soprattutto va gestito il caso in cui esista GIÀ. `buildManualDive`
+   * ricava l'id dalla stessa firma orario+profondità+durata dei parser, quindi
+   * inserire a mano un'immersione che è già in archivio — perché il file era
+   * stato importato e non ce se lo ricordava — non deve creare un doppione: si
+   * fondono, con la stessa regola dell'import, che protegge i campi scritti a
+   * mano. È il comportamento che chi scrive si aspetta senza saperlo.
+   */
+  const createDive = useCallback(
+    async (dive: Dive): Promise<{ merged: boolean }> => {
+      const existing = dives.find((d) => d.id === dive.id);
+      let toSave = dive;
+      let merged = false;
+      if (existing) {
+        const full = store ? { ...existing, samples: await store.getSamples(existing.id) } : existing;
+        // L'immersione scritta a mano è quella "in arrivo": i suoi campi
+        // compilati riempiono i buchi di quella già presente, e il profilo che
+        // c'era resta dov'è.
+        toSave = mergeDive(full, dive);
+        merged = true;
+      }
+      const updated: Dive = { ...toSave, updatedAt: new Date().toISOString() };
+      updated.metrics = computeMetrics(updated);
+      if (store) await store.putDives([updated]);
+
+      /*
+       * Ripassare la catena, non solo salvare la riga.
+       *
+       * `computeMetrics` sa tutto di questa immersione e niente di quelle
+       * intorno: il GF99, il carico residuo e l'intervallo di superficie nascono
+       * dalla CATENA, che va da un'immersione all'altra in ordine di tempo.
+       * Senza questo passaggio l'immersione appena inserita compariva in elenco
+       * ma con la scheda della saturazione vuota, e — molto peggio — le
+       * ripetitive che la seguono restavano coi numeri calcolati quando lei non
+       * c'era, cioè più puliti del vero. Il buco che l'inserimento a mano esiste
+       * per chiudere si sarebbe richiuso solo al riavvio successivo.
+       *
+       * `repairArchive` fa esattamente questo e riscrive solo ciò che cambia:
+       * è già quello che gira all'avvio e dopo una sincronizzazione.
+       */
+      if (store) {
+        const list = await store.listDives();
+        const healed = await repairArchive(store, list).catch(() => ({ dives: list }));
+        setDives(healed.dives);
+      } else {
+        setDives((prev) => {
+          const stripped = stripForList(updated);
+          return prev.some((d) => d.id === updated.id)
+            ? prev.map((d) => (d.id === updated.id ? stripped : d))
+            : [...prev, stripped];
+        });
+      }
+      return { merged };
+    },
+    [dives, store],
+  );
+
   const removeDive = useCallback(
     async (id: string) => {
       const dive = dives.find((d) => d.id === id);
@@ -808,6 +873,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     loadSamples,
     loadProfiles,
     saveDive,
+    createDive,
     removeDive,
     clearAll,
     trash,

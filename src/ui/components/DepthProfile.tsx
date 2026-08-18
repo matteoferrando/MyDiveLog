@@ -18,13 +18,30 @@
  *  - **il gradiente del riempimento** va dal chiaro in superficie allo scuro sul
  *    fondo: dà la profondità come informazione visiva ridondante rispetto
  *    all'asse, e rende leggibile la forma anche in miniatura.
+ *  - **il cursore si muove anche con le frecce.** Il cursore condiviso era, fino
+ *    a ieri, l'unico modo di leggere un valore in un istante preciso — e si
+ *    guidava solo con il mouse. Chi naviga da tastiera aveva davanti un disegno
+ *    muto: non un grafico meno comodo, proprio nessun accesso ai numeri. Le
+ *    frecce spostano il cursore campione per campione e il valore corrente viene
+ *    annunciato; il riassunto in testa all'SVG dice la forma dell'immersione
+ *    prima ancora che si cominci a esplorarla.
  */
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { Dive, Sample } from '../../core/model';
 import { LIMITS } from '../../core/model';
 import { formatDuration } from '../../core/units';
-import { Legend, Tooltip, niceTicks, useWidth, type TooltipState } from './Charts';
+import {
+  AnnuncioCursore,
+  Legend,
+  Tooltip,
+  contornoFuoco,
+  niceTicks,
+  numeroBreve,
+  quartili,
+  useWidth,
+  type TooltipState,
+} from './Charts';
 
 /**
  * Margine sinistro condiviso da tutti i grafici della scheda: è ciò che allinea
@@ -51,6 +68,13 @@ export function DepthProfile({
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const [tip, setTip] = useState<TooltipState | null>(null);
+  // Il fuoco è tenuto in uno stato, e non è per disegnare un bordo: serve a
+  // decidere CHI annuncia. Il cursore è condiviso fra il profilo e gli otto
+  // grafici sotto, quindi se ognuno tenesse una regione viva ogni freccia
+  // premuta produrrebbe nove annunci identici, e lo screen reader diventerebbe
+  // inascoltabile. Annuncia solo il grafico che si sta guidando.
+  const [fuoco, setFuoco] = useState(false);
+  const uid = useId();
 
   const samples = dive.samples ?? [];
   if (samples.length < 2) {
@@ -127,8 +151,46 @@ export function DepthProfile({
     setTip({ x: px(sample.t), y: py(sample.depth), title: formatDuration(sample.t), rows });
   };
 
+  /**
+   * Spostamento del cursore da tastiera.
+   *
+   * Un passo è un campione, cioè il passo di registrazione del computer: quattro
+   * o dieci secondi. Con Maiusc si salta di un minuto, perché su un'immersione da
+   * cinquanta minuti attraversare il grafico un campione alla volta significa
+   * quattrocento pressioni di tasto, e un accesso che si può ottenere solo con
+   * quattrocento pressioni non è un accesso.
+   *
+   * Il primo tasto premuto quando il cursore non c'è ancora porta al punto più
+   * profondo, non all'inizio: è l'istante che si va a cercare per primo, e
+   * partire dal minuto zero — dove ogni immersione è identica a ogni altra —
+   * costringerebbe ad attraversare tutta la discesa per arrivarci.
+   */
+  const spostaCursore = (evt: React.KeyboardEvent<SVGSVGElement>) => {
+    if (!sync) return;
+    const corrente = sync.t == null ? -1 : indiceVicino(samples, sync.t);
+    const passo = evt.shiftKey ? Math.max(1, Math.round(60 / passoCampioniS(samples))) : 1;
+    let prossimo: number | null = null;
+    if (evt.key === 'ArrowRight') prossimo = corrente < 0 ? indiceMassimo(samples) : corrente + passo;
+    else if (evt.key === 'ArrowLeft') prossimo = corrente < 0 ? indiceMassimo(samples) : corrente - passo;
+    else if (evt.key === 'Home') prossimo = 0;
+    else if (evt.key === 'End') prossimo = samples.length - 1;
+    else if (evt.key === 'Escape') {
+      sync.onChange(null);
+      return;
+    } else return;
+    evt.preventDefault(); // altrimenti le frecce scorrono la pagina sotto il grafico
+    sync.onChange(samples[Math.min(samples.length - 1, Math.max(0, prossimo))].t);
+  };
+
   const [lo, hi] = LIMITS.safetyStopBandM;
   const gradientId = `depth-fill-${dive.id.slice(0, 8)}`;
+  const nome = `Profilo di profondità dell'immersione`;
+  // L'istruzione fa parte della descrizione, e non di una nota accanto al
+  // grafico: una funzione che esiste ma che non viene annunciata da nessuna parte
+  // è, per chi non vede lo schermo, una funzione che non esiste.
+  const descrizione =
+    riassuntoProfilo(dive) +
+    (sync ? ' Frecce per muovere il cursore, Maiusc più freccia per saltare di un minuto, Inizio e Fine per gli estremi.' : '');
 
   return (
     <div className="chart" ref={ref}>
@@ -146,14 +208,28 @@ export function DepthProfile({
         height={height}
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        style={{ display: 'block' }}
+        aria-label={nome}
+        aria-describedby={`${uid}-desc`}
+        // Raggiungibile da tastiera SOLO quando c'è davvero un cursore da
+        // muovere: una tappa nell'ordine di tabulazione che non porta a nessuna
+        // azione è un ostacolo, non un servizio.
+        tabIndex={sync ? 0 : undefined}
+        style={{ display: 'block', ...contornoFuoco(fuoco) }}
+        onKeyDown={spostaCursore}
+        onFocus={() => setFuoco(true)}
+        onBlur={() => {
+          setFuoco(false);
+          sync?.onChange(null);
+        }}
         onMouseMove={hover}
         onMouseLeave={() => {
           setTip(null);
           sync?.onChange(null);
         }}
       >
-        <defs>
+        <title>{nome}</title>
+        <desc id={`${uid}-desc`}>{descrizione}</desc>
+        <defs aria-hidden="true">
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--series-1)" stopOpacity={0.28} />
             <stop offset="100%" stopColor="var(--series-1)" stopOpacity={0.04} />
@@ -162,20 +238,22 @@ export function DepthProfile({
 
         {/* Fascia della sosta di sicurezza: contesto, non dato — quindi tenue e
             con l'etichetta, perché una banda colorata senza spiegazione è rumore. */}
-        <rect x={pad.left} y={py(lo)} width={plotW} height={py(hi) - py(lo)} fill="var(--series-3)" opacity={0.07} />
-        <text
-          className="axis-label"
-          x={width - pad.right - 4}
-          y={py(lo) - 4}
-          textAnchor="end"
-          opacity={0.7}
-        >
-          sosta di sicurezza {lo}–{hi} m
-        </text>
+        <g aria-hidden="true">
+          <rect x={pad.left} y={py(lo)} width={plotW} height={py(hi) - py(lo)} fill="var(--series-3)" opacity={0.07} />
+          <text
+            className="axis-label"
+            x={width - pad.right - 4}
+            y={py(lo) - 4}
+            textAnchor="end"
+            opacity={0.7}
+          >
+            sosta di sicurezza {lo}–{hi} m
+          </text>
+        </g>
 
         {/* Griglia orizzontale e verticale, in tono recessivo. */}
         {depthTicks.map((t) => (
-          <g key={`h${t}`}>
+          <g key={`h${t}`} aria-hidden="true">
             <line x1={pad.left} x2={width - pad.right} y1={py(t)} y2={py(t)} stroke="var(--grid)" strokeWidth={1} />
             <text className="axis-label" x={pad.left - 8} y={py(t) + 3.5} textAnchor="end">
               {t === 0 ? '0 m' : t}
@@ -184,6 +262,7 @@ export function DepthProfile({
         ))}
         {timeTicks(maxT).map((t) => (
           <line
+            aria-hidden="true"
             key={`v${t}`}
             x1={px(t)}
             x2={px(t)}
@@ -195,12 +274,13 @@ export function DepthProfile({
           />
         ))}
 
-        <path d={areaPath} fill={`url(#${gradientId})`} />
-        {ceilingArea && <path d={ceilingArea} fill="var(--series-2)" opacity={0.1} />}
+        <path aria-hidden="true" d={areaPath} fill={`url(#${gradientId})`} />
+        {ceilingArea && <path aria-hidden="true" d={ceilingArea} fill="var(--series-2)" opacity={0.1} />}
         {ceilingLine && (
-          <path d={ceilingLine} fill="none" stroke="var(--series-2)" strokeWidth={1.75} strokeLinejoin="round" />
+          <path aria-hidden="true" d={ceilingLine} fill="none" stroke="var(--series-2)" strokeWidth={1.75} strokeLinejoin="round" />
         )}
         <path
+          aria-hidden="true"
           d={depthPath}
           fill="none"
           stroke="var(--series-1)"
@@ -211,7 +291,7 @@ export function DepthProfile({
 
         {/* Segnalibri: l'unico contenuto del profilo messo lì dal subacqueo. */}
         {dive.events?.map((e) => (
-          <g key={`${e.t}-${e.label ?? ''}`}>
+          <g key={`${e.t}-${e.label ?? ''}`} aria-hidden="true">
             <line
               x1={px(e.t)}
               x2={px(e.t)}
@@ -230,7 +310,7 @@ export function DepthProfile({
         ))}
 
         {cursorSample && (
-          <>
+          <g aria-hidden="true">
             <line
               x1={px(cursorSample.t)}
               x2={px(cursorSample.t)}
@@ -247,23 +327,32 @@ export function DepthProfile({
               stroke="var(--surface-1)"
               strokeWidth={2}
             />
-          </>
+          </g>
         )}
 
-        <line
-          x1={pad.left}
-          x2={width - pad.right}
-          y1={pad.top + plotH}
-          y2={pad.top + plotH}
-          stroke="var(--axis)"
-          strokeWidth={1}
-        />
-        {timeTicks(maxT).map((t) => (
-          <text key={`l${t}`} className="axis-label" x={px(t)} y={height - 7} textAnchor="middle">
-            {Math.round(t / 60)}′
-          </text>
-        ))}
+        <g aria-hidden="true">
+          <line
+            x1={pad.left}
+            x2={width - pad.right}
+            y1={pad.top + plotH}
+            y2={pad.top + plotH}
+            stroke="var(--axis)"
+            strokeWidth={1}
+          />
+          {timeTicks(maxT).map((t) => (
+            <text key={`l${t}`} className="axis-label" x={px(t)} y={height - 7} textAnchor="middle">
+              {Math.round(t / 60)}′
+            </text>
+          ))}
+        </g>
       </svg>
+      {/* Nessuna tabella equivalente qui, ed è una scelta: un profilo sono
+          centinaia o migliaia di campioni, e leggerli uno per uno non è dare
+          accesso al dato, è seppellirlo. Al posto della tabella c'è il riassunto
+          nella descrizione e il cursore che si muove con le frecce, cioè lo
+          stesso patto che ha chi guarda: la forma subito, il singolo istante su
+          richiesta. */}
+      {fuoco && <AnnuncioCursore testo={cursorSample ? annuncioCampione(cursorSample) : 'Cursore non posizionato: usa le frecce per esplorare il profilo.'} />}
       <Tooltip state={tip} containerWidth={width} />
     </div>
   );
@@ -315,6 +404,8 @@ export function MiniSeries({
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const [tip, setTip] = useState<TooltipState | null>(null);
+  const [fuoco, setFuoco] = useState(false);
+  const uid = useId();
 
   const points = samples
     .map((s, i) => ({ t: s.t, v: pick(s, i) }))
@@ -367,6 +458,31 @@ export function MiniSeries({
       ? points.reduce((a, b) => (Math.abs(b.t - sync.t!) < Math.abs(a.t - sync.t!) ? b : a), points[0])
       : null;
 
+  // Stesse regole del profilo: un passo è un campione, Maiusc salta di un minuto,
+  // e senza cursore si parte dal valore ESTREMO della serie — il picco di CNS, il
+  // minimo di NDL — che è l'istante per cui questi grafici esistono.
+  const spostaCursore = (evt: React.KeyboardEvent<SVGSVGElement>) => {
+    if (!sync) return;
+    const corrente = sync.t == null ? -1 : indiceVicinoA(points, sync.t);
+    const passo = evt.shiftKey ? Math.max(1, Math.round(60 / passoCampioniS(points))) : 1;
+    let prossimo: number | null = null;
+    if (evt.key === 'ArrowRight') prossimo = corrente < 0 ? indiceEstremo(points) : corrente + passo;
+    else if (evt.key === 'ArrowLeft') prossimo = corrente < 0 ? indiceEstremo(points) : corrente - passo;
+    else if (evt.key === 'Home') prossimo = 0;
+    else if (evt.key === 'End') prossimo = points.length - 1;
+    else if (evt.key === 'Escape') {
+      sync.onChange(null);
+      return;
+    } else return;
+    evt.preventDefault();
+    sync.onChange(points[Math.min(points.length - 1, Math.max(0, prossimo))].t);
+  };
+
+  const nome = `${label} (${unit})`;
+  const descrizione =
+    riassuntoMiniSerie(points, { etichetta: label, unita: unit, digits }) +
+    (sync ? ' Frecce per muovere il cursore.' : '');
+
   return (
     <div className="chart" ref={ref}>
       <div className="mini-title">
@@ -388,7 +504,16 @@ export function MiniSeries({
         height={height}
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        style={{ display: 'block' }}
+        aria-label={nome}
+        aria-describedby={`${uid}-desc`}
+        tabIndex={sync ? 0 : undefined}
+        style={{ display: 'block', ...contornoFuoco(fuoco) }}
+        onKeyDown={spostaCursore}
+        onFocus={() => setFuoco(true)}
+        onBlur={() => {
+          setFuoco(false);
+          sync?.onChange(null);
+        }}
         onMouseMove={(evt) => {
           const rect = evt.currentTarget.getBoundingClientRect();
           const t = ((evt.clientX - rect.left - pad.left) / plotW) * maxT;
@@ -406,8 +531,10 @@ export function MiniSeries({
           sync?.onChange(null);
         }}
       >
+        <title>{nome}</title>
+        <desc id={`${uid}-desc`}>{descrizione}</desc>
         {ticks.map((t) => (
-          <g key={t}>
+          <g key={t} aria-hidden="true">
             <line x1={pad.left} x2={width - pad.right} y1={py(t)} y2={py(t)} stroke="var(--grid)" strokeWidth={1} />
             <text className="axis-label" x={pad.left - 8} y={py(t) + 3.5} textAnchor="end">
               {t.toFixed(digits)}
@@ -416,6 +543,7 @@ export function MiniSeries({
         ))}
         {timeTicks(maxT).map((t) => (
           <line
+            aria-hidden="true"
             key={`v${t}`}
             x1={px(t)}
             x2={px(t)}
@@ -427,7 +555,7 @@ export function MiniSeries({
           />
         ))}
         {reference.map((r, i) => (
-          <g key={r.label}>
+          <g key={r.label} aria-hidden="true">
             <line
               x1={pad.left}
               x2={width - pad.right}
@@ -451,11 +579,12 @@ export function MiniSeries({
             </text>
           </g>
         ))}
-        {fill && <path d={area} fill={color} opacity={0.12} />}
+        {fill && <path aria-hidden="true" d={area} fill={color} opacity={0.12} />}
         {/* La curva di confronto va SOTTO, tratteggiata: quella che comanda la
             scala e l'etichetta è la principale. */}
         {otherLine && (
           <path
+            aria-hidden="true"
             d={otherLine}
             fill="none"
             stroke={compare?.color ?? 'var(--text-muted)'}
@@ -465,9 +594,9 @@ export function MiniSeries({
             strokeLinecap="round"
           />
         )}
-        <path d={line} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+        <path aria-hidden="true" d={line} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
         {cursorPoint && (
-          <>
+          <g aria-hidden="true">
             <line
               x1={px(cursorPoint.t)}
               x2={px(cursorPoint.t)}
@@ -477,9 +606,18 @@ export function MiniSeries({
               strokeWidth={1}
             />
             <circle cx={px(cursorPoint.t)} cy={py(cursorPoint.v)} r={3} fill={color} />
-          </>
+          </g>
         )}
       </svg>
+      {fuoco && (
+        <AnnuncioCursore
+          testo={
+            cursorPoint
+              ? `${label}: minuto ${formatDuration(cursorPoint.t)}, ${cursorPoint.v.toFixed(digits)} ${unit}`
+              : `${label}: cursore non posizionato, usa le frecce.`
+          }
+        />
+      )}
       <Tooltip state={tip} containerWidth={width} />
     </div>
   );
@@ -499,6 +637,168 @@ function nearest(samples: Sample[], t: number): Sample | undefined {
     }
   }
   return best;
+}
+
+/** Indice del campione più vicino a un istante. */
+function indiceVicino(samples: Sample[], t: number): number {
+  let best = 0;
+  for (let i = 1; i < samples.length; i++) {
+    if (Math.abs(samples[i].t - t) < Math.abs(samples[best].t - t)) best = i;
+  }
+  return best;
+}
+
+function indiceVicinoA(punti: { t: number }[], t: number): number {
+  let best = 0;
+  for (let i = 1; i < punti.length; i++) {
+    if (Math.abs(punti[i].t - t) < Math.abs(punti[best].t - t)) best = i;
+  }
+  return best;
+}
+
+/** Indice del campione più profondo: il punto da cui parte l'esplorazione. */
+function indiceMassimo(samples: Sample[]): number {
+  let best = 0;
+  for (let i = 1; i < samples.length; i++) if (samples[i].depth > samples[best].depth) best = i;
+  return best;
+}
+
+/**
+ * Indice del valore che si allontana di più dalla mediana della serie.
+ *
+ * Non «il massimo»: su NDL e RBT il valore interessante è il MINIMO, su CNS e TTS
+ * è il massimo, e una regola sola per entrambi non può essere «il più grande».
+ * L'estremo rispetto al centro funziona in tutti e due i casi senza sapere che
+ * cosa la serie stia misurando.
+ */
+function indiceEstremo(punti: { t: number; v: number }[]): number {
+  const centro = quartili(punti.map((p) => p.v))!.mediana;
+  let best = 0;
+  for (let i = 1; i < punti.length; i++) {
+    if (Math.abs(punti[i].v - centro) > Math.abs(punti[best].v - centro)) best = i;
+  }
+  return best;
+}
+
+/** Passo di campionamento, secondi: la mediana degli intervalli fra due punti. */
+function passoCampioniS(punti: { t: number }[]): number {
+  if (punti.length < 2) return 10;
+  const passi: number[] = [];
+  for (let i = 1; i < punti.length; i++) passi.push(punti[i].t - punti[i - 1].t);
+  return Math.max(1, quartili(passi)!.mediana);
+}
+
+/**
+ * Il singolo istante, detto a voce.
+ *
+ * Le stesse righe del tooltip e nello stesso ordine — profondità, poi ciò che è
+ * eccezionale (il tetto), poi il contorno. Se le due letture divergessero, chi
+ * usa lo screen reader e chi usa il mouse starebbero guardando due immersioni
+ * diverse, ed è esattamente quello che questo lavoro serve a evitare.
+ */
+export function annuncioCampione(s: Sample): string {
+  const parti = [`minuto ${formatDuration(s.t)}`, `${s.depth.toFixed(1)} m`];
+  const tetto = s.ceiling ?? s.stopDepth;
+  if (tetto) parti.push(`tetto ${tetto.toFixed(1)} m`);
+  else if (s.ndlS !== undefined) parti.push(`NDL ${Math.round(s.ndlS / 60)} min`);
+  if (s.tempC !== undefined) parti.push(`${s.tempC.toFixed(1)} °C`);
+  const pressione = s.pressureBar?.find((p) => p !== undefined);
+  if (pressione !== undefined) parti.push(`${Math.round(pressione)} bar`);
+  return parti.join(', ');
+}
+
+/**
+ * Il profilo detto in una frase.
+ *
+ * Contiene ciò che un subacqueo guarda per primo in un profilo: quanto è durata,
+ * quanto è andata giù e quando, quanto ci è stata in media, e se c'è stato un
+ * obbligo di decompressione — con l'intervallo in cui c'è stato, che è la
+ * differenza fra «ho sforato un minuto» e «ho passato mezz'ora in deco».
+ *
+ * Tutto calcolato dai campioni disegnati, non dai valori di sintesi
+ * dell'immersione: se il computer dichiarasse una massima di 42 m e il profilo
+ * salvato ne mostrasse 38, la descrizione deve dire quello che si vede nel
+ * grafico — altrimenti descrive un disegno diverso da quello che sta accanto.
+ */
+export function riassuntoProfilo(dive: Dive): string {
+  const samples = dive.samples ?? [];
+  if (samples.length < 2) return 'Immersione senza profilo campionato.';
+
+  const durataS = samples[samples.length - 1].t - samples[0].t;
+  const piuProfondo = samples.reduce((a, b) => (b.depth > a.depth ? b : a));
+  const parti = [
+    `Profilo di ${Math.round(durataS / 60)} minuti su ${samples.length} campioni.`,
+    `Massima ${piuProfondo.depth.toFixed(1)} m al minuto ${Math.round(piuProfondo.t / 60)}, media ${mediaPesata(samples).toFixed(1)} m.`,
+  ];
+
+  // Il tetto di decompressione: il PRIMO e l'ULTIMO istante in cui esiste, non
+  // quanti campioni lo portano. Un obbligo che compare, sparisce e ricompare
+  // resta un unico intervallo in cui l'immersione non era più in curva, ed è
+  // così che lo racconterebbe chi guarda il grafico.
+  const conTetto = samples.filter((s) => (s.ceiling ?? s.stopDepth ?? 0) > 0);
+  if (conTetto.length > 0) {
+    const piuAlto = conTetto.reduce((a, b) => ((b.ceiling ?? b.stopDepth ?? 0) > (a.ceiling ?? a.stopDepth ?? 0) ? b : a));
+    parti.push(
+      `Tetto di decompressione presente dal minuto ${Math.round(conTetto[0].t / 60)} al minuto ` +
+        `${Math.round(conTetto[conTetto.length - 1].t / 60)}, il più profondo ` +
+        `${(piuAlto.ceiling ?? piuAlto.stopDepth ?? 0).toFixed(1)} m.`,
+    );
+  } else {
+    parti.push('Nessun obbligo di decompressione nel profilo.');
+  }
+
+  const temperature = samples.map((s) => s.tempC).filter((v): v is number => v !== undefined);
+  if (temperature.length > 0) {
+    const q = quartili(temperature)!;
+    parti.push(`Temperatura da ${numeroBreve(q.min)} a ${numeroBreve(q.max)} °C.`);
+  }
+  const eventi = dive.events?.length ?? 0;
+  if (eventi > 0) parti.push(`${eventi} ${eventi === 1 ? 'segnalibro' : 'segnalibri'} sul computer.`);
+  return parti.join(' ');
+}
+
+/**
+ * Profondità media pesata sul TEMPO, con i trapezi.
+ *
+ * La media aritmetica dei campioni sarebbe sbagliata ogni volta che il computer
+ * cambia passo di registrazione — e lo fa, per esempio infittendo in risalita:
+ * i campioni fitti della risalita peserebbero quanto quelli radi del fondo, e la
+ * media verrebbe fuori più bassa del vero.
+ */
+function mediaPesata(samples: Sample[]): number {
+  let area = 0;
+  let tempo = 0;
+  for (let i = 1; i < samples.length; i++) {
+    const dt = samples[i].t - samples[i - 1].t;
+    if (dt <= 0) continue;
+    area += ((samples[i].depth + samples[i - 1].depth) / 2) * dt;
+    tempo += dt;
+  }
+  return tempo > 0 ? area / tempo : samples[0].depth;
+}
+
+/**
+ * Una serie secondaria detta in una frase.
+ *
+ * Qui non servono i quartili: queste curve si leggono per gli estremi e per
+ * dove cadono — il minimo di NDL e il minuto in cui è successo sono l'intera
+ * ragione per cui il grafico esiste. Il valore finale c'è perché è quello
+ * stampato in grande accanto al titolo, e le due cose devono coincidere.
+ */
+export function riassuntoMiniSerie(
+  punti: { t: number; v: number }[],
+  { etichetta, unita, digits = 0 }: { etichetta: string; unita: string; digits?: number },
+): string {
+  if (punti.length === 0) return `${etichetta}: nessun valore registrato.`;
+  const min = punti.reduce((a, b) => (b.v < a.v ? b : a));
+  const max = punti.reduce((a, b) => (b.v > a.v ? b : a));
+  const durataMin = Math.round((punti[punti.length - 1].t - punti[0].t) / 60);
+  return (
+    `${etichetta} in ${unita}, ${punti.length} rilevazioni su ${durataMin} minuti. ` +
+    `Minimo ${min.v.toFixed(digits)} al minuto ${Math.round(min.t / 60)}, ` +
+    `massimo ${max.v.toFixed(digits)} al minuto ${Math.round(max.t / 60)}. ` +
+    `Valore finale ${punti[punti.length - 1].v.toFixed(digits)}.`
+  );
 }
 
 /** Tacche temporali ogni 5, 10, 15 o 30 minuti secondo la durata. */

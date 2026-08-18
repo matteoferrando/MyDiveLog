@@ -170,7 +170,21 @@ describe('la catena sull’archivio', () => {
     expect(dopo.gf99Pct!).toBeGreaterThan(senzaResiduo);
   });
 
-  it('un’immersione senza profilo spezza la catena invece di inventare', async () => {
+  /*
+   * Questo test diceva il CONTRARIO fino ad agosto 2026, ed era sbagliato lui.
+   *
+   * La regola vecchia era «senza profilo la catena si spezza, e chi viene dopo
+   * riparte pulito invece di ereditare un numero inventato». Suona prudente e non
+   * lo è: fra un carico STIMATO da un profilo quadro e un carico ZERO, il secondo
+   * non è più cauto — è solo più sbagliato, e nella direzione che rassicura. Chi
+   * legge vedeva una ripetitiva con il GF99 di una prima immersione della
+   * giornata. Sull'archivio di riferimento succedeva 19 volte su 104.
+   *
+   * Ora il quadro si ricostruisce da profondità media e durata, la catena
+   * prosegue, e la stima è dichiarata in `tissuesEstimated` perché nessun numero
+   * ricostruito deve poter passare per misurato.
+   */
+  it('un’immersione senza profilo non spezza più la catena: la stima e lo dichiara', async () => {
     const a = dive('a', '2026-06-01T09:00:00Z', 30, 30);
     const endA = Date.parse(a.startTime) + a.durationS * 1000;
     const senzaProfilo: Dive = {
@@ -178,6 +192,7 @@ describe('la catena sull’archivio', () => {
       startTime: new Date(endA + 3600_000).toISOString(),
       durationS: 2400,
       maxDepth: 20,
+      avgDepth: 14,
       cylinders: [{ mix: { o2: 0.21, he: 0 } }],
       source: { format: 'csv', file: 'test', importedAt: a.startTime },
       mode: 'oc',
@@ -186,9 +201,20 @@ describe('la catena sull’archivio', () => {
     const endX = Date.parse(senzaProfilo.startTime) + senzaProfilo.durationS * 1000;
     const c = dive('c', new Date(endX + 3600_000).toISOString(), 25, 30);
     const r = await chainArchive([a, senzaProfilo, c], load([a, c]));
+
+    // Il conteggio ora dice «quante poggiano su una stima», non «dove si è rotta».
     expect(r.report.withoutProfile).toBe(1);
-    // `c` viene dopo un buco: riparte pulita, e lo dichiara non avendo residuo.
-    expect(r.dives.find((d) => d.id === 'c')!.metrics!.residualN2Bar).toBeUndefined();
+    const x = r.dives.find((d) => d.id === 'x')!.metrics!;
+    expect(x.tissuesEstimated).toBe(true);
+    expect(x.gf99Pct).toBeGreaterThan(0);
+    // Ed eredita a sua volta il carico di `a`, che il profilo ce l'ha.
+    expect(x.residualN2Bar!).toBeGreaterThan(0);
+
+    // `c` viene dopo il buco e NON riparte pulita: è il difetto che chiudeva.
+    const cm = r.dives.find((d) => d.id === 'c')!.metrics!;
+    expect(cm.residualN2Bar!).toBeGreaterThan(0);
+    expect(cm.tissuesEstimated).toBeUndefined();
+    expect(cm.gf99Pct!).toBeGreaterThan(cm.gf99CleanPct!);
   });
 
   it('needsRecompute non chiede di rifare quello che è già giusto', async () => {

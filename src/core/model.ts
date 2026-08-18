@@ -23,7 +23,13 @@ export type SourceFormat =
   | 'shearwater-cloud'
   | 'garmin-fit'
   | 'logtrak'
-  | 'csv';
+  | 'csv'
+  // Inserita a mano, senza nessun file dietro. È una sorgente a tutti gli
+  // effetti e non un caso speciale: l'immersione col computer a noleggio o
+  // ricopiata dal libretto di carta vale quanto le altre, e soprattutto DEVE
+  // stare nell'archivio perché la catena dei tessuti si calcola su di lui —
+  // un buco non è una riga in meno, è il GF99 sbagliato su quella dopo.
+  | 'manual';
 
 export type DiveMode = 'oc' | 'ccr' | 'scr' | 'gauge' | 'freedive';
 
@@ -471,6 +477,23 @@ export interface DiveMetrics {
    * digest, quindi ricalcolarle non fa rispedire l'archivio intero.
    */
   tissuesEnd?: { n2: number[]; he: number[] };
+  /**
+   * Vero quando i tessuti non vengono da un profilo registrato ma da un profilo
+   * QUADRO ricostruito da profondità media e durata.
+   *
+   * Serve alle immersioni senza campioni — inserite a mano, o arrivate da un CSV
+   * di riepilogo. Prima la catena si spezzava su di loro e la ripetitiva dopo
+   * ripartiva da tessuti puliti, cioè con un GF99 ottimista; ora il carico si
+   * stima, ed è quasi sempre più vicino al vero di quanto lo sia lo zero. Ma
+   * resta una STIMA, e ogni numero che ne discende deve dirlo: è la stessa
+   * regola per cui nessuna metrica viene inventata quando il dato non c'è.
+   */
+  tissuesEstimated?: boolean;
+  /**
+   * Quanti campioni sono stati scartati perché illeggibili. Diverso da zero
+   * significa che questi numeri descrivono un profilo con dei buchi.
+   */
+  skippedSamples?: number;
 
   /** Qualità del dato: quali metriche sono affidabili. */
   quality: MetricQuality;

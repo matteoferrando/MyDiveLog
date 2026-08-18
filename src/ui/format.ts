@@ -95,6 +95,7 @@ export const FORMAT_LABEL: Record<string, string> = {
   'garmin-fit': 'Garmin FIT',
   logtrak: 'LogTRAK',
   csv: 'CSV',
+  manual: 'Inserita a mano',
 };
 
 /**

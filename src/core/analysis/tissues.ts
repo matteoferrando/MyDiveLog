@@ -23,7 +23,7 @@
  * carico residuo inventato è peggio di un carico residuo assente.
  */
 
-import type { Dive, GasMix, Salinity, Sample } from '../model';
+import type { Dive, DiveMetrics, GasMix, Salinity, Sample } from '../model';
 import { ambientBar } from '../units';
 import {
   WATER_VAPOUR_BAR,
@@ -226,7 +226,11 @@ export interface ChainReport {
   computed: number;
   /** Immersioni già a posto, di cui si è riusato lo stato salvato. */
   reused: number;
-  /** Immersioni senza profilo: la catena si è spezzata lì. */
+  /**
+   * Immersioni senza profilo registrato, per cui i tessuti sono stati stimati su
+   * un profilo quadro. La catena NON si spezza più su di loro: il numero serve a
+   * dire quanta parte dell'archivio poggia su una stima.
+   */
   withoutProfile: number;
 }
 
@@ -237,6 +241,54 @@ export interface ChainReport {
  * cambiate e lascia al chiamante la scrittura, che è l'unico modo di tenere questo
  * modulo dentro `core` senza dipendenze di piattaforma.
  */
+/**
+ * Il profilo che un'immersione senza campioni ha quasi certamente avuto.
+ *
+ * Discesa alla velocità dichiarata, permanenza alla profondità MEDIA, risalita.
+ * Non è il profilo vero — quello non esiste da nessuna parte — ma è esattamente
+ * il modello con cui si pianifica un'immersione a tavolino, ed è quello che le
+ * tabelle usano da cinquant'anni.
+ *
+ * La media, non la massima: la massima è un istante e userebbe come permanenza
+ * un valore che nessuno ha tenuto per quaranta minuti, sovrastimando il carico
+ * di parecchio. Quando la media manca — capita sulle righe ricopiate a mano —
+ * si usa il 70% della massima, che è il rapporto mediano misurato sull'archivio
+ * reale ed è dichiarato in `usualDepthRatio`.
+ *
+ * Perché stimare invece di arrendersi: prima la catena si SPEZZAVA qui, e
+ * l'immersione successiva ripartiva da tessuti puliti. Fra «carico stimato con
+ * un quadro» e «carico zero», il secondo non è più prudente: è solo più
+ * sbagliato, e per giunta nella direzione che rassicura. Una stima dichiarata
+ * batte una lacuna nascosta.
+ */
+export function squareProfile(dive: Dive, ascentRateMpm = 9, descentRateMpm = 18): Sample[] {
+  const durationS = Math.max(60, Math.round(dive.durationS));
+  const maxDepth = Math.max(1, dive.maxDepth);
+  const avg = dive.avgDepth && dive.avgDepth > 0 ? Math.min(dive.avgDepth, maxDepth) : maxDepth * 0.7;
+  const descentS = Math.round((avg / descentRateMpm) * 60);
+  const ascentS = Math.round((avg / ascentRateMpm) * 60);
+  // Se discesa e risalita da sole non ci stanno nella durata, si comprimono in
+  // proporzione: meglio un profilo più ripido del vero che una permanenza
+  // negativa, che darebbe tessuti senza senso.
+  const travelS = descentS + ascentS;
+  const scale = travelS > durationS * 0.9 ? (durationS * 0.9) / Math.max(1, travelS) : 1;
+  const dS = Math.max(1, Math.round(descentS * scale));
+  const aS = Math.max(1, Math.round(ascentS * scale));
+  const bottomS = Math.max(1, durationS - dS - aS);
+
+  const out: Sample[] = [{ t: 0, depth: 0 }];
+  const step = 10;
+  for (let t = step; t < dS; t += step) out.push({ t, depth: (avg * t) / dS });
+  out.push({ t: dS, depth: avg });
+  for (let t = dS + step; t < dS + bottomS; t += step) out.push({ t, depth: avg });
+  out.push({ t: dS + bottomS, depth: avg });
+  for (let t = dS + bottomS + step; t < durationS; t += step) {
+    out.push({ t, depth: avg * (1 - (t - dS - bottomS) / aS) });
+  }
+  out.push({ t: durationS, depth: 0 });
+  return out;
+}
+
 export async function chainArchive(
   dives: Dive[],
   loadSamples: (id: string) => Promise<Sample[]>,
@@ -261,14 +313,25 @@ export async function chainArchive(
       continue;
     }
 
-    const samples = dive.samples?.length ? dive.samples : await loadSamples(dive.id);
+    const registrati = dive.samples?.length ? dive.samples : await loadSamples(dive.id);
+    /*
+     * Senza profilo si RICOSTRUISCE un quadro, non si spezza la catena.
+     *
+     * Prima qui c'era `previous = undefined`: la catena si interrompeva e ogni
+     * immersione successiva ripartiva da tessuti puliti. Sull'archivio reale
+     * sono 19 immersioni su 104 — quelle ricopiate a mano in LogTRAK — e ognuna
+     * regalava un GF99 ottimista alla ripetitiva che la seguiva, senza che
+     * niente lo dicesse. Il quadro non è il profilo vero, ma sbaglia molto meno
+     * dello zero, e sbaglia dalla parte giusta.
+     */
+    const stimato = registrati.length < 2;
+    const samples = stimato ? squareProfile(dive) : registrati;
     if (samples.length < 2) {
-      // Senza profilo non si sa quanto ha caricato: la catena si spezza qui, e le
-      // immersioni dopo ripartono pulite invece di ereditare un numero inventato.
       report.withoutProfile++;
       previous = undefined;
       continue;
     }
+    if (stimato) report.withoutProfile++;
 
     const result = analyseProfile(dive, samples, entry.state);
     // Quanto è costato il residuo: la STESSA immersione rigiocata da tessuti
@@ -280,6 +343,7 @@ export async function chainArchive(
         ? analyseProfile(dive, samples, surfacedTissues(surfaceOf(dive))).gf99End
         : undefined;
     const tissue: TissueMetrics = {
+      ...(stimato ? { tissuesEstimated: true } : {}),
       gf99Pct: result.gf99End,
       gf99MaxPct: result.gf99Max,
       leadingCompartment: result.leadingCompartment,
@@ -296,18 +360,40 @@ export async function chainArchive(
     // I tre campi opzionali si assegnano espliciti anche quando sono `undefined`:
     // se un'immersione smette di essere una ripetitiva — perché quella prima è
     // stata cancellata — il residuo di prima deve sparire, non restare lì.
-    const next: Dive = dive.metrics
-      ? {
-          ...dive,
-          metrics: {
-            ...dive.metrics,
-            ...tissue,
-            residualN2Bar: entry.residualN2Bar > 0 ? entry.residualN2Bar : undefined,
-            gf99CleanPct: clean,
-            surfaceIntervalMin: entry.surfaceIntervalMin,
-          },
-        }
-      : dive;
+    /*
+     * Un'immersione senza `metrics` non deve perdere i tessuti appena calcolati.
+     *
+     * Prima il ramo `: dive` la lasciava intatta: la catena proseguiva — lo stato
+     * passava alla successiva — ma il GF99 di QUESTA non veniva scritto da
+     * nessuna parte, e la sua scheda restava vuota. Succede alle immersioni
+     * arrivate da un CSV di riepilogo e a quelle inserite a mano da un percorso
+     * che non passa da `computeMetrics`. Si costruisce allora il minimo
+     * indispensabile, con una qualità che dichiara quello che è: nessun campione.
+     */
+    const baseMetrics: DiveMetrics =
+      dive.metrics ??
+      ({
+        quality: {
+          sampleCount: 0,
+          sampleIntervalS: 0,
+          hasProfile: false,
+          hasTankPressure: false,
+          hasCylinderVolume: false,
+          hasCeiling: false,
+          ratesIntervalS: 0,
+        },
+      } as DiveMetrics);
+    const next: Dive = {
+      ...dive,
+      metrics: {
+        ...baseMetrics,
+        ...tissue,
+        tissuesEstimated: stimato ? true : undefined,
+        residualN2Bar: entry.residualN2Bar > 0 ? entry.residualN2Bar : undefined,
+        gf99CleanPct: clean,
+        surfaceIntervalMin: entry.surfaceIntervalMin,
+      },
+    };
     if (next !== dive) {
       byId.set(dive.id, next);
       updated.push(next);

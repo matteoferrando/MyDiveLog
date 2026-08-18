@@ -4,6 +4,7 @@ import { mixLabel, modeLabel } from '../../core/analysis/aggregate';
 import { nextDiveBriefing, type NextDiveNote } from '../../core/analysis/nextDive';
 import type { GearItem } from '../../core/analysis/gear';
 import type { Dive } from '../../core/model';
+import { NewDive } from '../components/NewDive';
 import { useDiveLog } from '../state';
 import { dateShort, FORMAT_LABEL, imm, timeShort } from '../format';
 
@@ -58,6 +59,8 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <div className="page">
       <NextDive dives={dives} gear={gear} />
+
+      <NewDive onDone={onOpen} />
 
       <div className="page-title-row">
         <h1 className="page-title">Logbook</h1>

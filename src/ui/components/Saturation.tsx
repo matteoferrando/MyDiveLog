@@ -16,11 +16,11 @@
  * numeri non si fondono in uno.
  */
 
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import type { Dive } from '../../core/model';
 import { entryStateFor, gfOf, whatIfGf } from '../../core/analysis/tissues';
 import { compartments, type CompartmentState } from '../../core/analysis/buhlmann';
-import { StatTile, useWidth } from './Charts';
+import { StatTile, TabellaEquivalente, useWidth } from './Charts';
 
 /** Coppie che vale la pena confrontare: dalla tecnica alla ricreativa larga. */
 const PRESETS: { low: number; high: number; label: string }[] = [
@@ -76,10 +76,36 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
     <div className="card">
       <h2>Saturazione</h2>
       <p className="card-sub">
-        Il profilo riletto con Bühlmann ZH-L16C, tenendo conto dell'azoto che ti sei portato dietro
-        dall'immersione precedente. È il nostro calcolo, non quello del computer: sulle immersioni in
-        cui si possono confrontare i due numeri distano meno di un punto.
+        {m.tissuesEstimated
+          ? 'Questa immersione non ha un profilo registrato: i numeri qui sotto vengono da un profilo RICOSTRUITO, non da quello vero.'
+          : "Il profilo riletto con Bühlmann ZH-L16C, tenendo conto dell'azoto che ti sei portato dietro dall'immersione precedente. È il nostro calcolo, non quello del computer: sulle immersioni in cui si possono confrontare i due numeri distano meno di un punto."}
       </p>
+
+      {/*
+        La stima si dichiara SEMPRE e in cima, non in una nota a piè di card.
+        Un GF99 stimato e uno misurato si scrivono nello stesso modo — due cifre e
+        un simbolo di percentuale — e senza questo riquadro nessuno potrebbe
+        distinguerli. La regola vale per tutta l'applicazione: nessun valore
+        ricostruito deve poter passare per misurato.
+      */}
+      {m.tissuesEstimated && (
+        <div className="notice" style={{ marginBottom: 14 }}>
+          <b>Numeri stimati.</b> Senza campioni, il carico si calcola su un profilo quadro —
+          discesa, permanenza alla profondità media, risalita — costruito da durata e profondità
+          media. È il modello con cui si pianifica un'immersione a tavolino, e sbaglia molto meno
+          che considerarti a tessuti puliti: prima di questa stima l'immersione spezzava la catena e
+          la successiva risultava più pulita del vero. Ma resta una ricostruzione, e più la tua
+          immersione si allontana da un quadro — multilivello, yo-yo — più si allontana anche
+          questo numero.{' '}
+          {dive.avgDepth === undefined && (
+            <>
+              Qui manca anche la profondità media, quindi è stato usato il 70% della massima:
+              scriverla nella scheda migliora subito la stima, e con lei il calcolo delle ripetitive
+              che seguono.
+            </>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-tiles">
         <StatTile
@@ -278,6 +304,43 @@ const fmtDelta = (d: number) => `${d >= 0 ? '+' : ''}${d.toFixed(1)}`;
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
+ * Le sedici barre dette in una frase.
+ *
+ * Il disegno risponde a tre domande in un colpo d'occhio — chi comanda, quanto è
+ * vicino al suo limite, e se qualcuno lo ha superato — e sono le stesse tre a cui
+ * risponde questo testo, nello stesso ordine. Il compartimento che comanda arriva
+ * per primo perché è quello che decide il tetto: sapere che è il 5 invece del 12
+ * dice che tipo di immersione è stata, corta e profonda oppure lunga o ripetitiva.
+ *
+ * Il superamento del limite è nominato per ultimo ma nominato SEMPRE, anche
+ * quando non c'è: «nessuno oltre il limite» è un'informazione, e il silenzio su
+ * un dato di sicurezza si legge come un dato mancante.
+ */
+export function riassuntoCompartimenti(
+  list: CompartmentState[],
+  { comanda }: { comanda?: number } = {},
+): string {
+  if (list.length === 0) return 'Nessun compartimento calcolato.';
+  // Se chi ci chiama non dichiara il compartimento che comanda, lo si deduce dal
+  // gradiente usato — è la stessa definizione con cui viene scelto altrove, e
+  // dedurlo è meglio che tacerlo.
+  const capo = list.find((c) => c.index === comanda) ?? list.reduce((a, b) => (b.percent > a.percent ? b : a));
+  const piuCarico = list.reduce((a, b) => (b.total > a.total ? b : a));
+  const oltre = list.filter((c) => c.total > c.limit);
+  const parti = [
+    `${list.length} compartimenti.`,
+    `Comanda il ${capo.index}, semiperiodo ${capo.halfTimeMin} minuti: ${capo.total.toFixed(2)} bar ` +
+      `contro un limite di ${capo.limit.toFixed(2)} e un valore M di ${capo.mValue.toFixed(2)}, ` +
+      `cioè il ${capo.percent.toFixed(0)}% del gradiente ammesso.`,
+    `Il più carico in assoluto è il ${piuCarico.index} con ${piuCarico.total.toFixed(2)} bar.`,
+    oltre.length === 0
+      ? 'Nessun compartimento oltre il proprio limite.'
+      : `Oltre il limite: ${oltre.map((c) => c.index).join(', ')}.`,
+  ];
+  return parti.join(' ');
+}
+
+/**
  * Le sedici barre.
  *
  * Scala verticale in bar assoluti, comune a tutti i compartimenti: è l'unico modo
@@ -297,6 +360,7 @@ function TissueBars({
   leading?: number;
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
+  const uid = useId();
   const list: CompartmentState[] = compartments(state, surfaceBar, gfHigh);
 
   const height = 190;
@@ -308,11 +372,23 @@ function TissueBars({
   const slot = plotW / list.length;
   const barW = Math.max(4, slot * 0.62);
 
+  const nome = 'I sedici compartimenti di Bühlmann all\'uscita';
+  const descrizione = riassuntoCompartimenti(list, { comanda: leading });
+
   return (
     <div className="chart" ref={ref}>
-      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img">
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={nome}
+        aria-describedby={`${uid}-desc`}
+      >
+        <title>{nome}</title>
+        <desc id={`${uid}-desc`}>{descrizione}</desc>
         {[0, maxY / 2, maxY].map((v) => (
-          <g key={v}>
+          <g key={v} aria-hidden="true">
             <line x1={pad.left} x2={width - pad.right} y1={y(v)} y2={y(v)} stroke="var(--grid)" />
             <text className="axis-label" x={pad.left - 6} y={y(v) + 3} textAnchor="end">
               {v.toFixed(1)}
@@ -322,6 +398,7 @@ function TissueBars({
 
         {/* La pressione ambiente in superficie: sotto questa riga non si è sovrasaturi. */}
         <line
+          aria-hidden="true"
           x1={pad.left}
           x2={width - pad.right}
           y1={y(surfaceBar)}
@@ -335,7 +412,12 @@ function TissueBars({
           const isLeading = leading === c.index;
           const over = c.total > c.limit;
           return (
-            <g key={c.index}>
+            // Il gruppo è nascosto agli screen reader — sedici barre più le loro
+            // tacche sono cinquanta nodi senza testo — ma il `<title>` interno
+            // resta, perché è il suggerimento che il browser mostra al passaggio
+            // del mouse. Ciò che qui viene tolto alla voce è restituito, per
+            // intero e in forma leggibile, dalla tabella qui sotto.
+            <g key={c.index} aria-hidden="true">
               <title>
                 {`Compartimento ${c.index} (${c.halfTimeMin} min): ${c.total.toFixed(2)} bar, ` +
                   `valore M ${c.mValue.toFixed(2)}, limite con i tuoi GF ${c.limit.toFixed(2)} — ${c.percent.toFixed(0)}%`}
@@ -370,6 +452,28 @@ function TissueBars({
           );
         })}
       </svg>
+      {/* Sedici righe: corte da ascoltare e piene di significato, con il valore M
+          e il limite accanto al carico — cioè i tre numeri che stanno nel disegno
+          come altezza della barra e posizione delle due tacche. */}
+      <TabellaEquivalente
+        didascalia={nome}
+        intestazioni={[
+          'Compartimento',
+          'Semiperiodo (min)',
+          'Carico (bar)',
+          'Valore M (bar)',
+          `Limite con GF ${Math.round(gfHigh * 100)} (bar)`,
+          'Gradiente usato (%)',
+        ]}
+        righe={list.map((c) => [
+          c.index === leading ? `${c.index} (comanda)` : c.index,
+          c.halfTimeMin,
+          c.total.toFixed(2),
+          c.mValue.toFixed(2),
+          c.limit.toFixed(2),
+          c.percent.toFixed(0),
+        ])}
+      />
       <div className="chart-legend">
         <span>
           <span className="legend-key" style={{ background: 'var(--series-1)' }} />
