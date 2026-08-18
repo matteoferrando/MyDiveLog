@@ -1,6 +1,6 @@
 # Formati dei computer subacquei — cosa contengono e dove ingannano
 
-Note operative raccolte lavorando su file reali di Matteo. Servono a chi tocca
+Note operative raccolte lavorando su file reali. Servono a chi tocca
 i parser di MyDiveLog: sono le ragioni per cui un logbook fatto in casa dà
 numeri sbagliati senza segnalare nessun errore.
 
@@ -131,7 +131,7 @@ grado.
 ## Orologi sfasati
 
 Due computer allo stesso polso possono avere l'ora impostata diversamente. Nei
-dati reali di Matteo l'Aladin e il Peregrine differiscono di **un'ora** su 32
+dati reali l'Aladin e il Peregrine differiscono di **un'ora** su 32
 immersioni e di **due** sulle ultime 4, perché a un certo punto l'orologio è stato
 corretto. Una deduplica che confronta gli istanti non ne riconosce nemmeno una.
 

@@ -760,7 +760,7 @@ export const DEFAULT_PNF: PnfFixtureSpec = {
   waterDensity: 1020,
   surfaceMbar: 1013,
   modelNumber: 9,
-  serial: 0x988b023f,
+  serial: 0xa1b2c3d4,
   firmwareBcd: 0x89,
   logVersion: 14,
 };

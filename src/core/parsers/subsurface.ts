@@ -1,7 +1,7 @@
 /**
  * Subsurface XML (`.ssrf` / `.xml`).
  *
- * Formato importante non tanto perché Matteo usi Subsurface, ma perché è il
+ * Formato importante non tanto perché lo si usi, ma perché è il
  * ponte universale: Subsurface importa da praticamente qualsiasi computer
  * subacqueo e riesporta in questo XML. Chi ha uno storico decennale, ce l'ha qui.
  *

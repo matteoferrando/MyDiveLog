@@ -228,7 +228,7 @@ describe('profili caricati prima di una fusione', () => {
   });
 
   it('non duplica il computer principale reimportando gli stessi file', async () => {
-    const peregrine = { model: 'Shearwater Peregrine', serial: '988B023F', gfLow: 20, gfHigh: 85 };
+    const peregrine = { model: 'Shearwater Peregrine', serial: 'A1B2C3D4', gfLow: 20, gfHigh: 85 };
     const aladin = { model: 'Scubapro Aladin Sport Matrix', serial: '6303450223', ppo2MaxBar: 1.5 };
 
     const stored = dive({
@@ -253,7 +253,7 @@ describe('profili caricati prima di una fusione', () => {
   });
 
   it('ripulisce un archivio dove il principale era già finito nell’elenco', () => {
-    const peregrine = { model: 'Shearwater Peregrine', serial: '988B023F' };
+    const peregrine = { model: 'Shearwater Peregrine', serial: 'A1B2C3D4' };
     const stored = dive({
       id: 'd1',
       computer: peregrine,
@@ -268,7 +268,7 @@ describe('profili caricati prima di una fusione', () => {
 });
 
 describe('riparazione dei computer duplicati', () => {
-  const peregrine = { model: 'Shearwater Peregrine', serial: '988B023F' };
+  const peregrine = { model: 'Shearwater Peregrine', serial: 'A1B2C3D4' };
 
   it('toglie dall’elenco il computer che è già il principale', () => {
     const d = dive({ computer: peregrine, otherComputers: [{ ...peregrine }] });
@@ -417,8 +417,8 @@ describe('pulizia di ciò che arriva dalla rete', () => {
    * sincronizzazione: l'import puliva, la riparazione all'avvio puliva, ma il
    * documento che scendeva dal database remoto veniva scritto così com'era.
    */
-  const peregrine = { model: 'Shearwater Peregrine', serial: '988B023F', gfLow: 20, gfHigh: 85 };
-  const peregrineParziale = { model: 'Shearwater Peregrine', serial: '988B023F', firmware: 'v89' };
+  const peregrine = { model: 'Shearwater Peregrine', serial: 'A1B2C3D4', gfLow: 20, gfHigh: 85 };
+  const peregrineParziale = { model: 'Shearwater Peregrine', serial: 'A1B2C3D4', firmware: 'v89' };
   const aladin = { model: 'Scubapro Aladin Sport Matrix', serial: '6303450223' };
 
   const dive = (over: Partial<Dive>): Dive => ({

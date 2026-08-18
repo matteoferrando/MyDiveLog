@@ -89,7 +89,7 @@ function buildShearwaterDb(name: string, dives: SwDive[]): Uint8Array {
 
   dives.forEach((d, i) => {
     const id = `14332781617${String(487726 + i).padStart(6, '0')}`;
-    const fileName = `Peregrine[988B023F]#${i + 1} ${d.clock.slice(0, 10)}.swlogzp`;
+    const fileName = `Peregrine[A1B2C3D4]#${i + 1} ${d.clock.slice(0, 10)}.swlogzp`;
     // Il campo si chiama epoch ma contiene la lettura dell'orologio letta come UTC.
     const epochS = Math.round(Date.parse(`${d.clock.replace(' ', 'T')}Z`) / 1000);
     const tankProfile = JSON.stringify({
@@ -104,7 +104,7 @@ function buildShearwaterDb(name: string, dives: SwDive[]): Uint8Array {
       ],
     });
     det.run(
-      id, fileName, d.clock, String(d.depth), '988B023F', String(d.durationS),
+      id, fileName, d.clock, String(d.depth), 'A1B2C3D4', String(d.durationS),
       d.location ?? null, d.site ?? null, d.buddy ?? null, String(i + 1),
       d.weather ? 'Ocean/Sea' : null, null, d.weather ?? null, null, d.weather ? 'Small boat' : null,
       null, tankProfile, null, null, null, d.tankSize ?? null,
@@ -178,7 +178,7 @@ describe('conversioni', () => {
   });
 
   it('legge il modello dal nome del file', () => {
-    expect(modelFromFileName('Peregrine[988B023F]#30 2026-5-31 11-0-58.swl')).toBe('Peregrine');
+    expect(modelFromFileName('Peregrine[A1B2C3D4]#30 2026-5-31 11-0-58.swl')).toBe('Peregrine');
     expect(modelFromFileName('Perdix 2[ABC]#1.swl')).toBe('Perdix 2');
     expect(modelFromFileName('senza-parentesi.swl')).toBeUndefined();
   });
@@ -224,7 +224,7 @@ describe('parser Shearwater Cloud', () => {
     expect(d.cylinders[0].startBar).toBe(200);
     expect(d.cylinders[0].endBar).toBe(50);
     expect(d.computer?.model).toBe('Shearwater Peregrine');
-    expect(d.computer?.serial).toBe('988B023F');
+    expect(d.computer?.serial).toBe('A1B2C3D4');
     expect(d.annotations?.['Carico di lavoro']).toBe('Light');
     expect(d.annotations?.Meteo).toBe('Sunny');
     expect(d.tags).toContain('sunny');

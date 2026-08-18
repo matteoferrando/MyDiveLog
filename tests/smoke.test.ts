@@ -38,7 +38,7 @@ import { planDeco, type PlanGas } from '../src/core/analysis/deco';
  * Ogni voce è un caso che l'archivio di riferimento NON contiene: la coppia di
  * ripetitive a due ore di distanza, il lago freddo, l'immersione con obbligo
  * decompressivo, quella cortissima, quella lunga e bassa. Se un pezzo dell'app dà
- * per scontato il profilo tipico di Matteo, si rompe qui.
+ * per scontato il profilo tipico dell'archivio di riferimento, si rompe qui.
  */
 function archivio() {
   const day = (d: number, h: number) => new Date(Date.UTC(2026, 5, d, h, 0, 0));

@@ -1,0 +1,42 @@
+# Controlli automatici a ogni push.
+#
+# Girano le stesse tre cose che giro io prima di consegnare — typecheck, test,
+# build — perché il valore di un controllo automatico è esattamente che nessuno
+# debba ricordarsene. La suite gira anche sotto due fusi orari agli antipodi
+# (Kiritimati è UTC+14, Midway UTC-11): le immersioni portano date e la metà dei
+# bug di data si vede solo se l'orologio della macchina non è quello europeo.
+
+name: Controlli
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verifica:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` e non `npm install`: installa esattamente quello che dice il
+      # lock, quindi un test che passa qui passa anche sul Mac.
+      - run: npm ci
+
+      - name: Tipi
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Test con fusi orari estremi
+        run: npm run test:tz
+
+      - name: Build
+        run: npm run build

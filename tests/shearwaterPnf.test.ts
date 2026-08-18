@@ -29,7 +29,7 @@ describe('log nativo Shearwater', () => {
     expect(log.settings.sampleIntervalS).toBe(10);
     expect(log.settings.units).toBe('metric');
     expect(log.computer.model).toBe('Shearwater Peregrine');
-    expect(log.computer.serial).toBe('988B023F');
+    expect(log.computer.serial).toBe('A1B2C3D4');
     expect(log.computer.firmware).toBe('v89');
   });
 

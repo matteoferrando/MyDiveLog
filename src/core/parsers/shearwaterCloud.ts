@@ -321,7 +321,7 @@ export function parseTankSize(text: string | undefined): number | undefined {
   return v;
 }
 
-/** `"Peregrine[988B023F]#30 2026-5-31 11-0-58.swl"` → `"Peregrine"`. */
+/** `"Peregrine[A1B2C3D4]#30 2026-5-31 11-0-58.swl"` → `"Peregrine"`. */
 export function modelFromFileName(name: string | undefined): string | undefined {
   if (!name) return undefined;
   const m = /^([A-Za-z][A-Za-z0-9 ]*?)\s*\[/.exec(name.trim());

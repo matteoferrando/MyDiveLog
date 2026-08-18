@@ -14,7 +14,7 @@ può eliminare file).
 
 | Decisione | Scelta | Perché |
 |---|---|---|
-| Piattaforme | desktop macOS → iOS → web | ordine dichiarato da Matteo |
+| Piattaforme | desktop macOS → iOS → web | ordine dichiarato dal proprietario |
 | Stack | Tauri 2 + React + TypeScript | un solo codebase per le tre piattaforme; build macOS ~10 MB; Tauri 2 supporta iOS |
 | Logica | tutta in `src/core`, senza dipendenze da piattaforma | evita di riscriverla per iOS e web |
 | Storage | SQLite su desktop/iOS, IndexedDB sul web, dietro un'unica interfaccia | scelta automatica in base a `__TAURI_INTERNALS__` |
@@ -246,8 +246,10 @@ Database su Turso, creato il 17 agosto 2026:
 
 - nome `mydivelog`, regione **AWS EU West (Ireland)**, TursoDB (riscrittura Rust)
   **non** attivata;
-- indirizzo (non è un segreto): `libsql://mydivelog-zinin.aws-eu-west-1.turso.io`
-- **il token lo genera Matteo** dalla dashboard Turso ("Create Token") e lo
+- indirizzo nella forma `libsql://<nome-database>-<utente>.<regione>.turso.io`;
+  quello vero sta nelle impostazioni dell'app e non nel repository, perché un
+  endpoint pubblicato è comunque un bersaglio anche quando serve un token
+- **il token lo genera il proprietario del database** dalla dashboard Turso ("Create Token") e lo
   incolla nella scheda *Sincronizza*. Non passa da Claude e non entra nel
   repository: vive nella tabella delle impostazioni dell'archivio locale.
 
@@ -267,33 +269,39 @@ Regole, con la ragione:
   proprietà su cui insistono i test (19 test, di cui 9 contro un vero SQLite in
   memoria al posto del client di rete).
 
-Da fare quando Matteo avrà incollato il token: la prima sincronizzazione reale
+Da fare dopo aver incollato il token: la prima sincronizzazione reale
 (crea le tabelle e carica le 104 immersioni), poi verificare che la seconda non
 faccia niente.
 
-## L'archivio reale di Matteo
+## L'archivio di riferimento
 
-Da due fonti fuse: export LogTRAK del 17 agosto 2026 (app Scubapro) e database
-Shearwater Cloud dello stesso giorno. **104 immersioni, giugno 2020 → luglio
-2026**, 76 ore sott'acqua, massima 45.6 m. 85 hanno il profilo, 19 sono inserite a
-mano in LogTRAK e restano senza. Siti ricorrenti: Recco/Camogli e Numana, più
-Lampedusa, Maldive, Puerto del Carmen, Ventotene, Moregallo (lago).
+Tutto quello che segue viene da un archivio personale reale, che **non è nel
+repository**: le decisioni di questo progetto sono state prese guardando dati
+veri, e vale la pena scrivere che cosa hanno mostrato anche senza pubblicarli.
 
-Ha **due computer**: gli Aladin Sport Matrix (Scubapro, `deviceTypeNumber` 0x17) e
-un **Peregrine** (Shearwater, seriale 988B023F) usato dal maggio 2025. Il file
-Shearwater non aggiunge immersioni (0 nuove) ma **arricchisce 38**, che ora hanno
-il profilo del Peregrine con tetto deco, TTS, NDL e CNS campione per campione.
+Due fonti fuse — un export LogTRAK (app Scubapro) e un database Shearwater Cloud
+dello stesso giorno. **104 immersioni su sei anni**, 76 ore sott'acqua, massima
+45.6 m; 85 hanno il profilo campionato, 19 sono state inserite a mano e restano
+senza. Mare e un lago, in Italia e all'estero: abbastanza varietà da far emergere
+sia il caso dell'acqua dolce sia quello dei fusi orari.
+
+**Due computer**: un Aladin Sport Matrix (Scubapro, `deviceTypeNumber` 0x17) e un
+Peregrine (Shearwater) usato dall'ultimo anno e mezzo. Il file Shearwater non
+aggiunge immersioni (0 nuove) ma **ne arricchisce 38**, che così hanno il profilo
+del Peregrine con tetto deco, TTS, NDL e CNS campione per campione. È il caso
+d'uso che giustifica l'esistenza dell'applicazione, ed è arrivato dai dati prima
+che da un requisito.
 
 Cosa è emerso dai log nativi del Peregrine:
 
 - **ha cambiato i gradient factor**: 45/95 da maggio a settembre 2025, poi 20/85
   (due immersioni a ottobre 2025, poi stabilmente da marzo 2026). Confrontare il
   GF99 all'uscita fra periodi diversi senza saperlo porta a conclusioni sbagliate;
-- **3 immersioni con tetto di decompressione reale**: Mohawk Deer (tetto 6 m),
-  Haven (9 m), Moregallo (3 m). Zero superamenti del tetto;
+- **3 immersioni con tetto di decompressione reale** (6, 9 e 3 metri di tetto);
+  zero superamenti;
 - **4 immersioni arrivate a NDL 0**; TTS massimo osservato 11 minuti;
 - CNS massimo 8%: l'orologio dell'ossigeno non è mai stato un vincolo;
-- **densità dell'acqua impostata a 1020 (mare) anche a Moregallo**, che è un lago:
+- **densità dell'acqua lasciata a 1020 (mare) anche nelle immersioni in lago**:
   in acqua dolce con l'impostazione mare il computer legge la profondità circa 2%
   più bassa del vero.
 
@@ -308,12 +316,13 @@ Cosa dice l'analisi sull'insieme:
 - GF99 all'uscita: mediana 61, massimo 78 (ma vedi il cambio di GF sopra).
 
 Nota sulla qualità del dato: le pressioni bombola in LogTRAK sono inserite a mano e
-arrotondate a 10 bar. Una riga (21 lug 2024, 200→5 bar) è quasi certamente un 50
-digitato male.
+arrotondate a 10 bar, e una riga (200→5 bar) è quasi certamente un 50 digitato
+male: è il motivo per cui ogni metrica dichiara la propria affidabilità invece di
+fidarsi del dato.
 
 ## Bug trovati usando l'app sui dati veri, per memoria
 
-Tutti e quattro sono stati visti prima da Matteo che dai test, e tutti e quattro
+Tutti e quattro sono stati visti prima usando l'app che dai test, e tutti e quattro
 avevano la stessa forma: il codice era corretto in isolamento e sbagliato nel
 contesto in cui gira.
 

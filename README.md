@@ -5,6 +5,17 @@ ricava un piano di miglioramento.
 
 App desktop macOS (Tauri), con lo stesso codice pronto per iOS e per il web.
 
+> **Non è un computer subacqueo e non sostituisce il tuo.**
+> MyDiveLog contiene un'implementazione di Bühlmann ZH-L16C con gradient factor e
+> una di VPM-B, usate per rileggere le immersioni già fatte e per preparare un
+> piano in superficie. Il Bühlmann è confrontato con un Shearwater Peregrine su 38
+> immersioni reali (scarto medio 0.8 punti di GF99, massimo 2.6); il VPM-B **non è
+> ancora validato contro un'implementazione indipendente**. Nessuno dei due è
+> certificato, nessuno dei due gira in acqua, e nessuno dei due sa che cosa stai
+> facendo davvero: in immersione ha ragione il computer che hai al polso. Usa
+> questi numeri per capire e per pianificare con la testa, mai come unica base di
+> un'immersione decompressiva.
+
 ---
 
 ## Provalo in due minuti
