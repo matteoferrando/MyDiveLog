@@ -3,6 +3,7 @@ import { LIMITS, type ComputerInfo, type Dive, type Sample } from '../../core/mo
 import { formatDuration, mixName } from '../../core/units';
 import { modeLabel, positionAgainst, quartilesOf } from '../../core/analysis/aggregate';
 import { debriefDive } from '../../core/analysis/coaching';
+import { logbookHtml } from '../../core/export/logbookPrint';
 import { DepthProfile, MiniSeries } from '../components/DepthProfile';
 import { RATE_WINDOW_S, windowedRates } from '../../core/analysis/metrics';
 import { StatTile } from '../components/Charts';
@@ -31,6 +32,10 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
   // Quale dei due profili mostrare, quando l'immersione è stata registrata da due
   // computer: quello con i dati decompressivi o quello più fitto.
   const [showAlt, setShowAlt] = useState(false);
+  // Vero solo quando `window.open` è stato rifiutato dal blocco dei popup. Un
+  // bottone che non fa niente e non dice perché è peggio di un bottone assente:
+  // qui la ragione è sempre la stessa, e si può spiegare in una riga.
+  const [stampaBloccata, setStampaBloccata] = useState(false);
 
   useEffect(() => {
     if (!summary) return;
@@ -100,11 +105,22 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
           <button className="btn btn-quiet" onClick={onBack}>
             ← Logbook
           </button>
+          <button className="btn" onClick={() => setStampaBloccata(!apriStampa(dive))}>
+            Stampa questa immersione
+          </button>
           <button className="btn" onClick={() => setEditing((v) => !v)}>
             {editing ? 'Chiudi modifica' : 'Modifica dati'}
           </button>
         </div>
       </div>
+
+      {stampaBloccata && (
+        <div className="notice">
+          La finestra di stampa non si è aperta: il browser ha bloccato l’apertura di una nuova
+          finestra. Consentila per questo sito e riprova — la stampa non modifica nulla
+          nell’archivio, apre soltanto una copia del foglio da stampare.
+        </div>
+      )}
 
       <div className="grid grid-tiles">
         <StatTile label="Profondità massima" value={`${dive.maxDepth.toFixed(1)} m`} note={m?.avgDepth !== undefined ? `media ${m.avgDepth.toFixed(1)} m` : 'media non disponibile'} />
@@ -510,6 +526,46 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
       )}
     </div>
   );
+}
+
+/**
+ * Apre il foglio da stampare in una finestra nuova e chiede la stampa al sistema.
+ *
+ * PERCHÉ UNA FINESTRA E NON UN FILE SCARICATO. Perché stampare deve poter essere
+ * un ripensamento: si guarda l'anteprima, si decide che non serve, si chiude. Un
+ * download lascia invece un file nella cartella dell'utente che nessuno gli ha
+ * chiesto se voleva, e che poi tocca a lui cancellare. Questo bottone non tocca
+ * l'archivio, non scrive su disco e non fa niente di irreversibile: apre una
+ * copia del foglio e passa la parola alla finestra di stampa del sistema, dove
+ * su macOS c'è anche «Esporta come PDF» per chi il file lo vuole davvero.
+ *
+ * La chiamata a `print()` è la UI che chiede al sistema, non il documento che si
+ * stampa da solo: `logbookHtml` resta un documento HTML e basta, senza script
+ * dentro, ed è anche ciò che lo rende verificabile con test puri.
+ *
+ * Restituisce `false` quando il blocco dei popup ha rifiutato la finestra: è
+ * l'unico modo in cui questa operazione può fallire, e chi chiama lo dice.
+ */
+function apriStampa(dive: Dive): boolean {
+  const html = logbookHtml([dive], new Map([[dive.id, dive.samples ?? []]]), {
+    title: 'Logbook',
+  });
+  const finestra = window.open('', '_blank');
+  if (!finestra) return false;
+  finestra.document.open();
+  finestra.document.write(html);
+  finestra.document.close();
+  // Con `document.write` il documento è quasi sempre già completo quando `close()`
+  // ritorna, ma «quasi sempre» non basta: chiedere la stampa di un documento non
+  // ancora impaginato produce un foglio vuoto. Si stampa quando è pronto, e si
+  // gestiscono entrambi i casi invece di sperare in uno dei due.
+  const stampa = () => {
+    finestra.focus();
+    finestra.print();
+  };
+  if (finestra.document.readyState === 'complete') stampa();
+  else finestra.addEventListener('load', stampa, { once: true });
+  return true;
 }
 
 /**

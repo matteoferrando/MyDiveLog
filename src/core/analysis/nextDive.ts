@@ -4,20 +4,19 @@
  * PERCHÉ MANCAVA. Tutto il resto di questo progetto guarda indietro: le
  * statistiche dicono come sei andato, i suggerimenti dicono cosa migliorare, la
  * scheda dice cos'è successo. Nessuna pagina rispondeva alla sola domanda che ha
- * una scadenza — «domani vado sott'acqua: c'è qualcosa che devo sapere adesso?».
+ * un termine — «domani vado sott'acqua: c'è qualcosa che devo sapere adesso?».
  * Le informazioni per rispondere c'erano tutte, sparse in quattro schede diverse:
- * il collaudo scaduto in *Attrezzatura*, l'azoto residuo nella scheda
- * dell'immersione di stamattina, il numero di giorni dall'ultima uscita nelle
- * statistiche, la regola più urgente nei suggerimenti.
+ * l'azoto residuo nella scheda dell'immersione di stamattina, il numero di giorni
+ * dall'ultima uscita nelle statistiche, la regola più urgente nei suggerimenti.
  *
  * COSA NON FA. Non inventa un punteggio complessivo e non dice «sei pronto» o «non
- * sei pronto»: mette in fila fatti con una scadenza, ordinati per quanto stringe il
+ * sei pronto»: mette in fila fatti che hanno un termine, ordinati per quanto stringe il
  * tempo, e lascia il giudizio a chi lo deve dare. Un semaforo verde su una schermata
  * è esattamente il genere di cosa che fa saltare i controlli veri.
  */
 
 import type { Dive } from '../model';
-import { gearChecks, type GearCheck, type GearItem } from './gear';
+
 import { CHAIN_BREAK_HOURS, entryStateFor } from './tissues';
 import { cnsAfterSurface } from './oxygen';
 
@@ -29,7 +28,7 @@ export interface NextDiveNote {
   headline: string;
   detail: string;
   /** Dove andare per fare qualcosa: la scheda dell'app che riguarda la nota. */
-  goTo?: 'gear' | 'logbook' | 'coach' | 'planner' | 'import';
+  goTo?: 'logbook' | 'coach' | 'planner' | 'import';
   /** Quanto stringe: più basso, più in alto compare. */
   priority: number;
 }
@@ -44,8 +43,7 @@ export interface NextDiveBriefing {
   residualN2Bar?: number;
   /** CNS residuo adesso, percentuale, dopo il dimezzamento in superficie. */
   residualCnsPct?: number;
-  /** Le scadenze che contano, già ordinate. */
-  gear: GearCheck[];
+  /** Le note che contano, già ordinate. */
 }
 
 /**
@@ -57,12 +55,10 @@ export interface NextDiveBriefing {
  */
 export function nextDiveBriefing(
   dives: Dive[],
-  gear: GearItem[],
   topSuggestion: { headline: string; area: string } | undefined,
   now = Date.now(),
 ): NextDiveBriefing {
   const notes: NextDiveNote[] = [];
-  const checks = gearChecks(gear, now);
 
   const sorted = [...dives].sort((a, b) => Date.parse(b.startTime) - Date.parse(a.startTime));
   const last = sorted[0];
@@ -70,54 +66,22 @@ export function nextDiveBriefing(
   const hoursSinceLast = lastEnd !== undefined ? (now - lastEnd) / 3600_000 : undefined;
   const daysSinceLast = hoursSinceLast !== undefined ? Math.floor(hoursSinceLast / 24) : undefined;
 
-  // --- attrezzatura: l'unica cosa che può fermarti al centro ricarica --------
-  const expired = checks.filter((c) => c.status === 'expired');
-  const due = checks.filter((c) => c.status === 'due');
-  if (expired.length) {
-    notes.push({
-      id: 'gear-expired',
-      level: 'critical',
-      headline: `${expired.length} ${expired.length === 1 ? 'pezzo scaduto' : 'pezzi scaduti'}`,
-      detail: expired
-        .map((c) => `${c.item.name || 'senza nome'} (${c.dueDate}, ${-(c.daysLeft ?? 0)} giorni fa)`)
-        .join(' · '),
-      goTo: 'gear',
-      priority: 0,
-    });
-  }
-  if (due.length) {
-    notes.push({
-      id: 'gear-due',
-      level: 'warning',
-      headline: `${due.length} in scadenza entro due mesi`,
-      detail: due.map((c) => `${c.item.name || 'senza nome'} il ${c.dueDate}`).join(' · '),
-      goTo: 'gear',
-      priority: 20,
-    });
-  }
-  const unknown = checks.filter((c) => c.status === 'unknown');
-  if (unknown.length) {
-    notes.push({
-      id: 'gear-unknown',
-      level: 'info',
-      headline: `${unknown.length} senza data di scadenza`,
-      detail:
-        'Un pezzo senza date non è un pezzo a posto: è un pezzo di cui non si sa niente. Bastano ultima revisione e intervallo.',
-      goTo: 'gear',
-      priority: 60,
-    });
-  }
-  if (!gear.length) {
-    notes.push({
-      id: 'gear-empty',
-      level: 'info',
-      headline: 'Nessuna scadenza registrata',
-      detail:
-        'Bombole, erogatori, brevetto, certificato medico, assicurazione: sono le date che si dimenticano tutte allo stesso modo, e le uniche che hanno conseguenze prima di entrare in acqua.',
-      goTo: 'gear',
-      priority: 70,
-    });
-  }
+  /*
+   * L'ATTREZZATURA NON COMPARE PIÙ QUI.
+   *
+   * C'erano quattro note — scaduto, in scadenza, senza data, elenco vuoto — e
+   * insieme facevano di questa card un elenco di rimproveri su cose che chi
+   * legge sa benissimo. Aprire il logbook per guardare le proprie immersioni e
+   * trovare tre pallini rossi sul certificato medico è il modo in cui una
+   * funzione utile diventa rumore che si impara a saltare, e quando poi arriva
+   * la nota che conta davvero — l'azoto ancora in circolo — la si salta insieme
+   * alle altre.
+   *
+   * La scelta è dichiarata: l'attrezzatura si registra e si consulta nella sua
+   * scheda, dove i fatti stanno scritti senza giudizio. Questa card resta per
+   * quello che nessun altro posto può dire: quanto tempo è passato dall'ultima
+   * immersione, e quanto azoto e ossigeno hai ancora addosso.
+   */
 
   // --- azoto e ossigeno ancora in circolo -----------------------------------
   let residualN2Bar: number | undefined;
@@ -203,7 +167,7 @@ export function nextDiveBriefing(
   // informative per via della priorità: la stessa schermata diceva, in
   // quest'ordine, «nessun carico residuo» e «hai ancora 0.10 bar di azoto in più
   // del normale». Adesso la condizione è che non ci sia proprio nulla, e il testo
-  // dice quello che sa: niente scadenze, niente residuo.
+  // dice quello che sa: niente residuo e niente da leggere.
   const somethingToSay = notes.some(
     (x) => x.level !== 'info' || x.id === 'residual' || x.id === 'residual-cns',
   );
@@ -211,14 +175,15 @@ export function nextDiveBriefing(
     notes.push({
       id: 'clear',
       level: 'good',
-      headline: 'Niente in scadenza e niente in circolo',
-      detail: 'Nessun pezzo scaduto, nessun carico residuo. Resta solo da decidere dove andare.',
+      headline: 'Niente in circolo',
+      detail:
+        'Nessun azoto residuo dall’immersione precedente e nessuna nota da leggere. Resta solo da decidere dove andare.',
       priority: 30,
     });
   }
 
   notes.sort((a, b) => a.priority - b.priority);
-  return { notes, daysSinceLast, hoursSinceLast, residualN2Bar, residualCnsPct, gear: checks };
+  return { notes, daysSinceLast, hoursSinceLast, residualN2Bar, residualCnsPct };
 }
 
 function fmtHours(h: number): string {

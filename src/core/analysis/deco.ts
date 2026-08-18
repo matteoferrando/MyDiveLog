@@ -694,7 +694,15 @@ export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partia
   let firstStopImposed: number | undefined;
   let offgassingFromM: number | undefined;
   let decoMin = 0;
-  let safetyStopMin = 0;
+  /*
+   * NON esiste più un accumulatore dei minuti di sosta di sicurezza.
+   *
+   * C'era, veniva incrementato, e non veniva mai letto: il valore restituito si
+   * ricava dalle righe stampate (vedi `merged` in fondo), perché la tabella è la
+   * verità e un conto parallelo può solo divergere da lei. Il contatore era il
+   * residuo di una strategia precedente, e TypeScript non lo segnalava perché una
+   * variabile a cui si SCRIVE gli risulta usata. L'ha trovato eslint.
+   */
   // La sosta di sicurezza si fa una volta sola, e non si fa affatto se il modello
   // ha già imposto una sosta a quella quota o più bassa.
   const safety = s.safetyStop && s.safetyStop.minutes > 0 ? s.safetyStop : null;
@@ -755,7 +763,6 @@ export function planDeco(levels: PlanLevel[], gases: PlanGas[], settings: Partia
     }
     safetyStopSegments.add(segments.length);
     advance('stop', stopAt, stopAt, safety.minutes, gasIndex, levelSetpoint, s.decoRmvLpm);
-    safetyStopMin += safety.minutes;
     safetyDone = true;
     return stopAt;
   };

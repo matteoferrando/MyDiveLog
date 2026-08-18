@@ -254,32 +254,46 @@ export function SyncPage() {
           <button
             className="btn btn-primary"
             disabled={exporting || dives.length === 0}
-            onClick={async () => {
-              setExporting(true);
-              setExported(null);
-              try {
-                const result = await exportArchive();
-                download(result.xml, `mydivelog-${new Date().toISOString().slice(0, 10)}.uddf`);
-                setExported({ dives: result.dives, omitted: result.omitted });
-              } finally {
-                setExporting(false);
-              }
+            onClick={() => {
+              // `void` più `catch`: un gestore `async` passato direttamente a
+              // `onClick` fa scartare la promessa a React, e un export fallito
+              // resterebbe una unhandled rejection con un bottone che sembra non
+              // fare niente.
+              void (async () => {
+                setExporting(true);
+                setExported(null);
+                setError(null);
+                try {
+                  const result = await exportArchive();
+                  download(result.xml, `mydivelog-${new Date().toISOString().slice(0, 10)}.uddf`);
+                  setExported({ dives: result.dives, omitted: result.omitted });
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : String(err));
+                } finally {
+                  setExporting(false);
+                }
+              })();
             }}
           >
             {exporting ? 'Preparazione…' : 'Scarica UDDF'}
           </button>
           <button
             disabled={exporting || dives.length === 0}
-            onClick={async () => {
-              setExporting(true);
-              setExported(null);
-              try {
-                const result = await exportArchive({ includeProfiles: false });
-                download(result.xml, `mydivelog-riepiloghi-${new Date().toISOString().slice(0, 10)}.uddf`);
-                setExported({ dives: result.dives, omitted: result.omitted });
-              } finally {
-                setExporting(false);
-              }
+            onClick={() => {
+              void (async () => {
+                setExporting(true);
+                setExported(null);
+                setError(null);
+                try {
+                  const result = await exportArchive({ includeProfiles: false });
+                  download(result.xml, `mydivelog-riepiloghi-${new Date().toISOString().slice(0, 10)}.uddf`);
+                  setExported({ dives: result.dives, omitted: result.omitted });
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : String(err));
+                } finally {
+                  setExporting(false);
+                }
+              })();
             }}
           >
             Solo riepiloghi

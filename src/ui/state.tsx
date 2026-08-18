@@ -76,7 +76,7 @@ export interface DecoAnalysisInput {
   modelLabel: string;
 }
 import { exportUddf, type UddfExportResult } from '../core/export/uddf';
-import type { GearItem } from '../core/analysis/gear';
+import { migrateGear, type GearArchive } from '../core/analysis/gear';
 
 export interface ImportOutcome {
   fileName: string;
@@ -178,8 +178,8 @@ interface DiveLogValue {
   clearAnalysis: (kind: AnalysisKind, subject?: string) => Promise<void>;
 
   /** Attrezzatura e scadenze: pochi record, salvati fra le impostazioni. */
-  gear: GearItem[];
-  saveGear: (items: GearItem[]) => Promise<void>;
+  gear: GearArchive;
+  saveGear: (archive: GearArchive) => Promise<void>;
 
   /**
    * Esporta tutto l'archivio in UDDF. I profili si ricaricano qui uno per uno:
@@ -220,7 +220,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   const [gasInput, setGasInputState] = useState<GasPlanInput | null>(null);
   const [decoInput, setDecoInputState] = useState<unknown>(null);
   const [decoPlans, setDecoPlans] = useState<SavedDecoPlan[]>([]);
-  const [gear, setGearState] = useState<GearItem[]>([]);
+  const [gear, setGearState] = useState<GearArchive>({ equipment: [], certifications: [] });
   const [analyses, setAnalyses] = useState<Record<string, StoredAnalysis>>({});
   const [trash, setTrash] = useState<TrashedDive[]>([]);
 
@@ -237,7 +237,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
           s.getSetting<AiCredentials>('ai'),
           s.getSetting<Record<string, StoredAnalysis>>('analyses'),
           s.getSetting<GasPlanInput>('gasPlan'),
-          s.getSetting<GearItem[]>('gear'),
+          s.getSetting<unknown>('gear'),
         ]);
       const savedDeco = await s.getSetting<unknown>('decoPlan');
       const savedPlans = (await s.getSetting<SavedDecoPlan[]>('decoPlans')) ?? [];
@@ -285,7 +285,11 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       if (savedGas?.depthM) setGasInputState(savedGas);
       if (savedDeco) setDecoInputState(savedDeco);
       if (savedPlans.length) setDecoPlans(savedPlans);
-      if (savedGear?.length) setGearState(savedGear);
+      // L'archivio dell'attrezzatura ha cambiato forma: prima era una lista
+      // sola con dentro brevetti, certificati e bombole, ora sono due elenchi
+      // distinti. `migrateGear` legge entrambe le forme, così chi aggiorna
+      // l'applicazione non perde niente di quello che aveva scritto.
+      setGearState(migrateGear(savedGear as never));
       setReady(true);
     })().catch((err) => {
       console.error('Inizializzazione archivio fallita:', err);
@@ -645,11 +649,11 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
           const [gas, saved, savedGear] = await Promise.all([
             store.getSetting<GasPlanInput>('gasPlan'),
             store.getSetting<Record<string, StoredAnalysis>>('analyses'),
-            store.getSetting<GearItem[]>('gear'),
+            store.getSetting<unknown>('gear'),
           ]);
           if (gas?.depthM) setGasInputState(gas);
           if (saved) setAnalyses(saved);
-          if (savedGear) setGearState(savedGear);
+          if (savedGear) setGearState(migrateGear(savedGear as never));
         }
         return report;
       } catch (err) {
@@ -676,7 +680,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   const testAiKey = useCallback((creds: AiCredentials) => testKey(creds), []);
 
   const saveGear = useCallback(
-    async (items: GearItem[]) => {
+    async (archive: GearArchive) => {
       // Ogni pezzo porta il proprio timbro, non solo la lista.
       //
       // Serve alla fusione fra dispositivi: senza una data per elemento, quando
@@ -685,11 +689,17 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       // caso. Si timbra solo ciò che è davvero cambiato, altrimenti riaprire la
       // scheda basterebbe a far vincere questo dispositivo.
       const now = new Date().toISOString();
-      const stamped = items.map((item) => {
-        const before = gear.find((g) => g.id === item.id);
-        const unchanged = before && JSON.stringify({ ...before, savedAt: null }) === JSON.stringify({ ...item, savedAt: null });
-        return unchanged ? before : { ...item, savedAt: now };
-      });
+      const stamp = <T extends { id: string; savedAt?: string }>(next: T[], before: T[]): T[] =>
+        next.map((item) => {
+          const old = before.find((g) => g.id === item.id);
+          const unchanged =
+            old && JSON.stringify({ ...old, savedAt: null }) === JSON.stringify({ ...item, savedAt: null });
+          return unchanged ? old : { ...item, savedAt: now };
+        });
+      const stamped: GearArchive = {
+        equipment: stamp(archive.equipment, gear.equipment),
+        certifications: stamp(archive.certifications, gear.certifications),
+      };
       setGearState(stamped);
       if (store) {
         await store.setSetting('gear', stamped);

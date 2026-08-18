@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { formatDuration, mixName } from '../../core/units';
 import { mixLabel, modeLabel } from '../../core/analysis/aggregate';
 import { nextDiveBriefing, type NextDiveNote } from '../../core/analysis/nextDive';
-import type { GearItem } from '../../core/analysis/gear';
 import type { Dive } from '../../core/model';
 import { NewDive } from '../components/NewDive';
 import { useDiveLog } from '../state';
@@ -11,7 +10,7 @@ import { dateShort, FORMAT_LABEL, imm, timeShort } from '../format';
 type SortKey = 'date' | 'depth' | 'duration' | 'rmv';
 
 export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
-  const { dives, gear } = useDiveLog();
+  const { dives } = useDiveLog();
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('date');
   const [site, setSite] = useState('');
@@ -58,7 +57,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
 
   return (
     <div className="page">
-      <NextDive dives={dives} gear={gear} />
+      <NextDive dives={dives} />
 
       <NewDive onDone={onOpen} />
 
@@ -200,8 +199,8 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
  * serve a niente. È chiusa per difetto quando non c'è nulla di urgente: una
  * schermata che grida sempre smette di essere letta.
  */
-function NextDive({ dives, gear }: { dives: Dive[]; gear: GearItem[] }) {
-  const briefing = useMemo(() => nextDiveBriefing(dives, gear, undefined), [dives, gear]);
+function NextDive({ dives }: { dives: Dive[] }) {
+  const briefing = useMemo(() => nextDiveBriefing(dives, undefined), [dives]);
   const urgent = briefing.notes.filter((n) => n.level === 'critical' || n.level === 'warning');
   const [open, setOpen] = useState(urgent.length > 0);
 

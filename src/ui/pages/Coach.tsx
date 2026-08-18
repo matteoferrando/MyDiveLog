@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { AREA_LABEL, GOALS, type Finding, type GoalId } from '../../core/analysis/coaching';
 import { Meter } from '../components/Charts';
 import { useDiveLog } from '../state';
@@ -8,11 +9,42 @@ import { imm, SEVERITY_CLASS, SEVERITY_TEXT } from '../format';
 export function Coach() {
   const { plan, goalId, setGoalId, dives, aggregates, scope } = useDiveLog();
 
+  // I risultati che non sono né fra le tre priorità né fra i punti di forza.
+  // Calcolati una volta sola perché servono tre volte: due nel corpo della
+  // pagina e una nell'annuncio.
+  const dopo = plan.findings.filter((f) => f.severity !== 'good' && !plan.focus.includes(f));
+  const criteriSoddisfatti = plan.readiness.items.filter((i) => i.met).length;
+
+  /*
+   * Cosa è cambiato nel piano, in una frase.
+   *
+   * Cambiare obiettivo nel menu a tendina, o periodo dalla scheda del periodo,
+   * riscrive TUTTA questa pagina: la percentuale di prontezza, i criteri, le tre
+   * priorità, l'ordine di quelle dopo. Guardando lo schermo il cambiamento è
+   * evidente; con uno screen reader il fuoco resta sul menu e sotto non succede
+   * niente di udibile — si sceglie «Immersioni tecniche» e non si ha modo di
+   * sapere che il giudizio è passato dal 78% al 41% se non ripercorrendo tutta la
+   * pagina a mano.
+   *
+   * La frase dice i numeri nuovi, non «piano aggiornato»: sono la ragione stessa
+   * per cui si è cambiato obiettivo.
+   */
+  const testoAnnuncio =
+    scope.dives.length < 3
+      ? `Piano non calcolabile: nel periodo «${scope.period.label}» ci sono ${imm(scope.dives.length)}, ` +
+        `${dives.length} in tutto l'archivio, e ne servono almeno 3.`
+      : `Piano ricalcolato per l'obiettivo «${plan.readiness.goal.label}»: prontezza ` +
+        `${Math.round(plan.readiness.score * 100)}%, ${criteriSoddisfatti} criteri su ` +
+        `${plan.readiness.items.length} soddisfatti, ${plan.focus.length} priorità su cui lavorare adesso, ` +
+        `${dopo.length} punti dopo, ${plan.strengths.length} punti di forza. Calcolato su ` +
+        `${imm(scope.dives.length)} del periodo «${scope.period.label}».`;
+
   // Il piano si legge sulle immersioni della finestra: la soglia di "troppo poche"
   // guarda quelle, non l'archivio intero.
   if (scope.dives.length < 3) {
     return (
       <div className="page">
+        <AnnuncioPiano testo={testoAnnuncio} />
         <div className="empty">
           <h2>Servono più immersioni</h2>
           <p className="secondary" style={{ maxWidth: 480, margin: '0 auto' }}>
@@ -31,6 +63,15 @@ export function Coach() {
 
   return (
     <div className="page">
+      {/*
+        Sta come primo figlio della pagina in ENTRAMBI i rami — questo e quello
+        delle troppo poche immersioni — perché React confronta i figli per
+        posizione: essendo lo stesso componente allo stesso posto, non viene
+        smontato quando si passa da un ramo all'altro, e l'annuncio del passaggio
+        («adesso ce ne sono due, il piano non si calcola») sopravvive al cambio
+        invece di essere inghiottito dal rimontaggio.
+      */}
+      <AnnuncioPiano testo={testoAnnuncio} />
       <div className="page-title-row">
         <h1 className="page-title">Piano di miglioramento</h1>
         <div className="filters">
@@ -114,14 +155,12 @@ export function Coach() {
         </div>
       )}
 
-      {plan.findings.filter((f) => f.severity !== 'good' && !plan.focus.includes(f)).length > 0 && (
+      {dopo.length > 0 && (
         <div className="stack">
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 650 }}>Dopo, in ordine</h2>
-          {plan.findings
-            .filter((f) => f.severity !== 'good' && !plan.focus.includes(f))
-            .map((f) => (
-              <FindingCard key={f.id} finding={f} collapsed />
-            ))}
+          {dopo.map((f) => (
+            <FindingCard key={f.id} finding={f} collapsed />
+          ))}
         </div>
       )}
 
@@ -174,6 +213,43 @@ export function Coach() {
         description="Non ripete i risultati delle regole: li mette in ordine di importanza, li collega fra loro e li trasforma in un programma per le prossime dieci immersioni."
         currentFingerprint={`${goalId}:${scope.period.id}:${scope.dives.length}:${plan.findings.length}`}
       />
+    </div>
+  );
+}
+
+/**
+ * Il piano che cambia, detto a voce.
+ *
+ * MUTO AL PRIMO GIRO. Aprendo la scheda il piano non è «cambiato»: è arrivato,
+ * insieme al titolo e a tutto il resto, e chi legge con lo screen reader sta già
+ * scorrendo la pagina dall'inizio. Annunciarlo lì significherebbe interrompere la
+ * lettura del titolo per ripetere in sintesi ciò che sta per essere letto per
+ * intero. L'annuncio serve solo dal secondo passaggio in poi, cioè quando è stata
+ * un'azione a riscrivere la pagina: la scelta di un obiettivo, di un periodo, o
+ * un import che ha aggiunto immersioni mentre la scheda era aperta.
+ *
+ * Il testo arriva già confezionato dal chiamante invece di essere costruito qui,
+ * perché è il chiamante a sapere quale dei due rami della pagina si sta
+ * mostrando — e sono due frasi che dicono cose diverse.
+ */
+function AnnuncioPiano({ testo }: { testo: string }) {
+  const [annuncio, setAnnuncio] = useState('');
+  const primoGiro = useRef(true);
+
+  useEffect(() => {
+    if (primoGiro.current) {
+      primoGiro.current = false;
+      return;
+    }
+    setAnnuncio(testo);
+  }, [testo]);
+
+  // `polite`: un piano ricalcolato non è un'emergenza, e chi ha appena scelto una
+  // voce dal menu spesso sta ancora ascoltando il nome della voce scelta —
+  // interromperlo per anticipare la percentuale sarebbe rumore, non servizio.
+  return (
+    <div className="solo-lettori" role="status" aria-live="polite" aria-atomic="true">
+      {annuncio}
     </div>
   );
 }

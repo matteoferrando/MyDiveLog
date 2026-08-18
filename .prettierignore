@@ -1,0 +1,21 @@
+# File generati o non nostri.
+node_modules
+dist
+src-tauri/target
+package-lock.json
+
+# Dati di prova esportati dai computer subacquei: sono byte da parsare, non
+# codice, e riformattarli vorrebbe dire cambiare i casi di prova.
+demo
+screenshots
+public
+
+# Prosa in italiano scritta a mano, con andate a capo scelte una per una.
+# Prettier riflowa i paragrafi del markdown e trasformerebbe una revisione di
+# una riga in un diff di trecento.
+*.md
+docs
+
+# Il workflow della CI lo mantiene una persona ed è protetto: non è materia di
+# un formattatore automatico.
+.github

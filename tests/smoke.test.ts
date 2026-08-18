@@ -198,7 +198,7 @@ describe('il giro completo su un archivio nuovo', () => {
 
     // Ventiquattro ore meno un'ora dopo l'ultima uscita: zero giorni pieni, e il
     // conto parte dalla FINE dell'immersione.
-    const briefing = nextDiveBriefing(healed, [], undefined, Date.UTC(2026, 5, 21, 9));
+    const briefing = nextDiveBriefing(healed, undefined, Date.UTC(2026, 5, 21, 9));
     expect(briefing.notes.length).toBeGreaterThan(0);
     expect(briefing.daysSinceLast).toBe(0);
     expect(briefing.hoursSinceLast!).toBeGreaterThan(22);

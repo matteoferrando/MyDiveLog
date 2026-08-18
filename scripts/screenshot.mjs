@@ -277,15 +277,44 @@ await page.waitForTimeout(900);
 await page.screenshot({ path: 'screenshots/16-confronta.png', fullPage: true });
 const confronto = await page.locator('.card', { hasText: 'Le differenze' }).first().innerText().catch(() => 'CARTA MANCANTE');
 
+/*
+ * Attrezzatura: rifatta in tre sezioni ad agosto 2026, quindi il percorso qui
+ * sotto è nuovo. Si aggiunge un erogatore con la sua revisione e un brevetto, e
+ * si controlla che la sezione della zavorra — che NON si compila, si ricava dalle
+ * immersioni — dica qualcosa di sensato sull'archivio dimostrativo.
+ */
 await page.click('button:has-text("Attrezzatura")');
-await page.waitForTimeout(500);
-await page.click('button:has-text("Aggiungi")');
+await page.waitForTimeout(600);
+// Il primo «Aggiungi» è quello dell'attrezzatura, il secondo quello dei brevetti.
+await page.locator('button:has-text("Aggiungi")').first().click();
 await page.waitForTimeout(300);
-await page.fill('.planner-field input[placeholder="D12 acciaio"]', 'Erogatore MK25');
-await page.fill('input[type=date]', '2025-03-10');
-await page.click('button:has-text("Salva")');
-await page.waitForTimeout(500);
-const attrezzatura = await page.locator('table').last().innerText().catch(() => 'TABELLA MANCANTE');
+await page.locator('label', { hasText: 'Marca e modello' }).first().locator('input').fill('Scubapro MK25');
+await page.locator('label', { hasText: 'Ultima fatta' }).first().locator('input').fill('2025-03-10');
+await page.locator('button:has-text("Salva")').first().click();
+await page.waitForTimeout(600);
+
+await page.locator('button:has-text("Aggiungi")').nth(1).click();
+await page.waitForTimeout(300);
+await page.locator('label', { hasText: 'Didattica' }).first().locator('input').fill('PADI');
+await page.locator('label', { hasText: 'Nome sulla tessera' }).first().locator('input').fill('Advanced Open Water');
+await page.locator('button:has-text("Salva")').first().click();
+await page.waitForTimeout(600);
+
+const attrezzatura = await page
+  .locator('.card', { hasText: 'Quello che porti in acqua' })
+  .first()
+  .innerText()
+  .catch(() => 'CARTA ATTREZZATURA MANCANTE');
+const brevetti = await page
+  .locator('.card', { hasText: 'Brevetti' })
+  .first()
+  .innerText()
+  .catch(() => 'CARTA BREVETTI MANCANTE');
+const zavorra = await page
+  .locator('.card', { hasText: 'Zavorra e configurazione' })
+  .first()
+  .innerText()
+  .catch(() => 'CARTA ZAVORRA MANCANTE');
 await page.screenshot({ path: 'screenshots/17-attrezzatura.png', fullPage: true });
 
 // La mappa dei siti, dentro le statistiche.
@@ -348,7 +377,9 @@ console.log('START:\n' + start.slice(0, 300));
 console.log('DECO:\n' + decoBox);
 console.log('EXPORT UDDF:', uddfName, uddfBytes ? `(${Math.round(uddfBytes / 1024)} kB)` : '');
 console.log('CONFRONTO:\n' + confronto.slice(0, 300));
-console.log('ATTREZZATURA:\n' + attrezzatura.slice(0, 260));
+console.log('ATTREZZATURA:\n' + attrezzatura.slice(0, 420));
+console.log('BREVETTI:\n' + brevetti.slice(0, 300));
+console.log('ZAVORRA:\n' + zavorra.slice(0, 500));
 console.log('MAPPA:\n' + mappa.slice(0, 220));
 console.log('CURVA MINUTO PER MINUTO:'); console.log(decoTl.slice(0, 700));
 console.log('LIVELLI:'); console.log(curvaCard.slice(0, 300));

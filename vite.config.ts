@@ -28,6 +28,41 @@ export default defineConfig({
     target: 'safari15',
     minify: !process.env.TAURI_ENV_DEBUG,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    rollupOptions: {
+      output: {
+        /*
+         * Le dipendenze grosse vanno in pezzi propri, separati dal codice
+         * dell'applicazione.
+         *
+         * Non è una questione di byte scaricati al primo avvio — react-dom e
+         * fast-xml-parser servono comunque subito, perché `state.tsx` monta i
+         * parser insieme all'archivio — ma di CACHE. Il codice nostro cambia a
+         * ogni commit; react-dom cambia due volte l'anno. Tenuti insieme,
+         * l'hash del file unico si sposta a ogni build e l'utente riscarica
+         * 500 kB per aver corretto un'etichetta. Separati, dopo il primo avvio
+         * ogni aggiornamento costa solo la parte che è davvero cambiata.
+         *
+         * `@garmin/fitsdk` e `@libsql/client` sono già in pezzi propri perché
+         * chi li usa li importa con `import()` dinamico; nominarli qui non
+         * cambia il grafo, dà solo un nome leggibile al file invece di un hash
+         * anonimo — quando il pezzo da 385 kB compare nel pannello di rete si
+         * capisce al volo che è il decoder FIT e non un pezzo dell'app.
+         *
+         * La forma a funzione e non a mappa: la mappa (`{ react: ['react'] }`)
+         * risolve gli specificatori una volta sola e si perde i sottomoduli
+         * raggiunti per percorso, tipo `react/jsx-runtime`.
+         */
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return undefined;
+          // La barra finale evita che `react` acchiappi anche `react-dom`.
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react';
+          if (id.includes('node_modules/fast-xml-parser')) return 'xml';
+          if (id.includes('node_modules/@garmin/fitsdk')) return 'fit';
+          if (id.includes('node_modules/@libsql')) return 'libsql';
+          return undefined;
+        },
+      },
+    },
   },
   test: {
     environment: 'node',

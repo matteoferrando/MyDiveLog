@@ -32,7 +32,12 @@ const PRESETS: { low: number; high: number; label: string }[] = [
 
 export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
   const m = dive.metrics;
-  const samples = dive.samples ?? [];
+  // `dive.samples ?? []` creava un array NUOVO a ogni render, e finiva nelle
+  // dipendenze dei due `useMemo` qui sotto: si ricalcolavano sempre, non a ogni
+  // spostamento del cursore. Il commento accanto diceva che il costo «è niente»,
+  // e la stima era giusta — sbagliata era la premessa su quanto spesso succede.
+  // Trovato da eslint-plugin-react-hooks.
+  const samples = useMemo(() => dive.samples ?? [], [dive.samples]);
   const actual = gfOf(dive);
   const [low, setLow] = useState(Math.round(actual.low * 100));
   const [high, setHigh] = useState(Math.round(actual.high * 100));

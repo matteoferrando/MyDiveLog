@@ -124,13 +124,28 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
   const anteprima = useMemo(() => (errori.length ? null : buildManualDive(input)), [errori.length, input]);
   const giaPresente = anteprima ? dives.some((x) => x.id === anteprima.dive.id) : false;
 
+  const [errore, setErrore] = useState<string | null>(null);
+
+  /*
+   * `void salva()` e non `onClick={salva}`.
+   *
+   * React scarta la promessa restituita da un gestore `async`: se il salvataggio
+   * fallisce — quota dell'archivio locale esaurita, database chiuso — l'errore
+   * diventa una unhandled rejection che nessuno vede, e per chi ha premuto il
+   * bottone l'effetto è che il bottone non fa niente. In un'applicazione che
+   * scrive su SQLite è il modo in cui un salvataggio perso passa inosservato.
+   * Quindi: il `catch` è obbligatorio e il motivo si mostra.
+   */
   const salva = async () => {
     if (!anteprima) return;
     setSalvando(true);
+    setErrore(null);
     try {
       const { merged } = await createDive(anteprima.dive);
       setEsito({ merged, id: anteprima.dive.id });
       setD(vuoto());
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : String(err));
     } finally {
       setSalvando(false);
     }
@@ -365,8 +380,20 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
         </div>
       )}
 
+      {errore && (
+        <div className="notice notice-error" role="alert" style={{ marginTop: 14 }}>
+          Non è stato possibile salvare: {errore}. L'immersione non è in archivio, e quello che hai
+          scritto è ancora qui nel modulo.
+        </div>
+      )}
+
       <div className="row" style={{ gap: 8, marginTop: 14 }}>
-        <button className="btn" disabled={!anteprima || salvando} onClick={salva}>
+        <button
+          className="btn"
+          disabled={!anteprima || salvando}
+          aria-busy={salvando || undefined}
+          onClick={() => void salva()}
+        >
           {salvando ? 'Salvo…' : giaPresente ? 'Unisci a quella esistente' : 'Salva immersione'}
         </button>
         <button onClick={() => setD(vuoto())}>Svuota il modulo</button>

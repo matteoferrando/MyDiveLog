@@ -1,154 +1,417 @@
 /**
- * Attrezzatura e scadenze.
+ * Attrezzatura, brevetti e configurazione.
  *
- * PERCHÉ IN UN LOGBOOK. Perché le date che contano si dimenticano tutte allo
- * stesso modo, e sono le uniche informazioni di questo progetto che hanno una
- * conseguenza *prima* dell'immersione invece che dopo: un collaudo scaduto ferma
- * la ricarica, un certificato medico scaduto ferma il corso. Il logbook sa già
- * quando ti immergi, quindi sa anche quali revisioni scadono prima della prossima
- * uscita — che è la sola forma utile di questa informazione.
+ * RIFATTO DA ZERO ad agosto 2026, e vale la pena scrivere perché.
  *
- * COSA NON FA. Non inventa gli intervalli: quanto duri una revisione lo decide il
- * costruttore o la normativa, cambia da paese a paese e da attrezzo ad attrezzo, e
- * qui si scrive a mano. I valori proposti sono quelli comuni in Italia, dichiarati
- * come proposte e non come regole.
+ * La prima versione era una lista sola con nove tipi dentro — bombola, erogatore,
+ * jacket, computer, muta, brevetto, certificato medico, assicurazione, altro — e
+ * un solo meccanismo: «ultima data + ogni quanti mesi = scadenza», con un pallino
+ * rosso quando era passata. Sembra economico e invece era sbagliato due volte.
+ *
+ * Sbagliato perché metteva nella stessa riga cose che non hanno niente in comune.
+ * Un brevetto NON scade e non si revisiona: è ciò che ti autorizza a fare certe
+ * immersioni, e il posto dove serve è la scheda di prontezza del Coach, non un
+ * elenco di manutenzioni. Un erogatore si revisiona ma non ha una scadenza secca:
+ * ha un intervallo consigliato dal costruttore, e superarlo di due mesi non è
+ * come dimenticare di rinnovare un'assicurazione. Chiedere all'utente di
+ * esprimere entrambe le cose con «lastServiceDate + intervalMonths» significava
+ * costringerlo a mentire su una delle due.
+ *
+ * E sbagliato perché trasformava un archivio in un elenco di rimproveri. Le
+ * scadenze scadono, e un'applicazione che apri per guardare le tue immersioni ti
+ * accoglieva con tre pallini rossi su cose che sai benissimo. Questa versione non
+ * ha avvisi: registra e mostra i fatti — quando è stata l'ultima revisione,
+ * quanto tempo è passato — e lascia il giudizio a chi legge, che è l'unico ad
+ * avere il contesto per darlo.
+ *
+ * Tre gruppi, tre forme diverse, perché sono tre cose diverse:
+ *
+ *  - `Equipment`: quello che porti in acqua e che si collauda o si revisiona.
+ *  - `Certification`: i brevetti. Nessuna data di scadenza, e un livello che il
+ *    Coach può leggere.
+ *  - La configurazione di zavorra NON è una terza lista da compilare: si RICAVA
+ *    dalle immersioni, che già portano `weightKg` e `suit`. Vedi `weightingBySuit`.
  */
 
-export type GearKind =
-  | 'cylinder'
-  | 'regulator'
-  | 'bcd'
-  | 'computer'
-  | 'suit'
-  | 'certification'
-  | 'medical'
-  | 'insurance'
-  | 'other';
+import type { Dive } from '../model';
 
-export const GEAR_LABEL: Record<GearKind, string> = {
+// ---------------------------------------------------------------------------
+// 1. Quello che porti in acqua
+// ---------------------------------------------------------------------------
+
+export type EquipmentKind = 'cylinder' | 'regulator' | 'bcd' | 'computer' | 'suit' | 'light' | 'other';
+
+export const EQUIPMENT_LABEL: Record<EquipmentKind, string> = {
   cylinder: 'Bombola',
   regulator: 'Erogatore',
-  bcd: 'Jacket',
+  bcd: 'Jacket o sacco',
   computer: 'Computer',
   suit: 'Muta',
-  certification: 'Brevetto',
-  medical: 'Certificato medico',
-  insurance: 'Assicurazione',
+  light: 'Illuminazione',
   other: 'Altro',
 };
 
 /**
- * Intervalli proposti, in mesi. Sono i valori comuni in Italia e non una regola:
- * il collaudo idraulico delle bombole segue la normativa vigente, la revisione
- * degli erogatori il costruttore. Si possono cambiare per ogni singolo pezzo.
+ * Che tipo di manutenzione vuole questo pezzo. Non «ogni quanti mesi»: che
+ * COSA. La differenza conta perché i tre casi si comportano diversamente e
+ * l'interfaccia deve chiedere cose diverse.
  */
-export const SUGGESTED_INTERVAL_MONTHS: Partial<Record<GearKind, number>> = {
+export type ServiceKind =
+  /** Collaudo idraulico: obbligatorio per legge, ha una periodicità di norma. */
+  | 'hydro'
+  /** Revisione del costruttore: consigliata, non obbligatoria. */
+  | 'overhaul'
+  /** Batteria o cambio pile: si fa quando serve, non a calendario. */
+  | 'battery'
+  /** Niente: una muta o una torcia non si revisionano. */
+  | 'none';
+
+export const SERVICE_LABEL: Record<ServiceKind, string> = {
+  hydro: 'Collaudo idraulico',
+  overhaul: 'Revisione',
+  battery: 'Batteria',
+  none: 'Nessuna manutenzione periodica',
+};
+
+/**
+ * La manutenzione TIPICA per tipo, come suggerimento di partenza. Non una regola
+ * e non un obbligo: il collaudo delle bombole segue la normativa del paese, la
+ * revisione degli erogatori il libretto del costruttore, e ogni pezzo può dire
+ * la sua.
+ */
+export const TYPICAL_SERVICE: Record<EquipmentKind, ServiceKind> = {
+  cylinder: 'hydro',
+  regulator: 'overhaul',
+  bcd: 'overhaul',
+  computer: 'battery',
+  suit: 'none',
+  light: 'battery',
+  other: 'none',
+};
+
+/** Ogni quanti mesi, tipicamente. Solo un valore iniziale del modulo. */
+export const TYPICAL_INTERVAL_MONTHS: Partial<Record<EquipmentKind, number>> = {
   cylinder: 24,
   regulator: 12,
   bcd: 12,
-  medical: 12,
-  insurance: 12,
 };
 
-export interface GearItem {
+export interface Equipment {
   id: string;
-  kind: GearKind;
+  kind: EquipmentKind;
+  /** Marca e modello, come lo chiami tu: «Apeks XTX50», «D12 200 bar». */
   name: string;
-  /** Numero di serie o matricola: sulle bombole è ciò che il centro ricarica legge. */
+  /** Matricola: sulle bombole è quello che il centro ricarica legge. */
   serial?: string;
-  /** Data dell'ultima revisione o del rilascio, `YYYY-MM-DD`. */
-  lastServiceDate?: string;
-  /** Ogni quanti mesi va rifatta. Zero o assente: non scade. */
+  /** Quando l'hai preso, `YYYY-MM-DD`. Facoltativo, e non genera niente. */
+  boughtOn?: string;
+  service: ServiceKind;
+  /** Ultima manutenzione fatta, `YYYY-MM-DD`. */
+  lastServiceOn?: string;
+  /** Ogni quanti mesi andrebbe rifatta, secondo il costruttore o la norma. */
   intervalMonths?: number;
-  /** Scadenza dichiarata esplicitamente, quando non deriva da un intervallo. */
-  expiresOn?: string;
+  /** Litri, per le bombole. */
+  sizeL?: number;
+  /** Pressione di esercizio in bar, per le bombole. */
+  workingBar?: number;
   notes?: string;
-  /**
-   * Quando questo pezzo è stato scritto l'ultima volta, ISO 8601.
-   *
-   * Non serve a chi lo legge: serve alla sincronizzazione, che fonde le liste
-   * pezzo per pezzo e senza una data non saprebbe quale delle due versioni dello
-   * stesso erogatore tenere.
-   */
+  /** Vero se non lo usi più: resta in archivio ma fuori dall'elenco attivo. */
+  retired?: boolean;
+  /** Solo per la sincronizzazione: senza, non saprebbe quale versione tenere. */
   savedAt?: string;
 }
 
-export type GearStatus = 'ok' | 'due' | 'expired' | 'unknown';
+// ---------------------------------------------------------------------------
+// 2. I brevetti
+// ---------------------------------------------------------------------------
 
-export interface GearCheck {
-  item: GearItem;
-  status: GearStatus;
-  /** Quando scade, `YYYY-MM-DD`. */
-  dueDate?: string;
-  /** Giorni da oggi: negativo se è già scaduta. */
-  daysLeft?: number;
+/**
+ * Il livello, in una scala che il Coach possa leggere.
+ *
+ * Le didattiche hanno nomi diversi per la stessa cosa — Advanced Open Water,
+ * Two Star, Advanced Diver — e mettere in ordine trenta nomi commerciali è una
+ * battaglia persa. Quello che serve al Coach è: fino a che profondità sei
+ * addestrato, e sai gestire una decompressione. Questi cinque scalini rispondono.
+ */
+export type CertLevel = 'base' | 'advanced' | 'deep' | 'nitrox' | 'tech';
+
+export const CERT_LEVEL_LABEL: Record<CertLevel, string> = {
+  base: 'Primo livello (fino a 18 m)',
+  advanced: 'Avanzato (fino a 30 m)',
+  deep: 'Profondo (fino a 40 m)',
+  nitrox: 'Nitrox / miscele',
+  tech: 'Tecnico (decompressione)',
+};
+
+export interface Certification {
+  id: string;
+  /** PADI, SSI, CMAS, TDI, FIPSAS… testo libero: le didattiche sono decine. */
+  agency: string;
+  /** Il nome commerciale, come sta scritto sulla tessera. */
+  name: string;
+  level: CertLevel;
+  /** Quando l'hai preso, `YYYY-MM-DD`. */
+  issuedOn?: string;
+  /** Numero della tessera. */
+  number?: string;
+  instructor?: string;
+  notes?: string;
+  savedAt?: string;
 }
 
-/** Entro quanti giorni una scadenza si considera imminente. */
-export const DUE_SOON_DAYS = 60;
+// ---------------------------------------------------------------------------
+// 3. Zavorra e configurazione, ricavate dalle immersioni
+// ---------------------------------------------------------------------------
 
-/** Somma mesi a una data ISO, tenendo i giorni impossibili dentro il mese giusto. */
-export function addMonths(date: string, months: number): string | undefined {
-  const [y, m, d] = date.split('-').map(Number);
-  // Una data scritta male non deve far cadere l'intera schermata.
-  //
-  // `new Date(NaN).toISOString()` lancia `RangeError`, e l'eccezione usciva da
-  // `gearChecks` fino a `nextDiveBriefing`, che sta in cima al logbook: un campo
-  // compilato a mano con «giugno 2025» rendeva inutilizzabile la prima pagina.
-  // Qui una data illeggibile diventa «nessuna scadenza», che è la verità.
-  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return undefined;
-  const target = new Date(Date.UTC(y, m - 1 + months, 1));
-  // Il 31 gennaio più un mese è il 28 o il 29 febbraio, non il 3 marzo: senza
-  // questo, una scadenza a fine mese slitterebbe di qualche giorno ogni volta.
-  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
-  target.setUTCDate(Math.min(d, lastDay));
-  return target.toISOString().slice(0, 10);
+export interface WeightingRow {
+  /** La muta come l'hai scritta nelle immersioni. */
+  suit: string;
+  dives: number;
+  /** Zavorra mediana con questa muta, kg. */
+  medianKg: number;
+  minKg: number;
+  maxKg: number;
+  /**
+   * Oscillazione mediana a quota tenuta con questa configurazione, m/min.
+   *
+   * È il motivo per cui questa tabella esiste e non è un modulo da compilare:
+   * l'app misura già l'assetto su ogni immersione con un profilo, quindi può
+   * dire quale zavorra ti ha fatto tenere meglio la quota — che è la domanda
+   * vera, e nessun elenco di attrezzatura può risponderla.
+   */
+  medianTrimMpm?: number;
+  /** Su quante immersioni si basa l'assetto: può essere meno di `dives`. */
+  trimBasis: number;
 }
 
-export function checkGear(item: GearItem, now = Date.now()): GearCheck {
-  const dueDate =
-    item.expiresOn ??
-    (item.lastServiceDate && item.intervalMonths
-      ? addMonths(item.lastServiceDate, item.intervalMonths)
-      : undefined);
+const median = (values: number[]): number => {
+  const s = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+};
 
-  if (!dueDate || Number.isNaN(Date.parse(`${dueDate}T00:00:00Z`))) {
-    return { item, status: 'unknown' };
+/**
+ * La zavorra usata con ciascuna muta, misurata sulle immersioni fatte.
+ *
+ * Non chiede niente a nessuno: `weightKg` e `suit` sono già nel modello e i
+ * parser li leggono quando ci sono. Le immersioni senza uno dei due restano
+ * fuori, e la riga dichiara quante ne ha usate — perché «6 kg» su tre immersioni
+ * e «6 kg» su quaranta sono due affermazioni diverse.
+ */
+export function weightingBySuit(dives: Dive[], minDives = 2): WeightingRow[] {
+  const byS = new Map<string, { kg: number[]; trim: number[] }>();
+  for (const d of dives) {
+    const suit = d.suit?.trim();
+    if (!suit || d.weightKg === undefined || !(d.weightKg > 0)) continue;
+    const row = byS.get(suit) ?? { kg: [], trim: [] };
+    row.kg.push(d.weightKg);
+    const trim = d.metrics?.bottomVerticalTravelMpm;
+    if (trim !== undefined && Number.isFinite(trim)) row.trim.push(trim);
+    byS.set(suit, row);
   }
-
-  const daysLeft = Math.floor((Date.parse(`${dueDate}T00:00:00Z`) - now) / 86_400_000);
-  const status: GearStatus = daysLeft < 0 ? 'expired' : daysLeft <= DUE_SOON_DAYS ? 'due' : 'ok';
-  return { item, status, dueDate, daysLeft };
+  return [...byS.entries()]
+    .filter(([, r]) => r.kg.length >= minDives)
+    .map(([suit, r]) => ({
+      suit,
+      dives: r.kg.length,
+      medianKg: Math.round(median(r.kg) * 10) / 10,
+      minKg: Math.min(...r.kg),
+      maxKg: Math.max(...r.kg),
+      medianTrimMpm: r.trim.length ? Math.round(median(r.trim) * 10) / 10 : undefined,
+      trimBasis: r.trim.length,
+    }))
+    .sort((a, b) => b.dives - a.dives);
 }
 
 /**
- * Le scadenze in ordine di urgenza: prima le scadute, poi le imminenti.
+ * La configurazione usata, ricavata dal numero di bombole per immersione.
  *
- * Quelle senza data restano in fondo e non spariscono: un pezzo senza scadenza
- * registrata non è un pezzo a posto, è un pezzo di cui non si sa niente.
+ * Grossolana di proposito: distinguere un bibombola da due mono in sidemount
+ * guardando il log non si può, e inventare la distinzione sarebbe peggio che
+ * ammetterla. Serve a rispondere «quante immersioni ho fatto con più di una
+ * bombola», che è l'unica cosa che il log sa davvero.
  */
-export function gearChecks(items: GearItem[], now = Date.now()): GearCheck[] {
-  const order: Record<GearStatus, number> = { expired: 0, due: 1, ok: 2, unknown: 3 };
-  return items
-    .map((item) => checkGear(item, now))
-    .sort((a, b) => {
-      if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
-      return (a.daysLeft ?? Infinity) - (b.daysLeft ?? Infinity);
-    });
+export function configurationRows(dives: Dive[]): { label: string; dives: number }[] {
+  const counts = new Map<string, number>();
+  for (const d of dives) {
+    const n = d.cylinders.length;
+    const label =
+      d.mode === 'ccr'
+        ? 'Rebreather a circuito chiuso'
+        : d.mode === 'scr'
+          ? 'Rebreather semichiuso'
+          : n === 0
+            ? 'Bombole non registrate'
+            : n === 1
+              ? 'Una bombola'
+              : n === 2
+                ? 'Due bombole'
+                : `${n} bombole`;
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([label, dives]) => ({ label, dives }))
+    .sort((a, b) => b.dives - a.dives);
 }
 
-/** Quanti pezzi sono scaduti o stanno per scadere: il numero da mettere in evidenza. */
-export function gearSummary(items: GearItem[], now = Date.now()): {
-  expired: number;
-  due: number;
-  unknown: number;
-  next?: GearCheck;
-} {
-  const checks = gearChecks(items, now);
-  return {
-    expired: checks.filter((c) => c.status === 'expired').length,
-    due: checks.filter((c) => c.status === 'due').length,
-    unknown: checks.filter((c) => c.status === 'unknown').length,
-    next: checks.find((c) => c.status === 'due' || c.status === 'expired'),
-  };
+// ---------------------------------------------------------------------------
+// Fatti sulla manutenzione, senza giudizio
+// ---------------------------------------------------------------------------
+
+/** Somma mesi a una data ISO, tenendo i giorni impossibili dentro il mese giusto. */
+export function addMonths(date: string, months: number): string | undefined {
+  const t = Date.parse(date);
+  if (Number.isNaN(t)) return undefined;
+  const d = new Date(t);
+  const day = d.getUTCDate();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  const lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, lastDay));
+  return d.toISOString().slice(0, 10);
+}
+
+export interface ServiceFacts {
+  /** Mesi passati dall'ultima manutenzione. Assente se non c'è una data. */
+  monthsSince?: number;
+  /** Quando cadrebbe la prossima, secondo l'intervallo dichiarato. */
+  nextOn?: string;
+  /** Mesi da oggi alla prossima: negativo se è già passata. */
+  monthsToNext?: number;
+}
+
+/**
+ * I fatti sulla manutenzione di un pezzo.
+ *
+ * Restituisce NUMERI e non uno stato — niente `'ok' | 'due' | 'expired'`. È la
+ * differenza fra questa versione e quella prima: uno stato è un giudizio, e per
+ * darlo servirebbe sapere cose che l'applicazione non sa (se la bombola è ferma
+ * in garage da un anno, se l'erogatore l'hai usato in piscina o in Egitto, se il
+ * tuo centro fa la revisione ogni due anni). Chi legge ha quel contesto; questa
+ * funzione gli dà i numeri e sta zitta.
+ */
+export function serviceFacts(item: Equipment, now = Date.now()): ServiceFacts {
+  if (item.service === 'none' || !item.lastServiceOn) return {};
+  const last = Date.parse(item.lastServiceOn);
+  if (Number.isNaN(last)) return {};
+  const MONTH = 30.44 * 24 * 3600 * 1000;
+  const monthsSince = Math.max(0, Math.round((now - last) / MONTH));
+  if (!item.intervalMonths || item.intervalMonths <= 0) return { monthsSince };
+  const nextOn = addMonths(item.lastServiceOn, item.intervalMonths);
+  const monthsToNext = nextOn ? Math.round((Date.parse(nextOn) - now) / MONTH) : undefined;
+  return { monthsSince, nextOn, monthsToNext };
+}
+
+/** In quale ordine mostrare i pezzi: prima quelli in uso, poi per tipo e nome. */
+export function sortEquipment(items: Equipment[]): Equipment[] {
+  const order: EquipmentKind[] = ['cylinder', 'regulator', 'bcd', 'computer', 'suit', 'light', 'other'];
+  return [...items].sort((a, b) => {
+    if (!!a.retired !== !!b.retired) return a.retired ? 1 : -1;
+    const k = order.indexOf(a.kind) - order.indexOf(b.kind);
+    return k !== 0 ? k : a.name.localeCompare(b.name, 'it');
+  });
+}
+
+/** Dal più recente: un brevetto si legge in ordine di conquista, al contrario. */
+export function sortCertifications(items: Certification[]): Certification[] {
+  return [...items].sort((a, b) => (b.issuedOn ?? '').localeCompare(a.issuedOn ?? ''));
+}
+
+/**
+ * Il livello più alto raggiunto, per il Coach.
+ *
+ * `undefined` quando non c'è nessun brevetto registrato: la scheda di prontezza
+ * deve poter dire «non lo so» invece di assumere il primo livello, che sarebbe
+ * un'affermazione su di te che nessuno ha fatto.
+ */
+export function highestLevel(certs: Certification[]): CertLevel | undefined {
+  const rank: CertLevel[] = ['base', 'advanced', 'deep', 'nitrox', 'tech'];
+  let best = -1;
+  for (const c of certs) {
+    const i = rank.indexOf(c.level);
+    if (i > best) best = i;
+  }
+  return best < 0 ? undefined : rank[best];
+}
+
+// ---------------------------------------------------------------------------
+// Migrazione dalla versione vecchia
+// ---------------------------------------------------------------------------
+
+/** La forma vecchia, tenuta solo per poterla leggere e convertire. */
+export interface LegacyGearItem {
+  id: string;
+  kind: string;
+  name: string;
+  serial?: string;
+  lastServiceDate?: string;
+  intervalMonths?: number;
+  expiresOn?: string;
+  notes?: string;
+  savedAt?: string;
+}
+
+export interface GearArchive {
+  equipment: Equipment[];
+  certifications: Certification[];
+}
+
+/**
+ * Converte l'elenco unico della versione vecchia nei due elenchi nuovi.
+ *
+ * Le voci che erano brevetti diventano brevetti; certificato medico e
+ * assicurazione — che nella versione nuova non esistono più come categoria,
+ * perché l'utente ha chiesto di non essere avvisato di niente — NON si buttano:
+ * finiscono fra le attrezzature con `service: 'none'` e la loro data nelle note,
+ * così nessun dato scritto a mano va perduto. Buttare silenziosamente qualcosa
+ * che qualcuno ha digitato è il modo più rapido di far perdere fiducia a
+ * un'applicazione.
+ */
+export function migrateGear(legacy: LegacyGearItem[] | GearArchive | null | undefined): GearArchive {
+  if (!legacy) return { equipment: [], certifications: [] };
+  if (!Array.isArray(legacy)) return legacy;
+
+  const equipment: Equipment[] = [];
+  const certifications: Certification[] = [];
+
+  for (const old of legacy) {
+    if (old.kind === 'certification') {
+      certifications.push({
+        id: old.id,
+        agency: '',
+        name: old.name,
+        // Il livello non si può indovinare dal nome commerciale: si mette il
+        // primo e si lascia correggere. Fingere di saperlo sarebbe peggio.
+        level: 'base',
+        issuedOn: old.lastServiceDate,
+        number: old.serial,
+        notes: old.notes,
+        savedAt: old.savedAt,
+      });
+      continue;
+    }
+    const kind: EquipmentKind = (
+      ['cylinder', 'regulator', 'bcd', 'computer', 'suit', 'light'] as string[]
+    ).includes(old.kind)
+      ? (old.kind as EquipmentKind)
+      : 'other';
+    const scaduto = old.kind === 'medical' || old.kind === 'insurance';
+    const scadenza = old.expiresOn ?? (old.lastServiceDate && old.intervalMonths
+      ? addMonths(old.lastServiceDate, old.intervalMonths)
+      : undefined);
+    equipment.push({
+      id: old.id,
+      kind,
+      name: scaduto ? `${old.kind === 'medical' ? 'Certificato medico' : 'Assicurazione'} — ${old.name}` : old.name,
+      serial: old.serial,
+      service: scaduto ? 'none' : TYPICAL_SERVICE[kind],
+      lastServiceOn: scaduto ? undefined : old.lastServiceDate,
+      intervalMonths: scaduto ? undefined : old.intervalMonths,
+      notes: [old.notes, scaduto && scadenza ? `Scadenza registrata nella versione precedente: ${scadenza}` : undefined]
+        .filter(Boolean)
+        .join(' · ') || undefined,
+      savedAt: old.savedAt,
+    });
+  }
+  return { equipment, certifications };
 }
