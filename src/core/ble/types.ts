@@ -52,10 +52,20 @@ export interface BleFoundDevice {
  */
 export interface BleServiceProfile {
   service: string;
-  /** Dove si scrive. */
-  writeCharacteristic: string;
-  /** Da dove arrivano le risposte. */
-  notifyCharacteristic: string;
+  /**
+   * Dove si scrive. Indefinito = si SCOPRE dal dispositivo.
+   *
+   * La scoperta è la scelta buona per difetto, e non per pigrizia: gli UUID
+   * delle caratteristiche dentro un servizio proprietario cambiano da modello a
+   * modello e da firmware a firmware, mentre le PROPRIETÀ no — quella su cui si
+   * scrive dichiara «write» o «write senza risposta», quella da cui si legge
+   * dichiara «notify». È il criterio che usa Subsurface, e regge su tutta la
+   * famiglia di un costruttore invece che su un modello solo. Scriverli a mano
+   * resta possibile per i casi in cui un servizio ne espone più di una.
+   */
+  writeCharacteristic?: string;
+  /** Da dove arrivano le risposte. Indefinito = si scopre. */
+  notifyCharacteristic?: string;
   /**
    * Con o senza conferma.
    *
@@ -89,11 +99,33 @@ export type BleUnavailable =
 export interface BleLink {
   /** Byte per scrittura che il collegamento regge. Il driver spezza di conseguenza. */
   readonly mtu: number;
+  /** Scrive, spezzando da sé se serve. Per i protocolli che vedono un flusso. */
   write(data: Uint8Array): Promise<void>;
+  /**
+   * Scrive ESATTAMENTE questa notifica, senza spezzare.
+   *
+   * Serve ai protocolli in cui il pacchetto BLE ha una sua intestazione — «di
+   * quante notifiche è fatto questo messaggio, e questa che numero è» — perché
+   * lì la divisione la decide il driver, che è l'unico a sapere dove mettere i
+   * contatori. Se i byte non ci stanno nell'MTU è un errore del driver, non una
+   * cosa da aggiustare in silenzio spezzando.
+   */
+  writeFrame(data: Uint8Array): Promise<void>;
   /** Esattamente `n` byte, o un errore allo scadere del tempo. */
   read(n: number, timeoutMs?: number): Promise<Uint8Array>;
+  /** La prossima notifica intera, con i suoi confini. */
+  readFrame(timeoutMs?: number): Promise<Uint8Array>;
   /** Tutto quello che è già arrivato, senza aspettare. Vuoto se non c'è niente. */
   drain(): Uint8Array;
+  /**
+   * Una riga su COME è stato aperto: servizio e caratteristiche risolte.
+   *
+   * Va nel diario tecnico. Quando un protocollo ricostruito non risponde, la
+   * prima domanda è sempre «stiamo scrivendo sulla caratteristica giusta?», e
+   * senza questa riga la risposta richiede un altro giro di prove col computer
+   * in mano.
+   */
+  describe?(): string;
   close(): Promise<void>;
 }
 
@@ -124,6 +156,43 @@ export interface DownloadedRecord {
   bytes: Uint8Array;
 }
 
+/**
+ * Fin dove si era arrivati l'ultima volta con QUESTO computer.
+ *
+ * È il modo in cui lo scarico diventa incrementale, ed è la sola cosa che
+ * rende usabile un computer con centocinquanta immersioni in memoria: senza,
+ * ogni collegamento rilegge tutto, e su BLE tutto sono parecchi minuti.
+ *
+ * L'impronta è quella dell'immersione PIÙ RECENTE che è stata scaricata per
+ * intero, perché il manifesto si legge dalla più nuova alla più vecchia e
+ * l'unico punto in cui ci si può fermare è quello. Non esiste un modo di
+ * saltare un pezzo in mezzo: è una proprietà del protocollo, non una scelta.
+ */
+export const BLE_MARKERS_KEY = 'bleMarkers';
+
+export interface DownloadMarker {
+  /** Impronta dell'immersione più recente già in archivio da questo computer. */
+  fingerprint: string;
+  /** Quando è stato fatto quello scarico, ISO. Serve a poterlo mostrare. */
+  at: string;
+  /** Quante immersioni erano arrivate. Solo per il messaggio a schermo. */
+  dives: number;
+  model?: string;
+}
+
+/**
+ * La chiave sotto cui si ricorda il segnalibro.
+ *
+ * Il SERIALE e non l'identificativo del dispositivo: su Apple quello che il
+ * sistema dà è un UUID che vale solo per quel Mac e per quella app, e cambia
+ * reinstallando. Il seriale è del computer subacqueo, quindi il segnalibro
+ * sopravvive e vale anche fra dispositivi diversi che si sincronizzano.
+ * Il ripiego sull'identificativo serve solo se il computer non dichiara un
+ * seriale, che sarebbe già di per sé un caso da guardare.
+ */
+export const markerKey = (driverId: string, serial: string | undefined, deviceId: string) =>
+  `${driverId}:${serial ?? `dispositivo-${deviceId}`}`;
+
 /** Che cosa sta succedendo, mentre succede. */
 export type DownloadEvent =
   | { kind: 'connecting' }
@@ -133,7 +202,18 @@ export type DownloadEvent =
   | { kind: 'counted'; total?: number }
   | { kind: 'record'; done: number; total?: number; record: DownloadedRecord }
   /** Un'immersione illeggibile NON ferma le altre: si annota e si va avanti. */
-  | { kind: 'skipped'; key: string; reason: string };
+  | { kind: 'skipped'; key: string; reason: string }
+  /**
+   * Una riga di diario tecnico.
+   *
+   * Non è per l'utente: è per chi dovrà capire perché il primo tentativo con un
+   * computer vero non ha funzionato. Un protocollo ricostruito sbaglia sempre
+   * in qualche punto, e il sintomo è quasi sempre lo stesso — «il computer non
+   * risponde» — qualunque sia la causa. La differenza fra sistemarlo in dieci
+   * minuti e sistemarlo in tre giri è avere scritto QUALE comando è partito e
+   * COSA è tornato.
+   */
+  | { kind: 'trace'; line: string };
 
 /**
  * Il protocollo di un computer.
@@ -159,7 +239,13 @@ export interface DiveComputerDriver {
    */
   download(
     link: BleLink,
-    ctx: { emit: (e: DownloadEvent) => void; signal: AbortSignal; since?: string },
+    ctx: {
+      emit: (e: DownloadEvent) => void;
+      signal: AbortSignal;
+      since?: string;
+      /** Scrive una riga nel diario tecnico. Vedi `DownloadEvent.trace`. */
+      trace: (line: string) => void;
+    },
   ): Promise<DownloadedRecord[]>;
   /**
    * Da byte del computer a immersioni.

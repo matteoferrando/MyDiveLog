@@ -10,6 +10,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Dive, Sample } from '../core/model';
 import { TRASH_KEY, partitionTrash, type TrashedDive } from '../storage/trash';
+import { BLE_MARKERS_KEY, type DownloadMarker } from '../core/ble/types';
 import { computeMetrics } from '../core/analysis/metrics';
 import { aggregate, type Aggregates } from '../core/analysis/aggregate';
 import {
@@ -205,6 +206,17 @@ interface DiveLogValue {
   saveGear: (archive: GearArchive) => Promise<void>;
 
   /**
+   * Fin dove si era arrivati con ogni computer subacqueo, per seriale.
+   *
+   * Poche righe di testo, quindi stanno fra le impostazioni e viaggiano con la
+   * sincronizzazione: collegando il Peregrine a un secondo dispositivo, quello
+   * sa già cosa è stato scaricato e non rilegge tutta la memoria.
+   */
+  bleMarkers: Record<string, DownloadMarker>;
+  saveBleMarker: (key: string, marker: DownloadMarker) => Promise<void>;
+  forgetBleMarker: (key: string) => Promise<void>;
+
+  /**
    * Esporta tutto l'archivio in UDDF. I profili si ricaricano qui uno per uno:
    * in memoria ci sono solo i riepiloghi, e un export senza profili sarebbe un
    * backup a metà senza dirlo.
@@ -272,6 +284,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   const [decoInput, setDecoInputState] = useState<unknown>(null);
   const [decoPlans, setDecoPlans] = useState<SavedDecoPlan[]>([]);
   const [gear, setGearState] = useState<GearArchive>({ equipment: [], certifications: [] });
+  const [bleMarkers, setBleMarkers] = useState<Record<string, DownloadMarker>>({});
   /** Dove finiscono davvero le credenziali su QUESTO dispositivo. */
   const [secretPlace, setSecretPlace] = useState<SecretPlace>('archive');
   const [analyses, setAnalyses] = useState<Record<string, StoredAnalysis>>({});
@@ -324,20 +337,30 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       const segreti = await prova('portachiavi', () => openSecretStore(s));
       if (!cancelled && segreti) setSecretPlace(segreti.place);
 
-      const [list, savedGoal, savedPeriod, savedSync, savedAi, savedAnalyses, savedGas, savedGear] =
-        await Promise.all([
-          prova('immersioni', () => s.listDives()),
-          prova('obiettivo', () => s.getSetting<GoalId>('goal')),
-          prova('periodo', () => s.getSetting<PeriodId>('period')),
-          // Le credenziali NON passano più da `getSetting`: le legge il negozio
-          // dei segreti, che su macOS è il portachiavi di sistema e che al primo
-          // avvio migra da solo quelle rimaste in chiaro nell'archivio.
-          prova('credenziali di sincronizzazione', async () => segreti?.read<SyncCredentials>('sync')),
-          prova('chiave dell’API', async () => segreti?.read<AiCredentials>('ai')),
-          prova('analisi', () => s.getSetting<Record<string, StoredAnalysis>>('analyses')),
-          prova('piano gas', () => s.getSetting<GasPlanInput>('gasPlan')),
-          prova('attrezzatura', () => s.getSetting<unknown>('gear')),
-        ]);
+      const [
+        list,
+        savedGoal,
+        savedPeriod,
+        savedSync,
+        savedAi,
+        savedAnalyses,
+        savedGas,
+        savedGear,
+        savedMarkers,
+      ] = await Promise.all([
+        prova('immersioni', () => s.listDives()),
+        prova('obiettivo', () => s.getSetting<GoalId>('goal')),
+        prova('periodo', () => s.getSetting<PeriodId>('period')),
+        // Le credenziali NON passano più da `getSetting`: le legge il negozio
+        // dei segreti, che su macOS è il portachiavi di sistema e che al primo
+        // avvio migra da solo quelle rimaste in chiaro nell'archivio.
+        prova('credenziali di sincronizzazione', async () => segreti?.read<SyncCredentials>('sync')),
+        prova('chiave dell’API', async () => segreti?.read<AiCredentials>('ai')),
+        prova('analisi', () => s.getSetting<Record<string, StoredAnalysis>>('analyses')),
+        prova('piano gas', () => s.getSetting<GasPlanInput>('gasPlan')),
+        prova('attrezzatura', () => s.getSetting<unknown>('gear')),
+        prova('segnalibri Bluetooth', () => s.getSetting<Record<string, DownloadMarker>>(BLE_MARKERS_KEY)),
+      ]);
       const savedDeco = await prova('piano deco', () => s.getSetting<unknown>('decoPlan'));
       const savedPlans =
         (await prova('piani salvati', () => s.getSetting<SavedDecoPlan[]>('decoPlans'))) ?? [];
@@ -393,6 +416,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       // distinti. `migrateGear` legge entrambe le forme, così chi aggiorna
       // l'applicazione non perde niente di quello che aveva scritto.
       setGearState(migrateGear(savedGear as never));
+      if (savedMarkers) setBleMarkers(savedMarkers);
       setReady(true);
     })().catch((err) => {
       // Qui ci si arriva solo se `getStore()` stesso è fallito: l'archivio non
@@ -536,6 +560,34 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       }
     },
     [dives, store],
+  );
+
+  /*
+   * Il segnalibro si scrive DOPO che le immersioni sono in archivio.
+   *
+   * L'ordine non è indifferente: se si salvasse prima e il salvataggio delle
+   * immersioni fallisse, il prossimo scarico salterebbe proprio quelle che non
+   * sono entrate, e non tornerebbero mai più — il protocollo non permette di
+   * ripartire da metà. Chi chiama rispetta quest'ordine; il commento sta qui
+   * perché è qui che si viene a cercare.
+   */
+  const saveBleMarker = useCallback(
+    async (key: string, marker: DownloadMarker) => {
+      const next = { ...bleMarkers, [key]: marker };
+      setBleMarkers(next);
+      if (store) await store.setSetting(BLE_MARKERS_KEY, next);
+    },
+    [bleMarkers, store],
+  );
+
+  const forgetBleMarker = useCallback(
+    async (key: string) => {
+      const next = { ...bleMarkers };
+      delete next[key];
+      setBleMarkers(next);
+      if (store) await store.setSetting(BLE_MARKERS_KEY, next);
+    },
+    [bleMarkers, store],
   );
 
   const loadSamples = useCallback(
@@ -1233,6 +1285,9 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     setGoalId,
     importFiles,
     importDives,
+    bleMarkers,
+    saveBleMarker,
+    forgetBleMarker,
     loadSamples,
     loadProfiles,
     saveDive,

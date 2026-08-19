@@ -58,7 +58,21 @@ export class BleClosedError extends Error {
  */
 export class ByteStream {
   /*
-   * I pezzi arrivati e non ancora consumati.
+   * I frammenti servono ANCHE interi, non solo come byte.
+   *
+   * Il BLE consegna notifiche, e alcuni protocolli mettono un'intestazione in
+   * ogni notifica invece che nel messaggio: Shearwater ci scrive «quante
+   * notifiche compongono questo pacchetto» e «questa che numero è», due byte
+   * che vanno tolti PRIMA di concatenare. Se il flusso conoscesse solo i byte,
+   * quei due finirebbero in mezzo ai dati e non ci sarebbe modo di ritrovarli.
+   *
+   * Quindi la coda resta una sola — un unico posto dove i dati arrivano — e si
+   * legge in due modi: a byte per i protocolli che vedono un flusso, a
+   * notifiche per quelli che vedono pacchetti. Usarli tutti e due sullo stesso
+   * collegamento sarebbe un errore del driver, e la guardia sulle letture
+   * concorrenti lo intercetta.
+   *
+   * I PEZZI NON SI CONCATENANO SUBITO.
    *
    * Un elenco di frammenti e non un unico array che cresce: concatenare a ogni
    * notifica è quadratico, e su un archivio da cento immersioni sono decine di
@@ -69,6 +83,11 @@ export class ByteStream {
   private size = 0;
   private waiter: {
     n: number;
+    resolve: (v: Uint8Array) => void;
+    reject: (e: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  } | null = null;
+  private frameWaiter: {
     resolve: (v: Uint8Array) => void;
     reject: (e: Error) => void;
     timer: ReturnType<typeof setTimeout>;
@@ -90,6 +109,36 @@ export class ByteStream {
     this.chunks.push(data);
     this.size += data.length;
     this.serve();
+  }
+
+  /**
+   * La prossima notifica, INTERA e con i suoi confini.
+   *
+   * Non «i prossimi n byte»: esattamente il pacchetto che il dispositivo ha
+   * mandato. Serve ai protocolli in cui l'intestazione sta nella notifica e non
+   * nel messaggio, dove perdere il confine significa perdere il modo di
+   * togliere l'intestazione.
+   */
+  readFrame(timeoutMs: number = DEFAULT_READ_TIMEOUT_MS): Promise<Uint8Array> {
+    if (this.waiter || this.frameWaiter) {
+      return Promise.reject(
+        new Error('Due letture insieme sullo stesso flusso: è un errore del driver, non del dispositivo.'),
+      );
+    }
+    const pronto = this.chunks.shift();
+    if (pronto) {
+      this.size -= pronto.length;
+      return Promise.resolve(pronto);
+    }
+    if (this.closedReason !== null) return Promise.reject(new BleClosedError(this.closedReason));
+
+    return new Promise<Uint8Array>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.frameWaiter = null;
+        reject(new BleTimeoutError(1, 0, timeoutMs));
+      }, timeoutMs);
+      this.frameWaiter = { resolve, reject, timer };
+    });
   }
 
   /**
@@ -138,6 +187,11 @@ export class ByteStream {
     this.size = 0;
   }
 
+  /** Quante notifiche sono in coda, non ancora lette. */
+  get pendingFrames(): number {
+    return this.chunks.length;
+  }
+
   /** Il dispositivo se n'è andato: chi aspetta deve saperlo subito. */
   close(reason: string): void {
     if (this.closedReason !== null) return;
@@ -148,9 +202,25 @@ export class ByteStream {
       this.waiter = null;
       w.reject(new BleClosedError(reason));
     }
+    const f = this.frameWaiter;
+    if (f) {
+      clearTimeout(f.timer);
+      this.frameWaiter = null;
+      f.reject(new BleClosedError(reason));
+    }
   }
 
   private serve(): void {
+    const f = this.frameWaiter;
+    if (f) {
+      const pronto = this.chunks.shift();
+      if (!pronto) return;
+      this.size -= pronto.length;
+      clearTimeout(f.timer);
+      this.frameWaiter = null;
+      f.resolve(pronto);
+      return;
+    }
     const w = this.waiter;
     if (!w || this.size < w.n) return;
     clearTimeout(w.timer);

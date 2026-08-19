@@ -35,8 +35,20 @@ interface PluginDevice {
   services: string[];
 }
 
+interface PluginCharacteristic {
+  uuid: string;
+  /** Bitmask GATT: 0x02 read, 0x04 write senza risposta, 0x08 write, 0x10 notify, 0x20 indicate. */
+  properties: number;
+}
+
+interface PluginService {
+  uuid: string;
+  characteristics: PluginCharacteristic[];
+}
+
 interface Plugin {
   getAdapterState(): Promise<'Unknown' | 'On' | 'Off'>;
+  listServices(address: string): Promise<PluginService[] | string>;
   checkPermissions(askIfDenied?: boolean): Promise<boolean>;
   startScan(handler: (devices: PluginDevice[]) => void, timeout: number): Promise<void>;
   stopScan(): Promise<void>;
@@ -61,6 +73,26 @@ async function plugin(): Promise<Plugin> {
 const SCAN_ROUND_MS = 10_000;
 
 /**
+ * Un'attesa che si può annullare.
+ *
+ * `setTimeout` da solo non basta: fermando la ricerca resterebbe appeso fino
+ * alla fine del giro, e chi ha premuto «Ferma» aspetterebbe dieci secondi
+ * guardando un pulsante che non fa niente.
+ */
+function attendi(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) return resolve();
+    const fine = () => {
+      clearTimeout(t);
+      signal.removeEventListener('abort', fine);
+      resolve();
+    };
+    const t = setTimeout(fine, ms);
+    signal.addEventListener('abort', fine, { once: true });
+  });
+}
+
+/**
  * Byte per scrittura, quando il sistema non dice l'MTU.
  *
  * Ventitré meno tre di intestazione ATT: è il minimo garantito dallo standard e
@@ -71,12 +103,70 @@ const SCAN_ROUND_MS = 10_000;
  */
 const MTU_PRUDENTE = 20;
 
+/** Le caratteristiche risolte: dal profilo se scritte, altrimenti scoperte. */
+interface Canali {
+  service: string;
+  write: string;
+  notify: string;
+}
+
+/*
+ * I bit delle proprietà GATT che ci interessano.
+ *
+ * Sono standard e non dipendono dal plugin: 0x04 «write senza risposta», 0x08
+ * «write», 0x10 «notify», 0x20 «indicate».
+ */
+const PROP_WRITE_NO_RESP = 0x04;
+const PROP_WRITE = 0x08;
+const PROP_NOTIFY = 0x10;
+const PROP_INDICATE = 0x20;
+
+/**
+ * Trova su quale caratteristica si scrive e da quale si legge.
+ *
+ * Per proprietà e non per UUID. Gli UUID delle caratteristiche dentro un
+ * servizio proprietario cambiano fra modelli e fra versioni di firmware; le
+ * proprietà no, perché sono quelle che fanno funzionare il canale. È lo stesso
+ * criterio di Subsurface, ed è il motivo per cui il loro elenco contiene i
+ * servizi e non le caratteristiche.
+ *
+ * Se la scoperta non riesce si dice CHE COSA è stato trovato: «nessuna
+ * caratteristica notify» e «il servizio non c'è» sono due guasti diversi con
+ * due rimedi diversi, e un messaggio unico li confonde.
+ */
+export function resolveChannels(
+  services: PluginService[],
+  profile: BleServiceProfile,
+): Canali | { error: string } {
+  const cercato = profile.service.toLowerCase();
+  const s = services.find((x) => x.uuid.toLowerCase() === cercato);
+  if (!s) {
+    const elenco = services.map((x) => x.uuid).join(', ') || 'nessuno';
+    return {
+      error: `Il dispositivo non espone il servizio ${profile.service}. Servizi trovati: ${elenco}. Di solito significa che non è il computer che pensavamo, o che è in modalità aggiornamento firmware invece che in modalità trasferimento.`,
+    };
+  }
+  const write =
+    profile.writeCharacteristic ??
+    s.characteristics.find((c) => c.properties & (PROP_WRITE | PROP_WRITE_NO_RESP))?.uuid;
+  const notify =
+    profile.notifyCharacteristic ??
+    s.characteristics.find((c) => c.properties & (PROP_NOTIFY | PROP_INDICATE))?.uuid;
+  if (!write || !notify) {
+    return {
+      error: `Il servizio ${profile.service} non ha ${!write ? 'una caratteristica su cui scrivere' : 'una caratteristica che notifichi'}. Caratteristiche viste: ${s.characteristics.map((c) => `${c.uuid} (0x${c.properties.toString(16)})`).join(', ')}.`,
+    };
+  }
+  return { service: s.uuid, write, notify };
+}
+
 class TauriBleLink implements BleLink {
   private stream = new ByteStream();
 
   constructor(
     readonly mtu: number,
-    private profile: BleServiceProfile,
+    private canali: Canali,
+    private writeType: BleServiceProfile['writeType'],
     private api: Plugin,
   ) {}
 
@@ -98,18 +188,28 @@ class TauriBleLink implements BleLink {
      * i cui byte arrivano rimescolati non è un comando — è spazzatura che il
      * firmware scarta in silenzio.
      */
-    for (const pezzo of chunkForMtu(data, this.mtu)) {
-      await this.api.send(
-        this.profile.writeCharacteristic,
-        Array.from(pezzo),
-        this.profile.writeType,
-        this.profile.service,
+    for (const pezzo of chunkForMtu(data, this.mtu)) await this.writeFrame(pezzo);
+  }
+
+  async writeFrame(data: Uint8Array): Promise<void> {
+    if (data.length > this.mtu) {
+      throw new Error(
+        `Notifica da ${data.length} byte su un MTU di ${this.mtu}: è il driver che deve spezzare.`,
       );
     }
+    await this.api.send(this.canali.write, Array.from(data), this.writeType, this.canali.service);
   }
 
   read(n: number, timeoutMs?: number): Promise<Uint8Array> {
     return this.stream.read(n, timeoutMs);
+  }
+
+  readFrame(timeoutMs?: number): Promise<Uint8Array> {
+    return this.stream.readFrame(timeoutMs);
+  }
+
+  describe(): string {
+    return `servizio ${this.canali.service}, scrivo su ${this.canali.write} (${this.writeType}), ascolto ${this.canali.notify}`;
   }
 
   drain(): Uint8Array {
@@ -121,9 +221,7 @@ class TauriBleLink implements BleLink {
     // Nessuno dei due deve poter impedire l'altro: un `unsubscribe` fallito su
     // un dispositivo già sparito lascerebbe il collegamento aperto, e un
     // collegamento aperto tiene il computer sveglio finché ha batteria.
-    await this.api
-      .unsubscribe(this.profile.notifyCharacteristic, this.profile.service)
-      .catch(() => undefined);
+    await this.api.unsubscribe(this.canali.notify, this.canali.service).catch(() => undefined);
     await this.api.disconnect().catch(() => undefined);
   }
 }
@@ -177,28 +275,52 @@ export class TauriBleTransport implements BleTransport {
   async scan(onUpdate: (devices: BleFoundDevice[]) => void, signal: AbortSignal): Promise<void> {
     const api = await plugin();
     /*
-     * La ricerca si rilancia finché non la si annulla.
+     * UN GIRO ALLA VOLTA, E SI ASPETTA CHE FINISCA.
      *
-     * Il plugin cerca per una durata fissa e poi si ferma. Un computer
-     * subacqueo però annuncia solo quando è sveglio — e si sveglia quando lo
-     * tocchi o quando entra in modalità trasferimento — quindi la finestra
-     * utile spesso si apre DOPO che la ricerca è già finita. Il risultato
-     * sarebbe «non lo trova», e chi legge conclude che l'app non funziona.
+     * Qui c'era il difetto che ha fatto fallire il primo tentativo con un
+     * Peregrine vero, e vale la pena scriverlo per intero perché è tutto
+     * fuorché ovvio.
+     *
+     * `startScan` NON dura quanto il suo timeout: torna subito, perché dal lato
+     * Rust avvia un compito in secondo piano e restituisce. Il ciclo che c'era
+     * — «avvia, aspetta 200 ms, riavvia» — rilanciava quindi la ricerca cinque
+     * volte al secondo. E la prima cosa che quel compito fa è SVUOTARE la mappa
+     * dei dispositivi conosciuti (`self_devices.lock().await.clear()` in
+     * `handler.rs`), che è la stessa mappa da cui `connect` prende il
+     * dispositivo per indirizzo.
+     *
+     * Risultato: l'elenco a schermo si popolava — quindi sembrava funzionare —
+     * ma al momento della connessione la mappa era appena stata azzerata da un
+     * giro nuovo, e il plugin rispondeva «There is no peripheral with id: …».
+     * Un errore che parla di un dispositivo inesistente mentre il suo nome è
+     * scritto nella riga che si è appena premuta.
+     *
+     * Ora si aspetta che il giro finisca davvero prima di rilanciarlo. Il
+     * rilancio serve comunque: un computer subacqueo annuncia solo quando è
+     * sveglio, e la finestra utile spesso si apre dopo che la prima passata è
+     * già finita.
      */
+    const visti = new Map<string, BleFoundDevice>();
     try {
       while (!signal.aborted) {
         await api.startScan((devs) => {
           if (signal.aborted) return;
-          onUpdate(
-            devs.map((d) => ({
+          for (const d of devs) {
+            visti.set(d.address, {
               id: d.address,
               name: d.name ?? '',
               rssi: d.rssi,
               serviceUuids: (d.services ?? []).map((s) => s.toLowerCase()),
-            })),
-          );
+            });
+          }
+          // Accumulati fra un giro e l'altro: un computer che smette di
+          // annunciare mentre si sceglie non deve sparire dalla riga che si sta
+          // per premere. Se al momento della connessione il plugin non lo
+          // conosce più, `open` rifà una passata e riprova — vedi sotto.
+          onUpdate([...visti.values()]);
         }, SCAN_ROUND_MS);
-        await new Promise((r) => setTimeout(r, 200));
+        // Il giro dura quanto il suo timeout, più un margine per lo spegnimento.
+        await attendi(SCAN_ROUND_MS + 400, signal);
       }
     } finally {
       await api.stopScan().catch(() => undefined);
@@ -226,7 +348,31 @@ export class TauriBleTransport implements BleTransport {
      */
     // eslint-disable-next-line prefer-const
     let link: TauriBleLink | undefined;
-    await api.connect(deviceId, () => link?.onDisconnect());
+
+    /*
+     * SE IL PLUGIN NON LO CONOSCE PIÙ, SI RIFÀ UNA PASSATA E SI RIPROVA.
+     *
+     * La mappa dei dispositivi del plugin viene svuotata all'inizio di ogni
+     * ricerca, mentre l'elenco a schermo accumula fra una passata e l'altra: le
+     * due cose possono divergere, per esempio scegliendo un computer visto un
+     * minuto prima. Il sintomo è un errore che dice «non esiste nessun
+     * dispositivo con questo identificativo» mentre il suo nome è scritto nella
+     * riga appena premuta — incomprensibile, e risolvibile in tre secondi
+     * rifacendo una passata corta.
+     *
+     * Un tentativo solo: se non basta, il computer si è davvero addormentato, e
+     * insistere allungherebbe l'attesa senza cambiare niente.
+     */
+    try {
+      await api.connect(deviceId, () => link?.onDisconnect());
+    } catch (err) {
+      if (!/no peripheral with id/i.test(String(err))) throw err;
+      await api.startScan(() => undefined, 3000);
+      await attendi(3400, signal);
+      await api.stopScan().catch(() => undefined);
+      if (signal.aborted) throw new Error('annullato');
+      await api.connect(deviceId, () => link?.onDisconnect());
+    }
 
     /*
      * L'MTU si chiede DOPO la connessione, mai prima.
@@ -236,9 +382,28 @@ export class TauriBleTransport implements BleTransport {
      * pacchetti troppo lunghi non danno errore, danno silenzio.
      */
     const mtu = await api.getMtu().catch(() => MTU_PRUDENTE);
-    link = new TauriBleLink(Math.max(1, Math.min(mtu, 512)), profile, api);
 
-    await api.subscribe(profile.notifyCharacteristic, profile.service, (data) => link?.feed(data));
+    /*
+     * Le caratteristiche si scoprono DOPO la connessione.
+     *
+     * `listServices` su un dispositivo non connesso restituisce quello che il
+     * sistema ha in cache — che può essere niente, o vecchio. Qui il
+     * collegamento è già aperto, quindi il sistema ha appena fatto la scoperta
+     * dei servizi e l'elenco è quello vero.
+     */
+    const elenco = await api.listServices(deviceId).catch((err: unknown) => String(err));
+    if (typeof elenco === 'string') {
+      await api.disconnect().catch(() => undefined);
+      throw new Error(`Non si è potuto leggere l’elenco dei servizi del dispositivo: ${elenco}`);
+    }
+    const canali = resolveChannels(elenco, profile);
+    if ('error' in canali) {
+      await api.disconnect().catch(() => undefined);
+      throw new Error(canali.error);
+    }
+
+    link = new TauriBleLink(Math.max(1, Math.min(mtu, 512)), canali, profile.writeType, api);
+    await api.subscribe(canali.notify, canali.service, (data) => link?.feed(data));
     return link;
   }
 }

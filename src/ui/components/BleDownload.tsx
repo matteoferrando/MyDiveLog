@@ -28,24 +28,37 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { downloadFromComputer } from '../../core/ble/download';
 import { DRIVERS, recognise, type RecognisedDevice } from '../../core/ble/registry';
-import type { BleUnavailable, DownloadEvent } from '../../core/ble/types';
+import { markerKey, type BleUnavailable, type DownloadEvent } from '../../core/ble/types';
 import { TauriBleTransport } from '../../storage/ble';
 import { useDiveLog } from '../state';
-import { imm } from '../format';
+import { dateShort, imm } from '../format';
 
 type Stato =
   | { fase: 'iniziale' }
   | { fase: 'non-disponibile'; motivo: BleUnavailable }
   | { fase: 'cerca' }
   | { fase: 'scarica'; nome: string; fatte: number; totale?: number; passo: string }
-  | { fase: 'finito'; testo: string; avvisi: string[]; parziale: boolean };
+  | { fase: 'finito'; testo: string; avvisi: string[]; parziale: boolean; diario: string[] };
 
 const transport = new TauriBleTransport();
 
 export function BleDownload() {
-  const { importDives } = useDiveLog();
+  const { importDives, bleMarkers, saveBleMarker, forgetBleMarker } = useDiveLog();
   const [stato, setStato] = useState<Stato>({ fase: 'iniziale' });
   const [trovati, setTrovati] = useState<RecognisedDevice[]>([]);
+  const [copiato, setCopiato] = useState(false);
+  /*
+   * «Riscarica tutto» è spento per difetto, e deve esistere.
+   *
+   * Il segnalibro può solo AVANZARE — il manifesto si legge dalla più recente
+   * alla più vecchia e ci si può fermare solo in cima — quindi una volta
+   * spostato in avanti non c'è modo di tornare indietro chiedendo al computer.
+   * Se qualcosa va storto (un'immersione cancellata per sbaglio, un archivio
+   * ricostruito da zero) senza questa casella l'unico rimedio sarebbe modificare
+   * un'impostazione a mano.
+   */
+  const [tuttoDaCapo, setTuttoDaCapo] = useState(false);
+  const segnalibri = Object.entries(bleMarkers);
   const ricerca = useRef<AbortController | null>(null);
   const scarico = useRef<AbortController | null>(null);
 
@@ -112,6 +125,9 @@ export function BleDownload() {
       setStato({ fase: 'scarica', nome, fatte: 0, passo: 'Mi collego…' });
 
       const onEvent = (e: DownloadEvent) => {
+        // Le righe del diario non toccano lo stato mostrato: sarebbero un
+        // aggiornamento di React per ogni notifica BLE, cioè migliaia.
+        if (e.kind === 'trace') return;
         setStato((p) =>
           p.fase !== 'scarica'
             ? p
@@ -125,9 +141,12 @@ export function BleDownload() {
         );
       };
 
+      const chiave = markerKey(scelto.driver.id, undefined, scelto.device.id);
+      const precedente = bleMarkers[chiave];
       const esito = await downloadFromComputer(transport, scelto.device, scelto.driver, {
         onEvent,
         signal: ctl.signal,
+        since: tuttoDaCapo ? undefined : precedente?.fingerprint,
       });
       scarico.current = null;
 
@@ -143,7 +162,9 @@ export function BleDownload() {
       if (esito.dives.length === 0) {
         testo = esito.error
           ? `Non è arrivata nessuna immersione: ${esito.error}`
-          : 'Il computer non ha immersioni in memoria da scaricare.';
+          : precedente && !tuttoDaCapo
+            ? 'Niente di nuovo: il computer non ha immersioni più recenti di quelle che hai già.'
+            : 'Il computer non ha immersioni in memoria da scaricare.';
       } else {
         const r = await importDives(esito.dives, `${esito.model ?? nome} via Bluetooth`);
         if (!r.ok) {
@@ -158,12 +179,54 @@ export function BleDownload() {
             }: quello che è arrivato è salvato, il resto si riprende riscaricando.`;
           }
           avvisi.push(...r.warnings);
+
+          /*
+           * Il segnalibro si sposta SOLO a scarico completo, e solo dopo che
+           * le immersioni sono in archivio.
+           *
+           * Su uno scarico interrotto abbiamo le più recenti e non le più
+           * vecchie; scrivere «ho tutto fino alla più recente» perderebbe
+           * quelle in fondo PER SEMPRE, perché il protocollo non permette di
+           * ripartire da metà manifesto. Meglio rileggerle la prossima volta:
+           * costa minuti, non dati.
+           *
+           * E dopo `importDives`, non prima: se il salvataggio fallisse, il
+           * segnalibro salterebbe proprio le immersioni che non sono entrate.
+           */
+          if (esito.status === 'complete' && esito.newestKey) {
+            const vero = markerKey(scelto.driver.id, esito.serial, scelto.device.id);
+            await saveBleMarker(vero, {
+              fingerprint: esito.newestKey,
+              at: new Date().toISOString(),
+              dives: r.found,
+              model: esito.model,
+            });
+            // Il segnalibro provvisorio salvato sotto l'identificativo del
+            // dispositivo non serve più una volta noto il seriale: due chiavi
+            // per lo stesso computer si contraddirebbero al giro dopo.
+            if (vero !== chiave && bleMarkers[chiave]) await forgetBleMarker(chiave);
+          }
         }
       }
       if (esito.error) avvisi.push(esito.error);
-      setStato({ fase: 'finito', testo, avvisi, parziale: esito.status === 'partial' });
+      setStato({
+        fase: 'finito',
+        testo,
+        avvisi,
+        parziale: esito.status === 'partial',
+        diario: [
+          `MyDiveLog — diario dello scarico`,
+          `dispositivo: ${scelto.device.name || 'senza nome'}`,
+          `driver: ${scelto.driver.id}`,
+          `modello: ${esito.model ?? '—'} · seriale ${esito.serial ?? '—'} · firmware ${esito.firmware ?? '—'}`,
+          `esito: ${esito.status}${esito.error ? ` — ${esito.error}` : ''}`,
+          `immersioni: ${esito.dives.length}${esito.total !== undefined ? ` su ${esito.total}` : ''}`,
+          '',
+          ...esito.trace,
+        ],
+      });
     },
-    [importDives, fermaRicerca],
+    [importDives, fermaRicerca, bleMarkers, saveBleMarker, forgetBleMarker, tuttoDaCapo],
   );
 
   return (
@@ -208,6 +271,35 @@ export function BleDownload() {
       {stato.fase === 'non-disponibile' && (
         <div className="notice notice-error" role="alert">
           {stato.motivo.detail}
+        </div>
+      )}
+
+      {/*
+       * Che cosa succederà, prima che succeda.
+       *
+       * Uno scarico incrementale è invisibile quando funziona — «ha preso solo
+       * due immersioni» e «si è rotto dopo due immersioni» hanno lo stesso
+       * aspetto. Dire prima che si riparte da un segnalibro, e da quando,
+       * trasforma il silenzio in una conferma.
+       */}
+      {segnalibri.length > 0 && (stato.fase === 'cerca' || stato.fase === 'iniziale') && (
+        <div className="notice" style={{ marginBottom: 10 }}>
+          {segnalibri.map(([k, m]) => (
+            <div key={k} style={{ fontSize: 13 }}>
+              <b>{m.model ?? 'Computer'}</b>: l'ultima volta ({dateShort(m.at)}) sono arrivate {imm(m.dives)}.
+              Al prossimo collegamento prendo solo quelle più recenti.
+            </div>
+          ))}
+          <label
+            className="planner-check"
+            style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}
+          >
+            <input type="checkbox" checked={tuttoDaCapo} onChange={(e) => setTuttoDaCapo(e.target.checked)} />
+            <span>
+              Rileggi tutta la memoria del computer, non solo le nuove
+              <span className="muted"> — serve se hai cancellato qualcosa e la rivuoi indietro</span>
+            </span>
+          </label>
         </div>
       )}
 
@@ -307,6 +399,50 @@ export function BleDownload() {
           <div className={stato.parziale ? 'notice notice-error' : 'notice'} role="status">
             {stato.testo}
           </div>
+          {/*
+           * IL DIARIO TECNICO, e perché è un pulsante e non un riquadro aperto.
+           *
+           * Un protocollo di computer subacqueo non è documentato da nessun
+           * costruttore: è ricostruito, e la prima versione sbaglia sempre in
+           * qualche punto. Il sintomo però è quasi sempre lo stesso — «il
+           * computer non risponde» — qualunque sia la causa, e senza sapere
+           * QUALE comando è partito e COSA è tornato la correzione diventa un
+           * indovinello a distanza.
+           *
+           * Sta chiuso perché a scarico riuscito non serve a nessuno, e aperto
+           * sarebbe un muro di esadecimale sotto una buona notizia. Il pulsante
+           * copia negli appunti, che è il gesto che serve davvero: il diario va
+           * incollato in una segnalazione, non letto a schermo.
+           */}
+          <details style={{ marginTop: 10 }}>
+            <summary className="muted" style={{ fontSize: 12, cursor: 'pointer' }}>
+              Diario tecnico ({stato.diario.length} righe) — serve solo se qualcosa non ha funzionato
+            </summary>
+            <div className="row" style={{ gap: 8, margin: '8px 0' }}>
+              <button
+                onClick={() => {
+                  void navigator.clipboard?.writeText(stato.diario.join('\n'));
+                  setCopiato(true);
+                  setTimeout(() => setCopiato(false), 2000);
+                }}
+              >
+                {copiato ? 'Copiato' : 'Copia il diario'}
+              </button>
+            </div>
+            <pre
+              style={{
+                fontSize: 11,
+                maxHeight: 300,
+                overflow: 'auto',
+                whiteSpace: 'pre-wrap',
+                background: 'var(--surface-3)',
+                padding: 10,
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
+              {stato.diario.join('\n')}
+            </pre>
+          </details>
           {stato.avvisi.length > 0 && (
             <ul className="muted" style={{ fontSize: 12, margin: '8px 0 0', paddingLeft: 18 }}>
               {stato.avvisi.map((a, i) => (

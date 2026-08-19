@@ -43,9 +43,29 @@ export interface DownloadOutcome {
   status: 'complete' | 'partial';
   /** Presente solo se qualcosa è andato storto, anche a scarico parzialmente riuscito. */
   error?: string;
+  /**
+   * Il diario tecnico: cosa è stato mandato e cosa è tornato, in ordine.
+   *
+   * Serve al primo tentativo con un computer vero, dove il protocollo
+   * ricostruito quasi certamente sbaglia in un punto e il sintomo è sempre lo
+   * stesso. È limitato: un archivio di cento immersioni produrrebbe decine di
+   * migliaia di righe, e un diario che non si può incollare da nessuna parte
+   * non serve a niente.
+   */
+  trace: string[];
   model?: string;
   serial?: string;
   firmware?: string;
+  /**
+   * L'impronta dell'immersione più recente arrivata: il prossimo segnalibro.
+   *
+   * Va salvato SOLO se lo scarico è finito per intero. Il manifesto si legge
+   * dalla più nuova alla più vecchia, quindi salvarlo dopo uno scarico
+   * interrotto direbbe «ho tutto fino alla più recente» avendo però perso
+   * quelle in fondo — e quelle non tornerebbero mai più, perché il protocollo
+   * non permette di ripartire da metà.
+   */
+  newestKey?: string;
 }
 
 export async function downloadFromComputer(
@@ -61,6 +81,29 @@ export async function downloadFromComputer(
 ): Promise<DownloadOutcome> {
   const warnings: string[] = [];
   const records: DownloadedRecord[] = [];
+  /*
+   * IL DIARIO SI TRONCA IN MEZZO, non alla fine.
+   *
+   * Le righe che servono sono le PRIME — dove il protocollo si presenta e
+   * decide cosa fare — e le ULTIME, dove si è rotto. Quelle in mezzo sono
+   * novantotto immersioni scaricate senza storia. Tenere solo le prime
+   * duecento farebbe perdere l'errore; tenere solo le ultime farebbe perdere il
+   * modello e la versione del firmware.
+   */
+  const TRACCIA_TESTA = 150;
+  const TRACCIA_CODA = 150;
+  const testa: string[] = [];
+  const coda: string[] = [];
+  let tracciaTotale = 0;
+  const trace = (line: string) => {
+    tracciaTotale++;
+    if (testa.length < TRACCIA_TESTA) testa.push(line);
+    else {
+      coda.push(line);
+      if (coda.length > TRACCIA_CODA) coda.shift();
+    }
+    opts.onEvent?.({ kind: 'trace', line });
+  };
   let total: number | undefined;
   let model: string | undefined;
   let serial: string | undefined;
@@ -115,12 +158,21 @@ export async function downloadFromComputer(
      * Il valore restituito serve ai driver che leggono la memoria in un colpo
      * solo, e viene usato solo per quello che non era già passato dagli eventi.
      */
-    const restituiti = await driver.download(link, { emit, signal: ctl.signal, since: opts.since });
+    trace(`aperto: ${device.name || 'senza nome'} (${device.id}), MTU ${link.mtu}`);
+    if (link.describe) trace(link.describe());
+    const restituiti = await driver.download(link, {
+      emit,
+      signal: ctl.signal,
+      since: opts.since,
+      trace,
+    });
     for (const r of restituiti) {
       if (!records.some((x) => x.key === r.key)) records.push(r);
     }
   } catch (err) {
     errore = err instanceof Error ? err.message : String(err);
+    trace(`ERRORE: ${errore}`);
+    if (err instanceof Error && err.stack) trace(err.stack.split('\n').slice(1, 4).join(' | '));
   } finally {
     opts.signal?.removeEventListener('abort', propaga);
     if (link) {
@@ -153,9 +205,12 @@ export async function downloadFromComputer(
     }
   }
 
+  const saltate = tracciaTotale - testa.length - coda.length;
   return {
     dives,
     warnings,
+    newestKey: records[0]?.key,
+    trace: saltate > 0 ? [...testa, `… ${saltate} righe non riportate …`, ...coda] : [...testa, ...coda],
     total,
     model,
     serial,

@@ -15,17 +15,21 @@
  * solo a chiunque passi.
  */
 
+import { shearwaterDriver } from './drivers/shearwater';
 import type { BleFoundDevice, DiveComputerDriver } from './types';
 
 /**
  * I driver disponibili.
  *
- * Vuoto finché non c'è un protocollo provato contro il suo computer. Un driver
- * scritto leggendo `libdivecomputer` e mai eseguito su un dispositivo vero non
- * va messo qui: comparirebbe nell'elenco, la gente ci proverebbe, e fallirebbe
- * in un modo che sembra un guasto dell'app.
+ * Un driver scritto leggendo `libdivecomputer` e mai eseguito su un dispositivo
+ * vero non andrebbe messo qui: comparirebbe nell'elenco, la gente ci
+ * proverebbe, e fallirebbe in un modo che sembra un guasto dell'app.
+ *
+ * Shearwater c'è perché lo si sta provando ADESSO, col Peregrine in mano. Se
+ * l'ultimo miglio non funzionasse, la cosa giusta è toglierlo da qui — non
+ * lasciarlo con una nota che spiega perché non va.
  */
-export const DRIVERS: DiveComputerDriver[] = [];
+export const DRIVERS: DiveComputerDriver[] = [shearwaterDriver];
 
 /** Il driver che riconosce questo dispositivo, se ce n'è uno. */
 export function driverFor(device: BleFoundDevice, drivers: DiveComputerDriver[] = DRIVERS) {

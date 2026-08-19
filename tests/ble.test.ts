@@ -276,7 +276,11 @@ describe('lo scarico dall’inizio alla fine', () => {
     const t = trasporto(rispondiTre);
     const eventi: string[] = [];
     const out = await downloadFromComputer(t, fakeDevice(), driverFinto(), {
-      onEvent: (e) => eventi.push(e.kind),
+      // Le righe del diario tecnico si filtrano: qui interessa la sequenza
+      // delle fasi, e il diario è rumore rispetto a quella.
+      onEvent: (e) => {
+        if (e.kind !== 'trace') eventi.push(e.kind);
+      },
     });
     expect(out.status).toBe('complete');
     expect(out.model).toBe('Finto 1');

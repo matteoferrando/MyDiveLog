@@ -24,6 +24,18 @@ export type SourceFormat =
   | 'garmin-fit'
   | 'logtrak'
   | 'csv'
+  /*
+   * Scaricata direttamente dal computer via Bluetooth.
+   *
+   * È una provenienza a sé e non «shearwater-cloud»: il contenuto è lo stesso
+   * blob nativo, ma quello che ARRIVA È DIVERSO — dal computer non vengono
+   * sito, compagno, note, zavorra e muta, che sono campi dell'applicazione del
+   * costruttore e non del logbook. Dirlo nella provenienza è ciò che permette
+   * alla scheda dell'immersione di spiegare perché quei campi sono vuoti, e
+   * alla fusione di sapere che un file di Shearwater Cloud sulla stessa
+   * immersione porta cose in più invece di essere un doppione.
+   */
+  | 'shearwater-ble'
   // Inserita a mano, senza nessun file dietro. È una sorgente a tutti gli
   // effetti e non un caso speciale: l'immersione col computer a noleggio o
   // ricopiata dal libretto di carta vale quanto le altre, e soprattutto DEVE

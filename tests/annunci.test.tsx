@@ -145,6 +145,11 @@ describe('annunci della pagina di import', () => {
       storeLocation: 'archivio locale',
       importFiles,
       clearAll: async () => undefined,
+      // La pagina di import contiene ora anche la scheda dello scarico
+      // Bluetooth, che legge i segnalibri: un contesto finto incompleto la fa
+      // esplodere e i cinque test qui sotto falliscono per un motivo che non
+      // c'entra niente con gli annunci.
+      bleMarkers: {},
     };
   };
 
@@ -255,6 +260,7 @@ describe('annunci della pagina di import', () => {
       storeLocation: 'archivio locale',
       importFiles: async () => [],
       clearAll: () => promessa,
+      bleMarkers: {},
     };
     const vista = monta(<ImportPage onDone={() => undefined} />);
 

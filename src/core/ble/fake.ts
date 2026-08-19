@@ -43,8 +43,14 @@ export interface FakeQuirks {
  *
  * `undefined` significa «non rispondo», che è diverso da «rispondo vuoto»: il
  * primo caso deve far scadere una lettura, il secondo no.
+ *
+ * Un ELENCO di array significa «queste notifiche, esattamente così»: servono ai
+ * protocolli che mettono un'intestazione dentro ogni notifica, dove
+ * riassemblare e rispezzare all'MTU sposterebbe i confini e romperebbe i
+ * contatori. Un array solo viene invece spezzato all'MTU, come fa un
+ * collegamento vero con un messaggio lungo.
  */
-export type FakeResponder = (command: Uint8Array, index: number) => Uint8Array | undefined;
+export type FakeResponder = (command: Uint8Array, index: number) => Uint8Array | Uint8Array[] | undefined;
 
 export class FakeBleLink implements BleLink {
   readonly mtu: number;
@@ -62,7 +68,20 @@ export class FakeBleLink implements BleLink {
     if (quirks.garbageOnOpen?.length) this.stream.push(quirks.garbageOnOpen);
   }
 
+  async writeFrame(data: Uint8Array): Promise<void> {
+    if (data.length > this.mtu) {
+      throw new Error(
+        `Notifica da ${data.length} byte su un MTU di ${this.mtu}: è il driver che deve spezzare.`,
+      );
+    }
+    return this.consegna(data);
+  }
+
   async write(data: Uint8Array): Promise<void> {
+    return this.consegna(data);
+  }
+
+  private async consegna(data: Uint8Array): Promise<void> {
     if (this.chiuso) throw new Error('scrittura su un collegamento chiuso');
     this.written.push(data.slice());
     const n = this.comandi++;
@@ -77,10 +96,11 @@ export class FakeBleLink implements BleLink {
     const risposta = this.responder(data, n);
     if (risposta === undefined) return;
 
+    const pezzi = Array.isArray(risposta) ? risposta : chunkForMtu(risposta, this.mtu);
     const consegna = () => {
       // A pezzi di MTU, come il vero: è la condizione che rompe i driver
       // scritti come se una notifica fosse un messaggio.
-      for (const pezzo of chunkForMtu(risposta, this.mtu)) this.stream.push(pezzo);
+      for (const pezzo of pezzi) this.stream.push(pezzo);
     };
     if (this.quirks.latencyMs) setTimeout(consegna, this.quirks.latencyMs);
     else consegna();
@@ -88,6 +108,10 @@ export class FakeBleLink implements BleLink {
 
   read(n: number, timeoutMs?: number): Promise<Uint8Array> {
     return this.stream.read(n, timeoutMs);
+  }
+
+  readFrame(timeoutMs?: number): Promise<Uint8Array> {
+    return this.stream.readFrame(timeoutMs);
   }
 
   drain(): Uint8Array {

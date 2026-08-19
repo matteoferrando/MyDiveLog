@@ -107,6 +107,11 @@ export const SETTING_KEYS = [
   'analyses:at',
   'gear',
   'gear:at',
+  // Fin dove si era arrivati con ogni computer subacqueo. Sta nel backup
+  // perché ripristinare le immersioni senza il segnalibro farebbe rileggere
+  // tutta la memoria del computer al primo collegamento successivo.
+  'bleMarkers',
+  'bleMarkers:at',
 ];
 
 /**

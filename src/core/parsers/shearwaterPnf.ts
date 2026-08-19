@@ -115,6 +115,16 @@ export interface PnfLog {
   gases: GasMix[];
   tanks: PnfTank[];
   samples: Sample[];
+  /**
+   * Istante di inizio, secondi Unix UTC, dal blocco di apertura.
+   *
+   * Non serviva finché i log arrivavano da Shearwater Cloud, che la data ce
+   * l'ha in una colonna del database. Serve quando il log arriva DIRETTAMENTE
+   * dal computer via Bluetooth: lì non c'è nessun database, e senza questo
+   * campo l'immersione non ha un momento — cioè non ha un identificativo, non
+   * si può deduplicare e non entra nella catena dei tessuti.
+   */
+  startTimeS?: number;
   /** Profondità massima dal blocco di chiusura, metri. */
   maxDepth?: number;
   /** Durata dal blocco di chiusura, secondi. */
@@ -187,6 +197,21 @@ export function decodePnf(data: Uint8Array): PnfLog {
   const logVersion = at(data, o(4, 16));
   const units = at(data, o(0, 8)) === 1 ? 'imperial' : 'metric';
   const decoModelCode = at(data, o(2, 18));
+  /*
+   * L'orologio del computer, in secondi Unix.
+   *
+   * `opening[0] + 12`, big-endian a 32 bit, come in
+   * `shearwater_predator_parser_get_datetime`. Zero significa «orologio mai
+   * impostato» e non «1 gennaio 1970»: va trattato come assente, altrimenti
+   * un'immersione finisce cinquant'anni indietro e trascina con sé la catena
+   * dei tessuti di tutte le altre.
+   */
+  const ticks = u32(data, o(0, 12));
+  const startTimeS = ticks && ticks > 946_684_800 ? ticks : undefined;
+  if (ticks && !startTimeS) {
+    notes.push(`Orologio del computer non plausibile (${ticks}): la data non è stata letta dal log.`);
+  }
+
   const settings: PnfSettings = {
     gfLow: at(data, o(0, 4)),
     gfHigh: at(data, o(0, 5)),
@@ -471,6 +496,7 @@ export function decodePnf(data: Uint8Array): PnfLog {
     gases: ordered,
     tanks,
     samples,
+    startTimeS,
     maxDepth,
     durationS,
     entry,
