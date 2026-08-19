@@ -38,7 +38,15 @@ type Stato =
   | { fase: 'iniziale' }
   | { fase: 'non-disponibile'; motivo: BleUnavailable }
   | { fase: 'cerca' }
-  | { fase: 'scarica'; nome: string; fatte: number; totale?: number; passo: string }
+  | {
+      fase: 'scarica';
+      nome: string;
+      fatte: number;
+      totale?: number;
+      passo: string;
+      /** Avanzamento a byte, per i protocolli che scaricano la memoria in blocco. */
+      byte?: { fatti: number; totali: number };
+    }
   | { fase: 'finito'; testo: string; avvisi: string[]; parziale: boolean; diario: string[] };
 
 const transport = new TauriBleTransport();
@@ -141,8 +149,14 @@ export function BleDownload() {
               : e.kind === 'counted'
                 ? { ...p, totale: e.total, passo: 'Leggo…' }
                 : e.kind === 'record'
-                  ? { ...p, fatte: e.done, totale: e.total ?? p.totale, passo: 'Leggo…' }
-                  : p,
+                  ? { ...p, fatte: e.done, totale: e.total ?? p.totale, passo: 'Leggo…', byte: undefined }
+                  : e.kind === 'progress'
+                    ? {
+                        ...p,
+                        passo: e.label,
+                        byte: e.total ? { fatti: e.done, totali: e.total } : p.byte,
+                      }
+                    : p,
         );
       };
 
@@ -417,25 +431,40 @@ export function BleDownload() {
            * inventato è peggio di nessuna barra — promette una fine che non sa
            * dove sia.
            */}
-          {stato.totale ? (
-            <div
-              style={{
-                marginTop: 8,
-                height: 6,
-                borderRadius: 3,
-                background: 'var(--surface-3)',
-                overflow: 'hidden',
-              }}
-            >
+          {/*
+           * Due barre possibili, mai insieme: immersioni quando si sa quante
+           * sono, byte quando si sa solo quanti ne mancano. La seconda serve a
+           * Uwatec, che manda tutta la memoria in un blocco e le immersioni le
+           * scopre alla fine: senza, l'unica cosa a schermo per tre minuti
+           * sarebbe la scritta «Leggo…», che è indistinguibile da un blocco.
+           */}
+          {(() => {
+            const q = stato.totale
+              ? stato.fatte / stato.totale
+              : stato.byte
+                ? stato.byte.fatti / stato.byte.totali
+                : undefined;
+            if (q === undefined) return null;
+            return (
               <div
                 style={{
-                  width: `${Math.round((stato.fatte / stato.totale) * 100)}%`,
-                  height: '100%',
-                  background: 'var(--accent-solid)',
+                  marginTop: 8,
+                  height: 6,
+                  borderRadius: 3,
+                  background: 'var(--surface-3)',
+                  overflow: 'hidden',
                 }}
-              />
-            </div>
-          ) : null}
+              >
+                <div
+                  style={{
+                    width: `${Math.round(Math.min(1, Math.max(0, q)) * 100)}%`,
+                    height: '100%',
+                    background: 'var(--accent-solid)',
+                  }}
+                />
+              </div>
+            );
+          })()}
         </div>
       )}
 

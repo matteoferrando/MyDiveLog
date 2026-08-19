@@ -307,6 +307,38 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
 }
 
+/*
+ * Due colonne esatte, e l'ultima scheda che occupa la riga quando è dispari.
+ *
+ * PERCHÉ NON `auto-fit`. `repeat(auto-fit, minmax(320px, 1fr))` decide da sé
+ * quante colonne stanno, e va benissimo per griglie di riquadri piccoli. Su una
+ * fila di schede grandi fa due danni: su uno schermo largo ne mette tre, così
+ * strette che gli assi dei grafici si accavallano; e se le schede non sono un
+ * multiplo delle colonne l'ultima resta sola con un vuoto lungo due colonne
+ * accanto — che è la cosa più visibile della pagina, ed è un buco che non
+ * significa niente.
+ *
+ * `:last-child:nth-child(odd)` è il modo di dire «se il numero di schede è
+ * dispari»: l'ultima è anche in posizione dispari solo quando sono un numero
+ * dispari. Si allarga a tutta la riga e il buco non c'è. Il numero di schede
+ * qui cambia con le impostazioni — la scheda del gas minimo compare solo con
+ * la regola «rock bottom» — quindi la regola deve valere da sé, senza che
+ * nessuno si ricordi di contarle.
+ */
+.grid-2-fill {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid-2-fill > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 760px) {
+  .grid-2-fill {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .grid-tiles {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }

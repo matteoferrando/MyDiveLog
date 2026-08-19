@@ -26,7 +26,13 @@
 import { AIR, type Cylinder, type Dive, type DiveMode, type Sample } from '../model';
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
-import { decodeUwatecSmart, trimSurface, type UwatecDive, type UwatecSample } from './uwatecSmart';
+import {
+  decodeUwatecSmart,
+  trimSurface,
+  uwatecModelName,
+  uwatecSamplesToCanonical,
+  type UwatecDive,
+} from './uwatecSmart';
 import type { DiveParser, ParseInput, ParseResult } from './types';
 
 export const logtrakParser: DiveParser = {
@@ -120,7 +126,7 @@ function readDive(
     try {
       const bytes = base64ToBytes(raw.diveLogBase64);
       decoded = decodeUwatecSmart(bytes, { model: raw.deviceTypeNumber ?? deviceModel(raw, computers) });
-      samples = toCanonicalSamples(trimSurface(decoded.samples));
+      samples = uwatecSamplesToCanonical(trimSurface(decoded.samples));
       for (const w of decoded.warnings) {
         if (!warnings.includes(w)) warnings.push(w);
       }
@@ -319,38 +325,10 @@ function deviceModel(raw: LogtrakDive, computers: Map<string, LogtrakComputer>):
 }
 
 function prettyModel(c: LogtrakComputer): string {
-  // `deviceType` di LogTRAK è ambiguo: chiama "aladin_sport" sia il modello IrDA
-  // (0x15) sia l'Aladin Sport Matrix Bluetooth (0x17). Il numero è la verità.
-  const byNumber: Record<number, string> = {
-    0x10: 'Smart PRO',
-    0x11: 'Galileo',
-    0x12: 'Aladin TEC',
-    0x13: 'Aladin TEC 2G',
-    0x14: 'Smart COM',
-    0x15: 'Aladin Sport (IrDA)',
-    0x17: 'Aladin Sport Matrix',
-    0x18: 'Smart TEC',
-    0x19: 'Galileo Trimix',
-    0x1c: 'Smart Z',
-    0x20: 'Meridian',
-    0x22: 'Aladin Square',
-    0x24: 'Chromis',
-    0x25: 'Aladin A1',
-    0x26: 'Mantis 2',
-    0x28: 'Aladin A2',
-    0x31: 'G2 TEK',
-    0x32: 'G2',
-    0x34: 'G3',
-    0x42: 'G2 HUD',
-    0x50: 'Luna 2 AI',
-    0x51: 'Luna 2',
-  };
-  const name =
-    (c.deviceTypeNumber !== undefined ? byNumber[c.deviceTypeNumber] : undefined) ??
-    (c.deviceType ? c.deviceType.replace(/_/g, ' ') : undefined) ??
-    c.name ??
-    'Scubapro';
-  return `Scubapro ${name}`;
+  // La tabella sta in `uwatecSmart.ts` perché la usa anche lo scarico via
+  // Bluetooth: se i due producessero nomi diversi per lo stesso computer, la
+  // stessa immersione arrivata dalle due strade non si riconoscerebbe.
+  return uwatecModelName(c.deviceTypeNumber, c.deviceType ?? c.name ?? undefined);
 }
 
 const CONDITION_LABEL: Record<string, string> = {
@@ -365,27 +343,6 @@ const CONDITION_LABEL: Record<string, string> = {
 };
 
 const conditionLabel = (v: string) => CONDITION_LABEL[v] ?? v;
-
-function toCanonicalSamples(samples: UwatecSample[]): Sample[] {
-  if (samples.length === 0) return [];
-  const t0 = samples[0].t;
-  return samples.map((s) => {
-    const out: Sample = { t: s.t - t0, depth: s.depth ?? 0 };
-    if (s.tempC !== undefined) out.tempC = s.tempC;
-    if (s.pressureBar !== undefined) {
-      const arr: (number | undefined)[] = [];
-      arr[s.tank ?? 0] = s.pressureBar;
-      out.pressureBar = arr;
-    }
-    if (s.heartRate !== undefined) out.heartRate = s.heartRate;
-    // RBT: il tempo di fondo residuo che il computer mostrava. Esiste solo con il
-    // trasmettitore collegato, e 99 è il fondo scala ("più di 99 minuti"), non una
-    // misura: registrarlo come 99 darebbe un dato dove non ce n'è.
-    if (s.rbtMin !== undefined && s.rbtMin < 99) out.rbtMin = s.rbtMin;
-    if (s.bearing !== undefined) out.bearing = s.bearing;
-    return out;
-  });
-}
 
 /** Base64 → byte, funziona sia nel browser sia in Node. */
 export function base64ToBytes(b64: string): Uint8Array {

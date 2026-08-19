@@ -73,8 +73,16 @@ export interface BleServiceProfile {
    * risposta» perché la conferma li rallenta oltre il loro timeout interno,
    * altri buttano via quelli senza. Sbagliare qui dà un dispositivo che si
    * connette e poi tace, che è il sintomo più difficile da leggere.
+   *
+   * `auto` significa «senza conferma se la caratteristica lo permette, con
+   * conferma altrimenti», ed è la scelta giusta quando non si è mai visto il
+   * dispositivo vero. È quello che fa Subsurface, e la ragione è che le due
+   * modalità non sono intercambiabili a livello GATT: scrivere «senza
+   * risposta» su una caratteristica che dichiara solo «write» fallisce, e
+   * fallisce in un punto — la prima scrittura — in cui il sintomo è
+   * indistinguibile da «il computer non risponde».
    */
-  writeType: 'withResponse' | 'withoutResponse';
+  writeType: 'withResponse' | 'withoutResponse' | 'auto';
 }
 
 /** Perché il Bluetooth non è utilizzabile adesso. Ogni caso ha una risposta diversa. */
@@ -208,6 +216,21 @@ export type DownloadEvent =
   | { kind: 'record'; done: number; total?: number; record: DownloadedRecord }
   /** Un'immersione illeggibile NON ferma le altre: si annota e si va avanti. */
   | { kind: 'skipped'; key: string; reason: string }
+  /**
+   * Avanzamento a BYTE, per i protocolli che non sanno ancora quante immersioni ci sono.
+   *
+   * Shearwater legge un manifesto e poi le immersioni una per una: il numero
+   * di immersioni si sa prima di leggerle, e l'avanzamento è «quarantatré su
+   * novantotto». Uwatec no — chiede al computer quanti byte ha da dare e li
+   * riceve tutti in un blocco solo, e solo alla fine, tagliando quel blocco sui
+   * marcatori `A5 A5 5A 5A`, scopre che erano ottantacinque immersioni.
+   *
+   * Senza questo evento l'interfaccia resterebbe ferma su «Leggo…» per i tre o
+   * quattro minuti che il trasferimento richiede — e un'applicazione ferma che
+   * non dice niente è indistinguibile da una bloccata. È la differenza fra
+   * aspettare e riavviare.
+   */
+  | { kind: 'progress'; done: number; total?: number; label: string }
   /**
    * Una riga di diario tecnico.
    *

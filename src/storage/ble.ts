@@ -108,6 +108,15 @@ interface Canali {
   service: string;
   write: string;
   notify: string;
+  /**
+   * Le proprietà GATT della caratteristica su cui si scrive.
+   *
+   * Servono per `writeType: 'auto'`: la modalità di scrittura non è una
+   * preferenza, è una proprietà del dispositivo, e la si può leggere invece di
+   * indovinarla. Assente quando la caratteristica è scritta a mano nel profilo,
+   * perché in quel caso non l'abbiamo scoperta.
+   */
+  writeProps?: number;
 }
 
 /*
@@ -146,9 +155,11 @@ export function resolveChannels(
       error: `Il dispositivo non espone il servizio ${profile.service}. Servizi trovati: ${elenco}. Di solito significa che non è il computer che pensavamo, o che è in modalità aggiornamento firmware invece che in modalità trasferimento.`,
     };
   }
-  const write =
-    profile.writeCharacteristic ??
-    s.characteristics.find((c) => c.properties & (PROP_WRITE | PROP_WRITE_NO_RESP))?.uuid;
+  const scoperta = s.characteristics.find((c) => c.properties & (PROP_WRITE | PROP_WRITE_NO_RESP));
+  const write = profile.writeCharacteristic ?? scoperta?.uuid;
+  const writeProps = s.characteristics.find(
+    (c) => c.uuid.toLowerCase() === (write ?? '').toLowerCase(),
+  )?.properties;
   const notify =
     profile.notifyCharacteristic ??
     s.characteristics.find((c) => c.properties & (PROP_NOTIFY | PROP_INDICATE))?.uuid;
@@ -157,18 +168,36 @@ export function resolveChannels(
       error: `Il servizio ${profile.service} non ha ${!write ? 'una caratteristica su cui scrivere' : 'una caratteristica che notifichi'}. Caratteristiche viste: ${s.characteristics.map((c) => `${c.uuid} (0x${c.properties.toString(16)})`).join(', ')}.`,
     };
   }
-  return { service: s.uuid, write, notify };
+  return { service: s.uuid, write, notify, writeProps };
 }
 
 class TauriBleLink implements BleLink {
   private stream = new ByteStream();
 
+  /**
+   * La modalità di scrittura effettiva, risolta una volta sola all'apertura.
+   *
+   * `auto` diventa «senza risposta» solo se la caratteristica lo dichiara. Se
+   * le proprietà non si conoscono — caratteristica scritta a mano nel profilo —
+   * si sceglie «con risposta», che è la modalità che ogni caratteristica
+   * scrivibile supporta per definizione: sbagliare in quella direzione rallenta,
+   * sbagliare nell'altra fa fallire ogni scrittura.
+   */
+  private readonly writeType: 'withResponse' | 'withoutResponse';
+
   constructor(
     readonly mtu: number,
     private canali: Canali,
-    private writeType: BleServiceProfile['writeType'],
+    writeType: BleServiceProfile['writeType'],
     private api: Plugin,
-  ) {}
+  ) {
+    this.writeType =
+      writeType !== 'auto'
+        ? writeType
+        : (canali.writeProps ?? 0) & PROP_WRITE_NO_RESP
+          ? 'withoutResponse'
+          : 'withResponse';
+  }
 
   /** Chiamata dal trasporto appena il canale delle notifiche è aperto. */
   feed(data: number[]): void {
@@ -209,7 +238,9 @@ class TauriBleLink implements BleLink {
   }
 
   describe(): string {
-    return `servizio ${this.canali.service}, scrivo su ${this.canali.write} (${this.writeType}), ascolto ${this.canali.notify}`;
+    const props =
+      this.canali.writeProps === undefined ? '' : ` prop 0x${this.canali.writeProps.toString(16)}`;
+    return `servizio ${this.canali.service}, scrivo su ${this.canali.write} (${this.writeType}${props}), ascolto ${this.canali.notify}`;
   }
 
   drain(): Uint8Array {

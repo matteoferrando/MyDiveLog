@@ -36,6 +36,7 @@ export type SourceFormat =
    * immersione porta cose in più invece di essere un doppione.
    */
   | 'shearwater-ble'
+  | 'uwatec-ble'
   // Inserita a mano, senza nessun file dietro. È una sorgente a tutti gli
   // effetti e non un caso speciale: l'immersione col computer a noleggio o
   // ricopiata dal libretto di carta vale quanto le altre, e soprattutto DEVE

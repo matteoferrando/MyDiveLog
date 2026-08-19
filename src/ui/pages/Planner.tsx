@@ -923,7 +923,7 @@ export function Planner() {
         </p>
       </div>
 
-      <div className="grid grid-2">
+      <div className="grid grid-2-fill">
         <div className="card">
           <h2>Se scendi più giù</h2>
           <p className="card-sub">

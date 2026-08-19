@@ -30,6 +30,8 @@
  * campioni), zero byte residui, zero errori di formato.
  */
 
+import type { Sample } from '../model';
+
 /** Millisecondi fra l'epoca Uwatec (2000-01-01 UTC) e quella Unix. */
 const UWATEC_EPOCH_MS = 946_684_800_000;
 
@@ -286,6 +288,53 @@ export const UWATEC_MODELS: Record<number, HeaderLayout> = {
   0x42: TRIMIX_HEADER, // G2 HUD
   0x50: TRIMIX_HEADER, // Luna 2 AI
   0x51: TRIMIX_HEADER, // Luna 2
+};
+
+/**
+ * Il nome commerciale di un modello, dal numero che il computer dichiara.
+ *
+ * Sta qui e non nel lettore di LogTRAK perché lo usano in due — l'import dal
+ * file e lo scarico via Bluetooth — e devono produrre la STESSA stringa. Il
+ * motivo è concreto: `matchComputer` in `dedupe.ts` confronta
+ * `computer.model` alla lettera, e due nomi diversi per lo stesso computer
+ * («Scubapro Aladin Sport Matrix» e «Aladin Sport Matrix») fanno fallire il
+ * riconoscimento forte, lasciando la fusione alla sola euristica su orario e
+ * profondità.
+ *
+ * Il NUMERO è la verità: il campo `deviceType` di LogTRAK chiama
+ * «aladin_sport» sia il modello IrDA (0x15) sia l'Aladin Sport Matrix
+ * Bluetooth (0x17), che hanno intestazioni di lunghezza diversa.
+ */
+export function uwatecModelName(model: number | undefined, ripiego?: string): string {
+  const nome =
+    (model !== undefined ? UWATEC_MODEL_NAMES[model] : undefined) ??
+    (ripiego ? ripiego.replace(/_/g, ' ') : undefined);
+  return nome ? `Scubapro ${nome}` : 'Scubapro';
+}
+
+const UWATEC_MODEL_NAMES: Record<number, string> = {
+  0x10: 'Smart PRO',
+  0x11: 'Galileo',
+  0x12: 'Aladin TEC',
+  0x13: 'Aladin TEC 2G',
+  0x14: 'Smart COM',
+  0x15: 'Aladin Sport (IrDA)',
+  0x17: 'Aladin Sport Matrix',
+  0x18: 'Smart TEC',
+  0x19: 'Galileo Trimix',
+  0x1c: 'Smart Z',
+  0x20: 'Meridian',
+  0x22: 'Aladin Square',
+  0x24: 'Chromis',
+  0x25: 'Aladin A1',
+  0x26: 'Mantis 2',
+  0x28: 'Aladin A2',
+  0x31: 'G2 TEK',
+  0x32: 'G2',
+  0x34: 'G3',
+  0x42: 'G2 HUD',
+  0x50: 'Luna 2 AI',
+  0x51: 'Luna 2',
 };
 
 // ---------------------------------------------------------------------------
@@ -660,6 +709,35 @@ export function decodeUwatecSmart(bytes: Uint8Array, opts: DecodeOptions = {}): 
     );
   }
   return dive;
+}
+
+/**
+ * Da campioni Uwatec a campioni canonici.
+ *
+ * Sta qui, e non nel lettore di LogTRAK dove è nato, perché lo usano in due:
+ * l'import del file e lo scarico via Bluetooth decodificano lo STESSO blob
+ * binario, e due traduzioni diverse degli stessi byte darebbero due profili
+ * diversi per la stessa immersione — con la fusione che ne sceglie uno a caso.
+ */
+export function uwatecSamplesToCanonical(samples: UwatecSample[]): Sample[] {
+  if (samples.length === 0) return [];
+  const t0 = samples[0].t;
+  return samples.map((s) => {
+    const out: Sample = { t: s.t - t0, depth: s.depth ?? 0 };
+    if (s.tempC !== undefined) out.tempC = s.tempC;
+    if (s.pressureBar !== undefined) {
+      const arr: (number | undefined)[] = [];
+      arr[s.tank ?? 0] = s.pressureBar;
+      out.pressureBar = arr;
+    }
+    if (s.heartRate !== undefined) out.heartRate = s.heartRate;
+    // RBT: il tempo di fondo residuo che il computer mostrava. Esiste solo con il
+    // trasmettitore collegato, e 99 è il fondo scala ("più di 99 minuti"), non una
+    // misura: registrarlo come 99 darebbe un dato dove non ce n'è.
+    if (s.rbtMin !== undefined && s.rbtMin < 99) out.rbtMin = s.rbtMin;
+    if (s.bearing !== undefined) out.bearing = s.bearing;
+    return out;
+  });
 }
 
 /**

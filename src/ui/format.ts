@@ -96,6 +96,7 @@ export const FORMAT_LABEL: Record<string, string> = {
   logtrak: 'LogTRAK',
   csv: 'CSV',
   'shearwater-ble': 'Shearwater via Bluetooth',
+  'uwatec-ble': 'Scubapro via Bluetooth',
   manual: 'Inserita a mano',
 };
 

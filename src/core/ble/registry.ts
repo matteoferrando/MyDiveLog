@@ -16,6 +16,7 @@
  */
 
 import { shearwaterDriver } from './drivers/shearwater';
+import { uwatecDriver } from './drivers/uwatec';
 import type { BleFoundDevice, DiveComputerDriver } from './types';
 
 /**
@@ -25,11 +26,12 @@ import type { BleFoundDevice, DiveComputerDriver } from './types';
  * vero non andrebbe messo qui: comparirebbe nell'elenco, la gente ci
  * proverebbe, e fallirebbe in un modo che sembra un guasto dell'app.
  *
- * Shearwater c'è perché lo si sta provando ADESSO, col Peregrine in mano. Se
- * l'ultimo miglio non funzionasse, la cosa giusta è toglierlo da qui — non
- * lasciarlo con una nota che spiega perché non va.
+ * Shearwater c'è perché è stato provato col Peregrine in mano e funziona.
+ * Uwatec c'è perché lo si sta provando ADESSO, con l'Aladin Sport Matrix in
+ * mano. Se l'ultimo miglio non funzionasse, la cosa giusta è toglierlo da qui —
+ * non lasciarlo con una nota che spiega perché non va.
  */
-export const DRIVERS: DiveComputerDriver[] = [shearwaterDriver];
+export const DRIVERS: DiveComputerDriver[] = [shearwaterDriver, uwatecDriver];
 
 /** Il driver che riconosce questo dispositivo, se ce n'è uno. */
 export function driverFor(device: BleFoundDevice, drivers: DiveComputerDriver[] = DRIVERS) {
@@ -97,6 +99,27 @@ export function nameStartsWith(...prefixes: string[]) {
   return (device: BleFoundDevice) => {
     const name = (device.name ?? '').trim().toLowerCase();
     return name.length > 0 && lower.some((p) => name.startsWith(p));
+  };
+}
+
+/**
+ * Riconoscimento per nome ESATTO, che è come li elenca libdivecomputer.
+ *
+ * Sembra la stessa cosa di `nameStartsWith` con un solo nome, e non lo è.
+ * `dc_match_name` di libdivecomputer è `strcasecmp(...) == 0`: un confronto
+ * intero, non un prefisso. E per Uwatec conta, perché i nomi annunciati sono
+ * roba come «A1», «A2», «HUD», «G2» — due caratteri. Come prefissi
+ * riconoscerebbero «A1 Pro», «G2 Buds», «HUD Display» e qualunque altra cosa
+ * cominci per quelle lettere: mezzo Bluetooth di una barca affollata.
+ *
+ * Il rischio non è cosmetico. Un falso riconoscimento porta a connettersi a un
+ * dispositivo di qualcun altro e a mandargli i byte di un comando Uwatec.
+ */
+export function exactName(...names: string[]) {
+  const lower = names.map((n) => n.trim().toLowerCase()).filter((n) => n.length > 0);
+  return (device: BleFoundDevice) => {
+    const name = (device.name ?? '').trim().toLowerCase();
+    return name.length > 0 && lower.includes(name);
   };
 }
 

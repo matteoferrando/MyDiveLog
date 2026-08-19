@@ -206,12 +206,37 @@ export async function downloadFromComputer(
    * quello si dice.
    */
   let dives: Dive[] = [];
+  /*
+   * IL SEGNALIBRO NON PUÒ SCAVALCARE UNA IMMERSIONE CHE NON SI È CAPITA.
+   *
+   * `records[0]` è la più recente ARRIVATA, non la più recente DECODIFICATA. Se
+   * proprio quella non si decodifica — un record troncato, un firmware con un
+   * campo nuovo — il driver la trasforma in un avviso e lo scarico resta
+   * `complete`: il segnalibro si sposterebbe sul suo orario, e da lì in poi il
+   * computer non la offrirebbe MAI PIÙ. Al giro dopo direbbe «niente di nuovo»,
+   * e l'immersione sarebbe persa senza che nessuno se ne accorga.
+   *
+   * Quindi: si avanza solo se OGNI record è diventato un'immersione. Il costo
+   * di non avanzare è rileggere qualche minuto di memoria alla prossima
+   * connessione; il costo di avanzare a sproposito è un'immersione che non
+   * esiste più. Non è un pareggio.
+   */
+  let tutteDecodificate = true;
   if (records.length) {
     try {
       const out = driver.decode(records);
       dives = out.dives;
       warnings.push(...out.warnings);
+      tutteDecodificate = out.dives.length === records.length;
+      if (!tutteDecodificate) {
+        warnings.push(
+          `${records.length - out.dives.length} immersioni su ${records.length} sono state scaricate ma non ` +
+            'si sono potute leggere. Il punto di ripartenza non viene spostato, così alla prossima ' +
+            'connessione il computer le ripropone: costa qualche minuto di lettura, ma non si perde niente.',
+        );
+      }
     } catch (err) {
+      tutteDecodificate = false;
       warnings.push(
         `Le ${records.length} immersioni sono state scaricate ma non si sono potute decodificare: ` +
           `${err instanceof Error ? err.message : String(err)}.`,
@@ -223,7 +248,7 @@ export async function downloadFromComputer(
   return {
     dives,
     warnings,
-    newestKey: records[0]?.key,
+    newestKey: tutteDecodificate ? records[0]?.key : undefined,
     trace: saltate > 0 ? [...testa, `… ${saltate} righe non riportate …`, ...coda] : [...testa, ...coda],
     total,
     model,
