@@ -304,10 +304,35 @@ export function BleDownload() {
        */}
       {segnalibri.length > 0 && (stato.fase === 'cerca' || stato.fase === 'iniziale') && (
         <div className="notice" style={{ marginBottom: 10 }}>
+          {/*
+           * Il SERIALE si mostra, e ogni segnalibro si può dimenticare.
+           *
+           * Serve a due cose che sono successe davvero. La prima: un
+           * segnalibro salvato con una chiave sbagliata resta lì per sempre e
+           * compare come un secondo computer che non esiste — è capitato
+           * correggendo la lettura del seriale, che prima usciva come numero e
+           * ora come testo. La seconda: il segnalibro può solo AVANZARE, quindi
+           * senza un modo di cancellarlo l'unico rimedio a qualunque errore
+           * sarebbe modificare un'impostazione a mano.
+           *
+           * Il seriale è scritto perché è l'unica cosa che permette di
+           * riconoscere QUALE riga si sta buttando: il modello è lo stesso per
+           * due Peregrine.
+           */}
           {segnalibri.map(([k, m]) => (
-            <div key={k} style={{ fontSize: 13 }}>
-              <b>{m.model ?? 'Computer'}</b>: l'ultima volta ({dateShort(m.at)}) sono arrivate {imm(m.dives)}.
-              Al prossimo collegamento prendo solo quelle più recenti.
+            <div
+              key={k}
+              className="spread"
+              style={{ fontSize: 13, alignItems: 'center', gap: 8, marginBottom: 4 }}
+            >
+              <span>
+                <b>{m.model ?? 'Computer'}</b> <span className="muted">{k.replace(/^[^:]+:/, '')}</span>:
+                l'ultima volta ({dateShort(m.at)}) sono arrivate {imm(m.dives)}. Al prossimo collegamento
+                prendo solo quelle più recenti.
+              </span>
+              <button style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => void forgetBleMarker(k)}>
+                Dimentica
+              </button>
             </div>
           ))}
           <label
