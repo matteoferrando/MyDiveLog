@@ -20,7 +20,16 @@
  */
 
 import { diveIdFor } from './dedupe';
-import { AIR, type Cylinder, type Dive, type DiveMode, type GasMix, type Salinity } from './model';
+import {
+  AIR,
+  type Cylinder,
+  type Dive,
+  type DiveConditions,
+  type DiveGear,
+  type DiveMode,
+  type GasMix,
+  type Salinity,
+} from './model';
 
 /**
  * Quello che una persona sa dire della propria immersione senza guardare un
@@ -52,6 +61,16 @@ export interface ManualDiveInput {
   weightKg?: number;
   suit?: string;
   visibilityM?: number;
+  /** L'estremo alto della fascia di visibilità, quando è una fascia. */
+  visibilityMaxM?: number;
+  /** Il titolo che dai a questa immersione. */
+  title?: string;
+  /** La guida sub, distinta dal compagno. */
+  guide?: string;
+  /** Meteo e stato del mare, in forma contabile. */
+  conditions?: DiveConditions;
+  /** L'attrezzatura usata, agganciata all'inventario. */
+  gear?: DiveGear;
   /** Da 1 a 5, come nei logbook di carta. */
   rating?: number;
   notes?: string;
@@ -202,8 +221,13 @@ export function buildManualDive(input: ManualDiveInput, now: Date = new Date()):
     salinity: input.salinity ?? 'salt',
     cylinders: [cylinder],
     weightKg: input.weightKg,
-    suit: clean(input.suit),
+    suit: clean(input.gear?.suit?.name) ?? clean(input.suit),
     visibilityM: input.visibilityM,
+    visibilityMaxM: input.visibilityMaxM,
+    title: clean(input.title),
+    guide: clean(input.guide),
+    conditions: input.conditions?.weather || input.conditions?.waves ? input.conditions : undefined,
+    gear: input.gear && Object.values(input.gear).some((v) => v !== undefined) ? input.gear : undefined,
     rating: input.rating,
     notes: clean(input.notes),
     tags,

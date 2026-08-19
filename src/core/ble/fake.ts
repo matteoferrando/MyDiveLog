@@ -36,6 +36,16 @@ export interface FakeQuirks {
   garbageOnOpen?: Uint8Array;
   /** Millisecondi prima di rispondere. Con 0 la risposta è sincrona. */
   latencyMs?: number;
+  /**
+   * Consegna le notifiche UNA PER GIRO di coda, invece che tutte insieme.
+   *
+   * Il finto le metteva in coda tutte in un colpo: cento notifiche già lì
+   * prima che il driver ne leggesse una. È comodo e rende i test più deboli di
+   * quanto sembrino, perché il percorso vero — le notifiche che arrivano nel
+   * tempo, mentre il driver legge — non veniva mai esercitato. Sono proprio le
+   * condizioni in cui vivono le scadenze, l'annullamento e il costo della coda.
+   */
+  unaAllaVolta?: boolean;
 }
 
 /**
@@ -56,7 +66,12 @@ export class FakeBleLink implements BleLink {
   readonly mtu: number;
   private stream = new ByteStream();
   private comandi = 0;
-  private chiuso = false;
+  private chiusoDaNoi = false;
+
+  /** Vero dopo `close()`. Pubblico perché i test devono poterlo asserire. */
+  get chiuso(): boolean {
+    return this.chiusoDaNoi;
+  }
   /** Tutto quello che il driver ha scritto: è la cosa su cui si asserisce nei test. */
   readonly written: Uint8Array[] = [];
 
@@ -82,13 +97,13 @@ export class FakeBleLink implements BleLink {
   }
 
   private async consegna(data: Uint8Array): Promise<void> {
-    if (this.chiuso) throw new Error('scrittura su un collegamento chiuso');
+    if (this.chiusoDaNoi) throw new Error('scrittura su un collegamento chiuso');
     this.written.push(data.slice());
     const n = this.comandi++;
 
     if (this.quirks.dropAfterCommands !== undefined && n >= this.quirks.dropAfterCommands) {
       this.stream.close('il dispositivo si è disconnesso');
-      this.chiuso = true;
+      this.chiusoDaNoi = true;
       return;
     }
     if (this.quirks.mute) return;
@@ -102,16 +117,26 @@ export class FakeBleLink implements BleLink {
       // scritti come se una notifica fosse un messaggio.
       for (const pezzo of pezzi) this.stream.push(pezzo);
     };
-    if (this.quirks.latencyMs) setTimeout(consegna, this.quirks.latencyMs);
-    else consegna();
+    const consegnaLenta = () => {
+      let i = 0;
+      const passo = () => {
+        if (this.chiusoDaNoi || i >= pezzi.length) return;
+        this.stream.push(pezzi[i++]);
+        setTimeout(passo, 0);
+      };
+      setTimeout(passo, 0);
+    };
+    const quale = this.quirks.unaAllaVolta ? consegnaLenta : consegna;
+    if (this.quirks.latencyMs) setTimeout(quale, this.quirks.latencyMs);
+    else quale();
   }
 
-  read(n: number, timeoutMs?: number): Promise<Uint8Array> {
-    return this.stream.read(n, timeoutMs);
+  read(n: number, timeoutMs?: number, signal?: AbortSignal): Promise<Uint8Array> {
+    return this.stream.read(n, timeoutMs, signal);
   }
 
-  readFrame(timeoutMs?: number): Promise<Uint8Array> {
-    return this.stream.readFrame(timeoutMs);
+  readFrame(timeoutMs?: number, signal?: AbortSignal): Promise<Uint8Array> {
+    return this.stream.readFrame(timeoutMs, signal);
   }
 
   drain(): Uint8Array {
@@ -123,8 +148,20 @@ export class FakeBleLink implements BleLink {
     this.stream.reset();
   }
 
+  /**
+   * Come è stato aperto.
+   *
+   * Esiste perché il ramo `if (link.describe)` di `downloadFromComputer` — che
+   * scrive nel diario servizio e caratteristiche, cioè la prima riga che si
+   * guarda quando un protocollo non risponde — non veniva mai eseguito nei
+   * test.
+   */
+  describe(): string {
+    return `collegamento finto, MTU ${this.mtu}`;
+  }
+
   async close(): Promise<void> {
-    this.chiuso = true;
+    this.chiusoDaNoi = true;
     this.stream.close('chiuso da noi');
   }
 }
@@ -139,17 +176,31 @@ export class FakeTransport implements BleTransport {
   /** L'ultimo collegamento aperto, per poterci asserire sopra. */
   lastLink?: FakeBleLink;
 
+  /**
+   * TUTTI i collegamenti aperti, in ordine.
+   *
+   * Con la sola `lastLink` nessun test poteva verificare che una riapertura
+   * avesse chiuso quello di prima — e un collegamento dimenticato tiene sveglio
+   * il computer finché non finisce la batteria.
+   */
+  readonly links: FakeBleLink[] = [];
+
   async available(): Promise<true | BleUnavailable> {
     return this.stato;
   }
 
   async scan(onUpdate: (devices: BleFoundDevice[]) => void, signal: AbortSignal): Promise<void> {
     // Come il vero: l'elenco cresce un dispositivo alla volta, e la ricerca
-    // finisce solo quando la si annulla.
+    // finisce solo quando la si ANNULLA. Prima tornava da sé appena finito
+    // l'elenco, contro il contratto in `types.ts` — e chi la chiama la aspetta:
+    // un finto che torna subito faceva sembrare corretto un chiamante che si
+    // sarebbe bloccato col trasporto vero.
     for (let i = 0; i < this.devices.length; i++) {
       if (signal.aborted) return;
       onUpdate(this.devices.slice(0, i + 1).map((d) => d.device));
     }
+    if (signal.aborted) return;
+    await new Promise<void>((risolvi) => signal.addEventListener('abort', () => risolvi(), { once: true }));
   }
 
   async open(deviceId: string, _profile: BleServiceProfile, signal: AbortSignal): Promise<BleLink> {
@@ -158,6 +209,7 @@ export class FakeTransport implements BleTransport {
     if (!trovato) throw new Error(`nessun dispositivo con identificativo ${deviceId}`);
     const link = new FakeBleLink(trovato.responder, trovato.quirks);
     this.lastLink = link;
+    this.links.push(link);
     return link;
   }
 }

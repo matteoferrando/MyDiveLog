@@ -119,10 +119,16 @@ export interface BleLink {
    * cosa da aggiustare in silenzio spezzando.
    */
   writeFrame(data: Uint8Array): Promise<void>;
-  /** Esattamente `n` byte, o un errore allo scadere del tempo. */
-  read(n: number, timeoutMs?: number): Promise<Uint8Array>;
+  /**
+   * Esattamente `n` byte, o un errore allo scadere del tempo.
+   *
+   * `signal` interrompe l'attesa SUBITO. Senza, l'annullamento si nota solo
+   * quando la scadenza è passata — dodici o venti secondi durante uno scarico —
+   * e per tutto quel tempo il pulsante «Annulla» non fa niente.
+   */
+  read(n: number, timeoutMs?: number, signal?: AbortSignal): Promise<Uint8Array>;
   /** La prossima notifica intera, con i suoi confini. */
-  readFrame(timeoutMs?: number): Promise<Uint8Array>;
+  readFrame(timeoutMs?: number, signal?: AbortSignal): Promise<Uint8Array>;
   /** Tutto quello che è già arrivato, senza aspettare. Vuoto se non c'è niente. */
   drain(): Uint8Array;
   /**
@@ -261,6 +267,12 @@ export interface DiveComputerDriver {
   /**
    * Scarica. Genera eventi via `emit` e restituisce quello che ha letto.
    *
+   * IL VALORE RESTITUITO È ORDINATO DALLA PIÙ RECENTE ALLA PIÙ VECCHIA, ed è un
+   * obbligo, non una convenzione: il primo elemento diventa il SEGNALIBRO da
+   * cui ripartirà il prossimo scarico. Gli eventi non bastano a stabilirlo,
+   * perché escono nell'ordine in cui le immersioni arrivano — e un
+   * trasferimento ripreso a metà le fa arrivare in un ordine che non è quello.
+   *
    * `since` è la chiave dell'ultima immersione già in archivio per questo
    * computer: i protocolli che lo permettono si fermano lì invece di rileggere
    * tutta la memoria, che su un Peregrine pieno sono minuti di attesa e batteria.
@@ -292,6 +304,27 @@ export interface DiveComputerDriver {
       since: (identity: ComputerIdentity) => string | undefined;
       /** Scrive una riga nel diario tecnico. Vedi `DownloadEvent.trace`. */
       trace: (line: string) => void;
+      /**
+       * Chiude il collegamento e ne apre uno nuovo allo stesso dispositivo.
+       *
+       * PERCHÉ UN DRIVER DEVE POTERLO CHIEDERE. Perché un computer subacqueo
+       * può impiantarsi senza disconnettersi: smette di rispondere, il
+       * collegamento resta formalmente aperto, e da lì non c'è comando che lo
+       * risvegli. È quello che fa l'Aladin a un terzo del trasferimento. In quel
+       * caso rimandare il comando sulla stessa sessione è inutile per
+       * costruzione — l'unica cosa che rimette in moto il firmware è una
+       * sessione GATT nuova.
+       *
+       * Restituisce il collegamento NUOVO: quello vecchio da qui in poi è
+       * chiuso, e continuare a usarlo darebbe errori che sembrano un guasto del
+       * dispositivo. Il chiamante tiene traccia di quale sia quello vivo, così
+       * la chiusura finale non ne lascia mai uno aperto — un collegamento
+       * dimenticato tiene il computer sveglio finché ha batteria.
+       *
+       * Va usato con parsimonia: riaprire costa qualche secondo e, su alcuni
+       * stack, una nuova richiesta di permesso all'utente.
+       */
+      riapri: () => Promise<BleLink>;
     },
   ): Promise<DownloadedRecord[]>;
   /**

@@ -522,8 +522,11 @@ export function archiveContext(
       // sono la stessa cosa, ed è lo stesso difetto già corretto altrove.
       velocitaMedianaUltimoTrattoMMin: n1(medianOf(a.finalAscent.map((p) => p.value))),
       // Due contatori sullo stesso tratto, con due soglie diverse, e la
-      // differenza va detta: la prima è una citazione da verificare (vedi
-      // `danFinalAscentMpm`), la seconda è il limite con cui l'app giudica.
+      // differenza va detta: la prima è la MEDIA misurata da DAN su una
+      // popolazione di subacquei, la seconda è il limite con cui l'app giudica.
+      // Rispondono a due domande diverse — «rispetto agli altri» e «rispetto a
+      // come si dovrebbe» — e confonderle fa concludere che l'app tollera dieci
+      // volte tanto.
       immersioniConUltimoTrattoSopraILimiteDellApp: a.finalAscentsOverAppLimit,
       immersioniConUltimoTrattoSopra60MMin: a.fastFinalAscents,
       // Coppie «quante su quante»: senza dirlo, `[1, 48]` si legge come un
@@ -631,9 +634,9 @@ export function archiveContext(
      */
     riferimentiOsservatiNonSoglie: {
       nota: 'valori misurati da altri su popolazioni di subacquei, utili per confronto: NON sono limiti dell’app',
-      velocitaMediaUltimoTrattoAttribuitaADanMMin: LIMITS.danFinalAscentMpm,
-      avvertenzaSuQuelNumero:
-        'Citazione da verificare: 60 m/min sono 197 ft/min, implausibili come media misurata, e la fonte potrebbe dire 60 ft/min. Non usarlo per giudicare un tratto finale — per quello c’è il limite dell’app, 6 m/min sopra i 10 metri.',
+      velocitaMediaUltimoTrattoMisurataDaDanMMin: LIMITS.danFinalAscentMpm,
+      cosaSignificaQuelNumero:
+        'Verificato sul manuale TDI Advanced Nitrox: «the average ascent rate for divers after they have completed their safety stop is 60 metres or 200 feet a minute». È la media MISURATA di quello che i subacquei fanno davvero negli ultimi metri, citata come esempio di ciò che andrebbe migliorato — non è una velocità raccomandata. Non usarlo per giudicare un tratto finale: per quello c’è il limite dell’app, 6 m/min sopra i 10 metri.',
     },
     immersioni: {
       colonne:

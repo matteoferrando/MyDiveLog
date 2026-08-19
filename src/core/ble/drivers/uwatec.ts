@@ -57,7 +57,7 @@ import {
   uwatecSamplesToCanonical,
   type UwatecDive,
 } from '../../parsers/uwatecSmart';
-import { exactName } from '../registry';
+import { advertisesService, either, exactName, nameStartsWith } from '../match';
 import type { BleLink, ComputerIdentity, DiveComputerDriver, DownloadedRecord } from '../types';
 
 // --------------------------------------------------------------------- comandi
@@ -81,17 +81,36 @@ const CMD_DATA = 0xc4;
 const SERVIZIO = 'fdcdeaaa-295d-470e-bf15-04217b7aa0a0';
 
 /**
- * I nomi annunciati, dal filtro `dc_filter_uwatec` di libdivecomputer.
+ * I nomi annunciati, e perché il confronto NON può essere tutto esatto.
  *
- * Il confronto è ESATTO — vedi `exactName`. «A1» e «A2» come prefissi
- * riconoscerebbero qualunque cosa cominci per quelle due lettere.
+ * La lista viene dal filtro `dc_filter_uwatec` di libdivecomputer, che confronta
+ * con `strcasecmp` — cioè per intero. Copiando quella regola tale e quale, il
+ * riconoscimento ha fallito col computer vero in mano: **l'Aladin Sport Matrix
+ * si annuncia «Aladin Sport», non «Aladin»**, e la schermata diceva «non
+ * riconosciuto come computer subacqueo» davanti a un computer subacqueo.
  *
- * L'Aladin Sport Matrix si annuncia «Aladin», non col suo nome commerciale: è
- * un nome di famiglia condiviso con l'H Matrix. Il modello vero si sa solo dopo
- * essersi connessi, con `CMD_MODEL`, ed è per questo che l'etichetta
- * nell'elenco dei dispositivi resta generica.
+ * La lista di libdivecomputer non è sbagliata: serve al suo elenco di modelli,
+ * dove l'utente sceglie a mano. Qui serve a riconoscere quello che il
+ * dispositivo GRIDA, e quello che grida dipende dal firmware, dalla versione e
+ * da quale dei due nomi BLE il sistema operativo ha messo in cache.
+ *
+ * Quindi due regole, divise secondo il rischio del nome:
+ *
+ *  - **Per prefisso** i nomi lunghi e specifici. «Aladin» non è l'inizio di
+ *    nient'altro che si porti in barca, quindi «Aladin Sport», «Aladin Matrix»
+ *    e «Aladin H» entrano tutti.
+ *  - **Per intero** quelli di due o tre caratteri. «A1», «A2», «G2», «HUD» come
+ *    prefissi riconoscerebbero un paio di auricolari e mezza cambusa — e un
+ *    falso riconoscimento non è cosmetico: significa connettersi al dispositivo
+ *    di qualcun altro e mandargli i byte di un comando Uwatec.
+ *
+ * Chi non rientra in nessuna delle due resta nell'elenco senza etichetta, e da
+ * lì lo si può forzare a mano: vedi il pulsante «provalo come…» nella schermata
+ * dello scarico. È la rete di sicurezza per il prossimo nome che non avevamo
+ * previsto — perché ce ne sarà un altro.
  */
-const NOMI = ['G2', 'Aladin', 'HUD', 'A1', 'A2', 'G2 TEK', 'Galileo 3', 'Luna 2.0 AI', 'Luna 2.0'];
+const NOMI_INTERI = ['G2', 'G3', 'A1', 'A2', 'HUD', 'G2 Console'];
+const NOMI_INIZIALI = ['Aladin', 'Galileo', 'Luna 2.0', 'G2 TEK', 'G2 HUD'];
 
 /** Millisecondi fra l'epoca Uwatec (2000-01-01 UTC) e quella Unix. */
 const UWATEC_EPOCH_MS = 946_684_800_000;
@@ -113,6 +132,62 @@ const PASSO_AVANZAMENTO = 4096;
 
 /** Quante notifiche senza dati di fila si sopportano prima di dire che è rotto. */
 const NOTIFICHE_A_VUOTO = 64;
+
+/**
+ * Quante volte si riprende un trasferimento che si è fermato a metà.
+ *
+ * Col computer vero ogni giro ha portato circa un terzo della memoria, quindi
+ * tre o quattro basterebbero. Dodici è il margine per una memoria piena e un
+ * firmware più capriccioso — ed è comunque un numero, perché un ciclo senza
+ * limite superiore in un protocollo ricostruito è un modo di scrivere
+ * «l'applicazione si è piantata».
+ */
+const MAX_RIPRESE = 12;
+
+/**
+ * Quante volte si riapre il collegamento durante uno stesso scarico.
+ *
+ * Riaprire costa qualche secondo e, su alcuni stack, una richiesta di permesso:
+ * è un rimedio, non una strategia. Se dopo sei sessioni nuove il computer
+ * continua a impiantarsi, il problema non è la sessione.
+ */
+const MAX_RIAPERTURE = 6;
+
+/**
+ * Quanto può durare in tutto uno scarico, prima che ci si arrenda.
+ *
+ * SERVE PERCHÉ LE SCADENZE SONO PER NOTIFICA. `TIMEOUT_DATI_MS` scatta solo
+ * quando non arriva niente per dodici secondi: un firmware che consegna un byte
+ * ogni undici non lo fa scattare mai. In prova, 6 080 byte in altrettante
+ * notifiche a quel ritmo passano senza un errore — e alla stessa cadenza il
+ * blocco vero da 129 kB durerebbe **venti ore**, con la barra che avanza e
+ * nessun modo di fermarsi da sé.
+ *
+ * Mezz'ora è molto più di quanto serva: lo scarico di una memoria piena,
+ * riaperture comprese, sta in pochi minuti. È un limite contro l'assurdo, non un
+ * budget da rispettare.
+ */
+const TEMPO_MASSIMO_MS = 30 * 60_000;
+
+/**
+ * Di quanti byte i conti della ripresa possono non tornare senza allarmare.
+ *
+ * Fra un record e l'altro la memoria può contenere byte che non sono record —
+ * riempimenti, resti di scritture precedenti — e il conto «quello che restava
+ * meno quello che ho preso» non torna al byte. Un record intero però non ci sta
+ * in questo margine, ed è quello che questa guardia deve prendere.
+ */
+const TOLLERANZA_BYTE = 256;
+
+/**
+ * L'attesa fra due notifiche DURANTE il trasferimento del blocco.
+ *
+ * Più lunga dei cinque secondi che usa libdivecomputer, e non per prudenza
+ * generica: il computer vero, a metà di un blocco da 129 kB, ha smesso di
+ * mandare per più di cinque secondi. Con la scadenza corta ogni pausa del
+ * firmware diventa una ripresa, e ogni ripresa costa un giro di comandi.
+ */
+const TIMEOUT_DATI_MS = 12_000;
 
 export class UwatecProtocolError extends Error {
   constructor(message: string) {
@@ -211,6 +286,7 @@ class Riassemblatore {
     avanzamento?: (fatti: number) => void,
   ): Promise<void> {
     let aVuoto = 0;
+    let giriDiLettura = 0;
     while (stato.fatti < out.length) {
       if (signal.aborted) throw new UwatecProtocolError('scarico annullato');
       let pezzo: Uint8Array;
@@ -218,11 +294,27 @@ class Riassemblatore {
         pezzo = this.avanzo;
         this.avanzo = new Uint8Array(0);
       } else {
-        const notifica = await this.link.readFrame(timeoutMs);
+        // Il segnale arriva fino allo stream: senza, «Annulla» non ha effetto
+        // finché la scadenza non è passata — dodici secondi durante i dati,
+        // venti sui comandi lunghi.
+        const notifica = await this.link.readFrame(timeoutMs, signal);
         // Una notifica di un byte solo è il byte di sequenza e basta: non è un
         // errore, è un pacchetto vuoto, e insistere è la cosa giusta.
         pezzo = notifica.subarray(1);
       }
+      /*
+       * OGNI TANTO SI CEDE IL TURNO ANCHE QUANDO VA TUTTO BENE.
+       *
+       * `readFrame` su una notifica già in coda si risolve subito, senza toccare
+       * la coda dei macrotask: se lo stack consegna più in fretta di quanto
+       * questo ciclo consumi — cioè proprio quando la coda si allunga — migliaia
+       * di giri filano via senza che nessun `setTimeout` riesca a scattare.
+       * Misurato: 200 000 notifiche già in coda tengono il turno per quasi
+       * diciassette secondi. Restituirlo ogni 256 giri costa niente e rimette in
+       * moto scadenze, annullamento e disegno.
+       */
+      if (++giriDiLettura % 256 === 0) await new Promise((r) => setTimeout(r, 0));
+
       const quanti = Math.min(out.length - stato.fatti, pezzo.length);
       out.set(pezzo.subarray(0, quanti), stato.fatti);
       stato.fatti += quanti;
@@ -352,6 +444,9 @@ export function parametriUwatec(orario: number): Uint8Array {
   return p;
 }
 
+/** Il messaggio di un errore, qualunque cosa sia. */
+const messaggio = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
 /** Byte in esadecimale, per il diario. */
 const esadecimale = (b: Uint8Array) => [...b].map((v) => v.toString(16).padStart(2, '0')).join(' ');
 
@@ -379,10 +474,16 @@ export const uwatecDriver: DiveComputerDriver = {
      */
     writeType: 'auto',
   },
-  matches: exactName(...NOMI),
+  /*
+   * Il servizio annunciato vale quanto il nome, e non è ridondante: alcuni
+   * firmware annunciano l'UUID e un nome che non abbiamo previsto, e in quel
+   * caso il servizio è la prova più forte delle due — è il suo, e non ce
+   * l'ha nessun altro.
+   */
+  matches: either(exactName(...NOMI_INTERI), nameStartsWith(...NOMI_INIZIALI), advertisesService(SERVIZIO)),
 
-  async download(link, { emit, signal, since, trace }) {
-    const bus = new Riassemblatore(link);
+  async download(link, { emit, signal, since, trace, riapri }) {
+    let bus = new Riassemblatore(link);
 
     /*
      * Nessuna stretta di mano: su BLE `uwatec_smart_handshake` esce subito.
@@ -442,9 +543,6 @@ export const uwatecDriver: DiveComputerDriver = {
     if (segnalibro && daOrario === undefined) {
       trace(`segnalibro «${segnalibro}» non riconosciuto: rileggo tutta la memoria`);
     }
-    const impronta = daOrario ?? 0;
-    const parametri = parametriUwatec(impronta);
-
     /*
      * IL FILTRO LO FA IL COMPUTER, e cambia l'ordine di grandezza dell'attesa.
      *
@@ -454,92 +552,328 @@ export const uwatecDriver: DiveComputerDriver = {
      * SOLO nuovo. Con niente di nuovo torna zero, e il collegamento si chiude
      * dopo sei comandi.
      */
-    const lunghezza = u32le(await bus.chiedi(CMD_SIZE, 4, signal, parametri, TIMEOUT_LUNGO_MS));
-    trace(
-      impronta
-        ? `da scaricare dopo l'impronta 0x${impronta.toString(16)}: ${lunghezza} byte`
-        : `da scaricare (tutta la memoria): ${lunghezza} byte`,
-    );
-
-    if (lunghezza === 0) {
-      emit({ kind: 'counted', total: 0 });
-      return [];
-    }
-
     /*
-     * `CMD_DATA` risponde PRIMA con quanto sta per mandare, e quel numero è
-     * `lunghezza + 4`: conta cioè anche i quattro byte con cui lo sta dicendo.
-     * Se non torna così, il computer ha capito una domanda diversa dalla nostra
-     * — e continuare vorrebbe dire tagliare il blocco nel punto sbagliato.
-     */
-    bus.azzera();
-    await bus.manda(CMD_DATA, parametri);
-    const dichiarato = new Uint8Array(4);
-    await bus.riempi(dichiarato, { fatti: 0 }, TIMEOUT_LUNGO_MS, signal);
-    const totale = u32le(dichiarato);
-    if (totale !== lunghezza + 4) {
-      throw new UwatecProtocolError(
-        `Il computer dice che manderà ${totale} byte, ma ne aveva annunciati ${lunghezza + 4}.`,
-      );
-    }
-    if (bus.avanzoInSospeso) {
-      trace(`la dichiarazione arriva incollata ai dati: ${bus.avanzoInSospeso} byte già in mano`);
-    }
-
-    /*
-     * Il blocco si legge in un colpo solo, e quello che arriva si tiene.
+     * IL TRASFERIMENTO SI RIPRENDE DA SOLO, E QUESTO È IL CUORE DEL DRIVER.
      *
-     * Duecento kilobyte a diciannove byte per notifica sono più di diecimila
-     * notifiche: qualche minuto, durante il quale il collegamento può cadere.
-     * `stato.fatti` sopravvive all'eccezione apposta — un blocco troncato
-     * contiene comunque le immersioni intere che stanno prima del taglio, e
-     * buttarle costringerebbe a rifare tutto il trasferimento da capo.
+     * Col computer vero in mano è successo questo: il computer ha annunciato
+     * 129 037 byte, ne ha mandati 39 634 — il trenta per cento — e poi ha
+     * smesso, senza disconnettersi. La lettura è scaduta dopo cinque secondi di
+     * silenzio, e delle centotrenta immersioni in memoria ne sono arrivate
+     * trentanove: le più VECCHIE, perché il blocco comincia da quelle. Cioè
+     * proprio quelle che nell'archivio non servivano, mentre le recenti — le
+     * uniche che avrebbero potuto fondersi con quelle già importate da file —
+     * non sono mai partite.
+     *
+     * Perché smetta non lo so, e non serve saperlo: potrebbe essere una pausa
+     * del firmware più lunga della nostra scadenza, un limite di buffer, una
+     * finestra di risparmio energetico. Quello che conta è che il protocollo
+     * offre già il modo di ripartire, e non l'avevamo usato.
+     *
+     * `CMD_SIZE` e `CMD_DATA` prendono un'IMPRONTA e il computer restituisce
+     * solo quello che è venuto dopo. È il meccanismo dello scarico incrementale
+     * fra una sessione e l'altra — ma niente vieta di usarlo DENTRO la stessa
+     * sessione: si prende l'immersione più recente arrivata, la si dà come
+     * impronta, e si richiede il resto. Ogni giro riparte esattamente da dove
+     * si era rotto, senza rileggere niente e senza chiedere niente all'utente.
+     *
+     * Il ciclo si ferma da sé in tre modi, e tutti e tre servono: quando il
+     * computer dice che non c'è più niente (`lunghezza === 0`), quando un giro
+     * finisce per intero, e quando un giro non porta NESSUNA immersione nuova —
+     * che è la condizione senza la quale un computer bloccato sul primo byte
+     * farebbe girare questo ciclo per sempre.
      */
-    const blocco = new Uint8Array(lunghezza);
-    const stato = { fatti: 0 };
-    let ultimoAnnuncio = 0;
-    let rotto: unknown;
-    try {
-      await bus.riempi(blocco, stato, TIMEOUT_MS, signal, (fatti) => {
-        if (fatti - ultimoAnnuncio < PASSO_AVANZAMENTO && fatti < lunghezza) return;
-        ultimoAnnuncio = fatti;
+    const perChiave = new Map<string, DownloadedRecord>();
+    let impronta = daOrario ?? 0;
+    let bytiTotali = 0;
+    let ultimoErrore: unknown;
+    let completo = false;
+
+    let riaperto = false;
+    let riaperture = 0;
+    let fuoriOrdine = false;
+    let doppioni = 0;
+    const scadenzaTotale = Date.now() + TEMPO_MASSIMO_MS;
+    /** Quanto il computer aveva dichiarato al PRIMO giro, e quanto ne abbiamo consumato. */
+    let lunghezzaIniziale = 0;
+    let byteDeiRecord = 0;
+    for (let giro = 1; giro <= MAX_RIPRESE && !completo; giro++) {
+      if (signal.aborted) break;
+      if (Date.now() > scadenzaTotale) {
+        ultimoErrore =
+          ultimoErrore ??
+          new UwatecProtocolError(
+            `Lo scarico dura da più di ${Math.round(TEMPO_MASSIMO_MS / 60_000)} minuti e non è finito: mi fermo. Quello che è arrivato è salvato.`,
+          );
+        trace('superato il tempo massimo per uno scarico: mi fermo');
+        break;
+      }
+      const parametri = parametriUwatec(impronta);
+      let nuovi = 0;
+
+      /*
+       * TUTTO IL GIRO STA DENTRO UN `try`, comandi compresi.
+       *
+       * Non è prudenza generica. Quando l'Aladin si impianta non lo fa a metà
+       * dei dati: smette di rispondere, e il primo a cadere è il comando
+       * SUCCESSIVO — `CMD_SIZE` del giro dopo, che va in scadenza. Se solo la
+       * lettura del blocco fosse protetta, quell'errore uscirebbe dal ciclo e
+       * la riapertura non verrebbe mai tentata: era esattamente il difetto, e
+       * il test con il finto che ammutolisce lo ha preso al primo colpo.
+       */
+      try {
+        const lunghezza = u32le(await bus.chiedi(CMD_SIZE, 4, signal, parametri, TIMEOUT_LUNGO_MS, trace));
+        trace(
+          giro === 1
+            ? impronta
+              ? `da scaricare dopo l'impronta 0x${impronta.toString(16)}: ${lunghezza} byte`
+              : `da scaricare (tutta la memoria): ${lunghezza} byte`
+            : `ripresa ${giro - 1}: dall'impronta 0x${impronta.toString(16)} restano ${lunghezza} byte`,
+        );
+
+        if (lunghezza === 0) {
+          completo = true;
+          break;
+        }
+
+        /*
+         * CONTROLLO CHE LA RIPRESA NON ABBIA SALTATO NIENTE.
+         *
+         * La guardia sull'ordine cronologico vede solo il disordine DENTRO il
+         * pezzo arrivato: se il pezzo è ordinato ma quello che resta in memoria
+         * è più vecchio, l'impronta lo scavalca e non ce ne accorgiamo. Qui il
+         * conto lo fa il computer: al primo giro ha dichiarato quanti byte
+         * aveva in tutto, e a ogni ripresa dichiara quanti ne restano. Se i
+         * record che abbiamo in mano non spiegano la differenza, in mezzo è
+         * sparito qualcosa.
+         *
+         * Non si prova a indovinare quanto: ci si ferma, si tiene quello che è
+         * arrivato e si dice che il resto va riletto da capo. Costa minuti, non
+         * immersioni.
+         */
+        if (giro > 1 && lunghezzaIniziale > 0) {
+          const attesi = lunghezzaIniziale - byteDeiRecord;
+          if (lunghezza < attesi - TOLLERANZA_BYTE) {
+            trace(
+              `la ripresa salterebbe ${attesi - lunghezza} byte: restano ${lunghezza} dove ne aspettavo ${attesi}`,
+            );
+            fuoriOrdine = true;
+            break;
+          }
+        }
+        if (giro === 1) lunghezzaIniziale = lunghezza;
+
+        /*
+         * `CMD_DATA` risponde PRIMA con quanto sta per mandare, e quel numero è
+         * `lunghezza + 4`: conta cioè anche i quattro byte con cui lo sta
+         * dicendo. Se non torna così, il computer ha capito una domanda diversa
+         * dalla nostra — e continuare vorrebbe dire tagliare il blocco nel
+         * punto sbagliato.
+         */
+        bus.azzera(giro === 1 ? trace : undefined);
+        await bus.manda(CMD_DATA, parametri);
+        const dichiarato = new Uint8Array(4);
+        await bus.riempi(dichiarato, { fatti: 0 }, TIMEOUT_LUNGO_MS, signal);
+        const totale = u32le(dichiarato);
+        if (totale !== lunghezza + 4) {
+          throw new UwatecProtocolError(
+            `Il computer dice che manderà ${totale} byte, ma ne aveva annunciati ${lunghezza + 4}.`,
+          );
+        }
+        if (bus.avanzoInSospeso) {
+          trace(`la dichiarazione arriva incollata ai dati: ${bus.avanzoInSospeso} byte già in mano`);
+        }
+
+        const blocco = new Uint8Array(lunghezza);
+        const stato = { fatti: 0 };
+        let ultimoAnnuncio = 0;
+        try {
+          await bus.riempi(blocco, stato, TIMEOUT_DATI_MS, signal, (fatti) => {
+            if (fatti - ultimoAnnuncio < PASSO_AVANZAMENTO && fatti < lunghezza) return;
+            ultimoAnnuncio = fatti;
+            // Il tetto vale anche DENTRO un trasferimento lentissimo, non solo
+            // fra un giro e l'altro: è lì che le venti ore si accumulerebbero.
+            if (Date.now() > scadenzaTotale) throw new UwatecProtocolError('tempo massimo superato');
+            const kb = (v: number) => Math.round(v / 1024);
+            emit({
+              kind: 'progress',
+              done: bytiTotali + fatti,
+              total: bytiTotali + lunghezza,
+              label:
+                `Ricevo la memoria del computer: ${kb(bytiTotali + fatti)} di ${kb(bytiTotali + lunghezza)} kB` +
+                (giro > 1 ? ` (ripresa ${giro - 1})` : ''),
+            });
+          });
+          completo = true;
+        } catch (err) {
+          ultimoErrore = err;
+          trace(`giro ${giro}: interrotto a ${stato.fatti} di ${lunghezza} byte — ${messaggio(err)}`);
+        }
+        bytiTotali += stato.fatti;
+
+        const tagliato = tagliaRecord(blocco.subarray(0, stato.fatti), { modello, seriale, orologio }, trace);
+        if (!tagliato.cronologico) fuoriOrdine = true;
+        for (const r of tagliato.record) {
+          const gia = perChiave.get(r.key);
+          if (gia) {
+            /*
+             * Due record con lo STESSO orario. Non può succedere — due immersioni
+             * non cominciano nello stesso mezzo secondo — ma se succede la chiave
+             * è la stessa e uno dei due sparirebbe in silenzio, portandosi dietro
+             * anche il conteggio mostrato a schermo. Si tiene il primo e si dice.
+             */
+            if (gia.bytes.length !== r.bytes.length) doppioni++;
+            continue;
+          }
+          perChiave.set(r.key, r);
+          byteDeiRecord += r.bytes.length;
+          nuovi++;
+          emit({ kind: 'record', done: perChiave.size, record: r });
+        }
+      } catch (err) {
+        ultimoErrore = err;
+        trace(`giro ${giro}: ${messaggio(err)}`);
+        // Un protocollo che non torna — un totale annunciato che non combacia —
+        // non si cura riaprendo: vuol dire che ci siamo capiti male, e insistere
+        // taglierebbe il blocco nel punto sbagliato.
+        if (err instanceof UwatecProtocolError && !/non ha risposto|annullato/.test(messaggio(err))) break;
+      }
+
+      if (completo) break;
+
+      /*
+       * SE IL BLOCCO NON ERA IN ORDINE DI DATA, NON SI RIPRENDE.
+       *
+       * La ripresa dà al computer l'impronta dell'immersione più recente
+       * ricevuta e gli chiede il resto: funziona solo se quello che è arrivato
+       * erano le più vecchie. Con un blocco fuori ordine — memoria circolare che
+       * ha girato, orologio rimesso indietro — quell'impronta scavalca immersioni
+       * che non sono ancora arrivate, e il computer non le offrirà più: sparite,
+       * con lo scarico dichiarato completo e nessun avviso.
+       *
+       * Meglio fermarsi e dirlo. Quello che è arrivato entra in archivio, il
+       * segnalibro non si sposta, e il prossimo tentativo ricomincia da capo —
+       * che costa minuti, non immersioni.
+       */
+      if (fuoriOrdine) {
+        trace('il blocco non è in ordine di data: non riprendo, il resto si rilegge da capo');
+        break;
+      }
+
+      if (nuovi > 0) {
+        /*
+         * Il computer parla ancora: si riparte sulla STESSA sessione,
+         * dall'impronta dell'immersione più recente arrivata. È il caso normale
+         * — una pausa del firmware più lunga della nostra scadenza — e riaprire
+         * qui costerebbe secondi senza servire a niente.
+         */
+        riaperto = false;
+        impronta = Math.max(...[...perChiave.keys()].map((k) => orarioDaChiave(k) ?? 0));
+        trace(`riprendo da 0x${impronta.toString(16)} — ${perChiave.size} immersioni finora`);
+        if (giro === MAX_RIPRESE) trace(`raggiunto il limite di ${MAX_RIPRESE} riprese: mi fermo`);
+        continue;
+      }
+
+      /*
+       * NIENTE DI NUOVO: il computer si è impiantato, e si riapre la sessione.
+       *
+       * Un giro che non porta nessuna immersione — perché il comando è andato
+       * in scadenza, o perché i dati si sono fermati prima di un record intero
+       * — significa che il firmware non risponde più, pur senza essersi
+       * disconnesso. Il collegamento sembra vivo e non lo è: rimandare lo
+       * stesso comando rifà esattamente la stessa cosa, e l'unica cosa che lo
+       * rimette in moto è una sessione GATT nuova.
+       *
+       * Una volta sola per punto di stallo. Se anche dopo la riapertura non
+       * arriva niente, il computer è spento, lontano o scarico, e insistere
+       * allunga soltanto l'attesa. La bandiera si azzera appena un giro torna a
+       * portare qualcosa, così un trasferimento lungo può riaprire più volte,
+       * ma mai due volte di fila a vuoto.
+       */
+      if (riaperto || riaperture >= MAX_RIAPERTURE) {
+        trace(`giro ${giro}: niente di nuovo nemmeno dopo aver riaperto, mi fermo`);
+        break;
+      }
+      try {
+        // Si dice a schermo, altrimenti la barra resta ferma per qualche secondo
+        // e chi guarda non ha modo di sapere se è ancora viva.
         emit({
           kind: 'progress',
-          done: fatti,
-          total: lunghezza,
-          label: `Ricevo la memoria del computer: ${Math.round(fatti / 1024)} di ${Math.round(lunghezza / 1024)} kB`,
+          done: bytiTotali,
+          total: bytiTotali,
+          label: 'Il computer non risponde più: riapro il collegamento…',
         });
-      });
-    } catch (err) {
-      rotto = err;
-      trace(`trasferimento interrotto a ${stato.fatti} di ${lunghezza} byte`);
+        bus = new Riassemblatore(await riapri());
+
+        /*
+         * Dopo la riapertura ci si ripresenta, e si CONTROLLA il seriale.
+         *
+         * I due comandi costano niente e servono a due cose. La prima è mettere
+         * il firmware nello stesso stato in cui lo trova l'applicazione del
+         * costruttore, che dopo ogni apertura chiede sempre chi sei: un
+         * dispositivo che si aspetta quella sequenza e riceve subito una
+         * richiesta di dati potrebbe tacere di nuovo, e avremmo dato la colpa
+         * alla riapertura.
+         *
+         * La seconda conta di più: la riapertura passa dall'identificativo che
+         * dà il sistema operativo, e in mezzo c'è stata una disconnessione.
+         * Ritrovarsi collegati a un ALTRO computer subacqueo — un secondo
+         * Aladin nella stessa barca — non è impossibile, e proseguire
+         * mescolerebbe due archivi in uno senza che nessuno se ne accorga. Il
+         * seriale è l'unica cosa che lo esclude.
+         */
+        const modelloDiNuovo = (await bus.chiedi(CMD_MODEL, 1, signal))[0];
+        const serialeDiNuovo = u32le(await bus.chiedi(CMD_SERIAL, 4, signal));
+        if (serialeDiNuovo !== seriale || modelloDiNuovo !== modello) {
+          throw new UwatecProtocolError(
+            `Dopo la riapertura risponde un computer diverso: seriale ${serialeDiNuovo} invece di ${seriale}.`,
+          );
+        }
+        trace(`ripresentato: seriale ${serialeDiNuovo}, è sempre lui`);
+
+        riaperto = true;
+        riaperture++;
+        // La riapertura non consuma un giro: non ha letto niente.
+        giro--;
+      } catch (err) {
+        ultimoErrore = ultimoErrore ?? err;
+        trace(`riapertura non riuscita: ${messaggio(err)}`);
+        break;
+      }
     }
 
-    const arrivato = blocco.subarray(0, stato.fatti);
-    const record = tagliaRecord(arrivato, { modello, seriale }, trace);
     /*
-     * Il conteggio si dichiara solo a trasferimento finito.
+     * Il motivo VERO viene prima di quello apparente.
      *
-     * Su uno scarico interrotto `record.length` sono le immersioni ARRIVATE,
-     * non quelle attese — e darlo come totale farebbe scrivere all'interfaccia
-     * «si è interrotto (2 su 2)», che è una frase che si contraddice da sola.
-     * Quante fossero in tutto, qui, non si sa: il computer manda byte, non
-     * immersioni.
+     * Un trasferimento che si interrompe lascia sempre dietro di sé una
+     * scadenza, e quella scadenza è l'ultimo errore visto — ma non è la ragione
+     * per cui ci si è fermati. Dire «il computer non ha risposto» dove il
+     * problema è che riprendere salterebbe delle immersioni manda a cercare il
+     * guasto dalla parte sbagliata: la prima frase invita a riprovare
+     * avvicinandosi, la seconda dice che riprovare è proprio la cosa giusta ma
+     * per un altro motivo.
      */
-    if (!rotto) emit({ kind: 'counted', total: record.length });
-    record.forEach((r, i) =>
-      emit({ kind: 'record', done: i + 1, total: rotto ? undefined : record.length, record: r }),
+    if (fuoriOrdine) {
+      ultimoErrore = new UwatecProtocolError(
+        'Le immersioni non arrivano in ordine di data, quindi riprendere il trasferimento da dove si era interrotto ne salterebbe qualcuna. Quelle arrivate sono salvate; riprova a scaricare per avere le altre.',
+      );
+    }
+
+    if (doppioni) {
+      trace(`${doppioni} record con lo stesso orario di uno già arrivato: tenuto il primo`);
+    }
+
+    const record = [...perChiave.values()].sort(
+      (a, b) => (orarioDaChiave(b.key) ?? 0) - (orarioDaChiave(a.key) ?? 0),
     );
+    emit({ kind: 'counted', total: record.length });
 
     /*
-     * Si consegna PRIMA di rilanciare l'errore.
-     *
-     * Gli eventi sono già usciti, quindi `downloadFromComputer` ha in mano le
-     * immersioni intere anche se qui sotto si solleva un'eccezione: lo scarico
-     * risulterà `partial`, il segnalibro non si sposterà, e quello che è
-     * arrivato entrerà in archivio.
+     * L'errore si rilancia solo se lo scarico NON è completo, e dopo aver
+     * consegnato tutto quello che è arrivato. Così `downloadFromComputer` ha in
+     * mano le immersioni intere: lo scarico risulterà `partial`, il segnalibro
+     * non si sposterà, e quello che c'è entrerà comunque in archivio.
      */
-    if (rotto) throw rotto;
+    if (!completo && ultimoErrore) throw ultimoErrore;
     return record;
   },
 
@@ -591,11 +925,32 @@ export const uwatecDriver: DiveComputerDriver = {
  * dell'elenco diventa il segnalibro: sbagliarlo significa non riscaricare mai
  * più tutto quello che sta dopo di lui.
  */
+export interface BloccoTagliato {
+  record: DownloadedRecord[];
+  /**
+   * Vero se nel blocco i record erano in ordine di data crescente.
+   *
+   * NON È UN DETTAGLIO: la ripresa di un trasferimento interrotto funziona solo
+   * se lo è. Si riparte dando al computer l'impronta dell'immersione più recente
+   * ricevuta, e lui risponde «tutto quello che è venuto DOPO» — che è il resto
+   * solo se quello che è arrivato erano le più vecchie. Su una memoria circolare
+   * che ha girato, o dopo un orologio rimesso indietro, l'ordine degli indirizzi
+   * non è quello del tempo, e riprendere così SALTEREBBE le immersioni non
+   * ancora arrivate, per sempre e senza un avviso.
+   */
+  cronologico: boolean;
+  /** Quanti pezzi sono stati scartati perché troppo corti o con un orario assurdo. */
+  scartati: number;
+}
+
+/** Il primo orario possibile: 1° gennaio 2001, cioè un anno dopo l'epoca Uwatec. */
+const ORARIO_MINIMO = 2 * 365 * 24 * 3600 * 2;
+
 export function tagliaRecord(
   blocco: Uint8Array,
-  identita: { modello?: number; seriale?: number } = {},
+  identita: { modello?: number; seriale?: number; orologio?: number } = {},
   trace?: (line: string) => void,
-): DownloadedRecord[] {
+): BloccoTagliato {
   const pezzi = splitUwatecRecords(blocco);
   const consumati = pezzi.reduce((n, p) => n + p.length, 0);
 
@@ -613,18 +968,50 @@ export function tagliaRecord(
    * DataView. Si scarta il pezzo e si va avanti: è la stessa regola per cui
    * un'immersione illeggibile non ne ferma novantanove.
    */
-  const buoni = pezzi.filter((p) => p.length >= 12);
-  const corti = pezzi.length - buoni.length;
+  /*
+   * Si scarta anche chi porta un ORARIO IMPOSSIBILE, non solo chi è corto.
+   *
+   * Una firma `A5 A5 5A 5A` capitata per caso dentro dei campioni produce un
+   * pezzo con quattro byte qualunque a offset 8, e quel numero letto come data
+   * può cadere nel 2098. Non è un problema di visualizzazione: quell'orario
+   * finisce nell'impronta con cui si chiede il resto della memoria, e il
+   * computer risponde «dopo il 2098 non c'è niente» — scarico dichiarato
+   * completo, con dentro una immersione su centotrenta. È successo in prova.
+   *
+   * Il limite alto è l'orologio del computer, che abbiamo appena letto: nessuna
+   * immersione può essere più recente di adesso. Un giorno di margine copre un
+   * orologio impostato male senza aprire la porta a un anno di errore.
+   */
+  const massimo = identita.orologio ? identita.orologio + 2 * 86_400 : Infinity;
+  const buoni: { bytes: Uint8Array; orario: number }[] = [];
+  for (const p of pezzi) {
+    if (p.length < 12) continue;
+    const orario = u32le(p, 8);
+    if (orario < ORARIO_MINIMO || orario > massimo) continue;
+    buoni.push({ bytes: p, orario });
+  }
+  const scartati = pezzi.length - buoni.length;
+
+  // L'ordine in cui erano scritti in memoria, PRIMA di riordinarli per data.
+  let cronologico = true;
+  for (let i = 1; i < buoni.length; i++) {
+    if (buoni[i].orario < buoni[i - 1].orario) cronologico = false;
+  }
+
   trace?.(
     `${buoni.length} immersioni nel blocco, ${consumati} byte su ${blocco.length}` +
       (consumati === blocco.length ? '' : ' — il resto non è un record e viene ignorato') +
-      (corti ? ` — ${corti} pezzi troppo corti per essere immersioni, scartati` : ''),
+      (scartati ? ` — ${scartati} pezzi scartati (troppo corti o con una data impossibile)` : '') +
+      (cronologico ? '' : ' — ATTENZIONE: non sono in ordine di data'),
   );
 
-  return buoni
-    .map((bytes) => ({ bytes, orario: u32le(bytes, 8) }))
-    .sort((a, b) => b.orario - a.orario)
-    .map(({ bytes, orario }) => ({ key: chiaveUwatec(identita, orario), bytes }));
+  return {
+    record: [...buoni]
+      .sort((a, b) => b.orario - a.orario)
+      .map(({ bytes, orario }) => ({ key: chiaveUwatec(identita, orario), bytes })),
+    cronologico,
+    scartati,
+  };
 }
 
 /**

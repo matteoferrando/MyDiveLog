@@ -83,6 +83,20 @@ export interface DownloadOutcome {
   newestKey?: string;
 }
 
+/** Aspetta, ma si sveglia subito se lo scarico viene annullato. */
+function pausa(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((risolvi) => {
+    if (signal.aborted) return risolvi();
+    const t = setTimeout(fine, ms);
+    function fine() {
+      clearTimeout(t);
+      signal.removeEventListener('abort', fine);
+      risolvi();
+    }
+    signal.addEventListener('abort', fine, { once: true });
+  });
+}
+
 export async function downloadFromComputer(
   transport: BleTransport,
   device: BleFoundDevice,
@@ -102,6 +116,8 @@ export async function downloadFromComputer(
 ): Promise<DownloadOutcome> {
   const warnings: string[] = [];
   const records: DownloadedRecord[] = [];
+  /** Quante immersioni il driver ha dichiarato illeggibili. Vedi `emit`. */
+  let saltate = 0;
   /*
    * IL DIARIO SI TRONCA IN MEZZO, non alla fine.
    *
@@ -156,12 +172,39 @@ export async function downloadFromComputer(
     if (e.kind === 'record') records.push(e.record);
     if (e.kind === 'skipped') {
       warnings.push(`Immersione ${e.key} non letta: ${e.reason}`);
+      /*
+       * UN'IMMERSIONE SALTATA È UN BUCO, e il segnalibro non lo può scavalcare.
+       *
+       * `tutteDecodificate` confrontava solo quante immersioni sono uscite dalla
+       * decodifica con quanti record sono arrivati — e un record SALTATO non
+       * arriva affatto, quindi il conto tornava. Il segnalibro avanzava sopra
+       * l'immersione che il computer non era riuscito a mandare, e alla
+       * connessione successiva quel buco non veniva più offerto: persa per
+       * sempre, con a schermo «scarico completo».
+       */
+      saltate++;
     }
     opts.onEvent?.(e);
   };
 
   let link: Awaited<ReturnType<BleTransport['open']>> | undefined;
   let errore: string | undefined;
+  /*
+   * L'elenco RESTITUITO dal driver, che non è l'elenco degli eventi.
+   *
+   * Gli eventi escono nell'ordine in cui le immersioni arrivano, che è l'ordine
+   * del computer — e su un trasferimento ripreso a metà quell'ordine si
+   * spezza: il driver Uwatec riparte dall'impronta dell'ultima ricevuta, quindi
+   * il primo evento del secondo giro è più recente di tutti quelli del primo.
+   * Prendere `records[0]` come segnalibro dava allora la seconda immersione più
+   * recente, e tutto quello che veniva dopo di lei sarebbe sparito per sempre
+   * al giro successivo.
+   *
+   * Il valore restituito è ordinato dal driver, dalla più recente alla più
+   * vecchia: è quello che decide il segnalibro. Gli eventi restano la rete di
+   * sicurezza per quando il driver muore a metà e non restituisce niente.
+   */
+  let ordinati: DownloadedRecord[] | undefined;
 
   try {
     const stato = await transport.available();
@@ -169,6 +212,30 @@ export async function downloadFromComputer(
 
     emit({ kind: 'connecting' });
     link = await transport.open(device.id, driver.profile, ctl.signal);
+
+    /*
+     * Riaprire il collegamento, quando il driver lo chiede.
+     *
+     * `link` è una variabile e non una costante proprio per questo: il
+     * riferimento vivo cambia, e il `finally` qui sotto deve chiudere l'ULTIMO,
+     * non il primo. Chiudere quello sbagliato lascerebbe una sessione aperta
+     * che tiene sveglio il computer finché non finisce la batteria.
+     *
+     * La pausa fra la chiusura e l'apertura non è scaramanzia: su CoreBluetooth
+     * la disconnessione è asincrona, e riaprire nello stesso istante trova il
+     * dispositivo ancora occupato dalla sessione precedente.
+     */
+    const riapri = async () => {
+      trace('riapro il collegamento: il computer non risponde più su questa sessione');
+      await link?.close().catch(() => undefined);
+      link = undefined;
+      await pausa(2000, ctl.signal);
+      if (ctl.signal.aborted) throw new Error('annullato');
+      link = await transport.open(device.id, driver.profile, ctl.signal);
+      trace(`riaperto: MTU ${link.mtu}`);
+      if (link.describe) trace(link.describe());
+      return link;
+    };
 
     /*
      * Il driver riceve gli eventi già emessi da lui, non i record.
@@ -181,7 +248,7 @@ export async function downloadFromComputer(
      */
     trace(`aperto: ${device.name || 'senza nome'} (${device.id}), MTU ${link.mtu}`);
     if (link.describe) trace(link.describe());
-    const restituiti = await driver.download(link, {
+    ordinati = await driver.download(link, {
       emit,
       signal: ctl.signal,
       since: (identity) => {
@@ -194,8 +261,9 @@ export async function downloadFromComputer(
         return s;
       },
       trace,
+      riapri,
     });
-    for (const r of restituiti) {
+    for (const r of ordinati) {
       if (!records.some((x) => x.key === r.key)) records.push(r);
     }
   } catch (err) {
@@ -236,18 +304,19 @@ export async function downloadFromComputer(
    * connessione; il costo di avanzare a sproposito è un'immersione che non
    * esiste più. Non è un pareggio.
    */
-  let tutteDecodificate = true;
+  let tutteDecodificate = saltate === 0;
   if (records.length) {
     try {
       const out = driver.decode(records);
       dives = out.dives;
       warnings.push(...out.warnings);
-      tutteDecodificate = out.dives.length === records.length;
+      tutteDecodificate = out.dives.length === records.length && saltate === 0;
       if (!tutteDecodificate) {
+        const perse = records.length - out.dives.length + saltate;
         warnings.push(
-          `${records.length - out.dives.length} immersioni su ${records.length} sono state scaricate ma non ` +
-            'si sono potute leggere. Il punto di ripartenza non viene spostato, così alla prossima ' +
-            'connessione il computer le ripropone: costa qualche minuto di lettura, ma non si perde niente.',
+          `${perse} ${perse === 1 ? 'immersione non si è potuta leggere' : 'immersioni non si sono potute leggere'}. ` +
+            'Il punto di ripartenza non viene spostato, così alla prossima connessione il computer le ' +
+            'ripropone: costa qualche minuto di lettura, ma non si perde niente.',
         );
       }
     } catch (err) {
@@ -259,18 +328,44 @@ export async function downloadFromComputer(
     }
   }
 
-  const saltate = tracciaTotale - testa.length - coda.length;
+  const annullato = ctl.signal.aborted;
+  const stato: DownloadOutcome['status'] = errore || annullato ? 'partial' : 'complete';
+  const saltate2 = tracciaTotale - testa.length - coda.length;
   return {
     dives,
     warnings,
-    newestKey: tutteDecodificate ? records[0]?.key : undefined,
+    /*
+     * IL SEGNALIBRO ESISTE SOLO SU UNO SCARICO COMPLETO.
+     *
+     * L'interfaccia già lo salva solo con `status === 'complete'`, ma il campo
+     * veniva popolato lo stesso su uno scarico interrotto: una trappola per il
+     * prossimo che leggerà questo risultato, e il tipo di trappola che si scopre
+     * quando qualcuno ha già perso delle immersioni. La condizione sta qui, una
+     * volta sola, accanto al valore.
+     */
+    newestKey:
+      stato === 'complete' && tutteDecodificate ? (ordinati?.[0]?.key ?? records[0]?.key) : undefined,
     records,
-    trace: saltate > 0 ? [...testa, `… ${saltate} righe non riportate …`, ...coda] : [...testa, ...coda],
+    trace: saltate2 > 0 ? [...testa, `… ${saltate2} righe non riportate …`, ...coda] : [...testa, ...coda],
     total,
     model,
     serial,
     firmware,
-    status: errore ? 'partial' : 'complete',
-    error: errore,
+    /*
+     * ANNULLARE NON È «COMPLETO», anche se nessuno ha sollevato un'eccezione.
+     *
+     * Un driver che vede il segnale di annullamento smette di leggere e
+     * restituisce quello che ha: nessun errore, quindi lo scarico risultava
+     * riuscito, quindi l'interfaccia salvava il segnalibro sull'immersione più
+     * recente del manifesto — che è la PRIMA letta. Tutte quelle che venivano
+     * dopo sparivano per sempre, e a schermo c'era scritto che era andato tutto
+     * bene.
+     *
+     * È il difetto più costoso che questo file possa avere, perché la perdita è
+     * silenziosa e definitiva. Il controllo sta qui e non nei driver apposta:
+     * un driver nuovo non deve doverselo ricordare.
+     */
+    status: stato,
+    error: errore ?? (annullato ? 'Scarico annullato: quello che era arrivato è stato salvato.' : undefined),
   };
 }

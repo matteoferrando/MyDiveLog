@@ -40,7 +40,7 @@ import { decodePnf, type PnfLog } from '../../parsers/shearwaterPnf';
 import { computeMetrics } from '../../analysis/metrics';
 import { diveIdFor } from '../../dedupe';
 import type { Cylinder, Dive, DiveMode, Salinity } from '../../model';
-import { nameStartsWith } from '../registry';
+import { nameStartsWith } from '../match';
 import type { BleLink, DiveComputerDriver, DownloadedRecord } from '../types';
 
 // --------------------------------------------------------------------- SLIP
@@ -270,6 +270,7 @@ async function transfer(
   input: Uint8Array,
   timeoutMs: number,
   trace?: (l: string) => void,
+  signal?: AbortSignal,
 ): Promise<Uint8Array> {
   const packet = Uint8Array.from([0xff, 0x01, input.length + 1, 0x00, ...input]);
   const frames = slipFrames(packet, Math.min(FRAME, link.mtu));
@@ -281,7 +282,9 @@ async function transfer(
   let risposta = decoder.next();
   let notifiche = 0;
   while (!risposta) {
-    const f = await link.readFrame(timeoutMs);
+    // Il segnale arriva fino allo stream: senza, «Annulla» non fa niente
+    // finché la scadenza non è passata.
+    const f = await link.readFrame(timeoutMs, signal);
     notifiche++;
     // Le prime notifiche per intero: se l'inquadramento è sbagliato si vede
     // qui e da nessun'altra parte. Poi basta il conteggio.
@@ -314,10 +317,11 @@ async function rdbi(
   id: number,
   timeoutMs: number,
   trace?: (l: string) => void,
+  signal?: AbortSignal,
 ): Promise<Uint8Array | undefined> {
   trace?.(`leggo 0x${id.toString(16)}`);
   const req = Uint8Array.from([RDBI_REQUEST, (id >> 8) & 0xff, id & 0xff]);
-  const res = await transfer(link, decoder, req, timeoutMs, trace);
+  const res = await transfer(link, decoder, req, timeoutMs, trace, signal);
   if (res.length === 3 && res[0] === NAK && res[1] === RDBI_REQUEST) {
     trace?.(`  il computer dice che 0x${id.toString(16)} non ce l'ha (codice 0x${res[2].toString(16)})`);
     return undefined;
@@ -348,6 +352,7 @@ async function downloadRange(
   compressed: boolean,
   timeoutMs: number,
   trace?: (l: string) => void,
+  signal?: AbortSignal,
 ): Promise<Uint8Array> {
   trace?.(
     `scarico 0x${address.toString(16)} (${size} byte max, ${compressed ? 'compresso' : 'non compresso'})`,
@@ -364,7 +369,7 @@ async function downloadRange(
     (size >>> 8) & 0xff,
     size & 0xff,
   ]);
-  const res = await transfer(link, decoder, init, timeoutMs, trace);
+  const res = await transfer(link, decoder, init, timeoutMs, trace, signal);
   if (res.length < 2 || res[0] !== UPLOAD_INIT_RESPONSE) {
     throw new ShearwaterProtocolError('Il computer non ha accettato la richiesta di trasferimento.');
   }
@@ -384,7 +389,7 @@ async function downloadRange(
   let giri = 0;
   while (nbytes < size && !done && giri++ < 8000) {
     const req = Uint8Array.from([UPLOAD_DATA_REQUEST, block & 0xff]);
-    const blk = await transfer(link, decoder, req, timeoutMs, block <= 2 ? trace : undefined);
+    const blk = await transfer(link, decoder, req, timeoutMs, block <= 2 ? trace : undefined, signal);
     if (blk.length < 2 || blk[0] !== UPLOAD_DATA_RESPONSE || blk[1] !== (block & 0xff)) {
       throw new ShearwaterProtocolError(
         `Blocco ${block} fuori sequenza: il computer ha risposto con ${blk[1]}.`,
@@ -402,7 +407,14 @@ async function downloadRange(
   }
 
   trace?.(`  ${block - 1} blocchi, ${nbytes} byte grezzi, ${raccolto.length} decompressi`);
-  const quit = await transfer(link, decoder, Uint8Array.from([UPLOAD_EXIT_REQUEST]), timeoutMs, trace);
+  const quit = await transfer(
+    link,
+    decoder,
+    Uint8Array.from([UPLOAD_EXIT_REQUEST]),
+    timeoutMs,
+    trace,
+    signal,
+  );
   if (quit.length !== 2 || quit[0] !== UPLOAD_EXIT_RESPONSE || quit[1] !== 0x00) {
     throw new ShearwaterProtocolError('Il computer non ha chiuso il trasferimento come previsto.');
   }
@@ -511,9 +523,9 @@ export const shearwaterDriver: DiveComputerDriver = {
     const residui = link.drain();
     if (residui.length) trace(`in coda all'apertura, buttati: ${esadecimale(residui.subarray(0, 20))}`);
 
-    const serial = await rdbi(link, decoder, ID_SERIAL, TIMEOUT_MS, trace);
-    const firmware = await rdbi(link, decoder, ID_FIRMWARE, TIMEOUT_MS, trace);
-    const model = await rdbi(link, decoder, ID_MODEL, TIMEOUT_MS, trace);
+    const serial = await rdbi(link, decoder, ID_SERIAL, TIMEOUT_MS, trace, signal);
+    const firmware = await rdbi(link, decoder, ID_FIRMWARE, TIMEOUT_MS, trace, signal);
+    const model = await rdbi(link, decoder, ID_MODEL, TIMEOUT_MS, trace, signal);
     const modelNumber = model?.[0];
 
     /*
@@ -556,7 +568,7 @@ export const shearwaterDriver: DiveComputerDriver = {
      */
     const segnalibro = since(identita);
 
-    const tipo = await rdbi(link, decoder, ID_LOGUPLOAD, TIMEOUT_MS, trace);
+    const tipo = await rdbi(link, decoder, ID_LOGUPLOAD, TIMEOUT_MS, trace, signal);
     if (!tipo) throw new ShearwaterProtocolError('Il computer non dichiara il tipo di logbook.');
     const base = logbookBase(tipo);
     trace(`base del logbook: 0x${base.toString(16)}`);
@@ -583,6 +595,7 @@ export const shearwaterDriver: DiveComputerDriver = {
         false,
         TIMEOUT_MS,
         pagine <= 1 ? trace : undefined,
+        signal,
       );
       const { entries, deleted, full } = parseManifest(page);
       trace(
@@ -616,6 +629,7 @@ export const shearwaterDriver: DiveComputerDriver = {
           // Solo la prima immersione nel diario per intero: le altre
           // ripeterebbero le stesse righe cento volte.
           i === 0 ? trace : undefined,
+          signal,
         );
         trace(`immersione ${key}: ${bytes.length} byte`);
         const record = { key, bytes };

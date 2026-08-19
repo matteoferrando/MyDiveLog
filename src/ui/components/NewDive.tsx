@@ -31,7 +31,10 @@ import {
   type ManualDiveInput,
 } from '../../core/manual';
 import { mixName, withFraction } from '../../core/units';
-import type { DiveMode, GasMix, Salinity } from '../../core/model';
+import type { DiveGear, DiveMode, GasMix, GearRef, Salinity, Waves, Weather } from '../../core/model';
+import { FASCE_VISIBILITA, WAVES_LABEL, WEATHER_LABEL } from '../../core/conditions';
+import { ScegliAttrezzo, vocePerNome } from './ScegliAttrezzo';
+import type { Equipment, EquipmentKind } from '../../core/analysis/gear';
 import { useDiveLog } from '../state';
 
 /** Il momento «adesso» arrotondato all'ora, nel formato di `datetime-local`. */
@@ -51,7 +54,15 @@ type Draft = {
   avgDepthM: string;
   minTempC: string;
   siteName: string;
+  title: string;
   buddy: string;
+  guide: string;
+  weather: '' | Weather;
+  waves: '' | Waves;
+  /** Indice nella scala delle fasce, o stringa vuota. */
+  visibilita: string;
+  backplateKg: string;
+  attrezzi: DiveGear;
   mode: DiveMode;
   salinity: Salinity;
   mix: GasMix;
@@ -74,7 +85,14 @@ const vuoto = (): Draft => ({
   avgDepthM: '',
   minTempC: '',
   siteName: '',
+  title: '',
   buddy: '',
+  guide: '',
+  weather: '',
+  waves: '',
+  visibilita: '',
+  backplateKg: '',
+  attrezzi: {},
   mode: 'oc',
   salinity: 'salt',
   mix: { o2: 0.21, he: 0 },
@@ -105,7 +123,14 @@ function toInput(d: Draft): ManualDiveInput {
     avgDepthM: num(d.avgDepthM),
     minTempC: num(d.minTempC),
     siteName: d.siteName,
+    title: d.title,
     buddy: d.buddy,
+    guide: d.guide,
+    conditions: {
+      weather: d.weather || undefined,
+      waves: d.waves || undefined,
+    },
+    gear: { ...d.attrezzi, backplateKg: num(d.backplateKg) },
     mode: d.mode,
     salinity: d.salinity,
     mix: d.mix,
@@ -114,14 +139,27 @@ function toInput(d: Draft): ManualDiveInput {
     endBar: num(d.endBar),
     weightKg: num(d.weightKg),
     suit: d.suit,
-    visibilityM: num(d.visibilityM),
+    visibilityM: d.visibilita === '' ? num(d.visibilityM) : FASCE_VISIBILITA[Number(d.visibilita)]?.min,
+    visibilityMaxM: d.visibilita === '' ? undefined : FASCE_VISIBILITA[Number(d.visibilita)]?.max,
     rating: num(d.rating),
     notes: d.notes,
   };
 }
 
 export function NewDive({ onDone }: { onDone: (id: string) => void }) {
-  const { createDive, dives } = useDiveLog();
+  const { createDive, dives, gear, saveGear } = useDiveLog();
+  /*
+   * L'inventario si aggiorna in locale mentre si compila: `saveGear` passa dallo
+   * storage, e aspettarlo farebbe sparire e ricomparire la voce appena aggiunta.
+   */
+  const [attrezziLocali, setAttrezziLocali] = useState<Equipment[]>(gear.equipment);
+  const aggiungiAllInventario = (kind: EquipmentKind, name: string): string => {
+    const voce = vocePerNome(kind, name);
+    const prossimo = [...attrezziLocali, voce];
+    setAttrezziLocali(prossimo);
+    void saveGear({ ...gear, equipment: prossimo });
+    return voce.id;
+  };
   const [aperto, setAperto] = useState(false);
   const [d, setD] = useState<Draft>(vuoto);
   const [salvando, setSalvando] = useState(false);
@@ -363,16 +401,82 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
       {/* --- il racconto ---------------------------------------------------- */}
       <div className="finding-section-label">Dove, con chi, com'è andata</div>
       <div className="grid grid-3" style={{ marginBottom: 6 }}>
+        <Campo etichetta="Titolo">
+          <input
+            type="text"
+            placeholder="notturna al relitto"
+            value={d.title}
+            onChange={(e) => set('title', e.target.value)}
+          />
+        </Campo>
         <Campo etichetta="Sito">
           <input type="text" value={d.siteName} onChange={(e) => set('siteName', e.target.value)} />
         </Campo>
         <Campo etichetta="Compagno">
           <input type="text" value={d.buddy} onChange={(e) => set('buddy', e.target.value)} />
         </Campo>
-        <Campo etichetta="Muta">
-          <input type="text" value={d.suit} onChange={(e) => set('suit', e.target.value)} />
+        <Campo etichetta="Guida sub">
+          <input type="text" value={d.guide} onChange={(e) => set('guide', e.target.value)} />
         </Campo>
       </div>
+
+      {/*
+       * L'ATTREZZATURA SI SCEGLIE DALL'INVENTARIO ANCHE QUI.
+       *
+       * È lo stesso campo della scheda di un'immersione già in archivio, non una
+       * copia: due copie divergono al primo ritocco, e la prima cosa che
+       * diverge è il riconoscimento senza maiuscole — senza il quale «apeks
+       * xtx50» e «Apeks XTX50» diventano due erogatori e il conto delle
+       * immersioni per attrezzo smette di tornare.
+       */}
+      <div className="grid grid-3" style={{ marginBottom: 6 }}>
+        <ScegliAttrezzo
+          kind="suit"
+          etichetta="Muta"
+          valore={d.attrezzi.suit ?? (d.suit ? { name: d.suit } : undefined)}
+          attrezzi={attrezziLocali}
+          onChange={(v) => {
+            set('attrezzi', { ...d.attrezzi, suit: v });
+            set('suit', v?.name ?? '');
+          }}
+          onAggiungiAllInventario={aggiungiAllInventario}
+        />
+        <ScegliAttrezzo
+          kind="bcd"
+          etichetta="GAV o sacco"
+          valore={d.attrezzi.bcd}
+          attrezzi={attrezziLocali}
+          onChange={(v) => set('attrezzi', { ...d.attrezzi, bcd: v })}
+          onAggiungiAllInventario={aggiungiAllInventario}
+        />
+        <ScegliAttrezzo
+          kind="regulator"
+          etichetta="Erogatore principale"
+          valore={d.attrezzi.regulators?.[0]}
+          attrezzi={attrezziLocali}
+          onChange={(v) =>
+            set('attrezzi', {
+              ...d.attrezzi,
+              regulators: [v, d.attrezzi.regulators?.[1]].filter((x): x is GearRef => !!x),
+            })
+          }
+          onAggiungiAllInventario={aggiungiAllInventario}
+        />
+        <ScegliAttrezzo
+          kind="regulator"
+          etichetta="Secondo erogatore"
+          valore={d.attrezzi.regulators?.[1]}
+          attrezzi={attrezziLocali}
+          onChange={(v) =>
+            set('attrezzi', {
+              ...d.attrezzi,
+              regulators: [d.attrezzi.regulators?.[0], v].filter((x): x is GearRef => !!x),
+            })
+          }
+          onAggiungiAllInventario={aggiungiAllInventario}
+        />
+      </div>
+
       <div className="grid grid-3" style={{ marginBottom: 6 }}>
         <Campo etichetta="Zavorra" unita="kg">
           <input
@@ -382,13 +486,43 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
             onChange={(e) => set('weightKg', e.target.value)}
           />
         </Campo>
-        <Campo etichetta="Visibilità" unita="m">
+        <Campo etichetta="Piastra o schienalino" unita="kg">
           <input
-            type="number"
-            min={0}
-            value={d.visibilityM}
-            onChange={(e) => set('visibilityM', e.target.value)}
+            type="text"
+            inputMode="decimal"
+            value={d.backplateKg}
+            onChange={(e) => set('backplateKg', e.target.value)}
           />
+        </Campo>
+        <Campo etichetta="Meteo">
+          <select value={d.weather} onChange={(e) => set('weather', e.target.value as '' | Weather)}>
+            <option value="">non registrato</option>
+            {Object.entries(WEATHER_LABEL).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </Campo>
+        <Campo etichetta="Mare">
+          <select value={d.waves} onChange={(e) => set('waves', e.target.value as '' | Waves)}>
+            <option value="">non registrato</option>
+            {Object.entries(WAVES_LABEL).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </Campo>
+        <Campo etichetta="Visibilità">
+          <select value={d.visibilita} onChange={(e) => set('visibilita', e.target.value)}>
+            <option value="">non registrata</option>
+            {FASCE_VISIBILITA.map((f, i) => (
+              <option key={f.etichetta} value={i}>
+                {f.etichetta}
+              </option>
+            ))}
+          </select>
         </Campo>
         <Campo etichetta="Voto" unita="1-5">
           <input

@@ -55,6 +55,8 @@
 import type { Cylinder, Dive, Sample } from '../model';
 import { formatDuration, mixName } from '../units';
 import { modeLabel } from '../analysis/aggregate';
+import { condizioniTesto, visibilitaTesto } from '../conditions';
+import { zavorraTotaleKg } from '../analysis/gear';
 
 // ---------------------------------------------------------------------------
 // Escape
@@ -429,11 +431,31 @@ function paginaImmersione(
     ['Consumo', consumo(dive)],
     ['Modalità', escapeHtml(modeLabel(dive))],
     ['Acqua', dive.salinity === 'fresh' ? 'Dolce' : 'Salata'],
-    ['Zavorra', dive.weightKg !== undefined ? num(dive.weightKg, 1, 'kg') : '—'],
-    ['Muta', opz(dive.suit)],
-    ['Visibilità', dive.visibilityM !== undefined ? num(dive.visibilityM, 0, 'm') : '—'],
+    /*
+     * LA ZAVORRA È IL TOTALE, piastra compresa.
+     *
+     * `zavorraTotaleKg` esiste apposta, e questa pagina la ignorava: con 2 kg di
+     * zavorra e una piastra d'acciaio da 3, il foglio da far firmare diceva 2.
+     * È esattamente il difetto che i due campi separati invitano a fare.
+     */
+    ['Zavorra', zavorraTotaleKg(dive) > 0 ? num(zavorraTotaleKg(dive), 1, 'kg') : '—'],
+    ['Muta', opz(dive.gear?.suit?.name ?? dive.suit)],
+    ['Erogatori', opz(dive.gear?.regulators?.map((r) => r.name).join(' · '))],
+    ['GAV', opz(dive.gear?.bcd?.name)],
+    /*
+     * VISIBILITÀ E CONDIZIONI DALLE FUNZIONI CONDIVISE, non dai campi grezzi.
+     *
+     * Questa pagina leggeva `dive.tags` per le condizioni e `visibilityM` da
+     * solo. Da quando la scheda salva nel campo nuovo e TOGLIE i tag
+     * corrispondenti, aprire un'immersione e premere Salva senza toccare niente
+     * svuotava la riga «Condizioni» del logbook cartaceo — quello con lo spazio
+     * per la firma. E una fascia «da 5 a 10 m» veniva stampata come «5 m», cioè
+     * una stima diventava una misura.
+     */
+    ['Visibilità', escapeHtml(visibilitaTesto(dive))],
     ['Voto', voto(dive.rating)],
-    ['Condizioni', dive.tags?.length ? escapeHtml(dive.tags.join(' · ')) : '—'],
+    ['Condizioni', escapeHtml(condizioniTesto(dive) || '—')],
+    ['Etichette', dive.tags?.length ? escapeHtml(dive.tags.join(' · ')) : '—'],
   ];
 
   const svg = diveProfileSvg(samples, {

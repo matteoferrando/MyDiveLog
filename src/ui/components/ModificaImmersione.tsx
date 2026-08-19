@@ -25,12 +25,8 @@
  */
 
 import { useState } from 'react';
-import {
-  TYPICAL_SERVICE,
-  type Equipment,
-  type EquipmentKind,
-  type GearArchive,
-} from '../../core/analysis/gear';
+import { type Equipment, type EquipmentKind, type GearArchive } from '../../core/analysis/gear';
+import { ScegliAttrezzo, vocePerNome } from './ScegliAttrezzo';
 import {
   FASCE_VISIBILITA,
   WAVES_LABEL,
@@ -42,8 +38,6 @@ import { parseCylinderSpec } from '../../core/cylinders';
 import type { Cylinder, Dive, DiveGear, GearRef, Waves, Weather } from '../../core/model';
 import { BottoneConferma } from './Conferma';
 
-const nuovoId = () => `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-
 /** Un numero da un campo di testo, dove vuoto è «non lo so» e non zero. */
 const numero = (v: string): number | undefined => {
   const t = v.trim().replace(',', '.');
@@ -53,82 +47,6 @@ const numero = (v: string): number | undefined => {
 };
 
 // ---------------------------------------------------------------------------
-
-/**
- * Il selettore di un pezzo di attrezzatura: scegli dall'elenco, o scrivi.
- *
- * Un campo di testo con l'elenco attaccato, e non una tendina, per una ragione
- * pratica: la tendina obbliga a mettere in inventario un attrezzo PRIMA di
- * poterlo usare, cioè a interrompere la compilazione della scheda, andare in
- * un'altra pagina, tornare. Qui si scrive il nome e basta; se è nuovo, compare
- * un pulsante che lo mette in inventario senza spostarsi da qui, e se non lo si
- * preme il nome resta comunque sull'immersione.
- *
- * Il riconoscimento è senza maiuscole e senza spazi ai bordi, così «apeks
- * xtx50» ritrova «Apeks XTX50» invece di crearne un secondo.
- */
-function ScegliAttrezzo({
-  kind,
-  etichetta,
-  valore,
-  attrezzi,
-  onChange,
-  onAggiungiAllInventario,
-}: {
-  kind: EquipmentKind;
-  etichetta: string;
-  valore: GearRef | undefined;
-  attrezzi: Equipment[];
-  onChange: (v: GearRef | undefined) => void;
-  onAggiungiAllInventario: (kind: EquipmentKind, name: string) => string;
-}) {
-  const disponibili = attrezzi.filter((a) => a.kind === kind && !a.retired);
-  const listId = `attrezzi-${kind}-${etichetta.replace(/\W+/g, '')}`;
-  const testo = valore?.name ?? '';
-  const combacia = disponibili.find((a) => a.name.trim().toLowerCase() === testo.trim().toLowerCase());
-  const nuovo = testo.trim().length > 0 && !combacia;
-
-  return (
-    <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-      <span className="muted">{etichetta}</span>
-      <input
-        type="text"
-        list={listId}
-        placeholder={disponibili.length ? 'scegli o scrivi' : 'scrivi il nome'}
-        value={testo}
-        onChange={(e) => {
-          const name = e.target.value;
-          if (!name.trim()) return onChange(undefined);
-          const trovato = disponibili.find((a) => a.name.trim().toLowerCase() === name.trim().toLowerCase());
-          onChange({ id: trovato?.id, name });
-        }}
-      />
-      <datalist id={listId}>
-        {disponibili.map((a) => (
-          <option key={a.id} value={a.name} />
-        ))}
-      </datalist>
-      {nuovo && (
-        <button
-          type="button"
-          className="btn btn-small"
-          style={{ alignSelf: 'flex-start' }}
-          onClick={() => {
-            const id = onAggiungiAllInventario(kind, testo.trim());
-            onChange({ id, name: testo.trim() });
-          }}
-        >
-          ＋ metti «{testo.trim()}» in attrezzatura
-        </button>
-      )}
-      {combacia && (
-        <span className="muted" style={{ fontSize: 11 }}>
-          in inventario{combacia.serial ? ` · matricola ${combacia.serial}` : ''}
-        </span>
-      )}
-    </label>
-  );
-}
 
 // ---------------------------------------------------------------------------
 
@@ -305,7 +223,7 @@ export function ModificaImmersione({
   const condizioni = conditionsOf(draft);
 
   const aggiungiAllInventario = (kind: EquipmentKind, name: string): string => {
-    const voce: Equipment = { id: nuovoId(), kind, name, service: TYPICAL_SERVICE[kind] };
+    const voce: Equipment = vocePerNome(kind, name);
     const prossimo = [...attrezzi, voce];
     setAttrezzi(prossimo);
     void onSalvaAttrezzatura({ ...gear, equipment: prossimo });

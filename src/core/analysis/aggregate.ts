@@ -321,21 +321,28 @@ export function aggregate(dives: Dive[], now: number = Date.now()): Aggregates {
     lowReserveEligible: reserveEligible.length,
     oxygen: oxygenLoad(sorted),
     finalAscent: series(sorted, (d) => d.metrics?.finalAscentRateMpm),
-    // 60 m/min è la media che DAN misura sul tratto dopo la sosta di sicurezza
-    // (TDI Advanced Nitrox p. 38): non è un limite, è il comportamento reale
-    // contro cui confrontarsi.
+    /*
+     * Quante immersioni risalgono più in fretta della MEDIA misurata da DAN.
+     *
+     * Sessanta metri al minuto, verificati sul manuale: «the average ascent rate
+     * for divers after they have completed their safety stop is 60 metres or 200
+     * feet a minute». Non è un limite raccomandato — è quello che i subacquei
+     * fanno davvero negli ultimi metri, citato in un paragrafo che spiega quanto
+     * l'ultimo tratto sia il punto in cui si può fare meglio.
+     *
+     * Su un archivio normale questo contatore vale zero, ed è giusto così:
+     * superarlo significa risalire più veloce della media di una popolazione che
+     * già risale troppo veloce. È un termine di paragone, non un criterio.
+     */
     fastFinalAscents: sorted.filter((d) => (d.metrics?.finalAscentRateMpm ?? 0) > LIMITS.danFinalAscentMpm)
       .length,
     /*
      * Lo stesso tratto, contro il limite DELL'APP.
      *
-     * `fastFinalAscents` usa i 60 m/min attribuiti a DAN, e su un archivio vero
-     * vale zero: una soglia che non scatta mai non misura niente (vedi il
-     * commento su `danFinalAscentMpm`, che sospetta uno scambio fra metri e
-     * piedi). Questo contatore usa invece il limite che l'app applica sopra i
-     * dieci metri, che è la soglia con cui giudica tutto il resto — così il
-     * tratto finale ha una misura utilizzabile mentre la citazione resta da
-     * verificare.
+     * È questo il contatore che misura qualcosa: usa il limite che l'app applica
+     * sopra i dieci metri, cioè la soglia con cui giudica tutto il resto. Quello
+     * qui sopra risponde a una domanda diversa — «rispetto agli altri» invece di
+     * «rispetto a come si dovrebbe» — e le due vanno tenute distinte.
      */
     finalAscentsOverAppLimit: sorted.filter(
       (d) => (d.metrics?.finalAscentRateMpm ?? 0) > LIMITS.ascentRateShallowMpm,

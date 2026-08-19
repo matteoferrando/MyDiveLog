@@ -31,6 +31,7 @@ import {
   serviceFacts,
   sortCertifications,
   sortEquipment,
+  equipmentUsage,
   weightingBySuit,
   type CertLevel,
   type Certification,
@@ -69,6 +70,7 @@ export function Gear() {
   };
 
   const attrezzi = useMemo(() => sortEquipment(gear.equipment), [gear.equipment]);
+  const uso = useMemo(() => equipmentUsage(dives, gear.equipment), [dives, gear.equipment]);
   const visibili = mostraRitirati ? attrezzi : attrezzi.filter((a) => !a.retired);
   const ritirati = attrezzi.filter((a) => a.retired).length;
   const brevetti = useMemo(() => sortCertifications(gear.certifications), [gear.certifications]);
@@ -153,6 +155,7 @@ export function Gear() {
                 <tr>
                   <th>Pezzo</th>
                   <th>Matricola</th>
+                  <th className="num">Immersioni</th>
                   <th>Manutenzione</th>
                   <th>Ultima</th>
                   <th>Prossima</th>
@@ -176,6 +179,35 @@ export function Gear() {
                       </td>
                       <td className="muted" style={{ fontSize: 12 }}>
                         {a.serial || '—'}
+                      </td>
+                      {/*
+                       * È LA COLONNA PER CUI L'INVENTARIO ESISTE.
+                       *
+                       * Le date di revisione si tengono anche su un foglio. Quello
+                       * che il foglio non sa dire è quante immersioni ha fatto
+                       * questo pezzo da quando l'hai fatto revisionare — e l'usura
+                       * conta le immersioni, mentre la norma conta i mesi. Un
+                       * erogatore fermo un anno in cantina e uno che in un anno ha
+                       * fatto tre viaggi hanno la stessa data e due condizioni
+                       * diverse.
+                       *
+                       * Il numero c'è solo per gli attrezzi che hai collegato alle
+                       * immersioni dalla scheda: senza quel collegamento non è zero,
+                       * è ignoto, e scrivere «0» direbbe una cosa falsa.
+                       */}
+                      <td className="num tabular" style={{ fontSize: 12 }}>
+                        {(uso.get(a.id)?.dives ?? 0) === 0 ? (
+                          <span className="muted">—</span>
+                        ) : (
+                          <>
+                            {uso.get(a.id)?.dives}
+                            {uso.get(a.id)?.divesSinceService !== undefined && (
+                              <div className="muted" style={{ fontSize: 11 }}>
+                                {uso.get(a.id)?.divesSinceService} dall’ultima
+                              </div>
+                            )}
+                          </>
+                        )}
                       </td>
                       <td className="muted" style={{ fontSize: 12 }}>
                         {SERVICE_LABEL[a.service]}

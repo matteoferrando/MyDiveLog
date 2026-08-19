@@ -231,6 +231,10 @@ export function exportUddf(dives: Dive[], options: UddfExportOptions = {}): Uddf
   perde('weightKg', 'la zavorra');
   perde('suit', 'la muta');
   perde('visibilityM', 'la visibilità');
+  perde('title', 'il titolo dell’immersione');
+  perde('guide', 'la guida sub');
+  perde('conditions', 'meteo e stato del mare');
+  perde('gear', 'l’attrezzatura usata: erogatori, GAV, e il peso della piastra');
   perde('utcOffsetMinutes', 'il fuso orario del sito (gli orari restano in UTC)');
   perde('surfacePressureBar', 'la pressione di superficie, che serve al calcolo della saturazione');
   perde('annotations', 'le annotazioni del logbook di origine');

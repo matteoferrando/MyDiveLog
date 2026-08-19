@@ -2,7 +2,14 @@ import { useMemo, useState } from 'react';
 import { formatDuration, mixName } from '../../core/units';
 import { mixLabel, modeLabel } from '../../core/analysis/aggregate';
 import { nextDiveBriefing, type NextDiveNote } from '../../core/analysis/nextDive';
-import type { Dive } from '../../core/model';
+import type { Dive, DiveConditions, Waves, Weather } from '../../core/model';
+import {
+  conditionsOf,
+  FASCE_VISIBILITA,
+  tagsSenzaCondizioni,
+  WAVES_LABEL,
+  WEATHER_LABEL,
+} from '../../core/conditions';
 import { NewDive } from '../components/NewDive';
 import { useDiveLog } from '../state';
 import { dateShort, FORMAT_LABEL, imm, timeShort } from '../format';
@@ -411,6 +418,18 @@ function BulkEdit({
   const { dives, saveDive, removeDives } = useDiveLog();
   const [sito, setSito] = useState('');
   const [compagno, setCompagno] = useState('');
+  const [guida, setGuida] = useState('');
+  /*
+   * Meteo, mare e visibilità sono i campi PIÙ adatti alla modifica in blocco.
+   *
+   * Non è un caso: sono le uniche cose che valgono davvero uguali per otto
+   * immersioni di fila — un viaggio, una settimana, la stessa guida e lo stesso
+   * mare. Compilarle una per una nella scheda è il lavoro che nessuno fa, ed è
+   * il motivo per cui poi le tabelle delle condizioni restano vuote.
+   */
+  const [meteo, setMeteo] = useState<'' | '-' | Weather>('');
+  const [mare, setMare] = useState<'' | '-' | Waves>('');
+  const [visibilita, setVisibilita] = useState<string>('');
   const [muta, setMuta] = useState('');
   const [zavorra, setZavorra] = useState('');
   const [salinita, setSalinita] = useState<'' | 'salt' | 'fresh'>('');
@@ -426,7 +445,11 @@ function BulkEdit({
     v.trim() === '' ? null : v.trim() === VUOTA ? undefined : v.trim();
 
   const qualcosaDaFare =
-    [sito, compagno, muta, zavorra, etichetta].some((v) => v.trim() !== '') || salinita !== '';
+    [sito, compagno, guida, muta, zavorra, etichetta].some((v) => v.trim() !== '') ||
+    salinita !== '' ||
+    meteo !== '' ||
+    mare !== '' ||
+    visibilita !== '';
   /*
    * La zavorra deve essere un numero, o niente.
    *
@@ -450,8 +473,57 @@ function BulkEdit({
           if (s !== null) next.site = s === undefined ? undefined : { ...(d.site ?? {}), name: s };
           const c = valore(compagno);
           if (c !== null) next.buddy = c;
+          const gu = valore(guida);
+          if (gu !== null) next.guide = gu;
+          /*
+           * Le condizioni si scrivono nel campo NUOVO, e i tag vecchi che
+           * dicevano la stessa cosa si tolgono.
+           *
+           * Se restassero, la stessa immersione direbbe due cose — «sereno» nel
+           * campo e «pioggia» fra le etichette — e nessuno saprebbe quale delle
+           * due l'app usa per contare. Vale solo quando si tocca qualcosa delle
+           * condizioni: le altre immersioni non vanno riscritte per niente.
+           */
+          if (meteo !== '' || mare !== '') {
+            const attuali = conditionsOf(d);
+            const prossime: DiveConditions = {
+              weather: meteo === '' ? attuali.weather : meteo === '-' ? undefined : meteo,
+              waves: mare === '' ? attuali.waves : mare === '-' ? undefined : mare,
+            };
+            next.conditions = prossime.weather || prossime.waves ? prossime : {};
+            next.tags = tagsSenzaCondizioni(next.tags);
+          }
+          if (visibilita !== '') {
+            if (visibilita === '-') {
+              next.visibilityM = undefined;
+              next.visibilityMaxM = undefined;
+            } else {
+              const f = FASCE_VISIBILITA[Number(visibilita)];
+              if (f) {
+                next.visibilityM = f.min;
+                next.visibilityMaxM = f.max;
+              }
+            }
+          }
           const m = valore(muta);
-          if (m !== null) next.suit = m;
+          if (m !== null) {
+            next.suit = m;
+            /*
+             * La muta sta in DUE posti e vanno tenuti allineati.
+             *
+             * `suit` è la stringa che leggono le statistiche della zavorra e gli
+             * export; `gear.suit` è il riferimento all'inventario. La scheda di
+             * una immersione li scrive tutti e due, questa carta ne scriveva
+             * uno: «svuota» lasciava la muta agganciata all'inventario — quindi
+             * la tabella della zavorra continuava a raggrupparla come prima — e
+             * cambiarla faceva mostrare alla scheda un nome e alle statistiche
+             * un altro.
+             */
+            next.gear =
+              m === undefined
+                ? next.gear && { ...next.gear, suit: undefined }
+                : { ...(next.gear ?? {}), suit: { name: m } };
+          }
           const z = valore(zavorra);
           if (z !== null) {
             const n = z === undefined ? undefined : Number(z.replace(',', '.'));
@@ -538,6 +610,10 @@ function BulkEdit({
           <input type="text" value={compagno} onChange={(e) => setCompagno(e.target.value)} />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+          <span className="muted">Guida sub</span>
+          <input type="text" value={guida} onChange={(e) => setGuida(e.target.value)} />
+        </label>
+        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">Acqua</span>
           <select value={salinita} onChange={(e) => setSalinita(e.target.value as '' | 'salt' | 'fresh')}>
             <option value="">non toccare</option>
@@ -550,6 +626,42 @@ function BulkEdit({
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">Muta</span>
           <input type="text" value={muta} onChange={(e) => setMuta(e.target.value)} />
+        </label>
+        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+          <span className="muted">Meteo</span>
+          <select value={meteo} onChange={(e) => setMeteo(e.target.value as '' | '-' | Weather)}>
+            <option value="">non toccare</option>
+            <option value="-">svuota</option>
+            {Object.entries(WEATHER_LABEL).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+          <span className="muted">Mare</span>
+          <select value={mare} onChange={(e) => setMare(e.target.value as '' | '-' | Waves)}>
+            <option value="">non toccare</option>
+            <option value="-">svuota</option>
+            {Object.entries(WAVES_LABEL).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+          <span className="muted">Visibilità</span>
+          <select value={visibilita} onChange={(e) => setVisibilita(e.target.value)}>
+            <option value="">non toccare</option>
+            <option value="-">svuota</option>
+            {FASCE_VISIBILITA.map((f, i) => (
+              <option key={f.etichetta} value={i}>
+                {f.etichetta}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">Zavorra (kg)</span>

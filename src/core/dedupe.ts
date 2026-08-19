@@ -491,6 +491,9 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
       'site',
       'rating',
       'visibilityM',
+      'visibilityMaxM',
+      'title',
+      'guide',
       'salinity',
       'surfacePressureBar',
       'surfaceIntervalS',
@@ -500,6 +503,40 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
       'utcOffsetMinutes',
     ] as const
   ).forEach(takeIfEmpty);
+
+  /*
+   * `conditions` e `gear` si fondono CAMPO PER CAMPO, non tutto o niente.
+   *
+   * PERCHÉ NON BASTAVA L'ELENCO QUI SOPRA. `takeIfEmpty` prende il blocco intero
+   * quando quello esistente è indefinito: un'immersione che ha già il meteo ma
+   * non il mare non prenderebbe il mare dall'altra. Sono due campi che arrivano
+   * da strade diverse — il meteo da LogTRAK, il mare scritto a mano dopo — ed è
+   * il caso normale, non l'eccezione.
+   *
+   * E IL COSTO DI SBAGLIARE QUI È ALTO. Il modulo «Aggiungi a mano» costruisce
+   * l'identificativo dell'immersione con orario, profondità e durata proprio per
+   * riconoscere quella già scaricata dal computer, e quando la riconosce
+   * FONDE. Finché questi campi non erano in elenco, ogni titolo, guida,
+   * condizione e attrezzatura appena digitati venivano buttati via mentre
+   * l'interfaccia annunciava «arricchita».
+   */
+  const condizioniFuse = { ...(incoming.conditions ?? {}), ...(out.conditions ?? {}) };
+  for (const k of ['weather', 'waves'] as const) {
+    if (condizioniFuse[k] === undefined) delete condizioniFuse[k];
+  }
+  if (Object.keys(condizioniFuse).length > Object.keys(out.conditions ?? {}).length) {
+    out.conditions = condizioniFuse;
+    changed = true;
+  }
+
+  const attrezziFusi = { ...(incoming.gear ?? {}), ...(out.gear ?? {}) };
+  for (const k of Object.keys(attrezziFusi) as (keyof typeof attrezziFusi)[]) {
+    if (attrezziFusi[k] === undefined) delete attrezziFusi[k];
+  }
+  if (Object.keys(attrezziFusi).length > Object.keys(out.gear ?? {}).length) {
+    out.gear = attrezziFusi;
+    changed = true;
+  }
 
   // `reported` e `annotations` si fondono per chiave: due computer possono
   // contribuire pezzi diversi della stessa immersione, e prendere il primo blocco

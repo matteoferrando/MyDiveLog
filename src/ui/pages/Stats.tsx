@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { formatDuration, formatHours } from '../../core/units';
 import {
   BarChart,
@@ -24,6 +24,7 @@ import {
   type Trend,
 } from '../../core/analysis/aggregate';
 import { LIMITS, type Dive } from '../../core/model';
+import { perMeteo, perStatoDelMare, perVisibilita, quanteConCondizioni } from '../../core/conditions';
 
 type Series = 'rmv' | 'trim' | 'ascent' | 'gf99';
 
@@ -316,9 +317,12 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               }
               note={
                 a.finalAscent.length
-                  ? // Contro il limite dell'app, non contro i 60 m/min attribuiti a DAN:
-                    // quella soglia non scatta mai (vedi `danFinalAscentMpm`) e una
-                    // nota che dice sempre «0» si smette di leggere.
+                  ? // Contro il limite dell'app, non contro i 60 m/min che DAN
+                    // MISURA come media dei subacquei: quella soglia non scatta
+                    // quasi mai — ed è giusto così, perché superarla vuol dire
+                    // andare più veloce di una popolazione che già va troppo
+                    // veloce — ma una nota che dice sempre «0» si smette di
+                    // leggere. Vedi `danFinalAscentMpm`.
                     `mediana dalla sosta alla superficie · ${a.finalAscentsOverAppLimit} oltre i ${LIMITS.ascentRateShallowMpm} m/min`
                   : 'serve un profilo campionato'
               }
@@ -549,6 +553,7 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
       </div>
 
       <Correlations dives={scoped} onOpen={onOpen} />
+      <Condizioni dives={scoped} />
       <Distributions dives={scoped} />
       <SettingsHistory dives={scoped} />
       <Seasonality dives={scoped} />
@@ -777,6 +782,139 @@ function Distributions({ dives }: { dives: Dive[] }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Come cambiano le cose col mare, col tempo e con la visibilità.
+ *
+ * PERCHÉ TABELLE E NON CORRELAZIONI. «Mare mosso» non è un numero: per metterlo
+ * in una correlazione bisognerebbe ordinarlo da 1 a 4, cioè affermare che il
+ * passo da calmo a mosso vale quanto quello da mosso ad agitato. Non lo sappiamo,
+ * e quel coefficiente verrebbe poi letto come se lo sapessimo. Mediane per
+ * gruppo, ognuna col proprio denominatore: si controlla a occhio, che su un
+ * archivio personale conta più dell'eleganza.
+ *
+ * PERCHÉ NON DICE MAI PERCHÉ. Col mare agitato si esce dai posti riparati, quindi
+ * si va in siti diversi, spesso più profondi e più freddi. Se il consumo sale,
+ * sale insieme a tre cose insieme. La tabella dice cosa è successo; il perché lo
+ * sa chi c'era — ed è il motivo per cui accanto al consumo ci sono anche la
+ * profondità e la temperatura mediane di quel gruppo, che sono le prime due
+ * spiegazioni alternative da guardare.
+ */
+function Condizioni({ dives }: { dives: Dive[] }) {
+  const mare = useMemo(() => perStatoDelMare(dives), [dives]);
+  const visibilita = useMemo(() => perVisibilita(dives), [dives]);
+  const meteo = useMemo(() => perMeteo(dives), [dives]);
+  const quante = useMemo(() => quanteConCondizioni(dives), [dives]);
+
+  const tabelle = [
+    { titolo: 'Stato del mare', righe: mare, con: quante.mare },
+    { titolo: 'Visibilità', righe: visibilita, con: quante.visibilita },
+    { titolo: 'Meteo', righe: meteo, con: quante.meteo },
+  ].filter((t) => t.righe.length >= 2);
+
+  /*
+   * Con un solo gruppo non c'è niente da confrontare, e una tabella con una riga
+   * sola invita a leggere quel numero come «il tuo consumo col mare calmo»
+   * quando è semplicemente il tuo consumo. Sotto le due righe la tabella non
+   * compare.
+   */
+  if (!tabelle.length) {
+    const totale = quante.mare + quante.meteo + quante.visibilita;
+    if (totale === 0) return null;
+    return (
+      <div className="card">
+        <h2>Condizioni</h2>
+        <p className="card-sub" style={{ marginBottom: 0 }}>
+          Le condizioni sono registrate su poche immersioni, e con un gruppo solo non c'è niente da
+          confrontare. Compilando mare, visibilità e meteo nella scheda di un'immersione — sono tre tendine —
+          queste tabelle si riempiono da sole.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card">
+      <h2>Quanto contano le condizioni</h2>
+      <p className="card-sub">
+        Le tue mediane, divise per come stava il mare, per quanto ci vedevi e per che tempo faceva. Accanto al
+        consumo trovi profondità e temperatura mediane dello stesso gruppo: se il consumo sale insieme alla
+        profondità, non sono state le onde. Solo i gruppi con almeno tre immersioni.
+      </p>
+      {tabelle.map((t) => (
+        <div key={t.titolo} style={{ marginBottom: 18 }}>
+          <div className="finding-section-label">
+            {t.titolo} — {t.righe.reduce((n, r) => n + r.dives, 0)} immersioni in tabella su {t.con} con il
+            dato, {dives.length} nel periodo
+          </div>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t.titolo}</th>
+                  <th className="num">Immersioni</th>
+                  <th className="num">Consumo</th>
+                  <th className="num">Assetto</th>
+                  <th className="num">Prof. mediana</th>
+                  <th className="num">Durata</th>
+                  <th className="num">T minima</th>
+                </tr>
+              </thead>
+              <tbody>
+                {t.righe.map((r) => (
+                  <tr key={r.chiave}>
+                    <td>{r.etichetta}</td>
+                    <td className="num tabular">{r.dives}</td>
+                    {/*
+                     * Il denominatore accanto a ogni mediana, non solo in cima.
+                     * «17.2 L/min» su tre immersioni delle dodici del gruppo è
+                     * un'altra affermazione rispetto a «17.2 su dodici», e senza
+                     * il numero piccolo le due si leggono uguali.
+                     */}
+                    <td className="num tabular">
+                      {r.medianRmvLpm !== undefined ? (
+                        <>
+                          {r.medianRmvLpm} <small className="muted">L/min · su {r.rmvBasis}</small>
+                        </>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                    <td className="num tabular">
+                      {r.medianTrimMpm !== undefined ? (
+                        <>
+                          {r.medianTrimMpm} <small className="muted">m/min · su {r.trimBasis}</small>
+                        </>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                    <td className="num tabular">{r.medianMaxDepth} m</td>
+                    <td className="num tabular">{r.medianDurationMin} min</td>
+                    <td className="num tabular">
+                      {r.medianTempC !== undefined ? (
+                        <>
+                          {r.medianTempC} <small className="muted">°C · su {r.tempBasis}</small>
+                        </>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+      <p className="muted" style={{ fontSize: 11, margin: 0 }}>
+        Nessuna di queste righe dice una causa. Le condizioni non arrivano da sole: col mare agitato si esce
+        dai posti riparati, e quindi cambiano anche il sito, la profondità e la temperatura. Quello che la
+        tabella può dire è che una differenza c'è — e dove guardare per capire da dove viene.
+      </p>
     </div>
   );
 }

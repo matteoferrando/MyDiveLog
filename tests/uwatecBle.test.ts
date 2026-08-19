@@ -27,9 +27,9 @@
 
 import { describe, expect, it } from 'vitest';
 import { downloadFromComputer } from '../src/core/ble/download';
-import { FakeTransport, fakeDevice, type FakeResponder } from '../src/core/ble/fake';
+import { FakeBleLink, FakeTransport, fakeDevice, type FakeResponder } from '../src/core/ble/fake';
 import { exactName } from '../src/core/ble/registry';
-import type { DownloadEvent } from '../src/core/ble/types';
+import type { BleTransport, DownloadEvent } from '../src/core/ble/types';
 import {
   chiaveUwatec,
   identitaDaChiave,
@@ -92,6 +92,14 @@ interface Quirk {
   totaleFasullo?: number;
   /** Manda solo i primi N byte del blocco e poi tace: la disconnessione a metà. */
   troncaDopo?: number;
+  /**
+   * Dopo aver troncato una volta, non risponde PIÙ A NIENTE su questa sessione.
+   *
+   * È il comportamento vero dell'Aladin: non si disconnette, si impianta. Il
+   * collegamento resta formalmente aperto e nessun comando lo risveglia — solo
+   * una sessione GATT nuova lo rimette in moto.
+   */
+  mutoDopoIlTaglio?: boolean;
   /** L'orologio del computer, in millisecondi. Per difetto quello di sistema. */
   orologioMs?: number;
 }
@@ -116,7 +124,9 @@ function fintoAladin(memoria: Uint8Array[], traccia: Traccia, quirk: Quirk = {})
     return out;
   };
 
+  let impiantato = false;
   return (comando) => {
+    if (impiantato) return undefined;
     // Il pacchetto è `[lunghezza+1, comando, ...dati]`, e la lunghezza conta il
     // comando: un firmware vero scarta quello che non torna.
     const dichiarata = comando[0];
@@ -150,6 +160,7 @@ function fintoAladin(memoria: Uint8Array[], traccia: Traccia, quirk: Quirk = {})
         const blocco = filtra(impronta);
         const testa = le32(quirk.totaleFasullo ?? blocco.length + 4);
         const corpo = quirk.troncaDopo === undefined ? blocco : blocco.subarray(0, quirk.troncaDopo);
+        if (quirk.mutoDopoIlTaglio && corpo.length < blocco.length) impiantato = true;
         if (quirk.incollata) {
           // Il caso cattivo: dichiarazione e dati nella stessa notifica.
           const tutto = new Uint8Array(testa.length + corpo.length);
@@ -187,13 +198,15 @@ const MEDIA = immersione('2026-06-14T10:30:00Z');
 const NUOVA = immersione('2026-07-11T08:00:00Z');
 
 /**
- * La memoria è DISORDINATA di proposito.
+ * La memoria in ordine cronologico, come la manda il computer vero.
  *
- * Su un computer con memoria circolare che ha già girato, l'ordine degli
- * indirizzi non è quello cronologico. Un driver che si fida della posizione
- * sceglie il segnalibro sbagliato, e quello che sta dopo non torna più.
+ * Verificato sul blocco arrivato dall'Aladin: 129 kB di record dal 2021 al
+ * 2026, in ordine crescente di data. Conta perché la ripresa di un
+ * trasferimento interrotto usa l'impronta dell'immersione più recente ricevuta,
+ * e il computer risponde «tutto quello che è venuto DOPO»: con un blocco
+ * cronologico quello è esattamente il resto.
  */
-const MEMORIA = [MEDIA, NUOVA, VECCHIA];
+const MEMORIA = [VECCHIA, MEDIA, NUOVA];
 
 const dispositivo = fakeDevice({ id: 'aladin-1', name: 'Aladin' });
 
@@ -261,21 +274,53 @@ describe('riconoscimento per nome esatto', () => {
     expect(riconosce(fakeDevice({ name: '' }))).toBe(false);
   });
 
-  it('il driver riconosce l’Aladin come si annuncia davvero', () => {
+  it('il driver riconosce l’Aladin come si annuncia DAVVERO, non come sta in libdivecomputer', () => {
+    /*
+     * Il caso che ha fallito col computer in mano: la lista di libdivecomputer
+     * dice «Aladin» e il confronto è per intero, ma l'Aladin Sport Matrix si
+     * annuncia «Aladin Sport». La schermata diceva «non riconosciuto come
+     * computer subacqueo» davanti a un computer subacqueo.
+     */
+    expect(uwatecDriver.matches(fakeDevice({ name: 'Aladin Sport' }))).toBe(true);
     expect(uwatecDriver.matches(fakeDevice({ name: 'Aladin' }))).toBe(true);
+    expect(uwatecDriver.matches(fakeDevice({ name: 'Aladin H Matrix' }))).toBe(true);
+    expect(uwatecDriver.matches(fakeDevice({ name: 'Galileo 3' }))).toBe(true);
+    expect(uwatecDriver.matches(fakeDevice({ name: 'Luna 2.0 AI' }))).toBe(true);
+    // I nomi corti restano esatti: un falso riconoscimento significa mandare
+    // comandi Uwatec al dispositivo di qualcun altro.
+    expect(uwatecDriver.matches(fakeDevice({ name: 'A1' }))).toBe(true);
+    expect(uwatecDriver.matches(fakeDevice({ name: 'A1 Pro' }))).toBe(false);
+    expect(uwatecDriver.matches(fakeDevice({ name: 'G2 Buds' }))).toBe(false);
     expect(uwatecDriver.matches(fakeDevice({ name: 'Peregrine' }))).toBe(false);
+    // E il servizio annunciato vale da solo, qualunque sia il nome.
+    expect(
+      uwatecDriver.matches(
+        fakeDevice({ name: 'coso', serviceUuids: ['fdcdeaaa-295d-470e-bf15-04217b7aa0a0'] }),
+      ),
+    ).toBe(true);
   });
 });
 
 describe('taglio del blocco', () => {
   it('restituisce le immersioni dalla più recente, qualunque sia l’ordine in memoria', () => {
-    const blocco = new Uint8Array(MEMORIA.reduce((n, r) => n + r.length, 0));
+    /*
+     * Qui il blocco è DISORDINATO di proposito. Il computer vero manda in
+     * ordine cronologico, ma la memoria di questi apparecchi è circolare e
+     * `tagliaRecord` è una funzione pura che non ha modo di saperlo: ordina per
+     * l'orario che ogni record porta con sé, e questo test è la prova che non
+     * si fida della posizione.
+     */
+    const sparsa = [MEDIA, NUOVA, VECCHIA];
+    const blocco = new Uint8Array(sparsa.reduce((n, r) => n + r.length, 0));
     let at = 0;
-    for (const r of MEMORIA) {
+    for (const r of sparsa) {
       blocco.set(r, at);
       at += r.length;
     }
-    const record = tagliaRecord(blocco, IDENT);
+    const { record, cronologico } = tagliaRecord(blocco, IDENT);
+    // Il blocco disordinato viene RICONOSCIUTO come tale: è la bandiera che
+    // impedisce alla ripresa di scavalcare quello che non è ancora arrivato.
+    expect(cronologico).toBe(false);
     expect(record.map((r) => r.key)).toEqual([
       chiaveUwatec(IDENT, orarioDi(NUOVA)),
       chiaveUwatec(IDENT, orarioDi(MEDIA)),
@@ -284,7 +329,7 @@ describe('taglio del blocco', () => {
   });
 
   it('un blocco vuoto non è un errore: è una memoria vuota', () => {
-    expect(tagliaRecord(new Uint8Array(0), IDENT)).toEqual([]);
+    expect(tagliaRecord(new Uint8Array(0), IDENT).record).toEqual([]);
   });
 });
 
@@ -500,27 +545,208 @@ describe('i difetti trovati provandolo contro sé stesso', () => {
   }, 20_000);
 });
 
-describe('quando va storto', () => {
-  it('il trasferimento interrotto a metà non butta via quello che era già arrivato', async () => {
+describe('i difetti trovati dalla revisione avversariale', () => {
+  it('ANNULLARE non sposta il segnalibro: quello che non si è letto non si perde', async () => {
     /*
-     * Sono i minuti in cui il computer è a due metri dal telefono e il
-     * collegamento si affloscia. Il blocco arrivato contiene comunque le
-     * immersioni INTERE che stanno prima del taglio, e quelle valgono: sono
-     * minuti di trasferimento, e buttarle costringerebbe a rifarli tutti.
-     *
-     * Il finto manda le prime due immersioni e poi tace, che è come si
-     * presenta davvero — non con un errore, con il silenzio. La scadenza
-     * scatta dopo cinque secondi, ed è il motivo per cui questo test è lento.
+     * Il difetto più costoso che questo strato possa avere, ed era vero su
+     * Shearwater: un driver che vede il segnale di annullamento smette di
+     * leggere e restituisce quello che ha, senza sollevare niente. Nessun
+     * errore ⟹ «completo» ⟹ l'interfaccia salva il segnalibro sull'immersione
+     * più recente — che è la PRIMA letta. Tutto quello che veniva dopo
+     * spariva per sempre, con a schermo scritto che era andato bene.
      */
-    const quante = MEDIA.length + NUOVA.length;
+    const traccia: Traccia = { comandi: [] };
+    const t = new FakeTransport([
+      {
+        device: dispositivo,
+        responder: fintoAladin(MEMORIA, traccia),
+        // Una notifica per giro: senza, il finto risponde tutto insieme e lo
+        // scarico finisce prima che l'annullamento possa arrivare.
+        quirks: { mtu: 20, unaAllaVolta: true },
+      },
+    ]);
+    const ctl = new AbortController();
+    const p = downloadFromComputer(t, dispositivo, uwatecDriver, { signal: ctl.signal });
+    setTimeout(() => ctl.abort(), 30);
+    const esito = await p;
+    expect(esito.status).toBe('partial');
+    expect(esito.newestKey).toBeUndefined();
+  }, 20_000);
+
+  it('«Annulla» interrompe SUBITO, non alla scadenza', async () => {
+    /*
+     * Prima il segnale si guardava solo fra una lettura e l'altra: premendo
+     * «Annulla» durante un'attesa non succedeva niente per dodici secondi —
+     * venti sui comandi lunghi. Un pulsante che non fa niente per dodici secondi
+     * viene premuto altre tre volte.
+     */
+    const t = new FakeTransport([{ device: dispositivo, responder: () => undefined, quirks: { mtu: 20 } }]);
+    const ctl = new AbortController();
+    const inizio = Date.now();
+    const p = downloadFromComputer(t, dispositivo, uwatecDriver, { signal: ctl.signal });
+    setTimeout(() => ctl.abort(), 200);
+    await p;
+    expect(Date.now() - inizio).toBeLessThan(2000);
+  }, 20_000);
+
+  it('un blocco NON in ordine di data ferma la ripresa invece di scavalcare', async () => {
+    /*
+     * La ripresa dà al computer l'impronta dell'immersione più recente ricevuta
+     * e chiede il resto: funziona solo se quello che è arrivato erano le più
+     * vecchie. Con la memoria in ordine di posizione — circolare che ha girato,
+     * o orologio rimesso indietro — quell'impronta scavalca immersioni non
+     * ancora arrivate, e il computer non le offre più. Nella riproduzione se ne
+     * perdevano due su quattro, con lo scarico dichiarato completo e zero avvisi.
+     */
+    const memoria = [NUOVA, VECCHIA, MEDIA];
+    const { t } = trasporto(memoria, { troncaDopo: NUOVA.length + VECCHIA.length });
+    const esito = await downloadFromComputer(t, dispositivo, uwatecDriver);
+    expect(esito.status).toBe('partial');
+    expect(esito.newestKey).toBeUndefined();
+    expect(esito.error).toMatch(/ordine di data/);
+    // Quello che è arrivato resta.
+    expect(esito.dives.length).toBeGreaterThan(0);
+  }, 30_000);
+
+  it('un record con una data impossibile non avvelena l’impronta', async () => {
+    /*
+     * Una firma `A5 A5 5A 5A` capitata per caso dentro dei campioni produce un
+     * pezzo con quattro byte qualunque a offset 8, e quel numero letto come data
+     * può cadere nel 2098. Finiva nell'impronta: il computer rispondeva «dopo il
+     * 2098 non c'è niente», e lo scarico si chiudeva «completo» con dentro una
+     * immersione su tre.
+     */
+    const spurio = new Uint8Array(40);
+    spurio.set([0xa5, 0xa5, 0x5a, 0x5a, 40, 0, 0, 0]);
+    new DataView(spurio.buffer).setUint32(8, 0xf0000000, true);
+    const { t } = trasporto([VECCHIA, spurio, MEDIA, NUOVA]);
+    const esito = await downloadFromComputer(t, dispositivo, uwatecDriver);
+    expect(esito.dives).toHaveLength(3);
+    expect(esito.status).toBe('complete');
+  }, 30_000);
+
+  it('riaprendo, il collegamento di prima viene CHIUSO', async () => {
+    // Un collegamento dimenticato tiene sveglio il computer finché non finisce
+    // la batteria, e su alcuni modelli impedisce all'app del costruttore di
+    // connettersi. Finché il finto teneva solo l'ultimo, nessun test poteva
+    // accorgersene.
+    const traccia: Traccia = { comandi: [] };
+    const t = new FakeTransport([
+      {
+        device: dispositivo,
+        responder: fintoAladin(MEMORIA, traccia, {
+          troncaDopo: VECCHIA.length + MEDIA.length,
+          mutoDopoIlTaglio: true,
+        }),
+        quirks: { mtu: 20 },
+      },
+    ]);
+    await downloadFromComputer(t, dispositivo, uwatecDriver);
+    expect(t.links.length).toBeGreaterThan(1);
+    expect(t.links.every((l) => l.chiuso)).toBe(true);
+  }, 60_000);
+
+  it('le notifiche che arrivano UNA ALLA VOLTA non cambiano il risultato', async () => {
+    /*
+     * Il finto metteva in coda tutte le notifiche in un colpo: cento già lì
+     * prima che il driver ne leggesse una. È comodo e nasconde il percorso vero,
+     * dove le notifiche arrivano mentre il driver legge — che è esattamente la
+     * condizione in cui vivono scadenze, annullamento e costo della coda.
+     */
+    const traccia: Traccia = { comandi: [] };
+    const t = new FakeTransport([
+      {
+        device: dispositivo,
+        responder: fintoAladin(MEMORIA, traccia),
+        quirks: { mtu: 20, unaAllaVolta: true },
+      },
+    ]);
+    const esito = await downloadFromComputer(t, dispositivo, uwatecDriver);
+    expect(esito.status).toBe('complete');
+    expect(esito.dives).toHaveLength(3);
+  }, 30_000);
+});
+
+describe('quando va storto', () => {
+  it('il trasferimento che si ferma a metà RIPRENDE da solo, e arriva in fondo', async () => {
+    /*
+     * È il difetto trovato col computer vero, ed è il motivo per cui questo
+     * driver ha un ciclo di riprese.
+     *
+     * L'Aladin ha annunciato 129 037 byte, ne ha mandati 39 634 — il trenta
+     * per cento — e poi ha smesso, senza disconnettersi. Delle centotrenta
+     * immersioni in memoria ne sono arrivate trentanove: le più VECCHIE,
+     * perché il blocco comincia da quelle. Cioè proprio quelle che
+     * nell'archivio non servivano, mentre le recenti — le uniche che si
+     * sarebbero fuse con quelle già importate da file — non sono mai partite.
+     *
+     * La ripresa usa il meccanismo che il protocollo ha già: si dà come
+     * impronta l'immersione più recente ricevuta e si richiede il resto.
+     *
+     * Il finto tronca OGNI risposta agli stessi byte, quindi il primo giro
+     * porta due immersioni e il secondo la terza.
+     */
+    const quante = VECCHIA.length + MEDIA.length;
     const { t } = trasporto(MEMORIA, { troncaDopo: quante });
     const esito = await downloadFromComputer(t, dispositivo, uwatecDriver);
 
+    expect(esito.status).toBe('complete');
+    expect(esito.dives).toHaveLength(3);
+    // E il segnalibro resta quello giusto: la PIÙ RECENTE.
+    expect(esito.newestKey).toBe(chiaveUwatec(IDENT, orarioDi(NUOVA)));
+  }, 60_000);
+
+  it('un computer che si impianta senza disconnettersi: si riapre il collegamento e si finisce', async () => {
+    /*
+     * Il caso vero, e il motivo per cui il driver può chiedere di riaprire.
+     *
+     * L'Aladin non si disconnette: smette di rispondere. Il collegamento resta
+     * formalmente aperto e da lì nessun comando lo risveglia — rimandare
+     * `CMD_DATA` sulla stessa sessione rifà esattamente la stessa cosa. Quello
+     * che lo rimette in moto è una sessione GATT nuova.
+     *
+     * Qui il finto tronca la prima risposta e poi tace per il resto della
+     * sessione. Il trasporto costruisce un dispositivo NUOVO a ogni apertura,
+     * quindi la riapertura lo trova di nuovo vivo — come succede davvero.
+     */
+    const traccia: Traccia = { comandi: [] };
+    const quante = VECCHIA.length + MEDIA.length;
+    let sessioni = 0;
+    const t: BleTransport = {
+      available: async () => true,
+      scan: async () => undefined,
+      open: async () => {
+        sessioni++;
+        return new FakeBleLink(
+          fintoAladin(MEMORIA, traccia, { troncaDopo: quante, mutoDopoIlTaglio: true }),
+          { mtu: 20 },
+        );
+      },
+    };
+
+    const esito = await downloadFromComputer(t, dispositivo, uwatecDriver);
+    expect(sessioni).toBeGreaterThan(1);
+    expect(esito.status).toBe('complete');
+    expect(esito.dives).toHaveLength(3);
+    expect(esito.trace.join('\n')).toMatch(/riapro il collegamento/);
+  }, 60_000);
+
+  it('un computer che si ferma prima di consegnare anche una sola immersione non fa girare a vuoto', async () => {
+    /*
+     * La condizione senza la quale il ciclo di riprese diventa un blocco: se
+     * un giro non porta NESSUNA immersione nuova, ritentare con la stessa
+     * impronta rifarebbe esattamente la stessa cosa. Meglio consegnare quel
+     * che c'è e dire che si è interrotto — un ciclo che insiste è
+     * indistinguibile, per chi guarda, da un'applicazione appesa.
+     */
+    const { t } = trasporto(MEMORIA, { troncaDopo: 10 });
+    const inizio = Date.now();
+    const esito = await downloadFromComputer(t, dispositivo, uwatecDriver);
     expect(esito.status).toBe('partial');
-    expect(esito.error).toMatch(/non ha risposto/);
-    expect(esito.dives).toHaveLength(2);
-    expect(esito.dives.map((d) => d.startTime.slice(0, 10)).sort()).toEqual(['2026-06-14', '2026-07-11']);
-  }, 20_000);
+    expect(esito.dives).toEqual([]);
+    // Un solo giro, non dodici: dodici sarebbero più di due minuti.
+    expect(Date.now() - inizio).toBeLessThan(30_000);
+  }, 60_000);
 
   it('se il computer annuncia un totale che non torna, ci si ferma', async () => {
     const { t } = trasporto(MEMORIA, { totaleFasullo: 7 });

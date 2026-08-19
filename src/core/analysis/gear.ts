@@ -235,6 +235,100 @@ export function weightingBySuit(dives: Dive[], minDives = 2): WeightingRow[] {
 }
 
 /**
+ * Quante immersioni ha fatto ogni attrezzo, e quante dall'ultima manutenzione.
+ *
+ * È LA DOMANDA PER CUI L'INVENTARIO ESISTE. Un elenco di attrezzi con le date di
+ * revisione lo si può tenere su un foglio; quello che il foglio non sa dire è
+ * «questo erogatore ha fatto sessanta immersioni da quando l'ho fatto
+ * revisionare», che è il numero con cui si decide davvero — la norma parla di
+ * mesi, l'usura conta le immersioni, e un erogatore fermo in cantina per un anno
+ * non è nella stessa condizione di uno che ha fatto tre viaggi.
+ *
+ * Fatti, nessun giudizio: non c'è nessuna soglia oltre la quale l'app dica «vai
+ * a revisionarlo». Quel giudizio lo dà chi sa in che acqua l'ha usato e come
+ * l'ha risciacquato.
+ *
+ * L'aggancio è per identificativo, e per identificativo soltanto: due voci
+ * scritte «Apeks XTX50» e «apeks xtx 50» sarebbero due attrezzi diversi, ed è il
+ * motivo per cui la scheda immersione fa scegliere dall'elenco invece di far
+ * scrivere il nome ogni volta.
+ */
+export interface EquipmentUsage {
+  id: string;
+  dives: number;
+  /** Immersioni fatte DOPO l'ultima manutenzione. Assente se non è mai stata fatta. */
+  divesSinceService?: number;
+  /** L'ultima immersione con questo attrezzo, ISO. */
+  lastUsedOn?: string;
+}
+
+/** Il giorno di calendario del LUOGO dell'immersione, `YYYY-MM-DD`. */
+function giornoLocale(d: Pick<Dive, 'startTime' | 'utcOffsetMinutes'>): string {
+  const t = Date.parse(d.startTime);
+  if (Number.isNaN(t)) return d.startTime.slice(0, 10);
+  return new Date(t + (d.utcOffsetMinutes ?? 0) * 60_000).toISOString().slice(0, 10);
+}
+
+export function equipmentUsage(dives: Dive[], equipment: Equipment[]): Map<string, EquipmentUsage> {
+  const out = new Map<string, EquipmentUsage>();
+  for (const e of equipment) out.set(e.id, { id: e.id, dives: 0 });
+
+  /*
+   * Con due voci dello stesso identificativo vince quella che HA la data.
+   *
+   * `new Map(...)` tiene l'ultima, e se l'ultima è la copia senza revisione il
+   * contatore mostra «0 dall'ultima» su un attrezzo che ne ha fatte dieci. Un
+   * inventario con id ripetuti non dovrebbe esistere, ma nasce da solo
+   * ripristinando un backup su un archivio che ha già le stesse voci.
+   */
+  const service = new Map<string, string | undefined>();
+  for (const e of equipment) {
+    if (e.lastServiceOn || !service.has(e.id)) service.set(e.id, e.lastServiceOn ?? service.get(e.id));
+  }
+
+  for (const d of dives) {
+    const g = d.gear;
+    if (!g) continue;
+    const riferimenti = [...(g.regulators ?? []), g.bcd, g.suit, ...(g.other ?? [])];
+    // Lo stesso attrezzo citato due volte nella stessa immersione conta UNA
+    // volta: un erogatore messo per sbaglio in entrambi i campi raddoppierebbe
+    // il conto delle sue immersioni, e quel numero deve poter essere creduto.
+    for (const id of new Set(riferimenti.map((r) => r?.id).filter((x): x is string => !!x))) {
+      const u = out.get(id);
+      if (!u) continue;
+      u.dives++;
+      if (!u.lastUsedOn || d.startTime > u.lastUsedOn) u.lastUsedOn = d.startTime;
+      const dal = service.get(id);
+      if (dal) {
+        /*
+         * IL CONFRONTO È SUL GIORNO DEL LUOGO, non su quello UTC.
+         *
+         * `startTime` è sempre in UTC — lo scrivono così tutti i parser — mentre
+         * `lastServiceOn` è un giorno di calendario scritto a mano. Prendendo i
+         * primi dieci caratteri dell'istante UTC, un'immersione fatta alle nove
+         * del mattino a Kiritimati (UTC+14) cade nel giorno PRECEDENTE, e una
+         * fatta alle otto di sera alle Hawaii nel giorno successivo. Il conto
+         * delle immersioni dall'ultima revisione — che è il numero per cui
+         * l'inventario esiste — saltava di uno, e in quale direzione dipendeva da
+         * dove si era andati a immergersi.
+         */
+        if (giornoLocale(d) > dal) u.divesSinceService = (u.divesSinceService ?? 0) + 1;
+      }
+    }
+  }
+
+  // Zero immersioni dall'ultima revisione è un'informazione; `undefined` è
+  // un'altra cosa e vuol dire «revisione mai registrata».
+  for (const e of equipment) {
+    if (e.lastServiceOn) {
+      const u = out.get(e.id);
+      if (u && u.divesSinceService === undefined) u.divesSinceService = 0;
+    }
+  }
+  return out;
+}
+
+/**
  * Il peso che ti tira giù DAVVERO: zavorra più piastra.
  *
  * Sono due campi separati perché si comportano in modo diverso — la zavorra la

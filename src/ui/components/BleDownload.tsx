@@ -444,9 +444,42 @@ export function BleDownload() {
                             Scarica
                           </button>
                         ) : (
-                          <span className="muted" style={{ fontSize: 11 }}>
-                            —
-                          </span>
+                          /*
+                           * LA VIA D'USCITA QUANDO IL NOME NON È QUELLO PREVISTO.
+                           *
+                           * Il riconoscimento si fa sul nome annunciato, e i nomi
+                           * cambiano: l'Aladin Sport Matrix si annuncia «Aladin
+                           * Sport» e non «Aladin», che è il nome con cui lo elenca
+                           * libdivecomputer. Il risultato è stato una schermata che
+                           * diceva «non riconosciuto come computer subacqueo»
+                           * davanti a un computer subacqueo, senza niente da
+                           * premere — e la sola cosa da fare era aspettare una
+                           * versione nuova dell'applicazione.
+                           *
+                           * Con questa tendina, chi SA che computer ha lo prova.
+                           * Il rischio è mandare comandi a un dispositivo che non
+                           * è quello: lo si accetta perché la scelta è esplicita e
+                           * la fa una persona che ha il computer in mano, non un
+                           * riconoscimento automatico che si sbaglia da solo. Il
+                           * protocollo comunque non trova il suo servizio e si
+                           * ferma con un errore leggibile, senza scrivere niente.
+                           */
+                          <select
+                            defaultValue=""
+                            style={{ fontSize: 12 }}
+                            onChange={(e) => {
+                              const scelto = DRIVERS.find((d) => d.id === e.target.value);
+                              e.target.value = '';
+                              if (scelto) void scarica({ device, driver: scelto });
+                            }}
+                          >
+                            <option value="">provalo come…</option>
+                            {DRIVERS.map((d) => (
+                              <option key={d.id} value={d.id}>
+                                {d.label}
+                              </option>
+                            ))}
+                          </select>
                         )}
                       </td>
                     </tr>

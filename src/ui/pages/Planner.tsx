@@ -17,6 +17,7 @@ import {
   phaseGeometry,
   measuredRmv,
   contingencies,
+  type Contingency,
   planGas,
   pressureSchedule,
   type SchedulePoint,
@@ -43,8 +44,24 @@ import {
 import { PeriodPicker } from '../components/PeriodPicker';
 import { DecoPlanner, type DecoPlanState } from '../components/DecoPlan';
 import { curveOfPlan, type PlanCurve as PlanCurveResult } from '../../core/analysis/tissues';
-import { barometric } from '../../core/analysis/deco';
+import { barometric, planDeco, type DecoResult } from '../../core/analysis/deco';
+import { pianoHtml, type FoglioPiano, type SezionePiano } from '../../core/export/planPrint';
 import { useDiveLog } from '../state';
+
+/**
+ * I gradient factor della modalità ricreativa: 40/85.
+ *
+ * Non sono `DEFAULT_GF` (30/85), che è il valore con cui si rileggono le
+ * immersioni già fatte quando il computer non dichiara i suoi. Qui si sta
+ * pianificando, e 40/85 è la coppia che i computer ricreativi montano di
+ * fabbrica: un piano calcolato con parametri diversi da quelli che avrai al
+ * polso dice minuti che non vedrai.
+ *
+ * Erano scritti a mano in due punti diversi — nel calcolo e nel testo della
+ * scheda — e ora che li usa anche il calcolo delle soste sarebbero tre. Un
+ * numero solo in un posto solo.
+ */
+const GF_RICREATIVI = { low: 40, high: 85 };
 
 export function Planner() {
   const {
@@ -186,14 +203,59 @@ export function Planner() {
           mix: shown.mix,
           avgDepthM: shown.avgDepthM,
           maxDepthM: shown.depthM,
-          gfLow: 0.4,
-          gfHigh: 0.85,
+          gfLow: GF_RICREATIVI.low / 100,
+          gfHigh: GF_RICREATIVI.high / 100,
           salinity: shown.salinity,
           surfacePressureBar: barometric(shown.altitudeM ?? 0),
         },
       ),
     [plan.planned, shown.mix, shown.avgDepthM, shown.depthM, shown.salinity, shown.altitudeM],
   );
+
+  /*
+   * LE SOSTE, QUANDO IL PIANO RICREATIVO ESCE DALLA CURVA.
+   *
+   * Fino a ieri qui c'era una riga che diceva «inserisci le soste come minuti
+   * aggiuntivi»: cioè chiedeva a chi pianifica di fare a mano il conto che
+   * l'applicazione sa già fare — il motore Bühlmann è lo stesso che disegna la
+   * curva due riquadri più sopra, ed è stato verificato su trentotto immersioni
+   * vere contro quello che lo Shearwater aveva calcolato al polso.
+   *
+   * Si calcola solo quando serve: se il piano resta in curva, `planDeco` darebbe
+   * un risultato senza soste e la carta non comparirebbe comunque. Con gli
+   * stessi gradient factor della curva (40/85), perché due numeri diversi nella
+   * stessa pagina sono peggio di un numero solo.
+   */
+  const soste = useMemo(() => {
+    if (mode !== 'rec' || curve.leavesCurveAtMin === undefined) return undefined;
+    return planDeco(
+      [{ depthM: shown.avgDepthM, minutes: shown.bottomMin }],
+      [{ mix: shown.mix, role: 'bottom', tankL: shown.tankL, startBar: shown.startBar }],
+      {
+        // Gli STESSI gradient factor della curva qui sopra. Due numeri diversi
+        // nella stessa pagina sono peggio di un numero solo: chi legge non ha
+        // modo di sapere quale dei due descrive l'immersione che farà.
+        gfLow: GF_RICREATIVI.low / 100,
+        gfHigh: GF_RICREATIVI.high / 100,
+        salinity: shown.salinity,
+        surfacePressureBar: barometric(shown.altitudeM ?? 0),
+        rmvLpm: plan.planningRmvLpm,
+      },
+    );
+  }, [
+    mode,
+    curve.leavesCurveAtMin,
+    shown.avgDepthM,
+    shown.bottomMin,
+    shown.mix,
+    shown.tankL,
+    shown.startBar,
+    shown.salinity,
+    shown.altitudeM,
+    plan.planningRmvLpm,
+  ]);
+
+  const [stampaBloccata, setStampaBloccata] = useState(false);
 
   return (
     <div className="page">
@@ -225,9 +287,35 @@ export function Planner() {
             <button className={mode === 'tec' ? 'btn btn-primary' : 'btn'} onClick={() => setMode('tec')}>
               Tecnica
             </button>
+            {/*
+             * La stampa esiste perché in barca il telefono non c'è: sta nel
+             * sacco, o è scarico, o è nel gommone mentre tu sei in acqua. Il
+             * foglio è la lavagnetta della didattica tecnica, con gli stessi
+             * numeri di quelli appena calcolati e senza il passaggio in cui si
+             * ricopia a mano una cifra sbagliata.
+             */}
+            <button
+              className="btn"
+              onClick={() =>
+                setStampaBloccata(
+                  !apriStampaPiano(
+                    foglioDelPiano({ plan, schedule, curve, soste, contingenze: plans, mode, turnAt }),
+                  ),
+                )
+              }
+            >
+              Stampa il piano (PDF)
+            </button>
           </div>
         </div>
       </div>
+      {stampaBloccata && (
+        <div className="notice">
+          La finestra di stampa non si è aperta: il browser ha bloccato l’apertura di una nuova finestra.
+          Consentila per questo sito e riprova — la stampa non modifica niente, apre soltanto una copia del
+          foglio.
+        </div>
+      )}
 
       <div className="card">
         <h2>Il tuo consumo</h2>
@@ -765,7 +853,10 @@ export function Planner() {
       </div>
 
       {mode === 'rec' ? (
-        <CurveCard curve={curve} plan={plan} />
+        <>
+          <CurveCard curve={curve} plan={plan} />
+          {soste && <SosteCard soste={soste} plan={plan} />}
+        </>
       ) : (
         <DecoPlanner
           key={decoKey}
@@ -1212,13 +1303,14 @@ export function Planner() {
       />
 
       <div className="card">
-        <h2>Cosa questo pianificatore non fa</h2>
+        <h2>Note</h2>
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--text-secondary)' }}>
           <li>
-            <strong>Non calcola la decompressione.</strong> Le soste obbligatorie dipendono dal modello, dai
-            gradient factor e dalla storia dei tessuti: sono il dominio del computer e del corso, non di una
-            sottrazione. Se il tuo piano prevede soste, inseriscile come minuti aggiuntivi e l'aritmetica del
-            gas le include.
+            <strong>Le soste le calcola.</strong> Bühlmann ZH-L16C con gradient factor, lo stesso modello del
+            tuo computer — confrontato con quello che lo Shearwater ha calcolato al polso su 38 immersioni
+            vere: scarto medio 0.79 punti di GF99, massimo 2.6. In ricreativa compaiono quando il piano esce
+            dalla curva; in tecnica c'è la tabella completa con i cambi di gas e il bailout. Restano un piano,
+            non un permesso: in acqua ha ragione il computer, che ricalcola sul profilo che hai fatto davvero.
           </li>
           <li>
             Il gas di ogni fase è calcolato alla profondità media della fase. Non è un'approssimazione: la
@@ -1234,8 +1326,10 @@ export function Planner() {
           </li>
           <li>
             Del tempo di fondo il piano conosce la media e il massimo, non la forma. Due profili diversi con
-            la stessa media consumano lo stesso gas, quindi la forma non serve: serve però al computer per la
-            decompressione, ed è un'altra ragione per cui le soste vengono da lui.
+            la stessa media consumano lo stesso gas, quindi per il gas la forma non serve. Per la
+            decompressione sì: le soste qui sono calcolate sul fondo alla profondità <em>media</em>, e un
+            profilo che passa più tempo in fondo ne chiederà di più. È la ragione per cui il numero che conta
+            resta quello che il computer ricalcola in acqua.
           </li>
           <li>
             La regola dei terzi presuppone un ritorno obbligato. Su un'immersione lineare con risalita libera
@@ -1250,6 +1344,208 @@ export function Planner() {
       </div>
     </div>
   );
+}
+
+/**
+ * Il piano tradotto in un foglio da stampare.
+ *
+ * Sta qui e non in `planPrint.ts` perché è QUI che i numeri hanno un significato:
+ * l'unità di misura, l'arrotondamento giusto, la differenza fra una sosta di
+ * sicurezza e un obbligo. Il modulo di stampa sa impaginare e non deve sapere
+ * niente di decompressione; questa funzione sa di decompressione e non sa
+ * niente di CSS. È la stessa divisione che c'è fra `logbookPrint` e la scheda
+ * immersione, e regge per la stessa ragione: le due cose cambiano per motivi
+ * diversi.
+ */
+function foglioDelPiano(ctx: {
+  plan: GasPlan;
+  schedule: SchedulePoint[];
+  curve: PlanCurveResult;
+  soste?: DecoResult;
+  contingenze: Contingency[];
+  mode: 'rec' | 'tec';
+  turnAt?: number;
+}): FoglioPiano {
+  const { plan, schedule, curve, soste, contingenze, mode, turnAt } = ctx;
+  const i = plan.input;
+  const m1 = (v: number) => `${Math.round(v * 10) / 10}`;
+
+  const sezioni: SezionePiano[] = [];
+
+  sezioni.push({
+    titolo: 'Il piano',
+    righe: [
+      ['Profondità massima', `${m1(i.depthM)} m`],
+      ['Profondità media del fondo', `${m1(i.avgDepthM)} m`],
+      ['Tempo di fondo', formatRuntime(i.bottomMin)],
+      ['Durata totale', formatRuntime(plan.totalRuntimeMin)],
+      ['Miscela', mixName(i.mix)],
+      ['Bombola', `${m1(i.tankL)} L a ${i.startBar} bar`],
+      ['Consumo usato', `${m1(plan.planningRmvLpm)} L/min${plan.buddyDrivesPlan ? ' (del compagno)' : ''}`],
+      ['Acqua', i.salinity === 'fresh' ? 'dolce' : 'salata'],
+    ],
+  });
+
+  /*
+   * IL RUN TIME SCHEDULE, che è il motivo per cui questo foglio esiste.
+   *
+   * Le colonne sono quelle della lavagnetta: a che minuto ci arrivi, a che
+   * quota, cosa stai facendo. Con le soste in mezzo quando ci sono, e le
+   * obbligatorie in grassetto — perché su carta, con le mani bagnate, la
+   * differenza fra «sosta di sicurezza» e «obbligo» deve saltare all'occhio
+   * senza doverla leggere.
+   */
+  if (soste?.segments.length) {
+    const forti: number[] = [];
+    const righe = soste.segments.map((seg, idx) => {
+      const obbligo =
+        seg.kind === 'stop' && !!soste.stops.find((x) => x.runtimeMin === seg.runtimeMin)?.mandatory;
+      if (obbligo) forti.push(idx);
+      return [
+        m1(seg.runtimeMin),
+        seg.fromM === seg.toM ? `${m1(seg.toM)} m` : `${m1(seg.fromM)} → ${m1(seg.toM)} m`,
+        AZIONE[seg.kind],
+        formatRuntime(seg.minutes),
+        `${Math.round(seg.litres)} L`,
+      ];
+    });
+    sezioni.push({
+      titolo: 'Run time schedule',
+      descrizione:
+        'Il minuto è il tempo trascorso dall’ingresso in acqua, a fine tratto. Le righe in grassetto sono soste obbligatorie: non si saltano.',
+      colonne: ['Min', 'Quota', 'Azione', 'Durata', 'Gas'],
+      numeriche: [0, 3, 4],
+      righe,
+      forti,
+    });
+  } else {
+    sezioni.push({
+      titolo: 'Le fasi',
+      colonne: ['Fase', 'Durata', 'Prof. media', 'Litri'],
+      numeriche: [1, 2, 3],
+      righe: plan.planned.map((f) => [
+        f.label,
+        formatRuntime(f.minutes),
+        `${m1(f.meanDepthM)} m`,
+        `${Math.round(f.litres)}`,
+      ]),
+    });
+  }
+
+  sezioni.push({
+    titolo: 'Gas',
+    righe: [
+      ['Da portare', `${Math.round(plan.plannedL)} L · ${plan.plannedBar} bar`],
+      [
+        plan.input.reserveRule === 'rockBottom' ? 'Gas minimo (rock bottom)' : 'Riserva fissa',
+        `${plan.reserveBar} bar`,
+      ],
+      ['Utilizzabile', `${plan.usableBar} bar`],
+      ['Uscita prevista', `${plan.expectedEndBar} bar`],
+      ...(plan.turnBar !== undefined
+        ? ([
+            [
+              'Pressione di rientro',
+              `${plan.turnBar} bar${turnAt !== undefined ? `, intorno al minuto ${turnAt.toFixed(0)}` : ''}`,
+            ],
+          ] as string[][])
+        : []),
+      ['MOD in fase di lavoro', `${m1(plan.modWorkM)} m a 1.4 bar`],
+      ['MOD in decompressione', `${m1(plan.modDecoM)} m a 1.6 bar`],
+      ['PPO2 al fondo', `${plan.ppo2AtDepth.toFixed(2)} bar`],
+      ['END al fondo', `${m1(plan.endM)} m`],
+      ['CNS / OTU', `${plan.oxygen.cnsPercent.toFixed(0)} % · ${plan.oxygen.otu.toFixed(0)}`],
+    ],
+  });
+
+  /*
+   * Le pressioni attese si stampano RADE, una ogni cinque minuti più i confini
+   * di fase. A schermo la tabella fitta si scorre; su un foglio A4 quaranta
+   * righe di pressioni mangiano la pagina delle soste, che è quella che serve
+   * davvero sott'acqua.
+   */
+  const radi = schedule.filter((p, idx) => p.boundary || idx === 0 || Math.round(p.runMin) % 5 === 0);
+  if (radi.length > 1) {
+    sezioni.push({
+      titolo: 'Pressione attesa',
+      descrizione:
+        'Quello che dovresti leggere sul manometro se respiri al consumo pianificato e stai sul profilo. Serve ad accorgersi di uno scostamento mentre puoi ancora rimediare.',
+      colonne: ['Min', 'Quota', 'Bar'],
+      numeriche: [0, 1, 2],
+      righe: radi.map((p) => [m1(p.runMin), `${m1(p.depthM)} m`, `${Math.round(p.bar)}`]),
+    });
+  }
+
+  if (contingenze.length) {
+    sezioni.push({
+      titolo: 'E se…',
+      descrizione:
+        'Gli scenari da avere in tasca prima di entrare. La domanda «e se resto giù cinque minuti in più» va fatta adesso, non a quaranta metri.',
+      colonne: ['Scenario', 'Uscita prevista', 'Differenza'],
+      numeriche: [1, 2],
+      righe: contingenze.map((c) => [
+        `${c.label} — ${c.change}`,
+        `${c.plan.expectedEndBar} bar${c.fits ? '' : ' — non ci sta'}`,
+        `${c.endBarDelta >= 0 ? '+' : ''}${c.endBarDelta} bar`,
+      ]),
+    });
+  }
+
+  const avvisi: FoglioPiano['avvisi'] = plan.warnings.map((w) => ({
+    livello: w.level === 'critical' ? 'critical' : 'warning',
+    testo: w.text,
+  }));
+  for (const w of soste?.warnings ?? []) avvisi.push({ livello: w.level, testo: w.text });
+  if (mode === 'rec' && curve.leavesCurveAtMin !== undefined) {
+    avvisi.unshift({
+      livello: 'critical',
+      testo: `Questo piano NON è ricreativo: al minuto ${curve.leavesCurveAtMin.toFixed(0)} prende un obbligo di decompressione, e da lì risalire dritti non è più un'opzione.`,
+    });
+  }
+
+  const quando = new Date().toISOString();
+  return {
+    titolo: `Piano ${m1(i.depthM)} m · ${formatRuntime(i.bottomMin)} di fondo · ${mixName(i.mix)}`,
+    sottotitolo:
+      mode === 'rec'
+        ? `Ricreativo, Bühlmann ZH-L16C GF ${GF_RICREATIVI.low}/${GF_RICREATIVI.high}. Curva alla media: ${curve.ndlAtAvgMin.toFixed(0)} min.`
+        : 'Tecnico, con decompressione.',
+    now: quando,
+    sezioni,
+    avvisi,
+  };
+}
+
+const AZIONE: Record<string, string> = {
+  descent: 'discesa',
+  level: 'fondo',
+  ascent: 'risalita',
+  stop: 'SOSTA',
+  switch: 'cambio gas',
+};
+
+/**
+ * Apre la finestra di stampa del piano.
+ *
+ * Restituisce `false` quando il blocco dei popup l'ha rifiutata: è l'unico modo
+ * in cui questa operazione può fallire, e chi chiama lo dice invece di lasciare
+ * un pulsante che non fa niente.
+ */
+function apriStampaPiano(foglio: FoglioPiano): boolean {
+  const finestra = window.open('', '_blank');
+  if (!finestra) return false;
+  finestra.document.open();
+  finestra.document.write(pianoHtml(foglio));
+  finestra.document.close();
+  // Chiedere la stampa di un documento non ancora impaginato produce un foglio
+  // vuoto: si aspetta che sia pronto, gestendo entrambi i casi.
+  const stampa = () => {
+    finestra.focus();
+    finestra.print();
+  };
+  if (finestra.document.readyState === 'complete') stampa();
+  else finestra.addEventListener('load', stampa, { once: true });
+  return true;
 }
 
 /**
@@ -2166,6 +2462,124 @@ function ScheduleTable({
  * stesso Bühlmann che rilegge le immersioni fatte — quello validato contro
  * Shearwater — invece che dentro una tabella.
  */
+/**
+ * Le soste, quando un piano ricreativo esce dalla curva.
+ *
+ * PERCHÉ ADESSO C'È, E PRIMA NO. Prima questa pagina diceva: «non calcola la
+ * decompressione, se il tuo piano prevede soste inseriscile come minuti
+ * aggiuntivi». Cioè chiedeva di fare a mano il conto che l'applicazione sa già
+ * fare da un'altra parte — il motore Bühlmann che disegna la curva due riquadri
+ * più sopra è lo stesso, ed è stato confrontato con quello che lo Shearwater ha
+ * calcolato al polso su trentotto immersioni vere: scarto medio 0,79 punti di
+ * GF99, massimo 2,6.
+ *
+ * Rifiutarsi di mostrarlo non rendeva nessuno più prudente: rendeva soltanto
+ * più probabile che quel conto lo facesse una tabella stampata in barca, o
+ * nessuno.
+ *
+ * QUELLO CHE QUESTA CARTA NON È. Non è l'autorizzazione a fare l'immersione. Un
+ * obbligo decompressivo cambia la categoria di quello che stai pianificando —
+ * servono gas di riserva pensati per le soste, un compagno addestrato, e la
+ * procedura per quando qualcosa va storto a dodici metri con venti minuti di
+ * tetto sopra la testa. Il riquadro rosso qui sotto lo dice, e resta rosso anche
+ * quando i conti tornano.
+ */
+function SosteCard({ soste, plan }: { soste: DecoResult; plan: GasPlan }) {
+  const obbligo = soste.stops.filter((s) => s.mandatory);
+  const gas = soste.gasUsage[0];
+  const restano = gas?.bar !== undefined ? plan.input.startBar - gas.bar : undefined;
+
+  return (
+    <div className="card">
+      <h2>Le soste che questo piano impone</h2>
+      <p className="card-sub">
+        Calcolate con lo stesso modello e gli stessi gradient factor della curva qui sopra (
+        {GF_RICREATIVI.low}/{GF_RICREATIVI.high}), sul gas del fondo per tutta l'immersione. È il piano{' '}
+        <em>minimo</em>: con un gas di decompressione dedicato le soste sarebbero più corte, ed è una delle
+        cose che si imparano al corso.
+      </p>
+
+      <div className="grid grid-tiles" style={{ marginBottom: 12 }}>
+        <StatTile
+          label="Obbligo totale"
+          value={
+            <span className="tabular" style={{ color: 'var(--critical)' }}>
+              {soste.decoMin.toFixed(0)} <small style={{ fontSize: 14 }}>min</small>
+            </span>
+          }
+          note={obbligo.length ? `prima sosta a ${soste.firstStopM} m` : 'nessuna sosta obbligatoria'}
+        />
+        <StatTile
+          label="Durata totale"
+          value={<span className="tabular">{formatRuntime(soste.runtimeMin)}</span>}
+          note={`${formatRuntime(soste.ascentMin)} dalla fine del fondo alla superficie`}
+        />
+        <StatTile
+          label="Gas necessario"
+          value={
+            <span className="tabular" style={{ color: gas?.insufficient ? 'var(--critical)' : undefined }}>
+              {gas?.bar !== undefined ? `${Math.round(gas.bar)} bar` : `${Math.round(gas?.litres ?? 0)} L`}
+            </span>
+          }
+          note={
+            restano !== undefined
+              ? gas?.insufficient
+                ? 'più di quello che porti'
+                : `usciresti con ${Math.round(restano)} bar, riserva esclusa`
+              : 'soste comprese'
+          }
+        />
+        <StatTile
+          label="GF99 all'uscita"
+          value={<span className="tabular">{soste.gf99EndPct.toFixed(0)}%</span>}
+          note="rispettando ogni sosta"
+        />
+      </div>
+
+      {obbligo.length > 0 && (
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Sosta</th>
+                <th className="num">Durata</th>
+                <th className="num">Ci arrivi al minuto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {soste.stops.map((s, i) => (
+                <tr key={i}>
+                  <td style={{ fontWeight: s.mandatory ? 650 : 400 }}>
+                    {s.depthM} m {s.mandatory ? '' : '— sosta di sicurezza'}
+                  </td>
+                  <td className="num tabular">{s.minutes} min</td>
+                  <td className="num tabular">{s.runtimeMin.toFixed(0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {soste.warnings.map((w, i) => (
+        <div
+          key={i}
+          className={w.level === 'critical' ? 'notice notice-error' : 'notice'}
+          style={{ marginTop: 10 }}
+        >
+          {w.text}
+        </div>
+      ))}
+
+      <p className="muted" style={{ fontSize: 11, margin: '10px 0 0' }}>
+        Con la modalità <b>Tecnica</b> puoi aggiungere un gas di decompressione, più livelli, e vedere il
+        bailout da ogni quota: è lo stesso motore, con in più tutto quello che una immersione con obbligo
+        richiede di decidere prima.
+      </p>
+    </div>
+  );
+}
+
 function CurveCard({ curve, plan }: { curve: PlanCurveResult; plan: GasPlan }) {
   const shown = plan.input;
   const esce = curve.leavesCurveAtMin;

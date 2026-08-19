@@ -207,6 +207,37 @@ await page.screenshot({ path: 'screenshots/3e-modifica-in-blocco.png', fullPage:
 await page.click('button:has-text("Applica a 2")');
 await page.waitForTimeout(1500);
 const dopoIlBlocco = await page.locator('tbody tr').nth(1).innerText();
+
+/*
+ * Le condizioni, scritte in blocco su due gruppi diversi.
+ *
+ * Serve a due cose insieme. La prima è provare i campi nuovi della modifica in
+ * blocco, che è il posto giusto per compilarle: mare, meteo e visibilità sono le
+ * uniche cose che valgono davvero uguali per otto immersioni di fila.
+ *
+ * La seconda è dare da mangiare alla tabella delle condizioni nelle statistiche:
+ * l'archivio dimostrativo non ha nessun dato meteo, quindi senza questo passaggio
+ * quella carta non comparirebbe mai e nessuno la vedrebbe fino a quando non la
+ * riempie un utente vero. Due gruppi e non uno, perché con un gruppo solo non c'è
+ * niente da confrontare e la carta si rifiuta di comparire — che è la regola che
+ * si vuole verificare.
+ */
+async function condizioniInBlocco(righe, meteo, mare, visibilita) {
+  for (const n of righe) await page.locator('tbody tr').nth(n).locator('input[type=checkbox]').check();
+  await page.waitForTimeout(300);
+  await page.locator('label', { hasText: 'Meteo' }).first().locator('select').selectOption(meteo);
+  await page.locator('label', { hasText: 'Mare' }).first().locator('select').selectOption(mare);
+  await page
+    .locator('label', { hasText: 'Visibilità' })
+    .first()
+    .locator('select')
+    .selectOption({ index: visibilita });
+  await page.locator(`button:has-text("Applica a ${righe.length}")`).first().click();
+  await page.waitForTimeout(1800);
+}
+await condizioniInBlocco([3, 4, 5, 6], 'sunny', 'calm', 6);
+await condizioniInBlocco([7, 8, 9, 10], 'rainy', 'rough', 3);
+await page.screenshot({ path: 'screenshots/3f-condizioni-in-blocco.png', fullPage: true });
 const bloccoOk =
   dopoIlBlocco.includes('Squadra di prova') &&
   // Il sito NON doveva essere toccato: era vuoto nel modulo.
@@ -402,6 +433,27 @@ const curva = await page
   .innerText()
   .catch(() => 'NESSUNA CARTA CURVA');
 
+/*
+ * Le soste in modalità RICREATIVA.
+ *
+ * Il piano dimostrativo esce dalla curva — lo dice la carta qui sopra — quindi
+ * la tabella delle soste deve comparire. È la verifica che serve: fino a ieri
+ * questa pagina si limitava a dire «non calcola la decompressione», e la
+ * differenza fra prima e adesso è esattamente questa carta.
+ */
+const sosteRec = await page
+  .locator('.card')
+  .filter({ has: page.locator('h2', { hasText: 'Le soste che questo piano impone' }) })
+  .first()
+  .innerText()
+  .catch(() => 'NESSUNA CARTA SOSTE');
+await page.screenshot({ path: 'screenshots/13d-gas-soste.png', fullPage: true });
+const stampaPiano = await page
+  .locator('button:has-text("Stampa il piano")')
+  .first()
+  .isVisible()
+  .catch(() => false);
+
 // Export UDDF dalle impostazioni: il file deve scaricarsi davvero.
 await page.click('button:has-text("Impostazioni")');
 await page.waitForTimeout(500);
@@ -518,7 +570,13 @@ const mappa = await page
   .first()
   .innerText()
   .catch(() => 'CARTA MANCANTE');
-await shots(page, 'screenshots/18-statistiche', 6);
+const condizioniCard = await page
+  .locator('.card')
+  .filter({ has: page.locator('h2', { hasText: 'Quanto contano le condizioni' }) })
+  .first()
+  .innerText()
+  .catch(() => 'CARTA CONDIZIONI MANCANTE');
+await shots(page, 'screenshots/18-statistiche', 8);
 
 // Modalità scura.
 await page.emulateMedia({ colorScheme: 'dark' });
@@ -705,6 +763,11 @@ console.log('CONTINGENZE DECO:');
 console.log(decoContingenze.slice(0, 700));
 console.log('CURVA RICREATIVA:');
 console.log(curva.slice(0, 600));
+console.log('CONDIZIONI NELLE STATISTICHE:');
+console.log(condizioniCard.slice(0, 700));
+console.log('SOSTE IN RICREATIVA:');
+console.log(sosteRec.slice(0, 500));
+console.log('STAMPA DEL PIANO:', stampaPiano ? 'pulsante presente' : 'PULSANTE ASSENTE');
 console.log(
   'MODIFICA IN BLOCCO:',
   bloccoOk

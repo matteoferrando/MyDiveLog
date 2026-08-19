@@ -71,6 +71,29 @@ const ALLUMINIO: Record<number, { sizeL: number; barP: number }> = {
 const arrotonda = (v: number) => Math.round(v * 10) / 10;
 
 /**
+ * I limiti oltre i quali un volume non è una bombola, ma un errore di battitura.
+ *
+ * PERCHÉ SERVONO, e perché il minimo conta più del massimo. Un volume SBAGLIATO
+ * è molto peggio di un campo vuoto: entra nel calcolo del consumo e lo falsa
+ * della stessa percentuale su quella immersione, per sempre, senza un errore a
+ * schermo. E lo ZERO è il caso peggiore di tutti, perché non è un buco: è un
+ * valore, e la fusione fra due import riempie solo i campi indefiniti — uno zero
+ * blocca per sempre il volume vero che arriverebbe dal file successivo.
+ *
+ * La sigla in alluminio senza limiti produceva numeri piccoli e credibili:
+ * «S12» dava 1.6 L, che è la taglia di una vera bombolina di scorta, e un
+ * consumo di 2 L/min invece di 15. Nessuno lo avrebbe messo in dubbio.
+ */
+const MIN_LITRI = 0.5;
+const MAX_LITRI = 60;
+
+/** Il volume, se è un volume; `undefined` se è più probabilmente un errore. */
+function plausibile(litri: number): number | undefined {
+  const v = arrotonda(litri);
+  return Number.isFinite(v) && v >= MIN_LITRI && v <= MAX_LITRI ? v : undefined;
+}
+
+/**
  * Interpreta quello che è stato scritto nel campo della bombola.
  *
  * Accetta le forme che la gente usa davvero: «S80», «AL80», «al 80», «11.1 L»,
@@ -96,12 +119,12 @@ export function parseCylinderSpec(testo: string | undefined | null): CylinderSpe
    */
   const bi = /^(?:d|2\s*[x×]\s*)(\d+(?:\.\d+)?)$/.exec(t);
   if (bi) {
-    const uno = Number(bi[1]);
-    if (!Number.isFinite(uno) || uno <= 0) return undefined;
+    const uno = plausibile(Number(bi[1]));
+    if (uno === undefined) return undefined;
     return {
-      sizeL: arrotonda(uno),
+      sizeL: uno,
       from: 'litri',
-      note: `bibombola: ${arrotonda(uno)} L per bombola. Se le conti come una sola, il volume è ${arrotonda(uno * 2)} L.`,
+      note: `bibombola: ${uno} L per bombola. Se le conti come una sola, il volume è ${arrotonda(uno * 2)} L.`,
     };
   }
 
@@ -119,15 +142,26 @@ export function parseCylinderSpec(testo: string | undefined | null): CylinderSpe
         note: `alluminio ${nome} cuft: ${dati.sizeL} L d'acqua a ${Math.round(dati.barP)} bar, dal dato di targa.`,
       };
     }
-    // Sigla della serie ma misura che non conosciamo: si stima e lo si dice.
-    const stima = arrotonda((nome * L_PER_CUFT) / BAR_3000_PSI);
-    return {
-      sizeL: stima,
-      workPressureBar: Math.round(BAR_3000_PSI),
-      material: 'alu',
-      from: 'formula',
-      note: `${nome} cuft a 207 bar fanno circa ${stima} L: è una stima dalla formula, non un dato di targa. Controlla il collare.`,
-    };
+    /*
+     * UNA SIGLA FUORI TABELLA NON SI STIMA: si lascia il campo vuoto.
+     *
+     * È la trappola peggiore di tutto questo file, e l'ho scoperta provandola.
+     * «S12» stimato con la formula dà 1,6 L — la taglia di una vera bombolina di
+     * scorta, quindi un numero che nessuno mette in dubbio — e il consumo di
+     * quella immersione diventa 2 L/min invece di 15.
+     *
+     * Ma chi scrive «S12» in Italia intende quasi certamente una **dodici litri
+     * d'acciaio**, non dodici piedi cubi: la sigla `S<n>` è americana e lì `n`
+     * sono i piedi cubi, mentre da noi le bombole si chiamano coi litri. La
+     * stessa stringa vuol dire due cose diverse a seconda di chi la scrive, e non
+     * c'è modo di sapere quale.
+     *
+     * Quindi la traduzione vale SOLO per le misure che esistono davvero nella
+     * serie Luxfer, dove `S<n>` non è ambiguo. Per tutto il resto il campo resta
+     * vuoto e i litri li scrive chi sa che bombola ha: un campo vuoto si nota, un
+     * numero sbagliato no.
+     */
+    return undefined;
   }
 
   // «80 cuft», «80cf»: piedi cubi espliciti, pressione di lavoro non nota.
@@ -135,7 +169,8 @@ export function parseCylinderSpec(testo: string | undefined | null): CylinderSpe
   if (cuft) {
     const valore = Number(cuft[1]);
     if (!Number.isFinite(valore) || valore <= 0) return undefined;
-    const stima = arrotonda((valore * L_PER_CUFT) / BAR_3000_PSI);
+    const stima = plausibile((valore * L_PER_CUFT) / BAR_3000_PSI);
+    if (stima === undefined) return undefined;
     return {
       sizeL: stima,
       from: 'formula',
@@ -146,9 +181,8 @@ export function parseCylinderSpec(testo: string | undefined | null): CylinderSpe
   // «11.1 l», «12 litri», «12»: già litri.
   const litri = /^(\d+(?:\.\d+)?)\s*(?:l|lt|litri|liters?)?$/.exec(t);
   if (litri) {
-    const valore = Number(litri[1]);
-    if (!Number.isFinite(valore) || valore <= 0 || valore > 60) return undefined;
-    return { sizeL: arrotonda(valore), from: 'litri', note: '' };
+    const v = plausibile(Number(litri[1]));
+    return v === undefined ? undefined : { sizeL: v, from: 'litri', note: '' };
   }
 
   return undefined;

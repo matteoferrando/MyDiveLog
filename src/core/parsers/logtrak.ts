@@ -34,6 +34,7 @@ import {
   type Weather,
 } from '../model';
 import { diveIdFor } from '../dedupe';
+import { parseCylinderSpec } from '../cylinders';
 import { computeMetrics } from '../analysis/metrics';
 import {
   decodeUwatecSmart,
@@ -208,7 +209,16 @@ function readDive(
     minTempC: raw.waterTempCelsiusMin ?? decoded?.tempMinC,
     airTempC: decoded?.tempSurfaceC,
     site,
-    buddy: [...(raw.buddyNames ?? []), ...(raw.guideNames ?? [])].join(', ') || undefined,
+    /*
+     * Compagno e guida in due campi, perché il file li tiene già separati.
+     *
+     * Finché finivano nella stessa stringa, «con chi mi immergo di solito» e
+     * «chi mi ha portato» erano indistinguibili — ed è LogTRAK l'unica sorgente
+     * che possiede il dato. Il campo `guide` è stato aggiunto proprio per
+     * questo, e per un giro è rimasto vuoto mentre il dato passava di lì.
+     */
+    buddy: (raw.buddyNames ?? []).join(', ') || undefined,
+    guide: (raw.guideNames ?? []).join(', ') || undefined,
     notes: raw.notes || undefined,
     mode: modeFor(raw, decoded),
     cylinders,
@@ -283,8 +293,15 @@ export function parseTankSize(size: string | null | undefined): number | undefin
   if (!size) return undefined;
   const m = /^(l|cuft|cf)_?(\d+(?:[.,]\d+)?)$/i.exec(size.trim());
   if (!m) {
-    const bare = Number(String(size).replace(/[^\d.]/g, ''));
-    return Number.isFinite(bare) && bare > 0 ? bare : undefined;
+    /*
+     * IL RIPIEGO NON PUÒ ESSERE «TIENI LE CIFRE E BUTTA IL RESTO».
+     *
+     * Lo era, e su «S80» restituiva **80 litri**: sette volte il volume vero,
+     * senza un avviso, e da lì ogni consumo calcolato su quella immersione era
+     * sette volte più basso. Ora la stringa passa dal traduttore vero, che le
+     * sigle le conosce e su quelle che non conosce non inventa niente.
+     */
+    return parseCylinderSpec(String(size))?.sizeL;
   }
   const value = Number(m[2].replace(',', '.'));
   if (!Number.isFinite(value) || value <= 0) return undefined;

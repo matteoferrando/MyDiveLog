@@ -680,27 +680,31 @@ export const LIMITS = {
   minPpo2Hazardous: 0.16,
   minPpo2Fatal: 0.12,
   /**
-   * Velocità sul tratto dopo la sosta di sicurezza, citata come DAN
-   * (TDI Advanced Nitrox p. 38). Non è un limite raccomandato: è riportata come
-   * comportamento osservato, e serve come termine di paragone.
+   * Velocità sul tratto dopo la sosta di sicurezza: **60 m/min**.
    *
-   * ⚠️ DA VERIFICARE SULLA PAGINA, e finché non lo è questo numero non deve
-   * essere usato per giudicare niente. Sessanta METRI al minuto sono 197 piedi
-   * al minuto: come media di una popolazione di subacquei è implausibile, e la
-   * letteratura DAN che si trova in rete parla di 30 e 60 PIEDI al minuto —
-   * cioè 9 e 18 m/min — come velocità RACCOMANDATE, non misurate. Il sospetto
-   * concreto è che la cifra della pagina sia 60 ft/min e che qui sia stata
-   * trascritta come metri, sbagliando di un fattore 3.3.
+   * VERIFICATO SULLA PAGINA, 19 agosto 2026. Il manuale *TDI Advanced Nitrox*
+   * dice, nel paragrafo «Nitrogen Concerns»: «The Divers Alert Network has found
+   * that the average ascent rate for divers after they have completed their
+   * safety stop is 60 metres or 200 feet a minute».
    *
-   * La conseguenza si vede: il contatore che confronta le immersioni con questa
-   * soglia vale ZERO sull'archivio di riferimento, mentre la regola dell'app —
-   * che usa 6 m/min sopra i dieci metri — ne segnala quattordici. Una soglia che
-   * non scatta mai è una soglia che non misura niente, ed è il sintomo che
-   * l'unità è sbagliata.
+   * Il sospetto che ci fosse uno scambio fra metri e piedi era SBAGLIATO: il
+   * manuale dà le due unità insieme, 60 m e 200 ft, e i conti tornano. Sono
+   * davvero sessanta metri al minuto.
    *
-   * Resta al valore di prima invece di essere «corretta» a occhio: cambiarla
-   * senza aver letto la pagina significherebbe sostituire un numero sbagliato
-   * con un altro numero inventato. Va letta la pagina 38.
+   * Ma la lettura giusta è un'altra, ed è il motivo per cui questo numero non va
+   * usato come soglia. Non è una velocità raccomandata: è la media che DAN ha
+   * **misurato** su quello che i subacquei fanno davvero negli ultimi metri, ed
+   * è citata in un paragrafo che parla di quanto l'ultimo tratto sia il punto in
+   * cui si può fare meglio. È il comportamento medio, non il limite — e per
+   * giunta un comportamento che il manuale porta come esempio di ciò che si
+   * dovrebbe migliorare.
+   *
+   * Quindi: serve come **termine di paragone** («risali più o meno in fretta
+   * della media misurata da DAN»), mai come criterio di violazione. Un contatore
+   * costruito su questa soglia vale zero su un archivio normale, ed è giusto che
+   * valga zero: chi la supera sta risalendo più veloce della media di una
+   * popolazione che già risale troppo veloce. Il limite con cui l'app giudica
+   * resta `ascentRateShallowMpm`.
    */
   danFinalAscentMpm: 60,
   /** Oltre questa frazione di ossigeno serve attrezzatura pulita per l'ossigeno (p. 55). */
