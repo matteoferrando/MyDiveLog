@@ -11,6 +11,7 @@ import { useDiveLog } from '../state';
 import { AnalysisCard } from '../components/Analysis';
 import { SaturationCard } from '../components/Saturation';
 import { decoTimeline, entryStateFor, gfOf, type DecoPoint } from '../../core/analysis/tissues';
+import { BottoneConferma } from '../components/Conferma';
 import {
   capitalise,
   dateLong,
@@ -895,24 +896,25 @@ function EditPanel({
           </span>
         )}
         <span className="topbar-spacer" />
-        <button
+        {/*
+         * La conferma dice cosa succede DAVVERO: va nel cestino, si può
+         * rimettere a posto, e diventa definitiva fra trenta giorni. Una
+         * conferma che dice solo «sei sicuro?» non aggiunge informazione e si
+         * clicca senza leggerla.
+         */}
+        <BottoneConferma
           className="btn btn-danger"
-          onClick={() => {
-            // La conferma dice cosa succede DAVVERO: va nel cestino, si può
-            // rimettere a posto, e diventa definitiva fra trenta giorni. Una
-            // conferma che dice solo «sei sicuro?» non aggiunge informazione e si
-            // clicca senza leggerla.
-            if (
-              confirm(
-                'Sposta questa immersione nel cestino.\n\nSparisce dall’archivio e smette di sincronizzarsi, ma resta recuperabile dalle Impostazioni per trenta giorni. Dopo, la cancellazione diventa definitiva su tutti i dispositivi.',
-              )
-            ) {
-              onDelete();
-            }
-          }}
-        >
-          Sposta nel cestino
-        </button>
+          etichetta="Sposta nel cestino"
+          conferma="Sì, sposta nel cestino"
+          domanda={
+            <>
+              L'immersione sparisce dall'archivio e smette di sincronizzarsi, ma resta recuperabile dalle{' '}
+              <b>Impostazioni</b> per trenta giorni. Dopo, la cancellazione diventa definitiva su tutti i
+              dispositivi.
+            </>
+          }
+          onConferma={onDelete}
+        />
       </div>
     </div>
   );

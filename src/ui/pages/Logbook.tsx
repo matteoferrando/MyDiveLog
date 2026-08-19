@@ -6,6 +6,7 @@ import type { Dive } from '../../core/model';
 import { NewDive } from '../components/NewDive';
 import { useDiveLog } from '../state';
 import { dateShort, FORMAT_LABEL, imm, timeShort } from '../format';
+import { BottoneConferma } from '../components/Conferma';
 
 type SortKey = 'date' | 'depth' | 'duration' | 'rmv';
 
@@ -477,13 +478,6 @@ function BulkEdit({
   };
 
   const cestina = () => {
-    if (
-      !confirm(
-        `Spostare ${ids.length} ${ids.length === 1 ? 'immersione' : 'immersioni'} nel cestino?\n\nRestano recuperabili per ${30} giorni: la cancellazione diventa definitiva solo svuotando il cestino.`,
-      )
-    ) {
-      return;
-    }
     void (async () => {
       setLavoro(true);
       try {
@@ -599,9 +593,18 @@ function BulkEdit({
           {lavoro ? 'Scrivo…' : `Applica a ${ids.length}`}
         </button>
         <span style={{ flex: 1 }} />
-        <button disabled={lavoro} onClick={cestina} style={{ color: 'var(--critical)' }}>
-          Sposta nel cestino
-        </button>
+        <BottoneConferma
+          disabled={lavoro}
+          etichetta="Sposta nel cestino"
+          conferma={`Sì, sposta ${ids.length === 1 ? "l'immersione" : `le ${ids.length}`}`}
+          domanda={
+            <>
+              Spostare {imm(ids.length)} {ids.length === 1 ? 'immersione' : 'immersioni'} nel cestino? Restano
+              recuperabili per 30 giorni: la cancellazione diventa definitiva solo svuotando il cestino.
+            </>
+          }
+          onConferma={cestina}
+        />
       </div>
     </div>
   );

@@ -22,6 +22,7 @@ import {
   repairArchive,
   normaliseDive,
 } from '../src/storage/repair';
+import { filterDeleted } from '../src/storage/trash';
 import { mergeImports } from '../src/core/dedupe';
 import { computeMetrics } from '../src/core/analysis/metrics';
 import type { Dive, Sample } from '../src/core/model';
@@ -460,5 +461,58 @@ describe('pulizia di ciò che arriva dalla rete', () => {
   it('regge le immersioni senza computer', () => {
     const bare = dive({});
     expect(normaliseDive(bare)).toBe(bare);
+  });
+});
+
+/**
+ * Quello che è stato cancellato non deve tornare da un import.
+ *
+ * È il difetto che si scopre usando l'app, e che lo scarico Bluetooth rende
+ * sistematico: la memoria del computer contiene ancora l'immersione cancellata
+ * e non c'è modo di toglierla da lì, quindi ogni collegamento la rimetterebbe
+ * in archivio. Sui file capitava di rado — bastava reimportare lo stesso
+ * export — ma il meccanismo era lo stesso: l'import fonde tutto quello che
+ * arriva, e di cestino e lapidi non sa niente.
+ */
+describe('import contro cestino e lapidi', () => {
+  const imm = (id: string): Dive => ({
+    id,
+    startTime: '2026-06-14T09:00:00Z',
+    durationS: 2400,
+    maxDepth: 30,
+    mode: 'oc',
+    cylinders: [],
+    source: { format: 'uddf', file: 'x', importedAt: 'x' },
+    tags: [],
+  });
+
+  it('un’immersione nel cestino non rientra', () => {
+    const out = filterDeleted([imm('a'), imm('b')], [{ dive: { id: 'a' } }], []);
+    expect(out.keep.map((d) => d.id)).toEqual(['b']);
+    expect(out.inTrash).toBe(1);
+    expect(out.buried).toBe(0);
+  });
+
+  it('un’immersione con la lapide non risorge', () => {
+    // Se rientrasse, verrebbe ricancellata dalla sincronizzazione successiva —
+    // oppure sopravvivrebbe e tornerebbe su tutti i dispositivi.
+    const out = filterDeleted([imm('a')], [], [{ id: 'a' }]);
+    expect(out.keep).toHaveLength(0);
+    expect(out.buried).toBe(1);
+  });
+
+  it('le due categorie si contano separate, perché hanno rimedi diversi', () => {
+    // Dal cestino si rimette a posto; con la lapide no. Un conteggio unico
+    // impedirebbe di dire qual è la strada per riaverle.
+    const out = filterDeleted([imm('a'), imm('b'), imm('c')], [{ dive: { id: 'a' } }], [{ id: 'b' }]);
+    expect(out.keep.map((d) => d.id)).toEqual(['c']);
+    expect(out.inTrash).toBe(1);
+    expect(out.buried).toBe(1);
+  });
+
+  it('senza cancellazioni non tocca niente', () => {
+    const arrivate = [imm('a'), imm('b')];
+    const out = filterDeleted(arrivate, [], []);
+    expect(out.keep).toEqual(arrivate);
   });
 });

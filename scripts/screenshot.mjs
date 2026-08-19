@@ -495,6 +495,36 @@ await page.waitForTimeout(700);
 await shots(page, 'screenshots/9b-mobile-gas', 4);
 
 /*
+ * IL CESTINO FUNZIONA DAVVERO?
+ *
+ * Era morto e nessuno se n'era accorto: la conferma passava da
+ * `window.confirm`, che nella WKWebView di macOS non mostra niente e
+ * restituisce `false`. Il pulsante non faceva NIENTE — nessun errore, nessuna
+ * finestra — e l'unica conclusione possibile era che l'app fosse rotta.
+ *
+ * Playwright, come la WKWebView, respinge le finestre di dialogo: quindi
+ * questo controllo avrebbe trovato il difetto il giorno in cui è nato. Adesso
+ * la conferma è dentro la pagina e il percorso si può percorrere tutto.
+ */
+// La finestra torna larga: i passi precedenti la stringono a 390 px per
+// provare il telefono, e una scheda di modifica in blocco a quella larghezza
+// impila i pulsanti in un modo che rende il percorso diverso da quello vero.
+await page.setViewportSize({ width: 1180, height: 900 });
+await page.click('button:has-text("Logbook")');
+await page.waitForTimeout(600);
+const primaDelCestino = await page.locator('tbody tr').count();
+await page.locator('tbody tr').first().locator('input[type=checkbox]').check();
+await page.waitForTimeout(300);
+await page.locator('button:has-text("Sposta nel cestino")').first().click();
+await page.waitForTimeout(300);
+// Il primo clic ARMA soltanto: l'archivio non deve essere ancora cambiato.
+const dopoIlPrimoClic = await page.locator('tbody tr').count();
+await page.locator('button:has-text("Sì, sposta")').first().click();
+await page.waitForTimeout(900);
+const dopoIlCestino = await page.locator('tbody tr').count();
+await page.screenshot({ path: 'screenshots/19-cestino.png', fullPage: true });
+
+/*
  * Scarico Bluetooth: il percorso che nel browser NON può funzionare.
  *
  * È il caso più importante da inchiodare, perché è quello che l'harness può
@@ -638,6 +668,13 @@ console.log(
   bloccoOk
     ? 'compagno scritto, sito non toccato'
     : `SBAGLIATA\nprima: ${primaDelBlocco}\ndopo: ${dopoIlBlocco}`,
+);
+console.log(
+  'CESTINO:',
+  `${primaDelCestino} righe → ${dopoIlPrimoClic} dopo il primo clic → ${dopoIlCestino} dopo la conferma`,
+  dopoIlPrimoClic === primaDelCestino && dopoIlCestino === primaDelCestino - 1
+    ? '(corretto)'
+    : 'SBAGLIATO: la conferma non arma o non cancella',
 );
 console.log('BLUETOOTH CARTA:\n' + bleCard.slice(0, 400));
 console.log('BLUETOOTH NEL BROWSER:', bleErrore.replace(/\n/g, ' ').slice(0, 220));

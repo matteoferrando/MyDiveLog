@@ -9,7 +9,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Dive, Sample } from '../core/model';
-import { TRASH_KEY, partitionTrash, type TrashedDive } from '../storage/trash';
+import { TRASH_KEY, filterDeleted, partitionTrash, type TrashedDive } from '../storage/trash';
 import { BLE_MARKERS_KEY, type DownloadMarker } from '../core/ble/types';
 import { computeMetrics } from '../core/analysis/metrics';
 import { aggregate, type Aggregates } from '../core/analysis/aggregate';
@@ -452,6 +452,43 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     [store],
   );
 
+  /*
+   * Toglie da un lotto in arrivo quello che è già stato cancellato.
+   *
+   * Vale per TUTTI i percorsi d'import — file e Bluetooth — e sta qui invece
+   * che dentro `mergeImports` perché cestino e lapidi sono stato
+   * dell'applicazione, non del nucleo: `src/core` non sa che esistono, ed è
+   * giusto che continui a non saperlo.
+   *
+   * Le lapidi si rileggono dall'archivio a ogni import invece di tenerle in
+   * memoria: sono poche righe, cambiano di rado, e una copia in memoria che si
+   * disallinea qui significherebbe far risorgere un'immersione cancellata.
+   */
+  const scartaCancellate = useCallback(
+    async (arrivate: Dive[]): Promise<{ keep: Dive[]; nota?: string }> => {
+      const tombs = store
+        ? ((await store.getSetting<{ id: string; at: string }[]>(TOMBSTONE_KEY).catch(() => [])) ?? [])
+        : [];
+      const { keep, inTrash, buried } = filterDeleted(arrivate, trash, tombs);
+      if (!inTrash && !buried) return { keep };
+      const pezzi: string[] = [];
+      if (inTrash) pezzi.push(`${inTrash} ${inTrash === 1 ? 'è nel cestino' : 'sono nel cestino'}`);
+      if (buried) {
+        pezzi.push(
+          `${buried} ${buried === 1 ? 'era stata cancellata' : 'erano state cancellate'} definitivamente`,
+        );
+      }
+      const quante = inTrash + buried;
+      return {
+        keep,
+        nota:
+          `${quante} ${quante === 1 ? 'immersione non è stata reimportata' : 'immersioni non sono state reimportate'} ` +
+          `perché ${pezzi.join(' e ')}. Per riaverle, rimettile a posto dal cestino in Impostazioni.`,
+      };
+    },
+    [store, trash],
+  );
+
   const importFiles = useCallback(
     async (files: File[]): Promise<ImportOutcome[]> => {
       const outcomes: ImportOutcome[] = [];
@@ -461,7 +498,9 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
 
       for (const file of files) {
         try {
-          const result = await parseBrowserFile(file);
+          const parsed = await parseBrowserFile(file);
+          const filtro = await scartaCancellate(parsed.dives);
+          const result = { ...parsed, dives: filtro.keep };
           // I profili delle immersioni già in archivio vanno caricati PRIMA di
           // fondere: la fusione sceglie quale profilo tenere confrontando canali e
           // campioni, e un profilo non caricato conta zero — qualunque cosa
@@ -470,6 +509,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
           const report = mergeImports(current, result.dives);
           current = report.dives;
           const warnings = [...result.warnings];
+          if (filtro.nota) warnings.push(filtro.nota);
           for (const c of report.clockOffsets) {
             const hours = c.offsetMs / 3_600_000;
             warnings.push(
@@ -508,7 +548,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       setDives(current.map(stripForList));
       return outcomes;
     },
-    [dives, store],
+    [dives, store, scartaCancellate],
   );
 
   /**
@@ -521,12 +561,15 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
    * sopra.
    */
   const importDives = useCallback(
-    async (arrivate: Dive[], origine: string): Promise<ImportOutcome> => {
+    async (tutte: Dive[], origine: string): Promise<ImportOutcome> => {
       try {
+        const filtro = await scartaCancellate(tutte);
+        const arrivate = filtro.keep;
         let current = dives;
         if (store) current = await hydrateForMerge(store, current, arrivate);
         const report = mergeImports(current, arrivate);
         const warnings: string[] = [];
+        if (filtro.nota) warnings.push(filtro.nota);
         for (const c of report.clockOffsets) {
           const hours = c.offsetMs / 3_600_000;
           warnings.push(
@@ -540,7 +583,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         return {
           fileName: origine,
           ok: true,
-          found: arrivate.length,
+          found: tutte.length,
           added: report.added,
           merged: report.merged,
           duplicates: report.duplicates,
@@ -550,7 +593,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         return {
           fileName: origine,
           ok: false,
-          found: arrivate.length,
+          found: tutte.length,
           added: 0,
           merged: 0,
           duplicates: 0,
@@ -559,7 +602,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         };
       }
     },
-    [dives, store],
+    [dives, store, scartaCancellate],
   );
 
   /*

@@ -254,7 +254,6 @@ describe('annunci della pagina di import', () => {
 
   it('anche l’azzeramento dell’archivio annuncia i tre momenti', async () => {
     const { promessa, risolvi } = differita<void>();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     finto.valore = {
       dives: Array.from({ length: 128 }, () => ({})),
       storeLocation: 'archivio locale',
@@ -264,10 +263,23 @@ describe('annunci della pagina di import', () => {
     };
     const vista = monta(<ImportPage onDone={() => undefined} />);
 
-    const bottone = premi(vista.host, 'Cancella tutto');
+    /*
+     * DUE clic, e non è una complicazione: è la correzione di un difetto.
+     *
+     * La conferma era `window.confirm`, che dentro la WKWebView di macOS non
+     * mostra niente e restituisce `false`. Nell'applicazione vera il pulsante
+     * «Cancella tutto» quindi NON FACEVA NIENTE — e lo stesso valeva per il
+     * cestino, lo svuotamento, la cancellazione definitiva e il ripristino da
+     * zero. Nel browser funzionava, ed è lì che venivano provati.
+     *
+     * Adesso il pulsante si arma e la domanda compare nella pagina. Il test lo
+     * percorre come lo percorre una persona.
+     */
+    premi(vista.host, 'Cancella tutto');
+    expect(stato(vista.host)).toBe('');
+    const bottone = premi(vista.host, 'Sì, cancella le 128');
     expect(stato(vista.host)).toBe('Cancellazione di 128 immersioni in corso…');
-    expect(bottone.getAttribute('aria-busy')).toBe('true');
-    expect(bottone.textContent).toContain('Cancellazione in corso');
+    expect(bottone.textContent).toContain('Sì, cancella');
 
     await act(async () => {
       risolvi();
@@ -275,7 +287,6 @@ describe('annunci della pagina di import', () => {
     // L'esito visivo è la sparizione di mezza pagina: nulla che una voce possa
     // raccontare da sé, quindi lo si dice — con quante ne sono state cancellate.
     expect(stato(vista.host)).toContain('Archivio azzerato: 128 immersioni cancellate');
-    expect(bottone.getAttribute('aria-busy')).toBe('false');
     vista.smonta();
   });
 });

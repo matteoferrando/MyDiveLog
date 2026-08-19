@@ -3,6 +3,7 @@ import { ACCEPTED_EXTENSIONS, PARSERS } from '../../core/parsers';
 import { imm, plural } from '../format';
 import { useDiveLog, type ImportOutcome } from '../state';
 import { BleDownload } from '../components/BleDownload';
+import { BottoneConferma } from '../components/Conferma';
 
 export function ImportPage({ onDone }: { onDone: () => void }) {
   const { importFiles, dives, storeLocation, clearAll } = useDiveLog();
@@ -88,7 +89,6 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
 
   const azzera = async () => {
     const quante = dives.length;
-    if (!confirm(`Cancellare tutte le ${quante} immersioni dall'archivio?`)) return;
     setAzzerando(true);
     setAllarme('');
     setAnnuncio(`Cancellazione di ${imm(quante)} in corso…`);
@@ -312,14 +312,25 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
             Cancella tutte le {dives.length} immersioni e i profili. Non è reversibile: i file di origine
             restano dove sono, quindi si può reimportare.
           </p>
-          <button
-            className="btn btn-danger"
-            onClick={() => void azzera()}
-            disabled={azzerando}
-            aria-busy={azzerando}
-          >
-            {azzerando ? 'Cancellazione in corso…' : 'Cancella tutto'}
-          </button>
+          {azzerando ? (
+            <button className="btn btn-danger" disabled aria-busy>
+              Cancellazione in corso…
+            </button>
+          ) : (
+            <BottoneConferma
+              className="btn btn-danger"
+              etichetta="Cancella tutto"
+              conferma={`Sì, cancella le ${dives.length}`}
+              domanda={
+                <>
+                  Cancellare tutte le {imm(dives.length)} immersioni e i loro profili? Non passano dal cestino
+                  e <b>non si recuperano</b>: i file di origine restano sul disco, quindi la sola strada per
+                  riaverle è reimportarli.
+                </>
+              }
+              onConferma={() => void azzera()}
+            />
+          )}
         </div>
       )}
     </div>

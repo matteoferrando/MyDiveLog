@@ -24,6 +24,7 @@ import {
 } from '../../core/export/backup';
 import type { SyncReport } from '../../sync/turso';
 import type { AiModel } from '../../ai/client';
+import { BottoneConferma } from '../components/Conferma';
 
 export function SyncPage() {
   const {
@@ -609,14 +610,6 @@ function BackupCard() {
 
   const ripristina = () => {
     if (!candidato || impedimenti.length) return;
-    if (
-      modo === 'replace' &&
-      !confirm(
-        `Ricostruire l'archivio da zero cancella le ${dives.length} immersioni che hai adesso, comprese quelle che il backup non contiene. Non si torna indietro.\n\nProcedere?`,
-      )
-    ) {
-      return;
-    }
     void (async () => {
       setLavoro('restore');
       setErrore(null);
@@ -726,13 +719,26 @@ function BackupCard() {
             </div>
           )}
           <div className="row" style={{ gap: 8 }}>
-            <button
-              className="btn"
-              disabled={lavoro !== 'idle' || impedimenti.length > 0}
-              onClick={ripristina}
-            >
-              {lavoro === 'restore' ? 'Ripristino…' : 'Ripristina'}
-            </button>
+            {modo === 'replace' ? (
+              <BottoneConferma
+                className="btn"
+                disabled={lavoro !== 'idle' || impedimenti.length > 0}
+                etichetta={lavoro === 'restore' ? 'Ripristino…' : 'Ripristina'}
+                conferma="Sì, ricostruisci da zero"
+                domanda={
+                  <>
+                    Ricostruire l'archivio da zero cancella le {imm(dives.length)} immersioni che hai adesso,{' '}
+                    <b>comprese quelle che il backup non contiene</b>. Non passano dal cestino e non si torna
+                    indietro.
+                  </>
+                }
+                onConferma={ripristina}
+              />
+            ) : (
+              <button className="btn" disabled={lavoro !== 'idle'} onClick={ripristina}>
+                {lavoro === 'restore' ? 'Ripristino…' : 'Ripristina'}
+              </button>
+            )}
             <button
               onClick={() => {
                 setCandidato(null);
@@ -808,20 +814,18 @@ function TrashCard() {
             finché sono qui, «Rimetti a posto» le riporta esattamente com'erano.
           </p>
         </div>
-        <button
-          style={{ color: 'var(--critical)' }}
-          onClick={() => {
-            if (
-              confirm(
-                `Cancellare definitivamente ${items.length} ${items.length === 1 ? 'immersione' : 'immersioni'}?\n\nDa questo momento la cancellazione si propaga a tutti i dispositivi sincronizzati e non si può più tornare indietro.`,
-              )
-            ) {
-              void emptyTrash();
-            }
-          }}
-        >
-          Svuota il cestino
-        </button>
+        <BottoneConferma
+          etichetta="Svuota il cestino"
+          conferma={`Sì, cancella ${items.length === 1 ? "l'immersione" : `le ${items.length}`}`}
+          domanda={
+            <>
+              Cancellare definitivamente {imm(items.length)}{' '}
+              {items.length === 1 ? 'immersione' : 'immersioni'}? Da questo momento la cancellazione si
+              propaga a <b>tutti i dispositivi sincronizzati</b> e non si può più tornare indietro.
+            </>
+          }
+          onConferma={() => void emptyTrash()}
+        />
       </div>
 
       {items.length > TRASH_SOFT_LIMIT && (
@@ -871,16 +875,13 @@ function TrashCard() {
                     >
                       Rimetti a posto
                     </button>
-                    <button
-                      style={{ fontSize: 11, padding: '3px 8px', color: 'var(--critical)' }}
-                      onClick={() => {
-                        if (confirm('Cancellare definitivamente questa immersione su tutti i dispositivi?')) {
-                          void purgeDive(item.dive.id);
-                        }
-                      }}
-                    >
-                      Elimina
-                    </button>
+                    <BottoneConferma
+                      style={{ fontSize: 11, padding: '3px 8px' }}
+                      etichetta="Elimina"
+                      conferma="Sì, cancella"
+                      domanda="Cancellare definitivamente questa immersione su tutti i dispositivi? Non si torna indietro."
+                      onConferma={() => void purgeDive(item.dive.id)}
+                    />
                   </span>
                 </td>
               </tr>
