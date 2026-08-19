@@ -478,6 +478,9 @@ export function logbookBase(rsp: Uint8Array): number {
 
 const esadecimale = (b: Uint8Array) => [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
 
+/** Testo ASCII da una risposta, senza i riempimenti a zero. */
+const testo = (b: Uint8Array) => new TextDecoder().decode(b).replace(/\0+$/, '').trim() || undefined;
+
 /** Quanto si aspetta una notifica. Generoso: il computer a volte pensa. */
 const TIMEOUT_MS = 6000;
 
@@ -513,15 +516,45 @@ export const shearwaterDriver: DiveComputerDriver = {
     const model = await rdbi(link, decoder, ID_MODEL, TIMEOUT_MS, trace);
     const modelNumber = model?.[0];
 
+    /*
+     * IL SERIALE È TESTO, non un numero a 32 bit.
+     *
+     * Il computer risponde con otto caratteri ASCII — «988B023F» — cioè il
+     * seriale scritto in esadecimale, lo stesso che compare sullo schermo del
+     * Peregrine. Leggendo quei byte come un intero big-endian esce 959985730,
+     * che sono i CODICI ASCII dei primi quattro caratteri interpretati come
+     * numero: un valore stabile e senza nessun significato, che per giunta
+     * ignora la seconda metà — due computer il cui seriale comincia uguale
+     * darebbero lo stesso numero.
+     *
+     * Conta perché il seriale è la CHIAVE del segnalibro: una collisione lì
+     * significa che il secondo computer eredita il punto di ripartenza del
+     * primo e salta immersioni. Si tiene il testo così com'è.
+     */
+    const identita = {
+      model: (modelNumber !== undefined && MODELLI[modelNumber]) || 'Shearwater',
+      serial: serial ? testo(serial) : undefined,
+    };
     emit({
       kind: 'identified',
-      model: (modelNumber !== undefined && MODELLI[modelNumber]) || 'Shearwater',
-      serial: serial ? String(u32be(serial, 0)) : undefined,
+      ...identita,
       // ⚠️ Il firmware è testo ASCII, e libdivecomputer lo converte in numero
       // con una funzione sua. Qui si mostra la stringa: se arriva sporca si
       // vede subito, mentre un numero sbagliato passerebbe inosservato.
-      firmware: firmware ? new TextDecoder().decode(firmware).replace(/\0+$/, '').trim() : undefined,
+      firmware: firmware ? testo(firmware) : undefined,
     });
+
+    /*
+     * Il segnalibro si chiede ADESSO, non prima.
+     *
+     * Questo è il primo istante in cui si sa CON CHI si sta parlando: il
+     * seriale è appena arrivato. Chiederlo prima significherebbe cercarlo con
+     * l'identificativo che dà il sistema operativo, che vale solo per questo
+     * Mac e per questa installazione — ed è il difetto che rendeva lo scarico
+     * incrementale inefficace, perché il segnalibro veniva scritto sotto una
+     * chiave e riletto sotto un'altra.
+     */
+    const segnalibro = since(identita);
 
     const tipo = await rdbi(link, decoder, ID_LOGUPLOAD, TIMEOUT_MS, trace);
     if (!tipo) throw new ShearwaterProtocolError('Il computer non dichiara il tipo di logbook.');
@@ -556,7 +589,7 @@ export const shearwaterDriver: DiveComputerDriver = {
         `manifesto ${pagine}: ${entries.length} voci, ${deleted} cancellate, ${full ? 'piena' : 'ultima'}`,
       );
       for (const e of entries) {
-        if (since && esadecimale(e.fingerprint) === since) {
+        if (segnalibro && esadecimale(e.fingerprint) === segnalibro) {
           fermato = true;
           break;
         }
@@ -606,15 +639,46 @@ export const shearwaterDriver: DiveComputerDriver = {
   decode(records) {
     const dives: Dive[] = [];
     const warnings: string[] = [];
+    /*
+     * GLI AVVISI CHE SI RIPETONO SI RIASSUMONO, non si elencano.
+     *
+     * Il log del Peregrine contiene codici di evento che non sappiamo
+     * interpretare, e ce ne sono in quasi ogni immersione: elencandoli uno per
+     * uno, su trentanove immersioni escono ottanta righe identiche che
+     * seppelliscono i tre avvisi che contano davvero — per esempio lo
+     * sfasamento dell'orologio riconosciuto durante la fusione.
+     *
+     * Il dato utile è QUALI codici si sono visti, non quante volte. È la
+     * stessa regola che il parser di Shearwater Cloud applica agli stessi
+     * eventi, e non applicarla qui significava che lo scarico via Bluetooth
+     * produceva un elenco illeggibile mentre l'import dello stesso log da file
+     * ne produceva uno pulito.
+     */
+    const codici = new Set<string>();
+    const raccogli = (note: string, quando: string) => {
+      if (/^Eventi non documentati/.test(note)) {
+        for (const c of note.match(/\d+/g) ?? []) codici.add(c);
+      } else warnings.push(`${quando}: ${note}`);
+    };
     const importedAt = new Date().toISOString();
     for (const r of records) {
       try {
-        dives.push(buildDive(decodePnf(r.bytes), r.key, importedAt, warnings));
+        dives.push(buildDive(decodePnf(r.bytes), r.key, importedAt, raccogli));
       } catch (err) {
         warnings.push(
           `Immersione ${r.key} scaricata ma non decodificabile: ${err instanceof Error ? err.message : String(err)}.`,
         );
       }
+    }
+    if (codici.size) {
+      warnings.push(
+        `Nel log ci sono eventi che non sappiamo interpretare, letti e non usati: codici ${[...codici]
+          .map(Number)
+          .sort((a, b) => a - b)
+          .join(
+            ', ',
+          )}. Non manca niente del profilo: sono marcature del computer di cui non conosciamo il significato.`,
+      );
     }
     return { dives, warnings };
   },
@@ -632,7 +696,12 @@ export const shearwaterDriver: DiveComputerDriver = {
  * scaricare via Bluetooth un'immersione che si ha già da un file la FONDE
  * invece di duplicarla, e le note scritte a mano restano.
  */
-function buildDive(log: PnfLog, key: string, importedAt: string, warnings: string[]): Dive {
+function buildDive(
+  log: PnfLog,
+  key: string,
+  importedAt: string,
+  nota: (testo: string, quando: string) => void,
+): Dive {
   if (log.startTimeS === undefined) {
     throw new Error("il log non porta l'orario di inizio, quindi l'immersione non è collocabile nel tempo");
   }
@@ -718,7 +787,7 @@ function buildDive(log: PnfLog, key: string, importedAt: string, warnings: strin
     samples,
   };
 
-  for (const n of log.notes) warnings.push(`${startTime.slice(0, 10)}: ${n}`);
+  for (const n of log.notes) nota(n, startTime.slice(0, 10));
 
   const dive: Dive = { ...base, id: diveIdFor(base) };
   dive.metrics = computeMetrics(dive);

@@ -75,8 +75,14 @@ export async function downloadFromComputer(
   opts: {
     onEvent?: (e: DownloadEvent) => void;
     signal?: AbortSignal;
-    /** Chiave dell'ultima immersione già in archivio da questo computer. */
-    since?: string;
+    /**
+     * Il segnalibro da cui ripartire, chiesto una volta noto il seriale.
+     *
+     * Vedi `DiveComputerDriver.download`: è una funzione perché l'identità
+     * stabile del computer è il suo seriale, e quello si sa solo dopo essersi
+     * connessi.
+     */
+    since?: (identity: { serial?: string; model?: string }) => string | undefined;
   } = {},
 ): Promise<DownloadOutcome> {
   const warnings: string[] = [];
@@ -163,7 +169,15 @@ export async function downloadFromComputer(
     const restituiti = await driver.download(link, {
       emit,
       signal: ctl.signal,
-      since: opts.since,
+      since: (identity) => {
+        const s = opts.since?.(identity);
+        trace(
+          s
+            ? `segnalibro per ${identity.serial ?? 'seriale ignoto'}: riparto da ${s}`
+            : `nessun segnalibro per ${identity.serial ?? 'seriale ignoto'}: leggo tutta la memoria`,
+        );
+        return s;
+      },
       trace,
     });
     for (const r of restituiti) {

@@ -31,6 +31,7 @@ import { DRIVERS, recognise, type RecognisedDevice } from '../../core/ble/regist
 import { markerKey, type BleUnavailable, type DownloadEvent } from '../../core/ble/types';
 import { TauriBleTransport } from '../../storage/ble';
 import { useDiveLog } from '../state';
+import type { DownloadMarker } from '../../core/ble/types';
 import { dateShort, imm } from '../format';
 
 type Stato =
@@ -117,7 +118,11 @@ export function BleDownload() {
 
   const scarica = useCallback(
     async (scelto: RecognisedDevice) => {
-      if (!scelto.driver) return;
+      // Estratto in una costante: dentro la funzione passata a `since` il
+      // restringimento del tipo si perde, e un `!` sarebbe una bugia in un
+      // punto dove il controllo esiste davvero.
+      const driver = scelto.driver;
+      if (!driver) return;
       fermaRicerca();
       const ctl = new AbortController();
       scarico.current = ctl;
@@ -141,12 +146,27 @@ export function BleDownload() {
         );
       };
 
-      const chiave = markerKey(scelto.driver.id, undefined, scelto.device.id);
-      const precedente = bleMarkers[chiave];
-      const esito = await downloadFromComputer(transport, scelto.device, scelto.driver, {
+      /*
+       * Il segnalibro si cerca col SERIALE, quando il computer si è presentato.
+       *
+       * Non prima: prima si avrebbe solo l'identificativo che dà il sistema
+       * operativo, che su Apple vale per quel Mac e per quella installazione
+       * soltanto. Salvare sotto il seriale e rileggere sotto l'identificativo
+       * — che è quello che facevo — significa non trovare MAI il segnalibro:
+       * lo scarico incrementale c'era e rileggeva comunque tutta la memoria,
+       * senza un solo errore a schermo.
+       */
+      let usato: { chiave: string; marker: DownloadMarker } | undefined;
+      const esito = await downloadFromComputer(transport, scelto.device, driver, {
         onEvent,
         signal: ctl.signal,
-        since: tuttoDaCapo ? undefined : precedente?.fingerprint,
+        since: ({ serial }) => {
+          if (tuttoDaCapo) return undefined;
+          const chiave = markerKey(driver.id, serial, scelto.device.id);
+          const m = bleMarkers[chiave];
+          if (m) usato = { chiave, marker: m };
+          return m?.fingerprint;
+        },
       });
       scarico.current = null;
 
@@ -162,7 +182,7 @@ export function BleDownload() {
       if (esito.dives.length === 0) {
         testo = esito.error
           ? `Non è arrivata nessuna immersione: ${esito.error}`
-          : precedente && !tuttoDaCapo
+          : usato && !tuttoDaCapo
             ? 'Niente di nuovo: il computer non ha immersioni più recenti di quelle che hai già.'
             : 'Il computer non ha immersioni in memoria da scaricare.';
       } else {
@@ -194,17 +214,17 @@ export function BleDownload() {
            * segnalibro salterebbe proprio le immersioni che non sono entrate.
            */
           if (esito.status === 'complete' && esito.newestKey) {
-            const vero = markerKey(scelto.driver.id, esito.serial, scelto.device.id);
-            await saveBleMarker(vero, {
+            const chiave = markerKey(driver.id, esito.serial, scelto.device.id);
+            await saveBleMarker(chiave, {
               fingerprint: esito.newestKey,
               at: new Date().toISOString(),
               dives: r.found,
               model: esito.model,
             });
-            // Il segnalibro provvisorio salvato sotto l'identificativo del
-            // dispositivo non serve più una volta noto il seriale: due chiavi
-            // per lo stesso computer si contraddirebbero al giro dopo.
-            if (vero !== chiave && bleMarkers[chiave]) await forgetBleMarker(chiave);
+            // Un segnalibro vecchio salvato sotto una chiave diversa — per
+            // esempio prima che il computer dichiarasse il seriale — non serve
+            // più: due chiavi per lo stesso computer si contraddirebbero.
+            if (usato && usato.chiave !== chiave) await forgetBleMarker(usato.chiave);
           }
         }
       }
@@ -217,7 +237,7 @@ export function BleDownload() {
         diario: [
           `MyDiveLog — diario dello scarico`,
           `dispositivo: ${scelto.device.name || 'senza nome'}`,
-          `driver: ${scelto.driver.id}`,
+          `driver: ${driver.id}`,
           `modello: ${esito.model ?? '—'} · seriale ${esito.serial ?? '—'} · firmware ${esito.firmware ?? '—'}`,
           `esito: ${esito.status}${esito.error ? ` — ${esito.error}` : ''}`,
           `immersioni: ${esito.dives.length}${esito.total !== undefined ? ` su ${esito.total}` : ''}`,

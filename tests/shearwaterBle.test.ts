@@ -317,7 +317,12 @@ function fintoPeregrine(logs: Uint8Array[]) {
       const id = (payload[1] << 8) | payload[2];
       const dati =
         id === 0x8010
-          ? [0, 0x12, 0x34, 0x56] // seriale
+          ? // Il seriale è TESTO: otto caratteri ASCII col seriale scritto in
+            // esadecimale, come risponde un Peregrine vero (verificato sul
+            // diario di uno scarico reale). Il finto lo imita, perché un finto
+            // che risponde con quattro byte binari avrebbe lasciato passare
+            // l'errore di lettura che c'era.
+            [...new TextEncoder().encode('988B023F')]
           : id === 0x8011
             ? [...new TextEncoder().encode('V93')]
             : id === 0x8060
@@ -463,7 +468,7 @@ describe('scarico completo dal finto Peregrine', () => {
     });
     expect(out.error).toBeUndefined();
     expect(out.model).toBe('Shearwater Peregrine');
-    expect(out.serial).toBe(String(0x123456));
+    expect(out.serial).toBe('988B023F');
     expect(out.firmware).toBe('V93');
     expect(out.total).toBe(2);
     expect(out.dives).toHaveLength(2);
@@ -537,7 +542,7 @@ describe('scarico completo dal finto Peregrine', () => {
     // volta si rilegge tutta la memoria del computer.
     const t = trasporto([logSintetico(1_750_000_000, 200), logSintetico(1_750_100_000, 300)]);
     const out = await downloadFromComputer(t, fakeDevice({ name: 'Peregrine' }), shearwaterDriver, {
-      since: '00000001',
+      since: () => '00000001',
     });
     expect(out.total).toBe(0);
     expect(out.dives).toHaveLength(0);
@@ -551,6 +556,31 @@ describe('scarico completo dal finto Peregrine', () => {
     );
     expect(out.error).toBeUndefined();
     expect(out.dives).toHaveLength(0);
+  });
+
+  it('gli avvisi ripetuti si riassumono in una riga sola', async () => {
+    /*
+     * Su trentanove immersioni vere il log produceva ottanta righe identiche
+     * — «eventi non documentati: codici 11» — che seppellivano i tre avvisi
+     * che contavano, fra cui lo sfasamento dell'orologio riconosciuto durante
+     * la fusione. Il dato utile è QUALI codici si sono visti, non quante volte.
+     */
+    const conEventi = (t: number) => {
+      const l = logSintetico(t, 200);
+      // Un evento di tipo sconosciuto in coda al log, prima del record finale.
+      const evento = new Uint8Array(32);
+      evento[0] = 0x02;
+      evento[1] = 11;
+      const out = new Uint8Array(l.length + 32);
+      out.set(l.subarray(0, 64));
+      out.set(evento, 64);
+      out.set(l.subarray(64), 96);
+      return out;
+    };
+    const t = trasporto([conEventi(1_750_000_000), conEventi(1_750_100_000)]);
+    const out = await downloadFromComputer(t, fakeDevice({ name: 'Peregrine' }), shearwaterDriver);
+    const ripetuti = out.warnings.filter((w) => /non sappiamo interpretare|non documentati/i.test(w));
+    expect(ripetuti.length).toBeLessThanOrEqual(1);
   });
 
   it('riconosce i modelli della famiglia e non le cuffie', () => {

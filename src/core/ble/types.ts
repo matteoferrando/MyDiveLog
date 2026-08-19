@@ -181,17 +181,22 @@ export interface DownloadMarker {
 }
 
 /**
- * La chiave sotto cui si ricorda il segnalibro.
+ * La chiave sotto cui si ricorda il segnalibro: il SERIALE del computer.
  *
- * Il SERIALE e non l'identificativo del dispositivo: su Apple quello che il
- * sistema dà è un UUID che vale solo per quel Mac e per quella app, e cambia
- * reinstallando. Il seriale è del computer subacqueo, quindi il segnalibro
- * sopravvive e vale anche fra dispositivi diversi che si sincronizzano.
- * Il ripiego sull'identificativo serve solo se il computer non dichiara un
- * seriale, che sarebbe già di per sé un caso da guardare.
+ * Non l'identificativo del dispositivo, che su Apple è un UUID valido solo per
+ * quel Mac e per quella app e cambia reinstallando. Il seriale è del computer
+ * subacqueo, quindi il segnalibro sopravvive e vale anche fra dispositivi
+ * diversi che si sincronizzano. Il ripiego serve solo se il computer non
+ * dichiara un seriale, che sarebbe già di per sé un caso da guardare.
  */
 export const markerKey = (driverId: string, serial: string | undefined, deviceId: string) =>
   `${driverId}:${serial ?? `dispositivo-${deviceId}`}`;
+
+/** Chi è il computer con cui si sta parlando, appena si è saputo. */
+export interface ComputerIdentity {
+  serial?: string;
+  model?: string;
+}
 
 /** Che cosa sta succedendo, mentre succede. */
 export type DownloadEvent =
@@ -242,7 +247,26 @@ export interface DiveComputerDriver {
     ctx: {
       emit: (e: DownloadEvent) => void;
       signal: AbortSignal;
-      since?: string;
+      /**
+       * Il segnalibro per QUESTO computer, chiesto quando lo si conosce.
+       *
+       * È una funzione e non un valore, e la ragione è concreta: il computer
+       * si identifica col numero di SERIALE, che è l'unica cosa stabile —
+       * l'identificativo che dà il sistema operativo vale solo per quel Mac e
+       * per quella installazione, e cambia reinstallando. Ma il seriale si
+       * legge solo DOPO essersi connessi, mentre il segnalibro serviva prima.
+       *
+       * Passandolo come valore, chi chiama doveva indovinare la chiave prima
+       * di sapere con chi stava parlando: è il difetto che ha reso lo scarico
+       * incrementale del tutto inefficace, salvando sotto il seriale e
+       * rileggendo sotto l'identificativo. Due chiavi diverse per la stessa
+       * cosa, nessuna corrispondenza, tutta la memoria riletta ogni volta —
+       * senza un solo errore a schermo.
+       *
+       * Il driver la chiama subito dopo aver emesso `identified`, cioè nel
+       * primo istante in cui la domanda ha una risposta.
+       */
+      since: (identity: ComputerIdentity) => string | undefined;
       /** Scrive una riga nel diario tecnico. Vedi `DownloadEvent.trace`. */
       trace: (line: string) => void;
     },
