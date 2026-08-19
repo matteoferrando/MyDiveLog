@@ -630,14 +630,36 @@ const ruleGf99: Rule = (agg, dives) => {
   // Il gradient factor alto è per immersione, non per archivio: si risale dal
   // `diveId` della serie, perché l'archivio è passato da 45/95 a 20/85 e
   // confrontare i due periodi con la stessa soglia è confrontare due cose diverse.
-  const gfHighOf = (diveId: string) => dives.find((d) => d.id === diveId)?.computer?.gfHigh ?? 85;
+  /*
+   * IL GF ALTO È SPESSO IGNOTO, e la frase diceva il contrario.
+   *
+   * Questa riga risale al gradient factor di quella immersione e, quando non
+   * c'è, assume 85. L'assunzione è ragionevole — è il valore più comune — ma la
+   * prova stampata sotto diceva «oltre l'85% del gradient factor alto IMPOSTATO
+   * SU QUEL COMPUTER», cioè presentava come misurato un numero che su
+   * quarantasette immersioni su quarantotto era stato indovinato. E lo stesso
+   * risultato invita, due righe più giù, a «verificare quali gradient factor hai
+   * impostato»: un conteggio costruito su un'assunzione, che chiede di
+   * verificare l'assunzione, senza dire che c'è.
+   *
+   * Il conteggio resta com'era — cambiarlo vorrebbe dire tacere su quasi tutto
+   * l'archivio — ma adesso si conta anche su quante immersioni il valore era
+   * davvero scritto, e la prova lo dichiara.
+   */
+  const GF_ALTO_ASSUNTO = 85;
+  const gfHighDi = (diveId: string) => dives.find((d) => d.id === diveId)?.computer?.gfHigh;
+  const gfHighOf = (diveId: string) => gfHighDi(diveId) ?? GF_ALTO_ASSUNTO;
   const high = agg.gf99.filter((p) => p.value / gfHighOf(p.diveId) >= 0.85).length;
+  const conGfNoto = agg.gf99.filter((p) => gfHighDi(p.diveId) !== undefined).length;
 
   const evidence = [
     `GF99 mediano all'uscita ${median.toFixed(0)}%, massimo ${agg.maxGf99?.toFixed(0)}%, su ${n} immersioni.`,
     high === 1
-      ? "Un'immersione chiusa oltre l'85% del gradient factor alto impostato su quel computer."
-      : `${high} immersioni chiuse oltre l'85% del gradient factor alto impostato su quel computer.`,
+      ? "Un'immersione chiusa oltre l'85% del proprio gradient factor alto."
+      : `${high} immersioni chiuse oltre l'85% del proprio gradient factor alto.`,
+    conGfNoto === n
+      ? 'Il gradient factor alto è quello registrato dal computer su tutte le immersioni.'
+      : `Attenzione: il gradient factor alto è registrato solo su ${conGfNoto} immersioni su ${n}; sulle altre è stato assunto ${GF_ALTO_ASSUNTO}, che è il valore più diffuso ma non è il tuo dato.`,
     'Calcolato da noi dal profilo con Bühlmann ZH-L16C, carico residuo compreso: c’è su tutte le immersioni campionate, non solo su quelle dei computer che lo scrivono.',
   ];
 

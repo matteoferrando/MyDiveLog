@@ -602,8 +602,22 @@ function analyseGas(dive: Dive, samples: Sample[], avgAta: number | undefined, c
   if (avgAta !== undefined && hasCylinderVolume && consumedBarL > 0 && durationMin > 0 && avgAta > 0) {
     rmvLpm = round(consumedBarL / (durationMin * avgAta), 1);
     if (cylinders.length > 1) {
+      /*
+       * DUE GRANDEZZE SU DUE INSIEMI DIVERSI, e finora lo diceva a metà.
+       *
+       * `rmvLpm` somma TUTTE le bombole; `sacBarPerMin`, `endPressureBar` e
+       * `reserveFraction` guardano solo la prima. Su una configurazione con una
+       * stage di decompressione il risultato è un consumo in L/min che comprende
+       * la stage e una pressione finale che è quella del back gas: la riserva
+       * mostrata è quella della bombola sbagliata, e la stessa `endPressureBar`
+       * alimenta la statistica «uscite sotto i 50 bar» e la colonna dell'archivio.
+       *
+       * Non si può risolvere sommando: i bar di bombole di volume diverso non si
+       * sommano. Quello che si può fare è NON far passare per generale un dato
+       * che riguarda una bombola sola, e dirlo dove il numero viene letto.
+       */
       caveats.push(
-        'Più bombole: il consumo di superficie è calcolato sul totale, senza attribuire il tempo a ciascun gas.',
+        'Più bombole: il consumo in L/min è calcolato sul totale di tutte, mentre il SAC in bar/min, la pressione finale e la frazione di riserva riguardano SOLO la prima bombola — i bar di bombole di volume diverso non si sommano.',
       );
     }
   } else if (hasTankPressure && !hasCylinderVolume) {

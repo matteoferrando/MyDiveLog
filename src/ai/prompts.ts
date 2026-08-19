@@ -21,10 +21,13 @@
  *  5. **Dire quando i dati non bastano** per una conclusione, invece di
  *     produrne una debole con l'aria di essere solida.
  *
- * TARATE SU UN ARCHIVIO VERO, il 18 agosto 2026, e vale la pena scrivere cosa si è
- * misurato perché la prossima modifica parta da lì invece che da un'impressione.
- * Sulle 38 immersioni Shearwater dell'archivio di riferimento i contesti pesano:
- * immersione singola ~3100 token, archivio ~2600, piano ~2750, pianificatore ~750.
+ * LETTE PRIMA DI SPEDIRLE, il 19 agosto 2026. `npm run dump:ai` stampa il testo
+ * esatto che partirebbe, senza chiamare l'API: è il modo in cui questi numeri
+ * sono stati misurati e il modo in cui vanno rimisurati dopo ogni modifica.
+ * Immersione singola ~1850 token, archivio ~3200, piano ~3250, sistema ~1030. La cifra che
+ * contava di più è quella che NON si vede: prima di compattare la
+ * serializzazione il contesto di un'immersione ne pesava 3400, di cui due terzi
+ * erano parentesi quadre e a capo — un profilo scritto un numero per riga.
  * Stanno comodamente dentro qualunque finestra, quindi il problema non è la
  * lunghezza.
  *
@@ -44,9 +47,11 @@ Il tuo materiale sono misure vere: profili campionati dai computer subacquei, me
 Regole vincolanti:
 - Usa SOLO i numeri presenti nel contesto. Non stimare, non arrotondare al rialzo, non completare i dati mancanti. Se un dato serve e non c'è, scrivi che manca e cosa servirebbe per averlo.
 - Distingui sempre i valori LETTI dal computer (tetto di decompressione, NDL, TTS, CNS del computer, PPO2 misurata) da quelli CALCOLATI dall'app sul profilo (consumo, oscillazione d'assetto, velocità di risalita, CNS e OTU con le tabelle NOAA, velocità sull'ultimo tratto, saturazione con Bühlmann ZH-L16C). Quando citi un numero, che si capisca da dove viene.
-- Il GF99 esiste in DUE forme e non sono la stessa cosa: \`lettoDalComputer.gf99AllUscitaPct\` è quello del computer, \`calcolatoDallApp.gf99AllUscitaPct\` è il nostro, calcolato con ZH-L16C tenendo conto dell'azoto residuo dall'immersione precedente. Il nostro c'è su tutte le immersioni con un profilo; quello del computer solo sugli Shearwater. Sulle immersioni in cui esistono entrambi distano meno di un punto. Stessa regola del CNS: se li citi, citali come due misure e non correggere l'uno con l'altro.
+- Il GF99 esiste in DUE forme e non sono la stessa cosa: \`lettoDalComputer.gf99AllUscitaPct\` è quello del computer, \`calcolatoDallApp.gf99AllUscitaPct\` è il nostro, calcolato con ZH-L16C tenendo conto dell'azoto residuo dall'immersione precedente. Il nostro c'è su tutte le immersioni con un profilo; quello del computer solo sugli Shearwater. Quanto distino SU QUESTO archivio lo dice \`riscontroDeiDueGf99\` nel contesto dell'archivio, con il numero di immersioni su cui è misurato: se quel numero è zero, le due misure non si sono mai incontrate qui e non affermare niente sul loro accordo. Stessa regola del CNS: se li citi, citali come due misure e non correggere l'uno con l'altro.
 - Sulle ripetitive il contesto porta \`intervalloDiSuperficieMin\`, \`azotoResiduoIngressoBar\` e \`gf99SenzaResiduoPct\`: quest'ultimo è quanto sarebbe uscita la STESSA immersione partendo da tessuti puliti. La differenza fra i due GF99 è il prezzo dell'intervallo di superficie, ed è una delle poche cose che un logbook può dire e un computer no. Usala quando c'è.
 - Un campo nullo significa "non registrato", mai zero.
+- Le tabelle (profilo, righe dell'archivio) hanno una riga \`colonne\` che dice come leggerle, e le colonne che quel computer non registra sono state TOLTE, non messe a zero: la nota lo dichiara. Non commentare l'assenza di una colonna omessa più di una volta.
+- Alcuni campi portano con sé un'avvertenza o una nota accanto: sono vincoli su come quel numero può essere usato, non contorno. Se citi il numero, rispetta l'avvertenza — vale in particolare per le ore prima del volo e per i confronti in bar fra bombole di volume diverso.
 - Su un archivio importato da un computer subacqueo quasi tutti i campi compilati a mano — sito, compagno, muta, zavorra, visibilità, condizioni, note — sono nulli. Non elencarli uno per uno: dillo UNA volta, e solo se ti impedisce una conclusione che avresti potuto trarre, nominando il campo che sbloccherebbe quell'analisi. E non attribuire mai una causa che richiederebbe quei campi: senza la zavorra non si dice che l'assetto dipende dalla zavorra.
 - Niente consigli medici e niente prescrizioni decompressive: su questi temi indica cosa osservare e rimanda a un istruttore tecnico o a un medico iperbarico.
 - Scrivi per chi sa immergersi: nessuna spiegazione dei concetti di base, nessun elenco di raccomandazioni generiche del tipo "controlla l'attrezzatura".

@@ -316,7 +316,10 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               }
               note={
                 a.finalAscent.length
-                  ? `mediana dalla sosta alla superficie · ${a.fastFinalAscents} oltre i 60 m/min`
+                  ? // Contro il limite dell'app, non contro i 60 m/min attribuiti a DAN:
+                    // quella soglia non scatta mai (vedi `danFinalAscentMpm`) e una
+                    // nota che dice sempre «0» si smette di leggere.
+                    `mediana dalla sosta alla superficie · ${a.finalAscentsOverAppLimit} oltre i ${LIMITS.ascentRateShallowMpm} m/min`
                   : 'serve un profilo campionato'
               }
             />

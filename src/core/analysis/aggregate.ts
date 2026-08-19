@@ -9,7 +9,7 @@
  */
 
 import { oxygenLoad, type OxygenLoad } from './oxygen';
-import type { Dive } from '../model';
+import { LIMITS, type Dive } from '../model';
 import { DEEP_STOP_MIN_DEPTH_M } from './metrics';
 
 export interface Bucket {
@@ -145,6 +145,8 @@ export interface Aggregates {
   finalAscent: SeriesPoint[];
   /** Quante immersioni hanno superato il riferimento DAN di 60 m/min su quel tratto. */
   fastFinalAscents: number;
+  /** Le stesse, contro il limite dell'app sopra i 10 m invece che contro i 60 m/min citati. */
+  finalAscentsOverAppLimit: number;
 
   /** Immersioni con una sosta profonda riconoscibile, e su quante era sensato farla. */
   deepStopDives: number;
@@ -322,7 +324,22 @@ export function aggregate(dives: Dive[], now: number = Date.now()): Aggregates {
     // 60 m/min è la media che DAN misura sul tratto dopo la sosta di sicurezza
     // (TDI Advanced Nitrox p. 38): non è un limite, è il comportamento reale
     // contro cui confrontarsi.
-    fastFinalAscents: sorted.filter((d) => (d.metrics?.finalAscentRateMpm ?? 0) > 60).length,
+    fastFinalAscents: sorted.filter((d) => (d.metrics?.finalAscentRateMpm ?? 0) > LIMITS.danFinalAscentMpm)
+      .length,
+    /*
+     * Lo stesso tratto, contro il limite DELL'APP.
+     *
+     * `fastFinalAscents` usa i 60 m/min attribuiti a DAN, e su un archivio vero
+     * vale zero: una soglia che non scatta mai non misura niente (vedi il
+     * commento su `danFinalAscentMpm`, che sospetta uno scambio fra metri e
+     * piedi). Questo contatore usa invece il limite che l'app applica sopra i
+     * dieci metri, che è la soglia con cui giudica tutto il resto — così il
+     * tratto finale ha una misura utilizzabile mentre la citazione resta da
+     * verificare.
+     */
+    finalAscentsOverAppLimit: sorted.filter(
+      (d) => (d.metrics?.finalAscentRateMpm ?? 0) > LIMITS.ascentRateShallowMpm,
+    ).length,
     // La sosta profonda ha senso solo dove c'è profondità da dimezzare: sotto i
     // 20 m il punto medio cade dentro la sosta di sicurezza.
     // Numeratore e denominatore sullo STESSO insieme: prima il numeratore

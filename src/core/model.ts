@@ -562,9 +562,27 @@ export const LIMITS = {
   minPpo2Hazardous: 0.16,
   minPpo2Fatal: 0.12,
   /**
-   * Velocità media che DAN misura sul tratto dopo la sosta di sicurezza
-   * (TDI Advanced Nitrox p. 38). Non è un limite raccomandato: è il
-   * comportamento reale misurato, e serve come termine di paragone.
+   * Velocità sul tratto dopo la sosta di sicurezza, citata come DAN
+   * (TDI Advanced Nitrox p. 38). Non è un limite raccomandato: è riportata come
+   * comportamento osservato, e serve come termine di paragone.
+   *
+   * ⚠️ DA VERIFICARE SULLA PAGINA, e finché non lo è questo numero non deve
+   * essere usato per giudicare niente. Sessanta METRI al minuto sono 197 piedi
+   * al minuto: come media di una popolazione di subacquei è implausibile, e la
+   * letteratura DAN che si trova in rete parla di 30 e 60 PIEDI al minuto —
+   * cioè 9 e 18 m/min — come velocità RACCOMANDATE, non misurate. Il sospetto
+   * concreto è che la cifra della pagina sia 60 ft/min e che qui sia stata
+   * trascritta come metri, sbagliando di un fattore 3.3.
+   *
+   * La conseguenza si vede: il contatore che confronta le immersioni con questa
+   * soglia vale ZERO sull'archivio di riferimento, mentre la regola dell'app —
+   * che usa 6 m/min sopra i dieci metri — ne segnala quattordici. Una soglia che
+   * non scatta mai è una soglia che non misura niente, ed è il sintomo che
+   * l'unità è sbagliata.
+   *
+   * Resta al valore di prima invece di essere «corretta» a occhio: cambiarla
+   * senza aver letto la pagina significherebbe sostituire un numero sbagliato
+   * con un altro numero inventato. Va letta la pagina 38.
    */
   danFinalAscentMpm: 60,
   /** Oltre questa frazione di ossigeno serve attrezzatura pulita per l'ossigeno (p. 55). */
