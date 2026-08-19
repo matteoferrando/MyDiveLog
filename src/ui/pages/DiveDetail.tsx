@@ -11,7 +11,9 @@ import { useDiveLog } from '../state';
 import { AnalysisCard } from '../components/Analysis';
 import { SaturationCard } from '../components/Saturation';
 import { decoTimeline, entryStateFor, gfOf, type DecoPoint } from '../../core/analysis/tissues';
-import { BottoneConferma } from '../components/Conferma';
+import { ModificaImmersione } from '../components/ModificaImmersione';
+import { condizioniTesto, visibilitaTesto } from '../../core/conditions';
+import { zavorraTotaleKg } from '../../core/analysis/gear';
 import {
   capitalise,
   dateLong,
@@ -23,7 +25,7 @@ import {
 } from '../format';
 
 export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
-  const { dives, loadProfiles, saveDive, removeDive } = useDiveLog();
+  const { dives, loadProfiles, saveDive, removeDive, gear, saveGear } = useDiveLog();
   const summary = dives.find((d) => d.id === id);
   const [dive, setDive] = useState<Dive | undefined>(summary);
   const [editing, setEditing] = useState(false);
@@ -91,7 +93,12 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
       <div className="page-title-row">
         <div>
           <h1 className="page-title">
-            {dive.site?.name ?? 'Immersione'}
+            {/*
+             * Il titolo vince sul sito, quando c'è. È l'unica cosa che
+             * distingue la terza immersione della settimana dalle altre due
+             * fatte nello stesso posto; il sito resta nella riga sotto.
+             */}
+            {dive.title || dive.site?.name || 'Immersione'}
             {dive.number !== undefined && (
               <span className="muted" style={{ fontWeight: 400 }}>
                 {' '}
@@ -336,13 +343,34 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
               <Row label="Modalità" value={modeLabel(dive)} />
               <Row label="Acqua" value={dive.salinity === 'fresh' ? 'Dolce' : 'Salata'} />
               <Row label="Compagno" value={dive.buddy ?? '—'} />
-              <Row label="Zavorra" value={dive.weightKg !== undefined ? `${dive.weightKg} kg` : '—'} />
-              <Row label="Muta" value={dive.suit ?? '—'} />
+              <Row label="Guida sub" value={dive.guide ?? '—'} />
+              {/*
+               * La zavorra si mostra col TOTALE quando c'è una piastra, e con la
+               * scomposizione accanto. Il solo `weightKg` racconterebbe il
+               * contrario di quello che succede in acqua: 2 kg scritti più una
+               * piastra d'acciaio da 3 fanno cinque.
+               */}
               <Row
-                label="Visibilità"
-                value={dive.visibilityM !== undefined ? `${dive.visibilityM} m` : '—'}
+                label="Zavorra"
+                value={
+                  zavorraTotaleKg(dive) > 0
+                    ? dive.gear?.backplateKg
+                      ? `${Math.round(zavorraTotaleKg(dive) * 10) / 10} kg (${dive.weightKg ?? 0} di zavorra + ${dive.gear.backplateKg} di piastra)`
+                      : `${dive.weightKg} kg`
+                    : '—'
+                }
               />
-              <Row label="Condizioni" value={dive.tags.length ? dive.tags.join(' · ') : '—'} />
+              <Row label="Muta" value={dive.gear?.suit?.name ?? dive.suit ?? '—'} />
+              <Row
+                label="Erogatori"
+                value={
+                  dive.gear?.regulators?.length ? dive.gear.regulators.map((r) => r.name).join(' · ') : '—'
+                }
+              />
+              <Row label="GAV" value={dive.gear?.bcd?.name ?? '—'} />
+              <Row label="Visibilità" value={visibilitaTesto(dive)} />
+              <Row label="Condizioni" value={condizioniTesto(dive) || '—'} />
+              <Row label="Etichette" value={dive.tags.length ? dive.tags.join(' · ') : '—'} />
               <Row
                 label="Fasi"
                 value={
@@ -524,7 +552,13 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
       )}
 
       {editing && (
-        <EditPanel dive={dive} onSave={saveDive} onDelete={() => void removeDive(dive.id).then(onBack)} />
+        <ModificaImmersione
+          dive={dive}
+          gear={gear}
+          onSalvaAttrezzatura={saveGear}
+          onSave={saveDive}
+          onDelete={() => void removeDive(dive.id).then(onBack)}
+        />
       )}
 
       <AnalysisCard
@@ -752,173 +786,6 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 // ---------------------------------------------------------------------------
-
-function EditPanel({
-  dive,
-  onSave,
-  onDelete,
-}: {
-  dive: Dive;
-  onSave: (d: Dive) => Promise<void>;
-  onDelete: () => void;
-}) {
-  const [draft, setDraft] = useState<Dive>(dive);
-  const [saved, setSaved] = useState(false);
-
-  const setCylinder = (i: number, patch: Partial<Dive['cylinders'][number]>) => {
-    setDraft((d) => ({
-      ...d,
-      cylinders: d.cylinders.map((c, idx) => (idx === i ? { ...c, ...patch } : c)),
-    }));
-    setSaved(false);
-  };
-
-  return (
-    <div className="card">
-      <h2>Modifica dati</h2>
-      <p className="card-sub">
-        Salvando, le metriche di questa immersione vengono ricalcolate. Un import successivo non sovrascrive i
-        campi che compili qui.
-      </p>
-
-      <div className="grid grid-3" style={{ marginBottom: 14 }}>
-        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Sito</span>
-          <input
-            type="text"
-            value={draft.site?.name ?? ''}
-            onChange={(e) => {
-              setDraft((d) => ({ ...d, site: { ...(d.site ?? { name: '' }), name: e.target.value } }));
-              setSaved(false);
-            }}
-          />
-        </label>
-        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Compagno</span>
-          <input
-            type="text"
-            value={draft.buddy ?? ''}
-            onChange={(e) => {
-              setDraft((d) => ({ ...d, buddy: e.target.value }));
-              setSaved(false);
-            }}
-          />
-        </label>
-        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Acqua</span>
-          <select
-            value={draft.salinity ?? 'salt'}
-            onChange={(e) => {
-              setDraft((d) => ({ ...d, salinity: e.target.value as 'salt' | 'fresh' }));
-              setSaved(false);
-            }}
-          >
-            <option value="salt">salata</option>
-            <option value="fresh">dolce (lago)</option>
-          </select>
-        </label>
-      </div>
-
-      <div className="finding-section-label">Bombole</div>
-      <table style={{ marginBottom: 14 }}>
-        <thead>
-          <tr>
-            <th>Gas</th>
-            <th className="num">Litri</th>
-            <th className="num">Inizio (bar)</th>
-            <th className="num">Fine (bar)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {draft.cylinders.map((c, i) => (
-            <tr key={i}>
-              <td>{mixName(c.mix)}</td>
-              <td className="num">
-                <input
-                  type="number"
-                  step="0.1"
-                  style={{ width: 76 }}
-                  value={c.sizeL ?? ''}
-                  onChange={(e) =>
-                    setCylinder(i, { sizeL: e.target.value ? Number(e.target.value) : undefined })
-                  }
-                />
-              </td>
-              <td className="num">
-                <input
-                  type="number"
-                  style={{ width: 76 }}
-                  value={c.startBar ?? ''}
-                  onChange={(e) =>
-                    setCylinder(i, { startBar: e.target.value ? Number(e.target.value) : undefined })
-                  }
-                />
-              </td>
-              <td className="num">
-                <input
-                  type="number"
-                  style={{ width: 76 }}
-                  value={c.endBar ?? ''}
-                  onChange={(e) =>
-                    setCylinder(i, { endBar: e.target.value ? Number(e.target.value) : undefined })
-                  }
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <label className="stack" style={{ gap: 4, fontSize: 12, marginBottom: 14 }}>
-        <span className="muted">Note</span>
-        <textarea
-          rows={4}
-          value={draft.notes ?? ''}
-          onChange={(e) => {
-            setDraft((d) => ({ ...d, notes: e.target.value }));
-            setSaved(false);
-          }}
-        />
-      </label>
-
-      <div className="row">
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            void onSave(draft).then(() => setSaved(true));
-          }}
-        >
-          Salva
-        </button>
-        {saved && (
-          <span className="muted" style={{ fontSize: 12 }}>
-            Salvato e metriche ricalcolate.
-          </span>
-        )}
-        <span className="topbar-spacer" />
-        {/*
-         * La conferma dice cosa succede DAVVERO: va nel cestino, si può
-         * rimettere a posto, e diventa definitiva fra trenta giorni. Una
-         * conferma che dice solo «sei sicuro?» non aggiunge informazione e si
-         * clicca senza leggerla.
-         */}
-        <BottoneConferma
-          className="btn btn-danger"
-          etichetta="Sposta nel cestino"
-          conferma="Sì, sposta nel cestino"
-          domanda={
-            <>
-              L'immersione sparisce dall'archivio e smette di sincronizzarsi, ma resta recuperabile dalle{' '}
-              <b>Impostazioni</b> per trenta giorni. Dopo, la cancellazione diventa definitiva su tutti i
-              dispositivi.
-            </>
-          }
-          onConferma={onDelete}
-        />
-      </div>
-    </div>
-  );
-}
 
 /**
  * Dove cade il dente di sega di questa immersione rispetto alle altre.

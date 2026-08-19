@@ -225,6 +225,48 @@ const decoTl = await page
 await page.screenshot({ path: 'screenshots/4-dettaglio.png', fullPage: true });
 await shots(page, 'screenshots/4b-dettaglio');
 
+/*
+ * La scheda di modifica, aperta.
+ *
+ * È la pagina in cui si scrive tutto quello che il computer non misura, ed è
+ * anche l'unica che sa tradurre «S80» in litri. Quella traduzione va provata
+ * qui e non solo nei test: nei test si prova la funzione, qui si prova che il
+ * campo si compili davvero quando esci dal riquadro — che è la parte che si
+ * rompe cambiando un `onBlur` in un `onChange`.
+ */
+await page.locator('button:has-text("Modifica dati")').first().click();
+await page.waitForTimeout(400);
+await page.locator('input[placeholder="notturna al relitto"]').fill('Prova della scheda');
+const sigla = page.locator('input[placeholder="S80, D12, 15 L…"]').first();
+let siglaVerdetto = 'NESSUN CAMPO SIGLA';
+if (await sigla.count()) {
+  await sigla.fill('S80');
+  await sigla.blur();
+  await page.waitForTimeout(200);
+  const litri = await page
+    .locator('.card')
+    .filter({ has: page.locator('h2', { hasText: 'Modifica dati' }) })
+    .locator('input[type="number"][step="0.1"]')
+    .first()
+    .inputValue();
+  siglaVerdetto = `S80 → ${litri} L`;
+}
+// L'erogatore: si scrive un nome nuovo e deve comparire il pulsante che lo
+// mette in inventario senza cambiare pagina.
+await page.locator('input[list^="attrezzi-regulator"]').first().fill('Apeks XTX50');
+await page.waitForTimeout(200);
+const bottoneInventario = await page
+  .locator('button:has-text("in attrezzatura")')
+  .first()
+  .isVisible()
+  .catch(() => false);
+await page.screenshot({ path: 'screenshots/4c-modifica.png', fullPage: true });
+await shots(page, 'screenshots/4c-modifica');
+console.log('SIGLA BOMBOLA:', siglaVerdetto);
+console.log('NUOVO ATTREZZO DALLA SCHEDA:', bottoneInventario ? 'pulsante presente' : 'PULSANTE ASSENTE');
+await page.locator('button:has-text("Chiudi modifica")').first().click();
+await page.waitForTimeout(300);
+
 // Hover sul profilo per verificare il tooltip.
 const svg = page.locator('.chart svg').first();
 const box = await svg.boundingBox();

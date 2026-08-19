@@ -75,6 +75,60 @@ export interface Cylinder {
  * Un campione del profilo. Tutti i campi oltre `t` e `depth` sono opzionali:
  * dipende da cosa il computer registra e da cosa il formato di export salva.
  */
+/**
+ * Un pezzo di attrezzatura usato in un'immersione.
+ *
+ * DUE CAMPI E NON UNO SOLO, e la ragione è che si contraddicono a vicenda nel
+ * momento giusto. L'identificativo aggancia la voce all'inventario, e serve a
+ * rispondere a «quante immersioni ha questo erogatore dall'ultima revisione» —
+ * che è tutto il motivo per cui l'inventario esiste. Il nome è la copia
+ * congelata di com'era chiamato allora, e serve quando l'aggancio si rompe:
+ * attrezzo venduto, inventario ricostruito, archivio importato su un altro
+ * dispositivo. Con il solo identificativo, quel giorno, l'immersione del 2023
+ * direbbe «—»; col solo nome non si potrebbero contare le immersioni per
+ * attrezzo.
+ */
+export interface GearRef {
+  /** Identificativo nell'inventario attrezzatura, quando la voce viene da lì. */
+  id?: string;
+  /** Come si chiamava quando l'hai usato. Sempre presente. */
+  name: string;
+}
+
+export type Weather = 'sunny' | 'cloudy' | 'overcast' | 'rainy' | 'snowy' | 'windy' | 'fog';
+export type Waves = 'calm' | 'moderate' | 'rough' | 'veryRough';
+
+export interface DiveConditions {
+  weather?: Weather;
+  waves?: Waves;
+}
+
+export interface DiveGear {
+  /**
+   * Gli erogatori, uno o due.
+   *
+   * Due sono la norma in configurazione tecnica — primo stadio principale e
+   * secondo indipendente — e ognuno ha la sua revisione: contarli come uno solo
+   * significa non sapere quale dei due è indietro di manutenzione.
+   */
+  regulators?: GearRef[];
+  bcd?: GearRef;
+  suit?: GearRef;
+  /**
+   * Il peso della piastra o dello schienalino, chilogrammi.
+   *
+   * Va tenuto SEPARATO dalla zavorra e sommato solo quando si ragiona di
+   * assetto. Sono due cose che si comportano in modo diverso: la zavorra la
+   * cambi a ogni immersione secondo muta e acqua, la piastra è fissa e te la
+   * porti sempre dietro. Un subacqueo tecnico con una piastra d'acciaio da 3 kg
+   * che scrive «2 kg di zavorra» ne porta cinque, e la storia della sua
+   * zavorra letta senza questo campo dice il contrario di quello che succede.
+   */
+  backplateKg?: number;
+  /** Torce, mulinelli, macchine fotografiche: quello che non ha un campo suo. */
+  other?: GearRef[];
+}
+
 export interface Sample {
   /** Secondi dall'inizio dell'immersione. */
   t: number;
@@ -264,8 +318,59 @@ export interface Dive {
   extraSources?: SourceInfo[];
   /** 1..5, dal logbook sorgente se presente. */
   rating?: number;
-  /** Visibilità in metri se il formato la esprime così. */
+  /**
+   * Il titolo che le dai tu: «notturna al relitto», «prova del secchio nuovo».
+   *
+   * Distinto dal sito e dalle note. Il sito è un luogo e si ripete decine di
+   * volte; le note sono un testo lungo che nessuna riga di tabella può
+   * mostrare. Il titolo è la riga che riconosci scorrendo l'elenco, ed è
+   * l'unica cosa che distingue la terza immersione della settimana dalle altre
+   * due fatte nello stesso posto.
+   */
+  title?: string;
+  /**
+   * La guida sub, tenuta separata dal compagno.
+   *
+   * Non è pignoleria: sono due ruoli diversi e rispondono a due domande
+   * diverse. «Con chi mi immergo di solito» è il compagno; «chi mi ha portato»
+   * è la guida, e in un centro cambia a ogni uscita. Metterli nello stesso
+   * campo — che è quello che facevamo — rende inutilizzabili entrambe le
+   * statistiche.
+   */
+  guide?: string;
+  /**
+   * Visibilità in metri. Con `visibilityMaxM`, è l'estremo BASSO di una fascia.
+   *
+   * Da solo resta quello che era: una stima puntuale. Il campo alto esiste
+   * perché la visibilità non si misura, si stima a occhio in una fascia («fra
+   * cinque e dieci metri»), e costringere a un numero solo fa scegliere a caso
+   * fra i due estremi. Le statistiche continuano a usare questo, cioè
+   * l'estremo prudente.
+   */
   visibilityM?: number;
+  /** L'estremo ALTO della fascia di visibilità, quando è una fascia. */
+  visibilityMaxM?: number;
+  /**
+   * Le condizioni, in forma leggibile da una macchina.
+   *
+   * Fino a ieri meteo e mare finivano dentro `tags` come etichette italiane
+   * («sole», «mare mosso»), che è quello che fa l'import da LogTRAK. Va bene
+   * per mostrarle e non serve a niente per contarle: «le immersioni col mare
+   * agitato consumano di più» è una domanda a cui una stringa non risponde.
+   *
+   * I dati vecchi non si migrano: `conditionsOf()` legge tutte e due le forme,
+   * e la prima volta che si salva la scheda quella immersione passa alla nuova.
+   */
+  conditions?: DiveConditions;
+  /**
+   * L'attrezzatura usata in questa immersione, agganciata all'inventario.
+   *
+   * Vedi `DiveGear`: ogni voce porta con sé il nome oltre all'identificativo,
+   * perché un'immersione di tre anni fa deve continuare a dire con che
+   * erogatore l'hai fatta anche quando quell'erogatore è stato venduto e
+   * cancellato dall'inventario.
+   */
+  gear?: DiveGear;
   /**
    * Zavorra usata, chilogrammi. La teniamo perché la sovra-zavorra è la prima
    * causa di assetto instabile e di consumo alto: avere il peso accanto

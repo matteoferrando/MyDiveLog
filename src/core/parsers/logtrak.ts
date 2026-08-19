@@ -23,7 +23,16 @@
  * dal profilo, non dal file.
  */
 
-import { AIR, type Cylinder, type Dive, type DiveMode, type Sample } from '../model';
+import {
+  AIR,
+  type Cylinder,
+  type Dive,
+  type DiveConditions,
+  type DiveMode,
+  type Sample,
+  type Waves,
+  type Weather,
+} from '../model';
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
 import {
@@ -168,9 +177,25 @@ function readDive(
     },
   };
 
-  const tags = [...new Set([raw.conditionWeather, raw.conditionWaves].filter(Boolean) as string[])].map(
-    conditionLabel,
-  );
+  /*
+   * Meteo e mare vanno nel loro campo, non fra i tag.
+   *
+   * Prima finivano in `tags` come etichette italiane: si vedevano e non si
+   * contavano. `conditions` è la stessa informazione in una forma che si può
+   * raggruppare — «consumo di più col mare agitato?» diventa una domanda con
+   * una risposta. I tag restano quello che dovevano essere: le etichette che
+   * ci metti tu.
+   *
+   * Quello che LogTRAK non sa dire resta un tag, così non si perde.
+   */
+  const conditions: DiveConditions = {};
+  const tags: string[] = [];
+  const meteo = raw.conditionWeather ? WEATHER_FROM_LOGTRAK[raw.conditionWeather] : undefined;
+  if (meteo) conditions.weather = meteo;
+  else if (raw.conditionWeather) tags.push(conditionLabel(raw.conditionWeather));
+  const mare = raw.conditionWaves ? WAVES_FROM_LOGTRAK[raw.conditionWaves] : undefined;
+  if (mare) conditions.waves = mare;
+  else if (raw.conditionWaves) tags.push(conditionLabel(raw.conditionWaves));
 
   const dive: Dive = {
     id: diveIdFor(base),
@@ -192,6 +217,7 @@ function readDive(
     source: { format: 'logtrak', file: fileName, importedAt },
     rating: raw.rating,
     visibilityM: raw.conditionVisibility ?? undefined,
+    conditions: conditions.weather || conditions.waves ? conditions : undefined,
     weightKg: raw.weight,
     tags,
     samples,
@@ -330,6 +356,25 @@ function prettyModel(c: LogtrakComputer): string {
   // stessa immersione arrivata dalle due strade non si riconoscerebbe.
   return uwatecModelName(c.deviceTypeNumber, c.deviceType ?? c.name ?? undefined);
 }
+
+/** I codici di LogTRAK, verso i nostri. Quello che non c'è resta un tag. */
+const WEATHER_FROM_LOGTRAK: Record<string, Weather | undefined> = {
+  sunny: 'sunny',
+  cloudy: 'cloudy',
+  overcast: 'overcast',
+  rainy: 'rainy',
+  snowy: 'snowy',
+  windy: 'windy',
+  foggy: 'fog',
+};
+
+const WAVES_FROM_LOGTRAK: Record<string, Waves | undefined> = {
+  calm: 'calm',
+  moderately: 'moderate',
+  moderate: 'moderate',
+  rough: 'rough',
+  veryRough: 'veryRough',
+};
 
 const CONDITION_LABEL: Record<string, string> = {
   sunny: 'sole',

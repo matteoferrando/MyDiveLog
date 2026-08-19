@@ -182,6 +182,15 @@ export interface WeightingRow {
   medianTrimMpm?: number;
   /** Su quante immersioni si basa l'assetto: può essere meno di `dives`. */
   trimBasis: number;
+  /**
+   * Quante di queste immersioni portavano anche una piastra o uno schienalino.
+   *
+   * Serve a leggere la riga: se la mediana è di 3 kg e su metà delle
+   * immersioni c'era una piastra d'acciaio dentro il conto, la dispersione fra
+   * minimo e massimo non è incoerenza tua — sono due configurazioni diverse
+   * finite nella stessa riga.
+   */
+  withBackplate: number;
 }
 
 const median = (values: number[]): number => {
@@ -199,12 +208,13 @@ const median = (values: number[]): number => {
  * e «6 kg» su quaranta sono due affermazioni diverse.
  */
 export function weightingBySuit(dives: Dive[], minDives = 2): WeightingRow[] {
-  const byS = new Map<string, { kg: number[]; trim: number[] }>();
+  const byS = new Map<string, { kg: number[]; trim: number[]; piastre: number }>();
   for (const d of dives) {
-    const suit = d.suit?.trim();
+    const suit = d.suit?.trim() || d.gear?.suit?.name?.trim();
     if (!suit || d.weightKg === undefined || !(d.weightKg > 0)) continue;
-    const row = byS.get(suit) ?? { kg: [], trim: [] };
-    row.kg.push(d.weightKg);
+    const row = byS.get(suit) ?? { kg: [], trim: [], piastre: 0 };
+    row.kg.push(zavorraTotaleKg(d));
+    if (d.gear?.backplateKg) row.piastre++;
     const trim = d.metrics?.bottomVerticalTravelMpm;
     if (trim !== undefined && Number.isFinite(trim)) row.trim.push(trim);
     byS.set(suit, row);
@@ -219,8 +229,26 @@ export function weightingBySuit(dives: Dive[], minDives = 2): WeightingRow[] {
       maxKg: Math.max(...r.kg),
       medianTrimMpm: r.trim.length ? Math.round(median(r.trim) * 10) / 10 : undefined,
       trimBasis: r.trim.length,
+      withBackplate: r.piastre,
     }))
     .sort((a, b) => b.dives - a.dives);
+}
+
+/**
+ * Il peso che ti tira giù DAVVERO: zavorra più piastra.
+ *
+ * Sono due campi separati perché si comportano in modo diverso — la zavorra la
+ * cambi a ogni immersione secondo muta e acqua, la piastra è fissa e te la porti
+ * sempre — ma per l'assetto contano insieme, e vanno sommati ovunque si
+ * ragioni di quanto peso avevi addosso.
+ *
+ * Tenerli separati e poi dimenticarsi di sommarli è il difetto peggiore dei due
+ * campi: chi ha una piastra d'acciaio da 3 kg e scrive «2 kg di zavorra» ne
+ * porta cinque, e una statistica che legge solo `weightKg` racconta il
+ * contrario di quello che succede in acqua.
+ */
+export function zavorraTotaleKg(dive: Pick<Dive, 'weightKg' | 'gear'>): number {
+  return (dive.weightKg ?? 0) + (dive.gear?.backplateKg ?? 0);
 }
 
 /**

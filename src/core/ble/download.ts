@@ -57,6 +57,21 @@ export interface DownloadOutcome {
   serial?: string;
   firmware?: string;
   /**
+   * I byte grezzi arrivati dal computer, uno per immersione.
+   *
+   * PERCHÉ SI TENGONO. Perché la prossima volta che qualcosa non torna — una
+   * immersione che non si fonde con la stessa arrivata da file, un profilo che
+   * finisce a metà, un modello nuovo — la domanda è sempre «cosa ha mandato il
+   * computer davvero», e la risposta oggi richiede di riavere il computer in
+   * mano, acceso, vicino, con la batteria carica. Salvati su file, quei byte si
+   * rileggono qui dentro per sempre, e il difetto si riproduce in un test che
+   * gira in un secondo.
+   *
+   * Non finiscono in archivio: vivono quanto la schermata dello scarico, e
+   * escono solo se qualcuno preme «Salva i dati grezzi».
+   */
+  records: DownloadedRecord[];
+  /**
    * L'impronta dell'immersione più recente arrivata: il prossimo segnalibro.
    *
    * Va salvato SOLO se lo scarico è finito per intero. Il manifesto si legge
@@ -249,6 +264,7 @@ export async function downloadFromComputer(
     dives,
     warnings,
     newestKey: tutteDecodificate ? records[0]?.key : undefined,
+    records,
     trace: saltate > 0 ? [...testa, `… ${saltate} righe non riportate …`, ...coda] : [...testa, ...coda],
     total,
     model,

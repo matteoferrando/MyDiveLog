@@ -40,7 +40,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
       if (site && d.site?.name !== site) return false;
       if (min && d.maxDepth < min) return false;
       if (!q) return true;
-      return [d.site?.name, d.buddy, d.notes, d.computer?.model, ...d.tags]
+      return [d.title, d.site?.name, d.buddy, d.guide, d.notes, d.computer?.model, ...d.tags]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
@@ -264,7 +264,12 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                   </div>
                 </td>
                 <td>
-                  <div style={{ fontWeight: 550 }}>{d.site?.name ?? '—'}</div>
+                  <div style={{ fontWeight: 550 }}>{d.title || d.site?.name || '—'}</div>
+                  {d.title && d.site?.name && (
+                    <div className="muted" style={{ fontSize: 11 }}>
+                      {d.site.name}
+                    </div>
+                  )}
                   <div className="muted" style={{ fontSize: 11 }}>
                     {[d.buddy, d.mode !== 'oc' ? modeLabel(d) : null].filter(Boolean).join(' · ') || ' '}
                   </div>

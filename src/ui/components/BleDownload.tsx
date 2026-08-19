@@ -47,9 +47,45 @@ type Stato =
       /** Avanzamento a byte, per i protocolli che scaricano la memoria in blocco. */
       byte?: { fatti: number; totali: number };
     }
-  | { fase: 'finito'; testo: string; avvisi: string[]; parziale: boolean; diario: string[] };
+  | {
+      fase: 'finito';
+      testo: string;
+      avvisi: string[];
+      parziale: boolean;
+      diario: string[];
+      /** I byte grezzi, per poterli salvare su file. Vedi `salvaGrezzi`. */
+      grezzi?: {
+        driver: string;
+        model?: string;
+        serial?: string;
+        firmware?: string;
+        records: { key: string; base64: string }[];
+      };
+    };
 
 const transport = new TauriBleTransport();
+
+/** Byte → base64, senza dipendenze e senza far esplodere lo stack sui blocchi grandi. */
+function byteInBase64(b: Uint8Array): string {
+  let s = '';
+  // A pezzi: `String.fromCharCode(...tuttiIByte)` su un blocco da centomila
+  // elementi supera il limite di argomenti e getta un errore che sembra un
+  // guasto della memoria.
+  for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode(...b.subarray(i, i + 8192));
+  return btoa(s);
+}
+
+/** Scrive un file e lo consegna al sistema. Come in `SyncPage`. */
+function salvaGrezzi(testo: string, nome: string): void {
+  const url = URL.createObjectURL(new Blob([testo], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nome;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 export function BleDownload() {
   const { importDives, bleMarkers, saveBleMarker, forgetBleMarker } = useDiveLog();
@@ -248,6 +284,13 @@ export function BleDownload() {
         testo,
         avvisi,
         parziale: esito.status === 'partial',
+        grezzi: {
+          driver: driver.id,
+          model: esito.model,
+          serial: esito.serial,
+          firmware: esito.firmware,
+          records: esito.records.map((r) => ({ key: r.key, base64: byteInBase64(r.bytes) })),
+        },
         diario: [
           `MyDiveLog — diario dello scarico`,
           `dispositivo: ${scelto.device.name || 'senza nome'}`,
@@ -492,7 +535,7 @@ export function BleDownload() {
             <summary className="muted" style={{ fontSize: 12, cursor: 'pointer' }}>
               Diario tecnico ({stato.diario.length} righe) — serve solo se qualcosa non ha funzionato
             </summary>
-            <div className="row" style={{ gap: 8, margin: '8px 0' }}>
+            <div className="row" style={{ gap: 8, margin: '8px 0', flexWrap: 'wrap' }}>
               <button
                 onClick={() => {
                   void navigator.clipboard?.writeText(stato.diario.join('\n'));
@@ -502,6 +545,31 @@ export function BleDownload() {
               >
                 {copiato ? 'Copiato' : 'Copia il diario'}
               </button>
+              {/*
+               * I BYTE GREZZI SI POSSONO PORTARE VIA, e non è una funzione da
+               * sviluppatori.
+               *
+               * Quando un'immersione scaricata non combacia con la stessa
+               * arrivata da un file, o un profilo finisce a metà, la domanda è
+               * sempre «cosa ha mandato il computer davvero». Senza questo
+               * pulsante la risposta richiede di riavere il computer acceso,
+               * vicino, carico, e di rifare tutto lo scarico ogni volta che si
+               * prova una correzione. Con questo file, il difetto si riproduce
+               * in un test che gira in un secondo — anche fra un anno, anche
+               * senza quel computer.
+               */}
+              {stato.grezzi && stato.grezzi.records.length > 0 && (
+                <button
+                  onClick={() =>
+                    salvaGrezzi(
+                      JSON.stringify(stato.grezzi, null, 1),
+                      `mydivelog-grezzi-${stato.grezzi?.driver}-${new Date().toISOString().slice(0, 10)}.json`,
+                    )
+                  }
+                >
+                  Salva i dati grezzi ({stato.grezzi.records.length})
+                </button>
+              )}
             </div>
             <pre
               style={{

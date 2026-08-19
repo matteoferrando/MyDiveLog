@@ -18,6 +18,7 @@ import {
   UWATEC_MODELS,
 } from '../src/core/parsers/uwatecSmart';
 import { logtrakParser, normaliseSiteName, parseTankSize } from '../src/core/parsers/logtrak';
+import { condizioniTesto, conditionsOf } from '../src/core/conditions';
 import { detectParser, parseFile } from '../src/core/parsers';
 import { depthSeries, encodeUwatecSmart, synthesise, toLogtrak, toUddf } from './fixtures';
 
@@ -234,7 +235,10 @@ describe('parser LogTRAK', () => {
     expect(d.utcOffsetMinutes).toBe(120);
     expect(d.buddy).toBe('Marco');
     expect(d.computer?.model).toContain('Aladin Sport Matrix');
-    expect(d.tags).toContain('sole');
+    // Meteo e mare non sono più tag: sono un campo che si può contare.
+    expect(d.conditions?.weather).toBe('sunny');
+    expect(conditionsOf(d).weather).toBe('sunny');
+    expect(condizioniTesto(d)).toContain('sole');
   });
 
   it('numera le immersioni in ordine cronologico', async () => {
