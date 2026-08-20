@@ -150,6 +150,22 @@ describe('i gradient factor del computer', () => {
      */
     const j = JSON.parse(diveContext(immersione({ computer: { model: 'X', gfLow: 40 } })));
     expect(JSON.stringify(j)).not.toContain('undefined');
+    /*
+     * La metà che manca è un punto interrogativo, non un `null` sull'intera
+     * coppia: buttare via anche il GF basso, che l'app POSSIEDE, era la
+     * correzione fatta larga. Parecchi computer scrivono solo quello, e i
+     * lettori Shearwater leggono `gfMin` e `gfMax` indipendentemente.
+     */
+    expect(j.computer[0].gfImpostati).toBe('40/?');
+  });
+
+  it('e con il solo GF alto scrive l’altra metà', () => {
+    const j = JSON.parse(diveContext(immersione({ computer: { model: 'X', gfHigh: 85 } })));
+    expect(j.computer[0].gfImpostati).toBe('?/85');
+  });
+
+  it('senza nessuno dei due resta nullo', () => {
+    const j = JSON.parse(diveContext(immersione({ computer: { model: 'X' } })));
     expect(j.computer[0].gfImpostati).toBeNull();
   });
 

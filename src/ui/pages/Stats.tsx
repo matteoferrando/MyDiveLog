@@ -240,7 +240,9 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               value={
                 <span
                   className="tabular"
-                  style={{ color: (a.repetitiveCostWorst?.points ?? 0) >= 8 ? 'var(--warning)' : undefined }}
+                  style={{
+                    color: (a.repetitiveCostWorst?.points ?? 0) >= 8 ? 'var(--warning-text)' : undefined,
+                  }}
                 >
                   +{(a.repetitiveCostWorst?.points ?? 0).toFixed(1)}
                 </span>

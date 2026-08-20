@@ -12,7 +12,7 @@
  * un'attesa. Leggere il contesto costa un comando:
  *
  *     npm run dump:ai -- demo/shearwater-peregrine.xml
- *     npm run dump:ai -- ~/archivio.uddf --solo immersione
+ *     npm run dump:ai -- ~/archivio.uddf --solo immersione|archivio|piano|gas|deco
  *
  * Senza argomenti usa i file di `demo/`, che è quello che gira in automatico.
  *
@@ -27,8 +27,23 @@ import { mergeImports } from '../src/core/dedupe';
 import { chainArchive } from '../src/core/analysis/tissues';
 import { aggregate } from '../src/core/analysis/aggregate';
 import { buildPlan } from '../src/core/analysis/coaching';
-import { archiveContext, diveContext, planContext } from '../src/ai/context';
-import { archiveAnalysis, diveAnalysis, planAnalysis } from '../src/ai/prompts';
+import { archiveContext, decoPlanContext, diveContext, gasPlanContext, planContext } from '../src/ai/context';
+import {
+  archiveAnalysis,
+  decoPlanAnalysis,
+  diveAnalysis,
+  gasPlanAnalysis,
+  planAnalysis,
+} from '../src/ai/prompts';
+import {
+  DEFAULT_PLAN,
+  contingencies,
+  measuredRmv,
+  planGas,
+  similarDives,
+} from '../src/core/analysis/gasPlan';
+import { DEFAULT_DECO, decoContingencies, planDeco } from '../src/core/analysis/deco';
+import type { Equipment } from '../src/core/analysis/gear';
 import type { Dive } from '../src/core/model';
 
 const DEMO = [
@@ -93,6 +108,10 @@ async function main() {
 
   const pezzi: { nome: string; testo: string }[] = [];
 
+  // Un archivio importato da file non porta l'inventario: resta vuoto, e serve
+  // solo a far attraversare al dump lo stesso codice che attraversa l'app.
+  const inventario: Equipment[] = [];
+
   if (!solo || solo === 'immersione') {
     /*
      * Tre immersioni e non una: la più ricca, la più povera e una ripetitiva.
@@ -149,7 +168,11 @@ async function main() {
       }
       pezzi.push({
         nome: `IMMERSIONE — ${etichetta} (${d.startTime}, ${d.maxDepth} m)`,
-        testo: diveAnalysis(diveContext(d)).prompt,
+        // Con l'inventario, come fa l'app: senza, la zavorra arriva senza la
+        // piastra sulle immersioni che il peso della piastra non ce l'hanno
+        // scritto sopra, e lo strumento diagnostico guarderebbe un contesto più
+        // povero di quello vero. Vedi `piastraDellImmersione`.
+        testo: diveAnalysis(diveContext(d, inventario)).prompt,
       });
     }
   }
@@ -159,7 +182,7 @@ async function main() {
   if (!solo || solo === 'archivio') {
     pezzi.push({
       nome: 'ARCHIVIO',
-      testo: archiveAnalysis(archiveContext(dives, aggregates, 'tutto l’archivio')).prompt,
+      testo: archiveAnalysis(archiveContext(dives, aggregates, 'tutto l’archivio', inventario)).prompt,
     });
   }
 
@@ -168,6 +191,53 @@ async function main() {
     pezzi.push({
       nome: 'PIANO DI MIGLIORAMENTO',
       testo: planAnalysis(planContext(plan, aggregates, 'tutto l’archivio')).prompt,
+    });
+  }
+
+  /*
+   * LE CINQUE ANALISI SONO CINQUE, non tre.
+   *
+   * Questo file dichiara in testa che le analisi sono «l'unica parte
+   * dell'applicazione che nessuno ha mai letto prima di spedirla», e ne
+   * stampava tre. Le due che saltava sono anche le meno coperte dai test — su
+   * `gasPlanContext` non ce n'era nessuno — ed è lì che una revisione ha
+   * trovato un contesto che dichiarava al modello un filtro non applicato.
+   */
+  if (!solo || solo === 'gas') {
+    const gas = planGas({ ...DEFAULT_PLAN, depthM: 30, avgDepthM: 24, bottomMin: 20, rmvLpm: 18 });
+    pezzi.push({
+      nome: 'PIANIFICATORE GAS',
+      testo: gasPlanAnalysis(
+        gasPlanContext(
+          gas,
+          contingencies(gas.input),
+          similarDives(dives, gas.input.depthM, 5, gas.input.bottomMin),
+          measuredRmv(dives),
+          'tutto l’archivio',
+        ),
+      ).prompt,
+    });
+  }
+
+  if (!solo || solo === 'deco') {
+    const livelli = [{ depthM: 45, minutes: 25 }];
+    const miscele = [
+      { mix: { o2: 0.21, he: 0.35 }, role: 'bottom' as const, tankL: 24, startBar: 200 },
+      { mix: { o2: 0.5, he: 0 }, role: 'deco' as const, tankL: 11, startBar: 200 },
+    ];
+    const deco = planDeco(livelli, miscele, DEFAULT_DECO);
+    pezzi.push({
+      nome: 'PIANIFICATORE DECOMPRESSIONE',
+      testo: decoPlanAnalysis(
+        decoPlanContext(
+          deco,
+          livelli,
+          miscele,
+          DEFAULT_DECO,
+          decoContingencies(livelli, miscele, DEFAULT_DECO),
+          'Bühlmann ZH-L16C + GF',
+        ),
+      ).prompt,
     });
   }
 

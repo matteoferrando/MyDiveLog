@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { BottoneConferma } from '../components/Conferma';
 import { LIMITS, type ComputerInfo, type Dive, type Sample } from '../../core/model';
 import { formatDuration, mixName } from '../../core/units';
 import { modeLabel, positionAgainst, quartilesOf } from '../../core/analysis/aggregate';
@@ -29,6 +30,9 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const summary = dives.find((d) => d.id === id);
   const [dive, setDive] = useState<Dive | undefined>(summary);
   const [editing, setEditing] = useState(false);
+  // Vero quando la scheda di modifica ha qualcosa di non salvato. Vedi il
+  // pulsante «Chiudi modifica» più sotto.
+  const [sporco, setSporco] = useState(false);
   // Istante puntato dal mouse, condiviso da tutti i grafici della scheda: è ciò
   // che permette di leggere in verticale "quando sono scesa, il TTS è salito".
   const [cursorT, setCursorT] = useState<number | null>(null);
@@ -121,9 +125,38 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
           <button className="btn" onClick={() => setStampaBloccata(!apriStampa(dive, gear.equipment))}>
             Stampa questa immersione
           </button>
-          <button className="btn" onClick={() => setEditing((v) => !v)}>
-            {editing ? 'Chiudi modifica' : 'Modifica dati'}
-          </button>
+          {/*
+           * Chiudere con modifiche non salvate CHIEDE conferma.
+           *
+           * Il pulsante si chiama «Chiudi», non «Annulla», e la bozza vive nella
+           * scheda: chiuderla la cancellava in silenzio, senza avviso e senza
+           * ritorno. Verificato con l'app in mano — nota e titolo appena scritti
+           * sparivano, e sparivano anche solo cambiando pagina. Con la scheda
+           * pulita il pulsante resta quello di prima, senza domande inutili.
+           */}
+          {editing && sporco ? (
+            <BottoneConferma
+              etichetta="Chiudi modifica"
+              conferma="Sì, butta via le modifiche"
+              domanda={
+                <>Ci sono modifiche non salvate su questa immersione. Chiudendo la scheda vanno perse.</>
+              }
+              onConferma={() => {
+                setSporco(false);
+                setEditing(false);
+              }}
+            />
+          ) : (
+            <button
+              className="btn"
+              onClick={() => {
+                setSporco(false);
+                setEditing((v) => !v);
+              }}
+            >
+              {editing ? 'Chiudi modifica' : 'Modifica dati'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -558,6 +591,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
           onSalvaAttrezzatura={saveGear}
           onSave={saveDive}
           onDelete={() => void removeDive(dive.id).then(onBack)}
+          onSporco={setSporco}
         />
       )}
 

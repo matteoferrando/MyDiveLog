@@ -495,6 +495,15 @@ function paginaImmersione(
     `<div class="fascicolo">${escapeHtml(ctx.titolo)}${ctx.owner ? ` · ${escapeHtml(ctx.owner)}` : ''}</div>`,
   );
   out.push(`<h1>${luogo ? escapeHtml(luogo) : 'Sito non indicato'}</h1>`);
+  /*
+   * Il titolo che le hai dato tu, sotto il sito.
+   *
+   * A schermo è l'intestazione della scheda e il contesto per il modello lo
+   * manda; il foglio da firmare era l'unica superficie che lo perdeva, insieme
+   * alla guida sub. Sono le due cose che una persona scrive a mano dopo
+   * l'immersione, cioè proprio quelle che rendono il foglio suo.
+   */
+  if (dive.title) out.push(`<p class="titolo-immersione">${escapeHtml(dive.title)}</p>`);
   out.push(
     `<p class="quando">${escapeHtml(dataLunga(dive.startTime, dive.utcOffsetMinutes))} · ` +
       `ore ${escapeHtml(oraLocale(dive.startTime, dive.utcOffsetMinutes))}` +
@@ -505,7 +514,16 @@ function paginaImmersione(
   out.push('</div>');
   out.push('<div class="testa-destra">');
   out.push(`<div class="progressivo">${escapeHtml(progressivo)}</div>`);
-  out.push(`<div class="muto">pagina ${ctx.indice + 1} di ${ctx.totale}</div>`);
+  /*
+   * «immersione N di M», non «pagina».
+   *
+   * Contare le pagine da qui non si può — quante facciate escano lo decide il
+   * motore di stampa — e infatti su una nota lunga ne uscivano due mentre
+   * l'intestazione ne dichiarava una. Il numero dell'immersione dentro il
+   * fascicolo invece è vero sempre, ed è l'informazione che serve per
+   * ritrovarla.
+   */
+  out.push(`<div class="muto">immersione ${ctx.indice + 1} di ${ctx.totale}</div>`);
   out.push('</div>');
   out.push('</header>');
 
@@ -738,6 +756,20 @@ body {
 .voce dd { margin: .6mm 0 0; font-size: 10.5pt; font-variant-numeric: tabular-nums; }
 
 .blocco { break-inside: avoid; }
+/*
+ * LE NOTE POSSONO SPEZZARSI, la firma no.
+ *
+ * Con break-inside: avoid anche sulle note (niente apici inversi qui dentro:
+ * siamo in un template literal), una nota di seicento caratteri spingeva il
+ * riquadro delle firme su una SECONDA facciata per il resto bianca:
+ * l'istruttore si trovava a firmare un foglio senza i dati che sta
+ * controfirmando, e l'intestazione continuava a dire «pagina 1 di 1». Misurato
+ * col PDF vero: 400 caratteri una pagina, 600 due. È lo stesso difetto che
+ * planPrint.ts documenta di aver già corretto sul foglio del piano.
+ */
+.titolo-immersione { margin: .6mm 0 0; font-size: 11pt; font-style: italic; }
+.blocco.note { break-inside: auto; }
+.blocco.note h2 { break-after: avoid; }
 .blocco h2 {
   margin: 0 0 2mm;
   font-size: 8pt;

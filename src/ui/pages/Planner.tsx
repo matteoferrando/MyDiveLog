@@ -1186,7 +1186,8 @@ export function Planner() {
                   <span
                     className="tabular"
                     style={{
-                      color: (similar.minEndBar ?? 999) < LIMITS.minReserveBar ? 'var(--warning)' : undefined,
+                      color:
+                        (similar.minEndBar ?? 999) < LIMITS.minReserveBar ? 'var(--warning-text)' : undefined,
                     }}
                   >
                     {similar.minEndBar} bar

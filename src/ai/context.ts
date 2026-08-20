@@ -142,8 +142,17 @@ const n1 = (v: number | undefined) => (v === undefined ? null : Math.round(v * 1
  * stringa vuota non è un campo nullo, e la convenzione che si è appena promessa
  * viene rotta proprio sul campo di cui si è chiesto di diffidare.
  */
-const gfString = (c: { gfLow?: number; gfHigh?: number } | undefined): string | null =>
-  c?.gfLow != null && c?.gfHigh != null ? `${c.gfLow}/${c.gfHigh}` : null;
+/*
+ * Il terzo: con SOLO il GF basso restituiva `null`, cioè «dato assente» su un
+ * dato che l'app possiede. Correggendo il «40/undefined» era stata buttata via
+ * anche la metà nota, e parecchi computer scrivono solo il GF basso — i lettori
+ * Shearwater leggono `gfMin` e `gfMax` indipendentemente proprio per questo. Ora
+ * la metà che manca è nulla, l'altra c'è.
+ */
+const gfString = (c: { gfLow?: number; gfHigh?: number } | undefined): string | null => {
+  if (c?.gfLow == null && c?.gfHigh == null) return null;
+  return `${c?.gfLow ?? '?'}/${c?.gfHigh ?? '?'}`;
+};
 const n2 = (v: number | undefined) => (v === undefined ? null : Math.round(v * 100) / 100);
 
 /**
@@ -203,6 +212,18 @@ const COLONNE_PROFILO: { nome: string; leggi: (s: Sample) => number | null }[] =
       return p === undefined ? null : Math.round(p);
     },
   },
+  /*
+   * PPO2 e setpoint mancavano, e su un rebreather sono IL canale.
+   *
+   * Le colonne spedite per un'immersione CCR erano tempo, profondità e
+   * temperatura: quello che definisce l'immersione — l'ossigeno misurato dalle
+   * celle e il setpoint richiesto — non arrivava mai, e la nota non poteva
+   * dichiararlo perché non erano nemmeno fra le colonne candidate. Il
+   * meccanismo che toglie le colonne vuote fa il resto: su circuito aperto
+   * spariscono da sole.
+   */
+  { nome: 'ppo2(bar)', leggi: (s) => (s.ppo2 != null ? n2(s.ppo2) : null) },
+  { nome: 'setpoint(bar)', leggi: (s) => (s.setpoint != null ? n2(s.setpoint) : null) },
 ];
 
 function profileTable(reduced: Sample[], originali: number) {
@@ -239,6 +260,14 @@ export function diveContext(
 ): string {
   const m = dive.metrics;
   const samples = dive.samples ?? [];
+  /*
+   * La PPO2 letta dalle celle, quando c'è: vedi `lettoDalComputer`. Se il
+   * profilo non la porta resta `undefined`, e il blocco non la nomina affatto —
+   * un campo nullo là dentro direbbe «il computer non l'ha misurata», che è
+   * un'affermazione diversa da «non ne parliamo».
+   */
+  const letture = samples.map((x) => x.ppo2).filter((v): v is number => v !== undefined && v > 0);
+  const ppo2Misurata = letture.length ? { max: Math.max(...letture), min: Math.min(...letture) } : undefined;
   const reduced = reduceProfile(samples);
 
   const context = {
@@ -363,14 +392,26 @@ export function diveContext(
      * Ora il blocco esiste se c'è ALMENO una cosa letta, e la stringa «nessun
      * dato» compare solo quando è vero.
      */
+    /*
+     * La PPO2 MISURATA dalle celle sta qui, non fra i calcoli dell'app.
+     *
+     * `analyseOxygen` usa `s.ppo2` quando c'è e altrimenti la RICOSTRUISCE dal
+     * mix e dalla profondità, e il contesto spediva le due cose sotto lo stesso
+     * nome dentro il blocco «calcolato dall'app» — mentre le istruzioni di
+     * sistema ordinano espressamente di distinguere i valori letti dal computer,
+     * «PPO2 misurata» compresa. Con quel contesto la distinzione era impossibile
+     * da fare. È lo stesso difetto già corretto una volta per il CNS.
+     */
     lettoDalComputer:
-      dive.reported || m?.cnsEndPct !== undefined
+      dive.reported || m?.cnsEndPct !== undefined || ppo2Misurata !== undefined
         ? {
             gf99AllUscitaPct: dive.reported?.gf99End ?? null,
             obbligoDecompressivoS: dive.reported?.maxDecoObligationS ?? null,
             ndlMinimoS: dive.reported?.minNdlS ?? null,
             consumoDichiarato: dive.reported?.avgSac ?? null,
             cnsFinalePct: n1(m?.cnsEndPct),
+            ppo2MisurataDiPiccoBar: n2(ppo2Misurata?.max),
+            ppo2MisurataMinimaBar: n2(ppo2Misurata?.min),
           }
         : 'nessun dato di sintesi dal computer',
     calcolatoDallApp: m
@@ -425,9 +466,19 @@ export function diveContext(
           // Il numero con segno, non solo il booleano sopra: esiste perché due
           // metri di differenza fra le due metà e venti davano lo stesso «sì».
           tendenzaProfonditaM: n1(m.depthTrendM),
-          // Quanto la profondità oscilla al fondo, che è cosa diversa
-          // dall'oscillazione a quota TENUTA qui sopra.
-          scartoTipicoDellaProfonditaAlFondoM: n1(m.bottomDepthStdM),
+          /*
+           * IL NOME DICEVA «al fondo» e il numero comprendeva le soste.
+           *
+           * `bottomDepthStdM` è la deviazione standard di TUTTI i campioni a
+           * quota tenuta, sosta di sicurezza inclusa: sull'immersione più ricca
+           * dell'archivio dimostrativo spediva 5.9 m su un fondo che oscilla di
+           * 0.73. Il 5.9 non è un'oscillazione, è la distanza fra i 23 metri del
+           * fondo e i 5 della sosta — e il modello se lo ritrovava accanto a
+           * `oscillazioneAQuotaTenutaMMin: 0.5`, cioè eccellente, con l'ordine
+           * di correlarlo alla zavorra. Il numero è lo stesso, il nome ora dice
+           * cos'è.
+           */
+          scartoFraLeQuoteTenuteM: n1(m.bottomDepthStdM),
           cambiDiGasSottoLaMod: m.badGasSwitches || null,
           ppo2Minima: n2(m.minPpo2),
           endM: n1(m.endM),
@@ -703,14 +754,55 @@ export function archiveContext(
       cosaSignificaQuelNumero:
         'Verificato sul manuale TDI Advanced Nitrox: «the average ascent rate for divers after they have completed their safety stop is 60 metres or 200 feet a minute». È la media MISURATA di quello che i subacquei fanno davvero negli ultimi metri, citata come esempio di ciò che andrebbe migliorato — non è una velocità raccomandata. Non usarlo per giudicare un tratto finale: per quello c’è il limite dell’app, 6 m/min sopra i 10 metri.',
     },
-    immersioni: {
-      colonne:
-        "data, sito, profMax(m), durata(min), profMedia(m), consumo(L/min), assetto(m/min), risalitaMax(m/min), sostaSicurezza(s), barFinali(prima bombola), gf99(calcolato dall'app), gfImpostati, tempMin(°C), miscela(O2/He), passoCampionamento(s), zavorraTotale(kg — piastra compresa), mare, ridiscese(m/h), tendenzaProfondità(m)",
-      nota: 'un campo nullo significa dato assente, non zero',
-      righe: rows,
-    },
+    immersioni: tabellaArchivio(rows),
   };
   return compactJson(context);
+}
+
+const COLONNE_ARCHIVIO = [
+  'data',
+  'sito',
+  'profMax(m)',
+  'durata(min)',
+  'profMedia(m)',
+  'consumo(L/min)',
+  'assetto(m/min)',
+  'risalitaMax(m/min)',
+  'sostaSicurezza(s)',
+  'barFinali(prima bombola)',
+  "gf99(calcolato dall'app)",
+  'gfImpostati',
+  'tempMin(°C)',
+  'miscela(O2/He)',
+  'passoCampionamento(s)',
+  'zavorraTotale(kg — piastra compresa)',
+  'mare',
+  'ridiscese(m/h)',
+  'tendenzaProfondità(m)',
+];
+
+/**
+ * La tabella dell'archivio senza le colonne vuote su TUTTE le righe.
+ *
+ * Il profilo di una singola immersione toglie già le colonne vuote e lo
+ * dichiara; questa no, e dichiarava colonne nulle su tutte e quarantotto le
+ * righe — fra cui «zavorraTotale» e «mare», che sono esattamente le due di cui
+ * il prompt chiede la correlazione con l'assetto. Il modello riceveva l'invito
+ * a cercare una correlazione con una colonna vuota, e 148 `null` da leggere.
+ * Stessa politica in due posti dello stesso file: adesso lo è davvero.
+ */
+function tabellaArchivio(rows: (string | number | null)[][]) {
+  const tenute = COLONNE_ARCHIVIO.map((_, i) => i < 2 || rows.some((r) => r[i] !== null));
+  const scartate = COLONNE_ARCHIVIO.filter((_, i) => !tenute[i]);
+  return {
+    colonne: COLONNE_ARCHIVIO.filter((_, i) => tenute[i]).join(', '),
+    nota:
+      'un campo nullo significa dato assente, non zero' +
+      (scartate.length
+        ? `. Colonne omesse perché vuote su OGNI immersione di questo archivio, non perché valessero zero: ${scartate.join(', ')}`
+        : ''),
+    righe: rows.map((r) => r.filter((_, i) => tenute[i])),
+  };
 }
 
 /** Contesto del piano: i risultati delle regole dell'app, non un riassunto. */

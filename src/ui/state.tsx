@@ -1362,7 +1362,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       }
       return stored;
     },
-    [aiCredentials, aggregates, analyses, goalId, period, plan, scope, store],
+    [aiCredentials, aggregates, analyses, gear.equipment, goalId, period, plan, scope, store],
   );
 
   const value: DiveLogValue = {

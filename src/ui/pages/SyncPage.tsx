@@ -884,7 +884,7 @@ function TrashCard() {
                 <td className="num tabular muted">{dateShort(item.at)}</td>
                 <td
                   className="num tabular"
-                  style={{ color: daysLeft(item) <= 3 ? 'var(--warning)' : undefined }}
+                  style={{ color: daysLeft(item) <= 3 ? 'var(--warning-text)' : undefined }}
                 >
                   {daysLeft(item)} giorni
                 </td>

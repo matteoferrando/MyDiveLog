@@ -195,12 +195,24 @@ export function ModificaImmersione({
   onSalvaAttrezzatura,
   onSave,
   onDelete,
+  onSporco,
 }: {
   dive: Dive;
   gear: GearArchive;
   onSalvaAttrezzatura: (archivio: GearArchive) => Promise<void>;
   onSave: (d: Dive) => Promise<void>;
   onDelete: () => void;
+  /**
+   * Avvisa chi ospita la scheda che ci sono modifiche non salvate.
+   *
+   * Serve a una cosa sola: il pulsante che chiude la scheda si chiama «Chiudi»,
+   * non «Annulla», e chi ha appena finito di scrivere il racconto
+   * dell'immersione non ha nessun motivo di aspettarsi che chiuderlo lo
+   * cancelli. La bozza vive in questo componente e muore con lo smontaggio,
+   * senza una conferma e senza un avviso — verificato con l'app in mano: nota e
+   * titolo spariscono anche solo cambiando pagina.
+   */
+  onSporco?: (sporco: boolean) => void;
 }) {
   const [draft, setDraft] = useState<Dive>(dive);
   const [saved, setSaved] = useState(false);
@@ -216,11 +228,13 @@ export function ModificaImmersione({
   const tocca = (patch: Partial<Dive>) => {
     setDraft((d) => ({ ...d, ...patch }));
     setSaved(false);
+    onSporco?.(true);
   };
 
   const toccaGear = (patch: Partial<DiveGear>) => {
     setDraft((d) => ({ ...d, gear: { ...(d.gear ?? {}), ...patch } }));
     setSaved(false);
+    onSporco?.(true);
   };
 
   const condizioni = conditionsOf(draft);
@@ -256,6 +270,7 @@ export function ModificaImmersione({
     void onSave(pulita).then(() => {
       setDraft(pulita);
       setSaved(true);
+      onSporco?.(false);
     });
   };
 

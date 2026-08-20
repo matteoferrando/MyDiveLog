@@ -117,16 +117,24 @@ describe('stampa del logbook — struttura del documento', () => {
 });
 
 describe('stampa del logbook — una pagina per immersione', () => {
-  it('tre immersioni fanno tre pagine, numerate', () => {
+  it('tre immersioni fanno tre schede, numerate', () => {
     const a = immersione({ id: 'a', number: 1, startTime: '2026-06-14T08:00:00.000Z' });
     const b = immersione({ id: 'b', number: 2, startTime: '2026-06-14T12:00:00.000Z' });
     const c = immersione({ id: 'c', number: 3, startTime: '2026-06-15T09:00:00.000Z' });
 
     const html = logbookHtml([a, b, c], profiliDi(a, b, c));
     expect(html.match(/<section class="scheda"/g)).toHaveLength(3);
-    expect(html).toContain('pagina 1 di 3');
-    expect(html).toContain('pagina 2 di 3');
-    expect(html).toContain('pagina 3 di 3');
+    /*
+     * «immersione N di M», non «pagina N di M».
+     *
+     * Contare le pagine da qui non si può: quante facciate escano lo decide il
+     * motore di stampa, e su una nota lunga ne uscivano due mentre
+     * l'intestazione ne dichiarava una — con la firma da sola su un foglio
+     * bianco. Il numero dell'immersione dentro il fascicolo è vero sempre.
+     */
+    expect(html).toContain('immersione 1 di 3');
+    expect(html).toContain('immersione 2 di 3');
+    expect(html).toContain('immersione 3 di 3');
   });
 
   it('l’ordine è cronologico, comunque arrivino le immersioni', () => {

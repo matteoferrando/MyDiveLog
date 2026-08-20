@@ -969,6 +969,28 @@ export function planDeco(
     // valutato SEMPRE alla quota di destinazione, non a quella di partenza.
     if (anchorM === undefined) {
       const deep = ceilingM(state, s.gfLow, s.salinity, s.surfacePressureBar);
+      /*
+       * L'ancora è il tetto con `gfLow` arrotondato IN SU alla griglia delle
+       * soste. È la regola di Baker come la implementano i computer, ed è quella
+       * con cui il modello è stato validato contro 38 immersioni reali dello
+       * Shearwater (scarto medio 0.07 punti di GF99).
+       *
+       * LIMITE NOTO E MISURATO. L'ancora così è una quota a cui non sempre ci si
+       * ferma: quando il tetto cade appena sopra una riga della griglia — 15.04
+       * invece di 14.98 — l'ancora sale di un gradino mentre la prima sosta
+       * eseguita resta dov'era, e i gradient factor alle soste reali risultano
+       * un filo più laschi. Effetto: a 33 m un minuto di fondo IN PIÙ può dare
+       * un minuto di deco IN MENO. Su una griglia di 550 combinazioni (10–60 m
+       * × 5–60 min, tre coppie di GF) succede UNA volta, e vale un minuto.
+       *
+       * PROVATO E SCARTATO: ancorare alla prima sosta effettiva con un punto
+       * fisso. Un punto fisso spesso non esiste — abbassare l'ancora stringe i
+       * gradient factor e fa tornare la sosta più profonda, e i due valori si
+       * rincorrono — e scegliendo l'ancora più bassa nell'oscillazione le
+       * violazioni passavano da una a nove, con cali fino a cinque minuti.
+       * Sostituire un difetto misurato da un minuto con uno da cinque non è una
+       * correzione: qui resta la regola validata, con il suo limite scritto.
+       */
       if (deep > 0) anchorM = Math.max(s.lastStopM, Math.ceil(deep / s.stopIntervalM) * s.stopIntervalM);
     }
 

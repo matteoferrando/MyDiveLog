@@ -698,6 +698,114 @@ const dopoIlCestino = await page.locator('tbody tr').count();
 await page.screenshot({ path: 'screenshots/19-cestino.png', fullPage: true });
 
 /*
+ * A 390 px LA NAVIGAZIONE DEVE ESSERE RAGGIUNGIBILE, e la scheda corrente in vista.
+ *
+ * Misurato: la striscia era larga 194 px e ne conteneva 728, quindi si vedevano
+ * due schede su otto — senza freccia, senza sfumatura, senza barra di
+ * scorrimento. Peggio, la scheda CORRENTE poteva stare fuori dal riquadro
+ * visibile: lo screenshot dell'harness stesso mostrava la pagina Statistiche con
+ * la barra ferma su «Logbook Confronta S».
+ *
+ * Il controllo che il vecchio ciclo del trabocco NON faceva: quello rimisurava a
+ * 1180 px, perché la finestra veniva riallargata più su e mai più ristretta.
+ */
+await page.setViewportSize({ width: 390, height: 780 });
+await page.click('button:has-text("Statistiche")').catch(() => {});
+await page.waitForTimeout(700);
+const navMobile = await page.evaluate(() => {
+  const nav = document.querySelector('.nav');
+  if (!nav) return null;
+  const r = nav.getBoundingClientRect();
+  const corrente = nav.querySelector('[aria-current="page"]');
+  const c = corrente?.getBoundingClientRect();
+  return {
+    larghezza: Math.round(r.width),
+    contenuto: Math.round(nav.scrollWidth),
+    visibili: [...nav.querySelectorAll('button')].filter((b) => {
+      const q = b.getBoundingClientRect();
+      return q.left >= r.left - 1 && q.right <= r.right + 1;
+    }).length,
+    totali: nav.querySelectorAll('button').length,
+    correnteInVista: !!c && c.left >= r.left - 1 && c.right <= r.right + 1,
+    etichettaCorrente: corrente?.textContent ?? '—',
+  };
+});
+await page.screenshot({ path: 'screenshots/20-nav-390.png', fullPage: true });
+/*
+ * I BERSAGLI TATTILI del logbook, misurati alla larghezza del telefono.
+ *
+ * WCAG 2.2 AA chiede 24×24: le caselle di selezione stavano a 13×13 e la
+ * data-pulsante a 58×20 — ed è l'unico modo di aprire un'immersione da
+ * tastiera, quindi è il bersaglio che conta.
+ */
+await page.click('button:has-text("Logbook")');
+await page.waitForTimeout(600);
+const bersagli = await page.evaluate(() => {
+  const min = (sel) => {
+    const q = [...document.querySelectorAll(sel)].map((e) => e.getBoundingClientRect());
+    if (!q.length) return null;
+    return {
+      w: Math.round(Math.min(...q.map((x) => x.width))),
+      h: Math.round(Math.min(...q.map((x) => x.height))),
+      n: q.length,
+    };
+  };
+  return { caselle: min('tbody input[type=checkbox]'), date: min('tbody .cell-link') };
+});
+const piccoli = Object.entries(bersagli)
+  .filter(([, v]) => v && (v.w < 24 || v.h < 24))
+  .map(([k, v]) => `${k} ${v.w}x${v.h} su ${v.n}`);
+const bersagliEsito = piccoli.length
+  ? `SOTTO 24x24: ${piccoli.join(' · ')}`
+  : `tutti almeno 24x24 (caselle ${bersagli.caselle?.w}x${bersagli.caselle?.h}, date ${bersagli.date?.w}x${bersagli.date?.h})`;
+const navEsito = navMobile
+  ? `${navMobile.visibili}/${navMobile.totali} schede visibili su ${navMobile.larghezza} px, ` +
+    `corrente «${navMobile.etichettaCorrente}» ${navMobile.correnteInVista ? 'in vista' : 'FUORI VISTA'}`
+  : 'NAV ASSENTE';
+await page.setViewportSize({ width: 1180, height: 900 });
+await page.waitForTimeout(300);
+
+/*
+ * «CHIUDI MODIFICA» CON DEL TESTO SCRITTO DEVE CHIEDERE CONFERMA.
+ *
+ * La bozza vive nella scheda e muore con lo smontaggio: chiuderla la cancellava
+ * in silenzio. Il pulsante si chiama «Chiudi», non «Annulla», e chi ha appena
+ * finito di scrivere il racconto dell'immersione non ha nessun motivo di
+ * aspettarsi che chiuderlo lo cancelli.
+ */
+await page.click('button:has-text("Logbook")');
+await page.waitForTimeout(600);
+await page.locator('tbody tr').first().click();
+await page.waitForTimeout(700);
+let bozzaEsito = 'PERCORSO NON PERCORRIBILE';
+const modifica = page.locator('button:has-text("Modifica dati")').first();
+if (await modifica.count()) {
+  await modifica.click();
+  await page.waitForTimeout(500);
+  const note = page.locator('label', { hasText: 'Note' }).locator('textarea').first();
+  if (await note.count()) {
+    await note.fill('Racconto scritto e non salvato.');
+    await page.waitForTimeout(300);
+    const chiudi = page.locator('button:has-text("Chiudi modifica")').first();
+    await chiudi.click();
+    await page.waitForTimeout(300);
+    // Il primo clic deve ARMARE, non chiudere: la scheda è ancora lì.
+    const armato = await page.locator('button:has-text("Sì, butta via")').count();
+    const ancoraAperta = await page.locator('textarea').count();
+    bozzaEsito =
+      armato > 0 && ancoraAperta > 0
+        ? 'chiede conferma (corretto)'
+        : `SBAGLIATO: conferma ${armato}, scheda ancora aperta ${ancoraAperta}`;
+    if (armato > 0) {
+      await page.locator('button:has-text("Sì, butta via")').first().click();
+      await page.waitForTimeout(400);
+    }
+  }
+}
+await page.click('button:has-text("Logbook")');
+await page.waitForTimeout(600);
+
+/*
  * SI DIGITA UNA CIFRA ALLA VOLTA, non con `fill()`.
  *
  * È il controllo che mancava, ed è il motivo per cui il difetto è vissuto
@@ -814,17 +922,28 @@ await page.screenshot({ path: 'screenshots/18-bluetooth.png', fullPage: true });
  * reader, alte un pixel e invisibili, e nessuna fotografia lo mostra — si vede
  * solo confrontando `scrollHeight` con `clientHeight`.
  */
-const fantasma = [];
-for (const tab of [
+/*
+ * I NOMI VERI DELLE SCHEDE, in un posto solo.
+ *
+ * I due cicli qui sotto cercavano «Coach» e «Sincronizza», che non esistono —
+ * si chiamano «Suggerimenti» e «Impostazioni» — e i `.catch(() => {})` li
+ * facevano saltare in silenzio: due pagine su otto non venivano misurate né per
+ * lo scorrimento fantasma né per il trabocco, e il controllo dichiarava
+ * «nessuno» con la stessa faccia.
+ */
+const SCHEDE = [
   'Logbook',
   'Statistiche',
-  'Coach',
+  'Suggerimenti',
   'Gas',
   'Confronta',
   'Attrezzatura',
   'Importa',
-  'Sincronizza',
-]) {
+  'Impostazioni',
+];
+
+const fantasma = [];
+for (const tab of SCHEDE) {
   await page.click(`button:has-text("${tab}")`).catch(() => {});
   await page.waitForTimeout(400);
   const d = await page.evaluate(() => ({
@@ -851,16 +970,15 @@ await page.waitForTimeout(1200);
 // che invece si misura in una riga: se `scrollWidth` supera la larghezza della
 // finestra, qualcosa dentro non ha accettato di stringersi.
 const overflow = [];
-for (const tab of [
-  'Logbook',
-  'Statistiche',
-  'Coach',
-  'Gas',
-  'Confronta',
-  'Attrezzatura',
-  'Importa',
-  'Sincronizza',
-]) {
+/*
+ * SI MISURA A 390 px, che è il punto della prova.
+ *
+ * La finestra veniva riallargata a 1180 px molto più su e mai più ristretta,
+ * quindi questo ciclo misurava il trabocco su un desktop: un controllo che
+ * diceva sempre «nessuno» perché guardava la larghezza sbagliata.
+ */
+await page.setViewportSize({ width: 390, height: 780 });
+for (const tab of SCHEDE) {
   await page.click(`button:has-text("${tab}")`).catch(() => {});
   await page.waitForTimeout(400);
   const info = await page.evaluate(() => {
@@ -920,6 +1038,9 @@ console.log('CONDIZIONI NELLE STATISTICHE:');
 console.log(condizioniCard.slice(0, 700));
 console.log('SOSTE IN RICREATIVA:');
 console.log(sosteRec.slice(0, 500));
+console.log('NAVIGAZIONE A 390 px:', navEsito);
+console.log('BERSAGLI TATTILI A 390 px:', bersagliEsito);
+console.log('BOZZA NON SALVATA:', bozzaEsito);
 console.log('DIGITAZIONE A CIFRE:', digitazione);
 console.log('STAMPA DEL PIANO:', stampaPiano ? 'pulsante presente' : 'PULSANTE ASSENTE');
 console.log(

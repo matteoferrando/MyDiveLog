@@ -75,19 +75,31 @@ describe('contrasto della tavolozza', () => {
         }
       });
 
-      it.each(['--text-primary', '--text-secondary', '--text-muted', '--critical'])(
-        '%s è leggibile su tutte le superfici (4.5:1)',
-        (token) => {
-          for (const bg of SURFACES) {
-            const ratio = contrast(tema[token], tema[bg]);
-            expect(
-              ratio,
-              `${token} ${tema[token]} su ${bg} ${tema[bg]} = ${ratio.toFixed(2)}:1`,
-            ).toBeGreaterThanOrEqual(4.5);
-          }
-        },
-      );
+      it.each([
+        '--text-primary',
+        '--text-secondary',
+        '--text-muted',
+        '--critical',
+        '--good-text',
+        '--warning-text',
+      ])('%s è leggibile su tutte le superfici (4.5:1)', (token) => {
+        for (const bg of SURFACES) {
+          const ratio = contrast(tema[token], tema[bg]);
+          expect(
+            ratio,
+            `${token} ${tema[token]} su ${bg} ${tema[bg]} = ${ratio.toFixed(2)}:1`,
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      });
 
+      /*
+       * `--warning-text` sta con i colori di TESTO, non con gli indicatori.
+       *
+       * `--warning` è validato a 3:1 perché è un pallino, ma veniva usato come
+       * colore di testo in sei punti — misurato in pagina: 3.62:1 su 13 px. Ora
+       * chi deve leggere usa il gemello, e il gemello è qui sotto la soglia del
+       * testo insieme agli altri.
+       */
       it.each(['--good', '--warning', '--serious', '--critical'])(
         '%s si distingue come indicatore grafico (3:1)',
         (token) => {

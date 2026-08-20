@@ -48,6 +48,18 @@
      tornano nel blocco scuro, dove sono giuste. */
   --warning: #b9760a;
   --serious: #cc5c2a;
+  /*
+   * L'AMBRA DA LEGGERE, separata da quella da guardare.
+   *
+   * `--warning` è validato alla soglia degli INDICATORI grafici (3:1), come
+   * `--good`, e come `--good` viene usato anche come colore di TESTO — in sei
+   * punti: la tabella del confronto, il cestino, le statistiche, il
+   * pianificatore. Misurato in pagina: 3.62:1 su testo da 13 px, dove ne
+   * servono 4.5. Ironia della sorte, nella tabella del confronto il colore meno
+   * leggibile era proprio quello della colonna che segnala il peggioramento.
+   * `--good` il suo gemello ce l'aveva già; questo no.
+   */
+  --warning-text: #845206;
   /* Il rosso è quasi sempre COLORE DI TESTO (bar sotto riserva, CNS oltre 100,
      errori di sincronizzazione): serve il rapporto del testo, non quello dei
      grafici. #d03b3b stava a 4.3 sulla superficie terziaria. */
@@ -101,6 +113,8 @@
 
     --good-text: #0ca30c;
     --warning: #fab219;
+    /* Sul fondo scuro l'ambra brillante sta già a 8.57:1: nessun gemello serve. */
+    --warning-text: #fab219;
     --serious: #ec835a;
     /* Sul fondo scuro il rosso chiaro è l'unico che passa: #c62d2d starebbe a
        2.6, cioè illeggibile proprio sulle righe che segnalano un problema. */
@@ -131,6 +145,7 @@
   --seq-600: #9ec5f4;
   --good-text: #0ca30c;
   --warning: #fab219;
+  --warning-text: #fab219;
   --serious: #ec835a;
   --critical: #ef6b6b;
 }
@@ -178,6 +193,32 @@ body {
   .topbar {
     padding-left: 20px;
   }
+  /*
+   * SOTTO I 700 px LA NAVIGAZIONE VA A CAPO, su una riga tutta sua.
+   *
+   * Misurato a 390 px: la striscia era larga 194 px e ne conteneva 728, quindi
+   * si vedevano due schede su otto — e la scheda CORRENTE poteva essere fuori
+   * vista, come nello screenshot dell'harness che mostra «Statistiche» con la
+   * barra ferma su «Logbook Confronta S». Su una riga intera ce ne stanno il
+   * doppio, e con la sfumatura di sotto si vede che ce n'è dell'altra.
+   */
+  .topbar {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .nav {
+    order: 3;
+    flex-basis: 100%;
+    /*
+     * La sfumatura sul bordo destro è l'unico segnale che la striscia scorre:
+     * `scrollbar-width: none` toglie la barra, e senza niente al suo posto chi
+     * apre l'app sul telefono non ha modo di sapere che esistono altre pagine.
+     */
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%);
+  }
+  .topbar-spacer {
+    display: none;
+  }
 }
 
 .brand {
@@ -219,6 +260,21 @@ body {
 .nav button:hover {
   background: var(--surface-3);
   color: var(--text-primary);
+}
+
+/*
+ * Le schede più strette sul telefono.
+ *
+ * Sta DOPO le regole di base e non nel blocco `@media` più in alto: a pari
+ * specificità vince l'ultima regola scritta, e là sopra veniva sovrascritta da
+ * `.nav button` senza che niente lo segnalasse — la misura a 390 px continuava
+ * a leggere 13 px e 12 px di margine.
+ */
+@media (max-width: 700px) {
+  .nav button {
+    padding: 6px 7px;
+    font-size: 12px;
+  }
 }
 
 .nav button[aria-current='page'] {
@@ -463,16 +519,42 @@ tbody tr.clickable:hover {
  * dito, non i pixel. Un iPad in split view resta un dito; una finestra stretta
  * sul portatile resta un mouse.
  */
-@media (pointer: coarse) {
+/*
+ * I BERSAGLI TATTILI, e perché non basta il puntatore grosso.
+ *
+ * `pointer: coarse` non scatta su un desktop ridotto a larghezza telefono, ed è
+ * lì che l'harness misura: 13×13 px per le caselle di selezione del logbook e
+ * 58×20 per la data-pulsante, contro il minimo di 24×24 che WCAG 2.2 chiede in
+ * AA. La data è anche l'unico modo di aprire un'immersione da tastiera, quindi
+ * è l'unico bersaglio che conta davvero. Le due condizioni valgono insieme: chi
+ * ha un dito, e chi ha uno schermo stretto.
+ */
+@media (pointer: coarse), (max-width: 700px) {
   input[type='checkbox'],
   input[type='radio'] {
-    width: 18px;
-    height: 18px;
+    /* 24×24 è il minimo WCAG 2.2 AA, e una casella di selezione in una tabella
+       che si può cancellare in blocco è proprio il bersaglio da non sbagliare. */
+    width: 24px;
+    height: 24px;
   }
 
   tbody td:first-child {
     padding-top: 12px;
     padding-bottom: 12px;
+  }
+
+  /*
+   * L'area sensibile cresce senza spostare il testo: il riempimento negativo
+   * allarga il bersaglio dentro la cella invece di allargare la colonna.
+   */
+  .cell-link {
+    display: inline-block;
+    min-height: 24px;
+    /* Il riempimento allarga il bersaglio DENTRO la cella; il margine negativo
+       lo riporta al suo posto, così la colonna non si allarga e il testo non si
+       sposta. */
+    padding: 4px 2px;
+    margin: -4px -2px;
   }
 }
 

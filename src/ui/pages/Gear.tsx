@@ -514,18 +514,34 @@ function BottoniScheda({
   onCancel,
   onDelete,
   cosa,
+  salvabile,
 }: {
   onSave: () => void;
   onCancel: () => void;
   onDelete: () => void;
   cosa: string;
+  /**
+   * Falso quando la scheda non ha ancora un nome.
+   *
+   * Senza, «Salva» su una scheda vuota creava una riga «senza nome», e
+   * ripetendolo se ne accumulavano di indistinguibili l'una dall'altra — con la
+   * sola conferma di eliminazione a proteggerle. Il nome è l'unica cosa che
+   * distingue un pezzo di attrezzatura da un altro: senza, la riga non serve a
+   * niente e non si può nemmeno cancellare con cognizione.
+   */
+  salvabile?: boolean;
 }) {
   const [conferma, setConferma] = useState(false);
   return (
     <div className="row" style={{ gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-      <button className="btn" onClick={onSave}>
+      <button className="btn" onClick={onSave} disabled={salvabile === false}>
         Salva
       </button>
+      {salvabile === false && (
+        <span className="muted" style={{ fontSize: 12, alignSelf: 'center' }}>
+          Serve un nome.
+        </span>
+      )}
       <button onClick={onCancel}>Annulla</button>
       <span style={{ flex: 1 }} />
       {conferma ? (
@@ -757,6 +773,7 @@ function SchedaAttrezzo({
 
       <BottoniScheda
         cosa={d.name ? `«${d.name}»` : 'questo pezzo'}
+        salvabile={!!d.name?.trim()}
         onSave={() => onSave(d)}
         onCancel={onCancel}
         onDelete={() => onDelete(d.id)}
@@ -836,6 +853,7 @@ function SchedaBrevetto({
       </Campo>
       <BottoniScheda
         cosa={d.name ? `«${d.name}»` : 'questo brevetto'}
+        salvabile={!!d.name?.trim()}
         onSave={() => onSave(d)}
         onCancel={onCancel}
         onDelete={() => onDelete(d.id)}

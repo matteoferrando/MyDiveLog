@@ -166,16 +166,31 @@ export function App() {
             <small>{imm(dives.length)}</small>
           </div>
         </div>
+        {/*
+         * La scheda corrente si porta SEMPRE in vista.
+         *
+         * La striscia scorre in orizzontale, e su uno schermo stretto la scheda
+         * su cui si è può essere fuori dal riquadro visibile: si legge «Logbook
+         * Confronta S» mentre a schermo c'è Statistiche. `scrollIntoView` sul
+         * pulsante marcato `aria-current` risolve sia il caso della navigazione
+         * fatta a mano sia quello dell'apertura diretta di una pagina.
+         */}
         <nav className="nav">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => go(t.id)}
-              aria-current={view === t.id && !openDive ? 'page' : undefined}
-            >
-              {t.label}
-            </button>
-          ))}
+          {TABS.map((t) => {
+            const corrente = view === t.id && !openDive;
+            return (
+              <button
+                key={t.id}
+                ref={
+                  corrente ? (el) => el?.scrollIntoView({ block: 'nearest', inline: 'nearest' }) : undefined
+                }
+                onClick={() => go(t.id)}
+                aria-current={corrente ? 'page' : undefined}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </nav>
         <span className="topbar-spacer" />
       </header>

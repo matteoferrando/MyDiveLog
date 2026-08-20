@@ -317,7 +317,7 @@ function ComparisonTable({ left, right, onOpen }: { left: Dive; right: Dive; onO
                         ? 'var(--text-muted)'
                         : better
                           ? 'var(--good-text)'
-                          : 'var(--warning)',
+                          : 'var(--warning-text)',
                   }}
                 >
                   {delta === undefined

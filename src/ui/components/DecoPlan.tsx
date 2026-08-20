@@ -957,7 +957,7 @@ export function DecoPlanner({
           value={
             <span
               className="tabular"
-              style={{ color: plan.decoMin > 0 ? 'var(--warning)' : 'var(--good-text)' }}
+              style={{ color: plan.decoMin > 0 ? 'var(--warning-text)' : 'var(--good-text)' }}
             >
               {plan.decoMin} <small style={{ fontSize: 14 }}>min</small>
               <Was before={before?.deco} now={plan.decoMin} />
@@ -1049,7 +1049,7 @@ export function DecoPlanner({
                         seg.ppo2 > settings.maxPpo2Deco + 0.05
                           ? 'var(--critical)'
                           : seg.ppo2 > settings.maxPpo2Work
-                            ? 'var(--warning)'
+                            ? 'var(--warning-text)'
                             : undefined,
                     }}
                   >
