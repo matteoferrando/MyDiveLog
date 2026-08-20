@@ -12,6 +12,14 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import { gasPlanContext } from '../src/ai/context';
+import {
+  DEFAULT_PLAN,
+  contingencies,
+  measuredRmv,
+  planGas,
+  similarDives,
+} from '../src/core/analysis/gasPlan';
 import { ask, listModels, testKey, AiError } from '../src/ai/client';
 import { archiveContext, diveContext, reduceProfile } from '../src/ai/context';
 import { diveAnalysis, archiveAnalysis, planAnalysis, decoPlanAnalysis, SYSTEM } from '../src/ai/prompts';
@@ -384,5 +392,80 @@ describe('contesto del piano di decompressione', () => {
     expect(spec.prompt).toMatch(/non proporre soste, tempi o profondità diversi/i);
     expect(spec.prompt).toMatch(/sta inventando numeri/);
     expect(spec.prompt).toContain(ctx);
+  });
+});
+
+/*
+ * IL CONTESTO DEL PIANIFICATORE GAS non aveva NESSUN test.
+ *
+ * Era anche l'unico che `dump:ai` non stampava, e infatti è lì che una revisione
+ * ha trovato un contesto che dichiarava al modello un filtro non applicato:
+ * `filtrateAncheSullaDurata: true` su un confronto filtrato solo sulla
+ * profondità, con l'avvertenza scritta apposta per quel caso che non si attivava
+ * mai. Due buchi che si tenevano per mano — nessuno lo leggeva, nessuno lo
+ * provava.
+ */
+describe('contesto del pianificatore gas', () => {
+  const piano = () =>
+    planGas({ ...DEFAULT_PLAN, depthM: 30, avgDepthM: 24, bottomMin: 20, rmvLpm: 18, tankL: 15 });
+
+  const archivio = (n: number, depth: number, min: number): Dive[] =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `d${i}`,
+      startTime: `2026-0${(i % 8) + 1}-14T10:00:00.000Z`,
+      durationS: min * 60,
+      maxDepth: depth,
+      mode: 'oc',
+      cylinders: [{ mix: { o2: 0.21, he: 0 }, sizeL: 15, startBar: 200, endBar: 60 }],
+      tags: [],
+      source: { format: 'uddf', file: 'a', importedAt: 'x' },
+      metrics: { rmvLpm: 17, endPressureBar: 60 } as Dive['metrics'],
+    })) as unknown as Dive[];
+
+  it('non dichiara un filtro sulla durata che non è stato applicato', () => {
+    const p = piano();
+    // Immersioni alla stessa profondità ma lunghe il DOPPIO: senza il filtro
+    // sulla durata entrerebbero comunque, e il contesto direbbe di averle
+    // filtrate anche su quella.
+    const dives = archivio(6, 30, 50);
+    const j = JSON.parse(
+      gasPlanContext(
+        p,
+        contingencies(p.input),
+        similarDives(dives, p.input.depthM, 5, p.input.bottomMin),
+        measuredRmv(dives),
+        'tutto l’archivio',
+      ),
+    );
+    const simili = j.immersioniVereAProfonditaSimile;
+    if (simili?.filtrateAncheSullaDurata) {
+      // Se dichiara il filtro, la durata tipica deve somigliare a quella
+      // pianificata: altrimenti la dichiarazione è falsa.
+      expect(Math.abs((simili.durataTipicaMin ?? 0) - p.input.bottomMin)).toBeLessThan(20);
+    } else {
+      expect(simili?.avvertenza ?? '').toMatch(/SOLO sulla profondità|molto diversa/);
+    }
+  });
+
+  it('dichiara che i numeri sono calcolati dall’app, non letti da un computer', () => {
+    const p = piano();
+    const j = JSON.parse(
+      gasPlanContext(p, contingencies(p.input), similarDives([], 30, 5, 20), measuredRmv([]), 'x'),
+    );
+    expect(j.nota).toMatch(/CALCOLATI da questa app/);
+  });
+
+  it('non spedisce `undefined` né `NaN` su un archivio vuoto', () => {
+    const p = piano();
+    const testo = gasPlanContext(
+      p,
+      contingencies(p.input),
+      similarDives([], 30, 5, 20),
+      measuredRmv([]),
+      'x',
+    );
+    expect(testo).not.toContain('undefined');
+    expect(testo).not.toContain('NaN');
+    expect(() => JSON.parse(testo)).not.toThrow();
   });
 });
