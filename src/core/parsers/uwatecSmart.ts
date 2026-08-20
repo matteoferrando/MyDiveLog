@@ -291,6 +291,50 @@ export const UWATEC_MODELS: Record<number, HeaderLayout> = {
 };
 
 /**
+ * L'impronta del PROFILO: riconoscere la stessa immersione dai byte che la
+ * descrivono, invece che dall'orario.
+ *
+ * PERCHÉ SERVE, e non è teoria. L'archivio di prova ha due immersioni la cui
+ * data il computer aveva sbagliato — di 77 e di 118 giorni — e che il
+ * proprietario ha corretto a mano nell'applicazione. Il computer, nella sua
+ * memoria, ha ancora quella sbagliata. Il riconoscimento normale confronta
+ * orario, profondità e durata: profondità e durata coincidono al decimetro e al
+ * minuto, ma centodiciotto giorni di scarto sfondano qualunque finestra
+ * temporale. Risultato: scaricando dal computer quelle due tornano come
+ * immersioni nuove, per sempre, a ogni scarico.
+ *
+ * SI CONFRONTA SOLO IL FLUSSO DEI CAMPIONI, non tutto il record. L'intestazione
+ * non è identica fra le due strade: nel file di LogTRAK i byte a offset 12
+ * valgono sempre `00 06`, nella memoria del computer variano. Qualcosa lì viene
+ * riscritto dall'applicazione. I campioni invece sono la misura, e quella
+ * nessuno la tocca.
+ *
+ * NON PUÒ TOGLIERE FUSIONI, SOLO AGGIUNGERNE. Due impronte uguali sono una prova
+ * forte — sono mille byte di profilo identici — e fanno riconoscere le due copie
+ * anche a mesi di distanza. Due impronte diverse non affermano niente: si torna
+ * al criterio di prima. Se un giorno LogTRAK riscrivesse anche i campioni,
+ * questa funzione smetterebbe di aiutare senza rompere niente.
+ */
+export function profiloImpronta(bytes: Uint8Array, headerSize: number): string | undefined {
+  const campioni = bytes.subarray(headerSize);
+  /*
+   * Sotto i sessantaquattro byte non è un profilo, è un'immersione di due
+   * minuti o un record troncato — e due record corti si somigliano abbastanza
+   * da poter collidere. Meglio nessuna impronta che un'impronta che sbaglia:
+   * un falso positivo qui fonde due immersioni diverse in una.
+   */
+  if (campioni.length < 64) return undefined;
+  // FNV-1a a 32 bit, e in più la lunghezza: due profili di lunghezza diversa non
+  // possono avere la stessa impronta nemmeno se l'hash collidesse.
+  let h = 0x811c9dc5;
+  for (let i = 0; i < campioni.length; i++) {
+    h ^= campioni[i];
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `${campioni.length.toString(36)}-${h.toString(16).padStart(8, '0')}`;
+}
+
+/**
  * Il nome commerciale di un modello, dal numero che il computer dichiara.
  *
  * Sta qui e non nel lettore di LogTRAK perché lo usano in due — l'import dal
@@ -399,6 +443,13 @@ export interface UwatecDive {
   samples: UwatecSample[];
   gasMixes: UwatecGasMix[];
   events: UwatecEvent[];
+  /**
+   * Impronta del flusso dei campioni: vedi `profiloImpronta`.
+   *
+   * È il modo di riconoscere la stessa immersione arrivata dal file e dal
+   * computer anche quando le due date non coincidono.
+   */
+  profileFingerprint?: string;
   /** Byte consumati e byte dichiarati: devono coincidere. */
   bytesConsumed: number;
   bytesDeclared: number;
@@ -501,6 +552,7 @@ export function decodeUwatecSmart(bytes: Uint8Array, opts: DecodeOptions = {}): 
   const dive: UwatecDive = {
     startMs,
     utcOffsetMinutes,
+    profileFingerprint: profiloImpronta(bytes, headerSize),
     // L'intestazione usa 1 mbar per unità, i campioni 2 mbar: risoluzione doppia.
     maxDepth: round2((view.getUint16(layout.maxDepth, true) * (BAR_PA / 1000)) / (density * 10)),
     durationS: view.getUint16(layout.diveTime, true) * 60,

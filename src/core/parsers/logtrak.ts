@@ -171,6 +171,10 @@ function readDive(
       diveId: raw.id,
       firmware: computer?.swVersion,
       hwVersion: computer?.hwVersion,
+      // L'impronta del profilo: è la stessa che calcola il driver Bluetooth
+      // sugli stessi byte, ed è ciò che fa riconoscere le due copie anche
+      // quando le date non coincidono.
+      profileFingerprint: decoded?.profileFingerprint,
       // I limiti di PPO2 stanno nei dati della bombola, non del computer, ma sono
       // un'impostazione del computer: è lui che allarma quando li supera.
       ppo2MaxBar: firstTank?.maxPp02Limit ?? undefined,

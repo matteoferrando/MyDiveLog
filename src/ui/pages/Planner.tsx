@@ -17,7 +17,6 @@ import {
   phaseGeometry,
   measuredRmv,
   contingencies,
-  type Contingency,
   planGas,
   pressureSchedule,
   type SchedulePoint,
@@ -31,7 +30,7 @@ import {
 } from '../../core/analysis/gasPlan';
 import { LIMITS, type GasMix } from '../../core/model';
 import { OTU_DAILY_TDI } from '../../core/analysis/oxygen';
-import { mixName } from '../../core/units';
+import { formatRuntime, mixName } from '../../core/units';
 import { AnalysisCard } from '../components/Analysis';
 import {
   CurveChart,
@@ -45,7 +44,8 @@ import { PeriodPicker } from '../components/PeriodPicker';
 import { DecoPlanner, type DecoPlanState } from '../components/DecoPlan';
 import { curveOfPlan, type PlanCurve as PlanCurveResult } from '../../core/analysis/tissues';
 import { barometric, planDeco, type DecoResult } from '../../core/analysis/deco';
-import { pianoHtml, type FoglioPiano, type SezionePiano } from '../../core/export/planPrint';
+import { pianoHtml, type FoglioPiano } from '../../core/export/planPrint';
+import { foglioDelPiano } from '../../core/export/planSheet';
 import { useDiveLog } from '../state';
 
 /**
@@ -299,7 +299,16 @@ export function Planner() {
               onClick={() =>
                 setStampaBloccata(
                   !apriStampaPiano(
-                    foglioDelPiano({ plan, schedule, curve, soste, contingenze: plans, mode, turnAt }),
+                    foglioDelPiano({
+                      plan,
+                      schedule,
+                      curve,
+                      soste,
+                      contingenze: plans,
+                      mode,
+                      turnAt,
+                      gf: GF_RICREATIVI,
+                    }),
                   ),
                 )
               }
@@ -1347,184 +1356,6 @@ export function Planner() {
 }
 
 /**
- * Il piano tradotto in un foglio da stampare.
- *
- * Sta qui e non in `planPrint.ts` perché è QUI che i numeri hanno un significato:
- * l'unità di misura, l'arrotondamento giusto, la differenza fra una sosta di
- * sicurezza e un obbligo. Il modulo di stampa sa impaginare e non deve sapere
- * niente di decompressione; questa funzione sa di decompressione e non sa
- * niente di CSS. È la stessa divisione che c'è fra `logbookPrint` e la scheda
- * immersione, e regge per la stessa ragione: le due cose cambiano per motivi
- * diversi.
- */
-function foglioDelPiano(ctx: {
-  plan: GasPlan;
-  schedule: SchedulePoint[];
-  curve: PlanCurveResult;
-  soste?: DecoResult;
-  contingenze: Contingency[];
-  mode: 'rec' | 'tec';
-  turnAt?: number;
-}): FoglioPiano {
-  const { plan, schedule, curve, soste, contingenze, mode, turnAt } = ctx;
-  const i = plan.input;
-  const m1 = (v: number) => `${Math.round(v * 10) / 10}`;
-
-  const sezioni: SezionePiano[] = [];
-
-  sezioni.push({
-    titolo: 'Il piano',
-    righe: [
-      ['Profondità massima', `${m1(i.depthM)} m`],
-      ['Profondità media del fondo', `${m1(i.avgDepthM)} m`],
-      ['Tempo di fondo', formatRuntime(i.bottomMin)],
-      ['Durata totale', formatRuntime(plan.totalRuntimeMin)],
-      ['Miscela', mixName(i.mix)],
-      ['Bombola', `${m1(i.tankL)} L a ${i.startBar} bar`],
-      ['Consumo usato', `${m1(plan.planningRmvLpm)} L/min${plan.buddyDrivesPlan ? ' (del compagno)' : ''}`],
-      ['Acqua', i.salinity === 'fresh' ? 'dolce' : 'salata'],
-    ],
-  });
-
-  /*
-   * IL RUN TIME SCHEDULE, che è il motivo per cui questo foglio esiste.
-   *
-   * Le colonne sono quelle della lavagnetta: a che minuto ci arrivi, a che
-   * quota, cosa stai facendo. Con le soste in mezzo quando ci sono, e le
-   * obbligatorie in grassetto — perché su carta, con le mani bagnate, la
-   * differenza fra «sosta di sicurezza» e «obbligo» deve saltare all'occhio
-   * senza doverla leggere.
-   */
-  if (soste?.segments.length) {
-    const forti: number[] = [];
-    const righe = soste.segments.map((seg, idx) => {
-      const obbligo =
-        seg.kind === 'stop' && !!soste.stops.find((x) => x.runtimeMin === seg.runtimeMin)?.mandatory;
-      if (obbligo) forti.push(idx);
-      return [
-        m1(seg.runtimeMin),
-        seg.fromM === seg.toM ? `${m1(seg.toM)} m` : `${m1(seg.fromM)} → ${m1(seg.toM)} m`,
-        AZIONE[seg.kind],
-        formatRuntime(seg.minutes),
-        `${Math.round(seg.litres)} L`,
-      ];
-    });
-    sezioni.push({
-      titolo: 'Run time schedule',
-      descrizione:
-        'Il minuto è il tempo trascorso dall’ingresso in acqua, a fine tratto. Le righe in grassetto sono soste obbligatorie: non si saltano.',
-      colonne: ['Min', 'Quota', 'Azione', 'Durata', 'Gas'],
-      numeriche: [0, 3, 4],
-      righe,
-      forti,
-    });
-  } else {
-    sezioni.push({
-      titolo: 'Le fasi',
-      colonne: ['Fase', 'Durata', 'Prof. media', 'Litri'],
-      numeriche: [1, 2, 3],
-      righe: plan.planned.map((f) => [
-        f.label,
-        formatRuntime(f.minutes),
-        `${m1(f.meanDepthM)} m`,
-        `${Math.round(f.litres)}`,
-      ]),
-    });
-  }
-
-  sezioni.push({
-    titolo: 'Gas',
-    righe: [
-      ['Da portare', `${Math.round(plan.plannedL)} L · ${plan.plannedBar} bar`],
-      [
-        plan.input.reserveRule === 'rockBottom' ? 'Gas minimo (rock bottom)' : 'Riserva fissa',
-        `${plan.reserveBar} bar`,
-      ],
-      ['Utilizzabile', `${plan.usableBar} bar`],
-      ['Uscita prevista', `${plan.expectedEndBar} bar`],
-      ...(plan.turnBar !== undefined
-        ? ([
-            [
-              'Pressione di rientro',
-              `${plan.turnBar} bar${turnAt !== undefined ? `, intorno al minuto ${turnAt.toFixed(0)}` : ''}`,
-            ],
-          ] as string[][])
-        : []),
-      ['MOD in fase di lavoro', `${m1(plan.modWorkM)} m a 1.4 bar`],
-      ['MOD in decompressione', `${m1(plan.modDecoM)} m a 1.6 bar`],
-      ['PPO2 al fondo', `${plan.ppo2AtDepth.toFixed(2)} bar`],
-      ['END al fondo', `${m1(plan.endM)} m`],
-      ['CNS / OTU', `${plan.oxygen.cnsPercent.toFixed(0)} % · ${plan.oxygen.otu.toFixed(0)}`],
-    ],
-  });
-
-  /*
-   * Le pressioni attese si stampano RADE, una ogni cinque minuti più i confini
-   * di fase. A schermo la tabella fitta si scorre; su un foglio A4 quaranta
-   * righe di pressioni mangiano la pagina delle soste, che è quella che serve
-   * davvero sott'acqua.
-   */
-  const radi = schedule.filter((p, idx) => p.boundary || idx === 0 || Math.round(p.runMin) % 5 === 0);
-  if (radi.length > 1) {
-    sezioni.push({
-      titolo: 'Pressione attesa',
-      descrizione:
-        'Quello che dovresti leggere sul manometro se respiri al consumo pianificato e stai sul profilo. Serve ad accorgersi di uno scostamento mentre puoi ancora rimediare.',
-      colonne: ['Min', 'Quota', 'Bar'],
-      numeriche: [0, 1, 2],
-      righe: radi.map((p) => [m1(p.runMin), `${m1(p.depthM)} m`, `${Math.round(p.bar)}`]),
-    });
-  }
-
-  if (contingenze.length) {
-    sezioni.push({
-      titolo: 'E se…',
-      descrizione:
-        'Gli scenari da avere in tasca prima di entrare. La domanda «e se resto giù cinque minuti in più» va fatta adesso, non a quaranta metri.',
-      colonne: ['Scenario', 'Uscita prevista', 'Differenza'],
-      numeriche: [1, 2],
-      righe: contingenze.map((c) => [
-        `${c.label} — ${c.change}`,
-        `${c.plan.expectedEndBar} bar${c.fits ? '' : ' — non ci sta'}`,
-        `${c.endBarDelta >= 0 ? '+' : ''}${c.endBarDelta} bar`,
-      ]),
-    });
-  }
-
-  const avvisi: FoglioPiano['avvisi'] = plan.warnings.map((w) => ({
-    livello: w.level === 'critical' ? 'critical' : 'warning',
-    testo: w.text,
-  }));
-  for (const w of soste?.warnings ?? []) avvisi.push({ livello: w.level, testo: w.text });
-  if (mode === 'rec' && curve.leavesCurveAtMin !== undefined) {
-    avvisi.unshift({
-      livello: 'critical',
-      testo: `Questo piano NON è ricreativo: al minuto ${curve.leavesCurveAtMin.toFixed(0)} prende un obbligo di decompressione, e da lì risalire dritti non è più un'opzione.`,
-    });
-  }
-
-  const quando = new Date().toISOString();
-  return {
-    titolo: `Piano ${m1(i.depthM)} m · ${formatRuntime(i.bottomMin)} di fondo · ${mixName(i.mix)}`,
-    sottotitolo:
-      mode === 'rec'
-        ? `Ricreativo, Bühlmann ZH-L16C GF ${GF_RICREATIVI.low}/${GF_RICREATIVI.high}. Curva alla media: ${curve.ndlAtAvgMin.toFixed(0)} min.`
-        : 'Tecnico, con decompressione.',
-    now: quando,
-    sezioni,
-    avvisi,
-  };
-}
-
-const AZIONE: Record<string, string> = {
-  descent: 'discesa',
-  level: 'fondo',
-  ascent: 'risalita',
-  stop: 'SOSTA',
-  switch: 'cambio gas',
-};
-
-/**
  * Apre la finestra di stampa del piano.
  *
  * Restituisce `false` quando il blocco dei popup l'ha rifiutata: è l'unico modo
@@ -1546,20 +1377,6 @@ function apriStampaPiano(foglio: FoglioPiano): boolean {
   if (finestra.document.readyState === 'complete') stampa();
   else finestra.addEventListener('load', stampa, { once: true });
   return true;
-}
-
-/**
- * "48 min", "1 h 12 min", "3.5 min".
- *
- * I minuti non interi si arrotondano solo sotto i dieci: "4.2 min" su un tratto di
- * risalita è un'informazione, "47.3 min" di durata totale è finta precisione.
- */
-function formatRuntime(min: number): string {
-  if (!Number.isFinite(min) || min <= 0) return '—';
-  if (min < 10) return `${Math.round(min * 10) / 10} min`;
-  const whole = Math.round(min);
-  if (whole < 60) return `${whole} min`;
-  return `${Math.floor(whole / 60)} h ${String(whole % 60).padStart(2, '0')} min`;
 }
 
 // ---------------------------------------------------------------------------

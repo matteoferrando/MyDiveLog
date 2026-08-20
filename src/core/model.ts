@@ -193,6 +193,23 @@ export interface ComputerInfo {
   deviceId?: string;
   /** Identificativo dell'immersione assegnato dal computer: chiave di dedup forte. */
   diveId?: string;
+  /**
+   * Impronta dei byte del PROFILO, quando la sorgente li porta.
+   *
+   * Serve a riconoscere due copie della stessa immersione quando l'orario non
+   * si può usare: sull'archivio di prova ci sono due immersioni la cui data il
+   * computer aveva sbagliato di 77 e di 118 giorni e che sono state corrette a
+   * mano nell'applicazione del costruttore. Profondità e durata coincidono al
+   * decimetro, ma quattro mesi di scarto sfondano qualunque finestra temporale:
+   * senza questa impronta, riscaricando dal computer tornano come nuove a ogni
+   * connessione, per sempre.
+   *
+   * Vale come prova POSITIVA e basta: due impronte uguali sono mille byte di
+   * profilo identici, quindi la stessa immersione. Due impronte diverse non
+   * affermano niente — le sorgenti che il profilo non ce l'hanno non ne hanno
+   * nemmeno una — e si torna al confronto su orario, profondità e durata.
+   */
+  profileFingerprint?: string;
   firmware?: string;
   decoModel?: string;
   /**

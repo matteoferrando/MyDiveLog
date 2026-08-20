@@ -300,3 +300,21 @@ export function isoFromParts(
   }
   return d.toISOString();
 }
+
+/**
+ * Minuti in una durata leggibile: «48 min», «1 h 12 min», «3.5 min».
+ *
+ * I minuti non interi si arrotondano solo sotto i dieci: «4.2 min» su un tratto
+ * di risalita è un'informazione, «47.3 min» di durata totale è finta precisione.
+ *
+ * Sta qui e non nel pianificatore perché lo usa anche il foglio da stampare, e
+ * due formattatori diversi per la stessa grandezza fanno comparire due durate
+ * scritte in modo diverso nella stessa pagina.
+ */
+export function formatRuntime(min: number): string {
+  if (!Number.isFinite(min) || min <= 0) return '—';
+  if (min < 10) return `${Math.round(min * 10) / 10} min`;
+  const whole = Math.round(min);
+  if (whole < 60) return `${whole} min`;
+  return `${Math.floor(whole / 60)} h ${String(whole % 60).padStart(2, '0')} min`;
+}

@@ -112,6 +112,28 @@ export interface Equipment {
   intervalMonths?: number;
   /** Litri, per le bombole. */
   sizeL?: number;
+  /**
+   * Peso della PIASTRA, chilogrammi. Solo per i GAV.
+   *
+   * PERCHÉ STA SULL'ATTREZZO E NON SULL'IMMERSIONE. Perché è una proprietà del
+   * pezzo, non della giornata: una piastra d'acciaio pesa tre chili oggi come
+   * fra due anni. Scritta qui una volta, ogni immersione fatta con quel GAV la
+   * eredita — e l'alternativa è ridigitarla ogni volta, cioè non scriverla mai.
+   *
+   * Sull'immersione resta comunque il suo campo, perché la configurazione si
+   * cambia: la piastra d'alluminio per il viaggio, quella d'acciaio a casa.
+   * Quello che c'è scritto sull'immersione vince sempre su questo.
+   */
+  plateKg?: number;
+  /**
+   * Peso della CONTROPIASTRA o schienalino, chilogrammi.
+   *
+   * Separata dalla piastra perché sono due pezzi che si cambiano
+   * indipendentemente: si tiene la stessa piastra e si toglie lo schienalino,
+   * o viceversa. Sommarli in un campo solo vorrebbe dire rifare il conto a mano
+   * ogni volta che se ne cambia uno.
+   */
+  backplateKg?: number;
   /** Pressione di esercizio in bar, per le bombole. */
   workingBar?: number;
   notes?: string;
@@ -326,6 +348,19 @@ export function equipmentUsage(dives: Dive[], equipment: Equipment[]): Map<strin
     }
   }
   return out;
+}
+
+/**
+ * Il peso che un GAV aggiunge: piastra più contropiastra.
+ *
+ * `undefined` quando non è stato scritto niente, e non zero: zero significa
+ * «questo GAV non pesa niente in acqua», che è un'affermazione, e riempirebbe
+ * il campo dell'immersione impedendo a quello vero di entrarci.
+ */
+export function pesoDelGav(e: Pick<Equipment, 'plateKg' | 'backplateKg'> | undefined): number | undefined {
+  if (!e) return undefined;
+  if (e.plateKg === undefined && e.backplateKg === undefined) return undefined;
+  return Math.round(((e.plateKg ?? 0) + (e.backplateKg ?? 0)) * 10) / 10;
 }
 
 /**

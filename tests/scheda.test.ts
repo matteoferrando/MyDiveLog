@@ -22,12 +22,15 @@ import {
   visibilitaTesto,
 } from '../src/core/conditions';
 import { parseCylinderSpec } from '../src/core/cylinders';
-import { equipmentUsage, weightingBySuit, zavorraTotaleKg } from '../src/core/analysis/gear';
+import { equipmentUsage, pesoDelGav, weightingBySuit, zavorraTotaleKg } from '../src/core/analysis/gear';
 import type { Equipment } from '../src/core/analysis/gear';
 import type { Dive } from '../src/core/model';
 import { mergeDive } from '../src/core/dedupe';
 import { logbookHtml } from '../src/core/export/logbookPrint';
 import { exportUddf } from '../src/core/export/uddf';
+import { likelySame } from '../src/core/dedupe';
+import { decodeUwatecSmart } from '../src/core/parsers/uwatecSmart';
+import { encodeUwatecSmart } from './fixtures';
 
 describe('condizioni', () => {
   it('legge il campo nuovo quando c’è', () => {
@@ -452,5 +455,123 @@ describe('i campi nuovi sopravvivono alla fusione e alla stampa', () => {
     expect(testo).toMatch(/guida/);
     expect(testo).toMatch(/meteo/);
     expect(testo).toMatch(/attrezzatura/);
+  });
+});
+
+describe('impronta del profilo: la stessa immersione con due date diverse', () => {
+  /*
+   * IL CASO VERO, misurato sull'archivio di prova. Due immersioni su ottantacinque
+   * hanno nel file una data diversa da quella scritta dentro il profilo binario —
+   * di 77 e di 118 giorni — perché il computer aveva l'orologio sbagliato e il
+   * proprietario ha corretto a mano nell'applicazione. Profondità e durata
+   * coincidono al decimetro e al minuto; è la finestra temporale a non reggere
+   * quattro mesi di scarto.
+   *
+   * Senza impronta quelle due tornavano dal computer come immersioni nuove a
+   * OGNI scarico, per sempre. Con l'impronta, sull'archivio vero si passa da 83
+   * fusioni su 85 a 85 su 85.
+   */
+  // Un profilo lungo: sotto i sessantaquattro byte di campioni l'impronta non
+  // si calcola apposta, e con diciassette punti non ci si arriva.
+  const profilo = [0, 8, 18, 26, 30, 31, 30, 28, 22, 14, 8, 5, 5, 5, 3, 1, 0].flatMap((x) => [
+    x,
+    x + 1,
+    x,
+    x - 1,
+  ]);
+  const temperature = profilo.map((x) => 22 - x * 0.1);
+
+  const daiByte = (bytes: Uint8Array, over: Partial<Dive> = {}): Dive => {
+    const d = decodeUwatecSmart(bytes, { model: 0x17 });
+    return {
+      id: 'x',
+      startTime: new Date(d.startMs).toISOString(),
+      durationS: d.durationS,
+      maxDepth: d.maxDepth,
+      avgDepth: d.avgDepth,
+      mode: 'oc',
+      cylinders: [],
+      source: { format: 'logtrak', file: '', importedAt: '' },
+      tags: [],
+      computer: { model: 'Scubapro Aladin Sport Matrix', profileFingerprint: d.profileFingerprint },
+      ...over,
+    } as Dive;
+  };
+
+  it('si riconoscono anche a centodiciotto giorni di distanza', () => {
+    const bytes = encodeUwatecSmart({
+      startTime: new Date('2025-10-19T09:52:05Z'),
+      utcOffsetMinutes: 120,
+      depths: profilo,
+      temps: temperature,
+      o2: 0.21,
+    });
+    const dalComputer = daiByte(bytes);
+    // Quella del file: stessi byte, ma la data corretta a mano di 118 giorni.
+    const dalFile = daiByte(bytes, { startTime: '2026-02-14T09:52:05.000Z' });
+
+    const scarto = (Date.parse(dalFile.startTime) - Date.parse(dalComputer.startTime)) / 86_400_000;
+    expect(Math.round(scarto)).toBe(118);
+    expect(dalComputer.computer?.profileFingerprint).toBe(dalFile.computer?.profileFingerprint);
+    expect(likelySame(dalFile, dalComputer)).toBe(true);
+  });
+
+  it('due immersioni DIVERSE non si fondono per sbaglio', () => {
+    // L'impronta vale solo in positivo, e deve valere solo dove è vera: due
+    // profili diversi devono restare due immersioni anche se tutto il resto si
+    // somiglia. Un falso positivo qui fonde due immersioni in una.
+    const a = daiByte(
+      encodeUwatecSmart({
+        startTime: new Date('2026-05-01T10:00:00Z'),
+        utcOffsetMinutes: 120,
+        depths: profilo,
+        temps: temperature,
+        o2: 0.21,
+      }),
+    );
+    const b = daiByte(
+      encodeUwatecSmart({
+        startTime: new Date('2026-05-01T10:00:00Z'),
+        utcOffsetMinutes: 120,
+        depths: profilo.map((x, i) => (i === 5 ? x + 4 : x)),
+        temps: temperature,
+        o2: 0.21,
+      }),
+    );
+    expect(a.computer?.profileFingerprint).not.toBe(b.computer?.profileFingerprint);
+  });
+
+  it('un profilo troppo corto non produce impronta: meglio nessuna che una che collide', () => {
+    const corto = encodeUwatecSmart({
+      startTime: new Date('2026-05-01T10:00:00Z'),
+      utcOffsetMinutes: 120,
+      depths: [0, 3, 0],
+      o2: 0.21,
+    });
+    expect(decodeUwatecSmart(corto, { model: 0x17 }).profileFingerprint).toBeUndefined();
+  });
+});
+
+describe('il peso della piastra vive sul GAV', () => {
+  it('due campi separati, e la somma è quello che aggiunge', () => {
+    /*
+     * Piastra e contropiastra si cambiano indipendentemente — si tiene la
+     * piastra e si toglie lo schienalino, o viceversa — quindi sommarle in un
+     * campo solo vorrebbe dire rifare il conto a mano ogni volta.
+     */
+    expect(pesoDelGav({ plateKg: 2.5, backplateKg: 0.5 })).toBe(3);
+    expect(pesoDelGav({ plateKg: 3 })).toBe(3);
+    expect(pesoDelGav({ backplateKg: 0.5 })).toBe(0.5);
+  });
+
+  it('senza niente scritto NON vale zero', () => {
+    /*
+     * Zero significherebbe «questo GAV non pesa niente in acqua», che è
+     * un'affermazione — e proposta sull'immersione riempirebbe il campo,
+     * impedendo per sempre al valore vero di entrarci: la fusione riempie solo
+     * i campi indefiniti.
+     */
+    expect(pesoDelGav({})).toBeUndefined();
+    expect(pesoDelGav(undefined)).toBeUndefined();
   });
 });

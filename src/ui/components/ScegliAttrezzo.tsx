@@ -40,6 +40,7 @@ export function ScegliAttrezzo({
   attrezzi,
   onChange,
   onAggiungiAllInventario,
+  segnoDiSvuota,
 }: {
   kind: EquipmentKind;
   etichetta: string;
@@ -47,12 +48,22 @@ export function ScegliAttrezzo({
   attrezzi: Equipment[];
   onChange: (v: GearRef | undefined) => void;
   onAggiungiAllInventario: (kind: EquipmentKind, name: string) => string;
+  /**
+   * Il testo che significa «svuota questo campo», nella modifica in blocco.
+   *
+   * Lì un campo vuoto vuol dire «non toccare», quindi serve un modo di dire
+   * «togli l'attrezzo da tutte le immersioni scelte» — e senza questa
+   * eccezione il trattino verrebbe offerto come nome nuovo da mettere in
+   * inventario, che è l'ultima cosa che si vuole.
+   */
+  segnoDiSvuota?: string;
 }) {
   const disponibili = attrezzi.filter((a) => a.kind === kind && !a.retired);
   const listId = `attrezzi-${kind}-${etichetta.replace(/\W+/g, '')}`;
   const testo = valore?.name ?? '';
   const combacia = disponibili.find((a) => a.name.trim().toLowerCase() === testo.trim().toLowerCase());
-  const nuovo = testo.trim().length > 0 && !combacia;
+  const svuota = segnoDiSvuota !== undefined && testo.trim() === segnoDiSvuota;
+  const nuovo = testo.trim().length > 0 && !combacia && !svuota;
 
   return (
     <label className="stack" style={{ gap: 4, fontSize: 12 }}>
@@ -86,6 +97,11 @@ export function ScegliAttrezzo({
         >
           ＋ metti «{testo.trim()}» in attrezzatura
         </button>
+      )}
+      {svuota && (
+        <span className="muted" style={{ fontSize: 11 }}>
+          verrà tolto da tutte le immersioni scelte
+        </span>
       )}
       {combacia && (
         <span className="muted" style={{ fontSize: 11 }}>

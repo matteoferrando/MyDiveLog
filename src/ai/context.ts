@@ -36,6 +36,8 @@ import {
   type PlanLevel,
 } from '../core/analysis/deco';
 import { formatDuration } from '../core/units';
+import { conditionsOf, condizioniTesto, visibilitaTesto } from '../core/conditions';
+import { zavorraTotaleKg } from '../core/analysis/gear';
 
 /** Quanti punti del profilo entrano nel contesto di una singola immersione. */
 const PROFILE_POINTS = 48;
@@ -245,13 +247,50 @@ export function diveContext(dive: Dive): string {
       modalita: tradotto(MODALITA, dive.mode),
       temperaturaMinimaC: n1(dive.minTempC),
       temperaturaAriaC: n1(dive.airTempC),
-      zavorraKg: dive.weightKg ?? null,
-      muta: dive.suit ?? null,
+      /*
+       * LA ZAVORRA È IL TOTALE, piastra compresa — e la scomposizione si dà a
+       * parte.
+       *
+       * Due chili scritti più una piastra d'acciaio da tre fanno cinque, ed è
+       * quello che tira giù. Passando il solo `weightKg`, un modello che ragiona
+       * sull'assetto — che è una delle cose per cui questo contesto esiste —
+       * lavora su un numero che descrive metà del peso.
+       */
+      /*
+       * Zero SOLO se qualcuno l'ha scritto: `zavorraTotaleKg` somma due campi
+       * facoltativi e restituisce 0 quando mancano entrambi. Passare quello zero
+       * dice al modello «si immerge senza zavorra», che è un'affermazione — e su
+       * un archivio importato da file, dove la zavorra non c'è quasi mai, è
+       * un'affermazione falsa ripetuta su ogni immersione.
+       */
+      zavorraTotaleKg:
+        dive.weightKg === undefined && dive.gear?.backplateKg === undefined
+          ? null
+          : (n1(zavorraTotaleKg(dive)) ?? null),
+      diCuiPiastraKg: n1(dive.gear?.backplateKg) ?? null,
+      muta: dive.gear?.suit?.name ?? dive.suit ?? null,
+      erogatori: dive.gear?.regulators?.map((r) => r.name) ?? null,
+      gav: dive.gear?.bcd?.name ?? null,
       compagno: dive.buddy ?? null,
-      visibilitaM: dive.visibilityM ?? null,
+      guidaSub: dive.guide ?? null,
+      titolo: dive.title ?? null,
+      /*
+       * La visibilità come FASCIA quando è una fascia.
+       *
+       * `visibilityM` da solo è l'estremo basso: darlo come numero secco fa
+       * credere a una misura dove c'è una stima a occhio, e un modello che legge
+       * «5 m» ragiona diversamente da uno che legge «fra 5 e 10».
+       */
+      visibilita: visibilitaTesto(dive) === '—' ? null : visibilitaTesto(dive),
       valutazione: dive.rating ?? null,
       note: dive.notes ?? null,
-      condizioni: dive.tags?.length ? dive.tags : null,
+      /*
+       * Meteo e mare dal campo strutturato, con il ripiego sulle etichette
+       * vecchie: `conditionsOf` legge tutte e due le forme, e senza passare di
+       * lì le immersioni salvate prima del cambio arrivavano senza condizioni.
+       */
+      meteoEMare: condizioniTesto(dive) || null,
+      etichette: dive.tags?.length ? dive.tags : null,
       annotazioniDelLogbook: dive.annotations ?? null,
       /*
        * In MINUTI, come l'altro, e con un nome che dice da dove viene.
@@ -460,8 +499,14 @@ export function archiveContext(
        * sia cambiato. Chiedere di sospettarlo senza dare il passo è chiedere di
        * indovinare.
        *
-       * `zavorraKg`: il prompt suggerisce la correlazione zavorra/assetto e la
-       * zavorra non era in nessuna riga.
+       * `zavorraTotale`: il prompt suggerisce la correlazione zavorra/assetto e
+       * la zavorra non era in nessuna riga. È il totale con la piastra, perché
+       * è quello il peso che agisce: due chili scritti più una piastra
+       * d'acciaio da tre fanno cinque.
+       *
+       * `mare`: le immersioni con l'assetto peggiore possono essere tutte dello
+       * stesso giorno di onde, e senza questa colonna il modello attribuisce a
+       * un peggioramento della tecnica quello che è stato il mare.
        *
        * `ridisceseMPerOra` e `tendenzaProfonditaM`: il prompt chiede le
        * immersioni «fuori scala», e questi sono i due indicatori su cui l'app
@@ -469,7 +514,13 @@ export function archiveContext(
        * perché un booleano appiattiva casi molto diversi.
        */
       d.metrics?.quality.sampleIntervalS ?? null,
-      d.weightKg ?? null,
+      // Il TOTALE, piastra compresa: è quello che tira giù, ed è la grandezza
+      // di cui il prompt chiede la correlazione con l'assetto.
+      d.weightKg === undefined && d.gear?.backplateKg === undefined ? null : (n1(zavorraTotaleKg(d)) ?? null),
+      // Lo stato del mare come codice breve: nella tabella compatta una colonna
+      // vale una parola, e senza di essa il modello non può accorgersi che le
+      // immersioni peggiori sono tutte dello stesso giorno di mare agitato.
+      conditionsOf(d).waves ?? null,
       n1(d.metrics?.sawtoothMPerHour),
       n1(d.metrics?.depthTrendM),
     ]);
@@ -640,7 +691,7 @@ export function archiveContext(
     },
     immersioni: {
       colonne:
-        "data, sito, profMax(m), durata(min), profMedia(m), consumo(L/min), assetto(m/min), risalitaMax(m/min), sostaSicurezza(s), barFinali(prima bombola), gf99(calcolato dall'app), gfImpostati, tempMin(°C), miscela(O2/He), passoCampionamento(s), zavorra(kg), ridiscese(m/h), tendenzaProfondità(m)",
+        "data, sito, profMax(m), durata(min), profMedia(m), consumo(L/min), assetto(m/min), risalitaMax(m/min), sostaSicurezza(s), barFinali(prima bombola), gf99(calcolato dall'app), gfImpostati, tempMin(°C), miscela(O2/He), passoCampionamento(s), zavorraTotale(kg — piastra compresa), mare, ridiscese(m/h), tendenzaProfondità(m)",
       nota: 'un campo nullo significa dato assente, non zero',
       righe: rows,
     },

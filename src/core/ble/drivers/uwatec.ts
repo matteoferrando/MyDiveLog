@@ -1098,6 +1098,10 @@ function costruisci(
       // `deviceId` è la stessa cosa del seriale anche nell'import da LogTRAK:
       // è quello il campo su cui `matchComputer` fa il confronto forte.
       deviceId: identita.seriale,
+      // Vedi `profiloImpronta`: la stessa immersione arrivata dal file di
+      // LogTRAK porta questa identica stringa, e si riconoscono anche se le due
+      // date sono lontane mesi.
+      profileFingerprint: d.profileFingerprint,
       sampleIntervalS: d.intervalS,
     },
     source: { format: 'uwatec-ble', file: `bluetooth:${key}`, importedAt },

@@ -32,6 +32,7 @@ import {
   sortCertifications,
   sortEquipment,
   equipmentUsage,
+  pesoDelGav,
   weightingBySuit,
   type CertLevel,
   type Certification,
@@ -575,6 +576,11 @@ function SchedaAttrezzo({
                 intervalMonths: TYPICAL_INTERVAL_MONTHS[kind],
                 sizeL: kind === 'cylinder' ? p.sizeL : undefined,
                 workingBar: kind === 'cylinder' ? p.workingBar : undefined,
+                // Come sopra: i pesi della piastra restano solo se il pezzo è
+                // ancora un GAV, altrimenti si porterebbero dietro tre chili
+                // invisibili su un erogatore.
+                plateKg: kind === 'bcd' ? p.plateKg : undefined,
+                backplateKg: kind === 'bcd' ? p.backplateKg : undefined,
               }));
             }}
           >
@@ -617,6 +623,44 @@ function SchedaAttrezzo({
           </Campo>
           <div />
         </div>
+      )}
+
+      {d.kind === 'bcd' && (
+        <>
+          <div className="grid grid-3" style={{ marginBottom: 4 }}>
+            <Campo etichetta="Piastra" unita="kg">
+              <input
+                type="number"
+                step="0.1"
+                value={d.plateKg ?? ''}
+                onChange={(e) => set('plateKg', e.target.value ? Number(e.target.value) : undefined)}
+              />
+            </Campo>
+            <Campo etichetta="Contropiastra o schienalino" unita="kg">
+              <input
+                type="number"
+                step="0.1"
+                value={d.backplateKg ?? ''}
+                onChange={(e) => set('backplateKg', e.target.value ? Number(e.target.value) : undefined)}
+              />
+            </Campo>
+            <div />
+          </div>
+          {/*
+           * PERCHÉ IL PESO STA SUL GAV E NON SOLO SULL'IMMERSIONE.
+           *
+           * Perché è una proprietà del pezzo, non della giornata: una piastra
+           * d'acciaio pesa tre chili oggi come fra due anni. Scritta qui una
+           * volta, ogni immersione fatta con questo GAV se la ritrova già
+           * compilata — e l'alternativa è ridigitarla ogni volta, cioè non
+           * scriverla mai e lasciare la tabella della zavorra a metà.
+           */}
+          <p className="muted" style={{ fontSize: 11, margin: '0 0 12px' }}>
+            {pesoDelGav(d) !== undefined
+              ? `Questo GAV aggiunge ${pesoDelGav(d)} kg, che vengono proposti come piastra sulle immersioni in cui lo scegli e si sommano alla zavorra. Sull'immersione puoi sempre cambiarli: la configurazione si cambia, la piastra d'alluminio per il viaggio e quella d'acciaio a casa.`
+              : 'Due campi separati perché sono due pezzi che si cambiano indipendentemente. La somma viene proposta come piastra sulle immersioni fatte con questo GAV, e si somma alla zavorra dove si ragiona di assetto.'}
+          </p>
+        </>
       )}
 
       <div className="grid grid-3" style={{ marginBottom: 8 }}>

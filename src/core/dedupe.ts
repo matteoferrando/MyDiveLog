@@ -55,6 +55,25 @@ const TOLERANCE = {
  * fonti — vedi `inferClockOffset`. Vale `b + offset ≈ a`.
  */
 export function likelySame(a: Dive, b: Dive, clockOffsetMs = 0): boolean {
+  /*
+   * L'IMPRONTA DEL PROFILO DECIDE DA SOLA, e viene prima di tutto il resto.
+   *
+   * Sono mille byte di campioni identici: due immersioni diverse non li hanno.
+   * Sta prima dei controlli su profondità e durata perché quelli, pur
+   * combaciando, non basterebbero — il criterio che fallisce è la finestra
+   * temporale, e la fallisce di mesi quando l'orologio del computer era
+   * sbagliato e la data è stata corretta a mano nell'applicazione. È il caso
+   * documentato su due immersioni dell'archivio di prova.
+   *
+   * Solo in positivo: se le impronte ci sono e coincidono, è la stessa
+   * immersione. Se mancano o differiscono, questa riga non dice niente e si
+   * passa al criterio di sempre — le sorgenti senza profilo un'impronta non ce
+   * l'hanno affatto.
+   */
+  const ia = a.computer?.profileFingerprint;
+  const ib = b.computer?.profileFingerprint;
+  if (ia && ib && ia === ib) return true;
+
   if (!similar(a.maxDepth, b.maxDepth, TOLERANCE.depthM)) return false;
   if (a.avgDepth && b.avgDepth && !similar(a.avgDepth, b.avgDepth, TOLERANCE.depthM)) {
     return false;

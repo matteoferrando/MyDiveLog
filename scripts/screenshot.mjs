@@ -235,6 +235,39 @@ async function condizioniInBlocco(righe, meteo, mare, visibilita) {
   await page.locator(`button:has-text("Applica a ${righe.length}")`).first().click();
   await page.waitForTimeout(1800);
 }
+/*
+ * L'attrezzatura in blocco, e la piastra che arriva dal GAV.
+ *
+ * È il percorso per cui esiste la colonna «Immersioni» nell'inventario: senza
+ * un modo di collegare otto immersioni di un viaggio allo stesso erogatore in
+ * un colpo, quel conteggio resterebbe a zero per sempre. Si prova qui perché è
+ * fatto di tre pezzi che devono combaciare — il selettore, il salvataggio in
+ * inventario e la scrittura sulle immersioni — e nessuno dei tre da solo dice
+ * se il conto poi torna.
+ */
+await page.locator('tbody tr').nth(3).locator('input[type=checkbox]').check();
+await page.locator('tbody tr').nth(4).locator('input[type=checkbox]').check();
+await page.waitForTimeout(300);
+await page.locator('input[list^="attrezzi-regulator"]').first().fill('Apeks XTX50');
+await page.waitForTimeout(200);
+await page.locator('button:has-text("in attrezzatura")').first().click();
+await page.waitForTimeout(400);
+await page.locator('label', { hasText: 'Piastra o schienalino' }).first().locator('input').fill('3');
+await page.screenshot({ path: 'screenshots/3g-attrezzatura-in-blocco.png', fullPage: true });
+await page.locator('button:has-text("Applica a 2")').first().click();
+await page.waitForTimeout(1800);
+
+// Il conteggio nell'inventario: due immersioni su quell'erogatore.
+await page.click('button:has-text("Attrezzatura")');
+await page.waitForTimeout(700);
+const usoAttrezzo = await page
+  .locator('tbody tr', { hasText: 'Apeks XTX50' })
+  .first()
+  .innerText()
+  .catch(() => 'RIGA ASSENTE');
+await page.click('button:has-text("Logbook")');
+await page.waitForTimeout(600);
+
 await condizioniInBlocco([3, 4, 5, 6], 'sunny', 'calm', 6);
 await condizioniInBlocco([7, 8, 9, 10], 'rainy', 'rough', 3);
 await page.screenshot({ path: 'screenshots/3f-condizioni-in-blocco.png', fullPage: true });
@@ -284,7 +317,15 @@ if (await sigla.count()) {
 }
 // L'erogatore: si scrive un nome nuovo e deve comparire il pulsante che lo
 // mette in inventario senza cambiare pagina.
-await page.locator('input[list^="attrezzi-regulator"]').first().fill('Apeks XTX50');
+/*
+ * Un nome che NON è già in inventario.
+ *
+ * La modifica in blocco, più su, ci mette dentro «Apeks XTX50»: riusandolo qui
+ * il pulsante «metti in attrezzatura» non comparirebbe — ed è giusto che non
+ * compaia, perché il nome combacia. Il controllo che serve è l'altro: un nome
+ * nuovo deve poter entrare in inventario senza cambiare pagina.
+ */
+await page.locator('input[list^="attrezzi-regulator"]').first().fill('Scubapro MK25 EVO');
 await page.waitForTimeout(200);
 const bottoneInventario = await page
   .locator('button:has-text("in attrezzatura")')
@@ -763,6 +804,7 @@ console.log('CONTINGENZE DECO:');
 console.log(decoContingenze.slice(0, 700));
 console.log('CURVA RICREATIVA:');
 console.log(curva.slice(0, 600));
+console.log('ATTREZZATURA IN BLOCCO:', usoAttrezzo.replace(/\n/g, ' | '));
 console.log('CONDIZIONI NELLE STATISTICHE:');
 console.log(condizioniCard.slice(0, 700));
 console.log('SOSTE IN RICREATIVA:');

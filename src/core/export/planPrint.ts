@@ -215,7 +215,7 @@ const STILE = `
   .griglia tbody tr { border-bottom: 1px solid #eee; }
   .coppie td:first-child { color: #555; width: 42%; }
   .coppie tbody tr { border-bottom: 1px solid #f2f2f2; }
-  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   tr.forte td { font-weight: 700; background: #fdeeee; }
   .profilo { margin: 10px 0 4px; }
   .profilo svg { width: 100%; height: auto; }
@@ -238,6 +238,24 @@ const STILE = `
   @media print {
     body { padding: 0; font-size: 11px; }
     .nostampa { display: none; }
-    section { break-inside: avoid; page-break-inside: avoid; }
+    /*
+     * LE SEZIONI SI POSSONO SPEZZARE, LE RIGHE NO.
+     *
+     * La regola break-inside:avoid su tutta la sezione sembrava prudente e sprecava
+     * pagine intere: guardando il PDF vero, la prima pagina conteneva solo il
+     * riquadro del piano e due terzi di bianco, perché il run time schedule non
+     * ci stava per intero e passava alla successiva. Su un foglio che si porta
+     * in barca, una pagina in più è una pagina in più da tenere asciutta.
+     *
+     * Quello che non si può spezzare è una RIGA — una sosta tagliata a metà fra
+     * due fogli è illeggibile — e l'intestazione della tabella, che
+     * table-header-group fa ripetere in cima a ogni pagina: senza, dalla
+     * seconda pagina in poi le colonne sono numeri senza nome.
+     */
+    tr { break-inside: avoid; page-break-inside: avoid; }
+    thead { display: table-header-group; }
+    h2, .desc { break-after: avoid; page-break-after: avoid; }
+    .desc { break-inside: avoid; page-break-inside: avoid; }
+    .firme, .avvisi { break-inside: avoid; page-break-inside: avoid; }
   }
 `;

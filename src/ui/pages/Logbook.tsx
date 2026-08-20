@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { formatDuration, mixName } from '../../core/units';
 import { mixLabel, modeLabel } from '../../core/analysis/aggregate';
 import { nextDiveBriefing, type NextDiveNote } from '../../core/analysis/nextDive';
-import type { Dive, DiveConditions, Waves, Weather } from '../../core/model';
+import type { Dive, DiveConditions, DiveGear, GearRef, Waves, Weather } from '../../core/model';
 import {
   conditionsOf,
   FASCE_VISIBILITA,
@@ -14,6 +14,8 @@ import { NewDive } from '../components/NewDive';
 import { useDiveLog } from '../state';
 import { dateShort, FORMAT_LABEL, imm, timeShort } from '../format';
 import { BottoneConferma } from '../components/Conferma';
+import { ScegliAttrezzo, vocePerNome } from '../components/ScegliAttrezzo';
+import { pesoDelGav, type EquipmentKind } from '../../core/analysis/gear';
 
 type SortKey = 'date' | 'depth' | 'duration' | 'rmv';
 
@@ -415,7 +417,12 @@ function BulkEdit({
   onSoloVisibili: () => void;
   onDone: () => void;
 }) {
-  const { dives, saveDive, removeDives } = useDiveLog();
+  const { dives, saveDive, removeDives, gear, saveGear } = useDiveLog();
+  const aggiungiAttrezzo = (kind: EquipmentKind, name: string): string => {
+    const voce = vocePerNome(kind, name);
+    void saveGear({ ...gear, equipment: [...gear.equipment, voce] });
+    return voce.id;
+  };
   const [sito, setSito] = useState('');
   const [compagno, setCompagno] = useState('');
   const [guida, setGuida] = useState('');
@@ -430,6 +437,17 @@ function BulkEdit({
   const [meteo, setMeteo] = useState<'' | '-' | Weather>('');
   const [mare, setMare] = useState<'' | '-' | Waves>('');
   const [visibilita, setVisibilita] = useState<string>('');
+  /*
+   * L'ATTREZZATURA IN BLOCCO, che è il modo in cui si compila davvero.
+   *
+   * Un viaggio sono otto immersioni con lo stesso GAV, gli stessi due
+   * erogatori e la stessa muta. Compilarli uno per uno nella scheda è il
+   * lavoro che nessuno fa — ed è il motivo per cui la colonna «Immersioni»
+   * dell'inventario, quella che dice quante ne ha fatte un erogatore dall'ultima
+   * revisione, resterebbe a zero per sempre.
+   */
+  const [attrezzi, setAttrezzi] = useState<DiveGear>({});
+  const [piastra, setPiastra] = useState('');
   const [muta, setMuta] = useState('');
   const [zavorra, setZavorra] = useState('');
   const [salinita, setSalinita] = useState<'' | 'salt' | 'fresh'>('');
@@ -449,7 +467,9 @@ function BulkEdit({
     salinita !== '' ||
     meteo !== '' ||
     mare !== '' ||
-    visibilita !== '';
+    visibilita !== '' ||
+    piastra.trim() !== '' ||
+    Object.values(attrezzi).some((v) => v !== undefined);
   /*
    * La zavorra deve essere un numero, o niente.
    *
@@ -493,6 +513,41 @@ function BulkEdit({
             next.conditions = prossime.weather || prossime.waves ? prossime : {};
             next.tags = tagsSenzaCondizioni(next.tags);
           }
+          /*
+           * L'attrezzatura si scrive PEZZO PER PEZZO, non a blocco.
+           *
+           * Prendendo l'oggetto intero, scrivere il solo GAV cancellerebbe gli
+           * erogatori già registrati su quelle immersioni — e la modifica in
+           * blocco promette in testa alla carta di toccare solo i campi
+           * compilati. Il trattino è l'unico modo di togliere qualcosa, ed è
+           * scritto.
+           */
+          const prossimo: DiveGear = { ...(d.gear ?? {}) };
+          let toccatoGear = false;
+          const applica = <K extends 'bcd' | 'suit'>(k: K) => {
+            const v = attrezzi[k];
+            if (!v) return;
+            toccatoGear = true;
+            prossimo[k] = v.name === VUOTA ? undefined : v;
+          };
+          applica('bcd');
+          applica('suit');
+          if (attrezzi.suit) next.suit = attrezzi.suit.name === VUOTA ? undefined : attrezzi.suit.name;
+          if (attrezzi.regulators) {
+            toccatoGear = true;
+            const puliti = attrezzi.regulators.filter((r) => r.name !== VUOTA);
+            prossimo.regulators = puliti.length ? puliti : undefined;
+          }
+          const kg = valore(piastra);
+          if (kg !== null) {
+            toccatoGear = true;
+            const n = kg === undefined ? undefined : Number(kg.replace(',', '.'));
+            if (n === undefined || Number.isFinite(n)) prossimo.backplateKg = n;
+          }
+          if (toccatoGear) {
+            next.gear = Object.values(prossimo).some((v) => v !== undefined) ? prossimo : undefined;
+          }
+
           if (visibilita !== '') {
             if (visibilita === '-') {
               next.visibilityM = undefined;
@@ -625,7 +680,27 @@ function BulkEdit({
       <div className="grid grid-3" style={{ marginBottom: 8 }}>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">Muta</span>
-          <input type="text" value={muta} onChange={(e) => setMuta(e.target.value)} />
+          <input
+            type="text"
+            list="mute-in-inventario"
+            value={muta}
+            onChange={(e) => setMuta(e.target.value)}
+          />
+          {/*
+           * Con l'elenco attaccato, non un selettore intero: la muta esiste già
+           * come stringa in `Dive.suit`, la leggono le statistiche della zavorra
+           * e gli export, e trasformarla qui in un riferimento all'inventario
+           * significherebbe scrivere due campi con due semantiche diverse dallo
+           * stesso posto. L'elenco basta a non riscriverla ogni volta in modo
+           * leggermente diverso.
+           */}
+          <datalist id="mute-in-inventario">
+            {gear.equipment
+              .filter((a) => a.kind === 'suit' && !a.retired)
+              .map((a) => (
+                <option key={a.id} value={a.name} />
+              ))}
+          </datalist>
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">Meteo</span>
@@ -663,6 +738,71 @@ function BulkEdit({
             ))}
           </select>
         </label>
+      </div>
+
+      {/*
+       * L'ATTREZZATURA, che è il posto in cui questa carta serve di più.
+       *
+       * Un viaggio sono otto immersioni con lo stesso GAV, gli stessi due
+       * erogatori e la stessa muta: è qui che si compila, non una scheda per
+       * volta. E senza questo, la colonna «Immersioni» dell'inventario — quante
+       * ne ha fatte un erogatore dall'ultima revisione, cioè il numero per cui
+       * l'inventario esiste — resterebbe a zero per sempre.
+       */}
+      <div className="finding-section-label">Attrezzatura</div>
+      <div className="grid grid-3" style={{ marginBottom: 8 }}>
+        <ScegliAttrezzo
+          kind="bcd"
+          etichetta="GAV o sacco"
+          valore={attrezzi.bcd}
+          attrezzi={gear.equipment}
+          segnoDiSvuota={VUOTA}
+          onChange={(v) => {
+            setAttrezzi((a) => ({ ...a, bcd: v }));
+            // La piastra del GAV scelto si propone anche qui, se il campo è
+            // vuoto: è lo stesso automatismo della scheda di una immersione.
+            const peso = pesoDelGav(gear.equipment.find((x) => x.id === v?.id));
+            if (!piastra.trim() && peso !== undefined) setPiastra(String(peso));
+          }}
+          onAggiungiAllInventario={aggiungiAttrezzo}
+        />
+        <ScegliAttrezzo
+          kind="regulator"
+          etichetta="Erogatore principale"
+          valore={attrezzi.regulators?.[0]}
+          attrezzi={gear.equipment}
+          segnoDiSvuota={VUOTA}
+          onChange={(v) =>
+            setAttrezzi((a) => ({
+              ...a,
+              regulators: [v, a.regulators?.[1]].filter((x): x is GearRef => !!x),
+            }))
+          }
+          onAggiungiAllInventario={aggiungiAttrezzo}
+        />
+        <ScegliAttrezzo
+          kind="regulator"
+          etichetta="Secondo erogatore"
+          valore={attrezzi.regulators?.[1]}
+          attrezzi={gear.equipment}
+          segnoDiSvuota={VUOTA}
+          onChange={(v) =>
+            setAttrezzi((a) => ({
+              ...a,
+              regulators: [a.regulators?.[0], v].filter((x): x is GearRef => !!x),
+            }))
+          }
+          onAggiungiAllInventario={aggiungiAttrezzo}
+        />
+        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+          <span className="muted">Piastra o schienalino (kg)</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={piastra}
+            onChange={(e) => setPiastra(e.target.value)}
+          />
+        </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">Zavorra (kg)</span>
           <input
@@ -682,9 +822,11 @@ function BulkEdit({
           la scheda Attrezzatura ricava quale configurazione ti fa tenere meglio
           la quota, e sono anche i due che i computer non registrano mai. */}
       <p className="planner-hint" style={{ marginTop: 0 }}>
-        Muta e zavorra sono i campi che nessun computer registra, e sono proprio quelli su cui si basa la
-        tabella della zavorra in <b>Attrezzatura</b>: compilarli su un gruppo di immersioni fatte con la
-        stessa configurazione è il modo più rapido di far comparire quel confronto.
+        Muta, zavorra e attrezzatura sono i campi che nessun computer registra, e sono proprio quelli da cui
+        escono le due tabelle di <b>Attrezzatura</b>: quale configurazione ti fa tenere meglio la quota, e
+        quante immersioni ha fatto ogni erogatore dall'ultima revisione. Un viaggio sono otto immersioni con
+        lo stesso GAV e gli stessi erogatori: compilarle qui in un colpo è il modo in cui quelle tabelle si
+        riempiono davvero — una scheda per volta non lo fa nessuno.
       </p>
 
       {errore && (

@@ -25,7 +25,7 @@
  */
 
 import { useState } from 'react';
-import { type Equipment, type EquipmentKind, type GearArchive } from '../../core/analysis/gear';
+import { pesoDelGav, type Equipment, type EquipmentKind, type GearArchive } from '../../core/analysis/gear';
 import { ScegliAttrezzo, vocePerNome } from './ScegliAttrezzo';
 import {
   FASCE_VISIBILITA,
@@ -442,7 +442,25 @@ export function ModificaImmersione({
           etichetta="GAV o sacco"
           valore={draft.gear?.bcd}
           attrezzi={attrezzi}
-          onChange={(v) => toccaGear({ bcd: v })}
+          onChange={(v) => {
+            /*
+             * SCEGLIENDO IL GAV ARRIVA ANCHE IL PESO DELLA SUA PIASTRA.
+             *
+             * È il motivo per cui quei due campi stanno nell'inventario: la
+             * piastra pesa lo stesso a ogni immersione, e ridigitarla ogni volta
+             * significa non scriverla mai — e senza, la tabella della zavorra
+             * racconta il contrario di quello che succede in acqua.
+             *
+             * Si propone SOLO se il campo è vuoto: un numero già scritto è una
+             * scelta di chi c'era, e sovrascriverlo cambiando GAV cancellerebbe
+             * in silenzio la configurazione di quel giorno.
+             */
+            const peso = pesoDelGav(attrezzi.find((a) => a.id === v?.id));
+            toccaGear({
+              bcd: v,
+              backplateKg: draft.gear?.backplateKg ?? peso,
+            });
+          }}
           onAggiungiAllInventario={aggiungiAllInventario}
         />
         <ScegliAttrezzo

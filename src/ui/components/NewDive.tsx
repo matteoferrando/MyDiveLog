@@ -34,7 +34,7 @@ import { mixName, withFraction } from '../../core/units';
 import type { DiveGear, DiveMode, GasMix, GearRef, Salinity, Waves, Weather } from '../../core/model';
 import { FASCE_VISIBILITA, WAVES_LABEL, WEATHER_LABEL } from '../../core/conditions';
 import { ScegliAttrezzo, vocePerNome } from './ScegliAttrezzo';
-import type { Equipment, EquipmentKind } from '../../core/analysis/gear';
+import { pesoDelGav, type Equipment, type EquipmentKind } from '../../core/analysis/gear';
 import { useDiveLog } from '../state';
 
 /** Il momento «adesso» arrotondato all'ora, nel formato di `datetime-local`. */
@@ -446,7 +446,13 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
           etichetta="GAV o sacco"
           valore={d.attrezzi.bcd}
           attrezzi={attrezziLocali}
-          onChange={(v) => set('attrezzi', { ...d.attrezzi, bcd: v })}
+          onChange={(v) => {
+            // Come nella scheda: la piastra del GAV scelto si propone se il
+            // campo è vuoto. Vedi `pesoDelGav`.
+            const peso = pesoDelGav(attrezziLocali.find((a) => a.id === v?.id));
+            set('attrezzi', { ...d.attrezzi, bcd: v });
+            if (!d.backplateKg && peso !== undefined) set('backplateKg', String(peso));
+          }}
           onAggiungiAllInventario={aggiungiAllInventario}
         />
         <ScegliAttrezzo
