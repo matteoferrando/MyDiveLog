@@ -158,7 +158,13 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
       )}
 
       <div className="card table-scroll" style={{ padding: '4px 18px 8px' }}>
-        <table>
+        {/*
+         * Sotto i 600 px questa tabella diventa un ELENCO, non una tabella che
+         * scorre di lato. Le etichette delle colonne stanno su `data-col` e la
+         * regola sta nel foglio di stile — un solo DOM, così le due forme non
+         * possono divergere. Vedi `.tabella-logbook` in `styles.css`.
+         */}
+        <table className="tabella-logbook">
           <thead>
             <tr>
               <th style={{ width: 30 }}>
@@ -231,7 +237,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
             {filtered.map((d) => (
               <tr key={d.id} className="clickable" onClick={() => onOpen(d.id)}>
                 {/* `stopPropagation`: la riga apre l'immersione, la casella no. */}
-                <td onClick={(e) => e.stopPropagation()}>
+                <td className="cella-scelta" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
                     aria-label={`Seleziona l'immersione del ${dateShort(d.startTime, d.utcOffsetMinutes)}`}
@@ -244,7 +250,9 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                     }}
                   />
                 </td>
-                <td className="num muted">{d.number ?? '—'}</td>
+                <td className="num muted" data-col="n.">
+                  {d.number ?? '—'}
+                </td>
                 {/*
                  * La data è un BOTTONE VERO, non una riga cliccabile e basta.
                  *
@@ -258,7 +266,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                  * «riga» muto. Il clic sulla riga resta, come comodità del
                  * mouse.
                  */}
-                <td>
+                <td className="cella-data">
                   <button
                     className="cell-link"
                     onClick={(e) => {
@@ -272,7 +280,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                     {timeShort(d.startTime, d.utcOffsetMinutes)}
                   </div>
                 </td>
-                <td>
+                <td className="cella-sito">
                   <div style={{ fontWeight: 550 }}>{d.title || d.site?.name || '—'}</div>
                   {d.title && d.site?.name && (
                     <div className="muted" style={{ fontSize: 11 }}>
@@ -283,12 +291,22 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                     {[d.buddy, d.mode !== 'oc' ? modeLabel(d) : null].filter(Boolean).join(' · ') || ' '}
                   </div>
                 </td>
-                <td className="num tabular">{d.maxDepth.toFixed(1)}</td>
-                <td className="num tabular">{formatDuration(d.durationS)}</td>
-                <td className="num tabular muted">{d.avgDepth?.toFixed(1) ?? '—'}</td>
-                <td className="num tabular">{d.metrics?.rmvLpm?.toFixed(1) ?? '—'}</td>
-                <td className="muted">{d.cylinders[0] ? mixName(d.cylinders[0].mix) : mixLabel(d)}</td>
-                <td className="muted" style={{ fontSize: 11 }}>
+                <td className="num tabular" data-col="Max">
+                  {d.maxDepth.toFixed(1)} m
+                </td>
+                <td className="num tabular" data-col="Durata">
+                  {formatDuration(d.durationS)}
+                </td>
+                <td className="num tabular muted" data-col="Media">
+                  {d.avgDepth?.toFixed(1) ?? '—'}
+                </td>
+                <td className="num tabular" data-col="L/min">
+                  {d.metrics?.rmvLpm?.toFixed(1) ?? '—'}
+                </td>
+                <td className="muted" data-col="Gas">
+                  {d.cylinders[0] ? mixName(d.cylinders[0].mix) : mixLabel(d)}
+                </td>
+                <td className="muted cella-origine" data-col="Origine" style={{ fontSize: 11 }}>
                   {/* Tutte le fonti, non solo la prima: un'immersione fusa da tre
                       file compariva come proveniente da una sola, e la scheda
                       dell'immersione diceva il contrario. */}

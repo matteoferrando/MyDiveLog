@@ -31,6 +31,7 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
@@ -94,6 +95,64 @@ export interface TooltipState {
   y: number;
   title: string;
   rows: { label: string; value: string }[];
+}
+
+/**
+ * Il riquadro informativo, e come si fa comparire COL DITO.
+ *
+ * IL PROBLEMA. I grafici reagivano a `onMouseEnter` e `onMouseMove`, che su iOS
+ * non arrivano mai: il riquadro con i numeri — cioè l'unico modo di leggere un
+ * valore preciso da un grafico — semplicemente non esisteva sul telefono, e
+ * nulla lo segnalava.
+ *
+ * COME SI RISOLVE. Gli eventi del PUNTATORE (`pointer*`) arrivano da mouse,
+ * dito e pennino, quindi il codice è uno solo. Restano due differenze di
+ * comportamento che vanno gestite, altrimenti col dito il riquadro lampeggia:
+ *
+ *  - col mouse il riquadro sparisce uscendo dall'elemento, col dito no —
+ *    `pointerleave` arriva subito dopo il sollevamento, cioè mentre si sta
+ *    ancora leggendo. Quindi col dito non si nasconde all'uscita: si nasconde da
+ *    solo dopo qualche secondo, o al tocco successivo;
+ *  - trascinare il dito su un grafico deve poter leggere i valori SENZA
+ *    bloccare lo scorrimento verticale della pagina: `touch-action: pan-y` sul
+ *    grafico dà entrambe le cose.
+ */
+const TEMPO_RIQUADRO_MS = 3500;
+
+export function useTooltip() {
+  const [tip, setTip] = useState<TooltipState | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Il timer va spento smontando: un `setTip` su un componente smontato è un
+  // avviso in console, e su una pagina che cambia scheda succede sempre.
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  const mostra = (stato: TooltipState, tocco: boolean) => {
+    clearTimeout(timer.current);
+    setTip(stato);
+    if (tocco) timer.current = setTimeout(() => setTip(null), TEMPO_RIQUADRO_MS);
+  };
+  const nascondi = (tocco: boolean) => {
+    if (tocco) return; // col dito lo chiude il timer, non l'uscita
+    clearTimeout(timer.current);
+    setTip(null);
+  };
+
+  /** Da spargere sull'elemento sensibile: sostituisce `onMouseEnter`/`onMouseLeave`. */
+  const perElemento = (costruisci: () => TooltipState) => ({
+    onPointerEnter: (e: React.PointerEvent) => mostra(costruisci(), e.pointerType === 'touch'),
+    onPointerDown: (e: React.PointerEvent) => mostra(costruisci(), e.pointerType === 'touch'),
+    onPointerLeave: (e: React.PointerEvent) => nascondi(e.pointerType === 'touch'),
+  });
+
+  /** Per i grafici che seguono il puntatore lungo l'asse invece di avere zone. */
+  const perScorrimento = (costruisci: (e: React.PointerEvent) => TooltipState) => ({
+    onPointerMove: (e: React.PointerEvent) => mostra(costruisci(e), e.pointerType === 'touch'),
+    onPointerDown: (e: React.PointerEvent) => mostra(costruisci(e), e.pointerType === 'touch'),
+    onPointerLeave: (e: React.PointerEvent) => nascondi(e.pointerType === 'touch'),
+  });
+
+  return { tip, setTip, perElemento, perScorrimento };
 }
 
 export function Tooltip({ state, containerWidth }: { state: TooltipState | null; containerWidth: number }) {
@@ -599,7 +658,7 @@ export function ColumnChart({
   titolo?: string;
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
-  const [tip, setTip] = useState<TooltipState | null>(null);
+  const { tip, perElemento } = useTooltip();
   const uid = useId();
 
   const pad = { top: 24, right: 4, bottom: 22, left: 30 };
@@ -657,15 +716,12 @@ export function ColumnChart({
                 width={band}
                 height={plotH}
                 fill="transparent"
-                onMouseEnter={() =>
-                  setTip({
-                    x: x + barW / 2,
-                    y: Math.max(y, pad.top + 10),
-                    title: d.label,
-                    rows: [{ label: unit || 'valore', value: String(d.value) }],
-                  })
-                }
-                onMouseLeave={() => setTip(null)}
+                {...perElemento(() => ({
+                  x: x + barW / 2,
+                  y: Math.max(y, pad.top + 10),
+                  title: d.label,
+                  rows: [{ label: unit || 'valore', value: String(d.value) }],
+                }))}
               />
               {d.value > 0 && <path d={roundedTopBar(x, y, barW, h, 4)} fill="var(--series-1)" />}
               {i % labelStep === 0 && (
@@ -735,7 +791,7 @@ export function BarChart({
   const rows = data.slice(0, maxRows);
   const max = Math.max(1, ...rows.map((d) => d.value));
   const { ref, width } = useWidth<HTMLDivElement>();
-  const [tip, setTip] = useState<TooltipState | null>(null);
+  const { tip, perElemento } = useTooltip();
   const uid = useId();
 
   const labelW = Math.min(160, Math.max(70, width * 0.32));
@@ -771,15 +827,12 @@ export function BarChart({
             <g
               key={d.key}
               aria-hidden="true"
-              onMouseEnter={() =>
-                setTip({
-                  x: labelW + w,
-                  y: y + barH,
-                  title: d.label,
-                  rows: [{ label: unit || 'valore', value: String(d.value) }],
-                })
-              }
-              onMouseLeave={() => setTip(null)}
+              {...perElemento(() => ({
+                x: labelW + w,
+                y: y + barH,
+                title: d.label,
+                rows: [{ label: unit || 'valore', value: String(d.value) }],
+              }))}
             >
               <rect x={0} y={y - 3} width={width} height={rowH - 2} fill="transparent" />
               <text x={0} y={y + barH - 2} fontSize={12} fill="var(--text-secondary)">
@@ -844,7 +897,7 @@ export function TimeSeriesChart({
   titolo?: string;
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
-  const [tip, setTip] = useState<TooltipState | null>(null);
+  const { tip, perElemento } = useTooltip();
   // `useId` PRIMA del return anticipato qui sotto, e non è pignoleria: React conta
   // gli hook a ogni render, e una serie che al primo giro è vuota e al secondo no
   // cambierebbe il conteggio facendo cadere il componente. È lo stesso incidente
@@ -971,19 +1024,16 @@ export function TimeSeriesChart({
               r={11}
               fill="transparent"
               style={{ cursor: onPick && p.id ? 'pointer' : 'default' }}
-              onMouseEnter={() =>
-                setTip({
-                  x: px(p.at),
-                  y: py(p.value),
-                  title: new Date(p.at).toLocaleDateString('it-IT', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                  }),
-                  rows: [{ label: unit, value: format(p.value) }],
-                })
-              }
-              onMouseLeave={() => setTip(null)}
+              {...perElemento(() => ({
+                x: px(p.at),
+                y: py(p.value),
+                title: new Date(p.at).toLocaleDateString('it-IT', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                }),
+                rows: [{ label: unit, value: format(p.value) }],
+              }))}
               onClick={() => onPick && p.id && onPick(p.id)}
             />
           </g>
@@ -1153,7 +1203,7 @@ export function ScatterChart({
   titolo?: string;
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
-  const [tip, setTip] = useState<TooltipState | null>(null);
+  const { tip, perElemento } = useTooltip();
   const uid = useId();
 
   if (points.length < 3) {
@@ -1271,18 +1321,15 @@ export function ScatterChart({
             fill="var(--series-1)"
             opacity={0.65}
             style={{ cursor: onPick ? 'pointer' : 'default' }}
-            onMouseEnter={() =>
-              setTip({
-                x: px(p.x),
-                y: py(p.y),
-                title: p.label,
-                rows: [
-                  { label: xLabel, value: xFormat(p.x) },
-                  { label: yLabel, value: yFormat(p.y) },
-                ],
-              })
-            }
-            onMouseLeave={() => setTip(null)}
+            {...perElemento(() => ({
+              x: px(p.x),
+              y: py(p.y),
+              title: p.label,
+              rows: [
+                { label: xLabel, value: xFormat(p.x) },
+                { label: yLabel, value: yFormat(p.y) },
+              ],
+            }))}
             onClick={() => onPick?.(p.diveId)}
           />
         ))}
@@ -1364,7 +1411,7 @@ export function CurveChart({
   titolo?: string;
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
-  const [tip, setTip] = useState<TooltipState | null>(null);
+  const { tip, setTip, perScorrimento } = useTooltip();
   const uid = useId();
   useDismissOnLeave(() => setTip(null));
 
@@ -1424,16 +1471,15 @@ export function CurveChart({
         role="img"
         aria-label={nome}
         aria-describedby={`${uid}-desc`}
-        onMouseMove={(e) => {
+        {...perScorrimento((e) => {
           const p = nearest(e.clientX, e.currentTarget.getBoundingClientRect());
-          setTip({
+          return {
             x: px(p.x),
             y: py(p.y),
             title: `${xLabel} ${xFormat(p.x)}`,
             rows: [{ label: yLabel, value: yFormat(p.y) }],
-          });
-        }}
-        onMouseLeave={() => setTip(null)}
+          };
+        })}
       >
         <title>{nome}</title>
         <desc id={`${uid}-desc`}>{descrizione}</desc>

@@ -27,7 +27,8 @@
     "validate:pnf": "tsx scripts/validate-pnf.ts",
     "validate:gf": "tsx scripts/validate-gf.ts",
     "dump:ai": "tsx scripts/dump-ai-context.ts",
-    "confronta:uwatec": "tsx scripts/confronta-uwatec.ts"
+    "confronta:uwatec": "tsx scripts/confronta-uwatec.ts",
+    "ios:build": "tauri ios build"
   },
   "dependencies": {
     "@garmin/fitsdk": "^21.171.0",

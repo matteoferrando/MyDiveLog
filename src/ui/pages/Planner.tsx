@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { suIOS } from '../piattaforma';
 import {
   ascentGeometry,
   atDepth,
@@ -321,9 +322,19 @@ export function Planner() {
       </div>
       {stampaBloccata && (
         <div className="notice">
-          La finestra di stampa non si è aperta: il browser ha bloccato l’apertura di una nuova finestra.
-          Consentila per questo sito e riprova — la stampa non modifica niente, apre soltanto una copia del
-          foglio.
+          {suIOS() ? (
+            <>
+              Su iPhone e iPad la stampa non c'è: il foglio si apre in una finestra separata e la stampa la fa
+              il sistema, e in iOS non esiste nessuna delle due cose. Per ora il foglio si stampa dal Mac — i
+              dati sono gli stessi, sincronizzati.
+            </>
+          ) : (
+            <>
+              La finestra di stampa non si è aperta: il browser ha bloccato l’apertura di una nuova finestra.
+              Consentila per questo sito e riprova — la stampa non modifica niente, apre soltanto una copia
+              del foglio.
+            </>
+          )}
         </div>
       )}
 

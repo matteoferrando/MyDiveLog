@@ -766,6 +766,51 @@ await page.setViewportSize({ width: 1180, height: 900 });
 await page.waitForTimeout(300);
 
 /*
+ * IL LOGBOOK A LARGHEZZA TELEFONO: elenco, non tabella che scorre di lato.
+ *
+ * Una tabella a dieci colonne su 390 px si può solo trascinare, e trascinare di
+ * lato è il gesto che nessuno fa: profondità, durata e consumo — i numeri per
+ * cui il logbook esiste — restavano fuori dallo schermo. Il controllo misura
+ * che i valori siano VISIBILI, non che esistano nel DOM.
+ */
+await page.setViewportSize({ width: 390, height: 780 });
+await page.click('button:has-text("Logbook")');
+await page.waitForTimeout(700);
+const logbookMobile = await page.evaluate(() => {
+  const riga = document.querySelector('.tabella-logbook tbody tr');
+  if (!riga) return null;
+  const r = riga.getBoundingClientRect();
+  const dentro = (el) => {
+    const q = el.getBoundingClientRect();
+    return q.width > 0 && q.right <= window.innerWidth + 1 && q.left >= -1;
+  };
+  const celle = [...riga.querySelectorAll('td[data-col]')];
+  return {
+    altezzaRiga: Math.round(r.height),
+    colonne: celle.map((c) => c.getAttribute('data-col')),
+    fuori: celle.filter((c) => !dentro(c)).map((c) => c.getAttribute('data-col')),
+    // La scheda deve stare nella larghezza, non produrre scorrimento laterale.
+    traboccaDiLato: riga.scrollWidth > window.innerWidth + 1,
+  };
+});
+// La fotografia parte dalla prima scheda, non dalla cima della pagina: quello
+// che si vuole guardare è la scheda, non i riquadri che le stanno sopra.
+await page
+  .locator('.tabella-logbook tbody tr')
+  .first()
+  .scrollIntoViewIfNeeded()
+  .catch(() => {});
+await page.waitForTimeout(300);
+await page.screenshot({ path: 'screenshots/21-logbook-390.png', fullPage: false });
+const logbookEsito = !logbookMobile
+  ? 'NESSUNA RIGA'
+  : logbookMobile.fuori.length || logbookMobile.traboccaDiLato
+    ? `SBAGLIATO: fuori schermo ${logbookMobile.fuori.join(', ') || '—'}${logbookMobile.traboccaDiLato ? ', e la scheda trabocca' : ''}`
+    : `${logbookMobile.colonne.length} valori tutti visibili (${logbookMobile.colonne.join(', ')}), scheda alta ${logbookMobile.altezzaRiga} px`;
+await page.setViewportSize({ width: 1180, height: 900 });
+await page.waitForTimeout(300);
+
+/*
  * «CHIUDI MODIFICA» CON DEL TESTO SCRITTO DEVE CHIEDERE CONFERMA.
  *
  * La bozza vive nella scheda e muore con lo smontaggio: chiuderla la cancellava
@@ -1039,6 +1084,7 @@ console.log(condizioniCard.slice(0, 700));
 console.log('SOSTE IN RICREATIVA:');
 console.log(sosteRec.slice(0, 500));
 console.log('NAVIGAZIONE A 390 px:', navEsito);
+console.log('LOGBOOK A 390 px:', logbookEsito);
 console.log('BERSAGLI TATTILI A 390 px:', bersagliEsito);
 console.log('BOZZA NON SALVATA:', bozzaEsito);
 console.log('DIGITAZIONE A CIFRE:', digitazione);

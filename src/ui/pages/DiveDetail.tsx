@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { suIOS } from '../piattaforma';
 import { BottoneConferma } from '../components/Conferma';
 import { LIMITS, type ComputerInfo, type Dive, type Sample } from '../../core/model';
 import { formatDuration, mixName } from '../../core/units';
@@ -162,9 +163,19 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
       {stampaBloccata && (
         <div className="notice">
-          La finestra di stampa non si è aperta: il browser ha bloccato l’apertura di una nuova finestra.
-          Consentila per questo sito e riprova — la stampa non modifica nulla nell’archivio, apre soltanto una
-          copia del foglio da stampare.
+          {suIOS() ? (
+            <>
+              Su iPhone e iPad la stampa non c'è: il foglio si apre in una finestra separata e la stampa la fa
+              il sistema, e in iOS non esiste nessuna delle due cose. Per ora il foglio si stampa dal Mac — i
+              dati sono gli stessi, sincronizzati.
+            </>
+          ) : (
+            <>
+              La finestra di stampa non si è aperta: il browser ha bloccato l’apertura di una nuova finestra.
+              Consentila per questo sito e riprova — la stampa non modifica nulla nell’archivio, apre soltanto
+              una copia del foglio da stampare.
+            </>
+          )}
         </div>
       )}
 

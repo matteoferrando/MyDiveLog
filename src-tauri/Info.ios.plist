@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Aggiunte all'Info.plist di iOS.
+
+  Tauri unisce questo file a quello che genera per il progetto Xcode, esattamente
+  come fa `Info.plist` per macOS. Averlo QUI e non dentro `gen/apple/` è la
+  differenza fra una configurazione che sopravvive e una che sparisce: la
+  cartella `gen/apple/` è generata, e chi rifà `tauri ios init` — o clona il
+  repository su un'altra macchina — la ricrea da zero. Un permesso scritto là
+  dentro si perde senza che niente lo segnali, e il sintomo è l'applicazione che
+  viene terminata dal sistema al primo accesso al Bluetooth: assomiglia a un
+  crash nostro, ed è il fallimento più difficile da diagnosticare.
+
+  NSBluetoothAlwaysUsageDescription è obbligatoria da iOS 13: senza, CoreBluetooth
+  non parte affatto. Il testo è quello che l'utente legge nel pannello di
+  sistema, quindi è scritto per lui — dice a che cosa serve e implicitamente che
+  cosa NON facciamo.
+
+  UIFileSharingEnabled e LSSupportsOpeningDocumentsInPlace fanno comparire la
+  cartella dell'applicazione nell'app File: servono per far entrare un export
+  LogTRAK o UDDF da iPhone, che altrimenti non avrebbe nessuna strada — su iOS
+  non esiste un «apri dal disco» come sul Mac.
+-->
+<plist version="1.0">
+  <dict>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>MyDiveLog usa il Bluetooth per scaricare le immersioni dal tuo computer subacqueo. Non si collega a nessun altro dispositivo e non manda niente in rete.</string>
+
+    <key>UIFileSharingEnabled</key>
+    <true />
+    <key>LSSupportsOpeningDocumentsInPlace</key>
+    <true />
+  </dict>
+</plist>

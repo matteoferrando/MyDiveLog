@@ -162,6 +162,20 @@ body,
 }
 
 body {
+  /*
+   * IGIENE DELLA WEBVIEW.
+   *
+   * `overscroll-behavior: none` toglie il rimbalzo dell'intera pagina: dentro
+   * un'applicazione, trascinare in giù e vedere comparire una striscia di
+   * fondale sopra la barra fa sembrare tutto una pagina web aperta per sbaglio.
+   * Il rimbalzo dei contenitori che scorrono davvero resta.
+   *
+   * `-webkit-tap-highlight-color` toglie il rettangolo grigio che iOS disegna
+   * sopra qualunque cosa si tocchi: le righe del logbook hanno già il loro
+   * stato attivo, e due segnali sovrapposti sono peggio di uno.
+   */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
   font-family: var(--font);
   background: var(--surface-2);
   color: var(--text-primary);
@@ -327,6 +341,22 @@ body {
 
 .table-scroll {
   overflow-x: auto;
+  /* Su iOS lo scorrimento di un contenitore va dichiarato, altrimenti la
+     tabella si trascina solo con il rimbalzo della pagina. */
+  -webkit-overflow-scrolling: touch;
+}
+
+/*
+ * IL GRAFICO SI LEGGE COL DITO, senza bloccare la pagina.
+ *
+ * `pan-y` dice al browser: il trascinamento VERTICALE è tuo, scorri la pagina;
+ * quello orizzontale è mio, lo uso per scorrere i valori. Senza, o il grafico
+ * non risponde al dito, o la pagina non scorre più sopra il grafico — e su un
+ * telefono i grafici occupano mezzo schermo, quindi la seconda è peggio della
+ * prima. Vedi `useTooltip` in `components/Charts.tsx`.
+ */
+.chart svg {
+  touch-action: pan-y;
 }
 
 .card {
@@ -558,6 +588,155 @@ tbody tr.clickable:hover {
   }
 }
 
+/* --------------------------------------------------- il logbook sul telefono */
+
+/*
+ * SOTTO I 600 px LA TABELLA DEL LOGBOOK DIVENTA UN ELENCO.
+ *
+ * Una tabella a dieci colonne su uno schermo da 390 px si può solo trascinare
+ * di lato, e trascinare di lato è il gesto che nessuno fa: si vedono la data e
+ * mezzo sito, e profondità, durata e consumo — cioè i numeri per cui il logbook
+ * esiste — restano fuori. Su una barca, con le mani bagnate, è inutilizzabile.
+ *
+ * PERCHÉ IN CSS E NON UN SECONDO COMPONENTE. Un elenco scritto a parte è un
+ * secondo pezzo di interfaccia che mostra gli stessi dati: diverge alla prima
+ * colonna aggiunta, e i test ne coprono uno solo. Qui il DOM resta uno — la
+ * tabella, con la sua semantica per i lettori di schermo — e cambia solo come è
+ * disegnato. Le etichette delle colonne arrivano da `data-col`, che sta accanto
+ * al dato nel componente e quindi non può restare indietro.
+ */
+@media (max-width: 600px) {
+  .tabella-logbook thead {
+    /* `clip` e non `display: none`: l'intestazione resta nell'albero di
+       accessibilità, quindi chi usa VoiceOver continua a sentire «Profondità
+       massima, 32,4» invece di un numero nudo. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .tabella-logbook,
+  .tabella-logbook tbody,
+  .tabella-logbook td {
+    display: block;
+  }
+
+  /*
+   * I numeri vanno a DUE PER RIGA, non uno per riga.
+   *
+   * Con una riga per valore la scheda era alta 256 px e sullo schermo ne
+   * entravano tre: sfogliare cinquanta immersioni diventava un rotolamento
+   * infinito. Sette valori corti su due colonne stanno in metà spazio, e
+   * restano tutti leggibili.
+   */
+  .tabella-logbook tr {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 12px;
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-1);
+    padding: 10px 12px 10px 44px;
+    margin-bottom: 8px;
+  }
+
+  .tabella-logbook td {
+    border: 0;
+    padding: 1px 0;
+    text-align: left;
+  }
+  /* Data e sito sono l'intestazione: riga intera. I valori si dividono lo
+     spazio rimasto due alla volta. */
+  .tabella-logbook td.cella-data,
+  .tabella-logbook td.cella-sito {
+    flex: 1 1 100%;
+  }
+  .tabella-logbook td[data-col] {
+    flex: 1 1 calc(50% - 12px);
+  }
+  /*
+   * L'ORDINE VISIVO non è quello delle colonne.
+   *
+   * In tabella il numero progressivo sta in seconda colonna perché lì lo si
+   * cerca scorrendo con l'occhio; in una scheda finiva in cima, prima della
+   * data, e la prima cosa che si leggeva del logbook era «n. 46». La scheda
+   * comincia dalla data e dal sito, i numeri veri stanno in mezzo, progressivo
+   * e provenienza in coda — dove servono a chi li cerca e non intralciano.
+   */
+  .tabella-logbook td.cella-data {
+    order: 1;
+  }
+  .tabella-logbook td.cella-sito {
+    order: 2;
+  }
+  .tabella-logbook td[data-col] {
+    order: 3;
+  }
+  .tabella-logbook td[data-col='n.'] {
+    order: 9;
+  }
+  .tabella-logbook td.cella-origine {
+    order: 10;
+  }
+
+  /* La casella di selezione va nell'angolo, fuori dal flusso: dentro
+     occuperebbe una riga sua in cima a ogni scheda. */
+  .tabella-logbook td.cella-scelta {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    padding: 0;
+  }
+
+  /* Data e sito sono l'intestazione della scheda: niente etichetta, e il sito
+     va a capo invece di essere troncato. */
+  .tabella-logbook td.cella-data {
+    font-weight: 600;
+  }
+  .tabella-logbook td.cella-data .cell-link {
+    font-size: 15px;
+  }
+  .tabella-logbook td.cella-sito {
+    margin-bottom: 6px;
+  }
+
+  /*
+   * I numeri stanno in riga con la loro etichetta, che senza intestazioni
+   * sarebbero cifre senza nome. `data-col` è la stessa parola che sta nella
+   * colonna, quindi le due non possono raccontare cose diverse.
+   */
+  .tabella-logbook td[data-col] {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .tabella-logbook td[data-col]::before {
+    content: attr(data-col);
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  /* Il numero progressivo e l'origine non meritano una riga in una scheda:
+     stanno in coda, piccoli, dove non tolgono spazio ai numeri veri. */
+  .tabella-logbook td[data-col='n.'],
+  .tabella-logbook td.cella-origine {
+    font-size: 11px;
+  }
+
+  /* La riga vuota dei filtri non deve diventare una scheda con il bordo. */
+  .tabella-logbook tr:has(td[colspan]) {
+    border: 0;
+    background: none;
+    padding: 0;
+  }
+  .tabella-logbook td[colspan] {
+    display: block;
+  }
+}
+
 /* ------------------------------------------------------------------ badges */
 
 .badge {
@@ -703,6 +882,35 @@ textarea {
 textarea {
   width: 100%;
   resize: vertical;
+}
+
+/*
+ * SU IOS I CAMPI DEVONO STARE A 16 px, se non si vuole che il telefono
+ * ingrandisca la pagina da solo.
+ *
+ * Safari su iPhone, quando il fuoco entra in un campo con testo più piccolo di
+ * 16 px, ingrandisce la vista per rendere leggibile quello che stai scrivendo —
+ * e NON la rimpicciolisce quando esci. Il risultato è che al primo tocco su una
+ * casella l'applicazione resta ingrandita e sballata, e non c'è niente che lo
+ * spieghi: sembra un difetto di impaginazione. Non c'è un modo di disattivarlo
+ * (`user-scalable=no` è ignorato da iOS 10 in poi, ed è comunque una cosa che
+ * non si fa: toglie lo zoom a chi ci vede poco). L'unica strada è non scendere
+ * sotto i 16 px sui campi, e vale solo dove serve.
+ *
+ * `interaction-widget` non basta e `pointer: coarse` nemmeno: la stessa cosa
+ * succede su un iPad col trackpad. La larghezza è il criterio giusto.
+ */
+@media (max-width: 700px) {
+  select,
+  input[type='text'],
+  input[type='number'],
+  input[type='search'],
+  input[type='password'],
+  input[type='date'],
+  input[type='datetime-local'],
+  textarea {
+    font-size: 16px;
+  }
 }
 
 /* Riga dei filtri: sempre sopra i grafici, su una riga sola. */
