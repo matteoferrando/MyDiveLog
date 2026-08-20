@@ -103,20 +103,40 @@ writeFileSync(join(OUT, 'shearwater-cloud-export.uddf'), multiUddf(recent, 31));
 writeFileSync(join(OUT, 'subsurface-archivio.ssrf'), multiSubsurface(dives.slice(0, 30)));
 writeFileSync(
   join(OUT, 'shearwater-peregrine.xml'),
-  toShearwaterXml(dives[dives.length - 1], { diveNumber: TOTAL }),
+  toShearwaterXml(dives[dives.length - 1], { diveNumber: TOTAL, gf: { low: 20, high: 85 } }),
+);
+/*
+ * UNA SECONDA IMMERSIONE SHEARWATER, con gradient factor DIVERSI.
+ *
+ * Non è un doppione per sbaglio: serve a far comparire la carta «Impostazioni
+ * del computer nel tempo», che si disegna solo quando l'archivio contiene
+ * almeno due periodi con impostazioni diverse. È il caso vero di questo
+ * progetto — il Peregrine passato da 45/95 a 20/85 nel settembre 2025 — e
+ * finché l'archivio dimostrativo non ce l'aveva, quella carta non veniva
+ * disegnata da nessun controllo automatico. Il suo difetto (cinque colonne
+ * senza contenitore che scorre, quindi la PAGINA che si trascina di lato a 440
+ * px) è stato trovato usando l'app sul telefono, che è il modo più caro.
+ */
+writeFileSync(
+  join(OUT, 'shearwater-peregrine-precedente.xml'),
+  // Dentro gli ultimi dodici mesi: il periodo predefinito delle statistiche è
+  // «ultimi 12 mesi», e un'immersione più vecchia verrebbe filtrata via prima
+  // di arrivare alla carta — che quindi resterebbe invisibile lo stesso.
+  toShearwaterXml(dives[35], { diveNumber: 36, gf: { low: 45, high: 95 } }),
 );
 writeFileSync(join(OUT, 'garmin-descent.fit'), toFit(dives[dives.length - 2]));
 writeFileSync(join(OUT, 'vecchio-logbook.csv'), toCsv(dives.slice(0, 18)));
 
-console.log(`Scritti 5 file in ${OUT}:`);
+console.log(`Scritti 6 file in ${OUT}:`);
 console.log(`  shearwater-cloud-export.uddf   ${recent.length} immersioni (UDDF)`);
 console.log(`  subsurface-archivio.ssrf       30 immersioni (Subsurface XML)`);
-console.log(`  shearwater-peregrine.xml       1 immersione (Shearwater XML)`);
+console.log(`  shearwater-peregrine.xml       1 immersione (Shearwater XML, GF 20/85)`);
+console.log(`  shearwater-peregrine-precedente.xml  1 immersione (Shearwater XML, GF 45/95)`);
 console.log(`  garmin-descent.fit             1 immersione (Garmin FIT, binario)`);
 console.log(`  vecchio-logbook.csv            18 immersioni (CSV, senza profilo)`);
 console.log('');
 console.log(
-  `Importali tutti insieme: il totale in archivio deve essere ${TOTAL}, non ${recent.length + 30 + 1 + 1 + 18}.`,
+  `Importali tutti insieme: il totale in archivio deve essere ${TOTAL}, non ${recent.length + 30 + 2 + 1 + 18}.`,
 );
 console.log('La differenza è la deduplica: gli insiemi si sovrappongono di proposito.');
 

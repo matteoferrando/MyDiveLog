@@ -30,6 +30,8 @@ import { downloadFromComputer } from '../../core/ble/download';
 import { DRIVERS, recognise, type RecognisedDevice } from '../../core/ble/registry';
 import { markerKey, type BleUnavailable, type DownloadEvent } from '../../core/ble/types';
 import { TauriBleTransport } from '../../storage/ble';
+import { esporta } from '../esporta';
+import { suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
 import type { DownloadMarker } from '../../core/ble/types';
 import { dateShort, imm } from '../format';
@@ -75,23 +77,22 @@ function byteInBase64(b: Uint8Array): string {
   return btoa(s);
 }
 
-/** Scrive un file e lo consegna al sistema. Come in `SyncPage`. */
-function salvaGrezzi(testo: string, nome: string): void {
-  const url = URL.createObjectURL(new Blob([testo], { type: 'application/json' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = nome;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 export function BleDownload() {
   const { importDives, bleMarkers, saveBleMarker, forgetBleMarker } = useDiveLog();
   const [stato, setStato] = useState<Stato>({ fase: 'iniziale' });
   const [trovati, setTrovati] = useState<RecognisedDevice[]>([]);
   const [copiato, setCopiato] = useState(false);
+  /*
+   * L'esito del salvataggio dei grezzi si DICHIARA.
+   *
+   * Il pulsante non diceva niente in nessuno dei due casi, e su iPhone il
+   * salvataggio non avveniva affatto: si premeva, non succedeva niente, e
+   * l'unica interpretazione possibile era che il pulsante fosse rotto. Ora dice
+   * dove è finito il file — che su iPhone è l'app File, non i Download.
+   */
+  const [salvataggio, setSalvataggio] = useState<string | null>(null);
+  /** Vero quando la ricerca è in corso da un po' e non ha ancora trovato niente. */
+  const [aLungoSenzaNulla, setALungoSenzaNulla] = useState(false);
   /*
    * «Riscarica tutto» è spento per difetto, e deve esistere.
    *
@@ -103,7 +104,15 @@ export function BleDownload() {
    * un'impostazione a mano.
    */
   const [tuttoDaCapo, setTuttoDaCapo] = useState(false);
-  const segnalibri = Object.entries(bleMarkers);
+  /*
+   * I segnalibri SVUOTATI non si mostrano.
+   *
+   * «Dimentica» non cancella la riga: la svuota, perché una riga cancellata
+   * tornerebbe indietro dall'altro dispositivo alla prima sincronizzazione (vedi
+   * `forgetBleMarker`). Chi guarda però deve vedere quello che vede da sempre —
+   * niente riga — altrimenti «Dimentica» sembrerebbe non aver funzionato.
+   */
+  const segnalibri = Object.entries(bleMarkers).filter(([, m]) => m.fingerprint);
   const ricerca = useRef<AbortController | null>(null);
   const scarico = useRef<AbortController | null>(null);
 
@@ -120,6 +129,22 @@ export function BleDownload() {
       scarico.current?.abort();
     };
   }, []);
+
+  /*
+   * Il contatore dei dodici secondi vive qui, legato alla fase.
+   *
+   * In un effetto e non dentro `cerca` perché deve azzerarsi quando la ricerca
+   * riparte, quando si ferma, e quando un dispositivo compare — tre uscite
+   * diverse che un `setTimeout` sparso dentro la funzione dimenticherebbe.
+   */
+  useEffect(() => {
+    if (stato.fase !== 'cerca' || trovati.length > 0) {
+      setALungoSenzaNulla(false);
+      return;
+    }
+    const t = setTimeout(() => setALungoSenzaNulla(true), 12_000);
+    return () => clearTimeout(t);
+  }, [stato.fase, trovati.length]);
 
   const cerca = useCallback(async () => {
     const disponibile = await transport.available();
@@ -214,8 +239,11 @@ export function BleDownload() {
           if (tuttoDaCapo) return undefined;
           const chiave = markerKey(driver.id, serial, scelto.device.id);
           const m = bleMarkers[chiave];
-          if (m) usato = { chiave, marker: m };
-          return m?.fingerprint;
+          // Impronta vuota = segnalibro dimenticato: si riparte da capo, ed è
+          // esattamente quello che era stato chiesto premendo «Dimentica».
+          if (!m?.fingerprint) return undefined;
+          usato = { chiave, marker: m };
+          return m.fingerprint;
         },
       });
       scarico.current = null;
@@ -348,6 +376,34 @@ export function BleDownload() {
       {stato.fase === 'non-disponibile' && (
         <div className="notice notice-error" role="alert">
           {stato.motivo.detail}
+        </div>
+      )}
+
+      {/*
+       * QUANDO LA RICERCA GIRA A VUOTO, DOPO UN PO' SI DICE PERCHÉ POTREBBE.
+       *
+       * Il motivo per cui questo riquadro esiste è brutto: su iPhone il
+       * permesso Bluetooth negato NON produce nessun errore. `checkPermissions`
+       * del plugin è implementato solo per Android e altrove risponde sempre di
+       * sì; lo stato dell'adattatore ha solo tre valori e nessuno significa
+       * «non autorizzato». Chi tocca «Non consentire» si ritrova quindi una
+       * ricerca che gira per sempre, senza dispositivi e senza spiegazioni, ed
+       * è irreversibile finché non sa dove guardare.
+       *
+       * Non potendo distinguere quel caso da «nessun computer acceso qui
+       * intorno», si elencano ONESTAMENTE le tre cause possibili invece di
+       * indovinarne una. Dodici secondi: abbastanza perché un computer acceso e
+       * vicino sia già comparso, poco perché nessuno si arrenda prima.
+       */}
+      {stato.fase === 'cerca' && trovati.length === 0 && aLungoSenzaNulla && (
+        <div className="notice" role="status">
+          <b>Ancora niente.</b> Di solito è una di tre cose: il computer non è in modalità collegamento
+          (sull'Aladin si tiene premuto il tasto, sui Shearwater c'è la voce nel menu), oppure è troppo
+          lontano, oppure il permesso Bluetooth è stato negato a questa app.{' '}
+          {suIOS()
+            ? 'Il permesso si controlla in Impostazioni → MyDiveLog → Bluetooth.'
+            : 'Il permesso si controlla in Impostazioni di Sistema → Privacy e sicurezza → Bluetooth.'}{' '}
+          Un permesso negato non produce nessun errore: la ricerca sembra semplicemente non trovare niente.
         </div>
       )}
 
@@ -593,15 +649,30 @@ export function BleDownload() {
                */}
               {stato.grezzi && stato.grezzi.records.length > 0 && (
                 <button
-                  onClick={() =>
-                    salvaGrezzi(
-                      JSON.stringify(stato.grezzi, null, 1),
-                      `mydivelog-grezzi-${stato.grezzi?.driver}-${new Date().toISOString().slice(0, 10)}.json`,
-                    )
-                  }
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        const dove = await esporta(
+                          `mydivelog-grezzi-${stato.grezzi?.driver}-${new Date().toISOString().slice(0, 10)}.json`,
+                          JSON.stringify(stato.grezzi, null, 1),
+                          'application/json',
+                        );
+                        setSalvataggio(`Salvato ${dove.dove}.`);
+                      } catch (err) {
+                        setSalvataggio(
+                          `Non si è potuto salvare: ${err instanceof Error ? err.message : String(err)}`,
+                        );
+                      }
+                    })();
+                  }}
                 >
                   Salva i dati grezzi ({stato.grezzi.records.length})
                 </button>
+              )}
+              {salvataggio && (
+                <span className="muted" style={{ fontSize: 11, alignSelf: 'center' }}>
+                  {salvataggio}
+                </span>
               )}
             </div>
             <pre

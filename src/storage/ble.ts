@@ -26,6 +26,7 @@ import type {
   BleUnavailable,
 } from '../core/ble/types';
 import { isTauri } from './index';
+import { suIOS } from '../piattaforma';
 
 /** La forma di ciò che il plugin restituisce. Ricopiata invece che importata: vedi sopra. */
 interface PluginDevice {
@@ -229,12 +230,12 @@ class TauriBleLink implements BleLink {
     await this.api.send(this.canali.write, Array.from(data), this.writeType, this.canali.service);
   }
 
-  read(n: number, timeoutMs?: number): Promise<Uint8Array> {
-    return this.stream.read(n, timeoutMs);
+  read(n: number, timeoutMs?: number, signal?: AbortSignal): Promise<Uint8Array> {
+    return this.stream.read(n, timeoutMs, signal);
   }
 
-  readFrame(timeoutMs?: number): Promise<Uint8Array> {
-    return this.stream.readFrame(timeoutMs);
+  readFrame(timeoutMs?: number, signal?: AbortSignal): Promise<Uint8Array> {
+    return this.stream.readFrame(timeoutMs, signal);
   }
 
   describe(): string {
@@ -257,6 +258,18 @@ class TauriBleLink implements BleLink {
   }
 }
 
+/**
+ * Dove si concede il permesso, che non è lo stesso posto sui due sistemi.
+ *
+ * Il testo diceva «Impostazioni di Sistema → Privacy e sicurezza → Bluetooth»,
+ * che è il percorso del Mac: su iPhone quel pannello non esiste, e chi lo cerca
+ * conclude che l'app sia rotta. Su iOS il permesso di una singola applicazione
+ * sta dentro la voce dell'applicazione.
+ */
+export const PERMESSO_NEGATO = suIOS()
+  ? 'Il permesso di usare il Bluetooth è stato negato. Si concede in Impostazioni → MyDiveLog → Bluetooth.'
+  : 'Il permesso di usare il Bluetooth è stato negato. Si concede in Impostazioni di Sistema, alla voce Privacy e sicurezza → Bluetooth.';
+
 export class TauriBleTransport implements BleTransport {
   async available(): Promise<true | BleUnavailable> {
     if (!isTauri()) {
@@ -276,19 +289,35 @@ export class TauriBleTransport implements BleTransport {
         };
       }
       /*
-       * Il permesso si chiede QUI e non alla prima connessione.
+       * QUESTO CONTROLLO SU APPLE NON CONTROLLA NIENTE, e va detto.
        *
-       * Su macOS e iOS il primo uso del Bluetooth fa comparire il pannello di
-       * sistema. Se capitasse a metà di uno scarico, l'utente vedrebbe una
-       * richiesta sopra una barra di avanzamento ferma e, negandola per
-       * riflesso, si troverebbe con un errore incomprensibile. Chiederlo prima
-       * di cercare vuol dire che la domanda arriva quando è ovvio il perché.
+       * `checkPermissions` di `tauri-plugin-blec` 0.12 è implementato solo per
+       * Android: altrove restituisce `Ok(true)` senza nemmeno interrogare
+       * CoreBluetooth. Il ramo qui sotto è quindi codice morto su iPhone e su
+       * Mac, e lo stato dell'adattatore non aiuta — l'enum del plugin ha solo
+       * `Unknown | Off | On`, non esiste un valore «non autorizzato».
+       *
+       * La conseguenza, misurata leggendo il plugin: chi tocca «Non consentire»
+       * sul pannello di iOS non riceve nessun errore. Lo stato resta `Unknown`,
+       * che non è `Off`, quindi si arriva qui, si risponde «disponibile», e la
+       * ricerca gira a vuoto per sempre senza trovare niente e senza dire
+       * perché — sulla funzione principale dell'app, su un telefono.
+       *
+       * Non potendo distinguere «negato» da «nessun computer acceso qui
+       * intorno» senza scrivere codice CoreBluetooth nostro, la scelta è NON
+       * indovinare qui: la ricerca parte, e se dopo un po' non ha trovato
+       * niente l'interfaccia nomina il permesso fra le cause possibili (vedi
+       * `BleDownload`). È meno preciso di un errore vero, ed è infinitamente
+       * meglio di un silenzio.
+       *
+       * Il controllo resta perché su Android funziona davvero, ed è il posto
+       * giusto in cui chiedere: se il pannello comparisse a metà di uno
+       * scarico, la richiesta arriverebbe sopra una barra ferma.
        */
       if (!(await api.checkPermissions(true))) {
         return {
           reason: 'denied',
-          detail:
-            'Il permesso di usare il Bluetooth è stato negato. Si concede in Impostazioni di Sistema, alla voce Privacy e sicurezza → Bluetooth.',
+          detail: PERMESSO_NEGATO,
         };
       }
       return true;

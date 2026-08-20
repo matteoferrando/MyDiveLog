@@ -22,7 +22,7 @@ App desktop macOS (Tauri), con lo stesso codice pronto per iOS e per il web.
 
 ```bash
 npm install
-npm run demo      # genera 5 file dimostrativi in demo/
+npm run demo      # genera 6 file dimostrativi in demo/
 npm run dev       # apre su http://localhost:1420
 ```
 
@@ -161,13 +161,120 @@ dell'archivio locale, sul dispositivo dove lo hai incollato.
 | `npm run dev` | sviluppo nel browser (dati in IndexedDB) |
 | `npm run desktop` | app desktop in sviluppo (dati in SQLite) |
 | `npm run desktop:build` | `.app` + `.dmg` per macOS |
-| `npm test` | 262 test su unità, parser, formati binari Uwatec e Shearwater, gzip/DEFLATE, lettore SQLite, metriche, deduplica, fusi orari, sincronizzazione, piano, grafici |
+| `npm test` | 1092 test su unità, parser, formati binari Uwatec e Shearwater, gzip/DEFLATE, lettore SQLite, metriche, deduplica, fusi orari, sincronizzazione, piano, grafici |
 | `npm run validate:logtrak <file>` | verifica il decoder Uwatec contro un export LogTRAK reale |
 | `npm run validate:pnf <file.db>` | verifica il decoder Shearwater contro un database di Shearwater Cloud reale |
 | `npm run typecheck` | controllo dei tipi |
 | `npm run demo` | rigenera i file dimostrativi in `demo/` |
 | `npm run screenshot` | verifica visiva: apre la build e fotografa ogni vista |
-| `npm run ios:init` | inizializza il progetto Xcode per iOS (vedi sotto) |
+| `npm run ios:init` | genera il progetto Xcode per iOS (vedi sotto) |
+| `npm run ios:dev -- "iPhone 17 Pro"` | compila e lancia l'app sul simulatore |
+| `npm run ios:build` | pacchetto firmato per un iPhone vero |
+
+---
+
+## iOS
+
+Il guscio iOS non e' una porta: e' lo stesso `src/` compilato dentro un progetto
+Xcode che Tauri genera in `src-tauri/gen/apple/`. Quella cartella e' **generata e
+non versionata**, e questo e' il fatto da cui discendono tutte le insidie qui
+sotto: qualunque cosa si sistemi a mano dentro `gen/apple/` sparisce alla prima
+rigenerazione, o semplicemente non esiste per chi clona il repository. La
+configurazione deve stare a monte, in `src-tauri/tauri.conf.json` e in
+`src-tauri/Info.ios.plist`, che sono versionati.
+
+**CoreBluetooth va dichiarato, altrimenti non si arriva nemmeno a lanciare
+l'app.** `btleplug` — il motore su cui poggia `tauri-plugin-blec` — chiama
+CoreBluetooth via FFI: il codice Rust compila benissimo senza il framework,
+perche' i simboli mancanti si scoprono solo al *link*. L'errore che si vede e'
+`Undefined symbols for architecture arm64: _CBCentralManagerScanOptionAllowDuplicatesKey`
+e simili, e non nomina ne' il Bluetooth ne' il plugin: sembra un guasto del
+progetto Xcode. La cura sta in una riga di `tauri.conf.json`:
+
+```json
+"iOS": { "minimumSystemVersion": "14.0", "frameworks": ["CoreBluetooth"] }
+```
+
+Vale anche per il simulatore, che di CoreBluetooth ha solo la versione finta —
+ma la versione finta va comunque linkata.
+
+**`tauri ios init` non riscrive i file che trova gia' li'.** E' la trappola che
+fa perdere piu' tempo: si aggiunge `frameworks` alla configurazione, si rilancia
+`npm run ios:init`, il comando dice «Project generated successfully» e non e'
+cambiato niente, perche' `gen/apple/project.yml` — il file dove finisce l'elenco
+dei framework — esisteva gia'. Per far ripartire davvero la generazione bisogna
+togliere di mezzo il file vecchio:
+
+```sh
+mv src-tauri/gen/apple/project.yml /tmp/project.yml.vecchio
+npm run ios:init
+```
+
+e poi verificare che `- sdk: CoreBluetooth.framework` compaia davvero fra le
+`dependencies` del target. In generale: dopo ogni modifica alla sezione `iOS`
+della configurazione, controllare il `project.yml` risultante, non fidarsi del
+messaggio di successo.
+
+**Xcode «aggiorna alle impostazioni consigliate» e rompe la build.** Aprendo il
+progetto, Xcode 26 propone l'aggiornamento e scrive nel `.xcodeproj`
+`ENABLE_USER_SCRIPT_SANDBOXING = YES`. Con quella impostazione la fase «Build
+Rust Code» gira in una sandbox che le lascia leggere solo i file dichiarati come
+input, e `tauri ios xcode-script` deve leggere `project.pbxproj`: il messaggio
+che si vede e' `failed to read project.pbxproj file: Operation not permitted (os
+error 1)`, che sembra un problema di permessi del disco e non lo e'. Il
+`.xcodeproj` e' generato, quindi la cura e' rigenerarlo — ed e' il motivo per cui
+`npm run ios:dev` e `npm run ios:build` fanno `tauri ios init` prima di
+compilare: costa dieci secondi e toglie di mezzo tutta la categoria di guasti in
+cui Xcode modifica un progetto che non e' suo. Se Xcode lo propone, rispondere di
+no.
+
+**I permessi stanno in `src-tauri/Info.ios.plist`.** Tauri lo fonde con
+l'`Info.plist` generato, ma **al momento della build, non dell'init**: subito
+dopo `ios:init` il plist in `gen/apple/` non contiene ancora
+`NSBluetoothAlwaysUsageDescription`, e questo e' normale. Si verifica dopo un
+`ios:dev`, con
+`plutil -p src-tauri/gen/apple/mydivelog_iOS/Info.plist | grep -i bluetooth`.
+Senza quella chiave iOS 13+ non fa nemmeno partire CoreBluetooth, e il sintomo e'
+l'app terminata dal sistema al primo scan: assomiglia a un crash nostro.
+
+**Su iPhone i file non si «scaricano».** Dentro la WKWebView un `<a download>`
+non fa niente e — questa e' la parte pericolosa — non lancia nessun errore: il
+codice JavaScript non ha modo di accorgersene, quindi l'interfaccia dichiarava
+«Backup scritto» senza aver scritto niente. Tutte le esportazioni passano ora da
+`src/ui/esporta.ts`, che su iOS chiama un comando Rust
+(`esporta_nei_documenti`) e scrive nella cartella Documenti dell'app — visibile
+nell'app File grazie alle due chiavi di `Info.ios.plist` — e che **lancia**
+quando non riesce. Un test di sorgente (`tests/iosGuardie.test.ts`) impedisce
+che ne rinasca una quarta copia: era gia' successo tre volte.
+
+**Su iPhone non si stampa, e il pulsante non c'e'.** La stampa apre una finestra
+nuova col foglio impaginato e passa la parola alla finestra di stampa del
+sistema: dentro la WKWebView non esiste ne' l'una ne' l'altra — `window.open`
+restituisce null e `window.print()` non fa niente. I due pulsanti (scheda
+immersione e piano) sono nascosti da `!suIOS()`: prima restavano visibili e,
+premuti, davano la colpa al blocco dei popup, cioe' mandavano a cercare
+un'impostazione inesistente per un problema che non era quello. Il foglio si
+stampa dal Mac, dove l'archivio e' lo stesso.
+
+**iOS non manda gli eventi del mouse.** `mousemove` e `mouseenter` non esistono
+sotto il dito: un grafico che li usa non risponde e non segnala niente. Vale per
+`onMouseMove`, `onMouseEnter`, `onMouseLeave` e anche per un
+`addEventListener('mousedown')` sul documento, che iOS sintetizza solo sugli
+elementi che considera cliccabili. Si usano gli eventi del puntatore, e lo
+stesso test di sorgente lo verifica.
+
+**Il permesso Bluetooth negato non produce nessun errore.**
+`checkPermissions` di `tauri-plugin-blec` e' implementato solo per Android e
+altrove risponde sempre di si'; lo stato dell'adattatore ha tre valori e nessuno
+significa «non autorizzato». Chi tocca «Non consentire» si ritrova una ricerca
+che gira a vuoto per sempre. Non potendo distinguerlo da «nessun computer acceso
+qui intorno», dopo dodici secondi di ricerca infruttuosa l'app elenca le tre
+cause possibili e dice dove si controlla il permesso — che su iPhone e'
+Impostazioni → MyDiveLog → Bluetooth, non il pannello di macOS.
+
+**Il simulatore non ha Bluetooth vero.** Serve a verificare layout, navigazione,
+import da file e tutto il resto; per provare lo scarico da un computer subacqueo
+serve un iPhone fisico, e quindi la firma con un account Apple.
 
 ---
 

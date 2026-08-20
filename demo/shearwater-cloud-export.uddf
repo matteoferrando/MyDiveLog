@@ -7,82 +7,82 @@
   <divesite>
     <site id="site1">
       <name>Isuela</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>44.3208</latitude><longitude>9.1611</longitude></geography>
     </site>
     <site id="site2">
       <name>Moregallo</name>
-      <geography><location>Lombardia</location><country>Italia</country></geography>
+      <geography><location>Lombardia</location><country>Italia</country><latitude>45.8611</latitude><longitude>9.3389</longitude></geography>
     </site>
     <site id="site3">
       <name>Moregallo</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>45.8611</latitude><longitude>9.3389</longitude></geography>
     </site>
     <site id="site4">
       <name>Punta del Faro</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>44.3042</latitude><longitude>9.1508</longitude></geography>
     </site>
     <site id="site5">
       <name>Colombara</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>44.2986</latitude><longitude>9.2153</longitude></geography>
     </site>
     <site id="site6">
       <name>Punta Chiappa</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>44.3167</latitude><longitude>9.1500</longitude></geography>
     </site>
     <site id="site7">
       <name>Secca Gonzatti</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>44.3000</latitude><longitude>9.1333</longitude></geography>
     </site>
     <site id="site8">
       <name>Isuela</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>44.3208</latitude><longitude>9.1611</longitude></geography>
     </site>
     <site id="site9">
       <name>Relitto Haven</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>44.4131</latitude><longitude>8.7550</longitude></geography>
     </site>
     <site id="site10">
       <name>Moregallo</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>45.8611</latitude><longitude>9.3389</longitude></geography>
     </site>
     <site id="site11">
       <name>Moregallo</name>
-      <geography><location>Lombardia</location><country>Italia</country></geography>
+      <geography><location>Lombardia</location><country>Italia</country><latitude>45.8611</latitude><longitude>9.3389</longitude></geography>
     </site>
     <site id="site12">
       <name>Colombara</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>44.2986</latitude><longitude>9.2153</longitude></geography>
     </site>
     <site id="site13">
       <name>Punta Chiappa</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>44.3167</latitude><longitude>9.1500</longitude></geography>
     </site>
     <site id="site14">
       <name>Secca Gonzatti</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>44.3000</latitude><longitude>9.1333</longitude></geography>
     </site>
     <site id="site15">
       <name>Isuela</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>44.3208</latitude><longitude>9.1611</longitude></geography>
     </site>
     <site id="site16">
       <name>Relitto Haven</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>44.4131</latitude><longitude>8.7550</longitude></geography>
     </site>
     <site id="site17">
       <name>Moregallo</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>45.8611</latitude><longitude>9.3389</longitude></geography>
     </site>
     <site id="site18">
       <name>Punta del Faro</name>
-      <geography><location>Liguria</location><country>Italia</country></geography>
+      <geography><location>Liguria</location><country>Italia</country><latitude>44.3042</latitude><longitude>9.1508</longitude></geography>
     </site>
   </divesite>
   <profiledata>
     <repetitiongroup id="rg1">
 <dive id="dive31">
         <informationbeforedive>
-          <datetime>2026-01-31T09:30:00.000Z</datetime>
+          <datetime>2026-02-03T09:30:00.000Z</datetime>
           <divenumber>31</divenumber>
           <airtemperature>298.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -2255,7 +2255,7 @@
       </dive>
 <dive id="dive32">
         <informationbeforedive>
-          <datetime>2026-02-11T10:45:00.000Z</datetime>
+          <datetime>2026-02-14T10:45:00.000Z</datetime>
           <divenumber>32</divenumber>
           <airtemperature>293.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -4554,7 +4554,7 @@
       </dive>
 <dive id="dive33">
         <informationbeforedive>
-          <datetime>2026-02-22T11:00:00.000Z</datetime>
+          <datetime>2026-02-25T11:00:00.000Z</datetime>
           <divenumber>33</divenumber>
           <airtemperature>300.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -6475,7 +6475,7 @@
       </dive>
 <dive id="dive34">
         <informationbeforedive>
-          <datetime>2026-03-05T09:15:00.000Z</datetime>
+          <datetime>2026-03-08T09:15:00.000Z</datetime>
           <divenumber>34</divenumber>
           <airtemperature>298.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -8522,7 +8522,7 @@
       </dive>
 <dive id="dive35">
         <informationbeforedive>
-          <datetime>2026-03-16T10:30:00.000Z</datetime>
+          <datetime>2026-03-19T10:30:00.000Z</datetime>
           <divenumber>35</divenumber>
           <airtemperature>299.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -9837,7 +9837,7 @@
       </dive>
 <dive id="dive36">
         <informationbeforedive>
-          <datetime>2026-03-27T11:45:00.000Z</datetime>
+          <datetime>2026-03-30T11:45:00.000Z</datetime>
           <divenumber>36</divenumber>
           <airtemperature>300.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -12136,7 +12136,7 @@
       </dive>
 <dive id="dive37">
         <informationbeforedive>
-          <datetime>2026-04-07T09:00:00.000Z</datetime>
+          <datetime>2026-04-10T09:00:00.000Z</datetime>
           <divenumber>37</divenumber>
           <airtemperature>298.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -14057,7 +14057,7 @@
       </dive>
 <dive id="dive38">
         <informationbeforedive>
-          <datetime>2026-04-18T10:15:00.000Z</datetime>
+          <datetime>2026-04-21T10:15:00.000Z</datetime>
           <divenumber>38</divenumber>
           <airtemperature>299.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -16104,7 +16104,7 @@
       </dive>
 <dive id="dive39">
         <informationbeforedive>
-          <datetime>2026-04-29T11:30:00.000Z</datetime>
+          <datetime>2026-05-02T11:30:00.000Z</datetime>
           <divenumber>39</divenumber>
           <airtemperature>300.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -18277,7 +18277,7 @@
       </dive>
 <dive id="dive40">
         <informationbeforedive>
-          <datetime>2026-05-10T09:45:00.000Z</datetime>
+          <datetime>2026-05-13T09:45:00.000Z</datetime>
           <divenumber>40</divenumber>
           <airtemperature>298.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -20576,7 +20576,7 @@
       </dive>
 <dive id="dive41">
         <informationbeforedive>
-          <datetime>2026-05-21T10:00:00.000Z</datetime>
+          <datetime>2026-05-24T10:00:00.000Z</datetime>
           <divenumber>41</divenumber>
           <airtemperature>293.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -22497,7 +22497,7 @@
       </dive>
 <dive id="dive42">
         <informationbeforedive>
-          <datetime>2026-06-01T11:15:00.000Z</datetime>
+          <datetime>2026-06-04T11:15:00.000Z</datetime>
           <divenumber>42</divenumber>
           <airtemperature>300.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -23816,7 +23816,7 @@
       </dive>
 <dive id="dive43">
         <informationbeforedive>
-          <datetime>2026-06-12T09:30:00.000Z</datetime>
+          <datetime>2026-06-15T09:30:00.000Z</datetime>
           <divenumber>43</divenumber>
           <airtemperature>298.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -25989,7 +25989,7 @@
       </dive>
 <dive id="dive44">
         <informationbeforedive>
-          <datetime>2026-06-23T10:45:00.000Z</datetime>
+          <datetime>2026-06-26T10:45:00.000Z</datetime>
           <divenumber>44</divenumber>
           <airtemperature>299.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -28288,7 +28288,7 @@
       </dive>
 <dive id="dive45">
         <informationbeforedive>
-          <datetime>2026-07-04T11:00:00.000Z</datetime>
+          <datetime>2026-07-07T11:00:00.000Z</datetime>
           <divenumber>45</divenumber>
           <airtemperature>300.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -30209,7 +30209,7 @@
       </dive>
 <dive id="dive46">
         <informationbeforedive>
-          <datetime>2026-07-15T09:15:00.000Z</datetime>
+          <datetime>2026-07-18T09:15:00.000Z</datetime>
           <divenumber>46</divenumber>
           <airtemperature>298.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -32256,7 +32256,7 @@
       </dive>
 <dive id="dive47">
         <informationbeforedive>
-          <datetime>2026-07-26T10:30:00.000Z</datetime>
+          <datetime>2026-07-29T10:30:00.000Z</datetime>
           <divenumber>47</divenumber>
           <airtemperature>299.15</airtemperature>
           <surfacepressure>101325</surfacepressure>
@@ -34429,7 +34429,7 @@
       </dive>
 <dive id="dive48">
         <informationbeforedive>
-          <datetime>2026-08-06T11:45:00.000Z</datetime>
+          <datetime>2026-08-09T11:45:00.000Z</datetime>
           <divenumber>48</divenumber>
           <airtemperature>300.15</airtemperature>
           <surfacepressure>101325</surfacepressure>

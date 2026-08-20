@@ -43,7 +43,9 @@
       "minimumSystemVersion": "10.15"
     },
     "iOS": {
-      "minimumSystemVersion": "14.0"
+      "minimumSystemVersion": "14.0",
+      "developmentTeam": "73F4VR2CMU",
+      "frameworks": ["CoreBluetooth"]
     }
   }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { suIOS } from '../piattaforma';
+import { suIOS } from '../../piattaforma';
 import { BottoneConferma } from '../components/Conferma';
 import { LIMITS, type ComputerInfo, type Dive, type Sample } from '../../core/model';
 import { formatDuration, mixName } from '../../core/units';
@@ -123,9 +123,26 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
           <button className="btn btn-quiet" onClick={onBack}>
             ← Logbook
           </button>
-          <button className="btn" onClick={() => setStampaBloccata(!apriStampa(dive, gear.equipment))}>
-            Stampa questa immersione
-          </button>
+          {/*
+           * SU IPHONE IL PULSANTE NON C'È, e non è una rinuncia.
+           *
+           * La stampa apre una finestra nuova con il foglio impaginato e passa
+           * la parola alla finestra di stampa del sistema. Dentro la WKWebView
+           * di iOS non esiste né l'una né l'altra: `window.open` restituisce
+           * null e `window.print()` non fa niente. Il pulsante restava lì,
+           * identico agli altri, e premendolo compariva un avviso che dava la
+           * colpa al blocco dei popup — mandava cioè a cercare un'impostazione
+           * che non esiste, per un problema che non era quello.
+           *
+           * Un pulsante che non può funzionare è peggio della sua assenza:
+           * promette una funzione e poi mente sul perché non c'è. Il foglio si
+           * stampa dal Mac, dove l'archivio è lo stesso.
+           */}
+          {!suIOS() && (
+            <button className="btn" onClick={() => setStampaBloccata(!apriStampa(dive, gear.equipment))}>
+              Stampa questa immersione
+            </button>
+          )}
           {/*
            * Chiudere con modifiche non salvate CHIEDE conferma.
            *
@@ -503,30 +520,32 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
             Il volume in litri è ciò che permette di calcolare il consumo in L/min: senza di esso resta solo
             bar/min, che non è confrontabile fra bombole diverse.
           </p>
-          <table>
-            <thead>
-              <tr>
-                <th>Gas</th>
-                <th className="num">Litri</th>
-                <th className="num">Inizio</th>
-                <th className="num">Fine</th>
-                <th className="num">Usati</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dive.cylinders.map((c, i) => (
-                <tr key={i}>
-                  <td style={{ fontWeight: 550 }}>{mixName(c.mix)}</td>
-                  <td className="num tabular">{c.sizeL?.toFixed(1) ?? '—'}</td>
-                  <td className="num tabular">{c.startBar ?? '—'}</td>
-                  <td className="num tabular">{c.endBar ?? '—'}</td>
-                  <td className="num tabular">
-                    {c.startBar !== undefined && c.endBar !== undefined ? c.startBar - c.endBar : '—'}
-                  </td>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Gas</th>
+                  <th className="num">Litri</th>
+                  <th className="num">Inizio</th>
+                  <th className="num">Fine</th>
+                  <th className="num">Usati</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {dive.cylinders.map((c, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 550 }}>{mixName(c.mix)}</td>
+                    <td className="num tabular">{c.sizeL?.toFixed(1) ?? '—'}</td>
+                    <td className="num tabular">{c.startBar ?? '—'}</td>
+                    <td className="num tabular">{c.endBar ?? '—'}</td>
+                    <td className="num tabular">
+                      {c.startBar !== undefined && c.endBar !== undefined ? c.startBar - c.endBar : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {m?.quality.caveats.length ? (
             <div className="notice" style={{ marginTop: 12 }}>
               {m.quality.caveats.map((c) => (

@@ -84,6 +84,17 @@
   --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /*
+   * ANCHE I LATI, che in verticale valgono zero e in orizzontale no.
+   *
+   * `index.html` chiede `viewport-fit=cover`, cioè la webview riceve tutto lo
+   * schermo compresa la parte sotto la fotocamera e gli angoli arrotondati. In
+   * verticale i lati sono a zero e non si vede niente; girando il telefono
+   * diventano 44–59 px, e senza queste due variabili il marchio, il pulsante
+   * del menu e il bordo di ogni carta finiscono sotto il sensore.
+   */
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -196,43 +207,24 @@ body {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: calc(10px + var(--safe-top)) 20px 10px;
+  padding: calc(10px + var(--safe-top)) calc(20px + var(--safe-right)) 10px calc(20px + var(--safe-left));
   background: var(--surface-1);
   border-bottom: 1px solid var(--border);
-  /* Spazio per i semafori macOS quando la barra del titolo è trasparente. */
-  padding-left: 88px;
 }
 
-@media (max-width: 700px) {
-  .topbar {
-    padding-left: 20px;
-  }
-  /*
-   * SOTTO I 700 px LA NAVIGAZIONE VA A CAPO, su una riga tutta sua.
-   *
-   * Misurato a 390 px: la striscia era larga 194 px e ne conteneva 728, quindi
-   * si vedevano due schede su otto — e la scheda CORRENTE poteva essere fuori
-   * vista, come nello screenshot dell'harness che mostra «Statistiche» con la
-   * barra ferma su «Logbook Confronta S». Su una riga intera ce ne stanno il
-   * doppio, e con la sfumatura di sotto si vede che ce n'è dell'altra.
-   */
-  .topbar {
-    flex-wrap: wrap;
-    row-gap: 6px;
-  }
-  .nav {
-    order: 3;
-    flex-basis: 100%;
-    /*
-     * La sfumatura sul bordo destro è l'unico segnale che la striscia scorre:
-     * `scrollbar-width: none` toglie la barra, e senza niente al suo posto chi
-     * apre l'app sul telefono non ha modo di sapere che esistono altre pagine.
-     */
-    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%);
-  }
-  .topbar-spacer {
-    display: none;
-  }
+/*
+ * Gli 88 px dei semafori valgono SOLO sul Mac.
+ *
+ * La barra del titolo trasparente dell'app desktop lascia i tre pulsanti
+ * sopra il contenuto, e senza quel margine il marchio ci finisce sotto. Su
+ * iPhone quei pulsanti non esistono, e la regola era incondizionata: in
+ * verticale il ritaglio del telefono la nascondeva (sotto i 700 px il margine
+ * torna a 20), ma girando il telefono si superano i 700 px, la regola del
+ * telefono smette di valere, e ricompaiono 88 px di vuoto sul bordo sinistro
+ * di un iPhone. `data-guscio` lo scrive `main.tsx` all'avvio.
+ */
+:root[data-guscio='desktop'] .topbar {
+  padding-left: 88px;
 }
 
 .brand {
@@ -276,25 +268,166 @@ body {
   color: var(--text-primary);
 }
 
-/*
- * Le schede più strette sul telefono.
- *
- * Sta DOPO le regole di base e non nel blocco `@media` più in alto: a pari
- * specificità vince l'ultima regola scritta, e là sopra veniva sovrascritta da
- * `.nav button` senza che niente lo segnalasse — la misura a 390 px continuava
- * a leggere 13 px e 12 px di margine.
- */
-@media (max-width: 700px) {
-  .nav button {
-    padding: 6px 7px;
-    font-size: 12px;
-  }
-}
-
 .nav button[aria-current='page'] {
   background: var(--surface-3);
   color: var(--text-primary);
   font-weight: 600;
+}
+
+/*
+ * QUESTO BLOCCO STA DOPO LE REGOLE DI BASE, E NON PIÙ IN ALTO.
+ *
+ * Una media query non aggiunge specificità: `@media … { .nav { display: none } }`
+ * e `.nav { display: flex }` pesano uguale, e vince l'ULTIMA scritta. Con il
+ * blocco in cima al file la striscia restava visibile sul telefono accanto
+ * all'hamburger, e niente lo segnalava — la pagina si vedeva, solo con due
+ * navigazioni invece di una. Ci si è già cascati una volta con il corpo dei
+ * pulsanti: se un giorno queste regole si spostano più su, tornano a non fare
+ * niente.
+ */
+/*
+ * SOTTO I 700 px LA NAVIGAZIONE DIVENTA UN MENU A COMPARSA.
+ *
+ * Prima andava a capo su una riga tutta sua e si trascinava di lato. Misurata a
+ * 390 px era larga 350 e ne conteneva 728: metà delle schede restava fuori, e la
+ * sfumatura sul bordo destro diceva che c'era dell'altro senza dire che cosa.
+ * Peggio: era l'unica cosa dell'applicazione che si muovesse in orizzontale, e
+ * stava in cima a OGNI pagina — il risultato era che l'app *sembrava* scorrere
+ * di lato dappertutto.
+ *
+ * Il menu costa un tocco in più e in cambio mostra tutte e otto le destinazioni
+ * per intero, incolonnate, con bersagli da 44 px. Sopra i 700 px non cambia
+ * niente: là la striscia ci sta tutta ed è più veloce.
+ */
+@media (max-width: 700px) {
+  .topbar {
+    padding-left: 20px;
+    /* Il pannello si aggancia QUI: `position: absolute` cerca il primo antenato
+       posizionato, e senza questa riga finirebbe ancorato al documento, cioè
+       sopra il contenuto invece che sotto la barra. */
+    position: relative;
+  }
+  .nav {
+    display: none;
+  }
+}
+
+/*
+ * L'hamburger esiste solo sul telefono.
+ *
+ * `display: none` di partenza e non il contrario: così la regola che lo mostra
+ * sta dentro la stessa media query di quella che nasconde la striscia, e le due
+ * non possono separarsi con una modifica distratta lasciando la barra con
+ * entrambe o con nessuna delle due.
+ */
+.hamburger {
+  display: none;
+}
+
+.menu-fondo,
+.menu-telefono {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .hamburger {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    appearance: none;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-1);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    /* 44 px di altezza: la misura sotto la quale un pollice sbaglia bersaglio. */
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+
+  /*
+   * IL VELO PARTE SOTTO LA BARRA, non da tutto lo schermo.
+   *
+   * `inset: 0` sembrava la scelta ovvia e copriva anche la barra in alto: siccome
+   * il velo è un elemento posizionato e il marchio no, il velo gli finiva sopra
+   * e la barra si svuotava — nome dell'app e hamburger sparivano nell'istante in
+   * cui il menu si apriva, cioè proprio quando servono per chiuderlo. Ancorato
+   * al bordo inferiore della barra, il velo copre solo la pagina che sospende.
+   */
+  .menu-fondo {
+    display: block;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    /* `100vh` partendo dal bordo INFERIORE della barra sporgeva in basso
+       dell'altezza della barra stessa e allungava il documento — la pagina
+       diventava scorrevole in verticale dentro il nulla, che è lo stesso
+       difetto già pagato con le tabelle per i lettori di schermo. `100dvh`
+       tiene conto anche della barra di Safari che compare e scompare. */
+    height: calc(100dvh - 100%);
+    /* Non trasparente del tutto: un velo dice che la pagina sotto è sospesa, e
+       senza si fatica a capire se il menu è aperto sopra il contenuto o se il
+       contenuto è stato sostituito. */
+    background: rgb(0 0 0 / 35%);
+    border: 0;
+    padding: 0;
+    z-index: 40;
+    cursor: default;
+  }
+
+  .menu-telefono {
+    display: block;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 41;
+    background: var(--surface-1);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-strong);
+    box-shadow: var(--shadow);
+    /* Se un giorno le voci diventassero troppe per lo schermo, scorre in
+       VERTICALE: è l'unica direzione accettabile per una lista. */
+    /* Meno la barra sopra (`100%`) e meno l'indicatore di home: la costante
+       120 px non copriva né il ritaglio in alto né quello in basso, e con una
+       nona voce il menu sarebbe finito sotto il dito che lo chiude. */
+    max-height: calc(100dvh - 100% - var(--safe-bottom) - 8px);
+    overflow-y: auto;
+  }
+
+  .menu-telefono:focus {
+    outline: none;
+  }
+
+  .menu-telefono nav {
+    display: flex;
+    flex-direction: column;
+    padding: 6px;
+    gap: 2px;
+  }
+
+  .menu-telefono button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 15px;
+    text-align: left;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+
+  .menu-telefono button[aria-current='page'] {
+    background: var(--surface-3);
+    font-weight: 650;
+  }
 }
 
 .topbar-spacer {
@@ -304,7 +437,7 @@ body {
 .main {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 20px calc(32px + var(--safe-bottom));
+  padding: 20px calc(20px + var(--safe-right)) calc(32px + var(--safe-bottom)) calc(20px + var(--safe-left));
   /*
    * `position: relative` NON è decorativo: senza, la pagina acquisisce una
    * seconda barra di scorrimento e un vuoto nero sotto il contenuto.
@@ -385,12 +518,20 @@ body {
   gap: 14px;
 }
 
+/*
+ * `min(320px, 100%)` e non `320px`.
+ *
+ * `minmax(320px, 1fr)` promette che ogni colonna sarà larga almeno 320 px anche
+ * quando lo spazio non c'è: dentro una carta, su un telefono da 390 px, restano
+ * 314 px utili e la griglia esce dal riquadro di sei. `min(…, 100%)` dice
+ * «320 px, ma mai più di quello che c'è», che è quello che si intendeva.
+ */
 .grid-2 {
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
 }
 
 .grid-3 {
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
 }
 
 /*
@@ -426,7 +567,7 @@ body {
 }
 
 .grid-tiles {
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
 }
 
 /* ------------------------------------------------------------------ tiles */
@@ -487,6 +628,35 @@ td {
   padding: 7px 14px 7px 0;
   border-bottom: 1px solid var(--grid);
   vertical-align: baseline;
+}
+
+/*
+ * SUL TELEFONO IL TESTO DELLE TABELLE VA A CAPO.
+ *
+ * Sta DOPO le regole di base apposta: una media query non aggiunge specificità
+ * e a pari peso vince l'ultima scritta (è la trappola di questo foglio, già
+ * pagata tre volte).
+ *
+ * `th` nasce `nowrap` perché su una finestra larga un'intestazione spezzata in
+ * due righe fa saltare l'allineamento delle colonne. A 440 px il conto si
+ * ribalta: «GF99 medio all'uscita» su una riga sola è una colonna da 160 px, e
+ * cinque colonne così non ci stanno in nessun telefono. Lasciandole andare a
+ * capo, parecchie tabelle smettono del tutto di aver bisogno di scorrere.
+ *
+ * `overflow-wrap: break-word` è la rete per il contenuto che non controlliamo:
+ * il nome di un sito, la chiave di un'annotazione ricopiata da un altro
+ * logbook, un seriale. Una parola sola più larga della colonna non ha modo di
+ * andare a capo da sé, e spinge fuori tutta la pagina.
+ */
+@media (max-width: 700px) {
+  th {
+    white-space: normal;
+  }
+
+  th,
+  td {
+    overflow-wrap: break-word;
+  }
 }
 
 /* L'ultima colonna non ha bisogno di aria a destra: la porta il bordo della carta. */
@@ -605,6 +775,31 @@ tbody tr.clickable:hover {
  * disegnato. Le etichette delle colonne arrivano da `data-col`, che sta accanto
  * al dato nel componente e quindi non può restare indietro.
  */
+/*
+ * La carta che contiene l'elenco del logbook.
+ *
+ * Sul desktop è una carta come le altre, solo con meno respiro sopra e sotto
+ * perché la prima riga della tabella è già un'intestazione. Sul telefono
+ * SPARISCE: le righe sono diventate schede con la loro cornice, e una cornice
+ * dentro l'altra non aggiunge niente.
+ */
+.carta-logbook {
+  padding: 4px 18px 8px;
+}
+
+@media (max-width: 600px) {
+  .carta-logbook {
+    background: none;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    /* Niente scorrimento laterale: qui sotto la tabella non è più una tabella,
+       sono blocchi che vanno a capo. Lasciato su `auto` ritagliava anche
+       l'ombra delle schede. */
+    overflow: visible;
+  }
+}
+
 @media (max-width: 600px) {
   .tabella-logbook thead {
     /* `clip` e non `display: none`: l'intestazione resta nell'albero di
@@ -984,6 +1179,25 @@ textarea {
   white-space: nowrap;
 }
 
+/*
+ * IL RIQUADRO DEL GRAFICO VA A CAPO SUL TELEFONO.
+ *
+ * `white-space: nowrap` va bene finché dentro c'è un numero. Nei grafici a
+ * barre delle statistiche il titolo è il NOME DEL SITO, cioè testo scritto da
+ * chi usa l'app: «Camogli, Punta Chiappa Ovest» su una riga sola è largo più di
+ * duecento pixel, il riquadro è centrato sul punto, e la metà che sporge esce
+ * dalla carta. E siccome `.main` scorre in verticale, il suo `overflow-x`
+ * diventa `auto`: la pagina intera si può trascinare di lato. Un riquadro
+ * informativo che rende scorrevole la pagina è un difetto che si scopre col
+ * dito e mai su un desktop, dove i nomi lunghi ci stanno comunque.
+ */
+@media (max-width: 700px) {
+  .tooltip {
+    white-space: normal;
+    max-width: 70vw;
+  }
+}
+
 .tooltip b {
   display: block;
   font-size: 11px;
@@ -1354,10 +1568,26 @@ button[aria-pressed='true'] {
   cursor: pointer;
 }
 
+/*
+ * 16 px SOLO dove c'è un mouse, altrimenti vince la regola dei 24.
+ *
+ * Questa regola stava dopo il blocco `@media (pointer: coarse)` che porta le
+ * caselle a 24×24, ha la stessa specificità, e a pari peso vince l'ultima
+ * scritta: tutte le caselle del pianificatore, dell'attrezzatura, delle
+ * impostazioni e dello scarico Bluetooth tornavano a 16 px sul telefono —
+ * cioè proprio dove il bersaglio conta. È la quarta volta che questo foglio
+ * inciampa nell'ordine delle regole; qui si è messa una condizione esplicita
+ * invece di fidarsi della posizione.
+ */
+@media (pointer: fine) and (min-width: 701px) {
+  .planner-check input {
+    width: 16px;
+    height: 16px;
+  }
+}
+
 .planner-check input {
   margin-top: 2px;
-  width: 16px;
-  height: 16px;
   flex-shrink: 0;
 }
 

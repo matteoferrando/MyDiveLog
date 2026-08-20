@@ -292,11 +292,23 @@ ${rows}
 
 export function toShearwaterXml(
   s: Synthetic,
-  opts: { imperial?: boolean; diveNumber?: number } = {},
+  opts: { imperial?: boolean; diveNumber?: number; gf?: { low: number; high: number } } = {},
 ): string {
   const { spec, samples } = s;
   const imperial = opts.imperial ?? false;
   const num = opts.diveNumber ?? 1;
+  /*
+   * I gradient factor si possono scegliere, e il valore predefinito resta
+   * quello di prima.
+   *
+   * Serve a costruire un archivio in cui il computer ha CAMBIATO impostazioni
+   * a un certo punto — il caso vero di questo progetto, il Peregrine passato da
+   * 45/95 a 20/85. È la condizione che fa comparire la carta «Impostazioni del
+   * computer nel tempo», e senza un archivio dimostrativo che la soddisfa
+   * quella carta non veniva mai disegnata da nessun controllo automatico: il
+   * suo difetto di larghezza è stato trovato dall'utente, sul telefono.
+   */
+  const gf = opts.gf ?? { low: 30, high: 85 };
   const depth = (m: number) => (imperial ? m / 0.3048 : m).toFixed(imperial ? 1 : 2);
   const temp = (c: number) => (imperial ? (c * 9) / 5 + 32 : c).toFixed(1);
   // Il campo è in MEZZI PSI: bar → psi → /2.
@@ -335,8 +347,8 @@ export function toShearwaterXml(
     <startSurfacePressure>1013</startSurfacePressure>
     <imperialUnits>${imperial ? 1 : 0}</imperialUnits>
     <decoModel>GF</decoModel>
-    <gfMin>30</gfMin>
-    <gfMax>85</gfMax>
+    <gfMin>${gf.low}</gfMin>
+    <gfMax>${gf.high}</gfMax>
     <diveLogRecords>
 ${records}
     </diveLogRecords>

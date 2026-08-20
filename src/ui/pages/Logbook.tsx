@@ -157,7 +157,18 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
         />
       )}
 
-      <div className="card table-scroll" style={{ padding: '4px 18px 8px' }}>
+      {/*
+       * La spaziatura sta in `carta-logbook`, non in uno `style` qui.
+       *
+       * Uno stile in linea vince su qualunque regola del foglio, quindi finché
+       * il padding stava scritto qui il telefono NON poteva toglierlo: sotto i
+       * 600 px le righe diventano schede con la loro cornice, e restavano
+       * incastrate dentro la cornice di questa carta — due bordi arrotondati
+       * uno dentro l'altro, con 4 px sopra e 18 a sinistra. Due cornici
+       * concentriche non aggiungono nessuna informazione, e quella spaziatura
+       * asimmetrica si legge come un errore.
+       */}
+      <div className="card table-scroll carta-logbook">
         {/*
          * Sotto i 600 px questa tabella diventa un ELENCO, non una tabella che
          * scorre di lato. Le etichette delle colonne stanno su `data-col` e la

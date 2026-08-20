@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { suIOS } from '../piattaforma';
+import { suIOS } from '../../piattaforma';
 import {
   ascentGeometry,
   atDepth,
@@ -295,28 +295,38 @@ export function Planner() {
              * foglio è la lavagnetta della didattica tecnica, con gli stessi
              * numeri di quelli appena calcolati e senza il passaggio in cui si
              * ricopia a mano una cifra sbagliata.
+             *
+             * E proprio per questo su iPhone il pulsante non c'è: dentro la
+             * WKWebView `window.open` restituisce null e `window.print()` non
+             * fa niente, quindi il foglio non si può produrre. Restava un
+             * pulsante che, premuto, dava la colpa al blocco dei popup — cioè
+             * mandava a cercare un'impostazione inesistente per un problema che
+             * non era quello. Il piano si stampa dal Mac, o si copia negli
+             * appunti col pulsante qui accanto.
              */}
-            <button
-              className="btn"
-              onClick={() =>
-                setStampaBloccata(
-                  !apriStampaPiano(
-                    foglioDelPiano({
-                      plan,
-                      schedule,
-                      curve,
-                      soste,
-                      contingenze: plans,
-                      mode,
-                      turnAt,
-                      gf: GF_RICREATIVI,
-                    }),
-                  ),
-                )
-              }
-            >
-              Stampa il piano (PDF)
-            </button>
+            {!suIOS() && (
+              <button
+                className="btn"
+                onClick={() =>
+                  setStampaBloccata(
+                    !apriStampaPiano(
+                      foglioDelPiano({
+                        plan,
+                        schedule,
+                        curve,
+                        soste,
+                        contingenze: plans,
+                        mode,
+                        turnAt,
+                        gf: GF_RICREATIVI,
+                      }),
+                    ),
+                  )
+                }
+              >
+                Stampa il piano (PDF)
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -2077,7 +2087,7 @@ function PressureTimeline({
         height={height}
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        onMouseMove={(e) => {
+        onPointerMove={(e) => {
           const box = e.currentTarget.getBoundingClientRect();
           const at = ((e.clientX - box.left - pad.left) / plotW) * total;
           let best = schedule[0];
@@ -2093,7 +2103,7 @@ function PressureTimeline({
             ],
           });
         }}
-        onMouseLeave={() => setTip(null)}
+        onPointerLeave={() => setTip(null)}
       >
         {/* La riserva: la fascia in cui il piano non deve entrare. */}
         <rect

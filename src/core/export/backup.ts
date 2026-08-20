@@ -96,7 +96,9 @@ export interface ArchiveSource {
 /** Tutte le chiavi di impostazione che l'applicazione usa. */
 export const SETTING_KEYS = [
   'goal',
+  'goal:at',
   'period',
+  'period:at',
   'gasPlan',
   'gasPlan:at',
   'decoPlan',

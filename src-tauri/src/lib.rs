@@ -60,6 +60,56 @@ mod segreti {
     }
 }
 
+/// L'esportazione di un file su iOS, dove `<a download>` non fa niente.
+///
+/// IL PROBLEMA, che è peggio di quanto sembri. Sul desktop tutte le
+/// esportazioni — backup JSON, UDDF, byte grezzi del computer subacqueo, foglio
+/// del piano — passano da un `<a download>` con un URL `blob:`. Dentro la
+/// WKWebView di iOS quel click non scarica niente E NON LANCIA NESSUN ERRORE:
+/// il lato TypeScript non ha modo di accorgersene, quindi finiva per scrivere
+/// «Backup scritto» quando non era stato scritto niente. Su una funzione che
+/// esiste per rimettere in piedi l'archivio dopo un disastro, una falsa
+/// conferma è il difetto peggiore possibile.
+///
+/// LA CURA. Si scrive nella cartella Documenti dell'applicazione. Con
+/// `UIFileSharingEnabled` e `LSSupportsOpeningDocumentsInPlace` — già in
+/// `Info.ios.plist` — quella cartella compare nell'app File sotto «Sul mio
+/// iPhone → MyDiveLog», da dove il file si sposta, si condivide e si manda dove
+/// si vuole. E soprattutto: questa funzione o scrive o restituisce un errore,
+/// quindi l'interfaccia può dichiarare il successo solo quando c'è stato.
+///
+/// Compilato SOLO su iOS. Su macOS `document_dir()` è `~/Documents`, cioè una
+/// cartella dell'utente in cui un'applicazione non deve scrivere senza che
+/// nessuno gliel'abbia chiesto: là il download del browser è la strada giusta e
+/// funziona.
+#[cfg(target_os = "ios")]
+#[tauri::command]
+fn esporta_nei_documenti(app: tauri::AppHandle, nome: String, contenuto: String) -> Result<String, String> {
+    use tauri::Manager;
+
+    // Il nome arriva dal lato TypeScript: prima di usarlo come percorso si
+    // riduce a un nome di file e basta. Non è difesa da un attacco — il
+    // chiamante siamo noi — è difesa da un nome che contiene una data scritta
+    // con le barre.
+    let pulito: String = nome
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' { c } else { '-' })
+        .collect();
+    if pulito.is_empty() {
+        return Err("nome del file vuoto".into());
+    }
+
+    let cartella = app
+        .path()
+        .document_dir()
+        .map_err(|e| format!("cartella Documenti non raggiungibile: {e}"))?;
+    std::fs::create_dir_all(&cartella).map_err(|e| e.to_string())?;
+    let destinazione = cartella.join(&pulito);
+    std::fs::write(&destinazione, contenuto.as_bytes())
+        .map_err(|e| format!("scrittura fallita: {e}"))?;
+    Ok(destinazione.to_string_lossy().into_owned())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default().plugin(tauri_plugin_sql::Builder::default().build());
@@ -88,11 +138,21 @@ pub fn run() {
         }
     };
 
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    #[cfg(target_os = "macos")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         segreti::segreto_leggi,
         segreti::segreto_scrivi,
         segreti::segreto_cancella
+    ]);
+
+    // Su iOS c'è un comando in più: l'esportazione di un file, che qui non può
+    // passare dal download del browser.
+    #[cfg(target_os = "ios")]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        segreti::segreto_leggi,
+        segreti::segreto_scrivi,
+        segreti::segreto_cancella,
+        esporta_nei_documenti
     ]);
 
     builder

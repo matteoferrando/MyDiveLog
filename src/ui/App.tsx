@@ -18,7 +18,7 @@
  * da ottimizzazione.
  */
 
-import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
+import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { imm } from './format';
 import { Logbook } from './pages/Logbook';
 import { CLAIM, Mark } from './components/Mark';
@@ -128,6 +128,34 @@ function PagePlaceholder() {
   return <div className="page" aria-busy="true" style={{ minHeight: '70vh' }} />;
 }
 
+/**
+ * Il segno dell'hamburger, disegnato invece che scritto.
+ *
+ * Tre righe in un `svg` e non il carattere «☰»: quel carattere non esiste in
+ * tutti i font di sistema, e dove manca la webview lo sostituisce con un glifo
+ * di ripiego che cambia dimensione e allineamento da un dispositivo all'altro.
+ * `currentColor` lo tiene legato al colore del testo, quindi segue il tema
+ * chiaro e quello scuro senza una seconda regola.
+ */
+function SegnoMenu({ chiuso }: { chiuso: boolean }) {
+  return (
+    <svg width="18" height="14" viewBox="0 0 18 14" aria-hidden="true" focusable="false">
+      {chiuso ? (
+        <>
+          <path d="M2 2 L16 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <path d="M16 2 L2 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </>
+      ) : (
+        <>
+          <path d="M1 2 H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <path d="M1 7 H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <path d="M1 12 H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export function App() {
   const { ready, dives, initError } = useDiveLog();
   const [view, setView] = useState<View>('logbook');
@@ -138,9 +166,68 @@ export function App() {
     if (ready && dives.length === 0) setView('import');
   }, [ready, dives.length]);
 
+  /*
+   * SUL TELEFONO LA NAVIGAZIONE È UN MENU, NON UNA STRISCIA.
+   *
+   * La striscia orizzontale era l'unica cosa dell'applicazione che si
+   * trascinasse di lato, e stava in cima a OGNI pagina: la sensazione che
+   * restava era che l'app scorresse in orizzontale, non che ci fosse dell'altra
+   * navigazione. Con otto schede e 390 px non c'è larghezza che basti, e la
+   * sfumatura sul bordo destro dice che c'è dell'altro senza dire che cosa.
+   *
+   * Un menu a comparsa cambia il compromesso: costa un tocco in più, e in cambio
+   * mostra TUTTE le destinazioni con il loro nome per intero, con bersagli
+   * grandi abbastanza per un pollice. Sopra i 700 px la striscia resta com'era —
+   * lì ci sta, ed è più veloce.
+   */
+  const [menuAperto, setMenuAperto] = useState(false);
+  const bottoneMenu = useRef<HTMLButtonElement>(null);
+  const pannelloMenu = useRef<HTMLDivElement>(null);
+
+  /*
+   * Chiudere col tasto Esc, e RIDARE IL FUOCO al pulsante.
+   *
+   * Senza la seconda metà, chi naviga da tastiera chiude il menu e si ritrova il
+   * fuoco sul corpo del documento: il Tab successivo riparte dall'inizio della
+   * pagina, cioè si perde il posto. È lo stesso motivo per cui si riporta il
+   * fuoco dopo aver chiuso una finestra di dialogo.
+   */
+  useEffect(() => {
+    if (!menuAperto) return;
+    const suTasto = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMenuAperto(false);
+        bottoneMenu.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', suTasto);
+    // Il pannello prende il fuoco all'apertura: da lì il Tab entra nelle voci
+    // invece di ripartire dalla cima della pagina che sta sotto.
+    pannelloMenu.current?.focus();
+
+    /*
+     * Se la finestra si allarga, il menu si chiude DA SÉ.
+     *
+     * Sopra i 700 px il pannello è nascosto dal CSS ma resterebbe aperto nello
+     * stato: chi allarga la finestra del Mac e poi la restringe se lo
+     * ritroverebbe spalancato senza averlo chiesto. Su iPhone non succede mai —
+     * succede sul desktop, che è dove l'app si ridimensiona davvero.
+     */
+    const largo = window.matchMedia('(min-width: 701px)');
+    const suCambio = () => {
+      if (largo.matches) setMenuAperto(false);
+    };
+    largo.addEventListener('change', suCambio);
+    return () => {
+      window.removeEventListener('keydown', suTasto);
+      largo.removeEventListener('change', suCambio);
+    };
+  }, [menuAperto]);
+
   const go = (v: View) => {
     setOpenDive(null);
     setView(v);
+    setMenuAperto(false);
   };
 
   if (!ready) {
@@ -175,7 +262,7 @@ export function App() {
          * pulsante marcato `aria-current` risolve sia il caso della navigazione
          * fatta a mano sia quello dell'apertura diretta di una pagina.
          */}
-        <nav className="nav">
+        <nav className="nav" aria-label="Sezioni">
           {TABS.map((t) => {
             const corrente = view === t.id && !openDive;
             return (
@@ -193,6 +280,52 @@ export function App() {
           })}
         </nav>
         <span className="topbar-spacer" />
+        {/*
+         * Il pulsante dice DOVE SI È, non solo che esiste un menu.
+         *
+         * Un hamburger muto costringe ad aprirlo per sapere in che pagina si
+         * sta: il nome accanto al segno è la stessa informazione che sul
+         * desktop dà la scheda evidenziata, e costa i pixel che sul telefono
+         * avanzano perché la striscia non c'è più.
+         */}
+        <button
+          ref={bottoneMenu}
+          className="hamburger"
+          onClick={() => setMenuAperto((v) => !v)}
+          aria-expanded={menuAperto}
+          aria-controls="menu-principale"
+          aria-haspopup="menu"
+        >
+          <SegnoMenu chiuso={menuAperto} />
+          <span>{openDive ? 'Immersione' : (TABS.find((t) => t.id === view)?.label ?? 'Menu')}</span>
+        </button>
+        {menuAperto && (
+          <>
+            {/*
+             * Il fondo è un PULSANTE, non un `div` con un `onClick`.
+             *
+             * Toccare fuori per chiudere è il gesto che ci si aspetta, ma un
+             * `div` cliccabile non esiste per chi naviga da tastiera e non
+             * esiste per un lettore di schermo: il menu resterebbe aperto senza
+             * via d'uscita se non con Esc. Un pulsante con la sua etichetta è la
+             * stessa cosa per il dito e una via d'uscita vera per tutti gli
+             * altri.
+             */}
+            <button className="menu-fondo" aria-label="Chiudi il menu" onClick={() => setMenuAperto(false)} />
+            <div className="menu-telefono" id="menu-principale" ref={pannelloMenu} tabIndex={-1}>
+              <nav aria-label="Sezioni">
+                {TABS.map((t) => {
+                  const corrente = view === t.id && !openDive;
+                  return (
+                    <button key={t.id} onClick={() => go(t.id)} aria-current={corrente ? 'page' : undefined}>
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+          </>
+        )}
       </header>
 
       {/*

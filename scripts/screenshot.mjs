@@ -49,6 +49,7 @@ const files =
         'demo/shearwater-cloud-export.uddf',
         'demo/subsurface-archivio.ssrf',
         'demo/shearwater-peregrine.xml',
+        'demo/shearwater-peregrine-precedente.xml',
         'demo/garmin-descent.fit',
         'demo/vecchio-logbook.csv',
       ];
@@ -85,6 +86,29 @@ async function shots(page, prefix, max = 6) {
   await page.evaluate(() => {
     document.querySelector('.main').scrollTop = 0;
   });
+}
+
+/**
+ * Va a una scheda, QUALUNQUE sia la larghezza della finestra.
+ *
+ * Sotto i 700 px la striscia di navigazione non esiste più — c'è l'hamburger —
+ * e i cicli che facevano `click('button:has-text("Statistiche")')` con un
+ * `.catch(() => {})` in coda avrebbero continuato a girare misurando sempre la
+ * stessa pagina, dichiarando otto schede pulite dopo averne guardata una. È lo
+ * stesso modo di fallire che questo file si è già portato dietro due volte
+ * (nomi di scheda sbagliati, misure alla larghezza sbagliata): la navigazione
+ * che non riesce deve ROMPERE, non tacere.
+ */
+async function vaiA(page, tab) {
+  const hamburger = page.locator('.hamburger');
+  if (await hamburger.isVisible().catch(() => false)) {
+    await hamburger.click();
+    await page.waitForTimeout(250);
+    await page.locator(`.menu-telefono button:has-text("${tab}")`).first().click();
+  } else {
+    await page.locator(`.nav button:has-text("${tab}")`).first().click();
+  }
+  await page.waitForTimeout(500);
 }
 
 const browser = await chromium.launch(
@@ -658,8 +682,8 @@ await page.waitForTimeout(600);
 await page.screenshot({ path: 'screenshots/9-mobile.png', fullPage: true });
 // Il pianificatore è la pagina con più campi: se un modulo si rompe in
 // larghezza, si rompe qui.
-await page.click('button:has-text("Gas")');
-await page.waitForTimeout(700);
+await vaiA(page, 'Gas');
+await page.waitForTimeout(300);
 await shots(page, 'screenshots/9b-mobile-gas', 4);
 
 /*
@@ -698,39 +722,59 @@ const dopoIlCestino = await page.locator('tbody tr').count();
 await page.screenshot({ path: 'screenshots/19-cestino.png', fullPage: true });
 
 /*
- * A 390 px LA NAVIGAZIONE DEVE ESSERE RAGGIUNGIBILE, e la scheda corrente in vista.
+ * A 390 px LA NAVIGAZIONE È UN MENU, e va provata come tale.
  *
- * Misurato: la striscia era larga 194 px e ne conteneva 728, quindi si vedevano
- * due schede su otto — senza freccia, senza sfumatura, senza barra di
- * scorrimento. Peggio, la scheda CORRENTE poteva stare fuori dal riquadro
- * visibile: lo screenshot dell'harness stesso mostrava la pagina Statistiche con
- * la barra ferma su «Logbook Confronta S».
+ * Prima era una striscia orizzontale: larga 350 px e con dentro 728, mostrava
+ * metà delle destinazioni e si trascinava di lato in cima a OGNI pagina — cioè
+ * era l'unica cosa dell'applicazione a muoversi in orizzontale, e faceva
+ * sembrare che a scorrere fosse tutta l'app. Il controllo di allora contava
+ * quante schede si vedevano; questo verifica le tre proprietà che contano ora:
+ * la striscia non c'è, il menu si apre e contiene TUTTE le destinazioni, e
+ * sceglierne una porta lì e richiude il pannello.
  *
  * Il controllo che il vecchio ciclo del trabocco NON faceva: quello rimisurava a
  * 1180 px, perché la finestra veniva riallargata più su e mai più ristretta.
  */
 await page.setViewportSize({ width: 390, height: 780 });
-await page.click('button:has-text("Statistiche")').catch(() => {});
-await page.waitForTimeout(700);
+await vaiA(page, 'Logbook');
 const navMobile = await page.evaluate(() => {
   const nav = document.querySelector('.nav');
-  if (!nav) return null;
-  const r = nav.getBoundingClientRect();
-  const corrente = nav.querySelector('[aria-current="page"]');
-  const c = corrente?.getBoundingClientRect();
+  const hamburger = document.querySelector('.hamburger');
+  const visibile = (el) => !!el && !!el.getClientRects().length;
   return {
-    larghezza: Math.round(r.width),
-    contenuto: Math.round(nav.scrollWidth),
-    visibili: [...nav.querySelectorAll('button')].filter((b) => {
-      const q = b.getBoundingClientRect();
-      return q.left >= r.left - 1 && q.right <= r.right + 1;
-    }).length,
-    totali: nav.querySelectorAll('button').length,
-    correnteInVista: !!c && c.left >= r.left - 1 && c.right <= r.right + 1,
-    etichettaCorrente: corrente?.textContent ?? '—',
+    strisciaVisibile: visibile(nav),
+    hamburgerVisibile: visibile(hamburger),
+    etichetta: hamburger?.textContent?.trim() ?? '—',
   };
 });
-await page.screenshot({ path: 'screenshots/20-nav-390.png', fullPage: true });
+await page.click('.hamburger').catch(() => {});
+await page.waitForTimeout(350);
+const menuMobile = await page.evaluate(() => {
+  const voci = [...document.querySelectorAll('.menu-telefono button')];
+  const w = document.documentElement.clientWidth;
+  return {
+    voci: voci.length,
+    // Un menu che sporge dallo schermo sarebbe lo stesso difetto di prima con
+    // un vestito nuovo.
+    dentroLoSchermo: voci.every((b) => {
+      const r = b.getBoundingClientRect();
+      return r.left >= -1 && r.right <= w + 1;
+    }),
+    // 44 px è la misura sotto la quale un pollice sbaglia bersaglio.
+    altezzaMinima: Math.round(Math.min(...voci.map((b) => b.getBoundingClientRect().height))),
+    corrente: document.querySelector('.menu-telefono [aria-current="page"]')?.textContent ?? '—',
+  };
+});
+await page.screenshot({ path: 'screenshots/20-menu-390.png', fullPage: true });
+await page.click('.menu-telefono button:has-text("Statistiche")').catch(() => {});
+await page.waitForTimeout(800);
+const dopoIlMenu = await page.evaluate(() => ({
+  pannelloChiuso: !document.querySelector('.menu-telefono'),
+  veloChiuso: !document.querySelector('.menu-fondo'),
+  etichetta: document.querySelector('.hamburger')?.textContent?.trim() ?? '—',
+  titolo: document.querySelector('.main h1, .main h2')?.textContent ?? '—',
+}));
+await page.screenshot({ path: 'screenshots/20b-menu-scelta.png', fullPage: true });
 /*
  * I BERSAGLI TATTILI del logbook, misurati alla larghezza del telefono.
  *
@@ -738,8 +782,7 @@ await page.screenshot({ path: 'screenshots/20-nav-390.png', fullPage: true });
  * data-pulsante a 58×20 — ed è l'unico modo di aprire un'immersione da
  * tastiera, quindi è il bersaglio che conta.
  */
-await page.click('button:has-text("Logbook")');
-await page.waitForTimeout(600);
+await vaiA(page, 'Logbook');
 const bersagli = await page.evaluate(() => {
   const min = (sel) => {
     const q = [...document.querySelectorAll(sel)].map((e) => e.getBoundingClientRect());
@@ -758,10 +801,18 @@ const piccoli = Object.entries(bersagli)
 const bersagliEsito = piccoli.length
   ? `SOTTO 24x24: ${piccoli.join(' · ')}`
   : `tutti almeno 24x24 (caselle ${bersagli.caselle?.w}x${bersagli.caselle?.h}, date ${bersagli.date?.w}x${bersagli.date?.h})`;
-const navEsito = navMobile
-  ? `${navMobile.visibili}/${navMobile.totali} schede visibili su ${navMobile.larghezza} px, ` +
-    `corrente «${navMobile.etichettaCorrente}» ${navMobile.correnteInVista ? 'in vista' : 'FUORI VISTA'}`
-  : 'NAV ASSENTE';
+const navEsito =
+  navMobile.strisciaVisibile || !navMobile.hamburgerVisibile
+    ? `SBAGLIATA: striscia ${navMobile.strisciaVisibile ? 'ANCORA VISIBILE' : 'assente'}, ` +
+      `hamburger ${navMobile.hamburgerVisibile ? 'presente' : 'ASSENTE'}`
+    : `hamburger «${navMobile.etichetta}», striscia nascosta`;
+const menuEsito =
+  menuMobile.voci !== 8 || !menuMobile.dentroLoSchermo || menuMobile.altezzaMinima < 44
+    ? `SBAGLIATO: ${menuMobile.voci} voci, ${menuMobile.dentroLoSchermo ? 'dentro' : 'FUORI DALLO'} schermo, ` +
+      `voce più bassa ${menuMobile.altezzaMinima} px`
+    : `${menuMobile.voci} voci da almeno ${menuMobile.altezzaMinima} px, corrente «${menuMobile.corrente}» → ` +
+      `dopo la scelta: pannello ${dopoIlMenu.pannelloChiuso ? 'chiuso' : 'ANCORA APERTO'}, ` +
+      `velo ${dopoIlMenu.veloChiuso ? 'chiuso' : 'ANCORA APERTO'}, hamburger dice «${dopoIlMenu.etichetta}»`;
 await page.setViewportSize({ width: 1180, height: 900 });
 await page.waitForTimeout(300);
 
@@ -774,8 +825,7 @@ await page.waitForTimeout(300);
  * che i valori siano VISIBILI, non che esistano nel DOM.
  */
 await page.setViewportSize({ width: 390, height: 780 });
-await page.click('button:has-text("Logbook")');
-await page.waitForTimeout(700);
+await vaiA(page, 'Logbook');
 const logbookMobile = await page.evaluate(() => {
   const riga = document.querySelector('.tabella-logbook tbody tr');
   if (!riga) return null;
@@ -989,8 +1039,7 @@ const SCHEDE = [
 
 const fantasma = [];
 for (const tab of SCHEDE) {
-  await page.click(`button:has-text("${tab}")`).catch(() => {});
-  await page.waitForTimeout(400);
+  await vaiA(page, tab);
   const d = await page.evaluate(() => ({
     doc: document.documentElement.scrollHeight - document.documentElement.clientHeight,
     body: document.body.scrollHeight - document.body.clientHeight,
@@ -1024,17 +1073,67 @@ const overflow = [];
  */
 await page.setViewportSize({ width: 390, height: 780 });
 for (const tab of SCHEDE) {
-  await page.click(`button:has-text("${tab}")`).catch(() => {});
-  await page.waitForTimeout(400);
+  await vaiA(page, tab);
   const info = await page.evaluate(() => {
     const w = document.documentElement.clientWidth;
     const wide = [...document.querySelectorAll('body *')]
       .filter((el) => el.getBoundingClientRect().right > w + 1)
       .slice(0, 4)
       .map((el) => `${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ')[0]}`);
-    return { doc: document.documentElement.scrollWidth, w, wide };
+    /*
+     * SI MISURA `.main`, NON SOLO IL DOCUMENTO.
+     *
+     * Il guscio è alto quanto la finestra e a scorrere è `.main`. Un elemento che
+     * non sta in larghezza fa scorrere QUEL contenitore, non il documento:
+     * `documentElement.scrollWidth` resta pulito e il controllo dichiara
+     * «nessuno» mentre la pagina si trascina di lato sotto il dito. È la regola
+     * generale di questo file — si misura il contenitore che scorre davvero — e
+     * qui era stata dimenticata.
+     */
+    const main = document.querySelector('.main');
+    return {
+      doc: document.documentElement.scrollWidth,
+      main: main ? main.scrollWidth : 0,
+      mainVisibile: main ? main.clientWidth : 0,
+      w,
+      wide,
+    };
   });
-  if (info.doc > info.w + 1) overflow.push(`${tab}: ${info.doc}px su ${info.w} — ${info.wide.join(', ')}`);
+  if (info.doc > info.w + 1)
+    overflow.push(`${tab}: documento ${info.doc}px su ${info.w} — ${info.wide.join(', ')}`);
+  if (info.main > info.mainVisibile + 1)
+    overflow.push(`${tab}: .main ${info.main}px su ${info.mainVisibile} — ${info.wide.join(', ')}`);
+}
+
+/*
+ * E LA SCHEDA DI UN'IMMERSIONE, che il ciclo delle schede non raggiunge.
+ *
+ * È la pagina più densa di tabelle dell'applicazione — bombole, dettagli,
+ * valori letti dal computer, annotazioni ricopiate dal logbook di origine — e
+ * finora nessuna misura di larghezza l'aveva mai toccata.
+ */
+await vaiA(page, 'Logbook');
+await page.locator('tbody tr').first().click();
+await page.waitForTimeout(1400);
+{
+  const info = await page.evaluate(() => {
+    const main = document.querySelector('.main');
+    const w = document.documentElement.clientWidth;
+    const wide = [...document.querySelectorAll('.main *')]
+      .filter((el) => el.getBoundingClientRect().right > w + 1)
+      .slice(0, 4)
+      .map((el) => `${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ')[0]}`);
+    return {
+      main: main ? main.scrollWidth : 0,
+      visibile: main ? main.clientWidth : 0,
+      doc: document.documentElement.scrollWidth,
+      w,
+      wide,
+    };
+  });
+  if (info.main > info.visibile + 1)
+    overflow.push(`scheda immersione: .main ${info.main}px su ${info.visibile} — ${info.wide.join(', ')}`);
+  if (info.doc > info.w + 1) overflow.push(`scheda immersione: documento ${info.doc}px su ${info.w}`);
 }
 
 await browser.close();
@@ -1084,6 +1183,7 @@ console.log(condizioniCard.slice(0, 700));
 console.log('SOSTE IN RICREATIVA:');
 console.log(sosteRec.slice(0, 500));
 console.log('NAVIGAZIONE A 390 px:', navEsito);
+console.log('MENU A 390 px:', menuEsito);
 console.log('LOGBOOK A 390 px:', logbookEsito);
 console.log('BERSAGLI TATTILI A 390 px:', bersagliEsito);
 console.log('BOZZA NON SALVATA:', bozzaEsito);

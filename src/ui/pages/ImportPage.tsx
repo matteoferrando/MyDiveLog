@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { ACCEPTED_EXTENSIONS, PARSERS } from '../../core/parsers';
 import { imm, plural } from '../format';
+import { suIOS } from '../../piattaforma';
 import { useDiveLog, type ImportOutcome } from '../state';
 import { BleDownload } from '../components/BleDownload';
 import { BottoneConferma } from '../components/Conferma';
@@ -163,7 +164,17 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
           void handle(e.dataTransfer.files);
         }}
       >
-        <p style={{ margin: '0 0 12px', fontWeight: 600 }}>Trascina qui i file, o scegli dal disco</p>
+        {/*
+         * Su iPhone non si trascina niente, e «dal disco» non vuol dire niente.
+         *
+         * Il campo file sotto funziona benissimo su iOS — apre l'app File e la
+         * libreria foto — ma la frase invitava a un gesto impossibile e
+         * nominava un posto che sull'iPhone non esiste. Un invito che non si
+         * può accettare fa sembrare rotta la funzione, non il testo.
+         */}
+        <p style={{ margin: '0 0 12px', fontWeight: 600 }}>
+          {suIOS() ? 'Scegli i file dall’app File' : 'Trascina qui i file, o scegli dal disco'}
+        </p>
         <p className="muted" style={{ margin: '0 0 16px', fontSize: 12 }}>
           Puoi selezionarne più di uno: le immersioni presenti in due file diversi vengono unite, non
           duplicate.
@@ -198,36 +209,38 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
               ? `${imm(totalAdded)} ${totalAdded === 1 ? 'nuova aggiunta' : 'nuove aggiunte'} all'archivio.`
               : 'Nessuna immersione nuova: tutto era già presente.'}
           </p>
-          <table>
-            <thead>
-              <tr>
-                <th>File</th>
-                <th className="num">Trovate</th>
-                <th className="num">Nuove</th>
-                <th className="num">Arricchite</th>
-                <th className="num">Già presenti</th>
-              </tr>
-            </thead>
-            <tbody>
-              {outcomes.map((o) => (
-                <tr key={o.fileName}>
-                  <td>
-                    <div style={{ fontWeight: 550 }}>{o.fileName}</div>
-                    {o.error && <div style={{ color: 'var(--critical)', fontSize: 12 }}>{o.error}</div>}
-                    {o.warnings.map((w) => (
-                      <div key={w} className="muted" style={{ fontSize: 12 }}>
-                        {w}
-                      </div>
-                    ))}
-                  </td>
-                  <td className="num">{o.found}</td>
-                  <td className="num">{o.added}</td>
-                  <td className="num">{o.merged}</td>
-                  <td className="num">{o.duplicates}</td>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>File</th>
+                  <th className="num">Trovate</th>
+                  <th className="num">Nuove</th>
+                  <th className="num">Arricchite</th>
+                  <th className="num">Già presenti</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {outcomes.map((o) => (
+                  <tr key={o.fileName}>
+                    <td>
+                      <div style={{ fontWeight: 550 }}>{o.fileName}</div>
+                      {o.error && <div style={{ color: 'var(--critical)', fontSize: 12 }}>{o.error}</div>}
+                      {o.warnings.map((w) => (
+                        <div key={w} className="muted" style={{ fontSize: 12 }}>
+                          {w}
+                        </div>
+                      ))}
+                    </td>
+                    <td className="num">{o.found}</td>
+                    <td className="num">{o.added}</td>
+                    <td className="num">{o.merged}</td>
+                    <td className="num">{o.duplicates}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {totalAdded > 0 && (
             <div className="row" style={{ marginTop: 14 }}>
               <button className="btn btn-primary" onClick={onDone}>
@@ -255,24 +268,26 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
           Il formato viene riconosciuto dal contenuto del file, non dall'estensione: un `.xml` può essere
           UDDF, Subsurface o Shearwater e vengono distinti correttamente.
         </p>
-        <table>
-          <thead>
-            <tr>
-              <th>Formato</th>
-              <th>Estensioni</th>
-              <th>Come ottenerlo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {PARSERS.map((p) => (
-              <tr key={p.format}>
-                <td style={{ fontWeight: 550 }}>{p.label}</td>
-                <td className="muted tabular">{p.extensions.join(' ')}</td>
-                <td className="secondary">{HOWTO[p.format] ?? ''}</td>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Formato</th>
+                <th>Estensioni</th>
+                <th>Come ottenerlo</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {PARSERS.map((p) => (
+                <tr key={p.format}>
+                  <td style={{ fontWeight: 550 }}>{p.label}</td>
+                  <td className="muted tabular">{p.extensions.join(' ')}</td>
+                  <td className="secondary">{HOWTO[p.format] ?? ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="card">

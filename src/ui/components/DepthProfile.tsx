@@ -236,8 +236,21 @@ export function DepthProfile({
           setFuoco(false);
           sync?.onChange(null);
         }}
-        onMouseMove={hover}
-        onMouseLeave={() => {
+        /*
+         * EVENTI DEL PUNTATORE, non del mouse.
+         *
+         * iOS non consegna `mousemove`: con `onMouseMove` il profilo di
+         * profondità — il disegno che su un telefono si guarda più di ogni
+         * altro — non rispondeva affatto al dito, e non c'era nessun errore da
+         * nessuna parte a dirlo. `Charts.tsx` era già stato convertito proprio
+         * per questo; questi due SVG erano rimasti indietro.
+         *
+         * `.chart svg { touch-action: pan-y }` in `styles.css` completa il
+         * quadro: il trascinamento verticale resta della pagina, quello
+         * orizzontale è del grafico.
+         */
+        onPointerMove={hover}
+        onPointerLeave={() => {
           setTip(null);
           sync?.onChange(null);
         }}
@@ -560,7 +573,7 @@ export function MiniSeries({
           setFuoco(false);
           sync?.onChange(null);
         }}
-        onMouseMove={(evt) => {
+        onPointerMove={(evt) => {
           const rect = evt.currentTarget.getBoundingClientRect();
           const t = ((evt.clientX - rect.left - pad.left) / plotW) * maxT;
           const p = points.reduce((a, b) => (Math.abs(b.t - t) < Math.abs(a.t - t) ? b : a), points[0]);
@@ -572,7 +585,7 @@ export function MiniSeries({
             rows: [{ label: unit, value: p.v.toFixed(digits) }],
           });
         }}
-        onMouseLeave={() => {
+        onPointerLeave={() => {
           setTip(null);
           sync?.onChange(null);
         }}

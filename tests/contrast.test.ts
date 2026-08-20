@@ -130,3 +130,99 @@ describe('contrasto della tavolozza', () => {
     }
   });
 });
+
+/**
+ * L'ORDINE DELLE REGOLE, che è la cosa che questo foglio di stile sbaglia sempre.
+ *
+ * Una media query non aggiunge specificità: `@media … { .nav { display: none } }`
+ * e `.nav { display: flex }` pesano identico, e vince l'ultima scritta nel file.
+ * È già costato due volte — il corpo dei pulsanti della navigazione, e poi la
+ * striscia che restava visibile sul telefono accanto all'hamburger — e in
+ * entrambi i casi il sintomo era «la regola non fa niente», che nessuno screenshot
+ * distingue da «la regola non c'è».
+ *
+ * Il test non giudica il layout: verifica solo che chi spegne qualcosa sul
+ * telefono lo faccia DOPO chi lo accende. È l'unica proprietà che un file di
+ * testo può garantire da solo.
+ */
+describe('ordine delle regole per il telefono', () => {
+  /** Posizione dell'ultima occorrenza di una dichiarazione dentro una regola. */
+  const dove = (regola: string, dichiarazione: string): number => {
+    let ultimo = -1;
+    let da = 0;
+    for (;;) {
+      const i = css.indexOf(regola, da);
+      if (i < 0) break;
+      const fine = css.indexOf('}', i);
+      if (fine > 0 && css.slice(i, fine).includes(dichiarazione)) ultimo = i;
+      da = i + regola.length;
+    }
+    return ultimo;
+  };
+
+  it('la striscia si spegne dopo essersi accesa', () => {
+    const accesa = dove('.nav {', 'display: flex');
+    const spenta = dove('.nav {', 'display: none');
+    expect(accesa, 'la regola che accende la striscia non c’è più').toBeGreaterThan(-1);
+    expect(spenta, 'la regola che la spegne sul telefono non c’è più').toBeGreaterThan(-1);
+    expect(spenta).toBeGreaterThan(accesa);
+  });
+
+  it("l'hamburger si accende dopo essere stato spento", () => {
+    const spento = dove('.hamburger {', 'display: none');
+    const acceso = dove('.hamburger {', 'display: inline-flex');
+    expect(spento).toBeGreaterThan(-1);
+    expect(acceso).toBeGreaterThan(spento);
+  });
+
+  it('il pannello del menu parte spento, e si accende solo sotto i 700 px', () => {
+    expect(dove('.menu-telefono {', 'display: none')).toBeGreaterThan(-1);
+    const acceso = dove('.menu-telefono {', 'display: block');
+    expect(acceso).toBeGreaterThan(-1);
+    // La regola che lo accende deve stare dentro una media query per telefono:
+    // si guarda l'ultima `@media` aperta prima di quel punto.
+    const media = css.lastIndexOf('@media', acceso);
+    expect(css.slice(media, media + 40)).toContain('max-width: 700px');
+  });
+});
+
+describe('bersagli e ritagli dello schermo', () => {
+  /*
+   * Due proprietà che si possono verificare solo leggendo il file, e che sono
+   * già state violate: l'ordine delle regole (quattro volte) e le variabili
+   * della safe area (esistevano solo per due lati su quattro).
+   */
+  it('le caselle piccole del pianificatore valgono solo dove c’è un mouse', () => {
+    /*
+     * `.planner-check input { width: 16px }` stava DOPO il blocco
+     * `@media (pointer: coarse)` che le porta a 24×24, con la stessa
+     * specificità: vinceva, e ogni casella dell'app tornava a 16 px proprio sul
+     * telefono. Ora la regola è dentro una condizione esplicita, che è
+     * verificabile invece che dipendere dalla posizione nel file.
+     */
+    const i = css.indexOf('.planner-check input {\n    width: 16px');
+    expect(i, 'la regola a 16 px non è più dove ci si aspetta').toBeGreaterThan(-1);
+    const media = css.lastIndexOf('@media', i);
+    expect(css.slice(media, media + 60)).toContain('pointer: fine');
+  });
+
+  it('la safe area è dichiarata per tutti e quattro i lati', () => {
+    for (const lato of ['top', 'bottom', 'left', 'right']) {
+      expect(css, `manca --safe-${lato}`).toContain(`--safe-${lato}: env(safe-area-inset-${lato}`);
+    }
+    // E i due lati nuovi devono essere USATI, non solo dichiarati: in verticale
+    // valgono zero, quindi una variabile inerte non la noterebbe nessuno finché
+    // qualcuno non gira il telefono.
+    expect(css).toContain('var(--safe-left)');
+    expect(css).toContain('var(--safe-right)');
+  });
+
+  it('il margine per i semafori di macOS è condizionato al guscio desktop', () => {
+    const i = css.indexOf('padding-left: 88px');
+    expect(i).toBeGreaterThan(-1);
+    // Deve stare dentro un selettore che nomina il guscio: su iPhone in
+    // orizzontale le regole del telefono non valgono, e incondizionato lasciava
+    // 88 px di vuoto sul bordo sinistro.
+    expect(css.slice(Math.max(0, i - 200), i)).toContain("data-guscio='desktop'");
+  });
+});

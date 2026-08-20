@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { formatDuration, formatHours } from '../../core/units';
 import {
   BarChart,
@@ -1209,28 +1209,35 @@ function SettingsHistory({ dives }: { dives: Dive[] }) {
         Il GF99 all'uscita dipende da queste impostazioni: confrontarlo fra periodi diversi senza tenerne
         conto porta a conclusioni sbagliate.
       </p>
-      <table>
-        <thead>
-          <tr>
-            <th>Impostazione</th>
-            <th>Dal</th>
-            <th>Al</th>
-            <th className="num">Immersioni</th>
-            <th className="num">GF99 medio all'uscita</th>
-          </tr>
-        </thead>
-        <tbody>
-          {periods.map((p) => (
-            <tr key={`${p.label}-${p.from}`}>
-              <td style={{ fontWeight: 550 }}>{p.label}</td>
-              <td className="tabular">{dateShort(p.from)}</td>
-              <td className="tabular">{dateShort(p.to)}</td>
-              <td className="num tabular">{p.dives}</td>
-              <td className="num tabular">{p.avgGf99 !== undefined ? `${p.avgGf99.toFixed(0)}%` : '—'}</td>
+      {/* Cinque colonne con intestazioni lunghe: a 440 px non ci stanno, e senza
+          contenitore a scorrere era la PAGINA. Questa carta compare solo se il
+          computer ha cambiato impostazioni almeno una volta — per questo
+          l'archivio dimostrativo non la mostrava e il controllo automatico
+          non la vedeva. */}
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Impostazione</th>
+              <th>Dal</th>
+              <th>Al</th>
+              <th className="num">Immersioni</th>
+              <th className="num">GF99 medio all'uscita</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {periods.map((p) => (
+              <tr key={`${p.label}-${p.from}`}>
+                <td style={{ fontWeight: 550 }}>{p.label}</td>
+                <td className="tabular">{dateShort(p.from)}</td>
+                <td className="tabular">{dateShort(p.to)}</td>
+                <td className="num tabular">{p.dives}</td>
+                <td className="num tabular">{p.avgGf99 !== undefined ? `${p.avgGf99.toFixed(0)}%` : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -1343,6 +1350,10 @@ function gfLabel(dives: Dive[]): string | undefined {
 function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => void }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<string | null>(null);
+  /* Se la bolla era già selezionata PRIMA di questo tocco: vedi il commento
+     sul cerchio più sotto. In un ref e non in uno stato perché serve dentro la
+     stessa sequenza di eventi, prima che React ridisegni. */
+  const eraAttivo = useRef(false);
 
   const sites = new Map<string, { name: string; lat: number; lon: number; dives: Dive[] }>();
   for (const d of dives) {
@@ -1408,9 +1419,31 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
                   stroke="var(--series-1)"
                   strokeWidth={active ? 2 : 1}
                   style={{ cursor: 'pointer' }}
-                  onMouseEnter={() => setHover(site.name)}
-                  onMouseLeave={() => setHover(null)}
-                  onClick={() => onOpen(site.dives[0].id)}
+                  /*
+                   * COL DITO SERVONO DUE TOCCHI, e non è un capriccio.
+                   *
+                   * Il nome del sito compariva solo su `onMouseEnter`, che iOS
+                   * non manda mai: su un telefono ogni bolla era un cerchio
+                   * anonimo tranne quella più frequentata, e toccarla portava
+                   * dritti dentro un'immersione senza aver mai letto dove
+                   * fosse. Cioè l'unica cosa che la mappa deve dire — quale
+                   * sito è quale — sul telefono non si poteva sapere.
+                   *
+                   * `eraAttivo` registra se la bolla era GIÀ selezionata prima
+                   * di questo tocco. Col mouse lo è sempre, perché il puntatore
+                   * ci è passato sopra: il primo clic apre, come prima. Col
+                   * dito il primo tocco scrive il nome e il secondo apre.
+                   */
+                  onPointerDown={() => {
+                    eraAttivo.current = hover === site.name;
+                    setHover(site.name);
+                  }}
+                  onPointerLeave={(e) => {
+                    if (e.pointerType === 'mouse') setHover(null);
+                  }}
+                  onClick={() => {
+                    if (eraAttivo.current) onOpen(site.dives[0].id);
+                  }}
                 />
                 {/* L'etichetta solo sulla bolla puntata e sulla più frequentata:
                     i siti vicini fra loro si sovrappongono per davvero, e

@@ -1,38 +1,38 @@
 <divelog program='mydivelog-demo' version='3'>
 <divesites>
-  <site uuid='00000001' name='Punta Chiappa'/>
-  <site uuid='00000002' name='Secca Gonzatti'/>
-  <site uuid='00000003' name='Isuela'/>
-  <site uuid='00000004' name='Relitto Haven'/>
-  <site uuid='00000005' name='Moregallo'/>
-  <site uuid='00000006' name='Punta del Faro'/>
-  <site uuid='00000007' name='Colombara'/>
-  <site uuid='00000008' name='Punta Chiappa'/>
-  <site uuid='00000009' name='Secca Gonzatti'/>
-  <site uuid='0000000a' name='Isuela'/>
-  <site uuid='0000000b' name='Relitto Haven'/>
-  <site uuid='0000000c' name='Moregallo'/>
-  <site uuid='0000000d' name='Punta del Faro'/>
-  <site uuid='0000000e' name='Moregallo'/>
-  <site uuid='0000000f' name='Punta Chiappa'/>
-  <site uuid='00000010' name='Secca Gonzatti'/>
-  <site uuid='00000011' name='Isuela'/>
-  <site uuid='00000012' name='Relitto Haven'/>
-  <site uuid='00000013' name='Moregallo'/>
-  <site uuid='00000014' name='Punta del Faro'/>
-  <site uuid='00000015' name='Colombara'/>
-  <site uuid='00000016' name='Punta Chiappa'/>
-  <site uuid='00000017' name='Moregallo'/>
-  <site uuid='00000018' name='Isuela'/>
-  <site uuid='00000019' name='Relitto Haven'/>
-  <site uuid='0000001a' name='Moregallo'/>
-  <site uuid='0000001b' name='Punta del Faro'/>
-  <site uuid='0000001c' name='Colombara'/>
-  <site uuid='0000001d' name='Punta Chiappa'/>
-  <site uuid='0000001e' name='Secca Gonzatti'/>
+  <site uuid='00000001' name='Punta Chiappa' gps='44.316700 9.150000'/>
+  <site uuid='00000002' name='Secca Gonzatti' gps='44.300000 9.133300'/>
+  <site uuid='00000003' name='Isuela' gps='44.320800 9.161100'/>
+  <site uuid='00000004' name='Relitto Haven' gps='44.413100 8.755000'/>
+  <site uuid='00000005' name='Moregallo' gps='45.861100 9.338900'/>
+  <site uuid='00000006' name='Punta del Faro' gps='44.304200 9.150800'/>
+  <site uuid='00000007' name='Colombara' gps='44.298600 9.215300'/>
+  <site uuid='00000008' name='Punta Chiappa' gps='44.316700 9.150000'/>
+  <site uuid='00000009' name='Secca Gonzatti' gps='44.300000 9.133300'/>
+  <site uuid='0000000a' name='Isuela' gps='44.320800 9.161100'/>
+  <site uuid='0000000b' name='Relitto Haven' gps='44.413100 8.755000'/>
+  <site uuid='0000000c' name='Moregallo' gps='45.861100 9.338900'/>
+  <site uuid='0000000d' name='Punta del Faro' gps='44.304200 9.150800'/>
+  <site uuid='0000000e' name='Moregallo' gps='45.861100 9.338900'/>
+  <site uuid='0000000f' name='Punta Chiappa' gps='44.316700 9.150000'/>
+  <site uuid='00000010' name='Secca Gonzatti' gps='44.300000 9.133300'/>
+  <site uuid='00000011' name='Isuela' gps='44.320800 9.161100'/>
+  <site uuid='00000012' name='Relitto Haven' gps='44.413100 8.755000'/>
+  <site uuid='00000013' name='Moregallo' gps='45.861100 9.338900'/>
+  <site uuid='00000014' name='Punta del Faro' gps='44.304200 9.150800'/>
+  <site uuid='00000015' name='Colombara' gps='44.298600 9.215300'/>
+  <site uuid='00000016' name='Punta Chiappa' gps='44.316700 9.150000'/>
+  <site uuid='00000017' name='Moregallo' gps='45.861100 9.338900'/>
+  <site uuid='00000018' name='Isuela' gps='44.320800 9.161100'/>
+  <site uuid='00000019' name='Relitto Haven' gps='44.413100 8.755000'/>
+  <site uuid='0000001a' name='Moregallo' gps='45.861100 9.338900'/>
+  <site uuid='0000001b' name='Punta del Faro' gps='44.304200 9.150800'/>
+  <site uuid='0000001c' name='Colombara' gps='44.298600 9.215300'/>
+  <site uuid='0000001d' name='Punta Chiappa' gps='44.316700 9.150000'/>
+  <site uuid='0000001e' name='Secca Gonzatti' gps='44.300000 9.133300'/>
 </divesites>
 <dives>
-<dive number='1' date='2024-12-02' time='09:00:00' duration='45:00 min' divesiteid='00000001' tags='parete,nitrox'>
+<dive number='1' date='2024-12-05' time='09:00:00' duration='45:00 min' divesiteid='00000001' tags='parete,nitrox'>
   <cylinder size='21.0 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D21'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='1eef'>
     <depth max='22.4 m' mean='18.770 m'/>
@@ -309,7 +309,7 @@
       <sample time='45:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='2' date='2024-12-13' time='10:15:00' duration='48:00 min' divesiteid='00000002' tags='parete,nitrox'>
+<dive number='2' date='2024-12-16' time='10:15:00' duration='48:00 min' divesiteid='00000002' tags='parete,nitrox'>
   <cylinder size='24.4 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D24'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='3dde'>
     <depth max='25.6 m' mean='21.530 m'/>
@@ -604,7 +604,7 @@
       <sample time='48:00 min' depth='0 m' pressure0='60 bar' />
   </divecomputer>
 </dive>
-<dive number='3' date='2024-12-24' time='11:30:00' duration='51:00 min' divesiteid='00000003' tags='parete,nitrox'>
+<dive number='3' date='2024-12-27' time='11:30:00' duration='51:00 min' divesiteid='00000003' tags='parete,nitrox'>
   <cylinder size='28.0 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D28'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='5ccd'>
     <depth max='28.5 m' mean='24.300 m'/>
@@ -917,7 +917,7 @@
       <sample time='51:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='4' date='2025-01-04' time='09:45:00' duration='54:00 min' divesiteid='00000004' tags='parete,nitrox'>
+<dive number='4' date='2025-01-07' time='09:45:00' duration='54:00 min' divesiteid='00000004' tags='parete,nitrox'>
   <cylinder size='31.8 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D32'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='7bbc'>
     <depth max='31.5 m' mean='27.100 m'/>
@@ -1248,7 +1248,7 @@
       <sample time='54:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='5' date='2025-01-15' time='10:00:00' duration='45:00 min' divesiteid='00000005' tags='parete,nitrox'>
+<dive number='5' date='2025-01-18' time='10:00:00' duration='45:00 min' divesiteid='00000005' tags='parete,nitrox'>
   <cylinder size='27.9 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D28'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='9aab'>
     <depth max='34.4 m' mean='29.300 m'/>
@@ -1525,7 +1525,7 @@
       <sample time='45:00 min' depth='0 m' pressure0='60 bar' />
   </divecomputer>
 </dive>
-<dive number='6' date='2025-01-26' time='11:15:00' duration='48:00 min' divesiteid='00000006' tags='parete,nitrox'>
+<dive number='6' date='2025-01-29' time='11:15:00' duration='48:00 min' divesiteid='00000006' tags='parete,nitrox'>
   <cylinder size='21.7 l' workpressure='232 bar' start='220 bar' end='61 bar' o2='32.0%' he='0.0%' description='D22'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='b99a'>
     <depth max='22.4 m' mean='18.820 m'/>
@@ -1820,7 +1820,7 @@
       <sample time='48:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='7' date='2025-02-06' time='09:30:00' duration='34:00 min' divesiteid='00000007' tags='parete,nitrox'>
+<dive number='7' date='2025-02-09' time='09:30:00' duration='34:00 min' divesiteid='00000007' tags='parete,nitrox'>
   <cylinder size='22.8 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='28.0%' he='0.0%' description='D23'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='d889'>
     <depth max='40.3 m' mean='33.260 m'/>
@@ -2031,7 +2031,7 @@
       <sample time='34:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='8' date='2025-02-17' time='10:45:00' duration='54:00 min' divesiteid='00000008' tags='parete,nitrox'>
+<dive number='8' date='2025-02-20' time='10:45:00' duration='54:00 min' divesiteid='00000008' tags='parete,nitrox'>
   <cylinder size='28.6 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D29'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='f778'>
     <depth max='28.3 m' mean='24.390 m'/>
@@ -2362,7 +2362,7 @@
       <sample time='54:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='9' date='2025-02-28' time='11:00:00' duration='45:00 min' divesiteid='00000009' tags='parete,nitrox'>
+<dive number='9' date='2025-03-03' time='11:00:00' duration='45:00 min' divesiteid='00000009' tags='parete,nitrox'>
   <cylinder size='25.3 l' workpressure='232 bar' start='220 bar' end='61 bar' o2='32.0%' he='0.0%' description='D25'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='11667'>
     <depth max='31.2 m' mean='26.720 m'/>
@@ -2639,7 +2639,7 @@
       <sample time='45:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='10' date='2025-03-11' time='09:15:00' duration='48:00 min' divesiteid='0000000a' tags='parete,nitrox'>
+<dive number='10' date='2025-03-14' time='09:15:00' duration='48:00 min' divesiteid='0000000a' tags='parete,nitrox'>
   <cylinder size='28.7 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D29'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='13556'>
     <depth max='34.2 m' mean='29.470 m'/>
@@ -2934,7 +2934,7 @@
       <sample time='48:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='11' date='2025-03-22' time='10:30:00' duration='51:00 min' divesiteid='0000000b' tags='parete,nitrox'>
+<dive number='11' date='2025-03-25' time='10:30:00' duration='51:00 min' divesiteid='0000000b' tags='parete,nitrox'>
   <cylinder size='22.2 l' workpressure='232 bar' start='220 bar' end='61 bar' o2='32.0%' he='0.0%' description='D22'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='15445'>
     <depth max='22.1 m' mean='18.890 m'/>
@@ -3247,7 +3247,7 @@
       <sample time='51:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='12' date='2025-04-02' time='11:45:00' duration='54:00 min' divesiteid='0000000c' tags='parete,nitrox'>
+<dive number='12' date='2025-04-05' time='11:45:00' duration='54:00 min' divesiteid='0000000c' tags='parete,nitrox'>
   <cylinder size='25.5 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D26'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='17334'>
     <depth max='25.1 m' mean='21.680 m'/>
@@ -3578,7 +3578,7 @@
       <sample time='54:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='13' date='2025-04-13' time='09:00:00' duration='45:00 min' divesiteid='0000000d' tags='parete,nitrox'>
+<dive number='13' date='2025-04-16' time='09:00:00' duration='45:00 min' divesiteid='0000000d' tags='parete,nitrox'>
   <cylinder size='22.7 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D23'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='19223'>
     <depth max='28 m' mean='24.090 m'/>
@@ -3855,7 +3855,7 @@
       <sample time='45:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='14' date='2025-04-24' time='10:15:00' duration='34:00 min' divesiteid='0000000e' tags='parete,nitrox'>
+<dive number='14' date='2025-04-27' time='10:15:00' duration='34:00 min' divesiteid='0000000e' tags='parete,nitrox'>
   <cylinder size='22.4 l' workpressure='232 bar' start='220 bar' end='61 bar' o2='28.0%' he='0.0%' description='D22'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='1b112'>
     <depth max='42 m' mean='34.800 m'/>
@@ -4066,7 +4066,7 @@
       <sample time='34:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='15' date='2025-05-05' time='11:30:00' duration='51:00 min' divesiteid='0000000f' tags='parete,nitrox'>
+<dive number='15' date='2025-05-08' time='11:30:00' duration='51:00 min' divesiteid='0000000f' tags='parete,nitrox'>
   <cylinder size='29.4 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D29'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='1d001'>
     <depth max='33.9 m' mean='29.610 m'/>
@@ -4379,7 +4379,7 @@
       <sample time='51:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='16' date='2025-05-16' time='09:45:00' duration='54:00 min' divesiteid='00000010' tags='parete,nitrox'>
+<dive number='16' date='2025-05-19' time='09:45:00' duration='54:00 min' divesiteid='00000010' tags='parete,nitrox'>
   <cylinder size='22.6 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D23'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='1eef0'>
     <depth max='21.9 m' mean='18.940 m'/>
@@ -4710,7 +4710,7 @@
       <sample time='54:00 min' depth='0 m' pressure0='60 bar' />
   </divecomputer>
 </dive>
-<dive number='17' date='2025-05-27' time='10:00:00' duration='45:00 min' divesiteid='00000011' tags='parete,nitrox'>
+<dive number='17' date='2025-05-30' time='10:00:00' duration='45:00 min' divesiteid='00000011' tags='parete,nitrox'>
   <cylinder size='20.3 l' workpressure='232 bar' start='220 bar' end='61 bar' o2='32.0%' he='0.0%' description='D20'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='20ddf'>
     <depth max='24.9 m' mean='21.410 m'/>
@@ -4987,7 +4987,7 @@
       <sample time='45:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='18' date='2025-06-07' time='11:15:00' duration='48:00 min' divesiteid='00000012' tags='parete,nitrox'>
+<dive number='18' date='2025-06-10' time='11:15:00' duration='48:00 min' divesiteid='00000012' tags='parete,nitrox'>
   <cylinder size='22.2 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D22'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='22cce'>
     <depth max='27.8 m' mean='22.560 m'/>
@@ -5282,7 +5282,7 @@
       <sample time='48:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='19' date='2025-09-21' time='09:30:00' duration='51:00 min' divesiteid='00000013' tags='parete,nitrox'>
+<dive number='19' date='2025-09-24' time='09:30:00' duration='51:00 min' divesiteid='00000013' tags='parete,nitrox'>
   <cylinder size='25.3 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D25'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='24bbd'>
     <depth max='30.8 m' mean='25.180 m'/>
@@ -5595,7 +5595,7 @@
       <sample time='51:00 min' depth='0 m' pressure0='60 bar' />
   </divecomputer>
 </dive>
-<dive number='20' date='2025-10-02' time='10:45:00' duration='54:00 min' divesiteid='00000014' tags='parete,nitrox'>
+<dive number='20' date='2025-10-05' time='10:45:00' duration='54:00 min' divesiteid='00000014' tags='parete,nitrox'>
   <cylinder size='28.5 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D29'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='26aac'>
     <depth max='33.7 m' mean='27.820 m'/>
@@ -5926,7 +5926,7 @@
       <sample time='54:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='21' date='2025-10-13' time='11:00:00' duration='34:00 min' divesiteid='00000015' tags='parete,nitrox'>
+<dive number='21' date='2025-10-16' time='11:00:00' duration='34:00 min' divesiteid='00000015' tags='parete,nitrox'>
   <cylinder size='19.8 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='28.0%' he='0.0%' description='D20'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='2899b'>
     <depth max='43.7 m' mean='32.100 m'/>
@@ -6137,7 +6137,7 @@
       <sample time='34:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='22' date='2025-10-24' time='09:15:00' duration='48:00 min' divesiteid='00000016' tags='parete,nitrox'>
+<dive number='22' date='2025-10-27' time='09:15:00' duration='48:00 min' divesiteid='00000016' tags='parete,nitrox'>
   <cylinder size='19.8 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D20'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='2a88a'>
     <depth max='24.6 m' mean='20.050 m'/>
@@ -6432,7 +6432,7 @@
       <sample time='48:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='23' date='2025-11-04' time='10:30:00' duration='51:00 min' divesiteid='00000017' tags='parete,nitrox'>
+<dive number='23' date='2025-11-07' time='10:30:00' duration='51:00 min' divesiteid='00000017' tags='parete,nitrox'>
   <cylinder size='22.7 l' workpressure='232 bar' start='220 bar' end='61 bar' o2='32.0%' he='0.0%' description='D23'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='2c779'>
     <depth max='27.6 m' mean='22.660 m'/>
@@ -6745,7 +6745,7 @@
       <sample time='51:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='24' date='2025-11-15' time='11:45:00' duration='54:00 min' divesiteid='00000018' tags='parete,nitrox'>
+<dive number='24' date='2025-11-18' time='11:45:00' duration='54:00 min' divesiteid='00000018' tags='parete,nitrox'>
   <cylinder size='25.7 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D26'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='2e668'>
     <depth max='30.5 m' mean='25.280 m'/>
@@ -7076,7 +7076,7 @@
       <sample time='54:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='25' date='2025-11-26' time='09:00:00' duration='45:00 min' divesiteid='00000019' tags='parete,nitrox'>
+<dive number='25' date='2025-11-29' time='09:00:00' duration='45:00 min' divesiteid='00000019' tags='parete,nitrox'>
   <cylinder size='22.2 l' workpressure='232 bar' start='220 bar' end='61 bar' o2='32.0%' he='0.0%' description='D22'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='30557'>
     <depth max='33.5 m' mean='26.830 m'/>
@@ -7353,7 +7353,7 @@
       <sample time='45:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='26' date='2025-12-07' time='10:15:00' duration='48:00 min' divesiteid='0000001a' tags='parete,nitrox'>
+<dive number='26' date='2025-12-10' time='10:15:00' duration='48:00 min' divesiteid='0000001a' tags='parete,nitrox'>
   <cylinder size='17.5 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D18'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='32446'>
     <depth max='21.4 m' mean='17.530 m'/>
@@ -7648,7 +7648,7 @@
       <sample time='48:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='27' date='2025-12-18' time='11:30:00' duration='51:00 min' divesiteid='0000001b' tags='parete,nitrox'>
+<dive number='27' date='2025-12-21' time='11:30:00' duration='51:00 min' divesiteid='0000001b' tags='parete,nitrox'>
   <cylinder size='20.2 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D20'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='34335'>
     <depth max='24.4 m' mean='20.140 m'/>
@@ -7961,7 +7961,7 @@
       <sample time='51:00 min' depth='0 m' pressure0='60 bar' />
   </divecomputer>
 </dive>
-<dive number='28' date='2025-12-29' time='09:45:00' duration='34:00 min' divesiteid='0000001c' tags='parete,nitrox'>
+<dive number='28' date='2026-01-01' time='09:45:00' duration='34:00 min' divesiteid='0000001c' tags='parete,nitrox'>
   <cylinder size='17.3 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='28.0%' he='0.0%' description='D17'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='36224'>
     <depth max='39.3 m' mean='29.070 m'/>
@@ -8172,7 +8172,7 @@
       <sample time='34:00 min' depth='0 m' pressure0='60 bar' />
   </divecomputer>
 </dive>
-<dive number='29' date='2026-01-09' time='10:00:00' duration='45:00 min' divesiteid='0000001d' tags='parete,nitrox'>
+<dive number='29' date='2026-01-12' time='10:00:00' duration='45:00 min' divesiteid='0000001d' tags='parete,nitrox'>
   <cylinder size='20.0 l' workpressure='232 bar' start='220 bar' end='61 bar' o2='32.0%' he='0.0%' description='D20'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='38113'>
     <depth max='30.3 m' mean='24.410 m'/>
@@ -8449,7 +8449,7 @@
       <sample time='45:00 min' depth='0 m' />
   </divecomputer>
 </dive>
-<dive number='30' date='2026-01-20' time='11:15:00' duration='48:00 min' divesiteid='0000001e' tags='parete,nitrox'>
+<dive number='30' date='2026-01-23' time='11:15:00' duration='48:00 min' divesiteid='0000001e' tags='parete,nitrox'>
   <cylinder size='22.7 l' workpressure='232 bar' start='220 bar' end='60 bar' o2='32.0%' he='0.0%' description='D23'/>
   <divecomputer model='Shearwater Peregrine' deviceid='0a1b2c3d' diveid='3a002'>
     <depth max='33.2 m' mean='27.020 m'/>

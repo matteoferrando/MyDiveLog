@@ -33,6 +33,7 @@ import {
   connect,
   describeSyncError,
   syncArchive,
+  fondiAttrezzatura,
   mergeKeyed,
   testConnection,
   TOMBSTONE_KEY,
@@ -264,13 +265,16 @@ const Ctx = createContext<DiveLogValue | null>(null);
  * nessuna delle due è «quella giusta» per intero.
  */
 function fondiRaccolta(key: string, attuale: unknown, dalFile: unknown): unknown {
-  if (key === 'decoPlans') return mergeKeyed(attuale, dalFile, 'id').value;
-  const a = (attuale ?? {}) as { equipment?: unknown; certifications?: unknown };
-  const f = (dalFile ?? {}) as { equipment?: unknown; certifications?: unknown };
-  return {
-    equipment: mergeKeyed(a.equipment, f.equipment, 'id').value,
-    certifications: mergeKeyed(a.certifications, f.certifications, 'id').value,
-  };
+  /*
+   * I piani salvati si fondono per NOME, non per `id`: non ce l'hanno.
+   * `SavedDecoPlan` è `{ name, savedAt, state }`, e chiedere `id` a
+   * `mergeKeyed` significava chiedere `String(undefined)` per ognuno — cioè la
+   * stessa chiave per tutti. Ripristinare un backup con cinque piani ne
+   * restituiva UNO. La sincronizzazione fra dispositivi usava già `name`: erano
+   * due copie della stessa regola, e una delle due era sbagliata.
+   */
+  if (key === 'decoPlans') return mergeKeyed(attuale, dalFile, 'name').value;
+  return fondiAttrezzatura(attuale, dalFile).value;
 }
 
 export function DiveLogProvider({ children }: { children: ReactNode }) {
@@ -438,10 +442,27 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  /*
+   * Obiettivo e periodo viaggiano fra dispositivi, e per farlo servono i TIMBRI.
+   *
+   * Erano le uniche due impostazioni presenti nel backup e assenti dalla
+   * sincronizzazione: il Mac e il telefono potevano guardare finestre temporali
+   * diverse, e lo stesso archivio raccontava statistiche diverse e dava consigli
+   * diversi senza che niente lo dicesse.
+   *
+   * `${chiave}:at` non è un dettaglio implementativo che si può rimandare:
+   * `syncSettings` arbitra fra due dispositivi confrontando quei timbri, e
+   * senza il timbro locale il confronto è `'' > qualcosa`, cioè sempre falso —
+   * vincerebbe SEMPRE il valore remoto, e la scelta appena fatta qui verrebbe
+   * cancellata al primo allineamento.
+   */
   const setGoalId = useCallback(
     (id: GoalId) => {
       setGoalIdState(id);
-      store?.setSetting('goal', id).catch(() => undefined);
+      void (async () => {
+        await store?.setSetting('goal', id);
+        await store?.setSetting('goal:at', new Date().toISOString());
+      })().catch(() => undefined);
     },
     [store],
   );
@@ -449,7 +470,10 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   const setPeriod = useCallback(
     (id: PeriodId) => {
       setPeriodState(id);
-      store?.setSetting('period', id).catch(() => undefined);
+      void (async () => {
+        await store?.setSetting('period', id);
+        await store?.setSetting('period:at', new Date().toISOString());
+      })().catch(() => undefined);
     },
     [store],
   );
@@ -620,17 +644,37 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     async (key: string, marker: DownloadMarker) => {
       const next = { ...bleMarkers, [key]: marker };
       setBleMarkers(next);
-      if (store) await store.setSetting(BLE_MARKERS_KEY, next);
+      if (store) {
+        await store.setSetting(BLE_MARKERS_KEY, next);
+        await store.setSetting(`${BLE_MARKERS_KEY}:at`, marker.at);
+      }
     },
     [bleMarkers, store],
   );
 
+  /**
+   * «Dimentica»: al prossimo collegamento questo computer si rilegge da capo.
+   *
+   * NON cancella la riga, la SVUOTA — impronta vuota, data di adesso. La
+   * differenza conta da quando i segnalibri viaggiano fra dispositivi: una riga
+   * cancellata è indistinguibile da una riga che qui non è mai arrivata, e al
+   * primo allineamento l'altro dispositivo rimanderebbe indietro il segnalibro
+   * vecchio, annullando in silenzio quello che si era appena chiesto. Una riga
+   * vuota e datata invece è un fatto, e come tutti i fatti più recenti vince.
+   *
+   * Chi legge i segnalibri tratta l'impronta vuota come «nessun segnalibro».
+   */
   const forgetBleMarker = useCallback(
     async (key: string) => {
-      const next = { ...bleMarkers };
-      delete next[key];
+      const next = {
+        ...bleMarkers,
+        [key]: { ...bleMarkers[key], fingerprint: '', at: new Date().toISOString(), dives: 0 },
+      };
       setBleMarkers(next);
-      if (store) await store.setSetting(BLE_MARKERS_KEY, next);
+      if (store) {
+        await store.setSetting(BLE_MARKERS_KEY, next);
+        await store.setSetting(`${BLE_MARKERS_KEY}:at`, new Date().toISOString());
+      }
     },
     [bleMarkers, store],
   );
@@ -965,15 +1009,36 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         // Le impostazioni condivise possono essere arrivate dall'altro
         // dispositivo: senza rileggerle, la pagina mostrerebbe le vecchie fino al
         // riavvio.
+        /*
+         * SI RILEGGE TUTTO QUELLO CHE VIAGGIA, non tre chiavi su otto.
+         *
+         * Ne rileggeva tre — piano gas, analisi, attrezzatura — e le altre
+         * restavano quelle vecchie a schermo fino al riavvio successivo. Il
+         * caso peggiore era il periodo delle statistiche: arrivato dall'altro
+         * dispositivo, l'archivio è già cambiato sotto ma la pagina continua a
+         * mostrare la finestra di prima, cioè numeri che non corrispondono più
+         * a niente. L'elenco qui deve restare allineato a `SHARED_SETTINGS`.
+         */
         if (report.settingsPulled > 0) {
-          const [gas, saved, savedGear] = await Promise.all([
-            store.getSetting<GasPlanInput>('gasPlan'),
-            store.getSetting<Record<string, StoredAnalysis>>('analyses'),
-            store.getSetting<unknown>('gear'),
-          ]);
+          const [gas, saved, savedGear, deco, piani, segnalibri, obiettivo, periodoSalvato] =
+            await Promise.all([
+              store.getSetting<GasPlanInput>('gasPlan'),
+              store.getSetting<Record<string, StoredAnalysis>>('analyses'),
+              store.getSetting<unknown>('gear'),
+              store.getSetting<unknown>('decoPlan'),
+              store.getSetting<SavedDecoPlan[]>('decoPlans'),
+              store.getSetting<Record<string, DownloadMarker>>(BLE_MARKERS_KEY),
+              store.getSetting<GoalId>('goal'),
+              store.getSetting<PeriodId>('period'),
+            ]);
           if (gas?.depthM) setGasInputState(gas);
           if (saved) setAnalyses(saved);
           if (savedGear) setGearState(migrateGear(savedGear as never));
+          if (deco) setDecoInputState(deco);
+          if (piani) setDecoPlans(piani);
+          if (segnalibri) setBleMarkers(segnalibri);
+          if (obiettivo) setGoalIdState(obiettivo);
+          if (periodoSalvato) setPeriodState(periodoSalvato);
         }
         return report;
       } catch (err) {

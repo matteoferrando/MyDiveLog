@@ -234,11 +234,22 @@ può eliminare file).
   metriche incoerenti e ripulisce i computer duplicati, senza chiedere un reimport.
 - **Sincronizzazione con database condiviso** (`src/sync/`, scheda *Sincronizza*):
   piano senza rete in `plan.ts`, trasporto libSQL in `turso.ts`.
-- **390 test**, più tre script di verifica: `npm run screenshot` (fotografa ogni
+- **1092 test**, più tre script di verifica: `npm run screenshot` (fotografa ogni
   vista dalla build, incluso il percorso di errore della sincronizzazione),
   `npm run validate:logtrak <file>`, `npm run validate:pnf <database.db>`.
-- **Dati dimostrativi**: `npm run demo` genera 5 file, 68 immersioni che diventano
+- **Dati dimostrativi**: `npm run demo` genera 6 file, 69 immersioni che diventano
   48 dopo la deduplica.
+
+  Uno dei sei — `shearwater-peregrine-precedente.xml` — esiste per un motivo
+  solo: porta gradient factor DIVERSI dagli altri, e senza di lui l'archivio non
+  contiene nessun cambio di impostazioni del computer. La carta «Impostazioni
+  del computer nel tempo» si disegna solo in quel caso, quindi non veniva
+  disegnata da nessun controllo automatico — e il suo difetto (cinque colonne
+  senza contenitore che scorre, cioè la pagina che si trascina di lato sul
+  telefono) è stato trovato dall'utente sull'iPhone. **Un pezzo di interfaccia
+  che i dati dimostrativi non attivano è un pezzo che nessuno guarda prima
+  dell'utente**, ed è la stessa ragione per cui i siti dimostrativi hanno
+  coordinate vere.
 
 ## Sincronizzazione
 
@@ -442,9 +453,16 @@ colonne dava l'impressione che il database non contenesse niente.
    Uwatec è già scritto e verificato: manca solo il trasporto BLE
    (`tauri-plugin-blec`, `libdivecomputer` come riferimento dei protocolli). È
    l'unico punto che richiede il computer in mano per essere provato.
-2. **iOS**: `npm run ios:init` (serve Xcode e un account Apple). Da rivedere: lista
-   impilata invece della tabella sotto i 600 px, `touchmove` per i tooltip,
-   navigazione in basso nella safe area.
+2. **iOS sul telefono vero.** Sul simulatore l'app gira: layout a scheda sotto i
+   600 px, navigazione a menu con l'hamburger, tooltip col dito, permessi al
+   posto giusto.
+   Il passo che manca e' l'iPhone fisico, che serve per l'unica cosa che il
+   simulatore non puo' dare — il Bluetooth — e che richiede la firma con un
+   account Apple. Le due insidie gia' pagate sono in README: CoreBluetooth va
+   dichiarato in `tauri.conf.json` altrimenti il link fallisce con simboli
+   indefiniti che non nominano il Bluetooth, e `tauri ios init` non riscrive un
+   `project.yml` che esiste gia', quindi dice di aver rigenerato senza aver
+   cambiato niente.
 3. **Tarare le istruzioni delle analisi** su quello che producono davvero
    sull'archivio reale: le quattro modalità sono scritte al buio.
 

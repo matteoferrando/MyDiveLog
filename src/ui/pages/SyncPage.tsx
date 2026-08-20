@@ -9,6 +9,8 @@
  */
 
 import { useRef, useState } from 'react';
+import { esporta } from '../esporta';
+import { suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
 import { TRASH_DAYS, TRASH_SOFT_LIMIT, daysLeft, sortTrash } from '../../storage/trash';
 import { formatDuration } from '../../core/units';
@@ -40,7 +42,7 @@ export function SyncPage() {
     exportArchive,
   } = useDiveLog();
   const [exporting, setExporting] = useState(false);
-  const [exported, setExported] = useState<{ dives: number; omitted: string[] } | null>(null);
+  const [exported, setExported] = useState<{ dives: number; omitted: string[]; dove: string } | null>(null);
   const [url, setUrl] = useState(syncCredentials?.url ?? '');
   const [token, setToken] = useState(syncCredentials?.authToken ?? '');
   const [testing, setTesting] = useState(false);
@@ -225,6 +227,26 @@ export function SyncPage() {
             </tbody>
           </table>
         )}
+        {/*
+         * Le impostazioni che non si sono allineate si DICHIARANO.
+         *
+         * Un'impostazione che non viaggia assomiglia in tutto e per tutto a
+         * un'impostazione che non è mai cambiata: senza questa riga, la
+         * differenza fra i due dispositivi si scopre settimane dopo, guardando
+         * un numero che non torna.
+         */}
+        {report && report.settingsErrors.length > 0 && (
+          <div className="notice notice-error" role="alert" style={{ marginTop: 12 }}>
+            <b>Queste impostazioni non si sono allineate.</b> Le immersioni sì: il resto del giro è andato a
+            buon fine. Riprova, e se l'errore torna uguale segnalalo — il testo è quello che serve per
+            capirlo.
+            <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+              {report.settingsErrors.map((e) => (
+                <li key={e}>{e}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       <ClaudeSettings credentials={aiCredentials} onSave={saveAiCredentials} onTest={testAiKey} />
@@ -275,8 +297,11 @@ export function SyncPage() {
                 setError(null);
                 try {
                   const result = await exportArchive();
-                  download(result.xml, `mydivelog-${new Date().toISOString().slice(0, 10)}.uddf`);
-                  setExported({ dives: result.dives, omitted: result.omitted });
+                  const dove = await esporta(
+                    `mydivelog-${new Date().toISOString().slice(0, 10)}.uddf`,
+                    result.xml,
+                  );
+                  setExported({ dives: result.dives, omitted: result.omitted, dove: dove.dove });
                 } catch (err) {
                   setError(err instanceof Error ? err.message : String(err));
                 } finally {
@@ -296,8 +321,11 @@ export function SyncPage() {
                 setError(null);
                 try {
                   const result = await exportArchive({ includeProfiles: false });
-                  download(result.xml, `mydivelog-riepiloghi-${new Date().toISOString().slice(0, 10)}.uddf`);
-                  setExported({ dives: result.dives, omitted: result.omitted });
+                  const dove = await esporta(
+                    `mydivelog-riepiloghi-${new Date().toISOString().slice(0, 10)}.uddf`,
+                    result.xml,
+                  );
+                  setExported({ dives: result.dives, omitted: result.omitted, dove: dove.dove });
                 } catch (err) {
                   setError(err instanceof Error ? err.message : String(err));
                 } finally {
@@ -312,7 +340,7 @@ export function SyncPage() {
         {exported && (
           <div className="notice" style={{ marginTop: 12 }}>
             <b>
-              {imm(exported.dives)} {exported.dives === 1 ? 'esportata' : 'esportate'}.
+              {imm(exported.dives)} {exported.dives === 1 ? 'esportata' : 'esportate'}, {exported.dove}.
             </b>{' '}
             {exported.omitted.length > 0 && (
               <>
@@ -328,19 +356,30 @@ export function SyncPage() {
         <h2>Cosa fa e cosa non fa</h2>
         <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)', fontSize: 13 }}>
           <li>
-            <b>Non cancella.</b> Se elimini un'immersione su un dispositivo, la sincronizzazione successiva la
-            riscarica: propagare le cancellazioni richiede tenere un registro di ciò che è stato eliminato, e
-            finché non c'è la scelta è dichiarata — meglio un'immersione di troppo che una perduta. Per
-            cancellarla davvero, eliminala e poi rimuovila anche dal database remoto.
+            <b>Le cancellazioni viaggiano, il cestino no.</b> Finché un'immersione è nel cestino resta un
+            fatto di questo dispositivo: non sale e non scende, così ripescarla è sempre possibile. Quando
+            svuoti il cestino nasce la lapide — «questa è stata cancellata, e quando» — e quella sì che si
+            propaga: è l'unica informazione che distingue «non ce l'ho ancora» da «l'ho buttata via».
           </li>
           <li>
             <b>Non duplica.</b> L'identificativo di un'immersione dipende dal suo contenuto: la stessa
             immersione importata su due dispositivi resta una.
           </li>
           <li>
-            <b>Viaggiano anche il piano gas e le analisi già generate.</b> Il modulo del pianificatore
-            compilato e le analisi pagate a token si ritrovano sull'altro dispositivo, e fra due versioni
-            vince la più recente. Le credenziali no: token e chiave API restano su ogni dispositivo, e un
+            <b>Viaggia anche quello che hai scritto a mano.</b> Attrezzatura e brevetti, il modulo del
+            pianificatore compilato, i piani salvati, le analisi pagate a token: sono le uniche cose
+            dell'archivio che nessun file di importazione porta con sé, cioè le uniche che dovresti
+            ricompilare due volte. Le raccolte si fondono pezzo per pezzo — un attrezzo aggiunto qui e uno
+            aggiunto là ci sono tutti e due — e a parità di pezzo vince la modifica più recente.
+          </li>
+          <li>
+            <b>Viaggia anche fin dove sei arrivato con ogni computer.</b> Se hai scaricato l'Aladin dal Mac,
+            il telefono lo sa e al collegamento successivo prende solo le immersioni nuove invece di rileggere
+            tutta la memoria — che via Bluetooth sono minuti. Il segnalibro si allinea in fondo al giro, dopo
+            le immersioni: prima sarebbe una promessa che l'archivio non ha ancora mantenuto.
+          </li>
+          <li>
+            <b>Le credenziali no.</b> Token di sincronizzazione e chiave API restano su ogni dispositivo: un
             token che viaggia dentro il proprio stesso database sarebbe un cerchio sciocco oltre che
             pericoloso.
           </li>
@@ -556,9 +595,18 @@ function BackupCard() {
       setEsito(null);
       try {
         const file = await buildFullBackup();
-        download(JSON.stringify(file), backupFileName(), 'application/json');
+        /*
+         * `esporta` LANCIA quando non scrive, ed è tutto il punto.
+         *
+         * Prima qui c'era un `download()` che non poteva fallire: dentro la
+         * WKWebView di iOS non scriveva niente e non lo diceva, quindi la riga
+         * qui sotto dichiarava «Backup scritto» a un utente che non aveva
+         * nessun backup. La frase adesso arriva DOPO una scrittura riuscita, e
+         * dice anche dove è finito il file — che su iPhone non è ovvio.
+         */
+        const dove = await esporta(backupFileName(), JSON.stringify(file), 'application/json');
         setEsito(
-          `Backup scritto: ${imm(file.summary.dives)}, ${file.summary.samples.toLocaleString('it')} campioni, ${file.summary.settings.length} impostazioni.`,
+          `Backup scritto ${dove.dove}: ${imm(file.summary.dives)}, ${file.summary.samples.toLocaleString('it')} campioni, ${file.summary.settings.length} impostazioni.`,
         );
       } catch (err) {
         setErrore(err instanceof Error ? err.message : String(err));
@@ -636,9 +684,16 @@ function BackupCard() {
         Un file JSON con <b>tutto</b>: immersioni con i profili e i secondi profili, attrezzatura, brevetti,
         piani salvati, analisi generate, obiettivo e periodo. Non lo legge nessun altro programma — quel
         mestiere lo fa l'UDDF qui sopra — e in cambio non perde niente. Le credenziali di sincronizzazione e
-        la chiave API restano fuori: un backup finisce su un disco esterno o in Download, e non deve portarsi
-        dietro i tuoi segreti.
+        la chiave API restano fuori: un backup finisce su un disco esterno, in una cartella condivisa o
+        nell'app File, e non deve portarsi dietro i tuoi segreti.
       </p>
+      {suIOS() && (
+        <p className="card-sub">
+          Su iPhone il file viene scritto nella cartella dell'app dentro <b>File</b> («Sul mio iPhone →
+          MyDiveLog»): da lì lo sposti su iCloud, lo mandi per email o lo passi al Mac. Non finisce nei
+          Download, che su iOS non esistono per le app.
+        </p>
+      )}
 
       <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
         <button
@@ -764,18 +819,6 @@ function BackupCard() {
       </p>
     </div>
   );
-}
-
-function download(text: string, filename: string, type = 'application/xml;charset=utf-8'): void {
-  const blob = new Blob([text], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /**

@@ -61,16 +61,26 @@ export function BottoneConferma({
    */
   useEffect(() => {
     if (!armato) return;
-    const fuori = (e: MouseEvent) => {
+    const fuori = (e: PointerEvent) => {
       if (riquadro.current && !riquadro.current.contains(e.target as Node)) setArmato(false);
     };
     const esc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setArmato(false);
     };
-    document.addEventListener('mousedown', fuori);
+    /*
+     * `pointerdown` e non `mousedown`: col dito il secondo spesso non arriva.
+     *
+     * iOS sintetizza gli eventi del mouse solo sugli elementi che considera
+     * cliccabili — un link, un pulsante, qualcosa con un gestore. Toccare il
+     * testo di una carta, o uno spazio vuoto, non produce nessun `mousedown`,
+     * quindi su iPhone questa via d'uscita non esisteva e la conferma restava
+     * armata: esattamente la condizione che il commento qui sopra descrive come
+     * pericolosa. `pointerdown` arriva per qualunque contatto.
+     */
+    document.addEventListener('pointerdown', fuori);
     document.addEventListener('keydown', esc);
     return () => {
-      document.removeEventListener('mousedown', fuori);
+      document.removeEventListener('pointerdown', fuori);
       document.removeEventListener('keydown', esc);
     };
   }, [armato]);

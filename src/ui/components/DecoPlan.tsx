@@ -20,6 +20,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { InputNumerico } from './InputNumerico';
+import { esporta } from '../esporta';
 import {
   DEFAULT_DECO,
   afterSurfaceInterval,
@@ -324,6 +325,9 @@ export function DecoPlanner({
     [plan, effectiveLevels, gases, settings],
   );
   const [copied, setCopied] = useState(false);
+  /* Dove è finito il foglio: su iPhone non è la cartella Download, e senza
+     dirlo il pulsante sembra non aver fatto niente. */
+  const [salvataggio, setSalvataggio] = useState<string | null>(null);
   useEffect(() => setCopied(false), [tableText]);
 
   // Il piano di un attimo fa, per dire di quanto è cambiato.
@@ -1094,12 +1098,30 @@ export function DecoPlanner({
               {copied ? 'Copiato' : 'Copia'}
             </button>
             <button
-              onClick={() =>
-                downloadText(tableText, `piano-${levels[0]?.depthM ?? 0}m-${levels[0]?.minutes ?? 0}min.txt`)
-              }
+              onClick={() => {
+                void (async () => {
+                  try {
+                    const dove = await esporta(
+                      `piano-${levels[0]?.depthM ?? 0}m-${levels[0]?.minutes ?? 0}min.txt`,
+                      tableText,
+                      'text/plain;charset=utf-8',
+                    );
+                    setSalvataggio(`Salvato ${dove.dove}.`);
+                  } catch (err) {
+                    setSalvataggio(
+                      `Non si è potuto salvare: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                  }
+                })();
+              }}
             >
               Scarica
             </button>
+            {salvataggio && (
+              <span className="muted" style={{ fontSize: 11, alignSelf: 'center' }}>
+                {salvataggio}
+              </span>
+            )}
           </div>
         </div>
 
@@ -1600,19 +1622,6 @@ function Cell({
       style={{ width: 64, textAlign: 'right' }}
     />
   );
-}
-
-/** Scarica un testo come file: il piano finisce dove serve, non solo a schermo. */
-function downloadText(text: string, filename: string): void {
-  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /**

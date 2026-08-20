@@ -26,6 +26,7 @@
  * nessuna credenziale, e un `git push` distratto non ne può portare fuori.
  */
 
+import { BLE_MARKERS_KEY, type DownloadMarker } from '../core/ble/types';
 import type { Dive, Sample } from '../core/model';
 import type { DiveStore } from '../storage';
 import { normaliseDive } from '../storage/repair';
@@ -115,8 +116,36 @@ export interface Tombstone {
  *
  * `analyses`: sono già state pagate a token. Riscaricarle costa una query;
  * rigenerarle costa denaro.
+ *
+ * `gear`: attrezzatura e brevetti. Non arrivano da nessun file — nessun formato
+ * di esportazione li porta — quindi sono l'unico dato dell'archivio che esiste
+ * solo perché qualcuno l'ha scritto a mano. Ricompilarli sul telefono è l'unico
+ * lavoro dell'applicazione che si dovrebbe fare due volte.
+ *
+ * `goal` e `period`: l'obiettivo e la finestra temporale delle statistiche. Non
+ * sono dati, sono il PUNTO DI VISTA da cui si guardano i dati — e proprio per
+ * questo devono essere gli stessi ovunque: con periodi diversi lo stesso
+ * archivio mostra numeri diversi sui due dispositivi, e la scheda di prontezza
+ * dà consigli diversi. Erano le uniche due chiavi presenti nel backup e assenti
+ * di qui.
+ *
+ * `bleMarkers`: fin dove si era arrivati con ciascun computer. Senza, il secondo
+ * dispositivo che si collega rilegge la memoria intera — su BLE sono minuti, non
+ * secondi: centodiciassette immersioni dall'Aladin sono state 204 secondi di
+ * trasferimento. Viaggia in fondo al giro, DOPO le immersioni, ed è l'ordine che
+ * lo rende sicuro: un segnalibro che arrivasse prima direbbe «hai già tutto fino
+ * a qui» a un archivio che quelle immersioni non le ha ancora ricevute.
  */
-const SHARED_SETTINGS = ['gasPlan', 'decoPlan', 'decoPlans', 'analyses', 'gear'] as const;
+const SHARED_SETTINGS = [
+  'gasPlan',
+  'decoPlan',
+  'decoPlans',
+  'analyses',
+  'gear',
+  BLE_MARKERS_KEY,
+  'goal',
+  'period',
+] as const;
 
 /** Quante immersioni per richiesta: i riepiloghi sono piccoli, i profili no. */
 const PUSH_CHUNK = 25;
@@ -132,6 +161,13 @@ export interface SyncReport {
   /** Impostazioni condivise caricate e scaricate. */
   settingsPushed: number;
   settingsPulled: number;
+  /**
+   * Le impostazioni che NON si sono allineate, con il perché.
+   *
+   * Esiste perché il silenzio qui è pericoloso: un'impostazione che non viaggia
+   * assomiglia in tutto e per tutto a un'impostazione che non è mai cambiata.
+   */
+  settingsErrors: string[];
   /** Cancellazioni spedite, e cancellazioni altrui applicate qui. */
   deletionsPushed: number;
   deletionsApplied: number;
@@ -146,13 +182,38 @@ export interface SyncReport {
  * "vince chi sincronizza per ultimo" — cancellerebbe in silenzio il lavoro fatto
  * sull'altro dispositivo.
  */
-async function syncSettings(store: DiveStore, sql: SqlExecutor): Promise<{ pushed: number; pulled: number }> {
+async function syncSettings(
+  store: DiveStore,
+  sql: SqlExecutor,
+): Promise<{ pushed: number; pulled: number; errors: string[] }> {
   let pushed = 0;
   let pulled = 0;
+  const errors: string[] = [];
   const { rows } = await sql.execute('SELECT key, updated_at, doc FROM settings');
   const remote = new Map(rows.map((r) => [String(r.key), { at: String(r.updated_at), doc: String(r.doc) }]));
 
   for (const key of SHARED_SETTINGS) {
+    try {
+      await unaImpostazione(key);
+    } catch (err) {
+      /*
+       * UNA CHIAVE CHE FALLISCE NON FERMA LE ALTRE, E SI DEVE VEDERE.
+       *
+       * Prima l'intero giro delle impostazioni stava dentro un
+       * `.catch(() => ({ pushed: 0, pulled: 0 }))`: un solo documento
+       * malformato — un `JSON.parse` che lancia — interrompeva tutto, comprese
+       * le chiavi che venivano dopo nell'elenco, e il resoconto diceva
+       * «0 caricate, 0 scaricate», che è indistinguibile da «non c'era niente
+       * da fare». Attrezzatura, piani e analisi avrebbero smesso di viaggiare
+       * senza un segnale: è esattamente il modo in cui si è già perso del tempo
+       * con `gear`, che non si sincronizzava e non lo diceva.
+       */
+      errors.push(`${key}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return { pushed, pulled, errors };
+
+  async function unaImpostazione(key: (typeof SHARED_SETTINGS)[number]): Promise<void> {
     const local = await store.getSetting<unknown>(key);
     const localAt = (await store.getSetting<string>(`${key}:at`)) ?? '';
     const there = remote.get(key);
@@ -174,8 +235,13 @@ async function syncSettings(store: DiveStore, sql: SqlExecutor): Promise<{ pushe
     // la più recente»: chi salvava un piano su un dispositivo e uno sull'altro
     // senza sincronizzare in mezzo ne perdeva uno, da entrambe le parti, senza
     // avviso e senza cestino.
-    if ((key === 'decoPlans' || key === 'gear') && there) {
-      const merged = mergeKeyed(local, JSON.parse(there.doc), key === 'gear' ? 'id' : 'name');
+    if ((key === 'decoPlans' || key === 'gear' || key === BLE_MARKERS_KEY) && there) {
+      const merged =
+        key === 'gear'
+          ? fondiAttrezzatura(local, JSON.parse(there.doc))
+          : key === BLE_MARKERS_KEY
+            ? fondiSegnalibri(local, JSON.parse(there.doc))
+            : mergeKeyed(local, JSON.parse(there.doc), 'name');
       if (merged.changedLocally) {
         await store.setSetting(key, merged.value);
         await store.setSetting(`${key}:at`, new Date().toISOString());
@@ -189,7 +255,7 @@ async function syncSettings(store: DiveStore, sql: SqlExecutor): Promise<{ pushe
         );
         pushed++;
       }
-      continue;
+      return;
     }
 
     if (key === 'analyses' && there) {
@@ -207,7 +273,7 @@ async function syncSettings(store: DiveStore, sql: SqlExecutor): Promise<{ pushe
         );
         pushed++;
       }
-      continue;
+      return;
     }
 
     if (local !== undefined && (!there || localAt > there.at)) {
@@ -224,7 +290,6 @@ async function syncSettings(store: DiveStore, sql: SqlExecutor): Promise<{ pushe
       pulled++;
     }
   }
-  return { pushed, pulled };
 }
 
 /** Analisi vista dalla sincronizzazione: solo il timbro, il resto non la riguarda. */
@@ -410,6 +475,89 @@ export function mergeKeyed(
     if (!remote.some((r) => String(r[keyField]) === String(x[keyField]))) changedRemotely = true;
 
   return { value: [...byKey.values()], changedLocally, changedRemotely };
+}
+
+/**
+ * Fonde due archivi di attrezzatura.
+ *
+ * QUI STAVA IL GUASTO, e non si vedeva perché non produceva nessun errore.
+ * `gear` era nella lista delle impostazioni condivise, ma passava per
+ * `mergeKeyed`, che si aspetta un ELENCO. `gear` non è un elenco: è un oggetto
+ * con due elenchi dentro, `equipment` e `certifications`. `mergeKeyed` non
+ * trovava un array, ne costruiva uno vuoto, e concludeva serenamente che non
+ * c'era niente da fare in nessuna delle due direzioni. Risultato: attrezzatura e
+ * brevetti non hanno MAI viaggiato fra due dispositivi, e la sincronizzazione
+ * dichiarava di aver fatto il suo giro. È il tipo di difetto peggiore — quello
+ * che si manifesta come assenza — e l'ha trovato l'unica cosa che poteva
+ * trovarlo, cioè usare l'app su due dispositivi veri.
+ *
+ * La regola è la stessa dei piani salvati, applicata due volte: si fondono per
+ * identificativo, e a parità di identificativo vince il timbro `savedAt` più
+ * recente. Nessun pezzo può sparire perché l'altro dispositivo non lo conosceva.
+ */
+export function fondiAttrezzatura(
+  localRaw: unknown,
+  remoteRaw: unknown,
+): { value: unknown; changedLocally: boolean; changedRemotely: boolean } {
+  const l = (localRaw ?? {}) as { equipment?: unknown; certifications?: unknown };
+  const r = (remoteRaw ?? {}) as { equipment?: unknown; certifications?: unknown };
+  const attrezzi = mergeKeyed(l.equipment, r.equipment, 'id');
+  const brevetti = mergeKeyed(l.certifications, r.certifications, 'id');
+  return {
+    value: { equipment: attrezzi.value, certifications: brevetti.value },
+    changedLocally: attrezzi.changedLocally || brevetti.changedLocally,
+    changedRemotely: attrezzi.changedRemotely || brevetti.changedRemotely,
+  };
+}
+
+/**
+ * Fonde i segnalibri di scarico, uno per computer.
+ *
+ * PERCHÉ VINCE LA DATA E NON L'IMPRONTA. Due impronte non si possono
+ * confrontare: sono chiavi opache che il computer subacqueo assegna alle sue
+ * immersioni, e da due di esse non si ricava quale sia più avanti. La data dello
+ * scarico invece sì, e la deduzione regge su una proprietà del dispositivo: la
+ * memoria di un computer subacqueo si allunga in fondo e non si riscrive nel
+ * mezzo. Uno scarico completo fatto DOPO ha quindi letto tutto quello che aveva
+ * letto quello fatto prima, e qualcosa in più. Il segnalibro con la data più
+ * recente è sempre almeno tanto avanti quanto l'altro.
+ *
+ * E vale solo per gli scarichi COMPLETI: chi scrive il segnalibro lo fa
+ * unicamente a trasferimento finito (vedi `BleDownload`), quindi qui non
+ * arrivano mai segnalibri parziali da confrontare.
+ *
+ * Un segnalibro con impronta vuota è un «dimentica» — vedi `forgetBleMarker`.
+ * Viaggia come gli altri e con la sua data, altrimenti chiedere di riscaricare
+ * tutto su un dispositivo verrebbe annullato dal primo allineamento con
+ * l'altro, che rimanderebbe indietro il segnalibro vecchio.
+ */
+export function fondiSegnalibri(
+  localRaw: unknown,
+  remoteRaw: unknown,
+): { value: Record<string, DownloadMarker>; changedLocally: boolean; changedRemotely: boolean } {
+  const comeMappa = (v: unknown): Record<string, DownloadMarker> =>
+    v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, DownloadMarker>) : {};
+  const local = comeMappa(localRaw);
+  const remote = comeMappa(remoteRaw);
+  const value: Record<string, DownloadMarker> = { ...local };
+  let changedLocally = false;
+  let changedRemotely = false;
+
+  for (const [chiave, loro] of Object.entries(remote)) {
+    const mio = local[chiave];
+    if (!mio) {
+      value[chiave] = loro;
+      changedLocally = true;
+    } else if ((loro.at ?? '') > (mio.at ?? '')) {
+      value[chiave] = loro;
+      changedLocally = true;
+    } else if (JSON.stringify(mio) !== JSON.stringify(loro)) {
+      changedRemotely = true;
+    }
+  }
+  for (const chiave of Object.keys(local)) if (!(chiave in remote)) changedRemotely = true;
+
+  return { value, changedLocally, changedRemotely };
 }
 
 export async function ensureRemoteSchema(sql: SqlExecutor): Promise<void> {
@@ -644,7 +792,11 @@ export async function syncArchive(
   }
 
   const total = (await store.listDives()).length;
-  const settings = await syncSettings(store, sql).catch(() => ({ pushed: 0, pulled: 0 }));
+  const settings = await syncSettings(store, sql).catch((err) => ({
+    pushed: 0,
+    pulled: 0,
+    errors: [`impostazioni: ${err instanceof Error ? err.message : String(err)}`],
+  }));
 
   return {
     plan,
@@ -652,6 +804,7 @@ export async function syncArchive(
     deletionsApplied: deleted.applied,
     settingsPushed: settings.pushed,
     settingsPulled: settings.pulled,
+    settingsErrors: settings.errors,
     pushed,
     pulled,
     pushedProfiles,

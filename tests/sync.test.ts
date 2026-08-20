@@ -32,6 +32,9 @@ import {
   type SqlExecutor,
   mergeAnalyses,
   mergeKeyed,
+  fondiAttrezzatura,
+  fondiSegnalibri,
+  ensureRemoteSchema,
   TOMBSTONE_KEY,
 } from '../src/sync/turso';
 import { TRASH_KEY } from '../src/storage/trash';
@@ -701,5 +704,226 @@ describe('difetti trovati dalla revisione', () => {
     const senzaAlt = memoryStore([dive('y', { samples: profile(200) })]);
     await syncArchive(senzaAlt, sql);
     expect(await senzaAlt.getAltSamples('y')).toHaveLength(600);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Attrezzatura e segnalibri fra due dispositivi
+// ---------------------------------------------------------------------------
+
+/**
+ * Questi due blocchi esistono per un difetto trovato usando l'app, non
+ * leggendola: l'attrezzatura compilata sul Mac non compariva su iPhone, e un
+ * computer subacqueo collegato al telefono avrebbe riletto la memoria intera.
+ *
+ * Il primo era invisibile per costruzione — la sincronizzazione girava, non
+ * segnalava niente e non spostava niente — quindi il test non verifica «non
+ * lancia eccezioni» ma **che il pezzo arrivi davvero dall'altra parte**.
+ */
+describe('attrezzatura e brevetti attraverso la sincronizzazione', () => {
+  const attrezzo = (id: string, name: string, savedAt: string) => ({
+    id,
+    name,
+    kind: 'suit',
+    savedAt,
+  });
+  const brevetto = (id: string, name: string, savedAt: string) => ({ id, name, agency: 'PADI', savedAt });
+
+  it('porta su quello del Mac e giù quello del telefono, senza perdere niente', async () => {
+    const sql = sqliteExecutor();
+
+    const mac = memoryStore([dive('a')]);
+    await mac.setSetting('gear', {
+      equipment: [attrezzo('e1', 'Muta 7 mm', '2026-01-01T00:00:00Z')],
+      certifications: [brevetto('c1', 'Advanced', '2026-01-01T00:00:00Z')],
+    });
+    await mac.setSetting('gear:at', '2026-01-01T00:00:00Z');
+    await syncArchive(mac, sql);
+
+    const telefono = memoryStore([]);
+    await telefono.setSetting('gear', {
+      equipment: [attrezzo('e2', 'Stagna', '2026-02-01T00:00:00Z')],
+      certifications: [],
+    });
+    await telefono.setSetting('gear:at', '2026-02-01T00:00:00Z');
+    await syncArchive(telefono, sql);
+
+    const quaggiu = (await telefono.getSetting<{
+      equipment: { id: string }[];
+      certifications: { id: string }[];
+    }>('gear'))!;
+    expect(quaggiu.equipment.map((e) => e.id).sort()).toEqual(['e1', 'e2']);
+    expect(quaggiu.certifications.map((c) => c.id)).toEqual(['c1']);
+
+    // …e il pezzo del telefono deve risalire, altrimenti il Mac lo perderebbe
+    // al prossimo giro.
+    await syncArchive(mac, sql);
+    const lassu = (await mac.getSetting<{ equipment: { id: string }[] }>('gear'))!;
+    expect(lassu.equipment.map((e) => e.id).sort()).toEqual(['e1', 'e2']);
+  });
+
+  it('a parità di identificativo vince il timbro più recente', async () => {
+    const sql = sqliteExecutor();
+    const mac = memoryStore([]);
+    await mac.setSetting('gear', {
+      equipment: [attrezzo('e1', 'Muta 5 mm', '2026-01-01T00:00:00Z')],
+      certifications: [],
+    });
+    await mac.setSetting('gear:at', '2026-01-01T00:00:00Z');
+    await syncArchive(mac, sql);
+
+    const telefono = memoryStore([]);
+    await telefono.setSetting('gear', {
+      equipment: [attrezzo('e1', 'Muta 7 mm', '2026-03-01T00:00:00Z')],
+      certifications: [],
+    });
+    await telefono.setSetting('gear:at', '2026-03-01T00:00:00Z');
+    await syncArchive(telefono, sql);
+    await syncArchive(mac, sql);
+
+    const lassu = (await mac.getSetting<{ equipment: { name: string }[] }>('gear'))!;
+    expect(lassu.equipment).toHaveLength(1);
+    expect(lassu.equipment[0].name).toBe('Muta 7 mm');
+  });
+});
+
+describe('segnalibri di scarico fra due dispositivi', () => {
+  const MARKERS = 'bleMarkers';
+
+  it('il telefono eredita fin dove era arrivato il Mac', async () => {
+    const sql = sqliteExecutor();
+    const mac = memoryStore([dive('a')]);
+    await mac.setSetting(MARKERS, {
+      'uwatec:63034502': { fingerprint: '117', at: '2026-08-20T10:00:00Z', dives: 117, model: 'Aladin' },
+    });
+    await mac.setSetting(`${MARKERS}:at`, '2026-08-20T10:00:00Z');
+    await syncArchive(mac, sql);
+
+    const telefono = memoryStore([]);
+    await syncArchive(telefono, sql);
+
+    const qui = (await telefono.getSetting<Record<string, { fingerprint: string }>>(MARKERS))!;
+    expect(qui['uwatec:63034502'].fingerprint).toBe('117');
+  });
+
+  it('fra due segnalibri dello stesso computer vince quello scaricato più tardi', () => {
+    const vecchio = { 'uwatec:1': { fingerprint: '100', at: '2026-08-01T00:00:00Z', dives: 100 } };
+    const nuovo = { 'uwatec:1': { fingerprint: '117', at: '2026-08-20T00:00:00Z', dives: 117 } };
+    expect(fondiSegnalibri(vecchio, nuovo).value['uwatec:1'].fingerprint).toBe('117');
+    expect(fondiSegnalibri(nuovo, vecchio).value['uwatec:1'].fingerprint).toBe('117');
+    // Il verso in cui il locale è già avanti deve chiedere di RISALIRE, non di
+    // scendere: altrimenti il segnalibro buono non lascerebbe mai il Mac.
+    expect(fondiSegnalibri(nuovo, vecchio).changedRemotely).toBe(true);
+    expect(fondiSegnalibri(nuovo, vecchio).changedLocally).toBe(false);
+  });
+
+  it("«dimentica» si propaga invece di essere annullato dall'altro dispositivo", () => {
+    const altrove = { 'uwatec:1': { fingerprint: '117', at: '2026-08-20T00:00:00Z', dives: 117 } };
+    const dimenticato = { 'uwatec:1': { fingerprint: '', at: '2026-08-21T00:00:00Z', dives: 0 } };
+    const fusi = fondiSegnalibri(dimenticato, altrove);
+    expect(fusi.value['uwatec:1'].fingerprint).toBe('');
+    expect(fusi.changedRemotely).toBe(true);
+  });
+
+  it('computer diversi non si sovrascrivono a vicenda', () => {
+    const a = { 'uwatec:1': { fingerprint: 'x', at: '2026-08-01T00:00:00Z', dives: 3 } };
+    const b = { 'shearwater:2': { fingerprint: 'y', at: '2026-08-02T00:00:00Z', dives: 4 } };
+    expect(Object.keys(fondiSegnalibri(a, b).value).sort()).toEqual(['shearwater:2', 'uwatec:1']);
+  });
+});
+
+describe("fusione dell'attrezzatura, casi limite", () => {
+  it("un archivio mancante o malformato non cancella quello che c'è", () => {
+    const mio = { equipment: [{ id: 'e1', savedAt: '2026-01-01T00:00:00Z' }], certifications: [] };
+    expect(fondiAttrezzatura(mio, undefined).value).toEqual({
+      equipment: mio.equipment,
+      certifications: [],
+    });
+    expect(fondiAttrezzatura(mio, 'spazzatura').value).toEqual({
+      equipment: mio.equipment,
+      certifications: [],
+    });
+    expect(fondiAttrezzatura(undefined, mio).value).toEqual({
+      equipment: mio.equipment,
+      certifications: [],
+    });
+  });
+
+  it('i piani salvati si fondono per NOME, che è la loro unica chiave', () => {
+    const a = [{ name: 'Trimix 60', savedAt: '2026-01-01T00:00:00Z', state: 1 }];
+    const b = [{ name: 'Nitrox 32', savedAt: '2026-01-02T00:00:00Z', state: 2 }];
+    const fusi = mergeKeyed(a, b, 'name').value as { name: string }[];
+    expect(fusi.map((p) => p.name).sort()).toEqual(['Nitrox 32', 'Trimix 60']);
+    // Con la chiave sbagliata collassavano in uno solo: è il difetto che il
+    // ripristino di un backup aveva.
+    expect((mergeKeyed(a, b, 'id').value as unknown[]).length).toBe(1);
+  });
+});
+
+describe('obiettivo e periodo, il punto di vista sui dati', () => {
+  /*
+   * Erano le uniche due chiavi presenti nel backup e assenti dalla
+   * sincronizzazione. Non sono dati: sono la finestra da cui si guardano i
+   * dati, e con finestre diverse lo stesso archivio racconta numeri diversi sui
+   * due dispositivi — che è peggio di un dato mancante, perché sembra vero.
+   */
+  it('arrivano sul secondo dispositivo', async () => {
+    const sql = sqliteExecutor();
+    const mac = memoryStore([dive('a')]);
+    await mac.setSetting('goal', 'deep');
+    await mac.setSetting('goal:at', '2026-08-20T10:00:00Z');
+    await mac.setSetting('period', 'all');
+    await mac.setSetting('period:at', '2026-08-20T10:00:00Z');
+    await syncArchive(mac, sql);
+
+    const telefono = memoryStore([]);
+    await syncArchive(telefono, sql);
+    expect(await telefono.getSetting('goal')).toBe('deep');
+    expect(await telefono.getSetting('period')).toBe('all');
+  });
+
+  it('senza timbro locale il valore remoto vincerebbe sempre: il timbro c’è', async () => {
+    const sql = sqliteExecutor();
+    const a = memoryStore([]);
+    await a.setSetting('period', '6m');
+    await a.setSetting('period:at', '2026-08-01T00:00:00Z');
+    await syncArchive(a, sql);
+
+    // Il secondo dispositivo sceglie DOPO: deve vincere lui, in entrambe le
+    // direzioni e senza che il primo debba fare niente di speciale.
+    const b = memoryStore([]);
+    await b.setSetting('period', '24m');
+    await b.setSetting('period:at', '2026-08-20T00:00:00Z');
+    await syncArchive(b, sql);
+    await syncArchive(a, sql);
+    expect(await a.getSetting('period')).toBe('24m');
+  });
+});
+
+describe('un’impostazione rotta non ferma le altre', () => {
+  it('segnala la chiave che ha fallito e allinea comunque il resto', async () => {
+    const sql = sqliteExecutor();
+    await ensureRemoteSchema(sql);
+    // Un documento malformato sul remoto: `JSON.parse` lancerà su questa chiave.
+    await sql.execute('INSERT INTO settings (key, updated_at, doc) VALUES (?, ?, ?)', [
+      'gear',
+      '2026-08-20T10:00:00Z',
+      '{ questo non è JSON',
+    ]);
+    await sql.execute('INSERT INTO settings (key, updated_at, doc) VALUES (?, ?, ?)', [
+      'period',
+      '2026-08-20T10:00:00Z',
+      JSON.stringify('all'),
+    ]);
+
+    const store = memoryStore([dive('a')]);
+    const report = await syncArchive(store, sql);
+
+    expect(report.settingsErrors.some((e) => e.startsWith('gear:'))).toBe(true);
+    // `period` viene DOPO `gear` nell'elenco: prima l'intero giro si fermava
+    // alla prima eccezione e questa non veniva nemmeno tentata.
+    expect(await store.getSetting('period')).toBe('all');
+    // E le immersioni non c'entrano niente: quelle devono essere passate.
+    expect(report.pushed).toBe(1);
   });
 });
