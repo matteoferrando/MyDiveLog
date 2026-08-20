@@ -220,3 +220,63 @@ describe('scelta del profilo fra due computer', () => {
     expect(merged.samples).toHaveLength(1200);
   });
 });
+
+/*
+ * L'IMPRONTA DEL PROFILO DEVE ARRIVARE ANCHE SULLE RIGHE GIÀ IN ARCHIVIO.
+ *
+ * Il caso è quello vero: l'archivio conteneva le immersioni del file di LogTRAK
+ * importate quando il lettore ancora non calcolava l'impronta. Quelle righe un
+ * `computer` ce l'avevano, e per questo il vecchio `takeIfEmpty` non le toccava:
+ * reimportare lo stesso file col lettore nuovo non scriveva l'impronta, e
+ * l'unico criterio capace di riconoscere una copia con la data corretta a mano
+ * restava spento proprio dove serviva.
+ */
+describe('il blocco computer si fonde campo per campo', () => {
+  const conComputer = (over: Partial<Dive['computer']> = {}): Dive => ({
+    ...base(),
+    computer: { model: 'Scubapro Aladin Sport Matrix', serial: '63034502', ...over },
+  });
+
+  it('scrive l’impronta su un’immersione che aveva già un computer senza impronta', () => {
+    const vecchia = conComputer();
+    const nuova = conComputer({ profileFingerprint: 'f1-b7b8c6f2', firmware: '2.1' });
+    const fusa = mergeDive(vecchia, nuova);
+    expect(fusa.computer?.profileFingerprint).toBe('f1-b7b8c6f2');
+    expect(fusa.computer?.firmware).toBe('2.1');
+    // e il modello di partenza resta quello che era
+    expect(fusa.computer?.serial).toBe('63034502');
+  });
+
+  it('non sovrascrive un campo che c’è già', () => {
+    const vecchia = conComputer({ firmware: '2.0' });
+    const fusa = mergeDive(vecchia, conComputer({ firmware: '2.1' }));
+    expect(fusa.computer?.firmware).toBe('2.0');
+  });
+
+  it('tiene separati due computer diversi sulla stessa immersione', () => {
+    const aladin = conComputer({ profileFingerprint: 'aaa' });
+    const peregrine: Dive = {
+      ...base(),
+      computer: { model: 'Shearwater Peregrine', serial: '99999', profileFingerprint: 'bbb' },
+    };
+    const fusa = mergeDive(aladin, peregrine);
+    expect(fusa.computer?.profileFingerprint).toBe('aaa');
+    expect(fusa.otherComputers?.some((c) => c.serial === '99999')).toBe(true);
+  });
+
+  it('e dopo la fusione le due copie si riconoscono anche a mesi di distanza', () => {
+    // la data corretta a mano nell'applicazione: 118 giorni di scarto
+    const daFile: Dive = {
+      ...conComputer({ profileFingerprint: 'f1' }),
+      startTime: '2026-02-14T09:52:00.000Z',
+    };
+    const daBluetooth: Dive = {
+      ...conComputer({ profileFingerprint: 'f1' }),
+      id: 'y',
+      startTime: '2025-10-19T09:52:00.000Z',
+    };
+    expect(likelySame(daFile, daBluetooth)).toBe(true);
+    const dopo = mergeImports([daFile], [daBluetooth]);
+    expect(dopo.dives).toHaveLength(1);
+  });
+});

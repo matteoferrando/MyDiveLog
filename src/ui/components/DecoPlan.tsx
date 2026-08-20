@@ -19,6 +19,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { InputNumerico } from './InputNumerico';
 import {
   DEFAULT_DECO,
   afterSurfaceInterval,
@@ -1563,17 +1564,9 @@ function NumField({
       <span className="planner-label">
         {label} {unit && <span className="muted">({unit})</span>}
       </span>
-      <input
-        type="number"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => {
-          const v = Number(e.target.value);
-          if (Number.isFinite(v)) onChange(Math.min(max, Math.max(min, v)));
-        }}
-      />
+      {/* Vedi `InputNumerico`: la limitazione a ogni tasto trasformava «18» in
+          «38», e qui sarebbe una quota di livello o una profondità di cambio. */}
+      <InputNumerico value={value} onChange={onChange} min={min} max={max} step={step} />
     </label>
   );
 }
@@ -1598,16 +1591,12 @@ function Cell({
   label: string;
 }) {
   return (
-    <input
-      type="number"
-      aria-label={label}
+    <InputNumerico
+      ariaLabel={label}
+      value={value}
+      onChange={onChange}
       min={min}
       max={max}
-      value={value}
-      onChange={(e) => {
-        const v = Number(e.target.value);
-        if (Number.isFinite(v)) onChange(Math.min(max, Math.max(min, v)));
-      }}
       style={{ width: 64, textAlign: 'right' }}
     />
   );

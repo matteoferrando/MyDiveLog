@@ -283,7 +283,20 @@ function readDive(
     notes: text(child(child(after, 'notes'), 'para')) ?? text(child(after, 'notes')),
     mode,
     cylinders,
-    salinity: 'salt',
+    /*
+     * La densità quando c'è, salata quando manca.
+     *
+     * `'salt'` fisso trasformava ogni immersione in lago in un'immersione in
+     * mare — anche quelle che questa stessa applicazione aveva appena
+     * esportato. La soglia è a metà fra i 1000 kg/m³ dell'acqua dolce e i 1030
+     * della salata: qualunque valore intermedio scritto da un altro programma
+     * cade dalla parte giusta.
+     */
+    salinity: (() => {
+      const densita = num(child(before, 'density'));
+      if (densita === undefined) return 'salt';
+      return densita < 1015 ? 'fresh' : 'salt';
+    })(),
     surfacePressureBar: mapDefined(num(child(before, 'surfacepressure')), pascalToBar),
     surfaceIntervalS: num(child(child(before, 'surfaceintervalbeforedive'), 'passedtime')),
     computer: base.computer,

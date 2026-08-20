@@ -204,7 +204,7 @@ function round(e: OxygenExposure): OxygenExposure {
 // ---------------------------------------------------------------------------
 
 export interface OxygenDay {
-  /** Giorno solare, `YYYY-MM-DD` in UTC come il resto dell'app. */
+  /** Giorno solare del LUOGO dell'immersione, `YYYY-MM-DD`. Vedi `giornoLocale`. */
   date: string;
   dives: number;
   /** OTU sommate: non hanno nessun recupero, né in giornata né fra un giorno e l'altro. */
@@ -238,8 +238,35 @@ export interface OxygenLoad {
  * accumulano e basta, e mordono nelle settimane di immersioni consecutive. Un'app
  * che ne mostrasse uno solo racconterebbe metà della storia.
  */
+/**
+ * Il giorno di calendario del LUOGO dell'immersione, `YYYY-MM-DD`.
+ *
+ * IL DIFETTO CHE CHIUDE. La giornata si costruiva sui primi dieci caratteri
+ * dell'istante UTC, e una giornata di immersioni la mezzanotte UTC la
+ * attraversa spesso: alle Maldive, a Kiritimati, ai Caraibi. Quattro immersioni
+ * dello stesso giovedì diventavano due giornate da 160 OTU l'una — sotto la
+ * dose di riferimento — invece di una da 320, che è sopra. Il coach dichiarava
+ * la giornata peggiore su una data in cui il logbook non ha nessuna immersione,
+ * e `daysOverOtu300` restava a zero. **L'errore è sempre verso il basso**:
+ * spezzare una giornata non può che ridurre il picco e la somma, e questo è un
+ * limite di esposizione, non una statistica.
+ *
+ * La stessa regola vale già in `analysis/gear.ts` per il conteggio delle
+ * immersioni dall'ultima revisione, e per gli stessi motivi.
+ */
+function giornoLocale(d: { startTime: string; utcOffsetMinutes?: number }): string {
+  const t = Date.parse(d.startTime);
+  if (Number.isNaN(t)) return d.startTime.slice(0, 10);
+  return new Date(t + (d.utcOffsetMinutes ?? 0) * 60_000).toISOString().slice(0, 10);
+}
+
 export function oxygenLoad(
-  dives: { startTime: string; durationS: number; metrics?: { cnsPct?: number; otu?: number } }[],
+  dives: {
+    startTime: string;
+    durationS: number;
+    utcOffsetMinutes?: number;
+    metrics?: { cnsPct?: number; otu?: number };
+  }[],
 ): OxygenLoad {
   const withData = dives
     .filter((d) => d.metrics?.cnsPct !== undefined || d.metrics?.otu !== undefined)
@@ -247,7 +274,7 @@ export function oxygenLoad(
 
   const byDay = new Map<string, typeof withData>();
   for (const d of withData) {
-    const key = d.startTime.slice(0, 10);
+    const key = giornoLocale(d);
     const list = byDay.get(key) ?? [];
     list.push(d);
     byDay.set(key, list);

@@ -37,7 +37,7 @@ import {
 } from '../core/analysis/deco';
 import { formatDuration } from '../core/units';
 import { conditionsOf, condizioniTesto, visibilitaTesto } from '../core/conditions';
-import { zavorraTotaleKg } from '../core/analysis/gear';
+import { piastraDellImmersione, zavorraTotaleKg, type Equipment } from '../core/analysis/gear';
 
 /** Quanti punti del profilo entrano nel contesto di una singola immersione. */
 const PROFILE_POINTS = 48;
@@ -226,7 +226,17 @@ function profileTable(reduced: Sample[], originali: number) {
 }
 
 /** Contesto di una singola immersione. */
-export function diveContext(dive: Dive): string {
+export function diveContext(
+  dive: Dive,
+  /*
+   * L'inventario serve solo a una cosa: recuperare i chili della piastra sulle
+   * immersioni che hanno il GAV scelto dall'elenco ma non il peso scritto
+   * sopra. Senza, il modello riceve una zavorra dimezzata proprio sulle
+   * immersioni tecniche. Facoltativo perché il contesto deve poter essere
+   * costruito anche da chi l'inventario non ce l'ha sottomano.
+   */
+  inventario?: Pick<Equipment, 'id' | 'plateKg' | 'backplateKg'>[],
+): string {
   const m = dive.metrics;
   const samples = dive.samples ?? [];
   const reduced = reduceProfile(samples);
@@ -264,10 +274,10 @@ export function diveContext(dive: Dive): string {
        * un'affermazione falsa ripetuta su ogni immersione.
        */
       zavorraTotaleKg:
-        dive.weightKg === undefined && dive.gear?.backplateKg === undefined
+        dive.weightKg === undefined && piastraDellImmersione(dive, inventario) === undefined
           ? null
-          : (n1(zavorraTotaleKg(dive)) ?? null),
-      diCuiPiastraKg: n1(dive.gear?.backplateKg) ?? null,
+          : (n1(zavorraTotaleKg(dive, inventario)) ?? null),
+      diCuiPiastraKg: n1(piastraDellImmersione(dive, inventario)) ?? null,
       muta: dive.gear?.suit?.name ?? dive.suit ?? null,
       erogatori: dive.gear?.regulators?.map((r) => r.name) ?? null,
       gav: dive.gear?.bcd?.name ?? null,
@@ -462,6 +472,8 @@ export function archiveContext(
   dives: Dive[],
   aggregates: Aggregates,
   windowLabel = 'tutto l’archivio',
+  /** Vedi `diveContext`: recupera la piastra dove l'immersione non la porta. */
+  inventario?: Pick<Equipment, 'id' | 'plateKg' | 'backplateKg'>[],
 ): string {
   const a = aggregates;
   const rows = [...dives]
@@ -516,7 +528,9 @@ export function archiveContext(
       d.metrics?.quality.sampleIntervalS ?? null,
       // Il TOTALE, piastra compresa: è quello che tira giù, ed è la grandezza
       // di cui il prompt chiede la correlazione con l'assetto.
-      d.weightKg === undefined && d.gear?.backplateKg === undefined ? null : (n1(zavorraTotaleKg(d)) ?? null),
+      d.weightKg === undefined && piastraDellImmersione(d, inventario) === undefined
+        ? null
+        : (n1(zavorraTotaleKg(d, inventario)) ?? null),
       // Lo stato del mare come codice breve: nella tabella compatta una colonna
       // vale una parola, e senza di essa il modello non può accorgersi che le
       // immersioni peggiori sono tutte dello stesso giorno di mare agitato.

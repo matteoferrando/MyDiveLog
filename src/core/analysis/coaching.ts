@@ -535,6 +535,19 @@ const ruleDataQuality: Rule = (agg, dives) => {
   const missingVolume = dives.filter(
     (d) => d.metrics?.quality?.hasTankPressure && !d.metrics.quality.hasCylinderVolume,
   ).length;
+  /*
+   * LE PRESSIONI MANCANTI SI CONTANO, non si ricavano per sottrazione.
+   *
+   * `noGas - missingVolume` veniva descritto come «immersioni che non hanno
+   * affatto le pressioni», ma `noGas` comprende anche quelle che hanno pressioni
+   * E volume e a cui manca la profondità media. Su sei immersioni senza profilo
+   * ma con 12 L, 200 → 60 bar, la scheda diceva «6 su 6 non hanno affatto le
+   * pressioni» e consigliava di compilare i volumi — che c'erano già, e che non
+   * sbloccavano niente. La causa vera, la profondità media ignota, `metrics` la
+   * scrive già nel caveat giusto.
+   */
+  const senzaPressioni = dives.filter((d) => !d.metrics?.quality?.hasTankPressure).length;
+  const altraCausa = noGas - senzaPressioni - missingVolume;
 
   if (noGas / agg.count < 0.3 && noProfile / agg.count < 0.3) return null;
 
@@ -544,6 +557,12 @@ const ruleDataQuality: Rule = (agg, dives) => {
   ];
   if (missingVolume > 0) {
     evidence.push(`${missingVolume} immersioni hanno la pressione ma non il volume della bombola.`);
+  }
+  if (senzaPressioni > 0) evidence.push(`${senzaPressioni} immersioni non hanno le pressioni.`);
+  if (altraCausa > 0) {
+    evidence.push(
+      `${altraCausa} hanno pressioni e volume ma manca la profondità media, che serve al calcolo.`,
+    );
   }
 
   return {
@@ -555,10 +574,15 @@ const ruleDataQuality: Rule = (agg, dives) => {
     // sull'archivio vero 33 immersioni su 35 sono senza consumo perché manca la
     // PRESSIONE, e compilare i volumi ne sbloccava due. Adesso la causa dichiarata
     // è quella che pesa davvero, e il guadagno promesso è quantificato.
+    // La causa dichiarata è quella che pesa davvero, contata e non dedotta, e il
+    // guadagno promesso è quantificato: consigliare di compilare i volumi
+    // quando i volumi ci sono già è un consiglio che non sblocca niente.
     detail:
-      missingVolume >= noGas / 2
-        ? `Manca soprattutto il volume delle bombole: ${missingVolume} immersioni hanno le pressioni ma non il volume. È un campo che si compila una volta per configurazione, e su quelle sblocca il consumo in L/min — senza, il logbook può dire solo bar/min, che non è confrontabile fra bombole diverse.`
-        : `Mancano soprattutto le pressioni: ${noGas - missingVolume} immersioni su ${agg.count} non le hanno affatto, e senza pressione iniziale e finale il consumo non esiste. Compilare i volumi sbloccherebbe le ${missingVolume} che le pressioni ce l'hanno già.`,
+      altraCausa >= senzaPressioni && altraCausa >= missingVolume
+        ? `Manca soprattutto la profondità media: ${altraCausa} immersioni hanno pressioni e volume ma nessun profilo da cui ricavarla, e senza quella il consumo in L/min non si può calcolare. Si può scriverla a mano nella scheda dell'immersione.`
+        : missingVolume >= senzaPressioni
+          ? `Manca soprattutto il volume delle bombole: ${missingVolume} immersioni hanno le pressioni ma non il volume. È un campo che si compila una volta per configurazione, e su quelle sblocca il consumo in L/min — senza, il logbook può dire solo bar/min, che non è confrontabile fra bombole diverse.`
+          : `Mancano soprattutto le pressioni: ${senzaPressioni} immersioni su ${agg.count} non le hanno, e senza pressione iniziale e finale il consumo non esiste.${missingVolume > 0 ? ` Compilare i volumi sbloccherebbe le ${missingVolume} che le pressioni ce l'hanno già.` : ''}`,
     evidence,
     target: 'Volume bombola e pressione iniziale/finale su tutte le immersioni future.',
     drills: [
@@ -1050,25 +1074,66 @@ const RULES: Rule[] = [
  * l'agenzia e con l'istruttore. Servono a rispondere alla domanda "sono pronto
  * per il prossimo passo?" con dei numeri invece che con una sensazione.
  */
-function readinessFor(goal: Goal, agg: Aggregates): Readiness {
+/**
+ * I conteggi CUMULATIVI, che non dipendono dalla finestra scelta a schermo.
+ *
+ * IL DIFETTO CHE CHIUDE. La scheda di prontezza riceveva le aggregate della
+ * finestra, e la finestra predefinita è dodici mesi: «Immersioni registrate» —
+ * un criterio di brevetto, cioè il totale storico — mostrava 14 invece di 120, e
+ * la prontezza per il tecnico crollava dal 44% al 22%. Con la finestra a sei
+ * mesi, la riga «Immersioni negli ultimi 12 mesi» mostrava un conteggio su sei.
+ * L'interfaccia non nomina il periodo accanto ai criteri, quindi non c'era modo
+ * di accorgersene. `ruleCurrency` aveva già risolto lo stesso problema per il
+ * testo introducendo il periodo; la prontezza no.
+ *
+ * Si calcolano su TUTTO l'archivio, perché è quello che chiede la didattica: un
+ * brevetto non si perde cambiando il filtro della pagina.
+ */
+export interface Storico {
+  count: number;
+  deepDives24: number;
+  deepDives30: number;
+  divesLast12m: number;
+}
+
+export function storicoDi(dives: Dive[], now = Date.now()): Storico {
+  const unAnnoFa = now - 365 * 86_400_000;
+  let deepDives24 = 0;
+  let deepDives30 = 0;
+  let divesLast12m = 0;
+  for (const d of dives) {
+    if (d.maxDepth >= 24) deepDives24++;
+    if (d.maxDepth >= 30) deepDives30++;
+    if (Date.parse(d.startTime) >= unAnnoFa) divesLast12m++;
+  }
+  return { count: dives.length, deepDives24, deepDives30, divesLast12m };
+}
+
+function readinessFor(goal: Goal, agg: Aggregates, storico: Storico): Readiness {
   const items: ReadinessItem[] = [];
 
   if (goal.id === 'tec') {
     items.push(
-      { label: 'Immersioni registrate', have: agg.count, need: 24, unit: '', met: agg.count >= 24 },
+      {
+        label: 'Immersioni registrate',
+        have: storico.count,
+        need: 24,
+        unit: '',
+        met: storico.count >= 24,
+      },
       {
         label: 'Immersioni oltre i 30 m',
-        have: agg.deepDives30,
+        have: storico.deepDives30,
         need: 10,
         unit: '',
-        met: agg.deepDives30 >= 10,
+        met: storico.deepDives30 >= 10,
       },
       {
         label: 'Immersioni negli ultimi 12 mesi',
-        have: agg.divesLast12m,
+        have: storico.divesLast12m,
         need: 12,
         unit: '',
-        met: agg.divesLast12m >= 12,
+        met: storico.divesLast12m >= 12,
         note: 'Continuità: conta più del totale storico.',
       },
       {
@@ -1127,17 +1192,17 @@ function readinessFor(goal: Goal, agg: Aggregates): Readiness {
       // oltre i 30, quindi otto immersioni a 27 m risultavano zero.
       {
         label: 'Immersioni oltre i 24 m',
-        have: agg.deepDives24,
+        have: storico.deepDives24,
         need: 5,
         unit: '',
-        met: agg.deepDives24 >= 5,
+        met: storico.deepDives24 >= 5,
       },
       {
         label: 'Immersioni negli ultimi 12 mesi',
-        have: agg.divesLast12m,
+        have: storico.divesLast12m,
         need: 10,
         unit: '',
-        met: agg.divesLast12m >= 10,
+        met: storico.divesLast12m >= 10,
       },
       {
         label: 'Consumo di superficie',
@@ -1159,10 +1224,10 @@ function readinessFor(goal: Goal, agg: Aggregates): Readiness {
     items.push(
       {
         label: 'Immersioni negli ultimi 12 mesi',
-        have: agg.divesLast12m,
+        have: storico.divesLast12m,
         need: 12,
         unit: '',
-        met: agg.divesLast12m >= 12,
+        met: storico.divesLast12m >= 12,
       },
       {
         label: 'Consumo di superficie',
@@ -1209,7 +1274,17 @@ function readinessFor(goal: Goal, agg: Aggregates): Readiness {
 
 // ---------------------------------------------------------------------------
 
-export function buildPlan(dives: Dive[], agg: Aggregates, goalId: GoalId = 'general'): Plan {
+export function buildPlan(
+  dives: Dive[],
+  agg: Aggregates,
+  goalId: GoalId = 'general',
+  /**
+   * I conteggi su TUTTO l'archivio, per i criteri di prontezza che non
+   * dipendono dalla finestra. Vedi `storicoDi`. Se non arriva si ricava dalle
+   * immersioni ricevute, che è il comportamento di prima.
+   */
+  storico?: Storico,
+): Plan {
   const goal = GOALS.find((g) => g.id === goalId) ?? GOALS[2];
   const findings = RULES.map((rule) => {
     try {
@@ -1228,7 +1303,7 @@ export function buildPlan(dives: Dive[], agg: Aggregates, goalId: GoalId = 'gene
     findings,
     focus: issues.slice(0, 3),
     strengths: findings.filter((f) => f.severity === 'good'),
-    readiness: readinessFor(goal, agg),
+    readiness: readinessFor(goal, agg, storico ?? storicoDi(dives)),
   };
 }
 
@@ -1272,7 +1347,21 @@ export function debriefDive(dive: Dive): Observation[] {
           },
     );
   }
-  if (dive.maxDepth >= 10 && m.decoS < 60) {
+  /*
+   * LA SOSTA DI SICUREZZA SI GIUDICA SOLO DOVE SI PUÒ MISURARE.
+   *
+   * Senza `hasProfile` la scheda scriveva «Nessuna sosta di sicurezza fra 3 e
+   * 6 m» su un'immersione importata da CSV, che un profilo non ce l'ha: lì
+   * `safetyStopS = 0` vuol dire «non misurabile», non «non fatta», ed è il
+   * principio che questo file dichiara in testa — un consumo sconosciuto non è
+   * un consumo di zero. Le statistiche la escludevano già correttamente
+   * (`aggregate` filtra su `withProfile`), quindi la stessa immersione veniva
+   * rimproverata sulla scheda e ignorata nel tasso di soste completate.
+   *
+   * E in apnea la sosta di sicurezza non esiste: `aggregate` esclude anche
+   * quelle, la scheda no.
+   */
+  if (dive.maxDepth >= 10 && m.decoS < 60 && m.quality.hasProfile && dive.mode !== 'freedive') {
     out.push(
       m.didSafetyStop
         ? { severity: 'good', text: `Sosta di sicurezza di ${formatDuration(m.safetyStopS)}.` }

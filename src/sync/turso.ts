@@ -503,6 +503,23 @@ export async function syncArchive(
   // --- scarico -------------------------------------------------------------
   let pulled = 0;
   let pulledProfiles = 0;
+  /*
+   * Le immersioni che la pulizia ha corretto SCENDENDO, e che vanno rispedite su.
+   *
+   * IL DIFETTO CHE CHIUDE. `normaliseDive` cambia il documento in arrivo ma non
+   * tocca `updatedAt`, e l'impronta salvata nella riga remota resta quella di
+   * prima: al giro dopo le due impronte differiscono con `updatedAt` pari,
+   * quindi decide il confronto lessicografico fra i digest — e quando perde il
+   * locale, lo STESSO documento si riscarica a ogni sincronizzazione, per
+   * sempre. Misurato: sei giri di fila con `pull=1, push=0`, e con un altro
+   * identificativo la monetina cade dall'altra parte e converge in tre.
+   *
+   * Il rimedio è quello ovvio una volta visto: se la pulizia ha corretto
+   * qualcosa, la correzione va propagata invece di essere rifatta ogni volta.
+   * Termina da sé — dopo la riscrittura le due impronte coincidono — e non
+   * tocca `updatedAt`, quindi non fa rimbalzare niente sugli altri dispositivi.
+   */
+  const daRimandareSu: Dive[] = [];
   if (plan.pull.length) {
     for (const chunk of chunks(plan.pull, PUSH_CHUNK)) {
       const { rows } = await sql.execute(
@@ -514,7 +531,14 @@ export async function syncArchive(
       // bastava che l'altro capo avesse la versione vecchia di un'immersione
       // perché un difetto già corretto tornasse dentro — e la riparazione non
       // poteva vederlo, perché gira all'avvio e la sincronizzazione viene dopo.
-      const dives = rows.map((r) => normaliseDive(JSON.parse(String(r.doc)) as Dive));
+      const dives = rows.map((r) => {
+        const grezza = JSON.parse(String(r.doc)) as Dive;
+        const pulita = normaliseDive(grezza);
+        // Vedi `daRimandareSu`: se la pulizia ha cambiato qualcosa, il remoto
+        // tiene ancora la versione sporca e va corretto in questo stesso giro.
+        if (pulita !== grezza) daRimandareSu.push(pulita);
+        return pulita;
+      });
       // I profili arrivano solo per le immersioni che li hanno da scaricare.
       for (const dive of dives) {
         if (plan.pullSamples.includes(dive.id)) {
@@ -581,6 +605,17 @@ export async function syncArchive(
     );
     pushed++;
     if (pushed % 10 === 0) say(`Caricate ${pushed} di ${plan.push.length}…`);
+  }
+
+  // Le correzioni fatte scendendo tornano su, così il giro successivo trova le
+  // due parti d'accordo invece di riscaricare lo stesso documento all'infinito.
+  for (const dive of daRimandareSu) {
+    const doc = stripSamples(dive);
+    await sql.execute(`UPDATE dives SET digest = ?, doc = ? WHERE id = ?`, [
+      digestOf(doc as unknown as Record<string, unknown>),
+      JSON.stringify(doc),
+      dive.id,
+    ]);
   }
 
   for (const id of plan.pushSamples) {

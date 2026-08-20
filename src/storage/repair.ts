@@ -26,7 +26,7 @@
 import type { Dive } from '../core/model';
 import { computeMetrics } from '../core/analysis/metrics';
 import { chainArchive } from '../core/analysis/tissues';
-import { dedupeComputers, sameComputer } from '../core/dedupe';
+import { dedupeComputers, fondiComputer, sameComputer } from '../core/dedupe';
 import type { DiveStore } from './types';
 
 export interface RepairReport {
@@ -60,6 +60,80 @@ export function dedupeDiveComputers(dive: Dive): Dive | null {
 }
 
 /**
+ * DUE SCRITTURE DELLO STESSO SERIALE, sulla stessa immersione, diventano una.
+ *
+ * IL CASO REALE. LogTRAK, nella sua tabella degli apparecchi, scrive il seriale
+ * con il numero di tipo appiccicato in coda: l'Aladin che via Bluetooth si
+ * presenta come `63034502` nel file esportato è `6303450223`. Il lettore adesso
+ * toglie quella coda, ma solo a ciò che entra da oggi: le immersioni GIÀ in
+ * archivio portano ancora le due scritture, una nel computer principale e una
+ * fra gli «altri», e la scheda continua a mostrare due Scubapro Aladin Sport
+ * Matrix — uno con il PPO2 e il firmware, l'altro con il passo di
+ * campionamento. Un reimport non basterebbe: la riga vecchia resta com'è.
+ *
+ * PERCHÉ IL PREFISSO È UN CRITERIO SICURO QUI. Non si sta confrontando tutto
+ * l'archivio con tutto l'archivio: si guardano i computer di UNA immersione, che
+ * una persona sola ha fatto con quello che aveva addosso. Due apparecchi dello
+ * stesso identico modello, con un seriale prefisso dell'altro, al polso nella
+ * stessa immersione, non è un caso che esista. Il limite di tre cifre in più
+ * tiene fuori i seriali che si somigliano per caso, e a vincere è sempre il
+ * più CORTO — quello che il computer dice di sé, non quello che ci ha scritto
+ * intorno un'applicazione.
+ */
+function stessoSerialeScrittoDiverso(a: string | undefined, b: string | undefined): boolean {
+  if (!a || !b || a === b) return false;
+  const [corto, lungo] = a.length < b.length ? [a, b] : [b, a];
+  if (corto.length < 6 || lungo.length - corto.length > 3) return false;
+  return lungo.startsWith(corto);
+}
+
+export function unificaSerialiDellaStessaImmersione(dive: Dive): Dive | null {
+  const principale = dive.computer;
+  const altri = dive.otherComputers ?? [];
+  if (!principale && altri.length < 2) return null;
+
+  /*
+   * SI CONFRONTA TUTTO CON TUTTO, non ogni «altro» col principale.
+   *
+   * Il primo tentativo faceva proprio quello, e sul caso vero non serviva a
+   * niente: l'immersione era registrata da un Peregrine E da un Aladin, quindi
+   * il principale era il Peregrine e le DUE scritture dell'Aladin stavano
+   * entrambe nell'elenco degli altri, dove nessuno le confrontava fra loro. La
+   * scheda mostrava tre computer per due apparecchi.
+   */
+  const modello = (c: { model?: string }) => (c.model ?? '').trim().toLowerCase();
+  const tutti = [...(principale ? [principale] : []), ...altri];
+  const uniti: typeof tutti = [];
+  let cambiato = false;
+  for (const c of tutti) {
+    const gia = uniti.findIndex(
+      (u) => modello(u) === modello(c) && stessoSerialeScrittoDiverso(u.serial, c.serial),
+    );
+    if (gia < 0) {
+      uniti.push(c);
+      continue;
+    }
+    // Il seriale più corto vince: è quello che l'apparecchio dice di sé, non
+    // quello che ci ha scritto intorno un'applicazione.
+    const u = uniti[gia];
+    const corto = (c.serial?.length ?? 0) < (u.serial?.length ?? 0) ? c.serial : u.serial;
+    const fuso = { ...fondiComputer(u, c), serial: corto };
+    // `deviceId` segue il seriale: è la chiave con cui si ritrova il computer.
+    if (fuso.deviceId && stessoSerialeScrittoDiverso(fuso.deviceId, corto)) fuso.deviceId = corto;
+    uniti[gia] = fuso;
+    cambiato = true;
+  }
+  if (!cambiato) return null;
+
+  // Il principale resta il primo dell'elenco unito: se c'era, è ancora lì —
+  // eventualmente arricchito — e l'ordine degli altri non cambia.
+  const [primo, ...resto] = uniti;
+  return principale
+    ? { ...dive, computer: primo, otherComputers: resto.length ? resto : undefined }
+    : { ...dive, otherComputers: uniti };
+}
+
+/**
  * La pulizia che ogni immersione deve attraversare, da qualunque parte arrivi.
  *
  * Nasce da un bug che si è ripresentato dopo una sincronizzazione: l'import
@@ -72,7 +146,11 @@ export function dedupeDiveComputers(dive: Dive): Dive | null {
  * chi chiama può capire se qualcosa è cambiato confrontando i riferimenti.
  */
 export function normaliseDive(dive: Dive): Dive {
-  return dedupeDiveComputers(dive) ?? dive;
+  // Prima si unificano le due scritture dello stesso seriale, poi si deduplica:
+  // nell'ordine opposto la deduplica non riconoscerebbe come uguali i due
+  // riferimenti, ed è esattamente il motivo per cui il difetto era sopravvissuto.
+  const unificata = unificaSerialiDellaStessaImmersione(dive) ?? dive;
+  return dedupeDiveComputers(unificata) ?? unificata;
 }
 
 /**
@@ -156,14 +234,25 @@ export async function repairArchive(
     let dive = out[i];
 
     // Computer duplicati: correzione indipendente dalle metriche, e senza bisogno
-    // di leggere il profilo.
-    const deduped = dedupeDiveComputers(dive);
+    // di leggere il profilo. Prima l'unificazione dei seriali scritti in due modi
+    // (`6303450223` e `63034502` sono lo stesso Aladin), poi la deduplica —
+    // nell'ordine opposto la seconda non riconoscerebbe i due riferimenti.
+    const unificata = unificaSerialiDellaStessaImmersione(dive);
+    if (unificata) {
+      dive = unificata;
+      out[i] = unificata;
+      report.reasons['stesso computer scritto con due seriali'] =
+        (report.reasons['stesso computer scritto con due seriali'] ?? 0) + 1;
+    }
+    const deduped = dedupeDiveComputers(dive) ?? unificata;
     if (deduped) {
       dive = deduped;
       out[i] = deduped;
       updated.push(deduped);
-      report.reasons['computer principale duplicato nell’elenco'] =
-        (report.reasons['computer principale duplicato nell’elenco'] ?? 0) + 1;
+      if (deduped !== unificata) {
+        report.reasons['computer principale duplicato nell’elenco'] =
+          (report.reasons['computer principale duplicato nell’elenco'] ?? 0) + 1;
+      }
       report.repaired++;
     }
 

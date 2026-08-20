@@ -54,10 +54,18 @@ describe('gas minimo per la risalita d’emergenza', () => {
   it('somma le quattro fasi come il calcolo a mano', () => {
     const plan = planGas(input({ depthM: 30, tankL: 15, stressRmvLpm: 30, divers: 2 }));
     expect(plan.reserve).toHaveLength(4);
+    /*
+     * Gli estremi si sono alzati dell'1.3%, ed è la correzione a essere giusta:
+     * i «litri» qui sono bar·litro, quindi il fattore è la pressione ambiente in
+     * bar e non il suo rapporto con la pressione di superficie. Il calcolo a
+     * mano che questo test riproduce moltiplica per gli ATA e sta un punto e
+     * mezzo sotto — differenza invisibile al livello del mare, e un quarto del
+     * totale a duemila metri di quota.
+     */
     expect(plan.reserveL).toBeGreaterThan(900);
-    expect(plan.reserveL).toBeLessThan(1010);
+    expect(plan.reserveL).toBeLessThan(1030);
     expect(plan.reserveBar).toBeGreaterThanOrEqual(62);
-    expect(plan.reserveBar).toBeLessThanOrEqual(68);
+    expect(plan.reserveBar).toBeLessThanOrEqual(70);
     // Ogni fase dichiara le proprie ipotesi: è ciò che rende il numero controllabile.
     const problema = plan.reserve[0];
     expect(problema.minutes).toBe(1);
@@ -538,8 +546,15 @@ describe('coerenza interna, dai casi trovati dall’audit', () => {
       }),
     );
     expect(plan.overBudget).toBe(true);
-    expect(texts(plan)).not.toMatch(/per 20 minuti di fondo, non 20/);
-    expect(texts(plan)).toMatch(/senza lasciare margine/);
+    /*
+     * La proprietà è che il messaggio non dica lo STESSO numero due volte, non
+     * che prenda un ramo preciso: con i litri contati sulla pressione assoluta
+     * il gas basta per 19 minuti invece che per 20 tondi, quindi la frase
+     * corretta è quella con i due numeri diversi. Il difetto originale era
+     * «basta per 20 minuti di fondo, non 20», e resta escluso.
+     */
+    expect(texts(plan)).not.toMatch(/per (\d+) minuti di fondo, non \1\b/);
+    expect(texts(plan)).toMatch(/basta per 19 minuti di fondo, non 20|senza lasciare margine/);
   });
 });
 

@@ -20,7 +20,7 @@ import {
   similarDives,
   type GasPlanInput,
 } from '../core/analysis/gasPlan';
-import { buildPlan, type GoalId, type Plan } from '../core/analysis/coaching';
+import { storicoDi, buildPlan, type GoalId, type Plan } from '../core/analysis/coaching';
 import { applyPeriod, DEFAULT_PERIOD, type PeriodId, type Scope } from '../core/analysis/window';
 import { mergeDive, mergeImports } from '../core/dedupe';
 import { buildBackup, planRestore, type BackupFile } from '../core/export/backup';
@@ -144,6 +144,8 @@ interface DiveLogValue {
    */
   trash: TrashedDive[];
   restoreDive: (id: string) => Promise<void>;
+  /** Rimette in archivio più immersioni in una scrittura sola. */
+  restoreDives: (ids: string[]) => Promise<void>;
   purgeDive: (id: string) => Promise<void>;
   emptyTrash: () => Promise<void>;
   /** Credenziali di sincronizzazione salvate nell'archivio locale, mai nel codice. */
@@ -783,11 +785,25 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
 
   const removeDive = useCallback((id: string) => removeDives([id]), [removeDives]);
 
-  /** Rimette un'immersione in archivio esattamente com'era, profilo compreso. */
-  const restoreDive = useCallback(
-    async (id: string) => {
-      const item = trash.find((t) => t.dive.id === id);
-      if (!store || !item) return;
+  /**
+   * Rimette in archivio una o più immersioni, esattamente com'erano, profilo
+   * compreso.
+   *
+   * PERCHÉ IN BLOCCO E NON UNA ALLA VOLTA. Per lo stesso motivo per cui
+   * `removeDives` prende un elenco: `trash` qui dentro è il valore della
+   * CHIUSURA di questo render, sempre lo stesso. Chiamare la versione singola in
+   * un ciclo fa riscrivere la chiave del cestino ogni giro partendo dallo stesso
+   * elenco di partenza, e l'ultima scrittura vince — su cinquanta ripristini ne
+   * sopravvive uno, e le altre quarantanove immersioni restano nel cestino pur
+   * essendo ricomparse in archivio. Il caso non è teorico: è lo stesso difetto
+   * che era già costato tre immersioni sulla cancellazione multipla.
+   */
+  const restoreDives = useCallback(
+    async (ids: string[]) => {
+      if (!store || !ids.length) return;
+      const insieme = new Set(ids);
+      const items = trash.filter((t) => insieme.has(t.dive.id));
+      if (!items.length) return;
       // `updatedAt` a ORA, e la lapide via.
       //
       // Senza queste due righe il ripristino durava fino alla sincronizzazione
@@ -795,29 +811,46 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       // del cestino qui — tornava ad applicarsi e l'immersione spariva di nuovo,
       // stavolta senza passare dal cestino. Il timbro nuovo è ciò che dice alla
       // sincronizzazione «questa è stata rimessa apposta, dopo».
-      const restored: Dive = {
+      const adesso = new Date().toISOString();
+      const restored: Dive[] = items.map((item) => ({
         ...item.dive,
-        updatedAt: new Date().toISOString(),
+        updatedAt: adesso,
         ...(item.samples ? { samples: item.samples } : {}),
         ...(item.altSamples ? { altSamples: item.altSamples } : {}),
-      };
-      await store.putDives([restored]);
-      const next = trash.filter((t) => t.dive.id !== id);
+      }));
+      await store.putDives(restored);
+      const rimesse = new Set(restored.map((d) => d.id));
+      const next = trash.filter((t) => !rimesse.has(t.dive.id));
       await store.setSetting(TRASH_KEY, next);
       setTrash(next);
       const tombs = (await store.getSetting<{ id: string; at: string }[]>(TOMBSTONE_KEY)) ?? [];
-      if (tombs.some((t) => t.id === id)) {
+      if (tombs.some((t) => rimesse.has(t.id))) {
         await store.setSetting(
           TOMBSTONE_KEY,
-          tombs.filter((t) => t.id !== id),
+          tombs.filter((t) => !rimesse.has(t.id)),
         );
       }
       // In memoria si tiene il riepilogo senza profilo, come tutto il resto.
-      const { samples: _s, altSamples: _a, ...summary } = restored;
-      setDives((prev) => [...prev, summary as Dive].sort((a, b) => b.startTime.localeCompare(a.startTime)));
+      const summaries = restored.map(({ samples: _s, altSamples: _a, ...rest }) => rest as Dive);
+      /*
+       * L'elenco si ricostruisce per ID, non si accoda.
+       *
+       * Accodando, un DOPPIO clic su «Rimetti a posto» — prima che `setTrash`
+       * fosse applicato — aggiungeva la stessa immersione due volte: il logbook
+       * ne mostrava 47 invece di 46, il conteggio in alto pure, e le statistiche
+       * contavano quella riga due volte. Guariva solo ricaricando, e in
+       * produzione React non avvisa nemmeno della chiave duplicata.
+       */
+      setDives((prev) => {
+        const perId = new Map(prev.map((d) => [d.id, d]));
+        for (const d of summaries) perId.set(d.id, d);
+        return [...perId.values()].sort((a, b) => b.startTime.localeCompare(a.startTime));
+      });
     },
     [store, trash],
   );
+
+  const restoreDive = useCallback((id: string) => restoreDives([id]), [restoreDives]);
 
   /**
    * Cancellazione definitiva di una sola immersione: qui nasce la lapide.
@@ -1187,7 +1220,19 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   // calcolati su periodi diversi.
   const scope = useMemo(() => applyPeriod(dives, period), [dives, period]);
   const aggregates = useMemo(() => aggregate(scope.dives), [scope]);
-  const plan = useMemo(() => buildPlan(scope.dives, aggregates, goalId), [scope, aggregates, goalId]);
+  /*
+   * I criteri di prontezza guardano TUTTO l'archivio, non la finestra.
+   *
+   * «Immersioni registrate» e «Immersioni oltre i 30 m» sono criteri di brevetto,
+   * cioè totali storici: con la finestra predefinita di dodici mesi la prontezza
+   * per il tecnico crollava dal 44% al 22% senza che niente lo spiegasse. Vedi
+   * `storicoDi`.
+   */
+  const storico = useMemo(() => storicoDi(dives), [dives]);
+  const plan = useMemo(
+    () => buildPlan(scope.dives, aggregates, goalId, storico),
+    [scope, aggregates, goalId, storico],
+  );
 
   const analysis = useCallback(
     (kind: AnalysisKind, subject = '-') => analyses[`${kind}:${subject}`],
@@ -1235,7 +1280,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         const withSamples =
           dive.samples?.length || !store ? dive : { ...dive, samples: await store.getSamples(dive.id) };
         subject = dive.id;
-        const context = diveContext(withSamples);
+        const context = diveContext(withSamples, gear.equipment);
         fingerprint = digestOf(withSamples as unknown as Record<string, unknown>);
         spec = diveAnalysis(context);
       } else if (kind === 'archive') {
@@ -1246,7 +1291,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         // Al modello va lo stesso insieme di immersioni che vede l'interfaccia,
         // con la finestra dichiarata: altrimenti descriverebbe come "l'archivio"
         // un sottoinsieme, o incrocerebbe righe di un periodo con medie di un altro.
-        spec = archiveAnalysis(archiveContext(scope.dives, aggregates, scope.period.label));
+        spec = archiveAnalysis(archiveContext(scope.dives, aggregates, scope.period.label, gear.equipment));
       } else if (kind === 'deco') {
         const d = input.deco;
         if (!d) throw new Error('Nessun piano di decompressione da analizzare.');
@@ -1274,7 +1319,14 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
           gasPlanContext(
             computed,
             contingencies(gas),
-            similarDives(scope.dives, computed.input.depthM),
+            // Lo STESSO filtro che si vede a schermo, durata compresa.
+            //
+            // Senza `bottomMin`, `sameLength()` è sempre vero e il contesto
+            // dichiarava al modello `filtrateAncheSullaDurata: true` su un confronto
+            // filtrato solo sulla profondità — mentre l'avvertenza scritta apposta
+            // per quel caso non si attivava mai. Sul piano di prova: 20 minuti
+            // pianificati contro una durata tipica di 51.
+            similarDives(scope.dives, computed.input.depthM, 5, computed.input.bottomMin),
             measuredRmv(scope.dives),
             scope.period.label,
           ),
@@ -1340,6 +1392,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     clearAll,
     trash,
     restoreDive,
+    restoreDives,
     purgeDive,
     emptyTrash,
     syncCredentials,

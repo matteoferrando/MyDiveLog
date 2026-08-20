@@ -183,8 +183,27 @@ describe('piano del ripristino', () => {
     const f = await buildBackup(fakeStore([vecchia]));
     const locale: Dive = { ...vecchia, notes: 'aggiunte dopo il backup', site: { name: 'Punta Chiappa' } };
     const p = planRestore(f, [locale], 'merge');
-    expect(p.merged[0].notes).toBe('aggiunte dopo il backup');
-    expect(p.merged[0].site?.name).toBe('Punta Chiappa');
+    /*
+     * Non viene nemmeno RISCRITTA. `mergeDive` restituisce lo stesso
+     * riferimento quando non c'è niente da aggiungere, e da oggi il piano non
+     * la mette in `merged`: metterla comunque faceva riscrivere l'immersione
+     * con il timbro di adesso, e da lì la versione locale — vecchia quanto il
+     * backup — vinceva sulla sincronizzazione contro le modifiche fatte
+     * altrove. Un ripristino in modalità «Fondi» cancellava la nota scritta
+     * sull'iPhone.
+     */
+    expect(p.merged).toHaveLength(0);
+    // E quello che c'era scritto a mano è ancora lì, perché nessuno l'ha toccato.
+    const daScrivere = [...p.added, ...p.merged];
+    expect(daScrivere).toHaveLength(0);
+  });
+
+  it('fondendo, quello che manca in locale invece entra', async () => {
+    const completa = dive('a', '2026-06-01T09:00:00Z');
+    const f = await buildBackup(fakeStore([{ ...completa, notes: 'la nota del backup' }]));
+    const p = planRestore(f, [completa], 'merge');
+    expect(p.merged).toHaveLength(1);
+    expect(p.merged[0].notes).toBe('la nota del backup');
   });
 
   it('ricostruendo da zero, vince il file', async () => {
@@ -267,9 +286,12 @@ describe('il giro chiuso', () => {
     const dopoIlPrimo = [...primo.added, ...primo.merged];
     const secondo = planRestore(file, dopoIlPrimo);
     expect(secondo.added).toHaveLength(0);
-    expect(secondo.merged).toHaveLength(1);
+    // Idempotenza VERA: la seconda volta non c'è niente da scrivere, non
+    // «niente di diverso da scrivere». È la differenza che evita di timbrare
+    // tutto l'archivio con la data di adesso a ogni ripristino.
+    expect(secondo.merged).toHaveLength(0);
     expect(secondo.onlyLocal).toBe(0);
-    expect(secondo.merged[0].samples?.length).toBe(originali[0].samples!.length);
+    expect(dopoIlPrimo[0].samples?.length).toBe(originali[0].samples!.length);
   });
 });
 

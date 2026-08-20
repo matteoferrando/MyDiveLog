@@ -154,6 +154,28 @@ export function exportUddf(dives: Dive[], options: UddfExportOptions = {}): Uddf
     if (dive.airTempC !== undefined) {
       out.push(`          <airtemperature>${n(cToKelvin(dive.airTempC), 2)}</airtemperature>`);
     }
+    /*
+     * LA SALINITÀ SI SCRIVE, non si dichiara persa.
+     *
+     * Il lettore UDDF mette `salinity: 'salt'` fisso, quindi un'immersione in
+     * lago tornava in mare dopo un giro di export e reimport — e la densità non
+     * è cosmetica: entra nella pressione ambiente, quindi nel GF99, nel CNS,
+     * nella MOD. Cinque lettori su sette producono `fresh`, e l'archivio di
+     * riferimento si immerge anche in lago. Peggio, la perdita non era nemmeno
+     * nell'elenco di quello che l'export dichiara di non saper rappresentare.
+     *
+     * `<density>` in kg/m³ è la forma che usa Subsurface, quindi il file resta
+     * leggibile da fuori invece di portare un campo inventato da noi.
+     */
+    if (dive.salinity !== undefined) {
+      out.push(`          <density>${dive.salinity === 'fresh' ? 1000 : 1030}</density>`);
+    }
+    // La pressione di superficie era dichiarata persa, e bastava scriverla: il
+    // lettore la legge già, ed è quella con cui si ricostruiscono le
+    // saturazioni di un archivio ripristinato da questo file.
+    if (dive.surfacePressureBar !== undefined) {
+      out.push(`          <surfacepressure>${n(barToPascal(dive.surfacePressureBar), 0)}</surfacepressure>`);
+    }
     if (dive.surfaceIntervalS !== undefined) {
       out.push('          <surfaceintervalbeforedive>');
       out.push(`            <passedtime>${n(dive.surfaceIntervalS, 0)}</passedtime>`);
@@ -236,7 +258,6 @@ export function exportUddf(dives: Dive[], options: UddfExportOptions = {}): Uddf
   perde('conditions', 'meteo e stato del mare');
   perde('gear', 'l’attrezzatura usata: erogatori, GAV, e il peso della piastra');
   perde('utcOffsetMinutes', 'il fuso orario del sito (gli orari restano in UTC)');
-  perde('surfacePressureBar', 'la pressione di superficie, che serve al calcolo della saturazione');
   perde('annotations', 'le annotazioni del logbook di origine');
   perde('reported', 'i valori di sintesi letti dal computer (GF99, TTS, NDL minimo)');
   perde('events', 'i segnalibri messi durante l’immersione');
@@ -247,7 +268,23 @@ export function exportUddf(dives: Dive[], options: UddfExportOptions = {}): Uddf
     omitted.push('materiale e pressione di esercizio delle bombole');
   }
   if (sorted.some((d) => d.samples?.some((s) => s.cns !== undefined || s.ppo2 !== undefined))) {
-    omitted.push('CNS, PPO2, setpoint e battito campione per campione');
+    omitted.push('CNS, PPO2 e setpoint campione per campione');
+  }
+  /*
+   * Il battito ha la sua riga.
+   *
+   * Stava dentro la dichiarazione di CNS e PPO2, quindi un'immersione registrata
+   * da un Garmin o da un Uwatec — con il cardio e senza CNS — perdeva il battito
+   * senza che l'elenco lo dicesse.
+   */
+  if (sorted.some((d) => d.samples?.some((s) => s.heartRate !== undefined))) {
+    omitted.push('il battito cardiaco campione per campione');
+  }
+  if (sorted.some((d) => d.samples?.some((s) => s.rbtMin !== undefined || s.bearing !== undefined))) {
+    omitted.push('il tempo di fondo residuo e la bussola campione per campione');
+  }
+  if (sorted.some((d) => d.cylinders?.some((c) => c.description))) {
+    omitted.push('la descrizione delle bombole («D12 lungo», «stage 40%»)');
   }
   if (sorted.some((d) => d.computer?.model)) {
     omitted.push('modello, matricola e impostazioni del computer subacqueo');

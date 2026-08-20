@@ -15,6 +15,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addMonths,
+  equipmentUsage,
   configurationRows,
   highestLevel,
   migrateGear,
@@ -294,5 +295,70 @@ describe('migrazione dalla lista unica', () => {
     const { equipment } = migrateGear([vecchio({ id: 'stabile', savedAt: '2026-08-01T10:00:00Z' })]);
     expect(equipment[0].id).toBe('stabile');
     expect(equipment[0].savedAt).toBe('2026-08-01T10:00:00Z');
+  });
+});
+
+/*
+ * I DUE CONTATORI DELLA STESSA MUTA DEVONO RACCONTARE LA STESSA STORIA.
+ *
+ * Nella pagina attrezzatura la stessa muta compariva due volte con due numeri
+ * diversi: «1 immersione» nell'inventario e «6» nella tabella della zavorra.
+ * L'inventario contava i soli riferimenti scelti dall'elenco, la zavorra il
+ * testo di `dive.suit` — e un archivio importato da LogTRAK ha il testo, non il
+ * riferimento.
+ */
+describe('la muta scritta a mano conta come la muta scelta dall’elenco', () => {
+  const muta: Equipment = { id: 'm1', kind: 'suit', name: 'Muta Umida 5mm', service: 'none' };
+  const imm = (over: Partial<Dive>): Dive =>
+    ({
+      id: Math.random().toString(36),
+      startTime: '2026-06-14T10:00:00.000Z',
+      durationS: 2400,
+      maxDepth: 20,
+      source: { format: 'logtrak', file: 'a', importedAt: 'x' },
+      ...over,
+    }) as Dive;
+
+  it('conta le immersioni che hanno solo il nome', () => {
+    const dives = [
+      imm({ suit: 'Muta Umida 5mm' }),
+      imm({ suit: 'muta umida 5 mm' }), // maiuscole e spazi non contano
+      imm({ gear: { suit: { id: 'm1', name: 'Muta Umida 5mm' } } }),
+    ];
+    expect(equipmentUsage(dives, [muta]).get('m1')?.dives).toBe(3);
+  });
+
+  it('non conta due volte la stessa immersione', () => {
+    const d = imm({ suit: 'Muta Umida 5mm', gear: { suit: { id: 'm1', name: 'Muta Umida 5mm' } } });
+    expect(equipmentUsage([d], [muta]).get('m1')?.dives).toBe(1);
+  });
+
+  it('un nome che non combacia non aggancia niente', () => {
+    expect(equipmentUsage([imm({ suit: 'Muta Umida 7mm' })], [muta]).get('m1')?.dives).toBe(0);
+  });
+
+  it('con due voci che si normalizzano uguali l’aggancio per nome si spegne', () => {
+    const gemella: Equipment = { id: 'm2', kind: 'suit', name: 'muta umida 5mm', service: 'none' };
+    const uso = equipmentUsage([imm({ suit: 'Muta Umida 5mm' })], [muta, gemella]);
+    expect(uso.get('m1')?.dives).toBe(0);
+    expect(uso.get('m2')?.dives).toBe(0);
+  });
+
+  it('il riferimento vince: una muta diversa dal testo non viene sovrascritta', () => {
+    const stagna: Equipment = { id: 's1', kind: 'suit', name: 'Stagna Trilaminato', service: 'none' };
+    const d = imm({ suit: 'Muta Umida 5mm', gear: { suit: { id: 's1', name: 'Stagna Trilaminato' } } });
+    const uso = equipmentUsage([d], [muta, stagna]);
+    expect(uso.get('s1')?.dives).toBe(1);
+    expect(uso.get('m1')?.dives).toBe(0);
+  });
+
+  it('e ora l’inventario non dice meno della tabella della zavorra', () => {
+    const dives = [
+      imm({ suit: 'Muta Umida 5mm', weightKg: 6 }),
+      imm({ suit: 'Muta Umida 5mm', weightKg: 5 }),
+      imm({ suit: 'Muta Umida 5mm' }), // senza zavorra: nell'inventario sì, nella zavorra no
+    ];
+    expect(equipmentUsage(dives, [muta]).get('m1')?.dives).toBe(3);
+    expect(weightingBySuit(dives)[0].dives).toBe(2);
   });
 });

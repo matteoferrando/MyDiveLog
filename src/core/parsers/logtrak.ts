@@ -165,8 +165,8 @@ function readDive(
     durationS,
     computer: {
       model: computer ? prettyModel(computer) : undefined,
-      serial: computer?.serialNumber,
-      deviceId: computer?.serialNumber,
+      serial: computer ? seriale(computer) : undefined,
+      deviceId: computer ? seriale(computer) : undefined,
       // `raw.id` è l'identificativo LogTRAK dell'immersione: chiave di dedup forte.
       diveId: raw.id,
       firmware: computer?.swVersion,
@@ -369,6 +369,38 @@ function modeFor(raw: LogtrakDive, decoded: UwatecDive | undefined): DiveMode {
 function deviceModel(raw: LogtrakDive, computers: Map<string, LogtrakComputer>): number | undefined {
   const c = computers.get(raw.diveComputerId ?? '');
   return c?.deviceTypeNumber;
+}
+
+/**
+ * Il seriale come lo dice il computer, non come lo scrive LogTRAK.
+ *
+ * MISURATO sull'archivio reale: l'Aladin Sport Matrix si presenta via Bluetooth
+ * con seriale `63034502`, e nella tabella `diveComputers` del file esportato lo
+ * stesso apparecchio è `6303450223` — cioè le stesse cifre più il
+ * `deviceTypeNumber` (23) appiccicato in coda. Due scritture dello stesso
+ * numero.
+ *
+ * PERCHÉ CONTA. `sameComputer` confronta i seriali: finché le due scritture
+ * restano diverse, l'immersione scaricata via Bluetooth e la sua copia nel file
+ * risultano venire da due apparecchi diversi. Da lì in poi il blocco `computer`
+ * non si fonde, l'impronta del profilo non passa dall'una all'altra, e la
+ * scheda mostra due computer dove ce n'è uno.
+ *
+ * PERCHÉ SOLO QUANDO IL SUFFISSO COMBACIA. La regola non indovina: toglie la
+ * coda solo se è ESATTAMENTE il numero di tipo dichiarato nello stesso record,
+ * e solo se quello che resta è ancora un seriale plausibile (almeno sei cifre).
+ * Nell'archivio di prova c'è un secondo apparecchio, `6305611325`, che finisce
+ * per `25` mentre il suo tipo dichiarato è 23: lì la regola non scatta e il
+ * seriale resta intero, che è il comportamento giusto — meglio due scritture
+ * distinte di un accorpamento inventato.
+ */
+function seriale(c: LogtrakComputer): string | undefined {
+  const s = c.serialNumber;
+  if (!s || c.deviceTypeNumber === undefined) return s;
+  const coda = String(c.deviceTypeNumber);
+  if (!s.endsWith(coda)) return s;
+  const senza = s.slice(0, s.length - coda.length);
+  return senza.length >= 6 ? senza : s;
 }
 
 function prettyModel(c: LogtrakComputer): string {

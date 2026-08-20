@@ -13,7 +13,7 @@ import { SaturationCard } from '../components/Saturation';
 import { decoTimeline, entryStateFor, gfOf, type DecoPoint } from '../../core/analysis/tissues';
 import { ModificaImmersione } from '../components/ModificaImmersione';
 import { condizioniTesto, visibilitaTesto } from '../../core/conditions';
-import { zavorraTotaleKg } from '../../core/analysis/gear';
+import { piastraDellImmersione, zavorraTotaleKg, type Equipment } from '../../core/analysis/gear';
 import {
   capitalise,
   dateLong,
@@ -118,7 +118,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
           <button className="btn btn-quiet" onClick={onBack}>
             ← Logbook
           </button>
-          <button className="btn" onClick={() => setStampaBloccata(!apriStampa(dive))}>
+          <button className="btn" onClick={() => setStampaBloccata(!apriStampa(dive, gear.equipment))}>
             Stampa questa immersione
           </button>
           <button className="btn" onClick={() => setEditing((v) => !v)}>
@@ -353,9 +353,9 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
               <Row
                 label="Zavorra"
                 value={
-                  zavorraTotaleKg(dive) > 0
-                    ? dive.gear?.backplateKg
-                      ? `${Math.round(zavorraTotaleKg(dive) * 10) / 10} kg (${dive.weightKg ?? 0} di zavorra + ${dive.gear.backplateKg} di piastra)`
+                  zavorraTotaleKg(dive, gear.equipment) > 0
+                    ? piastraDellImmersione(dive, gear.equipment)
+                      ? `${Math.round(zavorraTotaleKg(dive, gear.equipment) * 10) / 10} kg (${dive.weightKg ?? 0} di zavorra + ${piastraDellImmersione(dive, gear.equipment)} di piastra)`
                       : `${dive.weightKg} kg`
                     : '—'
                 }
@@ -597,9 +597,13 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
  * Restituisce `false` quando il blocco dei popup ha rifiutato la finestra: è
  * l'unico modo in cui questa operazione può fallire, e chi chiama lo dice.
  */
-function apriStampa(dive: Dive): boolean {
+function apriStampa(dive: Dive, inventario: Equipment[]): boolean {
   const html = logbookHtml([dive], new Map([[dive.id, dive.samples ?? []]]), {
     title: 'Logbook',
+    // Senza l'inventario il foglio da firmare dichiara la sola zavorra e non la
+    // piastra, sulle immersioni che il peso della piastra non ce l'hanno scritto
+    // sopra. Vedi `piastraDellImmersione`.
+    inventario,
   });
   const finestra = window.open('', '_blank');
   if (!finestra) return false;

@@ -349,9 +349,21 @@ export function planRestore(
       // dire quando lo si chiede esplicitamente.
       merged.push(incoming);
     } else {
-      // Fusione: il backup è la parte «in arrivo», e `mergeDive` protegge già i
-      // campi compilati a mano e sceglie il profilo più ricco.
-      merged.push(mergeDive(existing, incoming));
+      /*
+       * Fusione: il backup è la parte «in arrivo», e `mergeDive` protegge già i
+       * campi compilati a mano e sceglie il profilo più ricco.
+       *
+       * QUELLE CHE NON CAMBIANO NON ENTRANO. `mergeDive` restituisce lo STESSO
+       * riferimento quando non c'è niente da aggiungere, e metterle comunque
+       * in `merged` faceva sì che il ripristino le riscrivesse tutte con il
+       * timbro di adesso: da lì in poi la versione locale — vecchia quanto il
+       * backup — vinceva su qualunque cosa esistesse sugli altri dispositivi.
+       * Backup di gennaio, nota scritta sull'iPhone a marzo, ripristino in
+       * modalità «Fondi» ad agosto: la nota di marzo spariva da entrambi. La
+       * modalità si chiama «Fondi» e promette di non perdere niente.
+       */
+      const fusa = mergeDive(existing, incoming);
+      if (fusa !== existing) merged.push(fusa);
     }
   }
 

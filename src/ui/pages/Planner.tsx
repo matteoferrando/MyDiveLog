@@ -47,6 +47,7 @@ import { barometric, planDeco, type DecoResult } from '../../core/analysis/deco'
 import { pianoHtml, type FoglioPiano } from '../../core/export/planPrint';
 import { foglioDelPiano } from '../../core/export/planSheet';
 import { useDiveLog } from '../state';
+import { InputNumerico } from '../components/InputNumerico';
 
 /**
  * I gradient factor della modalità ricreativa: 40/85.
@@ -1402,38 +1403,15 @@ function NumField({
   max?: number;
   hint?: string;
 }) {
-  // Il campo tiene il testo, non il numero: altrimenti cancellare l'ultima cifra
-  // riscriverebbe uno zero sotto le dita di chi sta digitando.
-  const [text, setText] = useState(String(value));
-  useEffect(() => {
-    if (Number(text) !== value) setText(String(value));
-    // Solo quando il valore arriva da fuori (un pulsante, il caricamento).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
   return (
     <label className="planner-field">
       <span className="planner-label">
         {label}
         {unit && <span className="muted"> ({unit})</span>}
       </span>
-      <input
-        type="number"
-        inputMode="decimal"
-        value={text}
-        step={step}
-        min={min}
-        max={max}
-        onChange={(e) => {
-          setText(e.target.value);
-          const n = Number(e.target.value);
-          if (e.target.value !== '' && Number.isFinite(n)) {
-            const clamped = Math.min(max ?? Infinity, Math.max(min ?? -Infinity, n));
-            onChange(clamped);
-          }
-        }}
-        onBlur={() => setText(String(value))}
-      />
+      {/* Il comportamento del campo, e i due difetti che ha chiuso, stanno in
+          `InputNumerico`. Qui resta solo l'etichetta. */}
+      <InputNumerico value={value} onChange={onChange} min={min} max={max} step={step} />
       {hint && <span className="planner-hint">{hint}</span>}
     </label>
   );
@@ -1464,15 +1442,14 @@ function MixField({ mix, onChange }: { mix: GasMix; onChange: (m: GasMix) => voi
         Miscela <span className="muted">({mixName(mix)})</span>
       </span>
       <div className="row" style={{ gap: 6 }}>
-        <input
-          type="number"
-          aria-label="Ossigeno, percento"
+        <InputNumerico
+          ariaLabel="Ossigeno, percento"
           value={pct(mix.o2)}
           min={8}
           max={100}
           step={1}
-          onChange={(e) => {
-            const o2 = Math.min(100, Math.max(8, Number(e.target.value) || 0)) / 100;
+          onChange={(v) => {
+            const o2 = v / 100;
             onChange({ o2, he: Math.min(mix.he, Math.max(0, 1 - o2)) });
           }}
           style={{ width: 64 }}
@@ -1480,15 +1457,14 @@ function MixField({ mix, onChange }: { mix: GasMix; onChange: (m: GasMix) => voi
         <span className="muted" style={{ fontSize: 12 }}>
           O₂
         </span>
-        <input
-          type="number"
-          aria-label="Elio, percento"
+        <InputNumerico
+          ariaLabel="Elio, percento"
           value={pct(mix.he)}
           min={0}
           max={80}
           step={1}
-          onChange={(e) => {
-            const he = Math.min(80, Math.max(0, Number(e.target.value) || 0)) / 100;
+          onChange={(v) => {
+            const he = v / 100;
             onChange({ o2: Math.min(mix.o2, Math.max(0.08, 1 - he)), he });
           }}
           style={{ width: 64 }}

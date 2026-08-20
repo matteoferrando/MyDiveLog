@@ -236,6 +236,17 @@ export function pacchettoUwatec(cmd: number, dati: Uint8Array = new Uint8Array(0
 class Riassemblatore {
   private avanzo = new Uint8Array(0);
 
+  /**
+   * Quante notifiche sono arrivate, in tutto.
+   *
+   * Serve al diario e serve a una domanda precisa: quando il trasferimento si
+   * ferma, si è fermato perché il computer ha smesso di mandare o perché
+   * mandava così piano da far scadere l'attesa? Sono due guasti diversi con due
+   * rimedi diversi, e senza il conteggio e il tempo si distinguono solo
+   * rifacendo la prova.
+   */
+  notifiche = 0;
+
   constructor(private link: BleLink) {}
 
   /**
@@ -298,6 +309,7 @@ class Riassemblatore {
         // finché la scadenza non è passata — dodici secondi durante i dati,
         // venti sui comandi lunghi.
         const notifica = await this.link.readFrame(timeoutMs, signal);
+        this.notifiche++;
         // Una notifica di un byte solo è il byte di sequenza e basta: non è un
         // errore, è un pacchetto vuoto, e insistere è la cosa giusta.
         pezzo = notifica.subarray(1);
@@ -620,6 +632,8 @@ export const uwatecDriver: DiveComputerDriver = {
        * la riapertura non verrebbe mai tentata: era esattamente il difetto, e
        * il test con il finto che ammutolisce lo ha preso al primo colpo.
        */
+      const inizioGiro = Date.now();
+      const notificheAllInizio = bus.notifiche;
       try {
         const lunghezza = u32le(await bus.chiedi(CMD_SIZE, 4, signal, parametri, TIMEOUT_LUNGO_MS, trace));
         trace(
@@ -706,9 +720,31 @@ export const uwatecDriver: DiveComputerDriver = {
           completo = true;
         } catch (err) {
           ultimoErrore = err;
-          trace(`giro ${giro}: interrotto a ${stato.fatti} di ${lunghezza} byte — ${messaggio(err)}`);
+          /*
+           * QUANTO CI HA MESSO, e a che ritmo.
+           *
+           * «Interrotto a 39 634 byte» non basta a capire perché: un computer
+           * che manda a raffica e poi si blocca e uno che rallenta fino a far
+           * scadere l'attesa lasciano la stessa riga. Con i secondi e i byte al
+           * secondo si distinguono a colpo d'occhio, e la differenza decide se
+           * la cura è riaprire il collegamento o allungare le scadenze.
+           */
+          const durata = (Date.now() - inizioGiro) / 1000;
+          const ritmo = durata > 0 ? Math.round(stato.fatti / durata) : 0;
+          trace(
+            `giro ${giro}: interrotto a ${stato.fatti} di ${lunghezza} byte dopo ${durata.toFixed(1)} s ` +
+              `(${ritmo} byte/s, ${bus.notifiche - notificheAllInizio} notifiche) — ${messaggio(err)}`,
+          );
         }
         bytiTotali += stato.fatti;
+        if (completo) {
+          const durata = (Date.now() - inizioGiro) / 1000;
+          trace(
+            `giro ${giro}: ${stato.fatti} byte in ${durata.toFixed(1)} s ` +
+              `(${durata > 0 ? Math.round(stato.fatti / durata) : 0} byte/s, ` +
+              `${bus.notifiche - notificheAllInizio} notifiche)`,
+          );
+        }
 
         const tagliato = tagliaRecord(blocco.subarray(0, stato.fatti), { modello, seriale, orologio }, trace);
         if (!tagliato.cronologico) fuoriOrdine = true;
@@ -1044,7 +1080,23 @@ function costruisci(
    */
   const daiCampioni = samples.length ? Math.max(...samples.map((s) => s.depth)) : 0;
   const maxDepth = Math.max(d.maxDepth || 0, daiCampioni);
-  const durationS = Math.max(d.durationS || 0, samples.length ? samples[samples.length - 1].t : 0);
+  /*
+   * LA DURATA È QUELLA DELL'INTESTAZIONE, non quella del profilo ritagliato.
+   *
+   * `Math.max` con l'ultimo campione sembrava prudente e produceva una durata
+   * DIVERSA da quella che lo stesso identico record dà passando dal file: su 63
+   * coppie appaiate per impronta su 65, con uno scarto medio di +31 s e massimo
+   * 60. La causa è `trimSurface`, che tiene un campione per lato oltre la
+   * soglia degli 0.8 m: il profilo ritagliato è sistematicamente più lungo del
+   * tempo d'immersione che il computer conta. Contare quel minuto di superficie
+   * come fondo cambia i minuti totali e il consumo al minuto, e la stessa
+   * immersione risultava diversa a seconda di quale copia fosse entrata prima.
+   *
+   * Il ripiego sul profilo resta, ma solo quando l'intestazione non dice
+   * niente: è il caso del record troncato, per cui `Math.max` era stato
+   * scritto.
+   */
+  const durationS = d.durationS || (samples.length ? samples[samples.length - 1].t : 0);
 
   /*
    * Senza profondità E senza durata non è un'immersione: è un record vuoto.

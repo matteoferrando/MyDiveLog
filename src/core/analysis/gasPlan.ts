@@ -32,7 +32,17 @@
 
 import type { Dive, GasMix, Salinity } from '../model';
 import { LIMITS } from '../model';
-import { ATM_BAR, ambientAta, bestMix, end as endDepth, mixName, mod, ppn2At, ppo2At } from '../units';
+import {
+  ATM_BAR,
+  ambientAta,
+  ambientBar,
+  bestMix,
+  end as endDepth,
+  mixName,
+  mod,
+  ppn2At,
+  ppo2At,
+} from '../units';
 import { barometric } from './deco';
 import { exposureOfSegments, type OxygenExposure } from './oxygen';
 
@@ -416,6 +426,22 @@ function phaseAt(
 ): GasPhase {
   const meanDepthM = (fromM + toM) / 2;
   const meanAta = ambientAta(meanDepthM, salinity, surfaceBar);
+  /*
+   * I LITRI SI CONTANO SULLA PRESSIONE ASSOLUTA, non sugli ATA locali.
+   *
+   * «Litri» qui vuol dire bar·litro — `plannedBar = plannedL / tankL` e
+   * `startL = startBar * tankL` — quindi il fattore giusto è la pressione
+   * ambiente in bar, non il suo rapporto con la pressione di superficie del
+   * posto. Al livello del mare i due differiscono dell'1.3%; in quota il
+   * divisore cala e il consumo si gonfia: a 2000 metri il piano chiedeva 142
+   * bar dove ne servono 113, cioè un quarto in più, e la documentazione di
+   * `altitudeM` promette l'opposto — «la pressione ambiente a ogni profondità,
+   * quindi il gas che consumi, che è meno».
+   *
+   * `meanAta` resta nel risultato perché è quello che l'interfaccia mostra come
+   * ATA, ma non è più lui a fare il conto.
+   */
+  const meanBar = ambientBar(meanDepthM, salinity, surfaceBar);
   return {
     label,
     kind,
@@ -428,7 +454,7 @@ function phaseAt(
     meanAta: Math.round(meanAta * 100) / 100,
     divers,
     rmvLpm,
-    litres: Math.round(minutes * meanAta * rmvLpm * divers),
+    litres: Math.round(minutes * meanBar * rmvLpm * divers),
     fromM: round1(fromM),
     toM: round1(toM),
   };
@@ -564,7 +590,7 @@ export function planGas(raw: GasPlanInput): GasPlan {
   // sua profondità e col suo consumo. Il passaggio avviene alla MOD del gas di
   // deco a 1.6 bar, che è il limite ammesso in decompressione.
   const decoMix = raw.decoMix;
-  const decoSwitchDepthM = decoMix ? mod(decoMix, LIMITS.maxPpo2Deco, salinity) : undefined;
+  const decoSwitchDepthM = decoMix ? mod(decoMix, LIMITS.maxPpo2Deco, salinity, surfaceBar) : undefined;
   const decoRmvLpm = raw.decoRmvLpm > 0 ? raw.decoRmvLpm : rmvLpm;
   // Le soste si fanno col gas di deco solo se la loro profondità è dentro la sua
   // MOD: uno stage di ossigeno a 6 metri non serve a una sosta a 12.
@@ -689,9 +715,20 @@ export function planGas(raw: GasPlanInput): GasPlan {
   // Tempo di fondo consentito dal gas: quello che resta dopo aver messo da parte
   // la riserva e pagato risalita e soste. Se non resta niente il tempo è zero, non
   // un numero positivo ottenuto sommandoci un pezzo di risalita.
-  const nonBottomL = planned.filter((p) => p.kind !== 'bottom').reduce((a, p) => a + p.litres, 0);
+  /*
+   * Le fasi pagate con lo STAGE non si scalano dal gas di fondo.
+   *
+   * `plannedL` e `consumedAt` escludono già le fasi `fromStage`; qui no, e il
+   * risultato veniva sottratto dall'utilizzabile per calcolare il tempo di fondo
+   * consentito dal gas — cioè il numero dell'avviso «Il gas basta per N minuti
+   * di fondo». Misurato su 40 m con soste sull'ossigeno: 18.2 minuti dichiarati
+   * invece di 22.3, con i 360 L dello stage contati due volte.
+   */
+  const nonBottomL = planned
+    .filter((p) => p.kind !== 'bottom' && !p.fromStage)
+    .reduce((a, p) => a + p.litres, 0);
   const forBottomL = usableL - nonBottomL;
-  const bottomLpm = rmvLpm * ambientAta(avgDepthM, salinity, surfaceBar);
+  const bottomLpm = rmvLpm * ambientBar(avgDepthM, salinity, surfaceBar);
   const gasLimitedBottomMin = Math.max(0, Math.floor((forBottomL / bottomLpm) * 10) / 10);
   // Una definizione sola, e le due cose che l'interfaccia mostra ne discendono
   // entrambe: prima erano due formule diverse e potevano contraddirsi.
@@ -707,14 +744,14 @@ export function planGas(raw: GasPlanInput): GasPlan {
     turnRule === 'none' ? undefined : Math.floor(startBar - usableBar / (turnRule === 'thirds' ? 3 : 2));
 
   // --- ossigeno e narcosi ---------------------------------------------------
-  const modAtLimit = mod(mix, maxPpo2, salinity);
-  const ppo2AtDepth = ppo2At(mix, depthM, salinity);
+  const modAtLimit = mod(mix, maxPpo2, salinity, surfaceBar);
+  const ppo2AtDepth = ppo2At(mix, depthM, salinity, surfaceBar);
   const end = endDepth(mix, depthM, salinity);
-  const ppn2 = ppn2At(mix, depthM, salinity);
+  const ppn2 = ppn2At(mix, depthM, salinity, surfaceBar);
   // L'esposizione all'ossigeno del piano: ogni fase è un tratto a PPO2 costante
   // (o mediamente costante, che per una grandezza affine è lo stesso).
   const oxygen = exposureOfSegments(
-    planned.map((ph) => ({ ppo2: ppo2At(mix, ph.meanDepthM, salinity), minutes: ph.minutes })),
+    planned.map((ph) => ({ ppo2: ppo2At(mix, ph.meanDepthM, salinity, surfaceBar), minutes: ph.minutes })),
   );
 
   // --- avvertenze -----------------------------------------------------------
@@ -869,9 +906,9 @@ export function planGas(raw: GasPlanInput): GasPlan {
     gasLimitedBottomMin,
     overBudget,
     modM: round1(modAtLimit),
-    modWorkM: round1(mod(mix, LIMITS.maxPpo2Bottom, salinity)),
-    modDecoM: round1(mod(mix, LIMITS.maxPpo2Deco, salinity)),
-    bestMixO2: bestMix(depthM, LIMITS.maxPpo2Bottom, salinity),
+    modWorkM: round1(mod(mix, LIMITS.maxPpo2Bottom, salinity, surfaceBar)),
+    modDecoM: round1(mod(mix, LIMITS.maxPpo2Deco, salinity, surfaceBar)),
+    bestMixO2: bestMix(depthM, LIMITS.maxPpo2Bottom, salinity, surfaceBar),
     planningRmvLpm: Math.round(rmvLpm * 10) / 10,
     buddyDrivesPlan: buddyRmvLpm > ownRmvLpm,
     needsO2CleanKit: mix.o2 > LIMITS.o2CleanThreshold + 1e-9,
@@ -1035,7 +1072,7 @@ function consumedAt(plan: GasPlan, atMin: number): { litres: number; depthM: num
       // quella pianificata, e il minuto di rientro usciva sbagliato di alcuni
       // minuti proprio quando il compagno consuma più di te.
       if (!ph.fromStage) {
-        litres += inPhase * ambientAta((ph.fromM + to) / 2, salinity, surfaceBar) * ph.rmvLpm * ph.divers;
+        litres += inPhase * ambientBar((ph.fromM + to) / 2, salinity, surfaceBar) * ph.rmvLpm * ph.divers;
       }
       depthM = to;
       phase = ph.label;

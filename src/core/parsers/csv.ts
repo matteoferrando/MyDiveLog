@@ -14,6 +14,7 @@
  */
 
 import { AIR, type Cylinder, type Dive } from '../model';
+import { parseCylinderSpec } from '../cylinders';
 import { feetToM, fahrenheitToC, isoFromParts, psiToBar, wallClockToIso } from '../units';
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
@@ -103,6 +104,15 @@ export const csvParser: DiveParser = {
     const delim = detectDelimiter(lines[0]);
     const rawHeaders = splitRow(lines[0], delim);
     const fields = rawHeaders.map((h) => resolveField(normalise(h)));
+    // Vedi `unitaDellIntestazione`: «Max Depth (ft)» dice l'unità una volta sola,
+    // in cima alla colonna, e ogni cella sotto la eredita.
+    const unitaColonna = rawHeaders.map(unitaDellIntestazione);
+    const imperiali = rawHeaders.filter((_, i) => unitaColonna[i] !== undefined);
+    if (imperiali.length) {
+      warnings.push(
+        `Unità dichiarate nell'intestazione e applicate a tutta la colonna: ${imperiali.join(', ')}.`,
+      );
+    }
 
     const unmapped = rawHeaders.filter((_, i) => fields[i] === undefined);
     if (unmapped.length) {
@@ -119,7 +129,9 @@ export const csvParser: DiveParser = {
       const cells = splitRow(lines[ln], delim);
       const row: Record<string, string> = {};
       fields.forEach((f, i) => {
-        if (f && cells[i] !== undefined && cells[i] !== '') row[f] = cells[i];
+        if (!f || cells[i] === undefined || cells[i] === '') return;
+        const unita = unitaColonna[i];
+        row[f] = unita && !cellaHaUnita(cells[i]) ? `${cells[i]} ${unita}` : cells[i];
       });
 
       const dive = rowToDive(row, input.fileName, importedAt);
@@ -148,7 +160,9 @@ function rowToDive(row: Record<string, string>, fileName: string, importedAt: st
   const he = parsePercent(row.he);
   const cylinder: Cylinder = {
     description: row.suit ? undefined : undefined,
-    sizeL: parseNumber(row.tankSize),
+    // «AL80» non è una misura: vedi `core/cylinders.ts`. `parseNumber` ne
+    // avrebbe ricavato 80 litri, sette volte il volume vero.
+    sizeL: parseCylinderSpec(row.tankSize)?.sizeL,
     startBar: parseMeasure(row.startBar, 'pressure'),
     endBar: parseMeasure(row.endBar, 'pressure'),
     mix: { o2: o2 ?? AIR.o2, he: he ?? 0 },
@@ -235,6 +249,34 @@ const normalise = (h: string) =>
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+
+/**
+ * L'unità dichiarata NELL'INTESTAZIONE, quando la cella non ce l'ha.
+ *
+ * IL DIFETTO CHE CHIUDE. `parseMeasure` cercava l'unità solo dentro la cella,
+ * mentre `resolveField` l'unità l'aveva già vista — è proprio grazie a «max
+ * depth ft» che riconosce la colonna. Un export imperiale con le unità in
+ * intestazione (la forma normale in Diving Log, MacDive, divelogs.de) entrava
+ * tutto in metrico **senza un solo avviso**: 98 piedi diventavano 98 metri,
+ * 3000 psi diventavano 3000 bar, 52 °F diventavano 52 °C e il consumo usciva a
+ * 613 L/min.
+ *
+ * La cella eredita l'unità dell'intestazione solo se non ne porta una sua: una
+ * colonna «Depth (ft)» con dentro «12 m» resta 12 metri, perché il valore
+ * scritto accanto al numero è più specifico dell'etichetta della colonna.
+ */
+export function unitaDellIntestazione(header: string): string | undefined {
+  const h = normalise(header);
+  if (/\b(ft|feet|piedi)\b/.test(h)) return 'ft';
+  if (/\bpsi\b/.test(h)) return 'psi';
+  if (/\b(f|fahrenheit)\b/.test(h)) return '°F';
+  return undefined;
+}
+
+/** Vero se la cella dichiara già un'unità sua. */
+function cellaHaUnita(cella: string): boolean {
+  return /[a-z°]/i.test(cella.replace(/[eE](?=[+-]?\d)/g, ''));
+}
 
 function resolveField(header: string): string | undefined {
   for (const [field, aliases] of Object.entries(ALIASES)) {

@@ -38,6 +38,7 @@
  */
 
 import { AIR, type Cylinder, type Dive, type DiveMode, type ReportedSummary, type Salinity } from '../model';
+import { parseCylinderSpec } from '../cylinders';
 import { psiToBar, wallClockToIso } from '../units';
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
@@ -304,16 +305,25 @@ export function psiTextToBar(text: string | undefined): number | undefined {
   return Math.round(psiToBar(v));
 }
 
-/** `"15lt"`, `"15 lt"`, `"18lt"` → litri. */
+/**
+ * `"15lt"`, `"AL80"`, `"3000 psi"` → litri d'acqua, o niente.
+ *
+ * PERCHÉ NON BASTA IL PRIMO NUMERO. `TankSize` è testo libero digitato
+ * dall'utente in Shearwater Cloud, e prendere la prima cifra che si incontra
+ * dava **80 litri** per «AL80» — sette volte il volume vero, e un consumo di
+ * 93 L/min al posto di 13. È lo stesso identico difetto già documentato e
+ * corretto in `parsers/logtrak.ts`, rimasto vivo qui: la sigla di una bombola
+ * in alluminio non è una misura, è un nome commerciale, e il numero sono i
+ * piedi cubi di gas erogati. La tabella e i limiti di plausibilità stanno in
+ * `core/cylinders.ts`, che è l'unico posto in cui devono stare.
+ *
+ * Quando la sigla non è in tabella e non c'è un'unità riconoscibile,
+ * `parseCylinderSpec` restituisce `undefined`: meglio nessun volume che un
+ * volume inventato, perché da lì passa il consumo.
+ */
 export function parseTankSize(text: string | undefined): number | undefined {
   if (!text) return undefined;
-  const m = /(\d+(?:[.,]\d+)?)/.exec(text);
-  if (!m) return undefined;
-  const v = Number(m[1].replace(',', '.'));
-  if (!Number.isFinite(v) || v <= 0) return undefined;
-  // Se il testo parla di piedi cubi, il numero è volume di GAS e non d'acqua.
-  if (/cu\s?ft|cf\b/i.test(text)) return Math.round(((v * 28.316846592) / 206.8) * 10) / 10;
-  return v;
+  return parseCylinderSpec(text)?.sizeL;
 }
 
 /** `"Peregrine[A1B2C3D4]#30 2026-5-31 11-0-58.swl"` → `"Peregrine"`. */

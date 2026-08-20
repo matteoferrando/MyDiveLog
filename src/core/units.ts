@@ -98,15 +98,40 @@ export function depthFromAbsoluteBar(
 
 export const n2Fraction = (mix: GasMix) => Math.max(0, 1 - mix.o2 - mix.he);
 
+/*
+ * LA PRESSIONE DI SUPERFICIE ARRIVA FIN QUI.
+ *
+ * Queste funzioni la assumevano pari a `ATM_BAR`, mentre i loro chiamanti la
+ * conoscono: `deco.ts` e `gasPlan.ts` gliela avrebbero passata. Il risultato era
+ * che sulla stessa schermata di un piano in quota tre riquadri usavano due
+ * pressioni diverse — i litri la tenevano in conto e MOD, PPO2, END, EAD e CNS
+ * no. A 2000 metri, con EAN32 a 40 m in acqua dolce: PPO2 vera 1.51 bar, il
+ * piano ne dichiarava 1.58; MOD vera 36.5 m, il piano 34.3. La direzione è
+ * prudente, ma è la stessa pagina che dichiara di tenere conto della quota.
+ *
+ * Il valore predefinito resta l'atmosfera al livello del mare, quindi chi non
+ * passa niente ottiene esattamente i numeri di prima.
+ */
+
 /** PPO2 alla profondità data, bar. */
-export function ppo2At(mix: GasMix, depthM: number, salinity: Salinity = 'salt'): number {
-  return mix.o2 * ambientBar(depthM, salinity);
+export function ppo2At(
+  mix: GasMix,
+  depthM: number,
+  salinity: Salinity = 'salt',
+  surfaceBar: number = ATM_BAR,
+): number {
+  return mix.o2 * ambientBar(depthM, salinity, surfaceBar);
 }
 
 /** Maximum Operating Depth per una PPO2 limite, metri. */
-export function mod(mix: GasMix, maxPpo2 = 1.4, salinity: Salinity = 'salt'): number {
+export function mod(
+  mix: GasMix,
+  maxPpo2 = 1.4,
+  salinity: Salinity = 'salt',
+  surfaceBar: number = ATM_BAR,
+): number {
   const absBar = maxPpo2 / mix.o2;
-  return depthFromAbsoluteBar(absBar, salinity);
+  return depthFromAbsoluteBar(absBar, salinity, surfaceBar);
 }
 
 /**
@@ -131,12 +156,12 @@ export function end(
   mix: GasMix,
   depthM: number,
   salinity: Salinity = 'salt',
-  { oxygenNarcotic = true }: { oxygenNarcotic?: boolean } = {},
+  { oxygenNarcotic = true, surfaceBar = ATM_BAR }: { oxygenNarcotic?: boolean; surfaceBar?: number } = {},
 ): number {
-  const abs = ambientBar(depthM, salinity);
+  const abs = ambientBar(depthM, salinity, surfaceBar);
   const narcoticFraction = oxygenNarcotic ? 1 - mix.he : n2Fraction(mix);
   const airFraction = oxygenNarcotic ? 1 : n2Fraction({ o2: 0.21, he: 0 });
-  return depthFromAbsoluteBar((abs * narcoticFraction) / airFraction, salinity);
+  return depthFromAbsoluteBar((abs * narcoticFraction) / airFraction, salinity, surfaceBar);
 }
 
 /**
@@ -146,8 +171,13 @@ export function end(
  * rule» (TDI Advanced Nitrox, p. 39), con 4.0 come massimo in ambiente ostruito o
  * in acqua fredda e buia (p. 40).
  */
-export function ppn2At(mix: GasMix, depthM: number, salinity: Salinity = 'salt'): number {
-  return ambientBar(depthM, salinity) * n2Fraction(mix);
+export function ppn2At(
+  mix: GasMix,
+  depthM: number,
+  salinity: Salinity = 'salt',
+  surfaceBar: number = ATM_BAR,
+): number {
+  return ambientBar(depthM, salinity, surfaceBar) * n2Fraction(mix);
 }
 
 /**
@@ -158,16 +188,26 @@ export function ppn2At(mix: GasMix, depthM: number, salinity: Salinity = 'salt')
  * 31%, non 32. Arrotondare per eccesso darebbe una miscela la cui MOD è più bassa
  * della profondità pianificata.
  */
-export function bestMix(depthM: number, maxPpo2 = 1.4, salinity: Salinity = 'salt'): number {
-  const abs = ambientBar(depthM, salinity);
+export function bestMix(
+  depthM: number,
+  maxPpo2 = 1.4,
+  salinity: Salinity = 'salt',
+  surfaceBar: number = ATM_BAR,
+): number {
+  const abs = ambientBar(depthM, salinity, surfaceBar);
   return Math.floor((maxPpo2 / abs) * 100) / 100;
 }
 
 /** Equivalent Air Depth, metri. */
-export function ead(mix: GasMix, depthM: number, salinity: Salinity = 'salt'): number {
-  const abs = ambientBar(depthM, salinity);
+export function ead(
+  mix: GasMix,
+  depthM: number,
+  salinity: Salinity = 'salt',
+  surfaceBar: number = ATM_BAR,
+): number {
+  const abs = ambientBar(depthM, salinity, surfaceBar);
   const airN2 = n2Fraction({ o2: 0.21, he: 0 });
-  return depthFromAbsoluteBar((abs * n2Fraction(mix)) / airN2, salinity);
+  return depthFromAbsoluteBar((abs * n2Fraction(mix)) / airN2, salinity, surfaceBar);
 }
 
 /**

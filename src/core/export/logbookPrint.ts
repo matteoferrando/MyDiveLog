@@ -56,7 +56,7 @@ import type { Cylinder, Dive, Sample } from '../model';
 import { formatDuration, mixName } from '../units';
 import { modeLabel } from '../analysis/aggregate';
 import { condizioniTesto, visibilitaTesto } from '../conditions';
-import { zavorraTotaleKg } from '../analysis/gear';
+import { zavorraTotaleKg, type Equipment } from '../analysis/gear';
 
 // ---------------------------------------------------------------------------
 // Escape
@@ -315,6 +315,12 @@ export interface LogbookPrintOptions {
   signature?: boolean;
   /** Fondo scala comune dell'asse delle profondità, per confrontare i profili a occhio. */
   maxDepthM?: number;
+  /**
+   * L'inventario dell'attrezzatura, per recuperare i chili della piastra sulle
+   * immersioni che hanno il GAV ma non il peso scritto sopra. Vedi
+   * `piastraDellImmersione`: senza, il foglio da firmare dichiara metà zavorra.
+   */
+  inventario?: Pick<Equipment, 'id' | 'plateKg' | 'backplateKg'>[];
 }
 
 /** Una coppia etichetta/valore della griglia dei numeri. */
@@ -338,7 +344,14 @@ export function logbookHtml(
   samplesById: Map<string, Sample[]>,
   opts: LogbookPrintOptions = {},
 ): string {
-  const { title = 'Logbook', owner, now = new Date().toISOString(), signature = true, maxDepthM } = opts;
+  const {
+    title = 'Logbook',
+    owner,
+    now = new Date().toISOString(),
+    signature = true,
+    maxDepthM,
+    inventario,
+  } = opts;
 
   const ordinate = [...dives].sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
 
@@ -350,6 +363,7 @@ export function logbookHtml(
       owner,
       firma: signature,
       maxDepthM,
+      inventario,
     }),
   );
 
@@ -406,6 +420,7 @@ function paginaImmersione(
     owner?: string;
     firma: boolean;
     maxDepthM?: number;
+    inventario?: Pick<Equipment, 'id' | 'plateKg' | 'backplateKg'>[];
   },
 ): string {
   const m = dive.metrics;
@@ -430,7 +445,9 @@ function paginaImmersione(
     ['Bombole e pressioni', bombole(dive)],
     ['Consumo', consumo(dive)],
     ['Modalità', escapeHtml(modeLabel(dive))],
-    ['Acqua', dive.salinity === 'fresh' ? 'Dolce' : 'Salata'],
+    // Senza salinità si scrive «—», non «Salata»: tutti gli altri campi assenti
+    // stampano il trattino, e questo inventava un dato su un foglio da firmare.
+    ['Acqua', dive.salinity === undefined ? '—' : dive.salinity === 'fresh' ? 'Dolce' : 'Salata'],
     /*
      * LA ZAVORRA È IL TOTALE, piastra compresa.
      *
@@ -438,7 +455,13 @@ function paginaImmersione(
      * zavorra e una piastra d'acciaio da 3, il foglio da far firmare diceva 2.
      * È esattamente il difetto che i due campi separati invitano a fare.
      */
-    ['Zavorra', zavorraTotaleKg(dive) > 0 ? num(zavorraTotaleKg(dive), 1, 'kg') : '—'],
+    [
+      'Zavorra',
+      zavorraTotaleKg(dive, ctx.inventario) > 0 ? num(zavorraTotaleKg(dive, ctx.inventario), 1, 'kg') : '—',
+    ],
+    // La guida sub mancava proprio dal foglio la cui riga da firmare si intitola
+    // «Firma dell'istruttore o della guida»: il nome di chi firma non c'era.
+    ['Guida sub', opz(dive.guide)],
     ['Muta', opz(dive.gear?.suit?.name ?? dive.suit)],
     ['Erogatori', opz(dive.gear?.regulators?.map((r) => r.name).join(' · '))],
     ['GAV', opz(dive.gear?.bcd?.name)],

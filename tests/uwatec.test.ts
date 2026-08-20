@@ -304,3 +304,38 @@ describe('parser LogTRAK', () => {
     expect(m.maxAscentRateMpm!).toBeLessThan(12);
   });
 });
+
+/*
+ * IL SERIALE DEVE COMBACIARE CON QUELLO CHE IL COMPUTER DICE VIA BLUETOOTH.
+ *
+ * Misurato sull'archivio reale: l'Aladin Sport Matrix si presenta via Bluetooth
+ * come `63034502`, e nella tabella `diveComputers` dell'export è `6303450223` —
+ * le stesse cifre più il `deviceTypeNumber` (23). Finché le due scritture
+ * restano diverse, `sameComputer` vede due apparecchi, il blocco `computer` non
+ * si fonde, e l'impronta del profilo non passa dal file alla riga in archivio.
+ */
+describe('il seriale di LogTRAK', () => {
+  const conSeriale = (serialNumber: string, deviceTypeNumber: number) => {
+    const j = JSON.parse(toLogtrak([spec]));
+    j.equipment.diveComputers[0].serialNumber = serialNumber;
+    j.equipment.diveComputers[0].deviceTypeNumber = deviceTypeNumber;
+    return logtrakParser.parse({ fileName: 'x.logtrak', text: JSON.stringify(j) }).dives[0];
+  };
+
+  it('perde la coda quando è esattamente il numero di tipo', () => {
+    expect(conSeriale('6303450223', 23).computer?.serial).toBe('63034502');
+  });
+
+  it('resta intero quando la coda non è il numero di tipo', () => {
+    // il secondo apparecchio dell'archivio di prova: finisce per 25, tipo 23
+    expect(conSeriale('6305611325', 23).computer?.serial).toBe('6305611325');
+  });
+
+  it('non si accorcia sotto le sei cifre', () => {
+    expect(conSeriale('123423', 23).computer?.serial).toBe('123423');
+  });
+
+  it('vale anche per deviceId, che è la chiave del segnalibro', () => {
+    expect(conSeriale('6303450223', 23).computer?.deviceId).toBe('63034502');
+  });
+});

@@ -408,9 +408,27 @@ export function trend(points: SeriesPoint[], lowerIsBetter: boolean): Trend | un
   const secondHalf = mean(points.slice(n - half).map((p) => p.value))!;
   const relative = firstHalf === 0 ? 0 : (secondHalf - firstHalf) / Math.abs(firstHalf);
 
+  /*
+   * LA DIREZIONE E LA PENDENZA DEVONO DIRE LA STESSA COSA.
+   *
+   * La direzione veniva dal confronto fra le due metà dei PUNTI, la pendenza da
+   * una regressione sul TEMPO: con immersioni non equispaziate divergono, e la
+   * scheda scriveva «Il consumo sta salendo» sopra «variazione stimata −3.8
+   * L/min all'anno». Il caso reale è banale: sei immersioni in una settimana di
+   * safari due anni fa e due quest'estate — la «seconda metà dei punti»
+   * contiene quattro immersioni di cui due vecchie di due anni.
+   *
+   * Decide la pendenza, che è la sola delle due a sapere quando le immersioni
+   * sono state fatte. Le due metà restano nel risultato perché sono quello che
+   * la scheda mostra come prova («da 20.0 a 23.0»), ma non decidono più il
+   * verso — e quando le due misure si contraddicono la tendenza si dichiara
+   * piatta invece di sceglierne una: due segnali opposti non sono una tendenza.
+   */
   let direction: Trend['direction'] = 'flat';
-  if (Math.abs(relative) >= 0.05) {
-    const gettingSmaller = relative < 0;
+  const perMetà = Math.abs(relative) >= 0.05 ? Math.sign(relative) : 0;
+  const perPendenza = Math.sign(slopePerYear);
+  if (perMetà !== 0 && perPendenza !== 0 && perMetà === perPendenza) {
+    const gettingSmaller = perPendenza < 0;
     direction = gettingSmaller === lowerIsBetter ? 'improving' : 'worsening';
   }
 
@@ -427,8 +445,27 @@ export function trend(points: SeriesPoint[], lowerIsBetter: boolean): Trend | un
 // Raggruppamenti
 // ---------------------------------------------------------------------------
 
+/**
+ * L'istante dell'immersione spostato nel fuso del LUOGO, per leggerne data e
+ * mese come li legge chi c'era.
+ *
+ * IL DIFETTO CHE CHIUDE. Anno, mese e temperatura per mese si costruivano
+ * sull'istante UTC, mentre il logbook mostra la data del luogo: tre immersioni
+ * alle Maldive l'1, il 2 e il 3 gennaio finivano una nel 2025 e due nel 2026, e
+ * l'istogramma le divideva fra dicembre e gennaio. `gearStats` usa già il mese
+ * locale per la stagione delle mute, quindi due parti della stessa app
+ * rispondevano diversamente a «in che mese mi sono immerso».
+ *
+ * Si usa `getUTC*` sull'istante GIÀ SPOSTATO, non il costruttore locale: quello
+ * dipenderebbe dal fuso di chi guarda lo schermo, che è un terzo fuso ancora e
+ * non c'entra niente.
+ */
+function localeDi(d: Pick<Dive, 'startTime' | 'utcOffsetMinutes'>): Date {
+  return new Date(Date.parse(d.startTime) + (d.utcOffsetMinutes ?? 0) * 60_000);
+}
+
 function byYear(dives: Dive[]): Bucket[] {
-  return groupCount(dives, (d) => String(new Date(d.startTime).getUTCFullYear()));
+  return groupCount(dives, (d) => String(localeDi(d).getUTCFullYear()));
 }
 
 function byMonth(dives: Dive[], now: number): Bucket[] {
@@ -446,7 +483,8 @@ function byMonth(dives: Dive[], now: number): Bucket[] {
   }
   const counts = new Map<string, number>();
   for (const d of dives) {
-    const dt = new Date(d.startTime);
+    // Il mese del LUOGO, come nel logbook. Vedi `localeDi`.
+    const dt = localeDi(d);
     const key = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}`;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
@@ -709,7 +747,7 @@ export function tempByMonth(dives: Dive[]): Bucket[] {
   const MONTHS = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
   return MONTHS.map((label, i) => {
     const temps = dives
-      .filter((d) => new Date(d.startTime).getUTCMonth() === i && d.minTempC !== undefined)
+      .filter((d) => localeDi(d).getUTCMonth() === i && d.minTempC !== undefined)
       .map((d) => d.minTempC as number);
     return { label, key: String(i).padStart(2, '0'), value: temps.length ? round(mean(temps) ?? 0, 1) : 0 };
   });

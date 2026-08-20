@@ -270,6 +270,26 @@ await page.waitForTimeout(600);
 
 await condizioniInBlocco([3, 4, 5, 6], 'sunny', 'calm', 6);
 await condizioniInBlocco([7, 8, 9, 10], 'rainy', 'rough', 3);
+
+/*
+ * MUTA E ZAVORRA, su due gruppi diversi.
+ *
+ * Stessa ragione delle condizioni: l'archivio dimostrativo non ha né muta né
+ * chili — nessun formato di esportazione li porta — quindi tutte le tabelle che
+ * incrociano l'attrezzatura resterebbero invisibili per sempre. Due gruppi
+ * perché con uno solo non c'è confronto e le tabelle si rifiutano di comparire,
+ * ed è proprio la regola da verificare.
+ */
+async function mutaInBlocco(righe, nomeMuta, kg) {
+  for (const n of righe) await page.locator('tbody tr').nth(n).locator('input[type=checkbox]').check();
+  await page.waitForTimeout(300);
+  await page.locator('label', { hasText: 'Muta' }).first().locator('input').fill(nomeMuta);
+  await page.locator('label', { hasText: 'Zavorra' }).first().locator('input').fill(String(kg));
+  await page.locator(`button:has-text("Applica a ${righe.length}")`).first().click();
+  await page.waitForTimeout(1800);
+}
+await mutaInBlocco([3, 4, 5, 6], 'Muta Umida 5mm', 6);
+await mutaInBlocco([7, 8, 9, 10], 'Stagna Trilaminato', 10);
 await page.screenshot({ path: 'screenshots/3f-condizioni-in-blocco.png', fullPage: true });
 const bloccoOk =
   dopoIlBlocco.includes('Squadra di prova') &&
@@ -310,7 +330,11 @@ if (await sigla.count()) {
   const litri = await page
     .locator('.card')
     .filter({ has: page.locator('h2', { hasText: 'Modifica dati' }) })
-    .locator('input[type="number"][step="0.1"]')
+    // Il campo si cerca per ETICHETTA, non per `type`: i campi con i decimali
+    // sono di testo apposta — `type="number"` accetta solo il separatore della
+    // lingua della webview, e «6,5» diventava 65. Vedi `ui/numero.ts`.
+    .locator('label', { hasText: "Litri d'acqua" })
+    .locator('input')
     .first()
     .inputValue();
   siglaVerdetto = `S80 → ${litri} L`;
@@ -450,7 +474,10 @@ const curvaCard = await page
   .innerText()
   .catch(() => 'CARTA LIVELLI MANCANTE');
 // Un profilo che la deco la prende di sicuro: 45 m per 30 minuti.
-const livelli = page.locator('.card', { hasText: 'I livelli' }).first().locator('input[type=number]');
+// `inputMode=decimal` e non `type=number`: i campi numerici sono di testo
+// apposta, perché la limitazione a ogni tasto trasformava «18» in «38» e la
+// virgola decimale non passava. Vedi `components/InputNumerico.tsx`.
+const livelli = page.locator('.card', { hasText: 'I livelli' }).first().locator('input[inputmode=decimal]');
 await livelli.nth(0).fill('45');
 await livelli.nth(1).fill('30');
 await page.waitForTimeout(600);
@@ -654,7 +681,12 @@ await page.setViewportSize({ width: 1180, height: 900 });
 await page.click('button:has-text("Logbook")');
 await page.waitForTimeout(600);
 const primaDelCestino = await page.locator('tbody tr').count();
-await page.locator('tbody tr').first().locator('input[type=checkbox]').check();
+// DUE righe, non una: «Rimetti a posto tutte» compare solo quando il cestino ne
+// contiene più di una — con una sola c'è già il pulsante della riga — e il
+// difetto che questo passo cerca (la chiave del cestino riscritta partendo
+// sempre dallo stesso elenco) si vede appunto solo da due in su.
+await page.locator('tbody tr').nth(0).locator('input[type=checkbox]').check();
+await page.locator('tbody tr').nth(1).locator('input[type=checkbox]').check();
 await page.waitForTimeout(300);
 await page.locator('button:has-text("Sposta nel cestino")').first().click();
 await page.waitForTimeout(300);
@@ -664,6 +696,85 @@ await page.locator('button:has-text("Sì, sposta")').first().click();
 await page.waitForTimeout(900);
 const dopoIlCestino = await page.locator('tbody tr').count();
 await page.screenshot({ path: 'screenshots/19-cestino.png', fullPage: true });
+
+/*
+ * SI DIGITA UNA CIFRA ALLA VOLTA, non con `fill()`.
+ *
+ * È il controllo che mancava, ed è il motivo per cui il difetto è vissuto
+ * tanto: `fill()` scrive il valore in un colpo solo, mentre una persona batte
+ * una cifra dopo l'altra. Il campo limitava il valore a OGNI battuta e
+ * rimandava il risultato al genitore, che tornava indietro e riscriveva il
+ * testo sotto le dita: con un minimo di 3, «18» diventava «38» — un piano a
+ * trentotto metri per chi ne aveva chiesti diciotto — e nel campo
+ * dell'ossigeno «21» diventava «81», cioè un EAN81 con la sua MOD e le sue
+ * soste, tutte plausibili e tutte sbagliate.
+ */
+await page.click('button:has-text("Gas")');
+await page.waitForTimeout(700);
+async function digita(campo, testo) {
+  await campo.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type(testo, { delay: 30 });
+  await page.keyboard.press('Tab');
+  await page.waitForTimeout(200);
+  return campo.inputValue();
+}
+const campoProfondita = page.locator('label', { hasText: 'Profondità massima' }).locator('input').first();
+const campoO2 = page.locator('input[aria-label="Ossigeno, percento"]').first();
+const digitati = [];
+if (await campoProfondita.count()) digitati.push(`profondità 18 → ${await digita(campoProfondita, '18')}`);
+if (await campoO2.count()) digitati.push(`ossigeno 21 → ${await digita(campoO2, '21')}`);
+// La virgola decimale: su una webview in inglese un campo numerico la mangia.
+if (await campoProfondita.count())
+  digitati.push(`profondità 18,5 → ${await digita(campoProfondita, '18,5')}`);
+const digitazione = digitati.join(' · ');
+
+/*
+ * LA SEZIONE ATTREZZATURA NELLE STATISTICHE.
+ *
+ * Tre tabelle che nascono da dati facoltativi — muta, zavorra, erogatori — e
+ * quindi possono legittimamente non esserci. Quello che NON deve succedere è
+ * che spariscano in silenzio su un archivio che i dati ce li ha: qui si
+ * verifica che compaiano, e che la zavorra mostrata sia il TOTALE.
+ */
+await page.click('button:has-text("Statistiche")');
+await page.waitForTimeout(900);
+const cartaAttrezzatura = await page
+  .locator('.card', { hasText: 'Quello che porti addosso incrociato' })
+  .first();
+const attrezzaturaStat = (await cartaAttrezzatura.count())
+  ? (await cartaAttrezzatura.innerText()).replace(/\s+/g, ' ').slice(0, 1400)
+  : 'SEZIONE ASSENTE';
+
+/*
+ * «RIMETTI A POSTO TUTTE»: il percorso che ripara un errore fatto in blocco.
+ *
+ * Nasce da un caso vero — cinquantadue immersioni cancellate insieme perché
+ * sembravano doppioni, e poi non lo erano. Il rischio che va inchiodato qui non
+ * è il pulsante, è la scrittura: ripristinare in un ciclo la versione singola
+ * riscriverebbe la chiave del cestino cinquantadue volte partendo sempre dallo
+ * stesso elenco, l'ultima vincerebbe, e in archivio tornerebbero tutte mentre
+ * nel cestino ne resterebbero cinquantuno. Quindi si contano ENTRAMBI i lati.
+ */
+await page.click('button:has-text("Impostazioni")');
+await page.waitForTimeout(700);
+const cestinoPrima = await page.locator('.card', { hasText: 'Cestino' }).first().locator('tbody tr').count();
+let ripristinoEsito = 'pulsante assente';
+const rimettiTutte = page.locator('button:has-text("Rimetti a posto tutte")').first();
+if (await rimettiTutte.count()) {
+  await rimettiTutte.click();
+  await page.waitForTimeout(300);
+  await page.locator('button:has-text("Sì, rimetti")').first().click();
+  await page.waitForTimeout(900);
+  const cestinoDopo = await page.locator('.card', { hasText: 'Cestino' }).first().locator('tbody tr').count();
+  await page.click('button:has-text("Logbook")');
+  await page.waitForTimeout(700);
+  const archivioDopo = await page.locator('tbody tr').count();
+  ripristinoEsito =
+    cestinoDopo === 0 && archivioDopo === primaDelCestino
+      ? `cestino ${cestinoPrima} → 0, archivio ${dopoIlCestino} → ${archivioDopo} (corretto)`
+      : `SBAGLIATO: cestino ${cestinoPrima} → ${cestinoDopo}, archivio ${dopoIlCestino} → ${archivioDopo}, atteso ${primaDelCestino}`;
+}
 
 /*
  * Scarico Bluetooth: il percorso che nel browser NON può funzionare.
@@ -809,6 +920,7 @@ console.log('CONDIZIONI NELLE STATISTICHE:');
 console.log(condizioniCard.slice(0, 700));
 console.log('SOSTE IN RICREATIVA:');
 console.log(sosteRec.slice(0, 500));
+console.log('DIGITAZIONE A CIFRE:', digitazione);
 console.log('STAMPA DEL PIANO:', stampaPiano ? 'pulsante presente' : 'PULSANTE ASSENTE');
 console.log(
   'MODIFICA IN BLOCCO:',
@@ -819,10 +931,12 @@ console.log(
 console.log(
   'CESTINO:',
   `${primaDelCestino} righe → ${dopoIlPrimoClic} dopo il primo clic → ${dopoIlCestino} dopo la conferma`,
-  dopoIlPrimoClic === primaDelCestino && dopoIlCestino === primaDelCestino - 1
+  dopoIlPrimoClic === primaDelCestino && dopoIlCestino === primaDelCestino - 2
     ? '(corretto)'
     : 'SBAGLIATO: la conferma non arma o non cancella',
 );
+console.log('RIMETTI A POSTO TUTTE:', ripristinoEsito);
+console.log('ATTREZZATURA IN STATISTICHE:', attrezzaturaStat);
 console.log('BLUETOOTH CARTA:\n' + bleCard.slice(0, 400));
 console.log('BLUETOOTH NEL BROWSER:', bleErrore.replace(/\n/g, ' ').slice(0, 220));
 console.log('SCORRIMENTO FANTASMA:', fantasma.length ? fantasma : 'nessuno');

@@ -516,3 +516,97 @@ describe('import contro cestino e lapidi', () => {
     expect(out.keep).toEqual(arrivate);
   });
 });
+
+/*
+ * LO STESSO ALADIN SCRITTO IN DUE MODI.
+ *
+ * LogTRAK esporta il seriale con il numero di tipo in coda — `6303450223` per
+ * l'apparecchio che via Bluetooth si presenta come `63034502` — e la scheda
+ * mostrava due Scubapro Aladin Sport Matrix: uno con PPO2 e firmware, l'altro
+ * col passo di campionamento. Correggere il lettore non basta: le immersioni già
+ * in archivio restano com'erano, e chiedere un reimport per far sparire una
+ * scheda doppia è la richiesta che questo file esiste per non fare.
+ */
+describe('due scritture dello stesso seriale', () => {
+  const conDue = (over: Partial<Dive> = {}): Dive => ({
+    ...dive(),
+    computer: {
+      model: 'Scubapro Aladin Sport Matrix',
+      serial: '6303450223',
+      ppo2MaxBar: 1.5,
+      firmware: '2.1',
+    },
+    otherComputers: [{ model: 'Scubapro Aladin Sport Matrix', serial: '63034502', sampleIntervalS: 4 }],
+    ...over,
+  });
+
+  it('diventano un computer solo, col seriale corto e i campi di entrambi', () => {
+    const d = normaliseDive(conDue());
+    expect(d.otherComputers).toBeUndefined();
+    expect(d.computer?.serial).toBe('63034502');
+    expect(d.computer?.ppo2MaxBar).toBe(1.5);
+    expect(d.computer?.firmware).toBe('2.1');
+    expect(d.computer?.sampleIntervalS).toBe(4);
+  });
+
+  it('non tocca due modelli diversi', () => {
+    const d = normaliseDive(
+      conDue({
+        otherComputers: [{ model: 'Shearwater Peregrine', serial: '6303450223999' }],
+      }),
+    );
+    expect(d.otherComputers).toHaveLength(1);
+  });
+
+  it('non tocca due seriali che si somigliano soltanto', () => {
+    // stesso modello, ma quattro cifre di differenza: non è una coda di tipo
+    const d = normaliseDive(
+      conDue({
+        computer: { model: 'Scubapro Aladin Sport Matrix', serial: '63034502' },
+        otherComputers: [{ model: 'Scubapro Aladin Sport Matrix', serial: '630345021234' }],
+      }),
+    );
+    expect(d.otherComputers).toHaveLength(1);
+  });
+
+  it('non accorcia sotto le sei cifre', () => {
+    const d = normaliseDive(
+      conDue({
+        computer: { model: 'Scubapro Aladin Sport Matrix', serial: '12345' },
+        otherComputers: [{ model: 'Scubapro Aladin Sport Matrix', serial: '1234523' }],
+      }),
+    );
+    expect(d.otherComputers).toHaveLength(1);
+  });
+
+  /*
+   * IL CASO CHE IL PRIMO TENTATIVO NON PRENDEVA: l'immersione registrata da un
+   * Peregrine e da un Aladin. Il principale è il Peregrine, e le due scritture
+   * dell'Aladin stanno ENTRAMBE fra gli altri — dove il confronto col solo
+   * principale non le vedeva. Tre computer per due apparecchi.
+   */
+  it('unifica anche due «altri» fra loro, quando il principale è un terzo computer', () => {
+    const d = normaliseDive(
+      conDue({
+        computer: { model: 'Shearwater Peregrine', serial: '988B023F', gfLow: 20, gfHigh: 85 },
+        otherComputers: [
+          { model: 'Scubapro Aladin Sport Matrix', serial: '6303450223', ppo2MaxBar: 1.5, firmware: '2.1' },
+          { model: 'Scubapro Aladin Sport Matrix', serial: '63034502', sampleIntervalS: 4 },
+        ],
+      }),
+    );
+    expect(d.computer?.serial).toBe('988B023F');
+    expect(d.otherComputers).toHaveLength(1);
+    expect(d.otherComputers?.[0]).toMatchObject({
+      serial: '63034502',
+      ppo2MaxBar: 1.5,
+      firmware: '2.1',
+      sampleIntervalS: 4,
+    });
+  });
+
+  it('non scrive niente quando non c’è niente da unificare', () => {
+    const pulita = dive();
+    expect(normaliseDive(pulita)).toBe(pulita);
+  });
+});

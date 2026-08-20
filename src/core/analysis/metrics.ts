@@ -383,12 +383,31 @@ function analyseStops(
   phases: DivePhases,
   maxDepth: number,
 ): { safetyStopS: number; didSafetyStop: boolean; deepStopS: number; deepStopDepthM?: number } {
+  /*
+   * LA PERMANENZA CONTIGUA PIÙ LUNGA, non la somma dei passaggi.
+   *
+   * Sommando, due transiti da cento secondi fra tre e sei metri diventavano
+   * «sosta di sicurezza di 5:05» con il pallino verde e il tasso di soste
+   * completate al 100% — senza che ci fosse stata nessuna sosta di tre minuti.
+   * Un profilo 30 → 4 m per 100 s → 12 m → 4 m per 100 s → superficie non è una
+   * sosta: è un saliscendi. La sosta profonda, dieci righe più sotto in questa
+   * stessa funzione, il tratto contiguo lo cerca già — e il commento lì spiega
+   * proprio che passarci in transito due volte non è una sosta.
+   *
+   */
   const [lo, hi] = LIMITS.safetyStopBandM;
-  let inBand = 0;
+  let corrente = 0;
+  let piuLunga = 0;
   for (let i = 1; i < samples.length; i++) {
     const s = samples[i];
     if (s.t < phases.ascentStartS) continue;
-    if (s.depth >= lo && s.depth <= hi) inBand += s.t - samples[i - 1].t;
+    const dt = s.t - samples[i - 1].t;
+    if (s.depth >= lo && s.depth <= hi) {
+      corrente += dt;
+      if (corrente > piuLunga) piuLunga = corrente;
+    } else {
+      corrente = 0;
+    }
   }
 
   // La sosta profonda: una permanenza attorno a metà della profondità massima
@@ -403,7 +422,11 @@ function analyseStops(
   // perché il denominatore questa soglia ce l'aveva già e il numeratore no.
   const [fLo, fHi] = LIMITS.deepStopBandFraction;
   if (maxDepth < DEEP_STOP_MIN_DEPTH_M) {
-    return { safetyStopS: Math.round(inBand), didSafetyStop: inBand >= LIMITS.safetyStopMinS, deepStopS: 0 };
+    return {
+      safetyStopS: Math.round(piuLunga),
+      didSafetyStop: piuLunga >= LIMITS.safetyStopMinS,
+      deepStopS: 0,
+    };
   }
   const bandLo = maxDepth * fLo;
   const bandHi = maxDepth * fHi;
@@ -430,8 +453,11 @@ function analyseStops(
   }
 
   return {
-    safetyStopS: Math.round(inBand),
-    didSafetyStop: inBand >= LIMITS.safetyStopMinS,
+    // `safetyStopS` è la SOSTA, cioè la permanenza più lunga: è il numero che la
+    // scheda mostra come «sosta di sicurezza di N» e che il tasso di soste
+    // completate conta. Il tempo totale in fascia non è una sosta.
+    safetyStopS: Math.round(piuLunga),
+    didSafetyStop: piuLunga >= LIMITS.safetyStopMinS,
     deepStopS: best >= LIMITS.deepStopMinS ? Math.round(best) : 0,
     deepStopDepthM: best >= LIMITS.deepStopMinS && bestDepth !== undefined ? round(bestDepth, 1) : undefined,
   };

@@ -20,6 +20,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { numeroDaTesto } from '../numero';
 import {
   CERT_LEVEL_LABEL,
   EQUIPMENT_LABEL,
@@ -75,7 +76,9 @@ export function Gear() {
   const visibili = mostraRitirati ? attrezzi : attrezzi.filter((a) => !a.retired);
   const ritirati = attrezzi.filter((a) => a.retired).length;
   const brevetti = useMemo(() => sortCertifications(gear.certifications), [gear.certifications]);
-  const zavorra = useMemo(() => weightingBySuit(dives), [dives]);
+  // L'inventario serve a recuperare il peso della piastra sulle immersioni che
+  // hanno il GAV ma non i chili scritti sopra. Vedi `piastraDellImmersione`.
+  const zavorra = useMemo(() => weightingBySuit(dives, 2, gear.equipment), [dives, gear.equipment]);
   const configurazioni = useMemo(() => configurationRows(dives), [dives]);
   const livello = highestLevel(gear.certifications);
 
@@ -404,7 +407,15 @@ export function Gear() {
                   <th className="num">Zavorra mediana</th>
                   <th className="num">Intervallo</th>
                   <th className="num">Assetto</th>
-                  <th className="num">Immersioni</th>
+                  {/*
+                   * «Con zavorra», non «Immersioni»: qui contano solo quelle in
+                   * cui i chili sono scritti, perché senza non c'è mediana da
+                   * fare. Nell'inventario, sopra, la stessa muta ha un numero
+                   * più alto — sono le immersioni fatte con lei, zavorra o no —
+                   * e finché le due colonne si chiamavano allo stesso modo la
+                   * differenza sembrava un errore di conto.
+                   */}
+                  <th className="num">Con zavorra</th>
                 </tr>
               </thead>
               <tbody>
@@ -607,18 +618,20 @@ function SchedaAttrezzo({
         <div className="grid grid-3" style={{ marginBottom: 8 }}>
           <Campo etichetta="Volume" unita="L">
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               step="0.5"
               value={d.sizeL ?? ''}
-              onChange={(e) => set('sizeL', e.target.value ? Number(e.target.value) : undefined)}
+              onChange={(e) => set('sizeL', numeroDaTesto(e.target.value))}
             />
           </Campo>
           <Campo etichetta="Pressione di esercizio" unita="bar">
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               step="10"
               value={d.workingBar ?? ''}
-              onChange={(e) => set('workingBar', e.target.value ? Number(e.target.value) : undefined)}
+              onChange={(e) => set('workingBar', numeroDaTesto(e.target.value))}
             />
           </Campo>
           <div />
@@ -630,18 +643,20 @@ function SchedaAttrezzo({
           <div className="grid grid-3" style={{ marginBottom: 4 }}>
             <Campo etichetta="Piastra" unita="kg">
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 step="0.1"
                 value={d.plateKg ?? ''}
-                onChange={(e) => set('plateKg', e.target.value ? Number(e.target.value) : undefined)}
+                onChange={(e) => set('plateKg', numeroDaTesto(e.target.value))}
               />
             </Campo>
             <Campo etichetta="Contropiastra o schienalino" unita="kg">
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 step="0.1"
                 value={d.backplateKg ?? ''}
-                onChange={(e) => set('backplateKg', e.target.value ? Number(e.target.value) : undefined)}
+                onChange={(e) => set('backplateKg', numeroDaTesto(e.target.value))}
               />
             </Campo>
             <div />
@@ -698,10 +713,11 @@ function SchedaAttrezzo({
             </Campo>
             <Campo etichetta="Ogni quanti mesi">
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 min={0}
                 value={d.intervalMonths ?? ''}
-                onChange={(e) => set('intervalMonths', e.target.value ? Number(e.target.value) : undefined)}
+                onChange={(e) => set('intervalMonths', numeroDaTesto(e.target.value))}
               />
             </Campo>
           </>

@@ -25,6 +25,7 @@
  */
 
 import { useState } from 'react';
+import { numeroDaTesto } from '../numero';
 import { pesoDelGav, type Equipment, type EquipmentKind, type GearArchive } from '../../core/analysis/gear';
 import { ScegliAttrezzo, vocePerNome } from './ScegliAttrezzo';
 import {
@@ -39,12 +40,9 @@ import type { Cylinder, Dive, DiveGear, GearRef, Waves, Weather } from '../../co
 import { BottoneConferma } from './Conferma';
 
 /** Un numero da un campo di testo, dove vuoto è «non lo so» e non zero. */
-const numero = (v: string): number | undefined => {
-  const t = v.trim().replace(',', '.');
-  if (!t) return undefined;
-  const n = Number(t);
-  return Number.isFinite(n) ? n : undefined;
-};
+// La conversione sta in `ui/numero.ts`, in un posto solo: la virgola decimale
+// è già costata due difetti in questo progetto. Vedi il commento là.
+const numero = numeroDaTesto;
 
 // ---------------------------------------------------------------------------
 
@@ -110,7 +108,8 @@ function RigaBombola({
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">Litri d'acqua</span>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             step="0.1"
             value={c.sizeL ?? ''}
             onChange={(e) => onChange({ sizeL: numero(e.target.value) })}
@@ -131,7 +130,8 @@ function RigaBombola({
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">Ossigeno %</span>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             step="1"
             value={Math.round(c.mix.o2 * 100) || ''}
             onChange={(e) => {
@@ -143,7 +143,8 @@ function RigaBombola({
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">Elio %</span>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             step="1"
             value={Math.round(c.mix.he * 100) || ''}
             onChange={(e) => {
@@ -155,7 +156,8 @@ function RigaBombola({
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">Inizio (bar)</span>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={c.startBar ?? ''}
             onChange={(e) => onChange({ startBar: numero(e.target.value) })}
           />
@@ -163,7 +165,8 @@ function RigaBombola({
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">Fine (bar)</span>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={c.endBar ?? ''}
             onChange={(e) => onChange({ endBar: numero(e.target.value) })}
           />
@@ -482,7 +485,8 @@ export function ModificaImmersione({
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">Zavorra (kg)</span>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             step="0.5"
             value={draft.weightKg ?? ''}
             onChange={(e) => tocca({ weightKg: numero(e.target.value) })}
@@ -491,7 +495,8 @@ export function ModificaImmersione({
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">Piastra o schienalino (kg)</span>
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             step="0.1"
             placeholder="0"
             value={draft.gear?.backplateKg ?? ''}

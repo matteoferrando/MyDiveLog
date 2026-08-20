@@ -56,7 +56,19 @@ export function foglioDelPiano(ctx: {
       ['Profondità massima', `${m1(i.depthM)} m`],
       ['Profondità media del fondo', `${m1(i.avgDepthM)} m`],
       ['Tempo di fondo', formatRuntime(i.bottomMin)],
-      ['Durata totale', formatRuntime(plan.totalRuntimeMin)],
+      /*
+       * La durata totale è quella del RUN TIME SCHEDULE quando le soste ci sono.
+       *
+       * `plan.totalRuntimeMin` descrive la risalita diretta: sullo stesso foglio
+       * diceva «45 min» sopra uno schedule la cui ultima riga è al minuto 59.
+       * Due durate per la stessa immersione, a quindici centimetri di distanza.
+       */
+      [
+        'Durata totale',
+        soste?.segments.length
+          ? `${formatRuntime(soste.segments[soste.segments.length - 1].runtimeMin)} — soste comprese`
+          : formatRuntime(plan.totalRuntimeMin),
+      ],
       ['Miscela', mixName(i.mix)],
       ['Bombola', `${m1(i.tankL)} L a ${i.startBar} bar`],
       ['Consumo usato', `${m1(plan.planningRmvLpm)} L/min${plan.buddyDrivesPlan ? ' (del compagno)' : ''}`],
@@ -186,8 +198,9 @@ export function foglioDelPiano(ctx: {
   if (radi.length > 1) {
     sezioni.push({
       titolo: 'Pressione attesa',
-      descrizione:
-        'Quello che dovresti leggere sul manometro se respiri al consumo pianificato e stai sul profilo. Serve ad accorgersi di uno scostamento mentre puoi ancora rimediare.',
+      descrizione: soste?.segments.length
+        ? 'Quello che dovresti leggere sul manometro se respiri al consumo pianificato e stai sul profilo. ATTENZIONE: questa tabella descrive la risalita DIRETTA, senza le soste dello schedule qui sopra — arriva a zero metri al minuto in cui lo schedule ti vuole ancora a quota. Il gas delle soste è nella sezione «Gas».'
+        : 'Quello che dovresti leggere sul manometro se respiri al consumo pianificato e stai sul profilo. Serve ad accorgersi di uno scostamento mentre puoi ancora rimediare.',
       colonne: ['Min', 'Quota', 'Bar'],
       numeriche: [0, 1, 2],
       righe: radi.map((p) => [m1(p.runMin), `${m1(p.depthM)} m`, `${Math.round(p.bar)}`]),
@@ -214,20 +227,42 @@ export function foglioDelPiano(ctx: {
     testo: w.text,
   }));
   for (const w of soste?.warnings ?? []) avvisi.push({ livello: w.level, testo: w.text });
-  if (mode === 'rec' && curve.leavesCurveAtMin !== undefined) {
+  /*
+   * L'avviso vale in ENTRAMBE le modalità, ed è in tecnica che serve di più.
+   *
+   * Era condizionato a `mode === 'rec'`, quindi spariva proprio dal foglio in
+   * cui il run time schedule non c'è: chi stampava in tecnica si portava in
+   * acqua una risalita diretta senza niente che dicesse che quel profilo un
+   * obbligo ce l'ha.
+   */
+  if (curve.leavesCurveAtMin !== undefined) {
     avvisi.unshift({
       livello: 'critical',
-      testo: `Questo piano NON è ricreativo: al minuto ${curve.leavesCurveAtMin.toFixed(0)} prende un obbligo di decompressione, e da lì risalire dritti non è più un'opzione.`,
+      testo:
+        mode === 'rec'
+          ? `Questo piano NON è ricreativo: al minuto ${curve.leavesCurveAtMin.toFixed(0)} prende un obbligo di decompressione, e da lì risalire dritti non è più un'opzione.`
+          : `Questo profilo prende un obbligo di decompressione al minuto ${curve.leavesCurveAtMin.toFixed(0)}. Le soste NON sono su questo foglio: risalire seguendo «Le fasi» qui sopra significherebbe saltarle.`,
     });
   }
 
   const quando = new Date().toISOString();
   return {
     titolo: `Piano ${m1(i.depthM)} m · ${formatRuntime(i.bottomMin)} di fondo · ${mixName(i.mix)}`,
+    /*
+     * IL SOTTOTITOLO TECNICO NON PROMETTE PIÙ UNA DECOMPRESSIONE CHE NON C'È.
+     *
+     * Diceva «Tecnico, con decompressione» e sotto stampava «Le fasi»: risalita
+     * fino alla sosta, sosta di sicurezza di 3 minuti, superficie — cioè una
+     * risalita diretta, su un profilo con venticinque minuti di obbligo. Le
+     * soste in modalità tecnica le calcola il pianificatore di decompressione,
+     * che è un'altra pagina con altri livelli e altri gas, e questo foglio non
+     * le ha mai viste. Un foglio che si porta in acqua non può dichiarare un
+     * contenuto che non stampa.
+     */
     sottotitolo:
       mode === 'rec'
         ? `Ricreativo, Bühlmann ZH-L16C GF ${gf.low}/${gf.high}. Curva alla media: ${curve.ndlAtAvgMin.toFixed(0)} min.`
-        : 'Tecnico, con decompressione.',
+        : 'Tecnico. Questo è il piano del GAS: la decompressione si calcola nel pianificatore di decompressione e non è su questo foglio.',
     now: quando,
     sezioni,
     avvisi,

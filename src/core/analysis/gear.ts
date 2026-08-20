@@ -229,22 +229,52 @@ const median = (values: number[]): number => {
  * fuori, e la riga dichiara quante ne ha usate — perché «6 kg» su tre immersioni
  * e «6 kg» su quaranta sono due affermazioni diverse.
  */
-export function weightingBySuit(dives: Dive[], minDives = 2): WeightingRow[] {
-  const byS = new Map<string, { kg: number[]; trim: number[]; piastre: number }>();
+export function weightingBySuit(
+  dives: Dive[],
+  minDives = 2,
+  inventario?: Pick<Equipment, 'id' | 'plateKg' | 'backplateKg'>[],
+): WeightingRow[] {
+  /*
+   * LA CHIAVE È IL NOME NORMALIZZATO, e la priorità è quella di tutto il resto.
+   *
+   * Due difetti sovrapposti, entrambi introdotti ieri sistemandone un terzo.
+   * Il primo: qui vinceva il testo libero e in `gearStats` il riferimento
+   * all'inventario — priorità opposte per la stessa grandezza, quindi la stessa
+   * muta compariva con due nomi e due mediane in due pagine. Il secondo: qui si
+   * raggruppava sulla stringa così com'è, quindi «Muta Umida 5mm» e «muta umida
+   * 5 mm» erano due mute, e sei immersioni identiche diventavano due gruppi da
+   * due che scendevano sotto soglia e sparivano dalla tabella — mentre
+   * l'inventario, due sezioni più su nella stessa pagina, ne contava sei.
+   */
+  const byS = new Map<string, { nome: string; kg: number[]; trim: number[]; piastre: number }>();
   for (const d of dives) {
-    const suit = d.suit?.trim() || d.gear?.suit?.name?.trim();
-    if (!suit || d.weightKg === undefined || !(d.weightKg > 0)) continue;
-    const row = byS.get(suit) ?? { kg: [], trim: [], piastre: 0 };
-    row.kg.push(zavorraTotaleKg(d));
-    if (d.gear?.backplateKg) row.piastre++;
+    const nome = d.gear?.suit?.name?.trim() || d.suit?.trim();
+    if (!nome) continue;
+    const suit = normalizzaNome(nome);
+    /*
+     * LA SOGLIA È SUL TOTALE, non sulla sola zavorra.
+     *
+     * Scartare chi non ha `weightKg` buttava via proprio le configurazioni in
+     * cui la piastra è quasi tutto il peso: chi scende con una piastra d'acciaio
+     * da 6 kg e zero piombo addosso ha una zavorra totale di 6 kg — un dato
+     * vero — e finiva fuori tabella come se non avesse scritto niente.
+     */
+    const piastra = piastraDellImmersione(d, inventario);
+    if (d.weightKg === undefined && piastra === undefined) continue;
+    const totale = zavorraTotaleKg(d, inventario);
+    if (!(totale > 0)) continue;
+    const row = byS.get(suit) ?? { nome, kg: [], trim: [], piastre: 0 };
+    row.kg.push(totale);
+    if (piastra) row.piastre++;
     const trim = d.metrics?.bottomVerticalTravelMpm;
     if (trim !== undefined && Number.isFinite(trim)) row.trim.push(trim);
     byS.set(suit, row);
   }
   return [...byS.entries()]
     .filter(([, r]) => r.kg.length >= minDives)
-    .map(([suit, r]) => ({
-      suit,
+    .map(([, r]) => ({
+      // Si mostra il nome scritto dall'utente, non la forma normalizzata.
+      suit: r.nome,
       dives: r.kg.length,
       medianKg: Math.round(median(r.kg) * 10) / 10,
       minKg: Math.min(...r.kg),
@@ -270,10 +300,12 @@ export function weightingBySuit(dives: Dive[], minDives = 2): WeightingRow[] {
  * a revisionarlo». Quel giudizio lo dà chi sa in che acqua l'ha usato e come
  * l'ha risciacquato.
  *
- * L'aggancio è per identificativo, e per identificativo soltanto: due voci
- * scritte «Apeks XTX50» e «apeks xtx 50» sarebbero due attrezzi diversi, ed è il
- * motivo per cui la scheda immersione fa scegliere dall'elenco invece di far
- * scrivere il nome ogni volta.
+ * L'aggancio è per identificativo — ed è il motivo per cui la scheda immersione
+ * fa scegliere dall'elenco invece di far scrivere il nome ogni volta. Per la
+ * muta, e solo quando il riferimento manca del tutto, vale anche il nome
+ * scritto a mano: le immersioni importate da LogTRAK la portano come testo, e
+ * ignorarle faceva dire all'inventario «1 immersione» accanto a una muta usata
+ * sei volte. Il dettaglio sta in `equipmentUsage`.
  */
 export interface EquipmentUsage {
   id: string;
@@ -282,6 +314,24 @@ export interface EquipmentUsage {
   divesSinceService?: number;
   /** L'ultima immersione con questo attrezzo, ISO. */
   lastUsedOn?: string;
+}
+
+/**
+ * Il nome di un attrezzo ridotto alla sua forma confrontabile: minuscolo, senza
+ * accenti e senza spazi. Serve solo all'aggancio per nome — quello che si vede
+ * resta il nome scritto dall'utente.
+ *
+ * Gli spazi si tolgono tutti, non si compattano: «Muta Umida 5 mm» e «Muta
+ * Umida 5mm» sono la stessa muta, e «Apeks XTX 50» lo stesso erogatore di
+ * «Apeks XTX50». Due voci davvero diverse che si riducono alla stessa forma non
+ * fanno danno — chi le usa spegne l'aggancio per nome su entrambe.
+ */
+export function normalizzaNome(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, '');
 }
 
 /** Il giorno di calendario del LUOGO dell'immersione, `YYYY-MM-DD`. */
@@ -308,10 +358,43 @@ export function equipmentUsage(dives: Dive[], equipment: Equipment[]): Map<strin
     if (e.lastServiceOn || !service.has(e.id)) service.set(e.id, e.lastServiceOn ?? service.get(e.id));
   }
 
+  /*
+   * L'AGGANCIO PER NOME, per le immersioni che non hanno un riferimento.
+   *
+   * L'aggancio buono è l'identificativo, e la scheda immersione fa scegliere
+   * dall'elenco proprio per produrlo. Ma un archivio vero non nasce così: le
+   * immersioni importate da LogTRAK, o scritte prima che l'inventario
+   * esistesse, hanno la muta come TESTO — `dive.suit`, «Muta Umida 5mm» — e
+   * nessun riferimento. Contando i soli riferimenti, l'inventario diceva «1
+   * immersione» accanto a una muta che la tabella della zavorra, che il testo lo
+   * guarda, contava sei volte. Due numeri diversi per la stessa muta nella
+   * stessa pagina: uno dei due è per forza sbagliato, e chi legge non sa quale.
+   *
+   * Quindi: se l'immersione non ha il riferimento, si guarda il nome. Il
+   * confronto normalizza maiuscole e spazi — «Muta umida 5 mm» e «MUTA UMIDA
+   * 5MM» sono la stessa muta — e non inventa somiglianze: o il nome combacia
+   * dopo la normalizzazione, o non conta. Se due voci dell'inventario si
+   * normalizzano allo stesso nome l'aggancio per nome si spegne per quel nome,
+   * perché non c'è modo di sapere quale delle due intendesse.
+   */
+  const perNome = new Map<string, string | null>();
+  for (const e of equipment) {
+    const chiave = `${e.kind}\u0000${normalizzaNome(e.name)}`;
+    perNome.set(chiave, perNome.has(chiave) ? null : e.id);
+  }
+  const idDalNome = (kind: EquipmentKind, nome: string | undefined): string | undefined => {
+    if (!nome?.trim()) return undefined;
+    return perNome.get(`${kind}\u0000${normalizzaNome(nome)}`) ?? undefined;
+  };
+
   for (const d of dives) {
     const g = d.gear;
-    if (!g) continue;
-    const riferimenti = [...(g.regulators ?? []), g.bcd, g.suit, ...(g.other ?? [])];
+    const riferimenti = [...(g?.regulators ?? []), g?.bcd, g?.suit, ...(g?.other ?? [])];
+    // La muta scritta a mano vale come riferimento quando il riferimento manca.
+    if (!g?.suit?.id) {
+      const id = idDalNome('suit', d.suit);
+      if (id) riferimenti.push({ id, name: d.suit ?? '' });
+    }
     // Lo stesso attrezzo citato due volte nella stessa immersione conta UNA
     // volta: un erogatore messo per sbaglio in entrambi i campi raddoppierebbe
     // il conto delle sue immersioni, e quel numero deve poter essere creduto.
@@ -376,8 +459,38 @@ export function pesoDelGav(e: Pick<Equipment, 'plateKg' | 'backplateKg'> | undef
  * porta cinque, e una statistica che legge solo `weightKg` racconta il
  * contrario di quello che succede in acqua.
  */
-export function zavorraTotaleKg(dive: Pick<Dive, 'weightKg' | 'gear'>): number {
-  return (dive.weightKg ?? 0) + (dive.gear?.backplateKg ?? 0);
+export function zavorraTotaleKg(
+  dive: Pick<Dive, 'weightKg' | 'gear'>,
+  inventario?: Pick<Equipment, 'id' | 'plateKg' | 'backplateKg'>[],
+): number {
+  return (dive.weightKg ?? 0) + (piastraDellImmersione(dive, inventario) ?? 0);
+}
+
+/**
+ * I chili di piastra di un'immersione: quelli scritti su di lei, oppure quelli
+ * del GAV che portava.
+ *
+ * PERCHÉ NON BASTA IL CAMPO SULL'IMMERSIONE. Il peso della piastra si scrive
+ * sul GAV nell'inventario, e da lì viene proposto sull'immersione nel momento
+ * in cui scegli quel GAV. Va benissimo per le immersioni future e non fa
+ * niente per quelle passate: chi compila il peso della piastra oggi ha già
+ * cento immersioni con quel GAV e nessun chilo scritto sopra, e ogni statistica
+ * sulla zavorra continua a raccontarle senza. Il ripiego sull'inventario
+ * chiude il buco senza toccare i dati.
+ *
+ * L'ORDINE È QUELLO DICHIARATO ALTROVE e non cambia: quello che c'è scritto
+ * sull'immersione vince sempre, perché la configurazione si cambia — la piastra
+ * d'alluminio per il viaggio, quella d'acciaio a casa — e la scelta del giorno
+ * non deve essere sovrascritta da una proprietà generale del pezzo.
+ */
+export function piastraDellImmersione(
+  dive: Pick<Dive, 'gear'>,
+  inventario?: Pick<Equipment, 'id' | 'plateKg' | 'backplateKg'>[],
+): number | undefined {
+  if (dive.gear?.backplateKg !== undefined) return dive.gear.backplateKg;
+  const id = dive.gear?.bcd?.id;
+  if (!id || !inventario) return undefined;
+  return pesoDelGav(inventario.find((e) => e.id === id));
 }
 
 /**

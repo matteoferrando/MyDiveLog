@@ -30,6 +30,25 @@ export function similar(a: number, b: number, tolerance: number): boolean {
   return diff < tolerance || diff * 10 < max;
 }
 
+/**
+ * Tutte le impronte di profilo che un'immersione porta, principale e altri.
+ *
+ * PERCHÉ NON BASTA `computer.profileFingerprint`. Quando il profilo in arrivo
+ * vince — più canali — il blocco `computer` viene sostituito in blocco e quello
+ * vecchio finisce fra gli «altri», impronta compresa. Guardando solo il
+ * principale, l'unico criterio capace di riconoscere l'immersione la cui data è
+ * stata corretta a mano si spegneva appena si importava un secondo computer:
+ * misurato sull'archivio reale, 137 immersioni con impronta scendevano a 99, e
+ * la copia con 118 giorni di scarto rientrava come nuova a ogni scarico
+ * Bluetooth, per sempre.
+ */
+function improntePresenti(d: Dive): string[] {
+  const out: string[] = [];
+  if (d.computer?.profileFingerprint) out.push(d.computer.profileFingerprint);
+  for (const c of d.otherComputers ?? []) if (c.profileFingerprint) out.push(c.profileFingerprint);
+  return out;
+}
+
 /** Corrispondenza forte: stesso computer, stesso identificativo interno. */
 export function matchComputer(a: Dive, b: Dive): 1 | 0 | -1 {
   const ca = a.computer;
@@ -70,9 +89,29 @@ export function likelySame(a: Dive, b: Dive, clockOffsetMs = 0): boolean {
    * passa al criterio di sempre — le sorgenti senza profilo un'impronta non ce
    * l'hanno affatto.
    */
-  const ia = a.computer?.profileFingerprint;
-  const ib = b.computer?.profileFingerprint;
-  if (ia && ib && ia === ib) return true;
+  const impronteA = improntePresenti(a);
+  const impronteB = improntePresenti(b);
+  if (impronteA.some((x) => impronteB.includes(x))) return true;
+
+  /*
+   * IL VETO: stesso computer, identificativi interni diversi.
+   *
+   * `matchComputer` sa già rispondere «stesso apparecchio, immersioni DIVERSE»
+   * con −1, e questo controllo guardava solo il caso positivo. Il risultato,
+   * riprodotto su un archivio finto ma verosimile: con un orario di bordo
+   * regolare — tre tuffi al giorno alle 09:00, 11:30 e 14:30 per cinque giorni
+   * — le differenze fra tuffi diversi dello STESSO giorno si accumulano tutte
+   * sugli stessi valori, `inferClockOffsets` le scambia per uno sfasamento
+   * d'orologio sistematico, e un'immersione in più che una sola fonte possiede
+   * viene inghiottita da una ripetitiva. L'archivio non cresce e il rapporto
+   * dell'import dice «arricchita».
+   *
+   * Il veto vale solo quando ENTRAMBE portano un identificativo interno dello
+   * stesso apparecchio: se lo stesso computer ha numerato le due immersioni in
+   * modo diverso, sono due immersioni. Non è un'euristica, è il computer che
+   * lo dichiara.
+   */
+  if (matchComputer(a, b) < 0) return false;
 
   if (!similar(a.maxDepth, b.maxDepth, TOLERANCE.depthM)) return false;
   if (a.avgDepth && b.avgDepth && !similar(a.avgDepth, b.avgDepth, TOLERANCE.depthM)) {
@@ -142,9 +181,36 @@ export function inferClockOffsets(
   const clusterMs = opts.clusterMs ?? 5 * 60_000;
   if (existing.length === 0 || incoming.length === 0) return [];
 
+  /*
+   * LE IMMERSIONI CHE COMBACIANO GIÀ SENZA SFASAMENTO NON PARLANO.
+   *
+   * IL DIFETTO CHE CHIUDE, riprodotto su un archivio verosimile: con un orario
+   * di bordo regolare — tre tuffi al giorno alle 09:00, 11:30 e 14:30 per
+   * cinque giorni — le differenze fra tuffi DIVERSI dello stesso giorno si
+   * accumulano tutte sugli stessi valori (−2h30, −3h, −5h30) e superano
+   * `minPairs`. Il commento qui sotto sosteneva che uno sfasamento sistematico
+   * non può nascere per caso «perché le ripetitive producono una differenza
+   * isolata»: non è vero, un orario regolare le rende sistematiche. Da lì
+   * un'immersione che una sola fonte possiede veniva inghiottita da una
+   * ripetitiva dello stesso giorno, e l'import annunciava «arricchita».
+   *
+   * Il rimedio è di principio, non una soglia in più: una coppia che combacia
+   * GIÀ a sfasamento zero è spiegata, e usarla anche per costruire uno
+   * sfasamento diverso è contarla due volte. Restano solo le immersioni che a
+   * zero non trovano niente — che sono esattamente quelle di cui ha senso
+   * chiedersi se l'orologio fosse sbagliato. Il caso vero non si perde: quando
+   * un archivio è tutto spostato di un'ora, a zero non combacia NIENTE e ogni
+   * coppia continua a votare.
+   */
+  const giaSpiegate = new Set<Dive>();
+  for (const inc of incoming) {
+    if (existing.some((ex) => likelySame(ex, inc, 0))) giaSpiegate.add(inc);
+  }
+
   const deltas: number[] = [];
   for (const inc of incoming) {
     if (!inc.durationS || !inc.maxDepth) continue;
+    if (giaSpiegate.has(inc)) continue;
     for (const ex of existing) {
       if (!similar(ex.maxDepth, inc.maxDepth, TIGHT.depthM)) continue;
       if (!similar(ex.durationS, inc.durationS, TIGHT.durationS)) continue;
@@ -312,6 +378,26 @@ export function findBestMatch(pool: Dive[], dive: Dive, offsets: number[]): numb
  * decompressione. Il conteggio serve a scegliere quale tenere quando la stessa
  * immersione arriva da due computer diversi.
  */
+/**
+ * Due letture dello stesso computer in una sola, prendendo di ciascuna i campi
+ * che all'altra mancano.
+ *
+ * Restituisce `base` invariato — lo stesso riferimento — quando non c'è niente
+ * da aggiungere, così chi chiama sa se qualcosa è cambiato senza confrontare
+ * campo per campo. Chi la usa deve avere già deciso che i due riferimenti sono
+ * lo STESSO apparecchio: questa funzione non lo verifica.
+ */
+export function fondiComputer(base: ComputerInfo, altro: ComputerInfo): ComputerInfo {
+  let fuso: ComputerInfo | undefined;
+  for (const k of Object.keys(altro) as (keyof ComputerInfo)[]) {
+    if (base[k] === undefined && altro[k] !== undefined) {
+      fuso ??= { ...base };
+      (fuso as Record<string, unknown>)[k] = altro[k];
+    }
+  }
+  return fuso ?? base;
+}
+
 /** Due riferimenti allo stesso computer fisico. */
 export function sameComputer(a: ComputerInfo | undefined, b: ComputerInfo | undefined): boolean {
   if (!a || !b) return false;
@@ -329,9 +415,20 @@ export function dedupeComputers(list: ComputerInfo[]): ComputerInfo[] {
   const out: ComputerInfo[] = [];
   for (const c of list) {
     const existing = out.find((x) => sameComputer(x, c));
-    // A pari computer si tengono i campi di entrambe le letture: una fonte può
-    // avere il firmware e l'altra i limiti di PPO2.
-    if (existing) Object.assign(existing, { ...c, ...existing });
+    /*
+     * A pari computer si tengono i campi di entrambe le letture: una fonte può
+     * avere il firmware e l'altra i limiti di PPO2.
+     *
+     * Prima era `Object.assign(existing, { ...c, ...existing })`, e lo spread
+     * copia anche le chiavi il cui valore è `undefined` ESPLICITO: tutti i
+     * lettori costruiscono il blocco `computer` con le chiavi sempre presenti,
+     * quindi bastava che la prima voce avesse `serial: undefined` per
+     * cancellare il seriale vero dell'altra — e il risultato dipendeva
+     * dall'ordine dell'elenco. Questa funzione gira a ogni avvio e su ogni
+     * immersione che scende dalla sincronizzazione, quindi il dato mutilato
+     * diventava quello definitivo. `fondiComputer` guarda i valori.
+     */
+    if (existing) Object.assign(existing, fondiComputer(existing, c));
     else out.push({ ...c });
   }
   return out;
@@ -469,7 +566,22 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
     if (!better) {
       // Anche quando il profilo in arrivo non vince, può essere il più fitto.
       const candidate = denserOf(incoming.samples, out.altSamples, incoming.altSamples);
-      if ((candidate?.length ?? 0) > (out.altSamples?.length ?? 0)) {
+      /*
+       * Deve essere più fitto del PRINCIPALE, non solo del secondo che c'è già.
+       *
+       * Senza il primo confronto, reimportare lo stesso identico file creava un
+       * secondo profilo lungo quanto il primo (`200 > 0`), accendeva `changed`,
+       * e più sotto il secondo profilo veniva ributtato via — ma `changed`
+       * restava acceso. Da lì l'immersione veniva riscritta con metriche
+       * ricalcolate da `computeMetrics`, che della catena dei tessuti non sa
+       * niente: **la saturazione spariva da tutto l'archivio a ogni reimport**,
+       * e con lo scarico Bluetooth — che ripresenta sempre l'intera memoria del
+       * computer — succedeva a ogni collegamento.
+       */
+      const piuFitto =
+        (candidate?.length ?? 0) > (out.altSamples?.length ?? 0) &&
+        (candidate?.length ?? 0) > (out.samples?.length ?? 0);
+      if (piuFitto) {
         out.altSamples = candidate;
         changed = true;
       }
@@ -516,12 +628,40 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
       'salinity',
       'surfacePressureBar',
       'surfaceIntervalS',
-      'computer',
       'weightKg',
       'suit',
       'utcOffsetMinutes',
     ] as const
   ).forEach(takeIfEmpty);
+
+  /*
+   * IL BLOCCO `computer` SI FONDE CAMPO PER CAMPO, non tutto o niente.
+   *
+   * Stava nell'elenco qui sopra, cioè si prendeva solo quando in archivio non
+   * c'era NESSUN computer. Sembra prudente e invece perdeva esattamente il dato
+   * che serviva di più. Il caso reale: l'archivio conteneva le immersioni
+   * importate dal file di LogTRAK PRIMA che il lettore imparasse a calcolare
+   * l'impronta del profilo. Quelle righe avevano un `computer` — modello,
+   * seriale — e quindi `takeIfEmpty` non toccava niente; reimportare lo stesso
+   * file con il lettore nuovo NON scriveva l'impronta. Risultato: l'unico
+   * criterio capace di riconoscere una copia con la data corretta a mano
+   * restava spento proprio sull'archivio per cui era stato scritto.
+   *
+   * Si fonde solo quando è lo STESSO computer fisico. Un'immersione registrata
+   * da due computer diversi tiene i due blocchi separati — quello che non vince
+   * il profilo finisce in `otherComputers` poco più sotto — perché firmware,
+   * seriale e impostazioni dell'uno non sono quelli dell'altro.
+   */
+  if (out.computer && incoming.computer && sameComputer(out.computer, incoming.computer)) {
+    const fuso = fondiComputer(out.computer, incoming.computer);
+    if (fuso !== out.computer) {
+      out.computer = fuso;
+      changed = true;
+    }
+  } else if (!out.computer && incoming.computer) {
+    out.computer = incoming.computer;
+    changed = true;
+  }
 
   /*
    * `conditions` e `gear` si fondono CAMPO PER CAMPO, non tutto o niente.
@@ -539,35 +679,59 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
    * condizione e attrezzatura appena digitati venivano buttati via mentre
    * l'interfaccia annunciava «arricchita».
    */
-  const condizioniFuse = { ...(incoming.conditions ?? {}), ...(out.conditions ?? {}) };
-  for (const k of ['weather', 'waves'] as const) {
-    if (condizioniFuse[k] === undefined) delete condizioniFuse[k];
-  }
-  if (Object.keys(condizioniFuse).length > Object.keys(out.conditions ?? {}).length) {
-    out.conditions = condizioniFuse;
+  /*
+   * SI CONTANO I VALORI, NON LE CHIAVI.
+   *
+   * `{ ...incoming, ...out }` fa vincere l'`undefined` ESPLICITO di `out`, e il
+   * confronto sul numero di chiavi non se ne accorge perché la chiave c'era già.
+   * Non è un caso di scuola: la modifica in blocco del logbook scrive sempre
+   * `weather` E `waves` — anche a `undefined` — e lo stesso fanno il modulo a
+   * mano e `manual.ts`. Bastava impostare in blocco il solo meteo perché il mare
+   * portato dal file di LogTRAK non entrasse più, cioè esattamente lo scenario
+   * che il commento qui sopra dichiara di risolvere.
+   */
+  const fondiOggetto = <T extends object>(
+    esistente: T | undefined,
+    arrivo: T | undefined,
+  ): { valore: T | undefined; cambiato: boolean } => {
+    if (!arrivo) return { valore: esistente, cambiato: false };
+    const fuso: Record<string, unknown> = {};
+    let cambiato = false;
+    for (const k of new Set([...Object.keys(arrivo), ...Object.keys(esistente ?? {})])) {
+      const mio = (esistente as Record<string, unknown> | undefined)?.[k];
+      const suo = (arrivo as Record<string, unknown>)[k];
+      if (mio !== undefined) {
+        fuso[k] = mio;
+      } else if (suo !== undefined) {
+        fuso[k] = suo;
+        cambiato = true;
+      }
+    }
+    return { valore: (Object.keys(fuso).length ? fuso : undefined) as T | undefined, cambiato };
+  };
+
+  const cond = fondiOggetto(out.conditions, incoming.conditions);
+  if (cond.cambiato) {
+    out.conditions = cond.valore;
     changed = true;
   }
-
-  const attrezziFusi = { ...(incoming.gear ?? {}), ...(out.gear ?? {}) };
-  for (const k of Object.keys(attrezziFusi) as (keyof typeof attrezziFusi)[]) {
-    if (attrezziFusi[k] === undefined) delete attrezziFusi[k];
-  }
-  if (Object.keys(attrezziFusi).length > Object.keys(out.gear ?? {}).length) {
-    out.gear = attrezziFusi;
+  const attr = fondiOggetto(out.gear, incoming.gear);
+  if (attr.cambiato) {
+    out.gear = attr.valore;
     changed = true;
   }
 
   // `reported` e `annotations` si fondono per chiave: due computer possono
   // contribuire pezzi diversi della stessa immersione, e prendere il primo blocco
   // intero butterebbe via quello che ha solo l'altro.
-  const mergedReported = { ...(incoming.reported ?? {}), ...(out.reported ?? {}) };
-  if (Object.keys(mergedReported).length > Object.keys(out.reported ?? {}).length) {
-    out.reported = mergedReported;
+  const rep = fondiOggetto(out.reported, incoming.reported);
+  if (rep.cambiato) {
+    out.reported = rep.valore;
     changed = true;
   }
-  const mergedAnnotations = { ...(incoming.annotations ?? {}), ...(out.annotations ?? {}) };
-  if (Object.keys(mergedAnnotations).length > Object.keys(out.annotations ?? {}).length) {
-    out.annotations = mergedAnnotations;
+  const ann = fondiOggetto(out.annotations, incoming.annotations);
+  if (ann.cambiato) {
+    out.annotations = ann.valore;
     changed = true;
   }
 
@@ -603,7 +767,17 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
       [...(out.otherComputers ?? []), ...(incoming.otherComputers ?? [])],
       incoming.computer,
     );
-    if (merged.length !== (out.otherComputers?.length ?? 0)) {
+    /*
+     * Il confronto è sul CONTENUTO, non sulla lunghezza.
+     *
+     * Con `merged.length !== out.otherComputers.length` l'arricchimento si
+     * perdeva proprio nel caso utile: quando il computer in arrivo si FONDE con
+     * una voce già presente invece di aggiungersene una, la lunghezza non
+     * cambia, l'assegnazione non avveniva, e seriale, firmware e passo di
+     * campionamento venivano scartati — mentre `extraSources` continuava a
+     * dichiarare che quella fonte aveva contribuito.
+     */
+    if (JSON.stringify(merged) !== JSON.stringify(out.otherComputers ?? [])) {
       out.otherComputers = merged;
       changed = true;
     }

@@ -320,7 +320,7 @@ export function switchDepthOf(gas: PlanGas, s: DecoSettings): number {
   // resterebbe senza il gas che tutti ci respirano. Il mezzo metro di differenza
   // vale 1.61 bar invece di 1.60, che è la tolleranza con cui le tabelle sono
   // scritte.
-  return Math.round(mod(gas.mix, limit, s.salinity));
+  return Math.round(mod(gas.mix, limit, s.salinity, s.surfacePressureBar));
 }
 
 /**
@@ -331,13 +331,36 @@ export function switchDepthOf(gas: PlanGas, s: DecoSettings): number {
  * uno per uno — che è la differenza pratica fra questo pianificatore e uno in cui i
  * cambi si dichiarano a mano e ci si dimentica sempre l'ultimo.
  */
-export function bestGasAt(depthM: number, gases: PlanGas[], s: DecoSettings): number {
+export function bestGasAt(
+  depthM: number,
+  gases: PlanGas[],
+  s: DecoSettings,
+  /**
+   * Vero quando il tratto si respira sul CIRCUITO CHIUSO.
+   *
+   * IL DIFETTO CHE CHIUDE. Senza questo argomento, su un piano con setpoint la
+   * scelta del gas era la stessa del circuito aperto: in risalita prendeva lo
+   * stage più ricco d'ossigeno — un EAN50, un O₂ puro — e il motore lo trattava
+   * comunque come DILUENTE, perché il circuito chiuso lo decide il setpoint del
+   * livello e non il gas. Misurato su 60 m × 25 min con setpoint 1.3: la
+   * decompressione scendeva da 40 a 33 minuti, e quelle bombole registravano
+   * **zero litri** consumati. Cioè un piano che guadagna sette minuti restando
+   * sul circuito e senza aprire lo stage: ineseguibile, e più corto del vero.
+   * Bastava spuntare «circuito chiuso» con i gas predefiniti della pagina.
+   *
+   * Su un rebreather la decompressione si fa sul loop col diluente: lo stage di
+   * deco si respira solo in bailout, che è un altro piano. Quindi qui i gas di
+   * ruolo `deco` sono esclusi esattamente come quelli di ruolo `bailout`.
+   */
+  chiuso = false,
+): number {
   let best = -1;
   let bestO2 = -1;
   let bestVolume = -1;
   const available = (g: PlanGas) => (g.tankL ?? 0) * (g.startBar ?? 0);
+  const escluso = (g: PlanGas) => g.role === 'bailout' || (chiuso && g.role === 'deco');
   for (let i = 0; i < gases.length; i++) {
-    if (gases[i].role === 'bailout') continue;
+    if (escluso(gases[i])) continue;
     // Un gas di loop non ha MOD nel senso del circuito aperto: la pressione
     // parziale la fa il setpoint, non la frazione della bombola. Escluderlo dalla
     // sua MOD teorica mandava il piano a cercarne un altro proprio quando il
@@ -373,7 +396,7 @@ export function bestGasAt(depthM: number, gases: PlanGas[], s: DecoSettings): nu
     // 54 m ne davano 115. Tre metri più giù, mezz'ora di deco in meno, su un
     // piano ineseguibile perché quella bombola sta appesa di lato.
     const eligible: number[] = [];
-    for (let i = 0; i < gases.length; i++) if (gases[i].role !== 'bailout') eligible.push(i);
+    for (let i = 0; i < gases.length; i++) if (!escluso(gases[i])) eligible.push(i);
     const pool = eligible.length ? eligible : gases.map((_, i) => i);
     let fallback = pool[0];
     for (const i of pool) {
@@ -382,6 +405,34 @@ export function bestGasAt(depthM: number, gases: PlanGas[], s: DecoSettings): nu
       if (a.mix.o2 < b.mix.o2 || (a.mix.o2 === b.mix.o2 && available(a) > available(b))) fallback = i;
     }
     return fallback;
+  }
+  return best;
+}
+
+/**
+ * La quota di cambio più PROFONDA che si incontra salendo da `da` a `a`.
+ *
+ * Serve a spezzare la risalita dove il gas cambia, invece di scavalcare uno
+ * stage perché la prossima sosta è più in alto della sua MOD. Restituisce
+ * `undefined` quando non c'è niente per strada.
+ *
+ * I gas di loop non hanno una quota di cambio in questo senso — la pressione
+ * parziale la fa il setpoint — e i gas esclusi dal circuito in corso non
+ * contano: sarebbe una fermata per un cambio che non avverrà.
+ */
+export function quotaDiCambioTra(
+  da: number,
+  a: number,
+  gases: PlanGas[],
+  s: DecoSettings,
+  chiuso = false,
+): number | undefined {
+  let best: number | undefined;
+  for (const g of gases) {
+    if (g.role === 'bailout' || (chiuso && g.role === 'deco')) continue;
+    if (g.setpointBar !== undefined) continue;
+    const d = switchDepthOf(g, s);
+    if (d < da - 0.01 && d > a + 0.01 && (best === undefined || d > best)) best = d;
   }
   return best;
 }
@@ -405,7 +456,13 @@ export function breathedAt(
   const amb = ambientBar(depthM, s.salinity, s.surfacePressureBar);
   const fo2 = Math.min(1, sp / amb);
   const rest = Math.max(0, 1 - fo2);
-  const dilInert = Math.max(1e-9, 1 - gas.mix.o2);
+  // Un diluente senza inerte non diluisce: il loop è ossigeno puro, e il resto
+  // non è azoto. Con `dilInert` a 1e-9 la frazione di elio veniva zero e tutto
+  // il resto finiva in azoto — cioè il modello caricava azoto che nel circuito
+  // non c'è. Non dovrebbe più capitare da quando i gas di deco non entrano nel
+  // loop, ma la formula non deve dipendere da chi la chiama.
+  const dilInert = 1 - gas.mix.o2;
+  if (dilInert <= 1e-9) return { o2: 1, he: 0 };
   return {
     o2: fo2,
     he: rest * (gas.mix.he / dilInert),
@@ -571,8 +628,8 @@ export function planDeco(
     const breathed = breathedAt(meanM, gas, setpointBar, s);
     state = step(state, ambientBar(meanM, s.salinity, s.surfacePressureBar), breathed, minutes);
 
-    const ppo2 = ppo2At(breathedAt(deepM, gas, setpointBar, s), deepM, s.salinity);
-    const ppo2Mean = ppo2At(breathed, meanM, s.salinity);
+    const ppo2 = ppo2At(breathedAt(deepM, gas, setpointBar, s), deepM, s.salinity, s.surfacePressureBar);
+    const ppo2Mean = ppo2At(breathed, meanM, s.salinity, s.surfacePressureBar);
     const cnsAdded = exposureOfSegments([{ ppo2: ppo2Mean, minutes }]).cnsPercent;
     cnsTotal += cnsAdded;
     exposure.push({ ppo2: ppo2Mean, minutes });
@@ -606,7 +663,7 @@ export function planDeco(
       runtimeMin: round1(runtime),
       gasIndex,
       ppo2: round2(ppo2),
-      eadM: round1(Math.max(0, ead(breathed, deepM, s.salinity))),
+      eadM: round1(Math.max(0, ead(breathed, deepM, s.salinity, s.surfacePressureBar))),
       endM: round1(Math.max(0, endOf(breathed, deepM, s.salinity))),
       cnsAdded: round1(cnsAdded),
       cnsTotal: round1(cnsTotal),
@@ -622,7 +679,9 @@ export function planDeco(
     if (fromIndex === toIndex) return;
     const before = breathedAt(depthM, gases[fromIndex], levelSetpoint, s);
     const after = breathedAt(depthM, gases[toIndex], levelSetpoint, s);
-    const n2Rise = ppn2At(after, depthM, s.salinity) - ppn2At(before, depthM, s.salinity);
+    const n2Rise =
+      ppn2At(after, depthM, s.salinity, s.surfacePressureBar) -
+      ppn2At(before, depthM, s.salinity, s.surfacePressureBar);
     const heDrop = (before.he - after.he) * ambientBar(depthM, s.salinity, s.surfacePressureBar);
     // Regola dei quinti: passare a un gas che aggiunge più di un quinto dell'elio
     // che toglie è il caso in cui la controdiffusione isobarica è documentata.
@@ -643,7 +702,23 @@ export function planDeco(
   // --- discesa e livelli ---------------------------------------------------
   let levelSetpoint = usable[0].setpointBar;
   let currentDepth = s.startDepthM ?? 0;
-  let gasIndex = usable[0].gasIndex ?? bestGasAt(usable[0].depthM, gases, s);
+  /*
+   * Il gas di partenza è quello con cui si ENTRA in acqua, non quello del fondo.
+   *
+   * Prendendo il gas del primo livello, un piano con un gas di transito produceva
+   * un cambio a zero metri al minuto zero — con tanto di avviso di
+   * controdiffusione «a 0 m», che è una frase senza senso. Si entra con il
+   * transito e si cambia alla sua quota, che è il cambio vero.
+   */
+  const transitoIniziale = gases.findIndex(
+    (g) =>
+      g.role === 'travel' && g.setpointBar === undefined && switchDepthOf(g, s) + 0.01 > (s.startDepthM ?? 0),
+  );
+  let gasIndex =
+    usable[0].gasIndex ??
+    (usable[0].depthM > (s.startDepthM ?? 0) && transitoIniziale >= 0
+      ? transitoIniziale
+      : bestGasAt(usable[0].depthM, gases, s, usable[0].setpointBar !== undefined));
 
   for (let i = 0; i < usable.length; i++) {
     const level = usable[i];
@@ -652,8 +727,55 @@ export function planDeco(
     // tragitto, non con quello del livello di arrivo: salendo da 40 a 20 metri si
     // passa all'EAN50 quando si è arrivati, non prima — altrimenti il piano
     // prevede di respirarlo a quaranta metri, che è il modo in cui ci si fa male.
-    const deepestOfTravel = Math.max(currentDepth, level.depthM);
-    const travelGas = level.gasIndex ?? bestGasAt(deepestOfTravel, gases, s);
+    /*
+     * IN DISCESA VINCE IL GAS DI TRANSITO, se c'è.
+     *
+     * `GasRole` prevede `'travel'` e l'interfaccia lo offre, ma nessun ramo del
+     * motore lo usava per il tragitto verso il fondo: la discesa si pianificava
+     * sul gas di fondo, che su un piano profondo è un'ipossica. 0 → 80 metri con
+     * un Tx10/70 vuol dire **PPO2 0.10 bar in superficie** — cioè perdere
+     * conoscenza prima di bagnarsi — e il piano usciva con zero avvisi
+     * sull'ossigeno. Il gas di transito esiste esattamente per questo tratto.
+     *
+     * Solo scendendo, e solo fino a dove è respirabile: da lì in giù si passa
+     * al gas del livello, che è il cambio che si fa davvero.
+     */
+    const inDiscesa = level.depthM > currentDepth;
+    /*
+     * La discesa si spezza alla MOD del gas di transito.
+     *
+     * Un gas di transito si respira dalla superficie fino alla SUA massima
+     * quota operativa, e da lì si passa al gas del livello. Prenderlo o
+     * lasciarlo tutto intero non avrebbe senso: la sua ragione di esistere è
+     * proprio il tratto in cui l'ipossica non si può respirare.
+     */
+    const transito =
+      inDiscesa && level.gasIndex === undefined
+        ? gases.findIndex(
+            (g) =>
+              g.role === 'travel' && g.setpointBar === undefined && switchDepthOf(g, s) + 0.01 > currentDepth,
+          )
+        : -1;
+    if (transito >= 0) {
+      const finoA = Math.min(level.depthM, switchDepthOf(gases[transito], s));
+      if (finoA > currentDepth + 0.01) {
+        if (transito !== gasIndex) switchTo(currentDepth, gasIndex, transito);
+        gasIndex = transito;
+        advance(
+          'descent',
+          currentDepth,
+          finoA,
+          (finoA - currentDepth) / s.descentRateMpm,
+          gasIndex,
+          levelSetpoint,
+          s.rmvLpm,
+        );
+        currentDepth = finoA;
+      }
+    }
+    const travelGas =
+      level.gasIndex ??
+      bestGasAt(Math.max(currentDepth, level.depthM), gases, s, levelSetpoint !== undefined);
     if (i > 0 && travelGas !== gasIndex) switchTo(currentDepth, gasIndex, travelGas);
     gasIndex = travelGas;
 
@@ -671,7 +793,7 @@ export function planDeco(
     );
     currentDepth = level.depthM;
 
-    const wanted = level.gasIndex ?? bestGasAt(level.depthM, gases, s);
+    const wanted = level.gasIndex ?? bestGasAt(level.depthM, gases, s, levelSetpoint !== undefined);
     if (wanted !== gasIndex) {
       switchTo(currentDepth, gasIndex, wanted);
       gasIndex = wanted;
@@ -749,7 +871,7 @@ export function planDeco(
      * Risalire per fare la sosta non è un'opzione: si sosta dove si è.
      */
     const stopAt = Math.min(from, safety.depthM);
-    const wanted = bestGasAt(from, gases, s);
+    const wanted = bestGasAt(from, gases, s, levelSetpoint !== undefined);
     if (wanted !== gasIndex) {
       switchTo(from, gasIndex, wanted);
       gasIndex = wanted;
@@ -765,7 +887,7 @@ export function planDeco(
         s.decoRmvLpm,
       );
     }
-    const atStop = bestGasAt(stopAt, gases, s);
+    const atStop = bestGasAt(stopAt, gases, s, levelSetpoint !== undefined);
     if (atStop !== gasIndex) {
       switchTo(stopAt, gasIndex, atStop);
       gasIndex = atStop;
@@ -801,7 +923,7 @@ export function planDeco(
   if (!s.bottomOnly && s.imposedStops?.length) {
     for (const stop of [...s.imposedStops].sort((a, b) => b.depthM - a.depthM)) {
       if (stop.depthM >= currentDepth) continue;
-      const wanted = bestGasAt(currentDepth, gases, s);
+      const wanted = bestGasAt(currentDepth, gases, s, levelSetpoint !== undefined);
       if (wanted !== gasIndex) {
         switchTo(currentDepth, gasIndex, wanted);
         gasIndex = wanted;
@@ -818,7 +940,7 @@ export function planDeco(
       );
       currentDepth = stop.depthM;
       if (firstStopImposed === undefined) firstStopImposed = stop.depthM;
-      const atStop = bestGasAt(currentDepth, gases, s);
+      const atStop = bestGasAt(currentDepth, gases, s, levelSetpoint !== undefined);
       if (atStop !== gasIndex) {
         switchTo(currentDepth, gasIndex, atStop);
         gasIndex = atStop;
@@ -861,7 +983,7 @@ export function planDeco(
 
     if (target >= currentDepth - 0.01) {
       // Il tetto non lascia salire: un minuto di sosta qui, sul gas migliore.
-      const wanted = bestGasAt(currentDepth, gases, s);
+      const wanted = bestGasAt(currentDepth, gases, s, levelSetpoint !== undefined);
       if (wanted !== gasIndex) {
         switchTo(currentDepth, gasIndex, wanted);
         gasIndex = wanted;
@@ -870,9 +992,27 @@ export function planDeco(
       decoMin += 1;
       continue;
     }
-    // Si può salire: fino alla prossima sosta, o fino in superficie.
-    const next = target;
-    const wanted = bestGasAt(currentDepth, gases, s);
+    /*
+     * Si può salire: fino alla prossima sosta, fino in superficie — o FINO ALLA
+     * PROSSIMA QUOTA DI CAMBIO, se ce n'è una per strada.
+     *
+     * IL DIFETTO CHE CHIUDE. Il gas si sceglieva alla quota di PARTENZA del
+     * tratto e poi si saliva fino al target in un colpo solo: se il target era
+     * più in alto della MOD di uno stage, quello stage veniva scavalcato. Su un
+     * piano a 40 m con EAN50 (MOD 22 m), il primo tratto andava da 40 a 15 m
+     * tutto sul gas di fondo — sette metri respirati dalla bombola sbagliata.
+     * Peggio, rompeva la monotonia: a 30 m × 10 min la risalita tirava dritta
+     * fino a 3 m sul trimix, a 31 m si spezzava a 6 m e prendeva l'ossigeno, e
+     * il GF99 all'uscita passava da 52.3 a 38.6. Un metro più giù, meno
+     * decompressione — che è un risultato che un pianificatore non può dare.
+     *
+     * Ci si ferma solo se il gas cambia davvero: altrimenti si spezzerebbe il
+     * tratto in due righe identiche.
+     */
+    const chiuso = levelSetpoint !== undefined;
+    const cambio = quotaDiCambioTra(currentDepth, target, gases, s, chiuso);
+    const next = cambio !== undefined && bestGasAt(cambio, gases, s, chiuso) !== gasIndex ? cambio : target;
+    const wanted = bestGasAt(currentDepth, gases, s, levelSetpoint !== undefined);
     if (wanted !== gasIndex) {
       switchTo(currentDepth, gasIndex, wanted);
       gasIndex = wanted;
@@ -936,7 +1076,7 @@ export function planDeco(
   const firstDepth = usable[0].depthM;
   const firstMix = breathedAt(
     firstDepth,
-    gases[usable[0].gasIndex ?? bestGasAt(firstDepth, gases, s)],
+    gases[usable[0].gasIndex ?? bestGasAt(firstDepth, gases, s, usable[0].setpointBar !== undefined)],
     usable[0].setpointBar,
     s,
   );
@@ -993,6 +1133,37 @@ export function planDeco(
       text: `PPO2 fino a ${worstWork.toFixed(2)} bar in fase di lavoro, oltre ${s.maxPpo2Work.toFixed(1)}: a questa quota non hai una miscela respirabile.`,
     });
   }
+  /*
+   * LA PPO2 TROPPO BASSA È UN LIMITE COME QUELLA TROPPO ALTA.
+   *
+   * C'erano solo i limiti superiori: un piano con un'ipossica respirata in
+   * superficie usciva senza un avviso sull'ossigeno, e un gas a `{o2: 0, he:
+   * 0.8}` a quaranta metri usciva del tutto pulito. Sotto i 0.16 bar la
+   * coscienza non è garantita e sotto 0.18 il margine non c'è: 0.18 è la soglia
+   * che la didattica tecnica usa per dichiarare un gas «respirabile in
+   * superficie», ed è quella scritta qui.
+   */
+  const PPO2_MINIMA = 0.18;
+  /*
+   * Si valuta all'estremo PIÙ ALTO del tratto, non al più profondo. `ppo2` sul
+   * segmento è quella al punto profondo, che su una discesa 0 → 80 è alta: il
+   * pericolo sta all'altro capo, dove l'ipossica si respira in superficie.
+   */
+  let ppo2Minima: { valore: number; quota: number } | undefined;
+  for (const x of segments) {
+    const alta = Math.min(x.fromM, x.toM);
+    const gas = gases[x.gasIndex];
+    if (!gas) continue;
+    const v = ppo2At(breathedAt(alta, gas, x.setpointBar, s), alta, s.salinity, s.surfacePressureBar);
+    if (!ppo2Minima || v < ppo2Minima.valore) ppo2Minima = { valore: v, quota: alta };
+  }
+  if (ppo2Minima && ppo2Minima.valore < PPO2_MINIMA) {
+    warnings.push({
+      level: 'critical',
+      text: `PPO2 di ${ppo2Minima.valore.toFixed(2)} bar a ${Math.round(ppo2Minima.quota)} m: sotto ${PPO2_MINIMA.toFixed(2)} la miscela non è respirabile. Per il tratto verso il fondo serve un gas di transito.`,
+    });
+  }
+
   const worstEnd = Math.max(0, ...segments.map((x) => x.endM));
   if (worstEnd > 40) {
     warnings.push({

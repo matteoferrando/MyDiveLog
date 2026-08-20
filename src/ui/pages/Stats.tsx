@@ -24,6 +24,15 @@ import {
   type Trend,
 } from '../../core/analysis/aggregate';
 import { LIMITS, type Dive } from '../../core/model';
+import { piastraDellImmersione, zavorraTotaleKg, type Equipment } from '../../core/analysis/gear';
+import {
+  consumoPerAttrezzo,
+  mutaFuoriAbitudine,
+  mutaPerTemperatura,
+  nomeMuta,
+  zavorraPerMutaEAcqua,
+  type RigaZavorra,
+} from '../../core/analysis/gearStats';
 import { perMeteo, perStatoDelMare, perVisibilita, quanteConCondizioni } from '../../core/conditions';
 
 type Series = 'rmv' | 'trim' | 'ascent' | 'gf99';
@@ -71,7 +80,7 @@ const SERIES_META: Record<
 };
 
 export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
-  const { aggregates: a, dives, scope } = useDiveLog();
+  const { aggregates: a, dives, scope, gear } = useDiveLog();
   // Tutti i blocchi qui sotto usano le immersioni della FINESTRA, non l'archivio:
   // le aggregate arrivano già filtrate, e i grafici che ricevono le immersioni una
   // per una devono vedere lo stesso insieme, altrimenti la stessa pagina
@@ -552,8 +561,9 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
         />
       </div>
 
-      <Correlations dives={scoped} onOpen={onOpen} />
+      <Correlations dives={scoped} onOpen={onOpen} inventario={gear.equipment} />
       <Condizioni dives={scoped} />
+      <Attrezzatura dives={scoped} inventario={gear.equipment} />
       <Distributions dives={scoped} />
       <SettingsHistory dives={scoped} />
       <Seasonality dives={scoped} />
@@ -629,7 +639,15 @@ function DisciplineRow({
  * coefficiente accanto. Il coefficiente è dichiarato per quello che è — una
  * correlazione osservata su questo archivio, non una causa.
  */
-function Correlations({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => void }) {
+function Correlations({
+  dives,
+  onOpen,
+  inventario,
+}: {
+  dives: Dive[];
+  onOpen: (id: string) => void;
+  inventario: Equipment[];
+}) {
   const sets = [
     {
       title: 'Consumo e profondità media',
@@ -669,10 +687,16 @@ function Correlations({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) =
       hint: 'La sovra-zavorra è la prima causa di assetto instabile, e questo grafico la mette alla prova.',
       points: pairsOf(
         dives,
-        (d) => d.weightKg,
+        // La zavorra TOTALE, piastra compresa: leggendo il solo `weightKg` i
+        // punti delle immersioni tecniche finivano tre o sei chili a sinistra di
+        // dove stanno davvero, e la retta di tendenza con loro.
+        (d) =>
+          d.weightKg === undefined && piastraDellImmersione(d, inventario) === undefined
+            ? undefined
+            : zavorraTotaleKg(d, inventario),
         (d) => d.metrics?.bottomVerticalTravelMpm,
       ),
-      xLabel: 'zavorra (kg)',
+      xLabel: 'zavorra totale, piastra compresa (kg)',
       yLabel: 'oscillazione (m/min)',
     },
   ].filter((s) => s.points.length >= 5);
@@ -803,6 +827,252 @@ function Distributions({ dives }: { dives: Dive[] }) {
  * profondità e la temperatura mediane di quel gruppo, che sono le prime due
  * spiegazioni alternative da guardare.
  */
+/**
+ * L'attrezzatura incrociata col resto del log.
+ *
+ * PERCHÉ STA IN STATISTICHE E NON IN ATTREZZATURA. La pagina attrezzatura
+ * risponde a «cosa ho e quando va revisionato»: è un inventario. Queste tre
+ * tabelle rispondono a domande sul comportamento in acqua — con quale muta,
+ * quanti chili, quanto consumo — e per farlo hanno bisogno del profilo, della
+ * temperatura e della salinità, cioè delle stesse cose di cui è fatta questa
+ * pagina. Sono statistiche che parlano di attrezzi, non attrezzi che portano
+ * qualche numero.
+ *
+ * Il calcolo sta in `core/analysis/gearStats.ts`, e le tre cautele scritte
+ * accanto alle tabelle del consumo vengono da lì: non sono decorazione, sono la
+ * frase che impedisce di leggere una correlazione come una causa.
+ */
+function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipment[] }) {
+  const mute = useMemo(() => mutaPerTemperatura(dives), [dives]);
+  const fuori = useMemo(() => mutaFuoriAbitudine(dives), [dives]);
+  // La stessa soglia delle altre due tabelle della scheda: con soglie diverse
+  // una muta compariva in una e non nelle altre, senza che nulla lo spiegasse.
+  const zavorra = useMemo(() => zavorraPerMutaEAcqua(dives, 3, inventario), [dives, inventario]);
+  const consumo = useMemo(() => consumoPerAttrezzo(dives), [dives]);
+
+  /*
+   * Una sezione vuota non si mostra, ma il silenzio si spiega UNA volta.
+   *
+   * Su un archivio importato da file l'attrezzatura non c'è quasi mai, e una
+   * pagina che salta la sezione senza dire niente lascia credere che l'app non
+   * la calcoli. Una riga che dice dove si compila vale più di tre tabelle
+   * vuote.
+   */
+  if (!mute.length && !zavorra.length && !consumo.length) {
+    const conMuta = dives.filter((d) => nomeMuta(d)).length;
+    if (!conMuta) return null;
+    return (
+      <div className="card">
+        <h2>Attrezzatura</h2>
+        <p className="card-sub" style={{ marginBottom: 0 }}>
+          L'attrezzatura è registrata su {imm(conMuta)} immersioni: troppo poche, o troppo sparse, perché un
+          confronto significhi qualcosa. Queste tabelle si riempiono da sole man mano che compili muta,
+          zavorra ed erogatori nella scheda delle immersioni — anche in blocco, dal logbook.
+        </p>
+      </div>
+    );
+  }
+
+  const salLabel = (s: RigaZavorra['salinity']) =>
+    s === 'salt' ? 'salata' : s === 'fresh' ? 'dolce' : 'non indicata';
+
+  return (
+    <div className="card">
+      <h2>Attrezzatura</h2>
+      <p className="card-sub">
+        Quello che porti addosso incrociato con quello che il profilo misura. Nessuna di queste tabelle dice
+        «meglio»: accanto a ogni riga trovi la profondità mediana e su quante immersioni è calcolata, che sono
+        i due numeri con cui si smonta una correlazione finta. Un gruppo entra in tabella da{' '}
+        <b>tre immersioni</b> in su: una mediana su due valori è il più fortunato dei due.
+      </p>
+
+      {mute.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <div className="finding-section-label">Muta, temperatura e stagione</div>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Muta</th>
+                  <th className="num">Immersioni</th>
+                  <th className="num">T mediana</th>
+                  <th className="num">La più fredda</th>
+                  <th className="num">La più calda</th>
+                  <th className="num">Stagione</th>
+                  <th className="num">Prof. mediana</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mute.map((r) => (
+                  <tr key={r.suit}>
+                    <td style={{ fontWeight: 550 }}>{r.suit}</td>
+                    <td className="num tabular">{r.dives}</td>
+                    <td className="num tabular">
+                      {r.medianTempC !== undefined ? (
+                        <>
+                          {r.medianTempC} <small className="muted">°C · su {r.tempBasis}</small>
+                        </>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                    {/* Il minimo in evidenza: è il numero che dice fin dove quella muta ti ha portato. */}
+                    <td className="num tabular" style={{ fontWeight: 550 }}>
+                      {r.minTempC !== undefined ? `${r.minTempC} °C` : '—'}
+                    </td>
+                    <td className="num tabular muted">
+                      {r.maxTempC !== undefined ? `${r.maxTempC} °C` : '—'}
+                    </td>
+                    <td className="num muted">{r.stagione}</td>
+                    <td className="num tabular muted">
+                      {r.medianMaxDepth !== undefined ? `${r.medianMaxDepth} m` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {fuori.length > 0 && (
+            <p className="planner-hint" style={{ marginTop: 8 }}>
+              {fuori.length === 1 ? 'Un’immersione' : `${fuori.length} immersioni`} in cui eri vestito
+              diversamente dalla tua abitudine per quella temperatura:{' '}
+              {fuori
+                .slice(0, 4)
+                .map(
+                  (f) =>
+                    `${dateShort(f.dive.startTime, f.dive.utcOffsetMinutes)} — ${f.tempC} °C in ${f.suit}, di solito ${f.solita} (su ${f.base})`,
+                )
+                .join(' · ')}
+              {fuori.length > 4 ? ` · e altre ${fuori.length - 4}` : ''}. Non è un errore: è un promemoria di
+              quando hai fatto un'eccezione.
+            </p>
+          )}
+        </div>
+      )}
+
+      {zavorra.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <div className="finding-section-label">Zavorra, per muta e per tipo d'acqua</div>
+          <p className="planner-hint" style={{ marginTop: 0 }}>
+            Fra dolce e salata ci sono due o tre chili di differenza, e una mediana che le mescola non è
+            giusta in nessuna delle due situazioni. I chili sono sempre il <b>totale</b>: zavorra più piastra,
+            perché è quello che ti tira giù.
+          </p>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Muta</th>
+                  <th>Acqua</th>
+                  <th className="num">Zavorra mediana</th>
+                  <th className="num">Intervallo</th>
+                  <th className="num">Assetto</th>
+                  <th className="num">Bombola</th>
+                  <th className="num">Immersioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                {zavorra.map((r) => (
+                  <tr key={`${r.suit} ${r.salinity}`}>
+                    <td style={{ fontWeight: 550 }}>{r.suit}</td>
+                    <td className={r.salinity === 'unknown' ? 'muted' : undefined}>{salLabel(r.salinity)}</td>
+                    <td className="num tabular" style={{ fontWeight: 550 }}>
+                      {r.medianKg} kg
+                      {r.withBackplate > 0 && (
+                        <>
+                          {' '}
+                          <small className="muted">con piastra su {r.withBackplate}</small>
+                        </>
+                      )}
+                    </td>
+                    <td className="num tabular muted">
+                      {r.minKg === r.maxKg ? 'sempre uguale' : `${r.minKg}–${r.maxKg} kg`}
+                    </td>
+                    <td className="num tabular">
+                      {r.medianTrimMpm !== undefined ? (
+                        <>
+                          {r.medianTrimMpm} <small className="muted">m/min · su {r.trimBasis}</small>
+                        </>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                    <td className="num muted">
+                      {r.bombolaPiuUsata ? (
+                        <>
+                          {r.bombolaPiuUsata} <small className="muted">· su {r.bombolaBase}</small>
+                        </>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="num tabular">{r.dives}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {consumo.map((t) => (
+        <div key={t.titolo} style={{ marginBottom: 18 }}>
+          <div className="finding-section-label">
+            Consumo per {t.titolo.toLowerCase()} — {t.conIlDato} immersioni con il dato su {dives.length} nel
+            periodo
+          </div>
+          <p className="planner-hint" style={{ marginTop: 0 }}>
+            {t.cautela}
+          </p>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t.titolo}</th>
+                  <th className="num">Immersioni</th>
+                  <th className="num">Consumo</th>
+                  <th className="num">Prof. mediana</th>
+                  {/* MEDIANA delle minime, non la più bassa: la tabella qui
+                      sopra chiama «La più fredda» un vero minimo, e sulla stessa
+                      muta le due dicevano 21 e 11 °C. */}
+                  <th className="num">T mediana</th>
+                  <th className="num">Durata</th>
+                </tr>
+              </thead>
+              <tbody>
+                {t.righe.map((r) => (
+                  <tr key={r.etichetta}>
+                    <td style={{ fontWeight: 550 }}>{r.etichetta}</td>
+                    <td className="num tabular">{r.dives}</td>
+                    <td className="num tabular">
+                      {r.medianRmvLpm !== undefined ? (
+                        <>
+                          {r.medianRmvLpm} <small className="muted">L/min · su {r.rmvBasis}</small>
+                        </>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                    <td className="num tabular muted">
+                      {r.medianMaxDepth !== undefined ? `${r.medianMaxDepth} m` : '—'}
+                    </td>
+                    <td className="num tabular muted">
+                      {r.medianTempC !== undefined ? `${r.medianTempC} °C` : '—'}
+                    </td>
+                    <td className="num tabular muted">
+                      {r.medianDurationMin !== undefined ? `${r.medianDurationMin} min` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Condizioni({ dives }: { dives: Dive[] }) {
   const mare = useMemo(() => perStatoDelMare(dives), [dives]);
   const visibilita = useMemo(() => perVisibilita(dives), [dives]);

@@ -787,7 +787,7 @@ function download(text: string, filename: string, type = 'application/xml;charse
  * una scadenza.
  */
 function TrashCard() {
-  const { trash, restoreDive, purgeDive, emptyTrash } = useDiveLog();
+  const { trash, restoreDive, restoreDives, purgeDive, emptyTrash } = useDiveLog();
   const items = sortTrash(trash);
 
   if (!items.length) {
@@ -814,18 +814,39 @@ function TrashCard() {
             finché sono qui, «Rimetti a posto» le riporta esattamente com'erano.
           </p>
         </div>
-        <BottoneConferma
-          etichetta="Svuota il cestino"
-          conferma={`Sì, cancella ${items.length === 1 ? "l'immersione" : `le ${items.length}`}`}
-          domanda={
-            <>
-              Cancellare definitivamente {imm(items.length)}{' '}
-              {items.length === 1 ? 'immersione' : 'immersioni'}? Da questo momento la cancellazione si
-              propaga a <b>tutti i dispositivi sincronizzati</b> e non si può più tornare indietro.
-            </>
-          }
-          onConferma={() => void emptyTrash()}
-        />
+        <span className="row" style={{ gap: 8 }}>
+          {/*
+           * «Rimetti a posto tutte» non è una comodità: senza, riparare un
+           * errore di valutazione fatto in blocco costa un clic per immersione.
+           * È successo davvero — cinquantadue immersioni cancellate insieme
+           * perché sembravano doppioni, e poi non lo erano.
+           */}
+          {items.length > 1 && (
+            <BottoneConferma
+              etichetta="Rimetti a posto tutte"
+              conferma={`Sì, rimetti le ${items.length}`}
+              domanda={
+                <>
+                  Rimettere in archivio {imm(items.length)} immersioni? Tornano esattamente com'erano, profilo
+                  compreso, e il cestino resta vuoto.
+                </>
+              }
+              onConferma={() => void restoreDives(items.map((i) => i.dive.id))}
+            />
+          )}
+          <BottoneConferma
+            etichetta="Svuota il cestino"
+            conferma={`Sì, cancella ${items.length === 1 ? "l'immersione" : `le ${items.length}`}`}
+            domanda={
+              <>
+                Cancellare definitivamente {imm(items.length)}{' '}
+                {items.length === 1 ? 'immersione' : 'immersioni'}? Da questo momento la cancellazione si
+                propaga a <b>tutti i dispositivi sincronizzati</b> e non si può più tornare indietro.
+              </>
+            }
+            onConferma={() => void emptyTrash()}
+          />
+        </span>
       </div>
 
       {items.length > TRASH_SOFT_LIMIT && (
