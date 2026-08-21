@@ -743,7 +743,11 @@ describe('attrezzatura e brevetti attraverso la sincronizzazione', () => {
     const telefono = memoryStore([]);
     await telefono.setSetting('gear', {
       equipment: [attrezzo('e2', 'Stagna', '2026-02-01T00:00:00Z')],
-      certifications: [],
+      // Un brevetto inserito SUL TELEFONO: la direzione che il test non
+      // copriva. I brevetti si scrivono dove capita — la tessera nuova la
+      // fotografi in aereo tornando dal corso, non davanti al Mac — quindi la
+      // risalita conta esattamente quanto la discesa.
+      certifications: [brevetto('c2', 'Nitrox', '2026-02-01T00:00:00Z')],
     });
     await telefono.setSetting('gear:at', '2026-02-01T00:00:00Z');
     await syncArchive(telefono, sql);
@@ -753,13 +757,17 @@ describe('attrezzatura e brevetti attraverso la sincronizzazione', () => {
       certifications: { id: string }[];
     }>('gear'))!;
     expect(quaggiu.equipment.map((e) => e.id).sort()).toEqual(['e1', 'e2']);
-    expect(quaggiu.certifications.map((c) => c.id)).toEqual(['c1']);
+    expect(quaggiu.certifications.map((c) => c.id).sort()).toEqual(['c1', 'c2']);
 
-    // …e il pezzo del telefono deve risalire, altrimenti il Mac lo perderebbe
+    // …e i pezzi del telefono devono risalire, altrimenti il Mac li perderebbe
     // al prossimo giro.
     await syncArchive(mac, sql);
-    const lassu = (await mac.getSetting<{ equipment: { id: string }[] }>('gear'))!;
+    const lassu = (await mac.getSetting<{
+      equipment: { id: string }[];
+      certifications: { id: string }[];
+    }>('gear'))!;
     expect(lassu.equipment.map((e) => e.id).sort()).toEqual(['e1', 'e2']);
+    expect(lassu.certifications.map((c) => c.id).sort()).toEqual(['c1', 'c2']);
   });
 
   it('a parità di identificativo vince il timbro più recente', async () => {

@@ -20,7 +20,7 @@
     "desktop": "tauri dev",
     "desktop:build": "tauri build",
     "ios:init": "tauri ios init",
-    "ios:dev": "tauri ios init && tauri ios dev",
+    "ios:dev": "tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios dev",
     "demo": "tsx scripts/generate-demo-data.ts",
     "screenshot": "node scripts/screenshot.mjs",
     "validate:logtrak": "tsx scripts/validate-logtrak.ts",
@@ -28,7 +28,8 @@
     "validate:gf": "tsx scripts/validate-gf.ts",
     "dump:ai": "tsx scripts/dump-ai-context.ts",
     "confronta:uwatec": "tsx scripts/confronta-uwatec.ts",
-    "ios:build": "tauri ios init && tauri ios build"
+    "ios:build": "tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios build",
+    "ios:telefono": "tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios run --release"
   },
   "dependencies": {
     "@garmin/fitsdk": "^21.171.0",

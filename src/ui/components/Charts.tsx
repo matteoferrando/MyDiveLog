@@ -137,12 +137,37 @@ export function useTooltip() {
     clearTimeout(timer.current);
     setTip(null);
   };
+  /*
+   * SCORRERE LA PAGINA NON DEVE APRIRE NIENTE.
+   *
+   * `pointercancel` è il momento in cui iOS decide che quel dito non sta
+   * toccando un elemento ma sta scorrendo la pagina, e da lì in poi non
+   * arriverà nessun altro evento su questo elemento. Senza gestirlo, scorrere
+   * le statistiche con il dito che passa sopra una barra lasciava il riquadro
+   * aperto per tre secondi e mezzo, sopra il grafico, senza che nessuno lo
+   * avesse chiesto: dal punto di vista di chi guarda, una scritta comparsa da
+   * sola. Qui si chiude subito, e il timer si spegne.
+   */
+  const annulla = () => {
+    clearTimeout(timer.current);
+    setTip(null);
+  };
 
-  /** Da spargere sull'elemento sensibile: sostituisce `onMouseEnter`/`onMouseLeave`. */
+  /**
+   * Da spargere sull'elemento sensibile: sostituisce `onMouseEnter`/`onMouseLeave`.
+   *
+   * `pointerenter` apre il riquadro SOLO col mouse. Col dito l'ingresso in un
+   * elemento avviene anche mentre si scorre — il dito attraversa mezza pagina —
+   * e aprire lì è esattamente il difetto descritto sopra. Col dito serve un
+   * `pointerdown`, cioè un tocco deliberato.
+   */
   const perElemento = (costruisci: () => TooltipState) => ({
-    onPointerEnter: (e: React.PointerEvent) => mostra(costruisci(), e.pointerType === 'touch'),
+    onPointerEnter: (e: React.PointerEvent) => {
+      if (e.pointerType !== 'touch') mostra(costruisci(), false);
+    },
     onPointerDown: (e: React.PointerEvent) => mostra(costruisci(), e.pointerType === 'touch'),
     onPointerLeave: (e: React.PointerEvent) => nascondi(e.pointerType === 'touch'),
+    onPointerCancel: annulla,
   });
 
   /** Per i grafici che seguono il puntatore lungo l'asse invece di avere zone. */
@@ -150,6 +175,7 @@ export function useTooltip() {
     onPointerMove: (e: React.PointerEvent) => mostra(costruisci(e), e.pointerType === 'touch'),
     onPointerDown: (e: React.PointerEvent) => mostra(costruisci(e), e.pointerType === 'touch'),
     onPointerLeave: (e: React.PointerEvent) => nascondi(e.pointerType === 'touch'),
+    onPointerCancel: annulla,
   });
 
   return { tip, setTip, perElemento, perScorrimento };

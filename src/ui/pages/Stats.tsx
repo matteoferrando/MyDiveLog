@@ -1441,6 +1441,10 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
                   onPointerLeave={(e) => {
                     if (e.pointerType === 'mouse') setHover(null);
                   }}
+                  /* Se il tocco si trasforma in uno scorrimento della pagina,
+                     l'etichetta non deve restare accesa su una bolla che nessuno
+                     ha scelto. */
+                  onPointerCancel={() => setHover(null)}
                   onClick={() => {
                     if (eraAttivo.current) onOpen(site.dives[0].id);
                   }}

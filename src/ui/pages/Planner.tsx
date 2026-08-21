@@ -2104,6 +2104,8 @@ function PressureTimeline({
           });
         }}
         onPointerLeave={() => setTip(null)}
+        /* Vedi `DepthProfile`: scorrere la pagina non deve aprire un riquadro. */
+        onPointerCancel={() => setTip(null)}
       >
         {/* La riserva: la fascia in cui il piano non deve entrare. */}
         <rect

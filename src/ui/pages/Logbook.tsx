@@ -108,7 +108,10 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
           style={{ minWidth: 200 }}
         />
         <label>
-          Sito
+          {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
+              così i tre menu si allineano invece di iniziare ognuno dove capita.
+              Un nodo di testo nudo non si può dimensionare. */}
+          <span>Sito</span>
           <select value={site} onChange={(e) => setSite(e.target.value)}>
             <option value="">tutti</option>
             {sites.map((s) => (
@@ -119,7 +122,10 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
           </select>
         </label>
         <label>
-          Oltre
+          {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
+              così i tre menu si allineano invece di iniziare ognuno dove capita.
+              Un nodo di testo nudo non si può dimensionare. */}
+          <span>Oltre</span>
           <select value={minDepth} onChange={(e) => setMinDepth(e.target.value)}>
             <option value="">qualsiasi profondità</option>
             <option value="18">18 m</option>
@@ -128,7 +134,10 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
           </select>
         </label>
         <label>
-          Ordina per
+          {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
+              così i tre menu si allineano invece di iniziare ognuno dove capita.
+              Un nodo di testo nudo non si può dimensionare. */}
+          <span>Ordina per</span>
           <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
             <option value="date">data</option>
             <option value="depth">profondità</option>

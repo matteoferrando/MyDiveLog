@@ -132,3 +132,33 @@ describe('la stampa non si offre dove non può funzionare', () => {
     }
   });
 });
+
+describe('scorrere la pagina non apre riquadri', () => {
+  /*
+   * IL DIFETTO, visto su un iPhone vero. Scorrendo le statistiche col dito che
+   * passava sopra le barre di «Fasce di profondità», il riquadro con i numeri si
+   * apriva da solo e restava lì per tre secondi e mezzo. Chi guarda non ha
+   * toccato niente: ha scorso, ed è comparsa una scritta sopra il grafico.
+   *
+   * `pointercancel` è il momento esatto in cui iOS dichiara che quel dito non
+   * sta toccando un elemento ma sta trascinando la pagina, e da lì in poi su
+   * quell'elemento non arriva più nessun evento — nemmeno `pointerleave`. Senza
+   * gestirlo, tutto ciò che si è aperto al `pointerdown` resta aperto fino allo
+   * scadere del timer. Ogni grafico che apre qualcosa col dito deve chiuderlo
+   * qui.
+   */
+  const CON_PUNTATORE = [
+    'ui/components/Charts.tsx',
+    'ui/components/DepthProfile.tsx',
+    'ui/pages/Planner.tsx',
+    'ui/pages/Stats.tsx',
+  ];
+
+  it('ogni file che apre un riquadro col dito gestisce anche l’annullamento', () => {
+    for (const rel of CON_PUNTATORE) {
+      const f = FILE.find((x) => x.rel === rel);
+      expect(f, `${rel} non c’è più`).toBeDefined();
+      expect(f!.testo, `${rel} apre col puntatore ma non gestisce pointercancel`).toMatch(/onPointerCancel/);
+    }
+  });
+});

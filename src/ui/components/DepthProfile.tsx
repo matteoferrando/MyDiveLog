@@ -254,6 +254,13 @@ export function DepthProfile({
           setTip(null);
           sync?.onChange(null);
         }}
+        /* Il dito che scorre la pagina passando sopra il profilo non deve
+           lasciarsi dietro un cursore: `pointercancel` è il momento in cui iOS
+           dichiara che quel dito sta scorrendo e non toccando. */
+        onPointerCancel={() => {
+          setTip(null);
+          sync?.onChange(null);
+        }}
       >
         <title>{nome}</title>
         <desc id={`${uid}-desc`}>{descrizione}</desc>
@@ -586,6 +593,13 @@ export function MiniSeries({
           });
         }}
         onPointerLeave={() => {
+          setTip(null);
+          sync?.onChange(null);
+        }}
+        /* Il dito che scorre la pagina passando sopra il profilo non deve
+           lasciarsi dietro un cursore: `pointercancel` è il momento in cui iOS
+           dichiara che quel dito sta scorrendo e non toccando. */
+        onPointerCancel={() => {
           setTip(null);
           sync?.onChange(null);
         }}

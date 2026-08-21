@@ -247,6 +247,67 @@ nell'app File grazie alle due chiavi di `Info.ios.plist` — e che **lancia**
 quando non riesce. Un test di sorgente (`tests/iosGuardie.test.ts`) impedisce
 che ne rinasca una quarta copia: era gia' successo tre volte.
 
+**La CSP deve nominare i servizi esterni, o l'app impacchettata non li
+raggiunge.** `app.security.csp` in `tauri.conf.json` diceva
+`connect-src 'self' ipc: http://ipc.localhost`, e con quella riga la webview
+BLOCCA ogni chiamata a Turso e all'API di Anthropic. Non si vedeva sviluppando,
+perche' `npm run dev` gira in un browser normale dove quella CSP non esiste: si
+vedeva solo nell'app vera, come credenziali «che non funzionano». Ora
+`connect-src` elenca `https://*.turso.io` e `https://api.anthropic.com`, e non
+deve elencare altro — la CSP e' la lista di dove l'app puo' parlare, e ogni voce
+in piu' e' una porta aperta.
+
+**Le icone iOS vanno QUADRATE.** Il marchio ha gli angoli arrotondati perche' su
+macOS se li deve disegnare da se'; iOS applica la propria maschera a quadrato
+stondato, quindi un'immagine gia' stondata viene stondata due volte e negli
+angoli compare il colore con cui Tauri ha riempito la trasparenza — bianco, che
+sul telefono si vede come un alone. `src-tauri/icons/ios/` contiene percio' i
+render QUADRATI e opachi dello stesso disegno; `tauri ios init` non li ricopia
+dentro `gen/apple` se ci sono gia' file, quindi la copia la fanno gli script
+`ios:*`.
+
+**`libapp.a` va tolta dalle risorse del progetto generato.** XcodeGen mette la
+libreria statica di Rust in «Copy Bundle Resources» perche' la trova fra le
+sorgenti: l'app pesava **470 MB** invece di 6, e con entrambe le architetture
+presenti la build si fermava su `Multiple commands produce .../libapp.a`.
+`scripts/pulisci-progetto-ios.mjs` toglie quella voce dopo ogni
+`tauri ios init`; se un giorno Tauri lo risolve, lo script se ne accorge e non
+fa niente.
+
+**Mettere l'app su un iPhone vero.** `npm run ios:telefono` — cioe'
+`tauri ios run --release` — compila, firma, installa e lancia sul telefono
+collegato, con l'interfaccia impacchettata dentro: l'app resta sul telefono e non
+dipende dal Mac acceso, a differenza di `ios:dev` che serve la pagina da Vite.
+Due condizioni: sul telefono dev'essere attiva **Modalita' sviluppatore**
+(Impostazioni → Privacy e sicurezza), obbligatoria da iOS 16, e il telefono
+dev'essere **registrato sul team** prima della prima build. Quella registrazione
+Tauri non sa farla: passa a Xcode `-allowProvisioningUpdates` ma non
+`-allowProvisioningDeviceRegistration`, quindi anche col telefono collegato Apple
+risponde `Your team has no devices from which to generate a provisioning
+profile`. Si fa una volta sola, a mano, col telefono collegato:
+
+    cd src-tauri/gen/apple
+    xcodebuild -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
+      -scheme mydivelog_iOS -workspace ./mydivelog.xcodeproj/project.xcworkspace/ \
+      -sdk iphoneos -configuration release -destination "id=<UDID del telefono>" build
+
+Quel comando fallisce alla fine — la fase «Build Rust Code» vuole il CLI di Tauri
+che la orchestri — ma prima di fallire registra il dispositivo e fa emettere il
+profilo, che e' tutto quello che serve. Da li' in poi bastano gli script npm.
+
+E `tauri ios run` non arriva in fondo: sbaglia il percorso di un proprio file
+temporaneo (`Couldn't load -exportOptionsPlist`). La strada che funziona e' il
+pacchetto:
+
+    npm run ios:build -- --export-method debugging
+    xcrun devicectl device install app --device <UDID> \
+      src-tauri/gen/apple/build/arm64/MyDiveLog.ipa
+
+Con un **Personal Team** — l'account Apple gratuito — il profilo dura **sette
+giorni**: dopo, l'app non si apre piu' e va reinstallata con lo stesso comando.
+Reinstallare SOPRA conserva l'archivio; cancellare l'app lo butta, ed e' uno dei
+motivi per cui la sincronizzazione non e' un accessorio.
+
 **Su iPhone non si stampa, e il pulsante non c'e'.** La stampa apre una finestra
 nuova col foglio impaginato e passa la parola alla finestra di stampa del
 sistema: dentro la WKWebView non esiste ne' l'una ne' l'altra — `window.open`

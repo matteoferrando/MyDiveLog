@@ -248,7 +248,18 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
               : ''}
           </p>
           {hasAlt && (
-            <div className="row" style={{ gap: 6, flexShrink: 0 }}>
+            /*
+             * `scelta-computer` e non `row`: i nomi dei computer sono lunghi.
+             *
+             * «Scubapro Aladin Sport Matrix» su un iPhone non ci sta accanto a
+             * «Shearwater Peregrine», e con `flexShrink: 0` — che serviva a non
+             * far schiacciare i pulsanti sul Mac — il secondo usciva dal bordo
+             * della carta. Il nome NON si può accorciare: è l'unica cosa che
+             * dice quale dei due profili stai guardando, ed è il motivo per cui
+             * questi pulsanti esistono. Quindi vanno a capo e, sul telefono,
+             * occupano una riga intera ciascuno.
+             */
+            <div className="scelta-computer">
               <button className="btn" aria-pressed={!showAlt} onClick={() => setShowAlt(false)}>
                 {dive.computer?.model ?? 'Profilo principale'}
               </button>

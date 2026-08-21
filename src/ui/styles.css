@@ -1116,6 +1116,79 @@ textarea {
   align-items: center;
 }
 
+/*
+ * SUL TELEFONO I FILTRI SI INCOLONNANO, allineati sulle stesse due colonne.
+ *
+ * A schermo stretto ogni controllo andava a capo per conto suo e prendeva la
+ * larghezza del proprio contenuto: quattro righe di lunghezze diverse, con i
+ * menu che iniziavano e finivano in punti diversi. Non è un difetto funzionale
+ * — si usano lo stesso — ma è disordine, e il disordine in una barra di filtri
+ * fa sembrare l'app un abbozzo.
+ *
+ * L'etichetta ha una larghezza fissa e il menu prende tutto il resto: i bordi
+ * sinistro e destro dei tre menu cadono sulla stessa verticale. Serve lo
+ * `<span>` intorno al testo dell'etichetta — un nodo di testo nudo non si può
+ * dimensionare — ed è per quello che esiste nel markup.
+ */
+@media (max-width: 700px) {
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filters > input[type='search'] {
+    /* `min-width: 200px` sta nel TSX e qui va annullato, altrimenti a 320 px
+       di schermo il campo di ricerca è più largo della sua carta. */
+    min-width: 0;
+    width: 100%;
+  }
+
+  .filters label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .filters label > span {
+    flex: 0 0 88px;
+  }
+
+  .filters label > select {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+/*
+ * La scelta fra i due computer che hanno registrato la stessa immersione.
+ *
+ * I nomi commerciali sono lunghi — «Scubapro Aladin Sport Matrix» — e non si
+ * possono abbreviare, perché sono l'unica informazione che il pulsante porta.
+ * Quindi vanno a capo invece di uscire dal bordo, e sul telefono prendono una
+ * riga intera ciascuno: due pulsanti a mezza larghezza con dentro tre parole
+ * sono meno leggibili di due righe piene.
+ */
+.scelta-computer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.scelta-computer .btn {
+  white-space: normal;
+  text-align: left;
+}
+
+@media (max-width: 700px) {
+  .scelta-computer {
+    width: 100%;
+  }
+
+  .scelta-computer .btn {
+    flex: 1 1 100%;
+  }
+}
+
 .filters label {
   font-size: 12px;
   color: var(--text-secondary);
