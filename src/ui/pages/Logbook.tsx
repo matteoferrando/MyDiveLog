@@ -12,7 +12,7 @@ import {
 } from '../../core/conditions';
 import { NewDive } from '../components/NewDive';
 import { useDiveLog } from '../state';
-import { dateShort, FORMAT_LABEL, imm, timeShort } from '../format';
+import { dateShort, descriviFinestra, FORMAT_LABEL, imm, timeShort } from '../format';
 import { BottoneConferma } from '../components/Conferma';
 import { ScegliAttrezzo, vocePerNome } from '../components/ScegliAttrezzo';
 import { pesoDelGav, type EquipmentKind } from '../../core/analysis/gear';
@@ -42,6 +42,25 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
     [dives],
   );
 
+  /*
+   * QUANTE RIGHE SI DISEGNANO, e perché non tutte.
+   *
+   * Con centoquattro immersioni la pagina è già lunga; con l'archivio di chi
+   * immerge da vent'anni diventa una tabella da migliaia di righe che il
+   * telefono deve costruire tutta prima di mostrarne la prima. Il costo non è
+   * solo di scorrimento: è il tempo che passa fra il tocco su «Logbook» e il
+   * momento in cui compare qualcosa.
+   *
+   * Si è scelto il pulsante «mostra altre» invece delle pagine numerate per una
+   * ragione che riguarda proprio questa pagina: qui si SELEZIONA per modificare
+   * in blocco, e con le pagine numerate la casella «seleziona tutte» diventa
+   * ambigua — tutte quelle filtrate, o solo quelle di questa pagina? La finestra
+   * che si allunga toglie l'ambiguità: quello che è caricato è quello che vedi,
+   * e la selezione non può mai comprendere righe che non hai davanti.
+   */
+  const PER_VOLTA = 50;
+  const [quante, setQuante] = useState(PER_VOLTA);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const min = Number(minDepth) || 0;
@@ -61,6 +80,33 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
     };
     return [...out].sort(by[sort]);
   }, [dives, query, site, minDepth, sort]);
+
+  /*
+   * Cambiare filtro riporta la finestra all'inizio.
+   *
+   * Senza questo, chi ha premuto tre volte «mostra altre» e poi cerca una parola
+   * si ritrova centocinquanta righe di risultati: la finestra allargata per
+   * scorrere l'archivio intero non ha nessun senso applicata a una ricerca che
+   * ne trova quattro. E il caso opposto è peggio — restringere e poi allargare
+   * il filtro lascerebbe fuori dei risultati senza dirlo.
+   *
+   * L'azzeramento avviene DURANTE il render e non dentro un effetto, che è la
+   * forma che React documenta per «aggiusta uno stato quando ne cambia un
+   * altro». Con l'effetto il browser disegnerebbe prima la finestra vecchia
+   * applicata ai risultati nuovi e subito dopo quella corretta: un lampo di
+   * righe sbagliate, oltre a un secondo giro di render. Così invece React
+   * scarta il render in corso e riparte, senza mai mostrare lo stato
+   * intermedio.
+   */
+  const criteri = `${query}\u0000${site}\u0000${minDepth}\u0000${sort}`;
+  const [criteriPrecedenti, setCriteriPrecedenti] = useState(criteri);
+  if (criteri !== criteriPrecedenti) {
+    setCriteriPrecedenti(criteri);
+    setQuante(PER_VOLTA);
+  }
+
+  /** La finestra visibile: è questa, non `filtered`, che comanda la selezione. */
+  const mostrate = useMemo(() => filtered.slice(0, quante), [filtered, quante]);
 
   if (dives.length === 0) {
     return (
@@ -158,9 +204,9 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
            * il rischio che questa carta dice di voler evitare, e il numero va
            * dichiarato insieme al modo di ridurre la selezione a ciò che si vede.
            */
-          nascoste={[...selezione].filter((id) => !filtered.some((d) => d.id === id)).length}
+          nascoste={[...selezione].filter((id) => !mostrate.some((d) => d.id === id)).length}
           onSoloVisibili={() =>
-            setSelezione(new Set(filtered.filter((d) => selezione.has(d.id)).map((d) => d.id)))
+            setSelezione(new Set(mostrate.filter((d) => selezione.has(d.id)).map((d) => d.id)))
           }
           onDone={() => setSelezione(new Set())}
         />
@@ -191,14 +237,14 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                 <input
                   type="checkbox"
                   aria-label="Seleziona tutte le immersioni mostrate"
-                  checked={filtered.length > 0 && filtered.every((d) => selezione.has(d.id))}
+                  checked={mostrate.length > 0 && mostrate.every((d) => selezione.has(d.id))}
                   ref={(el) => {
                     // Il trattino riguarda SOLO le righe mostrate: la condizione
                     // di prima era `selezione.size > 0`, quindi la casella diceva
                     // «alcune di queste» mentre la verità era «alcune altrove».
                     if (el) {
-                      const scelte = filtered.filter((d) => selezione.has(d.id)).length;
-                      el.indeterminate = scelte > 0 && scelte < filtered.length;
+                      const scelte = mostrate.filter((d) => selezione.has(d.id)).length;
+                      el.indeterminate = scelte > 0 && scelte < mostrate.length;
                     }
                   }}
                   onChange={(e) => {
@@ -207,7 +253,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                     // sostituiva l'intera selezione e toglierla la azzerava,
                     // buttando via scelte fatte con un filtro precedente.
                     const next = new Set(selezione);
-                    for (const d of filtered) {
+                    for (const d of mostrate) {
                       if (e.target.checked) next.add(d.id);
                       else next.delete(d.id);
                     }
@@ -254,7 +300,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                 </td>
               </tr>
             )}
-            {filtered.map((d) => (
+            {mostrate.map((d) => (
               <tr key={d.id} className="clickable" onClick={() => onOpen(d.id)}>
                 {/* `stopPropagation`: la riga apre l'immersione, la casella no. */}
                 <td className="cella-scelta" onClick={(e) => e.stopPropagation()}>
@@ -340,6 +386,26 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
           </tbody>
         </table>
       </div>
+
+      {/*
+       * IL PIEDE DELL'ELENCO DICE SEMPRE A CHE PUNTO SEI.
+       *
+       * Anche quando non c'è più niente da caricare. Un elenco che finisce senza
+       * dire niente lascia il dubbio più fastidioso che ci sia in un archivio:
+       * «le ha mostrate tutte o si è fermato?». La riga costa nulla e toglie
+       * quella domanda, ed è anche il posto dove si scopre quante immersioni
+       * corrispondono davvero al filtro appena impostato.
+       */}
+      {filtered.length > 0 && (
+        <div className="piede-elenco">
+          <span className="muted">{descriviFinestra(mostrate.length, filtered.length).testo}</span>
+          {descriviFinestra(mostrate.length, filtered.length, PER_VOLTA).altre > 0 && (
+            <button className="btn" onClick={() => setQuante((q) => q + PER_VOLTA)}>
+              Mostra altre {descriviFinestra(mostrate.length, filtered.length, PER_VOLTA).altre}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

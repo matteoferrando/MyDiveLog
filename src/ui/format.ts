@@ -119,3 +119,31 @@ export function plural(n: number, uno: string, molti: string): string {
 
 /** Il caso di gran lunga più frequente: un conteggio di immersioni. */
 export const imm = (n: number) => plural(n, 'immersione', 'immersioni');
+
+/**
+ * Che cosa dice il piede di un elenco a finestra.
+ *
+ * Estratto dal componente perché sono due conti che si sbagliano in silenzio, e
+ * sbagliati non rompono niente: dicono soltanto una cosa falsa.
+ *
+ *  - «tutte mostrate» deve comparire SOLO quando non è rimasto niente fuori. Con
+ *    un `>=` al posto di un `===`, o con il confronto fatto sul totale
+ *    dell'archivio invece che su quello filtrato, l'elenco dichiara di essere
+ *    completo mentre sta nascondendo righe: chi cerca un'immersione e non la
+ *    trova conclude che non c'è.
+ *  - il numero sul pulsante è quanto MANCA, non il passo fisso. Alla penultima
+ *    schermata «Mostra altre 50» quando ne restano sette è una promessa che non
+ *    viene mantenuta, e al limite esatto — mostrate uguali alle totali — un
+ *    pulsante «Mostra altre 0» è un bersaglio che non fa niente.
+ */
+export function descriviFinestra(
+  mostrate: number,
+  totali: number,
+  perVolta = 50,
+): { testo: string; altre: number } {
+  const restanti = Math.max(0, totali - mostrate);
+  return {
+    testo: restanti === 0 ? `${imm(totali)}, tutte mostrate` : `${mostrate} di ${imm(totali)}`,
+    altre: Math.min(perVolta, restanti),
+  };
+}

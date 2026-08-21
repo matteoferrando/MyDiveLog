@@ -857,6 +857,42 @@ const logbookEsito = !logbookMobile
   : logbookMobile.fuori.length || logbookMobile.traboccaDiLato
     ? `SBAGLIATO: fuori schermo ${logbookMobile.fuori.join(', ') || '—'}${logbookMobile.traboccaDiLato ? ', e la scheda trabocca' : ''}`
     : `${logbookMobile.colonne.length} valori tutti visibili (${logbookMobile.colonne.join(', ')}), scheda alta ${logbookMobile.altezzaRiga} px`;
+/*
+ * LA FINESTRA DELL'ELENCO: cinquanta righe alla volta, e il piede lo dice.
+ *
+ * Serve a inchiodare due cose insieme. La prima è che la finestra esista
+ * davvero: con l'archivio demo — più di cinquanta immersioni — in tabella
+ * devono comparirne cinquanta, non tutte. La seconda è che il piede dichiari a
+ * che punto sei, perché un elenco che finisce in silenzio lascia il dubbio se
+ * sia finito l'archivio o solo la pagina.
+ */
+const paginazione = await page.evaluate(() => {
+  const righe = document.querySelectorAll('.tabella-logbook tbody tr').length;
+  const piede = document.querySelector('.piede-elenco');
+  const bottone = piede?.querySelector('button');
+  return { righe, piede: piede?.textContent?.trim() ?? null, bottone: bottone?.textContent?.trim() ?? null };
+});
+let paginazioneEsito;
+if (!paginazione.piede) {
+  paginazioneEsito = 'SBAGLIATO: nessun piede';
+} else if (paginazione.righe > 50) {
+  paginazioneEsito = `SBAGLIATO: ${paginazione.righe} righe disegnate, la finestra non taglia`;
+} else {
+  // E premendo «mostra altre» le righe devono aumentare davvero.
+  const prima = paginazione.righe;
+  if (paginazione.bottone) {
+    await page.locator('.piede-elenco button').click();
+    await page.waitForTimeout(200);
+    const dopo = await page.locator('.tabella-logbook tbody tr').count();
+    paginazioneEsito =
+      dopo > prima
+        ? `${prima} righe, poi ${dopo} dopo «${paginazione.bottone}»`
+        : `SBAGLIATO: dopo il pulsante le righe restano ${dopo}`;
+  } else {
+    paginazioneEsito = `${prima} righe, tutte mostrate (${paginazione.piede})`;
+  }
+}
+
 await page.setViewportSize({ width: 1180, height: 900 });
 await page.waitForTimeout(300);
 
@@ -1185,6 +1221,7 @@ console.log(sosteRec.slice(0, 500));
 console.log('NAVIGAZIONE A 390 px:', navEsito);
 console.log('MENU A 390 px:', menuEsito);
 console.log('LOGBOOK A 390 px:', logbookEsito);
+console.log('FINESTRA DELL’ELENCO:', paginazioneEsito);
 console.log('BERSAGLI TATTILI A 390 px:', bersagliEsito);
 console.log('BOZZA NON SALVATA:', bozzaEsito);
 console.log('DIGITAZIONE A CIFRE:', digitazione);

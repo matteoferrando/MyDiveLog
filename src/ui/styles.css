@@ -1197,6 +1197,34 @@ textarea {
   gap: 6px;
 }
 
+/*
+ * Il piede dell'elenco del logbook.
+ *
+ * Centrato e con l'aria intorno: è il punto in cui lo sguardo arriva dopo aver
+ * scorso cinquanta righe, e deve essere ovvio che l'elenco continua. Su un
+ * telefono il pulsante prende la riga intera, perché a fine pagina il pollice è
+ * lontano dal centro e un bersaglio stretto in mezzo allo schermo si manca.
+ */
+.piede-elenco {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px 0 4px;
+  font-size: 12px;
+}
+
+@media (max-width: 700px) {
+  .piede-elenco {
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+
+  .piede-elenco .btn {
+    width: 100%;
+  }
+}
+
 /* ------------------------------------------------------------------ charts */
 
 .chart {
