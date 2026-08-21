@@ -59,6 +59,13 @@ vengono distinti correttamente.
 | **Subsurface** | tutto lo storico convertito da qualsiasi computer | Subsurface → Salva con nome (`.ssrf`) |
 | **CSV** | riepilogo senza profilo | qualsiasi foglio di calcolo |
 
+**Il logbook si sfoglia cinquanta immersioni alla volta**, con un pulsante
+«Mostra altre» e un piede che dice sempre a che punto sei — anche quando non c'è
+più niente da caricare, perché un elenco che finisce in silenzio lascia il dubbio
+se sia finito l'archivio o solo la pagina. La casella «seleziona tutte» agisce su
+ciò che è mostrato: la modifica in blocco non può toccare righe che non hai
+davanti.
+
 L'export FIT dell'app Suunto passa dallo stesso parser Garmin. È leggibile ma
 povero: mancano il gas del trasmettitore e la composizione della miscela, che
 vanno completati nella scheda immersione.
@@ -160,8 +167,8 @@ dell'archivio locale, sul dispositivo dove lo hai incollato.
 |---|---|
 | `npm run dev` | sviluppo nel browser (dati in IndexedDB) |
 | `npm run desktop` | app desktop in sviluppo (dati in SQLite) |
-| `npm run desktop:build` | `.app` + `.dmg` per macOS |
-| `npm test` | 1092 test su unità, parser, formati binari Uwatec e Shearwater, gzip/DEFLATE, lettore SQLite, metriche, deduplica, fusi orari, sincronizzazione, piano, grafici |
+| `npm run desktop:build` | `.app` + `.dmg` per macOS (vedi la firma, sotto) |
+| `npm test` | 1097 test su unità, parser, formati binari Uwatec e Shearwater, gzip/DEFLATE, lettore SQLite, metriche, deduplica, fusi orari, sincronizzazione, piano, grafici |
 | `npm run validate:logtrak <file>` | verifica il decoder Uwatec contro un export LogTRAK reale |
 | `npm run validate:pnf <file.db>` | verifica il decoder Shearwater contro un database di Shearwater Cloud reale |
 | `npm run typecheck` | controllo dei tipi |
@@ -169,7 +176,37 @@ dell'archivio locale, sul dispositivo dove lo hai incollato.
 | `npm run screenshot` | verifica visiva: apre la build e fotografa ogni vista |
 | `npm run ios:init` | genera il progetto Xcode per iOS (vedi sotto) |
 | `npm run ios:dev -- "iPhone 17 Pro"` | compila e lancia l'app sul simulatore |
-| `npm run ios:build` | pacchetto firmato per un iPhone vero |
+| `npm run ios:build` | pacchetto `.ipa` firmato per un iPhone vero |
+| `npm run ios:telefono` | compila, firma e lancia direttamente sul telefono collegato |
+
+### L'app desktop, installata
+
+`npm run desktop:build` produce `src-tauri/target/release/bundle/macos/MyDiveLog.app`
+(circa 5 MB) e un `.dmg` accanto. L'app si trascina in `/Applications` e da li'
+si apre come qualunque altra: **non serve il terminale, e non serve che Vite
+giri.**
+
+Usa lo stesso archivio della versione di sviluppo — stesso identificativo
+`it.ferrando.mydivelog`, quindi stessa cartella
+`~/Library/Application Support/it.ferrando.mydivelog/` — percio' non c'e' niente
+da importare la prima volta che si apre.
+
+**Firmarla conviene, e non per distribuirla.** Senza firma il bundle e' *ad hoc*:
+funziona, ma la sua identita' cambia a ogni ricostruzione, e il portachiavi di
+sistema riconosce le applicazioni proprio dalla firma — quindi ogni nuova build
+ridiventa «un'altra app» che deve richiedere il permesso di leggere il token di
+sincronizzazione e la chiave API. Con un certificato di sviluppo l'identita' e'
+stabile e il permesso si concede una volta sola:
+
+    APPLE_SIGNING_IDENTITY="Apple Development: <nome> (<ID>)" npm run desktop:build
+
+Il nome esatto lo stampa `security find-identity -v -p codesigning`. Non sta in
+`tauri.conf.json` di proposito: e' un dato personale, e questo repository e'
+pubblico.
+
+La notarizzazione — quella che serve perche' l'app si apra su un Mac **altrui**
+senza avvisi — e' un passo ulteriore e richiede `APPLE_ID`, `APPLE_PASSWORD` e
+`APPLE_TEAM_ID`. Per l'uso sulla propria macchina non serve.
 
 ---
 
@@ -274,10 +311,19 @@ presenti la build si fermava su `Multiple commands produce .../libapp.a`.
 `tauri ios init`; se un giorno Tauri lo risolve, lo script se ne accorge e non
 fa niente.
 
-**Mettere l'app su un iPhone vero.** `npm run ios:telefono` — cioe'
-`tauri ios run --release` — compila, firma, installa e lancia sul telefono
-collegato, con l'interfaccia impacchettata dentro: l'app resta sul telefono e non
-dipende dal Mac acceso, a differenza di `ios:dev` che serve la pagina da Vite.
+**Mettere l'app su un iPhone vero.** Due comandi, e l'app resta sul telefono con
+l'interfaccia impacchettata dentro — non dipende dal Mac acceso, a differenza di
+`ios:dev` che serve la pagina da Vite:
+
+    npm run ios:build -- --export-method debugging
+    xcrun devicectl device install app --device <UDID> \
+      src-tauri/gen/apple/build/arm64/MyDiveLog.ipa
+
+C'e' anche `npm run ios:telefono` (`tauri ios run --release`), che farebbe tutto
+in un colpo, ma **oggi non arriva in fondo**: sbaglia il percorso di un proprio
+file temporaneo e muore con `Couldn't load -exportOptionsPlist`. Resta nello
+script perche' e' un difetto del CLI di Tauri che prima o poi sara' corretto.
+
 Due condizioni: sul telefono dev'essere attiva **Modalita' sviluppatore**
 (Impostazioni → Privacy e sicurezza), obbligatoria da iOS 16, e il telefono
 dev'essere **registrato sul team** prima della prima build. Quella registrazione
@@ -295,18 +341,12 @@ Quel comando fallisce alla fine — la fase «Build Rust Code» vuole il CLI di 
 che la orchestri — ma prima di fallire registra il dispositivo e fa emettere il
 profilo, che e' tutto quello che serve. Da li' in poi bastano gli script npm.
 
-E `tauri ios run` non arriva in fondo: sbaglia il percorso di un proprio file
-temporaneo (`Couldn't load -exportOptionsPlist`). La strada che funziona e' il
-pacchetto:
-
-    npm run ios:build -- --export-method debugging
-    xcrun devicectl device install app --device <UDID> \
-      src-tauri/gen/apple/build/arm64/MyDiveLog.ipa
-
-Con un **Personal Team** — l'account Apple gratuito — il profilo dura **sette
-giorni**: dopo, l'app non si apre piu' e va reinstallata con lo stesso comando.
-Reinstallare SOPRA conserva l'archivio; cancellare l'app lo butta, ed e' uno dei
-motivi per cui la sincronizzazione non e' un accessorio.
+**Quanto dura la firma.** Con l'Apple Developer Program a pagamento il profilo
+vale **un anno**. Con un **Personal Team** — l'account gratuito — dura **sette
+giorni**: dopo, l'app non si apre piu' e va reinstallata con gli stessi due
+comandi. In entrambi i casi reinstallare SOPRA conserva l'archivio; cancellare
+l'app lo butta, ed e' uno dei motivi per cui la sincronizzazione non e' un
+accessorio.
 
 **Su iPhone non si stampa, e il pulsante non c'e'.** La stampa apre una finestra
 nuova col foglio impaginato e passa la parola alla finestra di stampa del
