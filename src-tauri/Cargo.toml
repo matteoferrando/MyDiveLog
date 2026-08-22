@@ -58,6 +58,23 @@ tauri-plugin-deep-link = "2"
 # Attivato automaticamente da `tauri build`.
 custom-protocol = ["tauri/custom-protocol"]
 
+# I computer subacquei di tutti gli altri: libdivecomputer.
+#
+# SPENTA DI SUA INIZIATIVA, per due ragioni.
+#
+# La prima è pratica: accenderla fa compilare centoquindici file C prima di ogni
+# build pulita, e chi lavora su una schermata non deve pagarli.
+#
+# La seconda è la licenza, e pesa di più. libdivecomputer è LGPL-2.1: un
+# programma MIT la può usare purché chi lo riceve possa ricompilare la libreria
+# e rimetterla al suo posto. Per un pacchetto scaricato da GitHub, con tutto il
+# sorgente pubblico, la condizione è soddisfatta. Per un binario firmato da
+# Apple e distribuito su App Store, dove nessuno può rilinkare niente, la stessa
+# domanda non ha una risposta comoda — e finché non ce l'ha, una funzionalità
+# che si accende per bersaglio tiene aperte entrambe le strade invece di
+# chiuderne una per distrazione.
+computer-esterni = []
+
 [profile.release]
 codegen-units = 1
 lto = true

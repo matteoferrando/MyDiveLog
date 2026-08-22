@@ -138,6 +138,16 @@ fn esporta_nei_documenti(app: tauri::AppHandle, nome: String, contenuto: String)
 /// TypeScript. Questa porta è aperta, e chiunque sulla macchina può bussarci;
 /// quello che arriva senza uno `state` che combacia non viene guardato.
 #[cfg(desktop)]
+/*
+ * I computer subacquei riconosciuti da libdivecomputer.
+ *
+ * Il modulo c'è sempre; quello che cambia è cosa risponde. Senza la
+ * funzionalità `computer-esterni` restituisce un elenco vuoto, che è la
+ * risposta vera: quella copia dell'applicazione non riconosce nessun modello in
+ * più rispetto ai due driver scritti in casa.
+ */
+mod computer_esterni;
+
 mod ritorno_accesso {
     use std::io::{BufRead, BufReader, Write};
     use std::net::TcpListener;
@@ -266,7 +276,8 @@ pub fn run() {
         segreti::segreto_leggi,
         segreti::segreto_scrivi,
         segreti::segreto_cancella,
-        ritorno_accesso::apri_ritorno_accesso
+        ritorno_accesso::apri_ritorno_accesso,
+        computer_esterni::elenca_computer_supportati
     ]);
 
     // Su iOS due differenze: l'esportazione di un file, che qui non può passare
@@ -277,7 +288,8 @@ pub fn run() {
         segreti::segreto_leggi,
         segreti::segreto_scrivi,
         segreti::segreto_cancella,
-        esporta_nei_documenti
+        esporta_nei_documenti,
+        computer_esterni::elenca_computer_supportati
     ]);
 
     builder
