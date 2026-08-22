@@ -33,3 +33,30 @@ GOOGLE_CLIENT_ID = "883995552043-2khev71oqkm7go3nilogqc82tunbito7.apps.googleuse
 GOOGLE_CLIENT_DESKTOP = "883995552043-fcsjcnlb5o6ih7af686bk0j7pls9k5bi.apps.googleusercontent.com"
 # Vuoto = qualunque origine. Da restringere quando si sa da dove arriva l'app.
 ORIGINI_AMMESSE = ""
+
+# Il contatore del limite di frequenza.
+#
+# PERCHÉ NON IL LEGAME NATIVO `[[ratelimits]]`. C'era, si configurava in tre
+# righe, ed è stato provato: con un tetto dichiarato di 10 richieste al minuto,
+# trentatré richieste dallo stesso indirizzo nello stesso minuto sono passate
+# tutte. Non è un difetto nascosto — la documentazione di Cloudflare dice che
+# quell'API è «permissiva, coerente col tempo, e volutamente non pensata come
+# sistema di conteggio accurato», perché i contatori stanno nella cache della
+# macchina e si aggiornano in modo asincrono. Per contare le visite va bene; per
+# difendere una rotta che chiama Google e crea database, no.
+#
+# Un Durable Object per chiave: Cloudflare garantisce una sola istanza al mondo e
+# le richieste in fila, quindi il conteggio è esatto per costruzione. Il legame è
+# disponibile anche sul piano gratuito.
+#
+# `new_sqlite_classes` e non `new_classes`: sul piano gratuito gli oggetti
+# devono essere di quel tipo. Questo non usa nessun archivio — il contatore vive
+# in memoria — ma la classe va comunque dichiarata così.
+
+[[durable_objects.bindings]]
+name = "LIMITI"
+class_name = "LimiteFrequenza"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["LimiteFrequenza"]

@@ -30,8 +30,16 @@
 
 import { scambiaCodiceGoogle } from './googleScambio';
 import { creaArchivioChiavi, verificaTokenIdentita } from './identita';
+import { entroIlLimite, LimiteFrequenza, type SpazioLimiti } from './limite';
 import { firmaSessione, idUtente, verificaSessione } from './sessione';
-import { assicuraDatabase, cancellaDatabase, DURATA_TOKEN_DB_S, nomeDatabase, tokenDatabase } from './turso';
+import {
+  ArchivioNonCreato,
+  assicuraDatabase,
+  cancellaDatabase,
+  DURATA_TOKEN_DB_S,
+  nomeDatabase,
+  tokenDatabase,
+} from './turso';
 
 export interface Ambiente {
   /** Segreto per firmare le sessioni. Cambiarlo scollega tutti i dispositivi. */
@@ -80,9 +88,66 @@ export interface Ambiente {
   GOOGLE_SEGRETO_DESKTOP: string;
   /** Origini ammesse, separate da virgola. Vuoto = nessun controllo di origine. */
   ORIGINI_AMMESSE?: string;
+  /**
+   * Dove vivono i contatori del limite di frequenza.
+   *
+   * Uno spazio solo, e due tetti diversi applicati sopra: `/accesso` e `/chiave`
+   * costano cose diverse. Il primo chiama Google, crea un database su Turso e
+   * firma una sessione — è la rotta con cui si fa danno, e l'unica che un
+   * estraneo raggiunge senza avere niente in mano. Il secondo lo chiama solo chi
+   * ha già una sessione valida, per rinnovare una chiave ogni due ore: con
+   * qualche dispositivo dietro la stessa uscita di rete il conto sale in fretta,
+   * e strozzarlo vorrebbe dire far fallire una sincronizzazione a chi non ha
+   * fatto niente di male.
+   */
+  LIMITI: SpazioLimiti;
 }
 
+/**
+ * I due tetti, in un posto solo.
+ *
+ * Dieci accessi al minuto per indirizzo sono larghi per una persona — si entra
+ * una volta per dispositivo — e stretti per uno script. Sessanta rinnovi al
+ * minuto coprono una famiglia di dispositivi dietro la stessa linea senza mai
+ * sfiorare il tetto in uso normale.
+ */
+const TETTO_ACCESSO = { limite: 10, finestraS: 60 };
+const TETTO_CHIAVE = { limite: 60, finestraS: 60 };
+
 const trovaChiave = creaArchivioChiavi();
+
+/**
+ * Da chi arriva la richiesta, ai fini del limite.
+ *
+ * `CF-Connecting-IP` è messo da Cloudflare e non è falsificabile dal client: un
+ * `X-Forwarded-For` scritto a mano non lo tocca. Quando manca — non dovrebbe, ma
+ * un giorno potrebbe — si ripiega su una chiave unica per tutti, che è la scelta
+ * prudente: nel dubbio si limita, non si lascia passare.
+ */
+function chiamante(richiesta: Request): string {
+  return richiesta.headers.get('CF-Connecting-IP') ?? 'sconosciuto';
+}
+
+/**
+ * Un limite superato NON è un errore da nascondere.
+ *
+ * Qui, a differenza di tutto il resto del file, la risposta dice esattamente
+ * cosa è successo e quando riprovare: chi ha esagerato per sbaglio — uno script
+ * che gira in tondo, un'app che riprova troppo in fretta — deve poter capire e
+ * correggere. Non c'è niente da indovinare, quindi non c'è niente da proteggere.
+ */
+function troppeRichieste(origine: string | null, riprovaFraS: number): Response {
+  return new Response(JSON.stringify({ errore: `troppe richieste: riprova fra ${riprovaFraS} secondi` }), {
+    status: 429,
+    headers: {
+      'Content-Type': 'application/json',
+      // Il tempo VERO che manca alla riapertura della finestra, non un numero
+      // fisso: un client educato lo legge e aspetta esattamente quello.
+      'Retry-After': String(riprovaFraS),
+      ...intestazioniCors(origine),
+    },
+  });
+}
 
 /** Da «a, b» a `['a','b']`, saltando le voci vuote di chi lascia una virgola. */
 function elenco(valore: string): string[] {
@@ -173,6 +238,21 @@ export default {
        * vede mai, e non ha niente da conservare tranne la propria sessione.
        */
       if (percorso === '/accesso' && richiesta.method === 'POST') {
+        /*
+         * Il limite si applica PRIMA di leggere il corpo e prima di chiamare
+         * chiunque: se lo si mettesse dopo la verifica, ogni tentativo respinto
+         * avrebbe comunque fatto partire una richiesta verso Google, che è
+         * esattamente il costo da cui ci si vuole proteggere.
+         */
+        const limite = await entroIlLimite(
+          env.LIMITI,
+          'accesso',
+          chiamante(richiesta),
+          TETTO_ACCESSO.limite,
+          TETTO_ACCESSO.finestraS,
+        );
+        if (!limite.consentito) return troppeRichieste(origine, limite.riprovaFraS);
+
         const corpo = (await richiesta.json().catch(() => ({}))) as {
           provider?: unknown;
           clientId?: unknown;
@@ -262,6 +342,15 @@ export default {
 
       // --- rinnovo della chiave del database ------------------------------
       if (percorso === '/chiave' && richiesta.method === 'POST') {
+        const limite = await entroIlLimite(
+          env.LIMITI,
+          'chiave',
+          chiamante(richiesta),
+          TETTO_CHIAVE.limite,
+          TETTO_CHIAVE.finestraS,
+        );
+        if (!limite.consentito) return troppeRichieste(origine, limite.riprovaFraS);
+
         const utente = await sessioneDiTurno(richiesta, env);
         if (!utente) return rifiuto(401, 'sessione non valida', origine);
 
@@ -275,6 +364,17 @@ export default {
 
       // --- cancellazione dell'account -------------------------------------
       if (percorso === '/account' && richiesta.method === 'DELETE') {
+        // Cancellare passa dal contatore di `/chiave`: è raro per costruzione —
+        // si chiude un account una volta — e non merita un ambito suo.
+        const limite = await entroIlLimite(
+          env.LIMITI,
+          'chiave',
+          chiamante(richiesta),
+          TETTO_CHIAVE.limite,
+          TETTO_CHIAVE.finestraS,
+        );
+        if (!limite.consentito) return troppeRichieste(origine, limite.riprovaFraS);
+
         const utente = await sessioneDiTurno(richiesta, env);
         if (!utente) return rifiuto(401, 'sessione non valida', origine);
 
@@ -284,10 +384,36 @@ export default {
 
       return rifiuto(404, 'rotta inesistente', origine);
     } catch (err) {
-      // Il dettaglio finisce nel registro del Worker; a chi chiama va una frase
-      // che non dice niente di utile a chi sta provando.
+      /*
+       * Un'eccezione sola merita di uscire con la sua faccia: il servizio non è
+       * riuscito a creare l'archivio e non ne esisteva già uno. Chi la riceve non
+       * deve «riprovare più tardi» — riproverebbe per sempre — deve sapere che il
+       * servizio è al completo e che c'è un indirizzo a cui scrivere. È anche
+       * l'unico errore che non dice niente a chi volesse indovinare qualcosa:
+       * riguarda noi, non lui.
+       */
+      if (err instanceof ArchivioNonCreato) {
+        console.error('archivio non creato', err.stato);
+        return rifiuto(
+          503,
+          'il servizio non è al momento in grado di creare nuovi archivi: scrivi a m.ferrando@gmail.com',
+          origine,
+        );
+      }
+      // Per tutto il resto il dettaglio finisce nel registro del Worker; a chi
+      // chiama va una frase che non dice niente di utile a chi sta provando.
       console.error('errore interno', err);
       return rifiuto(502, 'servizio non disponibile', origine);
     }
   },
 };
+
+/*
+ * L'oggetto del limite si RIESPORTA da qui.
+ *
+ * Cloudflare cerca la classe di un Durable Object fra le esportazioni del modulo
+ * principale, non fra quelle del file in cui l'hai scritta. Senza questa riga il
+ * deploy passa, e il Worker fallisce alla prima richiesta con «class not
+ * found» — un errore che non nomina né il file né l'esportazione mancante.
+ */
+export { LimiteFrequenza };

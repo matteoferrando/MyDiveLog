@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  ArchivioNonCreato,
   assicuraDatabase,
   cancellaDatabase,
   nomeDatabase,
@@ -97,6 +98,48 @@ describe('assicurare il database', () => {
     // Il messaggio non deve portarsi dietro il corpo della risposta: là dentro
     // possono esserci nomi dell'organizzazione e frammenti di token.
     await expect(assicuraDatabase(cfg(fetchImpl), 'abc')).rejects.not.toThrow(/abc123/);
+  });
+});
+
+describe('quando il servizio non riesce a creare l’archivio', () => {
+  it('creazione fallita e database inesistente danno un errore RICONOSCIBILE', async () => {
+    /*
+     * Il caso che arriva senza preavviso: l'organizzazione ha esaurito i
+     * database che il piano permette. Fino a ieri non poteva succedere — c'era
+     * un utente solo — e da quando l'accesso è aperto è il modo in cui il
+     * servizio smetterà di funzionare per i nuovi, mentre continua a funzionare
+     * benissimo per tutti quelli di prima.
+     *
+     * Serve un tipo suo perché è l'unico errore a cui chi chiama può rispondere
+     * qualcosa di sensato: non «riprova», che non servirebbe, ma «il servizio è
+     * pieno». Con un errore generico, la persona riproverebbe per sempre.
+     */
+    const { fetchImpl } = rete([
+      { stato: 403, dati: { error: 'plan limit reached' } },
+      { stato: 404, dati: {} },
+    ]);
+    await expect(assicuraDatabase(cfg(fetchImpl), 'utente-nuovo')).rejects.toBeInstanceOf(ArchivioNonCreato);
+  });
+
+  it('l’errore porta con sé lo stato, che è quello che finisce nel registro', async () => {
+    const { fetchImpl } = rete([
+      { stato: 403, dati: {} },
+      { stato: 404, dati: {} },
+    ]);
+    const errore = await assicuraDatabase(cfg(fetchImpl), 'utente-nuovo').catch((e) => e);
+    expect((errore as ArchivioNonCreato).stato).toBe(403);
+  });
+
+  it('NON scatta quando il database esisteva già', async () => {
+    // È la differenza che conta: un 409 seguito da una lettura riuscita è il
+    // secondo accesso di una persona che ha tutto a posto, non un guasto.
+    const { fetchImpl } = rete([
+      { stato: 409, dati: {} },
+      { stato: 200, dati: { database: { Hostname: 'mdl-x-org.turso.io' } } },
+    ]);
+    await expect(assicuraDatabase(cfg(fetchImpl), 'x')).resolves.toMatchObject({
+      url: 'libsql://mdl-x-org.turso.io',
+    });
   });
 });
 

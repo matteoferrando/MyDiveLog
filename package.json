@@ -19,6 +19,7 @@
     "tauri": "tauri",
     "desktop": "tauri dev",
     "desktop:build": "tauri build",
+    "mac:pubblica": "bash scripts/pubblica-mac.sh",
     "ios:init": "tauri ios init",
     "ios:dev": "tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios dev",
     "demo": "tsx scripts/generate-demo-data.ts",

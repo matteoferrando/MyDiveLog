@@ -114,7 +114,32 @@ export async function assicuraDatabase(cfg: ConfigurazioneTurso, utente: string)
   const db = lettura.dati.database as { Hostname?: string } | undefined;
   if (lettura.ok && db?.Hostname) return { nome, url: `libsql://${db.Hostname}` };
 
-  throw errore('database non disponibile', creazione.stato || lettura.stato);
+  /*
+   * Qui la creazione è fallita E il database non esiste. È il caso di cui non
+   * ci si accorge finché non arriva: **l'organizzazione ha esaurito i database
+   * che il piano permette**. Il piano gratuito di Turso ne dà cento, e il
+   * centunesimo utente riceverebbe un errore generico dopo aver fatto tutto il
+   * giro dell'accesso, senza che nessuno sappia perché.
+   *
+   * Si distingue con un tipo suo perché è l'unico errore di questo file a cui il
+   * chiamante può rispondere qualcosa di sensato: non «riprova», che non
+   * servirebbe a niente, ma «il servizio è pieno, scrivi al titolare».
+   */
+  throw new ArchivioNonCreato(creazione.stato || lettura.stato);
+}
+
+/**
+ * Non è stato possibile creare l'archivio, e non ce n'era già uno.
+ *
+ * Un tipo e non un messaggio perché i messaggi si riscrivono e si traducono,
+ * mentre chi deve decidere che risposta dare a chi chiama ha bisogno di
+ * riconoscere il caso, non di leggerlo.
+ */
+export class ArchivioNonCreato extends Error {
+  constructor(readonly stato: number) {
+    super(`Turso: archivio non creato (HTTP ${stato})`);
+    this.name = 'ArchivioNonCreato';
+  }
 }
 
 /**

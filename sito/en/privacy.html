@@ -9,6 +9,15 @@
       content="How MyDiveLog handles your data: local archive, optional sign-in, no usage tracking."
     />
     <link rel="icon" href="../logo.svg" type="image/svg+xml" />
+    <!--
+      Cloudflare Pages serve queste pagine anche senza `.html`, e su quella
+      forma REINDIRIZZA: `/privacy.html` diventa `/privacy` con un 308. Due
+      indirizzi per una pagina sola sono un doppione per chi indicizza, e
+      l'indirizzo canonico è quello corto — è anche quello da dare a Google
+      e ad Apple. I collegamenti interni restano con `.html` perché così il
+      sito si apre anche con un doppio clic, senza un server.
+    -->
+    <link rel="canonical" href="/en/privacy" />
     <link rel="stylesheet" href="../stile.css" />
     <link rel="alternate" hreflang="it" href="/privacy.html" />
   </head>

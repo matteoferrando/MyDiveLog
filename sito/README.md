@@ -45,8 +45,8 @@ Google, per togliere il progetto OAuth dallo stato *Testing*, chiede l'indirizzo
 pubblico dell'informativa sulla privacy e dei termini. Apple chiede la stessa
 cosa per l'App Store. Sono questi:
 
-- `https://mydivelog.site/privacy.html`
-- `https://mydivelog.site/termini.html`
+- `https://mydivelog.site/privacy`
+- `https://mydivelog.site/termini`
 
 Se un giorno cambiano nome, vanno aggiornati **anche nella console di Google**,
 altrimenti la verifica si ferma senza dire perché.
