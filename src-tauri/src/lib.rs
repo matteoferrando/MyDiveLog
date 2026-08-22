@@ -148,6 +148,13 @@ fn esporta_nei_documenti(app: tauri::AppHandle, nome: String, contenuto: String)
  */
 mod computer_esterni;
 
+/*
+ * Il ponte fra libdivecomputer e il nostro Bluetooth. Esiste solo quando la
+ * funzionalità è accesa: senza, non c'è niente a cui fare da ponte.
+ */
+#[cfg(feature = "computer-esterni")]
+mod trasporto_ldc;
+
 mod ritorno_accesso {
     use std::io::{BufRead, BufReader, Write};
     use std::net::TcpListener;
