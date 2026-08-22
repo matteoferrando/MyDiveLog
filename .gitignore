@@ -24,3 +24,9 @@ test.db
 # Log di sviluppo e cartella di scarto: transitori, non storia del progetto.
 _dev.log
 _to_delete/
+
+# I segreti del Worker per la prova in locale. Wrangler li legge da qui, e qui
+# dentro finisce un token che crea e cancella OGNI database dell'organizzazione:
+# nel repository non ci deve entrare in nessun caso.
+server/.dev.vars
+server/.wrangler/

@@ -7,7 +7,16 @@
  * caricano su richiesta quando si apre una scheda.
  */
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+  useRef,
+} from 'react';
 import type { Dive, Sample } from '../core/model';
 import { TRASH_KEY, filterDeleted, partitionTrash, type TrashedDive } from '../storage/trash';
 import { BLE_MARKERS_KEY, type DownloadMarker } from '../core/ble/types';
@@ -41,6 +50,14 @@ import {
   type SyncReport,
 } from '../sync/turso';
 import { ask, testKey, type AiCredentials, type AiModel, type AiResult } from '../ai/client';
+import {
+  type AccountSalvato,
+  cancellaAccount as chiudiAccountRemoto,
+  ChiaviDelDatabase,
+  leggiAccountSalvato,
+} from '../sync/account';
+import { accediConGoogle } from '../sync/accessoPiattaforma';
+import { SERVIZIO_ACCESSO } from '../sync/configurazione';
 import { archiveContext, decoPlanContext, diveContext, gasPlanContext, planContext } from '../ai/context';
 import {
   archiveAnalysis,
@@ -154,6 +171,30 @@ interface DiveLogValue {
   saveSyncCredentials: (creds: SyncCredentials | null) => Promise<void>;
   testSync: (creds: SyncCredentials) => Promise<{ ok: true } | { ok: false; error: string }>;
   syncNow: (onProgress?: (message: string) => void) => Promise<SyncReport>;
+
+  /*
+   * L'ACCOUNT, che è un modo diverso di ottenere le stesse credenziali.
+   *
+   * Non sostituisce l'indirizzo e il token scritti a mano: li affianca. Chi ha
+   * già un database suo continua a usarlo, chi accede ne riceve uno creato dal
+   * servizio. La sincronizzazione non sa quale delle due strade sia stata
+   * seguita — riceve un indirizzo e una chiave, e basta.
+   */
+  /**
+   * Se c'è una sessione. È QUESTO che dice «sei entrato», non l'email.
+   *
+   * L'email è facoltativa — un fornitore può non darla — e usarla come
+   * interruttore farebbe apparire disconnesso chi ha una sessione valida ma
+   * nessun indirizzo da mostrare. Sono due domande diverse e stanno in due
+   * campi diversi.
+   */
+  accountAttivo: boolean;
+  /** L'email di chi è entrato, o `null`. Solo da mostrare. */
+  accountEmail: string | null;
+  accediConAccount: () => Promise<void>;
+  esciDallAccount: () => Promise<void>;
+  /** Cancella il database remoto. **Non** tocca l'archivio locale. */
+  cancellaAccount: () => Promise<void>;
 
   /**
    * Ultimo piano gas compilato. Salvato perché bombola, miscela e velocità di
@@ -285,6 +326,19 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   const [goalId, setGoalIdState] = useState<GoalId>('general');
   const [period, setPeriodState] = useState<PeriodId>(DEFAULT_PERIOD);
   const [syncCredentials, setSyncCredentials] = useState<SyncCredentials | null>(null);
+  /*
+   * La sessione dell'account, e le chiavi che se ne ricavano.
+   *
+   * La SESSIONE sta nel portachiavi e dura settimane. Le CHIAVI del database
+   * durano due ore e vivono solo qui, in un riferimento: non finiscono in uno
+   * stato di React perché non devono innescare ridisegni, e soprattutto non
+   * devono essere scritte da nessuna parte. Un archivio SQLite finisce nei
+   * backup di sistema; una chiave scritta là dentro sopravvivrebbe alla sessione
+   * che l'ha generata.
+   */
+  const [sessioneAccount, setSessioneAccount] = useState<string | null>(null);
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
+  const chiaviAccount = useRef<ChiaviDelDatabase | null>(null);
   const [aiCredentials, setAiCredentials] = useState<AiCredentials | null>(null);
   const [gasInput, setGasInputState] = useState<GasPlanInput | null>(null);
   const [decoInput, setDecoInputState] = useState<unknown>(null);
@@ -349,6 +403,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         savedPeriod,
         savedSync,
         savedAi,
+        savedSessione,
         savedAnalyses,
         savedGas,
         savedGear,
@@ -362,6 +417,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         // avvio migra da solo quelle rimaste in chiaro nell'archivio.
         prova('credenziali di sincronizzazione', async () => segreti?.read<SyncCredentials>('sync')),
         prova('chiave dell’API', async () => segreti?.read<AiCredentials>('ai')),
+        prova('sessione dell’account', async () => segreti?.read<AccountSalvato | string>('account')),
         prova('analisi', () => s.getSetting<Record<string, StoredAnalysis>>('analyses')),
         prova('piano gas', () => s.getSetting<GasPlanInput>('gasPlan')),
         prova('attrezzatura', () => s.getSetting<unknown>('gear')),
@@ -413,6 +469,18 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       if (savedPeriod) setPeriodState(savedPeriod);
       if (savedSync?.url && savedSync?.authToken) setSyncCredentials(savedSync);
       if (savedAi?.apiKey) setAiCredentials(savedAi);
+      /*
+       * La sessione dell'account sopravvive alla chiusura dell'app; la chiave
+       * del database no, e viene richiesta al primo bisogno. È la ragione per
+       * cui qui si ricostruisce il gestore delle chiavi invece di conservarne
+       * una: quella di ieri sera è scaduta da un pezzo.
+       */
+      const conto = leggiAccountSalvato(savedSessione);
+      if (conto) {
+        setSessioneAccount(conto.sessione);
+        setAccountEmail(conto.email);
+        chiaviAccount.current = new ChiaviDelDatabase({ servizio: SERVIZIO_ACCESSO }, conto.sessione);
+      }
       if (savedAnalyses) setAnalyses(savedAnalyses);
       if (savedGas?.depthM) setGasInputState(savedGas);
       if (savedDeco) setDecoInputState(savedDeco);
@@ -985,13 +1053,71 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     [store],
   );
 
+  /*
+   * L'accesso: dal pulsante alla sessione nel portachiavi.
+   *
+   * L'EMAIL VIENE SALVATA CON LA SESSIONE, e la scelta merita una riga perché
+   * la prima versione faceva il contrario. Non salvarla sembrava più pulito —
+   * un dato personale in meno sul disco — ma il risultato era che alla
+   * riapertura dell'app la pagina diceva «accedi» a chi era già entrato: la
+   * sessione c'era, la faccia da mostrare no. Il dato in più è la propria email
+   * accanto alla propria sessione, nello stesso portachiavi di sistema, dove la
+   * sessione è di gran lunga la cosa più preziosa delle due. Il fastidio
+   * risparmiato è reale, il rischio aggiunto no.
+   */
+  const accediConAccount = useCallback(async () => {
+    const esito = await accediConGoogle();
+    setSessioneAccount(esito.sessione);
+    setAccountEmail(esito.email);
+    chiaviAccount.current = new ChiaviDelDatabase({ servizio: SERVIZIO_ACCESSO }, esito.sessione);
+    if (store) {
+      const segreti = await openSecretStore(store);
+      const salvato: AccountSalvato = { sessione: esito.sessione, email: esito.email };
+      await segreti.write('account', salvato);
+    }
+  }, [store]);
+
+  /*
+   * Uscire NON cancella l'archivio locale, e nemmeno quello remoto.
+   *
+   * È il comportamento che ci si aspetta da un «esci»: smetti di sincronizzare,
+   * il logbook resta dov'è. Cancellare i dati da un pulsante che dice
+   * un'altra cosa sarebbe una sorpresa irreversibile.
+   */
+  const esciDallAccount = useCallback(async () => {
+    setSessioneAccount(null);
+    setAccountEmail(null);
+    chiaviAccount.current = null;
+    if (store) {
+      const segreti = await openSecretStore(store);
+      await segreti.remove('account');
+    }
+  }, [store]);
+
+  const cancellaAccount = useCallback(async () => {
+    if (!sessioneAccount) return;
+    await chiudiAccountRemoto({ servizio: SERVIZIO_ACCESSO }, sessioneAccount);
+    await esciDallAccount();
+  }, [sessioneAccount, esciDallAccount]);
+
   const testSync = useCallback((creds: SyncCredentials) => testConnection(creds), []);
 
   const syncNow = useCallback(
     async (onProgress?: (message: string) => void) => {
       if (!store) throw new Error('Archivio non pronto.');
-      if (!syncCredentials) throw new Error('Configura prima indirizzo e token del database.');
-      const sql = await connect(syncCredentials);
+      /*
+       * Due strade per la stessa cosa, e l'account ha la precedenza.
+       *
+       * Chi ha fatto l'accesso usa le chiavi del proprio database, rinnovate da
+       * sé quando stanno per scadere. Chi non l'ha fatto continua con
+       * l'indirizzo e il token scritti a mano, che restano una strada valida —
+       * è quella con cui questo archivio è vissuto finora.
+       */
+      const credenziali = chiaviAccount.current ? await chiaviAccount.current.valida() : syncCredentials;
+      if (!credenziali) {
+        throw new Error('Accedi con Google, oppure configura indirizzo e token del database.');
+      }
+      const sql = await connect(credenziali);
       try {
         const report = await syncArchive(store, sql, onProgress);
         // La lista in memoria è ora vecchia: la sincronizzazione ha scritto
@@ -1464,6 +1590,11 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     saveSyncCredentials,
     testSync,
     syncNow,
+    accountAttivo: sessioneAccount !== null,
+    accountEmail,
+    accediConAccount,
+    esciDallAccount,
+    cancellaAccount,
     gasInput,
     decoInput,
     saveDecoInput,

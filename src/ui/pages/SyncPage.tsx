@@ -100,6 +100,8 @@ export function SyncPage() {
         </span>
       </div>
 
+      <AccountCard />
+
       <div className="card">
         <h2>Database condiviso</h2>
         <p className="card-sub">
@@ -574,6 +576,110 @@ function DoveStannoLeCredenziali() {
       <b>{secretPlace === 'keychain' ? 'Portachiavi di sistema.' : 'Archivio locale, in chiaro.'}</b>{' '}
       {describePlace(secretPlace)}
     </p>
+  );
+}
+
+/**
+ * L'accesso con un account, che è l'alternativa a incollare un token a mano.
+ *
+ * PERCHÉ È UNA CARTA A PARTE E NON SOSTITUISCE QUELLA SOTTO. Perché sono due
+ * strade valide verso la stessa cosa, e chi ha già un database suo non deve
+ * essere costretto a cambiare. L'account crea e gestisce un database per conto
+ * di chi accede; il campo qui sotto serve a chi il database se l'è fatto da sé.
+ *
+ * E soprattutto: **l'accesso non è obbligatorio per usare l'app.** Il logbook si
+ * apre e funziona senza, perché l'archivio è locale. Questa carta offre una
+ * comodità, non un cancello.
+ */
+function AccountCard() {
+  const { accountAttivo, accountEmail, accediConAccount, esciDallAccount, cancellaAccount } = useDiveLog();
+  const [lavoro, setLavoro] = useState<'idle' | 'accesso' | 'chiusura'>('idle');
+  const [errore, setErrore] = useState<string | null>(null);
+
+  const accedi = () => {
+    void (async () => {
+      setLavoro('accesso');
+      setErrore(null);
+      try {
+        await accediConAccount();
+      } catch (err) {
+        setErrore(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLavoro('idle');
+      }
+    })();
+  };
+
+  return (
+    <div className="card">
+      <h2>Accesso</h2>
+      <p className="card-sub">
+        Con un account Google l'app crea e gestisce un database tutto tuo: non devi più incollare indirizzi né
+        token, e gli altri dispositivi si allineano accedendo con lo stesso account. <b>Non è obbligatorio</b>{' '}
+        — il logbook si apre e funziona anche senza, perché l'archivio è sul dispositivo.
+      </p>
+
+      {accountAttivo ? (
+        <>
+          {/*
+           * Con l'email si dice chi sei, senza si dice soltanto che sei
+           * entrato. L'alternativa — nascondere tutto finché non si conosce
+           * l'indirizzo — lascerebbe la pagina a mostrare «Accedi» a chi ha
+           * appena fatto l'accesso, che è la bugia peggiore delle due.
+           */}
+          <p style={{ fontSize: 13, margin: '0 0 12px' }}>
+            {accountEmail ? (
+              <>
+                Sei entrato come <b>{accountEmail}</b>.
+              </>
+            ) : (
+              <>Sei entrato: l’app sincronizza sul database del tuo account.</>
+            )}
+          </p>
+          <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+            <button onClick={() => void esciDallAccount()}>Esci</button>
+            {/*
+             * Cancellare l'account è distruttivo e irreversibile, quindi passa
+             * dalla conferma armata come tutte le altre cose che non si possono
+             * disfare. Quello che cancella è il database REMOTO: l'archivio su
+             * questo dispositivo resta dov'è, ed è scritto qui sotto perché è
+             * esattamente la domanda che si fa chi sta per premere.
+             */}
+            <BottoneConferma
+              etichetta="Cancella l’account"
+              domanda="Il database remoto e le immersioni che ci sono sopra vengono eliminati. L’archivio su questo dispositivo resta."
+              conferma="Sì, cancella il database remoto"
+              onConferma={() => {
+                setLavoro('chiusura');
+                void cancellaAccount()
+                  .catch((err) => setErrore(err instanceof Error ? err.message : String(err)))
+                  .finally(() => setLavoro('idle'));
+              }}
+            />
+          </div>
+          <p className="muted" style={{ fontSize: 11, marginTop: 10, marginBottom: 0 }}>
+            Uscire smette di sincronizzare e basta. Cancellare l'account elimina il database remoto e le
+            immersioni che ci sono sopra: quelle su questo dispositivo <b>restano</b>, e da qui si possono
+            ricaricare accedendo di nuovo.
+          </p>
+        </>
+      ) : (
+        <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+          <button className="btn btn-primary" onClick={accedi} disabled={lavoro !== 'idle'}>
+            {lavoro === 'accesso' ? 'Accesso in corso…' : 'Accedi con Google'}
+          </button>
+          <span className="muted" style={{ fontSize: 11, alignSelf: 'center' }}>
+            Si apre il browser di sistema: la password la scrivi a Google, non a noi.
+          </span>
+        </div>
+      )}
+
+      {errore && (
+        <div className="notice notice-error" role="alert" style={{ marginTop: 12 }}>
+          {errore}
+        </div>
+      )}
+    </div>
   );
 }
 

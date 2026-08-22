@@ -1,9 +1,6 @@
 # Architettura e roadmap
 
-Aggiornato: 21 agosto 2026
-
-Le decisioni prese, perché, e cosa resta. iOS è fatto — l'app gira su un iPhone
-vero; il web resta la strada aperta e non percorsa.
+Le decisioni prese, perché, e cosa serve per arrivare a iOS e al web.
 
 ---
 
@@ -19,18 +16,9 @@ conversioni, metriche, deduplica e regole del piano sono funzioni pure su
 strutture dati. È il 70% del progetto e viaggia identico su tutte e tre le
 piattaforme.
 
-Il guscio Rust (`src-tauri`) fa poche cose, e sono esattamente quelle che il web
-non può fare: registra il plugin SQL, registra il Bluetooth verso i computer
-subacquei, mette le credenziali nel portachiavi di sistema, e su iOS scrive i
-file esportati nella cartella dell'app — perché lì il download del browser non
-esiste. Tutto il resto sta in TypeScript.
-
-Accanto c'è una seconda regola, imparata su iOS: **`src/piattaforma.ts` sta fuori
-da `ui/`**, perché serve anche alla persistenza, e un modulo di storage che
-importa dall'interfaccia è una dipendenza al contrario. Riconoscere la
-piattaforma non è interfaccia. E si usa solo dove una funzione **non esiste**
-altrove — la stampa, il download — mai per decidere l'aspetto: quello dipende
-dalla larghezza della finestra, che vale anche per un Mac a metà schermo.
+Il guscio Rust (`src-tauri`) fa una cosa sola: registrare il plugin SQL. Se un
+giorno servisse il download diretto dal computer subacqueo via USB o Bluetooth
+— l'unica cosa che il web non potrà mai fare — è lì che andrebbe.
 
 ---
 
@@ -177,12 +165,15 @@ Tre decisioni con la loro ragione:
   dispositivi condividono: entrambi nominano lo stesso vincitore e la faccenda si
   chiude al primo giro. Con un "preferisci il locale", ciascun dispositivo si
   vedrebbe vincente e i due si riscriverebbero il record a vicenda per sempre.
-- **Le cancellazioni si propagano con le lapidi, ma solo quelle definitive.**
-  Cancellare mette nel cestino: l'immersione sparisce dall'archivio locale, non
-  viene più sincronizzata, e sugli altri dispositivi resta. La lapide — cioè la
-  cancellazione che viaggia — nasce solo svuotando il cestino, a mano o dopo
-  trenta giorni. Il prezzo è dichiarato: nella finestra dei trenta giorni i due
-  dispositivi non concordano, ed è quello che si paga per poter tornare indietro.
+- **Le cancellazioni viaggiano, ma come lapidi e non come assenze.** Senza un
+  registro, cancellare non serve a niente: la sincronizzazione successiva
+  rimetterebbe l'immersione al suo posto, perché il remoto ce l'ha e il locale
+  no. La tabella `deletions` dice «questa è stata cancellata, e quando», e la
+  data è quello che la rende sicura: una lapide vale solo finché l'immersione non
+  è stata toccata DOPO di lei — un `updatedAt` più recente significa che qualcuno
+  l'ha rimessa apposta, e allora è la lapide a doversene andare. Le lapidi non
+  scadono: costano una riga di testo l'una, e buttarle via significa vedersi
+  tornare indietro un'immersione cancellata l'anno prima, senza nessun avviso.
 
 Il conteggio dei campioni arriva dallo store (`sampleCounts()`) e non dai
 riepiloghi in memoria, che i profili non li contengono: dedurlo da lì darebbe
@@ -190,16 +181,62 @@ zero per ogni immersione con profilo, e l'app riscaricherebbe a ogni giro profil
 che ha già. Su SQLite è una colonna, su IndexedDB un cursore su un indice: in
 entrambi i casi nessun campione viene deserializzato.
 
-Il token vive nel portachiavi di sistema su Apple, inserito una volta
-dall'interfaccia. Nel repository non c'è nessuna credenziale.
+Il token vive nel portachiavi di sistema, non più nella tabella delle
+impostazioni. Nel repository non c'è nessuna credenziale.
 
-**E la CSP va letta come l'elenco dei servizi raggiungibili.** `connect-src` in
-`tauri.conf.json` deve nominare Turso e l'API di Anthropic: senza, la webview
-blocca le chiamate prima che partano, e il sintomo non è un errore di rete ma
-«le credenziali non funzionano». Non si vede sviluppando, perché `npm run dev`
-gira in un browser normale dove quella CSP non esiste — si vede solo nell'app
-impacchettata. Ogni voce in più in quell'elenco è una porta aperta, quindi ci
-stanno due nomi e nient'altro.
+---
+
+## L'accesso, e perché il servizio è quasi vuoto
+
+Chi vuole un database condiviso ha due strade, e la seconda è arrivata dopo:
+incollare indirizzo e token di un database proprio, oppure **entrare con
+Google** e lasciare che sia il servizio a crearlo. Il vincolo che ha guidato
+tutto: l'accesso **non è obbligatorio**, perché l'archivio è locale e un logbook
+che chiede di autenticarsi per mostrare le proprie immersioni sarebbe un logbook
+peggiore.
+
+**Un database per persona.** Non è un ripiego rispetto a una tabella con la
+colonna del proprietario: è la scelta che tiene in piedi tutto il resto. Il
+motore di sincronizzazione non cambia di una riga, perché ognuno ha già oggi un
+database tutto suo; l'isolamento è fisico, quindi non esiste un filtro
+dimenticato che diventi una fuga di dati; e la deduplica, le lapidi e la fusione
+delle impostazioni restano dove sono invece di essere riscritte come endpoint di
+una API. Provato e non affermato: con un servizio locale e un account di prova,
+la chiave del database di prova risponde **401** su quello di qualcun altro.
+
+**Il servizio non ha uno stato.** Nessuna tabella di utenti: il nome del
+database si ricava dall'identità con un'impronta di `provider:sub`, troncata.
+Non c'è un elenco di iscritti da custodire, non c'è niente da migrare, e non
+esiste un file che colleghi un'email a un archivio. Il prezzo è dichiarato: non
+si può revocare una singola sessione prima della scadenza, e non si sa quanti
+utenti ci sono. La prima si comprerebbe con una lettura per ogni chiamata, la
+seconda non serve a chi usa l'app.
+
+**Due credenziali con due vite diverse.** La sessione dura settimane e sta nel
+portachiavi; la chiave del database dura due ore e sta **solo in memoria**. La
+distinzione non è formale: un archivio SQLite finisce nei backup di sistema e
+nelle copie su disco esterno, e un token eterno scritto là dentro sopravvive a
+chiunque l'abbia generato.
+
+**Il ritorno dal browser è l'unica cosa scritta due volte.** Sul Mac
+l'applicazione apre una porta su `127.0.0.1` per il tempo di un accesso; su
+iPhone si registra uno schema URL, perché aprendo il browser l'app va in secondo
+piano e il sistema può sospenderla — la porta non risponderebbe più. La
+differenza non è un capriccio: il loopback è più stretto (lo tiene un processo
+solo) e lo schema URL è l'unica cosa che iOS permette. In entrambi i casi la
+difesa è la stessa e sta in un posto solo: quello che torna senza uno `state`
+che combacia non viene guardato.
+
+**Lo scambio del codice sta sul servizio, e ci è finito per forza.** La prima
+versione lo faceva nell'app e su iPhone funzionava; sul Mac Google rispondeva
+`client_secret is missing`, perché i client di tipo «Desktop app» — gli unici che
+possono usare il loopback — il segreto lo pretendono anche con PKCE. Metterlo nel
+pacchetto era la strada breve, e Google stesso dichiara che per le applicazioni
+installate non è confidenziale; ma «non è davvero un segreto» è una frase che
+invecchia male. Ora il codice va al Worker, il segreto sta fra i segreti di
+Cloudflare, e l'app non vede mai un token di Google. Il guadagno inatteso è che
+iPhone e Mac fanno la stessa identica strada: quel difetto era vivo su una
+piattaforma sola, che è il posto peggiore dove nasconderne uno.
 
 ---
 
@@ -279,49 +316,31 @@ rosso insegna a ignorarle entrambe.
 
 ## Roadmap
 
-### iOS — fatto, e cosa ha insegnato
+### iOS
 
-L'app gira su un iPhone vero. La previsione architetturale ha tenuto: il nucleo
-non è stato toccato, `tauri-plugin-sql` apre lo stesso database, il frontend
-compilato per `safari15` gira in WKWebView senza modifiche. Tutto quello che è
-costato lavoro sta ai bordi — e vale la pena scrivere quali bordi, perché la
-lezione si generalizza.
+Tauri 2 supporta iOS come target. Il percorso:
 
-**La categoria di difetto che iOS produce**: funziona sul Mac, non fa niente sul
-telefono, non lancia nessun errore. Tre casi veri, tutti scoperti usando l'app e
-nessuno da un test:
+```bash
+npm run ios:init          # genera il progetto Xcode in src-tauri/gen/apple
+npm run ios:dev           # simulatore
+```
 
-| Cosa | Perché muto | Dove sta ora la difesa |
-|---|---|---|
-| Chiamate a Turso e all'API | `connect-src` della CSP non le elencava, e la webview rifiuta prima di partire | `tauri.conf.json`, e la CSP va letta come **l'elenco dei servizi raggiungibili** |
-| Esportazione di file | `<a download>` in WKWebView non scrive e non lancia | `ui/esporta.ts`, unico punto, che **lancia** se non riesce |
-| Riquadri e cursori dei grafici | `mousemove` non esiste sotto il dito, e `pointercancel` va gestito o resta tutto aperto | eventi del puntatore ovunque, con `tests/iosGuardie.test.ts` a leggerlo dalle sorgenti |
+Serve Xcode e un account sviluppatore Apple per il dispositivo fisico. Il
+frontend è già compilato per `safari15`, quindi WKWebView lo esegue senza
+modifiche, e `tauri-plugin-sql` funziona su iOS con lo stesso database.
 
-La difesa che si è rivelata utile non è un test di unità — non se ne può
-scrivere uno che apra una WKWebView — ma un test che **legge le sorgenti** e
-verifica che il costrutto sbagliato non rientri. È grossolano e copre la
-distanza fra «compila» e «serve a qualcosa su un telefono».
+Cosa va rivisto nell'interfaccia — nessuno è un problema di architettura:
 
-**`src/piattaforma.ts` sta fuori da `ui/`** perché serve anche a `storage/ble.ts`
-per dire dove si concede il permesso Bluetooth, e un modulo di persistenza che
-importa dall'interfaccia è una dipendenza al contrario. Riconoscere la
-piattaforma non è interfaccia. Va usato solo dove una funzione **non esiste**
-altrove — la stampa, il download — mai per decidere l'aspetto: quello dipende
-dalla larghezza della finestra, che è il criterio giusto e vale anche per un Mac
-a metà schermo.
-
-**La catena di build ha una regola sola**: `src-tauri/gen/apple` è generata e non
-versionata, quindi tutto ciò che deve sopravvivere sta in `tauri.conf.json`
-(permessi via `Info.ios.plist`, `frameworks`, `developmentTeam`) oppure in uno
-script che gira dopo la generazione. Gli script `ios:*` fanno tre cose in fila:
-generano, ricopiano le icone — che `tauri ios init` non aggiorna se esistono
-già — e passano `scripts/pulisci-progetto-ios.mjs`, che toglie `libapp.a` dalle
-risorse del pacchetto. Senza quest'ultimo l'app pesa 470 MB invece di 6, e con
-due architetture compilate la build si ferma.
-
-Quello che su iPhone **non c'è**: la stampa, perché `window.open` e
-`window.print` non esistono in WKWebView. I pulsanti sono nascosti, non
-lasciati a mostrare un errore che dà la colpa alla cosa sbagliata.
+- **la tabella del logbook** va sostituita da una lista di righe impilate sotto i
+  ~600 px: nove colonne su un iPhone non stanno, e lo scorrimento orizzontale è
+  un ripiego, non una soluzione;
+- **il tooltip dei grafici** oggi risponde a `mousemove`. Su iOS serve
+  `touchmove`, con il riquadro spostato sopra il dito invece che sotto;
+- **la navigazione** starebbe meglio come barra in basso, dentro la safe area
+  (le variabili CSS `--safe-top` / `--safe-bottom` sono già in `styles.css`);
+- **l'import da file** funziona con `<input type=file>`, che su iOS apre il
+  selettore di iCloud Drive. Per prendere i file direttamente dall'app Shearwater
+  servirebbe una share extension, che è lavoro nativo.
 
 ### Web
 
@@ -342,32 +361,31 @@ Le due cose da decidere prima di pubblicarla:
 
 ### Funzionalità in coda
 
-I sei punti che stavano qui — export UDDF, attrezzatura e scadenze, mappa dei
-siti, scarico diretto dal computer, confronto fra immersioni, Bühlmann con
-gradient factor — sono **tutti fatti**. Quello che resta, in ordine di rapporto
-fra utilità e lavoro:
+In ordine di rapporto fra utilità e lavoro:
 
-1. **Il Bluetooth dall'iPhone.** I due driver hanno scaricato da computer veri,
-   ma sempre dal Mac. Sul telefono manca la prova, e il caso peggiore è muto: il
-   permesso negato non produce nessun errore, perché `checkPermissions` di
-   `tauri-plugin-blec` è implementato solo per Android. L'app può soltanto
-   elencare le cause possibili dopo dodici secondi di ricerca a vuoto. Renderlo
-   diagnosticabile davvero significa scrivere il pezzo di CoreBluetooth nel
-   guscio Rust.
-2. **Condividere un'immersione in sola lettura.** È la funzione che serve
-   davvero quando si dice «multiutente»: un compagno, un istruttore, un medico
-   iperbarico devono poter LEGGERE, non modificare, e non vedere il resto.
-   Oggi l'unica strada è dare il token del database, che dà tutto e permette di
-   cancellare. Costa un decimo di un sistema di account.
-3. **Un secondo modello decompressivo verificato.** VPM-B è implementato ma non
-   ha nessun riscontro indipendente: Bühlmann è stato validato contro Shearwater
-   su 38 immersioni, VPM-B contro niente. Finché è così, l'app deve continuare a
-   dichiararlo.
-4. **Utenti veri con account.** Deciso di **no per ora** (21 agosto 2026); la
-   ragione e l'architettura da usare quando si farà — un database per utente, e
-   un servizio che autentica e firma token brevi, senza duplicare il nostro SQL
-   in una API — stanno in `docs/stato-progetto.md`. Il vincolo da non violare è
-   che il locale-prima resta: niente «accedi per vedere il tuo logbook».
+1. **Esportazione dell'archivio** in UDDF. Chiude il cerchio: i dati entrano da
+   qualsiasi computer ed escono in un formato standard. È anche il backup, e
+   togliere il timore del vendor lock-in su un archivio di anni vale molto.
+2. **Attrezzatura e scadenze** — bombole, mute, revisioni erogatori, scadenze
+   brevetti e certificato medico. Era una delle opzioni della v1 e non è entrata;
+   il modello ha già `Cylinder`, servirebbe un'entità `Gear` con le date.
+3. **Mappa dei siti.** Le coordinate arrivano già da UDDF, Subsurface e dal GPS
+   dei Garmin. Serve una libreria di mappe, che è la prima dipendenza pesante che
+   il progetto si prenderebbe.
+4. **Download diretto dal computer subacqueo.** Per i computer Scubapro il pezzo
+   difficile è già fatto: `uwatecSmart.ts` decodifica il formato dei record, che è
+   lo stesso che il computer manda via Bluetooth. Mancherebbe solo il trasporto —
+   che sul web non esiste (WASM non raggiunge USB né Bluetooth) e in Tauri
+   richiederebbe un plugin BLE nativo. Per gli altri costruttori le strade sono
+   invocare un binario esterno (`subsurface-downloader`, `divecmd`, che producono
+   XML già leggibile dai parser esistenti) oppure il crate Rust
+   `libdivecomputer` (maturità bassa).
+5. **Confronto fra immersioni.** Due profili sovrapposti sullo stesso grafico,
+   per vedere cosa è cambiato allo stesso sito a un anno di distanza.
+6. **Modello di Bühlmann con gradient factor** nostro, da validare contro i valori
+   di GF99 che Shearwater Cloud calcola sulle stesse immersioni: 38 confronti già
+   disponibili. Servirebbe per pianificare la decompressione, che oggi il
+   pianificatore di gas dichiara esplicitamente di non fare.
 
 ---
 

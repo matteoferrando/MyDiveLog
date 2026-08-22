@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permessi della finestra principale: il plugin SQL per l'archivio e il Bluetooth per scaricare dai computer subacquei. Nessun accesso a rete, shell o filesystem arbitrario.",
+  "description": "Permessi della finestra principale: SQL per l'archivio, Bluetooth per scaricare dai computer subacquei, apertura di un indirizzo nel browser di sistema per l'accesso, e il ritorno da quell'accesso su iOS. Nessuna shell e nessun filesystem arbitrario.",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -10,6 +10,8 @@
     "sql:allow-execute",
     "sql:allow-select",
     "sql:allow-close",
-    "blec:default"
+    "blec:default",
+    "opener:default",
+    "opener:allow-open-url"
   ]
 }

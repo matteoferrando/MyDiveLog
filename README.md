@@ -59,13 +59,6 @@ vengono distinti correttamente.
 | **Subsurface** | tutto lo storico convertito da qualsiasi computer | Subsurface → Salva con nome (`.ssrf`) |
 | **CSV** | riepilogo senza profilo | qualsiasi foglio di calcolo |
 
-**Il logbook si sfoglia cinquanta immersioni alla volta**, con un pulsante
-«Mostra altre» e un piede che dice sempre a che punto sei — anche quando non c'è
-più niente da caricare, perché un elenco che finisce in silenzio lascia il dubbio
-se sia finito l'archivio o solo la pagina. La casella «seleziona tutte» agisce su
-ciò che è mostrato: la modifica in blocco non può toccare righe che non hai
-davanti.
-
 L'export FIT dell'app Suunto passa dallo stesso parser Garmin. È leggibile ma
 povero: mancano il gas del trasmettitore e la composizione della miscela, che
 vanno completati nella scheda immersione.
@@ -167,8 +160,8 @@ dell'archivio locale, sul dispositivo dove lo hai incollato.
 |---|---|
 | `npm run dev` | sviluppo nel browser (dati in IndexedDB) |
 | `npm run desktop` | app desktop in sviluppo (dati in SQLite) |
-| `npm run desktop:build` | `.app` + `.dmg` per macOS (vedi la firma, sotto) |
-| `npm test` | 1097 test su unità, parser, formati binari Uwatec e Shearwater, gzip/DEFLATE, lettore SQLite, metriche, deduplica, fusi orari, sincronizzazione, piano, grafici |
+| `npm run desktop:build` | `.app` + `.dmg` per macOS |
+| `npm test` | 1175 test su unità, parser, formati binari Uwatec e Shearwater, gzip/DEFLATE, lettore SQLite, metriche, deduplica, fusi orari, sincronizzazione, piano, grafici |
 | `npm run validate:logtrak <file>` | verifica il decoder Uwatec contro un export LogTRAK reale |
 | `npm run validate:pnf <file.db>` | verifica il decoder Shearwater contro un database di Shearwater Cloud reale |
 | `npm run typecheck` | controllo dei tipi |
@@ -176,37 +169,7 @@ dell'archivio locale, sul dispositivo dove lo hai incollato.
 | `npm run screenshot` | verifica visiva: apre la build e fotografa ogni vista |
 | `npm run ios:init` | genera il progetto Xcode per iOS (vedi sotto) |
 | `npm run ios:dev -- "iPhone 17 Pro"` | compila e lancia l'app sul simulatore |
-| `npm run ios:build` | pacchetto `.ipa` firmato per un iPhone vero |
-| `npm run ios:telefono` | compila, firma e lancia direttamente sul telefono collegato |
-
-### L'app desktop, installata
-
-`npm run desktop:build` produce `src-tauri/target/release/bundle/macos/MyDiveLog.app`
-(circa 5 MB) e un `.dmg` accanto. L'app si trascina in `/Applications` e da li'
-si apre come qualunque altra: **non serve il terminale, e non serve che Vite
-giri.**
-
-Usa lo stesso archivio della versione di sviluppo — stesso identificativo
-`it.ferrando.mydivelog`, quindi stessa cartella
-`~/Library/Application Support/it.ferrando.mydivelog/` — percio' non c'e' niente
-da importare la prima volta che si apre.
-
-**Firmarla conviene, e non per distribuirla.** Senza firma il bundle e' *ad hoc*:
-funziona, ma la sua identita' cambia a ogni ricostruzione, e il portachiavi di
-sistema riconosce le applicazioni proprio dalla firma — quindi ogni nuova build
-ridiventa «un'altra app» che deve richiedere il permesso di leggere il token di
-sincronizzazione e la chiave API. Con un certificato di sviluppo l'identita' e'
-stabile e il permesso si concede una volta sola:
-
-    APPLE_SIGNING_IDENTITY="Apple Development: <nome> (<ID>)" npm run desktop:build
-
-Il nome esatto lo stampa `security find-identity -v -p codesigning`. Non sta in
-`tauri.conf.json` di proposito: e' un dato personale, e questo repository e'
-pubblico.
-
-La notarizzazione — quella che serve perche' l'app si apra su un Mac **altrui**
-senza avvisi — e' un passo ulteriore e richiede `APPLE_ID`, `APPLE_PASSWORD` e
-`APPLE_TEAM_ID`. Per l'uso sulla propria macchina non serve.
+| `npm run ios:build` | pacchetto firmato per un iPhone vero |
 
 ---
 
@@ -284,69 +247,20 @@ nell'app File grazie alle due chiavi di `Info.ios.plist` — e che **lancia**
 quando non riesce. Un test di sorgente (`tests/iosGuardie.test.ts`) impedisce
 che ne rinasca una quarta copia: era gia' successo tre volte.
 
-**La CSP deve nominare i servizi esterni, o l'app impacchettata non li
-raggiunge.** `app.security.csp` in `tauri.conf.json` diceva
-`connect-src 'self' ipc: http://ipc.localhost`, e con quella riga la webview
-BLOCCA ogni chiamata a Turso e all'API di Anthropic. Non si vedeva sviluppando,
-perche' `npm run dev` gira in un browser normale dove quella CSP non esiste: si
-vedeva solo nell'app vera, come credenziali «che non funzionano». Ora
-`connect-src` elenca `https://*.turso.io` e `https://api.anthropic.com`, e non
-deve elencare altro — la CSP e' la lista di dove l'app puo' parlare, e ogni voce
-in piu' e' una porta aperta.
+**Mettere l'app su un iPhone vero.** `npm run ios:telefono` — cioe'
+`tauri ios run --release` — compila, firma, installa e lancia sul telefono
+collegato, con l'interfaccia impacchettata dentro: l'app resta sul telefono e non
+dipende dal Mac acceso, a differenza di `ios:dev` che serve la pagina da Vite.
+Due condizioni: il telefono dev'essere **collegato almeno una volta** prima della
+prima build (senza un dispositivo registrato Apple non emette il profilo, e
+l'errore e' `Your team has no devices from which to generate a provisioning
+profile`), e sul telefono dev'essere attiva **Modalita' sviluppatore**
+(Impostazioni → Privacy e sicurezza), obbligatoria da iOS 16.
 
-**Le icone iOS vanno QUADRATE.** Il marchio ha gli angoli arrotondati perche' su
-macOS se li deve disegnare da se'; iOS applica la propria maschera a quadrato
-stondato, quindi un'immagine gia' stondata viene stondata due volte e negli
-angoli compare il colore con cui Tauri ha riempito la trasparenza — bianco, che
-sul telefono si vede come un alone. `src-tauri/icons/ios/` contiene percio' i
-render QUADRATI e opachi dello stesso disegno; `tauri ios init` non li ricopia
-dentro `gen/apple` se ci sono gia' file, quindi la copia la fanno gli script
-`ios:*`.
-
-**`libapp.a` va tolta dalle risorse del progetto generato.** XcodeGen mette la
-libreria statica di Rust in «Copy Bundle Resources» perche' la trova fra le
-sorgenti: l'app pesava **470 MB** invece di 6, e con entrambe le architetture
-presenti la build si fermava su `Multiple commands produce .../libapp.a`.
-`scripts/pulisci-progetto-ios.mjs` toglie quella voce dopo ogni
-`tauri ios init`; se un giorno Tauri lo risolve, lo script se ne accorge e non
-fa niente.
-
-**Mettere l'app su un iPhone vero.** Due comandi, e l'app resta sul telefono con
-l'interfaccia impacchettata dentro — non dipende dal Mac acceso, a differenza di
-`ios:dev` che serve la pagina da Vite:
-
-    npm run ios:build -- --export-method debugging
-    xcrun devicectl device install app --device <UDID> \
-      src-tauri/gen/apple/build/arm64/MyDiveLog.ipa
-
-C'e' anche `npm run ios:telefono` (`tauri ios run --release`), che farebbe tutto
-in un colpo, ma **oggi non arriva in fondo**: sbaglia il percorso di un proprio
-file temporaneo e muore con `Couldn't load -exportOptionsPlist`. Resta nello
-script perche' e' un difetto del CLI di Tauri che prima o poi sara' corretto.
-
-Due condizioni: sul telefono dev'essere attiva **Modalita' sviluppatore**
-(Impostazioni → Privacy e sicurezza), obbligatoria da iOS 16, e il telefono
-dev'essere **registrato sul team** prima della prima build. Quella registrazione
-Tauri non sa farla: passa a Xcode `-allowProvisioningUpdates` ma non
-`-allowProvisioningDeviceRegistration`, quindi anche col telefono collegato Apple
-risponde `Your team has no devices from which to generate a provisioning
-profile`. Si fa una volta sola, a mano, col telefono collegato:
-
-    cd src-tauri/gen/apple
-    xcodebuild -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
-      -scheme mydivelog_iOS -workspace ./mydivelog.xcodeproj/project.xcworkspace/ \
-      -sdk iphoneos -configuration release -destination "id=<UDID del telefono>" build
-
-Quel comando fallisce alla fine — la fase «Build Rust Code» vuole il CLI di Tauri
-che la orchestri — ma prima di fallire registra il dispositivo e fa emettere il
-profilo, che e' tutto quello che serve. Da li' in poi bastano gli script npm.
-
-**Quanto dura la firma.** Con l'Apple Developer Program a pagamento il profilo
-vale **un anno**. Con un **Personal Team** — l'account gratuito — dura **sette
-giorni**: dopo, l'app non si apre piu' e va reinstallata con gli stessi due
-comandi. In entrambi i casi reinstallare SOPRA conserva l'archivio; cancellare
-l'app lo butta, ed e' uno dei motivi per cui la sincronizzazione non e' un
-accessorio.
+Con un **Personal Team** — l'account Apple gratuito — il profilo dura **sette
+giorni**: dopo, l'app non si apre piu' e va reinstallata con lo stesso comando.
+Reinstallare SOPRA conserva l'archivio; cancellare l'app lo butta, ed e' uno dei
+motivi per cui la sincronizzazione non e' un accessorio.
 
 **Su iPhone non si stampa, e il pulsante non c'e'.** La stampa apre una finestra
 nuova col foglio impaginato e passa la parola alla finestra di stampa del
@@ -404,12 +318,22 @@ src/
   sync/                      ← database condiviso, facoltativo
     plan.ts                    cosa spostare e in che direzione (senza rete)
     turso.ts                   trasporto libSQL + schema remoto
+    account.ts                 sessione lunga, chiave del database corta
+    googleAccesso.ts           OAuth con PKCE: prepara il giro, legge il ritorno
+    accessoPiattaforma.ts      il ritorno dal browser: porta locale sul Mac, schema URL su iPhone
+    pkce.ts                    verificatore e sfida
   ai/                        ← analisi con Claude, facoltativa
     client.ts                  API di Anthropic, modello scelto dall'utente
     context.ts                 i dati misurati, compattati per il prompt
     prompts.ts                 istruzioni: niente numeri inventati
   ui/                        ← React: pagine, grafici, stato
-src-tauri/                   ← guscio nativo (solo il plugin SQL)
+src-tauri/                   ← guscio nativo (plugin SQL, Bluetooth, ritorno dall'accesso)
+server/                      ← il servizio di accesso: tre rotte, nessuna dipendenza
+  worker.ts                    /accesso, /chiave, /account
+  identita.ts                  verifica del token di Google (JWKS, RS256, iss, aud, exp)
+  googleScambio.ts             lo scambio del codice, con il segreto che non sta nell'app
+  sessione.ts                  firma e verifica delle sessioni; l'identità è un'impronta
+  turso.ts                     crea il database della persona via Platform API
 tests/                       ← test + generatore di immersioni sintetiche
 ```
 
@@ -504,14 +428,63 @@ possono verificare che le metriche ricostruiscano i valori di partenza.
 
 ---
 
+## Accesso con Google, facoltativo
+
+Dalla scheda *Sincronizza* si può entrare con un account Google. Serve a una cosa
+sola: **avere un database proprio senza doverselo creare**. L'app chiede al
+servizio una chiave, il servizio crea il database al primo accesso e la chiave
+dura due ore. Chi il database se l'è già fatto da sé continua a incollare
+indirizzo e token nel campo qui sotto, che non è cambiato.
+
+**Non è un cancello.** Il logbook si apre e funziona senza aver mai fatto
+l'accesso, perché l'archivio è sul dispositivo. Questo è il vincolo che ha
+guidato ogni decisione qui sotto.
+
+Come è fatto, e perché così:
+
+- **Un database per persona, non una tabella con la colonna del proprietario.**
+  L'isolamento è fisico: non c'è nessuna query da sbagliare, e il motore di
+  sincronizzazione resta quello di prima, perché ognuno ha già oggi un database
+  tutto suo. Provato, non affermato: la chiave di un account di prova risponde
+  **401** sul database di un altro.
+- **Il servizio non ha uno stato.** Nessuna tabella di utenti: il nome del
+  database si ricava dall'identità con un'impronta di `provider:sub`. Non
+  esiste un file che colleghi un'email a un archivio, e non c'è niente da
+  migrare. Il prezzo, dichiarato: non si può revocare una singola sessione prima
+  della scadenza.
+- **La sessione sta nel portachiavi, la chiave del database no.** La chiave vive
+  solo in memoria e dura due ore. Un archivio SQLite finisce nei backup di
+  sistema, e una credenziale scritta là dentro sopravvive a chi l'ha generata.
+- **L'accesso passa dal browser di sistema, mai da una finestra nostra.** Una
+  pagina di accesso disegnata dentro l'applicazione è indistinguibile da una
+  finta: chi la guarda non vede né l'indirizzo né il lucchetto.
+- **Il ritorno dal browser è diverso sulle due piattaforme, e non per capriccio.**
+  Sul Mac è una porta su `127.0.0.1` aperta dal processo per il tempo di un
+  accesso; su iPhone è uno schema URL, perché aprendo il browser l'app va in
+  secondo piano e la porta smetterebbe di rispondere. In entrambi i casi la
+  difesa è la stessa: quello che torna senza uno `state` che combacia non viene
+  guardato.
+- **Lo scambio del codice avviene sul servizio, non nell'app.** Google, per i
+  client di tipo «Desktop app», pretende un `client_secret` anche con PKCE — e un
+  segreto dentro un pacchetto che chiunque può aprire non è un segreto. Sta fra i
+  segreti di Cloudflare. Conseguenza: l'app non vede mai un token di Google, e
+  iPhone e Mac fanno la stessa identica strada.
+
+Il servizio sta in [`server/`](server/), è un Worker Cloudflare di tre rotte
+senza nessuna dipendenza npm, e nel repository non entra nessuna credenziale.
+
+---
+
 ## Privacy
 
 Nessun dato lascia il dispositivo, a meno che tu non colleghi un database
-condiviso dalla scheda *Sincronizza*: in quel caso, e solo quando premi
-**Sincronizza**, immersioni e profili vengono inviati al database che hai
-indicato tu. Non c'è account, non c'è telemetria, non c'è nessun altro
-destinatario. Il token resta nelle impostazioni dell'archivio locale e non è nel
-repository.
+condiviso dalla scheda *Sincronizza* — con l'accesso o incollando un token — e
+anche allora **solo quando premi Sincronizza**. Non c'è telemetria e non c'è
+nessun altro destinatario. Se fai l'accesso, il servizio vede il tuo indirizzo
+email il tempo di rispondere e non lo conserva: quello che resta è un'impronta
+dell'identificativo che Google ci dà, da cui si ricava il nome del database. Le
+immersioni non passano dal servizio: viaggiano fra l'app e il database, come
+prima.
 
 Su desktop il database è un file SQLite nella cartella dati
 dell'app: copiabile, versionabile e ispezionabile con qualsiasi strumento

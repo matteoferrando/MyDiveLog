@@ -26,7 +26,20 @@
 
 import { isTauri } from './index';
 
-export type SecretKey = 'sync' | 'ai';
+/**
+ * Le chiavi dei segreti.
+ *
+ * `sync` è l'indirizzo più il token del database scritti a mano; `ai` la chiave
+ * dell'API di Anthropic; `account` la sessione dell'accesso con Google.
+ *
+ * Quest'ultima merita una riga: dura settimane e vale per l'identità, mentre la
+ * chiave del database che se ne ricava dura due ore e **non si salva da nessuna
+ * parte**. Un archivio SQLite finisce nei backup di sistema e nelle copie su
+ * disco esterno: una chiave scritta là dentro sopravviverebbe alla sessione che
+ * l'ha generata, e sarebbe la cosa più duratura del giro invece della più
+ * effimera.
+ */
+export type SecretKey = 'sync' | 'ai' | 'account';
 
 export type SecretPlace = 'keychain' | 'archive';
 

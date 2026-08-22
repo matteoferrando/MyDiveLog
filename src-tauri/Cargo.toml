@@ -29,6 +29,12 @@ tauri-plugin-blec = "0.12"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# Aprire un indirizzo nel browser di SISTEMA, non in una finestra nostra.
+# Serve all'accesso con Google: una pagina di login disegnata dentro
+# l'applicazione è indistinguibile da una finta, perché chi la guarda non può
+# vedere né il dominio né il lucchetto.
+tauri-plugin-opener = "2"
+
 # Il portachiavi di sistema, solo dove esiste davvero.
 #
 # Dipendenza per bersaglio e non globale: `keyring` sceglie il backend con le
@@ -38,6 +44,15 @@ serde_json = "1"
 # ripiega sull'archivio locale, dichiarandolo.
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 keyring = { version = "3", features = ["apple-native"] }
+
+# Il ritorno dall'accesso su iOS.
+#
+# Sul Mac si usa un ascoltatore su `127.0.0.1`, che è la strada raccomandata per
+# le applicazioni desktop e non lascia in giro nessuna associazione permanente.
+# Su iPhone quella porta non si può aprire, quindi il ritorno passa da uno
+# schema URL dichiarato in `Info.ios.plist`.
+[target.'cfg(target_os = "ios")'.dependencies]
+tauri-plugin-deep-link = "2"
 
 [features]
 # Attivato automaticamente da `tauri build`.

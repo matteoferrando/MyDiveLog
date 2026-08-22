@@ -110,6 +110,112 @@ fn esporta_nei_documenti(app: tauri::AppHandle, nome: String, contenuto: String)
     Ok(destinazione.to_string_lossy().into_owned())
 }
 
+/// Il ritorno dell'accesso sul desktop: un ascoltatore su 127.0.0.1.
+///
+/// COME TORNA INDIETRO UN ACCESSO. Il giro OAuth si svolge nel browser di
+/// sistema — l'unico posto dove chi accede può vedere il dominio vero e il
+/// lucchetto — e alla fine Google rimanda a un indirizzo che dobbiamo saper
+/// ricevere noi. Su iPhone quell'indirizzo è uno schema URL dell'applicazione;
+/// sul Mac è una porta locale, che è la strada che Google raccomanda per le
+/// applicazioni desktop.
+///
+/// PERCHÉ IL LOOPBACK È MEGLIO DI UNO SCHEMA URL, su un computer. Uno schema si
+/// registra nel sistema, e QUALUNQUE altro programma può rivendicare lo stesso:
+/// chi arriva dopo può intercettare il ritorno. Una porta su `127.0.0.1` la
+/// tiene aperta questo processo e nessun altro, per il tempo di un accesso.
+///
+/// TRE PRECAUZIONI, e ognuna toglie un modo di sbagliare:
+///
+/// - si ascolta su `127.0.0.1` e non su `0.0.0.0`: la porta non esiste per il
+///   resto della rete, solo per questa macchina;
+/// - si accetta **una** richiesta e si chiude. Il browser ne manda spesso una
+///   seconda per l'icona del sito, quindi si scartano quelle che non sono il
+///   nostro percorso invece di consumare l'unico colpo a disposizione;
+/// - c'è una scadenza. Un accesso abbandonato — la finestra chiusa, il computer
+///   che si addormenta — non deve lasciare un ascoltatore vivo per sempre.
+///
+/// Il controllo che conta però non è qui: è lo `state` confrontato dal lato
+/// TypeScript. Questa porta è aperta, e chiunque sulla macchina può bussarci;
+/// quello che arriva senza uno `state` che combacia non viene guardato.
+#[cfg(desktop)]
+mod ritorno_accesso {
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::TcpListener;
+    use std::time::{Duration, Instant};
+    use tauri::{AppHandle, Emitter};
+
+    /// Quanto si resta in ascolto prima di rinunciare.
+    const SCADENZA: Duration = Duration::from_secs(300);
+
+    /// La pagina che chi accede vede nel browser quando ha finito.
+    const PAGINA: &str = "<!doctype html><html lang=\"it\"><head><meta charset=\"utf-8\">\
+<title>MyDiveLog</title><style>body{font-family:system-ui,-apple-system,sans-serif;\
+display:grid;place-items:center;height:100vh;margin:0;background:#0d0d0d;color:#fff}\
+div{text-align:center;max-width:22rem;padding:2rem}p{color:#a0a0a0;line-height:1.5}\
+</style></head><body><div><h1>Accesso completato</h1>\
+<p>Puoi chiudere questa scheda e tornare a MyDiveLog.</p></div></body></html>";
+
+    #[tauri::command]
+    pub fn apri_ritorno_accesso(app: AppHandle) -> Result<u16, String> {
+        let ascolto = TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
+        let porta = ascolto.local_addr().map_err(|e| e.to_string())?.port();
+        ascolto
+            .set_nonblocking(true)
+            .map_err(|e| e.to_string())?;
+
+        std::thread::spawn(move || {
+            let scade = Instant::now() + SCADENZA;
+            while Instant::now() < scade {
+                match ascolto.accept() {
+                    Ok((flusso, _)) => {
+                        if let Some(percorso) = serviamo(flusso) {
+                            // Solo il nostro percorso conta: le richieste per
+                            // l'icona del sito si scartano senza consumare il
+                            // giro.
+                            if percorso.starts_with("/accesso") {
+                                let _ = app.emit(
+                                    "accesso-ritorno",
+                                    format!("http://127.0.0.1:{porta}{percorso}"),
+                                );
+                                return;
+                            }
+                        }
+                    }
+                    Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(120));
+                    }
+                    Err(_) => return,
+                }
+            }
+            // Scaduto senza che nessuno sia tornato: si dichiara, invece di
+            // lasciare l'interfaccia ad aspettare un evento che non arriverà.
+            let _ = app.emit("accesso-ritorno", String::new());
+        });
+
+        Ok(porta)
+    }
+
+    /// Legge la riga di richiesta, risponde con la pagina, restituisce il percorso.
+    fn serviamo(flusso: std::net::TcpStream) -> Option<String> {
+        let mut lettore = BufReader::new(flusso.try_clone().ok()?);
+        let mut riga = String::new();
+        lettore.read_line(&mut riga).ok()?;
+        // «GET /accesso?code=…&state=… HTTP/1.1»
+        let percorso = riga.split_whitespace().nth(1)?.to_string();
+
+        let mut scrittura = flusso;
+        let risposta = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\
+Content-Length: {}\r\nConnection: close\r\n\r\n{}",
+            PAGINA.len(),
+            PAGINA
+        );
+        let _ = scrittura.write_all(risposta.as_bytes());
+        let _ = scrittura.flush();
+        Some(percorso)
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default().plugin(tauri_plugin_sql::Builder::default().build());
@@ -138,15 +244,34 @@ pub fn run() {
         }
     };
 
+    /*
+     * Aprire un indirizzo nel browser di sistema.
+     *
+     * Serve all'accesso: la pagina di Google deve stare nel browser vero, dove
+     * chi la guarda vede il dominio e il lucchetto, e non in una finestra
+     * nostra che sarebbe indistinguibile da una finta.
+     */
+    let builder = builder.plugin(tauri_plugin_opener::init());
+
+    /*
+     * Su iOS il ritorno dall'accesso passa da uno schema URL, perché una porta
+     * locale lì non si può aprire. Lo schema è dichiarato in `Info.ios.plist` e
+     * corrisponde al client id di Google letto al contrario.
+     */
+    #[cfg(target_os = "ios")]
+    let builder = builder.plugin(tauri_plugin_deep_link::init());
+
     #[cfg(target_os = "macos")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         segreti::segreto_leggi,
         segreti::segreto_scrivi,
-        segreti::segreto_cancella
+        segreti::segreto_cancella,
+        ritorno_accesso::apri_ritorno_accesso
     ]);
 
-    // Su iOS c'è un comando in più: l'esportazione di un file, che qui non può
-    // passare dal download del browser.
+    // Su iOS due differenze: l'esportazione di un file, che qui non può passare
+    // dal download del browser, e nessun ascoltatore locale — il ritorno
+    // dall'accesso arriva dallo schema URL.
     #[cfg(target_os = "ios")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         segreti::segreto_leggi,

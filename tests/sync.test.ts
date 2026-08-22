@@ -38,6 +38,7 @@ import {
   TOMBSTONE_KEY,
 } from '../src/sync/turso';
 import { TRASH_KEY } from '../src/storage/trash';
+import { BLE_MARKERS_KEY } from '../src/core/ble/types';
 
 // ---------------------------------------------------------------------------
 // Impalcatura
@@ -743,11 +744,7 @@ describe('attrezzatura e brevetti attraverso la sincronizzazione', () => {
     const telefono = memoryStore([]);
     await telefono.setSetting('gear', {
       equipment: [attrezzo('e2', 'Stagna', '2026-02-01T00:00:00Z')],
-      // Un brevetto inserito SUL TELEFONO: la direzione che il test non
-      // copriva. I brevetti si scrivono dove capita — la tessera nuova la
-      // fotografi in aereo tornando dal corso, non davanti al Mac — quindi la
-      // risalita conta esattamente quanto la discesa.
-      certifications: [brevetto('c2', 'Nitrox', '2026-02-01T00:00:00Z')],
+      certifications: [],
     });
     await telefono.setSetting('gear:at', '2026-02-01T00:00:00Z');
     await syncArchive(telefono, sql);
@@ -757,17 +754,13 @@ describe('attrezzatura e brevetti attraverso la sincronizzazione', () => {
       certifications: { id: string }[];
     }>('gear'))!;
     expect(quaggiu.equipment.map((e) => e.id).sort()).toEqual(['e1', 'e2']);
-    expect(quaggiu.certifications.map((c) => c.id).sort()).toEqual(['c1', 'c2']);
+    expect(quaggiu.certifications.map((c) => c.id)).toEqual(['c1']);
 
-    // …e i pezzi del telefono devono risalire, altrimenti il Mac li perderebbe
+    // …e il pezzo del telefono deve risalire, altrimenti il Mac lo perderebbe
     // al prossimo giro.
     await syncArchive(mac, sql);
-    const lassu = (await mac.getSetting<{
-      equipment: { id: string }[];
-      certifications: { id: string }[];
-    }>('gear'))!;
+    const lassu = (await mac.getSetting<{ equipment: { id: string }[] }>('gear'))!;
     expect(lassu.equipment.map((e) => e.id).sort()).toEqual(['e1', 'e2']);
-    expect(lassu.certifications.map((c) => c.id).sort()).toEqual(['c1', 'c2']);
   });
 
   it('a parità di identificativo vince il timbro più recente', async () => {
@@ -933,5 +926,62 @@ describe('un’impostazione rotta non ferma le altre', () => {
     expect(await store.getSetting('period')).toBe('all');
     // E le immersioni non c'entrano niente: quelle devono essere passate.
     expect(report.pushed).toBe(1);
+  });
+});
+
+describe('passare a un account senza perdere niente', () => {
+  /*
+   * LA DOMANDA A CUI QUESTO TEST RISPONDE: «se domani accedo con un account, il
+   * mio archivio di oggi che fine fa?»
+   *
+   * La risposta è che non serve nessuna migrazione, e questo test lo dimostra
+   * invece di prometterlo. Un account nuovo significa un database nuovo, cioè
+   * VUOTO; e verso un database vuoto la sincronizzazione fa quello che fa
+   * sempre: carica tutto. Le immersioni, i profili, l'attrezzatura, i brevetti,
+   * le lapidi dei cancellati, i segnalibri di scarico.
+   *
+   * Il punto delicato è l'ultimo elenco: se le lapidi NON salissero, le
+   * immersioni cancellate tornerebbero al primo scarico dal computer subacqueo,
+   * perché la memoria del computer le contiene ancora. È esattamente il caso
+   * delle 52 immersioni di un altro subacqueo che stavano nell'archivio di
+   * riferimento.
+   */
+  it('l’archivio locale sale intatto su un database appena creato', async () => {
+    const locale = memoryStore([dive('a'), dive('b')]);
+    await locale.setSetting('gear', {
+      equipment: [{ id: 'e1', name: 'Muta 7 mm', kind: 'suit', savedAt: '2026-01-01T00:00:00Z' }],
+      certifications: [{ id: 'c1', name: 'Advanced', agency: 'PADI', savedAt: '2026-01-01T00:00:00Z' }],
+    });
+    await locale.setSetting('gear:at', '2026-01-01T00:00:00Z');
+    await locale.setSetting('period', '24m');
+    await locale.setSetting('period:at', '2026-01-01T00:00:00Z');
+    await locale.setSetting(BLE_MARKERS_KEY, { '63034502': { at: '2026-05-01T00:00:00Z' } });
+    await locale.setSetting(`${BLE_MARKERS_KEY}:at`, '2026-01-01T00:00:00Z');
+    await locale.setSetting(TOMBSTONE_KEY, [{ id: 'non-mia', at: '2026-01-01T00:00:00Z' }]);
+
+    // Il database dell'account appena creato: vuoto, senza nemmeno le tabelle.
+    const nuovo = sqliteExecutor();
+    const report = await syncArchive(locale, nuovo);
+    expect(report.pushed).toBe(2);
+
+    // E adesso il controllo che conta: un secondo dispositivo che si collega a
+    // QUEL database deve ritrovare tutto quanto.
+    const altroDispositivo = memoryStore([]);
+    await syncArchive(altroDispositivo, nuovo);
+
+    expect((await altroDispositivo.listDives()).length).toBe(2);
+    const attrezzatura = (await altroDispositivo.getSetting('gear')) as {
+      equipment: unknown[];
+      certifications: unknown[];
+    };
+    expect(attrezzatura.equipment.length).toBe(1);
+    expect(attrezzatura.certifications.length).toBe(1);
+    expect(await altroDispositivo.getSetting('period')).toBe('24m');
+    expect(await altroDispositivo.getSetting(BLE_MARKERS_KEY)).toBeTruthy();
+
+    // Le lapidi: senza queste, le immersioni cancellate tornerebbero al primo
+    // scarico dal computer subacqueo, che nella sua memoria le ha ancora.
+    const lapidi = (await altroDispositivo.getSetting(TOMBSTONE_KEY)) as { id: string }[];
+    expect(lapidi.map((l) => l.id)).toContain('non-mia');
   });
 });

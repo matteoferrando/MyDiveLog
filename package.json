@@ -36,6 +36,8 @@
     "@libsql/client": "^0.17.4",
     "@mnlphlp/plugin-blec": "^0.12.0",
     "@tauri-apps/api": "^2.9.0",
+    "@tauri-apps/plugin-deep-link": "^2.4.9",
+    "@tauri-apps/plugin-opener": "^2.5.4",
     "@tauri-apps/plugin-sql": "^2.3.0",
     "fast-xml-parser": "^5.2.5",
     "react": "^19.2.0",

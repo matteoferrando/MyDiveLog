@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "ios",
+  "description": "Solo su iPhone: il ritorno dall'accesso arriva da uno schema URL, perché una porta su 127.0.0.1 non si può tenere aperta mentre l'app è in secondo piano. Sul Mac quel permesso non deve esistere — e non esiste, perché là il plugin non viene nemmeno compilato.",
+  "platforms": ["iOS"],
+  "windows": ["main"],
+  "permissions": ["deep-link:default"]
+}
