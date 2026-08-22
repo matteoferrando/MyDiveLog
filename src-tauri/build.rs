@@ -5,9 +5,6 @@
 //! compilata **libdivecomputer**, che è C e non Rust, e che non si prende da
 //! `crates.io`.
 
-use std::path::{Path, PathBuf};
-use std::process::Command;
-
 fn main() {
     #[cfg(feature = "computer-esterni")]
     compila_libdivecomputer();
@@ -41,6 +38,9 @@ const VERSIONE: &str = "0.9.0";
 /// entrambe le strade finché quella domanda non ha risposta.
 #[cfg(feature = "computer-esterni")]
 fn compila_libdivecomputer() {
+    use std::path::PathBuf;
+    use std::process::Command;
+
     let radice = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     let tarball = radice.join(format!("vendor/libdivecomputer-{VERSIONE}.tar.gz"));
     let lavoro = PathBuf::from(std::env::var("OUT_DIR").unwrap());
@@ -91,7 +91,7 @@ fn numero_lavori() -> String {
 /// Un `unwrap()` qui darebbe «exit status: 2» senza dire quale passo, e chi lo
 /// legge dovrebbe indovinare fra estrazione, configure e make.
 #[cfg(feature = "computer-esterni")]
-fn esegui(comando: &mut Command, cosa: &str) {
+fn esegui(comando: &mut std::process::Command, cosa: &str) {
     let esito = comando
         .status()
         .unwrap_or_else(|e| panic!("{cosa}: impossibile avviare il comando ({e})"));
@@ -99,7 +99,3 @@ fn esegui(comando: &mut Command, cosa: &str) {
         panic!("{cosa}: fallito con {esito}");
     }
 }
-
-/// Serve solo a zittire l'avviso quando la funzionalità è spenta.
-#[allow(dead_code)]
-fn _inutilizzato(_: &Path) {}
