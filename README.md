@@ -479,9 +479,27 @@ rilinkare niente, la stessa domanda non ha una risposta comoda — e finché non
 l'ha, una funzionalità che si accende per bersaglio tiene aperte entrambe le
 strade.
 
-Oggi la libreria è collegata e risponde: l'elenco dei modelli è esposto come
-comando. Lo scarico vero — il ponte fra `dc_custom_open` e il nostro Bluetooth,
-e la conversione nel modello canonico — è il passo successivo.
+Oggi la libreria è collegata e risponde, e il **ponte sul Bluetooth** è scritto
+e provato: libdivecomputer legge e scrive attraverso il nostro trasporto, con un
+flusso finto al posto del computer subacqueo. Manca lo scarico vero — aprire il
+dispositivo, scorrere le immersioni, convertirle nel modello canonico — che ha
+bisogno di un computer acceso per essere verificato.
+
+### Le due implementazioni danno gli stessi numeri, e lo sappiamo
+
+Il decoder Uwatec scritto a mano e quello di libdivecomputer sono stati messi uno
+accanto all'altro sugli stessi byte: **85 immersioni reali, 64 706 campioni di
+profondità confrontati uno per uno, zero differenze**, scarto massimo 0,00 m.
+Coincidono anche durata, profondità massima, temperature e numero di campioni.
+
+Conta per due ragioni. La prima è che il nostro decoder è giusto, e non «sembra
+giusto»: su un bitstream a delta un errore non produce un errore, produce un
+profilo plausibile e falso. La seconda è che **le due strade sono
+intercambiabili**, quindi affidare gli Uwatec a libdivecomputer non cambierebbe
+un centimetro dei numeri già in archivio.
+
+Il confronto si rifà quando serve — vedi
+[`scripts/confronto-ldc/`](scripts/confronto-ldc/).
 
 ---
 
