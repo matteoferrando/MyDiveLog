@@ -170,6 +170,7 @@ dell'archivio locale, sul dispositivo dove lo hai incollato.
 | `npm run ios:init` | genera il progetto Xcode per iOS (vedi sotto) |
 | `npm run ios:dev -- "iPhone 17 Pro"` | compila e lancia l'app sul simulatore |
 | `npm run ios:build` | pacchetto firmato per un iPhone vero |
+| `npm run mac:pubblica` | `.dmg` firmato **e notarizzato**, da allegare a una release |
 
 ---
 
@@ -425,6 +426,62 @@ sui delta negativi.
 I dati di prova sono generati, non registrati: `tests/fixtures.ts` costruisce
 profili con consumo, assetto e velocità di risalita *scelti*, così i test
 possono verificare che le metriche ricostruiscano i valori di partenza.
+
+---
+
+## Distribuire il pacchetto macOS
+
+`npm run desktop:build` produce un `.app` firmato con il certificato di sviluppo:
+vale sul computer che l'ha compilato e su nessun altro. Da un `.dmg` così, macOS
+dice a chi lo apre che «l'app è danneggiata o proviene da uno sviluppatore non
+identificato» — una frase che fa cancellare il file, non cercare la scorciatoia.
+
+`npm run mac:pubblica` fa la cosa giusta: firma con un certificato **Developer ID
+Application**, manda il pacchetto a notarizzare ad Apple, aspetta la risposta,
+graffetta l'esito al `.dmg` — così vale anche per chi lo apre senza rete — e alla
+fine ripete la prova che farebbe macOS a chi scarica.
+
+Due cose vanno create una volta sola, e non le può creare uno script:
+
+1. il certificato *Developer ID Application*, da Xcode → Impostazioni → Account →
+   *Manage Certificates* → **+**;
+2. le credenziali di notarizzazione nel portachiavi:
+   `xcrun notarytool store-credentials mydivelog --apple-id … --team-id …`,
+   che chiede una password specifica per l'app generata su appleid.apple.com.
+
+Lo script controlla che entrambe ci siano **prima** di compilare, perché
+scoprirlo dopo venti minuti di build è il modo peggiore.
+
+---
+
+## Computer subacquei: i due di casa e gli altri trecentocinquanta
+
+L'applicazione ha due driver Bluetooth scritti a mano — Shearwater e
+Scubapro/Uwatec — verificati su computer veri. Bastano a chi li possiede e a
+nessun altro.
+
+La funzionalità cargo **`computer-esterni`** compila
+[libdivecomputer](https://libdivecomputer.org) dentro il guscio Rust: **356
+modelli, 110 dei quali parlano Bluetooth LE**. Il sorgente è vendorizzato in
+`src-tauri/vendor/`, si compila da sé, e non serve né bindgen né autoconf.
+
+```sh
+cargo build --features computer-esterni    # dentro src-tauri/
+```
+
+**È spenta di sua iniziativa**, per due ragioni. La prima: centoquindici file C
+prima di ogni build pulita non li deve pagare chi lavora su una schermata. La
+seconda, che pesa di più: libdivecomputer è **LGPL-2.1**, e un programma MIT la
+può usare purché chi lo riceve possa ricompilarla e rimetterla al suo posto. Per
+un pacchetto scaricato da qui, con tutto il sorgente pubblico, la condizione è
+soddisfatta. Per un binario firmato da Apple su App Store, dove nessuno può
+rilinkare niente, la stessa domanda non ha una risposta comoda — e finché non ce
+l'ha, una funzionalità che si accende per bersaglio tiene aperte entrambe le
+strade.
+
+Oggi la libreria è collegata e risponde: l'elenco dei modelli è esposto come
+comando. Lo scarico vero — il ponte fra `dc_custom_open` e il nostro Bluetooth,
+e la conversione nel modello canonico — è il passo successivo.
 
 ---
 
