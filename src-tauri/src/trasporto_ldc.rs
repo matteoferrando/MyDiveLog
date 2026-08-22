@@ -401,17 +401,38 @@ extern "C" fn cb_close(userdata: *mut c_void) -> c_int {
 /// anticipato sarebbe un contesto C lasciato aperto. Con `Drop` la chiusura
 /// avviene comunque, compreso quando qualcosa va in panico.
 pub struct CollegamentoLdc {
-    contesto: *mut DcContext,
+    contesto: Contesto,
     flusso: *mut DcIostream,
+}
+
+/// Il contesto di libdivecomputer, che si libera da solo.
+///
+/// Sta a parte dal collegamento perché serve anche a chi NON sta parlando con
+/// un computer: tradurre i byte di un'immersione già scaricata vuole un
+/// contesto e nient'altro, e pretendere un Bluetooth aperto per farlo sarebbe
+/// una dipendenza inventata.
+pub struct Contesto(*mut DcContext);
+
+impl Contesto {
+    pub fn nuovo() -> Result<Self, String> {
+        let mut contesto: *mut DcContext = std::ptr::null_mut();
+        if unsafe { dc_context_new(&mut contesto) } != DC_STATUS_SUCCESS {
+            return Err("libdivecomputer non ha creato il contesto".into());
+        }
+        Ok(Self(contesto))
+    }
+}
+
+impl Drop for Contesto {
+    fn drop(&mut self) {
+        unsafe { dc_context_free(self.0) };
+    }
 }
 
 impl CollegamentoLdc {
     /// Apre un flusso di libdivecomputer sopra il nostro trasporto.
     pub fn apri(trasporto: Box<dyn FlussoByte>) -> Result<Self, String> {
-        let mut contesto: *mut DcContext = std::ptr::null_mut();
-        if unsafe { dc_context_new(&mut contesto) } != DC_STATUS_SUCCESS {
-            return Err("libdivecomputer non ha creato il contesto".into());
-        }
+        let contesto = Contesto::nuovo()?;
 
         let stato = Box::into_raw(Box::new(Stato {
             flusso: trasporto,
@@ -443,7 +464,7 @@ impl CollegamentoLdc {
         let esito = unsafe {
             dc_custom_open(
                 &mut flusso,
-                contesto,
+                contesto.0,
                 DC_TRANSPORT_BLE,
                 &callbacks,
                 stato as *mut c_void,
@@ -453,7 +474,6 @@ impl CollegamentoLdc {
             // La `close` non è stata registrata da nessuna parte: lo `Stato` va
             // ripreso e distrutto a mano, o resta perso.
             drop(unsafe { Box::from_raw(stato) });
-            unsafe { dc_context_free(contesto) };
             return Err(format!("libdivecomputer non ha aperto il trasporto (stato {esito})"));
         }
         Ok(Self { contesto, flusso })
@@ -584,7 +604,7 @@ impl CollegamentoLdc {
     pub fn scarica(&self, descrittore: &Descrittore) -> Result<Vec<ImmersioneGrezza>, String> {
         let mut dispositivo: *mut DcDevice = std::ptr::null_mut();
         let esito = unsafe {
-            dc_device_open(&mut dispositivo, self.contesto, descrittore.0, self.flusso)
+            dc_device_open(&mut dispositivo, self.contesto.0, descrittore.0, self.flusso)
         };
         if esito != DC_STATUS_SUCCESS {
             return Err(format!("il computer non si è aperto (stato {esito})"));
@@ -609,14 +629,357 @@ impl CollegamentoLdc {
     }
 }
 
+// ------------------------------------------------- dalla libreria al modello
+
+/// Un campione come lo vede il nostro modello canonico.
+///
+/// I nomi sono quelli di `src/core/model.ts` — `t`, `depth`, `tempC` — e non
+/// quelli di libdivecomputer, perché questo è il confine: di qua c'è una
+/// libreria C, di là c'è l'applicazione, e il posto giusto per tradurre è uno
+/// solo.
+#[derive(serde::Serialize, Default, Clone, Debug, PartialEq)]
+pub struct CampioneLdc {
+    /// Secondi dall'inizio. libdivecomputer li dà in millisecondi.
+    pub t: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub depth: Option<f64>,
+    #[serde(rename = "tempC", skip_serializing_if = "Option::is_none")]
+    pub temp_c: Option<f64>,
+    /// Pressione per bombola, nell'ordine delle bombole.
+    #[serde(rename = "pressureBar", skip_serializing_if = "Vec::is_empty")]
+    pub pressione_bar: Vec<Option<f64>>,
+    #[serde(rename = "ndlS", skip_serializing_if = "Option::is_none")]
+    pub ndl_s: Option<u32>,
+    #[serde(rename = "ttsS", skip_serializing_if = "Option::is_none")]
+    pub tts_s: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ceiling: Option<f64>,
+    #[serde(rename = "inDeco", skip_serializing_if = "Option::is_none")]
+    pub in_deco: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cns: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ppo2: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub setpoint: Option<f64>,
+    #[serde(rename = "rbtMin", skip_serializing_if = "Option::is_none")]
+    pub rbt_min: Option<u32>,
+}
+
+/// Un'immersione tradotta, pronta per il lato TypeScript.
+#[derive(serde::Serialize, Default, Clone, Debug)]
+pub struct ImmersioneLdc {
+    /// Inizio, millisecondi dall'epoca. È l'ora **locale** del computer letta
+    /// come se fosse UTC: libdivecomputer non dice in che fuso fosse, e
+    /// inventarne uno sarebbe peggio che dichiarare l'ambiguità.
+    #[serde(rename = "startMs")]
+    pub inizio_ms: i64,
+    #[serde(rename = "durationS")]
+    pub durata_s: u32,
+    #[serde(rename = "maxDepth")]
+    pub profondita_max: f64,
+    #[serde(rename = "avgDepth", skip_serializing_if = "Option::is_none")]
+    pub profondita_media: Option<f64>,
+    #[serde(rename = "tempMinC", skip_serializing_if = "Option::is_none")]
+    pub temp_min_c: Option<f64>,
+    #[serde(rename = "tempMaxC", skip_serializing_if = "Option::is_none")]
+    pub temp_max_c: Option<f64>,
+    /// Frazioni di ossigeno ed elio, una per miscela, nell'ordine del computer.
+    pub gas: Vec<GasLdc>,
+    pub samples: Vec<CampioneLdc>,
+}
+
+#[derive(serde::Serialize, Default, Clone, Debug)]
+pub struct GasLdc {
+    pub o2: f64,
+    pub he: f64,
+}
+
+/// Quello che si accumula mentre libdivecomputer sciorina i campioni.
+struct Accumulatore {
+    immersione: ImmersioneLdc,
+    corrente: CampioneLdc,
+    iniziato: bool,
+    quante_bombole: usize,
+}
+
+/// Il tipo di sosta secondo libdivecomputer: 0 nessuna, 1 NDL, 2 sosta deco,
+/// 3 sosta di sicurezza.
+const DECO_NDL: c_uint = 1;
+
+extern "C" fn campione(tipo: c_uint, valore: *const ValoreCampione, userdata: *mut c_void) {
+    // SICUREZZA: entrambi i puntatori arrivano da libdivecomputer e valgono per
+    // la durata della chiamata.
+    let acc = unsafe { &mut *(userdata as *mut Accumulatore) };
+    let v = unsafe { &*valore };
+
+    match tipo {
+        0 => {
+            /*
+             * DC_SAMPLE_TIME apre un campione NUOVO, e chiude il precedente.
+             *
+             * libdivecomputer non consegna record completi: manda un istante e
+             * poi, uno alla volta, i valori che a quell'istante sono cambiati.
+             * Chi lo usa deve accorpare, e chi non lo fa si ritrova un campione
+             * per ogni grandezza — cioè un profilo lungo cinque volte tanto con
+             * un buco in ogni riga.
+             */
+            if acc.iniziato {
+                let finito = std::mem::take(&mut acc.corrente);
+                acc.immersione.samples.push(finito);
+            }
+            acc.iniziato = true;
+            acc.corrente = CampioneLdc { t: unsafe { v.tempo } / 1000, ..Default::default() };
+        }
+        1 => acc.corrente.depth = Some(unsafe { v.profondita }),
+        2 => {
+            let p = unsafe { v.pressione };
+            let indice = p.bombola as usize;
+            if acc.corrente.pressione_bar.len() <= indice {
+                acc.corrente.pressione_bar.resize(indice + 1, None);
+            }
+            acc.corrente.pressione_bar[indice] = Some(p.valore);
+            acc.quante_bombole = acc.quante_bombole.max(indice + 1);
+        }
+        3 => acc.corrente.temp_c = Some(unsafe { v.temperatura }),
+        5 => acc.corrente.rbt_min = Some(unsafe { v.rbt }),
+        9 => acc.corrente.setpoint = Some(unsafe { v.setpoint }),
+        10 => acc.corrente.ppo2 = Some(unsafe { v.ppo2 }.valore),
+        11 => acc.corrente.cns = Some(unsafe { v.cns } * 100.0),
+        12 => {
+            let d = unsafe { v.deco };
+            if d.tipo == DECO_NDL {
+                acc.corrente.ndl_s = Some(d.tempo);
+                acc.corrente.in_deco = Some(false);
+            } else {
+                acc.corrente.ceiling = Some(d.profondita);
+                acc.corrente.in_deco = Some(d.profondita > 0.0);
+            }
+            if d.tts > 0 {
+                acc.corrente.tts_s = Some(d.tts);
+            }
+        }
+        // Eventi, battito, rilevamento, dati del costruttore, cambio gas: non
+        // servono al modello canonico e si scartano di proposito, invece di
+        // essere raccolti «casomai».
+        _ => {}
+    }
+}
+
+/// L'unione dei valori di `dc_sample_value_t`, per i campi che leggiamo.
+///
+/// **È una `union` e va letta solo dopo aver guardato il tipo.** Leggere il
+/// campo sbagliato non dà un errore: dà un numero.
+#[repr(C)]
+union ValoreCampione {
+    tempo: c_uint,
+    profondita: f64,
+    pressione: PressioneCampione,
+    temperatura: f64,
+    rbt: c_uint,
+    setpoint: f64,
+    ppo2: Ppo2Campione,
+    cns: f64,
+    deco: DecoCampione,
+    _riempimento: [u8; 32],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct PressioneCampione {
+    bombola: c_uint,
+    valore: f64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct Ppo2Campione {
+    _sensore: c_uint,
+    valore: f64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct DecoCampione {
+    tipo: c_uint,
+    tempo: c_uint,
+    profondita: f64,
+    tts: c_uint,
+}
+
+/// I campi dell'intestazione, nell'ordine di `dc_field_type_t`.
+const CAMPO_DURATA: c_uint = 0;
+const CAMPO_PROF_MAX: c_uint = 1;
+const CAMPO_PROF_MEDIA: c_uint = 2;
+const CAMPO_GAS_QUANTI: c_uint = 3;
+const CAMPO_GAS: c_uint = 4;
+const CAMPO_TEMP_MIN: c_uint = 8;
+const CAMPO_TEMP_MAX: c_uint = 9;
+
+#[repr(C)]
+#[derive(Default, Clone, Copy)]
+struct GasMix {
+    elio: f64,
+    ossigeno: f64,
+    azoto: f64,
+    _tipo: c_uint,
+}
+
+#[repr(C)]
+struct DcDatetime {
+    anno: c_int,
+    mese: c_uint,
+    giorno: c_uint,
+    ora: c_uint,
+    minuto: c_uint,
+    secondo: c_uint,
+    fuso: c_int,
+}
+
+#[repr(C)]
+pub struct DcParser {
+    _vuoto: [u8; 0],
+}
+
+extern "C" {
+    fn dc_parser_new2(
+        parser: *mut *mut DcParser,
+        context: *mut DcContext,
+        descriptor: *mut DcDescriptor,
+        data: *const u8,
+        size: usize,
+    ) -> c_int;
+    fn dc_parser_get_datetime(parser: *mut DcParser, datetime: *mut DcDatetime) -> c_int;
+    fn dc_parser_get_field(
+        parser: *mut DcParser,
+        tipo: c_uint,
+        flags: c_uint,
+        valore: *mut c_void,
+    ) -> c_int;
+    fn dc_parser_samples_foreach(
+        parser: *mut DcParser,
+        callback: extern "C" fn(c_uint, *const ValoreCampione, *mut c_void),
+        userdata: *mut c_void,
+    ) -> c_int;
+    fn dc_parser_destroy(parser: *mut DcParser) -> c_int;
+}
+
+/// Traduce i byte grezzi di UNA immersione nel nostro modello.
+///
+/// PERCHÉ QUI E NON IN TYPESCRIPT. Perché i byte grezzi di un computer che non
+/// conosciamo non li sa leggere nessuno tranne libdivecomputer, e farli
+/// attraversare il confine per poi rimandarli indietro sarebbe un giro inutile.
+/// Quello che attraversa il confine è già il modello.
+pub fn traduci(
+    contesto: &Contesto,
+    descrittore: &Descrittore,
+    dati: &[u8],
+) -> Result<ImmersioneLdc, String> {
+    let mut parser: *mut DcParser = std::ptr::null_mut();
+    let esito = unsafe {
+        dc_parser_new2(&mut parser, contesto.0, descrittore.0, dati.as_ptr(), dati.len())
+    };
+    if esito != DC_STATUS_SUCCESS {
+        return Err(format!("nessun lettore per questa immersione (stato {esito})"));
+    }
+
+    let mut immersione = ImmersioneLdc::default();
+
+    let mut quando = DcDatetime { anno: 0, mese: 0, giorno: 0, ora: 0, minuto: 0, secondo: 0, fuso: 0 };
+    if unsafe { dc_parser_get_datetime(parser, &mut quando) } == DC_STATUS_SUCCESS {
+        immersione.inizio_ms = millisecondi(&quando);
+    }
+
+    let mut leggi_numero = |campo: c_uint| -> Option<f64> {
+        let mut valore: f64 = 0.0;
+        let esito =
+            unsafe { dc_parser_get_field(parser, campo, 0, &mut valore as *mut f64 as *mut c_void) };
+        // DC_STATUS_UNSUPPORTED (-1) vuol dire «questo computer non lo dice», e
+        // non è un errore: è un campo che resta vuoto.
+        if esito == DC_STATUS_SUCCESS {
+            Some(valore)
+        } else {
+            None
+        }
+    };
+    immersione.profondita_max = leggi_numero(CAMPO_PROF_MAX).unwrap_or(0.0);
+    immersione.profondita_media = leggi_numero(CAMPO_PROF_MEDIA).filter(|v| *v > 0.0);
+    immersione.temp_min_c = leggi_numero(CAMPO_TEMP_MIN);
+    immersione.temp_max_c = leggi_numero(CAMPO_TEMP_MAX);
+
+    let mut durata: c_uint = 0;
+    if unsafe {
+        dc_parser_get_field(parser, CAMPO_DURATA, 0, &mut durata as *mut c_uint as *mut c_void)
+    } == DC_STATUS_SUCCESS
+    {
+        immersione.durata_s = durata;
+    }
+
+    let mut quanti_gas: c_uint = 0;
+    if unsafe {
+        dc_parser_get_field(parser, CAMPO_GAS_QUANTI, 0, &mut quanti_gas as *mut c_uint as *mut c_void)
+    } == DC_STATUS_SUCCESS
+    {
+        for i in 0..quanti_gas {
+            let mut mix = GasMix::default();
+            if unsafe {
+                dc_parser_get_field(parser, CAMPO_GAS, i, &mut mix as *mut GasMix as *mut c_void)
+            } == DC_STATUS_SUCCESS
+            {
+                immersione.gas.push(GasLdc { o2: mix.ossigeno, he: mix.elio });
+            }
+        }
+    }
+
+    let mut acc = Accumulatore {
+        immersione,
+        corrente: CampioneLdc::default(),
+        iniziato: false,
+        quante_bombole: 0,
+    };
+    let esito = unsafe {
+        dc_parser_samples_foreach(parser, campione, &mut acc as *mut Accumulatore as *mut c_void)
+    };
+    unsafe { dc_parser_destroy(parser) };
+    if esito != DC_STATUS_SUCCESS {
+        return Err(format!("profilo illeggibile (stato {esito})"));
+    }
+
+    // L'ultimo campione non ha un `DC_SAMPLE_TIME` dopo di sé che lo chiuda.
+    if acc.iniziato {
+        let ultimo = std::mem::take(&mut acc.corrente);
+        acc.immersione.samples.push(ultimo);
+    }
+    Ok(acc.immersione)
+}
+
+/// Da una data «locale senza fuso» ai millisecondi dall'epoca.
+///
+/// Fatto a mano invece che con una libreria di date: sono quattro righe di
+/// aritmetica civile e l'alternativa è una dipendenza in più per questo.
+/// L'algoritmo dei giorni dall'epoca è quello di Howard Hinnant, che è pubblico
+/// e non ha casi speciali per gli anni bisestili.
+fn millisecondi(q: &DcDatetime) -> i64 {
+    let (mut anno, mese, giorno) = (q.anno as i64, q.mese as i64, q.giorno as i64);
+    if anno == 0 {
+        return 0;
+    }
+    anno -= i64::from(mese <= 2);
+    let era = if anno >= 0 { anno } else { anno - 399 } / 400;
+    let anno_era = anno - era * 400;
+    let giorno_anno = (153 * (mese + if mese > 2 { -3 } else { 9 }) + 2) / 5 + giorno - 1;
+    let giorno_era = anno_era * 365 + anno_era / 4 - anno_era / 100 + giorno_anno;
+    let giorni = era * 146_097 + giorno_era - 719_468;
+    let secondi = giorni * 86_400 + q.ora as i64 * 3600 + q.minuto as i64 * 60 + q.secondo as i64;
+    secondi * 1000
+}
+
 impl Drop for CollegamentoLdc {
     fn drop(&mut self) {
-        // L'ordine conta: il flusso prima, il contesto dopo. `dc_iostream_close`
-        // chiama la nostra `cb_close`, che distrugge lo `Stato`.
-        unsafe {
-            dc_iostream_close(self.flusso);
-            dc_context_free(self.contesto);
-        }
+        // `dc_iostream_close` chiama la nostra `cb_close`, che distrugge lo
+        // `Stato`. Il contesto si libera dopo, da sé: è un campo, e i campi
+        // cadono dopo il corpo del `Drop`.
+        unsafe { dc_iostream_close(self.flusso) };
     }
 }
 
@@ -932,6 +1295,72 @@ mod prove {
         let finto = FintoAladin::nuovo(memoria_con(50, 400));
         let collegamento = CollegamentoLdc::apri(Box::new(finto)).unwrap();
         assert_eq!(collegamento.scarica(&descrittore).unwrap().len(), 50);
+    }
+
+#[test]
+    fn la_traduzione_regge_su_immersioni_vere() {
+        /*
+         * LA PROVA CHE NON PUÒ STARE NEL REPOSITORY, e il motivo per cui è
+         * `ignore`: ha bisogno di immersioni vere, e le immersioni di una
+         * persona non si versionano.
+         *
+         * Si lancia così, dopo aver estratto i blob da un export LogTRAK con
+         * `node scripts/confronto-ldc/estrai.mjs`:
+         *
+         *     MDL_BLOB=/tmp/blob cargo test --features computer-esterni -- --ignored
+         *
+         * Scrive `/tmp/serie-rust.txt` nello stesso formato degli altri due
+         * strumenti, così `scripts/confronto-ldc/confronta.mjs` mette a
+         * confronto TRE implementazioni: la nostra in TypeScript, quella C di
+         * libdivecomputer, e questa traduzione in mezzo.
+         *
+         * Cosa verifica che il confronto in C non verificava: l'accorpamento
+         * dei campioni. libdivecomputer non consegna record completi — manda un
+         * istante e poi, uno alla volta, i valori cambiati — e chi non li
+         * accorpa si ritrova un campione per grandezza invece che per istante.
+         * Il numero di campioni è la spia che lo prende.
+         */
+        let Ok(cartella) = std::env::var("MDL_BLOB") else {
+            eprintln!("MDL_BLOB non impostata: prova saltata");
+            return;
+        };
+        let contesto = Contesto::nuovo().unwrap();
+        let descrittore = trova_descrittore("Scubapro", "Aladin Sport Matrix").unwrap();
+
+        let mut percorsi: Vec<_> = std::fs::read_dir(&cartella)
+            .expect("la cartella dei blob deve esistere")
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|e| e == "bin"))
+            .collect();
+        percorsi.sort();
+        assert!(!percorsi.is_empty(), "nessun blob in {cartella}");
+
+        let mut righe = Vec::new();
+        let mut senza_profondita = 0;
+        for percorso in &percorsi {
+            let dati = std::fs::read(percorso).unwrap();
+            let immersione = traduci(&contesto, &descrittore, &dati)
+                .unwrap_or_else(|e| panic!("{}: {e}", percorso.display()));
+
+            // Nessuna immersione può avere durata o profondità a zero: sarebbe
+            // il segno che l'intestazione è stata letta dall'offset sbagliato.
+            assert!(immersione.durata_s > 0, "{}: durata zero", percorso.display());
+            assert!(immersione.profondita_max > 0.0, "{}: profondità zero", percorso.display());
+            assert!(immersione.inizio_ms > 0, "{}: data assente", percorso.display());
+
+            let profondita: Vec<String> = immersione
+                .samples
+                .iter()
+                .filter_map(|c| c.depth.map(|d| format!("{d:.2}")))
+                .collect();
+            if profondita.is_empty() {
+                senza_profondita += 1;
+            }
+            righe.push(format!("{}\t{}", percorso.display(), profondita.join(",")));
+        }
+        assert_eq!(senza_profondita, 0, "immersioni senza nessun campione di profondità");
+        std::fs::write("/tmp/serie-rust.txt", righe.join("\n") + "\n").unwrap();
+        eprintln!("{} immersioni tradotte, serie in /tmp/serie-rust.txt", percorsi.len());
     }
 
     #[test]
