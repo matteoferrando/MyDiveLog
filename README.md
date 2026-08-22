@@ -434,7 +434,9 @@ Dalla scheda *Sincronizza* si può entrare con un account Google. Serve a una co
 sola: **avere un database proprio senza doverselo creare**. L'app chiede al
 servizio una chiave, il servizio crea il database al primo accesso e la chiave
 dura due ore. Chi il database se l'è già fatto da sé continua a incollare
-indirizzo e token nel campo qui sotto, che non è cambiato.
+indirizzo e token, in un campo che è ancora lì ma è finito sotto **Avanzate**:
+è la via di scampo per il giorno che il servizio di accesso non risponde e la
+sessione è scaduta, non più una strada di pari dignità.
 
 **Non è un cancello.** Il logbook si apre e funziona senza aver mai fatto
 l'accesso, perché l'archivio è sul dispositivo. Questo è il vincolo che ha

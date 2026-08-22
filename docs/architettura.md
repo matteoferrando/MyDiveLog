@@ -192,9 +192,13 @@ impostazioni. Nel repository non c'è nessuna credenziale.
 
 ## L'accesso, e perché il servizio è quasi vuoto
 
-Chi vuole un database condiviso ha due strade, e la seconda è arrivata dopo:
-incollare indirizzo e token di un database proprio, oppure **entrare con
-Google** e lasciare che sia il servizio a crearlo. Il vincolo che ha guidato
+Chi vuole un database condiviso ha due strade, ma non di pari dignità: si
+**entra con Google** e il servizio crea il database, oppure — sotto la voce
+«Avanzate», dove sta una via di scampo e non un'alternativa — si incollano
+indirizzo e token di un database proprio. La seconda è arrivata per prima e non
+è stata tolta: il giorno che il servizio di accesso non risponde e la sessione è
+scaduta, senza quel campo non si sincronizza in nessun modo, e l'unico rimedio
+sarebbe ricompilare l'applicazione. Il vincolo che ha guidato
 tutto: l'accesso **non è obbligatorio**, perché l'archivio è locale e un logbook
 che chiede di autenticarsi per mostrare le proprie immersioni sarebbe un logbook
 peggiore.
