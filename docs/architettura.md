@@ -165,15 +165,19 @@ Tre decisioni con la loro ragione:
   dispositivi condividono: entrambi nominano lo stesso vincitore e la faccenda si
   chiude al primo giro. Con un "preferisci il locale", ciascun dispositivo si
   vedrebbe vincente e i due si riscriverebbero il record a vicenda per sempre.
-- **Le cancellazioni viaggiano, ma come lapidi e non come assenze.** Senza un
-  registro, cancellare non serve a niente: la sincronizzazione successiva
-  rimetterebbe l'immersione al suo posto, perché il remoto ce l'ha e il locale
-  no. La tabella `deletions` dice «questa è stata cancellata, e quando», e la
-  data è quello che la rende sicura: una lapide vale solo finché l'immersione non
-  è stata toccata DOPO di lei — un `updatedAt` più recente significa che qualcuno
-  l'ha rimessa apposta, e allora è la lapide a doversene andare. Le lapidi non
-  scadono: costano una riga di testo l'una, e buttarle via significa vedersi
-  tornare indietro un'immersione cancellata l'anno prima, senza nessun avviso.
+- **Le cancellazioni si propagano con le lapidi, ma solo quelle definitive.**
+  Senza un registro, cancellare non servirebbe a niente: la sincronizzazione
+  successiva rimetterebbe l'immersione al suo posto, perché il remoto ce l'ha e
+  il locale no. Ma la lapide — la cancellazione che viaggia — nasce solo
+  **svuotando il cestino**, a mano o dopo trenta giorni: finché l'immersione è
+  nel cestino sparisce da qui e non viene più sincronizzata, ma sugli altri
+  dispositivi resta. Il prezzo è dichiarato: nella finestra dei trenta giorni i
+  due dispositivi non concordano, ed è quello che si paga per poter tornare
+  indietro. La data sulla lapide fa il resto: vale solo finché l'immersione non è
+  stata toccata DOPO di lei — un `updatedAt` più recente significa che qualcuno
+  l'ha rimessa apposta. Le lapidi non scadono, perché costano una riga di testo
+  l'una e buttarle via significa vedersi tornare indietro un'immersione
+  cancellata l'anno prima, senza nessun avviso.
 
 Il conteggio dei campioni arriva dallo store (`sampleCounts()`) e non dai
 riepiloghi in memoria, che i profili non li contengono: dedurlo da lì darebbe
