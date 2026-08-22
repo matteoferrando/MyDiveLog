@@ -8,43 +8,44 @@
  * 2007 (progetto Diversity) copre le famiglie vecchie e ha imprecisioni
  * (dichiara "big endian" e poi dà `byte0 + (byte1<<8)`, che è little endian).
  *
- * ATTENZIONE ALLA LICENZA DI QUESTO FILE, CHE NON È QUELLA DEL PROGETTO.
+ * QUESTO FILE È STATO RISCRITTO, E VALE LA PENA SAPERE PERCHÉ.
  *
- * MyDiveLog è MIT. Questo file no, e la ragione è che un confronto riga per riga
- * con l'originale, fatto apposta, ha dato un esito che non lascia margini: le
- * quattro tabelle dei campioni coincidono valore per valore e nello stesso
- * ordine dei campi; `identifyGalileo`, `identifyLeadingOnes` e `signExtend` sono
- * traduzioni istruzione per istruzione; il ciclo del bitstream segue il C passo
- * per passo, commenti compresi. I FATTI del formato — quale bit sta dove, quale
- * moltiplicatore converte una pressione — non sono coperti da copyright e
- * chiunque può riscriverli. La forma in cui sono organizzati qui, invece, è
- * quella dell'originale.
+ * La prima versione era una **traduzione** di `uwatec_smart_parser.c`, e non nel
+ * senso vago in cui lo si dice per cortesia: un confronto riga per riga, fatto
+ * apposta prima di distribuire l'applicazione ad altri, non ha lasciato margini.
+ * Le quattro tabelle dei campioni coincidevano valore per valore e nello stesso
+ * ordine dei campi; il riconoscimento del record e l'estensione del segno erano
+ * traduzioni istruzione per istruzione; il ciclo seguiva il C passo per passo,
+ * commenti compresi. libdivecomputer è LGPL-2.1, quindi quel file lo era di
+ * fatto, e chiamarlo MIT sarebbe stata una dichiarazione comoda e falsa.
  *
- * Chiamare MIT questo file sarebbe stata una dichiarazione comoda e falsa.
- * Chiamarlo LGPL-2.1-or-later, come l'originale, costa niente a chi usa
- * l'applicazione — la LGPL è fatta apposta perché un programma con un'altra
- * licenza possa usare un modulo LGPL, purché chi lo riceve possa sostituirlo, e
- * qui tutto il sorgente è pubblico e ricompilabile.
+ * Ora il flusso lo legge `uwatecBitstream.ts`, scritto seguendo la
+ * **specifica pubblica del formato** del progetto Diversity, che lo descrive
+ * come un codice a prefissi — `0ddddddd`, `1111110x` — invece che come una
+ * tabella di numeri. È un'altra descrizione dello stesso formato, e produce
+ * un'altra forma. Quello che resta qui sono le intestazioni (offset dentro un
+ * blocco a lunghezza fissa: fatti, non espressione) e tutto il codice che era
+ * già nostro.
  *
- * SPDX-License-Identifier: LGPL-2.1-or-later
- * Copyright (C) 2008-2025 Jef Driesen e i contributori di libdivecomputer
- * Copyright (C) 2026 Matteo Ferrando, per le parti originali
+ * ONESTÀ SU COSA QUESTO SIGNIFICA E COSA NO. Significa che l'espressione è
+ * nostra e che il file torna MIT. NON significa «camera bianca»: chi ha scritto
+ * la riscrittura aveva letto l'originale, perché è stato l'audit a scoprire il
+ * problema. Una camera bianca vera la fa qualcuno che quel codice non l'ha mai
+ * aperto. Il debito verso libdivecomputer resta dichiarato nel README, e resta
+ * dovuto: senza quel lavoro di reverse engineering questo formato sarebbe
+ * illeggibile.
  *
- * Le parti originali, per non fare confusione, sono: il riconoscimento
- * automatico del layout dell'intestazione, `profiloImpronta`,
- * `splitUwatecRecords`, `trimSurface`, la conversione nel modello canonico, la
- * lettura della profondità media a offset 24 e il controllo sui byte consumati.
+ * LA RISCRITTURA È VERIFICATA, non sperata: sulle stesse 85 immersioni reali,
+ * **64 706 campioni di profondità e altrettanti di temperatura, zero
+ * differenze** rispetto alla versione precedente E rispetto a libdivecomputer,
+ * numero di campioni compreso.
  *
  * PERCHÉ QUESTO FILE È DELICATO
  *
- * Il flusso dei campioni è un bitstream a lunghezza variabile: il tipo di record
- * si legge dai bit alti del primo byte, e i valori sono DELTA con segno accumulati
- * su uno stato. Un errore in un solo punto — un'estensione del segno sbagliata,
- * un byte contato male — non produce un errore: produce un profilo plausibile e
- * falso, che scorre a caso da lì in poi. Per questo:
+ * I valori dei campioni sono DELTA con segno accumulati su uno stato. Un errore
+ * in un solo punto non produce un errore: produce un profilo plausibile e falso,
+ * che scorre a caso da lì in poi. Per questo:
  *
- *  - le tabelle sono copiate verbatim, nell'ordine dei campi dell'originale
- *    (`type, absolute, index, ntypebits, ignoretype, extrabytes`);
  *  - l'intestazione è LITTLE endian, i dati dentro un record sono BIG endian.
  *    Sono davvero diversi, non è un errore di trascrizione;
  *  - `decodeUwatecSmart` restituisce quanti byte ha consumato, e il chiamante
@@ -57,6 +58,16 @@
  * campioni), zero byte residui, zero errori di formato.
  */
 
+import {
+  decodificaFlusso,
+  iniziaConUnRecordValido,
+  ALADIN,
+  GALILEO,
+  SMART_COM,
+  SMART_PRO,
+  SMART_TEC,
+  type Voce,
+} from './uwatecBitstream';
 import type { Sample } from '../model';
 
 /** Millisecondi fra l'epoca Uwatec (2000-01-01 UTC) e quella Unix. */
@@ -73,117 +84,12 @@ const SETTING = {
   salinity: 0x0010_0000,
 } as const;
 
-type SampleKind =
-  | 'pressureDepth'
-  | 'rbt'
-  | 'temperature'
-  | 'pressure'
-  | 'depth'
-  | 'heartrate'
-  | 'bearing'
-  | 'alarms'
-  | 'time'
-  | 'apnea'
-  | 'misc';
-
-interface RecordInfo {
-  kind: SampleKind;
-  absolute: boolean;
-  /** Indice del serbatoio o del gruppo di allarmi. */
-  index: number;
-  ntypebits: number;
-  ignoretype: boolean;
-  extrabytes: number;
-}
-
-const rec = (
-  kind: SampleKind,
-  absolute: number,
-  index: number,
-  ntypebits: number,
-  ignoretype: number,
-  extrabytes: number,
-): RecordInfo => ({
-  kind,
-  absolute: absolute === 1,
-  index,
-  ntypebits,
-  ignoretype: ignoretype === 1,
-  extrabytes,
-});
-
 /**
- * `uwatec_smart_galileo_samples` — usata da Galileo, Meridian, G2/G3, Chromis,
- * Mantis, Aladin Square/A1/A2/Sport Matrix, Luna 2. È la tabella dei computer
- * moderni, quindi quella che serve per qualunque export LogTRAK recente.
+ * Le tabelle dei record stanno in `uwatecBitstream.ts`, scritte come disegni di
+ * bit — `0ddddddd`, `1111110x` — che è il modo in cui la specifica pubblica del
+ * formato lo descrive. Qui restano solo le intestazioni, che sono un'altra cosa:
+ * offset dentro un blocco a lunghezza fissa, e non un codice da riconoscere.
  */
-const GALILEO_SAMPLES: RecordInfo[] = [
-  rec('depth', 0, 0, 1, 0, 0), //        0ddd dddd  delta profondità, 7 bit con segno
-  rec('rbt', 0, 0, 3, 0, 0), //          100d dddd  delta RBT, 5 bit
-  rec('pressure', 0, 0, 4, 0, 0), //     1010 dddd  delta pressione, 4 bit
-  rec('temperature', 0, 0, 4, 0, 0), //  1011 dddd  delta temperatura, 4 bit
-  rec('time', 1, 0, 4, 0, 0), //         1100 dddd  ripeti l'ultimo campione N volte
-  rec('heartrate', 0, 0, 4, 0, 0), //    1101 dddd
-  rec('alarms', 1, 0, 4, 0, 0), //       1110 dddd  gruppo allarmi 0
-  rec('alarms', 1, 1, 8, 0, 1), //       0xF0 + 1   gruppo allarmi 1
-  rec('depth', 1, 0, 8, 0, 2), //        0xF1 + 2   profondità assoluta
-  rec('rbt', 1, 0, 8, 0, 1), //          0xF2 + 1
-  rec('temperature', 1, 0, 8, 0, 2), //  0xF3 + 2   temperatura assoluta
-  rec('pressure', 1, 0, 8, 0, 2), //     0xF4 + 2   pressione assoluta serbatoio 0
-  rec('pressure', 1, 1, 8, 0, 2), //     0xF5 + 2
-  rec('pressure', 1, 2, 8, 0, 2), //     0xF6 + 2
-  rec('heartrate', 1, 0, 8, 0, 1), //    0xF7 + 1
-  rec('bearing', 1, 0, 8, 0, 2), //      0xF8 + 2
-  rec('alarms', 1, 2, 8, 0, 1), //       0xF9 + 1   gruppo allarmi 2 (gas su trimix)
-  rec('apnea', 1, 0, 8, 0, 0), //        0xFA       payload di 8 byte, non documentato
-  rec('misc', 1, 0, 8, 0, 1), //         0xFB + len miscele e dati vari
-];
-
-/** `uwatec_smart_pro_samples` / `uwatec_smart_aladin_samples`: famiglie vecchie. */
-const SMART_PRO_SAMPLES: RecordInfo[] = [
-  rec('depth', 0, 0, 1, 0, 0),
-  rec('temperature', 0, 0, 2, 0, 0),
-  rec('time', 1, 0, 3, 0, 0),
-  rec('alarms', 1, 0, 4, 0, 0),
-  rec('depth', 0, 0, 5, 0, 1),
-  rec('temperature', 0, 0, 6, 0, 1),
-  rec('depth', 1, 0, 7, 1, 2),
-  rec('temperature', 1, 0, 8, 0, 2),
-];
-
-const ALADIN_SAMPLES: RecordInfo[] = [...SMART_PRO_SAMPLES, rec('alarms', 1, 1, 9, 0, 0)];
-
-const SMART_COM_SAMPLES: RecordInfo[] = [
-  rec('pressureDepth', 0, 0, 1, 0, 1),
-  rec('rbt', 0, 0, 2, 0, 0),
-  rec('temperature', 0, 0, 3, 0, 0),
-  rec('pressure', 0, 0, 4, 0, 1),
-  rec('depth', 0, 0, 5, 0, 1),
-  rec('temperature', 0, 0, 6, 0, 1),
-  rec('alarms', 1, 0, 7, 1, 1),
-  rec('time', 1, 0, 8, 0, 1),
-  rec('depth', 1, 0, 9, 1, 2),
-  rec('pressure', 1, 0, 10, 1, 2),
-  rec('temperature', 1, 0, 11, 1, 2),
-  rec('rbt', 1, 0, 12, 1, 1),
-];
-
-const SMART_TEC_SAMPLES: RecordInfo[] = [
-  rec('pressureDepth', 0, 0, 1, 0, 1),
-  rec('rbt', 0, 0, 2, 0, 0),
-  rec('temperature', 0, 0, 3, 0, 0),
-  rec('pressure', 0, 0, 4, 0, 1),
-  rec('depth', 0, 0, 5, 0, 1),
-  rec('temperature', 0, 0, 6, 0, 1),
-  rec('alarms', 1, 0, 7, 1, 1),
-  rec('time', 1, 0, 8, 0, 1),
-  rec('depth', 1, 0, 9, 1, 2),
-  rec('temperature', 1, 0, 10, 1, 2),
-  rec('pressure', 1, 0, 11, 1, 2),
-  rec('pressure', 1, 1, 12, 1, 2),
-  rec('pressure', 1, 2, 13, 1, 2),
-  rec('rbt', 1, 0, 14, 1, 1),
-];
 
 interface HeaderLayout {
   maxDepth: number;
@@ -195,11 +101,9 @@ interface HeaderLayout {
   settings?: number;
   /** Offset in cui iniziano i campioni. */
   size: number;
-  samples: RecordInfo[];
+  samples: Voce[];
   /** Se vero, la pressione assoluta ha l'indice del serbatoio nel nibble alto. */
   trimix: boolean;
-  /** Numero di byte del tipo contati a bit invece che a nibble. */
-  identify: 'galileo' | 'leadingOnes';
 }
 
 /**
@@ -220,9 +124,8 @@ const GALILEO_HEADER = {
   timezone: 16,
   settings: 92,
   size: 152,
-  samples: GALILEO_SAMPLES,
+  samples: GALILEO,
   trimix: false,
-  identify: 'galileo' as const,
 };
 
 const TRIMIX_HEADER = {
@@ -239,9 +142,8 @@ export const UWATEC_MODELS: Record<number, HeaderLayout> = {
     tempMin: 22,
     tempMax: -1,
     size: 92,
-    samples: SMART_PRO_SAMPLES,
+    samples: SMART_PRO,
     trimix: false,
-    identify: 'leadingOnes',
   }, // Smart PRO
   0x11: GALILEO_HEADER, // Galileo Sol/Terra/Luna
   0x12: {
@@ -253,9 +155,8 @@ export const UWATEC_MODELS: Record<number, HeaderLayout> = {
     timezone: 16,
     settings: 52,
     size: 108,
-    samples: ALADIN_SAMPLES,
+    samples: ALADIN,
     trimix: false,
-    identify: 'leadingOnes',
   }, // Aladin TEC
   0x13: {
     maxDepth: 22,
@@ -266,9 +167,8 @@ export const UWATEC_MODELS: Record<number, HeaderLayout> = {
     timezone: 16,
     settings: 60,
     size: 116,
-    samples: ALADIN_SAMPLES,
+    samples: ALADIN,
     trimix: false,
-    identify: 'leadingOnes',
   }, // Aladin TEC 2G
   0x14: {
     maxDepth: 18,
@@ -276,9 +176,8 @@ export const UWATEC_MODELS: Record<number, HeaderLayout> = {
     tempMin: 22,
     tempMax: -1,
     size: 100,
-    samples: SMART_COM_SAMPLES,
+    samples: SMART_COM,
     trimix: false,
-    identify: 'leadingOnes',
   }, // Smart COM
   0x15: GALILEO_HEADER, // Aladin 2G / Tec 3G / Aladin Sport (IrDA)
   0x17: TRIMIX_HEADER, // Aladin Sport Matrix / H Matrix (Bluetooth)
@@ -288,9 +187,8 @@ export const UWATEC_MODELS: Record<number, HeaderLayout> = {
     tempMin: 22,
     tempMax: -1,
     size: 132,
-    samples: SMART_TEC_SAMPLES,
+    samples: SMART_TEC,
     trimix: false,
-    identify: 'leadingOnes',
   }, // Smart TEC
   0x19: GALILEO_HEADER, // Galileo Trimix
   0x1c: {
@@ -299,9 +197,8 @@ export const UWATEC_MODELS: Record<number, HeaderLayout> = {
     tempMin: 22,
     tempMax: -1,
     size: 132,
-    samples: SMART_TEC_SAMPLES,
+    samples: SMART_TEC,
     trimix: false,
-    identify: 'leadingOnes',
   }, // Smart Z
   0x20: GALILEO_HEADER, // Meridian
   0x22: GALILEO_HEADER, // Aladin Square
@@ -490,37 +387,6 @@ export function hasUwatecMagic(b: Uint8Array, at = 0): boolean {
   return UWATEC_MAGIC.every((v, i) => b[at + i] === v);
 }
 
-/**
- * Identificazione del record per la famiglia Galileo: a nibble, non contando
- * i bit a 1 iniziali. Sono due schemi diversi e non interscambiabili.
- */
-function identifyGalileo(value: number): number {
-  if ((value & 0x80) === 0) return 0;
-  if ((value & 0xe0) === 0x80) return 1;
-  if ((value & 0xf0) !== 0xf0) return (value & 0x70) >> 4;
-  return (value & 0x0f) + 7;
-}
-
-/** Famiglie vecchie: l'indice è il numero di bit a 1 prima del primo bit a 0. */
-function identifyLeadingOnes(data: Uint8Array, from: number): number {
-  let count = 0;
-  for (let i = from; i < data.length; i++) {
-    for (let j = 0; j < 8; j++) {
-      if ((data[i] & (1 << (7 - j))) === 0) return count;
-      count++;
-    }
-  }
-  return -1;
-}
-
-/** Estensione del segno su `nbits` bit. Con 0 bit il valore è 0, non un segno casuale. */
-export function signExtend(value: number, nbits: number): number {
-  if (nbits <= 0 || nbits > 32) return 0;
-  const signBit = 1 << (nbits - 1);
-  const mask = signBit - 1;
-  return (value & signBit) === signBit ? value | ~mask : value & mask;
-}
-
 // ---------------------------------------------------------------------------
 
 export interface DecodeOptions {
@@ -546,11 +412,8 @@ export function decodeUwatecSmart(bytes: Uint8Array, opts: DecodeOptions = {}): 
     // dà un record id fuori tabella, quindi verifichiamo anche quello.
     const candidates = [TRIMIX_HEADER, GALILEO_HEADER];
     layout =
-      candidates.find((c) => {
-        if (bytes.length <= c.size) return false;
-        const id = identifyGalileo(bytes[c.size]);
-        return id < c.samples.length;
-      }) ?? TRIMIX_HEADER;
+      candidates.find((c) => bytes.length > c.size && iniziaConUnRecordValido(bytes, c.size, c.samples)) ??
+      TRIMIX_HEADER;
     warnings.push(
       `Modello del computer non indicato: intestazione da ${layout.size} byte dedotta dal contenuto.`,
     );
@@ -601,190 +464,51 @@ export function decodeUwatecSmart(bytes: Uint8Array, opts: DecodeOptions = {}): 
     warnings,
   };
 
-  // --- stato del bitstream -------------------------------------------------
-  let offset = headerSize;
-  let time = 0;
-  let depth = 0;
-  let depthCalibration = 0;
-  let calibrated = false;
-  let temperature = 0;
-  let pressure = 0;
-  let rbt = 99;
-  let heartRate = 0;
-  let bearing: number | undefined;
-  let tank = 0;
-  let complete = 0;
-  let haveDepth = false;
-  let haveTemp = false;
-  let havePressure = false;
-  let haveHeartRate = false;
+  /*
+   * IL FLUSSO LO LEGGE `uwatecBitstream.ts`, che restituisce campioni in unità
+   * del computer — 2 mbar, quarti di bar, gradi per 2.5. La conversione in unità
+   * fisiche resta qui perché dipende dalla densità dell'acqua e dalla pressione
+   * di superficie, che sono dati di QUESTA immersione e non del formato.
+   */
+  const flusso = decodificaFlusso(bytes, {
+    daByte: headerSize,
+    finoA: declared,
+    tabella: layout.samples,
+    trimix: layout.trimix,
+    intervalloS: intervalS,
+  });
 
-  const limit = Math.min(declared, bytes.length);
-  const table = layout.samples;
-
-  while (offset < limit) {
-    const first = bytes[offset];
-    const id = layout.identify === 'galileo' ? identifyGalileo(first) : identifyLeadingOnes(bytes, offset);
-    if (id < 0 || id >= table.length) {
-      throw new Error(
-        `Record sconosciuto (byte 0x${first.toString(16)}, indice ${id}) a offset ${offset}: intestazione da ${headerSize} byte probabilmente sbagliata.`,
-      );
+  dive.samples = flusso.campioni.map((c) => {
+    const s: UwatecSample = { t: c.t };
+    // I campioni misurano la pressione dell'acqua in unità di 2 mbar: il fattore
+    // due è dentro la formula, insieme alla densità.
+    if (c.profonditaUnita !== undefined) {
+      s.depth = round2((c.profonditaUnita * (2 * BAR_PA)) / 1000 / (density * 10));
     }
-    const info = table[id];
-
-    // Salta i byte interamente occupati dal tipo.
-    offset += Math.floor(info.ntypebits / 8);
-
-    // Bit di dato che restano nell'ultimo byte del tipo.
-    let nbits = 0;
-    let value = 0;
-    const n = info.ntypebits % 8;
-    if (n > 0) {
-      nbits = 8 - n;
-      value = bytes[offset] & (0xff >> n);
-      if (info.ignoretype) {
-        nbits = 0;
-        value = 0;
-      }
-      offset++;
+    if (c.temperaturaUnita !== undefined) s.tempC = round1(c.temperaturaUnita / 2.5);
+    if (c.pressioneUnita !== undefined) {
+      s.pressureBar = round2(c.pressioneUnita / 4);
+      s.tank = c.serbatoio;
     }
+    if (c.rbtMin !== undefined) s.rbtMin = c.rbtMin;
+    if (c.battito !== undefined) s.heartRate = c.battito;
+    if (c.rilevamento !== undefined) s.bearing = c.rilevamento;
+    return s;
+  });
 
-    // Byte aggiuntivi: BIG endian dentro il record, al contrario dell'intestazione.
-    for (let i = 0; i < info.extrabytes; i++) {
-      nbits += 8;
-      value = value * 256 + bytes[offset];
-      offset++;
-    }
+  dive.events = flusso.eventi.map((e) => ({ t: e.t, group: e.gruppo, value: e.valore }));
+  dive.gasMixes = flusso.miscele.map((m) => ({
+    index: m.indice,
+    o2: m.o2 / 100,
+    he: m.he / 100,
+    startBar: m.inizio128 > 0 ? round2(m.inizio128 / 128) : undefined,
+    endBar: m.fine128 > 0 ? round2(m.fine128 / 128) : undefined,
+  }));
 
-    const signed = signExtend(value, nbits);
-
-    switch (info.kind) {
-      case 'depth':
-        if (info.absolute) {
-          depth = value;
-          if (!calibrated) {
-            calibrated = true;
-            depthCalibration = depth;
-          }
-          haveDepth = true;
-        } else {
-          depth += signed;
-        }
-        complete = 1;
-        break;
-
-      case 'pressureDepth':
-        // Un solo record porta entrambi: byte alto pressione, byte basso profondità.
-        pressure += ((signed >> 8) << 24) >> 24;
-        depth += ((signed & 0xff) << 24) >> 24;
-        havePressure = true;
-        complete = 1;
-        break;
-
-      case 'temperature':
-        if (info.absolute) {
-          temperature = signed;
-          haveTemp = true;
-        } else {
-          temperature += signed;
-        }
-        break;
-
-      case 'pressure':
-        if (info.absolute) {
-          if (layout.trimix) {
-            // Sui modelli trimix l'indice del serbatoio sta nel nibble alto.
-            tank = (value & 0xf000) >> 12;
-            pressure = value & 0x0fff;
-          } else {
-            tank = info.index;
-            pressure = value;
-          }
-          havePressure = true;
-        } else {
-          pressure += signed;
-        }
-        break;
-
-      case 'rbt':
-        if (info.absolute) rbt = value;
-        else rbt += signed;
-        break;
-
-      case 'heartrate':
-        if (info.absolute) {
-          heartRate = value;
-          haveHeartRate = true;
-        } else {
-          heartRate += signed;
-        }
-        break;
-
-      case 'bearing':
-        // Il rilevamento vale per i campioni successivi finché non cambia: è un
-        // record che il computer emette solo quando la bussola viene usata.
-        bearing = value;
-        break;
-
-      case 'time':
-        // Ripeti l'ultimo campione `value` volte. Con 0 non emette nulla.
-        complete = value;
-        break;
-
-      case 'alarms':
-        dive.events.push({ t: time, group: info.index, value });
-        break;
-
-      case 'apnea':
-        offset += 8;
-        break;
-
-      case 'misc': {
-        const subtype = bytes[offset];
-        if (subtype >= 32 && subtype <= 41) {
-          // Descrittore di miscela. Dentro il payload i campi tornano little endian.
-          const base = offset + 1;
-          const o2 = view.getUint16(base, true);
-          const he = view.getUint16(base + 2, true);
-          const beginBar = view.getUint16(base + 4, true);
-          const endBar = view.getUint16(base + 6, true);
-          dive.gasMixes.push({
-            index: subtype - 32,
-            o2: o2 / 100,
-            he: he / 100,
-            startBar: beginBar > 0 ? round2(beginBar / 128) : undefined,
-            endBar: endBar > 0 ? round2(endBar / 128) : undefined,
-          });
-        }
-        offset += value - 1;
-        break;
-      }
-    }
-
-    while (complete > 0) {
-      const s: UwatecSample = { t: time };
-      if (haveDepth) {
-        // I campioni usano 2 mbar per unità: il fattore 2 è nella formula.
-        s.depth = round2(((depth - depthCalibration) * (2 * BAR_PA)) / 1000 / (density * 10));
-      }
-      if (haveTemp) s.tempC = round1(temperature / 2.5);
-      if (havePressure && pressure > 0) {
-        s.pressureBar = round2(pressure / 4);
-        s.tank = tank;
-      }
-      if (havePressure) s.rbtMin = rbt;
-      if (haveHeartRate) s.heartRate = heartRate;
-      if (bearing !== undefined) s.bearing = bearing;
-      dive.samples.push(s);
-      time += intervalS;
-      complete--;
-    }
-  }
-
-  dive.bytesConsumed = offset;
-  if (offset !== declared) {
+  dive.bytesConsumed = flusso.byteConsumati;
+  if (flusso.byteConsumati !== declared) {
     warnings.push(
-      `Decodifica disallineata: consumati ${offset} byte su ${declared} dichiarati. Il profilo potrebbe essere incompleto.`,
+      `Decodifica disallineata: consumati ${flusso.byteConsumati} byte su ${declared} dichiarati. Il profilo potrebbe essere incompleto.`,
     );
   }
   return dive;

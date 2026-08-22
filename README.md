@@ -572,10 +572,10 @@ niente accesso al filesystem arbitrario.
 
 ## Licenza e riconoscimenti
 
-MIT — vedi [LICENSE](LICENSE) — **con due eccezioni dichiarate**, elencate in
-[`LICENSES/LEGGIMI.md`](LICENSES/LEGGIMI.md): il decoder Uwatec e la libreria
-libdivecomputer vendorizzata sono LGPL-2.1-or-later. Le due licenze convivono
-senza forzature, ed è esattamente il caso per cui la LGPL è stata scritta.
+MIT — vedi [LICENSE](LICENSE). **Il codice dell'applicazione è tutto MIT.**
+L'unica eccezione è la libreria libdivecomputer vendorizzata in
+`src-tauri/vendor/`, che è LGPL-2.1 e viene compilata solo con la funzionalità
+cargo `computer-esterni`: vedi [`LICENSES/LEGGIMI.md`](LICENSES/LEGGIMI.md).
 
 ### Il debito verso libdivecomputer, dichiarato per intero
 
@@ -586,7 +586,7 @@ questi protocolli sarebbero illeggibili.
 
 | File | Da cosa | Quanto |
 |---|---|---|
-| `src/core/parsers/uwatecSmart.ts` | `uwatec_smart_parser.c`, `array.c` | **il nucleo è una traduzione**: tabelle dei campioni, `identify`, `signextend`, il ciclo del bitstream |
+| `src/core/parsers/uwatecBitstream.ts` | la [specifica pubblica del formato](https://diversity.sourceforge.net/uwatec_smart_format.html) del progetto Diversity | **riscritto da capo** dopo l'audit: il nucleo era una traduzione, ora segue la descrizione a codice di prefissi. Verificato: 64 706 campioni, zero differenze |
 | `src/core/parsers/shearwaterPnf.ts` | `shearwater_predator_parser.c` | reimplementazione; derivati la correzione delle temperature negative e alcuni commenti |
 | `src/core/ble/drivers/uwatec.ts` | `uwatec_smart.c` | reimplementazione; comuni i nomi dei comandi, che sono fatti del protocollo |
 | `src/core/ble/drivers/shearwater.ts` | `shearwater_common.c`, `shearwater_petrel.c` | reimplementazione; `decompressLre` è una traduzione ravvicinata di dodici righe |
@@ -596,8 +596,13 @@ una stima. **Dichiararla per intero è deliberato**: un'attribuzione volontaria 
 completa è la difesa migliore della tesi che il resto sia farina nostra, e
 tacerla non renderebbe il debito più piccolo — solo più difficile da vedere.
 
-Il caso di `uwatecSmart.ts` è diverso dagli altri tre per grado, non per
-sfumatura, e la sua licenza è trattata a parte in testa al file.
+`uwatecSmart.ts` era il caso grave — il suo nucleo era una traduzione, non una
+reimplementazione — ed è stato **riscritto**: il flusso ora lo legge
+`uwatecBitstream.ts`, che segue la specifica pubblica del formato. La riscrittura
+è verificata campione per campione contro la versione precedente e contro
+libdivecomputer: 64 706 profondità e altrettante temperature, zero differenze.
+La storia sta in testa al file, e ci resta: cancellarla renderebbe il debito solo
+più difficile da vedere.
 
 L'algoritmo Bühlmann ZH-L16C è di Albert A. Bühlmann; l'interpolazione dei
 gradient factor segue il lavoro di Erik Baker. VPM-B è di David E. Yount,

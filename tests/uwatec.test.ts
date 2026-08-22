@@ -8,11 +8,19 @@
  * valgono su qualunque file (byte consumati, campi dell'intestazione, unità).
  */
 
+import {
+  conSegno,
+  preparaTabella,
+  ALADIN,
+  GALILEO,
+  SMART_COM,
+  SMART_PRO,
+  SMART_TEC,
+} from '../src/core/parsers/uwatecBitstream';
 import { describe, expect, it } from 'vitest';
 import {
   decodeUwatecSmart,
   hasUwatecMagic,
-  signExtend,
   splitUwatecRecords,
   trimSurface,
   UWATEC_MODELS,
@@ -35,21 +43,63 @@ const spec = {
   endBar: 60,
 };
 
-describe('estensione del segno', () => {
-  it('interpreta i delta negativi', () => {
-    // 7 bit: 0x7F = -1, non 127. È l'errore che scombina tutto il profilo.
-    expect(signExtend(0x7f, 7)).toBe(-1);
-    expect(signExtend(0x40, 7)).toBe(-64);
-    expect(signExtend(0x3f, 7)).toBe(63);
-    // 4 bit
-    expect(signExtend(0x0f, 4)).toBe(-1);
-    expect(signExtend(0x08, 4)).toBe(-8);
-    expect(signExtend(0x07, 4)).toBe(7);
+describe('i delta col segno', () => {
+  it('un numero oltre la metà dell’intervallo è negativo', () => {
+    // 7 bit: 0x7F vale -1, non 127. È l'errore che scombina tutto il profilo da
+    // lì in poi, senza dare nessun errore.
+    expect(conSegno(0x7f, 7)).toBe(-1);
+    expect(conSegno(0x40, 7)).toBe(-64);
+    expect(conSegno(0x3f, 7)).toBe(63);
+    expect(conSegno(0x0f, 4)).toBe(-1);
+    expect(conSegno(0x08, 4)).toBe(-8);
+    expect(conSegno(0x07, 4)).toBe(7);
   });
 
-  it('con zero bit vale zero, non un segno casuale', () => {
-    expect(signExtend(0xff, 0)).toBe(0);
-    expect(signExtend(1, 33)).toBe(0);
+  it('con zero bit vale zero, non un segno letto a caso', () => {
+    expect(conSegno(0xff, 0)).toBe(0);
+    expect(conSegno(0, 0)).toBe(0);
+  });
+
+  it('regge anche sulle larghezze grandi del formato', () => {
+    // Il record più largo è 8 bit di tipo più due byte: sedici bit di dato.
+    expect(conSegno(0xffff, 16)).toBe(-1);
+    expect(conSegno(0x8000, 16)).toBe(-32768);
+    expect(conSegno(0x7fff, 16)).toBe(32767);
+  });
+});
+
+describe('i disegni di bit', () => {
+  /*
+   * Le tabelle sono un codice a prefissi: nessun disegno può essere l'inizio di
+   * un altro. Se lo fosse, il riconoscimento sceglierebbe sempre il più corto e
+   * l'altro non verrebbe mai letto — e il sintomo non sarebbe un errore, sarebbe
+   * un profilo sbagliato. `preparaTabella` lo verifica; qui si verifica che
+   * verifichi.
+   */
+  it('tutte le famiglie sono codici leggibili', () => {
+    for (const tabella of [GALILEO, SMART_PRO, ALADIN, SMART_COM, SMART_TEC]) {
+      expect(() => preparaTabella(tabella)).not.toThrow();
+    }
+  });
+
+  it('un disegno che è prefisso di un altro viene rifiutato', () => {
+    expect(() =>
+      preparaTabella([
+        { disegno: '10dddddd', grandezza: 'profondita', assoluto: false, indice: 0, byteExtra: 0 },
+        { disegno: '100ddddd', grandezza: 'rbt', assoluto: false, indice: 0, byteExtra: 0 },
+      ]),
+    ).toThrow(/prefisso/);
+  });
+
+  it('ogni record occupa un numero intero di byte', () => {
+    // Il formato lo garantisce, e il decoder ci conta: se un disegno finisse a
+    // metà byte, il record dopo comincerebbe disallineato.
+    for (const tabella of [GALILEO, SMART_PRO, ALADIN, SMART_COM, SMART_TEC]) {
+      for (const voce of tabella) {
+        const bit = voce.disegno.length + voce.byteExtra * 8;
+        expect(bit % 8, `${voce.disegno} + ${voce.byteExtra}`).toBe(0);
+      }
+    }
   });
 });
 
