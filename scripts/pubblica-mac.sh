@@ -32,6 +32,10 @@
 
 set -euo pipefail
 
+# NOTA SULLE GRAFFE, che qui non sono pedanteria: il bash di macOS è il 3.2 del
+# 2007, e non sa che «»» è un carattere. Scrivendo `$PROFILO»` include quei byte
+# NEL NOME della variabile e si ferma con «unbound variable» su una riga che
+# sembra innocua. `${PROFILO}»` chiude il nome e toglie il problema.
 PROFILO="${PROFILO_NOTARIZZAZIONE:-mydivelog}"
 cd "$(dirname "$0")/.."
 
@@ -51,11 +55,11 @@ FINE
 fi
 echo "  uso: $IDENTITA"
 
-echo "→ controllo le credenziali di notarizzazione (profilo «$PROFILO»)"
+echo "→ controllo le credenziali di notarizzazione (profilo «${PROFILO}»)"
 if ! xcrun notarytool history --keychain-profile "$PROFILO" >/dev/null 2>&1; then
   cat >&2 <<FINE
 
-FERMO: il profilo «$PROFILO» non è nel portachiavi.
+FERMO: il profilo «${PROFILO}» non è nel portachiavi.
 
 Crealo una volta sola con:
 
@@ -76,16 +80,57 @@ echo "→ compilo"
 npm run desktop:build
 
 APP="src-tauri/target/release/bundle/macos/MyDiveLog.app"
-DMG=$(ls -t src-tauri/target/release/bundle/dmg/*.dmg | head -1)
+
+# --- runtime irrobustito -----------------------------------------------------
+#
+# TAURI FIRMA, MA SENZA. Il suo bundler applica il certificato e si ferma lì: il
+# pacchetto esce con una firma valida e **senza runtime irrobustito**, che è la
+# sola cosa che la notarizzazione pretende sempre. Il rifiuto di Apple arriva
+# dopo l'invio, cioè dopo aver aspettato — quindi si rifirma qui, prima.
+#
+# `--options runtime` è il flag; `--timestamp` è l'altro requisito, e serve
+# perché la firma resti valida anche dopo la scadenza del certificato.
+echo "→ rifirmo con il runtime irrobustito"
+codesign --force --deep --options runtime --timestamp --sign "$IDENTITA" "$APP"
 
 echo "→ verifico la firma"
 codesign --verify --strict --verbose=2 "$APP"
-# Senza «runtime» fra i flag, la notarizzazione viene RIFIUTATA — e il rifiuto
-# arriva dopo l'invio, cioè dopo aver aspettato. Meglio accorgersene qui.
-if ! codesign -d --verbose=2 "$APP" 2>&1 | grep -q 'flags=.*runtime'; then
-  echo "FERMO: il pacchetto non ha il runtime irrobustito, la notarizzazione lo rifiuterebbe." >&2
-  exit 1
-fi
+
+# LA FIRMA SI LEGGE IN UNA VARIABILE, e non con una pipe dentro un `if`.
+#
+# `codesign -d ... | grep -q` sembra la cosa ovvia e con `set -o pipefail` è una
+# trappola: `grep -q` esce appena trova, chiude la pipe, `codesign` prende un
+# SIGPIPE e muore con un codice diverso da zero — e `pipefail` fa fallire tutta
+# la catena anche quando il testo cercato c'era. Il primo tentativo si è fermato
+# proprio così, dicendo che mancava un flag che era lì.
+FIRMA=$(codesign -d --verbose=2 "$APP" 2>&1 || true)
+case "$FIRMA" in
+  *"(runtime)"*) ;;
+  *)
+    echo "FERMO: il runtime irrobustito non è stato applicato." >&2
+    echo "$FIRMA" >&2
+    exit 1
+    ;;
+esac
+
+# --- il pacchetto ------------------------------------------------------------
+#
+# COSTRUITO QUI E NON DA TAURI, per una ragione sola: quello di Tauri contiene
+# l'applicazione com'era PRIMA della rifirma qui sopra, e dentro un `.dmg`
+# compresso non si sostituisce niente. Tanto vale rifarlo, che sono tre comandi:
+# una cartella con l'app e il collegamento ad Applications, l'immagine, la firma.
+echo "→ costruisco il pacchetto"
+VERSIONE=$(node -p "require('./package.json').version")
+DMG="src-tauri/target/release/bundle/dmg/MyDiveLog_${VERSIONE}_aarch64.dmg"
+SCENA=$(mktemp -d)
+cp -R "$APP" "$SCENA/"
+# Il collegamento ad Applications: è quello che rende l'installazione un
+# trascinamento invece di una spiegazione.
+ln -s /Applications "$SCENA/Applications"
+rm -f "$DMG"
+hdiutil create -volname "MyDiveLog" -srcfolder "$SCENA" -ov -format UDZO "$DMG" >/dev/null
+rm -rf "$SCENA"
+codesign --force --timestamp --sign "$IDENTITA" "$DMG"
 
 echo "→ mando a notarizzare: $DMG"
 # `--wait` resta lì finché Apple non risponde: di solito un paio di minuti, a

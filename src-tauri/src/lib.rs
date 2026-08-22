@@ -110,6 +110,30 @@ fn esporta_nei_documenti(app: tauri::AppHandle, nome: String, contenuto: String)
     Ok(destinazione.to_string_lossy().into_owned())
 }
 
+/*
+ * I computer subacquei riconosciuti da libdivecomputer.
+ *
+ * Il modulo c'è sempre; quello che cambia è cosa risponde. Senza la
+ * funzionalità `computer-esterni` restituisce un elenco vuoto, che è la
+ * risposta vera: quella copia dell'applicazione non riconosce nessun modello in
+ * più rispetto ai due driver scritti in casa.
+ *
+ * STA QUI, IN CIMA, E NON PIÙ IN BASSO. Prima questa dichiarazione era finita
+ * **fra un `#[cfg(desktop)]` e il modulo a cui quell'attributo si riferiva**, e
+ * un commento in mezzo non spezza quel legame: l'attributo si è attaccato a lei.
+ * Risultato, il modulo spariva dalla compilazione per iPhone e la build falliva
+ * con «cannot find module» su una riga che non lo nominava. Sul Mac non si
+ * vedeva, perché lì `desktop` è vero.
+ */
+mod computer_esterni;
+
+/*
+ * Il ponte fra libdivecomputer e il nostro Bluetooth. Esiste solo quando la
+ * funzionalità è accesa: senza, non c'è niente a cui fare da ponte.
+ */
+#[cfg(feature = "computer-esterni")]
+mod trasporto_ldc;
+
 /// Il ritorno dell'accesso sul desktop: un ascoltatore su 127.0.0.1.
 ///
 /// COME TORNA INDIETRO UN ACCESSO. Il giro OAuth si svolge nel browser di
@@ -138,23 +162,6 @@ fn esporta_nei_documenti(app: tauri::AppHandle, nome: String, contenuto: String)
 /// TypeScript. Questa porta è aperta, e chiunque sulla macchina può bussarci;
 /// quello che arriva senza uno `state` che combacia non viene guardato.
 #[cfg(desktop)]
-/*
- * I computer subacquei riconosciuti da libdivecomputer.
- *
- * Il modulo c'è sempre; quello che cambia è cosa risponde. Senza la
- * funzionalità `computer-esterni` restituisce un elenco vuoto, che è la
- * risposta vera: quella copia dell'applicazione non riconosce nessun modello in
- * più rispetto ai due driver scritti in casa.
- */
-mod computer_esterni;
-
-/*
- * Il ponte fra libdivecomputer e il nostro Bluetooth. Esiste solo quando la
- * funzionalità è accesa: senza, non c'è niente a cui fare da ponte.
- */
-#[cfg(feature = "computer-esterni")]
-mod trasporto_ldc;
-
 mod ritorno_accesso {
     use std::io::{BufRead, BufReader, Write};
     use std::net::TcpListener;
