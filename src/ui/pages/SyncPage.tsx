@@ -1,11 +1,17 @@
 /**
  * Configurazione e uso del database condiviso (Turso / libSQL).
  *
- * Due cose, separate di proposito: le credenziali si inseriscono una volta, la
+ * Due cose, separate di proposito: l'accesso si fa una volta, la
  * sincronizzazione si lancia quando si vuole. Non c'è nessuna sincronizzazione
  * automatica all'avvio, e non è una mancanza: un logbook si apre anche in barca,
  * dove la rete non c'è, e un'app che all'apertura aspetta la rete è un'app che in
  * barca non si apre.
+ *
+ * L'ORDINE DELLA PAGINA È UNA DICHIARAZIONE. Prima l'accesso, poi il pulsante
+ * per sincronizzare, e solo dopo — chiuso dentro «Avanzate» — il campo dove si
+ * incollano indirizzo e token. Finché i due riquadri stavano affiancati
+ * sembrava ci fosse una scelta da compiere; la scelta giusta invece è una sola,
+ * e l'altra strada resta aperta per il giorno che la prima non funziona.
  */
 
 import { useRef, useState } from 'react';
@@ -31,6 +37,7 @@ import { BottoneConferma } from '../components/Conferma';
 export function SyncPage() {
   const {
     dives,
+    accountAttivo,
     syncCredentials,
     saveSyncCredentials,
     testSync,
@@ -54,6 +61,13 @@ export function SyncPage() {
 
   const configured = Boolean(syncCredentials);
   const dirty = url.trim() !== (syncCredentials?.url ?? '') || token !== (syncCredentials?.authToken ?? '');
+  /*
+   * Si può sincronizzare per due strade, e all'interfaccia interessa solo se ce
+   * n'è una aperta. L'account ha la precedenza (lo decide `syncNow`), quindi chi
+   * è entrato con Google può premere Sincronizza anche con il campo manuale
+   * vuoto — che è esattamente il caso normale da quando l'accesso esiste.
+   */
+  const pronto = accountAttivo || configured;
 
   const save = async () => {
     setTestResult(null);
@@ -103,10 +117,109 @@ export function SyncPage() {
       <AccountCard />
 
       <div className="card">
-        <h2>Database condiviso</h2>
+        <h2>Sincronizza ora</h2>
         <p className="card-sub">
-          Un solo archivio per tutti i dispositivi. L'app continua a funzionare offline: la sincronizzazione è
-          un'operazione che lanci tu, non una condizione per aprire il logbook.
+          Prima scarica, poi carica. Niente viene cancellato: le immersioni si aggiungono e si completano a
+          vicenda — il riepilogo più recente e il profilo più ricco, anche quando arrivano da dispositivi
+          diversi.
+        </p>
+        <div className="row">
+          <button
+            className="btn btn-primary"
+            onClick={() => void run()}
+            disabled={busy || !pronto || (!accountAttivo && dirty)}
+          >
+            {busy ? 'Sincronizzazione in corso…' : 'Sincronizza'}
+          </button>
+          {!pronto && (
+            <span className="muted" style={{ fontSize: 12 }}>
+              Accedi con Google qui sopra, e questo pulsante si accende.
+            </span>
+          )}
+          {/*
+           * L'avviso sulle credenziali non salvate riguarda SOLO chi sincronizza
+           * col campo manuale. A chi è entrato con l'account non si parla di
+           * credenziali da salvare: non ne ha, e sarebbe un avviso su una cosa
+           * che non lo tocca.
+           */}
+          {!accountAttivo && configured && dirty && (
+            <span className="muted" style={{ fontSize: 12 }}>
+              Hai modificato le credenziali: salvale prima di sincronizzare.
+            </span>
+          )}
+        </div>
+
+        {log.length > 0 && (
+          <ul style={{ margin: '14px 0 0', paddingLeft: 18, fontSize: 12, color: 'var(--text-secondary)' }}>
+            {log.map((line, i) => (
+              <li key={`${i}-${line}`}>{line}</li>
+            ))}
+          </ul>
+        )}
+
+        {error && <p style={{ marginTop: 12, fontSize: 13, color: 'var(--critical)' }}>{error}</p>}
+
+        {report && (
+          <table style={{ marginTop: 14 }}>
+            <tbody>
+              <Row label="Caricate" value={report.pushed} />
+              <Row label="Scaricate" value={report.pulled} />
+              <Row label="Profili caricati" value={report.pushedProfiles} />
+              <Row label="Profili scaricati" value={report.pulledProfiles} />
+              <Row label="Già allineate" value={report.plan.unchanged} />
+              <Row
+                label="Impostazioni condivise"
+                value={`${report.settingsPushed} caricate, ${report.settingsPulled} scaricate`}
+              />
+              <Row label="Immersioni in archivio" value={report.total} />
+              <Row label="Durata" value={`${(report.durationMs / 1000).toFixed(1)} s`} />
+            </tbody>
+          </table>
+        )}
+        {/*
+         * Le impostazioni che non si sono allineate si DICHIARANO.
+         *
+         * Un'impostazione che non viaggia assomiglia in tutto e per tutto a
+         * un'impostazione che non è mai cambiata: senza questa riga, la
+         * differenza fra i due dispositivi si scopre settimane dopo, guardando
+         * un numero che non torna.
+         */}
+        {report && report.settingsErrors.length > 0 && (
+          <div className="notice notice-error" role="alert" style={{ marginTop: 12 }}>
+            <b>Queste impostazioni non si sono allineate.</b> Le immersioni sì: il resto del giro è andato a
+            buon fine. Riprova, e se l'errore torna uguale segnalalo — il testo è quello che serve per
+            capirlo.
+            <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+              {report.settingsErrors.map((e) => (
+                <li key={e}>{e}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/*
+       * IL CAMPO MANUALE È FINITO QUI SOTTO, E NON È STATO TOLTO.
+       *
+       * Da quando c'è l'accesso, incollare indirizzo e token è la strada di
+       * pochi: chi entra con Google un database ce l'ha già, creato dal
+       * servizio. Tenere due riquadri di pari dignità faceva sembrare che ci
+       * fosse una scelta da compiere, quando la scelta giusta è una sola.
+       *
+       * Ma toglierlo del tutto sarebbe stato un errore diverso e peggiore: il
+       * giorno che il servizio di accesso è irraggiungibile e la sessione è
+       * scaduta, senza questo campo non si sincronizza in nessun modo, e
+       * l'unico rimedio sarebbe ricompilare l'applicazione. Una via di scampo
+       * che costa una riga di codice e un clic non si butta via per ordine.
+       */}
+      <details className="card">
+        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+          Avanzate: collegare un database a mano
+        </summary>
+        <p className="card-sub" style={{ marginTop: 12 }}>
+          Serve solo a chi il database se l'è creato da sé su Turso, o come via di scampo se l'accesso con
+          Google non è disponibile. Se hai fatto l'accesso qui sopra, <b>lascia questi campi vuoti</b>: le
+          credenziali dell'account hanno comunque la precedenza.
         </p>
 
         <div style={{ display: 'grid', gap: 12, maxWidth: 620 }}>
@@ -173,88 +286,8 @@ export function SyncPage() {
             <p style={{ margin: 0, fontSize: 12, color: 'var(--critical)' }}>{testResult.error}</p>
           )}
         </div>
-      </div>
 
-      <div className="card">
-        <h2>Sincronizza ora</h2>
-        <p className="card-sub">
-          Prima scarica, poi carica. Niente viene cancellato: le immersioni si aggiungono e si completano a
-          vicenda — il riepilogo più recente e il profilo più ricco, anche quando arrivano da dispositivi
-          diversi.
-        </p>
-        <div className="row">
-          <button
-            className="btn btn-primary"
-            onClick={() => void run()}
-            disabled={busy || !configured || dirty}
-          >
-            {busy ? 'Sincronizzazione in corso…' : 'Sincronizza'}
-          </button>
-          {!configured && (
-            <span className="muted" style={{ fontSize: 12 }}>
-              Inserisci indirizzo e token, poi salva.
-            </span>
-          )}
-          {configured && dirty && (
-            <span className="muted" style={{ fontSize: 12 }}>
-              Hai modificato le credenziali: salvale prima di sincronizzare.
-            </span>
-          )}
-        </div>
-
-        {log.length > 0 && (
-          <ul style={{ margin: '14px 0 0', paddingLeft: 18, fontSize: 12, color: 'var(--text-secondary)' }}>
-            {log.map((line, i) => (
-              <li key={`${i}-${line}`}>{line}</li>
-            ))}
-          </ul>
-        )}
-
-        {error && <p style={{ marginTop: 12, fontSize: 13, color: 'var(--critical)' }}>{error}</p>}
-
-        {report && (
-          <table style={{ marginTop: 14 }}>
-            <tbody>
-              <Row label="Caricate" value={report.pushed} />
-              <Row label="Scaricate" value={report.pulled} />
-              <Row label="Profili caricati" value={report.pushedProfiles} />
-              <Row label="Profili scaricati" value={report.pulledProfiles} />
-              <Row label="Già allineate" value={report.plan.unchanged} />
-              <Row
-                label="Impostazioni condivise"
-                value={`${report.settingsPushed} caricate, ${report.settingsPulled} scaricate`}
-              />
-              <Row label="Immersioni in archivio" value={report.total} />
-              <Row label="Durata" value={`${(report.durationMs / 1000).toFixed(1)} s`} />
-            </tbody>
-          </table>
-        )}
-        {/*
-         * Le impostazioni che non si sono allineate si DICHIARANO.
-         *
-         * Un'impostazione che non viaggia assomiglia in tutto e per tutto a
-         * un'impostazione che non è mai cambiata: senza questa riga, la
-         * differenza fra i due dispositivi si scopre settimane dopo, guardando
-         * un numero che non torna.
-         */}
-        {report && report.settingsErrors.length > 0 && (
-          <div className="notice notice-error" role="alert" style={{ marginTop: 12 }}>
-            <b>Queste impostazioni non si sono allineate.</b> Le immersioni sì: il resto del giro è andato a
-            buon fine. Riprova, e se l'errore torna uguale segnalalo — il testo è quello che serve per
-            capirlo.
-            <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
-              {report.settingsErrors.map((e) => (
-                <li key={e}>{e}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      <ClaudeSettings credentials={aiCredentials} onSave={saveAiCredentials} onTest={testAiKey} />
-
-      <div className="card">
-        <h2>Come ottenere le credenziali del database</h2>
+        <h3 style={{ marginTop: 18 }}>Come ottenere le credenziali</h3>
         <ol style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)', fontSize: 13 }}>
           <li>
             Su <b>turso.tech</b>, apri il database e copia l'indirizzo che comincia per <code>libsql://</code>
@@ -269,7 +302,9 @@ export function SyncPage() {
             credenziali scaricano tutto.
           </li>
         </ol>
-      </div>
+      </details>
+
+      <ClaudeSettings credentials={aiCredentials} onSave={saveAiCredentials} onTest={testAiKey} />
 
       <TrashCard />
 
@@ -580,16 +615,17 @@ function DoveStannoLeCredenziali() {
 }
 
 /**
- * L'accesso con un account, che è l'alternativa a incollare un token a mano.
+ * L'accesso: la strada normale per avere un database condiviso.
  *
- * PERCHÉ È UNA CARTA A PARTE E NON SOSTITUISCE QUELLA SOTTO. Perché sono due
- * strade valide verso la stessa cosa, e chi ha già un database suo non deve
- * essere costretto a cambiare. L'account crea e gestisce un database per conto
- * di chi accede; il campo qui sotto serve a chi il database se l'è fatto da sé.
+ * PERCHÉ STA IN CIMA E DA SOLA. Perché è quella che si sceglie: l'account crea
+ * e gestisce il database per conto di chi accede, senza che nessuno debba aprire
+ * la console di Turso e generare un token. L'altra strada — indirizzo e token
+ * scritti a mano — non è stata tolta, è finita sotto «Avanzate», dove sta bene
+ * una via di scampo che serve raramente e serve moltissimo quando serve.
  *
  * E soprattutto: **l'accesso non è obbligatorio per usare l'app.** Il logbook si
- * apre e funziona senza, perché l'archivio è locale. Questa carta offre una
- * comodità, non un cancello.
+ * apre, importa e analizza senza, perché l'archivio è sul dispositivo. Questa
+ * carta offre una comodità, non un cancello.
  */
 function AccountCard() {
   const { accountAttivo, accountEmail, accediConAccount, esciDallAccount, cancellaAccount } = useDiveLog();
@@ -614,7 +650,7 @@ function AccountCard() {
     <div className="card">
       <h2>Accesso</h2>
       <p className="card-sub">
-        Con un account Google l'app crea e gestisce un database tutto tuo: non devi più incollare indirizzi né
+        Con un account Google l'app crea e gestisce un database tutto tuo: non devi incollare indirizzi né
         token, e gli altri dispositivi si allineano accedendo con lo stesso account. <b>Non è obbligatorio</b>{' '}
         — il logbook si apre e funziona anche senza, perché l'archivio è sul dispositivo.
       </p>

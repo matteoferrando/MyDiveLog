@@ -253,6 +253,51 @@ describe('cancellazione dell’account', () => {
   });
 });
 
+describe('la pagina delle impostazioni, letta nelle sorgenti', () => {
+  /*
+   * Due guardie sulla FORMA della pagina, non sul suo aspetto.
+   *
+   * Sono scritte leggendo il sorgente perché montare `SyncPage` vorrebbe dire
+   * montare l'archivio, il negozio dei segreti e mezzo stato dell'applicazione:
+   * un test che costa venti volte tanto per dire la stessa cosa. La regola vale
+   * finché quello che si vuole inchiodare è una struttura, non un
+   * comportamento.
+   */
+  async function sorgente(): Promise<string> {
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    return readFileSync(fileURLToPath(new URL('../src/ui/pages/SyncPage.tsx', import.meta.url)), 'utf8');
+  }
+
+  it('il campo del token sta DENTRO «Avanzate», non accanto all’accesso', async () => {
+    /*
+     * Da quando c'è l'account, incollare indirizzo e token è la strada di pochi.
+     * Se un giorno quel campo tornasse in cima, la pagina ricomincerebbe a
+     * suggerire una scelta che non c'è: la strada normale è una sola.
+     */
+    const testo = await sorgente();
+    const apre = testo.indexOf('<details className="card">');
+    const campo = testo.indexOf('placeholder="libsql://');
+    const chiude = testo.indexOf('</details>');
+    expect(apre).toBeGreaterThan(-1);
+    expect(campo).toBeGreaterThan(apre);
+    expect(campo).toBeLessThan(chiude);
+  });
+
+  it('«Sincronizza» NON dipende dalle credenziali scritte a mano', async () => {
+    /*
+     * Il difetto che questa riga ferma: chi entra con Google non ha nessun
+     * indirizzo né token salvato, e con la vecchia condizione (`!configured`) si
+     * troverebbe il pulsante spento subito dopo un accesso riuscito — cioè la
+     * funzione appena aggiunta sembrerebbe non fare niente.
+     */
+    const testo = await sorgente();
+    expect(testo).toContain('const pronto = accountAttivo || configured;');
+    expect(testo).toContain('disabled={busy || !pronto || (!accountAttivo && dirty)}');
+    expect(testo).not.toContain('disabled={busy || !configured || dirty}');
+  });
+});
+
 describe('la configurazione pubblica dell’accesso', () => {
   /*
    * Sono tre stringhe copiate a mano da una console, e ciascuna sbaglia in
