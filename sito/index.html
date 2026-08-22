@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MyDiveLog — il tuo logbook subacqueo, sul tuo dispositivo</title>
+    <meta
+      name="description"
+      content="Logbook subacqueo libero e open source: importa dai computer subacquei, analizza i profili, pianifica. L'archivio resta sul tuo dispositivo."
+    />
+    <link rel="icon" href="logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="stile.css" />
+    <link rel="alternate" hreflang="en" href="/en/" />
+    <link rel="alternate" hreflang="it" href="/" />
+  </head>
+  <body>
+    <div class="contenitore">
+      <header class="testata">
+        <a class="marchio" href="/">
+          <img src="logo.svg" alt="" />
+          MyDiveLog
+        </a>
+        <nav class="navigazione">
+          <a href="privacy.html">Privacy</a>
+          <a href="termini.html">Termini</a>
+          <a href="https://github.com/matteoferrando/MyDiveLog">Codice</a>
+          <span class="lingua"><a href="/en/">English</a></span>
+        </nav>
+      </header>
+    </div>
+
+    <div class="contenitore">
+      <div class="apertura">
+        <img src="logo.svg" alt="Il marchio di MyDiveLog: il profilo di un'immersione" />
+        <h1>Il tuo logbook subacqueo</h1>
+        <p class="occhiello">
+          Importa dai computer subacquei, analizza i profili, pianifica le immersioni. L'archivio resta sul
+          tuo dispositivo, e ci resta anche se non accedi mai.
+        </p>
+        <div class="pulsanti">
+          <a class="pulsante pulsante-primario" href="https://github.com/matteoferrando/MyDiveLog"
+            >Guarda il codice</a
+          >
+          <a class="pulsante" href="privacy.html">Come tratta i tuoi dati</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="contenitore">
+      <section>
+        <h2>Cosa fa</h2>
+        <p>
+          MyDiveLog è un logbook per chi si immerge e vuole capire cosa gli dicono i propri dati, non solo
+          conservarli. Legge i file dei principali programmi e scarica direttamente dal computer subacqueo via
+          Bluetooth, riconosce la stessa immersione arrivata da due fonti diverse e le fonde tenendo il meglio
+          di ciascuna.
+        </p>
+
+        <div class="griglia">
+          <div class="riquadro">
+            <h3>Importa da quello che hai già</h3>
+            <p>
+              UDDF, Shearwater (XML e archivio nativo), Scubapro LogTRAK, Garmin FIT, Subsurface, CSV. Il
+              formato si riconosce dal contenuto, non dall'estensione.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Scarica via Bluetooth</h3>
+            <p>
+              Shearwater e Scubapro/Uwatec, con segnalibro: al secondo collegamento scarica solo le immersioni
+              nuove, non tutta la memoria.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Analizza il profilo</h3>
+            <p>
+              Bühlmann ZH-L16C con gradient factor, sedici compartimenti, esposizione all'ossigeno per
+              giornata, oscillazione d'assetto e velocità di risalita — con l'affidabilità di ogni numero
+              dichiarata.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Pianifica</h3>
+            <p>
+              Gas e decompressione: multi-livello, cambi automatici alla MOD, CCR con setpoint e diluente,
+              bailout e contingenze. Il consumo lo prende dalle tue immersioni, non da un manuale.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Ti dice come migliorare</h3>
+            <p>
+              Statistiche, tendenze e suggerimenti con la prova numerica sotto: quante risalite fuori limite,
+              quante soste di sicurezza saltate, quanto costano le ripetitive.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Non ti chiude dentro</h3>
+            <p>
+              Backup completo in JSON, esportazione UDDF, stampa del logbook e del piano. L'archivio locale è
+              un file SQLite che puoi aprire con qualunque strumento.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Il servizio di sincronizzazione</h2>
+        <p>
+          Chi usa più di un dispositivo può tenere l'archivio allineato. Si entra con un account Google e
+          l'app crea un database tutto tuo: non c'è niente da configurare, e le immersioni viaggiano
+          direttamente fra l'applicazione e quel database.
+        </p>
+        <div class="evidenza">
+          <p>
+            <strong>L'accesso non è obbligatorio, e la sincronizzazione non è automatica.</strong> Il logbook
+            si apre, importa e analizza senza aver mai visto un account, perché l'archivio è sul dispositivo.
+            E niente parte finché non premi <em>Sincronizza</em>: un logbook si consulta anche in barca, dove
+            la rete non c'è.
+          </p>
+        </div>
+        <p>
+          Ogni persona ha un database separato dagli altri — non una riga in una tabella comune. Il servizio
+          che consegna le chiavi non conserva nessun elenco di iscritti e non vede passare le immersioni: dice
+          chi sei e ti dà una chiave che vale due ore. Dettagli in
+          <a href="privacy.html">Privacy</a>.
+        </p>
+      </section>
+
+      <section>
+        <h2>Libero e aperto</h2>
+        <p>
+          MyDiveLog è software libero sotto licenza MIT: il codice si legge, si copia e si modifica. Non costa
+          niente, non ha abbonamenti, non ha pubblicità e non raccoglie statistiche d'uso.
+        </p>
+        <p>
+          Oggi gira su macOS e iPhone. Non c'è ancora un pacchetto pronto da scaricare: si compila dal
+          sorgente, e le istruzioni stanno nel
+          <a href="https://github.com/matteoferrando/MyDiveLog">repository</a>.
+        </p>
+      </section>
+
+      <section>
+        <h2>Un avvertimento che conta</h2>
+        <div class="evidenza avvertenza">
+          <p>
+            <strong
+              >MyDiveLog non è un computer subacqueo e non va usato per prendere decisioni in acqua.</strong
+            >
+            I calcoli di decompressione, i piani e le analisi servono a studiare le immersioni fatte e a
+            preparare quelle da fare: non sostituiscono il tuo computer, il tuo addestramento e il tuo
+            giudizio. L'immersione subacquea comporta rischi, anche mortali.
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <div class="contenitore">
+      <footer class="piede">
+        <p>
+          MyDiveLog — <a href="privacy.html">Privacy</a> · <a href="termini.html">Termini di servizio</a> ·
+          <a href="https://github.com/matteoferrando/MyDiveLog">GitHub</a> · <a href="/en/">English</a>
+        </p>
+        <p>Matteo Ferrando — <a href="mailto:m.ferrando@gmail.com">m.ferrando@gmail.com</a></p>
+      </footer>
+    </div>
+  </body>
+</html>

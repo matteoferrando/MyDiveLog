@@ -1,0 +1,323 @@
+/*
+  Un foglio di stile solo, per sei pagine.
+
+  Il sito è statico per una ragione che è la stessa dell'applicazione: niente
+  build, niente dipendenze, niente che possa smettere di funzionare da solo fra
+  due anni. Sono file che un browser apre anche da disco.
+
+  NESSUN CARATTERE SCARICATO. Non è pigrizia: un font ospitato altrove è una
+  richiesta a un terzo per ogni visita, cioè un dato che esce senza che nessuno
+  l'abbia chiesto — su un sito che nella pagina della privacy promette il
+  contrario. I caratteri di sistema, in compenso, sono già lì e sono belli.
+*/
+
+:root {
+  --acqua-scura: #07203c;
+  --acqua: #123d71;
+  --acqua-chiara: #1c5c9e;
+  --riflesso: #9ac6f8;
+  --fondo: #ffffff;
+  --fondo-alt: #f4f7fb;
+  --testo: #14202e;
+  --testo-tenue: #5a6b7d;
+  --bordo: #dbe4ee;
+  --misura: 34rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: #0b1622;
+    --fondo-alt: #111f2f;
+    --testo: #e8eef6;
+    --testo-tenue: #9dafc2;
+    --bordo: #22344a;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--testo);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 17px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--acqua-chiara);
+}
+
+@media (prefers-color-scheme: dark) {
+  a {
+    color: var(--riflesso);
+  }
+}
+
+.contenitore {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* --- testata ---------------------------------------------------------- */
+
+.testata {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--bordo);
+}
+
+.marchio {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--testo);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.marchio img {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: block;
+}
+
+.navigazione {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  font-size: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.navigazione a {
+  color: var(--testo-tenue);
+  text-decoration: none;
+}
+
+.navigazione a:hover,
+.navigazione a[aria-current='page'] {
+  color: var(--testo);
+}
+
+.lingua {
+  border-left: 1px solid var(--bordo);
+  padding-left: 1.1rem;
+}
+
+/* --- apertura --------------------------------------------------------- */
+
+.apertura {
+  padding: 4.5rem 0 3.5rem;
+  text-align: center;
+}
+
+.apertura img {
+  width: 104px;
+  height: 104px;
+  border-radius: 24px;
+  margin-bottom: 1.5rem;
+}
+
+.apertura h1 {
+  margin: 0 0 0.75rem;
+  font-size: clamp(2.2rem, 6vw, 3.1rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.occhiello {
+  margin: 0 auto;
+  max-width: var(--misura);
+  font-size: 1.2rem;
+  color: var(--testo-tenue);
+}
+
+.pulsanti {
+  margin-top: 2rem;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.pulsante {
+  display: inline-block;
+  padding: 0.7rem 1.4rem;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: 1px solid var(--bordo);
+  color: var(--testo);
+}
+
+.pulsante-primario {
+  background: var(--acqua);
+  border-color: var(--acqua);
+  color: #ffffff;
+}
+
+/* --- sezioni ---------------------------------------------------------- */
+
+section {
+  padding: 3rem 0;
+  border-top: 1px solid var(--bordo);
+}
+
+h2 {
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+  margin: 0 0 1rem;
+}
+
+h3 {
+  font-size: 1.05rem;
+  margin: 2rem 0 0.5rem;
+}
+
+p,
+li {
+  max-width: 44rem;
+}
+
+.griglia {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  margin-top: 1.5rem;
+}
+
+.riquadro {
+  background: var(--fondo-alt);
+  border: 1px solid var(--bordo);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.riquadro h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+
+.riquadro p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--testo-tenue);
+}
+
+.evidenza {
+  background: var(--fondo-alt);
+  border: 1px solid var(--bordo);
+  border-left: 4px solid var(--acqua-chiara);
+  border-radius: 10px;
+  padding: 1.1rem 1.3rem;
+  margin: 1.5rem 0;
+}
+
+.evidenza p:last-child {
+  margin-bottom: 0;
+}
+
+.avvertenza {
+  border-left-color: #c2410c;
+}
+
+/* --- pagine di testo -------------------------------------------------- */
+
+.documento {
+  padding: 3rem 0 4rem;
+}
+
+.documento h1 {
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.4rem;
+}
+
+.data {
+  color: var(--testo-tenue);
+  font-size: 0.88rem;
+  margin: 0 0 2.5rem;
+}
+
+.documento h2 {
+  margin-top: 2.5rem;
+  font-size: 1.2rem;
+}
+
+.indice {
+  background: var(--fondo-alt);
+  border: 1px solid var(--bordo);
+  border-radius: 12px;
+  padding: 1.1rem 1.3rem;
+  margin-bottom: 2.5rem;
+}
+
+.indice ol {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+  columns: 2;
+  column-gap: 2rem;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 34rem) {
+  .indice ol {
+    columns: 1;
+  }
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 44rem;
+  margin: 1.25rem 0;
+  font-size: 0.92rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--bordo);
+  vertical-align: top;
+}
+
+th {
+  color: var(--testo-tenue);
+  font-weight: 600;
+}
+
+/* --- piede ------------------------------------------------------------ */
+
+.piede {
+  border-top: 1px solid var(--bordo);
+  padding: 2rem 0 3rem;
+  font-size: 0.88rem;
+  color: var(--testo-tenue);
+}
+
+.piede a {
+  color: var(--testo-tenue);
+}
+
+.piede p {
+  margin: 0.3rem 0;
+}

@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Informativa sulla privacy — MyDiveLog</title>
+    <meta
+      name="description"
+      content="Come MyDiveLog tratta i dati: archivio locale, accesso facoltativo, nessuna statistica d'uso."
+    />
+    <link rel="icon" href="logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="stile.css" />
+    <link rel="alternate" hreflang="en" href="/en/privacy.html" />
+  </head>
+  <body>
+    <div class="contenitore">
+      <header class="testata">
+        <a class="marchio" href="/"><img src="logo.svg" alt="" /> MyDiveLog</a>
+        <nav class="navigazione">
+          <a href="privacy.html" aria-current="page">Privacy</a>
+          <a href="termini.html">Termini</a>
+          <a href="https://github.com/matteoferrando/MyDiveLog">Codice</a>
+          <span class="lingua"><a href="/en/privacy.html">English</a></span>
+        </nav>
+      </header>
+
+      <main class="documento">
+        <h1>Informativa sulla privacy</h1>
+        <p class="data">In vigore dal 22 agosto 2026 · ultimo aggiornamento 22 agosto 2026</p>
+
+        <div class="evidenza">
+          <p>
+            <strong>In breve.</strong> MyDiveLog tiene le tue immersioni sul tuo dispositivo. Non raccoglie
+            statistiche d'uso, non mostra pubblicità e non profila nessuno. Qualcosa esce dal dispositivo solo
+            in tre casi, tutti facoltativi e tutti avviati da te: se fai l'accesso, se premi
+            <em>Sincronizza</em>, se chiedi un'analisi con l'intelligenza artificiale. Questo sito non usa
+            cookie e non ha strumenti di misurazione.
+          </p>
+        </div>
+
+        <div class="indice">
+          <strong>Indice</strong>
+          <ol>
+            <li><a href="#titolare">Titolare del trattamento</a></li>
+            <li><a href="#dove">Dove stanno i tuoi dati</a></li>
+            <li><a href="#quando">Quando qualcosa esce dal dispositivo</a></li>
+            <li><a href="#accesso">Cosa tratta il servizio di accesso</a></li>
+            <li><a href="#fornitori">Fornitori</a></li>
+            <li><a href="#base">Base giuridica</a></li>
+            <li><a href="#conservazione">Conservazione e cancellazione</a></li>
+            <li><a href="#diritti">I tuoi diritti</a></li>
+            <li><a href="#trasferimenti">Trasferimenti fuori dall'Unione</a></li>
+            <li><a href="#sicurezza">Sicurezza</a></li>
+            <li><a href="#minori">Minori</a></li>
+            <li><a href="#sito">Questo sito</a></li>
+            <li><a href="#modifiche">Modifiche</a></li>
+          </ol>
+        </div>
+
+        <h2 id="titolare">1. Titolare del trattamento</h2>
+        <p>
+          Il titolare del trattamento è <strong>Matteo Ferrando</strong>, persona fisica, contattabile
+          all'indirizzo <a href="mailto:m.ferrando@gmail.com">m.ferrando@gmail.com</a>. MyDiveLog è un
+          progetto personale e gratuito, non un'attività commerciale.
+        </p>
+
+        <h2 id="dove">2. Dove stanno i tuoi dati</h2>
+        <p>
+          L'applicazione conserva tutto in un archivio <strong>sul dispositivo che stai usando</strong>: un
+          file SQLite su Mac e iPhone. Dentro ci sono le immersioni, i profili campione per campione,
+          l'attrezzatura, i brevetti, le impostazioni e le analisi già eseguite.
+        </p>
+        <p>
+          Le credenziali — la sessione dell'accesso, l'eventuale token di un database tuo, l'eventuale chiave
+          dell'API di Anthropic — stanno nel <strong>portachiavi di sistema</strong>, non nell'archivio.
+          Nessuna di queste cose viene inviata al titolare.
+        </p>
+
+        <h2 id="quando">3. Quando qualcosa esce dal dispositivo</h2>
+        <p>Tre casi, tutti facoltativi. Se non ne attivi nessuno, non esce niente.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Se</th>
+              <th>Cosa esce</th>
+              <th>Verso chi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Fai l'accesso con Google</td>
+              <td>
+                Il codice restituito da Google e, di conseguenza, il tuo identificativo Google e il tuo
+                indirizzo email
+              </td>
+              <td>Google e il servizio di accesso di MyDiveLog</td>
+            </tr>
+            <tr>
+              <td>Premi <em>Sincronizza</em></td>
+              <td>
+                Immersioni, profili, attrezzatura, brevetti, impostazioni condivise e registro delle
+                cancellazioni
+              </td>
+              <td>Il database che stai usando, tuo o creato dal servizio</td>
+            </tr>
+            <tr>
+              <td>Chiedi un'analisi con l'intelligenza artificiale</td>
+              <td>I dati misurati dell'immersione che stai analizzando</td>
+              <td>Anthropic, con la chiave API che hai inserito tu</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Le immersioni <strong>non passano dal servizio di accesso</strong>: viaggiano direttamente fra
+          l'applicazione e il database.
+        </p>
+
+        <h2 id="accesso">4. Cosa tratta il servizio di accesso</h2>
+        <p>
+          Il servizio di accesso è la sola parte di MyDiveLog che gira su un server. Fa tre cose: verifica chi
+          sei, crea il tuo database la prima volta, consegna una chiave che vale due ore.
+        </p>
+        <p>
+          Riceve da Google un token firmato che contiene un identificativo stabile del tuo account
+          (<code>sub</code>) e il tuo indirizzo email. Da quell'identificativo ricava un'<strong
+            >impronta crittografica</strong
+          >, e usa quella come nome del tuo database. L'indirizzo email viene restituito all'applicazione per
+          poterlo mostrare nelle impostazioni, e <strong>non viene conservato dal servizio</strong>.
+        </p>
+        <p>
+          Non esiste nessuna tabella di utenti, e quindi non esiste nessun archivio che colleghi un indirizzo
+          email a un logbook. L'unica traccia della tua esistenza è un database dal nome opaco.
+        </p>
+        <p>
+          Il servizio registra gli errori tecnici per poterli correggere. Questi registri sono conservati dal
+          fornitore dell'infrastruttura per un periodo limitato e non contengono immersioni.
+        </p>
+
+        <h2 id="fornitori">5. Fornitori</h2>
+        <p>
+          Per far funzionare le parti facoltative descritte sopra, il titolare si avvale dei seguenti
+          fornitori, che trattano dati per suo conto o in qualità di titolari autonomi.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Fornitore</th>
+              <th>A cosa serve</th>
+              <th>Quando entra in gioco</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Cloudflare</td>
+              <td>Ospita questo sito e il servizio di accesso</td>
+              <td>Sempre, per il sito; all'accesso, per il servizio</td>
+            </tr>
+            <tr>
+              <td>Turso</td>
+              <td>Ospita i database condivisi</td>
+              <td>Solo se sincronizzi</td>
+            </tr>
+            <tr>
+              <td>Google</td>
+              <td>Verifica la tua identità</td>
+              <td>Solo se fai l'accesso con Google</td>
+            </tr>
+            <tr>
+              <td>Anthropic</td>
+              <td>Genera le analisi testuali</td>
+              <td>Solo se inserisci una chiave API e chiedi un'analisi</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          I database sono ospitati in un gruppo situato nell'Unione europea (Irlanda). Il rapporto con
+          Anthropic è regolato dalla chiave API che hai inserito tu: sei tu a intrattenerlo, e valgono le
+          condizioni che hai accettato con loro.
+        </p>
+
+        <h2 id="base">6. Base giuridica</h2>
+        <p>
+          Il trattamento legato all'accesso e alla sincronizzazione si fonda sull'esecuzione del servizio che
+          hai richiesto (art. 6.1.b GDPR): senza quei dati il servizio non può funzionare. L'uso delle analisi
+          con l'intelligenza artificiale si fonda sul tuo consenso, che esprimi inserendo la chiave e avviando
+          l'analisi, e che puoi revocare togliendo la chiave.
+        </p>
+        <p>
+          I dati di un logbook subacqueo possono dire qualcosa sulla tua condizione fisica. Non vengono
+          trattati per finalità sanitarie, non sono comunicati a nessuno e non sono usati per profilazione;
+          restano nel tuo archivio e, se lo scegli, nel tuo database.
+        </p>
+
+        <h2 id="conservazione">7. Conservazione e cancellazione</h2>
+        <p>
+          L'archivio sul dispositivo dura finché non lo cancelli tu, disinstallando l'applicazione o
+          eliminando il file. Il database condiviso dura finché non chiudi l'account.
+        </p>
+        <p>
+          Dalle impostazioni dell'applicazione, la voce <em>Cancella l'account</em>
+          <strong>elimina il database remoto</strong> e le immersioni che ci sono sopra. L'archivio sul
+          dispositivo <strong>non viene toccato</strong>: chi chiude l'account smette di sincronizzare, non
+          perde il proprio logbook. Puoi anche scrivere all'indirizzo in cima a questa pagina.
+        </p>
+        <p>La sessione dell'accesso scade dopo trenta giorni; le chiavi del database dopo due ore.</p>
+
+        <h2 id="diritti">8. I tuoi diritti</h2>
+        <p>
+          Hai diritto di accedere ai tuoi dati, correggerli, cancellarli, limitarne il trattamento, opporti e
+          riceverli in un formato leggibile da una macchina. Per gran parte di questi diritti non serve
+          chiedere niente a nessuno: l'applicazione contiene già l'esportazione completa in JSON e in UDDF, la
+          modifica di qualunque campo e la cancellazione dell'account.
+        </p>
+        <p>
+          Per il resto, scrivi a <a href="mailto:m.ferrando@gmail.com">m.ferrando@gmail.com</a>. Se ritieni
+          che il trattamento violi il Regolamento, puoi proporre reclamo al Garante per la protezione dei dati
+          personali (<a href="https://www.garanteprivacy.it">garanteprivacy.it</a>).
+        </p>
+
+        <h2 id="trasferimenti">9. Trasferimenti fuori dall'Unione</h2>
+        <p>
+          I fornitori elencati sopra sono in parte statunitensi e possono trattare dati fuori dall'Unione
+          europea, sulla base delle garanzie previste dal capo V del GDPR (clausole contrattuali tipo e, dove
+          applicabile, adesione al quadro di adeguatezza vigente). I database delle immersioni sono ospitati
+          in Irlanda.
+        </p>
+
+        <h2 id="sicurezza">10. Sicurezza</h2>
+        <p>
+          Le comunicazioni viaggiano cifrate. Le credenziali stanno nel portachiavi di sistema e non
+          nell'archivio, perché un archivio finisce nei backup. La chiave che apre il database
+          <strong>vale due ore e non viene scritta da nessuna parte</strong>: esiste solo nella memoria
+          dell'applicazione. Ogni persona ha un database fisicamente separato dagli altri.
+        </p>
+        <p>
+          Nessuna misura è perfetta. Se trovi un problema di sicurezza, scrivilo all'indirizzo qui sopra
+          invece di pubblicarlo.
+        </p>
+
+        <h2 id="minori">11. Minori</h2>
+        <p>
+          MyDiveLog non è rivolto a bambini e non raccoglie consapevolmente dati di minori di quattordici
+          anni. Un minore che si immerge dovrebbe usarlo con un genitore.
+        </p>
+
+        <h2 id="sito">12. Questo sito</h2>
+        <p>
+          Queste pagine sono file statici. Non c'è nessun cookie, nessuno strumento di misurazione, nessun
+          carattere tipografico caricato da terzi e nessun pulsante di condivisione. Il fornitore che le
+          ospita registra le richieste ricevute per motivi tecnici e di sicurezza, come fa qualunque server.
+        </p>
+
+        <h2 id="modifiche">13. Modifiche</h2>
+        <p>
+          Se questa informativa cambia, la data in cima viene aggiornata e la versione precedente resta
+          leggibile nella cronologia pubblica del repository. Le modifiche sostanziali vengono segnalate anche
+          dentro l'applicazione.
+        </p>
+      </main>
+
+      <footer class="piede">
+        <p>
+          MyDiveLog — <a href="/">Home</a> · <a href="termini.html">Termini di servizio</a> ·
+          <a href="/en/privacy.html">English</a>
+        </p>
+        <p>Matteo Ferrando — <a href="mailto:m.ferrando@gmail.com">m.ferrando@gmail.com</a></p>
+      </footer>
+    </div>
+  </body>
+</html>

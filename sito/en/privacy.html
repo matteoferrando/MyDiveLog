@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy policy — MyDiveLog</title>
+    <meta
+      name="description"
+      content="How MyDiveLog handles your data: local archive, optional sign-in, no usage tracking."
+    />
+    <link rel="icon" href="../logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../stile.css" />
+    <link rel="alternate" hreflang="it" href="/privacy.html" />
+  </head>
+  <body>
+    <div class="contenitore">
+      <header class="testata">
+        <a class="marchio" href="/en/"><img src="../logo.svg" alt="" /> MyDiveLog</a>
+        <nav class="navigazione">
+          <a href="privacy.html" aria-current="page">Privacy</a>
+          <a href="terms.html">Terms</a>
+          <a href="https://github.com/matteoferrando/MyDiveLog">Source</a>
+          <span class="lingua"><a href="/privacy.html">Italiano</a></span>
+        </nav>
+      </header>
+
+      <main class="documento">
+        <h1>Privacy policy</h1>
+        <p class="data">Effective 22 August 2026 · last updated 22 August 2026</p>
+
+        <div class="evidenza">
+          <p>
+            <strong>In short.</strong> MyDiveLog keeps your dives on your device. It collects no usage
+            statistics, shows no advertising and profiles nobody. Data leaves your device in three cases only,
+            all optional and all started by you: if you sign in, if you press <em>Sync</em>, if you ask for an
+            AI analysis. This website uses no cookies and no analytics.
+          </p>
+        </div>
+
+        <div class="indice">
+          <strong>Contents</strong>
+          <ol>
+            <li><a href="#controller">Data controller</a></li>
+            <li><a href="#where">Where your data lives</a></li>
+            <li><a href="#when">When data leaves your device</a></li>
+            <li><a href="#service">What the sign-in service handles</a></li>
+            <li><a href="#providers">Providers</a></li>
+            <li><a href="#basis">Legal basis</a></li>
+            <li><a href="#retention">Retention and deletion</a></li>
+            <li><a href="#rights">Your rights</a></li>
+            <li><a href="#transfers">Transfers outside the EU</a></li>
+            <li><a href="#security">Security</a></li>
+            <li><a href="#children">Children</a></li>
+            <li><a href="#site">This website</a></li>
+            <li><a href="#changes">Changes</a></li>
+          </ol>
+        </div>
+
+        <h2 id="controller">1. Data controller</h2>
+        <p>
+          The data controller is <strong>Matteo Ferrando</strong>, a private individual, reachable at
+          <a href="mailto:m.ferrando@gmail.com">m.ferrando@gmail.com</a>. MyDiveLog is a personal, free
+          project, not a commercial activity.
+        </p>
+
+        <h2 id="where">2. Where your data lives</h2>
+        <p>
+          The application stores everything in an archive <strong>on the device you are using</strong>: a
+          SQLite file on Mac and iPhone. It holds your dives, sample-by-sample profiles, equipment,
+          certifications, settings and any analyses already produced.
+        </p>
+        <p>
+          Credentials — the sign-in session, any token for a database of your own, any Anthropic API key —
+          live in the <strong>system keychain</strong>, not in the archive. None of them is ever sent to the
+          controller.
+        </p>
+
+        <h2 id="when">3. When data leaves your device</h2>
+        <p>Three cases, all optional. If you enable none of them, nothing leaves.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>If you</th>
+              <th>What leaves</th>
+              <th>Who receives it</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Sign in with Google</td>
+              <td>The code Google returns and, as a result, your Google identifier and email address</td>
+              <td>Google and the MyDiveLog sign-in service</td>
+            </tr>
+            <tr>
+              <td>Press <em>Sync</em></td>
+              <td>Dives, profiles, equipment, certifications, shared settings and the deletion record</td>
+              <td>The database you are using, yours or created by the service</td>
+            </tr>
+            <tr>
+              <td>Ask for an AI analysis</td>
+              <td>The measured data of the dive being analysed</td>
+              <td>Anthropic, using the API key you entered yourself</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Dives <strong>never pass through the sign-in service</strong>: they travel directly between the
+          application and the database.
+        </p>
+
+        <h2 id="service">4. What the sign-in service handles</h2>
+        <p>
+          The sign-in service is the only part of MyDiveLog that runs on a server. It does three things: it
+          verifies who you are, it creates your database the first time, and it hands out a key that lasts two
+          hours.
+        </p>
+        <p>
+          It receives from Google a signed token containing a stable identifier for your account
+          (<code>sub</code>) and your email address. From that identifier it derives a
+          <strong>cryptographic fingerprint</strong>, and uses it as the name of your database. The email
+          address is returned to the application so it can be shown in the settings, and is
+          <strong>not stored by the service</strong>.
+        </p>
+        <p>
+          There is no table of users, and therefore no record linking an email address to a logbook. The only
+          trace of your existence is a database with an opaque name.
+        </p>
+        <p>
+          The service logs technical errors so they can be fixed. Those logs are retained by the
+          infrastructure provider for a limited period and contain no dives.
+        </p>
+
+        <h2 id="providers">5. Providers</h2>
+        <p>
+          To run the optional parts described above, the controller relies on the following providers, acting
+          either as processors on the controller's behalf or as independent controllers.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Provider</th>
+              <th>Purpose</th>
+              <th>When it applies</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Cloudflare</td>
+              <td>Hosts this website and the sign-in service</td>
+              <td>Always, for the site; at sign-in, for the service</td>
+            </tr>
+            <tr>
+              <td>Turso</td>
+              <td>Hosts the shared databases</td>
+              <td>Only if you sync</td>
+            </tr>
+            <tr>
+              <td>Google</td>
+              <td>Verifies your identity</td>
+              <td>Only if you sign in with Google</td>
+            </tr>
+            <tr>
+              <td>Anthropic</td>
+              <td>Generates the written analyses</td>
+              <td>Only if you enter an API key and request an analysis</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Databases are hosted in a group located in the European Union (Ireland). The relationship with
+          Anthropic is governed by the API key you entered yourself: it is your relationship, under the terms
+          you accepted with them.
+        </p>
+
+        <h2 id="basis">6. Legal basis</h2>
+        <p>
+          Processing related to sign-in and synchronisation is based on the performance of the service you
+          requested (Art. 6(1)(b) GDPR): without that data the service cannot work. Use of the AI analyses is
+          based on your consent, given by entering the key and starting an analysis, and withdrawn by removing
+          the key.
+        </p>
+        <p>
+          A dive logbook can say something about your physical condition. This data is not processed for
+          health purposes, is not disclosed to anyone and is not used for profiling; it stays in your archive
+          and, if you choose, in your database.
+        </p>
+
+        <h2 id="retention">7. Retention and deletion</h2>
+        <p>
+          The archive on your device lasts until you delete it, by uninstalling the application or removing
+          the file. The shared database lasts until you close your account.
+        </p>
+        <p>
+          In the application settings, <em>Delete account</em>
+          <strong>destroys the remote database</strong> and the dives on it. The archive on your device is
+          <strong>left untouched</strong>: closing your account stops synchronisation, it does not take away
+          your logbook. You can also write to the address at the top of this page.
+        </p>
+        <p>The sign-in session expires after thirty days; database keys after two hours.</p>
+
+        <h2 id="rights">8. Your rights</h2>
+        <p>
+          You have the right to access your data, correct it, erase it, restrict its processing, object, and
+          receive it in a machine-readable format. For most of these you need to ask nobody: the application
+          already contains full export in JSON and UDDF, editing of any field, and account deletion.
+        </p>
+        <p>
+          For anything else, write to <a href="mailto:m.ferrando@gmail.com">m.ferrando@gmail.com</a>. If you
+          believe the processing infringes the Regulation, you may lodge a complaint with your supervisory
+          authority — in Italy, the Garante per la protezione dei dati personali (<a
+            href="https://www.garanteprivacy.it"
+            >garanteprivacy.it</a
+          >).
+        </p>
+
+        <h2 id="transfers">9. Transfers outside the EU</h2>
+        <p>
+          Some of the providers listed above are based in the United States and may process data outside the
+          European Union, under the safeguards set out in Chapter V of the GDPR (standard contractual clauses
+          and, where applicable, the adequacy framework in force). Dive databases are hosted in Ireland.
+        </p>
+
+        <h2 id="security">10. Security</h2>
+        <p>
+          Traffic is encrypted. Credentials live in the system keychain rather than in the archive, because
+          archives end up in backups. The key that opens the database
+          <strong>lasts two hours and is never written anywhere</strong>: it exists only in the application's
+          memory. Each person has a database physically separate from everyone else's.
+        </p>
+        <p>
+          No measure is perfect. If you find a security problem, please write to the address above rather than
+          publishing it.
+        </p>
+
+        <h2 id="children">11. Children</h2>
+        <p>
+          MyDiveLog is not directed at children and does not knowingly collect data from anyone under
+          fourteen. A young diver should use it together with a parent.
+        </p>
+
+        <h2 id="site">12. This website</h2>
+        <p>
+          These pages are static files. There are no cookies, no analytics, no fonts loaded from third parties
+          and no sharing widgets. The provider hosting them records incoming requests for technical and
+          security reasons, as any server does.
+        </p>
+
+        <h2 id="changes">13. Changes</h2>
+        <p>
+          If this policy changes, the date at the top is updated and the previous version remains readable in
+          the public history of the repository. Substantial changes are also announced inside the application.
+        </p>
+      </main>
+
+      <footer class="piede">
+        <p>
+          MyDiveLog — <a href="/en/">Home</a> · <a href="terms.html">Terms of service</a> ·
+          <a href="/privacy.html">Italiano</a>
+        </p>
+        <p>Matteo Ferrando — <a href="mailto:m.ferrando@gmail.com">m.ferrando@gmail.com</a></p>
+      </footer>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MyDiveLog — your dive logbook, on your own device</title>
+    <meta
+      name="description"
+      content="Free and open-source dive logbook: import from dive computers, analyse profiles, plan dives. Your logbook stays on your device."
+    />
+    <link rel="icon" href="../logo.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../stile.css" />
+    <link rel="alternate" hreflang="it" href="/" />
+    <link rel="alternate" hreflang="en" href="/en/" />
+  </head>
+  <body>
+    <div class="contenitore">
+      <header class="testata">
+        <a class="marchio" href="/en/"><img src="../logo.svg" alt="" /> MyDiveLog</a>
+        <nav class="navigazione">
+          <a href="privacy.html">Privacy</a>
+          <a href="terms.html">Terms</a>
+          <a href="https://github.com/matteoferrando/MyDiveLog">Source</a>
+          <span class="lingua"><a href="/">Italiano</a></span>
+        </nav>
+      </header>
+    </div>
+
+    <div class="contenitore">
+      <div class="apertura">
+        <img src="../logo.svg" alt="The MyDiveLog mark: a dive profile" />
+        <h1>Your dive logbook</h1>
+        <p class="occhiello">
+          Import from your dive computers, analyse your profiles, plan your dives. Your logbook lives on your
+          device — and stays there even if you never sign in.
+        </p>
+        <div class="pulsanti">
+          <a class="pulsante pulsante-primario" href="https://github.com/matteoferrando/MyDiveLog"
+            >View the source</a
+          >
+          <a class="pulsante" href="privacy.html">How it handles your data</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="contenitore">
+      <section>
+        <h2>What it does</h2>
+        <p>
+          MyDiveLog is a logbook for divers who want to understand what their data is telling them, not just
+          store it. It reads the files other applications produce, downloads straight from your dive computer
+          over Bluetooth, recognises the same dive arriving from two different sources, and merges them
+          keeping the best of each.
+        </p>
+
+        <div class="griglia">
+          <div class="riquadro">
+            <h3>Imports what you already have</h3>
+            <p>
+              UDDF, Shearwater (XML and the native log), Scubapro LogTRAK, Garmin FIT, Subsurface, CSV. The
+              format is detected from the content, not from the file extension.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Downloads over Bluetooth</h3>
+            <p>
+              Shearwater and Scubapro/Uwatec, with a bookmark: the second time round it downloads only the new
+              dives, not the whole memory.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Analyses the profile</h3>
+            <p>
+              Bühlmann ZH-L16C with gradient factors, sixteen compartments, oxygen exposure by local day,
+              buoyancy oscillation and ascent rates — each figure carrying its own stated reliability.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Plans</h3>
+            <p>
+              Gas and decompression: multi-level, automatic switches at the MOD, CCR with setpoint and real
+              diluent, bailout and contingencies. Consumption comes from your own dives, not from a textbook.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Tells you how to improve</h3>
+            <p>
+              Statistics, trends and suggestions with the numbers underneath: how many ascents outside the
+              limits, how many safety stops skipped, what repetitive dives actually cost you.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Never locks you in</h3>
+            <p>
+              Full JSON backup, UDDF export, printable logbook and dive plan. The local archive is a SQLite
+              file you can open with any tool.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>The sync service</h2>
+        <p>
+          If you use more than one device, you can keep your logbook aligned. You sign in with a Google
+          account and the app creates a database that is yours alone: there is nothing to configure, and dives
+          travel directly between the application and that database.
+        </p>
+        <div class="evidenza">
+          <p>
+            <strong>Signing in is optional, and syncing is never automatic.</strong> The logbook opens,
+            imports and analyses without ever seeing an account, because the archive is on your device. And
+            nothing leaves until you press <em>Sync</em>: a logbook gets read on a boat, where there is no
+            network.
+          </p>
+        </div>
+        <p>
+          Every person gets a database physically separate from everyone else's — not a row in a shared table.
+          The service that hands out the keys keeps no list of users and never sees your dives: it says who
+          you are and gives you a key that lasts two hours. Details in
+          <a href="privacy.html">Privacy</a>.
+        </p>
+      </section>
+
+      <section>
+        <h2>Free and open</h2>
+        <p>
+          MyDiveLog is free software under the MIT licence: the code can be read, copied and modified. It
+          costs nothing, has no subscriptions, no advertising, and collects no usage statistics.
+        </p>
+        <p>
+          It currently runs on macOS and iPhone. There is no ready-made download yet: you build it from
+          source, and the instructions are in the
+          <a href="https://github.com/matteoferrando/MyDiveLog">repository</a>.
+        </p>
+      </section>
+
+      <section>
+        <h2>One warning that matters</h2>
+        <div class="evidenza avvertenza">
+          <p>
+            <strong
+              >MyDiveLog is not a dive computer and must not be used to make decisions in the water.</strong
+            >
+            Its decompression calculations, plans and analyses exist to study the dives you have done and
+            prepare the ones you are going to do: they do not replace your dive computer, your training or
+            your judgement. Scuba diving carries risks, including death.
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <div class="contenitore">
+      <footer class="piede">
+        <p>
+          MyDiveLog — <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms of service</a> ·
+          <a href="https://github.com/matteoferrando/MyDiveLog">GitHub</a> · <a href="/">Italiano</a>
+        </p>
+        <p>Matteo Ferrando — <a href="mailto:m.ferrando@gmail.com">m.ferrando@gmail.com</a></p>
+      </footer>
+    </div>
+  </body>
+</html>
