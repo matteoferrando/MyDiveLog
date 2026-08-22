@@ -2,11 +2,38 @@
  * Decodifica del formato binario Uwatec/Scubapro "Smart".
  *
  * È il blob che LogTRAK esporta in base64 dentro `diveLogBase64`, e contiene il
- * profilo che il JSON non ha. Riscritto in TypeScript da
- * `libdivecomputer/src/uwatec_smart_parser.c`, che è l'unica descrizione
- * affidabile del formato: la specifica pubblica del 2007 (progetto Diversity)
- * copre le famiglie vecchie e ha imprecisioni (dichiara "big endian" e poi dà
- * `byte0 + (byte1<<8)`, che è little endian).
+ * profilo che il JSON non ha. Tradotto in TypeScript da
+ * `libdivecomputer/src/uwatec_smart_parser.c` e `libdivecomputer/src/array.c`,
+ * che sono l'unica descrizione affidabile del formato: la specifica pubblica del
+ * 2007 (progetto Diversity) copre le famiglie vecchie e ha imprecisioni
+ * (dichiara "big endian" e poi dà `byte0 + (byte1<<8)`, che è little endian).
+ *
+ * ATTENZIONE ALLA LICENZA DI QUESTO FILE, CHE NON È QUELLA DEL PROGETTO.
+ *
+ * MyDiveLog è MIT. Questo file no, e la ragione è che un confronto riga per riga
+ * con l'originale, fatto apposta, ha dato un esito che non lascia margini: le
+ * quattro tabelle dei campioni coincidono valore per valore e nello stesso
+ * ordine dei campi; `identifyGalileo`, `identifyLeadingOnes` e `signExtend` sono
+ * traduzioni istruzione per istruzione; il ciclo del bitstream segue il C passo
+ * per passo, commenti compresi. I FATTI del formato — quale bit sta dove, quale
+ * moltiplicatore converte una pressione — non sono coperti da copyright e
+ * chiunque può riscriverli. La forma in cui sono organizzati qui, invece, è
+ * quella dell'originale.
+ *
+ * Chiamare MIT questo file sarebbe stata una dichiarazione comoda e falsa.
+ * Chiamarlo LGPL-2.1-or-later, come l'originale, costa niente a chi usa
+ * l'applicazione — la LGPL è fatta apposta perché un programma con un'altra
+ * licenza possa usare un modulo LGPL, purché chi lo riceve possa sostituirlo, e
+ * qui tutto il sorgente è pubblico e ricompilabile.
+ *
+ * SPDX-License-Identifier: LGPL-2.1-or-later
+ * Copyright (C) 2008-2025 Jef Driesen e i contributori di libdivecomputer
+ * Copyright (C) 2026 Matteo Ferrando, per le parti originali
+ *
+ * Le parti originali, per non fare confusione, sono: il riconoscimento
+ * automatico del layout dell'intestazione, `profiloImpronta`,
+ * `splitUwatecRecords`, `trimSurface`, la conversione nel modello canonico, la
+ * lettura della profondità media a offset 24 e il controllo sui byte consumati.
  *
  * PERCHÉ QUESTO FILE È DELICATO
  *

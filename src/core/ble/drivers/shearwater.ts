@@ -213,24 +213,47 @@ export class SlipDecoder {
  * esaurimento dei dati — il primo è la fine dell'immersione, il secondo è la
  * fine di UN BLOCCO e il computer ne manderà ancora.
  *
- * Traduzione di `shearwater_common_decompress_lre`.
+ * IL FORMATO, che è tutto quello che serve sapere: gruppi da nove bit in fila,
+ * bit più significativo per primo, senza riguardo per i confini dei byte.
+ *
+ * SCRITTA CON UN ACCUMULATORE, e non con una finestra a sedici bit. È la
+ * differenza fra leggere un flusso di bit e ritagliarlo da coppie di byte: si
+ * versano byte in un registro finché non ce ne sono almeno nove, si prendono i
+ * nove più alti, si tiene il resto. Viene più corta, non ha bisogno di leggere
+ * il byte successivo — e quindi non ha bisogno di difendersi dal caso in cui
+ * quel byte non esista — e dice da sé come è fatto il formato.
+ *
+ * Il formato l'ha scoperto libdivecomputer, e va riconosciuto: questo codice non
+ * esisterebbe senza `shearwater_common_decompress_lre`. L'espressione qui sotto
+ * però è nostra, ed è l'unica cosa su cui si possa vantare qualcosa.
  */
 export function decompressLre(data: Uint8Array, out: number[]): { final: boolean } {
-  const nbits = data.length * 8;
-  if (nbits % 9 !== 0) {
+  if ((data.length * 8) % 9 !== 0) {
     throw new ShearwaterProtocolError(
       `Blocco compresso di ${data.length} byte: non è un multiplo di nove bit, quindi non è il flusso che ci aspettiamo.`,
     );
   }
-  for (let offset = 0; offset + 9 <= nbits; offset += 9) {
-    const byte = offset >> 3;
-    const bit = offset & 7;
-    const shift = 16 - (bit + 9);
-    const be16 = (data[byte] << 8) | (data[byte + 1] ?? 0);
-    const value = (be16 >> shift) & 0x1ff;
-    if (value & 0x100) out.push(value & 0xff);
-    else if (value === 0) return { final: true };
-    else for (let i = 0; i < value; i++) out.push(0);
+
+  let registro = 0;
+  let quantiBit = 0;
+  for (const byte of data) {
+    registro = (registro << 8) | byte;
+    quantiBit += 8;
+    while (quantiBit >= 9) {
+      quantiBit -= 9;
+      const gruppo = (registro >> quantiBit) & 0x1ff;
+      // Il bit alto separa i due significati: acceso, gli altri otto sono un
+      // byte da copiare; spento, sono quanti zeri inserire. Zero secco è la
+      // fine del flusso — che è cosa diversa dalla fine dei dati, perché il
+      // computer manda un blocco alla volta e ne manderà ancora.
+      if (gruppo & 0x100) out.push(gruppo & 0xff);
+      else if (gruppo === 0) return { final: true };
+      else for (let i = 0; i < gruppo; i++) out.push(0);
+    }
+    // Senza questa riga il registro cresce oltre i 32 bit che gli interi di
+    // JavaScript reggono nelle operazioni bit a bit, e i bit alti si perdono in
+    // silenzio: un flusso decompresso plausibile e sbagliato.
+    registro &= 0xff;
   }
   return { final: false };
 }

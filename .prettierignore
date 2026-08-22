@@ -20,7 +20,5 @@ docs
 # un formattatore automatico.
 .github
 
-# La cache locale di wrangler: la scrive lui, non è nostra, e il suo JSON non
-# passa il controllo del formato — cioè farebbe fallire la CI per un file che
-# nessuno ha scritto.
-server/.wrangler
+# Testi di licenza altrui: si copiano com'è, punto.
+LICENSES

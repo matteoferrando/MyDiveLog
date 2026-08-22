@@ -554,13 +554,32 @@ niente accesso al filesystem arbitrario.
 
 ## Licenza e riconoscimenti
 
-MIT — vedi [LICENSE](LICENSE).
+MIT — vedi [LICENSE](LICENSE) — **con due eccezioni dichiarate**, elencate in
+[`LICENSES/LEGGIMI.md`](LICENSES/LEGGIMI.md): il decoder Uwatec e la libreria
+libdivecomputer vendorizzata sono LGPL-2.1-or-later. Le due licenze convivono
+senza forzature, ed è esattamente il caso per cui la LGPL è stata scritta.
 
-I decoder binari di `src/core/parsers/uwatecSmart.ts` (Uwatec Smart) e
-`src/core/parsers/shearwaterPnf.ts` (log nativo Shearwater) sono stati riscritti
-leggendo i sorgenti di [libdivecomputer](https://libdivecomputer.org), che è
-LGPL-2.1: senza quel lavoro di reverse engineering, durato anni e fatto da altri,
-questi formati sarebbero illeggibili. Il debito è dichiarato in testa ai due file.
+### Il debito verso libdivecomputer, dichiarato per intero
+
+Quattro file di questo progetto sono stati scritti leggendo i sorgenti di
+[libdivecomputer](https://libdivecomputer.org), che è **LGPL-2.1**. Senza quel
+lavoro di reverse engineering, durato anni e fatto da altri, questi formati e
+questi protocolli sarebbero illeggibili.
+
+| File | Da cosa | Quanto |
+|---|---|---|
+| `src/core/parsers/uwatecSmart.ts` | `uwatec_smart_parser.c`, `array.c` | **il nucleo è una traduzione**: tabelle dei campioni, `identify`, `signextend`, il ciclo del bitstream |
+| `src/core/parsers/shearwaterPnf.ts` | `shearwater_predator_parser.c` | reimplementazione; derivati la correzione delle temperature negative e alcuni commenti |
+| `src/core/ble/drivers/uwatec.ts` | `uwatec_smart.c` | reimplementazione; comuni i nomi dei comandi, che sono fatti del protocollo |
+| `src/core/ble/drivers/shearwater.ts` | `shearwater_common.c`, `shearwater_petrel.c` | reimplementazione; `decompressLre` è una traduzione ravvicinata di dodici righe |
+
+Questa tabella è il risultato di un confronto riga per riga fatto apposta, non di
+una stima. **Dichiararla per intero è deliberato**: un'attribuzione volontaria e
+completa è la difesa migliore della tesi che il resto sia farina nostra, e
+tacerla non renderebbe il debito più piccolo — solo più difficile da vedere.
+
+Il caso di `uwatecSmart.ts` è diverso dagli altri tre per grado, non per
+sfumatura, e la sua licenza è trattata a parte in testa al file.
 
 L'algoritmo Bühlmann ZH-L16C è di Albert A. Bühlmann; l'interpolazione dei
 gradient factor segue il lavoro di Erik Baker. VPM-B è di David E. Yount,
