@@ -1804,4 +1804,17 @@ export const INGLESE: Record<string, string> = {
   /* Il percentile: «75°» in italiano, «75th» in inglese. */
   '75°': '75th',
   'm slm': 'm asl',
+  // --- esportazione in CSV e KML ---
+  'Foglio di calcolo (CSV)': 'Spreadsheet (CSV)',
+  'Siti su mappa (KML)': 'Sites on a map (KML)',
+  'siti senza coordinate': 'sites with no coordinates',
+  'Tre strade per portare fuori le tue': 'Three ways to take your',
+  'UDDF per un altro programma di immersioni, CSV per un foglio di calcolo, KML per una mappa.':
+    'UDDF for another dive program, CSV for a spreadsheet, KML for a map.',
+  'Non sono un backup': 'Not a backup',
+  'lasciano fuori parecchi campi. Per una copia completa usa il backup.':
+    'they leave out several fields. For a full copy use the backup.',
+  sito: 'site',
+  siti: 'sites',
+  esportati: 'exported',
 };

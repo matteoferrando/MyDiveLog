@@ -502,6 +502,39 @@ quattro schede e verifica che nessuna voce di navigazione sia rimasta italiana.
 **Il sito** ha le schermate vere, in italiano su `/` e in inglese su `/en/`,
 prodotte da `scripts/immagini-sito.mjs` dalla stessa build che gira sul Mac.
 
+## CSV e KML, 23 agosto 2026
+
+Tre formati d'uscita invece di uno, perché sono tre domande diverse. L'UDDF
+porta le immersioni in un altro programma del settore; il **CSV** le porta in un
+foglio di calcolo, dove si fa quello che questa app non fa (una pivot, un conto
+per il club, un controllo a occhio su una colonna); il **KML** porta i siti su
+una mappa vera — il grafico nelle statistiche dichiara di non esserlo, e alla
+domanda «dov'è esattamente quel punto» non risponde.
+
+Le insidie pagate una volta per tutte, tutte e tre invisibili a occhio:
+
+- **il separatore del CSV.** Excel in italiano legge il punto e virgola, in
+  inglese la virgola, e chi apre quello sbagliato si ritrova tutto in una
+  colonna. Si scrive `sep=` in cima, che è l'unica dichiarazione che Excel legge
+  davvero, e il separatore segue la lingua dell'interfaccia;
+- **il separatore decimale**, che viaggia con il primo: in un foglio italiano
+  `17.4` entra come TESTO e la colonna non si somma. Nessun errore, e si scopre
+  alla fine;
+- **l'ordine delle coordinate in KML**, che è longitudine prima di latitudine —
+  l'inverso di come si scrivono. Invertite, le immersioni liguri finiscono in
+  Somalia e il file si apre lo stesso.
+
+Il KML raggruppa per **nome** del sito e non per coordinata: il GPS prende il
+punto in superficie e la barca si sposta, quindi due immersioni allo stesso posto
+non hanno mai la stessa coordinata al quinto decimale. Un segnaposto per
+immersione darebbe trentadue bolle sovrapposte su Moregallo e nasconderebbe tutto
+il resto.
+
+Un difetto preso mentre si collegava all'interfaccia: la conferma diceva «7
+immersioni esportate» dopo il KML, che conta siti. La frase è ora composta da chi
+sa cosa sta contando — participio compreso, perché «7 siti esportate» è
+sbagliato in italiano.
+
 ## Prossimi passi, in ordine
 
 1. **Scarico Bluetooth dai computer**, Aladin per primo. Il decoder del formato
@@ -526,8 +559,7 @@ prodotte da `scripts/immagini-sito.mjs` dalla stessa build che gira sul Mac.
    dell'archivio. Non sono nell'interfaccia, quindi la passata dell'inglese non
    le ha toccate. Vanno fatte con lo stesso schema di `format.ts`: un parametro
    `t: Traduci` con l'identità come valore predefinito.
-5. **Esportazione CSV e KML**, chieste e non ancora fatte.
-6. **libdivecomputer su iPhone**: la libreria si compila già per macOS da
+5. **libdivecomputer su iPhone**: la libreria si compila già per macOS da
    `build.rs`; mancano la compilazione incrociata per `aarch64-apple-ios`, il
    collegamento vero di `FlussoBle` a `blec`, e la scelta di marca e modello fra
    i 356 supportati.

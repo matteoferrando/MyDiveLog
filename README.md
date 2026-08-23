@@ -144,11 +144,33 @@ Tre principi, perché un consiglio sbagliato è peggio di nessun consiglio:
 3. **Niente consigli che sostituiscano un istruttore.** Sulla decompressione e
    sulla progressione in profondità il piano indica cosa guardare, non cosa fare.
 
-**Tiene un solo archivio su più dispositivi.** Facoltativo: un database
-libSQL/Turso condiviso, con indirizzo e token inseriti una volta nella scheda
-*Sincronizza*. Il database locale resta la fonte di verità e la sincronizzazione
-è un'operazione che lanci tu — l'app si apre e funziona identica senza rete,
-perché un logbook si consulta anche in barca.
+**Porta i dati fuori, in tre formati.** Un archivio chiuso dentro
+un'applicazione è un archivio a rischio, e tre domande diverse vogliono tre
+risposte diverse:
+
+- **UDDF** ([`export/uddf.ts`](src/core/export/uddf.ts)) per portare le
+  immersioni in un altro programma del settore. È rileggibile dal nostro stesso
+  parser, ed è la proprietà che i test verificano;
+- **CSV** ([`export/csv.ts`](src/core/export/csv.ts)) per farci in un foglio di
+  calcolo quello che questa app non fa. Una riga per immersione, quarantatré
+  colonne con l'unità scritta nell'intestazione. Il separatore segue la lingua —
+  punto e virgola e decimali con la virgola in italiano, virgola e punto in
+  inglese — perché sbagliare quella coppia non dà nessun errore: apre il file in
+  una colonna sola, o fa entrare i numeri come testo;
+- **KML** ([`export/kml.ts`](src/core/export/kml.ts)) per vedere i siti su una
+  mappa vera. Un segnaposto per sito e non per immersione, con dentro quante
+  volte ci sei stato e quando; i siti di cui nessun formato d'origine porta le
+  coordinate vengono elencati invece di sparire.
+
+Più il **backup completo in JSON**, che è l'unico che riporta indietro tutto:
+immersioni, profili, attrezzatura, brevetti, piani e analisi.
+
+**Tiene un solo archivio su più dispositivi.** Facoltativo: si entra con un
+account Google e il servizio crea un database libSQL/Turso tutto tuo — indirizzo
+e token si possono ancora incollare a mano, sotto «Avanzate», per chi il database
+se l'è fatto da sé. Il database locale resta la fonte di verità e la
+sincronizzazione è un'operazione che lanci tu — l'app si apre e funziona identica
+senza rete, perché un logbook si consulta anche in barca.
 
 Cosa garantisce, e cosa no:
 
@@ -157,16 +179,17 @@ Cosa garantisce, e cosa no:
 - **Riepilogo e profilo viaggiano separati.** Se un dispositivo ha le note e
   l'altro il profilo campione per campione, dopo la sincronizzazione entrambi
   hanno entrambi. Una regola sola per tutto il record perderebbe uno dei due.
-- **Non cancella.** Eliminare un'immersione da un dispositivo non la elimina
-  dagli altri: propagare le cancellazioni richiede un registro di ciò che è
-  stato eliminato, e finché non c'è la scelta è dichiarata — meglio
-  un'immersione di troppo che una perduta.
+- **Le cancellazioni viaggiano, il cestino no.** Finché un'immersione è nel
+  cestino resta solo sul dispositivo dove l'hai buttata: ripescarla dev'essere
+  sempre possibile. Svuotando il cestino nasce la lapide — «questa è stata
+  cancellata, e quando» — che è l'unica informazione capace di distinguere «non
+  ce l'ho ancora» da «l'ho buttata via».
 - **Sincronizzare due volte di fila non fa niente la seconda volta.** È la
   proprietà su cui insistono i test: un piano non idempotente fa rimpallare le
   immersioni fra due dispositivi per sempre.
 
-Il token non è nel codice e non è nel repository: vive nelle impostazioni
-dell'archivio locale, sul dispositivo dove lo hai incollato.
+Nessun token è nel codice né nel repository: vivono nel portachiavi di sistema
+(o, sul web, nell'archivio locale), sul dispositivo dove sono nati.
 
 ---
 
@@ -177,7 +200,7 @@ dell'archivio locale, sul dispositivo dove lo hai incollato.
 | `npm run dev` | sviluppo nel browser (dati in IndexedDB) |
 | `npm run desktop` | app desktop in sviluppo (dati in SQLite) |
 | `npm run desktop:build` | `.app` + `.dmg` per macOS |
-| `npm test` | 1200 test su unità, parser, formati binari Uwatec e Shearwater, gzip/DEFLATE, lettore SQLite, metriche, deduplica, fusi orari, sincronizzazione, piano, grafici |
+| `npm test` | 1211 test su unità, parser, formati binari Uwatec e Shearwater, gzip/DEFLATE, lettore SQLite, metriche, deduplica, fusi orari, sincronizzazione, piano, grafici |
 | `npm run validate:logtrak <file>` | verifica il decoder Uwatec contro un export LogTRAK reale |
 | `npm run validate:pnf <file.db>` | verifica il decoder Shearwater contro un database di Shearwater Cloud reale |
 | `npm run typecheck` | controllo dei tipi |
@@ -319,6 +342,7 @@ src/
     model.ts                   modello canonico e unità di misura
     units.ts                   conversioni e fisica dell'immersione
     dedupe.ts                  riconoscimento della stessa immersione
+    export/                    UDDF, CSV, KML, backup completo, stampa
     parsers/                   un file per formato + rilevamento
       uwatecSmart.ts             decoder del bitstream binario Scubapro/Uwatec
       shearwaterPnf.ts           decoder del log nativo dei computer Shearwater

@@ -48,9 +48,21 @@ export function SyncPage() {
     testAiKey,
     exportArchive,
   } = useDiveLog();
-  const { t } = useLingua();
+  const { t, lingua } = useLingua();
   const [exporting, setExporting] = useState(false);
-  const [exported, setExported] = useState<{ dives: number; omitted: string[]; dove: string } | null>(null);
+  /**
+   * L'esito dell'ultima esportazione.
+   *
+   * `quante` è la frase INTERA — participio compreso — e non un numero, per due
+   * ragioni che si sommano. La prima: le quattro esportazioni non contano la
+   * stessa cosa. L'UDDF e il CSV contano immersioni, il KML conta SITI, e con un
+   * numero solo la mappa dei sette siti confermava «7 immersioni esportate» su
+   * un archivio di cinquanta — un numero giusto accanto alla parola sbagliata.
+   * La seconda: in italiano il participio concorda con il genere, «7 siti
+   * esportate» è sbagliato, e il pezzo che sa quale nome sta usando è chi compone
+   * la frase, non chi la mostra.
+   */
+  const [exported, setExported] = useState<{ quante: string; omitted: string[]; dove: string } | null>(null);
   const [url, setUrl] = useState(syncCredentials?.url ?? '');
   const [token, setToken] = useState(syncCredentials?.authToken ?? '');
   const [testing, setTesting] = useState(false);
@@ -89,6 +101,30 @@ export function SyncPage() {
     } finally {
       setTesting(false);
     }
+  };
+
+  /**
+   * Il giro di ogni esportazione, scritto una volta.
+   *
+   * Le quattro esportazioni facevano la stessa danza — accendi «preparo»,
+   * azzera l'esito, prova, scrivi l'errore, spegni — e la copiavano ognuna per
+   * sé. Non è solo ripetizione: il `void` più il `catch` sono lì per un motivo
+   * preciso, e in una copia dimenticata un export fallito diventa una promessa
+   * scartata, cioè un pulsante che sembra non fare niente.
+   */
+  const scarica = (lavoro: () => Promise<{ quante: string; omitted: string[]; dove: string }>) => {
+    void (async () => {
+      setExporting(true);
+      setExported(null);
+      setError(null);
+      try {
+        setExported(await lavoro());
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setExporting(false);
+      }
+    })();
   };
 
   const run = async () => {
@@ -339,70 +375,124 @@ export function SyncPage() {
          * tornare indietro usa il backup completo, non questo file.
          */}
         <p className="card-sub">
-          {t('Un file UDDF con tutte le')} {imm(dives.length, t)}{' '}
-          {t('e i loro profili: lo leggono gli altri programmi.')} <b>{t('Non è un backup')}</b>:{' '}
-          {t('lascia fuori parecchi campi. Per una copia completa usa il backup.')}
+          {t('Tre strade per portare fuori le tue')} {imm(dives.length, t)}:{' '}
+          {t('UDDF per un altro programma di immersioni, CSV per un foglio di calcolo, KML per una mappa.')}{' '}
+          <b>{t('Non sono un backup')}</b>:{' '}
+          {t('lasciano fuori parecchi campi. Per una copia completa usa il backup.')}
         </p>
         <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
           <button
             className="btn btn-primary"
             disabled={exporting || dives.length === 0}
-            onClick={() => {
-              // `void` più `catch`: un gestore `async` passato direttamente a
-              // `onClick` fa scartare la promessa a React, e un export fallito
-              // resterebbe una unhandled rejection con un bottone che sembra non
-              // fare niente.
-              void (async () => {
-                setExporting(true);
-                setExported(null);
-                setError(null);
-                try {
-                  const result = await exportArchive();
-                  const dove = await esporta(
-                    `mydivelog-${new Date().toISOString().slice(0, 10)}.uddf`,
-                    result.xml,
-                  );
-                  setExported({ dives: result.dives, omitted: result.omitted, dove: dove.dove });
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : String(err));
-                } finally {
-                  setExporting(false);
-                }
-              })();
-            }}
+            onClick={() =>
+              scarica(async () => {
+                const result = await exportArchive();
+                const dove = await esporta(
+                  `mydivelog-${new Date().toISOString().slice(0, 10)}.uddf`,
+                  result.xml,
+                );
+                return {
+                  quante: `${imm(result.dives, t)} ${t('esportate')}`,
+                  omitted: result.omitted,
+                  dove: dove.dove,
+                };
+              })
+            }
           >
             {exporting ? t('Preparazione…') : t('Scarica UDDF')}
           </button>
           <button
             disabled={exporting || dives.length === 0}
-            onClick={() => {
-              void (async () => {
-                setExporting(true);
-                setExported(null);
-                setError(null);
-                try {
-                  const result = await exportArchive({ includeProfiles: false });
-                  const dove = await esporta(
-                    `mydivelog-riepiloghi-${new Date().toISOString().slice(0, 10)}.uddf`,
-                    result.xml,
-                  );
-                  setExported({ dives: result.dives, omitted: result.omitted, dove: dove.dove });
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : String(err));
-                } finally {
-                  setExporting(false);
-                }
-              })();
-            }}
+            onClick={() =>
+              scarica(async () => {
+                const result = await exportArchive({ includeProfiles: false });
+                const dove = await esporta(
+                  `mydivelog-riepiloghi-${new Date().toISOString().slice(0, 10)}.uddf`,
+                  result.xml,
+                );
+                return {
+                  quante: `${imm(result.dives, t)} ${t('esportate')}`,
+                  omitted: result.omitted,
+                  dove: dove.dove,
+                };
+              })
+            }
           >
             {t('Solo riepiloghi')}
+          </button>
+          {/*
+           * CSV e KML stanno accanto all'UDDF, e non è disordine.
+           *
+           * Sono tre risposte a tre domande diverse: l'UDDF porta le immersioni
+           * in un altro programma del settore, il CSV le porta in un foglio di
+           * calcolo dove si può fare quello che questo programma non fa, il KML
+           * porta i siti su una mappa vera. Metterli in tre schede separate
+           * costringerebbe a cercare, quando la domanda di chi arriva qui è una
+           * sola: «come porto fuori i miei dati».
+           */}
+          <button
+            disabled={exporting || dives.length === 0}
+            onClick={() =>
+              scarica(async () => {
+                const { esportaCsv } = await import('../../core/export/csv');
+                /*
+                 * Il separatore segue la lingua dell'interfaccia, e con lui il
+                 * separatore decimale. Chi usa l'app in italiano ha quasi certamente
+                 * un foglio italiano, che vuole il punto e virgola e la virgola nei
+                 * decimali; chi la usa in inglese ha l'altra coppia. Sbagliare
+                 * coppia non dà nessun errore: apre il file in una colonna sola,
+                 * oppure fa entrare i numeri come testo.
+                 */
+                const { csv, righe } = esportaCsv(dives, {
+                  separatore: lingua === 'it' ? ';' : ',',
+                  lingua,
+                });
+                const dove = await esporta(
+                  `mydivelog-${new Date().toISOString().slice(0, 10)}.csv`,
+                  csv,
+                  'text/csv;charset=utf-8',
+                );
+                return { quante: `${imm(righe, t)} ${t('esportate')}`, omitted: [], dove: dove.dove };
+              })
+            }
+          >
+            {t('Foglio di calcolo (CSV)')}
+          </button>
+          <button
+            disabled={exporting || dives.length === 0}
+            onClick={() =>
+              scarica(async () => {
+                const { esportaKml } = await import('../../core/export/kml');
+                const { kml, siti, senzaCoordinate } = esportaKml(dives, { lingua });
+                const dove = await esporta(
+                  `mydivelog-siti-${new Date().toISOString().slice(0, 10)}.kml`,
+                  kml,
+                  'application/vnd.google-earth.kml+xml',
+                );
+                /*
+                 * I siti senza coordinate entrano in `omitted`, cioè nella
+                 * stessa riga che l'UDDF usa per dire cosa non è entrato. Senza,
+                 * una mappa con quattro segnaposti su dodici siti sembra un
+                 * difetto del programma invece che un dato che i formati di
+                 * origine non contengono.
+                 */
+                return {
+                  quante: `${plural(siti, 'sito', 'siti', t)} ${t('esportati')}`,
+                  omitted: senzaCoordinate.length
+                    ? [`${t('siti senza coordinate')}: ${senzaCoordinate.join(', ')}`]
+                    : [],
+                  dove: dove.dove,
+                };
+              })
+            }
+          >
+            {t('Siti su mappa (KML)')}
           </button>
         </div>
         {exported && (
           <div className="notice" style={{ marginTop: 12 }}>
             <b>
-              {imm(exported.dives, t)} {exported.dives === 1 ? t('esportata') : t('esportate')},{' '}
-              {exported.dove}.
+              {exported.quante}, {exported.dove}.
             </b>{' '}
             {exported.omitted.length > 0 && (
               <>
