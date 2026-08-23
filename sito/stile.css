@@ -1102,3 +1102,61 @@ section.prosa p {
   background: radial-gradient(50% 50% at 50% 50%, rgba(67, 214, 255, 0.09), transparent 70%);
   pointer-events: none;
 }
+
+/* ========================================================= le tredici lettere */
+
+/*
+  Il libretto di legge.
+
+  Tredici voci con la loro lettera davanti: è la forma in cui la legge le
+  elenca, ed è la forma in cui chi le conosce le riconosce. Messe in griglia
+  compatta valgono più di un paragrafo che dica «copriamo tutti i campi
+  previsti» — si contano a occhio.
+*/
+.sezione-legge {
+  border: 1px solid rgba(67, 214, 255, 0.3);
+  border-radius: 20px;
+  padding: 34px 30px;
+  margin: 4vh 0;
+  background: linear-gradient(160deg, rgba(67, 214, 255, 0.1), rgba(67, 214, 255, 0.015));
+}
+
+.sezione-legge h2 {
+  margin-top: 0;
+}
+
+.lettere-legge {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+  gap: 8px 18px;
+  margin: 24px 0 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.lettere-legge li {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  font-size: 14px;
+  color: var(--testo);
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(157, 220, 255, 0.1);
+}
+
+.lettere-legge .sigla {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--ciano);
+  min-width: 1.2rem;
+}
+
+/* La nota legale: piccola, ma non nascosta. Chi la cerca la trova. */
+.nota-legge {
+  font-size: 13px;
+  color: var(--testo-tenue);
+  border-left: 2px solid rgba(157, 220, 255, 0.3);
+  padding-left: 14px;
+  margin: 18px 0 0;
+  max-width: 44rem;
+}
