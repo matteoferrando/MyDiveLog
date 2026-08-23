@@ -1,0 +1,143 @@
+/**
+ * Le fotografie del sito, prese dall'applicazione vera.
+ *
+ * Non sono ritocchi né mockup: è la stessa build che gira sul Mac, caricata con
+ * l'archivio dimostrativo, fotografata in italiano e in inglese. Ha un costo —
+ * vanno rifatte quando l'interfaccia cambia — e in cambio non può succedere che
+ * il sito mostri una schermata che il programma non produce più.
+ *
+ *   npm run build && npm run demo && node scripts/immagini-sito.mjs
+ *
+ * Le immagini finiscono in `sito/immagini/`, in JPEG.
+ *
+ * PERCHÉ JPEG E NON PNG. Sono fotografie di un'interfaccia piena di sfumature e
+ * di testo antialiasato: in PNG la stessa schermata pesa il doppio, e su
+ * Cloudflare Pages ogni chilobyte è banda pagata da chi apre il sito da un
+ * telefono in barca. La qualità 82 non lascia artefatti visibili sul testo.
+ *
+ * La finestra è 1280 px con `deviceScaleFactor: 1.25`: l'immagine esce a 1600 px
+ * di lato lungo, che è il doppio della larghezza a cui il sito la mostra. Sopra
+ * non si legge niente di più e si paga solo banda.
+ */
+
+import pw from 'playwright';
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { mkdirSync } from 'node:fs';
+import { extname, join } from 'node:path';
+
+const MIME = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.svg': 'image/svg+xml',
+};
+const server = createServer(async (req, res) => {
+  let p = decodeURIComponent((req.url || '/').split('?')[0]);
+  if (p === '/') p = '/index.html';
+  try {
+    const body = await readFile(join(process.cwd(), 'dist', p));
+    res.writeHead(200, { 'content-type': MIME[extname(p)] || 'application/octet-stream' });
+    res.end(body);
+  } catch {
+    res.writeHead(404);
+    res.end('not found');
+  }
+});
+await new Promise((r) => server.listen(4174, r));
+mkdirSync('sito/immagini', { recursive: true });
+
+const FILE = [
+  'demo/shearwater-cloud-export.uddf',
+  'demo/subsurface-archivio.ssrf',
+  'demo/shearwater-peregrine.xml',
+  'demo/garmin-descent.fit',
+];
+
+const browser = await pw.chromium.launch(
+  process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
+);
+
+/**
+ * Un giro completo in una lingua.
+ *
+ * La lingua si dichiara al contesto (`locale`) invece di premere il pulsante:
+ * qui non si sta provando il pulsante, si stanno facendo fotografie, e partire
+ * già nella lingua giusta evita di fotografare l'istante in cui il dizionario
+ * inglese non è ancora arrivato.
+ */
+async function giro(locale, suffisso) {
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 820 },
+    deviceScaleFactor: 1.25,
+    locale,
+  });
+  await page.goto('http://localhost:4174/', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(400);
+  await page.setInputFiles('input[type=file]', FILE);
+  await page.waitForSelector('.card h2', { timeout: 60000 });
+  await page.waitForTimeout(1200);
+
+  const vai = async (nome) => {
+    await page.locator(`.nav button:has-text("${nome}")`).first().click();
+    await page.waitForTimeout(900);
+  };
+  const scatta = async (nome) => {
+    await page.evaluate(() => {
+      document.querySelector('.main').scrollTop = 0;
+    });
+    await page.waitForTimeout(200);
+    await page.screenshot({
+      path: `sito/immagini/${nome}-${suffisso}.jpg`,
+      type: 'jpeg',
+      quality: 82,
+    });
+  };
+
+  const NOMI =
+    suffisso === 'it'
+      ? { logbook: 'Logbook', stats: 'Statistiche', gas: 'Gas', coach: 'Suggerimenti' }
+      : { logbook: 'Logbook', stats: 'Statistics', gas: 'Gas', coach: 'Coaching' };
+
+  await vai(NOMI.logbook);
+  await scatta('logbook');
+
+  // La scheda di un'immersione: si apre la prima riga dell'elenco, che
+  // nell'archivio dimostrativo è sempre una con il profilo campionato.
+  await page.locator('tbody tr td:nth-child(3)').first().click();
+  await page.waitForTimeout(1400);
+  await scatta('immersione');
+
+  await vai(NOMI.logbook);
+  await vai(NOMI.stats);
+  await scatta('statistiche');
+
+  await vai(NOMI.gas);
+  await scatta('gas');
+
+  await vai(NOMI.coach);
+  await scatta('suggerimenti');
+
+  // E il telefono: stessa applicazione, larghezza vera di un iPhone.
+  await page.setViewportSize({ width: 390, height: 780 });
+  await page.waitForTimeout(600);
+  await page.locator('.hamburger').click();
+  await page.waitForTimeout(300);
+  await page.locator(`.menu-telefono button:has-text("${NOMI.logbook}")`).first().click();
+  await page.waitForTimeout(900);
+  await page.screenshot({
+    path: `sito/immagini/telefono-${suffisso}.jpg`,
+    type: 'jpeg',
+    quality: 82,
+  });
+
+  await page.close();
+}
+
+await giro('it-IT', 'it');
+await giro('en-US', 'en');
+
+await browser.close();
+server.close();
+console.log('fatte.');

@@ -1,6 +1,6 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: 21 agosto 2026
+Aggiornato: 23 agosto 2026
 
 ## Dove sta il codice
 
@@ -234,13 +234,7 @@ può eliminare file).
   metriche incoerenti e ripulisce i computer duplicati, senza chiedere un reimport.
 - **Sincronizzazione con database condiviso** (`src/sync/`, scheda *Sincronizza*):
   piano senza rete in `plan.ts`, trasporto libSQL in `turso.ts`.
-- **Paginazione del logbook**: cinquanta righe alla volta, con un pulsante
-  «Mostra altre» e un piede che dichiara sempre a che punto sei. Non è solo
-  scorrimento risparmiato: la casella «seleziona tutte» agisce su ciò che è
-  mostrato, quindi la modifica in blocco non può toccare righe che non hai
-  davanti. È la ragione per cui si è scelta la finestra che si allunga invece
-  delle pagine numerate, dove «tutte» resta ambiguo.
-- **1097 test**, più tre script di verifica: `npm run screenshot` (fotografa ogni
+- **1092 test**, più tre script di verifica: `npm run screenshot` (fotografa ogni
   vista dalla build, incluso il percorso di errore della sincronizzazione),
   `npm run validate:logtrak <file>`, `npm run validate:pnf <database.db>`.
 - **Dati dimostrativi**: `npm run demo` genera 6 file, 69 immersioni che diventano
@@ -453,27 +447,90 @@ reale sito, note, zavorra, GF, temperature sono `null`: l'app le riempie solo se
 l'utente le scrive a mano. Tutto il resto sta nel blob compresso. Leggere solo le
 colonne dava l'impressione che il database non contenesse niente.
 
+## Due lingue e testi più corti, 23 agosto 2026
+
+Due lavori fatti insieme perché toccano le stesse righe.
+
+**L'inglese.** Meccanismo in stile gettext: la chiave del dizionario è la frase
+italiana, si avvolge la stringa in `t()` e basta. Una frase non tradotta esce in
+italiano — che è la chiave — quindi il programma resta usabile a dizionario
+incompleto e non compaiono mai sigle al posto del testo. Il prezzo, dichiarato:
+cambiando la frase italiana si perde la sua traduzione.
+
+Tre file nuovi: `ui/lingua.tsx` (contesto, `useLingua()`, il pulsante `IT`/`EN`),
+`ui/traduzioni.ts` (circa millecinquecento voci, raggruppate per scheda),
+`ui/navigazione.tsx` (il «vai a quella scheda» che serviva agli stati vuoti).
+Più `ui/components/Vuoto.tsx`, uno stato vuoto solo per tutte le pagine, **con un
+pulsante**: prima ogni pagina diceva «importa un file per iniziare» e si fermava
+lì, lasciando trovare la scheda giusta — che sul telefono sta dietro il menu.
+
+Il dizionario arriva con un `import()` pigro e solo per chi sceglie l'inglese:
+sono 89 kB, e il test del budget del primo avvio li avrebbe presi (li aveva
+presi, la prima volta).
+
+La scelta si ricorda in `localStorage` e non nell'archivio: è una preferenza di
+*questo* dispositivo, e sincronizzarla vorrebbe dire che cambiando lingua sul
+telefono cambia anche sul Mac.
+
+**I testi.** Erano scritti per chi il programma lo stava scrivendo: perché l'UDDF
+perde il collegamento fra bombole e miscele, come si deduce il volume da
+`tank_summary`, perché React riconcilia per posizione. Sono cose vere e servono —
+ai commenti, dove sono state spostate. A schermo è rimasta una riga per ciascuna.
+
+**Due difetti presi durante il lavoro**, tutti e due dalla harness:
+
+- il cambio lingua in barra portava il documento a 412 px su uno schermo da 390,
+  cioè scorrimento orizzontale su **ogni** pagina, perché la barra c'è sempre.
+  Sotto i 700 px scende dentro il menu, con bersagli da 44 px;
+- lo stato vuoto dei suggerimenti, riscritto con `Vuoto`, cambiava l'elemento
+  radice della pagina da `div.page` a un frammento. React riconcilia per
+  posizione **e per tipo**: la regione live dell'annuncio veniva rimontata e
+  taceva proprio nel momento in cui doveva parlare. Da lì la proprietà `nuda` di
+  `Vuoto`. Il test c'era già e l'ha preso.
+
+E uno preso prima, che vale la pena ricordare come metodo: consegnare al Mac un
+tar dell'**intera** cartella `src/ui` dalla copia nel contenitore stava per
+cancellare codice più recente scritto sul Mac — la paginazione del logbook, fra
+l'altro. Da allora: prima si rilegge dal Mac, poi si modifica, e si consegnano i
+file toccati.
+
+**La harness** (`scripts/screenshot.mjs`) dichiara `locale: 'it-IT'`: senza,
+Chromium diceva `en-US` e lo script cercava pulsanti italiani in un'interfaccia
+inglese, fallendo alla prima attesa. In fondo fa un giro in inglese che fotografa
+quattro schede e verifica che nessuna voce di navigazione sia rimasta italiana.
+
+**Il sito** ha le schermate vere, in italiano su `/` e in inglese su `/en/`,
+prodotte da `scripts/immagini-sito.mjs` dalla stessa build che gira sul Mac.
+
 ## Prossimi passi, in ordine
 
-I due punti che stavano in testa a questo elenco — lo scarico Bluetooth e iOS —
-sono chiusi: entrambi i driver hanno scaricato da computer veri, e l'app gira
-sull'iPhone di Matteo firmata con un account a pagamento. Restano questi.
-
-1. **Provare il Bluetooth dall'iPhone.** L'unica cosa che il simulatore non può
-   dare, e ora l'unica non ancora fatta sul telefono vero: il permesso, la
-   ricerca, uno scarico intero da un computer subacqueo mentre l'app gira su
-   iOS. Il permesso negato è il caso più insidioso e resta indistinguibile —
-   `checkPermissions` del plugin è implementato solo per Android, quindi l'app
-   può soltanto elencare le cause possibili dopo dodici secondi di ricerca a
-   vuoto.
-2. **Compilare muta, zavorra ed erogatori sulle immersioni vecchie**, in blocco
-   dal logbook. Non è lavoro di sviluppo, è il dato che manca perché mezze
-   statistiche sull'attrezzatura restino vuote.
+1. **Scarico Bluetooth dai computer**, Aladin per primo. Il decoder del formato
+   Uwatec è già scritto e verificato: manca solo il trasporto BLE
+   (`tauri-plugin-blec`, `libdivecomputer` come riferimento dei protocolli). È
+   l'unico punto che richiede il computer in mano per essere provato.
+2. **iOS sul telefono vero.** Sul simulatore l'app gira: layout a scheda sotto i
+   600 px, navigazione a menu con l'hamburger, tooltip col dito, permessi al
+   posto giusto.
+   Il passo che manca e' l'iPhone fisico, che serve per l'unica cosa che il
+   simulatore non puo' dare — il Bluetooth — e che richiede la firma con un
+   account Apple. Le due insidie gia' pagate sono in README: CoreBluetooth va
+   dichiarato in `tauri.conf.json` altrimenti il link fallisce con simboli
+   indefiniti che non nominano il Bluetooth, e `tauri ios init` non riscrive un
+   `project.yml` che esiste gia', quindi dice di aver rigenerato senza aver
+   cambiato niente.
 3. **Tarare le istruzioni delle analisi** su quello che producono davvero
    sull'archivio reale: le quattro modalità sono scritte al buio.
-4. **Svuotare il cestino** con le 52 immersioni di un altro subacqueo: finché
-   sono lì la lapide non nasce, e se erano già finite sul database condiviso
-   ricompaiono sugli altri dispositivi.
+4. **Le stringhe che restano italiane in inglese** vengono da `src/core`,
+   `src/storage` e `src/sync`: gli avvisi dei parser («PPO2 Shearwater riscalata
+   di 100…»), le righe del registro di sincronizzazione, i messaggi d'errore
+   dell'archivio. Non sono nell'interfaccia, quindi la passata dell'inglese non
+   le ha toccate. Vanno fatte con lo stesso schema di `format.ts`: un parametro
+   `t: Traduci` con l'identità come valore predefinito.
+5. **Esportazione CSV e KML**, chieste e non ancora fatte.
+6. **libdivecomputer su iPhone**: la libreria si compila già per macOS da
+   `build.rs`; mancano la compilazione incrociata per `aarch64-apple-ios`, il
+   collegamento vero di `FlussoBle` a `blec`, e la scelta di marca e modello fra
+   i 356 supportati.
 
 ## Cosa ha trovato la validazione del Bühlmann
 
@@ -606,93 +663,6 @@ avrebbero prodotto un numero sbagliato in acqua sono questi.
 - Dodici caselle senza nome accessibile nella tabella delle miscele, «1
   immersioni» in una decina di punti, e due stati vuoti mancanti (archivio vuoto
   in Confronta, nessun risultato nel Logbook).
-
-## iOS: dal simulatore al telefono in tasca
-
-L'app è **installata e in uso su un iPhone 17 Pro Max**, firmata con un account
-Apple Developer a pagamento — quindi il profilo dura un anno invece di sette
-giorni. Il racconto per esteso sta nei documenti di progetto; qui restano i
-fatti che servono a chi rimette le mani in questa parte.
-
-**Tre difetti avevano la stessa forma: funzionano sul Mac, non fanno niente su
-iPhone, non lanciano nessun errore.** È la categoria più costosa che ci sia,
-perché nessun test la vede e l'utente la scopre come «non funziona» senza altre
-informazioni.
-
-- **La CSP bloccava Turso.** `connect-src` elencava solo `'self'` e `ipc:`, e la
-  webview rifiutava ogni chiamata al database condiviso e all'API di Anthropic.
-  Invisibile sviluppando, perché `npm run dev` gira in un browser normale dove
-  quella CSP non esiste. Si presentava come «le credenziali non funzionano».
-- **Ogni esportazione dichiarava un successo mai avvenuto.** Dentro la WKWebView
-  un `<a download>` non scrive e non lancia, quindi il `try` arrivava sempre in
-  fondo e l'interfaccia scriveva «Backup scritto». Ora tutto passa da
-  `ui/esporta.ts`, che su iOS chiama un comando Rust e **lancia** se non riesce.
-- **Gli eventi del mouse non arrivano.** `mousemove` e `mouseenter` non
-  esistono sotto il dito; e `pointercancel` — il momento in cui iOS dichiara che
-  quel dito sta scorrendo la pagina — va gestito, o tutto ciò che si è aperto al
-  tocco resta aperto.
-
-`tests/iosGuardie.test.ts` inchioda queste tre regole leggendo le sorgenti. È
-una rete grossolana, ed è l'unica che copra la distanza fra «compila» e «serve a
-qualcosa su un telefono».
-
-**Due trappole della catena di build**, entrambe con la stessa radice: `gen/apple`
-è generata e non versionata, quindi tutto ciò che conta deve stare in
-`tauri.conf.json` o in uno script.
-
-- `libapp.a` finiva in «Copy Bundle Resources» perché XcodeGen la trova fra le
-  sorgenti: **470 MB di app** invece di 6, e con entrambe le architetture
-  presenti la build si fermava del tutto. `scripts/pulisci-progetto-ios.mjs`
-  toglie quella voce dopo ogni `tauri ios init`.
-- Le icone iOS vanno **quadrate e opache**: iOS applica la propria maschera, e
-  un'immagine già stondata viene stondata due volte con gli angoli riempiti di
-  bianco. `tauri ios init` non ricopia le icone se il progetto ne ha già,
-  quindi la copia la fanno gli script `ios:*`.
-
-**Il telefono va registrato a mano la prima volta.** Tauri passa a Xcode
-`-allowProvisioningUpdates` ma non `-allowProvisioningDeviceRegistration`:
-finché il dispositivo non è sul team, Apple risponde `Your team has no devices`
-anche col cavo collegato. Il comando che lo registra è in README.
-
-**Quello che su iPhone non c'è, e perché.** La stampa: `window.open` e
-`window.print` non esistono nella WKWebView, quindi i due pulsanti sono nascosti
-invece di aprire un avviso che dà la colpa al blocco dei popup. Il foglio si
-stampa dal Mac, dove l'archivio è lo stesso.
-
-## Multiutente: deciso di no, per ora
-
-Domanda posta il 21 agosto: come gestire più utenti. La risposta è **non
-adesso**, e la ragione per cui la decisione sta scritta qui è che fra sei mesi
-la si rifarebbe da zero.
-
-Quattro cose diverse si chiamano tutte «multiutente», e solo una richiede un
-server: più subacquei sullo stesso dispositivo (profili locali), far leggere le
-proprie immersioni a qualcuno (condivisione), un archivio unico per un gruppo, e
-utenti veri con account. L'obiettivo dichiarato è l'ultimo.
-
-**L'architettura da usare quando si farà: un database per utente.** Non è un
-ripiego, è il modello che Turso promuove, e qui ha un vantaggio che nessun'altra
-strada offre: il motore di sincronizzazione resta identico, perché ogni persona
-ha già oggi un database tutto suo. Serve un servizio in mezzo che faccia tre
-cose e nient'altro — autenticare, creare il database al primo accesso via
-Platform API, firmare token a scadenza breve. Non vede passare le immersioni e
-non duplica il nostro SQL in una API.
-
-L'alternativa — un database unico con la colonna del proprietario — butterebbe
-via deduplica, lapidi e fusione delle impostazioni per riscriverle come
-endpoint, e ogni filtro dimenticato sarebbe una fuga di dati fra utenti. Con un
-database per utente l'isolamento è fisico.
-
-Il vincolo da non violare: **il locale-prima resta**. Niente «accedi per vedere
-il tuo logbook»; l'archivio è locale, la sincronizzazione è una comodità che
-riparte quando c'è rete.
-
-Perché non ora: nel momento in cui si tengono i dati di altri si diventa
-titolari del trattamento — informativa, cancellazione vera dell'account,
-notifica delle violazioni — e i dati di un logbook stanno vicini a quelli
-sanitari. Più l'assistenza, e la domanda su chi paga i token delle analisi. Il
-lavoro da servizio compete con il lavoro da applicazione subacquea, e di solito
-lo mangia.
 
 ## Prova su un archivio che non è il suo
 

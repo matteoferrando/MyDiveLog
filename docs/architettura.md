@@ -322,6 +322,56 @@ facciamo, la decompressione no. Le avvertenze hanno due livelli proprio per ques
 "il piano non regge" e "da sapere" non sono la stessa cosa, e mostrarle con lo stesso
 rosso insegna a ignorarle entrambe.
 
+## Le due lingue, e perché il dizionario è fatto di frasi
+
+L'applicazione è nata in italiano e in italiano è scritta: codice, commenti,
+interfaccia. Renderla bilingue **dopo** è un problema diverso dal nascere
+bilingue, e la scelta è stata presa su quel vincolo.
+
+Lo schema è quello di gettext: **la chiave è la frase italiana**. Si avvolge la
+stringa in `t()` e non si tocca altro. L'alternativa canonica — chiavi astratte
+tipo `logbook.vuoto.titolo`, con un file di catalogo per lingua — ha due costi
+che qui pesano più del suo vantaggio:
+
+1. per sapere cosa c'è scritto a schermo bisogna aprire un secondo file. Su
+   un'applicazione scritta da una persona sola, quel salto si paga a ogni riga
+   letta, per sempre;
+2. la migrazione va fatta tutta insieme. Con la frase come chiave si può
+   procedere una scheda alla volta, e nel frattempo il programma funziona: quello
+   che manca dal dizionario esce in italiano, che è la chiave.
+
+Il prezzo è dichiarato: **cambiando la frase italiana si perde la sua
+traduzione**, in silenzio — esce l'italiano. È il difetto giusto da avere, perché
+è visibile a chi guarda la pagina nell'altra lingua, mentre una chiave astratta
+sbagliata produce `logbook.vuoto.titolo` a schermo, che è peggio.
+
+Tre conseguenze pratiche, tutte volute:
+
+- **il dizionario è pigro.** `lingua.tsx` lo importa con `import()` solo quando
+  la lingua diventa `en`. Non è un'ottimizzazione di principio: sono 89 kB, il
+  test del budget del primo avvio li prende, e chi usa l'app in italiano non ha
+  nessun motivo di scaricarli. Finché non è arrivato, `t()` restituisce
+  l'italiano — la stessa cosa che fa per una frase non tradotta — quindi non
+  serve nessuno stato di attesa e non lampeggia niente;
+- **le tabelle di costanti restano italiane.** Le etichette delle schede, dei
+  periodi, delle miscele sono costanti a modulo: nascono una volta al
+  caricamento, quando la lingua attiva non è ancora nota. Si traducono al
+  disegno, con `t(voce.etichetta)`. Costa una chiamata per riga disegnata, e in
+  cambio la tabella non deve rinascere a ogni cambio di lingua;
+- **le funzioni fuori dai componenti prendono `t` come parametro.** `format.ts`
+  definisce `type Traduci = (s: string) => string` e ogni funzione che compone
+  testo ha un parametro `t: Traduci = comeSta`. Un modulo che non è un componente
+  non può leggere un contesto React, e viene usato anche dai test e dalle
+  esportazioni, dove nessun contesto esiste. Con l'identità come valore
+  predefinito, chi non passa niente ottiene l'italiano.
+
+**Cosa resta fuori.** `src/core`, `src/storage` e `src/sync` producono testo che
+l'utente legge — avvisi dei parser, righe del registro di sincronizzazione,
+messaggi d'errore — e sono ancora solo in italiano. Vanno fatti con lo stesso
+schema del parametro `Traduci`; non è stato fatto nella prima passata perché
+quei moduli sono anche la parte più testata, e cambiarli insieme all'interfaccia
+avrebbe mescolato due categorie di rischio.
+
 ## Roadmap
 
 ### iOS

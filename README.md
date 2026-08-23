@@ -4,6 +4,8 @@ Logbook subacqueo che importa da computer diversi, calcola statistiche e ne
 ricava un piano di miglioramento.
 
 App desktop macOS (Tauri), con lo stesso codice pronto per iOS e per il web.
+Interfaccia in italiano e in inglese, con un pulsante per passare dall'una
+all'altra. Il sito è [mydivelog.site](https://mydivelog.site).
 
 > **Non è un computer subacqueo e non sostituisce il tuo.**
 > MyDiveLog contiene un'implementazione di Bühlmann ZH-L16C con gradient factor e
@@ -15,6 +17,20 @@ App desktop macOS (Tauri), con lo stesso codice pronto per iOS e per il web.
 > facendo davvero: in immersione ha ragione il computer che hai al polso. Usa
 > questi numeri per capire e per pianificare con la testa, mai come unica base di
 > un'immersione decompressiva.
+
+---
+
+## Com'è fatta
+
+Le schermate sono prodotte dall'applicazione vera con l'archivio dimostrativo
+(`node scripts/immagini-sito.mjs`), quindi invecchiano insieme al programma.
+
+| | |
+|---|---|
+| ![Il logbook](sito/immagini/logbook-it.jpg) | ![La scheda di un'immersione](sito/immagini/immersione-it.jpg) |
+| L'elenco, con da dove viene ogni immersione | La scheda: il profilo, e cosa dice |
+| ![Le statistiche](sito/immagini/statistiche-it.jpg) | ![Il pianificatore](sito/immagini/gas-it.jpg) |
+| Le statistiche, con quante immersioni c'è dietro ogni numero | Il pianificatore, che parte dal tuo consumo vero |
 
 ---
 
@@ -161,12 +177,13 @@ dell'archivio locale, sul dispositivo dove lo hai incollato.
 | `npm run dev` | sviluppo nel browser (dati in IndexedDB) |
 | `npm run desktop` | app desktop in sviluppo (dati in SQLite) |
 | `npm run desktop:build` | `.app` + `.dmg` per macOS |
-| `npm test` | 1175 test su unità, parser, formati binari Uwatec e Shearwater, gzip/DEFLATE, lettore SQLite, metriche, deduplica, fusi orari, sincronizzazione, piano, grafici |
+| `npm test` | 1200 test su unità, parser, formati binari Uwatec e Shearwater, gzip/DEFLATE, lettore SQLite, metriche, deduplica, fusi orari, sincronizzazione, piano, grafici |
 | `npm run validate:logtrak <file>` | verifica il decoder Uwatec contro un export LogTRAK reale |
 | `npm run validate:pnf <file.db>` | verifica il decoder Shearwater contro un database di Shearwater Cloud reale |
 | `npm run typecheck` | controllo dei tipi |
 | `npm run demo` | rigenera i file dimostrativi in `demo/` |
-| `npm run screenshot` | verifica visiva: apre la build e fotografa ogni vista |
+| `npm run screenshot` | verifica visiva: apre la build, fotografa ogni vista e fa un giro in inglese |
+| `node scripts/immagini-sito.mjs` | rigenera le fotografie del sito, in italiano e in inglese |
 | `npm run ios:init` | genera il progetto Xcode per iOS (vedi sotto) |
 | `npm run ios:dev -- "iPhone 17 Pro"` | compila e lancia l'app sul simulatore |
 | `npm run ios:build` | pacchetto firmato per un iPhone vero |
@@ -328,6 +345,9 @@ src/
     context.ts                 i dati misurati, compattati per il prompt
     prompts.ts                 istruzioni: niente numeri inventati
   ui/                        ← React: pagine, grafici, stato
+    lingua.tsx                 italiano e inglese: la chiave è la frase italiana
+    traduzioni.ts              il dizionario inglese, caricato solo per chi lo sceglie
+    navigazione.tsx            «vai a quella scheda», per gli stati vuoti
 src-tauri/                   ← guscio nativo (plugin SQL, Bluetooth, ritorno dall'accesso)
 server/                      ← il servizio di accesso: tre rotte, nessuna dipendenza
   worker.ts                    /accesso, /chiave, /account
@@ -427,6 +447,21 @@ I dati di prova sono generati, non registrati: `tests/fixtures.ts` costruisce
 profili con consumo, assetto e velocità di risalita *scelti*, così i test
 possono verificare che le metriche ricostruiscano i valori di partenza.
 
+Quello che i test unitari **non** vedono è la geometria: una curva che esce dal
+grafico, un'etichetta che ne copre un'altra, una traduzione inglese più lunga
+dell'italiano che manda a capo un pulsante. Per quello c'è la harness:
+
+```bash
+npm run build && npm run demo
+node scripts/screenshot.mjs      # fotografa ogni vista e stampa cosa ha trovato
+```
+
+Non fa solo fotografie: misura il trabocco orizzontale a 390 px, l'altezza dei
+bersagli tattili, che la conferma di cancellazione si armi davvero, e in fondo
+fa un giro in inglese per vedere che nessuna voce di navigazione sia rimasta
+italiana. È il posto dove sono stati presi quasi tutti i difetti d'interfaccia
+di questo progetto.
+
 ---
 
 ## Distribuire il pacchetto macOS
@@ -500,6 +535,43 @@ un centimetro dei numeri già in archivio.
 
 Il confronto si rifà quando serve — vedi
 [`scripts/confronto-ldc/`](scripts/confronto-ldc/).
+
+---
+
+## Due lingue
+
+L'interfaccia è in italiano e in inglese, e il pulsante `IT`/`EN` sta nella barra
+in alto — sul telefono dentro il menu, perché in barra non ci stava senza far
+scorrere la pagina di lato. Alla prima apertura la lingua è quella del sistema;
+la scelta si ricorda in `localStorage`, non nell'archivio, perché è una
+preferenza di *questo* dispositivo: cambiarla sul telefono non deve cambiarla
+sul Mac.
+
+**La chiave del dizionario è la frase italiana**, in stile gettext:
+
+```tsx
+const { t } = useLingua();
+<h2>{t('Nessuna immersione in archivio')}</h2>
+```
+
+Una frase che non è nel dizionario esce in italiano, che è la chiave: il
+programma resta usabile anche a traduzione incompleta, e non compaiono mai
+sigle tipo `logbook.vuoto.titolo` al posto di un testo. Il prezzo è che
+cambiando la frase italiana si perde la sua traduzione — ed è il prezzo giusto
+qui: le chiavi astratte costringono a saltare in un altro file per sapere cosa
+c'è scritto a schermo.
+
+Il dizionario ([`src/ui/traduzioni.ts`](src/ui/traduzioni.ts), circa
+millecinquecento voci) arriva con un `import()` pigro e **solo per chi sceglie
+l'inglese**: sono 89 kB che nel pezzo di codice del primo avvio non entrano, e
+che chi usa l'app in italiano non scarica mai.
+
+Per aggiungere una lingua servono un file come `traduzioni.ts` e una riga in
+`lingua.tsx`. Per trovare le frasi ancora da tradurre:
+
+```bash
+npm run build && node scripts/screenshot.mjs   # il giro finale è in inglese
+```
 
 ---
 

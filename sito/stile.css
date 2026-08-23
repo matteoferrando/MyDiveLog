@@ -321,3 +321,68 @@ th {
 .piede p {
   margin: 0.3rem 0;
 }
+
+/* --- fotografie dell'applicazione ------------------------------------- */
+
+/*
+  Le schermate sono l'unica cosa del sito che pesa, e ci stanno per un motivo:
+  un logbook si sceglie guardandolo. Prima qui c'erano solo parole, e «analizza
+  il profilo» non dice a nessuno che aspetto ha il grafico.
+
+  `loading="lazy"` su tutte tranne la prima: sotto la piega non servono finché
+  non ci si arriva, e la prima invece è quello che si vede aprendo il sito —
+  rimandarla vorrebbe dire mostrare un buco bianco.
+
+  L'`aspect-ratio` dichiarato nell'HTML (attributi `width` e `height`) tiene lo
+  spazio prima che l'immagine arrivi: senza, la pagina salta sotto il dito
+  mentre si legge.
+*/
+.schermata {
+  margin: 0;
+  border: 1px solid var(--bordo);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--fondo-alt);
+  box-shadow: 0 18px 45px -28px rgba(7, 32, 60, 0.55);
+}
+
+.schermata img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.schermata figcaption {
+  padding: 0.7rem 1rem;
+  font-size: 0.85rem;
+  color: var(--testo-tenue);
+  border-top: 1px solid var(--bordo);
+}
+
+/* La schermata grande sotto l'apertura: esce dal contenitore del testo perché
+   è la prova di cosa fa il programma, e va guardata. */
+.vetrina {
+  margin: 0 auto 4rem;
+  max-width: 58rem;
+}
+
+.schermate {
+  display: grid;
+  gap: 1.75rem;
+  margin-top: 1.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+}
+
+/* Il telefono sta accanto alle altre ma è alto e stretto: senza un tetto
+   all'altezza si mangerebbe due schermate di scorrimento da solo. */
+.schermata-telefono img {
+  max-height: 34rem;
+  width: auto;
+  margin: 0 auto;
+}
+
+@media (max-width: 34rem) {
+  .schermate {
+    grid-template-columns: 1fr;
+  }
+}
