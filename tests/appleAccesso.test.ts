@@ -15,6 +15,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { AMBITI_APPLE, componiStato, iniziaAccessoApple, leggiRitornoApple } from '../src/sync/appleAccesso';
+import { leggiDestinazioneDalloStato } from '../server/appleScambio';
 
 const SERVICES = 'it.ferrando.mydivelog.accesso';
 const RITORNO = 'https://mydivelog.site/accesso-apple/ritorno';
@@ -57,7 +58,28 @@ describe('la richiesta di autorizzazione ad Apple', () => {
     const url = new URL(avvio.indirizzo);
     expect(url.searchParams.get('redirect_uri')).not.toContain('127.0.0.1');
     expect(avvio.state).toContain('.');
-    expect(componiStato(avvio.state.split('.')[0], DESTINAZIONE)).toBe(avvio.state);
+    // Sull'ULTIMO punto: il pezzo casuale può contenerne, la base64url no.
+    expect(componiStato(avvio.state.slice(0, avvio.state.lastIndexOf('.')), DESTINAZIONE)).toBe(avvio.state);
+  });
+
+  it('il pezzo casuale può contenere PUNTI, e la destinazione si legge lo stesso', () => {
+    /*
+     * PRESO DALLA CI, NON DA QUI.
+     *
+     * `casuale()` pesca dall'alfabeto ammesso da PKCE, che il punto ce l'ha
+     * dentro. Su 32 caratteri la probabilità che ne esca almeno uno è del 40%:
+     * tagliando lo `state` sul PRIMO punto, due accessi su cinque leggevano una
+     * destinazione troncata e venivano rifiutati — a caso, senza nessuna
+     * regolarità che facesse sospettare la causa.
+     *
+     * La suite era passata verde in locale pochi minuti prima che la CI lo
+     * prendesse. Quindi qui il pezzo casuale con i punti non si aspetta: si
+     * impone.
+     */
+    const conPunti = 'a.b..c...d';
+    const stato = componiStato(conPunti, DESTINAZIONE);
+    expect(leggiDestinazioneDalloStato(stato)).toBe(DESTINAZIONE);
+    expect(stato.slice(0, stato.lastIndexOf('.'))).toBe(conPunti);
   });
 
   it('ogni accesso ha uno state diverso', () => {

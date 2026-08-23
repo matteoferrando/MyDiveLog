@@ -325,7 +325,22 @@ export function destinazionePermessa(destinazione: string): boolean {
  * il confronto sullo `state` intero è compito di chi l'ha generato.
  */
 export function leggiDestinazioneDalloStato(stato: string): string | null {
-  const punto = stato.indexOf('.');
+  /*
+   * SI TAGLIA SULL'ULTIMO PUNTO, e la differenza non è di stile.
+   *
+   * Il pezzo casuale davanti nasce da `casuale()`, che pesca dall'alfabeto
+   * ammesso da PKCE — e quell'alfabeto **contiene il punto**. Su 32 caratteri, la
+   * probabilità che almeno uno sia un punto è del 40%: tagliando sul PRIMO, due
+   * accessi su cinque leggevano una destinazione troncata e finivano rifiutati,
+   * senza nessuna regolarità visibile. La parte dietro è base64url, che il punto
+   * non ce l'ha nel suo alfabeto: l'ultimo punto è quindi sempre il separatore.
+   *
+   * Preso dalla CI, non dalla prova in locale: la stessa suite era passata verde
+   * qui sopra pochi minuti prima. È un difetto che si manifesta a caso, ed è la
+   * ragione per cui il test qui sotto forza un pezzo casuale con i punti dentro
+   * invece di sperare che capitino.
+   */
+  const punto = stato.lastIndexOf('.');
   if (punto <= 0 || punto === stato.length - 1) return null;
   try {
     const pieno = stato
