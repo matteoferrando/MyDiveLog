@@ -387,3 +387,68 @@ describe('stampa del logbook — il fuso è quello del luogo', () => {
     expect(etichettaFuso(undefined)).toBeUndefined();
   });
 });
+
+/**
+ * Il blocco del libretto di legge dentro il foglio stampato.
+ *
+ * `libretto.ts` è già provato per conto suo; questo verifica la GIUNTURA, che è
+ * dove le cose si perdono: che le tredici lettere arrivino davvero sulla carta,
+ * con la lettera davanti, e che nome e brevetto — che vengono dalle
+ * impostazioni e non dall'immersione — non restino per strada.
+ */
+describe('il libretto delle immersioni sul foglio', () => {
+  const IMMERSIONE = {
+    id: 'x',
+    startTime: '2026-07-11T09:24:00Z',
+    utcOffsetMinutes: 120,
+    durationS: 3300,
+    maxDepth: 31.2,
+    mode: 'oc',
+    cylinders: [{ mix: { o2: 0.32, he: 0 } }],
+    site: { name: 'Camogli Gonzatti', region: 'Liguria', country: 'Italia' },
+    guide: 'Anna Bianchi',
+    center: 'Diving Portofino',
+    plannedMaxDepth: 30,
+    source: { kind: 'manual' },
+  } as unknown as Dive;
+
+  it('porta tutte e tredici le lettere, con la sigla davanti', () => {
+    const html = logbookHtml([IMMERSIONE], new Map(), {
+      subacqueo: { nome: 'Mario Rossi', brevetto: 'Advanced Open Water' },
+    });
+    for (const lettera of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'l', 'm', 'n', 'o']) {
+      expect(html, `lettera ${lettera}`).toContain(`<span class="sigla">${lettera})</span>`);
+    }
+  });
+
+  it('nome e brevetto arrivano dalle impostazioni fino alla carta', () => {
+    // Sono le due voci che non stanno nell'immersione: se la giuntura si rompe,
+    // il foglio esce con due trattini e nessuno se ne accorge finché non lo
+    // guarda un istruttore.
+    const html = logbookHtml([IMMERSIONE], new Map(), {
+      subacqueo: { nome: 'Mario Rossi', brevetto: 'Advanced Open Water' },
+    });
+    expect(html).toContain('Mario Rossi');
+    expect(html).toContain('Advanced Open Water');
+  });
+
+  it('gli orari sono quelli del luogo, e la programmata resta distinta', () => {
+    const html = logbookHtml([IMMERSIONE], new Map(), {});
+    // 09:24 UTC con due ore di fuso.
+    expect(html).toContain('11:24');
+    expect(html).toContain('12:19');
+    // Programmata 30, raggiunta 31.2: due numeri diversi, come vuole la legge.
+    expect(html).toContain('30.0 m');
+    expect(html).toContain('31.2 m');
+  });
+
+  it('senza nome e brevetto le due lettere restano trattini, non spariscono', () => {
+    /*
+     * Una lettera che sparisce dal foglio è peggio di una lettera vuota: chi
+     * controlla non può distinguere «non compilato» da «non previsto».
+     */
+    const html = logbookHtml([IMMERSIONE], new Map(), {});
+    expect(html).toContain('<span class="sigla">a)</span>');
+    expect(html).toContain('<span class="sigla">b)</span>');
+  });
+});
