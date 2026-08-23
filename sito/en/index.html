@@ -54,25 +54,6 @@
           <a class="pulsante" href="https://github.com/matteoferrando/MyDiveLog">View the source</a>
           <a class="pulsante" href="privacy.html">How it handles your data</a>
         </div>
-
-        <div class="numeri">
-          <div class="numero">
-            <b>38 of 104</b>
-            <span>dives enriched by merging two computers, in the logbook this app was built on</span>
-          </div>
-          <div class="numero">
-            <b>7</b>
-            <span>formats read, detected from the file content and not from its extension</span>
-          </div>
-          <div class="numero">
-            <b>0.8</b>
-            <span>points of average GF99 error, measured against a Shearwater over 38 dives</span>
-          </div>
-          <div class="numero">
-            <b>0</b>
-            <span>no subscriptions, no advertising, no usage statistics collected</span>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -92,50 +73,58 @@
       <section>
         <h2>Two computers, one dive</h2>
         <p>
-          You wear one computer and carry a backup; you changed computer a few years ago; you download both
-          from the manufacturer app and from the device. The same dive ends up in two different files, and
-          neither of them is complete. A logbook that makes you pick one makes you lose half your data.
-          MyDiveLog reads both and makes a single entry.
+          You wear one computer and carry a backup. You changed computer a few years ago. You download both
+          from the manufacturer app and from the device. In all three cases the same dive ends up in two
+          different files, and <strong>neither of them is complete</strong>. A logbook that makes you pick one
+          makes you throw away half of what you have.
         </p>
 
-        <div class="griglia griglia-due">
-          <div class="riquadro">
-            <h3>It spots the same dive even with clocks out of step</h3>
-            <p>
-              Two computers never agree on the time. The offset is inferred across your whole logbook, and the
-              final check is made on the shape of the profile — not on the timestamp.
-            </p>
+        <div class="fusione">
+          <div class="fusione-fonti">
+            <div class="fonte">
+              <b>Aladin</b>
+              <span>profile every 4 s</span>
+              <span>no decompression data</span>
+            </div>
+            <div class="fonte">
+              <b>Peregrine</b>
+              <span>profile every 10 s</span>
+              <span>ceiling · TTS · NDL · CNS</span>
+            </div>
           </div>
-          <div class="riquadro">
-            <h3>It keeps the profile that knows more, not the denser one</h3>
-            <p>
-              An Aladin samples every 4 seconds but knows nothing about deco; a Peregrine every 10, and
-              records ceiling, TTS, NDL and CNS. More <em>channels</em> wins.
-            </p>
-          </div>
-          <div class="riquadro">
-            <h3>And it does not throw away the loser</h3>
-            <p>
-              If the discarded profile is denser it stays, and rates and buoyancy are measured on it: at 10
-              seconds the wobble reads a third lower, and your dives would stop being comparable with each
-              other.
-            </p>
-          </div>
-          <div class="riquadro">
-            <h3>Every entry says where it came from</h3>
-            <p>
-              When a value is missing you know which computer never wrote it — instead of wondering whether
-              the program lost it.
-            </p>
+          <div class="fusione-freccia" aria-hidden="true">→</div>
+          <div class="fusione-esito">
+            <b>One dive</b>
+            <span>profile every 4 s — the denser of the two</span>
+            <span>ceiling · TTS · NDL · CNS</span>
+            <span>rates and buoyancy measured on the denser profile</span>
+            <span class="fonti-di">states: Aladin + Peregrine</span>
           </div>
         </div>
+        <p class="schema-didascalia">Neither entry disappears, and no data is left behind.</p>
 
-        <div class="evidenza">
-          <p>
-            In the logbook this app was built on — 104 dives over six years, one Scubapro and one Shearwater —
-            the second file <strong>did not add a single dive: it enriched 38 of them</strong>. That is why
-            this program exists.
-          </p>
+        <div class="griglia">
+          <div class="riquadro">
+            <h3>It matches them even with clocks out of step</h3>
+            <p>
+              Two computers never agree on the time. The offset is inferred across your whole logbook, and the
+              match is confirmed on the shape of the profile — not on the timestamp.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>It chooses by channels, not by samples</h3>
+            <p>
+              Between a denser profile and one that also knows about decompression, the second wins — and the
+              first stays, because that is where rates and buoyancy are measured properly.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>It never hides where it came from</h3>
+            <p>
+              Every dive lists the sources it was built from. When a value is missing you know which computer
+              never wrote it — instead of wondering whether the program lost it.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -301,7 +290,7 @@
         <h2>All your dives, in one place</h2>
         <p>
           Free, no account and no subscription. Download it, drop in the files you already have, and a minute
-          later six years of diving are in a single list.
+          later your whole history is in a single list.
         </p>
         <div class="pulsanti">
           <a

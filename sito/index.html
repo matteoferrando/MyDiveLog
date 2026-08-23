@@ -63,25 +63,6 @@
           <a class="pulsante" href="https://github.com/matteoferrando/MyDiveLog">Guarda il codice</a>
           <a class="pulsante" href="privacy.html">Come tratta i tuoi dati</a>
         </div>
-
-        <div class="numeri">
-          <div class="numero">
-            <b>38 su 104</b>
-            <span>immersioni arricchite unendo due computer, nell'archivio su cui è nata l'app</span>
-          </div>
-          <div class="numero">
-            <b>7</b>
-            <span>formati letti, riconosciuti dal contenuto del file e non dall'estensione</span>
-          </div>
-          <div class="numero">
-            <b>0.8</b>
-            <span>punti di scarto medio sul GF99, misurati contro uno Shearwater su 38 immersioni</span>
-          </div>
-          <div class="numero">
-            <b>€&nbsp;0</b>
-            <span>niente abbonamenti, niente pubblicità, nessuna statistica d'uso raccolta</span>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -101,51 +82,58 @@
       <section>
         <h2>Due computer, una sola immersione</h2>
         <p>
-          Chi porta un computer al polso e un secondo di riserva, chi ne ha cambiato uno negli anni, chi
-          scarica sia dall'app del costruttore sia dal computer: lo stesso tuffo finisce in due file diversi,
-          e nessuno dei due è completo. Un logbook che ti fa scegliere quale importare ti fa perdere metà dei
-          dati. MyDiveLog li legge tutti e due e ne fa una riga sola.
+          Porti un computer al polso e un secondo di riserva. Ne hai cambiato uno negli anni. Scarichi sia
+          dall'app del costruttore sia dal computer. In tutti e tre i casi lo stesso tuffo finisce in due file
+          diversi, e <strong>nessuno dei due è completo</strong>. Un logbook che ti fa scegliere quale
+          importare ti fa buttare via metà di quello che hai.
         </p>
 
-        <div class="griglia griglia-due">
-          <div class="riquadro">
-            <h3>Riconosce lo stesso tuffo anche a orologi sfasati</h3>
-            <p>
-              I due computer non segnano mai la stessa ora. Lo scarto viene dedotto dall'insieme delle
-              immersioni, e il confronto finale si fa sull'impronta del profilo — non sulla data.
-            </p>
+        <div class="fusione">
+          <div class="fusione-fonti">
+            <div class="fonte">
+              <b>Aladin</b>
+              <span>profilo ogni 4 s</span>
+              <span>niente decompressione</span>
+            </div>
+            <div class="fonte">
+              <b>Peregrine</b>
+              <span>profilo ogni 10 s</span>
+              <span>tetto · TTS · NDL · CNS</span>
+            </div>
           </div>
-          <div class="riquadro">
-            <h3>Tiene il profilo che sa di più, non quello più fitto</h3>
-            <p>
-              Un Aladin campiona ogni 4 secondi ma della decompressione non sa niente; un Peregrine ogni 10, e
-              registra tetto, TTS, NDL e CNS. Vince chi ha più <em>canali</em>.
-            </p>
-          </div>
-          <div class="riquadro">
-            <h3>E non butta via quello che perde</h3>
-            <p>
-              Se il profilo scartato è più fitto resta lì, e velocità e assetto si misurano su quello: a 10
-              secondi l'oscillazione si legge un terzo più bassa, e le immersioni smetterebbero di essere
-              confrontabili fra loro.
-            </p>
-          </div>
-          <div class="riquadro">
-            <h3>Ogni riga dice da dove viene</h3>
-            <p>
-              Se un dato manca, sai quale computer non lo scriveva — invece di chiederti se l'ha perso il
-              programma.
-            </p>
+          <div class="fusione-freccia" aria-hidden="true">→</div>
+          <div class="fusione-esito">
+            <b>Una immersione</b>
+            <span>profilo ogni 4 s — il più fitto dei due</span>
+            <span>tetto · TTS · NDL · CNS</span>
+            <span>velocità e assetto misurati sul profilo fitto</span>
+            <span class="fonti-di">dichiara: Aladin + Peregrine</span>
           </div>
         </div>
+        <p class="schema-didascalia">Nessuna delle due righe sparisce, e nessun dato resta indietro.</p>
 
-        <div class="evidenza">
-          <p>
-            Nell'archivio su cui l'applicazione è stata costruita — 104 immersioni in sei anni, uno Scubapro e
-            uno Shearwater — il secondo file
-            <strong>non ha aggiunto nemmeno un'immersione: ne ha arricchite 38</strong>. È il motivo per cui
-            questo programma esiste.
-          </p>
+        <div class="griglia">
+          <div class="riquadro">
+            <h3>Li riconosce anche a orologi sfasati</h3>
+            <p>
+              Due computer non segnano mai la stessa ora. Lo scarto viene dedotto dall'insieme delle tue
+              immersioni, e la conferma si fa sull'impronta del profilo — non sulla data.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Sceglie per canali, non per campioni</h3>
+            <p>
+              Fra un profilo più fitto e uno che sa anche di decompressione vince il secondo — e il primo
+              resta lì, perché è su quello che velocità e assetto si misurano bene.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Non nasconde da dove viene</h3>
+            <p>
+              Ogni immersione elenca le fonti che l'hanno costruita. Se un dato manca, sai quale computer non
+              lo scriveva — invece di chiederti se l'ha perso il programma.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -311,7 +299,7 @@
         <h2>Le tue immersioni, tutte insieme</h2>
         <p>
           Gratis, senza account e senza abbonamento. Scarichi, trascini dentro i file che hai già, e in un
-          minuto vedi sei anni di immersioni in un elenco solo.
+          minuto tutto il tuo storico è in un elenco solo.
         </p>
         <div class="pulsanti">
           <a

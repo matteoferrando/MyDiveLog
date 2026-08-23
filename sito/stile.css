@@ -391,53 +391,6 @@ th {
   grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
 }
 
-/* --- i numeri che si vedono da lontano -------------------------------- */
-
-/*
-  QUATTRO NUMERI SUBITO SOTTO IL TITOLO.
-
-  Il sito diceva cose vere in paragrafi, e un paragrafo non si vede: chi apre una
-  pagina la scorre in tre secondi e decide guardando le cose grandi. Questi
-  quattro numeri sono la versione da tre secondi di tutta la pagina.
-
-  Nessuno di loro è uno slogan: sono conteggi che si possono verificare, e ognuno
-  porta scritta sotto la propria unità di misura — «su 104 immersioni», «senza
-  l'app del costruttore». Un numero grande senza denominatore è pubblicità; con
-  il denominatore è un fatto.
-*/
-.numeri {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: 1.5rem 1rem;
-  margin: 3.5rem 0 0;
-  padding: 2rem 0 0;
-  border-top: 1px solid var(--bordo);
-  text-align: center;
-}
-
-.numero b {
-  display: block;
-  font-size: clamp(2rem, 5vw, 2.6rem);
-  line-height: 1.05;
-  letter-spacing: -0.03em;
-  color: var(--acqua-chiara);
-}
-
-@media (prefers-color-scheme: dark) {
-  .numero b {
-    color: var(--riflesso);
-  }
-}
-
-.numero span {
-  display: block;
-  margin-top: 0.4rem;
-  font-size: 0.9rem;
-  color: var(--testo-tenue);
-  max-width: 15rem;
-  margin-inline: auto;
-}
-
 /* --- il titolo di sezione, più grosso --------------------------------- */
 
 /*
@@ -471,5 +424,216 @@ h2 {
 .richiamo p {
   margin: 0 auto 1.5rem;
   max-width: var(--misura);
+  color: var(--testo-tenue);
+}
+
+/* --- il richiamo finale ----------------------------------------------- */
+
+/*
+  Chi arriva in fondo alla pagina ha appena finito di leggere l'avvertimento
+  sulla sicurezza, e il pulsante per scaricare è rimasto tre schermate sopra.
+  Ripeterlo qui non è insistenza: è togliere l'unico ostacolo rimasto fra chi ha
+  deciso e la cosa che ha deciso di fare.
+*/
+.richiamo {
+  text-align: center;
+  padding: 3rem 0;
+  border-top: 1px solid var(--bordo);
+}
+
+.richiamo h2 {
+  margin-bottom: 0.5rem;
+}
+
+.richiamo p {
+  margin: 0 auto 1.5rem;
+  max-width: var(--misura);
+  color: var(--testo-tenue);
+}
+
+/* --- lo schema della fusione ------------------------------------------ */
+
+/*
+  UN DISEGNO AL POSTO DI QUATTRO RIQUADRI DI TESTO.
+
+  La cosa che questa applicazione fa di diverso — due file che diventano una
+  riga sola, tenendo di ciascuno quello che l'altro non ha — è una cosa che si
+  CAPISCE guardandola e si fatica a leggerla. Quattro riquadri grigi affiancati
+  la spiegavano in duecento parole che nessuno legge.
+
+  È un `svg` scritto a mano e messo dentro la pagina, non un'immagine: eredita i
+  colori del tema — chiaro e scuro — dalle stesse variabili di tutto il resto, si
+  ridimensiona senza sfocare, e chi non lo vede legge il `title` e il `desc`, che
+  dicono la stessa cosa a parole.
+*/
+.schema {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 2.5rem 0 0.5rem;
+}
+
+.schema .scatola {
+  fill: var(--fondo-alt);
+  stroke: var(--bordo);
+  stroke-width: 1;
+}
+
+.schema .scatola-esito {
+  fill: var(--fondo-alt);
+  stroke: var(--acqua-chiara);
+  stroke-width: 2;
+}
+
+.schema .etichetta {
+  fill: var(--testo);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.schema .voce {
+  fill: var(--testo-tenue);
+  font-size: 13px;
+}
+
+.schema .filo {
+  fill: none;
+  stroke: var(--bordo);
+  stroke-width: 2;
+}
+
+.schema .filo-vivo {
+  stroke: var(--acqua-chiara);
+}
+
+.schema .segno {
+  fill: var(--acqua-chiara);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+@media (prefers-color-scheme: dark) {
+  .schema .filo-vivo,
+  .schema .scatola-esito {
+    stroke: var(--riflesso);
+  }
+
+  .schema .segno {
+    fill: var(--riflesso);
+  }
+}
+
+.schema-didascalia {
+  margin: 0 0 2rem;
+  font-size: 0.88rem;
+  color: var(--testo-tenue);
+}
+
+/* --- lo schema della fusione ------------------------------------------ */
+
+/*
+  UN DISEGNO AL POSTO DI QUATTRO RIQUADRI DI TESTO — ma fatto di HTML, non di
+  disegno.
+
+  La cosa che questa applicazione fa di diverso — due file che diventano una riga
+  sola, tenendo di ciascuno quello che l'altro non ha — si CAPISCE guardandola e
+  si fatica a leggerla. Il primo tentativo era un `svg` scritto a mano, ed era
+  sbagliato per una ragione che si vede solo sul telefono: un `svg` scala
+  *tutto*, testo compreso. A 390 px di schermo le scritte da 13 px diventavano da
+  sei, cioè un disegno di parole illeggibili.
+
+  Fatto di riquadri veri, invece, si impila: due colonne sul desktop, una sola
+  sul telefono, e il testo resta della sua misura perché è testo. In più si
+  seleziona, si cerca, e un traduttore automatico lo traduce.
+*/
+.fusione {
+  display: grid;
+  grid-template-columns: 1fr auto 1.15fr;
+  align-items: center;
+  gap: 1rem;
+  margin: 2.5rem 0 0.75rem;
+}
+
+.fusione-fonti {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.fonte,
+.fusione-esito {
+  border: 1px solid var(--bordo);
+  border-radius: 12px;
+  padding: 1rem 1.15rem;
+  background: var(--fondo-alt);
+}
+
+/* Il riquadro d'arrivo è quello che conta: bordo pieno invece che tenue, e non
+   una tinta piatta — il colore serve a dire «guarda qui», non a decorare. */
+.fusione-esito {
+  border: 2px solid var(--acqua-chiara);
+}
+
+.fonte b,
+.fusione-esito b {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.fonte span,
+.fusione-esito span {
+  display: block;
+  font-size: 0.92rem;
+  color: var(--testo-tenue);
+}
+
+.fusione-esito span + span {
+  margin-top: 0.15rem;
+}
+
+.fusione-esito .fonti-di {
+  margin-top: 0.6rem;
+  color: var(--acqua-chiara);
+  font-weight: 600;
+}
+
+/*
+  Il segno in mezzo: una freccia, non un «+».
+
+  Il più diceva «somma», che è la metà giusta; la freccia dice anche in che
+  direzione va la cosa, cioè che il risultato sta a destra. Ruota di novanta
+  gradi quando la colonna diventa una sola, perché lì il risultato sta sotto.
+*/
+.fusione-freccia {
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--acqua-chiara);
+  text-align: center;
+}
+
+@media (prefers-color-scheme: dark) {
+  .fusione-esito {
+    border-color: var(--riflesso);
+  }
+
+  .fusione-esito .fonti-di,
+  .fusione-freccia {
+    color: var(--riflesso);
+  }
+}
+
+@media (max-width: 42rem) {
+  .fusione {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .fusione-freccia {
+    transform: rotate(90deg);
+  }
+}
+
+.schema-didascalia {
+  margin: 0 0 2rem;
+  font-size: 0.88rem;
   color: var(--testo-tenue);
 }
