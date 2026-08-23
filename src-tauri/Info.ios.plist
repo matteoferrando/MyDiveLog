@@ -26,6 +26,28 @@
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>MyDiveLog usa il Bluetooth per scaricare le immersioni dal tuo computer subacqueo. Non si collega a nessun altro dispositivo e non manda niente in rete.</string>
 
+    <!--
+      La dichiarazione sull'esportazione della crittografia.
+
+      Senza questa chiave, App Store Connect fa la stessa domanda a OGNI
+      caricamento — «la tua app usa crittografia?» — e finché non si risponde la
+      build non va in revisione. Con la chiave nel pacchetto la domanda non
+      compare più.
+
+      `false` non vuol dire «non usiamo crittografia»: vuol dire che quella che
+      usiamo rientra nelle esenzioni. Sono due, e sono tutte e due il nostro
+      caso: il traffico va in HTTPS, cioè la crittografia standard del sistema
+      per proteggere un canale, e le credenziali stanno nel portachiavi, che è
+      crittografia fornita da Apple e non da noi. Non implementiamo nessun
+      algoritmo nostro e non cifriamo l'archivio.
+
+      IL GIORNO CHE CAMBIA — un backup cifrato, un archivio protetto da password,
+      un algoritmo scritto da noi — questa riga va rifatta, e non è una
+      formalità: è una dichiarazione a un'autorità doganale, e resta agli atti.
+    -->
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false />
+
     <key>UIFileSharingEnabled</key>
     <true />
     <key>LSSupportsOpeningDocumentsInPlace</key>

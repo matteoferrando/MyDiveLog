@@ -162,3 +162,65 @@ describe('scorrere la pagina non apre riquadri', () => {
     }
   });
 });
+
+/*
+ * Il pacchetto per Apple: due dichiarazioni che, se mancano, si scoprono tardi
+ * e per posta.
+ *
+ * Nessuna delle due si vede provando l'app: si vedono al caricamento su App
+ * Store Connect, dopo una build e un invio, con un messaggio in codice.
+ */
+describe('quello che il pacchetto iOS deve dichiarare ad Apple', () => {
+  const radice = fileURLToPath(new URL('..', import.meta.url));
+  const leggi = (relativo: string) => readFileSync(join(radice, relativo), 'utf8');
+
+  it('l’esenzione sulla crittografia è nel plist, o la domanda torna a ogni caricamento', () => {
+    /*
+     * Senza questa chiave App Store Connect chiede a OGNI build se l'app usa
+     * crittografia, e finché non si risponde la build non va in revisione.
+     * `false` non vuol dire che non ne usiamo: vuol dire che quella che usiamo
+     * — HTTPS e portachiavi di sistema — rientra nelle esenzioni.
+     */
+    const plist = leggi('src-tauri/Info.ios.plist');
+    expect(plist).toContain('<key>ITSAppUsesNonExemptEncryption</key>');
+    expect(plist).toMatch(/<key>ITSAppUsesNonExemptEncryption<\/key>\s*\n\s*<false \/>/);
+  });
+
+  it('il manifesto della privacy esiste e dichiara lo spazio su disco', () => {
+    /*
+     * Misurato, non supposto: `nm -u` sul binario compilato trova `statfs`, che
+     * sta nella categoria «spazio su disco». Non lo chiamiamo noi, lo chiama
+     * SQLite prima di scrivere. Senza dichiarazione, Apple risponde ITMS-91053
+     * e la lavorazione si ferma.
+     */
+    const manifesto = leggi('src-tauri/PrivacyInfo.xcprivacy');
+    expect(manifesto).toContain('NSPrivacyAccessedAPICategoryDiskSpace');
+    expect(manifesto).toContain('E174.1');
+    // E non si dichiara più di quello che si usa: sarebbe una promessa in più
+    // da mantenere, non una prudenza.
+    expect(manifesto).not.toContain('NSPrivacyAccessedAPICategoryUserDefaults');
+  });
+
+  it('ogni script iOS copia il manifesto PRIMA di generare il progetto', () => {
+    /*
+     * ► La riga che tiene in piedi tutto il resto. ◄
+     *
+     * `gen/apple/` è generata: un file lasciato là dentro sparisce al primo
+     * `tauri ios init` su un'altra macchina, e sparisce in silenzio. Il
+     * manifesto vive in `src-tauri/` e viene copiato dentro il progetto PRIMA
+     * che XcodeGen lo generi — dopo sarebbe inutile, perché il progetto è già
+     * stato scritto e il file non risulterebbe fra le risorse.
+     */
+    const pacchetto = JSON.parse(leggi('package.json')) as { scripts: Record<string, string> };
+    const script = Object.entries(pacchetto.scripts).filter(([nome]) => nome.startsWith('ios:'));
+    expect(script.length).toBeGreaterThan(0);
+
+    for (const [nome, riga] of script) {
+      const copia = riga.indexOf('PrivacyInfo.xcprivacy');
+      const init = riga.indexOf('tauri ios init');
+      expect(copia, nome).toBeGreaterThanOrEqual(0);
+      expect(init, nome).toBeGreaterThanOrEqual(0);
+      expect(copia, nome).toBeLessThan(init);
+    }
+  });
+});

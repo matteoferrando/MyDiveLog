@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Il manifesto della privacy che Apple pretende nel pacchetto iOS.
+
+  A COSA SERVE. Dal 2024 Apple analizza il binario caricato su App Store Connect
+  e cerca l'uso di certe API «a ragione obbligatoria» — quelle con cui in passato
+  qualcuno riconosceva un dispositivo di nascosto. Se le trova senza una
+  dichiarazione, risponde con l'avviso ITMS-91053 e la lavorazione si ferma
+  finché non gliela si dà. L'avviso arriva per posta, dopo il caricamento, e
+  costa un giro completo di build.
+
+  PERCHÉ CI SERVE DAVVERO, misurato invece che supposto. Sul binario compilato:
+
+      nm -u MyDiveLog | grep statfs   →  2
+
+  `statfs` sta nella categoria «spazio su disco». Non lo chiamiamo noi: lo chiama
+  SQLite, che prima di scrivere vuole sapere se c'è posto. Le altre categorie
+  invece NON compaiono — niente `NSUserDefaults`, niente date dei file, niente
+  `systemUptime` — e infatti qui non sono dichiarate: un manifesto che dichiara
+  più di quello che si usa è una promessa in più da mantenere, non una prudenza.
+
+  IL CODICE `E174.1` è quello previsto per «controllare se c'è spazio a
+  sufficienza per scrivere un file». È esattamente ciò che fa SQLite, e non è una
+  scelta fra tante: i codici sono un elenco chiuso, e usarne uno che non
+  corrisponde all'uso vero è una dichiarazione falsa.
+
+  NIENTE RACCOLTA DI DATI. `NSPrivacyCollectedDataTypes` è vuoto perché l'app non
+  manda niente a noi: l'archivio sta sul dispositivo, non ci sono statistiche
+  d'uso e non c'è pubblicità. Chi fa l'accesso ha un database suo su Turso e
+  un'email, ma quelli non sono «raccolti dall'app» nel senso di Apple — sono il
+  servizio che ha chiesto lui, e si dichiarano nella scheda del negozio.
+
+  DOVE VIVE E COME ARRIVA NEL PACCHETTO. Sta QUI, in `src-tauri/`, e non dentro
+  `gen/apple/`, per la stessa ragione di `Info.ios.plist`: `gen/apple/` è
+  generata, e chi rifà `tauri ios init` o clona il repository su un'altra
+  macchina la ricrea da zero. Gli script `ios:*` di `package.json` lo copiano
+  dentro `gen/apple/mydivelog_iOS/` PRIMA di generare il progetto, così XcodeGen
+  lo trova fra le sorgenti e lo mette fra le risorse del pacchetto — che è
+  esattamente il meccanismo che rendeva l'app da mezzo giga con `libapp.a`, qui
+  usato a nostro favore. Un test verifica che quella copia stia prima dell'init.
+-->
+<plist version="1.0">
+  <dict>
+    <key>NSPrivacyTracking</key>
+    <false />
+    <key>NSPrivacyTrackingDomains</key>
+    <array />
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array />
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+      <dict>
+        <key>NSPrivacyAccessedAPIType</key>
+        <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+        <key>NSPrivacyAccessedAPITypeReasons</key>
+        <array>
+          <string>E174.1</string>
+        </array>
+      </dict>
+    </array>
+  </dict>
+</plist>

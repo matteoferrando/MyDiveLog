@@ -75,10 +75,38 @@ testo = testo
 
 if (righeTolte.length === 0) {
   console.log('libapp.a non è fra le risorse: niente da fare');
-  process.exit(0);
+} else {
+  console.log(
+    `tolte ${righeTolte.length} righe che copiavano libapp.a nel pacchetto ` +
+      `(${prima - testo.length} byte)`,
+  );
+}
+
+/*
+ * Secondo taglio, di natura diversa dal primo: **via l'iPad**.
+ *
+ * XcodeGen genera `TARGETED_DEVICE_FAMILY = "1,2"`, cioè iPhone e iPad, e non
+ * c'è modo di dirgli altrimenti senza prendere in gestione il suo template.
+ * Universale suona bene e costa caro: App Store Connect pretende anche le
+ * schermate da 13 pollici, e soprattutto il revisore l'app la prova **su un
+ * iPad** — un dispositivo su cui non è mai girata, con un'impaginazione che
+ * nessuno ha mai guardato. Un rifiuto per una schermata storta su un
+ * dispositivo che non abbiamo costa più di quanto valga la portata in più.
+ *
+ * Non è una porta chiusa: dichiarare l'iPad in una versione successiva è una
+ * riga e nessuna migrazione. Toglierlo DOPO averlo pubblicato, invece, vuol
+ * dire togliere l'app dai dispositivi di chi l'aveva già installata, e quello
+ * non si fa.
+ *
+ * `1` è iPhone (e iPod touch). L'iPad è `2`.
+ */
+const conIpad = /TARGETED_DEVICE_FAMILY = "1,2";/g;
+const quanti = (testo.match(conIpad) ?? []).length;
+if (quanti > 0) {
+  testo = testo.replace(conIpad, 'TARGETED_DEVICE_FAMILY = "1";');
+  console.log(`tolto l'iPad dal bersaglio in ${quanti} configurazioni`);
+} else {
+  console.log('il bersaglio è già solo iPhone');
 }
 
 writeFileSync(PROGETTO, testo);
-console.log(
-  `tolte ${righeTolte.length} righe che copiavano libapp.a nel pacchetto ` + `(${prima - testo.length} byte)`,
-);
