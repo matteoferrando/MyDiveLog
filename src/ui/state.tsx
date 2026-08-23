@@ -88,6 +88,7 @@ export interface DecoAnalysisInput {
 }
 import { exportUddf, type UddfExportResult } from '../core/export/uddf';
 import { migrateGear, type GearArchive } from '../core/analysis/gear';
+import type { Subacqueo } from '../core/libretto';
 
 export interface ImportOutcome {
   fileName: string;
@@ -258,6 +259,17 @@ interface DiveLogValue {
   saveGear: (archive: GearArchive) => Promise<void>;
 
   /**
+   * Chi tiene il libretto: nome e brevetto, lettere a) e b) dell'art. 12 comma 8
+   * della legge 70/2026.
+   *
+   * Sta nelle impostazioni e non dentro l'immersione perché non cambia a ogni
+   * immersione: cambia una volta ogni qualche anno, quando si prende un brevetto
+   * nuovo. Da qui entra in ogni pagina del libretto stampato.
+   */
+  subacqueo: Subacqueo;
+  saveSubacqueo: (chi: Subacqueo) => Promise<void>;
+
+  /**
    * Fin dove si era arrivati con ogni computer subacqueo, per seriale.
    *
    * Poche righe di testo, quindi stanno fra le impostazioni e viaggiano con la
@@ -368,6 +380,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   const [decoInput, setDecoInputState] = useState<unknown>(null);
   const [decoPlans, setDecoPlans] = useState<SavedDecoPlan[]>([]);
   const [gear, setGearState] = useState<GearArchive>({ equipment: [], certifications: [] });
+  const [subacqueo, setSubacqueoState] = useState<Subacqueo>({});
   const [bleMarkers, setBleMarkers] = useState<Record<string, DownloadMarker>>({});
   /** Dove finiscono davvero le credenziali su QUESTO dispositivo. */
   const [secretPlace, setSecretPlace] = useState<SecretPlace>('archive');
@@ -431,6 +444,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         savedAnalyses,
         savedGas,
         savedGear,
+        savedSubacqueo,
         savedMarkers,
       ] = await Promise.all([
         prova('immersioni', () => s.listDives()),
@@ -445,6 +459,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         prova('analisi', () => s.getSetting<Record<string, StoredAnalysis>>('analyses')),
         prova('piano gas', () => s.getSetting<GasPlanInput>('gasPlan')),
         prova('attrezzatura', () => s.getSetting<unknown>('gear')),
+        prova('subacqueo', () => s.getSetting<Subacqueo>('subacqueo')),
         prova('segnalibri Bluetooth', () => s.getSetting<Record<string, DownloadMarker>>(BLE_MARKERS_KEY)),
       ]);
       const savedDeco = await prova('piano deco', () => s.getSetting<unknown>('decoPlan'));
@@ -517,6 +532,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       // distinti. `migrateGear` legge entrambe le forme, così chi aggiorna
       // l'applicazione non perde niente di quello che aveva scritto.
       setGearState(migrateGear(savedGear as never));
+      if (savedSubacqueo) setSubacqueoState(savedSubacqueo);
       if (savedMarkers) setBleMarkers(savedMarkers);
       setReady(true);
     })().catch((err) => {
@@ -1275,6 +1291,21 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     [store, gear],
   );
 
+  /**
+   * Nome e brevetto di chi tiene il libretto.
+   *
+   * Salvati come sono, senza timbrare niente: non sono un elenco che due
+   * dispositivi possono modificare in parallelo — sono due righe che cambiano
+   * una volta ogni qualche anno.
+   */
+  const saveSubacqueo = useCallback(
+    async (chi: Subacqueo) => {
+      setSubacqueoState(chi);
+      if (store) await store.setSetting('subacqueo', chi);
+    },
+    [store],
+  );
+
   const exportArchive = useCallback(
     async ({ includeProfiles = true }: { includeProfiles?: boolean } = {}) => {
       const full =
@@ -1661,6 +1692,8 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     runAnalysis,
     clearAnalysis,
     gear,
+    subacqueo,
+    saveSubacqueo,
     saveGear,
     exportArchive,
     buildFullBackup,

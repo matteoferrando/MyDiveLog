@@ -38,6 +38,7 @@ import {
 import { parseCylinderSpec } from '../../core/cylinders';
 import type { Cylinder, Dive, DiveGear, GearRef, Waves, Weather } from '../../core/model';
 import { useLingua } from '../lingua';
+import { useDiveLog } from '../state';
 import { BottoneConferma } from './Conferma';
 
 /** Un numero da un campo di testo, dove vuoto è «non lo so» e non zero. */
@@ -222,6 +223,7 @@ export function ModificaImmersione({
   onSporco?: (sporco: boolean) => void;
 }) {
   const { t } = useLingua();
+  const { dives } = useDiveLog();
   const [draft, setDraft] = useState<Dive>(dive);
   const [saved, setSaved] = useState(false);
   /*
@@ -232,6 +234,15 @@ export function ModificaImmersione({
    * aggiunta. Si tiene la copia locale, si salva sullo sfondo.
    */
   const [attrezzi, setAttrezzi] = useState<Equipment[]>(gear.equipment);
+  /*
+   * La profondità programmata sta in un suo stato di testo, come tutti i campi
+   * numerici di questa scheda: si converte all'USCITA dal campo e non a ogni
+   * tasto. Convertire a ogni battuta riscrive il testo sotto le dita — «18»
+   * diventava «38» — ed è il difetto che `numero.ts` esiste per non rifare.
+   */
+  const [programmata, setProgrammata] = useState<string>(
+    dive.plannedMaxDepth === undefined ? '' : String(dive.plannedMaxDepth),
+  );
 
   const tocca = (patch: Partial<Dive>) => {
     setDraft((d) => ({ ...d, ...patch }));
@@ -342,6 +353,49 @@ export function ModificaImmersione({
             placeholder={t('chi vi ha portati')}
             value={draft.guide ?? ''}
             onChange={(e) => tocca({ guide: e.target.value || undefined })}
+          />
+        </label>
+        {/*
+          IL CENTRO E LA PROFONDITÀ PROGRAMMATA sono le lettere m) e i) del
+          libretto delle immersioni (art. 12, comma 8 della legge 70/2026).
+          Stanno qui e non in una sezione «legale» a parte perché sono due dati
+          che si scrivono insieme agli altri, quando si sistema la scheda dopo
+          l'uscita — e una sezione a parte li farebbe sembrare un adempimento
+          invece che due campi come tutti gli altri.
+
+          Restano FACOLTATIVI, come tutto il resto: un'immersione fra amici non
+          ha un centro, e non per questo è irregolare.
+        */}
+        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+          <span className="muted">{t('Centro di immersione')}</span>
+          <input
+            type="text"
+            list="centri-usati"
+            placeholder={t('chi ha organizzato l’uscita')}
+            value={draft.center ?? ''}
+            onChange={(e) => tocca({ center: e.target.value || undefined })}
+          />
+        </label>
+        {/*
+          I centri già usati, come si fa per le mute e per i siti: un centro si
+          ripete per tutte le immersioni di una settimana, e riscriverlo a mano
+          ogni volta è il modo migliore per ritrovarsi tre grafie dello stesso
+          nome e nessuna statistica che le tenga insieme.
+        */}
+        <datalist id="centri-usati">
+          {[...new Set(dives.map((d) => d.center).filter((c): c is string => !!c))].sort().map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
+        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+          <span className="muted">{t('Profondità programmata')}</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            placeholder={t('metri')}
+            value={programmata}
+            onChange={(e) => setProgrammata(e.target.value)}
+            onBlur={() => tocca({ plannedMaxDepth: numeroDaTesto(programmata) })}
           />
         </label>
       </div>

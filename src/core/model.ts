@@ -356,6 +356,30 @@ export interface Dive {
    */
   guide?: string;
   /**
+   * Il centro di immersione, lettera m) dell'art. 12 comma 8.
+   *
+   * Distinto dal sito e dalla guida: il sito è il luogo, la guida è la persona,
+   * il centro è chi ha organizzato l'uscita — e sono tre cose che cambiano
+   * indipendentemente (stesso sito con due centri diversi, stesso centro con
+   * guide diverse).
+   *
+   * Facoltativo, e deve restarlo: un'immersione fra amici non ha un centro, e la
+   * legge non la vieta. Vedi `libretto.ts`.
+   */
+  center?: string;
+  /**
+   * La profondità massima PROGRAMMATA, in metri. Lettera i) dell'art. 12 comma 8.
+   *
+   * La legge la distingue dalla massima raggiunta, ed è una distinzione che ha
+   * senso anche fuori dalla legge: è la differenza fra quello che avevi deciso e
+   * quello che hai fatto, cioè la cosa che un istruttore guarda per prima.
+   *
+   * Non si ricava da nessun computer — nessuno registra le intenzioni — quindi o
+   * la scrive una persona o resta vuota. Non va MAI riempita con la massima
+   * raggiunta: sarebbe inventare un dato su un documento che qualcuno firma.
+   */
+  plannedMaxDepth?: number;
+  /**
    * Visibilità in metri. Con `visibilityMaxM`, è l'estremo BASSO di una fascia.
    *
    * Da solo resta quello che era: una stima puntuale. Il campo alto esiste

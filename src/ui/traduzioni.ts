@@ -2004,4 +2004,14 @@ export const INGLESE: Record<string, string> = {
   'L’applicazione si chiude e si riapre da sola.': 'The application closes and reopens by itself.',
   'Scarico l’aggiornamento…': 'Downloading the update…',
   'Installato. L’applicazione si sta riavviando.': 'Installed. The application is restarting.',
+  'Centro di immersione': 'Dive centre',
+  'chi ha organizzato l’uscita': 'who organised the trip',
+  'Profondità programmata': 'Planned depth',
+  'Il tuo libretto': 'Your logbook record',
+  'Nome e brevetto finiscono sulla stampa del libretto, che è l’unico posto dove servono. Non sono obbligatori.':
+    'Your name and certification appear on the printed logbook, which is the only place they are needed. Neither is required.',
+  'Nome e cognome': 'Full name',
+  'livello e organizzazione': 'level and agency',
+  'Servono alle lettere a) e b) del libretto delle immersioni previsto dall’art. 12, comma 8 della legge 70/2026, che ammette espressamente il formato digitale.':
+    'They fill letters a) and b) of the dive logbook required by art. 12(8) of Italian law 70/2026, which expressly allows the digital form.',
 };

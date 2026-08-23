@@ -57,6 +57,7 @@ import { formatDuration, mixName } from '../units';
 import { modeLabel } from '../analysis/aggregate';
 import { condizioniTesto, visibilitaTesto } from '../conditions';
 import { zavorraTotaleKg, type Equipment } from '../analysis/gear';
+import { libretto, type Subacqueo } from '../libretto';
 
 // ---------------------------------------------------------------------------
 // Escape
@@ -321,6 +322,12 @@ export interface LogbookPrintOptions {
    * `piastraDellImmersione`: senza, il foglio da firmare dichiara metà zavorra.
    */
   inventario?: Pick<Equipment, 'id' | 'plateKg' | 'backplateKg'>[];
+  /**
+   * Chi tiene il libretto: lettere a) e b) dell'art. 12, comma 8 della legge
+   * 70/2026. Vengono dalle impostazioni, non dall'immersione, perché non
+   * cambiano a ogni immersione.
+   */
+  subacqueo?: Subacqueo;
 }
 
 /** Una coppia etichetta/valore della griglia dei numeri. */
@@ -351,6 +358,7 @@ export function logbookHtml(
     signature = true,
     maxDepthM,
     inventario,
+    subacqueo,
   } = opts;
 
   const ordinate = [...dives].sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
@@ -364,6 +372,7 @@ export function logbookHtml(
       firma: signature,
       maxDepthM,
       inventario,
+      subacqueo,
     }),
   );
 
@@ -421,6 +430,7 @@ function paginaImmersione(
     firma: boolean;
     maxDepthM?: number;
     inventario?: Pick<Equipment, 'id' | 'plateKg' | 'backplateKg'>[];
+    subacqueo?: Subacqueo;
   },
 ): string {
   const m = dive.metrics;
@@ -562,6 +572,36 @@ function paginaImmersione(
     );
   }
 
+  /*
+   * ► IL LIBRETTO DELLE IMMERSIONI, COM'È SCRITTO NELLA LEGGE. ◄
+   *
+   * Le stesse cose stanno anche nella griglia qui sopra, e non è un doppione: la
+   * griglia è fatta per essere letta da un subacqueo, questo blocco è fatto per
+   * essere CONTROLLATO. Chi verifica un libretto scorre le lettere dell'art. 12,
+   * comma 8 — a), b), c) … o) — e trovarle mescolate ad altri quindici numeri lo
+   * costringe a cercare. Qui ci sono tutte e tredici, in quell'ordine, con la
+   * lettera davanti.
+   *
+   * Quello che manca resta un trattino. Su un foglio che qualcuno controfirma,
+   * un dato inventato è peggio di un dato mancante — e la lettera o), la firma,
+   * è vuota per costruzione: la riga per la penna è più in basso.
+   */
+  const vociLegge = libretto(dive, ctx.subacqueo ?? {});
+  out.push('<section class="blocco libretto">');
+  out.push('<h2>Libretto delle immersioni</h2>');
+  out.push(
+    '<p class="muto">Art. 12, comma 8 della legge 7 maggio 2026, n. 70. Il testo ammette espressamente il formato digitale.</p>',
+  );
+  out.push('<dl class="lettere">');
+  for (const voce of vociLegge) {
+    out.push(
+      `<div class="lettera"><dt><span class="sigla">${voce.lettera})</span> ${escapeHtml(voce.etichetta)}</dt>` +
+        `<dd>${voce.valore === null ? '<span class="assente">—</span>' : escapeHtml(voce.valore)}</dd></div>`,
+    );
+  }
+  out.push('</dl>');
+  out.push('</section>');
+
   out.push('<section class="blocco note">');
   out.push('<h2>Note</h2>');
   out.push(
@@ -677,6 +717,35 @@ function voto(rating: number | undefined): string {
  * uguale, anche senza l'applicazione che lo ha prodotto.
  */
 const FOGLIO_DI_STILE = `
+/* Il libretto di legge: due colonne di lettere, compatte, da scorrere in verticale. */
+.blocco.libretto .lettere {
+  margin: 0;
+  columns: 2;
+  column-gap: 14mm;
+}
+.blocco.libretto .lettera {
+  break-inside: avoid;
+  display: flex;
+  justify-content: space-between;
+  gap: 4mm;
+  border-bottom: 0.2mm dotted #bbb;
+  padding: 0.8mm 0;
+}
+.blocco.libretto dt {
+  font-weight: 400;
+  color: #555;
+}
+.blocco.libretto dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+.blocco.libretto .sigla {
+  display: inline-block;
+  min-width: 4mm;
+  color: #999;
+}
+
 @page { size: A4 portrait; margin: 14mm 13mm 12mm; }
 
 :root {

@@ -6,6 +6,7 @@ import { formatDuration, mixName } from '../../core/units';
 import { modeLabel, positionAgainst, quartilesOf } from '../../core/analysis/aggregate';
 import { debriefDive } from '../../core/analysis/coaching';
 import { logbookHtml } from '../../core/export/logbookPrint';
+import type { Subacqueo } from '../../core/libretto';
 import { DepthProfile, MiniSeries } from '../components/DepthProfile';
 import { RATE_WINDOW_S, windowedRates } from '../../core/analysis/metrics';
 import { StatTile } from '../components/Charts';
@@ -28,7 +29,7 @@ import {
 import { useLingua } from '../lingua';
 
 export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
-  const { dives, loadProfiles, saveDive, removeDive, gear, saveGear } = useDiveLog();
+  const { dives, loadProfiles, saveDive, removeDive, gear, saveGear, subacqueo } = useDiveLog();
   const { t } = useLingua();
   const summary = dives.find((d) => d.id === id);
   const [dive, setDive] = useState<Dive | undefined>(summary);
@@ -144,7 +145,10 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
            * stampa dal Mac, dove l'archivio è lo stesso.
            */}
           {!suIOS() && (
-            <button className="btn" onClick={() => setStampaBloccata(!apriStampa(dive, gear.equipment))}>
+            <button
+              className="btn"
+              onClick={() => setStampaBloccata(!apriStampa(dive, gear.equipment, subacqueo))}
+            >
               {t('Stampa questa immersione')}
             </button>
           )}
@@ -426,6 +430,13 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
               <Row label={t('Acqua')} value={t(dive.salinity === 'fresh' ? 'Dolce' : 'Salata')} />
               <Row label={t('Compagno')} value={dive.buddy ?? '—'} />
               <Row label={t('Guida sub')} value={dive.guide ?? '—'} />
+              {/* Le due lettere del libretto che si scrivono a mano: si mostrano
+                  solo quando ci sono, perché una riga «Centro: —» su ogni
+                  immersione fatta fra amici è rumore. */}
+              {dive.center && <Row label={t('Centro di immersione')} value={dive.center} />}
+              {dive.plannedMaxDepth !== undefined && (
+                <Row label={t('Profondità programmata')} value={`${dive.plannedMaxDepth} m`} />
+              )}
               {/*
                * La zavorra si mostra col TOTALE quando c'è una piastra, e con la
                * scomposizione accanto. Il solo `weightKg` racconterebbe il
@@ -698,9 +709,12 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
  * Restituisce `false` quando il blocco dei popup ha rifiutato la finestra: è
  * l'unico modo in cui questa operazione può fallire, e chi chiama lo dice.
  */
-function apriStampa(dive: Dive, inventario: Equipment[]): boolean {
+function apriStampa(dive: Dive, inventario: Equipment[], subacqueo: Subacqueo): boolean {
   const html = logbookHtml([dive], new Map([[dive.id, dive.samples ?? []]]), {
     title: 'Logbook',
+    // Nome e brevetto: le lettere a) e b) del libretto. Vengono dalle
+    // impostazioni, non dall'immersione, e senza restano due trattini.
+    subacqueo,
     // Senza l'inventario il foglio da firmare dichiara la sola zavorra e non la
     // piastra, sulle immersioni che il peso della piastra non ce l'hanno scritto
     // sopra. Vedi `piastraDellImmersione`.

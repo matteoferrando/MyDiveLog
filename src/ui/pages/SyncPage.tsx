@@ -163,6 +163,8 @@ export function SyncPage() {
 
       <AggiornamentoCard />
 
+      <LibrettoCard />
+
       <div className="card">
         <h2>{t('Sincronizza ora')}</h2>
         {/*
@@ -1453,6 +1455,80 @@ function AggiornamentoCard() {
           {stato.messaggio}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Chi tiene il libretto: nome e brevetto.
+ *
+ * ► PERCHÉ ESISTE UNA CARTA APPOSTA. ◄ L'art. 12, comma 8 della legge 7 maggio
+ * 2026, n. 70 elenca tredici dati che il libretto delle immersioni deve
+ * contenere — «anche in formato digitale», dice il testo. Undici li sa già
+ * l'applicazione, perché stanno nell'immersione. Due no: **le generalità del
+ * subacqueo e il brevetto posseduto**, che non cambiano a ogni immersione e
+ * quindi non hanno senso dentro la scheda di una singola. Cambiano una volta
+ * ogni qualche anno, e stanno qui.
+ *
+ * ► NON È UN ADEMPIMENTO, E NON DEVE SEMBRARLO. ◄ Niente campi obbligatori,
+ * niente avvisi, niente rosso. Chi non li compila continua a usare
+ * l'applicazione esattamente come prima: perde solo due righe sulla stampa del
+ * libretto. Due ragioni: le altre lettere presuppongono un centro e una guida, e
+ * un'immersione fra amici non li ha; e il comma 8 sta dentro l'articolo sui
+ * centri, quindi se l'obbligo valga anche per chi si immerge per conto proprio
+ * il testo non lo chiarisce. Trasformare un'ambiguità in un errore rosso
+ * significherebbe dare un parere legale al posto di un avvocato.
+ *
+ * ► RESTANO SUL DISPOSITIVO. ◄ Come tutto il resto dell'archivio. Escono solo se
+ * si fa l'accesso e si preme Sincronizza, o se si stampa il libretto — che è
+ * esattamente il punto: un documento da mostrare a qualcuno.
+ */
+function LibrettoCard() {
+  const { subacqueo, saveSubacqueo } = useDiveLog();
+  const { t } = useLingua();
+  const [nome, setNome] = useState(subacqueo.nome ?? '');
+  const [brevetto, setBrevetto] = useState(subacqueo.brevetto ?? '');
+
+  const sporco = nome !== (subacqueo.nome ?? '') || brevetto !== (subacqueo.brevetto ?? '');
+
+  const salva = () => {
+    void saveSubacqueo({ nome: nome.trim() || undefined, brevetto: brevetto.trim() || undefined });
+  };
+
+  return (
+    <div className="card">
+      <h2>{t('Il tuo libretto')}</h2>
+      <p className="card-sub">
+        {t(
+          'Nome e brevetto finiscono sulla stampa del libretto, che è l’unico posto dove servono. Non sono obbligatori.',
+        )}
+      </p>
+      <div className="grid grid-2" style={{ marginBottom: 12 }}>
+        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+          <span className="muted">{t('Nome e cognome')}</span>
+          <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} onBlur={salva} />
+        </label>
+        <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+          <span className="muted">{t('Brevetto')}</span>
+          <input
+            type="text"
+            placeholder={t('livello e organizzazione')}
+            value={brevetto}
+            onChange={(e) => setBrevetto(e.target.value)}
+            onBlur={salva}
+          />
+        </label>
+      </div>
+      {sporco && (
+        <button className="btn" onClick={salva}>
+          {t('Salva')}
+        </button>
+      )}
+      <p className="muted" style={{ fontSize: 11, margin: '10px 0 0' }}>
+        {t(
+          'Servono alle lettere a) e b) del libretto delle immersioni previsto dall’art. 12, comma 8 della legge 70/2026, che ammette espressamente il formato digitale.',
+        )}
+      </p>
     </div>
   );
 }
