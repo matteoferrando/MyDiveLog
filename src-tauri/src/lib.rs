@@ -134,6 +134,18 @@ mod computer_esterni;
 #[cfg(feature = "computer-esterni")]
 mod trasporto_ldc;
 
+/*
+ * La colla fra quel trasporto e `tauri-plugin-blec`, più il comando che
+ * l'interfaccia chiama per scaricare.
+ *
+ * Il modulo c'è SEMPRE, come `computer_esterni`, e per la stessa ragione: senza
+ * la funzionalità il comando esiste e risponde «questa copia non sa farlo»,
+ * invece di sparire e far fallire l'interfaccia con «comando sconosciuto» —
+ * che è un messaggio che non spiega niente a nessuno. Il ponte vero, dentro,
+ * è compilato solo con `computer-esterni`.
+ */
+mod ponte_blec;
+
 /// Il ritorno dell'accesso sul desktop: un ascoltatore su 127.0.0.1.
 ///
 /// COME TORNA INDIETRO UN ACCESSO. Il giro OAuth si svolge nel browser di
@@ -291,7 +303,8 @@ pub fn run() {
         segreti::segreto_scrivi,
         segreti::segreto_cancella,
         ritorno_accesso::apri_ritorno_accesso,
-        computer_esterni::elenca_computer_supportati
+        computer_esterni::elenca_computer_supportati,
+        ponte_blec::scarica_da_computer_esterno
     ]);
 
     // Su iOS due differenze: l'esportazione di un file, che qui non può passare
@@ -303,7 +316,8 @@ pub fn run() {
         segreti::segreto_scrivi,
         segreti::segreto_cancella,
         esporta_nei_documenti,
-        computer_esterni::elenca_computer_supportati
+        computer_esterni::elenca_computer_supportati,
+        ponte_blec::scarica_da_computer_esterno
     ]);
 
     builder

@@ -29,6 +29,16 @@ tauri-plugin-blec = "0.12"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# Gli UUID dei servizi e delle caratteristiche BLE.
+#
+# Dipendenza OPZIONALE, accesa solo da `computer-esterni`: serve unicamente al
+# ponte verso libdivecomputer, che è l'unico posto del progetto in cui si
+# chiamano `send_data` e `subscribe` del plugin — e quelle vogliono un `Uuid`,
+# non una stringa. Il plugin non riesporta il tipo, quindi la cassa va nominata
+# qui. La versione è la stessa che `tauri-plugin-blec` già si porta dietro, così
+# non ne compaiono due copie nel grafo.
+uuid = { version = "1", optional = true }
+
 # Aprire un indirizzo nel browser di SISTEMA, non in una finestra nostra.
 # Serve all'accesso con Google: una pagina di login disegnata dentro
 # l'applicazione è indistinguibile da una finta, perché chi la guarda non può
@@ -73,7 +83,9 @@ custom-protocol = ["tauri/custom-protocol"]
 # domanda non ha una risposta comoda — e finché non ce l'ha, una funzionalità
 # che si accende per bersaglio tiene aperte entrambe le strade invece di
 # chiuderne una per distrazione.
-computer-esterni = []
+#
+# Accende anche `uuid`, che serve al ponte BLE e a nient'altro.
+computer-esterni = ["dep:uuid"]
 
 [profile.release]
 codegen-units = 1
