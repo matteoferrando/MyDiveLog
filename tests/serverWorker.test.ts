@@ -329,6 +329,72 @@ describe('il perimetro delle rotte', () => {
   });
 });
 
+/*
+ * L'avvio dell'accesso con Apple: la rotta che apre il browser.
+ *
+ * Esiste per un guasto che non lasciava traccia da nessuna parte: aprendo
+ * `appleid.apple.com` direttamente dall'applicazione, su iOS il browser si apre
+ * sulla propria pagina iniziale e l'accesso finisce lì. Nessun errore, nessuna
+ * pagina bianca, niente nel registro del Worker. Il dominio di Apple è quello
+ * che iOS usa per il proprio «Accedi con Apple», e se lo prende il sistema.
+ * Quindi l'app apre un indirizzo NOSTRO e il salto verso Apple lo fa un 302.
+ */
+describe('l’avvio dell’accesso con Apple', () => {
+  const destinazione = 'mydivelog://accesso';
+
+  function stato(dove = destinazione, casuale = 'nonce-1'): string {
+    let grezzo = '';
+    for (const b of new TextEncoder().encode(dove)) grezzo += String.fromCharCode(b);
+    return `${casuale}.${btoa(grezzo).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
+  }
+
+  const avvio = (query: string, ip = '203.0.113.9') =>
+    new Request(`https://servizio.example/accesso-apple/vai${query}`, {
+      headers: { 'CF-Connecting-IP': ip },
+    });
+
+  it('rimanda ad Apple con il Services ID, il Return URL e lo state intero', async () => {
+    const { env } = ambiente();
+    const s = stato();
+    const risposta = await worker.fetch(avvio(`?state=${encodeURIComponent(s)}`), env);
+
+    expect(risposta.status).toBe(302);
+    const dove = new URL(risposta.headers.get('Location')!);
+    expect(dove.origin + dove.pathname).toBe('https://appleid.apple.com/auth/authorize');
+    expect(dove.searchParams.get('client_id')).toBe(env.APPLE_SERVICES_ID);
+    expect(dove.searchParams.get('redirect_uri')).toBe(env.APPLE_RITORNO);
+    expect(dove.searchParams.get('response_mode')).toBe('form_post');
+    // Intero: è il pezzo che l'app riconfronta al ritorno.
+    expect(dove.searchParams.get('state')).toBe(s);
+  });
+
+  it('senza state non manda nessuno da Apple', async () => {
+    // Un giro che comincia senza `state` è un giro che al ritorno rifiuteremmo:
+    // tanto vale fermarlo qui, dove si sa ancora cos'è successo.
+    const { env } = ambiente();
+    const risposta = await worker.fetch(avvio(''), env);
+    expect(risposta.status).toBe(400);
+    expect(risposta.headers.get('Location')).toBeNull();
+  });
+
+  it('con una destinazione che non seguiremmo non fa nemmeno partire il giro', async () => {
+    const { env } = ambiente();
+    for (const cattiva of ['https://attaccante.example/accesso', 'http://127.0.0.1/accesso']) {
+      const risposta = await worker.fetch(avvio(`?state=${encodeURIComponent(stato(cattiva))}`), env);
+      expect(risposta.status, cattiva).toBe(400);
+      expect(risposta.headers.get('Location'), cattiva).toBeNull();
+    }
+  });
+
+  it('uno state spropositato viene rifiutato invece che rimandato ad Apple', async () => {
+    // Finirebbe dentro un'intestazione `Location`: quello che entra qui esce di
+    // là, e una risposta lunga a piacere la deve digerire qualcun altro.
+    const { env } = ambiente();
+    const risposta = await worker.fetch(avvio(`?state=${'a'.repeat(2000)}`), env);
+    expect(risposta.status).toBe(400);
+  });
+});
+
 /**
  * Il ritorno di Apple: la rotta che il BROWSER chiama, non l'applicazione.
  *

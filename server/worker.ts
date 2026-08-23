@@ -39,6 +39,7 @@
 import {
   destinazionePermessa,
   emailDalCampoUtente,
+  indirizzoAutorizzazioneApple,
   leggiDestinazioneDalloStato,
   scambiaCodiceApple,
   segretoClientApple,
@@ -179,6 +180,7 @@ const TETTO_CHIAVE = { limite: 60, finestraS: 60 };
  * rotta, e il valore di `APPLE_RITORNO` che deve finire in coda a questo — perché
  * tre stringhe uguali scritte a mano diventano due uguali e una diversa.
  */
+const AVVIO_APPLE = '/accesso-apple/vai';
 const RITORNO_APPLE = '/accesso-apple/ritorno';
 
 const trovaChiave = creaArchivioChiavi();
@@ -300,7 +302,13 @@ export default {
      * che chiunque può mettere a mano — ma lo `state`, ricontrollato prima di
      * rimbalzare, e il limite di frequenza qui sotto.
      */
-    if (ammesse.length > 0 && origine && !ammesse.includes(origine) && percorso !== RITORNO_APPLE) {
+    if (
+      ammesse.length > 0 &&
+      origine &&
+      !ammesse.includes(origine) &&
+      percorso !== RITORNO_APPLE &&
+      percorso !== AVVIO_APPLE
+    ) {
       return rifiuto(403, 'origine non ammessa', null);
     }
 
@@ -463,6 +471,66 @@ export default {
           },
           origine,
         );
+      }
+
+      // --- l'avvio dell'accesso con Apple, che apre il browser -------------
+      /*
+       * ANCHE QUESTA NON LA CHIAMA L'APPLICAZIONE: la apre il BROWSER, ed è la
+       * primissima cosa che succede quando si preme «Sign in with Apple».
+       *
+       * ► PERCHÉ ESISTE. ◄ L'app apriva `appleid.apple.com` per conto suo. Sul
+       * Mac funziona. Su iPhone il browser si apre sulla propria pagina
+       * iniziale e l'accesso finisce lì: nessun errore, nessuna pagina bianca,
+       * niente in nessun registro — il guasto più difficile che ci sia, perché
+       * non lascia niente da leggere. Lo stesso indirizzo aperto A MANO in
+       * quello stesso browser apre il foglio di Apple senza fare una piega, e
+       * l'accesso con Google — stessa riga di codice, altro indirizzo — pure.
+       * La differenza è il dominio: `appleid.apple.com` è quello che iOS usa
+       * per il proprio «Accedi con Apple», e quando un'applicazione gli chiede
+       * di aprirlo se lo prende il sistema invece di passarlo al browser.
+       *
+       * Quindi l'app apre questo indirizzo, su un dominio che nessuno ha motivo
+       * di intercettare, e il salto verso Apple lo fa un 302 — che il browser
+       * segue da solo, perché fra due https non c'è niente di speciale.
+       *
+       * QUI NON SI DECIDE NIENTE che non sia già deciso: il Services ID, il
+       * Return URL e gli ambiti vengono dall'ambiente, e l'unica cosa che
+       * arriva da fuori è lo `state`, che è dell'app e le deve tornare intero.
+       * Lo si ricontrolla lo stesso — la destinazione che porta dentro deve
+       * essere una di quelle che accetteremmo al ritorno — perché mandare
+       * qualcuno da Apple con uno `state` che poi rifiuteremo vuol dire fargli
+       * fare tutto il giro per niente.
+       */
+      if (percorso === AVVIO_APPLE && richiesta.method === 'GET') {
+        const limite = await entroIlLimite(
+          env.LIMITI,
+          'accesso',
+          chiamante(richiesta),
+          TETTO_ACCESSO.limite,
+          TETTO_ACCESSO.finestraS,
+        );
+        if (!limite.consentito) return troppeRichieste(origine, limite.riprovaFraS);
+
+        const stato = new URL(richiesta.url).searchParams.get('state') ?? '';
+        /*
+         * Il tetto sulla lunghezza non è pignoleria: lo `state` finisce dentro
+         * un'intestazione `Location`, e un valore lunghissimo diventa una
+         * risposta lunghissima che qualcun altro dovrà pur digerire. Lo `state`
+         * vero misura poco più di ottanta caratteri.
+         */
+        const destinazione = stato.length > 512 ? null : leggiDestinazioneDalloStato(stato);
+        if (!destinazione || !destinazionePermessa(destinazione)) {
+          console.error('avvio Apple con uno state che non riconosciamo');
+          return rifiuto(400, 'avvio non valido', origine);
+        }
+
+        return new Response(null, {
+          status: 302,
+          headers: {
+            Location: indirizzoAutorizzazioneApple(env.APPLE_SERVICES_ID, env.APPLE_RITORNO, stato),
+            'Cache-Control': 'no-store',
+          },
+        });
       }
 
       // --- il ritorno di Apple, che arriva dal browser ---------------------

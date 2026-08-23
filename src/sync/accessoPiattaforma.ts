@@ -36,8 +36,7 @@
 import { accedi, type EsitoAccesso, type Fornitore } from './account';
 import { iniziaAccessoApple, leggiRitornoApple } from './appleAccesso';
 import {
-  APPLE_RITORNO_REGISTRATO,
-  APPLE_SERVICES_ID,
+  APPLE_AVVIO,
   clientGoogle,
   destinazioneApple,
   ritornoDaAccesso,
@@ -137,7 +136,7 @@ export async function accediConFornitore(fornitore: Fornitore, t: Traduci = come
      * viaggia dentro lo `state` ed è dove il Worker rimbalzerà il browser dopo
      * aver ricevuto la POST. Vedi `src/sync/appleAccesso.ts`.
      */
-    const avvio = iniziaAccessoApple(APPLE_SERVICES_ID, APPLE_RITORNO_REGISTRATO, ritorno);
+    const avvio = iniziaAccessoApple(APPLE_AVVIO, ritorno);
     const indirizzo = await conBrowser(avvio.indirizzo, t);
     const esito = leggiRitornoApple(indirizzo, avvio.state);
     if ('errore' in esito) throw new Error(esito.errore);

@@ -63,30 +63,25 @@ export function ritornoDaAccesso(portaLoopback: number): string {
 }
 
 /**
- * Il **Services ID** di Apple: è il `client_id` del giro web.
+ * Dove comincia l'accesso con Apple: **un indirizzo nostro**, non quello di Apple.
  *
- * NON è il bundle id, che pure gli assomiglia. Sul portale di Apple sono due
- * registrazioni distinte: il bundle id identifica l'applicazione installata e
- * vale per il giro nativo `ASAuthorization`; il Services ID identifica il
- * «servizio web» ed è l'unico che il giro con il browser accetta. Scambiarli
- * produce un `invalid_client` sulla pagina di Apple, prima ancora che compaia
- * il campo della password.
+ * ► QUESTA RIGA È LA CORREZIONE DI UN GUASTO CHE NON SI VEDEVA. ◄ Prima l'app
+ * apriva direttamente `appleid.apple.com/auth/authorize`. Sul Mac funziona; su
+ * iPhone il browser si apre sulla propria pagina iniziale e l'accesso finisce
+ * lì — nessun errore, nessuna pagina bianca, niente in nessun registro. Lo
+ * stesso indirizzo aperto A MANO in quello stesso browser va benissimo, e
+ * l'accesso con Google — stessa riga di codice, indirizzo diverso — pure. È il
+ * dominio: `appleid.apple.com` è quello che iOS usa per il proprio «Accedi con
+ * Apple», e quando un'applicazione gli chiede di aprirlo se lo prende il
+ * sistema invece di passarlo al browser.
  *
- * Di conseguenza il token che Apple emette porta QUESTO valore in `aud`, ed è
- * per questo che `APPLE_CLIENT_ID` sul Worker ne elenca due.
+ * Quindi l'app apre `mydivelog.site`, che nessuno ha motivo di intercettare, e
+ * il Worker rimanda ad Apple con un 302 — che il browser segue da solo, perché
+ * fra due indirizzi https non c'è niente di speciale. La pagina di Apple viene
+ * composta là, in `server/appleScambio.ts`, insieme al Services ID, al Return
+ * URL e agli ambiti: tutta quella roba adesso vive in un posto solo.
  */
-export const APPLE_SERVICES_ID = 'it.ferrando.mydivelog.accesso';
-
-/**
- * Il Return URL registrato sul portale di Apple: il **Worker**, non l'app.
- *
- * Deve combaciare carattere per carattere con quello scritto sul portale — una
- * barra finale in più e Apple rifiuta — e con quello che il Worker usa per
- * scambiare il codice. Il perché non sia direttamente l'app: Apple risponde con
- * una POST, e una POST non si può mandare a uno schema URL né a una porta
- * locale. Vedi `src/sync/appleAccesso.ts`.
- */
-export const APPLE_RITORNO_REGISTRATO = 'https://mydivelog.site/accesso-apple/ritorno';
+export const APPLE_AVVIO = 'https://mydivelog.site/accesso-apple/vai';
 
 /**
  * Lo schema con cui l'iPhone rientra nell'app dopo l'accesso **con Apple**.

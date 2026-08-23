@@ -14,49 +14,50 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { AMBITI_APPLE, componiStato, iniziaAccessoApple, leggiRitornoApple } from '../src/sync/appleAccesso';
-import { leggiDestinazioneDalloStato } from '../server/appleScambio';
+import { componiStato, iniziaAccessoApple, leggiRitornoApple } from '../src/sync/appleAccesso';
+import {
+  AMBITI_APPLE,
+  indirizzoAutorizzazioneApple,
+  leggiDestinazioneDalloStato,
+} from '../server/appleScambio';
 
-const SERVICES = 'it.ferrando.mydivelog.accesso';
 const RITORNO = 'https://mydivelog.site/accesso-apple/ritorno';
 const DESTINAZIONE = 'http://127.0.0.1:51000/accesso';
+const AVVIO = 'https://mydivelog.site/accesso-apple/vai';
 
-describe('la richiesta di autorizzazione ad Apple', () => {
-  it('porta tutto quello che serve, e `response_mode=form_post` è obbligatorio', () => {
+describe('l’avvio dell’accesso con Apple, dalla parte dell’app', () => {
+  it('apre un indirizzo NOSTRO, non quello di Apple', () => {
     /*
-     * Senza `form_post`, chiedendo `name` o `email`, Apple risponde
-     * `invalid_request` e la pagina di accesso non si apre nemmeno: il sintomo è
-     * un pulsante che sembra non fare niente, ed è la prima cosa da guardare.
+     * ► La prova che tiene in piedi l'accesso su iPhone. ◄
+     *
+     * Aprendo `appleid.apple.com` direttamente dall'app, su iOS il browser si
+     * apre sulla propria pagina iniziale e l'accesso finisce lì: niente errore,
+     * niente pagina bianca, niente in nessun registro. Lo stesso indirizzo
+     * aperto a mano nello stesso browser va benissimo, e Google — stessa riga
+     * di codice — pure: è il dominio di Apple che iOS si prende per sé.
+     *
+     * Se qualcuno un giorno «semplifica» rimettendo qui l'indirizzo di Apple,
+     * il Mac continuerà a funzionare e l'iPhone smetterà, in silenzio.
      */
-    const avvio = iniziaAccessoApple(SERVICES, RITORNO, DESTINAZIONE);
+    const avvio = iniziaAccessoApple(AVVIO, DESTINAZIONE);
     const url = new URL(avvio.indirizzo);
-    expect(url.origin + url.pathname).toBe('https://appleid.apple.com/auth/authorize');
-    expect(url.searchParams.get('client_id')).toBe(SERVICES);
-    expect(url.searchParams.get('redirect_uri')).toBe(RITORNO);
-    expect(url.searchParams.get('response_type')).toBe('code');
-    expect(url.searchParams.get('response_mode')).toBe('form_post');
-    expect(url.searchParams.get('scope')).toBe(AMBITI_APPLE);
+    expect(url.origin + url.pathname).toBe(AVVIO);
+    expect(url.hostname).not.toContain('apple.com');
   });
 
-  it('il `client_id` è il SERVICES ID, non il bundle id', () => {
-    /*
-     * Sono due registrazioni distinte sul portale e si somigliano abbastanza da
-     * scambiarle. Il bundle id vale per il giro nativo; il giro con il browser
-     * accetta solo il Services ID, e con l'altro risponde `invalid_client`
-     * prima ancora di mostrare il campo della password.
-     */
-    const url = new URL(iniziaAccessoApple(SERVICES, RITORNO, DESTINAZIONE).indirizzo);
-    expect(url.searchParams.get('client_id')).not.toBe('it.ferrando.mydivelog');
-    expect(url.searchParams.get('client_id')).toContain('.accesso');
+  it('lo state viaggia in coda, e torna leggibile', () => {
+    const avvio = iniziaAccessoApple(AVVIO, DESTINAZIONE);
+    const url = new URL(avvio.indirizzo);
+    expect(url.searchParams.get('state')).toBe(avvio.state);
+    expect(leggiDestinazioneDalloStato(avvio.state)).toBe(DESTINAZIONE);
   });
 
-  it('il punto di ritorno registrato è il WORKER, non l’app', () => {
-    // Perché Apple risponde con una POST, e una POST non si può mandare a
-    // `mydivelog://` né a una porta su `127.0.0.1`. Dove sta aspettando l'app,
-    // invece, viaggia dentro lo `state`.
-    const avvio = iniziaAccessoApple(SERVICES, RITORNO, DESTINAZIONE);
-    const url = new URL(avvio.indirizzo);
-    expect(url.searchParams.get('redirect_uri')).not.toContain('127.0.0.1');
+  it('dove aspetta l’app viaggia dentro lo state, non nell’indirizzo', () => {
+    // Il punto di ritorno che Apple conosce è il Worker; la porta di questo
+    // dispositivo la sa solo lo `state`, e il Worker la ricontrolla prima di
+    // seguirla.
+    const avvio = iniziaAccessoApple(AVVIO, DESTINAZIONE);
+    expect(avvio.indirizzo).not.toContain('127.0.0.1');
     expect(avvio.state).toContain('.');
     // Sull'ULTIMO punto: il pezzo casuale può contenerne, la base64url no.
     expect(componiStato(avvio.state.slice(0, avvio.state.lastIndexOf('.')), DESTINAZIONE)).toBe(avvio.state);
@@ -71,10 +72,6 @@ describe('la richiesta di autorizzazione ad Apple', () => {
      * tagliando lo `state` sul PRIMO punto, due accessi su cinque leggevano una
      * destinazione troncata e venivano rifiutati — a caso, senza nessuna
      * regolarità che facesse sospettare la causa.
-     *
-     * La suite era passata verde in locale pochi minuti prima che la CI lo
-     * prendesse. Quindi qui il pezzo casuale con i punti non si aspetta: si
-     * impone.
      */
     const conPunti = 'a.b..c...d';
     const stato = componiStato(conPunti, DESTINAZIONE);
@@ -83,9 +80,45 @@ describe('la richiesta di autorizzazione ad Apple', () => {
   });
 
   it('ogni accesso ha uno state diverso', () => {
-    const a = iniziaAccessoApple(SERVICES, RITORNO, DESTINAZIONE);
-    const b = iniziaAccessoApple(SERVICES, RITORNO, DESTINAZIONE);
+    const a = iniziaAccessoApple(AVVIO, DESTINAZIONE);
+    const b = iniziaAccessoApple(AVVIO, DESTINAZIONE);
     expect(a.state).not.toBe(b.state);
+  });
+});
+
+describe('la pagina di Apple, composta dal Worker', () => {
+  const SERVICES_PROVA = 'it.ferrando.mydivelog.accesso';
+
+  it('porta tutto quello che serve, e `response_mode=form_post` è obbligatorio', () => {
+    /*
+     * Senza `form_post`, chiedendo `name` o `email`, Apple risponde
+     * `invalid_request` e la pagina di accesso non si apre nemmeno.
+     */
+    const url = new URL(indirizzoAutorizzazioneApple(SERVICES_PROVA, RITORNO, 'stato-1'));
+    expect(url.origin + url.pathname).toBe('https://appleid.apple.com/auth/authorize');
+    expect(url.searchParams.get('client_id')).toBe(SERVICES_PROVA);
+    expect(url.searchParams.get('redirect_uri')).toBe(RITORNO);
+    expect(url.searchParams.get('response_type')).toBe('code');
+    expect(url.searchParams.get('response_mode')).toBe('form_post');
+    expect(url.searchParams.get('scope')).toBe(AMBITI_APPLE);
+    expect(url.searchParams.get('state')).toBe('stato-1');
+  });
+
+  it('il `client_id` è il SERVICES ID, non il bundle id', () => {
+    /*
+     * Sono due registrazioni distinte sul portale e si somigliano abbastanza da
+     * scambiarle. Il giro con il browser accetta solo il Services ID, e con
+     * l'altro risponde `invalid_client` prima ancora del campo della password.
+     */
+    const url = new URL(indirizzoAutorizzazioneApple(SERVICES_PROVA, RITORNO, 's'));
+    expect(url.searchParams.get('client_id')).not.toBe('it.ferrando.mydivelog');
+    expect(url.searchParams.get('client_id')).toContain('.accesso');
+  });
+
+  it('il punto di ritorno registrato è il WORKER, non l’app', () => {
+    const url = new URL(indirizzoAutorizzazioneApple(SERVICES_PROVA, RITORNO, 's'));
+    expect(url.searchParams.get('redirect_uri')).not.toContain('127.0.0.1');
+    expect(url.searchParams.get('redirect_uri')).toBe(RITORNO);
   });
 
   it('si chiedono `name` ed `email`, e non si potrà chiederli dopo', () => {
@@ -189,24 +222,39 @@ describe('la configurazione pubblica di Apple', () => {
     expect(destinazionePermessa(destinazioneApple(51000))).toBe(true);
   });
 
-  it('il Services ID e il Return URL sono quelli registrati sul portale', async () => {
+  it('l’avvio dell’app e il Return URL del Worker stanno sullo stesso servizio', async () => {
     /*
-     * Tre stringhe copiate a mano da un pannello, e ciascuna sbaglia in
-     * silenzio. Il Return URL in particolare deve combaciare CARATTERE PER
-     * CARATTERE con quello del portale e con `APPLE_RITORNO` sul Worker: una
-     * barra finale di differenza e Apple rifiuta.
+     * Stringhe copiate a mano da un pannello, e ciascuna sbaglia in silenzio.
+     * Il Return URL in particolare deve combaciare CARATTERE PER CARATTERE con
+     * quello del portale di Apple: una barra finale di differenza e Apple
+     * rifiuta.
+     *
+     * Da quando la pagina di Apple la compone il Worker, l'app conosce un
+     * indirizzo solo — quello da cui parte il giro — e qui si verifica che
+     * quello e il Return URL siano due rotte dello stesso servizio: se
+     * divergessero, l'app manderebbe la gente su un dominio e Apple
+     * risponderebbe a un altro.
      */
-    const { APPLE_SERVICES_ID, APPLE_RITORNO_REGISTRATO } = await import('../src/sync/configurazione');
-    expect(APPLE_SERVICES_ID).toBe('it.ferrando.mydivelog.accesso');
-    expect(APPLE_RITORNO_REGISTRATO).toBe('https://mydivelog.site/accesso-apple/ritorno');
+    const { APPLE_AVVIO } = await import('../src/sync/configurazione');
+    expect(APPLE_AVVIO).toBe('https://mydivelog.site/accesso-apple/vai');
 
     const { readFileSync } = await import('node:fs');
     const { fileURLToPath } = await import('node:url');
     const toml = readFileSync(fileURLToPath(new URL('../server/wrangler.toml', import.meta.url)), 'utf8');
-    expect(toml).toContain(`APPLE_RITORNO = "${APPLE_RITORNO_REGISTRATO}"`);
-    expect(toml).toContain(`APPLE_SERVICES_ID = "${APPLE_SERVICES_ID}"`);
-    // E il Services ID dev'essere fra gli `aud` accettati, o il token che Apple
+
+    const ritornoDelToml = /APPLE_RITORNO = "([^"]+)"/.exec(toml)?.[1];
+    expect(ritornoDelToml).toBe('https://mydivelog.site/accesso-apple/ritorno');
+    expect(new URL(ritornoDelToml!).origin).toBe(new URL(APPLE_AVVIO).origin);
+
+    // Il Services ID dev'essere fra gli `aud` accettati, o il token che Apple
     // emette viene rifiutato da noi stessi con un 401.
-    expect(toml).toMatch(new RegExp(`APPLE_CLIENT_ID = "[^"]*${APPLE_SERVICES_ID}`));
+    const services = /APPLE_SERVICES_ID = "([^"]+)"/.exec(toml)?.[1];
+    expect(services).toBe('it.ferrando.mydivelog.accesso');
+    expect(toml).toMatch(new RegExp(`APPLE_CLIENT_ID = "[^"]*${services}`));
+
+    // E la rotta che l'app apre dev'essere coperta dalla regola di
+    // instradamento del Worker: senza, quell'indirizzo lo serve il sito e
+    // risponde con una pagina, non con un salto verso Apple.
+    expect(toml).toContain('pattern = "mydivelog.site/accesso-apple/*"');
   });
 });

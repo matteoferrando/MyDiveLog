@@ -78,6 +78,70 @@
  * verso l'app. Il rimbalzo è il pezzo delicato: vedi `destinazionePermessa`.
  */
 
+/** Dove si chiede l'autorizzazione, cioè la pagina che vede chi accede. */
+const AUTORIZZA = 'https://appleid.apple.com/auth/authorize';
+
+/**
+ * Gli ambiti chiesti.
+ *
+ * `name` ed `email` sono i due che Apple offre, e si chiedono entrambi per una
+ * ragione che non si può rimediare dopo: **quello che non si chiede al primo
+ * accesso non si potrà chiedere più.** Apple manda nome e indirizzo una volta
+ * sola nella vita, dentro la POST di ritorno della primissima autorizzazione.
+ *
+ * Del nome oggi non facciamo niente; l'email serve a scrivere «sei entrato
+ * come…». Chiedere `name` comunque costa una riga nel foglio di consenso e
+ * salva la possibilità di usarlo un giorno.
+ */
+export const AMBITI_APPLE = 'name email';
+
+/**
+ * L'indirizzo della pagina di Apple.
+ *
+ * ► PERCHÉ LO COSTRUISCE IL WORKER E NON L'APP. ◄ Prima lo costruiva l'app e lo
+ * apriva nel browser di sistema. Sul Mac va benissimo; **su iPhone no**, e il
+ * modo in cui non va è di quelli che fanno perdere un pomeriggio: il browser si
+ * apre sulla propria pagina iniziale, senza errori, senza pagina bianca, senza
+ * niente — come se il pulsante non fosse stato premuto. Provato il 23 agosto
+ * 2026: lo stesso identico indirizzo, aperto A MANO in quello stesso browser
+ * sullo stesso telefono, apre il foglio di Apple senza fare una piega, e
+ * l'accesso con Google — che passa dalla stessa riga di codice e cambia solo
+ * l'indirizzo — funziona. La differenza è il dominio: `appleid.apple.com` è il
+ * dominio che iOS usa per il PROPRIO «Accedi con Apple», e quando il sistema
+ * riceve da un'applicazione la richiesta di aprirlo se lo prende lui invece di
+ * passarlo al browser. Quello che resta è il browser aperto sul vuoto.
+ *
+ * La cura è togliere di mezzo il caso: l'app apre un indirizzo NOSTRO —
+ * `/accesso-apple/vai` — e il rimando ad Apple lo fa il Worker con un 302. Il
+ * sistema non ha nessun motivo di intercettare `mydivelog.site`, e un 302 fra
+ * due indirizzi https il browser lo segue da solo, senza chiedere niente a
+ * nessuno.
+ *
+ * Il guadagno secondario, che non era il motivo ma vale: il Services ID, il
+ * Return URL e gli ambiti adesso stanno in UN posto solo — qui, accanto al
+ * segreto e allo scambio del codice — invece che in due, con l'obbligo di
+ * tenerli allineati a mano fra il pacchetto dell'app e le variabili del Worker.
+ *
+ * Quello che NON si sposta è lo `state`: lo genera l'app e lo riconfronta
+ * l'app. Senza PKCE è l'unica cosa che lega il giro che abbiamo cominciato al
+ * codice che ci torna, e deve nascere dalla parte di chi lo verifica.
+ */
+export function indirizzoAutorizzazioneApple(servicesId: string, ritorno: string, stato: string): string {
+  const parametri = new URLSearchParams({
+    client_id: servicesId,
+    redirect_uri: ritorno,
+    response_type: 'code',
+    scope: AMBITI_APPLE,
+    /*
+     * OBBLIGATORIO quando si chiedono `name` o `email`. Senza, Apple risponde
+     * `invalid_request` e la pagina di accesso non si apre nemmeno.
+     */
+    response_mode: 'form_post',
+    state: stato,
+  });
+  return `${AUTORIZZA}?${parametri}`;
+}
+
 /** Dove si scambia il codice. */
 const SCAMBIA = 'https://appleid.apple.com/auth/token';
 

@@ -41,24 +41,6 @@
 
 import { casuale } from './pkce';
 
-const AUTORIZZA = 'https://appleid.apple.com/auth/authorize';
-
-/**
- * Gli ambiti chiesti.
- *
- * `name` ed `email` sono i due che Apple offre, e li chiediamo entrambi per una
- * ragione che non si può rimediare dopo: **quello che non si chiede al primo
- * accesso non si potrà chiedere più.** Apple manda nome e indirizzo una volta
- * sola nella vita, dentro la POST di ritorno della primissima autorizzazione.
- * Se al primo giro non li avessimo chiesti, l'unico modo di rimediare sarebbe
- * far revocare a mano l'app dalle impostazioni dell'ID Apple.
- *
- * Del nome oggi non facciamo niente; l'email serve a scrivere «sei entrato
- * come…». Chiedere `name` comunque costa una riga nel foglio di consenso e
- * salva la possibilità di usarlo un giorno.
- */
-export const AMBITI_APPLE = 'name email';
-
 export interface AccessoAppleIniziato {
   /** Da aprire nel browser di sistema. */
   indirizzo: string;
@@ -90,31 +72,34 @@ export function componiStato(nonce: string, destinazione: string): string {
 /**
  * Prepara la richiesta di autorizzazione.
  *
- * `ritornoRegistrato` è il Return URL del portale — il Worker — e deve
- * combaciare carattere per carattere con quello registrato, o Apple rifiuta
- * prima ancora di mostrare la pagina. `destinazione` è dove l'app di questo
- * dispositivo aspetta il rimbalzo, e viaggia dentro lo `state`.
+ * ► NON SI APRE PIÙ `appleid.apple.com`, SI APRE UN INDIRIZZO NOSTRO. ◄ Su
+ * iPhone aprire direttamente il dominio di Apple non porta da nessuna parte: il
+ * browser si apre sulla propria pagina iniziale e l'accesso muore lì, senza un
+ * errore, senza una pagina bianca, senza niente da leggere in nessun registro.
+ * Il perché — iOS quel dominio se lo prende lui, perché è quello del suo
+ * «Accedi con Apple» — e la prova sperimentale stanno in
+ * `indirizzoAutorizzazioneApple`, dentro `server/appleScambio.ts`, che è dove
+ * l'indirizzo di Apple viene composto adesso.
+ *
+ * Quindi qui resta due cose sole, e sono le due che devono nascere dalla parte
+ * di chi le verifica: lo `state`, e l'indirizzo del nostro avvio con lo `state`
+ * in coda. Tutto il resto — Services ID, Return URL registrato, ambiti — vive
+ * sul Worker insieme al segreto.
+ *
+ * `destinazione` è dove l'app di QUESTO dispositivo aspetta il rimbalzo, e
+ * viaggia dentro lo `state`: una porta su `127.0.0.1` sul Mac, lo schema
+ * dell'app su iPhone.
  */
-export function iniziaAccessoApple(
-  servicesId: string,
-  ritornoRegistrato: string,
-  destinazione: string,
-): AccessoAppleIniziato {
+export function iniziaAccessoApple(avvio: string, destinazione: string): AccessoAppleIniziato {
   const state = componiStato(casuale(32), destinazione);
-  const parametri = new URLSearchParams({
-    client_id: servicesId,
-    redirect_uri: ritornoRegistrato,
-    response_type: 'code',
-    scope: AMBITI_APPLE,
-    /*
-     * OBBLIGATORIO quando si chiedono `name` o `email`. Senza, Apple risponde
-     * `invalid_request` e la pagina di accesso non si apre nemmeno: è la prima
-     * cosa da guardare se il pulsante sembra non fare niente.
-     */
-    response_mode: 'form_post',
-    state,
-  });
-  return { indirizzo: `${AUTORIZZA}?${parametri}`, state };
+  /*
+   * `encodeURIComponent` e non la stringa nuda: lo `state` finisce in coda a un
+   * indirizzo, e dentro c'è del base64url. Oggi quell'alfabeto non contiene
+   * niente da codificare — è proprio per questo che si chiama «url safe» — ma
+   * la riga che si fida di quella proprietà è la riga che si rompe il giorno
+   * che il formato dello `state` cambia, e si romperebbe in silenzio.
+   */
+  return { indirizzo: `${avvio}?state=${encodeURIComponent(state)}`, state };
 }
 
 export interface RitornoApple {
