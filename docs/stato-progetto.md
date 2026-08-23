@@ -527,8 +527,8 @@ Le insidie pagate una volta per tutte, tutte e tre invisibili a occhio:
 Il KML raggruppa per **nome** del sito e non per coordinata: il GPS prende il
 punto in superficie e la barca si sposta, quindi due immersioni allo stesso posto
 non hanno mai la stessa coordinata al quinto decimale. Un segnaposto per
-immersione darebbe trentadue bolle sovrapposte su Moregallo e nasconderebbe tutto
-il resto.
+immersione darebbe trentadue bolle sovrapposte sul sito di casa e nasconderebbe
+tutto il resto.
 
 Un difetto preso mentre si collegava all'interfaccia: la conferma diceva «7
 immersioni esportate» dopo il KML, che conta siti. La frase è ora composta da chi
