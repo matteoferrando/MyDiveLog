@@ -1970,3 +1970,52 @@ button.btn.bottone-apple:focus-visible {
   outline: 2px solid #fff;
   outline-offset: 2px;
 }
+
+/*
+  Il riquadro dove la guida firma col dito.
+
+  `touch-action: none` non è un dettaglio estetico: senza, il primo movimento
+  del dito fa SCORRERE LA PAGINA invece di disegnare, e il riquadro sembra
+  rotto. È la riga che fa la differenza fra una firma e una pagina che scivola
+  via — e si nota solo su un telefono, cioè proprio dove questa superficie
+  serve di più.
+*/
+.riquadro-firma-schermo {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 1;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: var(--surface-2, rgba(127, 127, 127, 0.06));
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.riquadro-firma-schermo .riga-firma-svg {
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+
+.riquadro-firma-schermo .tratto-firma {
+  fill: none;
+  stroke: var(--text-primary);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* La firma già raccolta, mostrata nella scheda: solo il segno, senza cornice. */
+.firma-mostrata {
+  width: 100%;
+  max-width: 20rem;
+  height: auto;
+  aspect-ratio: 3 / 1;
+}
+
+.firma-mostrata .tratto-firma {
+  fill: none;
+  stroke: var(--text-primary);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

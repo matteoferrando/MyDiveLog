@@ -31,6 +31,7 @@
 
 import { comeSta, type Traduci } from './traduci';
 import type { Dive } from './model';
+import { descriviFirma, firmaVuota } from './firma';
 import { mixName } from './units';
 
 /**
@@ -166,12 +167,17 @@ export function libretto(dive: Dive, chi: Subacqueo = {}, t: Traduci = comeSta):
     { lettera: 'm', etichetta: t('Centro di immersione'), valore: pulito(dive.center) },
     { lettera: 'n', etichetta: t('Istruttore o guida responsabile'), valore: pulito(dive.guide) },
     /*
-     * La firma non è un dato: è un gesto. Qui resta sempre vuota, e la stampa
-     * ci lascia la riga. Una casella «firmato: sì» compilata da chi tiene il
-     * libretto non è la firma di nessuno — sarebbe l'esatto contrario di quello
-     * che la lettera o) chiede.
+     * La firma non è un dato: è un gesto, e qui compare solo la riga che
+     * l'accompagna — chi e quando. Non è un sostituto: chi mostra questa riga
+     * deve mostrare anche i TRATTI, ed è quello che fa la stampa. Una casella
+     * «firmato: sì» senza il segno di nessuno sarebbe l'esatto contrario di
+     * quello che la lettera o) chiede, e infatti senza firma resta `null`.
      */
-    { lettera: 'o', etichetta: t('Firma dell’istruttore o della guida'), valore: null },
+    {
+      lettera: 'o',
+      etichetta: t('Firma dell’istruttore o della guida'),
+      valore: firmaVuota(dive.firmaGuida) ? null : descriviFirma(dive.firmaGuida!, t),
+    },
   ];
 }
 

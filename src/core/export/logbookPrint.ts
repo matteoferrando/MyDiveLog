@@ -58,6 +58,7 @@ import { modeLabel } from '../analysis/aggregate';
 import { condizioniTesto, visibilitaTesto } from '../conditions';
 import { zavorraTotaleKg, type Equipment } from '../analysis/gear';
 import { libretto, type Subacqueo } from '../libretto';
+import { descriviFirma, firmaPath, firmaVuota } from '../firma';
 
 // ---------------------------------------------------------------------------
 // Escape
@@ -617,9 +618,34 @@ function paginaImmersione(
     out.push(
       '<div class="campo-firma"><span class="riga"></span><span class="etichetta">Firma del subacqueo</span></div>',
     );
-    out.push(
-      '<div class="campo-firma"><span class="riga"></span><span class="etichetta">Firma dell’istruttore o della guida</span></div>',
-    );
+    /*
+     * ► SE LA GUIDA HA GIÀ FIRMATO SULLO SCHERMO, QUI SI STAMPA IL SUO SEGNO. ◄
+     *
+     * Non una casella spuntata: i tratti veri, ridisegnati alla risoluzione
+     * della stampante. È la ragione per cui la firma è salvata come coordinate
+     * e non come immagine — un PNG catturato a 320 px, su carta, sarebbe una
+     * macchia.
+     *
+     * Quando la firma non c'è resta la riga bianca, che è la stessa cosa di
+     * prima: il foglio si porta dalla guida e si fa firmare con la penna. Le due
+     * strade convivono, e nessuna delle due esclude l'altra.
+     */
+    if (!firmaVuota(dive.firmaGuida)) {
+      const firma = dive.firmaGuida!;
+      out.push('<div class="campo-firma">');
+      out.push(
+        `<svg class="segno" viewBox="0 0 ${firma.larghezza} ${firma.altezza}" aria-hidden="true">` +
+          `<path d="${firmaPath(firma, firma.larghezza, firma.altezza)}" /></svg>`,
+      );
+      out.push(
+        `<span class="etichetta">Firma dell’istruttore o della guida · ${escapeHtml(descriviFirma(firma))}</span>`,
+      );
+      out.push('</div>');
+    } else {
+      out.push(
+        '<div class="campo-firma"><span class="riga"></span><span class="etichetta">Firma dell’istruttore o della guida</span></div>',
+      );
+    }
     out.push('</div>');
     out.push(
       '<div class="riquadro-timbro"><span class="etichetta">Timbro del centro o della didattica</span></div>',
@@ -717,6 +743,22 @@ function voto(rating: number | undefined): string {
  * uguale, anche senza l'applicazione che lo ha prodotto.
  */
 const FOGLIO_DI_STILE = `
+/* Il segno della guida, quando ha firmato sullo schermo. */
+.campo-firma .segno {
+  display: block;
+  width: 100%;
+  height: 16mm;
+  border-bottom: 0.3mm solid #333;
+}
+.campo-firma .segno path {
+  fill: none;
+  stroke: #111;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
 /* Il libretto di legge: due colonne di lettere, compatte, da scorrere in verticale. */
 .blocco.libretto .lettere {
   margin: 0;

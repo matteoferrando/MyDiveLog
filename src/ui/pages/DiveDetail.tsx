@@ -7,6 +7,8 @@ import { modeLabel, positionAgainst, quartilesOf } from '../../core/analysis/agg
 import { debriefDive } from '../../core/analysis/coaching';
 import { logbookHtml } from '../../core/export/logbookPrint';
 import type { Subacqueo } from '../../core/libretto';
+import { descriviFirma, firmaPath, firmaVuota } from '../../core/firma';
+import { RiquadroFirma } from '../components/FirmaGuida';
 import { DepthProfile, MiniSeries } from '../components/DepthProfile';
 import { RATE_WINDOW_S, windowedRates } from '../../core/analysis/metrics';
 import { StatTile } from '../components/Charts';
@@ -613,6 +615,8 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
       <ComputerSettings dive={dive} />
 
+      <CartaFirma dive={dive} onSalva={(d) => void saveDive(d)} />
+
       {(dive.reported || dive.annotations) && (
         <div className="grid grid-2">
           {dive.reported && (
@@ -1105,6 +1109,79 @@ function DecoTimelineCard({
           {t('la distanza fra le due curve è quella differenza.')}
         </li>
       </ul>
+    </div>
+  );
+}
+
+/**
+ * La firma della guida sulla singola immersione.
+ *
+ * ► PERCHÉ NON È SEMPRE APERTA. ◄ Un riquadro da firmare vuoto su OGNI scheda
+ * sarebbe rumore: la stragrande maggioranza delle immersioni non verrà mai
+ * controfirmata, e chi rilegge il suo logbook di dieci anni fa non deve
+ * scavalcare un modulo a ogni pagina. Si apre quando serve, e quando c'è una
+ * firma si vede la firma.
+ *
+ * ► SU IPHONE È PIÙ UTILE CHE SUL MAC, ed è l'unica superficie di questa
+ * applicazione di cui si può dire. La guida firma col dito, in barca, sul
+ * telefono che hai in mano — non davanti a un computer a casa. Per questo il
+ * riquadro esiste su tutte e due le piattaforme e non è nascosto sul Mac: ma è
+ * il telefono il posto per cui è disegnato.
+ */
+function CartaFirma({ dive, onSalva }: { dive: Dive; onSalva: (d: Dive) => void }) {
+  const { t } = useLingua();
+  const [aperto, setAperto] = useState(false);
+  const firmata = !firmaVuota(dive.firmaGuida);
+
+  return (
+    <div className="card">
+      <h2>{t('Firma della guida')}</h2>
+      <p className="card-sub">
+        {t('È la lettera o) del libretto: l’unica delle tredici che non è un dato ma un gesto.')}
+      </p>
+
+      {firmata && !aperto && (
+        <div className="stack" style={{ gap: 8 }}>
+          <svg
+            className="firma-mostrata"
+            viewBox={`0 0 ${dive.firmaGuida!.larghezza} ${dive.firmaGuida!.altezza}`}
+            role="img"
+            aria-label={t('La firma raccolta per questa immersione')}
+          >
+            <path
+              d={firmaPath(dive.firmaGuida!, dive.firmaGuida!.larghezza, dive.firmaGuida!.altezza)}
+              className="tratto-firma"
+            />
+          </svg>
+          <span className="muted" style={{ fontSize: 12 }}>
+            {descriviFirma(dive.firmaGuida!, t)}
+          </span>
+          <div className="row" style={{ gap: 10 }}>
+            <button onClick={() => setAperto(true)}>{t('Rifai la firma')}</button>
+          </div>
+        </div>
+      )}
+
+      {!firmata && !aperto && (
+        <button className="btn" onClick={() => setAperto(true)}>
+          {t('Fai firmare')}
+        </button>
+      )}
+
+      {aperto && (
+        <RiquadroFirma
+          firma={dive.firmaGuida}
+          nomeProposto={dive.guide}
+          onFirma={(firma) => {
+            onSalva({ ...dive, firmaGuida: firma });
+            setAperto(false);
+          }}
+          onCancella={() => {
+            onSalva({ ...dive, firmaGuida: undefined });
+            setAperto(false);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -2014,4 +2014,23 @@ export const INGLESE: Record<string, string> = {
   'livello e organizzazione': 'level and agency',
   'Servono alle lettere a) e b) del libretto delle immersioni previsto dall’art. 12, comma 8 della legge 70/2026, che ammette espressamente il formato digitale.':
     'They fill letters a) and b) of the dive logbook required by art. 12(8) of Italian law 70/2026, which expressly allows the digital form.',
+  'Firma della guida': 'Guide’s signature',
+  'È la lettera o) del libretto: l’unica delle tredici che non è un dato ma un gesto.':
+    'It is letter o) of the logbook: the only one of the thirteen that is a gesture, not a datum.',
+  'Fai firmare': 'Get it signed',
+  'Rifai la firma': 'Sign again',
+  'La firma raccolta per questa immersione': 'The signature collected for this dive',
+  'Riquadro per la firma: disegna col dito o con il puntatore':
+    'Signature box: draw with your finger or pointer',
+  'Chi firma': 'Who is signing',
+  'nome e cognome della guida': 'the guide’s full name',
+  'Salva la firma': 'Save the signature',
+  Rifai: 'Clear',
+  'Togli la firma': 'Remove the signature',
+  'È il segno di una persona raccolto su questo dispositivo, con nome e data accanto: l’equivalente della penna sul foglio. Non è una firma elettronica qualificata.':
+    'It is a person’s mark collected on this device, with a name and a date beside it: the equivalent of pen on paper. It is not a qualified electronic signature.',
+  'firmato da': 'signed by',
+  'firmato il': 'signed on',
+  firmato: 'signed',
+  il: 'on',
 };

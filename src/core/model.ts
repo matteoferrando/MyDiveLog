@@ -44,6 +44,8 @@ export type SourceFormat =
   // un buco non è una riga in meno, è il GF99 sbagliato su quella dopo.
   | 'manual';
 
+import type { FirmaGuida } from './firma';
+
 export type DiveMode = 'oc' | 'ccr' | 'scr' | 'gauge' | 'freedive';
 
 export type Salinity = 'salt' | 'fresh';
@@ -379,6 +381,19 @@ export interface Dive {
    * raggiunta: sarebbe inventare un dato su un documento che qualcuno firma.
    */
   plannedMaxDepth?: number;
+  /**
+   * La firma della guida, lettera o) dell'art. 12 comma 8.
+   *
+   * È l'unica delle tredici voci che non è un dato ma un gesto: la raccoglie
+   * `FirmaGuida`, la disegna la scheda e la stampa. Sta dentro l'immersione
+   * perché una firma vale per QUELLA immersione e non per il libretto in
+   * generale — è il senso di controfirmare.
+   *
+   * Tratti e non un'immagine: pesa un decimo, si ridisegna nitida alla
+   * risoluzione della stampante, e non può contenere niente che non sia un
+   * numero. Vedi `core/firma.ts`.
+   */
+  firmaGuida?: FirmaGuida;
   /**
    * Visibilità in metri. Con `visibilityMaxM`, è l'estremo BASSO di una fascia.
    *
