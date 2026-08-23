@@ -11,7 +11,7 @@ import {
 import { useDiveLog } from '../state';
 import { AnalysisCard } from '../components/Analysis';
 import { PeriodPicker } from '../components/PeriodPicker';
-import { dateShort, imm, int, pct } from '../format';
+import { dateShort, imm, int, pct, type Traduci } from '../format';
 import { OTU_DAILY_MAX, OTU_DAILY_TDI } from '../../core/analysis/oxygen';
 import {
   correlation,
@@ -34,9 +34,36 @@ import {
   type RigaZavorra,
 } from '../../core/analysis/gearStats';
 import { perMeteo, perStatoDelMare, perVisibilita, quanteConCondizioni } from '../../core/conditions';
+import { Vuoto } from '../components/Vuoto';
+import { useLingua } from '../lingua';
 
 type Series = 'rmv' | 'trim' | 'ascent' | 'gf99';
 
+/**
+ * Le quattro serie che il grafico dell'andamento sa disegnare.
+ *
+ * TUTTO IN ITALIANO, e tradotto al disegno con `t()`. È una costante a modulo:
+ * nasce una volta sola all'importazione del file, e riscriverla con le stringhe
+ * già tradotte vorrebbe dire ricostruirla a ogni render e — peggio — legarla
+ * alla lingua attiva nell'istante in cui il modulo è stato caricato. La chiave
+ * del dizionario è la frase italiana, quindi quello che sta qui è già la chiave.
+ *
+ * Le `blurb` sono volutamente corte. Il dettaglio tecnico che c'era prima sta
+ * qui sotto in commento, perché serve a chi legge il codice:
+ *
+ *  - RMV: si mostra in L/min riportati alla superficie e non in bar/min perché
+ *    così è confrontabile fra bombole di volume diverso e fra profondità diverse.
+ *    Senza il volume della bombola non si può calcolare, e non si stima.
+ *  - assetto: sono i metri verticali percorsi al minuto nei soli tratti in cui la
+ *    quota è tenuta — discesa e risalita escluse — al netto dello spostamento
+ *    voluto in ciascun tratto. È il proxy più diretto del controllo d'assetto.
+ *  - risalita: il picco si misura su finestra mobile di 30 secondi e non fra due
+ *    campioni adiacenti, altrimenti il rumore del sensore diventa una risalita
+ *    rapida.
+ *  - GF99: lo calcoliamo noi dal profilo con Bühlmann ZH-L16C tenendo conto
+ *    dell'azoto residuo dell'immersione precedente, così c'è su tutte le
+ *    immersioni con un profilo e non solo su quelle dei computer che lo scrivono.
+ */
 const SERIES_META: Record<
   Series,
   { label: string; unit: string; reference: number; referenceLabel: string; digits: number; blurb: string }
@@ -47,8 +74,7 @@ const SERIES_META: Record<
     reference: 20,
     referenceLabel: 'obiettivo',
     digits: 1,
-    blurb:
-      'Litri al minuto riportati alla superficie. Confrontabile fra bombole e profondità diverse, a differenza dei bar/min. Calcolato solo dove il volume della bombola è noto.',
+    blurb: 'Litri al minuto riportati alla superficie. Solo dove il volume della bombola è noto.',
   },
   trim: {
     label: 'Oscillazione a quota tenuta',
@@ -56,8 +82,7 @@ const SERIES_META: Record<
     reference: 2,
     referenceLabel: 'buon assetto',
     digits: 1,
-    blurb:
-      "Metri verticali percorsi al minuto nei tratti in cui tieni la quota — discesa e risalita sono escluse — al netto dello spostamento voluto in ciascun tratto. È il proxy più diretto del controllo d'assetto: sotto 2 m/min la quota è tenuta bene.",
+    blurb: 'Metri verticali al minuto nei tratti in cui tieni la quota. Sotto 2 m/min è tenuta bene.',
   },
   ascent: {
     label: 'Velocità di risalita di picco',
@@ -65,22 +90,21 @@ const SERIES_META: Record<
     reference: 10,
     referenceLabel: 'limite',
     digits: 0,
-    blurb:
-      'Il picco su finestra mobile di 30 secondi, non fra campioni adiacenti: evita di scambiare il rumore del sensore per una risalita rapida.',
+    blurb: 'Il picco su finestra di 30 secondi.',
   },
   gf99: {
-    label: "GF99 all'uscita",
+    label: 'GF99 all’uscita',
     unit: '%',
     reference: 75,
     referenceLabel: 'margine sottile',
     digits: 0,
-    blurb:
-      "Quanto eri sovrasaturo rispetto al gradiente ammesso nell'istante in cui sei arrivato in superficie. Lo calcoliamo noi dal profilo con Bühlmann ZH-L16C, tenendo conto dell'azoto residuo dall'immersione precedente: c'è su tutte le immersioni con un profilo, non solo su quelle dei computer che lo scrivono. Quanto sia accettabile dipende dai gradient factor che hai impostato.",
+    blurb: 'Quanto eri sovrasaturo arrivando in superficie. Dipende dai gradient factor che hai impostato.',
   },
 };
 
 export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
   const { aggregates: a, dives, scope, gear } = useDiveLog();
+  const { t } = useLingua();
   // Tutti i blocchi qui sotto usano le immersioni della FINESTRA, non l'archivio:
   // le aggregate arrivano già filtrate, e i grafici che ricevono le immersioni una
   // per una devono vedere lo stesso insieme, altrimenti la stessa pagina
@@ -90,12 +114,12 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
 
   if (dives.length === 0) {
     return (
-      <div className="page">
-        <div className="empty">
-          <h2>Ancora nessun dato da analizzare</h2>
-          <p className="secondary">Importa le immersioni e le statistiche appaiono qui.</p>
-        </div>
-      </div>
+      <Vuoto
+        titolo="Ancora nessun dato da analizzare"
+        azione={{ vista: 'import', etichetta: 'Vai a Importa' }}
+      >
+        {t('Importa le immersioni e le statistiche appaiono qui.')}
+      </Vuoto>
     );
   }
 
@@ -114,9 +138,10 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <div className="page">
       <div className="page-title-row">
-        <h1 className="page-title">Statistiche</h1>
+        <h1 className="page-title">{t('Statistiche')}</h1>
         <span className="muted" style={{ fontSize: 12 }}>
-          {a.firstDive ? `dal ${dateShort(a.firstDive)}` : ''} · {a.withProfile} di {a.count} con profilo
+          {a.firstDive ? `${t('dal')} ${dateShort(a.firstDive)} · ` : ''}
+          {`${a.withProfile}/${a.count} ${t('con profilo')}`}
         </span>
       </div>
 
@@ -126,32 +151,31 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
       <div className="card">
         <div className="spread">
           <div style={{ flex: '0 0 auto', minWidth: 200 }}>
-            <div className="tile-label">Immersioni nel periodo</div>
+            <div className="tile-label">{t('Immersioni nel periodo')}</div>
             <div className="hero">{int(a.count)}</div>
             <div className="tile-note">
-              {formatHours(a.totalS)} sott'acqua · media {formatDuration(a.avgDurationS)} a{' '}
-              {a.avgMaxDepth.toFixed(1)} m
+              {`${formatHours(a.totalS)} ${t('sott’acqua')} · ${t('media')} ${formatDuration(a.avgDurationS)} · ${a.avgMaxDepth.toFixed(1)} m`}
             </div>
           </div>
           <div className="grid grid-tiles" style={{ flex: '1 1 480px' }}>
             <StatTile
-              label="Più profonda"
+              label={t('Più profonda')}
               value={`${a.maxDepthEver.toFixed(1)} m`}
               note={a.deepest?.site?.name ?? (a.deepest ? dateShort(a.deepest.startTime) : undefined)}
             />
             <StatTile
-              label="Più lunga"
+              label={t('Più lunga')}
               value={a.longest ? formatDuration(a.longest.durationS) : '—'}
               note={a.longest?.site?.name ?? undefined}
             />
             <StatTile
-              label="Ultimi 12 mesi"
+              label={t('Ultimi 12 mesi')}
               value={int(a.divesLast12m)}
-              note={`${a.perMonthLast12m}/mese · ${a.divesLast90d} negli ultimi 90 giorni`}
+              note={`${a.perMonthLast12m}/${t('mese')} · ${a.divesLast90d} ${t('negli ultimi 90 giorni')}`}
             />
             <StatTile
-              label="Ultima immersione"
-              value={a.daysSinceLastDive !== undefined ? `${a.daysSinceLastDive} gg` : '—'}
+              label={t('Ultima immersione')}
+              value={a.daysSinceLastDive !== undefined ? `${a.daysSinceLastDive} ${t('giorni')}` : '—'}
               note={a.lastDive ? dateShort(a.lastDive) : undefined}
             />
           </div>
@@ -166,47 +190,48 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
           e qui la domanda è "di solito", non "in totale". */}
       <div className="card">
         <div className="page-title-row" style={{ marginBottom: 12 }}>
-          <h2 style={{ margin: 0 }}>Come ti immergi, di solito</h2>
+          <h2 style={{ margin: 0 }}>{t('Come ti immergi, di solito')}</h2>
           <span className="muted" style={{ fontSize: 12 }}>
-            Mediane sul periodo. Ogni tessera dichiara su quante immersioni si basa: dove il dato non c'è, il
-            valore non viene stimato.
+            {t('Mediane sul periodo. Ogni tessera dice su quante immersioni si basa.')}
           </span>
         </div>
         <div className="grid grid-tiles">
           <MedianTile
-            label="Consumo in superficie"
+            label={t('Consumo in superficie')}
             points={a.rmv}
             unit="L/min"
             digits={1}
             trend={a.rmvTrend}
-            extra={a.avgRmv !== undefined ? `media ${a.avgRmv.toFixed(1)}` : undefined}
-            missing="Serve il volume della bombola e le due pressioni."
+            extra={a.avgRmv !== undefined ? `${t('media')} ${a.avgRmv.toFixed(1)}` : undefined}
+            missing={t('Serve il volume della bombola e le due pressioni.')}
           />
           <MedianTile
-            label="Assetto"
+            label={t('Assetto')}
             points={a.trim}
             unit="m/min"
             digits={1}
             trend={a.trimTrend}
-            extra={`${a.trim.filter((p) => p.value < LIMITS.goodTrimMpm).length} sotto i ${LIMITS.goodTrimMpm} m/min`}
-            missing="Serve un profilo campionato."
+            extra={`${a.trim.filter((p) => p.value < LIMITS.goodTrimMpm).length} ${t('sotto')} ${LIMITS.goodTrimMpm} m/min`}
+            missing={t('Serve un profilo campionato.')}
           />
           <MedianTile
-            label="Velocità di risalita"
+            label={t('Velocità di risalita')}
             points={a.maxAscentRate}
             unit="m/min"
             digits={1}
             trend={a.ascentTrend}
-            extra={a.fastAscentRate !== undefined ? `${pct(a.fastAscentRate)} oltre il limite` : undefined}
-            missing="Serve un profilo campionato."
+            extra={
+              a.fastAscentRate !== undefined ? `${pct(a.fastAscentRate)} ${t('oltre il limite')}` : undefined
+            }
+            missing={t('Serve un profilo campionato.')}
           />
           <MedianTile
-            label="GF99 all'uscita"
+            label={t('GF99 all’uscita')}
             points={a.gf99}
             unit="%"
             digits={0}
-            extra={gfLabel(scoped)}
-            missing="Serve un profilo campionato."
+            extra={gfLabel(scoped, t)}
+            missing={t('Serve un profilo campionato.')}
           />
         </div>
       </div>
@@ -214,29 +239,30 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
       {a.repetitiveDives > 0 && (
         <div className="card">
           <div className="page-title-row" style={{ marginBottom: 12 }}>
-            <h2 style={{ margin: 0 }}>Le ripetitive</h2>
+            <h2 style={{ margin: 0 }}>{t('Le ripetitive')}</h2>
             <span className="muted" style={{ fontSize: 12 }}>
-              {a.repetitiveDives} immersioni del periodo sono cominciate con dell'azoto ancora in circolo.
+              {`${imm(a.repetitiveDives, t)} ${t('cominciate con azoto ancora in circolo')}`}
             </span>
           </div>
+          {/* Il costo è un confronto fra due esecuzioni dello STESSO profilo — con
+              e senza azoto residuo — non una stima. Nessun computer subacqueo può
+              dirlo, perché richiede di guardare due immersioni insieme. */}
           <p className="card-sub">
-            Il costo è la differenza fra il GF99 con cui sei uscito e quello con cui saresti uscito facendo la{' '}
-            <em>stessa identica immersione</em> da tessuti puliti. È un confronto fra due esecuzioni dello
-            stesso profilo, non una stima — e nessun computer subacqueo può dirtelo, perché richiede di
-            guardare due immersioni insieme.
+            {t('Quanto GF99 in più ti sei portato a casa rispetto a fare la stessa immersione da pulito.')}
           </p>
           <div className="grid grid-tiles">
             <StatTile
-              label="Costo mediano"
+              label={t('Costo mediano')}
               value={
                 <span className="tabular">
-                  +{(a.repetitiveCostMedian ?? 0).toFixed(1)} <small style={{ fontSize: 14 }}>punti</small>
+                  +{(a.repetitiveCostMedian ?? 0).toFixed(1)}{' '}
+                  <small style={{ fontSize: 14 }}>{t('punti')}</small>
                 </span>
               }
-              note="di GF99 all'uscita, rispetto a partire da pulito"
+              note={t('di GF99 all’uscita, rispetto a partire da pulito')}
             />
             <StatTile
-              label="Caso peggiore"
+              label={t('Caso peggiore')}
               value={
                 <span
                   className="tabular"
@@ -251,20 +277,20 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
                 a.repetitiveCostWorst
                   ? `${dateShort(a.repetitiveCostWorst.dive.startTime, a.repetitiveCostWorst.dive.utcOffsetMinutes)}${
                       a.repetitiveCostWorst.surfaceIntervalMin !== undefined
-                        ? ` · ${a.repetitiveCostWorst.surfaceIntervalMin} min di pausa`
+                        ? ` · ${t('pausa')} ${a.repetitiveCostWorst.surfaceIntervalMin} min`
                         : ''
                     }`
                   : undefined
               }
             />
             <StatTile
-              label="Pausa mediana"
+              label={t('Pausa mediana')}
               value={
                 <span className="tabular">
                   {a.surfaceIntervalMedian ?? '—'} <small style={{ fontSize: 14 }}>min</small>
                 </span>
               }
-              note="fra un'immersione e la successiva della stessa giornata"
+              note={t('fra due immersioni della stessa giornata')}
             />
           </div>
         </div>
@@ -273,15 +299,17 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
       {a.oxygen.eligible > 0 && (
         <div className="card">
           <div className="page-title-row" style={{ marginBottom: 12 }}>
-            <h2 style={{ margin: 0 }}>Esposizione all'ossigeno</h2>
+            <h2 style={{ margin: 0 }}>{t('Esposizione all’ossigeno')}</h2>
+            {/* Il valore che scrive il computer è un'altra cosa: modello diverso.
+                Non lo diciamo a schermo perché non cambia niente di quello che
+                l'utente deve fare. */}
             <span className="muted" style={{ fontSize: 12 }}>
-              Calcolata da noi sul profilo con le tabelle NOAA, su {a.oxygen.eligible} immersioni del periodo.
-              Il valore che scrive il computer è un'altra cosa: modello diverso.
+              {`${imm(a.oxygen.eligible, t)} · ${t('calcolata sul profilo con le tabelle NOAA')}`}
             </span>
           </div>
           <div className="grid grid-tiles">
             <StatTile
-              label="Giornata peggiore, CNS"
+              label={t('Giornata peggiore, CNS')}
               value={
                 <span
                   className="tabular"
@@ -294,12 +322,12 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               }
               note={
                 a.oxygen.worstCnsDay
-                  ? `${dateShort(a.oxygen.worstCnsDay.date)} · ${a.oxygen.worstCnsDay.dives} immersioni · limite 100%`
+                  ? `${dateShort(a.oxygen.worstCnsDay.date)} · ${imm(a.oxygen.worstCnsDay.dives, t)} · ${t('limite')} 100%`
                   : undefined
               }
             />
             <StatTile
-              label="Giornata peggiore, OTU"
+              label={t('Giornata peggiore, OTU')}
               value={
                 <span
                   className="tabular"
@@ -310,15 +338,15 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
                   {a.oxygen.worstOtuDay?.otu ?? 0}
                 </span>
               }
-              note={`riferimento ${OTU_DAILY_TDI} al giorno su più giorni, ${OTU_DAILY_MAX} in un giorno solo`}
+              note={`${OTU_DAILY_MAX} ${t('il massimo in un giorno')} · ${OTU_DAILY_TDI} ${t('se ti immergi più giorni di fila')}`}
             />
             <StatTile
-              label="Giorni sopra 300 OTU"
+              label={t('Giorni sopra 300 OTU')}
               value={<span className="tabular">{a.oxygen.daysOverOtu300}</span>}
-              note={`su ${a.oxygen.days.length} giornate di immersione nel periodo`}
+              note={`${a.oxygen.days.length} ${t('giornate di immersione nel periodo')}`}
             />
             <StatTile
-              label="Velocità sull'ultimo tratto"
+              label={t('Velocità sull’ultimo tratto')}
               value={
                 <span className="tabular">
                   {a.finalAscent.length
@@ -334,8 +362,8 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
                     // andare più veloce di una popolazione che già va troppo
                     // veloce — ma una nota che dice sempre «0» si smette di
                     // leggere. Vedi `danFinalAscentMpm`.
-                    `mediana dalla sosta alla superficie · ${a.finalAscentsOverAppLimit} oltre i ${LIMITS.ascentRateShallowMpm} m/min`
-                  : 'serve un profilo campionato'
+                    `${t('mediana dalla sosta alla superficie')} · ${a.finalAscentsOverAppLimit} > ${LIMITS.ascentRateShallowMpm} m/min`
+                  : t('serve un profilo campionato')
               }
             />
           </div>
@@ -343,8 +371,10 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
           {a.oxygen.days.length > 1 && (
             <div style={{ marginTop: 16 }}>
               <div className="mini-title">
-                <span>OTU per giornata di immersione</span>
-                <span className="mini-last">{a.oxygen.days[a.oxygen.days.length - 1].otu} l'ultima</span>
+                <span>{t('OTU per giornata di immersione')}</span>
+                <span className="mini-last">
+                  {`${a.oxygen.days[a.oxygen.days.length - 1].otu} ${t('l’ultima')}`}
+                </span>
               </div>
               <ColumnChart
                 data={a.oxygen.days.map((d) => ({
@@ -358,12 +388,14 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
             </div>
           )}
 
+          {/* Perché CNS e OTU stanno insieme: il CNS della giornata tiene conto del
+              dimezzamento ogni 90 minuti in superficie — la somma nuda
+              sovrastimerebbe, l'ultimo valore sottostimerebbe — mentre le OTU non
+              recuperano, né in giornata né fra un giorno e l'altro. Il tratto
+              finale è misurato punto a punto e non su finestra mobile: dura pochi
+              secondi, ed è esattamente il motivo per cui di solito non si vede. */}
           <p className="muted" style={{ fontSize: 11, marginTop: 12, marginBottom: 0 }}>
-            Il CNS della giornata tiene conto del dimezzamento ogni 90 minuti in superficie: la somma nuda
-            sovrastimerebbe, l'ultimo valore sottostimerebbe. Le OTU invece non recuperano — né in giornata né
-            fra un giorno e l'altro — ed è per questo che le due cose stanno insieme. Il tratto finale è
-            misurato punto a punto e non su finestra mobile: dura pochi secondi, ed è esattamente il motivo
-            per cui di solito non si vede.
+            {t('Il CNS si dimezza ogni 90 minuti in superficie; le OTU non recuperano mai.')}
           </p>
         </div>
       )}
@@ -371,23 +403,23 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
       <SitesMap dives={scoped} onOpen={onOpen} />
 
       <div className="card">
-        <h2>Attività mese per mese</h2>
-        <p className="card-sub">
-          Ultimi 24 mesi. I mesi vuoti sono lasciati visibili: la stagionalità e le pause sono parte
-          dell'informazione.
-        </p>
-        <ColumnChart data={a.byMonth} unit="immersioni" height={170} />
+        <h2>{t('Attività mese per mese')}</h2>
+        {/* I mesi vuoti restano nel grafico: la stagionalità e le pause sono parte
+            dell'informazione, e comprimerli farebbe sembrare continuo un anno in
+            cui ci si è immersi due volte. */}
+        <p className="card-sub">{t('Ultimi 24 mesi. I mesi vuoti restano visibili.')}</p>
+        <ColumnChart data={a.byMonth} unit={t('immersioni')} height={170} />
       </div>
 
       <div className="card">
         <div className="filters" style={{ marginBottom: 12 }}>
           <label>
-            Andamento di
+            {t('Andamento di')}
             <select value={series} onChange={(e) => setSeries(e.target.value as Series)}>
-              <option value="rmv">consumo di superficie</option>
-              <option value="trim">assetto</option>
-              <option value="ascent">velocità di risalita</option>
-              {a.gf99.length > 0 && <option value="gf99">GF99 all'uscita</option>}
+              <option value="rmv">{t('consumo di superficie')}</option>
+              <option value="trim">{t('assetto')}</option>
+              <option value="ascent">{t('velocità di risalita')}</option>
+              {a.gf99.length > 0 && <option value="gf99">{t('GF99 all’uscita')}</option>}
             </select>
           </label>
           {trend && (
@@ -396,76 +428,77 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
                 className={`dot ${trend.direction === 'improving' ? 'dot-good' : trend.direction === 'worsening' ? 'dot-warning' : 'dot-serious'}`}
               />
               {trend.direction === 'improving'
-                ? 'in miglioramento'
+                ? t('in miglioramento')
                 : trend.direction === 'worsening'
-                  ? 'in peggioramento'
-                  : 'stabile'}
+                  ? t('in peggioramento')
+                  : t('stabile')}
               : {trend.firstHalf.toFixed(meta.digits)} → {trend.secondHalf.toFixed(meta.digits)} {meta.unit}
             </span>
           )}
         </div>
-        <h2>{meta.label}</h2>
+        <h2>{t(meta.label)}</h2>
         <p className="card-sub">
-          {meta.blurb} Disponibile su {points.length} immersioni su {a.count}.
+          {t(meta.blurb)} {`${points.length}/${a.count} ${t('immersioni')}.`}
         </p>
         <TimeSeriesChart
           points={points}
           unit={meta.unit}
           reference={meta.reference}
-          referenceLabel={meta.referenceLabel}
+          referenceLabel={t(meta.referenceLabel)}
           format={(v) => v.toFixed(meta.digits)}
           onPick={onOpen}
         />
         {points.length > 0 && (
           <p className="muted" style={{ fontSize: 11, marginTop: 8, marginBottom: 0 }}>
-            Clicca un punto per aprire l'immersione.
+            {t('Clicca un punto per aprire l’immersione.')}
           </p>
         )}
       </div>
 
       <div className="grid grid-2">
         <div className="card">
-          <h2>Fasce di profondità</h2>
-          <p className="card-sub">Dove passi effettivamente il tempo.</p>
-          <BarChart data={a.byDepthBand} unit="immersioni" />
+          <h2>{t('Fasce di profondità')}</h2>
+          <p className="card-sub">{t('Dove passi il tempo.')}</p>
+          <BarChart data={a.byDepthBand} unit={t('immersioni')} />
         </div>
         <div className="card">
-          <h2>Siti più frequentati</h2>
-          <p className="card-sub">Per numero di immersioni.</p>
+          <h2>{t('Siti più frequentati')}</h2>
+          <p className="card-sub">{t('Per numero di immersioni.')}</p>
           <BarChart
             data={a.topSites.map((s) => ({ key: s.name, label: s.name, value: s.dives }))}
-            unit="immersioni"
+            unit={t('immersioni')}
           />
         </div>
       </div>
 
       <div className="grid grid-2">
         <div className="card">
-          <h2>Disciplina</h2>
+          <h2>{t('Disciplina')}</h2>
           <p className="card-sub">
-            Le percentuali sono calcolate solo sulle immersioni in cui la verifica è possibile: il
-            denominatore è indicato accanto a ciascuna riga.
+            {t(
+              'Percentuali calcolate solo dove la verifica è possibile: il denominatore è accanto a ogni riga.',
+            )}
           </p>
           <table>
             <tbody>
               <DisciplineRow
                 label="Sosta di sicurezza completata"
                 value={pct(a.safetyStopRate)}
-                basis={`${a.safetyStopEligible} immersioni in curva sopra i 10 m`}
+                basis={`${imm(a.safetyStopEligible, t)} ${t('in curva sopra i 10 m')}`}
                 eligible={a.safetyStopEligible}
                 good={(a.safetyStopRate ?? 0) >= 0.9}
               />
               <DisciplineRow
                 label="Immersioni con risalite fuori limite"
                 value={pct(a.fastAscentRate)}
-                basis={`${a.withProfile} immersioni con profilo`}
+                basis={`${imm(a.withProfile, t)} ${t('con profilo')}`}
                 eligible={a.withProfile}
                 good={(a.fastAscentRate ?? 1) <= 0.1}
               />
               <DisciplineRow
                 label="Uscite sotto i 50 bar"
                 value={pct(a.lowReserveRate)}
-                basis={`${a.lowReserveEligible} immersioni con pressione finale`}
+                basis={`${imm(a.lowReserveEligible, t)} ${t('con pressione finale')}`}
                 eligible={a.lowReserveEligible}
                 good={(a.lowReserveRate ?? 1) <= 0.05}
               />
@@ -474,21 +507,21 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
                 value={int(a.ceilingViolations)}
                 // Solo le immersioni il cui profilo porta il canale del tetto:
                 // le altre non sono "senza violazioni", sono non verificabili.
-                basis={`${a.ceilingEligible} immersioni con il tetto registrato`}
+                basis={`${imm(a.ceilingEligible, t)} ${t('con il tetto registrato')}`}
                 eligible={a.ceilingEligible}
                 good={a.ceilingViolations === 0}
               />
               <DisciplineRow
                 label="Parte profonda per prima"
                 value={pct(a.deepestFirstEligible ? a.deepestFirstDives / a.deepestFirstEligible : undefined)}
-                basis={`${a.deepestFirstEligible} immersioni con profilo`}
+                basis={`${imm(a.deepestFirstEligible, t)} ${t('con profilo')}`}
                 eligible={a.deepestFirstEligible}
                 good={a.deepestFirstDives >= a.deepestFirstEligible * 0.8}
               />
               <DisciplineRow
                 label="Con una sosta profonda"
                 value={pct(a.deepStopEligible ? a.deepStopDives / a.deepStopEligible : undefined)}
-                basis={`${a.deepStopEligible} immersioni oltre i 20 m`}
+                basis={`${imm(a.deepStopEligible, t)} ${t('oltre i 20 m')}`}
                 eligible={a.deepStopEligible}
                 // Non è un pass/fail: la regola pratica è del 2013 e la
                 // letteratura successiva sulle soste profonde è discussa.
@@ -498,18 +531,21 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
                 <DisciplineRow
                   label="Cambi di gas sotto la MOD"
                   value={int(a.badGasSwitches)}
-                  basis="verificato sui profili con più di una bombola"
+                  basis={t('profili con più di una bombola')}
                   good={false}
                 />
               )}
               {a.avgGf99 !== undefined && (
                 <DisciplineRow
-                  label="GF99 medio all'uscita"
+                  label="GF99 medio all’uscita"
                   value={`${a.avgGf99.toFixed(0)}%`}
+                  // Lo scarto dal valore del computer si mostra solo dove esiste:
+                  // sono due modelli diversi, e dire di quanto distano è l'unico
+                  // modo onesto di presentare un numero calcolato da noi.
                   basis={
                     a.gf99Agreement !== undefined
-                      ? `${a.gf99.length} immersioni, calcolato da noi — sulle ${a.gf99AgreementCount} che hanno anche il valore del computer i due modelli distano ${a.gf99Agreement.toFixed(1)} punti`
-                      : `${a.gf99.length} immersioni, calcolato da noi dal profilo`
+                      ? `${imm(a.gf99.length, t)} · ${t('scarto dal computer')} ${a.gf99Agreement.toFixed(1)} ${t('punti')}`
+                      : `${imm(a.gf99.length, t)} · ${t('calcolato dal profilo')}`
                   }
                   good={a.avgGf99 <= 65}
                 />
@@ -519,30 +555,32 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
         </div>
 
         <div className="card">
-          <h2>Composizione dell'archivio</h2>
-          <p className="card-sub">Configurazione, miscele, esposizione.</p>
+          <h2>{t('Composizione dell’archivio')}</h2>
+          <p className="card-sub">{t('Configurazione, miscele, esposizione.')}</p>
           <table>
             <tbody>
               <tr>
-                <td className="muted">Oltre i 30 m</td>
+                <td className="muted">{t('Oltre i 30 m')}</td>
                 <td className="num tabular">{int(a.deepDives30)}</td>
               </tr>
               <tr>
-                <td className="muted">Oltre i 40 m</td>
+                <td className="muted">{t('Oltre i 40 m')}</td>
                 <td className="num tabular">{int(a.deepDives40)}</td>
               </tr>
               <tr>
-                <td className="muted">Con obbligo decompressivo</td>
+                <td className="muted">{t('Con obbligo decompressivo')}</td>
                 <td className="num tabular">{int(a.decoDives)}</td>
               </tr>
               <tr>
-                <td className="muted">In rebreather</td>
+                <td className="muted">{t('In rebreather')}</td>
                 <td className="num tabular">{int(a.ccrDives)}</td>
               </tr>
               <tr>
-                <td className="muted">Sotto i 14 °C</td>
+                <td className="muted">{t('Sotto i 14 °C')}</td>
                 <td className="num tabular">{int(a.coldDives)}</td>
               </tr>
+              {/* Le miscele arrivano dai dati — «Aria», «EAN32» — e non sono frasi
+                  da tradurre: sono nomi. */}
               {a.byMix.slice(0, 4).map((b) => (
                 <tr key={b.key}>
                   <td className="muted">{b.label}</td>
@@ -555,10 +593,10 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
       </div>
 
       <div className="card">
-        <h2>Immersioni per anno</h2>
+        <h2>{t('Immersioni per anno')}</h2>
         <ColumnChart
           data={[...a.byYear].sort((x, y) => x.key.localeCompare(y.key))}
-          unit="immersioni"
+          unit={t('immersioni')}
           height={150}
         />
       </div>
@@ -572,8 +610,10 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
 
       <AnalysisCard
         kind="archive"
-        title="Analisi dell'archivio con Claude"
-        description="Legge tutte le immersioni una per una, non solo le medie: cambi di comportamento nel tempo, indicatori che si muovono insieme, immersioni fuori scala."
+        title={t('Analisi dell’archivio con Claude')}
+        description={t(
+          'Legge le immersioni una per una, non solo le medie: cambi nel tempo, indicatori che si muovono insieme, immersioni fuori scala.',
+        )}
         currentFingerprint={`${scope.period.id}:${scope.dives.length}:${a.lastDive ?? ''}`}
       />
     </div>
@@ -587,6 +627,7 @@ function DisciplineRow({
   good,
   eligible,
 }: {
+  /** In italiano: è la chiave del dizionario, tradotta qui sotto al disegno. */
   label: string;
   value: string;
   basis: string;
@@ -606,6 +647,7 @@ function DisciplineRow({
    */
   good?: boolean;
 }) {
+  const { t } = useLingua();
   const measurable = eligible === undefined || eligible > 0;
   const verdict = measurable ? good : undefined;
   return (
@@ -616,10 +658,10 @@ function DisciplineRow({
             className={`dot ${verdict === undefined ? '' : verdict ? 'dot-good' : 'dot-warning'}`}
             style={verdict === undefined ? { background: 'var(--axis)' } : undefined}
           />
-          <span>{label}</span>
+          <span>{t(label)}</span>
         </div>
         <div className="muted" style={{ fontSize: 11, marginLeft: 15 }}>
-          {measurable ? `su ${basis}` : `nessuna immersione verificabile: ${basis}`}
+          {measurable ? `${t('su')} ${basis}` : `${t('nessuna immersione verificabile')}: ${basis}`}
         </div>
       </td>
       <td className="num tabular" style={{ fontWeight: 650 }}>
@@ -650,10 +692,16 @@ function Correlations({
   onOpen: (id: string) => void;
   inventario: Equipment[];
 }) {
+  const { t } = useLingua();
+  /*
+   * Titoli, spiegazioni e nomi degli assi restano in italiano: sono le chiavi
+   * del dizionario, e passano da `t()` solo dove vengono disegnati. Le chiavi di
+   * React restano quelle italiane, così cambiare lingua non rimonta i grafici.
+   */
   const sets = [
     {
       title: 'Consumo e profondità media',
-      hint: 'Se il consumo cresce con la profondità oltre l’effetto della pressione, di solito è affaticamento o assetto.',
+      hint: 'Se il consumo cresce con la profondità, di solito è affaticamento o assetto.',
       points: pairsOf(
         dives,
         (d) => d.avgDepth,
@@ -664,7 +712,7 @@ function Correlations({
     },
     {
       title: 'Consumo e temperatura',
-      hint: 'Il freddo alza il consumo: quanto, su questi dati, si vede qui.',
+      hint: 'Il freddo alza il consumo: qui vedi di quanto.',
       points: pairsOf(
         dives,
         (d) => d.minTempC,
@@ -675,7 +723,7 @@ function Correlations({
     },
     {
       title: 'Assetto e consumo',
-      hint: 'Muoversi in verticale costa gas: se i due si muovono insieme, lavorare sull’assetto abbassa anche il consumo.',
+      hint: 'Muoversi in verticale costa gas: se salgono insieme, lavora sull’assetto.',
       points: pairsOf(
         dives,
         (d) => d.metrics?.bottomVerticalTravelMpm,
@@ -686,7 +734,7 @@ function Correlations({
     },
     {
       title: 'Zavorra e assetto',
-      hint: 'La sovra-zavorra è la prima causa di assetto instabile, e questo grafico la mette alla prova.',
+      hint: 'Troppa zavorra è la prima causa di assetto instabile.',
       points: pairsOf(
         dives,
         // La zavorra TOTALE, piastra compresa: leggendo il solo `weightKg` i
@@ -707,11 +755,11 @@ function Correlations({
 
   return (
     <div className="card">
-      <h2>Cosa dipende da cosa</h2>
+      <h2>{t('Cosa dipende da cosa')}</h2>
       <p className="card-sub">
-        Ogni punto è un'immersione, e si può cliccare per aprirla. La retta tratteggiata è la tendenza dei
-        minimi quadrati; <b>r</b> è il coefficiente di correlazione: 0 nessuna relazione, ±1 relazione
-        perfetta. È una correlazione osservata su questo archivio, non una causa dimostrata.
+        {t(
+          'Ogni punto è un’immersione: cliccala per aprirla. La retta è la tendenza, r è la correlazione — 0 nessuna, ±1 perfetta. È una correlazione, non una causa.',
+        )}
       </p>
       <div className="grid grid-2">
         {sets.map((s) => {
@@ -719,20 +767,20 @@ function Correlations({
           return (
             <div key={s.title}>
               <div className="mini-title">
-                <span>{s.title}</span>
+                <span>{t(s.title)}</span>
                 <span className="mini-last tabular">
                   {r === undefined ? '—' : `r ${r > 0 ? '+' : ''}${r.toFixed(2)}`}
                 </span>
               </div>
               <ScatterChart
                 points={s.points}
-                xLabel={s.xLabel}
-                yLabel={s.yLabel}
+                xLabel={t(s.xLabel)}
+                yLabel={t(s.yLabel)}
                 onPick={onOpen}
                 height={210}
               />
               <p className="muted" style={{ fontSize: 11, margin: '4px 0 0' }}>
-                {s.hint} Su {imm(s.points.length)}.
+                {t(s.hint)} {`${t('su')} ${imm(s.points.length, t)}.`}
               </p>
             </div>
           );
@@ -751,6 +799,7 @@ function Correlations({
  * fuori dal grafico.
  */
 function Distributions({ dives }: { dives: Dive[] }) {
+  const { t } = useLingua();
   const ascent = histogram(
     dives.map((d) => d.metrics?.maxAscentRateMpm).filter((v): v is number => v !== undefined),
     [0, 3, 6, 9, 12, 15, 18],
@@ -767,17 +816,29 @@ function Distributions({ dives }: { dives: Dive[] }) {
     '',
   );
 
+  /*
+   * `id` è la chiave di React e resta un codice: il titolo ora dipende dalla
+   * lingua, e usarlo come chiave farebbe smontare e rimontare i tre grafici a
+   * ogni cambio di lingua.
+   */
   const blocks = [
     {
-      title: `Velocità di risalita massima (m/min) — limite ${LIMITS.ascentRateDeepMpm}`,
+      id: 'ascent',
+      title: `${t('Velocità di risalita massima (m/min)')} — ${t('limite')} ${LIMITS.ascentRateDeepMpm}`,
       bins: ascent,
-      note: 'Il valore massimo di ciascuna immersione, su finestra di 30 s.',
+      note: t('Il valore massimo di ciascuna immersione, su finestra di 30 s.'),
     },
-    { title: 'Consumo di superficie (L/min)', bins: rmv, note: 'Solo dove volume e pressioni sono noti.' },
     {
-      title: `Pressione all'uscita (bar) — riserva ${LIMITS.minReserveBar}`,
+      id: 'rmv',
+      title: t('Consumo di superficie (L/min)'),
+      bins: rmv,
+      note: t('Solo dove volume e pressioni sono noti.'),
+    },
+    {
+      id: 'reserve',
+      title: `${t('Pressione all’uscita (bar)')} — ${t('riserva')} ${LIMITS.minReserveBar}`,
       bins: reserve,
-      note: 'Le prime due colonne sono le uscite sotto la riserva.',
+      note: t('Le prime due colonne sono le uscite sotto la riserva.'),
     },
   ].filter((b) => b.bins.some((x) => x.count > 0));
 
@@ -785,20 +846,19 @@ function Distributions({ dives }: { dives: Dive[] }) {
 
   return (
     <div className="card">
-      <h2>Distribuzioni</h2>
+      <h2>{t('Distribuzioni')}</h2>
       <p className="card-sub">
-        Quante immersioni cadono in ciascun intervallo. È la vista che mostra le code, cioè i casi che una
-        media nasconde.
+        {t('Quante immersioni per intervallo. Le code sono i casi che una media nasconde.')}
       </p>
       <div className="grid grid-3">
         {blocks.map((b) => (
-          <div key={b.title}>
+          <div key={b.id}>
             <div className="mini-title">
               <span>{b.title}</span>
             </div>
             <ColumnChart
               data={b.bins.map((x) => ({ key: x.label, label: x.label, value: x.count }))}
-              unit="immersioni"
+              unit={t('immersioni')}
               height={150}
               labelEvery={1}
             />
@@ -842,9 +902,11 @@ function Distributions({ dives }: { dives: Dive[] }) {
  *
  * Il calcolo sta in `core/analysis/gearStats.ts`, e le tre cautele scritte
  * accanto alle tabelle del consumo vengono da lì: non sono decorazione, sono la
- * frase che impedisce di leggere una correlazione come una causa.
+ * frase che impedisce di leggere una correlazione come una causa. Arrivano in
+ * italiano, che è la chiave del dizionario, e passano da `t()` al disegno.
  */
 function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipment[] }) {
+  const { t } = useLingua();
   const mute = useMemo(() => mutaPerTemperatura(dives), [dives]);
   const fuori = useMemo(() => mutaFuoriAbitudine(dives), [dives]);
   // La stessa soglia delle altre due tabelle della scheda: con soglie diverse
@@ -865,43 +927,44 @@ function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipm
     if (!conMuta) return null;
     return (
       <div className="card">
-        <h2>Attrezzatura</h2>
+        <h2>{t('Attrezzatura')}</h2>
         <p className="card-sub" style={{ marginBottom: 0 }}>
-          L'attrezzatura è registrata su {imm(conMuta)} immersioni: troppo poche, o troppo sparse, perché un
-          confronto significhi qualcosa. Queste tabelle si riempiono da sole man mano che compili muta,
-          zavorra ed erogatori nella scheda delle immersioni — anche in blocco, dal logbook.
+          {`${imm(conMuta, t)} ${t('con l’attrezzatura registrata: troppo poche per un confronto. Compila muta, zavorra ed erogatori nella scheda dell’immersione.')}`}
         </p>
       </div>
     );
   }
 
   const salLabel = (s: RigaZavorra['salinity']) =>
-    s === 'salt' ? 'salata' : s === 'fresh' ? 'dolce' : 'non indicata';
+    s === 'salt' ? t('salata') : s === 'fresh' ? t('dolce') : t('non indicata');
 
   return (
     <div className="card">
-      <h2>Attrezzatura</h2>
+      <h2>{t('Attrezzatura')}</h2>
+      {/* Nessuna di queste tabelle dice «meglio». Accanto a ogni riga stanno la
+          profondità mediana e il numero di immersioni su cui è calcolata: sono i
+          due numeri con cui si smonta una correlazione finta, e per questo non
+          si tolgono. */}
       <p className="card-sub">
-        Quello che porti addosso incrociato con quello che il profilo misura. Nessuna di queste tabelle dice
-        «meglio»: accanto a ogni riga trovi la profondità mediana e su quante immersioni è calcolata, che sono
-        i due numeri con cui si smonta una correlazione finta. Un gruppo entra in tabella da{' '}
-        <b>tre immersioni</b> in su: una mediana su due valori è il più fortunato dei due.
+        {t(
+          'Quello che porti addosso incrociato con quello che il profilo misura. Un gruppo entra in tabella da tre immersioni in su.',
+        )}
       </p>
 
       {mute.length > 0 && (
         <div style={{ marginBottom: 18 }}>
-          <div className="finding-section-label">Muta, temperatura e stagione</div>
+          <div className="finding-section-label">{t('Muta, temperatura e stagione')}</div>
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
-                  <th>Muta</th>
-                  <th className="num">Immersioni</th>
-                  <th className="num">T mediana</th>
-                  <th className="num">La più fredda</th>
-                  <th className="num">La più calda</th>
-                  <th className="num">Stagione</th>
-                  <th className="num">Prof. mediana</th>
+                  <th>{t('Muta')}</th>
+                  <th className="num">{t('Immersioni')}</th>
+                  <th className="num">{t('T mediana')}</th>
+                  <th className="num">{t('La più fredda')}</th>
+                  <th className="num">{t('La più calda')}</th>
+                  <th className="num">{t('Stagione')}</th>
+                  <th className="num">{t('Prof. mediana')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -912,7 +975,10 @@ function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipm
                     <td className="num tabular">
                       {r.medianTempC !== undefined ? (
                         <>
-                          {r.medianTempC} <small className="muted">°C · su {r.tempBasis}</small>
+                          {r.medianTempC}{' '}
+                          <small className="muted">
+                            °C · {t('su')} {r.tempBasis}
+                          </small>
                         </>
                       ) : (
                         <span className="muted">—</span>
@@ -934,19 +1000,20 @@ function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipm
               </tbody>
             </table>
           </div>
+          {/* Non è un errore: è un promemoria di quando hai fatto un'eccezione.
+              A schermo non serve dirlo — la riga non ha nessun pallino di
+              giudizio, e la parola «eccezione» basta. */}
           {fuori.length > 0 && (
             <p className="planner-hint" style={{ marginTop: 8 }}>
-              {fuori.length === 1 ? 'Un’immersione' : `${fuori.length} immersioni`} in cui eri vestito
-              diversamente dalla tua abitudine per quella temperatura:{' '}
+              {`${imm(fuori.length, t)} ${t('in cui eri vestito diversamente dal solito per quella temperatura')}: `}
               {fuori
                 .slice(0, 4)
                 .map(
                   (f) =>
-                    `${dateShort(f.dive.startTime, f.dive.utcOffsetMinutes)} — ${f.tempC} °C in ${f.suit}, di solito ${f.solita} (su ${f.base})`,
+                    `${dateShort(f.dive.startTime, f.dive.utcOffsetMinutes)} · ${f.tempC} °C · ${f.suit} → ${t('di solito')} ${f.solita} (${t('su')} ${f.base})`,
                 )
                 .join(' · ')}
-              {fuori.length > 4 ? ` · e altre ${fuori.length - 4}` : ''}. Non è un errore: è un promemoria di
-              quando hai fatto un'eccezione.
+              {fuori.length > 4 ? ` · +${fuori.length - 4}` : ''}
             </p>
           )}
         </div>
@@ -954,23 +1021,24 @@ function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipm
 
       {zavorra.length > 0 && (
         <div style={{ marginBottom: 18 }}>
-          <div className="finding-section-label">Zavorra, per muta e per tipo d'acqua</div>
+          <div className="finding-section-label">{t('Zavorra, per muta e per tipo d’acqua')}</div>
+          {/* Dolce e salata restano separate perché fra le due ci sono due o tre
+              chili: una mediana che le mescola non è giusta in nessuna delle due
+              situazioni. */}
           <p className="planner-hint" style={{ marginTop: 0 }}>
-            Fra dolce e salata ci sono due o tre chili di differenza, e una mediana che le mescola non è
-            giusta in nessuna delle due situazioni. I chili sono sempre il <b>totale</b>: zavorra più piastra,
-            perché è quello che ti tira giù.
+            {t('Dolce e salata sono contate a parte. I chili sono il totale, piastra compresa.')}
           </p>
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
-                  <th>Muta</th>
-                  <th>Acqua</th>
-                  <th className="num">Zavorra mediana</th>
-                  <th className="num">Intervallo</th>
-                  <th className="num">Assetto</th>
-                  <th className="num">Bombola</th>
-                  <th className="num">Immersioni</th>
+                  <th>{t('Muta')}</th>
+                  <th>{t('Acqua')}</th>
+                  <th className="num">{t('Zavorra mediana')}</th>
+                  <th className="num">{t('Intervallo')}</th>
+                  <th className="num">{t('Assetto')}</th>
+                  <th className="num">{t('Bombola')}</th>
+                  <th className="num">{t('Immersioni')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -983,17 +1051,22 @@ function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipm
                       {r.withBackplate > 0 && (
                         <>
                           {' '}
-                          <small className="muted">con piastra su {r.withBackplate}</small>
+                          <small className="muted">
+                            {t('con piastra su')} {r.withBackplate}
+                          </small>
                         </>
                       )}
                     </td>
                     <td className="num tabular muted">
-                      {r.minKg === r.maxKg ? 'sempre uguale' : `${r.minKg}–${r.maxKg} kg`}
+                      {r.minKg === r.maxKg ? t('sempre uguale') : `${r.minKg}–${r.maxKg} kg`}
                     </td>
                     <td className="num tabular">
                       {r.medianTrimMpm !== undefined ? (
                         <>
-                          {r.medianTrimMpm} <small className="muted">m/min · su {r.trimBasis}</small>
+                          {r.medianTrimMpm}{' '}
+                          <small className="muted">
+                            m/min · {t('su')} {r.trimBasis}
+                          </small>
                         </>
                       ) : (
                         <span className="muted">—</span>
@@ -1002,7 +1075,10 @@ function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipm
                     <td className="num muted">
                       {r.bombolaPiuUsata ? (
                         <>
-                          {r.bombolaPiuUsata} <small className="muted">· su {r.bombolaBase}</small>
+                          {r.bombolaPiuUsata}{' '}
+                          <small className="muted">
+                            · {t('su')} {r.bombolaBase}
+                          </small>
                         </>
                       ) : (
                         '—'
@@ -1017,39 +1093,41 @@ function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipm
         </div>
       )}
 
-      {consumo.map((t) => (
-        <div key={t.titolo} style={{ marginBottom: 18 }}>
+      {consumo.map((tab) => (
+        <div key={tab.titolo} style={{ marginBottom: 18 }}>
           <div className="finding-section-label">
-            Consumo per {t.titolo.toLowerCase()} — {t.conIlDato} immersioni con il dato su {dives.length} nel
-            periodo
+            {`${t('Consumo per')} ${t(tab.titolo).toLowerCase()} — ${tab.conIlDato}/${dives.length} ${t('con il dato')}`}
           </div>
           <p className="planner-hint" style={{ marginTop: 0 }}>
-            {t.cautela}
+            {t(tab.cautela)}
           </p>
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
-                  <th>{t.titolo}</th>
-                  <th className="num">Immersioni</th>
-                  <th className="num">Consumo</th>
-                  <th className="num">Prof. mediana</th>
+                  <th>{t(tab.titolo)}</th>
+                  <th className="num">{t('Immersioni')}</th>
+                  <th className="num">{t('Consumo')}</th>
+                  <th className="num">{t('Prof. mediana')}</th>
                   {/* MEDIANA delle minime, non la più bassa: la tabella qui
                       sopra chiama «La più fredda» un vero minimo, e sulla stessa
                       muta le due dicevano 21 e 11 °C. */}
-                  <th className="num">T mediana</th>
-                  <th className="num">Durata</th>
+                  <th className="num">{t('T mediana')}</th>
+                  <th className="num">{t('Durata')}</th>
                 </tr>
               </thead>
               <tbody>
-                {t.righe.map((r) => (
+                {tab.righe.map((r) => (
                   <tr key={r.etichetta}>
                     <td style={{ fontWeight: 550 }}>{r.etichetta}</td>
                     <td className="num tabular">{r.dives}</td>
                     <td className="num tabular">
                       {r.medianRmvLpm !== undefined ? (
                         <>
-                          {r.medianRmvLpm} <small className="muted">L/min · su {r.rmvBasis}</small>
+                          {r.medianRmvLpm}{' '}
+                          <small className="muted">
+                            L/min · {t('su')} {r.rmvBasis}
+                          </small>
                         </>
                       ) : (
                         <span className="muted">—</span>
@@ -1076,16 +1154,19 @@ function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipm
 }
 
 function Condizioni({ dives }: { dives: Dive[] }) {
+  const { t } = useLingua();
   const mare = useMemo(() => perStatoDelMare(dives), [dives]);
   const visibilita = useMemo(() => perVisibilita(dives), [dives]);
   const meteo = useMemo(() => perMeteo(dives), [dives]);
   const quante = useMemo(() => quanteConCondizioni(dives), [dives]);
 
+  // I titoli restano in italiano — sono le chiavi del dizionario e le chiavi di
+  // React — e passano da `t()` al disegno.
   const tabelle = [
     { titolo: 'Stato del mare', righe: mare, con: quante.mare },
     { titolo: 'Visibilità', righe: visibilita, con: quante.visibilita },
     { titolo: 'Meteo', righe: meteo, con: quante.meteo },
-  ].filter((t) => t.righe.length >= 2);
+  ].filter((tab) => tab.righe.length >= 2);
 
   /*
    * Con un solo gruppo non c'è niente da confrontare, e una tabella con una riga
@@ -1098,11 +1179,11 @@ function Condizioni({ dives }: { dives: Dive[] }) {
     if (totale === 0) return null;
     return (
       <div className="card">
-        <h2>Condizioni</h2>
+        <h2>{t('Condizioni')}</h2>
         <p className="card-sub" style={{ marginBottom: 0 }}>
-          Le condizioni sono registrate su poche immersioni, e con un gruppo solo non c'è niente da
-          confrontare. Compilando mare, visibilità e meteo nella scheda di un'immersione — sono tre tendine —
-          queste tabelle si riempiono da sole.
+          {t(
+            'Le condizioni sono registrate su poche immersioni: con un gruppo solo non c’è niente da confrontare. Compila mare, visibilità e meteo nella scheda dell’immersione.',
+          )}
         </p>
       </div>
     );
@@ -1110,35 +1191,37 @@ function Condizioni({ dives }: { dives: Dive[] }) {
 
   return (
     <div className="card">
-      <h2>Quanto contano le condizioni</h2>
+      <h2>{t('Quanto contano le condizioni')}</h2>
       <p className="card-sub">
-        Le tue mediane, divise per come stava il mare, per quanto ci vedevi e per che tempo faceva. Accanto al
-        consumo trovi profondità e temperatura mediane dello stesso gruppo: se il consumo sale insieme alla
-        profondità, non sono state le onde. Solo i gruppi con almeno tre immersioni.
+        {t(
+          'Le tue mediane divise per mare, visibilità e meteo. Accanto al consumo trovi profondità e temperatura dello stesso gruppo: se salgono insieme, non sono state le onde. Solo i gruppi da tre immersioni in su.',
+        )}
       </p>
-      {tabelle.map((t) => (
-        <div key={t.titolo} style={{ marginBottom: 18 }}>
+      {tabelle.map((tab) => (
+        <div key={tab.titolo} style={{ marginBottom: 18 }}>
           <div className="finding-section-label">
-            {t.titolo} — {t.righe.reduce((n, r) => n + r.dives, 0)} immersioni in tabella su {t.con} con il
-            dato, {dives.length} nel periodo
+            {`${t(tab.titolo)} — ${tab.righe.reduce((n, r) => n + r.dives, 0)} ${t('in tabella')} · ${tab.con} ${t('con il dato')} · ${dives.length} ${t('nel periodo')}`}
           </div>
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
-                  <th>{t.titolo}</th>
-                  <th className="num">Immersioni</th>
-                  <th className="num">Consumo</th>
-                  <th className="num">Assetto</th>
-                  <th className="num">Prof. mediana</th>
-                  <th className="num">Durata</th>
-                  <th className="num">T minima</th>
+                  <th>{t(tab.titolo)}</th>
+                  <th className="num">{t('Immersioni')}</th>
+                  <th className="num">{t('Consumo')}</th>
+                  <th className="num">{t('Assetto')}</th>
+                  <th className="num">{t('Prof. mediana')}</th>
+                  <th className="num">{t('Durata')}</th>
+                  <th className="num">{t('T minima')}</th>
                 </tr>
               </thead>
               <tbody>
-                {t.righe.map((r) => (
+                {tab.righe.map((r) => (
                   <tr key={r.chiave}>
-                    <td>{r.etichetta}</td>
+                    {/* Le etichette dei gruppi — «mare mosso», «da 3 a 5 m» —
+                        arrivano dalle costanti di `core/conditions.ts`, in
+                        italiano: sono chiavi del dizionario come le altre. */}
+                    <td>{t(r.etichetta)}</td>
                     <td className="num tabular">{r.dives}</td>
                     {/*
                      * Il denominatore accanto a ogni mediana, non solo in cima.
@@ -1149,7 +1232,10 @@ function Condizioni({ dives }: { dives: Dive[] }) {
                     <td className="num tabular">
                       {r.medianRmvLpm !== undefined ? (
                         <>
-                          {r.medianRmvLpm} <small className="muted">L/min · su {r.rmvBasis}</small>
+                          {r.medianRmvLpm}{' '}
+                          <small className="muted">
+                            L/min · {t('su')} {r.rmvBasis}
+                          </small>
                         </>
                       ) : (
                         <span className="muted">—</span>
@@ -1158,7 +1244,10 @@ function Condizioni({ dives }: { dives: Dive[] }) {
                     <td className="num tabular">
                       {r.medianTrimMpm !== undefined ? (
                         <>
-                          {r.medianTrimMpm} <small className="muted">m/min · su {r.trimBasis}</small>
+                          {r.medianTrimMpm}{' '}
+                          <small className="muted">
+                            m/min · {t('su')} {r.trimBasis}
+                          </small>
                         </>
                       ) : (
                         <span className="muted">—</span>
@@ -1169,7 +1258,10 @@ function Condizioni({ dives }: { dives: Dive[] }) {
                     <td className="num tabular">
                       {r.medianTempC !== undefined ? (
                         <>
-                          {r.medianTempC} <small className="muted">°C · su {r.tempBasis}</small>
+                          {r.medianTempC}{' '}
+                          <small className="muted">
+                            °C · {t('su')} {r.tempBasis}
+                          </small>
                         </>
                       ) : (
                         <span className="muted">—</span>
@@ -1182,10 +1274,13 @@ function Condizioni({ dives }: { dives: Dive[] }) {
           </div>
         </div>
       ))}
+      {/* Le condizioni non arrivano da sole: col mare agitato si esce dai posti
+          riparati, e quindi cambiano anche il sito, la profondità e la
+          temperatura. La tabella dice che una differenza c'è, non da dove viene. */}
       <p className="muted" style={{ fontSize: 11, margin: 0 }}>
-        Nessuna di queste righe dice una causa. Le condizioni non arrivano da sole: col mare agitato si esce
-        dai posti riparati, e quindi cambiano anche il sito, la profondità e la temperatura. Quello che la
-        tabella può dire è che una differenza c'è — e dove guardare per capire da dove viene.
+        {t(
+          'Nessuna di queste righe dice una causa: col mare agitato cambiano anche sito, profondità e temperatura.',
+        )}
       </p>
     </div>
   );
@@ -1200,14 +1295,14 @@ function Condizioni({ dives }: { dives: Dive[] }) {
  * successo davvero.
  */
 function SettingsHistory({ dives }: { dives: Dive[] }) {
+  const { t } = useLingua();
   const periods = settingsPeriods(dives);
   if (periods.length < 2) return null;
   return (
     <div className="card">
-      <h2>Impostazioni del computer nel tempo</h2>
+      <h2>{t('Impostazioni del computer nel tempo')}</h2>
       <p className="card-sub">
-        Il GF99 all'uscita dipende da queste impostazioni: confrontarlo fra periodi diversi senza tenerne
-        conto porta a conclusioni sbagliate.
+        {t('Il GF99 all’uscita dipende da queste impostazioni: tienine conto quando confronti due periodi.')}
       </p>
       {/* Cinque colonne con intestazioni lunghe: a 440 px non ci stanno, e senza
           contenitore a scorrere era la PAGINA. Questa carta compare solo se il
@@ -1218,11 +1313,11 @@ function SettingsHistory({ dives }: { dives: Dive[] }) {
         <table>
           <thead>
             <tr>
-              <th>Impostazione</th>
-              <th>Dal</th>
-              <th>Al</th>
-              <th className="num">Immersioni</th>
-              <th className="num">GF99 medio all'uscita</th>
+              <th>{t('Impostazione')}</th>
+              <th>{t('Dal')}</th>
+              <th>{t('Al')}</th>
+              <th className="num">{t('Immersioni')}</th>
+              <th className="num">{t('GF99 medio all’uscita')}</th>
             </tr>
           </thead>
           <tbody>
@@ -1244,14 +1339,14 @@ function SettingsHistory({ dives }: { dives: Dive[] }) {
 
 /** Stagionalità: temperatura minima media per mese. */
 function Seasonality({ dives }: { dives: Dive[] }) {
+  const { t } = useLingua();
   const months = tempByMonth(dives).filter((m) => m.value > 0);
   if (months.length < 3) return null;
   return (
     <div className="card">
-      <h2>Temperatura per mese</h2>
+      <h2>{t('Temperatura per mese')}</h2>
       <p className="card-sub">
-        Temperatura minima media delle immersioni fatte in ciascun mese: dice quando serve la muta più
-        pesante, e va letta insieme al grafico consumo/temperatura qui sopra.
+        {t('Temperatura minima media per mese: dice quando serve la muta più pesante.')}
       </p>
       <ColumnChart data={months} unit="°C" height={150} labelEvery={1} />
     </div>
@@ -1266,6 +1361,11 @@ function Seasonality({ dives }: { dives: Dive[] }) {
  * una risalita sbagliata sposta la media di mezzo metro al minuto e la mediana di
  * niente. La media resta accanto quando c'è, così le due si possono confrontare —
  * quando divergono parecchio, è il segno che c'è un'immersione anomala da aprire.
+ *
+ * `label`, `extra` e `missing` arrivano GIÀ tradotti da chi chiama: `extra` è
+ * composto con dei numeri, quindi la traduzione andava fatta lì comunque, e
+ * tenerla tutta dalla stessa parte evita di doversi chiedere ogni volta chi
+ * traduce cosa.
  */
 function MedianTile({
   label,
@@ -1284,6 +1384,7 @@ function MedianTile({
   extra?: string;
   missing: string;
 }) {
+  const { t } = useLingua();
   if (points.length === 0) {
     return (
       <div className="tile">
@@ -1311,14 +1412,14 @@ function MedianTile({
         {median.toFixed(digits)} <small style={{ fontSize: 13, fontWeight: 500 }}>{unit}</small>
       </div>
       <div className="tile-note">
-        {imm(points.length)}
+        {imm(points.length, t)}
         {extra ? ` · ${extra}` : ''}
       </div>
       {trend && trend.direction !== 'flat' && (
         <div className="row" style={{ gap: 5, marginTop: 4, fontSize: 11 }}>
           <span className={`dot ${better ? 'dot-good' : 'dot-warning'}`} />
           <span className="muted">
-            {trend.firstHalf.toFixed(digits)} → {trend.secondHalf.toFixed(digits)} nel periodo
+            {trend.firstHalf.toFixed(digits)} → {trend.secondHalf.toFixed(digits)} {t('nel periodo')}
           </span>
         </div>
       )}
@@ -1326,12 +1427,17 @@ function MedianTile({
   );
 }
 
-/** "GF 20/85 impostati" — e se sono cambiati nel periodo, lo dice. */
-function gfLabel(dives: Dive[]): string | undefined {
+/**
+ * "GF 20/85 impostati" — e se sono cambiati nel periodo, lo dice.
+ *
+ * Sta fuori dai componenti, quindi la traduzione arriva come parametro: è la
+ * stessa convenzione di `src/ui/format.ts`.
+ */
+function gfLabel(dives: Dive[], t: Traduci): string | undefined {
   const periods = settingsPeriods(dives);
   if (periods.length === 0) return undefined;
   const last = periods[periods.length - 1].label;
-  return periods.length > 1 ? `${last} (cambiati nel periodo)` : `${last} impostati`;
+  return periods.length > 1 ? `${last} (${t('cambiati nel periodo')})` : `${last} ${t('impostati')}`;
 }
 
 /**
@@ -1348,6 +1454,7 @@ function gfLabel(dives: Dive[]): string | undefined {
  * estetico. Se un giorno servirà, questo componente è il posto dove sostituirla.
  */
 function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => void }) {
+  const { t } = useLingua();
   const { ref, width } = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<string | null>(null);
   /* Se la bolla era già selezionata PRIMA di questo tocco: vedi il commento
@@ -1394,14 +1501,16 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
   return (
     <div className="card">
       <div className="page-title-row" style={{ marginBottom: 4 }}>
-        <h2 style={{ margin: 0 }}>Dove ti immergi</h2>
+        <h2 style={{ margin: 0 }}>{t('Dove ti immergi')}</h2>
         <span className="muted" style={{ fontSize: 12 }}>
-          {withCoords} siti con coordinate{withoutCoords ? ` · ${withoutCoords} senza` : ''}
+          {`${withCoords} ${t('siti con coordinate')}`}
+          {withoutCoords ? ` · ${withoutCoords} ${t('senza')}` : ''}
         </span>
       </div>
       <p className="card-sub">
-        Non è una mappa: sotto non c'è nessuna cartografia. È la disposizione reciproca dei siti, con la
-        grandezza della bolla proporzionale alle immersioni fatte lì. Serve a vedere i gruppi, non a navigare.
+        {t(
+          'Non è una mappa: sotto non c’è cartografia. È la disposizione dei siti, con la bolla grande quanto le immersioni fatte lì.',
+        )}
       </p>
       <div className="chart" ref={ref}>
         <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img">
@@ -1469,9 +1578,12 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
           })}
         </svg>
       </div>
+      {/* Le coordinate arrivano solo dai formati che le contengono: UDDF,
+          Subsurface, il GPS dei Garmin e i log Shearwater dalla versione 17 in
+          su. Chi non le vede non ha sbagliato niente, gli manca il formato — ma
+          a schermo quell'elenco non aiuta nessuno a fare qualcosa. */}
       <p className="muted" style={{ fontSize: 11, margin: '6px 0 0' }}>
-        Le coordinate arrivano dai file che le contengono: UDDF, Subsurface, il GPS dei Garmin e i log
-        Shearwater dalla versione 17 in su. Clicca una bolla per aprire un'immersione fatta lì.
+        {t('Clicca una bolla per aprire un’immersione fatta lì.')}
       </p>
     </div>
   );

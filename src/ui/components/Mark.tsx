@@ -56,5 +56,11 @@ export function Mark({ size = 28 }: { size?: number }) {
   );
 }
 
-/** La frase che dice cosa fa questa app e nessun'altra. */
+/**
+ * La frase che dice cosa fa questa app e nessun'altra.
+ *
+ * Resta in italiano qui dentro: è una costante, e la costante è la CHIAVE del
+ * dizionario. Chi la disegna la passa a `t()`, così non rinasce a ogni render e
+ * la traduzione sta in un posto solo.
+ */
 export const CLAIM = 'Il meglio dei tuoi computer, in un logbook solo.';

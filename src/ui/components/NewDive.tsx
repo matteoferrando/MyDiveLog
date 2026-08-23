@@ -35,6 +35,7 @@ import type { DiveGear, DiveMode, GasMix, GearRef, Salinity, Waves, Weather } fr
 import { FASCE_VISIBILITA, WAVES_LABEL, WEATHER_LABEL } from '../../core/conditions';
 import { ScegliAttrezzo, vocePerNome } from './ScegliAttrezzo';
 import { pesoDelGav, type Equipment, type EquipmentKind } from '../../core/analysis/gear';
+import { useLingua } from '../lingua';
 import { useDiveLog } from '../state';
 
 /** Il momento «adesso» arrotondato all'ora, nel formato di `datetime-local`. */
@@ -108,9 +109,11 @@ const vuoto = (): Draft => ({
 
 /** Da casella di testo a numero: la stringa vuota è «non lo so», non zero. */
 const num = (v: string): number | undefined => {
-  const t = v.trim();
-  if (!t) return undefined;
-  const n = Number(t.replace(',', '.'));
+  // La variabile si chiama `s` e non `t`: in questo file `t` è la funzione che
+  // traduce, e due `t` diversi nello stesso modulo si confondono a colpo d'occhio.
+  const s = v.trim();
+  if (!s) return undefined;
+  const n = Number(s.replace(',', '.'));
   return Number.isFinite(n) ? n : undefined;
 };
 
@@ -148,6 +151,7 @@ function toInput(d: Draft): ManualDiveInput {
 
 export function NewDive({ onDone }: { onDone: (id: string) => void }) {
   const { createDive, dives, gear, saveGear } = useDiveLog();
+  const { t } = useLingua();
   /*
    * L'inventario si aggiorna in locale mentre si compila: `saveGear` passa dallo
    * storage, e aspettarlo farebbe sparire e ricomparire la voce appena aggiunta.
@@ -209,11 +213,15 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
       <div className="card">
         <div className="spread" style={{ alignItems: 'center', gap: 12 }}>
           <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-            <h2 style={{ margin: 0 }}>Aggiungi un'immersione a mano</h2>
+            <h2 style={{ margin: 0 }}>{t("Aggiungi un'immersione a mano")}</h2>
+            {/*
+              Perché conviene inserirla anche senza file, e non lo diciamo più a
+              schermo: la saturazione residua si calcola sull'ARCHIVIO, quindi
+              un'immersione che manca fa risultare più pulita quella che la
+              segue. All'utente basta sapere quando usare questo pulsante.
+            */}
             <p className="card-sub" style={{ marginBottom: 0 }}>
-              Per quelle senza file: computer a noleggio, batteria scarica, il libretto di carta. Non è solo
-              una riga in più in elenco — la saturazione residua si calcola sull'archivio, e un'immersione che
-              manca fa risultare più pulita quella che la segue.
+              {t('Per quelle senza file: computer a noleggio, batteria scarica, libretto di carta.')}
             </p>
           </div>
           <button
@@ -224,7 +232,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
               setAperto(true);
             }}
           >
-            Nuova immersione
+            {t('Nuova immersione')}
           </button>
         </div>
         {esito && <Esito esito={esito} onDone={onDone} />}
@@ -236,10 +244,9 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
     <div className="card">
       <div className="spread" style={{ alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
         <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-          <h2 style={{ margin: 0 }}>Nuova immersione</h2>
+          <h2 style={{ margin: 0 }}>{t('Nuova immersione')}</h2>
           <p className="card-sub" style={{ marginBottom: 0 }}>
-            I primi tre campi bastano per salvare. Tutto il resto migliora i numeri che l'app sa calcolare, e
-            ogni campo dice quali.
+            {t('I primi tre campi bastano per salvare. Il resto migliora i calcoli.')}
           </p>
         </div>
         <button
@@ -248,21 +255,21 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
             setD(vuoto());
           }}
         >
-          Chiudi
+          {t('Chiudi')}
         </button>
       </div>
 
       {/* --- senza questi l'immersione non esiste ---------------------------- */}
-      <div className="finding-section-label">Quando, quanto giù, quanto a lungo</div>
+      <div className="finding-section-label">{t('Quando, quanto giù, quanto a lungo')}</div>
       <div className="grid grid-3" style={{ marginBottom: 6 }}>
-        <Campo etichetta="Data e ora (locali del posto)">
+        <Campo etichetta={t('Data e ora del posto')}>
           <input
             type="datetime-local"
             value={d.localDateTime}
             onChange={(e) => set('localDateTime', e.target.value)}
           />
         </Campo>
-        <Campo etichetta="Durata" unita="min">
+        <Campo etichetta={t('Durata')} unita="min">
           <input
             type="number"
             min={1}
@@ -270,7 +277,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
             onChange={(e) => set('durationMin', e.target.value)}
           />
         </Campo>
-        <Campo etichetta="Profondità massima" unita="m">
+        <Campo etichetta={t('Profondità massima')} unita="m">
           <input
             type="text"
             inputMode="decimal"
@@ -281,7 +288,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
       </div>
 
       <div className="grid grid-3" style={{ marginBottom: 6 }}>
-        <Campo etichetta="Profondità media" unita="m">
+        <Campo etichetta={t('Profondità media')} unita="m">
           <input
             type="text"
             inputMode="decimal"
@@ -289,27 +296,32 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
             onChange={(e) => set('avgDepthM', e.target.value)}
           />
         </Campo>
-        <Campo etichetta="Acqua">
+        <Campo etichetta={t('Acqua')}>
           <select value={d.salinity} onChange={(e) => set('salinity', e.target.value as Salinity)}>
-            <option value="salt">salata</option>
-            <option value="fresh">dolce (lago)</option>
+            <option value="salt">{t('salata')}</option>
+            <option value="fresh">{t('dolce (lago)')}</option>
           </select>
         </Campo>
-        <Campo etichetta="Modalità">
+        <Campo etichetta={t('Modalità')}>
           <select value={d.mode} onChange={(e) => set('mode', e.target.value as DiveMode)}>
-            <option value="oc">circuito aperto</option>
+            <option value="oc">{t('circuito aperto')}</option>
             <option value="ccr">rebreather (CCR)</option>
             <option value="scr">rebreather (SCR)</option>
-            <option value="gauge">profondimetro</option>
-            <option value="freedive">apnea</option>
+            <option value="gauge">{t('profondimetro')}</option>
+            <option value="freedive">{t('apnea')}</option>
           </select>
         </Campo>
       </div>
+      {/*
+        La media è facoltativa ma decide il profilo quadro con cui si stimano i
+        tessuti, e quindi il carico che passa all'immersione successiva. Il 70%
+        è il rapporto mediano delle immersioni con profilo di questo archivio:
+        dettaglio da manutentori, non da schermo.
+      */}
       <p className="planner-hint" style={{ marginTop: 0 }}>
-        La media è facoltativa ma è il campo più importante di questa fascia: da lei si ricostruisce il
-        profilo con cui vengono stimati i tessuti, cioè quanto azoto risulta ancora in circolo quando cominci
-        l'immersione dopo. Senza, si assume il 70% della massima — il rapporto mediano delle tue immersioni
-        con profilo.
+        {t(
+          'Se te la ricordi, scrivila: decide quanto azoto passa all’immersione dopo. Senza, si usa il 70% della massima.',
+        )}
       </p>
 
       <label
@@ -322,11 +334,11 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
           checked={d.fusoDichiarato}
           onChange={(e) => set('fusoDichiarato', e.target.checked)}
         />
-        <span>L'immersione era in un altro fuso orario</span>
+        <span>{t("L'immersione era in un altro fuso orario")}</span>
       </label>
       {d.fusoDichiarato && (
         <div className="grid grid-3" style={{ marginBottom: 10 }}>
-          <Campo etichetta="Scarto da UTC" unita="ore">
+          <Campo etichetta={t('Scarto da UTC')} unita={t('ore')}>
             <input
               type="number"
               step="0.5"
@@ -337,19 +349,22 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
             />
           </Campo>
           <div style={{ gridColumn: 'span 2' }}>
+            {/*
+              Senza scarto l'orario viene letto nel fuso di QUESTO dispositivo, e
+              due immersioni della stessa giornata fatta lontano possono finire
+              in ordine sbagliato nella catena delle ripetitive.
+            */}
             <p className="planner-hint" style={{ marginTop: 22 }}>
-              Serve a mettere l'immersione nell'ora giusta: senza, l'orario viene letto nel fuso di questo
-              computer, e due immersioni di una giornata alle Maldive inserite da casa potrebbero risultare
-              nell'ordine sbagliato.
+              {t("Serve a mettere l'immersione nell'ora giusta del posto.")}
             </p>
           </div>
         </div>
       )}
 
       {/* --- quello che rende utili le statistiche --------------------------- */}
-      <div className="finding-section-label">Gas e consumo</div>
+      <div className="finding-section-label">{t('Gas e consumo')}</div>
       <div className="grid grid-3" style={{ marginBottom: 6 }}>
-        <Campo etichetta={`Ossigeno (${mixName(d.mix)})`} unita="%">
+        <Campo etichetta={`${t('Ossigeno')} (${mixName(d.mix)})`} unita="%">
           <input
             type="number"
             min={5}
@@ -358,7 +373,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
             onChange={(e) => set('mix', withFraction(d.mix, 'o2', (num(e.target.value) ?? 21) / 100))}
           />
         </Campo>
-        <Campo etichetta="Elio" unita="%">
+        <Campo etichetta={t('Elio')} unita="%">
           <input
             type="number"
             min={0}
@@ -367,7 +382,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
             onChange={(e) => set('mix', withFraction(d.mix, 'he', (num(e.target.value) ?? 0) / 100))}
           />
         </Campo>
-        <Campo etichetta="Volume bombola" unita="L">
+        <Campo etichetta={t('Volume bombola')} unita="L">
           <input
             type="text"
             inputMode="decimal"
@@ -377,13 +392,13 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
         </Campo>
       </div>
       <div className="grid grid-3" style={{ marginBottom: 6 }}>
-        <Campo etichetta="Pressione iniziale" unita="bar">
+        <Campo etichetta={t('Pressione iniziale')} unita="bar">
           <input type="number" min={0} value={d.startBar} onChange={(e) => set('startBar', e.target.value)} />
         </Campo>
-        <Campo etichetta="Pressione finale" unita="bar">
+        <Campo etichetta={t('Pressione finale')} unita="bar">
           <input type="number" min={0} value={d.endBar} onChange={(e) => set('endBar', e.target.value)} />
         </Campo>
-        <Campo etichetta="Temperatura minima" unita="°C">
+        <Campo etichetta={t('Temperatura minima')} unita="°C">
           <input
             type="text"
             inputMode="text"
@@ -392,30 +407,35 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
           />
         </Campo>
       </div>
+      {/*
+        Volume più le due pressioni danno il SAC, l'unico consumo confrontabile
+        fra bombole e profondità diverse. Se ne manca uno, l'immersione esce da
+        tutte le statistiche sul consumo — ed è questo che va detto a schermo.
+      */}
       <p className="planner-hint" style={{ marginTop: 0 }}>
-        Volume e le due pressioni insieme danno il consumo in litri al minuto riportato alla superficie, che è
-        l'unico numero confrontabile fra bombole e profondità diverse. Mancandone anche uno solo, questa
-        immersione resta fuori da tutte le statistiche sul consumo.
+        {t(
+          'Volume e le due pressioni danno il SAC. Se ne manca uno, questa immersione resta fuori dalle statistiche sul consumo.',
+        )}
       </p>
 
       {/* --- il racconto ---------------------------------------------------- */}
-      <div className="finding-section-label">Dove, con chi, com'è andata</div>
+      <div className="finding-section-label">{t("Dove, con chi, com'è andata")}</div>
       <div className="grid grid-3" style={{ marginBottom: 6 }}>
-        <Campo etichetta="Titolo">
+        <Campo etichetta={t('Titolo')}>
           <input
             type="text"
-            placeholder="notturna al relitto"
+            placeholder={t('notturna al relitto')}
             value={d.title}
             onChange={(e) => set('title', e.target.value)}
           />
         </Campo>
-        <Campo etichetta="Sito">
+        <Campo etichetta={t('Sito')}>
           <input type="text" value={d.siteName} onChange={(e) => set('siteName', e.target.value)} />
         </Campo>
-        <Campo etichetta="Compagno">
+        <Campo etichetta={t('Compagno')}>
           <input type="text" value={d.buddy} onChange={(e) => set('buddy', e.target.value)} />
         </Campo>
-        <Campo etichetta="Guida sub">
+        <Campo etichetta={t('Guida sub')}>
           <input type="text" value={d.guide} onChange={(e) => set('guide', e.target.value)} />
         </Campo>
       </div>
@@ -432,7 +452,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
       <div className="grid grid-3" style={{ marginBottom: 6 }}>
         <ScegliAttrezzo
           kind="suit"
-          etichetta="Muta"
+          etichetta={t('Muta')}
           valore={d.attrezzi.suit ?? (d.suit ? { name: d.suit } : undefined)}
           attrezzi={attrezziLocali}
           onChange={(v) => {
@@ -443,7 +463,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
         />
         <ScegliAttrezzo
           kind="bcd"
-          etichetta="GAV o sacco"
+          etichetta={t('GAV o sacco')}
           valore={d.attrezzi.bcd}
           attrezzi={attrezziLocali}
           onChange={(v) => {
@@ -457,7 +477,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
         />
         <ScegliAttrezzo
           kind="regulator"
-          etichetta="Erogatore principale"
+          etichetta={t('Erogatore principale')}
           valore={d.attrezzi.regulators?.[0]}
           attrezzi={attrezziLocali}
           onChange={(v) =>
@@ -470,7 +490,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
         />
         <ScegliAttrezzo
           kind="regulator"
-          etichetta="Secondo erogatore"
+          etichetta={t('Secondo erogatore')}
           valore={d.attrezzi.regulators?.[1]}
           attrezzi={attrezziLocali}
           onChange={(v) =>
@@ -484,7 +504,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
       </div>
 
       <div className="grid grid-3" style={{ marginBottom: 6 }}>
-        <Campo etichetta="Zavorra" unita="kg">
+        <Campo etichetta={t('Zavorra')} unita="kg">
           <input
             type="text"
             inputMode="decimal"
@@ -492,7 +512,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
             onChange={(e) => set('weightKg', e.target.value)}
           />
         </Campo>
-        <Campo etichetta="Piastra o schienalino" unita="kg">
+        <Campo etichetta={t('Piastra o schienalino')} unita="kg">
           <input
             type="text"
             inputMode="decimal"
@@ -500,37 +520,42 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
             onChange={(e) => set('backplateKg', e.target.value)}
           />
         </Campo>
-        <Campo etichetta="Meteo">
+        <Campo etichetta={t('Meteo')}>
           <select value={d.weather} onChange={(e) => set('weather', e.target.value as '' | Weather)}>
-            <option value="">non registrato</option>
+            <option value="">{t('non registrato')}</option>
+            {/*
+              `WEATHER_LABEL` e `WAVES_LABEL` sono tabelle di costanti del core:
+              restano in italiano là — sono le chiavi del dizionario — e si
+              traducono qui, al disegno.
+            */}
             {Object.entries(WEATHER_LABEL).map(([k, v]) => (
               <option key={k} value={k}>
-                {v}
+                {t(v)}
               </option>
             ))}
           </select>
         </Campo>
-        <Campo etichetta="Mare">
+        <Campo etichetta={t('Mare')}>
           <select value={d.waves} onChange={(e) => set('waves', e.target.value as '' | Waves)}>
-            <option value="">non registrato</option>
+            <option value="">{t('non registrato')}</option>
             {Object.entries(WAVES_LABEL).map(([k, v]) => (
               <option key={k} value={k}>
-                {v}
+                {t(v)}
               </option>
             ))}
           </select>
         </Campo>
-        <Campo etichetta="Visibilità">
+        <Campo etichetta={t('Visibilità')}>
           <select value={d.visibilita} onChange={(e) => set('visibilita', e.target.value)}>
-            <option value="">non registrata</option>
+            <option value="">{t('non registrata')}</option>
             {FASCE_VISIBILITA.map((f, i) => (
               <option key={f.etichetta} value={i}>
-                {f.etichetta}
+                {t(f.etichetta)}
               </option>
             ))}
           </select>
         </Campo>
-        <Campo etichetta="Voto" unita="1-5">
+        <Campo etichetta={t('Voto')} unita="1-5">
           <input
             type="number"
             min={1}
@@ -540,7 +565,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
           />
         </Campo>
       </div>
-      <Campo etichetta="Note">
+      <Campo etichetta={t('Note')}>
         <textarea rows={3} value={d.notes} onChange={(e) => set('notes', e.target.value)} />
       </Campo>
 
@@ -548,34 +573,37 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
       {errori.length > 0 && !esito && (
         <div className="notice notice-error" style={{ marginTop: 14 }}>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {/*
+              Errori e avvisi nascono in `core/manual.ts`, in italiano: quelle
+              frasi sono le chiavi, e si traducono qui dove c'è il contesto React.
+            */}
             {errori.map((e) => (
-              <li key={e}>{e}</li>
+              <li key={e}>{t(e)}</li>
             ))}
           </ul>
         </div>
       )}
       {anteprima && anteprima.warnings.length > 0 && (
         <div className="notice" style={{ marginTop: 14 }}>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>Si può salvare lo stesso, ma sappi che:</div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>{t('Si può salvare lo stesso, ma:')}</div>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             {anteprima.warnings.map((w) => (
-              <li key={w}>{w}</li>
+              <li key={w}>{t(w)}</li>
             ))}
           </ul>
         </div>
       )}
       {giaPresente && (
         <div className="notice" style={{ marginTop: 14 }}>
-          In archivio c'è già un'immersione con questo orario, questa profondità e questa durata. Salvando non
-          ne nasce una seconda: i campi che hai compilato riempiranno quelli vuoti di quella esistente, e il
-          suo profilo resta dov'è.
+          {t(
+            "C'è già un'immersione con questo orario, profondità e durata. Salvando, i tuoi dati riempiono i campi vuoti di quella.",
+          )}
         </div>
       )}
 
       {errore && (
         <div className="notice notice-error" role="alert" style={{ marginTop: 14 }}>
-          Non è stato possibile salvare: {errore}. L'immersione non è in archivio, e quello che hai scritto è
-          ancora qui nel modulo.
+          {t('Salvataggio non riuscito:')} {errore}. {t('Quello che hai scritto è ancora qui.')}
         </div>
       )}
 
@@ -588,7 +616,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
           aria-busy={salvando || undefined}
           onClick={() => void salva()}
         >
-          {salvando ? 'Salvo…' : giaPresente ? 'Unisci a quella esistente' : 'Salva immersione'}
+          {salvando ? t('Salvo…') : giaPresente ? t('Unisci a quella esistente') : t('Salva immersione')}
         </button>
         <button
           onClick={() => {
@@ -597,7 +625,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
             setErrore(null);
           }}
         >
-          Svuota il modulo
+          {t('Svuota il modulo')}
         </button>
       </div>
     </div>
@@ -619,19 +647,27 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
  * interrompere chi sta già scrivendo la riga successiva.
  */
 function Esito({ esito, onDone }: { esito: { merged: boolean; id: string }; onDone: (id: string) => void }) {
+  const { t } = useLingua();
   return (
     <div className="notice" role="status" style={{ marginTop: 12 }}>
       {esito.merged
-        ? 'Quell’immersione era già in archivio: invece di duplicarla, i dati che hai scritto hanno riempito i campi vuoti di quella esistente.'
-        : 'Immersione aggiunta.'}{' '}
+        ? t('Era già in archivio: i tuoi dati hanno riempito i campi vuoti di quella.')
+        : t('Immersione aggiunta.')}{' '}
       <button className="btn" style={{ marginLeft: 8 }} onClick={() => onDone(esito.id)}>
-        Aprila
+        {t('Aprila')}
       </button>
     </div>
   );
 }
 
-/** Etichetta e unità sopra al campo, come nel resto dell'applicazione. */
+/**
+ * Etichetta e unità sopra al campo, come nel resto dell'applicazione.
+ *
+ * `etichetta` arriva GIÀ TRADOTTA da chi chiama: alcune la compongono con un
+ * pezzo variabile — «Ossigeno (EAN32)» — e una chiave costruita con
+ * l'interpolazione non si troverebbe mai nel dizionario. `unita` sono sigle
+ * (m, bar, °C) e non si traducono.
+ */
 function Campo({
   etichetta,
   unita,

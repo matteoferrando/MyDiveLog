@@ -4,10 +4,13 @@ import { Meter } from '../components/Charts';
 import { useDiveLog } from '../state';
 import { AnalysisCard } from '../components/Analysis';
 import { PeriodPicker } from '../components/PeriodPicker';
-import { imm, SEVERITY_CLASS, SEVERITY_TEXT } from '../format';
+import { imm, plural, SEVERITY_CLASS, SEVERITY_TEXT, type Traduci } from '../format';
+import { Vuoto } from '../components/Vuoto';
+import { useLingua } from '../lingua';
 
 export function Coach() {
   const { plan, goalId, setGoalId, dives, aggregates, scope } = useDiveLog();
+  const { t } = useLingua();
 
   // I risultati che non sono né fra le tre priorità né fra i punti di forza.
   // Calcolati una volta sola perché servono tre volte: due nel corpo della
@@ -28,33 +31,45 @@ export function Coach() {
    *
    * La frase dice i numeri nuovi, non «piano aggiornato»: sono la ragione stessa
    * per cui si è cambiato obiettivo.
+   *
+   * SI TRADUCE A PEZZI. I numeri e il nome del periodo cambiano a ogni render:
+   * una frase intera dentro `t()` sarebbe una voce di dizionario per ogni
+   * combinazione possibile, cioè nessuna traduzione. Si traducono le parti fisse
+   * e i numeri restano fuori, come fa la scheda di importazione.
    */
   const testoAnnuncio =
     scope.dives.length < 3
-      ? `Piano non calcolabile: nel periodo «${scope.period.label}» ci sono ${imm(scope.dives.length)}, ` +
-        `${dives.length} in tutto l'archivio, e ne servono almeno 3.`
-      : `Piano ricalcolato per l'obiettivo «${plan.readiness.goal.label}»: prontezza ` +
-        `${Math.round(plan.readiness.score * 100)}%, ${criteriSoddisfatti} criteri su ` +
-        `${plan.readiness.items.length} soddisfatti, ${plan.focus.length} priorità su cui lavorare adesso, ` +
-        `${dopo.length} punti dopo, ${plan.strengths.length} punti di forza. Calcolato su ` +
-        `${imm(scope.dives.length)} del periodo «${scope.period.label}».`;
+      ? `${t('Piano non calcolabile')}: ${imm(scope.dives.length, t)} ${t('nel periodo')} ` +
+        `«${scope.period.label}», ${dives.length} ${t('in tutto l’archivio')}, ${t('e ne servono almeno 3')}.`
+      : `${t('Piano ricalcolato per l’obiettivo')} «${plan.readiness.goal.label}»: ${t('prontezza')} ` +
+        `${Math.round(plan.readiness.score * 100)}%, ${criteriSoddisfatti} ${t('criteri su')} ` +
+        `${plan.readiness.items.length} ${t('soddisfatti')}, ${plan.focus.length} ${t('priorità su cui lavorare adesso')}, ` +
+        `${dopo.length} ${t('punti dopo')}, ${plan.strengths.length} ${t('punti di forza')}. ${t('Calcolato su')} ` +
+        `${imm(scope.dives.length, t)} ${t('del periodo')} «${scope.period.label}».`;
 
   // Il piano si legge sulle immersioni della finestra: la soglia di "troppo poche"
   // guarda quelle, non l'archivio intero.
   if (scope.dives.length < 3) {
     return (
       <div className="page">
+        {/* Vedi il commento gemello nel ramo pieno: stessa posizione, stesso
+            elemento padre, altrimenti l'annuncio si perde nel rimontaggio. */}
         <AnnuncioPiano testo={testoAnnuncio} />
-        <div className="empty">
-          <h2>Servono più immersioni</h2>
-          <p className="secondary" style={{ maxWidth: 480, margin: '0 auto' }}>
-            Il piano si basa su medie e tendenze: con meno di una manciata di immersioni ogni giudizio sarebbe
-            rumore.{' '}
-            {dives.length > scope.dives.length
-              ? `Nel periodo scelto ce ne sono ${scope.dives.length} su ${dives.length} in archivio: allarga la finestra dalla scheda Statistiche o immergiti di più.`
-              : 'Importa lo storico e torna qui.'}
-          </p>
-        </div>
+        <Vuoto
+          nuda
+          titolo="Servono più immersioni"
+          azione={
+            dives.length > scope.dives.length
+              ? { vista: 'stats', etichetta: 'Vai a Statistiche' }
+              : { vista: 'import', etichetta: 'Vai a Importa' }
+          }
+        >
+          {t(
+            dives.length > scope.dives.length
+              ? 'Nel periodo scelto ce ne sono poche: allarga la finestra da Statistiche.'
+              : 'I suggerimenti si basano su medie e tendenze: con poche immersioni sarebbero rumore. Importa lo storico e torna qui.',
+          )}
+        </Vuoto>
       </div>
     );
   }
@@ -73,14 +88,17 @@ export function Coach() {
       */}
       <AnnuncioPiano testo={testoAnnuncio} />
       <div className="page-title-row">
-        <h1 className="page-title">Piano di miglioramento</h1>
+        <h1 className="page-title">{t('Piano di miglioramento')}</h1>
         <div className="filters">
           <label>
-            Obiettivo
+            {t('Obiettivo')}
             <select value={goalId} onChange={(e) => setGoalId(e.target.value as GoalId)}>
+              {/* `GOALS` è una costante del cuore dell'applicazione: resta in
+                  italiano lì — non deve rinascere a ogni render — e si traduce
+                  qui, al disegno. */}
               {GOALS.map((g) => (
                 <option key={g.id} value={g.id}>
-                  {g.label}
+                  {t(g.label)}
                 </option>
               ))}
             </select>
@@ -93,14 +111,18 @@ export function Coach() {
       <div className="card">
         <div className="spread" style={{ alignItems: 'flex-start' }}>
           <div style={{ flex: 1, minWidth: 240 }}>
-            <h2>{readiness.goal.label}</h2>
+            <h2>{t(readiness.goal.label)}</h2>
             <p className="card-sub" style={{ marginBottom: 10 }}>
-              {readiness.goal.description}
+              {t(readiness.goal.description)}
             </p>
             <div className="row" style={{ gap: 12, marginBottom: 6 }}>
               <span className="hero" style={{ fontSize: 34 }}>
                 {Math.round(readiness.score * 100)}%
               </span>
+              {/* Il verdetto arriva già scritto con dentro i nomi dei criteri
+                  mancanti: è una frase diversa a ogni conteggio e non ha una
+                  chiave di dizionario possibile. Resta in italiano finché non
+                  lo si compone a pezzi nel cuore dell'applicazione. */}
               <span className="secondary" style={{ fontSize: 13, flex: 1 }}>
                 {readiness.verdict}
               </span>
@@ -110,43 +132,50 @@ export function Coach() {
         </div>
 
         <div style={{ marginTop: 18 }}>
-          <div className="finding-section-label">Criteri di riferimento</div>
+          <div className="finding-section-label">{t('Criteri di riferimento')}</div>
+          {/* Etichette e note dei criteri nascono in `core/analysis/coaching`:
+              lì restano italiane, qui passano da `t()`. */}
           {readiness.items.map((i) => (
             <div className="readiness-row" key={i.label}>
               <span className={`dot ${i.met ? 'dot-good' : 'dot-warning'}`} />
               <span className="label">
-                {i.label}
+                {t(i.label)}
                 {i.note && (
                   <div className="muted" style={{ fontSize: 11 }}>
-                    {i.note}
+                    {t(i.note)}
                   </div>
                 )}
               </span>
               <span className="value">
-                {formatHave(i.have, i.unit)}{' '}
+                {formatHave(i.have, i.unit, t)}{' '}
                 <span className="muted">
-                  / {i.lowerIsBetter ? 'non oltre' : 'almeno'} {formatHave(i.need, i.unit)}
+                  / {t(i.lowerIsBetter ? 'non oltre' : 'almeno')} {formatHave(i.need, i.unit, t)}
                 </span>
               </span>
               <span className="muted" style={{ fontSize: 11, width: 56, textAlign: 'right' }}>
-                {i.met ? 'ok' : 'da fare'}
+                {t(i.met ? 'ok' : 'da fare')}
               </span>
             </div>
           ))}
         </div>
 
+        {/*
+         * La riga sotto diceva anche perché questi criteri non sono i
+         * prerequisiti formali di una didattica: sono costruiti sulla pratica
+         * corrente, e ogni agenzia ha i suoi. Vero, ma è una spiegazione da
+         * manuale: a chi legge basta sapere a chi chiedere.
+         */}
         <p className="muted" style={{ fontSize: 11, marginTop: 14, marginBottom: 0 }}>
-          Questi criteri sono riferimenti costruiti sulla pratica didattica corrente, non i prerequisiti
-          formali di una didattica specifica: quelli vanno verificati con l'agenzia e con l'istruttore.
+          {t('Sono riferimenti, non i requisiti di un corso: quelli chiedili all’istruttore.')}
         </p>
       </div>
 
       {plan.focus.length > 0 && (
         <div className="stack">
           <div className="page-title-row">
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 650 }}>Su cosa lavorare adesso</h2>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 650 }}>{t('Su cosa lavorare adesso')}</h2>
             <span className="muted" style={{ fontSize: 12 }}>
-              Tre priorità: fare tutto insieme non funziona.
+              {t('Tre alla volta: fare tutto insieme non funziona.')}
             </span>
           </div>
           {plan.focus.map((f) => (
@@ -157,7 +186,7 @@ export function Coach() {
 
       {dopo.length > 0 && (
         <div className="stack">
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 650 }}>Dopo, in ordine</h2>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 650 }}>{t('Dopo, in ordine')}</h2>
           {dopo.map((f) => (
             <FindingCard key={f.id} finding={f} collapsed />
           ))}
@@ -166,8 +195,8 @@ export function Coach() {
 
       {plan.strengths.length > 0 && (
         <div className="card">
-          <h2>Punti di forza da mantenere</h2>
-          <p className="card-sub">Quello che già funziona, con i numeri che lo dicono.</p>
+          <h2>{t('Punti di forza')}</h2>
+          <p className="card-sub">{t('Quello che già funziona, con i numeri che lo dicono.')}</p>
           <div className="stack" style={{ gap: 10 }}>
             {plan.strengths.map((f) => (
               <div key={f.id} className="row" style={{ gap: 9, alignItems: 'flex-start' }}>
@@ -184,33 +213,35 @@ export function Coach() {
         </div>
       )}
 
+      {/*
+       * Come è costruito il piano, in quattro righe invece di quattro paragrafi.
+       *
+       * Le regole vere: una valutazione tace sotto le sei immersioni che hanno il
+       * dato che le serve; i numeri mostrati sono esattamente quelli entrati nel
+       * giudizio, così si può contestare; le metriche derivate esistono solo dove
+       * c'è il profilo campionato. Sono cose che servono a chi legge il codice
+       * per capire perché una regola non compare — a chi si immerge basta
+       * sapere che il conto è trasparente e che l'istruttore resta l'ultima parola.
+       */}
       <div className="card">
-        <h2>Come è costruito questo piano</h2>
+        <h2>{t('Come è costruito questo piano')}</h2>
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--text-secondary)' }}>
+          <li>{t('Una valutazione tace finché non ha almeno sei immersioni con il dato che le serve.')}</li>
+          <li>{t('I numeri che vedi sono quelli che hanno generato il giudizio.')}</li>
           <li>
-            Ogni valutazione dichiara su quante immersioni si basa. Sotto le sei immersioni con il dato
-            necessario, la regola non si pronuncia affatto.
+            {aggregates.withProfile} {t('immersioni su')} {aggregates.count} {t('hanno il profilo')},{' '}
+            {aggregates.rmv.length} {t('bastano per il consumo')}.
           </li>
-          <li>
-            I numeri mostrati sono quelli che hanno generato il giudizio, così è verificabile — e
-            contestabile.
-          </li>
-          <li>
-            Le metriche derivate esistono solo dove c'è il dato: {aggregates.withProfile} immersioni su{' '}
-            {aggregates.count} hanno un profilo campionato, {aggregates.rmv.length} permettono di calcolare il
-            consumo.
-          </li>
-          <li>
-            Sulle scelte che riguardano la sicurezza — decompressione, progressione in profondità — questo
-            piano indica cosa guardare, non sostituisce il confronto con l'istruttore.
-          </li>
+          <li>{t('Sulla sicurezza il piano dice cosa guardare, non sostituisce l’istruttore.')}</li>
         </ul>
       </div>
 
       <AnalysisCard
         kind="plan"
-        title="Rilettura del piano con Claude"
-        description="Non ripete i risultati delle regole: li mette in ordine di importanza, li collega fra loro e li trasforma in un programma per le prossime dieci immersioni."
+        title={t('Rilettura del piano con Claude')}
+        description={t(
+          'Mette i risultati in ordine e li trasforma in un programma per le prossime dieci immersioni.',
+        )}
         currentFingerprint={`${goalId}:${scope.period.id}:${scope.dives.length}:${plan.findings.length}`}
       />
     </div>
@@ -255,19 +286,29 @@ function AnnuncioPiano({ testo }: { testo: string }) {
 }
 
 function FindingCard({ finding: f, collapsed = false }: { finding: Finding; collapsed?: boolean }) {
+  const { t } = useLingua();
+  /*
+   * Titolo, dettaglio, prove ed esercizi arrivano dalle regole con i numeri già
+   * dentro («2,4 m/min su 18 immersioni»): sono frasi diverse a ogni archivio e
+   * non hanno una chiave di dizionario. Si traduce quello che è fisso — l'area,
+   * la gravità, le etichette delle sezioni — e il resto resta italiano finché le
+   * regole non compongono le loro frasi a pezzi.
+   */
   return (
     <div className="finding">
       <div className="finding-head">
         <span className={`dot ${SEVERITY_CLASS[f.severity]}`} style={{ marginTop: 6 }} />
         <h3>{f.headline}</h3>
         <span className="badge">
-          {AREA_LABEL[f.area]} · {SEVERITY_TEXT[f.severity]}
+          {t(AREA_LABEL[f.area])} · {t(SEVERITY_TEXT[f.severity])}
         </span>
       </div>
       <p>{f.detail}</p>
 
       <div className="evidence">
-        <div className="finding-section-label">Su cosa si basa ({imm(f.basis)})</div>
+        <div className="finding-section-label">
+          {t('Su cosa si basa')} ({imm(f.basis, t)})
+        </div>
         {f.evidence.map((e) => (
           <div key={e}>{e}</div>
         ))}
@@ -275,14 +316,14 @@ function FindingCard({ finding: f, collapsed = false }: { finding: Finding; coll
 
       {f.target && (
         <div>
-          <div className="finding-section-label">Obiettivo</div>
+          <div className="finding-section-label">{t('Obiettivo')}</div>
           <p style={{ color: 'var(--text-primary)' }}>{f.target}</p>
         </div>
       )}
 
       {!collapsed && f.drills.length > 0 && (
         <div>
-          <div className="finding-section-label">Esercizi</div>
+          <div className="finding-section-label">{t('Esercizi')}</div>
           <ul>
             {f.drills.map((d) => (
               <li key={d}>{d}</li>
@@ -293,7 +334,7 @@ function FindingCard({ finding: f, collapsed = false }: { finding: Finding; coll
       {collapsed && f.drills.length > 0 && (
         <details>
           <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
-            {f.drills.length} esercizi
+            {plural(f.drills.length, 'esercizio', 'esercizi', t)}
           </summary>
           <ul style={{ marginTop: 6 }}>
             {f.drills.map((d) => (
@@ -306,11 +347,13 @@ function FindingCard({ finding: f, collapsed = false }: { finding: Finding; coll
   );
 }
 
-function formatHave(v: number | undefined, unit: string): string {
+// `t` come parametro con un ripiego, come in `format.ts`: questa non è una
+// funzione componente e non può chiamare i ganci di React.
+function formatHave(v: number | undefined, unit: string, t: Traduci = (s) => s): string {
   // Un criterio mai misurato si dichiara tale: scrivere «0 L/min» al posto di
   // «non misurato» farebbe sembrare raggiunto un obiettivo che nessuno ha mai
   // verificato.
-  if (v === undefined) return 'non misurato';
+  if (v === undefined) return t('non misurato');
   const n = Number.isInteger(v) ? String(v) : v.toFixed(1);
   if (!unit) return n;
   // La percentuale si attacca al numero, le altre unità no.

@@ -12,10 +12,12 @@
 
 import { MIN_DIVES_FOR_ANALYSIS, PERIODS, type PeriodId } from '../../core/analysis/window';
 import { dateShort, imm } from '../format';
+import { useLingua } from '../lingua';
 import { useDiveLog } from '../state';
 
 export function PeriodPicker() {
   const { period, setPeriod, scope, dives } = useDiveLog();
+  const { t } = useLingua();
   const thin = scope.dives.length < MIN_DIVES_FOR_ANALYSIS && dives.length > scope.dives.length;
 
   return (
@@ -30,9 +32,14 @@ export function PeriodPicker() {
       */}
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-          <h2>Periodo considerato</h2>
+          <h2>{t('Periodo considerato')}</h2>
+          {/*
+            `PERIODS` è una tabella di costanti in `core/analysis/window.ts`:
+            resta in italiano là — è la chiave del dizionario, e una costante non
+            deve rinascere a ogni render — e si traduce qui, al disegno.
+          */}
           <p className="card-sub" style={{ marginBottom: 0 }}>
-            {scope.period.description}
+            {t(scope.period.description)}
           </p>
         </div>
         <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
@@ -43,23 +50,34 @@ export function PeriodPicker() {
               aria-pressed={p.id === period}
               onClick={() => setPeriod(p.id as PeriodId)}
             >
-              {p.label}
+              {t(p.label)}
             </button>
           ))}
         </div>
       </div>
 
+      {/*
+        Le date e i conteggi restano fuori da `t()`: dentro una chiave ci
+        andrebbe un numero, e una voce di dizionario per ogni numero non è una
+        strada percorribile. Si traducono le parole che stanno intorno.
+      */}
       <p className="muted" style={{ fontSize: 12, margin: '12px 0 0' }}>
-        {imm(scope.dives.length)} nel periodo
-        {scope.from && scope.to ? ` · dal ${dateShort(scope.from)} al ${dateShort(scope.to)}` : ''}
-        {scope.excluded > 0 ? ` · ${scope.excluded} più vecchie escluse dai calcoli` : ''}
-        {scope.excluded > 0 ? ' · il logbook continua a mostrarle tutte' : ''}
+        {imm(scope.dives.length, t)} {t('nel periodo')}
+        {scope.from && scope.to
+          ? ` · ${t('dal')} ${dateShort(scope.from)} ${t('al')} ${dateShort(scope.to)}`
+          : ''}
+        {scope.excluded > 0 ? ` · ${scope.excluded} ${t('più vecchie, fuori dai conti')}` : ''}
+        {scope.excluded > 0 ? ` · ${t('il logbook le mostra comunque')}` : ''}
       </p>
 
+      {/*
+        Perché è fragile, e non lo diciamo più a schermo: con poche immersioni
+        ogni singola immersione sposta media e tendenza. All'utente serve sapere
+        cosa fare — allargare la finestra — non la statistica che c'è sotto.
+      */}
       {thin && (
         <div className="notice" style={{ marginTop: 12 }}>
-          Con {imm(scope.dives.length)} le medie e le tendenze di questo periodo sono fragili: ogni singola
-          immersione le sposta. Per un giudizio più solido allarga la finestra.
+          {t('Poche immersioni: le medie sono fragili. Allarga la finestra.')}
         </div>
       )}
     </div>

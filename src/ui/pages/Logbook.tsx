@@ -12,15 +12,18 @@ import {
 } from '../../core/conditions';
 import { NewDive } from '../components/NewDive';
 import { useDiveLog } from '../state';
-import { dateShort, descriviFinestra, FORMAT_LABEL, imm, timeShort } from '../format';
+import { dateShort, descriviFinestra, FORMAT_LABEL, imm, plural, timeShort } from '../format';
 import { BottoneConferma } from '../components/Conferma';
 import { ScegliAttrezzo, vocePerNome } from '../components/ScegliAttrezzo';
 import { pesoDelGav, type EquipmentKind } from '../../core/analysis/gear';
+import { Vuoto } from '../components/Vuoto';
+import { useLingua } from '../lingua';
 
 type SortKey = 'date' | 'depth' | 'duration' | 'rmv';
 
 export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
   const { dives } = useDiveLog();
+  const { t } = useLingua();
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('date');
   /*
@@ -110,15 +113,11 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
 
   if (dives.length === 0) {
     return (
-      <div className="page">
-        <div className="empty">
-          <h2>Nessuna immersione in archivio</h2>
-          <p className="secondary" style={{ maxWidth: 460, margin: '0 auto' }}>
-            Importa un export dal tuo computer subacqueo per iniziare. Puoi caricare file da computer diversi:
-            le immersioni doppie vengono riconosciute e unite.
-          </p>
-        </div>
-      </div>
+      <Vuoto titolo="Nessuna immersione in archivio" azione={{ vista: 'import', etichetta: 'Vai a Importa' }}>
+        {t(
+          'Importa un file dal tuo computer subacqueo per iniziare. Puoi caricarne più di uno: le immersioni doppie vengono unite.',
+        )}
+      </Vuoto>
     );
   }
 
@@ -129,11 +128,11 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
       <NewDive onDone={onOpen} />
 
       <div className="page-title-row">
-        <h1 className="page-title">Logbook</h1>
+        <h1 className="page-title">{t('Logbook')}</h1>
         <span className="muted" style={{ fontSize: 12 }}>
           {filtered.length === dives.length
-            ? imm(dives.length)
-            : `${filtered.length} di ${imm(dives.length)}`}
+            ? imm(dives.length, t)
+            : `${filtered.length} ${t('di')} ${imm(dives.length, t)}`}
         </span>
       </div>
 
@@ -147,8 +146,8 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
          */}
         <input
           type="search"
-          aria-label="Cerca fra le immersioni"
-          placeholder="Cerca sito, compagno, note…"
+          aria-label={t('Cerca fra le immersioni')}
+          placeholder={t('Cerca sito, compagno, note…')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           style={{ minWidth: 200 }}
@@ -157,9 +156,9 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
           {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
               così i tre menu si allineano invece di iniziare ognuno dove capita.
               Un nodo di testo nudo non si può dimensionare. */}
-          <span>Sito</span>
+          <span>{t('Sito')}</span>
           <select value={site} onChange={(e) => setSite(e.target.value)}>
-            <option value="">tutti</option>
+            <option value="">{t('tutti')}</option>
             {sites.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -171,9 +170,9 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
           {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
               così i tre menu si allineano invece di iniziare ognuno dove capita.
               Un nodo di testo nudo non si può dimensionare. */}
-          <span>Oltre</span>
+          <span>{t('Oltre')}</span>
           <select value={minDepth} onChange={(e) => setMinDepth(e.target.value)}>
-            <option value="">qualsiasi profondità</option>
+            <option value="">{t('qualsiasi profondità')}</option>
             <option value="18">18 m</option>
             <option value="30">30 m</option>
             <option value="40">40 m</option>
@@ -183,12 +182,12 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
           {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
               così i tre menu si allineano invece di iniziare ognuno dove capita.
               Un nodo di testo nudo non si può dimensionare. */}
-          <span>Ordina per</span>
+          <span>{t('Ordina per')}</span>
           <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-            <option value="date">data</option>
-            <option value="depth">profondità</option>
-            <option value="duration">durata</option>
-            <option value="rmv">consumo</option>
+            <option value="date">{t('data')}</option>
+            <option value="depth">{t('profondità')}</option>
+            <option value="duration">{t('durata')}</option>
+            <option value="rmv">{t('consumo')}</option>
           </select>
         </label>
       </div>
@@ -236,7 +235,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
               <th style={{ width: 30 }}>
                 <input
                   type="checkbox"
-                  aria-label="Seleziona tutte le immersioni mostrate"
+                  aria-label={t('Seleziona tutte le immersioni mostrate')}
                   checked={mostrate.length > 0 && mostrate.every((d) => selezione.has(d.id))}
                   ref={(el) => {
                     // Il trattino riguarda SOLO le righe mostrate: la condizione
@@ -264,14 +263,14 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
               <th className="num" style={{ width: 44 }}>
                 #
               </th>
-              <th>Data</th>
-              <th>Sito</th>
+              <th>{t('Data')}</th>
+              <th>{t('Sito')}</th>
               <th className="num">Max</th>
-              <th className="num">Durata</th>
-              <th className="num">Media</th>
+              <th className="num">{t('Durata')}</th>
+              <th className="num">{t('Media')}</th>
               <th className="num">L/min</th>
               <th>Gas</th>
-              <th>Origine</th>
+              <th>{t('Origine')}</th>
             </tr>
           </thead>
           <tbody>
@@ -283,9 +282,11 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={10} style={{ padding: '28px 4px', textAlign: 'center' }}>
-                  <div style={{ fontWeight: 600, marginBottom: 4 }}>Nessuna immersione con questi filtri</div>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                    {t('Nessuna immersione con questi filtri')}
+                  </div>
                   <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
-                    {imm(dives.length)} in archivio: prova ad allargare la ricerca.
+                    {imm(dives.length, t)} {t('in archivio. Prova ad allargare la ricerca.')}
                   </div>
                   <button
                     className="btn"
@@ -295,7 +296,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                       setMinDepth('');
                     }}
                   >
-                    Azzera i filtri
+                    {t('Azzera i filtri')}
                   </button>
                 </td>
               </tr>
@@ -306,7 +307,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                 <td className="cella-scelta" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
-                    aria-label={`Seleziona l'immersione del ${dateShort(d.startTime, d.utcOffsetMinutes)}`}
+                    aria-label={`${t('Seleziona l’immersione del')} ${dateShort(d.startTime, d.utcOffsetMinutes)}`}
                     checked={selezione.has(d.id)}
                     onChange={(e) => {
                       const next = new Set(selezione);
@@ -316,6 +317,10 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                     }}
                   />
                 </td>
+                {/* `data-col="n."` NON si traduce: il foglio di stile ha un
+                    selettore su questo valore esatto — `td[data-col='n.']` —
+                    per mandare il progressivo in fondo alla scheda sul
+                    telefono. È anche una sigla, non una frase. */}
                 <td className="num muted" data-col="n.">
                   {d.number ?? '—'}
                 </td>
@@ -354,30 +359,32 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                     </div>
                   )}
                   <div className="muted" style={{ fontSize: 11 }}>
-                    {[d.buddy, d.mode !== 'oc' ? modeLabel(d) : null].filter(Boolean).join(' · ') || ' '}
+                    {/* `modeLabel` sta in `core`: la sua etichetta italiana si traduce
+                        qui, dove viene disegnata. */}
+                    {[d.buddy, d.mode !== 'oc' ? t(modeLabel(d)) : null].filter(Boolean).join(' · ') || ' '}
                   </div>
                 </td>
                 <td className="num tabular" data-col="Max">
                   {d.maxDepth.toFixed(1)} m
                 </td>
-                <td className="num tabular" data-col="Durata">
+                <td className="num tabular" data-col={t('Durata')}>
                   {formatDuration(d.durationS)}
                 </td>
-                <td className="num tabular muted" data-col="Media">
+                <td className="num tabular muted" data-col={t('Media')}>
                   {d.avgDepth?.toFixed(1) ?? '—'}
                 </td>
                 <td className="num tabular" data-col="L/min">
                   {d.metrics?.rmvLpm?.toFixed(1) ?? '—'}
                 </td>
                 <td className="muted" data-col="Gas">
-                  {d.cylinders[0] ? mixName(d.cylinders[0].mix) : mixLabel(d)}
+                  {d.cylinders[0] ? mixName(d.cylinders[0].mix) : t(mixLabel(d))}
                 </td>
-                <td className="muted cella-origine" data-col="Origine" style={{ fontSize: 11 }}>
+                <td className="muted cella-origine" data-col={t('Origine')} style={{ fontSize: 11 }}>
                   {/* Tutte le fonti, non solo la prima: un'immersione fusa da tre
                       file compariva come proveniente da una sola, e la scheda
                       dell'immersione diceva il contrario. */}
                   {[d.source, ...(d.extraSources ?? [])]
-                    .map((src) => FORMAT_LABEL[src.format] ?? src.format)
+                    .map((src) => t(FORMAT_LABEL[src.format] ?? src.format))
                     .filter((label, i, all) => all.indexOf(label) === i)
                     .join(' + ')}
                 </td>
@@ -398,10 +405,15 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
        */}
       {filtered.length > 0 && (
         <div className="piede-elenco">
-          <span className="muted">{descriviFinestra(mostrate.length, filtered.length).testo}</span>
-          {descriviFinestra(mostrate.length, filtered.length, PER_VOLTA).altre > 0 && (
+          <span className="muted">
+            {descriviFinestra(mostrate.length, filtered.length, PER_VOLTA, t).testo}
+          </span>
+          {descriviFinestra(mostrate.length, filtered.length, PER_VOLTA, t).altre > 0 && (
             <button className="btn" onClick={() => setQuante((q) => q + PER_VOLTA)}>
-              Mostra altre {descriviFinestra(mostrate.length, filtered.length, PER_VOLTA).altre}
+              {/* Numero in mezzo, non in coda: in inglese va prima del
+                  sostantivo, e una chiave per ogni numero non è una strada. */}
+              {t('Mostra')} {descriviFinestra(mostrate.length, filtered.length, PER_VOLTA, t).altre}{' '}
+              {t('in più')}
             </button>
           )}
         </div>
@@ -419,6 +431,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
  * schermata che grida sempre smette di essere letta.
  */
 function NextDive({ dives }: { dives: Dive[] }) {
+  const { t } = useLingua();
   const briefing = useMemo(() => nextDiveBriefing(dives, undefined), [dives]);
   const urgent = briefing.notes.filter((n) => n.level === 'critical' || n.level === 'warning');
   const [open, setOpen] = useState(urgent.length > 0);
@@ -430,11 +443,11 @@ function NextDive({ dives }: { dives: Dive[] }) {
         <div className="spread">
           <span className="row" style={{ gap: 8 }}>
             <span className="dot dot-good" />
-            <b>Prima della prossima</b>
-            <span className="muted">niente in scadenza, niente in circolo</span>
+            <b>{t('Prima della prossima')}</b>
+            <span className="muted">{t('niente in scadenza, niente in circolo')}</span>
           </span>
           <button style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => setOpen(true)}>
-            Apri
+            {t('Apri')}
           </button>
         </div>
       </div>
@@ -445,14 +458,18 @@ function NextDive({ dives }: { dives: Dive[] }) {
     <div className="card">
       <div className="spread" style={{ alignItems: 'flex-start' }}>
         <div>
-          <h2 style={{ margin: 0 }}>Prima della prossima immersione</h2>
+          <h2 style={{ margin: 0 }}>{t('Prima della prossima immersione')}</h2>
+          {/*
+           * Il sottotitolo diceva anche PERCHÉ non c'è un semaforo complessivo
+           * — i fatti, e il giudizio a chi lo deve dare. È una scelta di
+           * progetto, non un'informazione per chi si immerge: sta qui.
+           */}
           <p className="card-sub" style={{ marginBottom: 0 }}>
-            Le cose che hanno una scadenza, in ordine di quanto stringe il tempo. Nessun semaforo complessivo:
-            i fatti, e il giudizio a chi lo deve dare.
+            {t('Quello che scade, dal più urgente.')}
           </p>
         </div>
         <button style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => setOpen((v) => !v)}>
-          {open ? 'Riduci' : 'Apri tutto'}
+          {open ? t('Riduci') : t('Apri tutto')}
         </button>
       </div>
 
@@ -464,9 +481,15 @@ function NextDive({ dives }: { dives: Dive[] }) {
 
       {briefing.daysSinceLast !== undefined && (
         <p className="planner-hint" style={{ marginTop: 10 }}>
-          Ultima immersione {briefing.daysSinceLast === 0 ? 'oggi' : `${briefing.daysSinceLast} giorni fa`}
+          {/* Numero e sostantivo si compongono con `plural`, così «1 giorni fa»
+              non può comparire e la frase non diventa una voce di dizionario
+              per ogni numero possibile. */}
+          {t('Ultima immersione')}{' '}
+          {briefing.daysSinceLast === 0
+            ? t('oggi')
+            : `${plural(briefing.daysSinceLast, 'giorno', 'giorni', t)} ${t('fa')}`}
           {briefing.residualN2Bar !== undefined && briefing.residualN2Bar > 0
-            ? ` · azoto residuo +${briefing.residualN2Bar.toFixed(2)} bar`
+            ? ` · ${t('azoto residuo')} +${briefing.residualN2Bar.toFixed(2)} bar`
             : ''}
           {briefing.residualCnsPct !== undefined && briefing.residualCnsPct >= 1
             ? ` · CNS ${briefing.residualCnsPct.toFixed(0)}%`
@@ -522,6 +545,7 @@ function BulkEdit({
   onDone: () => void;
 }) {
   const { dives, saveDive, removeDives, gear, saveGear } = useDiveLog();
+  const { t } = useLingua();
   const aggiungiAttrezzo = (kind: EquipmentKind, name: string): string => {
     const voce = vocePerNome(kind, name);
     void saveGear({ ...gear, equipment: [...gear.equipment, voce] });
@@ -703,7 +727,7 @@ function BulkEdit({
           await saveDive(next);
           toccate++;
         }
-        setFatto(`${toccate} ${toccate === 1 ? 'immersione aggiornata' : 'immersioni aggiornate'}.`);
+        setFatto(`${toccate} ${t(toccate === 1 ? 'immersione aggiornata' : 'immersioni aggiornate')}.`);
         onDone();
       } catch (err) {
         setErrore(err instanceof Error ? err.message : String(err));
@@ -734,56 +758,53 @@ function BulkEdit({
       <div className="spread" style={{ alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
         <div style={{ flex: '1 1 320px', minWidth: 0 }}>
           <h2 style={{ margin: 0 }}>
-            {imm(ids.length)} {ids.length === 1 ? 'selezionata' : 'selezionate'}
+            {imm(ids.length, t)} {t(ids.length === 1 ? 'selezionata' : 'selezionate')}
           </h2>
           <p className="card-sub" style={{ marginBottom: 0 }}>
-            Vengono scritti <b>solo i campi che compili</b>: quelli lasciati vuoti restano come sono,
-            immersione per immersione. Scrivi <code>{VUOTA}</code> per svuotare un campo su tutte.
+            <b>{t('Si scrivono solo i campi che compili.')}</b> {t('Scrivi')} <code>{VUOTA}</code>{' '}
+            {t('per svuotare un campo su tutte.')}
           </p>
         </div>
-        <button onClick={onDone}>Deseleziona</button>
+        <button onClick={onDone}>{t('Deseleziona')}</button>
       </div>
 
       {nascoste > 0 && (
         <div className="notice" style={{ marginBottom: 10 }}>
           <b>
-            {nascoste}{' '}
-            {nascoste === 1
-              ? 'immersione selezionata non è mostrata'
-              : 'immersioni selezionate non sono mostrate'}
+            {nascoste} {t(nascoste === 1 ? 'selezionata non è in elenco' : 'selezionate non sono in elenco')}
           </b>{' '}
-          dai filtri attuali. Applicando, verranno modificate anche quelle.{' '}
+          {t('I filtri le nascondono, ma verranno modificate anche loro.')}{' '}
           <button style={{ marginLeft: 6 }} onClick={onSoloVisibili}>
-            Tieni solo quelle visibili
+            {t('Tieni solo quelle visibili')}
           </button>
         </div>
       )}
 
       <div className="grid grid-3" style={{ marginBottom: 8 }}>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Sito</span>
+          <span className="muted">{t('Sito')}</span>
           <input type="text" value={sito} onChange={(e) => setSito(e.target.value)} />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Compagno</span>
+          <span className="muted">{t('Compagno')}</span>
           <input type="text" value={compagno} onChange={(e) => setCompagno(e.target.value)} />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Guida sub</span>
+          <span className="muted">{t('Guida sub')}</span>
           <input type="text" value={guida} onChange={(e) => setGuida(e.target.value)} />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Acqua</span>
+          <span className="muted">{t('Acqua')}</span>
           <select value={salinita} onChange={(e) => setSalinita(e.target.value as '' | 'salt' | 'fresh')}>
-            <option value="">non toccare</option>
-            <option value="salt">salata</option>
-            <option value="fresh">dolce (lago)</option>
+            <option value="">{t('non toccare')}</option>
+            <option value="salt">{t('salata')}</option>
+            <option value="fresh">{t('dolce (lago)')}</option>
           </select>
         </label>
       </div>
       <div className="grid grid-3" style={{ marginBottom: 8 }}>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Muta</span>
+          <span className="muted">{t('Muta')}</span>
           <input
             type="text"
             list="mute-in-inventario"
@@ -807,37 +828,39 @@ function BulkEdit({
           </datalist>
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Meteo</span>
+          <span className="muted">{t('Meteo')}</span>
           <select value={meteo} onChange={(e) => setMeteo(e.target.value as '' | '-' | Weather)}>
-            <option value="">non toccare</option>
-            <option value="-">svuota</option>
+            <option value="">{t('non toccare')}</option>
+            <option value="-">{t('svuota')}</option>
+            {/* `WEATHER_LABEL` è una costante di `core`: resta in italiano lì e
+                si traduce qui, al disegno. */}
             {Object.entries(WEATHER_LABEL).map(([k, v]) => (
               <option key={k} value={k}>
-                {v}
+                {t(v)}
               </option>
             ))}
           </select>
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Mare</span>
+          <span className="muted">{t('Mare')}</span>
           <select value={mare} onChange={(e) => setMare(e.target.value as '' | '-' | Waves)}>
-            <option value="">non toccare</option>
-            <option value="-">svuota</option>
+            <option value="">{t('non toccare')}</option>
+            <option value="-">{t('svuota')}</option>
             {Object.entries(WAVES_LABEL).map(([k, v]) => (
               <option key={k} value={k}>
-                {v}
+                {t(v)}
               </option>
             ))}
           </select>
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Visibilità</span>
+          <span className="muted">{t('Visibilità')}</span>
           <select value={visibilita} onChange={(e) => setVisibilita(e.target.value)}>
-            <option value="">non toccare</option>
-            <option value="-">svuota</option>
+            <option value="">{t('non toccare')}</option>
+            <option value="-">{t('svuota')}</option>
             {FASCE_VISIBILITA.map((f, i) => (
               <option key={f.etichetta} value={i}>
-                {f.etichetta}
+                {t(f.etichetta)}
               </option>
             ))}
           </select>
@@ -853,11 +876,11 @@ function BulkEdit({
        * ne ha fatte un erogatore dall'ultima revisione, cioè il numero per cui
        * l'inventario esiste — resterebbe a zero per sempre.
        */}
-      <div className="finding-section-label">Attrezzatura</div>
+      <div className="finding-section-label">{t('Attrezzatura')}</div>
       <div className="grid grid-3" style={{ marginBottom: 8 }}>
         <ScegliAttrezzo
           kind="bcd"
-          etichetta="GAV o sacco"
+          etichetta={t('GAV o sacco')}
           valore={attrezzi.bcd}
           attrezzi={gear.equipment}
           segnoDiSvuota={VUOTA}
@@ -872,7 +895,7 @@ function BulkEdit({
         />
         <ScegliAttrezzo
           kind="regulator"
-          etichetta="Erogatore principale"
+          etichetta={t('Erogatore principale')}
           valore={attrezzi.regulators?.[0]}
           attrezzi={gear.equipment}
           segnoDiSvuota={VUOTA}
@@ -886,7 +909,7 @@ function BulkEdit({
         />
         <ScegliAttrezzo
           kind="regulator"
-          etichetta="Secondo erogatore"
+          etichetta={t('Secondo erogatore')}
           valore={attrezzi.regulators?.[1]}
           attrezzi={gear.equipment}
           segnoDiSvuota={VUOTA}
@@ -899,7 +922,7 @@ function BulkEdit({
           onAggiungiAllInventario={aggiungiAttrezzo}
         />
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Piastra o schienalino (kg)</span>
+          <span className="muted">{t('Piastra o schienalino (kg)')}</span>
           <input
             type="text"
             inputMode="decimal"
@@ -908,7 +931,7 @@ function BulkEdit({
           />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Zavorra (kg)</span>
+          <span className="muted">{t('Zavorra (kg)')}</span>
           <input
             type="text"
             inputMode="decimal"
@@ -917,20 +940,21 @@ function BulkEdit({
           />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Aggiungi etichetta</span>
+          <span className="muted">{t('Aggiungi etichetta')}</span>
           <input type="text" value={etichetta} onChange={(e) => setEtichetta(e.target.value)} />
         </label>
       </div>
 
-      {/* Muta e zavorra insieme non sono un dettaglio: sono i due campi da cui
-          la scheda Attrezzatura ricava quale configurazione ti fa tenere meglio
-          la quota, e sono anche i due che i computer non registrano mai. */}
+      {/* PERCHÉ QUESTA RIGA C'È. Muta, zavorra e attrezzatura sono i campi che
+          nessun computer registra, e sono quelli da cui escono le due tabelle
+          della scheda Attrezzatura: quale configurazione ti fa tenere meglio la
+          quota, e quante immersioni ha fatto ogni erogatore dall'ultima
+          revisione. Un viaggio sono otto immersioni con lo stesso GAV e gli
+          stessi erogatori: se non si compilano in blocco quelle tabelle restano
+          vuote per sempre, perché una scheda per volta non lo fa nessuno.
+          All'utente serve sapere solo che qui conviene compilarli. */}
       <p className="planner-hint" style={{ marginTop: 0 }}>
-        Muta, zavorra e attrezzatura sono i campi che nessun computer registra, e sono proprio quelli da cui
-        escono le due tabelle di <b>Attrezzatura</b>: quale configurazione ti fa tenere meglio la quota, e
-        quante immersioni ha fatto ogni erogatore dall'ultima revisione. Un viaggio sono otto immersioni con
-        lo stesso GAV e gli stessi erogatori: compilarle qui in un colpo è il modo in cui quelle tabelle si
-        riempiono davvero — una scheda per volta non lo fa nessuno.
+        {t('Muta, zavorra e attrezzatura non le registra nessun computer: compilale qui, in un colpo solo.')}
       </p>
 
       {errore && (
@@ -944,26 +968,30 @@ function BulkEdit({
         </div>
       )}
 
+      {/* Senza questo controllo `Number('sei chili')` finiva in archivio come
+          `NaN`: la scheda mostrava «Zavorra NaN kg» e quelle immersioni
+          sparivano dalla tabella della zavorra in Attrezzatura. */}
       {zavorraRotta && (
         <div className="notice notice-error" role="alert" style={{ marginTop: 10 }}>
-          La zavorra deve essere un numero: «{zavorra}» non lo è. Senza questo controllo finiva in archivio
-          come <code>NaN</code>, e quelle immersioni sparivano dalla tabella della zavorra.
+          {t('La zavorra deve essere un numero:')} «{zavorra}» {t('non lo è.')}
         </div>
       )}
 
       <div className="row" style={{ gap: 8, marginTop: 12 }}>
         <button className="btn" disabled={!qualcosaDaFare || zavorraRotta || lavoro} onClick={applica}>
-          {lavoro ? 'Scrivo…' : `Applica a ${ids.length}`}
+          {lavoro ? t('Scrivo…') : `${t('Applica a')} ${ids.length}`}
         </button>
         <span style={{ flex: 1 }} />
+        {/* `BottoneConferma` non traduce da sé: le sue etichette arrivano già
+            tradotte da qui. */}
         <BottoneConferma
           disabled={lavoro}
-          etichetta="Sposta nel cestino"
-          conferma={`Sì, sposta ${ids.length === 1 ? "l'immersione" : `le ${ids.length}`}`}
+          etichetta={t('Sposta nel cestino')}
+          conferma={`${t('Sì, sposta')} ${ids.length === 1 ? t('l’immersione') : `${t('le')} ${ids.length}`}`}
           domanda={
             <>
-              Spostare {imm(ids.length)} {ids.length === 1 ? 'immersione' : 'immersioni'} nel cestino? Restano
-              recuperabili per 30 giorni: la cancellazione diventa definitiva solo svuotando il cestino.
+              {t('Spostare')} {imm(ids.length, t)} {t('nel cestino?')}{' '}
+              {t('Restano recuperabili per 30 giorni, finché non svuoti il cestino.')}
             </>
           }
           onConferma={cestina}

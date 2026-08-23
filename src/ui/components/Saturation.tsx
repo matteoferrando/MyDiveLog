@@ -21,8 +21,16 @@ import type { Dive } from '../../core/model';
 import { entryStateFor, gfOf, whatIfGf } from '../../core/analysis/tissues';
 import { compartments, type CompartmentState } from '../../core/analysis/buhlmann';
 import { StatTile, TabellaEquivalente, useWidth } from './Charts';
+import { useLingua } from '../lingua';
+import { plural, type Traduci } from '../format';
 
-/** Coppie che vale la pena confrontare: dalla tecnica alla ricreativa larga. */
+/**
+ * Coppie che vale la pena confrontare: dalla tecnica alla ricreativa larga.
+ *
+ * È una COSTANTE, quindi le etichette restano in italiano qui dentro e si
+ * traducono al disegno con `t(...)`: una tabella di costanti non deve rinascere
+ * a ogni render solo perché è cambiata la lingua.
+ */
 const PRESETS: { low: number; high: number; label: string }[] = [
   { low: 20, high: 80, label: 'prudente' },
   { low: 30, high: 70, label: 'sosta profonda' },
@@ -31,6 +39,7 @@ const PRESETS: { low: number; high: number; label: string }[] = [
 ];
 
 export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
+  const { t } = useLingua();
   const m = dive.metrics;
   // `dive.samples ?? []` creava un array NUOVO a ogni render, e finiva nelle
   // dipendenze dei due `useMemo` qui sotto: si ricalcolavano sempre, non a ogni
@@ -78,11 +87,19 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
 
   return (
     <div className="card">
-      <h2>Saturazione</h2>
+      <h2>{t('Saturazione')}</h2>
+      {/*
+        Il sottotitolo dice solo da dove vengono i numeri. Il resto — che sono il
+        NOSTRO calcolo e non quello del computer, e che sulle immersioni in cui i
+        due si possono confrontare distano meno di un punto — è una premessa da
+        sviluppatore: chi legge ha già il numero del computer scritto accanto al
+        nostro nella tessera «GF99 all'uscita», che è il posto dove quel confronto
+        serve davvero.
+      */}
       <p className="card-sub">
         {m.tissuesEstimated
-          ? 'Questa immersione non ha un profilo registrato: i numeri qui sotto vengono da un profilo RICOSTRUITO, non da quello vero.'
-          : "Il profilo riletto con Bühlmann ZH-L16C, tenendo conto dell'azoto che ti sei portato dietro dall'immersione precedente. È il nostro calcolo, non quello del computer: sulle immersioni in cui si possono confrontare i due numeri distano meno di un punto."}
+          ? t('Niente profilo registrato: i numeri qui sotto vengono da un profilo ricostruito.')
+          : t('Il profilo riletto con Bühlmann ZH-L16C, contando l’azoto dell’immersione precedente.')}
       </p>
 
       {/*
@@ -91,19 +108,27 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
         un simbolo di percentuale — e senza questo riquadro nessuno potrebbe
         distinguerli. La regola vale per tutta l'applicazione: nessun valore
         ricostruito deve poter passare per misurato.
+
+        PERCHÉ IL PROFILO QUADRO. Discesa, permanenza alla profondità media,
+        risalita: è il modello con cui si pianifica a tavolino, e sbaglia molto
+        meno che considerare i tessuti puliti. Prima di questa stima l'immersione
+        senza campioni spezzava la catena e la successiva risultava più pulita del
+        vero. Resta però una ricostruzione, e più il profilo vero si allontana da
+        un quadro — multilivello, yo-yo — più si allontana anche il numero: è
+        l'unica parte di questo ragionamento che l'utente deve leggere, e infatti
+        è l'unica rimasta a schermo.
       */}
       {m.tissuesEstimated && (
         <div className="notice" style={{ marginBottom: 14 }}>
-          <b>Numeri stimati.</b> Senza campioni, il carico si calcola su un profilo quadro — discesa,
-          permanenza alla profondità media, risalita — costruito da durata e profondità media. È il modello
-          con cui si pianifica un'immersione a tavolino, e sbaglia molto meno che considerarti a tessuti
-          puliti: prima di questa stima l'immersione spezzava la catena e la successiva risultava più pulita
-          del vero. Ma resta una ricostruzione, e più la tua immersione si allontana da un quadro —
-          multilivello, yo-yo — più si allontana anche questo numero.{' '}
+          <b>{t('Numeri stimati.')}</b>{' '}
+          {t(
+            'Senza campioni il carico si calcola su un profilo quadro, ricavato da durata e profondità media: più la tua immersione era multilivello, meno il numero è preciso.',
+          )}{' '}
           {dive.avgDepth === undefined && (
             <>
-              Qui manca anche la profondità media, quindi è stato usato il 70% della massima: scriverla nella
-              scheda migliora subito la stima, e con lei il calcolo delle ripetitive che seguono.
+              {t(
+                'Manca anche la profondità media: qui è usato il 70% della massima. Scrivila nella scheda e la stima migliora.',
+              )}
             </>
           )}
         </div>
@@ -111,26 +136,26 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
 
       <div className="grid grid-tiles">
         <StatTile
-          label="GF99 all'uscita"
+          label={t('GF99 all’uscita')}
           value={<span className="tabular">{m.gf99Pct.toFixed(0)}%</span>}
           note={
             theirs !== undefined
-              ? `il computer scrive ${theirs}% (${fmtDelta(m.gf99Pct - theirs)})`
-              : 'il tuo computer non lo registra'
+              ? `${t('il computer scrive')} ${theirs}% (${fmtDelta(m.gf99Pct - theirs)})`
+              : t('il tuo computer non lo registra')
           }
         />
         <StatTile
-          label="GF99 massimo"
+          label={t('GF99 massimo')}
           value={<span className="tabular">{(m.gf99MaxPct ?? m.gf99Pct).toFixed(0)}%</span>}
-          note="il picco durante l'immersione, non solo all'uscita"
+          note={t('il picco, non solo l’uscita')}
         />
         <StatTile
-          label="Compartimento che comanda"
+          label={t('Compartimento che comanda')}
           value={<span className="tabular">{m.leadingCompartment ?? '—'}</span>}
-          note={compartmentNote(m.leadingCompartment)}
+          note={compartmentNote(m.leadingCompartment, t)}
         />
         <StatTile
-          label="Azoto d'ingresso"
+          label={t('Azoto d’ingresso')}
           value={
             <span className="tabular">
               {m.residualN2Bar !== undefined ? `+${m.residualN2Bar.toFixed(2)}` : '—'}
@@ -138,8 +163,8 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
           }
           note={
             m.residualN2Bar !== undefined
-              ? `bar sopra l'equilibrio, dopo ${fmtInterval(m.surfaceIntervalMin)} di superficie`
-              : 'entrata con i tessuti a riposo'
+              ? `${t('bar sopra l’equilibrio, dopo')} ${fmtInterval(m.surfaceIntervalMin, t)} ${t('di superficie')}`
+              : t('entrata con i tessuti a riposo')
           }
         />
       </div>
@@ -148,16 +173,17 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
         <div className="notice" style={{ marginTop: 12 }}>
           {costo >= 0.5 ? (
             <>
-              <b>L'intervallo di superficie è costato {costo.toFixed(1)} punti.</b> Con{' '}
-              {fmtInterval(m.surfaceIntervalMin)} di pausa sei entrato con {m.residualN2Bar?.toFixed(2)} bar
-              di azoto in più e sei uscito al {m.gf99Pct.toFixed(0)}%: la stessa identica immersione fatta da
-              tessuti puliti sarebbe finita al {m.gf99CleanPct.toFixed(0)}%.
+              <b>
+                {t('L’intervallo di superficie è costato')} {costo.toFixed(1)} {t('punti')}.
+              </b>{' '}
+              {t('Sei uscito al')} {m.gf99Pct.toFixed(0)}%; {t('da tessuti puliti saresti uscito al')}{' '}
+              {m.gf99CleanPct.toFixed(0)}%.
             </>
           ) : (
             <>
-              <b>Il residuo non ha inciso.</b> {capitalise(fmtInterval(m.surfaceIntervalMin))} di superficie
-              sono bastati: partendo da tessuti puliti saresti uscito al {m.gf99CleanPct.toFixed(0)}% invece
-              del {m.gf99Pct.toFixed(0)}%.
+              <b>{t('Il residuo non ha inciso.')}</b> {capitalise(fmtInterval(m.surfaceIntervalMin, t))}{' '}
+              {t('di pausa sono bastati')}: {t('da tessuti puliti saresti uscito al')}{' '}
+              {m.gf99CleanPct.toFixed(0)}% {t('invece del')} {m.gf99Pct.toFixed(0)}%.
             </>
           )}
         </div>
@@ -165,13 +191,17 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
 
       {m.tissuesEnd && (
         <>
-          <h3 style={{ margin: '18px 0 4px', fontSize: 14 }}>I sedici compartimenti all'uscita</h3>
+          <h3 style={{ margin: '18px 0 4px', fontSize: 14 }}>{t('I sedici compartimenti all’uscita')}</h3>
+          {/*
+            È il grafico che ogni computer subacqueo mostra sott'acqua e che nessun
+            logbook mostra dopo: i semiperiodi vanno dai 4 minuti del primo
+            compartimento ai 635 del sedicesimo. Il testo a schermo dice solo come
+            si legge il disegno, perché è l'unica cosa che serve per leggerlo.
+          */}
           <p className="card-sub">
-            È il grafico che ogni computer subacqueo mostra sott'acqua e che nessun logbook mostra dopo. Ogni
-            barra è un compartimento, dal più veloce (4 minuti) al più lento (635): l'altezza è l'azoto che
-            contiene, la tacca scura è il valore M — il limite del modello — e la tacca chiara è il limite che
-            ti sei imposto con i tuoi gradient factor. La barra che arriva più vicina alla sua tacca è quella
-            che comanda.
+            {t(
+              'Ogni barra è un compartimento, dal più veloce al più lento: la tacca scura è il valore M, quella chiara il limite dei tuoi gradient factor. Comanda la barra più vicina alla sua tacca.',
+            )}
           </p>
           <TissueBars
             state={m.tissuesEnd}
@@ -182,23 +212,29 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
         </>
       )}
 
-      <h3 style={{ margin: '18px 0 4px', fontSize: 14 }}>E se avessi usato altri gradient factor?</h3>
+      <h3 style={{ margin: '18px 0 4px', fontSize: 14 }}>{t('E se avessi usato altri gradient factor?')}</h3>
+      {/*
+        Il GF99 non compare nella tabella qui sotto perché non cambia: misura la
+        sovrasaturazione rispetto al modello nudo, e i gradient factor non spostano
+        il modello — spostano il limite che ti imponi. Quello che cambia è il tetto.
+        A schermo resta la mezza riga che serve a non cercare una colonna che non c'è.
+      */}
       <p className="card-sub">
-        Il GF99 non compare qui sotto perché non cambia: misura quanto eri sovrasaturo rispetto al modello
-        nudo, e i gradient factor non spostano il modello — spostano il limite che ti imponi. Quello che
-        cambia è il tetto, e quindi se questa immersione sarebbe stata in curva o no.
+        {t(
+          'Sposta i cursori e guarda se l’immersione sarebbe rimasta in curva. I gradient factor spostano il tetto, non il GF99.',
+        )}
       </p>
 
       <div className="grid grid-2" style={{ gap: 12, marginTop: 10 }}>
         <GfSlider
-          label="GF basso"
+          label={t('GF basso')}
           value={low}
           min={5}
           max={100}
           onChange={(v) => setLow(Math.min(v, high))}
         />
         <GfSlider
-          label="GF alto"
+          label={t('GF alto')}
           value={high}
           min={30}
           max={100}
@@ -208,21 +244,21 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
 
       {custom && (
         <div className="notice" style={{ marginTop: 12 }}>
-          Con{' '}
+          {t('Con')}{' '}
           <b>
             {low}/{high}
           </b>
           {low === Math.round(actual.low * 100) && high === Math.round(actual.high * 100) && (
-            <span className="muted"> (quelli che avevi davvero impostato)</span>
+            <span className="muted"> {t('(quelli che avevi impostato)')}</span>
           )}{' '}
           {custom.wouldHaveDeco ? (
             <>
-              saresti uscito dalla curva: tetto più profondo <b>{custom.maxCeilingM.toFixed(0)} m</b>,{' '}
-              <b>{custom.decoMinutes} min</b> con un obbligo attivo.
+              {t('saresti andato in deco')}: {t('tetto')} <b>{custom.maxCeilingM.toFixed(0)} m</b>,{' '}
+              <b>{custom.decoMinutes} min</b> {t('di obbligo')}.
             </>
           ) : (
             <>
-              questa immersione sarebbe rimasta <b>in curva</b>, senza nessun obbligo.
+              {t('saresti rimasto')} <b>{t('in curva')}</b>.
             </>
           )}
         </div>
@@ -233,10 +269,10 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
           <table>
             <thead>
               <tr>
-                <th>Impostazione</th>
-                <th className="num">Tetto</th>
-                <th className="num">Minuti in obbligo</th>
-                <th style={{ textAlign: 'right' }}>Esito</th>
+                <th>{t('Impostazione')}</th>
+                <th className="num">{t('Tetto')}</th>
+                <th className="num">{t('Minuti in obbligo')}</th>
+                <th style={{ textAlign: 'right' }}>{t('Esito')}</th>
               </tr>
             </thead>
             <tbody>
@@ -246,14 +282,14 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
                     <b className="tabular">
                       {r.gfLow}/{r.gfHigh}
                     </b>{' '}
-                    <span className="muted">{PRESETS[i].label}</span>
+                    <span className="muted">{t(PRESETS[i].label)}</span>
                   </td>
                   <td className="num tabular">{r.maxCeilingM > 0 ? `${r.maxCeilingM.toFixed(0)} m` : '—'}</td>
                   <td className="num tabular">{r.decoMinutes > 0 ? r.decoMinutes : '—'}</td>
                   <td style={{ textAlign: 'right' }}>
                     <span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
                       <span className={`dot ${r.wouldHaveDeco ? 'dot-warning' : 'dot-good'}`} />
-                      {r.wouldHaveDeco ? 'fuori curva' : 'in curva'}
+                      {r.wouldHaveDeco ? t('fuori curva') : t('in curva')}
                     </span>
                   </td>
                 </tr>
@@ -302,21 +338,27 @@ function GfSlider({
  * Senza questa riga è un intero senza senso. Con questa riga dice qual è il tipo di
  * immersione che hai fatto: un tessuto veloce comanda dopo un'immersione corta e
  * profonda, uno lento dopo una lunga o una ripetitiva.
+ *
+ * Sta fuori dal componente, quindi la traduzione arriva come parametro — vedi
+ * `src/ui/format.ts`, stessa convenzione: chi ha `t` lo passa, chi non ce l'ha
+ * ottiene l'italiano.
  */
-function compartmentNote(n: number | undefined): string {
-  if (n === undefined) return 'non calcolato';
-  if (n <= 3) return 'tessuto velocissimo: immersione corta e profonda';
-  if (n <= 6) return 'tessuto veloce: il caso più comune in ricreativa';
-  if (n <= 10) return 'tessuto medio: immersione lunga, o ripetitiva';
-  return 'tessuto lento: esposizione prolungata o più giorni di fila';
+function compartmentNote(n: number | undefined, t: Traduci = (s) => s): string {
+  if (n === undefined) return t('non calcolato');
+  if (n <= 3) return t('tessuto velocissimo: immersione corta e profonda');
+  if (n <= 6) return t('tessuto veloce: il caso più comune in ricreativa');
+  if (n <= 10) return t('tessuto medio: immersione lunga, o ripetitiva');
+  return t('tessuto lento: esposizione prolungata o più giorni di fila');
 }
 
-function fmtInterval(min: number | undefined): string {
-  if (min === undefined) return 'nessuna pausa registrata';
-  if (min < 90) return `${min} minuti`;
+function fmtInterval(min: number | undefined, t: Traduci = (s) => s): string {
+  if (min === undefined) return t('nessuna pausa registrata');
+  if (min < 90) return plural(min, 'minuto', 'minuti', t);
   const h = Math.floor(min / 60);
   const r = min % 60;
-  return r ? `${h} h ${r} min` : `${h} ore`;
+  // Sotto le due ore si dicono i minuti, sopra le ore: `h` e `min` sono simboli
+  // di unità e restano fuori dal dizionario.
+  return r ? `${h} h ${r} min` : plural(h, 'ora', 'ore', t);
 }
 
 const fmtDelta = (d: number) => `${d >= 0 ? '+' : ''}${d.toFixed(1)}`;
@@ -334,12 +376,17 @@ const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
  * Il superamento del limite è nominato per ultimo ma nominato SEMPRE, anche
  * quando non c'è: «nessuno oltre il limite» è un'informazione, e il silenzio su
  * un dato di sicurezza si legge come un dato mancante.
+ *
+ * La frase è spezzata in pezzi corti perché è anche una chiave di traduzione: i
+ * numeri stanno FUORI dai pezzi tradotti, altrimenti servirebbe una voce di
+ * dizionario per ogni immersione.
  */
 export function riassuntoCompartimenti(
   list: CompartmentState[],
   { comanda }: { comanda?: number } = {},
+  t: Traduci = (s) => s,
 ): string {
-  if (list.length === 0) return 'Nessun compartimento calcolato.';
+  if (list.length === 0) return t('Nessun compartimento calcolato.');
   // Se chi ci chiama non dichiara il compartimento che comanda, lo si deduce dal
   // gradiente usato — è la stessa definizione con cui viene scelto altrove, e
   // dedurlo è meglio che tacerlo.
@@ -348,14 +395,14 @@ export function riassuntoCompartimenti(
   const piuCarico = list.reduce((a, b) => (b.total > a.total ? b : a));
   const oltre = list.filter((c) => c.total > c.limit);
   const parti = [
-    `${list.length} compartimenti.`,
-    `Comanda il ${capo.index}, semiperiodo ${capo.halfTimeMin} minuti: ${capo.total.toFixed(2)} bar ` +
-      `contro un limite di ${capo.limit.toFixed(2)} e un valore M di ${capo.mValue.toFixed(2)}, ` +
-      `cioè il ${capo.percent.toFixed(0)}% del gradiente ammesso.`,
-    `Il più carico in assoluto è il ${piuCarico.index} con ${piuCarico.total.toFixed(2)} bar.`,
+    `${plural(list.length, 'compartimento', 'compartimenti', t)}.`,
+    `${t('Comanda')}: ${capo.index} (${capo.halfTimeMin} min), ${capo.total.toFixed(2)} bar, ` +
+      `${t('limite')} ${capo.limit.toFixed(2)}, ${t('valore M')} ${capo.mValue.toFixed(2)} — ` +
+      `${capo.percent.toFixed(0)}% ${t('del gradiente ammesso')}.`,
+    `${t('Più carico')}: ${piuCarico.index} (${piuCarico.total.toFixed(2)} bar).`,
     oltre.length === 0
-      ? 'Nessun compartimento oltre il proprio limite.'
-      : `Oltre il limite: ${oltre.map((c) => c.index).join(', ')}.`,
+      ? t('Nessun compartimento oltre il limite.')
+      : `${t('Oltre il limite')}: ${oltre.map((c) => c.index).join(', ')}.`,
   ];
   return parti.join(' ');
 }
@@ -379,6 +426,7 @@ function TissueBars({
   gfHigh: number;
   leading?: number;
 }) {
+  const { t } = useLingua();
   const { ref, width } = useWidth<HTMLDivElement>();
   const uid = useId();
   const list: CompartmentState[] = compartments(state, surfaceBar, gfHigh);
@@ -392,8 +440,8 @@ function TissueBars({
   const slot = plotW / list.length;
   const barW = Math.max(4, slot * 0.62);
 
-  const nome = "I sedici compartimenti di Bühlmann all'uscita";
-  const descrizione = riassuntoCompartimenti(list, { comanda: leading });
+  const nome = t('I sedici compartimenti di Bühlmann all’uscita');
+  const descrizione = riassuntoCompartimenti(list, { comanda: leading }, t);
 
   return (
     <div className="chart" ref={ref}>
@@ -439,8 +487,8 @@ function TissueBars({
             // intero e in forma leggibile, dalla tabella qui sotto.
             <g key={c.index} aria-hidden="true">
               <title>
-                {`Compartimento ${c.index} (${c.halfTimeMin} min): ${c.total.toFixed(2)} bar, ` +
-                  `valore M ${c.mValue.toFixed(2)}, limite con i tuoi GF ${c.limit.toFixed(2)} — ${c.percent.toFixed(0)}%`}
+                {`${t('Compartimento')} ${c.index} (${c.halfTimeMin} min): ${c.total.toFixed(2)} bar, ` +
+                  `${t('valore M')} ${c.mValue.toFixed(2)}, ${t('limite')} ${c.limit.toFixed(2)} — ${c.percent.toFixed(0)}%`}
               </title>
               <rect
                 x={x}
@@ -481,19 +529,23 @@ function TissueBars({
       </svg>
       {/* Sedici righe: corte da ascoltare e piene di significato, con il valore M
           e il limite accanto al carico — cioè i tre numeri che stanno nel disegno
-          come altezza della barra e posizione delle due tacche. */}
+          come altezza della barra e posizione delle due tacche.
+
+          Le intestazioni si compongono di un pezzo tradotto più l'unità di misura
+          fra parentesi: `bar`, `min` e `%` sono simboli, non parole, e nel
+          dizionario non ci vanno. */}
       <TabellaEquivalente
         didascalia={nome}
         intestazioni={[
-          'Compartimento',
-          'Semiperiodo (min)',
-          'Carico (bar)',
-          'Valore M (bar)',
-          `Limite con GF ${Math.round(gfHigh * 100)} (bar)`,
-          'Gradiente usato (%)',
+          t('Compartimento'),
+          `${t('Semiperiodo')} (min)`,
+          `${t('Carico')} (bar)`,
+          `${t('Valore M')} (bar)`,
+          `${t('Limite con GF')} ${Math.round(gfHigh * 100)} (bar)`,
+          `${t('Gradiente usato')} (%)`,
         ]}
         righe={list.map((c) => [
-          c.index === leading ? `${c.index} (comanda)` : c.index,
+          c.index === leading ? `${c.index} (${t('comanda')})` : c.index,
           c.halfTimeMin,
           c.total.toFixed(2),
           c.mValue.toFixed(2),
@@ -504,19 +556,19 @@ function TissueBars({
       <div className="chart-legend">
         <span>
           <span className="legend-key" style={{ background: 'var(--series-1)' }} />
-          comanda
+          {t('comanda')}
         </span>
         <span>
           <span className="legend-key" style={{ background: 'var(--text)' }} />
-          valore M
+          {t('valore M')}
         </span>
         <span>
           <span className="legend-key" style={{ background: 'var(--warning)' }} />
-          limite con GF {Math.round(gfHigh * 100)}
+          {t('limite con GF')} {Math.round(gfHigh * 100)}
         </span>
         <span>
           <span className="legend-key" style={{ background: 'var(--text-muted)' }} />
-          pressione in superficie
+          {t('pressione in superficie')}
         </span>
       </div>
     </div>

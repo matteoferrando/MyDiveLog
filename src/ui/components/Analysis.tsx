@@ -16,6 +16,7 @@
 import { useState } from 'react';
 import { Markdown } from './Markdown';
 import { int, plural } from '../format';
+import { useLingua } from '../lingua';
 import { useDiveLog, type AnalysisKind, type DecoAnalysisInput } from '../state';
 import type { Dive } from '../../core/model';
 import type { GasPlanInput } from '../../core/analysis/gasPlan';
@@ -41,6 +42,9 @@ export function AnalysisCard({
   currentFingerprint?: string;
 }) {
   const { aiCredentials, analysis, runAnalysis, clearAnalysis } = useDiveLog();
+  // `title` e `description` arrivano già tradotti: li sceglie la pagina che
+  // mostra la carta, e la stessa carta serve immersione, gas, deco e piano.
+  const { t } = useLingua();
   const subject = kind === 'dive' ? dive?.id : kind === 'gas' ? 'gas' : kind === 'deco' ? 'deco' : undefined;
   const stored = analysis(kind, subject);
   const [busy, setBusy] = useState(false);
@@ -73,8 +77,8 @@ export function AnalysisCard({
     setError(null);
     setStreamed('');
     setAnnuncio(
-      `${title}: richiesta inviata${aiCredentials?.model ? ` al modello ${aiCredentials.model}` : ''}. ` +
-        'La risposta arriva a pezzi e può richiedere qualche decina di secondi.',
+      `${title}: ${t('richiesta inviata')}${aiCredentials?.model ? ` ${t('al modello')} ${aiCredentials.model}` : ''}. ` +
+        t('Può richiedere qualche decina di secondi.'),
     );
     try {
       const generata = await runAnalysis(kind, { dive, gasInput, deco }, setStreamed);
@@ -84,11 +88,11 @@ export function AnalysisCard({
       // la pena mettersi a leggerla né quanto si è speso.
       const parole = generata.text.trim().split(/\s+/).filter(Boolean).length;
       setAnnuncio(
-        `${title}: analisi pronta, ${plural(parole, 'parola', 'parole')}` +
+        `${title}: ${t('analisi pronta')}, ${plural(parole, 'parola', 'parole', t)}` +
           (generata.inputTokens !== undefined
-            ? `, ${int(generata.inputTokens)} token in ingresso e ${int(generata.outputTokens ?? 0)} in uscita`
+            ? `, ${int(generata.inputTokens)} ${t('token in ingresso e')} ${int(generata.outputTokens ?? 0)} ${t('in uscita')}`
             : '') +
-          '. Il testo è qui sotto, sotto il titolo della carta.',
+          `. ${t('Il testo è qui sotto.')}`,
       );
     } catch (err) {
       // Il motivo del fallimento lo dice la regione assertiva insieme al
@@ -103,11 +107,11 @@ export function AnalysisCard({
   };
 
   const rimuovi = async () => {
-    setAnnuncio(`${title}: rimozione dell'analisi salvata…`);
+    setAnnuncio(`${title}: ${t("rimozione dell'analisi salvata…")}`);
     try {
       await clearAnalysis(kind, subject);
       setAnnuncio(
-        `${title}: analisi rimossa dall'archivio locale. Il pulsante torna a «Analizza con Claude».`,
+        `${title}: ${t("analisi rimossa dall'archivio locale.")} ${t('Il pulsante torna a «Analizza con Claude».')}`,
       );
     } catch (err) {
       setAnnuncio('');
@@ -127,7 +131,7 @@ export function AnalysisCard({
         <div className="row" style={{ flexShrink: 0 }}>
           {stored && !busy && (
             <button className="btn" onClick={() => void rimuovi()}>
-              Rimuovi
+              {t('Rimuovi')}
             </button>
           )}
           {/*
@@ -143,7 +147,7 @@ export function AnalysisCard({
             disabled={busy || !configured}
             aria-busy={busy}
           >
-            {busy ? 'Analisi in corso…' : stored ? 'Rigenera' : 'Analizza con Claude'}
+            {busy ? t('Analisi in corso…') : stored ? t('Rigenera') : t('Analizza con Claude')}
           </button>
         </div>
       </div>
@@ -159,7 +163,7 @@ export function AnalysisCard({
 
       {!configured && (
         <p className="muted" style={{ fontSize: 12, marginTop: 12, marginBottom: 0 }}>
-          Serve la chiave API di Anthropic: la inserisci una volta in <b>Impostazioni</b>.
+          {t('Serve la chiave API di Anthropic. La metti in')} <b>{t('Impostazioni')}</b>.
         </p>
       )}
 
@@ -188,7 +192,7 @@ export function AnalysisCard({
             </div>
           ) : (
             <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-              Invio i dati e attendo la prima risposta…
+              {t('Invio i dati…')}
             </p>
           )}
         </div>
@@ -198,7 +202,7 @@ export function AnalysisCard({
         <div style={{ marginTop: 14 }}>
           {stale && (
             <div className="notice" style={{ marginBottom: 12 }}>
-              I dati sono cambiati dopo questa analisi: rigenerala per tenerne conto.
+              {t('I dati sono cambiati dopo questa analisi: rigenerala.')}
             </div>
           )}
           <Markdown text={stored.text} />
@@ -207,11 +211,11 @@ export function AnalysisCard({
             <span>{stored.model}</span>
             {stored.inputTokens !== undefined && (
               <span>
-                {stored.inputTokens.toLocaleString('it-IT')} token in ingresso ·{' '}
-                {(stored.outputTokens ?? 0).toLocaleString('it-IT')} in uscita
+                {int(stored.inputTokens)} {t('token in ingresso')} · {int(stored.outputTokens ?? 0)}{' '}
+                {t('in uscita')}
               </span>
             )}
-            <span>Generata da un modello: i numeri vengono dai tuoi dati, le conclusioni no.</span>
+            <span>{t('Generata da un modello: i numeri sono tuoi, le conclusioni no.')}</span>
           </div>
         </div>
       )}

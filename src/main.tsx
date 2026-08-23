@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './ui/App';
 import { DiveLogProvider } from './ui/state';
+import { ProvvedituraLingua } from './ui/lingua';
 import { inApp, suIOS } from './piattaforma';
 import './ui/styles.css';
 
@@ -25,8 +26,15 @@ if (!root) throw new Error('Elemento #root non trovato.');
 
 createRoot(root).render(
   <StrictMode>
-    <DiveLogProvider>
-      <App />
-    </DiveLogProvider>
+    {/*
+     * La lingua sta FUORI dall'archivio, e non è un dettaglio d'ordine: la
+     * schermata «Apertura dell'archivio…» compare mentre `DiveLogProvider` sta
+     * ancora aprendo il database, e deve poter essere già nella lingua giusta.
+     */}
+    <ProvvedituraLingua>
+      <DiveLogProvider>
+        <App />
+      </DiveLogProvider>
+    </ProvvedituraLingua>
   </StrictMode>,
 );

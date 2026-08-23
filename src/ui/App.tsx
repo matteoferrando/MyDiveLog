@@ -16,6 +16,12 @@
  * vista di partenza. Renderlo pigro significherebbe scambiare un bundle grosso
  * con un lampo di pagina vuota all'apertura, che è un peggioramento travestito
  * da ottimizzazione.
+ *
+ * QUI STA ANCHE LA RADICE DELLE DUE COSE TRASVERSALI: la lingua e il «vai a».
+ * La lingua perché il pulsante che la cambia vive nella barra in alto, cioè in
+ * questo file; il «vai a» perché le pagine vuote devono poter mandare altrove
+ * (vedi `navigazione.tsx`) e l'unico posto che sa come si cambia vista è il
+ * guscio.
  */
 
 import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -23,6 +29,8 @@ import { imm } from './format';
 import { Logbook } from './pages/Logbook';
 import { CLAIM, Mark } from './components/Mark';
 import { useDiveLog } from './state';
+import { CambiaLingua, useLingua } from './lingua';
+import { ProvvedituraNavigazione, type Vista } from './navigazione';
 
 /*
  * `React.lazy` vuole un modulo con export predefinito; le pagine esportano un
@@ -39,8 +47,24 @@ const ImportPage = lazy(() => import('./pages/ImportPage').then((m) => ({ defaul
 const SyncPage = lazy(() => import('./pages/SyncPage').then((m) => ({ default: m.SyncPage })));
 const DiveDetail = lazy(() => import('./pages/DiveDetail').then((m) => ({ default: m.DiveDetail })));
 
-type View = 'logbook' | 'compare' | 'stats' | 'coach' | 'planner' | 'gear' | 'import' | 'sync';
+/*
+ * Il tipo della vista sta in `navigazione.tsx` e non qui.
+ *
+ * Non per eleganza: se restasse in questo file, ogni pagina che vuole mandare
+ * altrove dovrebbe importare `App.tsx` — cioè il guscio importerebbe le pagine
+ * e le pagine il guscio. Un ciclo che il bundler risolve, ma che rompe il
+ * caricamento pigro proprio delle pagine che si volevano rimandare.
+ */
+type View = Vista;
 
+/*
+ * Le etichette restano ITALIANE nella tabella, e si traducono al disegno.
+ *
+ * È la regola di tutta l'applicazione (vedi `lingua.tsx`): la frase italiana è
+ * la chiave. Tradurle qui, una volta, vorrebbe dire tenere la tabella dentro il
+ * componente per poter usare `t()` — e ricostruirla a ogni render per otto
+ * stringhe costanti.
+ */
 const TABS: { id: View; label: string }[] = [
   { id: 'logbook', label: 'Logbook' },
   { id: 'compare', label: 'Confronta' },
@@ -51,6 +75,68 @@ const TABS: { id: View; label: string }[] = [
   { id: 'import', label: 'Importa' },
   { id: 'sync', label: 'Impostazioni' },
 ];
+
+/**
+ * La rete sotto l'interfaccia.
+ *
+ * NON c'era, e il costo si è visto: un solo record senza `maxDepth` — arrivato
+ * da un backup malformato — faceva `undefined.toFixed(1)` nel logbook, React
+ * smontava l'intero albero, e restava una pagina BIANCA. Siccome il record era
+ * già sul disco, restava bianca anche dopo il riavvio: l'unico modo di rientrare
+ * era cancellare l'archivio del browser, cioè perdere tutto per colpa di una riga.
+ *
+ * Un'applicazione che scrive su un archivio persistente non può permettersi che
+ * un dato avvelenato la renda inavviabile. Qui l'errore resta confinato al
+ * contenuto — la barra di navigazione sopravvive, quindi si può andare in
+ * Impostazioni e ripristinare un backup — e viene mostrato invece che nascosto:
+ * chi legge deve poterlo copiare in una segnalazione.
+ *
+ * `t` arriva come proprietà e non da `useLingua()`: questo è un componente a
+ * classe, e deve restarlo — `getDerivedStateFromError` non ha equivalente con i
+ * ganci. Un componente funzione attorno servirebbe solo a leggere il contesto,
+ * e passare una funzione costa meno di un livello in più nell'albero.
+ */
+class ErrorBoundary extends Component<
+  { children: ReactNode; t: (s: string) => string },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  render() {
+    const { t } = this.props;
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="page">
+        <div className="card">
+          <h2>{t('Qualcosa si è rotto in questa pagina')}</h2>
+          <p className="card-sub">
+            {t(
+              'Le altre schede funzionano. Se succede sempre qui, di solito è un dato d’archivio rovinato: da Impostazioni puoi ripristinare un backup.',
+            )}
+          </p>
+          <pre
+            style={{
+              fontSize: 12,
+              whiteSpace: 'pre-wrap',
+              background: 'var(--surface-3)',
+              padding: 10,
+              borderRadius: 'var(--radius-sm)',
+            }}
+          >
+            {this.state.error.message}
+          </pre>
+          <button className="btn" onClick={() => this.setState({ error: null })}>
+            {t('Riprova')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
 
 /**
  * Segnaposto mostrato mentre il pezzo di codice di una pagina arriva.
@@ -71,59 +157,6 @@ const TABS: { id: View; label: string }[] = [
  * `aria-busy` dice a un lettore di schermo che quella regione è in transizione,
  * visto che non c'è testo a dirlo.
  */
-/**
- * La rete sotto l'interfaccia.
- *
- * NON c'era, e il costo si è visto: un solo record senza `maxDepth` — arrivato
- * da un backup malformato — faceva `undefined.toFixed(1)` nel logbook, React
- * smontava l'intero albero, e restava una pagina BIANCA. Siccome il record era
- * già sul disco, restava bianca anche dopo il riavvio: l'unico modo di rientrare
- * era cancellare l'archivio del browser, cioè perdere tutto per colpa di una riga.
- *
- * Un'applicazione che scrive su un archivio persistente non può permettersi che
- * un dato avvelenato la renda inavviabile. Qui l'errore resta confinato al
- * contenuto — la barra di navigazione sopravvive, quindi si può andare in
- * Impostazioni e ripristinare un backup — e viene mostrato invece che nascosto:
- * chi legge deve poterlo copiare in una segnalazione.
- */
-class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
-  state: { error: Error | null } = { error: null };
-
-  static getDerivedStateFromError(error: Error) {
-    return { error };
-  }
-
-  render() {
-    if (!this.state.error) return this.props.children;
-    return (
-      <div className="page">
-        <div className="card">
-          <h2>Qualcosa si è rotto in questa pagina</h2>
-          <p className="card-sub">
-            Il resto dell'applicazione funziona: le altre schede sono raggiungibili dalla barra qui sopra. Se
-            succede sempre sulla stessa pagina, di solito è un dato d'archivio malformato — da{' '}
-            <b>Impostazioni</b> puoi ripristinare un backup o esportare quello che c'è prima di toccare altro.
-          </p>
-          <pre
-            style={{
-              fontSize: 12,
-              whiteSpace: 'pre-wrap',
-              background: 'var(--surface-3)',
-              padding: 10,
-              borderRadius: 'var(--radius-sm)',
-            }}
-          >
-            {this.state.error.message}
-          </pre>
-          <button className="btn" onClick={() => this.setState({ error: null })}>
-            Riprova
-          </button>
-        </div>
-      </div>
-    );
-  }
-}
-
 function PagePlaceholder() {
   return <div className="page" aria-busy="true" style={{ minHeight: '70vh' }} />;
 }
@@ -158,6 +191,7 @@ function SegnoMenu({ chiuso }: { chiuso: boolean }) {
 
 export function App() {
   const { ready, dives, initError } = useDiveLog();
+  const { t } = useLingua();
   const [view, setView] = useState<View>('logbook');
   const [openDive, setOpenDive] = useState<string | null>(null);
 
@@ -236,7 +270,7 @@ export function App() {
         <div className="empty">
           <Mark size={56} />
           <p className="muted" style={{ marginTop: 12 }}>
-            Apertura dell'archivio…
+            {t('Apertura dell’archivio…')}
           </p>
         </div>
       </div>
@@ -246,11 +280,11 @@ export function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand" title={CLAIM}>
+        <div className="brand" title={t(CLAIM)}>
           <Mark size={30} />
           <div>
             MyDiveLog
-            <small>{imm(dives.length)}</small>
+            <small>{imm(dives.length, t)}</small>
           </div>
         </div>
         {/*
@@ -262,24 +296,37 @@ export function App() {
          * pulsante marcato `aria-current` risolve sia il caso della navigazione
          * fatta a mano sia quello dell'apertura diretta di una pagina.
          */}
-        <nav className="nav" aria-label="Sezioni">
-          {TABS.map((t) => {
-            const corrente = view === t.id && !openDive;
+        <nav className="nav" aria-label={t('Sezioni')}>
+          {TABS.map((scheda) => {
+            const corrente = view === scheda.id && !openDive;
             return (
               <button
-                key={t.id}
+                key={scheda.id}
                 ref={
                   corrente ? (el) => el?.scrollIntoView({ block: 'nearest', inline: 'nearest' }) : undefined
                 }
-                onClick={() => go(t.id)}
+                onClick={() => go(scheda.id)}
                 aria-current={corrente ? 'page' : undefined}
               >
-                {t.label}
+                {t(scheda.label)}
               </button>
             );
           })}
         </nav>
         <span className="topbar-spacer" />
+        {/*
+         * IL CAMBIO LINGUA STA NELLA BARRA, non dentro Impostazioni.
+         *
+         * Chi apre l'app e non capisce la lingua non sa che «Impostazioni» vuol
+         * dire impostazioni: due sigle in un angolo si riconoscono senza saper
+         * leggere niente di quello che c'è attorno.
+         *
+         * Sotto i 700 px questa copia è nascosta dal CSS e ne compare un'altra
+         * dentro il menu: in alto non ci stava, e la barra portava il documento
+         * a 412 px su uno schermo da 390. Sono due elementi e non uno spostato
+         * perché il menu esiste solo quando è aperto.
+         */}
+        <CambiaLingua />
         {/*
          * Il pulsante dice DOVE SI È, non solo che esiste un menu.
          *
@@ -297,7 +344,7 @@ export function App() {
           aria-haspopup="menu"
         >
           <SegnoMenu chiuso={menuAperto} />
-          <span>{openDive ? 'Immersione' : (TABS.find((t) => t.id === view)?.label ?? 'Menu')}</span>
+          <span>{t(openDive ? 'Immersione' : (TABS.find((s) => s.id === view)?.label ?? 'Menu'))}</span>
         </button>
         {menuAperto && (
           <>
@@ -311,18 +358,27 @@ export function App() {
              * stessa cosa per il dito e una via d'uscita vera per tutti gli
              * altri.
              */}
-            <button className="menu-fondo" aria-label="Chiudi il menu" onClick={() => setMenuAperto(false)} />
+            <button
+              className="menu-fondo"
+              aria-label={t('Chiudi il menu')}
+              onClick={() => setMenuAperto(false)}
+            />
             <div className="menu-telefono" id="menu-principale" ref={pannelloMenu} tabIndex={-1}>
-              <nav aria-label="Sezioni">
-                {TABS.map((t) => {
-                  const corrente = view === t.id && !openDive;
+              <nav aria-label={t('Sezioni')}>
+                {TABS.map((scheda) => {
+                  const corrente = view === scheda.id && !openDive;
                   return (
-                    <button key={t.id} onClick={() => go(t.id)} aria-current={corrente ? 'page' : undefined}>
-                      {t.label}
+                    <button
+                      key={scheda.id}
+                      onClick={() => go(scheda.id)}
+                      aria-current={corrente ? 'page' : undefined}
+                    >
+                      {t(scheda.label)}
                     </button>
                   );
                 })}
               </nav>
+              <CambiaLingua />
             </div>
           </>
         )}
@@ -351,27 +407,29 @@ export function App() {
             </div>
           </div>
         )}
-        <ErrorBoundary>
+        <ErrorBoundary t={t}>
           <Suspense fallback={<PagePlaceholder />}>
-            {openDive ? (
-              <DiveDetail id={openDive} onBack={() => setOpenDive(null)} />
-            ) : view === 'logbook' ? (
-              <Logbook onOpen={setOpenDive} />
-            ) : view === 'stats' ? (
-              <Stats onOpen={setOpenDive} />
-            ) : view === 'coach' ? (
-              <Coach />
-            ) : view === 'planner' ? (
-              <Planner />
-            ) : view === 'compare' ? (
-              <Compare onOpen={setOpenDive} />
-            ) : view === 'gear' ? (
-              <Gear />
-            ) : view === 'sync' ? (
-              <SyncPage />
-            ) : (
-              <ImportPage onDone={() => go('logbook')} />
-            )}
+            <ProvvedituraNavigazione vaiA={go}>
+              {openDive ? (
+                <DiveDetail id={openDive} onBack={() => setOpenDive(null)} />
+              ) : view === 'logbook' ? (
+                <Logbook onOpen={setOpenDive} />
+              ) : view === 'stats' ? (
+                <Stats onOpen={setOpenDive} />
+              ) : view === 'coach' ? (
+                <Coach />
+              ) : view === 'planner' ? (
+                <Planner />
+              ) : view === 'compare' ? (
+                <Compare onOpen={setOpenDive} />
+              ) : view === 'gear' ? (
+                <Gear />
+              ) : view === 'sync' ? (
+                <SyncPage />
+              ) : (
+                <ImportPage onDone={() => go('logbook')} />
+              )}
+            </ProvvedituraNavigazione>
           </Suspense>
         </ErrorBoundary>
       </main>

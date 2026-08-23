@@ -463,13 +463,12 @@ describe('frasi calcolate dai dati', () => {
       { index: 3, halfTimeMin: 12.5, n2: 1.9, he: 0, total: 1.9, mValue: 1.95, limit: 1.85, percent: 96 },
     ];
     expect(riassuntoCompartimenti(list)).toBe(
-      '3 compartimenti. Comanda il 3, semiperiodo 12.5 minuti: 1.90 bar contro un limite di 1.85 ' +
-        'e un valore M di 1.95, cioè il 96% del gradiente ammesso. ' +
-        'Il più carico in assoluto è il 3 con 1.90 bar. Oltre il limite: 3.',
+      '3 compartimenti. Comanda: 3 (12.5 min), 1.90 bar, limite 1.85, valore M 1.95 — ' +
+        '96% del gradiente ammesso. Più carico: 3 (1.90 bar). Oltre il limite: 3.',
     );
     // Quando il compartimento che comanda è dichiarato da chi ci chiama, vince
     // quello: è lo stesso numero che la tessera mostra accanto al grafico.
-    expect(riassuntoCompartimenti(list, { comanda: 2 })).toContain('Comanda il 2');
+    expect(riassuntoCompartimenti(list, { comanda: 2 })).toContain('Comanda: 2');
     // Il «nessuno oltre il limite» va detto, non sottinteso.
     expect(riassuntoCompartimenti(list.slice(0, 2))).toContain('Nessun compartimento oltre');
   });

@@ -178,7 +178,7 @@ describe('annunci della pagina di import', () => {
     sganciaFile(vista.host, ['garmin.fit', 'shearwater.xml', 'vecchio.csv']);
 
     // È PARTITA: quanti file, mentre la lettura è ancora in corso.
-    expect(stato(vista.host)).toBe('Lettura di 3 file avviata.');
+    expect(stato(vista.host)).toBe('3 file in lettura.');
     expect(vista.host.querySelector('.btn-primary')!.getAttribute('aria-busy')).toBe('true');
     expect(vista.host.querySelector('.btn-primary')!.textContent).toContain('Lettura in corso');
 
@@ -192,7 +192,7 @@ describe('annunci della pagina di import', () => {
 
     // È FINITA COSÌ: gli stessi numeri della tabella, in una frase.
     const detto = stato(vista.host);
-    expect(detto).toContain('3 file su 3 letti');
+    expect(detto).toContain('3/3 file letti');
     expect(detto).toContain('22 immersioni trovate');
     expect(detto).toContain('12 nuove');
     expect(detto).toContain('4 arricchite');
@@ -224,10 +224,10 @@ describe('annunci della pagina di import', () => {
     });
 
     // Quello che è entrato si racconta con calma…
-    expect(stato(vista.host)).toContain('1 file su 2 letti');
+    expect(stato(vista.host)).toContain('1/2 file letti');
     // …quello che non è entrato interrompe, con il nome del file e il perché:
     // senza il nome, chi ha trascinato sei file non sa quale rimettere in coda.
-    expect(allarme(vista.host)).toBe('1 file su 2 non letti: rotto.xml (formato non riconosciuto).');
+    expect(allarme(vista.host)).toBe('1/2 file non letti: rotto.xml (formato non riconosciuto).');
     vista.smonta();
   });
 
@@ -237,7 +237,7 @@ describe('annunci della pagina di import', () => {
     const vista = monta(<ImportPage onDone={() => undefined} />);
 
     sganciaFile(vista.host, ['garmin.fit']);
-    expect(stato(vista.host)).toContain('avviata');
+    expect(stato(vista.host)).toContain('in lettura');
 
     await act(async () => {
       rifiuta(new Error('spazio esaurito nell’archivio locale'));
@@ -277,8 +277,8 @@ describe('annunci della pagina di import', () => {
      */
     premi(vista.host, 'Cancella tutto');
     expect(stato(vista.host)).toBe('');
-    const bottone = premi(vista.host, 'Sì, cancella le 128');
-    expect(stato(vista.host)).toBe('Cancellazione di 128 immersioni in corso…');
+    const bottone = premi(vista.host, 'Sì, cancella (128)');
+    expect(stato(vista.host)).toBe('Cancellazione in corso… (128 immersioni)');
     expect(bottone.textContent).toContain('Sì, cancella');
 
     await act(async () => {
@@ -286,7 +286,7 @@ describe('annunci della pagina di import', () => {
     });
     // L'esito visivo è la sparizione di mezza pagina: nulla che una voce possa
     // raccontare da sé, quindi lo si dice — con quante ne sono state cancellate.
-    expect(stato(vista.host)).toContain('Archivio azzerato: 128 immersioni cancellate');
+    expect(stato(vista.host)).toContain('Archivio azzerato: 128 immersioni');
     vista.smonta();
   });
 });
@@ -484,7 +484,7 @@ describe('annunci del piano di miglioramento', () => {
     vista.aggiorna(<Coach />);
 
     const detto = stato(vista.host);
-    expect(detto).toContain(`Piano ricalcolato per l'obiettivo «${tec.readiness.goal.label}»`);
+    expect(detto).toContain(`Piano ricalcolato per l’obiettivo «${tec.readiness.goal.label}»`);
     // I numeri che sono la ragione stessa per cui si cambia obiettivo: senza,
     // resterebbe da ripercorrere tutta la pagina per sapere com'è andata.
     expect(detto).toContain(`prontezza ${Math.round(tec.readiness.score * 100)}%`);
@@ -511,7 +511,7 @@ describe('annunci del piano di miglioramento', () => {
     const detto = stato(vista.host);
     expect(detto).toContain('Piano non calcolabile');
     expect(detto).toContain('2 immersioni');
-    expect(detto).toContain("24 in tutto l'archivio");
+    expect(detto).toContain('24 in tutto l’archivio');
     expect(detto).toContain('almeno 3');
     vista.smonta();
   });

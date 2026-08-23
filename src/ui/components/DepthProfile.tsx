@@ -42,6 +42,15 @@ import {
   useWidth,
   type TooltipState,
 } from './Charts';
+import { useLingua } from '../lingua';
+import { plural, type Traduci } from '../format';
+
+/**
+ * Ripiego quando chi chiama non passa una traduzione: la chiave È l'italiano.
+ * Serve a `riassuntoProfilo` e compagni, che sono funzioni pure usate anche dai
+ * test, dove nessun contesto React esiste.
+ */
+const comeSta: Traduci = (s) => s;
 
 /**
  * Margine sinistro condiviso da tutti i grafici della scheda: è ciò che allinea
@@ -74,14 +83,18 @@ export function DepthProfile({
   // premuta produrrebbe nove annunci identici, e lo screen reader diventerebbe
   // inascoltabile. Annuncia solo il grafico che si sta guidando.
   const [fuoco, setFuoco] = useState(false);
+  const { t } = useLingua();
   const uid = useId();
 
   const samples = dive.samples ?? [];
+  // Il PERCHÉ non sta più a schermo: succede quando il formato di origine porta
+  // solo i dati di sintesi (LogTRAK sulle immersioni inserite a mano, certi CSV,
+  // le esportazioni parziali). È un'informazione per chi scrive il codice, non
+  // per chi si immerge: a lui basta sapere che qui il grafico non c'è.
   if (samples.length < 2) {
     return (
       <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-        Questa immersione non ha un profilo campionato: il formato di origine conteneva solo i dati di
-        sintesi.
+        {t('Questa immersione non ha un profilo campionato.')}
       </p>
     );
   }
@@ -97,7 +110,8 @@ export function DepthProfile({
   const depthTicks = niceTicks(0, maxDepth * 1.02, 4);
   const yMax = depthTicks[depthTicks.length - 1];
 
-  const px = (t: number) => pad.left + (t / maxT) * plotW;
+  // Parametro `istante` e non `t`: `t` è la funzione che traduce.
+  const px = (istante: number) => pad.left + (istante / maxT) * plotW;
   const py = (d: number) => pad.top + (d / yMax) * plotH; // invertito: 0 in alto
 
   // Nessun `useMemo` qui, e non è una dimenticanza: questo codice sta DOPO un
@@ -129,21 +143,26 @@ export function DepthProfile({
 
   const hover = (evt: React.MouseEvent<SVGSVGElement>) => {
     const rect = evt.currentTarget.getBoundingClientRect();
-    const t = ((evt.clientX - rect.left - pad.left) / plotW) * maxT;
-    const sample = nearest(samples, t);
+    // `istante` e non `t`: `t` è la funzione che traduce, presa poco sopra.
+    const istante = ((evt.clientX - rect.left - pad.left) / plotW) * maxT;
+    const sample = nearest(samples, istante);
     if (!sample) return;
     sync?.onChange(sample.t);
+    // Le sigle subacquee — NDL, TTS, CNS, PPO2, RBT — non passano da `t()`: sono
+    // le stesse in tutte le lingue, e metterle nel dizionario significherebbe
+    // solo dare a qualcuno la possibilità di sbagliarle.
     const rows: { label: string; value: string }[] = [
-      { label: 'Profondità', value: `${sample.depth.toFixed(1)} m` },
+      { label: t('Profondità'), value: `${sample.depth.toFixed(1)} m` },
     ];
     if (sample.tempC !== undefined)
-      rows.push({ label: 'Temperatura', value: `${sample.tempC.toFixed(1)} °C` });
+      rows.push({ label: t('Temperatura'), value: `${sample.tempC.toFixed(1)} °C` });
     const pressure = sample.pressureBar?.find((p) => p !== undefined);
-    if (pressure !== undefined) rows.push({ label: 'Bombola', value: `${Math.round(pressure)} bar` });
+    if (pressure !== undefined) rows.push({ label: t('Bombola'), value: `${Math.round(pressure)} bar` });
     const ceiling = sample.ceiling ?? sample.stopDepth;
     if (ceiling) {
-      rows.push({ label: 'Tetto', value: `${ceiling.toFixed(1)} m` });
-      if (sample.stopTimeS) rows.push({ label: 'Tappa', value: `${Math.round(sample.stopTimeS / 60)} min` });
+      rows.push({ label: t('Tetto'), value: `${ceiling.toFixed(1)} m` });
+      if (sample.stopTimeS)
+        rows.push({ label: t('Tappa'), value: `${Math.round(sample.stopTimeS / 60)} min` });
     } else if (sample.ndlS !== undefined) {
       rows.push({ label: 'NDL', value: `${Math.round(sample.ndlS / 60)} min` });
     }
@@ -152,7 +171,7 @@ export function DepthProfile({
     if (sample.ppo2 !== undefined) rows.push({ label: 'PPO2', value: `${sample.ppo2.toFixed(2)} bar` });
     if (sample.rbtMin !== undefined) rows.push({ label: 'RBT', value: `${sample.rbtMin} min` });
     if (sample.bearing !== undefined)
-      rows.push({ label: 'Bussola', value: `${Math.round(sample.bearing)}°` });
+      rows.push({ label: t('Bussola'), value: `${Math.round(sample.bearing)}°` });
     setTip({ x: px(sample.t), y: py(sample.depth), title: formatDuration(sample.t), rows });
   };
 
@@ -189,32 +208,32 @@ export function DepthProfile({
 
   const [lo, hi] = LIMITS.safetyStopBandM;
   const gradientId = `depth-fill-${dive.id.slice(0, 8)}`;
-  const nome = `Profilo di profondità dell'immersione`;
+  const nome = t('Profilo di profondità');
   // L'istruzione fa parte della descrizione, e non di una nota accanto al
   // grafico: una funzione che esiste ma che non viene annunciata da nessuna parte
   // è, per chi non vede lo schermo, una funzione che non esiste.
   const descrizione =
-    riassuntoProfilo(dive) +
+    riassuntoProfilo(dive, t) +
     (sync
-      ? ' Frecce per muovere il cursore, Maiusc più freccia per saltare di un minuto, Inizio e Fine per gli estremi.'
+      ? ' ' + t('Frecce per muovere il cursore, Maiusc per saltare di un minuto, Inizio e Fine agli estremi.')
       : '');
 
   return (
     <div className="chart" ref={ref}>
       <Legend
         items={[
-          { label: 'Profondità', color: 'var(--series-1)', kind: 'area' },
+          { label: t('Profondità'), color: 'var(--series-1)', kind: 'area' },
           ...(hasCeiling
             ? [
                 {
-                  label: 'Tetto di decompressione letto dal computer',
+                  label: t('Tetto di decompressione'),
                   color: 'var(--series-2)',
                   kind: 'line' as const,
                 },
               ]
             : []),
           ...(dive.events?.length
-            ? [{ label: 'Segnalibri sul computer', color: 'var(--series-3)', kind: 'line' as const }]
+            ? [{ label: t('Segnalibri'), color: 'var(--series-3)', kind: 'line' as const }]
             : []),
         ]}
       />
@@ -289,32 +308,34 @@ export function DepthProfile({
             textAnchor="end"
             opacity={0.7}
           >
-            sosta di sicurezza {lo}–{hi} m
+            {t('sosta di sicurezza')} {lo}–{hi} m
           </text>
         </g>
 
         {/* Griglia orizzontale e verticale, in tono recessivo. */}
-        {depthTicks.map((t) => (
-          <g key={`h${t}`} aria-hidden="true">
+        {/* `tacca` e `istante`, non `t`: `t` è la funzione che traduce, e un
+            parametro con lo stesso nome la coprirebbe dentro il blocco. */}
+        {depthTicks.map((tacca) => (
+          <g key={`h${tacca}`} aria-hidden="true">
             <line
               x1={pad.left}
               x2={width - pad.right}
-              y1={py(t)}
-              y2={py(t)}
+              y1={py(tacca)}
+              y2={py(tacca)}
               stroke="var(--grid)"
               strokeWidth={1}
             />
-            <text className="axis-label" x={pad.left - 8} y={py(t) + 3.5} textAnchor="end">
-              {t === 0 ? '0 m' : t}
+            <text className="axis-label" x={pad.left - 8} y={py(tacca) + 3.5} textAnchor="end">
+              {tacca === 0 ? '0 m' : tacca}
             </text>
           </g>
         ))}
-        {timeTicks(maxT).map((t) => (
+        {timeTicks(maxT).map((istante) => (
           <line
             aria-hidden="true"
-            key={`v${t}`}
-            x1={px(t)}
-            x2={px(t)}
+            key={`v${istante}`}
+            x1={px(istante)}
+            x2={px(istante)}
             y1={pad.top}
             y2={pad.top + plotH}
             stroke="var(--grid)"
@@ -395,9 +416,15 @@ export function DepthProfile({
             stroke="var(--axis)"
             strokeWidth={1}
           />
-          {timeTicks(maxT).map((t) => (
-            <text key={`l${t}`} className="axis-label" x={px(t)} y={height - 7} textAnchor="middle">
-              {Math.round(t / 60)}′
+          {timeTicks(maxT).map((istante) => (
+            <text
+              key={`l${istante}`}
+              className="axis-label"
+              x={px(istante)}
+              y={height - 7}
+              textAnchor="middle"
+            >
+              {Math.round(istante / 60)}′
             </text>
           ))}
         </g>
@@ -411,9 +438,7 @@ export function DepthProfile({
       {fuoco && (
         <AnnuncioCursore
           testo={
-            cursorSample
-              ? annuncioCampione(cursorSample)
-              : 'Cursore non posizionato: usa le frecce per esplorare il profilo.'
+            cursorSample ? annuncioCampione(cursorSample, t) : t('Cursore non posizionato: usa le frecce.')
           }
         />
       )}
@@ -469,6 +494,7 @@ export function MiniSeries({
   const { ref, width } = useWidth<HTMLDivElement>();
   const [tip, setTip] = useState<TooltipState | null>(null);
   const [fuoco, setFuoco] = useState(false);
+  const { t } = useLingua();
   const uid = useId();
 
   const points = samples
@@ -508,7 +534,8 @@ export function MiniSeries({
   const yLo = ticks[0];
   const yHi = ticks[ticks.length - 1];
 
-  const px = (t: number) => pad.left + (t / maxT) * plotW;
+  // Parametro `istante` e non `t`: `t` è la funzione che traduce.
+  const px = (istante: number) => pad.left + (istante / maxT) * plotW;
   const py = (v: number) => pad.top + plotH - ((v - yLo) / (yHi - yLo || 1)) * plotH;
 
   const line = points
@@ -544,10 +571,12 @@ export function MiniSeries({
     sync.onChange(points[Math.min(points.length - 1, Math.max(0, prossimo))].t);
   };
 
+  // `label` e `unit` arrivano già nella lingua giusta da chi disegna il grafico:
+  // tradurli qui vorrebbe dire tradurli due volte.
   const nome = `${label} (${unit})`;
   const descrizione =
-    riassuntoMiniSerie(points, { etichetta: label, unita: unit, digits }) +
-    (sync ? ' Frecce per muovere il cursore.' : '');
+    riassuntoMiniSerie(points, { etichetta: label, unita: unit, digits }, t) +
+    (sync ? ' ' + t('Frecce per muovere il cursore.') : '');
 
   return (
     <div className="chart" ref={ref}>
@@ -556,7 +585,7 @@ export function MiniSeries({
           {label} <span className="muted">({unit})</span>
           {compare && otherPoints.length > 1 && (
             <span className="muted" style={{ marginLeft: 8, fontSize: 11 }}>
-              — tratteggiato: {compare.label}
+              — {t('tratteggiato')}: {compare.label}
             </span>
           )}
         </span>
@@ -582,8 +611,12 @@ export function MiniSeries({
         }}
         onPointerMove={(evt) => {
           const rect = evt.currentTarget.getBoundingClientRect();
-          const t = ((evt.clientX - rect.left - pad.left) / plotW) * maxT;
-          const p = points.reduce((a, b) => (Math.abs(b.t - t) < Math.abs(a.t - t) ? b : a), points[0]);
+          // `istante` e non `t`: `t` è la funzione che traduce.
+          const istante = ((evt.clientX - rect.left - pad.left) / plotW) * maxT;
+          const p = points.reduce(
+            (a, b) => (Math.abs(b.t - istante) < Math.abs(a.t - istante) ? b : a),
+            points[0],
+          );
           sync?.onChange(p.t);
           setTip({
             x: px(p.t),
@@ -606,27 +639,28 @@ export function MiniSeries({
       >
         <title>{nome}</title>
         <desc id={`${uid}-desc`}>{descrizione}</desc>
-        {ticks.map((t) => (
-          <g key={t} aria-hidden="true">
+        {/* Come nel profilo: `tacca` e `istante`, per non coprire `t`. */}
+        {ticks.map((tacca) => (
+          <g key={tacca} aria-hidden="true">
             <line
               x1={pad.left}
               x2={width - pad.right}
-              y1={py(t)}
-              y2={py(t)}
+              y1={py(tacca)}
+              y2={py(tacca)}
               stroke="var(--grid)"
               strokeWidth={1}
             />
-            <text className="axis-label" x={pad.left - 8} y={py(t) + 3.5} textAnchor="end">
-              {t.toFixed(digits)}
+            <text className="axis-label" x={pad.left - 8} y={py(tacca) + 3.5} textAnchor="end">
+              {tacca.toFixed(digits)}
             </text>
           </g>
         ))}
-        {timeTicks(maxT).map((t) => (
+        {timeTicks(maxT).map((istante) => (
           <line
             aria-hidden="true"
-            key={`v${t}`}
-            x1={px(t)}
-            x2={px(t)}
+            key={`v${istante}`}
+            x1={px(istante)}
+            x2={px(istante)}
             y1={pad.top}
             y2={pad.top + plotH}
             stroke="var(--grid)"
@@ -701,8 +735,8 @@ export function MiniSeries({
         <AnnuncioCursore
           testo={
             cursorPoint
-              ? `${label}: minuto ${formatDuration(cursorPoint.t)}, ${cursorPoint.v.toFixed(digits)} ${unit}`
-              : `${label}: cursore non posizionato, usa le frecce.`
+              ? `${label}: ${t('minuto')} ${formatDuration(cursorPoint.t)}, ${cursorPoint.v.toFixed(digits)} ${unit}`
+              : `${label}: ${t('cursore non posizionato, usa le frecce.')}`
           }
         />
       )}
@@ -784,10 +818,10 @@ function passoCampioniS(punti: { t: number }[]): number {
  * usa lo screen reader e chi usa il mouse starebbero guardando due immersioni
  * diverse, ed è esattamente quello che questo lavoro serve a evitare.
  */
-export function annuncioCampione(s: Sample): string {
-  const parti = [`minuto ${formatDuration(s.t)}`, `${s.depth.toFixed(1)} m`];
+export function annuncioCampione(s: Sample, t: Traduci = comeSta): string {
+  const parti = [`${t('minuto')} ${formatDuration(s.t)}`, `${s.depth.toFixed(1)} m`];
   const tetto = s.ceiling ?? s.stopDepth;
-  if (tetto) parti.push(`tetto ${tetto.toFixed(1)} m`);
+  if (tetto) parti.push(`${t('tetto')} ${tetto.toFixed(1)} m`);
   else if (s.ndlS !== undefined) parti.push(`NDL ${Math.round(s.ndlS / 60)} min`);
   if (s.tempC !== undefined) parti.push(`${s.tempC.toFixed(1)} °C`);
   const pressione = s.pressureBar?.find((p) => p !== undefined);
@@ -808,15 +842,15 @@ export function annuncioCampione(s: Sample): string {
  * salvato ne mostrasse 38, la descrizione deve dire quello che si vede nel
  * grafico — altrimenti descrive un disegno diverso da quello che sta accanto.
  */
-export function riassuntoProfilo(dive: Dive): string {
+export function riassuntoProfilo(dive: Dive, t: Traduci = comeSta): string {
   const samples = dive.samples ?? [];
-  if (samples.length < 2) return 'Immersione senza profilo campionato.';
+  if (samples.length < 2) return t('Immersione senza profilo campionato.');
 
   const durataS = samples[samples.length - 1].t - samples[0].t;
   const piuProfondo = samples.reduce((a, b) => (b.depth > a.depth ? b : a));
   const parti = [
-    `Profilo di ${Math.round(durataS / 60)} minuti su ${samples.length} campioni.`,
-    `Massima ${piuProfondo.depth.toFixed(1)} m al minuto ${Math.round(piuProfondo.t / 60)}, media ${mediaPesata(samples).toFixed(1)} m.`,
+    `${t('Profilo di')} ${Math.round(durataS / 60)} ${t('minuti su')} ${samples.length} ${t('campioni')}.`,
+    `${t('Massima')} ${piuProfondo.depth.toFixed(1)} m ${t('al minuto')} ${Math.round(piuProfondo.t / 60)}, ${t('media')} ${mediaPesata(samples).toFixed(1)} m.`,
   ];
 
   // Il tetto di decompressione: il PRIMO e l'ULTIMO istante in cui esiste, non
@@ -829,21 +863,21 @@ export function riassuntoProfilo(dive: Dive): string {
       (b.ceiling ?? b.stopDepth ?? 0) > (a.ceiling ?? a.stopDepth ?? 0) ? b : a,
     );
     parti.push(
-      `Tetto di decompressione presente dal minuto ${Math.round(conTetto[0].t / 60)} al minuto ` +
-        `${Math.round(conTetto[conTetto.length - 1].t / 60)}, il più profondo ` +
+      `${t('Tetto di decompressione presente dal minuto')} ${Math.round(conTetto[0].t / 60)} ${t('al minuto')} ` +
+        `${Math.round(conTetto[conTetto.length - 1].t / 60)}, ${t('il più profondo')} ` +
         `${(piuAlto.ceiling ?? piuAlto.stopDepth ?? 0).toFixed(1)} m.`,
     );
   } else {
-    parti.push('Nessun obbligo di decompressione nel profilo.');
+    parti.push(t('Nessun obbligo di decompressione nel profilo.'));
   }
 
   const temperature = samples.map((s) => s.tempC).filter((v): v is number => v !== undefined);
   if (temperature.length > 0) {
     const q = quartili(temperature)!;
-    parti.push(`Temperatura da ${numeroBreve(q.min)} a ${numeroBreve(q.max)} °C.`);
+    parti.push(`${t('Temperatura da')} ${numeroBreve(q.min)} ${t('a')} ${numeroBreve(q.max)} °C.`);
   }
   const eventi = dive.events?.length ?? 0;
-  if (eventi > 0) parti.push(`${eventi} ${eventi === 1 ? 'segnalibro' : 'segnalibri'} sul computer.`);
+  if (eventi > 0) parti.push(`${plural(eventi, 'segnalibro', 'segnalibri', t)} ${t('sul computer')}.`);
   return parti.join(' ');
 }
 
@@ -878,16 +912,17 @@ function mediaPesata(samples: Sample[]): number {
 export function riassuntoMiniSerie(
   punti: { t: number; v: number }[],
   { etichetta, unita, digits = 0 }: { etichetta: string; unita: string; digits?: number },
+  t: Traduci = comeSta,
 ): string {
-  if (punti.length === 0) return `${etichetta}: nessun valore registrato.`;
+  if (punti.length === 0) return `${etichetta}: ${t('nessun valore registrato.')}`;
   const min = punti.reduce((a, b) => (b.v < a.v ? b : a));
   const max = punti.reduce((a, b) => (b.v > a.v ? b : a));
   const durataMin = Math.round((punti[punti.length - 1].t - punti[0].t) / 60);
   return (
-    `${etichetta} in ${unita}, ${punti.length} rilevazioni su ${durataMin} minuti. ` +
-    `Minimo ${min.v.toFixed(digits)} al minuto ${Math.round(min.t / 60)}, ` +
-    `massimo ${max.v.toFixed(digits)} al minuto ${Math.round(max.t / 60)}. ` +
-    `Valore finale ${punti[punti.length - 1].v.toFixed(digits)}.`
+    `${etichetta} ${t('in')} ${unita}, ${plural(punti.length, 'rilevazione', 'rilevazioni', t)} ${t('su')} ${durataMin} ${t('minuti')}. ` +
+    `${t('Minimo')} ${min.v.toFixed(digits)} ${t('al minuto')} ${Math.round(min.t / 60)}, ` +
+    `${t('massimo')} ${max.v.toFixed(digits)} ${t('al minuto')} ${Math.round(max.t / 60)}. ` +
+    `${t('Valore finale')} ${punti[punti.length - 1].v.toFixed(digits)}.`
   );
 }
 

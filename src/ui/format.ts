@@ -107,18 +107,34 @@ export const FORMAT_LABEL: Record<string, string> = {
 export const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
+ * La funzione che traduce, quando c'è.
+ *
+ * Questo modulo non può chiamare `useLingua()`: non è un componente, e viene
+ * usato anche dai test e dalle esportazioni, dove non esiste nessun contesto
+ * React. Chi ha la traduzione la passa; chi non ce l'ha ottiene l'italiano, che
+ * è la stessa cosa che fa `t()` per una frase non tradotta.
+ */
+export type Traduci = (s: string) => string;
+const comeSta: Traduci = (s) => s;
+
+/**
  * Numero più sostantivo, con il singolare quando serve.
  *
  * «1 immersioni» compare in una decina di punti dell'interfaccia e ogni volta
  * fa sembrare il testo generato da un programma che non rilegge quello che
  * scrive. Sta qui e non in ogni pagina perché la regola è una sola.
+ *
+ * Si traduce il SOSTANTIVO, non la frase intera: le frasi intere sarebbero una
+ * voce di dizionario per ogni numero possibile. Funziona perché in inglese la
+ * regola del plurale è la stessa — uno o più di uno — e le due lingue scelgono
+ * la stessa forma sullo stesso numero.
  */
-export function plural(n: number, uno: string, molti: string): string {
-  return `${n} ${n === 1 ? uno : molti}`;
+export function plural(n: number, uno: string, molti: string, t: Traduci = comeSta): string {
+  return `${n} ${t(n === 1 ? uno : molti)}`;
 }
 
 /** Il caso di gran lunga più frequente: un conteggio di immersioni. */
-export const imm = (n: number) => plural(n, 'immersione', 'immersioni');
+export const imm = (n: number, t: Traduci = comeSta) => plural(n, 'immersione', 'immersioni', t);
 
 /**
  * Che cosa dice il piede di un elenco a finestra.
@@ -140,10 +156,14 @@ export function descriviFinestra(
   mostrate: number,
   totali: number,
   perVolta = 50,
+  t: Traduci = comeSta,
 ): { testo: string; altre: number } {
   const restanti = Math.max(0, totali - mostrate);
   return {
-    testo: restanti === 0 ? `${imm(totali)}, tutte mostrate` : `${mostrate} di ${imm(totali)}`,
+    testo:
+      restanti === 0
+        ? `${imm(totali, t)}, ${t('tutte mostrate')}`
+        : `${mostrate} ${t('di')} ${imm(totali, t)}`,
     altre: Math.min(perVolta, restanti),
   };
 }

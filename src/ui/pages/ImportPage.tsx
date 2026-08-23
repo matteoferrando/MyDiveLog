@@ -1,3 +1,12 @@
+/**
+ * La pagina da cui le immersioni entrano in archivio.
+ *
+ * È la prima pagina che vede chi apre l'applicazione con l'archivio vuoto, e
+ * quindi è quella dove i testi devono essere più corti: chi arriva qui vuole
+ * caricare un file, non leggere come funziona il programma. Le spiegazioni
+ * lunghe sui formati stanno in fondo, dopo il pulsante.
+ */
+
 import { useRef, useState } from 'react';
 import { ACCEPTED_EXTENSIONS, PARSERS } from '../../core/parsers';
 import { imm, plural } from '../format';
@@ -5,9 +14,11 @@ import { suIOS } from '../../piattaforma';
 import { useDiveLog, type ImportOutcome } from '../state';
 import { BleDownload } from '../components/BleDownload';
 import { BottoneConferma } from '../components/Conferma';
+import { useLingua } from '../lingua';
 
 export function ImportPage({ onDone }: { onDone: () => void }) {
   const { importFiles, dives, storeLocation, clearAll } = useDiveLog();
+  const { t } = useLingua();
   const [busy, setBusy] = useState(false);
   const [azzerando, setAzzerando] = useState(false);
   const [over, setOver] = useState(false);
@@ -36,7 +47,7 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
     setBusy(true);
     setOutcomes(null);
     setAllarme('');
-    setAnnuncio(`Lettura di ${scelti.length} file avviata.`);
+    setAnnuncio(`${scelti.length} ${t('file in lettura')}.`);
     try {
       const result = await importFiles(scelti);
       setOutcomes(result);
@@ -61,16 +72,16 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
       setAnnuncio(
         letti.length === 0
           ? ''
-          : `Import finito: ${letti.length} file su ${result.length} letti, ` +
-              `${imm(somma('found'))} trovate, ${somma('added')} nuove, ` +
-              `${somma('merged')} arricchite, ${somma('duplicates')} già presenti` +
-              (avvisi > 0 ? `, ${plural(avvisi, 'avviso', 'avvisi')} nella tabella dell'esito` : '') +
+          : `${t('Import finito')}: ${letti.length}/${result.length} ${t('file letti')}, ` +
+              `${imm(somma('found'), t)} ${t('trovate')}, ${somma('added')} ${t('nuove')}, ` +
+              `${somma('merged')} ${t('arricchite')}, ${somma('duplicates')} ${t('già presenti')}` +
+              (avvisi > 0 ? `, ${plural(avvisi, 'avviso', 'avvisi', t)}` : '') +
               '.',
       );
       if (falliti.length > 0) {
         setAllarme(
-          `${falliti.length} file su ${result.length} non letti: ` +
-            falliti.map((o) => `${o.fileName} (${o.error ?? 'motivo non riportato'})`).join('; ') +
+          `${falliti.length}/${result.length} ${t('file non letti')}: ` +
+            falliti.map((o) => `${o.fileName} (${o.error ?? t('motivo non riportato')})`).join('; ') +
             '.',
         );
       }
@@ -81,7 +92,7 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
       // annunciata da `void handle(...)`: la pagina tornava semplicemente com'era
       // prima, senza esito e senza spiegazione, per chiunque.
       setAnnuncio('');
-      setAllarme(`Import fallito: ${err instanceof Error ? err.message : String(err)}`);
+      setAllarme(`${t('Import fallito')}: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = '';
@@ -92,18 +103,16 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
     const quante = dives.length;
     setAzzerando(true);
     setAllarme('');
-    setAnnuncio(`Cancellazione di ${imm(quante)} in corso…`);
+    setAnnuncio(`${t('Cancellazione in corso…')} (${imm(quante, t)})`);
     try {
       await clearAll();
       // L'esito visivo di un archivio azzerato è la sparizione di mezza pagina:
       // niente che una voce possa raccontare da sola, quindi lo si dice.
-      setAnnuncio(
-        `Archivio azzerato: ${imm(quante)} cancellate. I file di origine sono ancora sul disco, quindi si può reimportare.`,
-      );
+      setAnnuncio(`${t('Archivio azzerato')}: ${imm(quante, t)}.`);
     } catch (err) {
       setAnnuncio('');
       setAllarme(
-        `Cancellazione fallita: ${err instanceof Error ? err.message : String(err)}. L'archivio non è stato svuotato.`,
+        `${t('Cancellazione fallita')}: ${err instanceof Error ? err.message : String(err)}. ${t('L’archivio non è stato svuotato.')}`,
       );
     } finally {
       setAzzerando(false);
@@ -115,9 +124,9 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
   return (
     <div className="page">
       <div className="page-title-row">
-        <h1 className="page-title">Importa immersioni</h1>
+        <h1 className="page-title">{t('Importa immersioni')}</h1>
         <span className="muted" style={{ fontSize: 12 }}>
-          {imm(dives.length)} in archivio · {storeLocation}
+          {imm(dives.length, t)} · {t(storeLocation)}
         </span>
       </div>
 
@@ -173,11 +182,10 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
          * può accettare fa sembrare rotta la funzione, non il testo.
          */}
         <p style={{ margin: '0 0 12px', fontWeight: 600 }}>
-          {suIOS() ? 'Scegli i file dall’app File' : 'Trascina qui i file, o scegli dal disco'}
+          {t(suIOS() ? 'Scegli i file dall’app File' : 'Trascina qui i file, o scegli dal disco')}
         </p>
         <p className="muted" style={{ margin: '0 0 16px', fontSize: 12 }}>
-          Puoi selezionarne più di uno: le immersioni presenti in due file diversi vengono unite, non
-          duplicate.
+          {t('Puoi sceglierne più di uno: le immersioni doppie vengono unite.')}
         </p>
         {/*
           `aria-busy` sull'etichetta e non sull'input: l'input è `display:none` e
@@ -188,7 +196,7 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
           controllare il pulsante con il cursore virtuale.
         */}
         <label className="btn btn-primary" aria-busy={busy}>
-          {busy ? 'Lettura in corso…' : 'Scegli file'}
+          {t(busy ? 'Lettura in corso…' : 'Scegli file')}
           <input
             ref={inputRef}
             type="file"
@@ -203,21 +211,21 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
 
       {outcomes && (
         <div className="card">
-          <h2>Esito dell'import</h2>
+          <h2>{t('Esito')}</h2>
           <p className="card-sub">
             {totalAdded > 0
-              ? `${imm(totalAdded)} ${totalAdded === 1 ? 'nuova aggiunta' : 'nuove aggiunte'} all'archivio.`
-              : 'Nessuna immersione nuova: tutto era già presente.'}
+              ? `${imm(totalAdded, t)} ${t(totalAdded === 1 ? 'aggiunta' : 'aggiunte')}.`
+              : t('Nessuna immersione nuova: c’era già tutto.')}
           </p>
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
-                  <th>File</th>
-                  <th className="num">Trovate</th>
-                  <th className="num">Nuove</th>
-                  <th className="num">Arricchite</th>
-                  <th className="num">Già presenti</th>
+                  <th>{t('File')}</th>
+                  <th className="num">{t('Trovate')}</th>
+                  <th className="num">{t('Nuove')}</th>
+                  <th className="num">{t('Arricchite')}</th>
+                  <th className="num">{t('Già presenti')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -244,7 +252,7 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
           {totalAdded > 0 && (
             <div className="row" style={{ marginTop: 14 }}>
               <button className="btn btn-primary" onClick={onDone}>
-                Vai al logbook
+                {t('Vai al logbook')}
               </button>
             </div>
           )}
@@ -263,18 +271,19 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
       <BleDownload />
 
       <div className="card">
-        <h2>Formati supportati</h2>
+        <h2>{t('Formati supportati')}</h2>
         <p className="card-sub">
-          Il formato viene riconosciuto dal contenuto del file, non dall'estensione: un `.xml` può essere
-          UDDF, Subsurface o Shearwater e vengono distinti correttamente.
+          {t(
+            'Il formato si riconosce dal contenuto, non dall’estensione: un .xml può essere UDDF, Subsurface o Shearwater.',
+          )}
         </p>
         <div className="table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Formato</th>
-                <th>Estensioni</th>
-                <th>Come ottenerlo</th>
+                <th>{t('Formato')}</th>
+                <th>{t('Estensioni')}</th>
+                <th>{t('Come ottenerlo')}</th>
               </tr>
             </thead>
             <tbody>
@@ -282,7 +291,7 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
                 <tr key={p.format}>
                   <td style={{ fontWeight: 550 }}>{p.label}</td>
                   <td className="muted tabular">{p.extensions.join(' ')}</td>
-                  <td className="secondary">{HOWTO[p.format] ?? ''}</td>
+                  <td className="secondary">{t(HOWTO[p.format] ?? '')}</td>
                 </tr>
               ))}
             </tbody>
@@ -290,59 +299,63 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
         </div>
       </div>
 
+      {/*
+       * Cosa porta ogni formato: cinque righe, non cinque paragrafi.
+       *
+       * Prima qui c'era la storia di ogni limite — perché l'UDDF perde il
+       * collegamento fra bombole e miscele, come si deduce il volume da
+       * `tank_summary`. Sono cose vere e sono cose che servivano a chi scriveva
+       * il parser, non a chi importa un file: chi legge questa scheda vuole
+       * sapere se dopo l'import dovrà completare qualcosa a mano.
+       */}
       <div className="card">
-        <h2>Cosa aspettarsi da ciascuna fonte</h2>
+        <h2>{t('Cosa porta ogni formato')}</h2>
         <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)', fontSize: 13 }}>
           <li>
-            <b>Shearwater</b> (XML o UDDF): profilo completo, temperatura, tetto deco, PPO2. Nell'export UDDF
-            il collegamento fra bombole e miscele è incompleto — un limite noto del formato — quindi verifica
-            il gas nella scheda.
+            <b>Shearwater</b>{' '}
+            {t(
+              '(XML o UDDF): profilo, temperatura, tetto deco, PPO2. Nell’UDDF il gas può mancare: verificalo nella scheda.',
+            )}
           </li>
           <li>
-            <b>Garmin FIT</b>: profilo completo e pressione dai trasmettitori. Il volume della bombola non
-            esiste nel formato: viene dedotto da <code>tank_summary</code> quando possibile, altrimenti va
-            inserito a mano una volta.
+            <b>Garmin FIT</b>
+            {t(': profilo e pressioni. Il volume della bombola non c’è nel formato: si inserisce una volta.')}
           </li>
           <li>
-            <b>Export FIT dell'app Suunto</b>: leggibile ma povero — manca il gas del trasmettitore e la
-            composizione della miscela. Vanno completati nella scheda.
+            <b>{t('FIT dall’app Suunto')}</b>
+            {t(': leggibile ma povero. Gas e miscela vanno completati nella scheda.')}
           </li>
           <li>
-            <b>Scubapro LogTRAK</b>: profilo, temperatura, volume e pressioni della bombola, zavorra, fuso
-            orario e condizioni. Il formato Uwatec non contiene dati di decompressione — né tetto né NDL —
-            quindi le soste obbligatorie vengono riconosciute dal profilo e non dal file. Le immersioni
-            inserite a mano in LogTRAK non hanno profilo: entrano con i soli dati di sintesi.
+            <b>Scubapro LogTRAK</b>
+            {t(
+              ': profilo, temperatura, bombola, zavorra, fuso, condizioni. Niente dati di deco: le soste le ricaviamo dal profilo.',
+            )}
           </li>
           <li>
-            <b>CSV</b>: nessun profilo, solo riepilogo. Utile per recuperare uno storico da foglio di calcolo;
-            le metriche di assetto e risalita non saranno disponibili per quelle immersioni.
+            <b>CSV</b>
+            {t(': solo riepilogo, nessun profilo. Utile per recuperare uno storico da un foglio di calcolo.')}
           </li>
         </ul>
       </div>
 
       {dives.length > 0 && (
         <div className="card">
-          <h2>Azzera l'archivio</h2>
+          <h2>{t('Azzera l’archivio')}</h2>
           <p className="card-sub">
-            Cancella tutte le {dives.length} immersioni e i profili. Non è reversibile: i file di origine
-            restano dove sono, quindi si può reimportare.
+            {t(
+              'Cancella tutte le immersioni e i profili. Non si torna indietro, ma i file di origine restano e si può reimportare.',
+            )}
           </p>
           {azzerando ? (
             <button className="btn btn-danger" disabled aria-busy>
-              Cancellazione in corso…
+              {t('Cancellazione in corso…')}
             </button>
           ) : (
             <BottoneConferma
               className="btn btn-danger"
-              etichetta="Cancella tutto"
-              conferma={`Sì, cancella le ${dives.length}`}
-              domanda={
-                <>
-                  Cancellare tutte le {imm(dives.length)} immersioni e i loro profili? Non passano dal cestino
-                  e <b>non si recuperano</b>: i file di origine restano sul disco, quindi la sola strada per
-                  riaverle è reimportarli.
-                </>
-              }
+              etichetta={t('Cancella tutto')}
+              conferma={`${t('Sì, cancella')} (${dives.length})`}
+              domanda={t('Non passano dal cestino e non si recuperano. Si possono solo reimportare.')}
               onConferma={() => void azzera()}
             />
           )}

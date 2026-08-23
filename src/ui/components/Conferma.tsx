@@ -28,6 +28,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { useLingua } from '../lingua';
 
 export function BottoneConferma({
   etichetta,
@@ -49,6 +50,12 @@ export function BottoneConferma({
   className?: string;
   style?: React.CSSProperties;
 }) {
+  /*
+   * Le tre etichette — riposo, domanda, conferma — arrivano già tradotte da chi
+   * chiama: solo lì si sa cosa si sta per cancellare. Qui dentro l'unica parola
+   * nostra è «Annulla», e quella la traduciamo noi.
+   */
+  const { t } = useLingua();
   const [armato, setArmato] = useState(false);
   const riquadro = useRef<HTMLDivElement>(null);
 
@@ -107,7 +114,7 @@ export function BottoneConferma({
          * d'istinto il primo pulsante non deve cancellare niente.
          */}
         <button className="btn" onClick={() => setArmato(false)}>
-          Annulla
+          {t('Annulla')}
         </button>
         <button
           disabled={disabled}

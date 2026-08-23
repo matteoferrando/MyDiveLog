@@ -330,6 +330,35 @@ body {
 }
 
 @media (max-width: 700px) {
+  /*
+   * SUL TELEFONO IL CAMBIO LINGUA SCENDE NEL MENU.
+   *
+   * In alto non ci stava: marchio, sigle e hamburger insieme portavano la barra
+   * a 412 px su uno schermo da 390, e il documento intero cominciava a
+   * trascinarsi di lato — su OGNI pagina, perché la barra c'è sempre. Non è un
+   * pareggio fra due mali: la coppia IT/EN sta bene dov'è già la navigazione, e
+   * l'hamburger si riconosce senza saper leggere la lingua in cui è scritto.
+   */
+  .topbar > .lingua {
+    display: none;
+  }
+
+  .menu-telefono > .lingua {
+    /* `display: block` sul pannello: l'inline-flex della coppia basta a tenerla
+       stretta, e il margine la stacca dalle voci senza una riga divisoria in
+       più. */
+    margin: 2px 8px 10px;
+  }
+
+  /* Nel menu la coppia è un bersaglio per il pollice come le voci sopra: 44 px
+     di altezza e 52 di larghezza. In alto, sul desktop, restano piccole — lì
+     c'è un puntatore. */
+  .menu-telefono .lingua button {
+    min-height: 44px;
+    min-width: 52px;
+    font-size: 13px;
+  }
+
   .hamburger {
     display: inline-flex;
     align-items: center;
@@ -432,6 +461,59 @@ body {
 
 .topbar-spacer {
   flex: 1;
+}
+
+/*
+ * IL CAMBIO LINGUA: due pulsanti attaccati, piccoli.
+ *
+ * Piccoli di proposito. Non è un comando che si usa più di una volta nella vita
+ * dell'installazione, e occupa lo stesso spazio della barra dove sul telefono ci
+ * stanno a malapena il marchio e l'hamburger. Restano però alti 30 px e larghi
+ * 32: sotto quella misura il dito sbaglia bersaglio, e sbagliare bersaglio qui
+ * vuol dire ritrovarsi l'applicazione in una lingua che non si voleva.
+ *
+ * Sono attaccati con un bordo unico attorno invece che due pulsanti separati:
+ * la coppia si legge come un interruttore a due posizioni — che è quello che è —
+ * e non come due comandi indipendenti che potrebbero essere attivi entrambi.
+ */
+.lingua {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex: 0 0 auto;
+  margin-right: 8px;
+}
+
+.lingua button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  min-width: 32px;
+  min-height: 30px;
+  padding: 0 6px;
+  cursor: pointer;
+}
+
+.lingua button + button {
+  border-left: 1px solid var(--border);
+}
+
+.lingua button:hover {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+
+/* La lingua attiva è piena, non solo in grassetto: `aria-pressed` lo dice a chi
+   usa un lettore di schermo, ma a occhio serve un contrasto vero. */
+.lingua button.attiva {
+  background: var(--accent-solid);
+  color: #fff;
 }
 
 .main {

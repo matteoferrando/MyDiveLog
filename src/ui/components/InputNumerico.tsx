@@ -46,6 +46,11 @@ export function InputNumerico({
   max?: number;
   /** Solo per la spaziatura logica: un campo di testo non ha spinnerine. */
   step?: number;
+  /**
+   * Quello che sente chi non vede il campo. Arriva GIÀ TRADOTTO da chi chiama:
+   * il nome del campo lo sa solo lui, e qui una seconda `t()` cercherebbe nel
+   * dizionario una frase inglese che non è una chiave.
+   */
   ariaLabel?: string;
   style?: React.CSSProperties;
   className?: string;

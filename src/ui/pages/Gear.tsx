@@ -43,12 +43,14 @@ import {
 } from '../../core/analysis/gear';
 import { LIMITS } from '../../core/model';
 import { useDiveLog } from '../state';
-import { dateShort, imm } from '../format';
+import { dateShort, imm, plural } from '../format';
+import { useLingua } from '../lingua';
 
 const nuovoId = () => `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
 export function Gear() {
   const { gear, saveGear, dives } = useDiveLog();
+  const { t } = useLingua();
   const [bozzaAttrezzo, setBozzaAttrezzo] = useState<Equipment | null>(null);
   const [bozzaBrevetto, setBozzaBrevetto] = useState<Certification | null>(null);
   const [mostraRitirati, setMostraRitirati] = useState(false);
@@ -114,9 +116,9 @@ export function Gear() {
   return (
     <div className="page">
       <div className="page-title-row">
-        <h1 className="page-title">Attrezzatura</h1>
+        <h1 className="page-title">{t('Attrezzatura')}</h1>
         <span className="muted" style={{ fontSize: 12 }}>
-          Un archivio, non un promemoria: qui non ci sono avvisi né scadenze che lampeggiano.
+          {t('Un archivio, non un promemoria: nessun avviso, nessuna scadenza che lampeggia.')}
         </span>
       </div>
 
@@ -124,11 +126,16 @@ export function Gear() {
       <div className="card">
         <div className="spread" style={{ alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
           <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-            <h2 style={{ margin: 0 }}>Quello che porti in acqua</h2>
+            <h2 style={{ margin: 0 }}>{t('Quello che porti in acqua')}</h2>
+            {/*
+             * La riga sotto spiegava anche da dove viene ogni scadenza: il
+             * collaudo idraulico dalla normativa, la revisione dal libretto del
+             * costruttore. È la ragione per cui l'intervallo è modificabile pezzo
+             * per pezzo invece di essere fisso, e sta scritta qui perché serve a
+             * chi tocca il codice, non a chi apre la scheda.
+             */}
             <p className="card-sub" style={{ marginBottom: 0 }}>
-              Bombole, erogatori, sacco, computer, muta. Dove ha senso c'è la manutenzione: il collaudo
-              idraulico segue la normativa, la revisione il libretto del costruttore, e l'intervallo lo decidi
-              tu pezzo per pezzo.
+              {t('Bombole, erogatori, sacco, computer, muta. L’intervallo di manutenzione lo decidi tu.')}
             </p>
           </div>
           <button
@@ -143,26 +150,27 @@ export function Gear() {
               })
             }
           >
-            Aggiungi
+            {t('Aggiungi')}
           </button>
         </div>
 
         {visibili.length === 0 ? (
           <p className="muted" style={{ fontSize: 13, margin: 0 }}>
-            Niente ancora. Il pezzo che vale più la pena registrare è la bombola: la matricola e la data del
-            collaudo sono le due cose che al centro ricarica ti chiedono e che non ti ricordi mai.
+            {t(
+              'Niente ancora. Comincia dalla bombola: matricola e data del collaudo sono quelle che ti chiedono al centro ricarica.',
+            )}
           </p>
         ) : (
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
-                  <th>Pezzo</th>
-                  <th>Matricola</th>
-                  <th className="num">Immersioni</th>
-                  <th>Manutenzione</th>
-                  <th>Ultima</th>
-                  <th>Prossima</th>
+                  <th>{t('Pezzo')}</th>
+                  <th>{t('Matricola')}</th>
+                  <th className="num">{t('Immersioni')}</th>
+                  <th>{t('Manutenzione')}</th>
+                  <th>{t('Ultima')}</th>
+                  <th>{t('Prossima')}</th>
                   <th />
                 </tr>
               </thead>
@@ -173,10 +181,14 @@ export function Gear() {
                     <tr key={a.id} className="clickable" onClick={() => apriAttrezzo(a)}>
                       <td>
                         <div style={{ fontWeight: 550 }}>
-                          {a.name || 'senza nome'} {a.retired && <span className="muted">· ritirato</span>}
+                          {a.name || t('senza nome')}{' '}
+                          {a.retired && <span className="muted">· {t('ritirato')}</span>}
                         </div>
+                        {/* `EQUIPMENT_LABEL` e `SERVICE_LABEL` sono costanti del
+                            cuore dell'applicazione: restano italiane lì e si
+                            traducono qui, al disegno. */}
                         <div className="muted" style={{ fontSize: 11 }}>
-                          {EQUIPMENT_LABEL[a.kind]}
+                          {t(EQUIPMENT_LABEL[a.kind])}
                           {a.sizeL ? ` · ${a.sizeL} L` : ''}
                           {a.workingBar ? ` · ${a.workingBar} bar` : ''}
                         </div>
@@ -207,15 +219,17 @@ export function Gear() {
                             {uso.get(a.id)?.dives}
                             {uso.get(a.id)?.divesSinceService !== undefined && (
                               <div className="muted" style={{ fontSize: 11 }}>
-                                {uso.get(a.id)?.divesSinceService} dall’ultima
+                                {uso.get(a.id)?.divesSinceService} {t('dall’ultima')}
                               </div>
                             )}
                           </>
                         )}
                       </td>
                       <td className="muted" style={{ fontSize: 12 }}>
-                        {SERVICE_LABEL[a.service]}
-                        {a.service !== 'none' && a.intervalMonths ? ` · ogni ${a.intervalMonths} mesi` : ''}
+                        {t(SERVICE_LABEL[a.service])}
+                        {a.service !== 'none' && a.intervalMonths
+                          ? ` · ${t('ogni')} ${plural(a.intervalMonths, 'mese', 'mesi', t)}`
+                          : ''}
                       </td>
                       <td className="muted" style={{ fontSize: 12 }}>
                         {a.lastServiceOn ? (
@@ -223,7 +237,9 @@ export function Gear() {
                             {dateShort(a.lastServiceOn)}
                             {f.monthsSince !== undefined && (
                               <div style={{ fontSize: 11 }}>
-                                {f.monthsSince === 0 ? 'questo mese' : `${f.monthsSince} mesi fa`}
+                                {f.monthsSince === 0
+                                  ? t('questo mese')
+                                  : `${plural(f.monthsSince, 'mese', 'mesi', t)} ${t('fa')}`}
                               </div>
                             )}
                           </>
@@ -239,8 +255,8 @@ export function Gear() {
                             {f.monthsToNext !== undefined && (
                               <div style={{ fontSize: 11 }}>
                                 {f.monthsToNext >= 0
-                                  ? `fra ${f.monthsToNext} mesi`
-                                  : `${-f.monthsToNext} mesi indietro`}
+                                  ? `${t('fra')} ${plural(f.monthsToNext, 'mese', 'mesi', t)}`
+                                  : `${plural(-f.monthsToNext, 'mese', 'mesi', t)} ${t('indietro')}`}
                               </div>
                             )}
                           </>
@@ -249,7 +265,7 @@ export function Gear() {
                         )}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <button style={{ fontSize: 11, padding: '3px 8px' }}>Apri</button>
+                        <button style={{ fontSize: 11, padding: '3px 8px' }}>{t('Apri')}</button>
                       </td>
                     </tr>
                   );
@@ -270,7 +286,7 @@ export function Gear() {
               onChange={(e) => setMostraRitirati(e.target.checked)}
             />
             <span>
-              Mostra anche {ritirati} {ritirati === 1 ? 'pezzo ritirato' : 'pezzi ritirati'}
+              {t('Mostra anche')} {plural(ritirati, 'pezzo ritirato', 'pezzi ritirati', t)}
             </span>
           </label>
         )}
@@ -302,26 +318,30 @@ export function Gear() {
       <div className="card">
         <div className="spread" style={{ alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
           <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-            <h2 style={{ margin: 0 }}>Brevetti</h2>
+            <h2 style={{ margin: 0 }}>{t('Brevetti')}</h2>
+            {/*
+             * Dei brevetti l'applicazione legge SOLO il livello: i nomi
+             * commerciali delle didattiche sono decine e non si mettono in fila.
+             * Il resto — didattica, numero, istruttore — è archivio per chi lo
+             * consulta. Detto qui e non a schermo: a chi compila basta sapere
+             * che il campo «Livello» conta.
+             */}
             <p className="card-sub" style={{ marginBottom: 0 }}>
-              Non hanno una scadenza e non si revisionano: dicono fino a dove sei addestrato. Il livello che
-              scegli qui è l'unica cosa che l'applicazione legge — i nomi commerciali delle didattiche sono
-              decine e non si possono mettere in fila.
+              {t('Dicono fino a dove sei addestrato. Il campo che conta è il livello.')}
             </p>
           </div>
           <button
             className="btn"
             onClick={() => apriBrevetto({ id: nuovoId(), agency: '', name: '', level: 'base' })}
           >
-            Aggiungi
+            {t('Aggiungi')}
           </button>
         </div>
 
         {brevetti.length === 0 ? (
           <p className="muted" style={{ fontSize: 13, margin: 0 }}>
-            Nessun brevetto registrato. Serve per una cosa sola, ma concreta: la scheda di prontezza dei{' '}
-            <b>Suggerimenti</b> confronta le tue immersioni con i prerequisiti del passo successivo, e senza
-            sapere da dove parti non può dire quanto manca.
+            {t('Nessun brevetto registrato. Servono ai')} <b>{t('Suggerimenti')}</b>{' '}
+            {t('per dirti quanto manca al passo successivo.')}
           </p>
         ) : (
           <>
@@ -329,10 +349,10 @@ export function Gear() {
               <table>
                 <thead>
                   <tr>
-                    <th>Brevetto</th>
-                    <th>Didattica</th>
-                    <th>Livello</th>
-                    <th>Data</th>
+                    <th>{t('Brevetto')}</th>
+                    <th>{t('Didattica')}</th>
+                    <th>{t('Livello')}</th>
+                    <th>{t('Data')}</th>
                     <th />
                   </tr>
                 </thead>
@@ -340,7 +360,7 @@ export function Gear() {
                   {brevetti.map((c) => (
                     <tr key={c.id} className="clickable" onClick={() => apriBrevetto(c)}>
                       <td>
-                        <div style={{ fontWeight: 550 }}>{c.name || 'senza nome'}</div>
+                        <div style={{ fontWeight: 550 }}>{c.name || t('senza nome')}</div>
                         {(c.number || c.instructor) && (
                           <div className="muted" style={{ fontSize: 11 }}>
                             {[c.number, c.instructor].filter(Boolean).join(' · ')}
@@ -351,13 +371,13 @@ export function Gear() {
                         {c.agency || '—'}
                       </td>
                       <td className="muted" style={{ fontSize: 12 }}>
-                        {CERT_LEVEL_LABEL[c.level]}
+                        {t(CERT_LEVEL_LABEL[c.level])}
                       </td>
                       <td className="muted" style={{ fontSize: 12 }}>
                         {c.issuedOn ? dateShort(c.issuedOn) : '—'}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <button style={{ fontSize: 11, padding: '3px 8px' }}>Apri</button>
+                        <button style={{ fontSize: 11, padding: '3px 8px' }}>{t('Apri')}</button>
                       </td>
                     </tr>
                   ))}
@@ -366,7 +386,7 @@ export function Gear() {
             </div>
             {livello && (
               <p className="muted" style={{ fontSize: 12, marginTop: 10, marginBottom: 0 }}>
-                Livello più alto registrato: <b>{CERT_LEVEL_LABEL[livello]}</b>.
+                {t('Livello più alto registrato')}: <b>{t(CERT_LEVEL_LABEL[livello])}</b>.
               </p>
             )}
           </>
@@ -385,28 +405,32 @@ export function Gear() {
 
       {/* ------------------------------------------ 3. zavorra e configurazione */}
       <div className="card">
-        <h2>Zavorra e configurazione</h2>
+        <h2>{t('Zavorra e configurazione')}</h2>
+        {/*
+         * Perché la zavorra sta accanto all'oscillazione d'assetto: la domanda
+         * vera non è «quanti chili ho usato» ma «con quanti chili tengo meglio
+         * la quota». È la ragione della colonna «Assetto», e sta qui perché a
+         * schermo era un paragrafo che nessuno legge due volte.
+         */}
         <p className="card-sub">
-          Questa sezione non si compila: viene dalle immersioni, che portano già muta e chili. E sta accanto
-          all'oscillazione d'assetto misurata sul profilo, perché la domanda vera non è «quanti chili ho
-          usato» ma «con quanti chili tengo meglio la quota».
+          {t('Non si compila: viene dalle immersioni, che portano già muta e chili.')}
         </p>
 
         {zavorra.length === 0 ? (
           <p className="muted" style={{ fontSize: 13, margin: 0 }}>
-            Nessuna immersione porta insieme la muta e la zavorra. Sono due campi che i computer non
-            registrano quasi mai: si scrivono nella scheda dell'immersione, e da due immersioni con la stessa
-            muta questa tabella comincia a dire qualcosa.
+            {t(
+              'Nessuna immersione ha insieme muta e zavorra. Scrivile nella scheda dell’immersione: da due in poi questa tabella dice qualcosa.',
+            )}
           </p>
         ) : (
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
-                  <th>Muta</th>
-                  <th className="num">Zavorra mediana</th>
-                  <th className="num">Intervallo</th>
-                  <th className="num">Assetto</th>
+                  <th>{t('Muta')}</th>
+                  <th className="num">{t('Zavorra mediana')}</th>
+                  <th className="num">{t('Intervallo')}</th>
+                  <th className="num">{t('Assetto')}</th>
                   {/*
                    * «Con zavorra», non «Immersioni»: qui contano solo quelle in
                    * cui i chili sono scritti, perché senza non c'è mediana da
@@ -415,7 +439,7 @@ export function Gear() {
                    * e finché le due colonne si chiamavano allo stesso modo la
                    * differenza sembrava un errore di conto.
                    */}
-                  <th className="num">Con zavorra</th>
+                  <th className="num">{t('Con zavorra')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -424,17 +448,19 @@ export function Gear() {
                     <td style={{ fontWeight: 550 }}>{r.suit}</td>
                     <td className="num tabular">{r.medianKg} kg</td>
                     <td className="num tabular muted">
-                      {r.minKg === r.maxKg ? 'sempre uguale' : `${r.minKg}–${r.maxKg} kg`}
+                      {r.minKg === r.maxKg ? t('sempre uguale') : `${r.minKg}–${r.maxKg} kg`}
                     </td>
                     <td className="num tabular">
                       {r.medianTrimMpm !== undefined ? (
                         <>
                           {r.medianTrimMpm.toFixed(1)} m/min
                           <div className="muted" style={{ fontSize: 11 }}>
-                            {r.medianTrimMpm <= LIMITS.goodTrimMpm
-                              ? 'quota tenuta bene'
-                              : 'quota da migliorare'}
-                            {` · su ${r.trimBasis}`}
+                            {t(
+                              r.medianTrimMpm <= LIMITS.goodTrimMpm
+                                ? 'quota tenuta bene'
+                                : 'quota da migliorare',
+                            )}
+                            {` · ${t('su')} ${r.trimBasis}`}
                           </div>
                         </>
                       ) : (
@@ -452,19 +478,27 @@ export function Gear() {
         {configurazioni.length > 0 && (
           <>
             <div className="finding-section-label" style={{ marginTop: 16 }}>
-              Configurazione, contata sui log
+              {t('Configurazione, contata sui log')}
             </div>
+            {/*
+             * È grossolana di proposito: distinguere un bibombola da due mono in
+             * sidemount guardando il log non si può, e inventare la distinzione
+             * sarebbe peggio che ammetterlo. A schermo basta dire da dove viene
+             * il conto.
+             */}
             <p className="planner-hint" style={{ marginTop: 0 }}>
-              Ricavata dal numero di bombole registrate e dalla modalità. È grossolana di proposito:
-              distinguere un bibombola da due mono in sidemount guardando il log non si può, e inventare la
-              distinzione sarebbe peggio che ammetterlo.
+              {t('Ricavata dal numero di bombole registrate e dalla modalità.')}
             </p>
             <table>
               <tbody>
                 {configurazioni.map((c) => (
                   <tr key={c.label}>
-                    <td>{c.label}</td>
-                    <td className="num tabular">{imm(c.dives)}</td>
+                    {/* Le etichette fisse («Una bombola», «Rebreather a circuito
+                        chiuso») stanno nel dizionario; quelle con dentro un
+                        numero — «4 bombole» — restano italiane, perché una
+                        chiave per ogni numero non è una traduzione. */}
+                    <td>{t(c.label)}</td>
+                    <td className="num tabular">{imm(c.dives, t)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -478,6 +512,14 @@ export function Gear() {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Un campo del modulo, con la sua etichetta.
+ *
+ * L'etichetta si traduce QUI e non a ogni chiamata: sono venti campi, e venti
+ * `t(...)` sparsi sarebbero venti occasioni di dimenticarne uno. L'unità di
+ * misura invece non passa da `t()`: `L`, `bar`, `kg` si scrivono uguali nelle
+ * due lingue.
+ */
 function Campo({
   etichetta,
   unita,
@@ -487,10 +529,11 @@ function Campo({
   unita?: string;
   children: React.ReactNode;
 }) {
+  const { t } = useLingua();
   return (
     <label className="stack" style={{ gap: 4, fontSize: 12 }}>
       <span className="muted">
-        {etichetta} {unita && <span className="muted">({unita})</span>}
+        {t(etichetta)} {unita && <span className="muted">({unita})</span>}
       </span>
       {children}
     </label>
@@ -531,32 +574,35 @@ function BottoniScheda({
    */
   salvabile?: boolean;
 }) {
+  const { t } = useLingua();
   const [conferma, setConferma] = useState(false);
   return (
     <div className="row" style={{ gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
       <button className="btn" onClick={onSave} disabled={salvabile === false}>
-        Salva
+        {t('Salva')}
       </button>
       {salvabile === false && (
         <span className="muted" style={{ fontSize: 12, alignSelf: 'center' }}>
-          Serve un nome.
+          {t('Serve un nome.')}
         </span>
       )}
-      <button onClick={onCancel}>Annulla</button>
+      <button onClick={onCancel}>{t('Annulla')}</button>
       <span style={{ flex: 1 }} />
       {conferma ? (
         <>
+          {/* `cosa` arriva già tradotto o è il nome scritto dall'utente: la
+              domanda si compone a pezzi perché il nome sta in mezzo. */}
           <span className="muted" style={{ fontSize: 12, alignSelf: 'center' }}>
-            Elimino {cosa}? Non si recupera.
+            {t('Elimino')} {cosa}? {t('Non si recupera.')}
           </span>
-          <button onClick={() => setConferma(false)}>No</button>
+          <button onClick={() => setConferma(false)}>{t('No')}</button>
           <button onClick={onDelete} style={{ color: 'var(--critical)' }}>
-            Sì, elimina
+            {t('Sì, elimina')}
           </button>
         </>
       ) : (
         <button onClick={() => setConferma(true)} style={{ color: 'var(--critical)' }}>
-          Elimina
+          {t('Elimina')}
         </button>
       )}
     </div>
@@ -574,12 +620,13 @@ function SchedaAttrezzo({
   onDelete: (id: string) => void;
   onCancel: () => void;
 }) {
+  const { t } = useLingua();
   const [d, setD] = useState<Equipment>(item);
   const set = <K extends keyof Equipment>(k: K, v: Equipment[K]) => setD((p) => ({ ...p, [k]: v }));
 
   return (
     <div className="card">
-      <h2>{d.name || 'Nuovo pezzo'}</h2>
+      <h2>{d.name || t('Nuovo pezzo')}</h2>
       <div className="grid grid-3" style={{ marginBottom: 8 }}>
         <Campo etichetta="Tipo">
           <select
@@ -613,7 +660,7 @@ function SchedaAttrezzo({
           >
             {(Object.keys(EQUIPMENT_LABEL) as EquipmentKind[]).map((k) => (
               <option key={k} value={k}>
-                {EQUIPMENT_LABEL[k]}
+                {t(EQUIPMENT_LABEL[k])}
               </option>
             ))}
           </select>
@@ -685,11 +732,16 @@ function SchedaAttrezzo({
            * volta, ogni immersione fatta con questo GAV se la ritrova già
            * compilata — e l'alternativa è ridigitarla ogni volta, cioè non
            * scriverla mai e lasciare la tabella della zavorra a metà.
+           *
+           * Due campi e non uno perché piastra e contropiastra si cambiano
+           * indipendentemente: quella d'alluminio per il viaggio, quella
+           * d'acciaio a casa. Sull'immersione il valore proposto resta
+           * modificabile, ed è per questo che qui si dice «proposti».
            */}
           <p className="muted" style={{ fontSize: 11, margin: '0 0 12px' }}>
             {pesoDelGav(d) !== undefined
-              ? `Questo GAV aggiunge ${pesoDelGav(d)} kg, che vengono proposti come piastra sulle immersioni in cui lo scegli e si sommano alla zavorra. Sull'immersione puoi sempre cambiarli: la configurazione si cambia, la piastra d'alluminio per il viaggio e quella d'acciaio a casa.`
-              : 'Due campi separati perché sono due pezzi che si cambiano indipendentemente. La somma viene proposta come piastra sulle immersioni fatte con questo GAV, e si somma alla zavorra dove si ragiona di assetto.'}
+              ? `${t('Questo GAV aggiunge')} ${pesoDelGav(d)} kg. ${t('Vengono proposti come piastra sulle immersioni in cui lo scegli, e li puoi cambiare lì.')}`
+              : t('La somma viene proposta come piastra sulle immersioni fatte con questo GAV.')}
           </p>
         </>
       )}
@@ -713,7 +765,7 @@ function SchedaAttrezzo({
           >
             {(Object.keys(SERVICE_LABEL) as ServiceKind[]).map((k) => (
               <option key={k} value={k}>
-                {SERVICE_LABEL[k]}
+                {t(SERVICE_LABEL[k])}
               </option>
             ))}
           </select>
@@ -768,11 +820,11 @@ function SchedaAttrezzo({
           checked={!!d.retired}
           onChange={(e) => set('retired', e.target.checked || undefined)}
         />
-        <span>Non lo uso più (resta in archivio, fuori dall'elenco)</span>
+        <span>{t('Non lo uso più (resta in archivio, fuori dall’elenco)')}</span>
       </label>
 
       <BottoniScheda
-        cosa={d.name ? `«${d.name}»` : 'questo pezzo'}
+        cosa={d.name ? `«${d.name}»` : t('questo pezzo')}
         salvabile={!!d.name?.trim()}
         onSave={() => onSave(d)}
         onCancel={onCancel}
@@ -793,12 +845,13 @@ function SchedaBrevetto({
   onDelete: (id: string) => void;
   onCancel: () => void;
 }) {
+  const { t } = useLingua();
   const [d, setD] = useState<Certification>(item);
   const set = <K extends keyof Certification>(k: K, v: Certification[K]) => setD((p) => ({ ...p, [k]: v }));
 
   return (
     <div className="card">
-      <h2>{d.name || 'Nuovo brevetto'}</h2>
+      <h2>{d.name || t('Nuovo brevetto')}</h2>
       <div className="grid grid-3" style={{ marginBottom: 8 }}>
         <Campo etichetta="Didattica">
           <input
@@ -815,7 +868,7 @@ function SchedaBrevetto({
           <select value={d.level} onChange={(e) => set('level', e.target.value as CertLevel)}>
             {(Object.keys(CERT_LEVEL_LABEL) as CertLevel[]).map((k) => (
               <option key={k} value={k}>
-                {CERT_LEVEL_LABEL[k]}
+                {t(CERT_LEVEL_LABEL[k])}
               </option>
             ))}
           </select>
@@ -852,7 +905,7 @@ function SchedaBrevetto({
         />
       </Campo>
       <BottoniScheda
-        cosa={d.name ? `«${d.name}»` : 'questo brevetto'}
+        cosa={d.name ? `«${d.name}»` : t('questo brevetto')}
         salvabile={!!d.name?.trim()}
         onSave={() => onSave(d)}
         onCancel={onCancel}

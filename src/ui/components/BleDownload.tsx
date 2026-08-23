@@ -33,6 +33,7 @@ import { TauriBleTransport } from '../../storage/ble';
 import { esporta } from '../esporta';
 import { suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
+import { useLingua } from '../lingua';
 import type { DownloadMarker } from '../../core/ble/types';
 import { dateShort, imm } from '../format';
 
@@ -79,6 +80,7 @@ function byteInBase64(b: Uint8Array): string {
 
 export function BleDownload() {
   const { importDives, bleMarkers, saveBleMarker, forgetBleMarker } = useDiveLog();
+  const { t } = useLingua();
   const [stato, setStato] = useState<Stato>({ fase: 'iniziale' });
   const [trovati, setTrovati] = useState<RecognisedDevice[]>([]);
   const [copiato, setCopiato] = useState(false);
@@ -338,19 +340,20 @@ export function BleDownload() {
     <div className="card">
       <div className="spread" style={{ alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
         <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-          <h2 style={{ margin: 0 }}>Scarica dal computer subacqueo</h2>
+          <h2 style={{ margin: 0 }}>{t('Scarica dal computer subacqueo')}</h2>
           <p className="card-sub" style={{ marginBottom: 0 }}>
-            Via Bluetooth, senza passare dall'applicazione del costruttore. Le immersioni entrano nello stesso
-            modo dei file: quelle che ci sono già vengono arricchite, non duplicate.
+            {t(
+              'Via Bluetooth, senza l’app del costruttore. Le immersioni già presenti vengono arricchite, non duplicate.',
+            )}
           </p>
         </div>
         {stato.fase === 'cerca' ? (
-          <button onClick={fermaRicerca}>Ferma la ricerca</button>
+          <button onClick={fermaRicerca}>{t('Ferma la ricerca')}</button>
         ) : stato.fase === 'scarica' ? (
-          <button onClick={() => scarico.current?.abort()}>Interrompi</button>
+          <button onClick={() => scarico.current?.abort()}>{t('Interrompi')}</button>
         ) : (
           <button className="btn" onClick={() => void cerca()}>
-            Cerca il computer
+            {t('Cerca il computer')}
           </button>
         )}
       </div>
@@ -366,10 +369,10 @@ export function BleDownload() {
        */}
       {DRIVERS.length === 0 && (
         <div className="notice">
-          <b>Nessun computer è ancora supportato per lo scarico diretto.</b> Il collegamento Bluetooth è
-          pronto e provato, ma i protocolli — che nessun costruttore pubblica — si aggiungono uno alla volta,
-          ognuno verificato contro il computer vero. Finché non c'è quello del tuo, la strada resta l'export
-          dall'applicazione del costruttore e l'import del file qui sopra.
+          <b>{t('Nessun computer è ancora supportato per lo scarico diretto.')}</b>{' '}
+          {t(
+            'Il Bluetooth funziona, ma i protocolli si aggiungono uno alla volta. Per ora: esporta dall’app del costruttore e importa il file qui sopra.',
+          )}
         </div>
       )}
 
@@ -397,13 +400,14 @@ export function BleDownload() {
        */}
       {stato.fase === 'cerca' && trovati.length === 0 && aLungoSenzaNulla && (
         <div className="notice" role="status">
-          <b>Ancora niente.</b> Di solito è una di tre cose: il computer non è in modalità collegamento
-          (sull'Aladin si tiene premuto il tasto, sui Shearwater c'è la voce nel menu), oppure è troppo
-          lontano, oppure il permesso Bluetooth è stato negato a questa app.{' '}
-          {suIOS()
-            ? 'Il permesso si controlla in Impostazioni → MyDiveLog → Bluetooth.'
-            : 'Il permesso si controlla in Impostazioni di Sistema → Privacy e sicurezza → Bluetooth.'}{' '}
-          Un permesso negato non produce nessun errore: la ricerca sembra semplicemente non trovare niente.
+          <b>{t('Ancora niente.')}</b>{' '}
+          {t('Controlla: il computer è in modalità collegamento? È vicino? Il permesso Bluetooth è dato?')}{' '}
+          {t(
+            suIOS()
+              ? 'Impostazioni → MyDiveLog → Bluetooth.'
+              : 'Impostazioni di Sistema → Privacy e sicurezza → Bluetooth.',
+          )}{' '}
+          {t('Un permesso negato non dà errore: la ricerca sembra solo non trovare niente.')}
         </div>
       )}
 

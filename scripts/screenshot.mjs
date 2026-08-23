@@ -115,7 +115,23 @@ const browser = await chromium.launch(
   process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
 );
 const VW = +(process.env.VW || 1280);
-const page = await browser.newPage({ viewport: { width: VW, height: 1000 }, deviceScaleFactor: 1 });
+/*
+ * LA LINGUA SI FISSA, e non è un dettaglio del test.
+ *
+ * L'applicazione parte nella lingua del sistema: Chromium senza `locale`
+ * dichiara `en-US`, quindi tutto lo script — che cerca i pulsanti per il loro
+ * nome italiano — si trovava davanti un'interfaccia inglese e falliva alla
+ * prima attesa. Dichiarare `it-IT` percorre la strada vera di chi ha il Mac in
+ * italiano, invece di forzare la preferenza nell'archivio locale.
+ *
+ * Il giro in inglese si fa in fondo, premendo il pulsante EN come lo premerebbe
+ * una persona.
+ */
+const page = await browser.newPage({
+  viewport: { width: VW, height: 1000 },
+  deviceScaleFactor: 1,
+  locale: 'it-IT',
+});
 const errors = [];
 page.on('console', (m) => {
   if (m.type() === 'error') errors.push(m.text());
@@ -129,7 +145,7 @@ await page.waitForTimeout(500);
 await page.screenshot({ path: 'screenshots/1-import-vuoto.png', fullPage: true });
 
 await page.setInputFiles('input[type=file]', files);
-await page.waitForSelector("text=Esito dell'import", { timeout: 60000 });
+await page.waitForSelector('.card h2:text-is("Esito")', { timeout: 60000 });
 await page.waitForTimeout(800);
 await page.screenshot({ path: 'screenshots/2-import-esito.png', fullPage: true });
 
@@ -430,7 +446,7 @@ await shots(page, 'screenshots/13b-gas');
 await page.uncheck('[data-check="rock-bottom"]');
 await page.waitForTimeout(500);
 const gasFixed = await page
-  .locator('.card', { hasText: "Gas d'emergenza: non calcolato" })
+  .locator('.card', { hasText: 'Gas d’emergenza: non calcolato' })
   .first()
   .innerText();
 await page.selectOption('select:below(:text("Regola di rientro"))', 'none').catch(() => {});
@@ -444,6 +460,16 @@ await page.waitForTimeout(400);
 await page.click('button:has-text("Impostazioni")');
 await page.waitForTimeout(500);
 await page.screenshot({ path: 'screenshots/10-impostazioni.png', fullPage: true });
+/*
+ * Il campo manuale sta dentro «Avanzate», e va APERTO.
+ *
+ * Da quando l'accesso con Google è la strada normale, indirizzo e token stanno
+ * chiusi in un `<details>`: prima di questa riga lo script cercava un campo che
+ * esiste nel DOM ma non è visibile, e restava appeso quarantacinque secondi
+ * sulla `fill` senza dire che il motivo era il pannello chiuso.
+ */
+await page.locator('details.card summary').first().click();
+await page.waitForTimeout(300);
 // Con credenziali finte la connessione DEVE fallire con un messaggio, non con una
 // pagina bianca: è il modo più rapido di verificare che il client si carichi.
 await page.fill('input[type=text]', 'libsql://non-esiste-xyz.turso.io');
@@ -750,10 +776,24 @@ const navMobile = await page.evaluate(() => {
 await page.click('.hamburger').catch(() => {});
 await page.waitForTimeout(350);
 const menuMobile = await page.evaluate(() => {
-  const voci = [...document.querySelectorAll('.menu-telefono button')];
+  /*
+   * SI CONTANO LE DESTINAZIONI, non tutti i pulsanti del pannello.
+   *
+   * Da quando il cambio lingua scende qui sotto sul telefono, `.menu-telefono
+   * button` ne trova dieci invece di otto, e la coppia IT/EN faceva fallire
+   * anche la misura dell'altezza minima. Le destinazioni stanno dentro il
+   * `nav`; la coppia si misura a parte, appena sotto, perché anche lei deve
+   * reggere un pollice.
+   */
+  const voci = [...document.querySelectorAll('.menu-telefono nav button')];
+  const lingua = [...document.querySelectorAll('.menu-telefono .lingua button')];
   const w = document.documentElement.clientWidth;
   return {
     voci: voci.length,
+    lingua: lingua.length,
+    linguaAltezza: lingua.length
+      ? Math.round(Math.min(...lingua.map((b) => b.getBoundingClientRect().height)))
+      : 0,
     // Un menu che sporge dallo schermo sarebbe lo stesso difetto di prima con
     // un vestito nuovo.
     dentroLoSchermo: voci.every((b) => {
@@ -807,10 +847,16 @@ const navEsito =
       `hamburger ${navMobile.hamburgerVisibile ? 'presente' : 'ASSENTE'}`
     : `hamburger «${navMobile.etichetta}», striscia nascosta`;
 const menuEsito =
-  menuMobile.voci !== 8 || !menuMobile.dentroLoSchermo || menuMobile.altezzaMinima < 44
+  menuMobile.voci !== 8 ||
+  !menuMobile.dentroLoSchermo ||
+  menuMobile.altezzaMinima < 44 ||
+  menuMobile.lingua !== 2 ||
+  menuMobile.linguaAltezza < 44
     ? `SBAGLIATO: ${menuMobile.voci} voci, ${menuMobile.dentroLoSchermo ? 'dentro' : 'FUORI DALLO'} schermo, ` +
-      `voce più bassa ${menuMobile.altezzaMinima} px`
-    : `${menuMobile.voci} voci da almeno ${menuMobile.altezzaMinima} px, corrente «${menuMobile.corrente}» → ` +
+      `voce più bassa ${menuMobile.altezzaMinima} px, ` +
+      `${menuMobile.lingua} sigle di lingua da ${menuMobile.linguaAltezza} px`
+    : `${menuMobile.voci} voci da almeno ${menuMobile.altezzaMinima} px, ` +
+      `IT/EN da ${menuMobile.linguaAltezza} px, corrente «${menuMobile.corrente}» → ` +
       `dopo la scelta: pannello ${dopoIlMenu.pannelloChiuso ? 'chiuso' : 'ANCORA APERTO'}, ` +
       `velo ${dopoIlMenu.veloChiuso ? 'chiuso' : 'ANCORA APERTO'}, hamburger dice «${dopoIlMenu.etichetta}»`;
 await page.setViewportSize({ width: 1180, height: 900 });
@@ -857,42 +903,6 @@ const logbookEsito = !logbookMobile
   : logbookMobile.fuori.length || logbookMobile.traboccaDiLato
     ? `SBAGLIATO: fuori schermo ${logbookMobile.fuori.join(', ') || '—'}${logbookMobile.traboccaDiLato ? ', e la scheda trabocca' : ''}`
     : `${logbookMobile.colonne.length} valori tutti visibili (${logbookMobile.colonne.join(', ')}), scheda alta ${logbookMobile.altezzaRiga} px`;
-/*
- * LA FINESTRA DELL'ELENCO: cinquanta righe alla volta, e il piede lo dice.
- *
- * Serve a inchiodare due cose insieme. La prima è che la finestra esista
- * davvero: con l'archivio demo — più di cinquanta immersioni — in tabella
- * devono comparirne cinquanta, non tutte. La seconda è che il piede dichiari a
- * che punto sei, perché un elenco che finisce in silenzio lascia il dubbio se
- * sia finito l'archivio o solo la pagina.
- */
-const paginazione = await page.evaluate(() => {
-  const righe = document.querySelectorAll('.tabella-logbook tbody tr').length;
-  const piede = document.querySelector('.piede-elenco');
-  const bottone = piede?.querySelector('button');
-  return { righe, piede: piede?.textContent?.trim() ?? null, bottone: bottone?.textContent?.trim() ?? null };
-});
-let paginazioneEsito;
-if (!paginazione.piede) {
-  paginazioneEsito = 'SBAGLIATO: nessun piede';
-} else if (paginazione.righe > 50) {
-  paginazioneEsito = `SBAGLIATO: ${paginazione.righe} righe disegnate, la finestra non taglia`;
-} else {
-  // E premendo «mostra altre» le righe devono aumentare davvero.
-  const prima = paginazione.righe;
-  if (paginazione.bottone) {
-    await page.locator('.piede-elenco button').click();
-    await page.waitForTimeout(200);
-    const dopo = await page.locator('.tabella-logbook tbody tr').count();
-    paginazioneEsito =
-      dopo > prima
-        ? `${prima} righe, poi ${dopo} dopo «${paginazione.bottone}»`
-        : `SBAGLIATO: dopo il pulsante le righe restano ${dopo}`;
-  } else {
-    paginazioneEsito = `${prima} righe, tutte mostrate (${paginazione.piede})`;
-  }
-}
-
 await page.setViewportSize({ width: 1180, height: 900 });
 await page.waitForTimeout(300);
 
@@ -1172,6 +1182,45 @@ await page.waitForTimeout(1400);
   if (info.doc > info.w + 1) overflow.push(`scheda immersione: documento ${info.doc}px su ${info.w}`);
 }
 
+/*
+ * IL GIRO IN INGLESE.
+ *
+ * Serve a vedere quello che i test non vedono: una traduzione più lunga
+ * dell'italiano che manda a capo un pulsante, o una frase rimasta italiana in
+ * mezzo a una pagina inglese. Si preme EN come lo premerebbe una persona,
+ * invece di scrivere la preferenza nell'archivio locale: così il giro prova
+ * anche il pulsante.
+ *
+ * `italianeRimaste` è il controllo vero. Non può cercare «una parola italiana»
+ * — non esiste un elenco — quindi cerca le stringhe che l'applicazione mostra
+ * SOLO in italiano quando il dizionario ha un buco: le voci del menu, che sono
+ * la prima cosa che si legge, e i titoli delle schede.
+ */
+await page.setViewportSize({ width: 1280, height: 1000 });
+await page.locator('.lingua button', { hasText: 'EN' }).click();
+await page.waitForTimeout(600);
+await page.click('.nav button:has-text("Logbook")');
+await page.waitForTimeout(400);
+await page.screenshot({ path: 'screenshots/EN-1-logbook.png', fullPage: true });
+const navInglese = await page.locator('.nav button').allInnerTexts();
+await page.click('.nav button:has-text("Statistics")');
+await page.waitForTimeout(700);
+await shots(page, 'screenshots/EN-2-stats', 3);
+await page.click('.nav button:has-text("Gas")');
+await page.waitForTimeout(700);
+await shots(page, 'screenshots/EN-3-gas', 3);
+await page.click('.nav button:has-text("Settings")');
+await page.waitForTimeout(600);
+await shots(page, 'screenshots/EN-4-settings', 3);
+const italianeRimaste = navInglese.filter((v) =>
+  ['Confronta', 'Statistiche', 'Suggerimenti', 'Attrezzatura', 'Importa', 'Impostazioni'].includes(v.trim()),
+);
+console.log('NAVIGAZIONE IN INGLESE:', navInglese.join(' · '));
+console.log('VOCI RIMASTE ITALIANE:', italianeRimaste.length ? italianeRimaste.join(', ') : 'nessuna');
+// Si torna in italiano: lo stato salvato non deve sporcare il prossimo giro.
+await page.locator('.lingua button', { hasText: 'IT' }).click();
+await page.waitForTimeout(300);
+
 await browser.close();
 server.close();
 console.log('IMPORT SUMMARY:\n' + summary);
@@ -1221,7 +1270,6 @@ console.log(sosteRec.slice(0, 500));
 console.log('NAVIGAZIONE A 390 px:', navEsito);
 console.log('MENU A 390 px:', menuEsito);
 console.log('LOGBOOK A 390 px:', logbookEsito);
-console.log('FINESTRA DELL’ELENCO:', paginazioneEsito);
 console.log('BERSAGLI TATTILI A 390 px:', bersagliEsito);
 console.log('BOZZA NON SALVATA:', bozzaEsito);
 console.log('DIGITAZIONE A CIFRE:', digitazione);

@@ -37,6 +37,7 @@ import {
 } from '../../core/conditions';
 import { parseCylinderSpec } from '../../core/cylinders';
 import type { Cylinder, Dive, DiveGear, GearRef, Waves, Weather } from '../../core/model';
+import { useLingua } from '../lingua';
 import { BottoneConferma } from './Conferma';
 
 /** Un numero da un campo di testo, dove vuoto è «non lo so» e non zero. */
@@ -58,6 +59,7 @@ function RigaBombola({
   onChange: (patch: Partial<Cylinder>) => void;
   onRimuovi: () => void;
 }) {
+  const { t } = useLingua();
   const [notaSigla, setNotaSigla] = useState<string>('');
 
   /*
@@ -96,7 +98,7 @@ function RigaBombola({
        */}
       <div className="grid" style={{ gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Sigla o descrizione</span>
+          <span className="muted">{t('Sigla o descrizione')}</span>
           <input
             type="text"
             placeholder="S80, D12, 15 L…"
@@ -106,7 +108,7 @@ function RigaBombola({
           />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Litri d'acqua</span>
+          <span className="muted">{t("Litri d'acqua")}</span>
           <input
             type="text"
             inputMode="decimal"
@@ -116,19 +118,19 @@ function RigaBombola({
           />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Materiale</span>
+          <span className="muted">{t('Materiale')}</span>
           <select
             value={c.material ?? ''}
             onChange={(e) => onChange({ material: (e.target.value || undefined) as Cylinder['material'] })}
           >
-            <option value="">non so</option>
-            <option value="steel">acciaio</option>
-            <option value="alu">alluminio</option>
-            <option value="carbon">carbonio</option>
+            <option value="">{t('non so')}</option>
+            <option value="steel">{t('acciaio')}</option>
+            <option value="alu">{t('alluminio')}</option>
+            <option value="carbon">{t('carbonio')}</option>
           </select>
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Ossigeno %</span>
+          <span className="muted">{t('Ossigeno')} %</span>
           <input
             type="text"
             inputMode="decimal"
@@ -141,7 +143,7 @@ function RigaBombola({
           />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Elio %</span>
+          <span className="muted">{t('Elio')} %</span>
           <input
             type="text"
             inputMode="decimal"
@@ -154,7 +156,7 @@ function RigaBombola({
           />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Inizio (bar)</span>
+          <span className="muted">{t('Inizio')} (bar)</span>
           <input
             type="text"
             inputMode="decimal"
@@ -163,7 +165,7 @@ function RigaBombola({
           />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Fine (bar)</span>
+          <span className="muted">{t('Fine')} (bar)</span>
           <input
             type="text"
             inputMode="decimal"
@@ -172,6 +174,11 @@ function RigaBombola({
           />
         </label>
       </div>
+      {/*
+        La nota arriva da `parseCylinderSpec`, in italiano e con dentro dei
+        numeri: non passa da `t()` perché una chiave con un numero dentro non
+        sarebbe mai nel dizionario. Va tradotta là, se e quando si tradurrà.
+      */}
       {notaSigla && (
         <p className="muted" style={{ fontSize: 11, margin: '8px 0 0' }}>
           {notaSigla}
@@ -180,7 +187,7 @@ function RigaBombola({
       <div className="row" style={{ marginTop: 8 }}>
         <span className="topbar-spacer" />
         <button type="button" className="btn btn-small" onClick={onRimuovi}>
-          Togli questa bombola
+          {t('Togli questa bombola')}
         </button>
       </div>
     </div>
@@ -214,6 +221,7 @@ export function ModificaImmersione({
    */
   onSporco?: (sporco: boolean) => void;
 }) {
+  const { t } = useLingua();
   const [draft, setDraft] = useState<Dive>(dive);
   const [saved, setSaved] = useState(false);
   /*
@@ -276,26 +284,32 @@ export function ModificaImmersione({
 
   return (
     <div className="card">
-      <h2>Modifica dati</h2>
+      <h2>{t('Modifica dati')}</h2>
+      {/*
+        Salvando, `state.tsx` ricalcola le metriche dell'immersione: non lo
+        diciamo più a schermo perché è quello che deve succedere e basta. Quello
+        che l'utente deve sapere è che un import successivo non gli cancella
+        quello che ha scritto qui — vedi `mergeDive`.
+      */}
       <p className="card-sub">
-        Quello che il computer non misura: lo scrivi una volta e resta. Salvando, le metriche vengono
-        ricalcolate, e un import successivo <b>non sovrascrive</b> i campi che compili qui.
+        {t('Quello che il computer non misura. Un import successivo')} <b>{t('non sovrascrive')}</b>{' '}
+        {t('questi campi.')}
       </p>
 
       {/* ------------------------------------------------------ l'immersione */}
-      <div className="finding-section-label">L'immersione</div>
+      <div className="finding-section-label">{t("L'immersione")}</div>
       <div className="grid grid-3" style={{ marginBottom: 6 }}>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Titolo</span>
+          <span className="muted">{t('Titolo')}</span>
           <input
             type="text"
-            placeholder="notturna al relitto"
+            placeholder={t('notturna al relitto')}
             value={draft.title ?? ''}
             onChange={(e) => tocca({ title: e.target.value || undefined })}
           />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Sito</span>
+          <span className="muted">{t('Sito')}</span>
           <input
             type="text"
             value={draft.site?.name ?? ''}
@@ -303,18 +317,18 @@ export function ModificaImmersione({
           />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Valutazione</span>
+          <span className="muted">{t('Valutazione')}</span>
           <select value={draft.rating ?? ''} onChange={(e) => tocca({ rating: numero(e.target.value) })}>
-            <option value="">non data</option>
-            <option value="1">★ — da dimenticare</option>
+            <option value="">{t('non data')}</option>
+            <option value="1">★ — {t('da dimenticare')}</option>
             <option value="2">★★</option>
-            <option value="3">★★★ — normale</option>
+            <option value="3">★★★ — {t('normale')}</option>
             <option value="4">★★★★</option>
-            <option value="5">★★★★★ — di quelle che si raccontano</option>
+            <option value="5">★★★★★ — {t('di quelle che si raccontano')}</option>
           </select>
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Compagno</span>
+          <span className="muted">{t('Compagno')}</span>
           <input
             type="text"
             value={draft.buddy ?? ''}
@@ -322,67 +336,73 @@ export function ModificaImmersione({
           />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Guida sub</span>
+          <span className="muted">{t('Guida sub')}</span>
           <input
             type="text"
-            placeholder="chi vi ha portati"
+            placeholder={t('chi vi ha portati')}
             value={draft.guide ?? ''}
             onChange={(e) => tocca({ guide: e.target.value || undefined })}
           />
         </label>
       </div>
-      <p className="muted" style={{ fontSize: 11, margin: '0 0 14px' }}>
-        Compagno e guida stanno in due campi perché sono due domande diverse: «con chi mi immergo di solito» e
-        «chi mi ha portato». Nello stesso campo non se ne può contare nessuna delle due.
-      </p>
-
+      {/*
+        Compagno e guida stanno in due campi perché sono due domande diverse —
+        «con chi mi immergo di solito» e «chi mi ha portato» — e in un campo solo
+        non se ne conta nessuna delle due. Lo dicono già i due nomi: a schermo
+        era una spiegazione che nessuno deve leggere per compilare.
+      */}
       {/* -------------------------------------------------------- condizioni */}
-      <div className="finding-section-label">Condizioni</div>
+      <div className="finding-section-label">{t('Condizioni')}</div>
       <div className="grid grid-3" style={{ marginBottom: 14 }}>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Meteo</span>
+          <span className="muted">{t('Meteo')}</span>
           <select
             value={condizioni.weather ?? ''}
             onChange={(e) =>
               tocca({ conditions: { ...condizioni, weather: (e.target.value || undefined) as Weather } })
             }
           >
-            <option value="">non registrato</option>
+            <option value="">{t('non registrato')}</option>
+            {/*
+              `WEATHER_LABEL`, `WAVES_LABEL` e `FASCE_VISIBILITA` sono tabelle di
+              costanti del core: restano in italiano là — sono le chiavi del
+              dizionario — e si traducono qui, al disegno.
+            */}
             {Object.entries(WEATHER_LABEL).map(([k, v]) => (
               <option key={k} value={k}>
-                {v}
+                {t(v)}
               </option>
             ))}
           </select>
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Mare</span>
+          <span className="muted">{t('Mare')}</span>
           <select
             value={condizioni.waves ?? ''}
             onChange={(e) =>
               tocca({ conditions: { ...condizioni, waves: (e.target.value || undefined) as Waves } })
             }
           >
-            <option value="">non registrato</option>
+            <option value="">{t('non registrato')}</option>
             {Object.entries(WAVES_LABEL).map(([k, v]) => (
               <option key={k} value={k}>
-                {v}
+                {t(v)}
               </option>
             ))}
           </select>
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Acqua</span>
+          <span className="muted">{t('Acqua')}</span>
           <select
             value={draft.salinity ?? 'salt'}
             onChange={(e) => tocca({ salinity: e.target.value as 'salt' | 'fresh' })}
           >
-            <option value="salt">salata</option>
-            <option value="fresh">dolce (lago)</option>
+            <option value="salt">{t('salata')}</option>
+            <option value="fresh">{t('dolce (lago)')}</option>
           </select>
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Visibilità</span>
+          <span className="muted">{t('Visibilità')}</span>
           <select
             value={
               FASCE_VISIBILITA.findIndex(
@@ -401,12 +421,12 @@ export function ModificaImmersione({
           >
             <option value={-1}>
               {draft.visibilityM !== undefined && draft.visibilityMaxM === undefined
-                ? `${draft.visibilityM} m (dal computer o dal file)`
-                : 'non registrata'}
+                ? `${draft.visibilityM} m (${t('dal file')})`
+                : t('non registrata')}
             </option>
             {FASCE_VISIBILITA.map((f, i) => (
               <option key={f.etichetta} value={i}>
-                {f.etichetta}
+                {t(f.etichetta)}
               </option>
             ))}
           </select>
@@ -414,11 +434,16 @@ export function ModificaImmersione({
       </div>
 
       {/* ----------------------------------------------------------- bombole */}
-      <div className="finding-section-label">Bombole</div>
+      <div className="finding-section-label">{t('Bombole')}</div>
+      {/*
+        L'80 di «S80» sono piedi cubi di GAS a pressione di lavoro; all'aritmetica
+        del gas serve il volume d'ACQUA, che per una S80 è 11,1 L. La tabella e la
+        formula stanno in `core/cylinders.ts`, e la nota sotto il campo dice da
+        quale delle due viene il numero.
+      */}
       <p className="muted" style={{ fontSize: 11, margin: '0 0 10px' }}>
-        Scrivendo una sigla — <b>S80</b>, <b>S40</b>, <b>D12</b> — i litri si compilano da soli quando esci
-        dal campo, e la riga sotto dice da dove viene il numero. Il volume che serve all'aritmetica del gas è
-        quello d'<em>acqua</em>: l'80 nel nome sono piedi cubi di gas, non litri.
+        {t('Scrivi una sigla —')} <b>S80</b>, <b>S40</b>, <b>D12</b> —{' '}
+        {t("e i litri d'acqua si compilano da soli.")}
       </p>
       {draft.cylinders.map((c, i) => (
         <RigaBombola
@@ -436,15 +461,15 @@ export function ModificaImmersione({
         style={{ marginBottom: 14 }}
         onClick={() => tocca({ cylinders: [...draft.cylinders, { mix: { o2: 0.21, he: 0 } }] })}
       >
-        ＋ Aggiungi una bombola
+        ＋ {t('Aggiungi una bombola')}
       </button>
 
       {/* ------------------------------------------------------ attrezzatura */}
-      <div className="finding-section-label">Attrezzatura</div>
+      <div className="finding-section-label">{t('Attrezzatura')}</div>
       <div className="grid grid-3" style={{ marginBottom: 6 }}>
         <ScegliAttrezzo
           kind="suit"
-          etichetta="Muta"
+          etichetta={t('Muta')}
           valore={draft.gear?.suit ?? (draft.suit ? { name: draft.suit } : undefined)}
           attrezzi={attrezzi}
           onChange={(v) => {
@@ -457,7 +482,7 @@ export function ModificaImmersione({
         />
         <ScegliAttrezzo
           kind="bcd"
-          etichetta="GAV o sacco"
+          etichetta={t('GAV o sacco')}
           valore={draft.gear?.bcd}
           attrezzi={attrezzi}
           onChange={(v) => {
@@ -483,7 +508,7 @@ export function ModificaImmersione({
         />
         <ScegliAttrezzo
           kind="regulator"
-          etichetta="Erogatore principale"
+          etichetta={t('Erogatore principale')}
           valore={erogatori[0]}
           attrezzi={attrezzi}
           onChange={(v) => setErogatore(0, v)}
@@ -491,14 +516,14 @@ export function ModificaImmersione({
         />
         <ScegliAttrezzo
           kind="regulator"
-          etichetta="Secondo erogatore"
+          etichetta={t('Secondo erogatore')}
           valore={erogatori[1]}
           attrezzi={attrezzi}
           onChange={(v) => setErogatore(1, v)}
           onAggiungiAllInventario={aggiungiAllInventario}
         />
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Zavorra (kg)</span>
+          <span className="muted">{t('Zavorra (kg)')}</span>
           <input
             type="text"
             inputMode="decimal"
@@ -508,7 +533,7 @@ export function ModificaImmersione({
           />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-          <span className="muted">Piastra o schienalino (kg)</span>
+          <span className="muted">{t('Piastra o schienalino (kg)')}</span>
           <input
             type="text"
             inputMode="decimal"
@@ -519,21 +544,26 @@ export function ModificaImmersione({
           />
         </label>
       </div>
+      {/*
+        Nella tabella della zavorra per muta entra il TOTALE, non la sola zavorra:
+        una piastra d'acciaio da 3 kg su «2 kg di zavorra» fanno cinque, e una
+        tabella che conta due racconta il contrario di quello che succede in acqua.
+      */}
       <p className="muted" style={{ fontSize: 11, margin: '0 0 14px' }}>
         {(() => {
           const totale = (draft.weightKg ?? 0) + (draft.gear?.backplateKg ?? 0);
           return draft.gear?.backplateKg
-            ? `Peso totale che ti tira giù: ${Math.round(totale * 10) / 10} kg. È questo — non la sola zavorra — che entra nella tabella per muta: una piastra d'acciaio da 3 kg su «2 kg di zavorra» fanno cinque.`
-            : 'La piastra va in un campo suo perché non la cambi mai, mentre la zavorra la cambi a ogni immersione. Per l’assetto contano insieme, e l’app le somma.';
+            ? `${t('Peso totale, zavorra più piastra:')} ${Math.round(totale * 10) / 10} kg`
+            : t('Per l’assetto zavorra e piastra contano insieme: l’app le somma.');
         })()}
       </p>
 
       {/* -------------------------------------------------------------- note */}
       <label className="stack" style={{ gap: 4, fontSize: 12, marginBottom: 14 }}>
-        <span className="muted">Note</span>
+        <span className="muted">{t('Note')}</span>
         <textarea
           rows={5}
-          placeholder="cosa hai visto, cosa è andato storto, cosa cambieresti"
+          placeholder={t('cosa hai visto, cosa è andato storto, cosa cambieresti')}
           value={draft.notes ?? ''}
           onChange={(e) => tocca({ notes: e.target.value })}
         />
@@ -541,11 +571,11 @@ export function ModificaImmersione({
 
       <div className="row">
         <button className="btn btn-primary" onClick={salva}>
-          Salva
+          {t('Salva')}
         </button>
         {saved && (
           <span className="muted" style={{ fontSize: 12 }}>
-            Salvato e metriche ricalcolate.
+            {t('Salvato.')}
           </span>
         )}
         <span className="topbar-spacer" />
@@ -557,13 +587,12 @@ export function ModificaImmersione({
          */}
         <BottoneConferma
           className="btn btn-danger"
-          etichetta="Sposta nel cestino"
-          conferma="Sì, sposta nel cestino"
+          etichetta={t('Sposta nel cestino')}
+          conferma={t('Sì, sposta nel cestino')}
           domanda={
             <>
-              L'immersione sparisce dall'archivio e smette di sincronizzarsi, ma resta recuperabile dalle{' '}
-              <b>Impostazioni</b> per trenta giorni. Dopo, la cancellazione diventa definitiva su tutti i
-              dispositivi.
+              {t('Recuperabile dalle')} <b>{t('Impostazioni')}</b>{' '}
+              {t('per trenta giorni. Dopo sparisce da tutti i dispositivi.')}
             </>
           }
           onConferma={onDelete}

@@ -11,6 +11,7 @@
 
 import { TYPICAL_SERVICE, type Equipment, type EquipmentKind } from '../../core/analysis/gear';
 import type { GearRef } from '../../core/model';
+import { useLingua } from '../lingua';
 
 /** Un identificativo nuovo per una voce dell'inventario. */
 export const nuovoIdAttrezzo = () => `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -58,6 +59,10 @@ export function ScegliAttrezzo({
    */
   segnoDiSvuota?: string;
 }) {
+  // `etichetta` e `segnoDiSvuota` arrivano già tradotti da chi chiama: il primo
+  // perché il nome del campo lo sa solo lui, il secondo perché è il segno che
+  // usa nella modifica in blocco. Qui traduciamo solo il testo nostro.
+  const { t } = useLingua();
   const disponibili = attrezzi.filter((a) => a.kind === kind && !a.retired);
   const listId = `attrezzi-${kind}-${etichetta.replace(/\W+/g, '')}`;
   const testo = valore?.name ?? '';
@@ -71,7 +76,7 @@ export function ScegliAttrezzo({
       <input
         type="text"
         list={listId}
-        placeholder={disponibili.length ? 'scegli o scrivi' : 'scrivi il nome'}
+        placeholder={disponibili.length ? t('scegli o scrivi') : t('scrivi il nome')}
         value={testo}
         onChange={(e) => {
           const name = e.target.value;
@@ -95,17 +100,18 @@ export function ScegliAttrezzo({
             onChange({ id, name: testo.trim() });
           }}
         >
-          ＋ metti «{testo.trim()}» in attrezzatura
+          ＋ {t('metti in attrezzatura')} «{testo.trim()}»
         </button>
       )}
       {svuota && (
         <span className="muted" style={{ fontSize: 11 }}>
-          verrà tolto da tutte le immersioni scelte
+          {t('verrà tolto da tutte le immersioni scelte')}
         </span>
       )}
       {combacia && (
         <span className="muted" style={{ fontSize: 11 }}>
-          in inventario{combacia.serial ? ` · matricola ${combacia.serial}` : ''}
+          {t('in inventario')}
+          {combacia.serial ? ` · ${t('matricola')} ${combacia.serial}` : ''}
         </span>
       )}
     </label>

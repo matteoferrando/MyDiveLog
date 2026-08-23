@@ -40,6 +40,18 @@ import {
 // qui darebbe due implementazioni che possono divergere, e la descrizione a voce
 // direbbe un numero diverso da quello stampato accanto al grafico.
 import { correlation } from '../../core/analysis/aggregate';
+import { useLingua } from '../lingua';
+import { imm, plural, type Traduci } from '../format';
+
+/**
+ * Il ripiego quando chi chiama non passa una traduzione.
+ *
+ * Le funzioni di riassunto sono pure ed esportate: le usano i test e — in
+ * futuro — le esportazioni, dove non esiste nessun contesto React da cui tirare
+ * fuori `t`. Restituire la chiave italiana è esattamente ciò che fa `t()` su una
+ * frase non tradotta, quindi il ripiego non è un caso speciale.
+ */
+const comeSta: Traduci = (s) => s;
 
 // ---------------------------------------------------------------------------
 // Misura del contenitore: serve per disegnare in pixel reali invece di
@@ -415,21 +427,26 @@ export const dataLunga = (ms: number) =>
 export function riassuntoDistribuzione(
   dati: ColumnDatum[],
   { unita = '', elemento = 'colonne' }: { unita?: string; elemento?: string } = {},
+  t: Traduci = comeSta,
 ): string {
-  if (dati.length === 0) return 'Nessun dato da mostrare.';
+  if (dati.length === 0) return t('Nessun dato da mostrare.');
   const valori = dati.map((d) => d.value);
   const totale = valori.reduce((a, b) => a + b, 0);
   const alto = dati.reduce((a, b) => (b.value > a.value ? b : a));
   const basso = dati.reduce((a, b) => (b.value < a.value ? b : a));
+  // `unita` NON passa da `t()`: è un'unità di misura (`L/min`, `m`) o un
+  // sostantivo che sceglie chi disegna il grafico, e chi lo sceglie lo traduce
+  // a casa sua. `elemento` sì: le due sole parole possibili — «colonne» e
+  // «voci» — sono scritte qui sotto e stanno nel dizionario.
   const u = unita ? ` ${unita}` : '';
   const parti = [
-    `${dati.length} ${elemento}, totale ${numeroBreve(totale)}${u}, media ${numeroBreve(totale / dati.length)}${u}.`,
-    `Massimo ${alto.label} con ${numeroBreve(alto.value)}${u}, minimo ${basso.label} con ${numeroBreve(basso.value)}${u}.`,
+    `${dati.length} ${t(elemento)}, ${t('totale')} ${numeroBreve(totale)}${u}, ${t('media')} ${numeroBreve(totale / dati.length)}${u}.`,
+    `${t('Massimo')} ${alto.label} ${t('con')} ${numeroBreve(alto.value)}${u}, ${t('minimo')} ${basso.label} ${t('con')} ${numeroBreve(basso.value)}${u}.`,
   ];
   // «A zero: 2 su 24» e non «2 colonne a zero»: la forma con il denominatore si
   // accorda con qualunque parola passata in `elemento` e dice anche quanto pesa.
   const vuote = valori.filter((v) => v === 0).length;
-  if (vuote > 0) parti.push(`A zero: ${vuote} su ${dati.length}.`);
+  if (vuote > 0) parti.push(`${t('A zero')}: ${vuote} ${t('su')} ${dati.length}.`);
   return parti.join(' ');
 }
 
@@ -455,15 +472,16 @@ export function riassuntoSerie(
     riferimento?: number;
     etichettaRiferimento?: string;
   },
+  t: Traduci = comeSta,
 ): string {
-  if (punti.length === 0) return 'Nessun dato disponibile per questa serie.';
+  if (punti.length === 0) return t('Nessun dato disponibile per questa serie.');
   const ordinati = [...punti].sort((a, b) => a.at - b.at);
   const valori = ordinati.map((p) => p.value);
   const q = quartili(valori)!;
   const ultimo = ordinati[ordinati.length - 1];
   const parti = [
-    `${punti.length} ${punti.length === 1 ? 'rilevazione' : 'rilevazioni'} dal ${dataLunga(ordinati[0].at)} al ${dataLunga(ultimo.at)}.`,
-    `Mediana ${formato(q.mediana)} ${unita}, da ${formato(q.min)} a ${formato(q.max)}; ultimo valore ${formato(ultimo.value)}.`,
+    `${plural(punti.length, 'rilevazione', 'rilevazioni', t)} ${t('dal')} ${dataLunga(ordinati[0].at)} ${t('al')} ${dataLunga(ultimo.at)}.`,
+    `${t('Mediana')} ${formato(q.mediana)} ${unita}, ${t('da')} ${formato(q.min)} ${t('a')} ${formato(q.max)}; ${t('ultimo valore')} ${formato(ultimo.value)}.`,
   ];
   // Le due metà invece della retta dei minimi quadrati: la pendenza di una retta
   // in unità al millisecondo non si può dire a voce, «prima 18.5, poi 15.9» sì.
@@ -473,14 +491,17 @@ export function riassuntoSerie(
     const dopo = media(valori.slice(valori.length - metà))!;
     const verso = versoTendenza(prima, dopo, q.max - q.min);
     parti.push(
-      `Prima metà ${formato(prima)}, seconda metà ${formato(dopo)}: ` +
-        (verso === 'stabile' ? 'stabile.' : verso === 'aumento' ? 'in aumento.' : 'in diminuzione.'),
+      `${t('Prima metà')} ${formato(prima)}, ${t('seconda metà')} ${formato(dopo)}: ` +
+        (verso === 'stabile' ? t('stabile') : verso === 'aumento' ? t('in aumento') : t('in diminuzione')) +
+        '.',
     );
   }
   if (riferimento !== undefined) {
     const sopra = valori.filter((v) => v > riferimento).length;
-    const nome = etichettaRiferimento ?? `riferimento ${formato(riferimento)}`;
-    parti.push(`${sopra} su ${valori.length} sopra ${nome}.`);
+    // `etichettaRiferimento` arriva già tradotta da chi disegna il grafico: è
+    // una sua etichetta, non una frase di questo modulo.
+    const nome = etichettaRiferimento ?? `${t('riferimento')} ${formato(riferimento)}`;
+    parti.push(`${sopra} ${t('su')} ${valori.length} ${t('sopra')} ${nome}.`);
   }
   return parti.join(' ');
 }
@@ -548,23 +569,27 @@ export function riassuntoDispersione(
     xFormat?: (v: number) => string;
     yFormat?: (v: number) => string;
   },
+  t: Traduci = comeSta,
 ): string {
-  if (punti.length === 0) return 'Nessun punto da confrontare.';
+  if (punti.length === 0) return t('Nessun punto da confrontare.');
   const qx = quartili(punti.map((p) => p.x))!;
   const qy = quartili(punti.map((p) => p.y))!;
+  // `xLabel` e `yLabel` sono etichette d'asse scelte da chi disegna il grafico:
+  // arrivano già nella lingua giusta e non vanno tradotte una seconda volta.
   const parti = [
-    `${punti.length} ${punti.length === 1 ? 'immersione' : 'immersioni'}.`,
-    `In orizzontale ${xLabel} da ${xFormat(qx.min)} a ${xFormat(qx.max)}, metà dei punti fra ${xFormat(qx.q1)} e ${xFormat(qx.q3)}.`,
-    `In verticale ${yLabel} da ${yFormat(qy.min)} a ${yFormat(qy.max)}, metà dei punti fra ${yFormat(qy.q1)} e ${yFormat(qy.q3)}.`,
+    `${imm(punti.length, t)}.`,
+    `${t('In orizzontale')} ${xLabel} ${t('da')} ${xFormat(qx.min)} ${t('a')} ${xFormat(qx.max)}, ${t('metà dei punti fra')} ${xFormat(qx.q1)} ${t('e')} ${xFormat(qx.q3)}.`,
+    `${t('In verticale')} ${yLabel} ${t('da')} ${yFormat(qy.min)} ${t('a')} ${yFormat(qy.max)}, ${t('metà dei punti fra')} ${yFormat(qy.q1)} ${t('e')} ${yFormat(qy.q3)}.`,
   ];
   const r = correlation(punti);
   if (r === undefined) {
-    parti.push('Correlazione non calcolabile su così pochi punti.');
+    parti.push(t('Correlazione non calcolabile su così pochi punti.'));
   } else {
-    const forza = Math.abs(r) >= 0.7 ? 'forte' : Math.abs(r) >= 0.4 ? 'moderata' : 'debole';
+    const forza = Math.abs(r) >= 0.7 ? t('forte') : Math.abs(r) >= 0.4 ? t('moderata') : t('debole');
     parti.push(
-      `Correlazione ${r > 0 ? '+' : ''}${r.toFixed(2)}, ${forza}: al crescere di ${xLabel} ${yLabel} ` +
-        (r > 0 ? 'tende a crescere.' : 'tende a calare.'),
+      `${t('Correlazione')} ${r > 0 ? '+' : ''}${r.toFixed(2)}, ${forza}: ${t('al crescere di')} ${xLabel} ${yLabel} ` +
+        (r > 0 ? t('tende a crescere') : t('tende a calare')) +
+        '.',
     );
   }
   return parti.join(' ');
@@ -592,8 +617,9 @@ export function riassuntoCurva(
     yFormat?: (v: number) => string;
     marcatore?: { x: number; y: number };
   },
+  t: Traduci = comeSta,
 ): string {
-  if (punti.length < 2) return 'Dati insufficienti per disegnare la curva.';
+  if (punti.length < 2) return t('Dati insufficienti per disegnare la curva.');
   const ordinati = [...punti].sort((a, b) => a.x - b.x);
   const primo = ordinati[0];
   const ultimo = ordinati[ordinati.length - 1];
@@ -601,12 +627,12 @@ export function riassuntoCurva(
   const q = quartili(ys)!;
   const verso = versoTendenza(primo.y, ultimo.y, q.max - q.min);
   const parti = [
-    `${yLabel} al variare di ${xLabel}, da ${xFormat(primo.x)} a ${xFormat(ultimo.x)}.`,
-    `Si va da ${yFormat(primo.y)} a ${yFormat(ultimo.y)} ` +
-      (verso === 'stabile' ? '(curva piatta).' : verso === 'aumento' ? '(in aumento).' : '(in diminuzione).'),
-    `Minimo ${yFormat(q.min)}, massimo ${yFormat(q.max)}.`,
+    `${yLabel} ${t('al variare di')} ${xLabel}, ${t('da')} ${xFormat(primo.x)} ${t('a')} ${xFormat(ultimo.x)}.`,
+    `${t('Si va da')} ${yFormat(primo.y)} ${t('a')} ${yFormat(ultimo.y)} ` +
+      `(${verso === 'stabile' ? t('curva piatta') : verso === 'aumento' ? t('in aumento') : t('in diminuzione')}).`,
+    `${t('Minimo')} ${yFormat(q.min)}, ${t('massimo')} ${yFormat(q.max)}.`,
   ];
-  if (marcatore) parti.push(`Nel punto marcato, ${xFormat(marcatore.x)}: ${yFormat(marcatore.y)}.`);
+  if (marcatore) parti.push(`${t('Nel punto marcato')}, ${xFormat(marcatore.x)}: ${yFormat(marcatore.y)}.`);
   return parti.join(' ');
 }
 
@@ -685,6 +711,7 @@ export function ColumnChart({
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const { tip, perElemento } = useTooltip();
+  const { t } = useLingua();
   const uid = useId();
 
   const pad = { top: 24, right: 4, bottom: 22, left: 30 };
@@ -700,8 +727,8 @@ export function ColumnChart({
   // Un'etichetta ogni quanto: serve almeno ~46px per non farle collidere.
   const labelStep = labelEvery ?? Math.max(1, Math.ceil(46 / Math.max(1, band)));
 
-  const nome = titolo ?? `Istogramma a colonne${unit ? ` — ${unit}` : ''}`;
-  const descrizione = riassuntoDistribuzione(data, { unita: unit });
+  const nome = titolo ?? `${t('Istogramma a colonne')}${unit ? ` — ${unit}` : ''}`;
+  const descrizione = riassuntoDistribuzione(data, { unita: unit }, t);
 
   return (
     <div className="chart" ref={ref}>
@@ -715,16 +742,18 @@ export function ColumnChart({
       >
         <title>{nome}</title>
         <desc id={`${uid}-desc`}>{descrizione}</desc>
-        {ticks.map((t) => {
-          const y = pad.top + plotH - (t / yMax) * plotH;
+        {/* `tacca` e non `t`: `t` qui è la funzione che traduce, e un parametro
+            con lo stesso nome la coprirebbe dentro tutto il blocco. */}
+        {ticks.map((tacca) => {
+          const y = pad.top + plotH - (tacca / yMax) * plotH;
           return (
             // La griglia è arredamento: senza `aria-hidden` uno screen reader
             // annuncia una lista di nodi vuoti lunga quanto le tacche, prima ancora
             // di arrivare al dato.
-            <g key={t} aria-hidden="true">
+            <g key={tacca} aria-hidden="true">
               <line x1={pad.left} x2={width - pad.right} y1={y} y2={y} stroke="var(--grid)" strokeWidth={1} />
               <text className="axis-label" x={pad.left - 6} y={y + 3} textAnchor="end">
-                {t}
+                {tacca}
               </text>
             </g>
           );
@@ -746,7 +775,7 @@ export function ColumnChart({
                   x: x + barW / 2,
                   y: Math.max(y, pad.top + 10),
                   title: d.label,
-                  rows: [{ label: unit || 'valore', value: String(d.value) }],
+                  rows: [{ label: unit || t('valore'), value: String(d.value) }],
                 }))}
               />
               {d.value > 0 && <path d={roundedTopBar(x, y, barW, h, 4)} fill="var(--series-1)" />}
@@ -791,7 +820,7 @@ export function ColumnChart({
           vale più del riassunto, ed è corta abbastanza da poterla ascoltare. */}
       <TabellaEquivalente
         didascalia={nome}
-        intestazioni={['Colonna', unit || 'Valore']}
+        intestazioni={[t('Colonna'), unit || t('Valore')]}
         righe={data.map((d) => [d.label, numeroBreve(d.value)])}
       />
       <Tooltip state={tip} containerWidth={width} />
@@ -818,6 +847,7 @@ export function BarChart({
   const max = Math.max(1, ...rows.map((d) => d.value));
   const { ref, width } = useWidth<HTMLDivElement>();
   const { tip, perElemento } = useTooltip();
+  const { t } = useLingua();
   const uid = useId();
 
   const labelW = Math.min(160, Math.max(70, width * 0.32));
@@ -826,13 +856,15 @@ export function BarChart({
   const rowH = 26;
   const barH = 14;
 
-  const nome = titolo ?? `Barre orizzontali${unit ? ` — ${unit}` : ''}`;
+  const nome = titolo ?? `${t('Barre orizzontali')}${unit ? ` — ${unit}` : ''}`;
   // Il riassunto descrive le righe DISEGNATE, non tutte quelle ricevute: se
   // `maxRows` ne taglia via metà, dire il totale di tutte racconterebbe un grafico
   // che non è quello sullo schermo. Il taglio viene dichiarato a parte.
   const descrizione =
-    riassuntoDistribuzione(rows, { unita: unit, elemento: 'voci' }) +
-    (data.length > rows.length ? ` Mostrate le prime ${rows.length} voci su ${data.length}.` : '');
+    riassuntoDistribuzione(rows, { unita: unit, elemento: 'voci' }, t) +
+    (data.length > rows.length
+      ? ` ${t('Mostrate le prime')} ${rows.length} ${t('voci su')} ${data.length}.`
+      : '');
 
   return (
     <div className="chart" ref={ref}>
@@ -857,7 +889,7 @@ export function BarChart({
                 x: labelW + w,
                 y: y + barH,
                 title: d.label,
-                rows: [{ label: unit || 'valore', value: String(d.value) }],
+                rows: [{ label: unit || t('valore'), value: String(d.value) }],
               }))}
             >
               <rect x={0} y={y - 3} width={width} height={rowH - 2} fill="transparent" />
@@ -884,7 +916,7 @@ export function BarChart({
           troncamento a metà parola rende inservibile. */}
       <TabellaEquivalente
         didascalia={nome}
-        intestazioni={['Voce', unit || 'Valore']}
+        intestazioni={[t('Voce'), unit || t('Valore')]}
         righe={rows.map((d) => [d.label, numeroBreve(d.value)])}
       />
       <Tooltip state={tip} containerWidth={width} />
@@ -924,6 +956,7 @@ export function TimeSeriesChart({
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const { tip, perElemento } = useTooltip();
+  const { t } = useLingua();
   // `useId` PRIMA del return anticipato qui sotto, e non è pignoleria: React conta
   // gli hook a ogni render, e una serie che al primo giro è vuota e al secondo no
   // cambierebbe il conteggio facendo cadere il componente. È lo stesso incidente
@@ -933,7 +966,7 @@ export function TimeSeriesChart({
   if (points.length === 0) {
     return (
       <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-        Nessun dato disponibile per questa serie.
+        {t('Nessun dato disponibile per questa serie.')}
       </p>
     );
   }
@@ -964,13 +997,17 @@ export function TimeSeriesChart({
   // nascondiamo, ma il bersaglio invisibile per il tooltip resta su ognuno.
   const showDots = points.length <= 24;
 
-  const nome = titolo ?? `Andamento nel tempo — ${unit}`;
-  const descrizione = riassuntoSerie(points, {
-    unita: unit,
-    formato: format,
-    riferimento: reference,
-    etichettaRiferimento: referenceLabel,
-  });
+  const nome = titolo ?? `${t('Andamento nel tempo')} — ${unit}`;
+  const descrizione = riassuntoSerie(
+    points,
+    {
+      unita: unit,
+      formato: format,
+      riferimento: reference,
+      etichettaRiferimento: referenceLabel,
+    },
+    t,
+  );
   const periodi = aggregaPerPeriodo(points);
 
   return (
@@ -985,18 +1022,19 @@ export function TimeSeriesChart({
       >
         <title>{nome}</title>
         <desc id={`${uid}-desc`}>{descrizione}</desc>
-        {ticks.map((t) => (
-          <g key={t} aria-hidden="true">
+        {/* `tacca` e non `t`: il nome `t` è preso dalla funzione che traduce. */}
+        {ticks.map((tacca) => (
+          <g key={tacca} aria-hidden="true">
             <line
               x1={pad.left}
               x2={width - pad.right}
-              y1={py(t)}
-              y2={py(t)}
+              y1={py(tacca)}
+              y2={py(tacca)}
               stroke="var(--grid)"
               strokeWidth={1}
             />
-            <text className="axis-label" x={pad.left - 6} y={py(t) + 3} textAnchor="end">
-              {format(t)}
+            <text className="axis-label" x={pad.left - 6} y={py(tacca) + 3} textAnchor="end">
+              {format(tacca)}
             </text>
           </g>
         ))}
@@ -1106,8 +1144,8 @@ export function TimeSeriesChart({
           quando i mesi sono troppi — resta la stessa informazione che si legge
           guardando la forma della curva, e sta in venti righe. */}
       <TabellaEquivalente
-        didascalia={`${nome}: valori raggruppati per periodo`}
-        intestazioni={['Periodo', 'Rilevazioni', `Mediana (${unit})`]}
+        didascalia={`${nome}: ${t('valori raggruppati per periodo')}`}
+        intestazioni={[t('Periodo'), t('Rilevazioni'), `${t('Mediana')} (${unit})`]}
         righe={periodi.map((p) => [p.periodo, p.conteggio, format(p.mediana)])}
       />
       <Tooltip state={tip} containerWidth={width} />
@@ -1200,6 +1238,15 @@ export function useDismissOnLeave(clear: () => void) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Le intestazioni della tabella equivalente della dispersione.
+ *
+ * Restano in italiano nella costante — l'italiano È la chiave del dizionario —
+ * e si traducono al disegno con `t(...)`. Fuori dal componente perché sono sei
+ * stringhe fisse: dentro, rinascerebbero a ogni render.
+ */
+const INTESTAZIONI_QUARTILI = ['Misura', 'Minimo', 'Primo quartile', 'Mediana', 'Terzo quartile', 'Massimo'];
+
+/**
  * Grafico a dispersione con retta di tendenza opzionale.
  *
  * È l'unico modo onesto di mostrare una relazione fra due misure: una media non
@@ -1230,12 +1277,13 @@ export function ScatterChart({
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const { tip, perElemento } = useTooltip();
+  const { t } = useLingua();
   const uid = useId();
 
   if (points.length < 3) {
     return (
       <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-        Servono almeno tre immersioni con entrambe le misure per confrontarle.
+        {t('Servono almeno tre immersioni con entrambe le misure.')}
       </p>
     );
   }
@@ -1278,8 +1326,8 @@ export function ScatterChart({
     }
   }
 
-  const nome = titolo ?? `Dispersione: ${yLabel} in funzione di ${xLabel}`;
-  const descrizione = riassuntoDispersione(points, { xLabel, yLabel, xFormat, yFormat });
+  const nome = titolo ?? `${t('Dispersione')}: ${yLabel} ${t('in funzione di')} ${xLabel}`;
+  const descrizione = riassuntoDispersione(points, { xLabel, yLabel, xFormat, yFormat }, t);
   const qx = quartili(points.map((p) => p.x))!;
   const qy = quartili(points.map((p) => p.y))!;
 
@@ -1296,31 +1344,32 @@ export function ScatterChart({
       >
         <title>{nome}</title>
         <desc id={`${uid}-desc`}>{descrizione}</desc>
-        {yTicks.map((t) => (
-          <g key={`y${t}`} aria-hidden="true">
+        {/* `tacca` e non `t`: il nome `t` è preso dalla funzione che traduce. */}
+        {yTicks.map((tacca) => (
+          <g key={`y${tacca}`} aria-hidden="true">
             <line
               x1={pad.left}
               x2={width - pad.right}
-              y1={py(t)}
-              y2={py(t)}
+              y1={py(tacca)}
+              y2={py(tacca)}
               stroke="var(--grid)"
               strokeWidth={1}
             />
-            <text className="axis-label" x={pad.left - 8} y={py(t) + 3.5} textAnchor="end">
-              {yFormat(t)}
+            <text className="axis-label" x={pad.left - 8} y={py(tacca) + 3.5} textAnchor="end">
+              {yFormat(tacca)}
             </text>
           </g>
         ))}
-        {xTicks.map((t) => (
+        {xTicks.map((tacca) => (
           <text
             aria-hidden="true"
-            key={`x${t}`}
+            key={`x${tacca}`}
             className="axis-label"
-            x={px(t)}
+            x={px(tacca)}
             y={height - 16}
             textAnchor="middle"
           >
-            {xFormat(t)}
+            {xFormat(tacca)}
           </text>
         ))}
 
@@ -1381,8 +1430,8 @@ export function ScatterChart({
           in ordine sparso non dicono niente — ma i quartili sì: sono la forma
           della nuvola detta in cinque numeri per asse. */}
       <TabellaEquivalente
-        didascalia={`${nome}: distribuzione dei due assi`}
-        intestazioni={['Misura', 'Minimo', 'Primo quartile', 'Mediana', 'Terzo quartile', 'Massimo']}
+        didascalia={`${nome}: ${t('distribuzione dei due assi')}`}
+        intestazioni={INTESTAZIONI_QUARTILI.map((h) => t(h))}
         righe={[
           [xLabel, xFormat(qx.min), xFormat(qx.q1), xFormat(qx.mediana), xFormat(qx.q3), xFormat(qx.max)],
           [yLabel, yFormat(qy.min), yFormat(qy.q1), yFormat(qy.mediana), yFormat(qy.q3), yFormat(qy.max)],
@@ -1438,13 +1487,14 @@ export function CurveChart({
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const { tip, setTip, perScorrimento } = useTooltip();
+  const { t } = useLingua();
   const uid = useId();
   useDismissOnLeave(() => setTip(null));
 
   if (points.length < 2) {
     return (
       <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-        Dati insufficienti per disegnare la curva.
+        {t('Dati insufficienti per disegnare la curva.')}
       </p>
     );
   }
@@ -1482,8 +1532,8 @@ export function CurveChart({
   };
   const markPoint = marker !== undefined ? at(marker) : undefined;
 
-  const nome = titolo ?? `Curva: ${yLabel} al variare di ${xLabel}`;
-  const descrizione = riassuntoCurva(points, { xLabel, yLabel, xFormat, yFormat, marcatore: markPoint });
+  const nome = titolo ?? `${t('Curva')}: ${yLabel} ${t('al variare di')} ${xLabel}`;
+  const descrizione = riassuntoCurva(points, { xLabel, yLabel, xFormat, yFormat, marcatore: markPoint }, t);
   // Sei righe campionate a passo regolare invece dell'intera curva: la curva è
   // fitta per essere liscia da guardare, non perché ogni suo punto sia un dato.
   const campioni = campionaCurva(points, 6);
@@ -1509,18 +1559,19 @@ export function CurveChart({
       >
         <title>{nome}</title>
         <desc id={`${uid}-desc`}>{descrizione}</desc>
-        {yTicks.map((t) => (
-          <g key={t} aria-hidden="true">
+        {/* `tacca` e non `t`: il nome `t` è preso dalla funzione che traduce. */}
+        {yTicks.map((tacca) => (
+          <g key={tacca} aria-hidden="true">
             <line
               x1={pad.left}
               x2={width - pad.right}
-              y1={py(t)}
-              y2={py(t)}
+              y1={py(tacca)}
+              y2={py(tacca)}
               stroke="var(--grid)"
               strokeWidth={1}
             />
-            <text className="axis-label" x={pad.left - 6} y={py(t) + 3} textAnchor="end">
-              {yFormat(t)}
+            <text className="axis-label" x={pad.left - 6} y={py(tacca) + 3} textAnchor="end">
+              {yFormat(tacca)}
             </text>
           </g>
         ))}
@@ -1575,16 +1626,16 @@ export function CurveChart({
           </g>
         )}
 
-        {[xLo, (xLo + xHi) / 2, xHi].map((t) => (
+        {[xLo, (xLo + xHi) / 2, xHi].map((tacca) => (
           <text
             aria-hidden="true"
-            key={t}
+            key={tacca}
             className="axis-label"
-            x={px(t)}
+            x={px(tacca)}
             y={height - 14}
             textAnchor="middle"
           >
-            {xFormat(t)}
+            {xFormat(tacca)}
           </text>
         ))}
         <g aria-hidden="true">
@@ -1602,7 +1653,7 @@ export function CurveChart({
         </g>
       </svg>
       <TabellaEquivalente
-        didascalia={`${nome}: valori campionati`}
+        didascalia={`${nome}: ${t('valori campionati')}`}
         intestazioni={[xLabel, yLabel]}
         righe={campioni.map((p) => [xFormat(p.x), yFormat(p.y)])}
       />

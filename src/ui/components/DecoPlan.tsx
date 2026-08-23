@@ -46,6 +46,7 @@ import type { GasMix, Salinity } from '../../core/model';
 import { withFraction } from '../../core/units';
 import { StatTile } from './Charts';
 import { AnalysisCard } from './Analysis';
+import { useLingua } from '../lingua';
 
 export interface DecoSeed {
   depthM: number;
@@ -106,6 +107,7 @@ export function DecoPlanner({
   onLoadPlan?: (state: unknown) => void;
   onDeletePlan?: (name: string) => void | Promise<void>;
 }) {
+  const { t } = useLingua();
   // Quota, acqua e immersione precedente: tre cose che cambiano la tabella prima
   // ancora di scrivere il primo livello, e che quasi tutti i pianificatori
   // trattano come impostazioni nascoste invece che come parte del piano.
@@ -262,7 +264,8 @@ export function DecoPlanner({
   // `settings`.
   useEffect(() => {
     if (!onChange) return;
-    const t = setTimeout(
+    // Non si chiama `t`: ombreggerebbe la funzione di traduzione.
+    const timer = setTimeout(
       () =>
         onChange({
           levels,
@@ -283,7 +286,7 @@ export function DecoPlanner({
       500,
     );
 
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [
     onChange,
     levels,
@@ -356,16 +359,22 @@ export function DecoPlanner({
   return (
     <>
       <div className="card">
-        <h2>Dove sei, e cosa hai fatto prima</h2>
+        <h2>{t('Dove sei, e cosa hai fatto prima')}</h2>
+        {/*
+          Chi fa la seconda immersione a un lago di montagna si porta addosso sia la
+          quota sia il carico residuo, e le due cose si sommano davvero.
+
+          La salinità resta un campo a sé, ed è una scelta che va spiegata qui e non
+          a schermo: immergersi in quota quasi sempre vuol dire acqua dolce, e
+          trattarla come acqua di mare è la scorciatoia che prendono quasi tutti i
+          pianificatori.
+        */}
         <p className="card-sub">
-          Quota e immersione precedente cambiano la tabella prima ancora di scrivere il primo livello, e si
-          sommano: chi fa la seconda immersione a un lago di montagna se le porta addosso entrambe. La
-          salinità resta un campo a sé — immergersi in quota quasi sempre vuol dire acqua dolce, e trattarla
-          come acqua di mare è la scorciatoia che prendono quasi tutti i pianificatori.
+          {t('Quota e immersione precedente cambiano la tabella prima dei livelli, e si sommano.')}
         </p>
         <div className="grid grid-3" style={{ gap: 10 }}>
           <NumField
-            label="Quota del sito"
+            label={t('Quota del sito')}
             unit="m slm"
             value={altitudeM}
             min={0}
@@ -374,7 +383,7 @@ export function DecoPlanner({
             onChange={setAltitudeM}
           />
           <NumField
-            label="Ore già passate in quota"
+            label={t('Ore già passate in quota')}
             unit="h"
             value={hoursAtAltitude}
             min={0}
@@ -383,32 +392,30 @@ export function DecoPlanner({
             onChange={setHoursAtAltitude}
           />
           <label className="planner-field">
-            <span className="planner-label">Acqua</span>
+            <span className="planner-label">{t('Acqua')}</span>
             <select value={salinity} onChange={(e) => setSalinity(e.target.value as Salinity)}>
-              <option value="salt">salata</option>
-              <option value="fresh">dolce</option>
+              <option value="salt">{t('salata')}</option>
+              <option value="fresh">{t('dolce')}</option>
             </select>
           </label>
           <label className="planner-field">
-            <span className="planner-label">Immersione precedente</span>
+            <span className="planner-label">{t('Immersione precedente')}</span>
             <select value={previousId} onChange={(e) => setPreviousId(e.target.value)}>
-              <option value="">nessuna — parto da tessuti puliti</option>
+              <option value="">{t('nessuna — parto da tessuti puliti')}</option>
               {repeatable.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {dateShort(d.startTime, d.utcOffsetMinutes)} · {d.site?.name ?? 'senza sito'} ·{' '}
+                  {dateShort(d.startTime, d.utcOffsetMinutes)} · {d.site?.name ?? t('senza sito')} ·{' '}
                   {d.maxDepth.toFixed(0)} m
                 </option>
               ))}
             </select>
             {repeatable.length === 0 && (
-              <span className="planner-hint">
-                Nessuna immersione con i tessuti calcolati: servono profili in archivio.
-              </span>
+              <span className="planner-hint">{t('Nessuna immersione con i tessuti calcolati.')}</span>
             )}
           </label>
           {previousId && (
             <NumField
-              label="Intervallo di superficie"
+              label={t('Intervallo di superficie')}
               unit="min"
               value={surfaceMin}
               min={5}
@@ -422,21 +429,20 @@ export function DecoPlanner({
           <div className="notice" style={{ marginTop: 12 }}>
             {altitudeM > 0 && (
               <>
-                A {altitudeM} m la pressione di superficie è {barometric(altitudeM).toFixed(3)} bar invece di
-                1.013: il gas che consumi cala, la decompressione si allunga.
+                {t('A quota')} {altitudeM} m {t('la superficie è a')} {barometric(altitudeM).toFixed(3)} bar:{' '}
+                {t('la decompressione si allunga.')}
                 {hoursAtAltitude < 12 && (
                   <>
                     {' '}
-                    Con sole {hoursAtAltitude} ore in quota non sei ancora acclimatato, e questo entra nel
-                    conto.
+                    {t('Solo')} {hoursAtAltitude} {t('ore in quota: non sei acclimatato, ed è nel conto.')}
                   </>
                 )}{' '}
               </>
             )}
             {previous && (
               <>
-                Riparti dai tessuti del {dateShort(previous.startTime, previous.utcOffsetMinutes)} dopo{' '}
-                {surfaceMin} minuti di superficie.
+                {t('Riparti dai tessuti del')} {dateShort(previous.startTime, previous.utcOffsetMinutes)}{' '}
+                {t('dopo')} {surfaceMin} {t('minuti di superficie.')}
               </>
             )}
           </div>
@@ -444,16 +450,16 @@ export function DecoPlanner({
       </div>
 
       <div className="card">
-        <h2>I livelli</h2>
+        <h2>{t('I livelli')}</h2>
+        {/* Come su ogni computer e ogni manuale: «quaranta metri per venticinque
+            minuti» conta da quando lasci la superficie. */}
         <p className="card-sub">
-          Il tempo del primo livello comprende la discesa, come su ogni computer e ogni manuale: «quaranta
-          metri per venticinque minuti» conta da quando lasci la superficie. Sui livelli successivi il
-          transito è in più.
+          {t('Il tempo del primo livello comprende la discesa. Sui livelli successivi il transito è in più.')}
         </p>
         {levels.map((level, i) => (
           <div key={i} className="grid grid-3" style={{ gap: 10, marginBottom: 8 }}>
             <NumField
-              label={i === 0 ? 'Profondità' : `Profondità ${i + 1}`}
+              label={i === 0 ? t('Profondità') : `${t('Profondità')} ${i + 1}`}
               unit="m"
               value={level.depthM}
               min={3}
@@ -462,7 +468,7 @@ export function DecoPlanner({
               onChange={(v) => setLevel(i, { depthM: v })}
             />
             <NumField
-              label="Minuti"
+              label={t('Minuti')}
               unit="min"
               value={level.minutes}
               min={0}
@@ -474,7 +480,7 @@ export function DecoPlanner({
               <span className="planner-label">&nbsp;</span>
               <div className="row" style={{ gap: 6 }}>
                 {levels.length > 1 && (
-                  <button onClick={() => setLevels((p) => p.filter((_, k) => k !== i))}>Togli</button>
+                  <button onClick={() => setLevels((p) => p.filter((_, k) => k !== i))}>{t('Togli')}</button>
                 )}
                 {i === levels.length - 1 && (
                   <button
@@ -482,7 +488,7 @@ export function DecoPlanner({
                       setLevels((p) => [...p, { depthM: Math.max(3, level.depthM - 10), minutes: 10 }])
                     }
                   >
-                    Aggiungi livello
+                    {t('Aggiungi livello')}
                   </button>
                 )}
               </div>
@@ -494,11 +500,11 @@ export function DecoPlanner({
       <div className="card">
         <div className="spread" style={{ alignItems: 'flex-start' }}>
           <div>
-            <h2 style={{ margin: 0 }}>La seconda immersione della giornata</h2>
+            <h2 style={{ margin: 0 }}>{t('La seconda immersione della giornata')}</h2>
+            {/* Si pianifica insieme alla prima perché è adesso che serve saperlo: la
+                pausa la decidi a colazione, non quando risali. */}
             <p className="card-sub" style={{ marginBottom: 0 }}>
-              Si pianifica adesso, insieme alla prima, perché è adesso che serve saperlo: la pausa la decidi a
-              colazione, non quando risali. Stessa attrezzatura e stesse miscele — se cambi anche quelle,
-              conviene farne due piani separati.
+              {t('Stessa attrezzatura e stesse miscele. Se cambi anche quelle, meglio due piani separati.')}
             </p>
           </div>
           <button
@@ -508,7 +514,7 @@ export function DecoPlanner({
               )
             }
           >
-            {second ? 'Togli' : 'Aggiungi'}
+            {second ? t('Togli') : t('Aggiungi')}
           </button>
         </div>
 
@@ -516,7 +522,7 @@ export function DecoPlanner({
           <>
             <div className="grid grid-3" style={{ gap: 10, marginTop: 12 }}>
               <NumField
-                label="Intervallo di superficie"
+                label={t('Intervallo di superficie')}
                 unit="min"
                 value={second.surfaceMin}
                 min={10}
@@ -525,7 +531,7 @@ export function DecoPlanner({
                 onChange={(v) => setSecond((p) => p && { ...p, surfaceMin: v })}
               />
               <NumField
-                label="Profondità"
+                label={t('Profondità')}
                 unit="m"
                 value={second.depthM}
                 min={3}
@@ -534,7 +540,7 @@ export function DecoPlanner({
                 onChange={(v) => setSecond((p) => p && { ...p, depthM: v })}
               />
               <NumField
-                label="Minuti"
+                label={t('Minuti')}
                 unit="min"
                 value={second.minutes}
                 min={1}
@@ -548,29 +554,29 @@ export function DecoPlanner({
                 <table>
                   <thead>
                     <tr>
-                      <th>Immersione</th>
+                      <th>{t('Immersione')}</th>
                       <th className="num">Runtime</th>
                       <th className="num">Deco</th>
                       <th className="num">GF99</th>
-                      <th>Soste</th>
+                      <th>{t('Soste')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {giornata.map((g, i) => (
                       <tr key={i}>
                         <td>
-                          <b>{i === 0 ? 'Prima' : 'Seconda'}</b>{' '}
+                          <b>{i === 0 ? t('Prima') : t('Seconda')}</b>{' '}
                           <span className="muted">
                             {i === 0
                               ? `${levels[0].depthM} m × ${levels[0].minutes} min`
-                              : `${second.depthM} m × ${second.minutes} min, dopo ${second.surfaceMin} min`}
+                              : `${second.depthM} m × ${second.minutes} min, ${t('dopo')} ${second.surfaceMin} min`}
                           </span>
                         </td>
                         <td className="num tabular">{g.runtimeMin.toFixed(0)}</td>
                         <td className="num tabular">{g.decoMin}</td>
                         <td className="num tabular">{g.gf99EndPct.toFixed(0)}%</td>
                         <td className="tabular" style={{ fontSize: 11 }}>
-                          {g.stops.map((x) => `${x.depthM}/${x.minutes}`).join(' · ') || 'in curva'}
+                          {g.stops.map((x) => `${x.depthM}/${x.minutes}`).join(' · ') || t('in curva')}
                         </td>
                       </tr>
                     ))}
@@ -579,29 +585,33 @@ export function DecoPlanner({
               </div>
             )}
             <p className="planner-hint" style={{ marginTop: 8 }}>
-              Sposta l'intervallo di superficie e guarda la riga di sotto: è il modo più diretto di vedere
-              quanto vale un'ora in più di pausa. La prima immersione non cambia mai — è la seconda a pagare.
+              {t(
+                'Sposta l’intervallo di superficie e guarda cosa cambia: la prima immersione resta uguale, paga la seconda.',
+              )}
             </p>
           </>
         )}
       </div>
 
       <div className="card">
-        <h2>Le miscele</h2>
+        <h2>{t('Le miscele')}</h2>
+        {/* La MOD di riferimento è 1.4 bar per i gas di fondo e 1.6 per quelli di
+            decompressione. Il passaggio automatico al gas più ricco respirabile a
+            quella quota è la regola che evita di dimenticarsi l'ultimo cambio. */}
         <p className="card-sub">
-          La profondità di cambio è calcolata dalla MOD — 1.4 bar per i gas di fondo, 1.6 per quelli di
-          decompressione — e si può correggere. In risalita il piano passa da solo al gas più ricco
-          respirabile a quella quota: è la regola che evita di dimenticarsi l'ultimo cambio.
+          {t(
+            'La profondità di cambio viene dalla MOD e si può correggere. In risalita il piano passa da solo al gas più ricco respirabile.',
+          )}
         </p>
         <div className="table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Ruolo</th>
+                <th>{t('Ruolo')}</th>
                 <th className="num">O₂ %</th>
                 <th className="num">He %</th>
-                <th className="num">Cambio</th>
-                <th className="num">Litri</th>
+                <th className="num">{t('Cambio')}</th>
+                <th className="num">{t('Litri')}</th>
                 <th className="num">Bar</th>
                 <th />
               </tr>
@@ -613,18 +623,18 @@ export function DecoPlanner({
                     <div style={{ fontWeight: 600 }}>{gasLabel(gas)}</div>
                     <select
                       value={gas.role}
-                      aria-label={`Ruolo di ${gasLabel(gas)}`}
+                      aria-label={`${t('Ruolo di')} ${gasLabel(gas)}`}
                       onChange={(e) => setGas(i, { role: e.target.value as PlanGas['role'] })}
                       style={{ fontSize: 11, marginTop: 2 }}
                     >
-                      <option value="bottom">fondo</option>
-                      <option value="travel">transito</option>
-                      <option value="deco">decompressione</option>
+                      <option value="bottom">{t('fondo')}</option>
+                      <option value="travel">{t('transito')}</option>
+                      <option value="deco">{t('decompressione')}</option>
                     </select>
                   </td>
                   <td className="num">
                     <Cell
-                      label={`Ossigeno di ${gasLabel(gas)}, percento`}
+                      label={`${t('Ossigeno di')} ${gasLabel(gas)}, ${t('percento')}`}
                       value={Math.round(gas.mix.o2 * 100)}
                       min={5}
                       max={100}
@@ -633,7 +643,7 @@ export function DecoPlanner({
                   </td>
                   <td className="num">
                     <Cell
-                      label={`Elio di ${gasLabel(gas)}, percento`}
+                      label={`${t('Elio di')} ${gasLabel(gas)}, ${t('percento')}`}
                       value={Math.round(gas.mix.he * 100)}
                       min={0}
                       max={90}
@@ -642,7 +652,7 @@ export function DecoPlanner({
                   </td>
                   <td className="num">
                     <Cell
-                      label={`Profondità di cambio di ${gasLabel(gas)}, metri`}
+                      label={`${t('Profondità di cambio di')} ${gasLabel(gas)}, ${t('metri')}`}
                       value={gas.switchDepthM ?? switchDepthOf(gas, settings)}
                       min={3}
                       max={150}
@@ -654,7 +664,7 @@ export function DecoPlanner({
                   </td>
                   <td className="num">
                     <Cell
-                      label={`Capacità della bombola di ${gasLabel(gas)}, litri`}
+                      label={`${t('Capacità della bombola di')} ${gasLabel(gas)}, ${t('litri')}`}
                       value={gas.tankL ?? 0}
                       min={0}
                       max={40}
@@ -663,7 +673,7 @@ export function DecoPlanner({
                   </td>
                   <td className="num">
                     <Cell
-                      label={`Pressione di partenza di ${gasLabel(gas)}, bar`}
+                      label={`${t('Pressione di partenza di')} ${gasLabel(gas)}, bar`}
                       value={gas.startBar ?? 0}
                       min={0}
                       max={300}
@@ -676,7 +686,7 @@ export function DecoPlanner({
                         style={{ fontSize: 11, padding: '3px 8px' }}
                         onClick={() => setGases((p) => p.filter((_, k) => k !== i))}
                       >
-                        Togli
+                        {t('Togli')}
                       </button>
                     )}
                   </td>
@@ -687,21 +697,21 @@ export function DecoPlanner({
         </div>
         <div className="row" style={{ gap: 8, marginTop: 10 }}>
           <button onClick={() => setGases((p) => [...p, { mix: { o2: 1, he: 0 }, role: 'deco', ...STAGE }])}>
-            Aggiungi ossigeno
+            {t('Aggiungi ossigeno')}
           </button>
           <button
             onClick={() => setGases((p) => [...p, { mix: { o2: 0.32, he: 0 }, role: 'travel', ...STAGE }])}
           >
-            Aggiungi gas di transito
+            {t('Aggiungi gas di transito')}
           </button>
         </div>
       </div>
 
       <div className="card">
-        <h2>Come risali</h2>
+        <h2>{t('Come risali')}</h2>
         <div className="grid grid-3" style={{ gap: 10 }}>
           <NumField
-            label="GF basso"
+            label={t('GF basso')}
             unit="%"
             value={Math.round(base.gfLow * 100)}
             min={5}
@@ -710,7 +720,7 @@ export function DecoPlanner({
             onChange={(v) => set('gfLow', v / 100)}
           />
           <NumField
-            label="GF alto"
+            label={t('GF alto')}
             unit="%"
             value={Math.round(base.gfHigh * 100)}
             min={30}
@@ -719,7 +729,7 @@ export function DecoPlanner({
             onChange={(v) => set('gfHigh', v / 100)}
           />
           <NumField
-            label="Risalita"
+            label={t('Risalita')}
             unit="m/min"
             value={base.ascentRateMpm}
             min={3}
@@ -728,7 +738,7 @@ export function DecoPlanner({
             onChange={(v) => set('ascentRateMpm', v)}
           />
           <NumField
-            label="Discesa"
+            label={t('Discesa')}
             unit="m/min"
             value={base.descentRateMpm}
             min={6}
@@ -737,7 +747,7 @@ export function DecoPlanner({
             onChange={(v) => set('descentRateMpm', v)}
           />
           <NumField
-            label="Ultima sosta"
+            label={t('Ultima sosta')}
             unit="m"
             value={base.lastStopM}
             min={3}
@@ -746,7 +756,7 @@ export function DecoPlanner({
             onChange={(v) => set('lastStopM', v)}
           />
           <NumField
-            label="Passo fra le soste"
+            label={t('Passo fra le soste')}
             unit="m"
             value={base.stopIntervalM}
             min={1}
@@ -755,7 +765,7 @@ export function DecoPlanner({
             onChange={(v) => set('stopIntervalM', v)}
           />
           <NumField
-            label="Consumo al fondo"
+            label={t('Consumo al fondo')}
             unit="L/min"
             value={base.rmvLpm}
             min={8}
@@ -764,7 +774,7 @@ export function DecoPlanner({
             onChange={(v) => set('rmvLpm', v)}
           />
           <NumField
-            label="Consumo in deco"
+            label={t('Consumo in deco')}
             unit="L/min"
             value={base.decoRmvLpm}
             min={8}
@@ -773,7 +783,7 @@ export function DecoPlanner({
             onChange={(v) => set('decoRmvLpm', v)}
           />
           <NumField
-            label="Tempo di cambio gas"
+            label={t('Tempo di cambio gas')}
             unit="min"
             value={base.switchMin}
             min={0}
@@ -792,13 +802,13 @@ export function DecoPlanner({
             checked={base.safetyStop !== null}
             onChange={(e) => set('safetyStop', e.target.checked ? { depthM: 5, minutes: 3 } : null)}
           />
-          <span>Sosta di sicurezza</span>
+          <span>{t('Sosta di sicurezza')}</span>
         </label>
         {base.safetyStop && (
           <>
             <div className="grid grid-3" style={{ gap: 10, marginTop: 8 }}>
               <NumField
-                label="Profondità della sosta"
+                label={t('Profondità della sosta')}
                 unit="m"
                 value={base.safetyStop.depthM}
                 min={3}
@@ -807,7 +817,7 @@ export function DecoPlanner({
                 onChange={(v) => set('safetyStop', { ...base.safetyStop!, depthM: v })}
               />
               <NumField
-                label="Durata"
+                label={t('Durata')}
                 unit="min"
                 value={base.safetyStop.minutes}
                 min={1}
@@ -816,28 +826,34 @@ export function DecoPlanner({
                 onChange={(v) => set('safetyStop', { ...base.safetyStop!, minutes: v })}
               />
             </div>
+            {/* Nessun modello la impone: su un'immersione bassa il piano che esce
+                dal modello arriva in superficie senza fermarsi. La si conta perché
+                quasi tutti la fanno, e tre minuti non calcolati sono tre minuti di
+                gas non calcolato. Non viene aggiunta quando il modello impone già
+                una sosta a quella quota o più bassa — in decompressione l'ultima
+                sosta fa già quel mestiere. */}
             <p className="planner-hint" style={{ marginTop: 6 }}>
-              Non è obbligatoria e nessun modello la impone: su un'immersione bassa il piano che esce dal
-              modello arriva in superficie senza fermarsi. La si conta perché quasi tutti la fanno, e tre
-              minuti non calcolati sono tre minuti di gas non calcolato. L'app non la aggiunge quando il
-              modello impone già una sosta a quella quota o più bassa — in decompressione l'ultima sosta fa
-              già quel mestiere — né sotto i {SAFETY_STOP_MIN_DEPTH_M} metri di profondità massima.
+              {t(
+                'Nessun modello la impone: la contiamo perché quasi tutti la fanno, e tre minuti sono tre minuti di gas.',
+              )}{' '}
+              {t('Non si aggiunge se il modello ha già una sosta a quella quota, né sotto i')}{' '}
+              {SAFETY_STOP_MIN_DEPTH_M} m.
             </p>
           </>
         )}
 
         <div className="grid grid-2" style={{ gap: 10, marginTop: 14 }}>
           <label className="planner-field">
-            <span className="planner-label">Modello decompressivo</span>
+            <span className="planner-label">{t('Modello decompressivo')}</span>
             <select value={model} onChange={(e) => setModel(e.target.value as typeof model)}>
-              <option value="buhlmann">Bühlmann ZH-L16C con gradient factor</option>
-              <option value="vpm">VPM-B (modello a bolle)</option>
-              <option value="both">Il più lungo dei due, sosta per sosta</option>
+              <option value="buhlmann">Bühlmann ZH-L16C {t('con gradient factor')}</option>
+              <option value="vpm">VPM-B ({t('modello a bolle')})</option>
+              <option value="both">{t('Il più lungo dei due, sosta per sosta')}</option>
             </select>
           </label>
           {model !== 'buhlmann' && (
             <NumField
-              label="Conservatorismo VPM"
+              label={t('Conservatorismo VPM')}
               unit="0-5"
               value={conservatism}
               min={0}
@@ -849,17 +865,20 @@ export function DecoPlanner({
         </div>
         {model !== 'buhlmann' && (
           <div className="notice" style={{ marginTop: 10 }}>
-            <strong style={{ fontWeight: 650 }}>Due cose da sapere sul nostro VPM-B. </strong>
-            Le tabelle escono dal 5 al 10 per cento più corte di V-Planner e MultiDeco a parità di
-            conservatorismo — il confronto con le schedule pubblicate sta nei test, e se vuoi allinearti al
-            tuo pianificatore alza di un livello. E soprattutto: <b>manca l'algoritmo ripetitivo del VPM</b>,
-            quindi sulla seconda immersione della giornata il modello è ottimista. Con Bühlmann il carico
-            residuo invece è tenuto in conto.
+            {/* Il confronto con le schedule pubblicate di V-Planner e MultiDeco sta
+                nei test: a parità di conservatorismo le nostre tabelle escono dal 5
+                al 10 per cento più corte. Con Bühlmann il carico residuo della
+                giornata è invece tenuto in conto. */}
+            <strong style={{ fontWeight: 650 }}>{t('Sul nostro VPM-B')}. </strong>
+            {t(
+              'Le tabelle escono dal 5 al 10 per cento più corte di V-Planner e MultiDeco: se vuoi allinearti, alza di un livello.',
+            )}{' '}
+            {t('Manca l’algoritmo ripetitivo, quindi sulla seconda immersione della giornata è ottimista.')}
             {vpm.iterations >= 12 && (
               <>
                 {' '}
-                <b>Su questo profilo il volume critico non è arrivato a convergenza</b> ({vpm.iterations}{' '}
-                iterazioni): la tabella non va usata.
+                <b>{t('Su questo profilo il volume critico non converge')}</b> ({vpm.iterations}{' '}
+                {t('iterazioni')}): {t('non usare la tabella.')}
               </>
             )}
           </div>
@@ -870,19 +889,23 @@ export function DecoPlanner({
           style={{ marginTop: 14, display: 'flex', gap: 8, alignItems: 'center' }}
         >
           <input type="checkbox" checked={ccr} onChange={(e) => setCcr(e.target.checked)} />
-          <span>Circuito chiuso (rebreather)</span>
+          <span>{t('Circuito chiuso (rebreather)')}</span>
         </label>
         {ccr && (
           <>
+            {/* Con il circuito chiuso il gas non se ne va con la ventilazione ma con
+                il metabolismo, che della profondità non sa niente: è il motivo per cui
+                un rebreather fa immersioni lunghe e profonde con bombole piccole. Chi
+                usa un rebreather questo lo sa già; quello che non può sapere è come
+                l'app tratta il suo elenco di gas, ed è l'unica cosa rimasta a schermo. */}
             <p className="planner-hint" style={{ marginTop: 6 }}>
-              Con il circuito chiuso il gas non se ne va con la ventilazione ma con il metabolismo, che della
-              profondità non sa niente: è il motivo per cui un rebreather fa immersioni lunghe e profonde con
-              bombole piccole. Il primo gas dell'elenco diventa il diluente; i gas marcati «bailout» non si
-              usano nel piano ma entrano nella risalita d'emergenza qui sotto.
+              {t(
+                'Il primo gas dell’elenco è il diluente. I gas di bailout non entrano nel piano ma nella risalita d’emergenza qui sotto.',
+              )}
             </p>
             <div className="grid grid-3" style={{ gap: 10, marginTop: 10 }}>
               <NumField
-                label="Setpoint"
+                label={t('Setpoint')}
                 unit="bar"
                 value={setpoint}
                 min={0.4}
@@ -891,7 +914,7 @@ export function DecoPlanner({
                 onChange={setSetpoint}
               />
               <NumField
-                label="Consumo O₂ al fondo"
+                label={t('Consumo O₂ al fondo')}
                 unit="L/min"
                 value={base.morLpm}
                 min={0.3}
@@ -900,7 +923,7 @@ export function DecoPlanner({
                 onChange={(v) => set('morLpm', v)}
               />
               <NumField
-                label="Consumo O₂ in deco"
+                label={t('Consumo O₂ in deco')}
                 unit="L/min"
                 value={base.decoMorLpm}
                 min={0.3}
@@ -909,7 +932,7 @@ export function DecoPlanner({
                 onChange={(v) => set('decoMorLpm', v)}
               />
               <NumField
-                label="Volume del circuito"
+                label={t('Volume del circuito')}
                 unit="L"
                 value={base.loopVolumeL}
                 min={2}
@@ -918,7 +941,7 @@ export function DecoPlanner({
                 onChange={(v) => set('loopVolumeL', v)}
               />
               <NumField
-                label="Bombola O₂"
+                label={t('Bombola O₂')}
                 unit="L"
                 value={base.ccrO2TankL ?? 3}
                 min={1}
@@ -927,7 +950,7 @@ export function DecoPlanner({
                 onChange={(v) => set('ccrO2TankL', v)}
               />
               <NumField
-                label="O₂ di partenza"
+                label={t('O₂ di partenza')}
                 unit="bar"
                 value={base.ccrO2StartBar ?? 200}
                 min={50}
@@ -938,10 +961,12 @@ export function DecoPlanner({
             </div>
           </>
         )}
+        {/* Usare lo stesso valore per i due consumi gonfia il gas di decompressione
+            di un buon venti per cento. */}
         <p className="planner-hint" style={{ marginTop: 8 }}>
-          Consumo al fondo e in decompressione sono due numeri diversi perché lo sono davvero: fermo a sei
-          metri si respira meno che nuotando a quaranta, e usare lo stesso valore gonfia il gas di
-          decompressione di un buon venti per cento.
+          {t(
+            'Fermo a sei metri si respira meno che nuotando a quaranta: per questo i due consumi sono separati.',
+          )}
         </p>
       </div>
 
@@ -954,10 +979,10 @@ export function DecoPlanner({
               <Was before={before?.runtime} now={plan.runtimeMin} />
             </span>
           }
-          note={`di cui ${plan.ascentMin.toFixed(0)} di risalita`}
+          note={`${t('di cui')} ${plan.ascentMin.toFixed(0)} ${t('di risalita')}`}
         />
         <StatTile
-          label="Decompressione"
+          label={t('Decompressione')}
           value={
             <span
               className="tabular"
@@ -970,30 +995,30 @@ export function DecoPlanner({
           note={
             plan.noDeco
               ? plan.safetyStopMin > 0
-                ? `in curva, più ${plan.safetyStopMin} min di sosta di sicurezza`
-                : 'il piano resta in curva'
-              : `prima sosta a ${plan.firstStopM} m`
+                ? `${t('in curva, più')} ${plan.safetyStopMin} ${t('min di sosta di sicurezza')}`
+                : t('il piano resta in curva')
+              : `${t('prima sosta a')} ${plan.firstStopM} m`
           }
         />
         <StatTile
-          label="Curva al primo livello"
+          label={t('Curva al primo livello')}
           value={
             <span className="tabular">
               {plan.ndlMin.toFixed(0)} <small style={{ fontSize: 14 }}>min</small>
               <Was before={before?.ndl} now={plan.ndlMin} />
             </span>
           }
-          note="quanto potresti restare senza prendere obblighi"
+          note={t('quanto puoi restare senza obblighi')}
         />
         <StatTile
-          label="GF99 previsto"
+          label={t('GF99 previsto')}
           value={
             <span className="tabular">
               {plan.gf99EndPct.toFixed(0)}%
               <Was before={before?.gf99} now={plan.gf99EndPct} />
             </span>
           }
-          note={`all'uscita, con GF ${Math.round(settings.gfLow * 100)}/${Math.round(settings.gfHigh * 100)}`}
+          note={`${t('all’uscita, con GF')} ${Math.round(settings.gfLow * 100)}/${Math.round(settings.gfHigh * 100)}`}
         />
       </div>
 
@@ -1003,10 +1028,10 @@ export function DecoPlanner({
             <div key={w.text} className={w.level === 'critical' ? 'notice notice-error' : 'notice'}>
               <strong style={{ fontWeight: 650 }}>
                 {w.level === 'critical'
-                  ? 'Il piano non regge: '
+                  ? `${t('Il piano non regge')}: `
                   : w.level === 'warning'
-                    ? 'Attenzione: '
-                    : 'Da sapere: '}
+                    ? `${t('Attenzione')}: `
+                    : `${t('Da sapere')}: `}
               </strong>
               {w.text}
             </div>
@@ -1015,17 +1040,18 @@ export function DecoPlanner({
       )}
 
       <div className="card">
-        <h2>La tabella</h2>
+        <h2>{t('La tabella')}</h2>
+        {/* Il runtime e non la durata della singola sosta: in acqua si guarda
+            l'orologio, non il cronometro. */}
         <p className="card-sub">
-          Una riga per tratto, con il runtime a fine tratto: è il numero che si scrive sulla lavagnetta,
-          perché in acqua si guarda l'orologio, non il cronometro delle singole soste.
+          {t('Una riga per tratto, con il runtime a fine tratto: è il numero da scrivere sulla lavagnetta.')}
         </p>
         <div className="table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Tratto</th>
-                <th className="num">Quota</th>
+                <th>{t('Tratto')}</th>
+                <th className="num">{t('Quota')}</th>
                 <th className="num">Min</th>
                 <th className="num">RT</th>
                 <th>Gas</th>
@@ -1037,7 +1063,7 @@ export function DecoPlanner({
             <tbody>
               {plan.segments.map((seg, i) => (
                 <tr key={i} style={{ background: seg.kind === 'stop' ? 'var(--surface-2)' : undefined }}>
-                  <td>{KIND_LABEL[seg.kind]}</td>
+                  <td>{t(KIND_LABEL[seg.kind])}</td>
                   <td className="num tabular">
                     {seg.fromM === seg.toM ? `${seg.toM} m` : `${seg.fromM}→${seg.toM} m`}
                   </td>
@@ -1070,8 +1096,8 @@ export function DecoPlanner({
         </div>
         {plan.offgassingFromM !== undefined && (
           <p className="planner-hint" style={{ marginTop: 8 }}>
-            La desaturazione comincia a {plan.offgassingFromM} m: sopra quella quota i tessuti che comandano
-            scaricano invece di caricare.
+            {t('La desaturazione comincia a')} {plan.offgassingFromM} m:{' '}
+            {t('più in alto i tessuti che comandano scaricano invece di caricare.')}
           </p>
         )}
       </div>
@@ -1079,11 +1105,11 @@ export function DecoPlanner({
       <div className="card">
         <div className="spread" style={{ alignItems: 'flex-start' }}>
           <div>
-            <h2 style={{ margin: 0 }}>Da portare in acqua</h2>
+            <h2 style={{ margin: 0 }}>{t('Da portare in acqua')}</h2>
             <p className="card-sub" style={{ marginBottom: 0 }}>
               {plan.stops.length > 0
-                ? 'Le soste con il runtime a cui arrivarci, e sotto il piano in testo semplice: si copia sulla lavagnetta, si incolla in un messaggio, si stampa.'
-                : 'Il piano resta in curva, ma il foglio serve lo stesso: gas, limiti e avvisi in testo semplice.'}
+                ? t('Le soste con il runtime, e il piano in testo semplice: si copia, si incolla, si stampa.')
+                : t('Il piano resta in curva, ma il foglio serve lo stesso: gas, limiti e avvisi.')}
             </p>
           </div>
           <div className="row" style={{ gap: 6 }}>
@@ -1095,7 +1121,7 @@ export function DecoPlanner({
                 );
               }}
             >
-              {copied ? 'Copiato' : 'Copia'}
+              {copied ? t('Copiato') : t('Copia')}
             </button>
             <button
               onClick={() => {
@@ -1106,16 +1132,16 @@ export function DecoPlanner({
                       tableText,
                       'text/plain;charset=utf-8',
                     );
-                    setSalvataggio(`Salvato ${dove.dove}.`);
+                    setSalvataggio(`${t('Salvato')} ${dove.dove}.`);
                   } catch (err) {
                     setSalvataggio(
-                      `Non si è potuto salvare: ${err instanceof Error ? err.message : String(err)}`,
+                      `${t('Non si è potuto salvare')}: ${err instanceof Error ? err.message : String(err)}`,
                     );
                   }
                 })();
               }}
             >
-              Scarica
+              {t('Scarica')}
             </button>
             {salvataggio && (
               <span className="muted" style={{ fontSize: 11, alignSelf: 'center' }}>
@@ -1142,14 +1168,14 @@ export function DecoPlanner({
 
       {plan.stops.length > 0 && (
         <div className="card">
-          <h2>Le soste, in tabella</h2>
-          <p className="card-sub">Le stesse righe del foglio, per leggerle sullo schermo.</p>
+          <h2>{t('Le soste, in tabella')}</h2>
+          <p className="card-sub">{t('Le stesse righe del foglio, per leggerle sullo schermo.')}</p>
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
-                  <th className="num">Quota</th>
-                  <th className="num">Minuti</th>
+                  <th className="num">{t('Quota')}</th>
+                  <th className="num">{t('Minuti')}</th>
                   <th className="num">Runtime</th>
                   <th>Gas</th>
                 </tr>
@@ -1164,7 +1190,7 @@ export function DecoPlanner({
                     <td className="num tabular">{s.runtimeMin}</td>
                     <td>
                       {gasLabel(gases[s.gasIndex])}
-                      {!s.mandatory && <span className="muted"> · sicurezza, non obbligatoria</span>}
+                      {!s.mandatory && <span className="muted"> · {t('sicurezza, non obbligatoria')}</span>}
                     </td>
                   </tr>
                 ))}
@@ -1176,19 +1202,20 @@ export function DecoPlanner({
 
       <div className="grid grid-2">
         <div className="card">
-          <h2>Il gas che serve</h2>
+          <h2>{t('Il gas che serve')}</h2>
+          {/* È il consumo del piano, non quello che devi avere a bordo: la riserva
+              la decide chi si immerge, e sommarla qui la renderebbe invisibile. */}
           <p className="card-sub">
-            In litri e, dove la bombola è nota, in bar. La riserva non è compresa: questo è il consumo del
-            piano, non quello che devi avere a bordo.
+            {t('In litri e, dove la bombola è nota, in bar. La riserva non è compresa.')}
           </p>
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
                   <th>Gas</th>
-                  <th className="num">Litri</th>
+                  <th className="num">{t('Litri')}</th>
                   <th className="num">Bar</th>
-                  <th className="num">A bordo</th>
+                  <th className="num">{t('A bordo')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1213,10 +1240,10 @@ export function DecoPlanner({
         </div>
 
         <div className="card">
-          <h2>Ossigeno e ritorno a casa</h2>
+          <h2>{t('Ossigeno e ritorno a casa')}</h2>
           <div className="grid grid-tiles" style={{ gap: 10 }}>
             <StatTile
-              label="Orologio CNS"
+              label={t('Orologio CNS')}
               value={
                 <span
                   className="tabular"
@@ -1225,42 +1252,48 @@ export function DecoPlanner({
                   {plan.oxygen.cnsPercent.toFixed(0)}%
                 </span>
               }
-              note="di questa sola immersione"
+              note={t('di questa sola immersione')}
             />
             <StatTile
               label="OTU"
               value={<span className="tabular">{plan.oxygen.otu.toFixed(0)}</span>}
-              note={`riferimento giornaliero ${OTU_DAILY_TDI}`}
+              note={`${t('riferimento giornaliero')} ${OTU_DAILY_TDI}`}
             />
             <StatTile
-              label="Prima di volare"
+              label={t('Prima di volare')}
               value={
                 <span className="tabular">
                   {plan.timeToFlyH !== undefined ? `${plan.timeToFlyH} h` : '—'}
                 </span>
               }
-              note="secondo il modello, non secondo le didattiche"
+              note={t('secondo il modello, non secondo le didattiche')}
             />
           </div>
+          {/* Le 12, 18 o 24 ore delle didattiche sono regole costruite su
+              statistiche di incidenti, non sull'uscita di un modello. Il numero qui
+              sopra serve a capire perché quelle regole esistono, non a scavalcarle:
+              per questo la frase a schermo mette la regola prima del numero. */}
           <p className="planner-hint" style={{ marginTop: 10 }}>
-            Le ore prima del volo sono l'uscita di un modello: dicono quando il tetto scende sotto la quota di
-            cabina. Le 12, 18 o 24 ore che insegnano i corsi sono regole costruite su statistiche di
-            incidenti, e sono l'unica cosa a cui attenersi. Il numero qui sopra serve a capire perché quelle
-            regole esistono, non a scavalcarle.
+            {t(
+              'Le 12, 18 o 24 ore dei corsi restano la regola. Questo numero dice solo quando il tetto scende sotto la quota di cabina.',
+            )}
           </p>
         </div>
       </div>
 
       {plan.ccr && (
         <div className="card">
-          <h2>Il circuito chiuso</h2>
+          <h2>{t('Il circuito chiuso')}</h2>
+          {/* Risalendo il gas in eccesso esce dalla valvola e non si consuma: per
+              questo il diluente si conta solo in discesa. */}
           <p className="card-sub">
-            L'ossigeno metabolico non dipende dalla profondità; il diluente serve solo a riempire il circuito
-            scendendo, perché risalendo il gas in eccesso esce dalla valvola e non si consuma.
+            {t(
+              'L’ossigeno metabolico non dipende dalla profondità; il diluente serve solo a riempire il circuito in discesa.',
+            )}
           </p>
           <div className="grid grid-tiles" style={{ gap: 10 }}>
             <StatTile
-              label="Ossigeno metabolico"
+              label={t('Ossigeno metabolico')}
               value={
                 <span
                   className="tabular"
@@ -1271,18 +1304,18 @@ export function DecoPlanner({
               }
               note={
                 plan.ccr.o2Bar !== undefined
-                  ? `${plan.ccr.o2Bar} bar sulla bombola da ${base.ccrO2TankL ?? 3} L`
-                  : 'bombola non dichiarata'
+                  ? `${plan.ccr.o2Bar} ${t('bar sulla bombola da')} ${base.ccrO2TankL ?? 3} L`
+                  : t('bombola non dichiarata')
               }
             />
             <StatTile
-              label="Diluente"
+              label={t('Diluente')}
               value={
                 <span className="tabular">
                   {plan.ccr.diluentLitres} <small style={{ fontSize: 14 }}>L</small>
                 </span>
               }
-              note="solo per riempire il circuito in discesa"
+              note={t('solo per riempire il circuito in discesa')}
             />
             <StatTile
               label="Runtime"
@@ -1291,7 +1324,7 @@ export function DecoPlanner({
                   {plan.runtimeMin.toFixed(0)} <small style={{ fontSize: 14 }}>min</small>
                 </span>
               }
-              note={`${plan.decoMin} min di decompressione`}
+              note={`${plan.decoMin} ${t('min di decompressione')}`}
             />
           </div>
 
@@ -1299,45 +1332,45 @@ export function DecoPlanner({
             <>
               <h3 style={{ margin: '18px 0 4px', fontSize: 14 }}>Bailout</h3>
               <p className="card-sub">
-                Il circuito si chiude e si esce a circuito aperto. Dal fondo è il caso peggiore ed è quello da
-                guardare per primo; se il gas non basta, la domanda diventa «da dove in su ce la faccio», e
-                quella si risponde solo provando quote diverse.
+                {t(
+                  'Il circuito si chiude e si esce a circuito aperto. Dal fondo è il caso peggiore; se il gas non basta, prova quote diverse.',
+                )}
               </p>
               <label className="planner-field" style={{ maxWidth: 320, marginBottom: 10 }}>
-                <span className="planner-label">Il guasto avviene a</span>
+                <span className="planner-label">{t('Il guasto avviene a')}</span>
                 <select
                   value={bailFrom ?? ''}
                   onChange={(e) => setBailFrom(e.target.value === '' ? null : Number(e.target.value))}
                 >
-                  <option value="">fine del fondo — il caso peggiore</option>
+                  <option value="">{t('fine del fondo — il caso peggiore')}</option>
                   {plan.stops.map((st) => (
                     <option key={st.depthM} value={st.depthM}>
-                      alla sosta dei {st.depthM} m
+                      {t('alla sosta dei')} {st.depthM} m
                     </option>
                   ))}
                   {[Math.round(Math.max(...effectiveLevels.map((l) => l.depthM)) / 2)].map((d) => (
                     <option key={`half-${d}`} value={d}>
-                      a metà risalita, {d} m
+                      {t('a metà risalita')}, {d} m
                     </option>
                   ))}
                 </select>
               </label>
               <div className="grid grid-tiles" style={{ gap: 10 }}>
                 <StatTile
-                  label="Risalita d'emergenza"
+                  label={t('Risalita d’emergenza')}
                   value={
                     <span className="tabular">
                       {bailout.runtimeMin.toFixed(0)} <small style={{ fontSize: 14 }}>min</small>
                     </span>
                   }
-                  note={`${bailout.decoMin} min di soste, prima a ${bailout.firstStopM ?? '—'} m`}
+                  note={`${bailout.decoMin} ${t('min di soste, prima a')} ${bailout.firstStopM ?? '—'} m`}
                 />
                 {bailout.gasUsage
                   .filter((u) => u.litres > 0)
                   .map((u) => (
                     <StatTile
                       key={u.gasIndex}
-                      label={`Ti serve ${gasLabel(gases[u.gasIndex])}`}
+                      label={`${t('Ti serve')} ${gasLabel(gases[u.gasIndex])}`}
                       value={
                         <span
                           className="tabular"
@@ -1347,7 +1380,11 @@ export function DecoPlanner({
                           <small style={{ fontSize: 14 }}>{u.bar !== undefined ? 'bar' : 'L'}</small>
                         </span>
                       }
-                      note={u.startBar !== undefined ? `su ${u.startBar} a bordo` : `${u.litres} litri`}
+                      note={
+                        u.startBar !== undefined
+                          ? `${u.startBar} ${t('bar a bordo')}`
+                          : `${u.litres} ${t('litri')}`
+                      }
                     />
                   ))}
               </div>
@@ -1355,7 +1392,7 @@ export function DecoPlanner({
                 .filter((w) => w.level === 'critical')
                 .map((w) => (
                   <div key={w.text} className="notice notice-error" style={{ marginTop: 10 }}>
-                    <strong style={{ fontWeight: 650 }}>Il bailout non regge: </strong>
+                    <strong style={{ fontWeight: 650 }}>{t('Il bailout non regge')}: </strong>
                     {w.text}
                   </div>
                 ))}
@@ -1365,22 +1402,25 @@ export function DecoPlanner({
       )}
 
       <div className="card">
-        <h2>I due modelli a confronto</h2>
+        <h2>{t('I due modelli a confronto')}</h2>
+        {/* Bühlmann conta la sovrasaturazione dei tessuti e lascia risalire finché
+            sta sotto una soglia; VPM-B conta i nuclei gassosi e li vuole schiacciati
+            presto. Vederli affiancati dice quanto di quello che stai per fare dipende
+            dal modello e non dalla fisica — ma questo lo dice meglio la tabella che
+            un paragrafo. */}
         <p className="card-sub">
-          Stesso profilo, stessi gas, due teorie diverse su cosa succede alle bolle. Bühlmann conta la
-          sovrasaturazione dei tessuti e lascia risalire finché sta sotto una soglia; VPM-B conta i nuclei
-          gassosi e li vuole schiacciati presto, quindi mette le soste più in profondità e ne toglie in
-          superficie. Non c'è un vincitore: c'è che vederli affiancati dice quanto di quello che stai per fare
-          dipende dal modello e non dalla fisica.
+          {t(
+            'Stesso profilo, due teorie sulle bolle: VPM-B mette le soste più in profondità e ne toglie in superficie. Non c’è un vincitore.',
+          )}
         </p>
         <div className="table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Modello</th>
-                <th className="num">Prima sosta</th>
-                <th className="num">Minuti di soste</th>
-                <th>Tabella</th>
+                <th>{t('Modello')}</th>
+                <th className="num">{t('Prima sosta')}</th>
+                <th className="num">{t('Minuti di soste')}</th>
+                <th>{t('Tabella')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1394,7 +1434,7 @@ export function DecoPlanner({
                 <td className="num tabular">{buhlmann.firstStopM ?? '—'}</td>
                 <td className="num tabular">{buhlmann.decoMin}</td>
                 <td className="tabular" style={{ fontSize: 11 }}>
-                  {buhlmann.stops.map((x) => `${x.depthM}/${x.minutes}`).join(' · ') || 'in curva'}
+                  {buhlmann.stops.map((x) => `${x.depthM}/${x.minutes}`).join(' · ') || t('in curva')}
                 </td>
               </tr>
               <tr style={{ background: model === 'vpm' ? 'var(--surface-2)' : undefined }}>
@@ -1404,7 +1444,7 @@ export function DecoPlanner({
                 <td className="num tabular">{vpm.firstStopM ?? '—'}</td>
                 <td className="num tabular">{vpm.decoMin}</td>
                 <td className="tabular" style={{ fontSize: 11 }}>
-                  {vpm.stops.map((x) => `${x.depthM}/${x.minutes}`).join(' · ') || 'in curva'}
+                  {vpm.stops.map((x) => `${x.depthM}/${x.minutes}`).join(' · ') || t('in curva')}
                 </td>
               </tr>
             </tbody>
@@ -1413,18 +1453,21 @@ export function DecoPlanner({
       </div>
 
       <div className="card">
-        <h2>Piani messi da parte</h2>
+        <h2>{t('Piani messi da parte')}</h2>
+        {/* Un piano tecnico è una configurazione che si riusa, non un modulo da
+            ricompilare ogni volta: è il motivo per cui questa card esiste accanto al
+            salvataggio automatico. */}
         <p className="card-sub">
-          Il piano su cui stai lavorando si salva da sé. Questi sono quelli che vuoi ritrovare: un piano
-          tecnico è una configurazione che si riusa — il relitto, la parete, il corso — non un modulo da
-          ricompilare ogni volta.
+          {t(
+            'Il piano su cui lavori si salva da sé. Qui metti quelli che vuoi ritrovare: il relitto, la parete, il corso.',
+          )}
         </p>
         <div className="row" style={{ gap: 8, alignItems: 'flex-end' }}>
           <label className="planner-field" style={{ flex: 1, maxWidth: 320 }}>
-            <span className="planner-label">Nome</span>
+            <span className="planner-label">{t('Nome')}</span>
             <input
               value={planName}
-              placeholder="Relitto a 45 con Tx21/35"
+              placeholder={t('Relitto a 45 con Tx21/35')}
               onChange={(e) => setPlanName(e.target.value)}
             />
           </label>
@@ -1436,7 +1479,7 @@ export function DecoPlanner({
               setPlanName('');
             }}
           >
-            Metti da parte
+            {t('Metti da parte')}
           </button>
         </div>
 
@@ -1445,8 +1488,8 @@ export function DecoPlanner({
             <table>
               <thead>
                 <tr>
-                  <th>Nome</th>
-                  <th className="num">Salvato</th>
+                  <th>{t('Nome')}</th>
+                  <th className="num">{t('Salvato')}</th>
                   <th />
                 </tr>
               </thead>
@@ -1461,13 +1504,13 @@ export function DecoPlanner({
                           style={{ fontSize: 11, padding: '3px 8px' }}
                           onClick={() => onLoadPlan?.(p.state)}
                         >
-                          Carica
+                          {t('Carica')}
                         </button>
                         <button
                           style={{ fontSize: 11, padding: '3px 8px', color: 'var(--critical)' }}
                           onClick={() => void onDeletePlan?.(p.name)}
                         >
-                          Elimina
+                          {t('Elimina')}
                         </button>
                       </span>
                     </td>
@@ -1494,25 +1537,28 @@ export function DecoPlanner({
                 ? `VPM-B, conservatorismo ${conservatism}`
                 : `il più lungo fra Bühlmann-GF ${Math.round(settings.gfLow * 100)}/${Math.round(settings.gfHigh * 100)} e VPM-B conservatorismo ${conservatism}, sosta per sosta`,
         }}
-        title="Fai rileggere il piano a Claude"
-        description="Un piano tecnico si controlla in due: si scrive, si passa al compagno, e quello guarda se torna. Qui va tutto — livelli, miscele, soste, gas, ossigeno, contingenze — con l'istruzione esplicita di NON riscrivere la tabella: se una sosta non convince, deve dire quale controllo la mette in dubbio, non proporne un'altra."
+        title={t('Fai rileggere il piano a Claude')}
+        description={t(
+          'Livelli, miscele, soste, gas, ossigeno e contingenze vanno a Claude, con l’istruzione di non riscrivere la tabella: se una sosta non convince, deve dire quale controllo la mette in dubbio.',
+        )}
         currentFingerprint={tableText}
       />
 
       <div className="card">
-        <h2>Se qualcosa cambia</h2>
+        <h2>{t('Se qualcosa cambia')}</h2>
         <p className="card-sub">
-          Le quattro cose che succedono: sei sceso più giù, sei rimasto più a lungo, tutt'e due, e hai perso
-          un gas. Il momento di sapere quanto costano è adesso.
+          {t(
+            'Sei sceso più giù, sei rimasto più a lungo, tutt’e due, o hai perso un gas. Il momento di sapere quanto costano è adesso.',
+          )}
         </p>
         <div className="table-scroll">
           <table>
             <thead>
               <tr>
-                <th>Scenario</th>
+                <th>{t('Scenario')}</th>
                 <th className="num">Runtime</th>
                 <th className="num">Deco</th>
-                <th className="num">Prima sosta</th>
+                <th className="num">{t('Prima sosta')}</th>
                 <th style={{ textAlign: 'right' }}>Gas</th>
               </tr>
             </thead>
@@ -1520,9 +1566,13 @@ export function DecoPlanner({
               {contingenze.map((c) => (
                 <tr key={c.id}>
                   <td>
-                    <div style={{ fontWeight: 550 }}>{c.label}</div>
+                    {/* Etichetta e descrizione arrivano da `decoContingencies`: si
+                        traducono qui, dove si disegnano. Quelle costruite attorno al
+                        nome di un gas («Perso Ossigeno») restano in italiano, e va
+                        bene così — il nome del gas non si traduce comunque. */}
+                    <div style={{ fontWeight: 550 }}>{t(c.label)}</div>
                     <div className="muted" style={{ fontSize: 11 }}>
-                      {c.description}
+                      {t(c.description)}
                     </div>
                   </td>
                   <td className="num tabular">
@@ -1543,7 +1593,7 @@ export function DecoPlanner({
                   <td style={{ textAlign: 'right' }}>
                     <span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
                       <span className={`dot ${c.breaks ? 'dot-critical' : 'dot-good'}`} />
-                      {c.breaks ? 'non basta' : 'basta'}
+                      {c.breaks ? t('non basta') : t('basta')}
                     </span>
                   </td>
                 </tr>
@@ -1556,6 +1606,12 @@ export function DecoPlanner({
   );
 }
 
+/**
+ * I nomi dei tratti della tabella.
+ *
+ * Restano in italiano nella costante e si traducono al disegno con `t(...)`: è una
+ * tabella di costanti, non deve rinascere a ogni render.
+ */
 const KIND_LABEL: Record<string, string> = {
   descent: 'discesa',
   level: 'fondo',
@@ -1661,11 +1717,12 @@ function usePrevious<T>(value: T): T | undefined {
 
 /** «era 47» accanto al numero, e niente quando non è cambiato. */
 function Was({ before, now, digits = 0 }: { before?: number; now: number; digits?: number }) {
+  const { t } = useLingua();
   if (before === undefined) return null;
   if (Math.abs(before - now) < Math.pow(10, -digits) / 2) return null;
   return (
     <small className="muted" style={{ fontSize: 12, fontWeight: 500, marginLeft: 6 }}>
-      era {before.toFixed(digits)}
+      {t('era')} {before.toFixed(digits)}
     </small>
   );
 }

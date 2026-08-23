@@ -25,9 +25,11 @@ import {
   timeShort,
   tzLabel,
 } from '../format';
+import { useLingua } from '../lingua';
 
 export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const { dives, loadProfiles, saveDive, removeDive, gear, saveGear } = useDiveLog();
+  const { t } = useLingua();
   const summary = dives.find((d) => d.id === id);
   const [dive, setDive] = useState<Dive | undefined>(summary);
   const [editing, setEditing] = useState(false);
@@ -71,9 +73,9 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
     return (
       <div className="page">
         <div className="empty">
-          <h2>Immersione non trovata</h2>
+          <h2>{t('Immersione non trovata')}</h2>
           <button className="btn" onClick={onBack}>
-            Torna al logbook
+            {t('Torna al logbook')}
           </button>
         </div>
       </div>
@@ -103,7 +105,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
              * distingue la terza immersione della settimana dalle altre due
              * fatte nello stesso posto; il sito resta nella riga sotto.
              */}
-            {dive.title || dive.site?.name || 'Immersione'}
+            {dive.title || dive.site?.name || t('Immersione')}
             {dive.number !== undefined && (
               <span className="muted" style={{ fontWeight: 400 }}>
                 {' '}
@@ -115,13 +117,16 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
             {capitalise(dateLong(dive.startTime, dive.utcOffsetMinutes))} ·{' '}
             {timeShort(dive.startTime, dive.utcOffsetMinutes)}
             {tzLabel(dive.utcOffsetMinutes) && (
-              <span className="muted"> ({tzLabel(dive.utcOffsetMinutes)}, ora locale del sito)</span>
+              <span className="muted">
+                {' '}
+                ({tzLabel(dive.utcOffsetMinutes)}, {t('ora locale del sito')})
+              </span>
             )}
           </div>
         </div>
         <div className="row">
           <button className="btn btn-quiet" onClick={onBack}>
-            ← Logbook
+            ← {t('Logbook')}
           </button>
           {/*
            * SU IPHONE IL PULSANTE NON C'È, e non è una rinuncia.
@@ -140,7 +145,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
            */}
           {!suIOS() && (
             <button className="btn" onClick={() => setStampaBloccata(!apriStampa(dive, gear.equipment))}>
-              Stampa questa immersione
+              {t('Stampa questa immersione')}
             </button>
           )}
           {/*
@@ -154,11 +159,9 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
            */}
           {editing && sporco ? (
             <BottoneConferma
-              etichetta="Chiudi modifica"
-              conferma="Sì, butta via le modifiche"
-              domanda={
-                <>Ci sono modifiche non salvate su questa immersione. Chiudendo la scheda vanno perse.</>
-              }
+              etichetta={t('Chiudi modifica')}
+              conferma={t('Sì, butta via le modifiche')}
+              domanda={<>{t('Ci sono modifiche non salvate: chiudendo vanno perse.')}</>}
               onConferma={() => {
                 setSporco(false);
                 setEditing(false);
@@ -172,79 +175,80 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                 setEditing((v) => !v);
               }}
             >
-              {editing ? 'Chiudi modifica' : 'Modifica dati'}
+              {editing ? t('Chiudi modifica') : t('Modifica dati')}
             </button>
           )}
         </div>
       </div>
 
+      {/*
+       * PERCHÉ I DUE TESTI SONO DIVERSI. Dentro la WKWebView di iOS `window.open`
+       * torna null e `window.print()` non fa niente: non è il blocco dei popup,
+       * ed è inutile mandare a cercare un'impostazione che lì non esiste. Nel
+       * browser invece la causa è sempre e solo il blocco dei popup.
+       */}
       {stampaBloccata && (
         <div className="notice">
-          {suIOS() ? (
-            <>
-              Su iPhone e iPad la stampa non c'è: il foglio si apre in una finestra separata e la stampa la fa
-              il sistema, e in iOS non esiste nessuna delle due cose. Per ora il foglio si stampa dal Mac — i
-              dati sono gli stessi, sincronizzati.
-            </>
-          ) : (
-            <>
-              La finestra di stampa non si è aperta: il browser ha bloccato l’apertura di una nuova finestra.
-              Consentila per questo sito e riprova — la stampa non modifica nulla nell’archivio, apre soltanto
-              una copia del foglio da stampare.
-            </>
-          )}
+          {suIOS()
+            ? t('Su iPhone e iPad non si stampa. Il foglio si stampa dal Mac: i dati sono gli stessi.')
+            : t('Il browser ha bloccato la finestra di stampa. Consentila per questo sito e riprova.')}
         </div>
       )}
 
       <div className="grid grid-tiles">
+        {/* `StatTile` non traduce da sé: etichette e note arrivano tradotte da qui. */}
         <StatTile
-          label="Profondità massima"
+          label={t('Profondità massima')}
           value={`${dive.maxDepth.toFixed(1)} m`}
-          note={m?.avgDepth !== undefined ? `media ${m.avgDepth.toFixed(1)} m` : 'media non disponibile'}
-        />
-        <StatTile
-          label="Durata"
-          value={formatDuration(dive.durationS)}
-          note={m ? `fondo ${formatDuration(m.phases.bottomS)}` : undefined}
-        />
-        <StatTile
-          label="Consumo di superficie"
-          value={m?.rmvLpm !== undefined ? `${m.rmvLpm.toFixed(1)}` : '—'}
-          note={m?.rmvLpm !== undefined ? 'L/min' : 'serve volume e pressione bombola'}
-        />
-        <StatTile
-          label="Oscillazione a quota tenuta"
-          value={m?.bottomVerticalTravelMpm !== undefined ? m.bottomVerticalTravelMpm.toFixed(1) : '—'}
           note={
-            m?.bottomVerticalTravelMpm !== undefined
-              ? `m/min verticali su ${formatDuration(m.holdingS ?? 0)} di quota tenuta`
-              : 'serve un profilo campionato'
+            m?.avgDepth !== undefined
+              ? `${t('media')} ${m.avgDepth.toFixed(1)} m`
+              : t('media non disponibile')
           }
         />
         <StatTile
-          label="Risalita di picco"
-          value={m?.maxAscentRateMpm !== undefined ? `${m.maxAscentRateMpm.toFixed(0)}` : '—'}
-          note="m/min su 30 s"
+          label={t('Durata')}
+          value={formatDuration(dive.durationS)}
+          note={m ? `${t('fondo')} ${formatDuration(m.phases.bottomS)}` : undefined}
         />
         <StatTile
-          label="Temperatura minima"
+          label={t('Consumo di superficie')}
+          value={m?.rmvLpm !== undefined ? `${m.rmvLpm.toFixed(1)}` : '—'}
+          note={m?.rmvLpm !== undefined ? 'L/min' : t('servono volume e pressione della bombola')}
+        />
+        <StatTile
+          label={t('Oscillazione a quota tenuta')}
+          value={m?.bottomVerticalTravelMpm !== undefined ? m.bottomVerticalTravelMpm.toFixed(1) : '—'}
+          note={
+            m?.bottomVerticalTravelMpm !== undefined
+              ? `m/min ${t('su')} ${formatDuration(m.holdingS ?? 0)} ${t('di quota tenuta')}`
+              : t('serve un profilo campionato')
+          }
+        />
+        <StatTile
+          label={t('Risalita di picco')}
+          value={m?.maxAscentRateMpm !== undefined ? `${m.maxAscentRateMpm.toFixed(0)}` : '—'}
+          note={`m/min ${t('su')} 30 s`}
+        />
+        <StatTile
+          label={t('Temperatura minima')}
           value={dive.minTempC !== undefined ? `${dive.minTempC.toFixed(1)} °C` : '—'}
-          note={dive.airTempC !== undefined ? `aria ${dive.airTempC.toFixed(0)} °C` : undefined}
+          note={dive.airTempC !== undefined ? `${t('aria')} ${dive.airTempC.toFixed(0)} °C` : undefined}
         />
       </div>
 
       <div className="card">
-        <h2>Profilo</h2>
+        <h2>{t('Profilo')}</h2>
         <div className="spread" style={{ alignItems: 'flex-start', gap: 12 }}>
           <p className="card-sub">
-            Profondità in metri, tempo in minuti.{' '}
+            {t('Profondità in metri, tempo in minuti.')}{' '}
             {samples.length > 2
-              ? `${samples.length} campioni, uno ogni ${stepOf(samples)} s${
-                  showAlt ? ' — secondo computer' : ''
+              ? `${samples.length} ${t('campioni, uno ogni')} ${stepOf(samples)} s${
+                  showAlt ? ` — ${t('secondo computer')}` : ''
                 }.`
-              : 'Nessun campionamento nel file di origine.'}
+              : t('Nessun campionamento nel file di origine.')}
             {hasAlt && !showAlt && m?.quality.ratesFromAlt
-              ? ` Velocità e assetto sono misurati sul profilo più fitto, a ${m.quality.ratesIntervalS} s, del secondo computer.`
+              ? ` ${t('Velocità e assetto vengono dal profilo più fitto del secondo computer, a')} ${m.quality.ratesIntervalS} s.`
               : ''}
           </p>
           {hasAlt && (
@@ -261,10 +265,10 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
              */
             <div className="scelta-computer">
               <button className="btn" aria-pressed={!showAlt} onClick={() => setShowAlt(false)}>
-                {dive.computer?.model ?? 'Profilo principale'}
+                {dive.computer?.model ?? t('Profilo principale')}
               </button>
               <button className="btn" aria-pressed={showAlt} onClick={() => setShowAlt(true)}>
-                {dive.otherComputers?.[0]?.model ?? 'Secondo profilo'}
+                {dive.otherComputers?.[0]?.model ?? t('Secondo profilo')}
               </button>
             </div>
           )}
@@ -275,7 +279,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <MiniSeries
               samples={samples}
               pick={(s) => s.tempC}
-              label="Temperatura"
+              label={t('Temperatura')}
               unit="°C"
               digits={1}
               color="var(--series-3)"
@@ -288,7 +292,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <MiniSeries
               samples={samples}
               pick={(s) => s.pressureBar?.find((p) => p !== undefined)}
-              label="Pressione bombola"
+              label={t('Pressione bombola')}
               unit="bar"
               color="var(--series-2)"
               cursor={{ t: cursorT, onChange: setCursorT }}
@@ -307,16 +311,19 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                 const r = rates[i];
                 return r === undefined ? undefined : Math.round(r * 10) / 10;
               }}
-              label={`Velocità verticale su ${RATE_WINDOW_S} s — positiva in risalita`}
+              label={`${t('Velocità verticale su')} ${RATE_WINDOW_S} s — ${t('positiva in risalita')}`}
               unit="m/min"
               digits={1}
               color="var(--series-1)"
               cursor={{ t: cursorT, onChange: setCursorT }}
               reference={[
-                { value: LIMITS.ascentRateDeepMpm, label: `limite ${LIMITS.ascentRateDeepMpm} sotto i 10 m` },
+                {
+                  value: LIMITS.ascentRateDeepMpm,
+                  label: `${t('limite')} ${LIMITS.ascentRateDeepMpm} ${t('sotto i 10 m')}`,
+                },
                 {
                   value: LIMITS.ascentRateShallowMpm,
-                  label: `limite ${LIMITS.ascentRateShallowMpm} sopra i 10 m`,
+                  label: `${t('limite')} ${LIMITS.ascentRateShallowMpm} ${t('sopra i 10 m')}`,
                   color: 'var(--warning)',
                 },
               ]}
@@ -328,7 +335,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <MiniSeries
               samples={samples}
               pick={(s) => s.rbtMin}
-              label="Tempo di fondo residuo dal trasmettitore (RBT)"
+              label={t('Tempo di fondo residuo (RBT)')}
               unit="min"
               color="var(--series-2)"
               cursor={{ t: cursorT, onChange: setCursorT }}
@@ -340,7 +347,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <MiniSeries
               samples={samples}
               pick={(s) => (s.ttsS === undefined ? undefined : s.ttsS / 60)}
-              label="Tempo di risalita (TTS) letto dal computer"
+              label={t('Tempo di risalita (TTS) del computer')}
               unit="min"
               color="var(--series-2)"
               cursor={{ t: cursorT, onChange: setCursorT }}
@@ -352,7 +359,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <MiniSeries
               samples={samples}
               pick={(s) => (s.ndlS === undefined ? undefined : s.ndlS / 60)}
-              label="Minuti residui in curva (NDL)"
+              label={t('Minuti residui in curva (NDL)')}
               unit="min"
               color="var(--series-1)"
               cursor={{ t: cursorT, onChange: setCursorT }}
@@ -364,7 +371,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <MiniSeries
               samples={samples}
               pick={(s) => s.cns}
-              label="Orologio dell'ossigeno (CNS)"
+              label={t('Orologio dell’ossigeno (CNS)')}
               unit="%"
               color="var(--series-3)"
               cursor={{ t: cursorT, onChange: setCursorT }}
@@ -390,14 +397,15 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
       {observations.length > 0 && (
         <div className="card">
           <h2>Debrief</h2>
-          <p className="card-sub">Osservazioni ricavate dal profilo di questa immersione.</p>
+          <p className="card-sub">{t('Cosa dice il profilo di questa immersione.')}</p>
           <div className="stack" style={{ gap: 7 }}>
             {observations.map((o) => (
               <div key={o.text} className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
                 <span className={`dot ${SEVERITY_CLASS[o.severity]}`} style={{ marginTop: 6 }} />
                 <span style={{ flex: 1, fontSize: 13 }}>
                   <span className="muted" style={{ fontSize: 11, fontWeight: 650, marginRight: 6 }}>
-                    {SEVERITY_TEXT[o.severity]}
+                    {/* `SEVERITY_TEXT` vive in `format.ts`: si traduce al disegno. */}
+                    {t(SEVERITY_TEXT[o.severity])}
                   </span>
                   {o.text}
                 </span>
@@ -409,13 +417,15 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
       <div className="grid grid-2">
         <div className="card">
-          <h2>Dettagli</h2>
+          <h2>{t('Dettagli')}</h2>
           <table>
             <tbody>
-              <Row label="Modalità" value={modeLabel(dive)} />
-              <Row label="Acqua" value={dive.salinity === 'fresh' ? 'Dolce' : 'Salata'} />
-              <Row label="Compagno" value={dive.buddy ?? '—'} />
-              <Row label="Guida sub" value={dive.guide ?? '—'} />
+              {/* `modeLabel` sta in `core` e torna l'etichetta italiana: si
+                  traduce qui, dove viene disegnata. */}
+              <Row label={t('Modalità')} value={t(modeLabel(dive))} />
+              <Row label={t('Acqua')} value={t(dive.salinity === 'fresh' ? 'Dolce' : 'Salata')} />
+              <Row label={t('Compagno')} value={dive.buddy ?? '—'} />
+              <Row label={t('Guida sub')} value={dive.guide ?? '—'} />
               {/*
                * La zavorra si mostra col TOTALE quando c'è una piastra, e con la
                * scomposizione accanto. Il solo `weightKg` racconterebbe il
@@ -423,45 +433,60 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                * piastra d'acciaio da 3 fanno cinque.
                */}
               <Row
-                label="Zavorra"
+                label={t('Zavorra')}
                 value={
                   zavorraTotaleKg(dive, gear.equipment) > 0
                     ? piastraDellImmersione(dive, gear.equipment)
-                      ? `${Math.round(zavorraTotaleKg(dive, gear.equipment) * 10) / 10} kg (${dive.weightKg ?? 0} di zavorra + ${piastraDellImmersione(dive, gear.equipment)} di piastra)`
+                      ? `${Math.round(zavorraTotaleKg(dive, gear.equipment) * 10) / 10} kg (${dive.weightKg ?? 0} ${t('di zavorra')} + ${piastraDellImmersione(dive, gear.equipment)} ${t('di piastra')})`
                       : `${dive.weightKg} kg`
                     : '—'
                 }
               />
-              <Row label="Muta" value={dive.gear?.suit?.name ?? dive.suit ?? '—'} />
+              <Row label={t('Muta')} value={dive.gear?.suit?.name ?? dive.suit ?? '—'} />
               <Row
-                label="Erogatori"
+                label={t('Erogatori')}
                 value={
                   dive.gear?.regulators?.length ? dive.gear.regulators.map((r) => r.name).join(' · ') : '—'
                 }
               />
               <Row label="GAV" value={dive.gear?.bcd?.name ?? '—'} />
-              <Row label="Visibilità" value={visibilitaTesto(dive)} />
-              <Row label="Condizioni" value={condizioniTesto(dive) || '—'} />
-              <Row label="Etichette" value={dive.tags.length ? dive.tags.join(' · ') : '—'} />
+              <Row label={t('Visibilità')} value={visibilitaTesto(dive)} />
+              {/* `condizioniTesto` incolla le etichette di `core` con ' · ':
+                  si traduce pezzo per pezzo, che è come stanno nel dizionario. */}
               <Row
-                label="Fasi"
+                label={t('Condizioni')}
+                value={
+                  condizioniTesto(dive)
+                    .split(' · ')
+                    .map((p) => t(p))
+                    .join(' · ') || '—'
+                }
+              />
+              <Row label={t('Etichette')} value={dive.tags.length ? dive.tags.join(' · ') : '—'} />
+              <Row
+                label={t('Fasi')}
                 value={
                   m
-                    ? `discesa ${formatDuration(m.phases.descentS)} · fondo ${formatDuration(m.phases.bottomS)} · risalita ${formatDuration(m.phases.ascentS)}`
+                    ? `${t('discesa')} ${formatDuration(m.phases.descentS)} · ${t('fondo')} ${formatDuration(m.phases.bottomS)} · ${t('risalita')} ${formatDuration(m.phases.ascentS)}`
                     : '—'
                 }
               />
               <Row
-                label="Sosta di sicurezza"
-                value={m ? (m.safetyStopS > 0 ? formatDuration(m.safetyStopS) : 'nessuna') : '—'}
+                label={t('Sosta di sicurezza')}
+                value={m ? (m.safetyStopS > 0 ? formatDuration(m.safetyStopS) : t('nessuna')) : '—'}
               />
-              <Row label="Tempo in deco" value={m && m.decoS > 0 ? formatDuration(m.decoS) : 'nessuno'} />
               <Row
-                label="PPO2 di picco"
+                label={t('Tempo in deco')}
+                value={m && m.decoS > 0 ? formatDuration(m.decoS) : t('nessuno')}
+              />
+              <Row
+                label={t('PPO2 di picco')}
                 value={
                   m?.maxPpo2 !== undefined
                     ? `${m.maxPpo2.toFixed(2)} bar${
-                        m.minutesAbovePpo214 ? ` · ${m.minutesAbovePpo214.toFixed(0)} min sopra 1.4` : ''
+                        m.minutesAbovePpo214
+                          ? ` · ${m.minutesAbovePpo214.toFixed(0)} min ${t('sopra 1.4')}`
+                          : ''
                       }`
                     : '—'
                 }
@@ -470,54 +495,57 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                   suo modello, il nostro dalle tabelle NOAA applicate al profilo.
                   Sovrapporli nasconderebbe che sono due misure diverse. */}
               <Row
-                label="CNS del computer"
+                label={t('CNS del computer')}
                 value={m?.cnsEndPct !== undefined ? `${m.cnsEndPct.toFixed(0)}%` : '—'}
               />
               <Row
-                label="CNS calcolato (NOAA)"
+                label={t('CNS calcolato (NOAA)')}
                 value={m?.cnsPct !== undefined ? `${m.cnsPct.toFixed(0)}%` : '—'}
               />
               <Row label="OTU" value={m?.otu !== undefined ? m.otu.toFixed(0) : '—'} />
               <Row
-                label="Velocità sull'ultimo tratto"
+                label={t('Velocità sull’ultimo tratto')}
                 value={
                   m?.finalAscentRateMpm !== undefined
-                    ? `${m.finalAscentRateMpm.toFixed(0)} m/min da ${m.finalAscentFromM?.toFixed(1)} m`
+                    ? `${m.finalAscentRateMpm.toFixed(0)} m/min ${t('da')} ${m.finalAscentFromM?.toFixed(1)} m`
                     : '—'
                 }
               />
               <Row label="END" value={m?.endM !== undefined ? `${m.endM.toFixed(1)} m` : '—'} />
               <Row
-                label="Sosta profonda"
+                label={t('Sosta profonda')}
                 value={
                   m === undefined
                     ? '—'
                     : m.deepStopS > 0
-                      ? `${formatDuration(m.deepStopS)} a ${m.deepStopDepthM?.toFixed(0)} m`
-                      : 'nessuna'
+                      ? `${formatDuration(m.deepStopS)} ${t('a')} ${m.deepStopDepthM?.toFixed(0)} m`
+                      : t('nessuna')
                 }
               />
               <Row
-                label="Forma del profilo"
+                label={t('Forma del profilo')}
                 value={
                   m?.sawtoothMPerHour === undefined
                     ? '—'
-                    : `${m.sawtoothMPerHour.toFixed(0)} m/h di ridiscese${
+                    : `${m.sawtoothMPerHour.toFixed(0)} m/h ${t('di ridiscese')}${
                         shapeNote(m.sawtoothMPerHour, dives) ?? ''
                       }${
                         m.depthTrendM !== undefined
                           ? m.depthTrendM >= 0
-                            ? ` · prima metà ${m.depthTrendM.toFixed(1)} m più profonda, come si raccomanda`
-                            : ` · seconda metà ${(-m.depthTrendM).toFixed(1)} m più profonda della prima`
+                            ? ` · ${t('prima metà')} ${m.depthTrendM.toFixed(1)} ${t('m più profonda, come si raccomanda')}`
+                            : ` · ${t('seconda metà')} ${(-m.depthTrendM).toFixed(1)} ${t('m più profonda della prima')}`
                           : ''
                       }`
                 }
               />
               {m !== undefined && m.badGasSwitches > 0 && (
-                <Row label="Cambi di gas sotto la MOD" value={`${m.badGasSwitches} — errore di procedura`} />
+                <Row
+                  label={t('Cambi di gas sotto la MOD')}
+                  value={`${m.badGasSwitches} — ${t('errore di procedura')}`}
+                />
               )}
               {m?.minPpo2 !== undefined && m.minPpo2 < 0.21 && (
-                <Row label="PPO2 minima" value={`${m.minPpo2.toFixed(2)} bar`} />
+                <Row label={t('PPO2 minima')} value={`${m.minPpo2.toFixed(2)} bar`} />
               )}
               <ComputersRow dive={dive} />
               <SourcesRow dive={dive} />
@@ -526,20 +554,19 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
         </div>
 
         <div className="card">
-          <h2>Bombole e miscele</h2>
-          <p className="card-sub">
-            Il volume in litri è ciò che permette di calcolare il consumo in L/min: senza di esso resta solo
-            bar/min, che non è confrontabile fra bombole diverse.
-          </p>
+          <h2>{t('Bombole e miscele')}</h2>
+          {/* Il volume in litri serve al consumo in L/min: senza, resta bar/min,
+              che non si confronta fra bombole di taglia diversa. */}
+          <p className="card-sub">{t('Senza i litri della bombola il consumo in L/min non si calcola.')}</p>
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
                   <th>Gas</th>
-                  <th className="num">Litri</th>
-                  <th className="num">Inizio</th>
-                  <th className="num">Fine</th>
-                  <th className="num">Usati</th>
+                  <th className="num">{t('Litri')}</th>
+                  <th className="num">{t('Inizio')}</th>
+                  <th className="num">{t('Fine')}</th>
+                  <th className="num">{t('Usati')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -579,40 +606,39 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
         <div className="grid grid-2">
           {dive.reported && (
             <div className="card">
-              <h2>Letto dal computer</h2>
-              <p className="card-sub">
-                Valori che il computer ha calcolato durante l'immersione, tenuti distinti da quelli ricavati
-                qui dal profilo.
-              </p>
+              <h2>{t('Letto dal computer')}</h2>
+              {/* Restano distinti da quelli che ricaviamo noi dal profilo: due
+                  misure diverse, e sovrapporle nasconderebbe la differenza. */}
+              <p className="card-sub">{t('Quello che ha calcolato il computer durante l’immersione.')}</p>
               <table>
                 <tbody>
                   <Row
-                    label="GF99 all'uscita"
+                    label={t('GF99 all’uscita')}
                     value={dive.reported.gf99End !== undefined ? `${dive.reported.gf99End}%` : '—'}
                   />
                   <Row
-                    label="Obbligo decompressivo"
+                    label={t('Obbligo decompressivo')}
                     value={
                       dive.reported.maxDecoObligationS !== undefined
                         ? dive.reported.maxDecoObligationS > 0
                           ? formatDuration(dive.reported.maxDecoObligationS)
-                          : 'nessuno'
+                          : t('nessuno')
                         : '—'
                     }
                   />
                   <Row
-                    label="NDL minimo"
+                    label={t('NDL minimo')}
                     value={dive.reported.minNdlS !== undefined ? formatDuration(dive.reported.minNdlS) : '—'}
                   />
-                  <Row label="Consumo dichiarato" value={dive.reported.avgSac ?? '—'} />
+                  <Row label={t('Consumo dichiarato')} value={dive.reported.avgSac ?? '—'} />
                 </tbody>
               </table>
             </div>
           )}
           {dive.annotations && (
             <div className="card">
-              <h2>Annotazioni del logbook</h2>
-              <p className="card-sub">Come le hai registrate nel logbook di origine.</p>
+              <h2>{t('Annotazioni del logbook')}</h2>
+              <p className="card-sub">{t('Come le hai scritte nel logbook di origine.')}</p>
               <table>
                 <tbody>
                   {Object.entries(dive.annotations).map(([k, v]) => (
@@ -639,14 +665,14 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
       <AnalysisCard
         kind="dive"
         dive={dive}
-        title="Analisi di questa immersione con Claude"
-        description="Legge il profilo campione per campione insieme alle metriche e ai valori del computer, e dice cosa provare la prossima volta."
+        title={t('Analisi di questa immersione con Claude')}
+        description={t('Legge il profilo e i numeri del computer, e dice cosa provare la prossima volta.')}
         currentFingerprint={dive.updatedAt ?? dive.id}
       />
 
       {dive.notes && (
         <div className="card">
-          <h2>Note</h2>
+          <h2>{t('Note')}</h2>
           <p style={{ margin: 0, whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{dive.notes}</p>
         </div>
       )}
@@ -706,16 +732,19 @@ function apriStampa(dive: Dive, inventario: Equipment[]): boolean {
  * che è saltata all'occhio guardando una scheda di un'immersione fusa.
  */
 function SourcesRow({ dive }: { dive: Dive }) {
+  const { t } = useLingua();
   const all = [dive.source, ...(dive.extraSources ?? [])];
   return (
     <tr>
       <td className="muted" style={{ width: '38%' }}>
-        {all.length > 1 ? `Origine (${all.length} fonti)` : 'Origine'}
+        {all.length > 1 ? `${t('Origine')} (${all.length} ${t('fonti')})` : t('Origine')}
       </td>
       <td>
+        {/* `FORMAT_LABEL` sta in `format.ts`: costante in italiano lì, tradotta
+            qui al disegno. Il nome del file no: non è una frase. */}
         {all.map((s) => (
           <div key={`${s.format}|${s.file}`}>
-            {FORMAT_LABEL[s.format] ?? s.format} · {s.file}
+            {t(FORMAT_LABEL[s.format] ?? s.format)} · {s.file}
           </div>
         ))}
       </td>
@@ -739,18 +768,19 @@ function SourcesRow({ dive }: { dive: Dive }) {
  * entrati.
  */
 function ComputersRow({ dive }: { dive: Dive }) {
+  const { t } = useLingua();
   const all = [dive.computer, ...(dive.otherComputers ?? [])].filter(Boolean) as ComputerInfo[];
-  if (!all.length) return <Row label="Computer" value="—" />;
+  if (!all.length) return <Row label={t('Computer')} value="—" />;
   return (
     <tr>
       <td className="muted" style={{ width: '38%' }}>
-        {all.length > 1 ? `Computer (${all.length})` : 'Computer'}
+        {all.length > 1 ? `${t('Computer')} (${all.length})` : t('Computer')}
       </td>
       <td>
         {all.map((c, i) => (
           <div key={`${c.model ?? ''}-${c.serial ?? i}`}>
             {[c.model, c.decoModel].filter(Boolean).join(' · ') || '—'}
-            {i === 0 && all.length > 1 && <span className="muted"> · profilo da qui</span>}
+            {i === 0 && all.length > 1 && <span className="muted"> · {t('profilo da qui')}</span>}
           </div>
         ))}
       </td>
@@ -759,6 +789,7 @@ function ComputersRow({ dive }: { dive: Dive }) {
 }
 
 function ComputerSettings({ dive }: { dive: Dive }) {
+  const { t } = useLingua();
   const all = [dive.computer, ...(dive.otherComputers ?? [])].filter(Boolean) as ComputerInfo[];
   if (all.length > 1) {
     return (
@@ -768,7 +799,7 @@ function ComputerSettings({ dive }: { dive: Dive }) {
             key={`${c.model ?? ''}-${c.serial ?? i}`}
             computer={c}
             surfacePressureBar={i === 0 ? dive.surfacePressureBar : undefined}
-            title={c.model ?? `Computer ${i + 1}`}
+            title={c.model ?? `${t('Computer')} ${i + 1}`}
           />
         ))}
       </div>
@@ -778,7 +809,7 @@ function ComputerSettings({ dive }: { dive: Dive }) {
     <SingleComputerSettings
       computer={all[0]}
       surfacePressureBar={dive.surfacePressureBar}
-      title="Impostazioni del computer"
+      title={t('Impostazioni del computer')}
     />
   );
 }
@@ -792,39 +823,42 @@ function SingleComputerSettings({
   surfacePressureBar?: number;
   title: string;
 }) {
+  const { t } = useLingua();
   if (!c) return null;
+  // Le etichette si traducono qui: sono righe costruite a mano, non una
+  // costante, quindi il posto in cui nascono è anche quello in cui si disegnano.
   const rows: [string, string][] = [];
   if (c.gfLow !== undefined && c.gfHigh !== undefined) {
-    rows.push(['Gradient factor impostati', `${c.gfLow} / ${c.gfHigh}`]);
+    rows.push([t('Gradient factor impostati'), `${c.gfLow} / ${c.gfHigh}`]);
   }
-  if (c.decoModel) rows.push(['Modello decompressivo', c.decoModel]);
-  if (c.conservatism !== undefined) rows.push(['Conservatorismo', `+${c.conservatism}`]);
-  if (c.computerMode) rows.push(['Modalità', COMPUTER_MODE[c.computerMode] ?? c.computerMode]);
+  if (c.decoModel) rows.push([t('Modello decompressivo'), c.decoModel]);
+  if (c.conservatism !== undefined) rows.push([t('Conservatorismo'), `+${c.conservatism}`]);
+  if (c.computerMode) rows.push([t('Modalità'), t(COMPUTER_MODE[c.computerMode] ?? c.computerMode)]);
   if (c.waterDensityKgM3) {
     rows.push([
-      'Densità impostata',
-      `${c.waterDensityKgM3} kg/m³ (${c.waterDensityKgM3 <= 1005 ? 'acqua dolce' : 'acqua salata'})`,
+      t('Densità impostata'),
+      `${c.waterDensityKgM3} kg/m³ (${t(c.waterDensityKgM3 <= 1005 ? 'acqua dolce' : 'acqua salata')})`,
     ]);
   }
-  if (c.ppo2MaxBar) rows.push(['Limite di PPO2 impostato', `${c.ppo2MaxBar.toFixed(2)} bar`]);
+  if (c.ppo2MaxBar) rows.push([t('Limite di PPO2 impostato'), `${c.ppo2MaxBar.toFixed(2)} bar`]);
   if (surfacePressureBar) {
-    rows.push(['Pressione in superficie', `${surfacePressureBar.toFixed(3)} bar`]);
+    rows.push([t('Pressione in superficie'), `${surfacePressureBar.toFixed(3)} bar`]);
   }
-  if (c.sampleIntervalS) rows.push(['Passo di campionamento', `${c.sampleIntervalS} s`]);
-  if (c.aiMode) rows.push(['Integrazione aria', c.aiMode]);
+  if (c.sampleIntervalS) rows.push([t('Passo di campionamento'), `${c.sampleIntervalS} s`]);
+  if (c.aiMode) rows.push([t('Integrazione aria'), c.aiMode]);
   if (c.firmware) rows.push(['Firmware', c.firmware]);
-  if (c.hwVersion) rows.push(['Versione hardware', c.hwVersion]);
-  if (c.serial) rows.push(['Numero di serie', c.serial]);
-  if (c.logVersion !== undefined) rows.push(['Versione del log', String(c.logVersion)]);
+  if (c.hwVersion) rows.push([t('Versione hardware'), c.hwVersion]);
+  if (c.serial) rows.push([t('Numero di serie'), c.serial]);
+  if (c.logVersion !== undefined) rows.push([t('Versione del log'), String(c.logVersion)]);
   if (!rows.length) return null;
 
   return (
     <div className="card">
       <h2>{title}</h2>
-      <p className="card-sub">
-        Lette dal log del computer, non inserite a mano. Il GF99 e l'obbligo decompressivo che vedi sopra sono
-        stati calcolati con queste impostazioni.
-      </p>
+      {/* Il GF99 e l'obbligo decompressivo mostrati sopra sono stati calcolati
+          dal computer con queste impostazioni: confrontare due immersioni fatte
+          con impostazioni diverse senza saperlo porta a conclusioni sbagliate. */}
+      <p className="card-sub">{t('Lette dal log del computer, non inserite a mano.')}</p>
       <table>
         <tbody>
           {rows.map(([label, value]) => (
@@ -836,6 +870,10 @@ function SingleComputerSettings({
   );
 }
 
+/*
+ * Le modalità del computer. Costante, non ricostruita a ogni render: resta in
+ * italiano qui e si traduce con `t()` dove viene disegnata.
+ */
 const COMPUTER_MODE: Record<string, string> = {
   'oc-rec': 'circuito aperto, ricreativo',
   'oc-tec': 'circuito aperto, tecnico',
@@ -906,6 +944,7 @@ function DecoTimelineCard({
   cursorT: number | null;
   setCursorT: (t: number | null) => void;
 }) {
+  const { t } = useLingua();
   // I punti della linea temporale hanno la forma di campioni, così i grafici
   // esistenti li disegnano senza saperne niente.
   const points = timeline.map((p) => ({ t: p.t, depth: p.depthM })) as Sample[];
@@ -932,18 +971,20 @@ function DecoTimelineCard({
 
   return (
     <div className="card">
-      <h2>Curva e obbligo, minuto per minuto</h2>
+      <h2>{t('Curva e obbligo, minuto per minuto')}</h2>
+      {/* I numeri del computer compaiono tratteggiati non per correggerlo — era
+          lui in acqua, ed è lui ad avere ragione — ma perché due
+          implementazioni dello stesso modello che divergono dicono qualcosa, e
+          su due grafici separati la divergenza non si vedrebbe. */}
       <p className="card-sub">
-        Ricalcolati da noi sul profilo con Bühlmann ZH-L16C e i gradient factor {gf}, tenendo conto dell'azoto
-        residuo dall'immersione precedente. Dove il tuo computer ha scritto i suoi, li trovi tratteggiati
-        sullo stesso grafico: non per correggerlo — era lui in acqua — ma perché due implementazioni che
-        divergono dicono qualcosa.
+        {t('Ricalcolati sul profilo con Bühlmann ZH-L16C e gradient factor')} {gf},{' '}
+        {t('con l’azoto residuo dell’immersione precedente. Tratteggiati, i numeri del tuo computer.')}
       </p>
 
       <MiniSeries
         samples={points}
         pick={(_s, i) => at(i)?.ndlMin}
-        label="Minuti residui in curva, calcolati da noi"
+        label={t('Minuti residui in curva, calcolati da noi')}
         unit="min"
         color="var(--series-1)"
         cursor={cursor}
@@ -954,11 +995,11 @@ function DecoTimelineCard({
                   const c = nearest(s.t);
                   return c?.ndlS === undefined ? undefined : c.ndlS / 60;
                 },
-                label: 'il tuo computer',
+                label: t('il tuo computer'),
               }
             : undefined
         }
-        reference={[{ value: 0, label: 'fuori curva', color: 'var(--warning)' }]}
+        reference={[{ value: 0, label: t('fuori curva'), color: 'var(--warning)' }]}
       />
 
       <div style={{ marginTop: 6 }}>
@@ -967,8 +1008,8 @@ function DecoTimelineCard({
           pick={(_s, i) => at(i)?.ceilingM}
           label={
             maxCeiling > 0
-              ? 'Tetto di decompressione, calcolato da noi'
-              : 'Tetto di decompressione: mai comparso'
+              ? t('Tetto di decompressione, calcolato da noi')
+              : t('Tetto di decompressione: mai comparso')
           }
           unit="m"
           color="var(--critical)"
@@ -978,7 +1019,7 @@ function DecoTimelineCard({
             hasComputer((s) => s.ceiling)
               ? {
                   pick: (s) => nearest(s.t)?.ceiling,
-                  label: 'il tuo computer',
+                  label: t('il tuo computer'),
                 }
               : undefined
           }
@@ -989,7 +1030,7 @@ function DecoTimelineCard({
         <MiniSeries
           samples={points}
           pick={(_s, i) => at(i)?.ttsMin}
-          label="Tempo per arrivare in superficie (TTS), calcolato da noi"
+          label={t('Tempo per arrivare in superficie (TTS), calcolato da noi')}
           unit="min"
           color="var(--series-2)"
           cursor={cursor}
@@ -1000,7 +1041,7 @@ function DecoTimelineCard({
                     const c = nearest(s.t);
                     return c?.ttsS === undefined ? undefined : c.ttsS / 60;
                   },
-                  label: 'il tuo computer',
+                  label: t('il tuo computer'),
                 }
               : undefined
           }
@@ -1011,7 +1052,7 @@ function DecoTimelineCard({
         <MiniSeries
           samples={points}
           pick={(_s, i) => at(i)?.gf99}
-          label="Sovrasaturazione istantanea (GF99)"
+          label={t('Sovrasaturazione istantanea (GF99)')}
           unit="%"
           color="var(--series-3)"
           cursor={cursor}
@@ -1021,7 +1062,7 @@ function DecoTimelineCard({
               ? [
                   {
                     value: dive.computer.gfHigh,
-                    label: `GF alto ${dive.computer.gfHigh}`,
+                    label: `${t('GF alto')} ${dive.computer.gfHigh}`,
                     color: 'var(--warning)',
                   },
                 ]
@@ -1031,18 +1072,23 @@ function DecoTimelineCard({
       </div>
 
       <ul style={{ margin: '12px 0 0', paddingLeft: 18, fontSize: 12, color: 'var(--text-secondary)' }}>
+        {/*
+         * Le tre note dicevano anche PERCHÉ: il carico invece dei tessuti
+         * puliti è la differenza fra un computer e una tabella; il taglio a 99
+         * minuti è quello che fanno i computer, perché oltre il centinaio non è
+         * più un limite; il TTS pessimista è quello di un computer che non sa
+         * cosa ti sei portato dietro. All'utente serve il fatto.
+         */}
         <li>
-          I minuti in curva sono calcolati <b>dal carico che avevi in quel momento</b>, non da tessuti puliti:
-          è la differenza fra un computer e una tabella. Il limite è tagliato a 99 minuti, come fanno i
-          computer — oltre il centinaio smette di essere un limite e diventa «tanto».
+          {t('I minuti in curva partono')} <b>{t('dal carico che avevi in quel momento')}</b>,{' '}
+          {t('non da tessuti puliti. Il limite è tagliato a 99 minuti.')}
         </li>
         <li>
-          Il TTS suppone risalita a 9 m/min, soste di un minuto e <b>nessun cambio di gas</b>: è il conto
-          pessimista, lo stesso che fa un computer che non sa cosa ti sei portato dietro.
+          {t('Il TTS suppone risalita a 9 m/min, soste di un minuto e')} <b>{t('nessun cambio di gas')}</b>.
         </li>
         <li>
-          Se il tuo computer aveva gradient factor diversi da {gf}, i suoi numeri e i nostri divergono per
-          costruzione — e la distanza fra le due curve è esattamente quella differenza.
+          {t('Se il tuo computer aveva gradient factor diversi da')} {gf},{' '}
+          {t('la distanza fra le due curve è quella differenza.')}
         </li>
       </ul>
     </div>
