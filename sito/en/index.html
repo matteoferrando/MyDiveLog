@@ -8,6 +8,7 @@
       name="description"
       content="Free and open-source dive logbook. It merges the same dive recorded by different computers, keeping the best of each, analyses profiles and plans dives. Your logbook stays on your device."
     />
+    <meta name="theme-color" content="#07203c" />
     <link rel="icon" href="../logo.svg" type="image/svg+xml" />
     <!--
       Cloudflare Pages serve queste pagine anche senza `.html`, e su quella
@@ -36,9 +37,11 @@
     </div>
 
     <div class="contenitore">
+      <!-- Three slow bubbles: decorative, so hidden from screen readers. -->
+      <div class="bolle" aria-hidden="true"><span></span><span></span><span></span></div>
+
       <div class="apertura">
-        <img src="../logo.svg" alt="The MyDiveLog mark: a dive profile" />
-        <h1>Your dive logbook</h1>
+        <h1>Your <em>dive</em> logbook</h1>
         <p class="occhiello">
           It reads the files from every computer you own and, when two of them recorded the same dive, makes
           <strong>one entry that keeps the best of each</strong>. Then it analyses your profiles and plans
@@ -73,19 +76,57 @@
     </div>
 
     <div class="contenitore">
-      <figure class="schermata vetrina">
-        <img
-          src="../immagini/logbook-en.jpg"
-          width="1600"
-          height="1025"
-          alt="The MyDiveLog dive list: date, site, max depth, duration, SAC rate and where each dive came from."
-        />
-        <figcaption>The logbook, and where every dive came from.</figcaption>
-      </figure>
+      <!--
+        THE PROFILE THAT DRAWS ITSELF, at the top.
+
+        It is the one picture a diver recognises without a caption, and the finest
+        thing the application produces. The line is a single `path` drawn by
+        stretching its dash — no library, no script — and on a browser that would
+        not animate it stays drawn in full.
+
+        The profile is a recreational dive built on purpose: 30 m, multi-level,
+        safety stop. It is NOBODY'S dive: real data from real users never ends up
+        in a shop window.
+      -->
+      <div class="profilo">
+        <svg
+          viewBox="0 0 1000 320"
+          role="img"
+          aria-label="A dive profile: descent to 30 metres, stepped ascent, three-minute safety stop at 5 metres."
+        >
+          <defs>
+            <linearGradient id="sfumaturaProfilo" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#43d6ff" stop-opacity="0.28" />
+              <stop offset="100%" stop-color="#43d6ff" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+
+          <line class="griglia-linea" x1="0" y1="96" x2="1000" y2="96" />
+          <line class="griglia-linea" x1="0" y1="181" x2="1000" y2="181" />
+          <line class="griglia-linea" x1="0" y1="267" x2="1000" y2="267" />
+          <text x="996" y="90" text-anchor="end">10 m</text>
+          <text x="996" y="175" text-anchor="end">20 m</text>
+          <text x="996" y="261" text-anchor="end">30 m</text>
+
+          <path
+            class="area"
+            d="M 0,14 L 42,270 L 208,270 L 250,200 L 500,165 L 625,113 L 708,87 L 792,55 L 854,55 L 900,14 L 1000,14 L 1000,320 L 0,320 Z"
+          />
+          <path
+            class="linea"
+            d="M 0,14 L 42,270 L 208,270 L 250,200 L 500,165 L 625,113 L 708,87 L 792,55 L 854,55 L 900,14 L 1000,14"
+          />
+
+          <g class="segno">
+            <circle cx="823" cy="55" r="4" />
+            <text x="660" y="38">safety stop 5 m · 3 min</text>
+          </g>
+        </svg>
+      </div>
     </div>
 
     <div class="contenitore">
-      <section>
+      <section data-quota="−10 m">
         <h2>Two computers, one dive</h2>
         <p>
           You wear one computer and carry a backup. You changed computer a few years ago. You download both
@@ -97,19 +138,19 @@
         <div class="fusione">
           <div class="fusione-fonti">
             <div class="fonte">
-              <b>Aladin</b>
+              <strong>Aladin</strong>
               <span>profile every 4 s</span>
               <span>no decompression data</span>
             </div>
             <div class="fonte">
-              <b>Peregrine</b>
+              <strong>Peregrine</strong>
               <span>profile every 10 s</span>
               <span>ceiling · TTS · NDL · CNS</span>
             </div>
           </div>
           <div class="fusione-freccia" aria-hidden="true">→</div>
           <div class="fusione-esito">
-            <b>One dive</b>
+            <strong>One dive</strong>
             <span>profile every 4 s — the denser of the two</span>
             <span>ceiling · TTS · NDL · CNS</span>
             <span>rates and buoyancy measured on the denser profile</span>
@@ -143,7 +184,7 @@
         </div>
       </section>
 
-      <section>
+      <section data-quota="−18 m">
         <h2>What it does</h2>
         <p>A logbook for divers who want to understand what their data is telling them, not just store it.</p>
 
@@ -193,13 +234,22 @@
         </div>
       </section>
 
-      <section>
+      <section data-quota="−26 m">
         <h2>What it looks like</h2>
         <p>
           Real screenshots, taken from the app with a sample logbook: nothing retouched, and nothing the
           program does not actually do.
         </p>
         <div class="schermate">
+          <figure class="schermata vetrina">
+            <img
+              src="../immagini/logbook-en.jpg"
+              width="1600"
+              height="1025"
+              alt="The MyDiveLog dive list: date, site, max depth, duration, SAC rate and where each dive came from."
+            />
+            <figcaption>The logbook, and where every dive came from.</figcaption>
+          </figure>
           <figure class="schermata">
             <img
               loading="lazy"
@@ -243,12 +293,12 @@
         </div>
       </section>
 
-      <section>
+      <section data-quota="−34 m">
         <h2>The sync service</h2>
         <p>
-          If you use more than one device, you can keep your logbook aligned. You sign in with a Google
-          account and the app creates a database that is yours alone: there is nothing to configure, and dives
-          travel directly between the application and that database.
+          If you use more than one device, you can keep your logbook aligned. You sign in with an
+          <strong>Apple or Google</strong> account and the app creates a database that is yours alone: there
+          is nothing to configure, and dives travel directly between the application and that database.
         </p>
         <div class="evidenza">
           <p>
@@ -261,12 +311,13 @@
         <p>
           Every person gets a database physically separate from everyone else's — not a row in a shared table.
           The service that hands out the keys keeps no list of users and never sees your dives: it says who
-          you are and gives you a key that lasts two hours. Details in
+          you are and gives you a key that lasts two hours. You can delete your account from inside the app,
+          and the database with it. Details in
           <a href="privacy.html">Privacy</a>.
         </p>
       </section>
 
-      <section>
+      <section data-quota="−40 m">
         <h2>Free and open</h2>
         <p>
           MyDiveLog is free software under the MIT licence: the code can be read, copied and modified. It
@@ -279,13 +330,13 @@
           needs an Apple Silicon Mac.
         </p>
         <p>
-          The iPhone version exists and runs, but it is not on the App Store: you build it from source, and
-          the instructions are in the
+          The iPhone version runs, and it has been <strong>submitted to the App Store</strong>: meanwhile you
+          build it from source, and the instructions are in the
           <a href="https://github.com/matteoferrando/MyDiveLog">repository</a>.
         </p>
       </section>
 
-      <section>
+      <section data-quota="−46 m">
         <h2>One warning that matters</h2>
         <div class="evidenza avvertenza">
           <p>

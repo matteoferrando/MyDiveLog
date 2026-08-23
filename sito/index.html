@@ -8,6 +8,7 @@
       name="description"
       content="Logbook subacqueo libero e open source. Unisce la stessa immersione registrata da computer diversi tenendo il meglio di ciascuno, analizza i profili e pianifica. L'archivio resta sul tuo dispositivo."
     />
+    <meta name="theme-color" content="#07203c" />
     <link rel="icon" href="logo.svg" type="image/svg+xml" />
     <!--
       Cloudflare Pages serve queste pagine anche senza `.html`, e su quella
@@ -39,22 +40,17 @@
     </div>
 
     <div class="contenitore">
+      <!-- Tre bolle lente: decorative, quindi invisibili a chi legge con la voce. -->
+      <div class="bolle" aria-hidden="true"><span></span><span></span><span></span></div>
+
       <div class="apertura">
-        <img src="logo.svg" alt="Il marchio di MyDiveLog: il profilo di un'immersione" />
-        <h1>Il tuo logbook subacqueo</h1>
+        <h1>Il tuo logbook <em>subacqueo</em></h1>
         <p class="occhiello">
           Legge i file di tutti i tuoi computer e, quando due hanno registrato la stessa immersione, ne fa
           <strong>una riga sola tenendo il meglio di ciascuno</strong>. Poi analizza i profili e pianifica.
           L'archivio resta sul tuo dispositivo.
         </p>
         <div class="pulsanti">
-          <!--
-            IL PULSANTE PRINCIPALE È LO SCARICAMENTO, da quando esiste un
-            pacchetto. Prima era «Guarda il codice», che è la cosa giusta da
-            offrire quando l'unico modo di provare il programma è compilarlo, e
-            quella sotto per chi legge il codice resta. Chi arriva qui adesso
-            vuole l'applicazione.
-          -->
           <!--
             IL PULSANTE SCARICA IL FILE, non porta alla pagina delle release.
             Chi arriva qui vuole l'applicazione, e la pagina di GitHub è un
@@ -64,11 +60,9 @@
             Il nome del pacchetto in questo indirizzo NON contiene il numero di
             versione, ed è il punto: `releases/latest/download/<nome>` rimanda
             all'allegato con QUEL nome nella release più recente, quindi il link
-            resta buono a ogni pubblicazione. Il .dmg col numero dentro
-            (MyDiveLog_0.2.0_aarch64.dmg) sta nella release accanto a questo,
-            perché serve a chi vuole una versione precisa; il sito punta alla
-            copia dal nome stabile. Se un giorno si pubblica una release senza
-            quell'allegato, questo pulsante dà 404: è la sola cosa da ricordare.
+            resta buono a ogni pubblicazione. Se un giorno si pubblica una
+            release senza quell'allegato, questo pulsante dà 404: è la sola cosa
+            da ricordare.
           -->
           <a
             class="pulsante pulsante-primario"
@@ -79,22 +73,58 @@
           <a class="pulsante" href="privacy.html">Come tratta i tuoi dati</a>
         </div>
       </div>
+
+      <!--
+        IL PROFILO CHE SI TRACCIA, in apertura.
+
+        È l'unica immagine che un subacqueo riconosce senza didascalia, ed è la
+        cosa più bella che l'applicazione produce. La linea è una `path` sola che
+        si disegna allungando il tratteggio — nessuna libreria, nessuno script — e
+        su un browser che non animasse resterebbe comunque disegnata per intero.
+
+        Il profilo è un'immersione ricreativa costruita apposta: 30 m, multi-livello,
+        sosta di sicurezza. NON è un'immersione di qualcuno: i dati veri di chi usa
+        l'applicazione non finiscono in vetrina.
+      -->
+      <div class="profilo">
+        <svg
+          viewBox="0 0 1000 320"
+          role="img"
+          aria-label="Il profilo di un'immersione: discesa a 30 metri, risalita a gradini, sosta di sicurezza a 5 metri per tre minuti."
+        >
+          <defs>
+            <linearGradient id="sfumaturaProfilo" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#43d6ff" stop-opacity="0.28" />
+              <stop offset="100%" stop-color="#43d6ff" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+
+          <line class="griglia-linea" x1="0" y1="96" x2="1000" y2="96" />
+          <line class="griglia-linea" x1="0" y1="181" x2="1000" y2="181" />
+          <line class="griglia-linea" x1="0" y1="267" x2="1000" y2="267" />
+          <text x="996" y="90" text-anchor="end">10 m</text>
+          <text x="996" y="175" text-anchor="end">20 m</text>
+          <text x="996" y="261" text-anchor="end">30 m</text>
+
+          <path
+            class="area"
+            d="M 0,14 L 42,270 L 208,270 L 250,200 L 500,165 L 625,113 L 708,87 L 792,55 L 854,55 L 900,14 L 1000,14 L 1000,320 L 0,320 Z"
+          />
+          <path
+            class="linea"
+            d="M 0,14 L 42,270 L 208,270 L 250,200 L 500,165 L 625,113 L 708,87 L 792,55 L 854,55 L 900,14 L 1000,14"
+          />
+
+          <g class="segno">
+            <circle cx="823" cy="55" r="4" />
+            <text x="700" y="38">sosta 5 m · 3 min</text>
+          </g>
+        </svg>
+      </div>
     </div>
 
     <div class="contenitore">
-      <figure class="schermata vetrina">
-        <img
-          src="immagini/logbook-it.jpg"
-          width="1600"
-          height="1025"
-          alt="L'elenco delle immersioni di MyDiveLog: data, sito, profondità massima, durata, consumo e provenienza di ogni immersione."
-        />
-        <figcaption>Il logbook, con da dove viene ogni immersione.</figcaption>
-      </figure>
-    </div>
-
-    <div class="contenitore">
-      <section>
+      <section data-quota="−10 m">
         <h2>Due computer, una sola immersione</h2>
         <p>
           Porti un computer al polso e un secondo di riserva. Ne hai cambiato uno negli anni. Scarichi sia
@@ -106,19 +136,19 @@
         <div class="fusione">
           <div class="fusione-fonti">
             <div class="fonte">
-              <b>Aladin</b>
+              <strong>Aladin</strong>
               <span>profilo ogni 4 s</span>
               <span>niente decompressione</span>
             </div>
             <div class="fonte">
-              <b>Peregrine</b>
+              <strong>Peregrine</strong>
               <span>profilo ogni 10 s</span>
               <span>tetto · TTS · NDL · CNS</span>
             </div>
           </div>
           <div class="fusione-freccia" aria-hidden="true">→</div>
           <div class="fusione-esito">
-            <b>Una immersione</b>
+            <strong>Una immersione</strong>
             <span>profilo ogni 4 s — il più fitto dei due</span>
             <span>tetto · TTS · NDL · CNS</span>
             <span>velocità e assetto misurati sul profilo fitto</span>
@@ -129,6 +159,7 @@
 
         <div class="griglia">
           <div class="riquadro">
+            <span class="etichetta">orologi</span>
             <h3>Li riconosce anche a orologi sfasati</h3>
             <p>
               Due computer non segnano mai la stessa ora. Lo scarto viene dedotto dall'insieme delle tue
@@ -136,6 +167,7 @@
             </p>
           </div>
           <div class="riquadro">
+            <span class="etichetta">canali</span>
             <h3>Sceglie per canali, non per campioni</h3>
             <p>
               Fra un profilo più fitto e uno che sa anche di decompressione vince il secondo — e il primo
@@ -143,6 +175,7 @@
             </p>
           </div>
           <div class="riquadro">
+            <span class="etichetta">provenienza</span>
             <h3>Non nasconde da dove viene</h3>
             <p>
               Ogni immersione elenca le fonti che l'hanno costruita. Se un dato manca, sai quale computer non
@@ -152,7 +185,7 @@
         </div>
       </section>
 
-      <section>
+      <section data-quota="−18 m">
         <h2>Cosa fa</h2>
         <p>Un logbook per chi vuole capire cosa gli dicono i propri dati, non solo conservarli.</p>
 
@@ -196,20 +229,29 @@
           <div class="riquadro">
             <h3>Non ti chiude dentro</h3>
             <p>
-              Backup completo in JSON, esportazione UDDF, stampa del logbook e del piano. L'archivio locale è
-              un file SQLite che puoi aprire con qualunque strumento.
+              Backup completo in JSON, esportazione UDDF, CSV e KML, stampa del logbook e del piano.
+              L'archivio locale è un file SQLite che puoi aprire con qualunque strumento.
             </p>
           </div>
         </div>
       </section>
 
-      <section>
+      <section data-quota="−26 m">
         <h2>Com'è fatta</h2>
         <p>
           Sono schermate vere, prese dall'applicazione con un archivio di prova: non ci sono ritocchi e non
           c'è niente che il programma non faccia davvero.
         </p>
         <div class="schermate">
+          <figure class="schermata vetrina">
+            <img
+              src="immagini/logbook-it.jpg"
+              width="1600"
+              height="1025"
+              alt="L'elenco delle immersioni di MyDiveLog: data, sito, profondità massima, durata, consumo e provenienza di ogni immersione."
+            />
+            <figcaption>Il logbook, con da dove viene ogni immersione.</figcaption>
+          </figure>
           <figure class="schermata">
             <img
               loading="lazy"
@@ -253,12 +295,12 @@
         </div>
       </section>
 
-      <section>
+      <section data-quota="−34 m">
         <h2>Il servizio di sincronizzazione</h2>
         <p>
-          Chi usa più di un dispositivo può tenere l'archivio allineato. Si entra con un account Google e
-          l'app crea un database tutto tuo: non c'è niente da configurare, e le immersioni viaggiano
-          direttamente fra l'applicazione e quel database.
+          Chi usa più di un dispositivo può tenere l'archivio allineato. Si entra con un account
+          <strong>Apple o Google</strong> e l'app crea un database tutto tuo: non c'è niente da configurare, e
+          le immersioni viaggiano direttamente fra l'applicazione e quel database.
         </p>
         <div class="evidenza">
           <p>
@@ -271,12 +313,12 @@
         <p>
           Ogni persona ha un database separato dagli altri — non una riga in una tabella comune. Il servizio
           che consegna le chiavi non conserva nessun elenco di iscritti e non vede passare le immersioni: dice
-          chi sei e ti dà una chiave che vale due ore. Dettagli in
-          <a href="privacy.html">Privacy</a>.
+          chi sei e ti dà una chiave che vale due ore. Puoi cancellare il tuo account dall'app, e con lui il
+          database. Dettagli in <a href="privacy.html">Privacy</a>.
         </p>
       </section>
 
-      <section>
+      <section data-quota="−40 m">
         <h2>Libero e aperto</h2>
         <p>
           MyDiveLog è software libero sotto licenza MIT: il codice si legge, si copia e si modifica. Non costa
@@ -289,12 +331,13 @@
           Mac Apple Silicon.
         </p>
         <p>
-          La versione iPhone esiste e gira, ma non è sull'App Store: si compila dal sorgente, e le istruzioni
-          stanno nel <a href="https://github.com/matteoferrando/MyDiveLog">repository</a>.
+          La versione iPhone gira, ed è stata <strong>inviata all'App Store</strong>: nell'attesa si compila
+          dal sorgente, e le istruzioni stanno nel
+          <a href="https://github.com/matteoferrando/MyDiveLog">repository</a>.
         </p>
       </section>
 
-      <section>
+      <section data-quota="−46 m">
         <h2>Un avvertimento che conta</h2>
         <div class="evidenza avvertenza">
           <p>
