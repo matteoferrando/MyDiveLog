@@ -6,7 +6,7 @@
     <title>MyDiveLog — il tuo logbook subacqueo, sul tuo dispositivo</title>
     <meta
       name="description"
-      content="Logbook subacqueo libero e open source: importa dai computer subacquei, analizza i profili, pianifica. L'archivio resta sul tuo dispositivo."
+      content="Logbook subacqueo libero e open source. Unisce la stessa immersione registrata da computer diversi tenendo il meglio di ciascuno, analizza i profili e pianifica. L'archivio resta sul tuo dispositivo."
     />
     <link rel="icon" href="logo.svg" type="image/svg+xml" />
     <!--
@@ -43,8 +43,9 @@
         <img src="logo.svg" alt="Il marchio di MyDiveLog: il profilo di un'immersione" />
         <h1>Il tuo logbook subacqueo</h1>
         <p class="occhiello">
-          Importa dai computer subacquei, analizza i profili, pianifica le immersioni. L'archivio resta sul
-          tuo dispositivo, e ci resta anche se non accedi mai.
+          Legge i file di tutti i tuoi computer e, quando due hanno registrato la stessa immersione, ne fa
+          <strong>una riga sola tenendo il meglio di ciascuno</strong>. Poi analizza i profili e pianifica.
+          L'archivio resta sul tuo dispositivo.
         </p>
         <div class="pulsanti">
           <!--
@@ -61,6 +62,25 @@
           >
           <a class="pulsante" href="https://github.com/matteoferrando/MyDiveLog">Guarda il codice</a>
           <a class="pulsante" href="privacy.html">Come tratta i tuoi dati</a>
+        </div>
+
+        <div class="numeri">
+          <div class="numero">
+            <b>38 su 104</b>
+            <span>immersioni arricchite unendo due computer, nell'archivio su cui è nata l'app</span>
+          </div>
+          <div class="numero">
+            <b>7</b>
+            <span>formati letti, riconosciuti dal contenuto del file e non dall'estensione</span>
+          </div>
+          <div class="numero">
+            <b>0.8</b>
+            <span>punti di scarto medio sul GF99, misurati contro uno Shearwater su 38 immersioni</span>
+          </div>
+          <div class="numero">
+            <b>€&nbsp;0</b>
+            <span>niente abbonamenti, niente pubblicità, nessuna statistica d'uso raccolta</span>
+          </div>
         </div>
       </div>
     </div>
@@ -79,13 +99,59 @@
 
     <div class="contenitore">
       <section>
-        <h2>Cosa fa</h2>
+        <h2>Due computer, una sola immersione</h2>
         <p>
-          MyDiveLog è un logbook per chi si immerge e vuole capire cosa gli dicono i propri dati, non solo
-          conservarli. Legge i file dei principali programmi e scarica direttamente dal computer subacqueo via
-          Bluetooth, riconosce la stessa immersione arrivata da due fonti diverse e le fonde tenendo il meglio
-          di ciascuna.
+          Chi porta un computer al polso e un secondo di riserva, chi ne ha cambiato uno negli anni, chi
+          scarica sia dall'app del costruttore sia dal computer: lo stesso tuffo finisce in due file diversi,
+          e nessuno dei due è completo. Un logbook che ti fa scegliere quale importare ti fa perdere metà dei
+          dati. MyDiveLog li legge tutti e due e ne fa una riga sola.
         </p>
+
+        <div class="griglia griglia-due">
+          <div class="riquadro">
+            <h3>Riconosce lo stesso tuffo anche a orologi sfasati</h3>
+            <p>
+              I due computer non segnano mai la stessa ora. Lo scarto viene dedotto dall'insieme delle
+              immersioni, e il confronto finale si fa sull'impronta del profilo — non sulla data.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Tiene il profilo che sa di più, non quello più fitto</h3>
+            <p>
+              Un Aladin campiona ogni 4 secondi ma della decompressione non sa niente; un Peregrine ogni 10, e
+              registra tetto, TTS, NDL e CNS. Vince chi ha più <em>canali</em>.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>E non butta via quello che perde</h3>
+            <p>
+              Se il profilo scartato è più fitto resta lì, e velocità e assetto si misurano su quello: a 10
+              secondi l'oscillazione si legge un terzo più bassa, e le immersioni smetterebbero di essere
+              confrontabili fra loro.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Ogni riga dice da dove viene</h3>
+            <p>
+              Se un dato manca, sai quale computer non lo scriveva — invece di chiederti se l'ha perso il
+              programma.
+            </p>
+          </div>
+        </div>
+
+        <div class="evidenza">
+          <p>
+            Nell'archivio su cui l'applicazione è stata costruita — 104 immersioni in sei anni, uno Scubapro e
+            uno Shearwater — il secondo file
+            <strong>non ha aggiunto nemmeno un'immersione: ne ha arricchite 38</strong>. È il motivo per cui
+            questo programma esiste.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Cosa fa</h2>
+        <p>Un logbook per chi vuole capire cosa gli dicono i propri dati, non solo conservarli.</p>
 
         <div class="griglia">
           <div class="riquadro">
@@ -181,16 +247,6 @@
             />
             <figcaption>I suggerimenti, con la prova numerica sotto ciascuno.</figcaption>
           </figure>
-          <figure class="schermata schermata-telefono">
-            <img
-              loading="lazy"
-              src="immagini/telefono-it.jpg"
-              width="780"
-              height="1560"
-              alt="MyDiveLog su iPhone: lo stesso logbook, adattato allo schermo del telefono."
-            />
-            <figcaption>Su iPhone è la stessa applicazione, non una versione ridotta.</figcaption>
-          </figure>
         </div>
       </section>
 
@@ -246,6 +302,24 @@
             preparare quelle da fare: non sostituiscono il tuo computer, il tuo addestramento e il tuo
             giudizio. L'immersione subacquea comporta rischi, anche mortali.
           </p>
+        </div>
+      </section>
+    </div>
+
+    <div class="contenitore">
+      <section class="richiamo">
+        <h2>Le tue immersioni, tutte insieme</h2>
+        <p>
+          Gratis, senza account e senza abbonamento. Scarichi, trascini dentro i file che hai già, e in un
+          minuto vedi sei anni di immersioni in un elenco solo.
+        </p>
+        <div class="pulsanti">
+          <a
+            class="pulsante pulsante-primario"
+            href="https://github.com/matteoferrando/MyDiveLog/releases/latest"
+            >Scarica per macOS</a
+          >
+          <a class="pulsante" href="https://github.com/matteoferrando/MyDiveLog">Guarda il codice</a>
         </div>
       </section>
     </div>

@@ -119,18 +119,18 @@ async function giro(locale, suffisso) {
   await vai(NOMI.coach);
   await scatta('suggerimenti');
 
-  // E il telefono: stessa applicazione, larghezza vera di un iPhone.
-  await page.setViewportSize({ width: 390, height: 780 });
-  await page.waitForTimeout(600);
-  await page.locator('.hamburger').click();
-  await page.waitForTimeout(300);
-  await page.locator(`.menu-telefono button:has-text("${NOMI.logbook}")`).first().click();
-  await page.waitForTimeout(900);
-  await page.screenshot({
-    path: `sito/immagini/telefono-${suffisso}.jpg`,
-    type: 'jpeg',
-    quality: 82,
-  });
+  /*
+   * IL TELEFONO NON SI FOTOGRAFA PIÙ, e non è una dimenticanza.
+   *
+   * La schermata dell'iPhone è alta e stretta: in una griglia di riquadri
+   * larghi finiva da sola su una riga, con mezzo schermo di vuoto accanto. Una
+   * fotografia che sta male non convince nessuno che l'app su iPhone sia la
+   * stessa: quella frase la dice il testo, e la dice meglio.
+   *
+   * Che l'applicazione regga i 390 px continua a verificarlo
+   * `scripts/screenshot.mjs`, che a quella larghezza misura il trabocco e i
+   * bersagli tattili — cioè fa il lavoro vero, non la fotografia.
+   */
 
   await page.close();
 }

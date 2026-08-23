@@ -6,7 +6,7 @@
     <title>MyDiveLog — your dive logbook, on your own device</title>
     <meta
       name="description"
-      content="Free and open-source dive logbook: import from dive computers, analyse profiles, plan dives. Your logbook stays on your device."
+      content="Free and open-source dive logbook. It merges the same dive recorded by different computers, keeping the best of each, analyses profiles and plans dives. Your logbook stays on your device."
     />
     <link rel="icon" href="../logo.svg" type="image/svg+xml" />
     <!--
@@ -40,8 +40,9 @@
         <img src="../logo.svg" alt="The MyDiveLog mark: a dive profile" />
         <h1>Your dive logbook</h1>
         <p class="occhiello">
-          Import from your dive computers, analyse your profiles, plan your dives. Your logbook lives on your
-          device — and stays there even if you never sign in.
+          It reads the files from every computer you own and, when two of them recorded the same dive, makes
+          <strong>one entry that keeps the best of each</strong>. Then it analyses your profiles and plans
+          your dives. Your logbook lives on your device.
         </p>
         <div class="pulsanti">
           <!-- Vedi il commento gemello nella pagina italiana. -->
@@ -52,6 +53,25 @@
           >
           <a class="pulsante" href="https://github.com/matteoferrando/MyDiveLog">View the source</a>
           <a class="pulsante" href="privacy.html">How it handles your data</a>
+        </div>
+
+        <div class="numeri">
+          <div class="numero">
+            <b>38 of 104</b>
+            <span>dives enriched by merging two computers, in the logbook this app was built on</span>
+          </div>
+          <div class="numero">
+            <b>7</b>
+            <span>formats read, detected from the file content and not from its extension</span>
+          </div>
+          <div class="numero">
+            <b>0.8</b>
+            <span>points of average GF99 error, measured against a Shearwater over 38 dives</span>
+          </div>
+          <div class="numero">
+            <b>0</b>
+            <span>no subscriptions, no advertising, no usage statistics collected</span>
+          </div>
         </div>
       </div>
     </div>
@@ -70,13 +90,58 @@
 
     <div class="contenitore">
       <section>
-        <h2>What it does</h2>
+        <h2>Two computers, one dive</h2>
         <p>
-          MyDiveLog is a logbook for divers who want to understand what their data is telling them, not just
-          store it. It reads the files other applications produce, downloads straight from your dive computer
-          over Bluetooth, recognises the same dive arriving from two different sources, and merges them
-          keeping the best of each.
+          You wear one computer and carry a backup; you changed computer a few years ago; you download both
+          from the manufacturer app and from the device. The same dive ends up in two different files, and
+          neither of them is complete. A logbook that makes you pick one makes you lose half your data.
+          MyDiveLog reads both and makes a single entry.
         </p>
+
+        <div class="griglia griglia-due">
+          <div class="riquadro">
+            <h3>It spots the same dive even with clocks out of step</h3>
+            <p>
+              Two computers never agree on the time. The offset is inferred across your whole logbook, and the
+              final check is made on the shape of the profile — not on the timestamp.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>It keeps the profile that knows more, not the denser one</h3>
+            <p>
+              An Aladin samples every 4 seconds but knows nothing about deco; a Peregrine every 10, and
+              records ceiling, TTS, NDL and CNS. More <em>channels</em> wins.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>And it does not throw away the loser</h3>
+            <p>
+              If the discarded profile is denser it stays, and rates and buoyancy are measured on it: at 10
+              seconds the wobble reads a third lower, and your dives would stop being comparable with each
+              other.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Every entry says where it came from</h3>
+            <p>
+              When a value is missing you know which computer never wrote it — instead of wondering whether
+              the program lost it.
+            </p>
+          </div>
+        </div>
+
+        <div class="evidenza">
+          <p>
+            In the logbook this app was built on — 104 dives over six years, one Scubapro and one Shearwater —
+            the second file <strong>did not add a single dive: it enriched 38 of them</strong>. That is why
+            this program exists.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2>What it does</h2>
+        <p>A logbook for divers who want to understand what their data is telling them, not just store it.</p>
 
         <div class="griglia">
           <div class="riquadro">
@@ -171,16 +236,6 @@
             />
             <figcaption>Coaching, with the numbers behind every line.</figcaption>
           </figure>
-          <figure class="schermata schermata-telefono">
-            <img
-              loading="lazy"
-              src="../immagini/telefono-en.jpg"
-              width="780"
-              height="1560"
-              alt="MyDiveLog on iPhone: the same logbook, fitted to a phone screen."
-            />
-            <figcaption>On iPhone it is the same app, not a cut-down one.</figcaption>
-          </figure>
         </div>
       </section>
 
@@ -237,6 +292,24 @@
             prepare the ones you are going to do: they do not replace your dive computer, your training or
             your judgement. Scuba diving carries risks, including death.
           </p>
+        </div>
+      </section>
+    </div>
+
+    <div class="contenitore">
+      <section class="richiamo">
+        <h2>All your dives, in one place</h2>
+        <p>
+          Free, no account and no subscription. Download it, drop in the files you already have, and a minute
+          later six years of diving are in a single list.
+        </p>
+        <div class="pulsanti">
+          <a
+            class="pulsante pulsante-primario"
+            href="https://github.com/matteoferrando/MyDiveLog/releases/latest"
+            >Download for macOS</a
+          >
+          <a class="pulsante" href="https://github.com/matteoferrando/MyDiveLog">View the source</a>
         </div>
       </section>
     </div>

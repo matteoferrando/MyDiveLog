@@ -373,16 +373,103 @@ th {
   grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
 }
 
-/* Il telefono sta accanto alle altre ma è alto e stretto: senza un tetto
-   all'altezza si mangerebbe due schermate di scorrimento da solo. */
-.schermata-telefono img {
-  max-height: 34rem;
-  width: auto;
-  margin: 0 auto;
-}
-
 @media (max-width: 34rem) {
   .schermate {
     grid-template-columns: 1fr;
   }
+}
+
+/*
+  Quattro riquadri vogliono due colonne, non tre.
+
+  Con `auto-fit` la griglia normale ne mette tre e lascia il quarto solo su una
+  riga, con due terzi di vuoto accanto: si legge come un elemento avanzato, non
+  come una scelta. A due colonne sono due righe piene, e le frasi hanno anche
+  più larghezza per respirare.
+*/
+.griglia-due {
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+}
+
+/* --- i numeri che si vedono da lontano -------------------------------- */
+
+/*
+  QUATTRO NUMERI SUBITO SOTTO IL TITOLO.
+
+  Il sito diceva cose vere in paragrafi, e un paragrafo non si vede: chi apre una
+  pagina la scorre in tre secondi e decide guardando le cose grandi. Questi
+  quattro numeri sono la versione da tre secondi di tutta la pagina.
+
+  Nessuno di loro è uno slogan: sono conteggi che si possono verificare, e ognuno
+  porta scritta sotto la propria unità di misura — «su 104 immersioni», «senza
+  l'app del costruttore». Un numero grande senza denominatore è pubblicità; con
+  il denominatore è un fatto.
+*/
+.numeri {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1.5rem 1rem;
+  margin: 3.5rem 0 0;
+  padding: 2rem 0 0;
+  border-top: 1px solid var(--bordo);
+  text-align: center;
+}
+
+.numero b {
+  display: block;
+  font-size: clamp(2rem, 5vw, 2.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--acqua-chiara);
+}
+
+@media (prefers-color-scheme: dark) {
+  .numero b {
+    color: var(--riflesso);
+  }
+}
+
+.numero span {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--testo-tenue);
+  max-width: 15rem;
+  margin-inline: auto;
+}
+
+/* --- il titolo di sezione, più grosso --------------------------------- */
+
+/*
+  1.5 rem era la misura di un sottotitolo, e questi sono i cartelli che dicono
+  di cosa parla la pagina. Le pagine legali hanno la loro regola
+  (`.documento h2`) e restano sobrie: lì il testo è il contenuto, non il
+  richiamo.
+*/
+h2 {
+  font-size: clamp(1.65rem, 3.2vw, 2rem);
+}
+
+/* --- il richiamo finale ----------------------------------------------- */
+
+/*
+  Chi arriva in fondo alla pagina ha appena finito di leggere l'avvertimento
+  sulla sicurezza, e il pulsante per scaricare è rimasto tre schermate sopra.
+  Ripeterlo qui non è insistenza: è togliere l'unico ostacolo rimasto fra chi ha
+  deciso e la cosa che ha deciso di fare.
+*/
+.richiamo {
+  text-align: center;
+  padding: 3rem 0;
+  border-top: 1px solid var(--bordo);
+}
+
+.richiamo h2 {
+  margin-bottom: 0.5rem;
+}
+
+.richiamo p {
+  margin: 0 auto 1.5rem;
+  max-width: var(--misura);
+  color: var(--testo-tenue);
 }
