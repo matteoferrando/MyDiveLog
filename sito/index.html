@@ -55,9 +55,24 @@
             quella sotto per chi legge il codice resta. Chi arriva qui adesso
             vuole l'applicazione.
           -->
+          <!--
+            IL PULSANTE SCARICA IL FILE, non porta alla pagina delle release.
+            Chi arriva qui vuole l'applicazione, e la pagina di GitHub è un
+            elenco di file, note e sorgenti compressi in cui il .dmg è una riga
+            fra le altre: un passaggio in più e un'occasione di sbagliare file.
+
+            Il nome del pacchetto in questo indirizzo NON contiene il numero di
+            versione, ed è il punto: `releases/latest/download/<nome>` rimanda
+            all'allegato con QUEL nome nella release più recente, quindi il link
+            resta buono a ogni pubblicazione. Il .dmg col numero dentro
+            (MyDiveLog_0.2.0_aarch64.dmg) sta nella release accanto a questo,
+            perché serve a chi vuole una versione precisa; il sito punta alla
+            copia dal nome stabile. Se un giorno si pubblica una release senza
+            quell'allegato, questo pulsante dà 404: è la sola cosa da ricordare.
+          -->
           <a
             class="pulsante pulsante-primario"
-            href="https://github.com/matteoferrando/MyDiveLog/releases/latest"
+            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
             >Scarica per macOS</a
           >
           <a class="pulsante" href="https://github.com/matteoferrando/MyDiveLog">Guarda il codice</a>
@@ -304,7 +319,7 @@
         <div class="pulsanti">
           <a
             class="pulsante pulsante-primario"
-            href="https://github.com/matteoferrando/MyDiveLog/releases/latest"
+            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
             >Scarica per macOS</a
           >
           <a class="pulsante" href="https://github.com/matteoferrando/MyDiveLog">Guarda il codice</a>
