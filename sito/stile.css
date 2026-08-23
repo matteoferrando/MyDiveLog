@@ -32,7 +32,7 @@
   --dieci: #0a3057;
   --venti: #072341;
   --trenta: #05192f;
-  --fondo-abisso: #020a13;
+  --fondo-abisso: #04131f;
 
   --ciano: #43d6ff;
   --ciano-cupo: #1a8fb8;
@@ -88,7 +88,21 @@ body {
       var(--fondo-abisso) 100%
     );
   background-attachment: scroll;
+  /*
+    ► SENZA QUESTE DUE RIGHE IL GRADIENTE RICOMINCIA. ◄ Uno sfondo si ripete di
+    sua natura: quando l'area da dipingere è più alta del riquadro del corpo —
+    e in fondo alla pagina lo è — sotto l'abisso ricompariva una striscia di
+    superficie, azzurra, come se il sito fosse finito e ne cominciasse un altro.
+    `no-repeat` toglie la ripetizione e il colore di fondo riempie quel che
+    resta col buio, che è la risposta giusta alla domanda «cosa c'è sotto».
+  */
+  background-repeat: no-repeat;
+  background-color: var(--fondo-abisso);
   min-height: 100%;
+}
+
+html {
+  background: var(--fondo-abisso);
 }
 
 /*
@@ -770,4 +784,277 @@ a {
   .bolle {
     display: none;
   }
+}
+
+/* ============================================================ IL BATIMETRO */
+
+/*
+  Il profondimetro che segue lo scorrimento.
+
+  È un nastro di numeri dentro una finestrella alta una riga: mentre la pagina
+  scende, il nastro sale, e nella finestrella si legge la quota. Non è una barra
+  di avanzamento travestita — è la stessa informazione, detta nella lingua di
+  chi guarda.
+
+  DENTRO `@supports`, E NASCOSTO ALTRIMENTI. Un profondimetro fermo su «0 m»
+  mentre la pagina scorre è peggio di nessun profondimetro: dichiara una cosa
+  falsa. Dove il browser non sa animare sullo scorrimento, sparisce.
+*/
+.batimetro {
+  display: none;
+}
+
+@supports (animation-timeline: scroll()) {
+  @media (min-width: 1180px) and (prefers-reduced-motion: no-preference) {
+    .batimetro {
+      display: flex;
+      position: fixed;
+      right: 26px;
+      top: 50%;
+      transform: translateY(-50%);
+      align-items: center;
+      gap: 8px;
+      z-index: 3;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+      color: rgba(157, 220, 255, 0.75);
+      pointer-events: none;
+    }
+
+    .batimetro-quadro {
+      height: 26px;
+      overflow: hidden;
+      position: relative;
+      width: 34px;
+      text-align: right;
+      /* Sfuma sopra e sotto: il numero entra ed esce invece di apparire di colpo. */
+      mask-image: linear-gradient(180deg, transparent, #000 32%, #000 68%, transparent);
+    }
+
+    .batimetro-nastro {
+      display: flex;
+      flex-direction: column;
+      animation: scende linear both;
+      animation-timeline: scroll(root);
+    }
+
+    .batimetro-nastro span {
+      height: 26px;
+      line-height: 26px;
+    }
+
+    .batimetro::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--ciano);
+      box-shadow: 0 0 12px var(--ciano);
+      order: -1;
+    }
+  }
+}
+
+@keyframes scende {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    /* Dieci passi da 26 px: la finestrella parte da 0 e finisce su 50 m. */
+    transform: translateY(-260px);
+  }
+}
+
+/* ============================================================== I NUMERI */
+
+/*
+  La fascia dei numeri. Sono fatti del prodotto, non risultati di qualcuno:
+  quanti formati legge, quanti compartimenti calcola, quante righe di
+  pubblicità mostra. Lo zero in fondo è il più importante dei cinque.
+*/
+.numeri {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 14px;
+  margin: 34px 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.numeri li {
+  border: 1px solid var(--bordo);
+  border-radius: 16px;
+  padding: 20px 18px;
+  background: var(--vetro);
+  backdrop-filter: blur(10px);
+  text-align: center;
+}
+
+.numeri b {
+  display: block;
+  font-size: clamp(2rem, 4.4vw, 2.9rem);
+  font-weight: 660;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  background: linear-gradient(160deg, var(--riflesso), var(--ciano));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.numeri span {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--testo-tenue);
+  line-height: 1.35;
+}
+
+/* ====================================================== il termoclino */
+
+/*
+  Il bordo fra una sezione e l'altra non è una riga grigia: è una lama di luce
+  che sfuma ai due lati, come il termoclino visto da sotto. Costa un
+  pseudo-elemento e cambia il carattere di tutta la pagina.
+*/
+section {
+  border-top: 0;
+}
+
+section + section::after,
+section::after {
+  content: none;
+}
+
+section:not(:first-of-type)::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(157, 220, 255, 0.34) 22%,
+    rgba(157, 220, 255, 0.34) 78%,
+    transparent
+  );
+}
+
+/* ================================================= le schermate, incorniciate */
+
+/*
+  Le schermate stavano nude su fondo scuro e sembravano ritagli. Adesso hanno
+  una cornice di vetro e un'inclinazione appena percettibile che si raddrizza
+  quando ci passi sopra: il movimento dice «è una cosa vera, guardala» senza
+  scriverlo.
+*/
+.schermata {
+  perspective: 1000px;
+}
+
+.schermata img {
+  transform: rotateY(3.5deg) rotateX(1.5deg);
+  transition:
+    transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.45s;
+  border-radius: 16px;
+  border: 1px solid rgba(157, 220, 255, 0.22);
+  box-shadow:
+    0 26px 70px rgba(0, 0, 0, 0.55),
+    0 0 0 6px rgba(255, 255, 255, 0.02);
+}
+
+.schermate .schermata:nth-child(even) img {
+  transform: rotateY(-3.5deg) rotateX(1.5deg);
+}
+
+.schermata img:hover {
+  transform: none;
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.6),
+    0 0 0 6px rgba(67, 214, 255, 0.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .schermata img,
+  .schermate .schermata:nth-child(even) img {
+    transform: none;
+    transition: none;
+  }
+}
+
+.vetrina img {
+  transform: none !important;
+}
+
+/* ================================================== le sezioni di sola prosa */
+
+/*
+  IL FONDO DELLA PAGINA ERA VUOTO. Le ultime sezioni sono testo e basta, e su
+  uno schermo largo diventavano una colonna stretta a sinistra con mezza pagina
+  di buio a destra: la parte più profonda dell'immersione era anche la più
+  sciatta.
+
+  Qui il titolo passa in una colonna sua, a sinistra, e ci resta appiccicato
+  mentre il testo scorre — così la larghezza è occupata da una struttura invece
+  che dal vuoto, e mentre leggi sai sempre di cosa si sta parlando. Sotto i 900
+  px torna una colonna sola, perché due colonne su un telefono sono due colonne
+  strette.
+*/
+section.prosa {
+  display: grid;
+  grid-template-columns: 15rem 1fr;
+  gap: 16px 48px;
+  align-items: start;
+}
+
+section.prosa > h2 {
+  grid-column: 1;
+  position: sticky;
+  top: 28px;
+  margin: 0;
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+  color: var(--riflesso);
+}
+
+section.prosa > *:not(h2) {
+  grid-column: 2;
+}
+
+section.prosa p {
+  max-width: 40rem;
+}
+
+@media (max-width: 900px) {
+  section.prosa {
+    grid-template-columns: 1fr;
+  }
+  section.prosa > h2 {
+    position: static;
+  }
+  section.prosa > *:not(h2) {
+    grid-column: 1;
+  }
+}
+
+/*
+  Il fondale. Un alone appena percettibile in fondo alla pagina: senza, l'ultimo
+  schermo è nero e sembra che il sito sia finito prima del previsto.
+*/
+.piede {
+  position: relative;
+}
+
+.piede::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -30%;
+  width: min(90vw, 60rem);
+  height: 16rem;
+  transform: translateX(-50%);
+  background: radial-gradient(50% 50% at 50% 50%, rgba(67, 214, 255, 0.09), transparent 70%);
+  pointer-events: none;
 }

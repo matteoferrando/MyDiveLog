@@ -19,11 +19,26 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/" />
-    <link rel="stylesheet" href="stile.css" />
+    <link rel="stylesheet" href="stile.css?v=006be303" />
     <link rel="alternate" hreflang="en" href="/en/" />
     <link rel="alternate" hreflang="it" href="/" />
   </head>
   <body>
+    <!--
+      Il profondimetro: un nastro di numeri che scorre con la pagina. Decorativo
+      nel senso stretto — la stessa informazione la dà lo scorrimento — quindi
+      resta fuori dalla lettura assistita.
+    -->
+    <div class="batimetro" aria-hidden="true">
+      <div class="batimetro-quadro">
+        <div class="batimetro-nastro">
+          <span>0</span><span>5</span><span>10</span><span>15</span><span>20</span><span>25</span
+          ><span>30</span><span>35</span><span>40</span><span>45</span><span>50</span>
+        </div>
+      </div>
+      <span>m</span>
+    </div>
+
     <div class="contenitore">
       <header class="testata">
         <a class="marchio" href="/">
@@ -121,6 +136,14 @@
           </g>
         </svg>
       </div>
+
+      <ul class="numeri">
+        <li><b>7</b><span>formati importati, riconosciuti dal contenuto</span></li>
+        <li><b>2</b><span>driver Bluetooth, provati su computer veri</span></li>
+        <li><b>16</b><span>compartimenti Bühlmann, validati su immersioni reali</span></li>
+        <li><b>3</b><span>formati d'uscita, più il backup completo</span></li>
+        <li><b>0</b><span>pubblicità, statistiche d'uso, abbonamenti</span></li>
+      </ul>
     </div>
 
     <div class="contenitore">
@@ -295,7 +318,7 @@
         </div>
       </section>
 
-      <section data-quota="−34 m">
+      <section data-quota="−34 m" class="prosa">
         <h2>Il servizio di sincronizzazione</h2>
         <p>
           Chi usa più di un dispositivo può tenere l'archivio allineato. Si entra con un account
@@ -318,7 +341,7 @@
         </p>
       </section>
 
-      <section data-quota="−40 m">
+      <section data-quota="−40 m" class="prosa">
         <h2>Libero e aperto</h2>
         <p>
           MyDiveLog è software libero sotto licenza MIT: il codice si legge, si copia e si modifica. Non costa
@@ -337,7 +360,7 @@
         </p>
       </section>
 
-      <section data-quota="−46 m">
+      <section data-quota="−46 m" class="prosa">
         <h2>Un avvertimento che conta</h2>
         <div class="evidenza avvertenza">
           <p>

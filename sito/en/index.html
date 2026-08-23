@@ -19,11 +19,26 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/" />
-    <link rel="stylesheet" href="../stile.css" />
+    <link rel="stylesheet" href="../stile.css?v=006be303" />
     <link rel="alternate" hreflang="it" href="/" />
     <link rel="alternate" hreflang="en" href="/en/" />
   </head>
   <body>
+    <!--
+      Il profondimetro: un nastro di numeri che scorre con la pagina. Decorativo
+      nel senso stretto — la stessa informazione la dà lo scorrimento — quindi
+      resta fuori dalla lettura assistita.
+    -->
+    <div class="batimetro" aria-hidden="true">
+      <div class="batimetro-quadro">
+        <div class="batimetro-nastro">
+          <span>0</span><span>5</span><span>10</span><span>15</span><span>20</span><span>25</span
+          ><span>30</span><span>35</span><span>40</span><span>45</span><span>50</span>
+        </div>
+      </div>
+      <span>m</span>
+    </div>
+
     <div class="contenitore">
       <header class="testata">
         <a class="marchio" href="/en/"><img src="../logo.svg" alt="" /> MyDiveLog</a>
@@ -123,6 +138,14 @@
           </g>
         </svg>
       </div>
+
+      <ul class="numeri">
+        <li><b>7</b><span>import formats, detected by content</span></li>
+        <li><b>2</b><span>Bluetooth drivers, tested on real computers</span></li>
+        <li><b>16</b><span>Bühlmann compartments, validated on real dives</span></li>
+        <li><b>3</b><span>export formats, plus the full backup</span></li>
+        <li><b>0</b><span>ads, usage analytics, subscriptions</span></li>
+      </ul>
     </div>
 
     <div class="contenitore">
@@ -293,7 +316,7 @@
         </div>
       </section>
 
-      <section data-quota="−34 m">
+      <section data-quota="−34 m" class="prosa">
         <h2>The sync service</h2>
         <p>
           If you use more than one device, you can keep your logbook aligned. You sign in with an
@@ -317,7 +340,7 @@
         </p>
       </section>
 
-      <section data-quota="−40 m">
+      <section data-quota="−40 m" class="prosa">
         <h2>Free and open</h2>
         <p>
           MyDiveLog is free software under the MIT licence: the code can be read, copied and modified. It
@@ -336,7 +359,7 @@
         </p>
       </section>
 
-      <section data-quota="−46 m">
+      <section data-quota="−46 m" class="prosa">
         <h2>One warning that matters</h2>
         <div class="evidenza avvertenza">
           <p>
