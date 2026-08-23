@@ -1945,4 +1945,50 @@ export const INGLESE: Record<string, string> = {
   "Unità dichiarate nell'intestazione e applicate a tutta la colonna:":
     'Units declared in the header and applied to the whole column:',
   'è nel cestino': 'is in the trash',
+  // --- scarico via Bluetooth ---
+  /*
+   * Tre voci qui dentro traducono in sé stesse, e non è una svista: le due
+   * etichette dei driver sono elenchi di nomi di prodotto, e «computer» si
+   * scrive uguale nelle due lingue. Stanno nel dizionario lo stesso perché
+   * un'assenza è indistinguibile da una dimenticanza: chi verifica che ogni
+   * stringa passata a `t()` abbia la sua voce le troverebbe mancanti e le
+   * riaggiungerebbe, ogni volta.
+   */
+  'Accendi il computer e mettilo in modalità trasferimento o Bluetooth — quasi tutti annunciano solo per qualche minuto dopo che li hai toccati, e si riaddormentano da soli. La ricerca continua finché non la fermi.':
+    'Turn the computer on and put it in transfer or Bluetooth mode — most only advertise for a few minutes after you touch them, then fall asleep again. The scan keeps going until you stop it.',
+  'Al prossimo collegamento prendo solo quelle più recenti.': 'Next time I only take the newer ones.',
+  'Chiedo quante immersioni ci sono…': 'Asking how many dives there are…',
+  computer: 'computer',
+  'Copia il diario': 'Copy the log',
+  'Diario tecnico': 'Technical log',
+  'già in archivio': 'already in the logbook',
+  'Il computer non ha immersioni in memoria da scaricare.':
+    'The computer has no dives in memory to download.',
+  'Il trasferimento si è interrotto prima della fine': 'The transfer stopped before the end',
+  'La ricerca non è partita': 'The scan did not start',
+  'Leggo…': 'Reading…',
+  'lette dal computer': 'read from the computer',
+  'l’ultima volta': 'last time',
+  'Mi collego…': 'Connecting…',
+  'Niente di nuovo: il computer non ha immersioni più recenti di quelle che hai già.':
+    'Nothing new: the computer has no dives newer than the ones you already have.',
+  'non riconosciuto come computer subacqueo': 'not recognised as a dive computer',
+  'Non è arrivata nessuna immersione': 'No dive came through',
+  'provalo come…': 'try it as…',
+  'quello che è arrivato è salvato, il resto si riprende riscaricando.':
+    'what arrived is saved, the rest resumes on the next download.',
+  riga: 'line',
+  righe: 'lines',
+  'Rileggi tutta la memoria del computer, non solo le nuove':
+    'Re-read the whole computer memory, not just the new dives',
+  'Salva i dati grezzi': 'Save the raw data',
+  'Scubapro / Uwatec (Aladin Matrix, A1, A2, G2, G3, Luna 2)':
+    'Scubapro / Uwatec (Aladin Matrix, A1, A2, G2, G3, Luna 2)',
+  'serve se hai cancellato qualcosa e la rivuoi indietro': 'needed if you deleted something and want it back',
+  'serve solo se qualcosa non ha funzionato': 'only useful if something went wrong',
+  'Shearwater (Peregrine, Perdix, Petrel, Teric, Tern)':
+    'Shearwater (Peregrine, Perdix, Petrel, Teric, Tern)',
+  'sono arrivate': 'I got',
+  'sono arrivate ma non si sono potute salvare': 'came through but could not be saved',
+  'Sto cercando…': 'Scanning…',
 };

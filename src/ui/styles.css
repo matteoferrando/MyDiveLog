@@ -1854,3 +1854,76 @@ button:focus-visible {
   padding: 0;
   margin: -1px;
 }
+
+/* --- elenco dei computer trovati -------------------------------------- */
+
+/*
+  NON È UNA TABELLA, e prima lo era.
+
+  Tre colonne — nome, segnale, azione — sembravano una tabella, e su un telefono
+  non ci stavano: misurato a 390 px, il contenitore si trascinava di lato di
+  260 px. Due cose concorrevano, e la seconda è quella che nessuno si aspetta.
+
+  La prima è il nome. Un dispositivo che non annuncia un nome viene elencato con
+  il suo identificativo, che sono trentasei caratteri senza spazi: in una cella
+  di tabella è una parola sola che non si spezza e detta la larghezza.
+
+  La seconda è la TENDINA. Un `select` prende la larghezza della sua opzione più
+  lunga, sempre, anche mentre mostra «provalo come…»: e l'opzione più lunga qui è
+  «Scubapro / Uwatec (Aladin Matrix, A1, A2, G2, G3, Luna 2)». Da sola bastava a
+  sfondare lo schermo. È il motivo per cui serve un tetto esplicito: nessuna
+  regola di flessibilità può stringere un `select` sotto la sua larghezza
+  intrinseca.
+
+  Un elenco che va a capo risolve tutti e due i casi e non perde niente sul
+  desktop, dove le righe restano su una riga sola perché lo spazio c'è.
+*/
+.dispositivi {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.dispositivi li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+/* `min-width: 0` è la riga che permette al nome di stringersi: senza, un
+   elemento flessibile non scende sotto la larghezza del suo contenuto. */
+.dispositivi .dispositivo-nome {
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+
+/* `anywhere` e non `break-word`: l'identificativo non ha spazi né trattini in
+   cui andare a capo, e `break-word` da solo lo lascerebbe intero. */
+.dispositivi .dispositivo-nome b {
+  display: block;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+.dispositivi .dispositivo-nome span {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.dispositivi .dispositivo-azione {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.dispositivi .dispositivo-azione select {
+  font-size: 12px;
+  /* Il tetto: la tendina mostra «provalo come…» troncato se serve, e l'elenco
+     aperto resta per intero — quello lo disegna il sistema, non la pagina. */
+  max-width: 9.5rem;
+}

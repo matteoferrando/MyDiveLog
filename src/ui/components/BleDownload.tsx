@@ -35,7 +35,7 @@ import { suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
 import { useLingua, useTraduciStabile } from '../lingua';
 import type { DownloadMarker } from '../../core/ble/types';
-import { dateShort, imm } from '../format';
+import { dateShort, imm, plural } from '../format';
 
 type Stato =
   | { fase: 'iniziale' }
@@ -153,8 +153,11 @@ export function BleDownload() {
       setALungoSenzaNulla(false);
       return;
     }
-    const t = setTimeout(() => setALungoSenzaNulla(true), 12_000);
-    return () => clearTimeout(t);
+    // `attesa` e non `t`: in questo file `t` è la traduzione, e un timer che le
+    // ruba il nome dentro un effetto è una trappola che scatta il giorno in cui
+    // qualcuno aggiunge qui una frase da tradurre.
+    const attesa = setTimeout(() => setALungoSenzaNulla(true), 12_000);
+    return () => clearTimeout(attesa);
   }, [stato.fase, trovati.length]);
 
   const cerca = useCallback(async () => {
@@ -174,11 +177,11 @@ export function BleDownload() {
         fase: 'non-disponibile',
         motivo: {
           reason: 'unsupported',
-          detail: `La ricerca non è partita: ${err instanceof Error ? err.message : String(err)}`,
+          detail: `${t('La ricerca non è partita')}: ${err instanceof Error ? err.message : String(err)}`,
         },
       });
     }
-  }, [transport]);
+  }, [transport, t]);
 
   /*
    * Stabile fra un render e l'altro, e senza leggere `stato`.
@@ -206,8 +209,18 @@ export function BleDownload() {
       fermaRicerca();
       const ctl = new AbortController();
       scarico.current = ctl;
-      const nome = scelto.device.name || 'computer';
-      setStato({ fase: 'scarica', nome, fatte: 0, passo: 'Mi collego…' });
+      const nome = scelto.device.name || t('computer');
+      /*
+       * L'ORIGINE CHE FINISCE IN ARCHIVIO NON SI TRADUCE.
+       *
+       * `nome` qui sopra sta a schermo e segue la lingua di chi guarda. Questa
+       * invece viene salvata dentro l'immersione come sua provenienza e ci
+       * resta per sempre: tradotta, lo stesso computer scriverebbe un'origine
+       * diversa a seconda della lingua attiva il giorno dello scarico, e in
+       * archivio comparirebbe come due sorgenti distinte.
+       */
+      const origine = scelto.device.name || 'computer';
+      setStato({ fase: 'scarica', nome, fatte: 0, passo: t('Mi collego…') });
 
       const onEvent = (e: DownloadEvent) => {
         // Le righe del diario non toccano lo stato mostrato: sarebbero un
@@ -217,11 +230,11 @@ export function BleDownload() {
           p.fase !== 'scarica'
             ? p
             : e.kind === 'identified'
-              ? { ...p, nome: e.model, passo: 'Chiedo quante immersioni ci sono…' }
+              ? { ...p, nome: e.model, passo: t('Chiedo quante immersioni ci sono…') }
               : e.kind === 'counted'
-                ? { ...p, totale: e.total, passo: 'Leggo…' }
+                ? { ...p, totale: e.total, passo: t('Leggo…') }
                 : e.kind === 'record'
-                  ? { ...p, fatte: e.done, totale: e.total ?? p.totale, passo: 'Leggo…', byte: undefined }
+                  ? { ...p, fatte: e.done, totale: e.total ?? p.totale, passo: t('Leggo…'), byte: undefined }
                   : e.kind === 'progress'
                     ? {
                         ...p,
@@ -270,22 +283,22 @@ export function BleDownload() {
       let testo: string;
       if (esito.dives.length === 0) {
         testo = esito.error
-          ? `Non è arrivata nessuna immersione: ${esito.error}`
+          ? `${t('Non è arrivata nessuna immersione')}: ${esito.error}`
           : usato && !tuttoDaCapo
-            ? 'Niente di nuovo: il computer non ha immersioni più recenti di quelle che hai già.'
-            : 'Il computer non ha immersioni in memoria da scaricare.';
+            ? t('Niente di nuovo: il computer non ha immersioni più recenti di quelle che hai già.')
+            : t('Il computer non ha immersioni in memoria da scaricare.');
       } else {
-        const r = await importDives(esito.dives, `${esito.model ?? nome} via Bluetooth`);
+        const r = await importDives(esito.dives, `${esito.model ?? origine} via Bluetooth`);
         if (!r.ok) {
-          testo = `Le ${esito.dives.length} immersioni sono arrivate ma non si sono potute salvare: ${r.error}`;
+          testo = `${imm(esito.dives.length, t)} ${t('sono arrivate ma non si sono potute salvare')}: ${r.error}`;
         } else {
           testo =
-            `${imm(r.found)} lette dal computer: ${r.added} nuove, ${r.merged} arricchite, ` +
-            `${r.duplicates} già in archivio.`;
+            `${imm(r.found, t)} ${t('lette dal computer')}: ${r.added} ${t('nuove')}, ` +
+            `${r.merged} ${t('arricchite')}, ${r.duplicates} ${t('già in archivio')}.`;
           if (esito.status === 'partial') {
-            testo += ` Il trasferimento si è interrotto prima della fine${
-              esito.total ? ` (${esito.dives.length} su ${esito.total})` : ''
-            }: quello che è arrivato è salvato, il resto si riprende riscaricando.`;
+            testo += ` ${t('Il trasferimento si è interrotto prima della fine')}${
+              esito.total ? ` (${esito.dives.length} ${t('su')} ${esito.total})` : ''
+            }: ${t('quello che è arrivato è salvato, il resto si riprende riscaricando.')}`;
           }
           avvisi.push(...r.warnings);
 
@@ -330,6 +343,18 @@ export function BleDownload() {
           firmware: esito.firmware,
           records: esito.records.map((r) => ({ key: r.key, base64: byteInBase64(r.bytes) })),
         },
+        /*
+         * IL DIARIO NON SI TRADUCE, ed è l'unica cosa qui dentro che resta
+         * italiana per scelta.
+         *
+         * Non è testo dell'interfaccia: è il blocco che si incolla in una
+         * segnalazione, e le righe che contano davvero — `esito.trace` — le
+         * scrivono i driver, che l'italiano ce l'hanno cucito dentro insieme ai
+         * numeri. Tradurre solo le sei intestazioni darebbe un rapporto metà e
+         * metà, più difficile da leggere per chi lo riceve e da confrontare con
+         * quello di ieri. L'etichetta del pulsante che lo apre, invece, si
+         * traduce: quella la legge chi usa l'app, non chi la ripara.
+         */
         diario: [
           `MyDiveLog — diario dello scarico`,
           `dispositivo: ${scelto.device.name || 'senza nome'}`,
@@ -342,7 +367,7 @@ export function BleDownload() {
         ],
       });
     },
-    [importDives, fermaRicerca, bleMarkers, saveBleMarker, forgetBleMarker, tuttoDaCapo, transport],
+    [importDives, fermaRicerca, bleMarkers, saveBleMarker, forgetBleMarker, tuttoDaCapo, transport, t],
   );
 
   return (
@@ -452,12 +477,12 @@ export function BleDownload() {
               style={{ fontSize: 13, alignItems: 'center', gap: 8, marginBottom: 4 }}
             >
               <span>
-                <b>{m.model ?? 'Computer'}</b> <span className="muted">{k.replace(/^[^:]+:/, '')}</span>:
-                l'ultima volta ({dateShort(m.at)}) sono arrivate {imm(m.dives)}. Al prossimo collegamento
-                prendo solo quelle più recenti.
+                <b>{m.model ?? t('Computer')}</b> <span className="muted">{k.replace(/^[^:]+:/, '')}</span>:{' '}
+                {t('l’ultima volta')} ({dateShort(m.at)}) {t('sono arrivate')} {imm(m.dives, t)}.{' '}
+                {t('Al prossimo collegamento prendo solo quelle più recenti.')}
               </span>
               <button style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => void forgetBleMarker(k)}>
-                Dimentica
+                {t('Dimentica')}
               </button>
             </div>
           ))}
@@ -467,8 +492,11 @@ export function BleDownload() {
           >
             <input type="checkbox" checked={tuttoDaCapo} onChange={(e) => setTuttoDaCapo(e.target.checked)} />
             <span>
-              Rileggi tutta la memoria del computer, non solo le nuove
-              <span className="muted"> — serve se hai cancellato qualcosa e la rivuoi indietro</span>
+              {t('Rileggi tutta la memoria del computer, non solo le nuove')}
+              <span className="muted">
+                {' — '}
+                {t('serve se hai cancellato qualcosa e la rivuoi indietro')}
+              </span>
             </span>
           </label>
         </div>
@@ -477,85 +505,98 @@ export function BleDownload() {
       {stato.fase === 'cerca' && (
         <>
           <p className="planner-hint" style={{ marginTop: 0 }}>
-            Accendi il computer e mettilo in modalità trasferimento o Bluetooth — quasi tutti annunciano solo
-            per qualche minuto dopo che li hai toccati, e si riaddormentano da soli. La ricerca continua
-            finché non la fermi.
+            {t(
+              'Accendi il computer e mettilo in modalità trasferimento o Bluetooth — quasi tutti annunciano solo per qualche minuto dopo che li hai toccati, e si riaddormentano da soli. La ricerca continua finché non la fermi.',
+            )}
           </p>
           {trovati.length === 0 ? (
             <p className="muted" style={{ fontSize: 13, margin: 0 }}>
-              Sto cercando…
+              {t('Sto cercando…')}
             </p>
           ) : (
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Dispositivo</th>
-                    <th>Segnale</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {trovati.map(({ device, driver }) => (
-                    <tr key={device.id}>
-                      <td>
-                        <div style={{ fontWeight: 550 }}>{device.name || 'senza nome'}</div>
-                        <div className="muted" style={{ fontSize: 11 }}>
-                          {driver ? driver.label : 'non riconosciuto come computer subacqueo'}
-                        </div>
-                      </td>
-                      <td className="muted tabular" style={{ fontSize: 12 }}>
-                        {device.rssi !== undefined ? `${device.rssi} dBm` : '—'}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        {driver ? (
-                          <button className="btn" onClick={() => void scarica({ device, driver })}>
-                            Scarica
-                          </button>
-                        ) : (
-                          /*
-                           * LA VIA D'USCITA QUANDO IL NOME NON È QUELLO PREVISTO.
-                           *
-                           * Il riconoscimento si fa sul nome annunciato, e i nomi
-                           * cambiano: l'Aladin Sport Matrix si annuncia «Aladin
-                           * Sport» e non «Aladin», che è il nome con cui lo elenca
-                           * libdivecomputer. Il risultato è stato una schermata che
-                           * diceva «non riconosciuto come computer subacqueo»
-                           * davanti a un computer subacqueo, senza niente da
-                           * premere — e la sola cosa da fare era aspettare una
-                           * versione nuova dell'applicazione.
-                           *
-                           * Con questa tendina, chi SA che computer ha lo prova.
-                           * Il rischio è mandare comandi a un dispositivo che non
-                           * è quello: lo si accetta perché la scelta è esplicita e
-                           * la fa una persona che ha il computer in mano, non un
-                           * riconoscimento automatico che si sbaglia da solo. Il
-                           * protocollo comunque non trova il suo servizio e si
-                           * ferma con un errore leggibile, senza scrivere niente.
-                           */
-                          <select
-                            defaultValue=""
-                            style={{ fontSize: 12 }}
-                            onChange={(e) => {
-                              const scelto = DRIVERS.find((d) => d.id === e.target.value);
-                              e.target.value = '';
-                              if (scelto) void scarica({ device, driver: scelto });
-                            }}
-                          >
-                            <option value="">provalo come…</option>
-                            {DRIVERS.map((d) => (
-                              <option key={d.id} value={d.id}>
-                                {d.label}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            /*
+             * UN ELENCO E NON UNA TABELLA, e la colpa è della tendina.
+             *
+             * A 390 px di larghezza — un iPhone qualunque — questo blocco si
+             * trascinava di lato: 571 px di contenuto dentro 312 disponibili.
+             * Le cause erano due, e la seconda è quella che nessuno si aspetta.
+             *
+             * La prima: un dispositivo che non annuncia un nome viene elencato
+             * con il suo identificativo, trentasei caratteri senza spazi, che
+             * dentro una cella di tabella non si spezzano in nessun punto.
+             *
+             * La seconda: un `<select>` è largo quanto la sua opzione PIÙ
+             * LUNGA, sempre, anche mentre mostra soltanto «provalo come…».
+             * L'opzione più lunga qui è l'etichetta Scubapro — «Scubapro /
+             * Uwatec (Aladin Matrix, A1, A2, G2, G3, Luna 2)» — e da sola
+             * sfonda lo schermo. Non è un caso risolto una volta per tutte:
+             * aggiungere un driver con un'etichetta più lunga lo rimetterebbe
+             * identico, ed è il CSS di `.dispositivo-azione` a tenere il freno,
+             * non la fortuna.
+             *
+             * Con la tabella se ne vanno anche le intestazioni «Dispositivo» e
+             * «Segnale». In un elenco dove ogni riga È un dispositivo e il
+             * numero ha già «dBm» attaccato, erano due parole che ripetevano
+             * quello che si vedeva — e due colonne in meno da far stare in 312 px.
+             */
+            <ul className="dispositivi">
+              {trovati.map(({ device, driver }) => (
+                <li key={device.id}>
+                  <div className="dispositivo-nome">
+                    <b>{device.name || t('senza nome')}</b>
+                    <span>{driver ? t(driver.label) : t('non riconosciuto come computer subacqueo')}</span>
+                  </div>
+                  <div className="dispositivo-azione">
+                    <span className="muted tabular" style={{ fontSize: 12 }}>
+                      {device.rssi !== undefined ? `${device.rssi} dBm` : '—'}
+                    </span>
+                    {driver ? (
+                      <button className="btn" onClick={() => void scarica({ device, driver })}>
+                        {t('Scarica')}
+                      </button>
+                    ) : (
+                      /*
+                       * LA VIA D'USCITA QUANDO IL NOME NON È QUELLO PREVISTO.
+                       *
+                       * Il riconoscimento si fa sul nome annunciato, e i nomi
+                       * cambiano: l'Aladin Sport Matrix si annuncia «Aladin
+                       * Sport» e non «Aladin», che è il nome con cui lo elenca
+                       * libdivecomputer. Il risultato è stato una schermata che
+                       * diceva «non riconosciuto come computer subacqueo»
+                       * davanti a un computer subacqueo, senza niente da
+                       * premere — e la sola cosa da fare era aspettare una
+                       * versione nuova dell'applicazione.
+                       *
+                       * Con questa tendina, chi SA che computer ha lo prova.
+                       * Il rischio è mandare comandi a un dispositivo che non
+                       * è quello: lo si accetta perché la scelta è esplicita e
+                       * la fa una persona che ha il computer in mano, non un
+                       * riconoscimento automatico che si sbaglia da solo. Il
+                       * protocollo comunque non trova il suo servizio e si
+                       * ferma con un errore leggibile, senza scrivere niente.
+                       */
+                      <select
+                        defaultValue=""
+                        aria-label={t('provalo come…')}
+                        style={{ fontSize: 12 }}
+                        onChange={(e) => {
+                          const scelto = DRIVERS.find((d) => d.id === e.target.value);
+                          e.target.value = '';
+                          if (scelto) void scarica({ device, driver: scelto });
+                        }}
+                      >
+                        <option value="">{t('provalo come…')}</option>
+                        {DRIVERS.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {t(d.label)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </>
       )}
@@ -565,7 +606,9 @@ export function BleDownload() {
           <b>{stato.nome}</b> — {stato.passo}{' '}
           {stato.fatte > 0 && (
             <>
-              {stato.totale ? `${stato.fatte} di ${stato.totale} immersioni.` : `${stato.fatte} immersioni.`}
+              {stato.totale
+                ? `${stato.fatte} ${t('di')} ${imm(stato.totale, t)}.`
+                : `${imm(stato.fatte, t)}.`}
             </>
           )}
           {/*
@@ -635,7 +678,8 @@ export function BleDownload() {
            */}
           <details style={{ marginTop: 10 }}>
             <summary className="muted" style={{ fontSize: 12, cursor: 'pointer' }}>
-              Diario tecnico ({stato.diario.length} righe) — serve solo se qualcosa non ha funzionato
+              {t('Diario tecnico')} ({plural(stato.diario.length, 'riga', 'righe', t)}){' — '}
+              {t('serve solo se qualcosa non ha funzionato')}
             </summary>
             <div className="row" style={{ gap: 8, margin: '8px 0', flexWrap: 'wrap' }}>
               <button
@@ -645,7 +689,7 @@ export function BleDownload() {
                   setTimeout(() => setCopiato(false), 2000);
                 }}
               >
-                {copiato ? 'Copiato' : 'Copia il diario'}
+                {t(copiato ? 'Copiato' : 'Copia il diario')}
               </button>
               {/*
                * I BYTE GREZZI SI POSSONO PORTARE VIA, e non è una funzione da
@@ -670,16 +714,16 @@ export function BleDownload() {
                           JSON.stringify(stato.grezzi, null, 1),
                           'application/json',
                         );
-                        setSalvataggio(`Salvato ${dove.dove}.`);
+                        setSalvataggio(`${t('Salvato')} ${dove.dove}.`);
                       } catch (err) {
                         setSalvataggio(
-                          `Non si è potuto salvare: ${err instanceof Error ? err.message : String(err)}`,
+                          `${t('Non si è potuto salvare')}: ${err instanceof Error ? err.message : String(err)}`,
                         );
                       }
                     })();
                   }}
                 >
-                  Salva i dati grezzi ({stato.grezzi.records.length})
+                  {t('Salva i dati grezzi')} ({stato.grezzi.records.length})
                 </button>
               )}
               {salvataggio && (
