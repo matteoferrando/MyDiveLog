@@ -20,8 +20,8 @@
     "desktop": "tauri dev",
     "desktop:build": "tauri build",
     "mac:pubblica": "bash scripts/pubblica-mac.sh",
-    "ios:init": "mkdir -p src-tauri/gen/apple/mydivelog_iOS && cp src-tauri/PrivacyInfo.xcprivacy src-tauri/gen/apple/mydivelog_iOS/ && tauri ios init",
-    "ios:dev": "mkdir -p src-tauri/gen/apple/mydivelog_iOS && cp src-tauri/PrivacyInfo.xcprivacy src-tauri/gen/apple/mydivelog_iOS/ && tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios dev",
+    "ios:init": "rm -f src-tauri/gen/apple/project.yml && mkdir -p src-tauri/gen/apple/mydivelog_iOS && cp src-tauri/PrivacyInfo.xcprivacy src-tauri/gen/apple/mydivelog_iOS/ && tauri ios init",
+    "ios:dev": "rm -f src-tauri/gen/apple/project.yml && mkdir -p src-tauri/gen/apple/mydivelog_iOS && cp src-tauri/PrivacyInfo.xcprivacy src-tauri/gen/apple/mydivelog_iOS/ && tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios dev",
     "demo": "tsx scripts/generate-demo-data.ts",
     "screenshot": "node scripts/screenshot.mjs",
     "schermate:ble": "node scripts/schermate-bluetooth.mjs",
@@ -30,9 +30,9 @@
     "validate:gf": "tsx scripts/validate-gf.ts",
     "dump:ai": "tsx scripts/dump-ai-context.ts",
     "confronta:uwatec": "tsx scripts/confronta-uwatec.ts",
-    "ios:build": "mkdir -p src-tauri/gen/apple/mydivelog_iOS && cp src-tauri/PrivacyInfo.xcprivacy src-tauri/gen/apple/mydivelog_iOS/ && tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios build",
-    "ios:telefono": "mkdir -p src-tauri/gen/apple/mydivelog_iOS && cp src-tauri/PrivacyInfo.xcprivacy src-tauri/gen/apple/mydivelog_iOS/ && tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios run --release",
-    "ios:negozio": "mkdir -p src-tauri/gen/apple/mydivelog_iOS && cp src-tauri/PrivacyInfo.xcprivacy src-tauri/gen/apple/mydivelog_iOS/ && tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios build --export-method app-store-connect"
+    "ios:build": "rm -f src-tauri/gen/apple/project.yml && mkdir -p src-tauri/gen/apple/mydivelog_iOS && cp src-tauri/PrivacyInfo.xcprivacy src-tauri/gen/apple/mydivelog_iOS/ && tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios build",
+    "ios:telefono": "rm -f src-tauri/gen/apple/project.yml && mkdir -p src-tauri/gen/apple/mydivelog_iOS && cp src-tauri/PrivacyInfo.xcprivacy src-tauri/gen/apple/mydivelog_iOS/ && tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios run --release",
+    "ios:negozio": "rm -f src-tauri/gen/apple/project.yml && mkdir -p src-tauri/gen/apple/mydivelog_iOS && cp src-tauri/PrivacyInfo.xcprivacy src-tauri/gen/apple/mydivelog_iOS/ && tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios build --export-method app-store-connect"
   },
   "dependencies": {
     "@garmin/fitsdk": "^21.171.0",

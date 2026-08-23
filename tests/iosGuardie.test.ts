@@ -223,4 +223,27 @@ describe('quello che il pacchetto iOS deve dichiarare ad Apple', () => {
       expect(copia, nome).toBeLessThan(init);
     }
   });
+
+  it('ogni script iOS BUTTA VIA project.yml prima di generare', () => {
+    /*
+     * `tauri ios init` NON riscrive un file che trova già lì, e lo dice
+     * comunque «Project generated successfully». Quindi un `project.yml`
+     * vecchio sopravvive a qualunque cambiamento di `tauri.conf.json`, e il
+     * cambiamento non arriva mai nel progetto: succede in silenzio.
+     *
+     * Pagato il 23 agosto 2026: alzato il minimo da iOS 14 a iOS 15 in
+     * `tauri.conf.json`, il pacchetto continuava a dichiarare 14. Il file è
+     * generato e non contiene niente di nostro — le nostre modifiche stanno in
+     * `Info.ios.plist` e in `pulisci-progetto-ios.mjs` — quindi buttarlo via
+     * prima di rigenerare non perde niente e rende `tauri.conf.json` l'unica
+     * verità.
+     */
+    const pacchetto = JSON.parse(leggi('package.json')) as { scripts: Record<string, string> };
+    for (const [nome, riga] of Object.entries(pacchetto.scripts).filter(([n]) => n.startsWith('ios:'))) {
+      const via = riga.indexOf('rm -f src-tauri/gen/apple/project.yml');
+      const init = riga.indexOf('tauri ios init');
+      expect(via, nome).toBeGreaterThanOrEqual(0);
+      expect(via, nome).toBeLessThan(init);
+    }
+  });
 });
