@@ -233,6 +233,7 @@ export const INGLESE: Record<string, string> = {
   'Oscillazione a quota tenuta': 'Depth wobble while holding',
   'Passo di campionamento': 'Sampling interval',
   'positiva in risalita': 'positive going up',
+  'PDF salvato': 'PDF saved',
   'PPO2 di picco': 'Peak PPO2',
   'PPO2 minima': 'Min PPO2',
   'Pressione bombola': 'Cylinder pressure',
@@ -671,6 +672,7 @@ export const INGLESE: Record<string, string> = {
   'esce al': 'leaves at',
   'Esci con questa pressione, qualunque sia la profondità.':
     'You surface on this pressure, whatever the depth.',
+  'Esporta PDF': 'Export PDF',
   'Esposizione all’ossigeno': 'Oxygen exposure',
   'Fai rileggere il piano a Claude': 'Have Claude check the plan',
   fase: 'phase',

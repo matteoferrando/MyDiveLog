@@ -6,6 +6,8 @@ import { formatDuration, mixName } from '../../core/units';
 import { modeLabel, positionAgainst, quartilesOf } from '../../core/analysis/aggregate';
 import { debriefDive } from '../../core/analysis/coaching';
 import { logbookHtml } from '../../core/export/logbookPrint';
+import { schedePdf } from '../../core/export/pdf';
+import { esporta } from '../esporta';
 import type { Subacqueo } from '../../core/libretto';
 import { descriviFirma, firmaPath, firmaVuota } from '../../core/firma';
 import { RiquadroFirma } from '../components/FirmaGuida';
@@ -49,6 +51,34 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
   // bottone che non fa niente e non dice perché è peggio di un bottone assente:
   // qui la ragione è sempre la stessa, e si può spiegare in una riga.
   const [stampaBloccata, setStampaBloccata] = useState(false);
+  const [esitoPdf, setEsitoPdf] = useState<string | null>(null);
+
+  /*
+   * Il nome del file lo legge una persona in un elenco: data prima, poi il
+   * sito. «MyDiveLog-2026-07-11-Camogli.pdf» si riconosce; «scheda.pdf» no, e
+   * dopo tre esportazioni sono tre file uguali.
+   */
+  const esportaPdf = async () => {
+    // Il guardiano di `dive` sta più sotto, nel corpo del componente: qui siamo
+    // in una funzione che vive più a lungo del ramo che lo controlla, e senza
+    // questa riga TypeScript ha ragione a lamentarsi. Se l'immersione non c'è
+    // il pulsante nemmeno si vede, quindi non serve dire niente all'utente.
+    if (!dive) return;
+    setEsitoPdf(null);
+    try {
+      const campioni = dive.samples ?? (await loadProfiles(dive.id)).samples;
+      const pdf = schedePdf([dive], new Map([[dive.id, campioni]]), {
+        subacqueo,
+        etichetteFormato: FORMAT_LABEL,
+      });
+      const giorno = dive.startTime.slice(0, 10);
+      const sito = (dive.site?.name ?? 'immersione').replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 30);
+      const esito = await esporta(`MyDiveLog-${giorno}-${sito}.pdf`, pdf, 'application/pdf');
+      setEsitoPdf(`${t('PDF salvato')} ${esito.dove}.`);
+    } catch (err) {
+      setEsitoPdf(err instanceof Error ? err.message : String(err));
+    }
+  };
 
   useEffect(() => {
     if (!summary) return;
@@ -155,6 +185,21 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
             </button>
           )}
           {/*
+           * ► IL PDF C'È DOVE LA STAMPA NON C'È, ed è il punto. ◄
+           *
+           * Su iPhone non esiste una finestra di stampa da cui «esportare come
+           * PDF»: il foglio da mandare a chi lo chiede — un centro, un
+           * istruttore, un'assicurazione — si poteva fare solo dal computer di
+           * casa, cioè nel momento sbagliato. Quello giusto è in barca, cinque
+           * minuti dopo l'immersione.
+           *
+           * Il pulsante c'è anche sul Mac perché lì fa una cosa diversa e utile
+           * lo stesso: un file, subito, senza passare dalla finestra di stampa.
+           */}
+          <button className="btn" onClick={() => void esportaPdf()}>
+            {t('Esporta PDF')}
+          </button>
+          {/*
            * Chiudere con modifiche non salvate CHIEDE conferma.
            *
            * Il pulsante si chiama «Chiudi», non «Annulla», e la bozza vive nella
@@ -200,6 +245,16 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
             : t('Il browser ha bloccato la finestra di stampa. Consentila per questo sito e riprova.')}
         </div>
       )}
+
+      {/*
+       * L'esito dell'esportazione si dice sempre, e nello stesso posto.
+       *
+       * Su iPhone il file finisce nella cartella dell'app dentro File, che è un
+       * luogo che va nominato: senza una riga che lo dica, il pulsante sembra
+       * non aver fatto niente. Se invece qualcosa è andato storto, qui compare
+       * il messaggio dell'errore vero, non un «riprova» generico.
+       */}
+      {esitoPdf && <div className="notice">{esitoPdf}</div>}
 
       <div className="grid grid-tiles">
         {/* `StatTile` non traduce da sé: etichette e note arrivano tradotte da qui. */}

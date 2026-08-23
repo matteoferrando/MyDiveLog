@@ -29,8 +29,15 @@ export default tseslint.config(
     // `dist` e `node_modules` sono generati; `src-tauri` è Rust e ha il suo
     // strumentario (cargo clippy, cargo fmt); `demo` sono file di prova dei
     // computer subacquei — cioè dati, non codice — e `docs` è prosa.
+    //
+    // `dist-*` non era nell'elenco, e la mancanza si vedeva solo su una macchina
+    // che avesse già fatto una build: `eslint .` entrava nel JavaScript minificato
+    // e sputava duemila errori su codice che non abbiamo scritto noi. In CI la
+    // cartella non esiste e il controllo passava — cioè il difetto era invisibile
+    // esattamente dove serviva vederlo.
     ignores: [
       'dist/**',
+      'dist-*/**',
       'node_modules/**',
       'src-tauri/**',
       'demo/**',
