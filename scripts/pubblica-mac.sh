@@ -165,7 +165,38 @@ esac
 echo "→ preparo l'archivio dell'aggiornamento"
 ARCHIVIO="src-tauri/target/release/bundle/macos/MyDiveLog.app.tar.gz"
 rm -f "$ARCHIVIO" "$ARCHIVIO.sig"
-tar -czf "$ARCHIVIO" -C "$(dirname "$APP")" "$(basename "$APP")"
+# ► `COPYFILE_DISABLE` E `--no-mac-metadata`, O L'AGGIORNAMENTO NON SI INSTALLA. ◄
+#
+# Il `tar` di macOS, quando i file hanno attributi estesi — e ce li hanno tutti,
+# almeno `com.apple.provenance` — scrive nell'archivio dei membri AppleDouble
+# accanto a ciascuno: `._MyDiveLog.app`, `MyDiveLog.app/._Contents`, e così via.
+#
+# E QUI STA LA CATTIVERIA: lo stesso `tar`, quando rilegge l'archivio, quei
+# membri li riconosce e NON LI ELENCA. Un `tar -tzf` mostra nove voci pulite su
+# un archivio che ne contiene diciotto. Chi verifica con lo strumento che ha
+# creato il file non vede niente di storto.
+#
+# Il pezzo che scompatta l'aggiornamento non è `tar` ed è molto più letterale:
+# prende ogni voce, toglie il primo pezzo del percorso, e scrive. Su
+# `._MyDiveLog.app` il primo pezzo È tutto il nome, quindi prova a scrivere un
+# FILE sopra la cartella temporanea e si ferma con «failed to unpack
+# `._MyDiveLog.app`». Il primo aggiornamento vero è morto esattamente lì.
+COPYFILE_DISABLE=1 tar --no-mac-metadata --no-xattrs -czf "$ARCHIVIO" -C "$(dirname "$APP")" "$(basename "$APP")"
+
+# La controprova, con uno strumento che NON nasconde niente. Costa un secondo e
+# copre l'unico difetto che si vede solo dopo aver pubblicato.
+python3 - "$ARCHIVIO" <<'PYTHON'
+import sys, tarfile
+
+with tarfile.open(sys.argv[1]) as archivio:
+    nomi = archivio.getnames()
+sporchi = [n for n in nomi if n.startswith("._") or "/._" in n]
+if sporchi:
+    print(f"FERMO: nell'archivio ci sono {len(sporchi)} membri AppleDouble, per esempio {sporchi[0]}.", file=sys.stderr)
+    print("Chi scompatta l'aggiornamento si ferma su quelli. Vedi il commento qui sopra.", file=sys.stderr)
+    raise SystemExit(1)
+print(f"  archivio pulito: {len(nomi)} voci, nessun AppleDouble")
+PYTHON
 npm run --silent tauri -- signer sign "$ARCHIVIO" >/dev/null
 node scripts/manifesto-aggiornamento.mjs "${NOTE_VERSIONE:-}"
 
