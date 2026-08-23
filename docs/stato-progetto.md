@@ -568,26 +568,41 @@ messaggi che nessuno vede a schermo.
 
 ## Prossimi passi, in ordine
 
-1. **Scarico Bluetooth dai computer**, Aladin per primo. Il decoder del formato
-   Uwatec è già scritto e verificato: manca solo il trasporto BLE
-   (`tauri-plugin-blec`, `libdivecomputer` come riferimento dei protocolli). È
-   l'unico punto che richiede il computer in mano per essere provato.
-2. **iOS sul telefono vero.** Sul simulatore l'app gira: layout a scheda sotto i
-   600 px, navigazione a menu con l'hamburger, tooltip col dito, permessi al
-   posto giusto.
-   Il passo che manca e' l'iPhone fisico, che serve per l'unica cosa che il
-   simulatore non puo' dare — il Bluetooth — e che richiede la firma con un
-   account Apple. Le due insidie gia' pagate sono in README: CoreBluetooth va
-   dichiarato in `tauri.conf.json` altrimenti il link fallisce con simboli
-   indefiniti che non nominano il Bluetooth, e `tauri ios init` non riscrive un
-   `project.yml` che esiste gia', quindi dice di aver rigenerato senza aver
-   cambiato niente.
+I primi due della lista precedente sono fatti e sono stati tolti: lo scarico
+Bluetooth funziona con due driver provati su computer veri (Shearwater Peregrine
+e Scubapro Aladin Sport Matrix, 117 immersioni in un giro solo), e l'app gira su
+un iPhone fisico, firmata con un Apple Developer Program.
+
+1. **Provare il Bluetooth DALL'IPHONE.** I due driver hanno scaricato da computer
+   veri, ma sempre dal Mac. È l'unica cosa che il simulatore non poteva dare, ed
+   è rimasta indietro. Il caso peggiore resta muto: su iOS il permesso Bluetooth
+   negato non produce nessun errore, e la ricerca sembra solo non trovare niente.
+2. **Un aggiornamento automatico per l'app desktop.** Da quando esiste una
+   release pubblica il problema è nato: chi scarica la 0.1.0 non ha nessun modo
+   di sapere che è uscita la 0.2.0. Tauri ha `tauri-plugin-updater`, che vuole
+   una coppia di chiavi e un file `latest.json` pubblicato — le release di GitHub
+   bastano a ospitarlo.
 3. **Tarare le istruzioni delle analisi** su quello che producono davvero
-   sull'archivio reale: le quattro modalità sono scritte al buio.
-4. **libdivecomputer su iPhone**: la libreria si compila già per macOS da
+   sull'archivio reale: le quattro modalità sono scritte al buio. I contesti sono
+   verificati, le RISPOSTE no.
+4. **libdivecomputer su iPhone.** La libreria si compila già per macOS da
    `build.rs`; mancano la compilazione incrociata per `aarch64-apple-ios`, il
-   collegamento vero di `FlussoBle` a `blec`, e la scelta di marca e modello fra
-   i 356 supportati.
+   collegamento vero di `FlussoBle` a `blec`, la scelta di marca e modello fra i
+   356 supportati, e l'attivazione della funzionalità nelle build di rilascio.
+   È la strada che porta gli altri trecentocinquanta computer, oltre ai due di
+   casa.
+5. **Un riscontro indipendente per VPM-B.** È il debito tecnico più grosso che
+   resta: oggi il confronto è solo con schedule pubblicate, e siamo dal 5 al 10%
+   più corti di V-Planner. Dichiarato nell'interfaccia.
+6. **Compilare muta, zavorra ed erogatori sulle immersioni vecchie** (in blocco
+   dal logbook): le tabelle dell'attrezzatura si riempiono da sole, ma quei dati
+   nessun formato di esportazione li porta.
+7. **Condividere un'immersione in sola lettura**, se serve farla vedere a un
+   compagno o a un istruttore: oggi l'unica strada è dare il token del database,
+   che dà tutto l'archivio e il potere di cancellarlo.
+8. **Apple fra i fornitori di accesso.** `identita.ts` sa già verificarne i
+   token; manca lo scambio, che vuole un segreto che è a sua volta un JWT da
+   rigenerare ogni sei mesi.
 
 ## Cosa ha trovato la validazione del Bühlmann
 
