@@ -30,6 +30,7 @@ import {
   type BackupFile,
   type RestorePlan,
 } from '../../core/export/backup';
+import type { Fornitore } from '../../sync/account';
 import type { SyncReport } from '../../sync/turso';
 import type { AiModel } from '../../ai/client';
 import { BottoneConferma } from '../components/Conferma';
@@ -174,7 +175,7 @@ export function SyncPage() {
           </button>
           {!pronto && (
             <span className="muted" style={{ fontSize: 12 }}>
-              {t('Accedi con Google qui sopra e il pulsante si accende.')}
+              {t('Accedi qui sopra e il pulsante si accende.')}
             </span>
           )}
           {/*
@@ -788,15 +789,18 @@ function DoveStannoLeCredenziali() {
 function AccountCard() {
   const { accountAttivo, accountEmail, accediConAccount, esciDallAccount, cancellaAccount } = useDiveLog();
   const { t } = useLingua();
-  const [lavoro, setLavoro] = useState<'idle' | 'accesso' | 'chiusura'>('idle');
+  // Quale dei due pulsanti sta lavorando, non «sto lavorando»: con un solo
+  // stato entrambi i pulsanti direbbero «Accesso in corso…», e chi guarda non
+  // saprebbe più quale ha premuto.
+  const [lavoro, setLavoro] = useState<'idle' | 'apple' | 'google' | 'chiusura'>('idle');
   const [errore, setErrore] = useState<string | null>(null);
 
-  const accedi = () => {
+  const accedi = (fornitore: Fornitore) => {
     void (async () => {
-      setLavoro('accesso');
+      setLavoro(fornitore);
       setErrore(null);
       try {
-        await accediConAccount();
+        await accediConAccount(fornitore);
       } catch (err) {
         setErrore(err instanceof Error ? err.message : String(err));
       } finally {
@@ -813,7 +817,7 @@ function AccountCard() {
        * cancello, e il «non è obbligatorio» è lì per dirlo subito. */}
       <p className="card-sub">
         {t(
-          'Con un account Google l’app crea un database tuo: gli altri dispositivi si allineano con lo stesso account.',
+          'Con un account Apple o Google l’app crea un database tuo: gli altri dispositivi si allineano con lo stesso account.',
         )}{' '}
         <b>{t('Non è obbligatorio')}</b>: {t('il logbook funziona anche senza.')}
       </p>
@@ -865,11 +869,42 @@ function AccountCard() {
         </>
       ) : (
         <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
-          <button className="btn btn-primary" onClick={accedi} disabled={lavoro !== 'idle'}>
-            {lavoro === 'accesso' ? t('Accesso in corso…') : t('Accedi con Google')}
+          {/*
+           * APPLE PER PRIMO, e non è cortesia: la linea guida 4.8 dell'App
+           * Store vuole che Sign in with Apple sia offerto in modo equivalente
+           * agli altri accessi, e «equivalente» comprende la posizione. Metterlo
+           * secondo, più piccolo o più scolorito è una delle cose che la
+           * revisione guarda.
+           *
+           * L'ASPETTO LO DETTA APPLE, non noi. Sfondo nero (o bianco), il
+           * marchio della mela, e la dicitura «Sign in with Apple» — che **non
+           * si traduce**: è un marchio registrato, e nelle linee guida di Apple
+           * la versione italiana è «Accedi con Apple» solo se si usa la loro
+           * localizzazione ufficiale. Scriverne una nostra sarebbe una
+           * traduzione del marchio di qualcun altro, quindi resta in inglese e
+           * non passa dal dizionario.
+           */}
+          <button
+            className="btn bottone-apple"
+            onClick={() => accedi('apple')}
+            disabled={lavoro !== 'idle'}
+            aria-label="Sign in with Apple"
+          >
+            {/* `aria-hidden`: il marchio è decorativo, il nome del pulsante lo
+                dice già il testo accanto. */}
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" focusable="false">
+              <path
+                fill="currentColor"
+                d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"
+              />
+            </svg>
+            {lavoro === 'apple' ? t('Accesso in corso…') : 'Sign in with Apple'}
+          </button>
+          <button className="btn btn-primary" onClick={() => accedi('google')} disabled={lavoro !== 'idle'}>
+            {lavoro === 'google' ? t('Accesso in corso…') : t('Accedi con Google')}
           </button>
           <span className="muted" style={{ fontSize: 11, alignSelf: 'center' }}>
-            {t('Si apre il browser di sistema: la password la scrivi a Google, non a noi.')}
+            {t('Si apre il browser di sistema: la password la scrivi al fornitore, non a noi.')}
           </span>
         </div>
       )}

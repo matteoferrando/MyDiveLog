@@ -61,3 +61,51 @@ export function schemaRitornoIOS(): string {
 export function ritornoDaAccesso(portaLoopback: number): string {
   return suIOS() ? `${schemaRitornoIOS()}:/accesso` : `http://127.0.0.1:${portaLoopback}/accesso`;
 }
+
+/**
+ * Il **Services ID** di Apple: è il `client_id` del giro web.
+ *
+ * NON è il bundle id, che pure gli assomiglia. Sul portale di Apple sono due
+ * registrazioni distinte: il bundle id identifica l'applicazione installata e
+ * vale per il giro nativo `ASAuthorization`; il Services ID identifica il
+ * «servizio web» ed è l'unico che il giro con il browser accetta. Scambiarli
+ * produce un `invalid_client` sulla pagina di Apple, prima ancora che compaia
+ * il campo della password.
+ *
+ * Di conseguenza il token che Apple emette porta QUESTO valore in `aud`, ed è
+ * per questo che `APPLE_CLIENT_ID` sul Worker ne elenca due.
+ */
+export const APPLE_SERVICES_ID = 'it.ferrando.mydivelog.accesso';
+
+/**
+ * Il Return URL registrato sul portale di Apple: il **Worker**, non l'app.
+ *
+ * Deve combaciare carattere per carattere con quello scritto sul portale — una
+ * barra finale in più e Apple rifiuta — e con quello che il Worker usa per
+ * scambiare il codice. Il perché non sia direttamente l'app: Apple risponde con
+ * una POST, e una POST non si può mandare a uno schema URL né a una porta
+ * locale. Vedi `src/sync/appleAccesso.ts`.
+ */
+export const APPLE_RITORNO_REGISTRATO = 'https://mydivelog.site/accesso-apple/ritorno';
+
+/**
+ * Lo schema con cui l'iPhone rientra nell'app dopo l'accesso **con Apple**.
+ *
+ * Google impone il proprio («reversed client id», ricavato dal client id).
+ * Apple no: il rimbalzo lo fa il nostro Worker, quindi lo schema lo scegliamo
+ * noi, e uno leggibile è meglio di uno ricavato. Deve combaciare con
+ * `CFBundleURLSchemes` in `src-tauri/Info.ios.plist`, e c'è un test che lo
+ * verifica — perché se divergono l'accesso si completa nel browser e poi non
+ * torna mai, senza nessun errore da nessuna parte.
+ */
+export const SCHEMA_APP = 'mydivelog';
+
+/**
+ * Dove torna l'accesso con Apple su QUESTA piattaforma.
+ *
+ * È la «destinazione» che viaggia dentro lo `state` e che il Worker ricontrolla
+ * prima di seguirla: sono le sole due forme che `destinazionePermessa` accetta.
+ */
+export function destinazioneApple(portaLoopback: number): string {
+  return suIOS() ? `${SCHEMA_APP}://accesso` : `http://127.0.0.1:${portaLoopback}/accesso`;
+}

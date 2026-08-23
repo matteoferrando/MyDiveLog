@@ -6,6 +6,13 @@
 name = "mydivelog-accesso"
 main = "worker.ts"
 compatibility_date = "2026-08-01"
+# ESPLICITO, e non lasciato al valore predefinito: l'applicazione chiama il
+# Worker sul suo indirizzo `workers.dev`, che è quello scritto in
+# `src/sync/configurazione.ts`. Aggiungendo una rotta di zona qui sotto è facile
+# credere che il servizio si sia «spostato» sul dominio: non è così, la rotta
+# serve solo al ritorno di Apple. Se questo diventasse `false`, l'accesso
+# smetterebbe di funzionare per tutti.
+workers_dev = true
 
 [vars]
 TURSO_ORG = "zinin"
@@ -18,9 +25,43 @@ TURSO_GROUP = "default"
 # il token di ciascuna porta il proprio in `aud`. Con un valore solo l'accesso
 # funziona su una piattaforma e viene rifiutato sull'altra.
 #
-# Apple ne ha uno solo — il bundle id — che vale per iPhone e Mac insieme,
-# perché le due applicazioni lo condividono.
-APPLE_CLIENT_ID = "it.ferrando.mydivelog"
+# Apple, dal giorno di Sign in with Apple, ne ha due — e per lo stesso identico
+# motivo di Google, cioè che sono due REGISTRAZIONI diverse:
+#
+#   it.ferrando.mydivelog           il bundle id, identifica l'app installata e
+#                                   vale per il giro nativo (ASAuthorization);
+#   it.ferrando.mydivelog.accesso   il Services ID, identifica il «servizio web»
+#                                   e vale per il giro con il browser.
+#
+# Il token che Apple emette porta in `aud` quello del giro da cui è nato. Oggi si
+# usa solo il giro web, quindi arriva sempre il secondo; il primo resta elencato
+# perché il giro nativo è la cosa che si aggiunge un domani, e quel giorno non si
+# deve scoprire questa riga con un 401 in mano.
+APPLE_CLIENT_ID = "it.ferrando.mydivelog,it.ferrando.mydivelog.accesso"
+# Quale dei due è il Services ID, cioè quello con cui si SCAMBIA il codice.
+# Scritto per nome e non dedotto dalla posizione nell'elenco, come per Google.
+APPLE_SERVICES_ID = "it.ferrando.mydivelog.accesso"
+# Il Team ID: finisce in `iss` dentro il segreto del client.
+APPLE_TEAM_ID = "73F4VR2CMU"
+# L'identificativo della chiave `.p8`: finisce in `kid`, nell'intestazione del
+# segreto. Non è la chiave — quella è un segreto e non sta qui:
+#
+#     npx wrangler secret put APPLE_CHIAVE_P8 < AuthKey_7MLL5X469B.p8
+#
+# Il segreto vero e proprio che Apple pretende è un JWT ES256 con scadenza al
+# massimo semestrale, e lo firma il Worker AL VOLO a ogni richiesta, valido
+# cinque minuti. Per questo qui non c'è nessuna data da ricordare.
+APPLE_KEY_ID = "7MLL5X469B"
+# Il Return URL registrato sul portale di Apple. Deve combaciare carattere per
+# carattere con quello scritto là dentro, con quello che l'app mette nella
+# richiesta di autorizzazione e con quello che si manda allo scambio: Apple
+# ricontrolla tutti e tre, e una barra finale di differenza basta a farlo
+# rifiutare.
+#
+# È il WORKER e non l'applicazione perché Apple, quando le si chiedono nome ed
+# email, risponde con una POST invece che con un redirect — e una POST non si può
+# mandare a `mydivelog://` né a una porta su `127.0.0.1`.
+APPLE_RITORNO = "https://mydivelog.site/accesso-apple/ritorno"
 GOOGLE_CLIENT_ID = "883995552043-2khev71oqkm7go3nilogqc82tunbito7.apps.googleusercontent.com,883995552043-fcsjcnlb5o6ih7af686bk0j7pls9k5bi.apps.googleusercontent.com"
 # Quale dei due client di Google è quello «Desktop app»: è l'unico che ha un
 # segreto, e Google lo pretende sullo scambio del codice anche con PKCE. Il
@@ -60,3 +101,19 @@ class_name = "LimiteFrequenza"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["LimiteFrequenza"]
+
+# La rotta di zona che porta il ritorno di Apple a questo Worker.
+#
+# PERCHÉ SERVE. Il Worker vive per conto suo su `mydivelog-accesso.mydivelog.workers.dev`,
+# e l'app lo chiama lì. Il Return URL di Apple però non può stare su un dominio
+# `workers.dev`: sul portale si registra un dominio verificato, ed è
+# `mydivelog.site`. Questa rotta è il pezzo che collega i due — «tutto ciò che
+# arriva su `mydivelog.site/accesso-apple/…` lo gestisce questo Worker» — e senza
+# di essa la POST di Apple finisce sul sito statico, che risponde 404 e
+# l'accesso resta appeso senza dire niente.
+#
+# `zone_name` e non `zone_id`: il nome si legge, l'identificativo va copiato dal
+# pannello e non dice a chi legge di quale dominio si tratti.
+[[routes]]
+pattern = "mydivelog.site/accesso-apple/*"
+zone_name = "mydivelog.site"

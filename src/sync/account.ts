@@ -167,14 +167,14 @@ export function leggiAccountSalvato(
 }
 
 /**
- * Quello che l'app consegna al servizio per entrare.
+ * Quello che l'app consegna al servizio per entrare **con Google**.
  *
  * NON C'È NESSUN TOKEN QUI DENTRO. Il codice di autorizzazione è a uso singolo e
  * da solo non apre niente: senza il verificatore PKCE — che l'app ha generato e
  * tenuto per sé — e senza il segreto del client, che sta sul servizio, non si
  * scambia. Il token d'identità di Google l'app non lo vede mai.
  */
-export interface CodiceDiRitorno {
+export interface CodiceGoogle {
   /** Quale delle nostre registrazioni ha iniziato il giro: iPhone o Mac. */
   clientId: string;
   codice: string;
@@ -182,6 +182,38 @@ export interface CodiceDiRitorno {
   /** Lo stesso punto di ritorno della prima richiesta, o Google rifiuta. */
   ritorno: string;
 }
+
+/**
+ * Lo stesso, **con Apple**, e sono tre campi in meno per tre motivi diversi.
+ *
+ * NIENTE `verificatore`: il giro web di Apple non prevede PKCE. Quello che lega
+ * il codice a chi ha iniziato il giro è lo `state`, controllato dall'app al
+ * ritorno, più il segreto che vive solo sul servizio.
+ *
+ * NIENTE `ritorno`: il Return URL di Apple è registrato sul portale e lo conosce
+ * il Worker. Non arriva da qui apposta — un punto di ritorno che il client può
+ * dettare è una cosa in più di cui il servizio dovrebbe fidarsi, e qui non
+ * serve.
+ *
+ * NIENTE `clientId`: ce n'è uno solo, il Services ID, e lo sa il Worker.
+ */
+export interface CodiceApple {
+  codice: string;
+  /**
+   * Il JSON `user` che Apple manda **una volta sola nella vita**, alla
+   * primissima autorizzazione, e mai più.
+   *
+   * Serve al servizio per pescarne l'email quando il token d'identità non ne
+   * porta una: è la sola occasione in cui si può sapere come si chiama chi è
+   * entrato. Non regge nessuna decisione — l'identità resta il `sub` firmato,
+   * verificato dal servizio — quindi il fatto che arrivi dall'app e non dalla
+   * firma di Apple non apre niente a nessuno: al massimo si scriverebbe da sé
+   * un'email sbagliata nella propria schermata delle impostazioni.
+   */
+  utente?: string;
+}
+
+export type CodiceDiRitorno = CodiceGoogle | CodiceApple;
 
 /** Primo accesso: si consegna il codice appena tornato, si riceve la sessione. */
 export async function accedi(

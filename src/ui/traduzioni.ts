@@ -1365,8 +1365,9 @@ export const INGLESE: Record<string, string> = {
 
   // --- impostazioni: accesso, sincronizzazione, cestino, backup ---
   'Accedi con Google': 'Sign in with Google',
-  'Accedi con Google qui sopra e il pulsante si accende.':
-    'Sign in with Google above and this button lights up.',
+  'Accedi con Apple o con Google, oppure configura indirizzo e token del database.':
+    'Sign in with Apple or Google, or set the database address and token.',
+  'Accedi qui sopra e il pulsante si accende.': 'Sign in above and this button lights up.',
   Accesso: 'Sign in',
   'Accesso in corso…': 'Signing in…',
   'Aggiorna credenziali': 'Update credentials',
@@ -1405,7 +1406,7 @@ export const INGLESE: Record<string, string> = {
   'comprese quelle che il backup non contiene': 'including the ones the backup does not hold',
   'con i loro profili: svuotarlo libera spazio e rende definitive le cancellazioni.':
     'with their profiles: emptying it frees space and makes the deletions final.',
-  'Con un account Google l’app crea un database tuo: gli altri dispositivi si allineano con lo stesso account.':
+  'Con un account Apple o Google l’app crea un database tuo: gli altri dispositivi si allineano con lo stesso account.':
     'With a Google account the app makes a database of your own: other devices line up with the same account.',
   'Con una chiave API di Anthropic puoi far analizzare una immersione, l’archivio o un piano.':
     'With an Anthropic API key you can have a dive, your logbook or a plan analysed.',
@@ -1502,8 +1503,8 @@ export const INGLESE: Record<string, string> = {
   'Sempre lì, «Create Token»: compare una volta sola, copialo e incollalo qui sopra.':
     'Same place, “Create Token”: it shows once, copy it and paste it above.',
   'senza profilo': 'no profile',
-  'Si apre il browser di sistema: la password la scrivi a Google, non a noi.':
-    'Your system browser opens: you type the password to Google, not to us.',
+  'Si apre il browser di sistema: la password la scrivi al fornitore, non a noi.':
+    'Your system browser opens: you type the password to the provider, not to us.',
   Sincronizza: 'Sync',
   'Sincronizza ora': 'Sync now',
   'Sincronizzare due volte di fila non fa niente la seconda volta.':
@@ -1896,7 +1897,7 @@ export const INGLESE: Record<string, string> = {
   'Lo scarico dal computer subacqueo funziona solo nell’applicazione, non nel browser: Safari non ha il Bluetooth per le pagine web, e gli altri browser lo espongono in un modo che non permette di parlare con questi dispositivi.':
     'Downloading from the dive computer works only in the app, not in the browser: Safari has no Bluetooth for web pages, and the other browsers expose it in a way that cannot talk to these devices.',
   'log nativo del computer non decodificabile': 'computer native log could not be decoded',
-  'L’accesso funziona solo nell’applicazione: nel browser non c’è modo di ricevere il ritorno da Google.':
+  'L’accesso funziona solo nell’applicazione: nel browser non c’è modo di ricevere il ritorno dal fornitore.':
     'Signing in works only in the app: in the browser there is no way to receive the callback from Google.',
   'L’accesso non è stato completato. Riprova quando vuoi.':
     'Sign-in was not completed. Try again whenever you like.',

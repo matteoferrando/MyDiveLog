@@ -59,7 +59,16 @@ function ambiente(consente = true): { env: Ambiente; reteUsata: () => number } {
     TURSO_API_TOKEN: 'token-di-prova',
     TURSO_ORG: 'org',
     TURSO_GROUP: 'gruppo',
-    APPLE_CLIENT_ID: 'it.esempio.app',
+    APPLE_CLIENT_ID: 'it.esempio.app,it.esempio.app.accesso',
+    APPLE_SERVICES_ID: 'it.esempio.app.accesso',
+    APPLE_TEAM_ID: 'TEAM123456',
+    APPLE_KEY_ID: 'KEY1234567',
+    APPLE_RITORNO: 'https://esempio.example/accesso-apple/ritorno',
+    // Una chiave che NON si importa, apposta: qui non si prova la firma — quella
+    // sta in `serverApple.test.ts` con una P-256 vera — e ogni prova che
+    // arrivasse a firmare vorrebbe dire che una difesa a monte non ha fermato
+    // una richiesta che doveva fermare.
+    APPLE_CHIAVE_P8: 'non-una-chiave',
     GOOGLE_CLIENT_ID: 'ios.apps.googleusercontent.com,desktop.apps.googleusercontent.com',
     GOOGLE_CLIENT_DESKTOP: 'desktop.apps.googleusercontent.com',
     GOOGLE_SEGRETO_DESKTOP: 'segreto',
@@ -253,10 +262,42 @@ describe('il perimetro delle rotte', () => {
     expect(reteUsata()).toBe(0);
   });
 
-  it('Apple non è attiva, e lo dice con un 400 e non con un guasto', async () => {
-    const { env } = ambiente();
-    const risposta = await worker.fetch(accesso({ provider: 'apple', idToken: 'x' }), env);
+  it('un fornitore che non conosciamo è 400, e non arriva a nessuno', async () => {
+    const { env, reteUsata } = ambiente();
+    const risposta = await worker.fetch(accesso({ provider: 'facebook', codice: 'c' }), env);
     expect(risposta.status).toBe(400);
+    expect(reteUsata()).toBe(0);
+  });
+
+  it('Apple senza codice è 400, e NON arriva a firmare nessun segreto', async () => {
+    /*
+     * L'ordine conta: firmare il segreto vuol dire importare la chiave `.p8` e
+     * fare crittografia, e una richiesta vuota non deve costare niente. Se il
+     * controllo stesse dopo, questa prova esploderebbe — la chiave dell'ambiente
+     * di prova non è importabile apposta — invece di rispondere 400.
+     */
+    const { env, reteUsata } = ambiente();
+    const risposta = await worker.fetch(accesso({ provider: 'apple' }), env);
+    expect(risposta.status).toBe(400);
+    expect(reteUsata()).toBe(0);
+  });
+
+  it('Google senza verificatore è 400: PKCE lì non è facoltativo', async () => {
+    // Con Apple non c'è, con Google sì, e i due rami non devono confondersi:
+    // una richiesta Google senza verificatore non deve passare «perché tanto
+    // adesso esiste un fornitore che non ne ha uno».
+    const { env, reteUsata } = ambiente();
+    const risposta = await worker.fetch(
+      accesso({
+        provider: 'google',
+        clientId: 'ios.apps.googleusercontent.com',
+        codice: 'c',
+        ritorno: 'http://127.0.0.1:1/accesso',
+      }),
+      env,
+    );
+    expect(risposta.status).toBe(400);
+    expect(reteUsata()).toBe(0);
   });
 
   it('una sessione inventata non apre niente', async () => {
@@ -285,5 +326,153 @@ describe('il perimetro delle rotte', () => {
     );
     expect(risposta.status).toBe(204);
     expect(risposta.headers.get('Access-Control-Allow-Methods')).toContain('POST');
+  });
+});
+
+/**
+ * Il ritorno di Apple: la rotta che il BROWSER chiama, non l'applicazione.
+ *
+ * Apple, quando le si chiedono nome ed email, risponde con una POST
+ * `application/x-www-form-urlencoded` invece che con un redirect. Una POST non
+ * si può mandare a `mydivelog://` né a una porta su `127.0.0.1`, quindi atterra
+ * sul Worker, che rimbalza il browser dentro l'app.
+ *
+ * È la rotta più esposta del servizio: pubblica, senza sessione, e con dentro
+ * una destinazione che arriva da fuori. Metà di queste prove sono lì per
+ * verificare che quella destinazione non venga seguita quando non è nostra.
+ */
+describe('il ritorno di Apple', () => {
+  const destinazione = 'http://127.0.0.1:51000/accesso';
+
+  /** Lo `state` nella forma che l'app produce: `<casuale>.<destinazione>`. */
+  function stato(dove = destinazione, casuale = 'nonce-1'): string {
+    let grezzo = '';
+    for (const b of new TextEncoder().encode(dove)) grezzo += String.fromCharCode(b);
+    return `${casuale}.${btoa(grezzo).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
+  }
+
+  const ritorno = (campi: Record<string, string>, ip = '203.0.113.7') =>
+    new Request('https://servizio.example/accesso-apple/ritorno', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        // È il browser a mandarla, per conto della pagina di Apple.
+        Origin: 'https://appleid.apple.com',
+        'CF-Connecting-IP': ip,
+      },
+      body: new URLSearchParams(campi).toString(),
+    });
+
+  it('rimbalza dove dice lo state, con il codice e lo state interi', async () => {
+    const { env } = ambiente();
+    const s = stato();
+    const risposta = await worker.fetch(ritorno({ code: 'cod-1', state: s }), env);
+
+    // 303 e non 302: la richiesta in arrivo è una POST, e l'app ascolta una GET.
+    expect(risposta.status).toBe(303);
+    const dove = new URL(risposta.headers.get('Location')!);
+    expect(dove.origin + dove.pathname).toBe('http://127.0.0.1:51000/accesso');
+    expect(dove.searchParams.get('code')).toBe('cod-1');
+    // Intero: il pezzo che l'app riconfronta è tutto lo `state`, non una metà.
+    expect(dove.searchParams.get('state')).toBe(s);
+  });
+
+  it('funziona anche verso lo schema dell’app, che è la strada dell’iPhone', async () => {
+    const { env } = ambiente();
+    const risposta = await worker.fetch(ritorno({ code: 'cod-1', state: stato('mydivelog://accesso') }), env);
+    expect(risposta.status).toBe(303);
+    expect(risposta.headers.get('Location')).toContain('mydivelog://accesso?');
+  });
+
+  it('RIFIUTA `https://attaccante.example` invece di seguirlo', async () => {
+    /*
+     * ► La prova che questa rotta non è un redirect aperto. ◄
+     *
+     * Senza questo controllo si costruisce un indirizzo che comincia con un
+     * dominio nostro e credibile, e chi lo apre atterra sul sito di qualcun
+     * altro — con in coda un codice di autorizzazione. Non si segue, non si
+     * corregge: si rifiuta.
+     */
+    const { env } = ambiente();
+    for (const cattiva of [
+      'https://attaccante.example',
+      'https://attaccante.example/accesso',
+      'http://127.0.0.1@attaccante.example/',
+      'http://127.0.0.1/accesso',
+    ]) {
+      const risposta = await worker.fetch(ritorno({ code: 'cod-1', state: stato(cattiva) }), env);
+      expect(risposta.status, cattiva).toBe(400);
+      expect(risposta.headers.get('Location'), cattiva).toBeNull();
+    }
+  });
+
+  it('senza state non rimbalza da nessuna parte', async () => {
+    const { env } = ambiente();
+    const risposta = await worker.fetch(ritorno({ code: 'cod-1' }), env);
+    expect(risposta.status).toBe(400);
+    expect(risposta.headers.get('Location')).toBeNull();
+  });
+
+  it('con una destinazione buona ma senza codice non rimbalza a vuoto', async () => {
+    // Rimbalzare senza `code` porterebbe l'app a un errore generico dopo aver
+    // riaperto la finestra: meglio fermarsi qui, dove si sa cosa è successo.
+    const { env } = ambiente();
+    const risposta = await worker.fetch(ritorno({ state: stato() }), env);
+    expect(risposta.status).toBe(400);
+  });
+
+  it('inoltra il campo `user`, che arriva una volta sola nella vita', async () => {
+    /*
+     * Apple manda nome e indirizzo alla PRIMISSIMA autorizzazione e mai più. Se
+     * non passa da questa riga, l'email non si riavrà da nessuna parte.
+     */
+    const { env } = ambiente();
+    const utente = JSON.stringify({ email: 'tizio@privaterelay.appleid.com' });
+    const risposta = await worker.fetch(ritorno({ code: 'c', state: stato(), user: utente }), env);
+    expect(new URL(risposta.headers.get('Location')!).searchParams.get('user')).toBe(utente);
+  });
+
+  it('«ho annullato» torna all’app com’è, e non diventa un guasto qui', async () => {
+    const { env } = ambiente();
+    const risposta = await worker.fetch(ritorno({ error: 'user_cancelled_authorize', state: stato() }), env);
+    expect(risposta.status).toBe(303);
+    expect(new URL(risposta.headers.get('Location')!).searchParams.get('error')).toBe(
+      'user_cancelled_authorize',
+    );
+  });
+
+  it('anche questa rotta ha il limite di frequenza', async () => {
+    // È pubblica e la raggiunge chiunque senza avere niente in mano: senza un
+    // tetto sarebbe la rotta più facile da tempestare di tutto il servizio.
+    const { env } = ambiente(false);
+    const risposta = await worker.fetch(ritorno({ code: 'c', state: stato() }), env);
+    expect(risposta.status).toBe(429);
+  });
+
+  it('NON viene fermata dal controllo di origine, che la spegnerebbe', async () => {
+    /*
+     * Il giorno che `ORIGINI_AMMESSE` verrà riempito con l'origine dell'app —
+     * ed è scritto come da fare nel README — questa rotta si spegnerebbe con un
+     * 403: la sua POST porta `Origin: https://appleid.apple.com`, che
+     * nell'elenco non ci sarà mai. Il sintomo sarebbe «l'accesso con Apple non
+     * torna più», senza nessuna riga che nomini le origini.
+     */
+    const { env } = ambiente();
+    env.ORIGINI_AMMESSE = 'https://mydivelog.site';
+    const risposta = await worker.fetch(ritorno({ code: 'c', state: stato() }), env);
+    expect(risposta.status).toBe(303);
+  });
+
+  it('ma le ALTRE rotte il controllo di origine lo sentono ancora', async () => {
+    // L'esenzione vale per un percorso solo: se allentasse tutto, sarebbe un
+    // buco aperto per comodità.
+    const { env } = ambiente();
+    env.ORIGINI_AMMESSE = 'https://mydivelog.site';
+    const richiesta = new Request('https://servizio.example/accesso', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: 'https://appleid.apple.com' },
+      body: '{}',
+    });
+    expect((await worker.fetch(richiesta, env)).status).toBe(403);
   });
 });

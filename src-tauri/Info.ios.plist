@@ -57,6 +57,26 @@
           <string>com.googleusercontent.apps.883995552043-2khev71oqkm7go3nilogqc82tunbito7</string>
         </array>
       </dict>
+      <!--
+        Lo schema con cui si rientra dopo l'accesso con APPLE.
+
+        Ne serve un secondo perché quello sopra è imposto da Google e vale
+        solo per il suo giro. Con Apple il rimbalzo verso l'app lo fa il nostro
+        Worker, quindi lo schema lo scegliamo noi: `mydivelog`, che si legge.
+
+        Deve combaciare con SCHEMA_APP in src/sync/configurazione.ts e con
+        destinazionePermessa in server/appleScambio.ts — sono tre posti, e
+        c'è un test che li tiene insieme. Se divergono l'accesso si completa
+        nel browser e poi non torna mai, senza nessun errore da nessuna parte.
+      -->
+      <dict>
+        <key>CFBundleURLName</key>
+        <string>it.ferrando.mydivelog</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>mydivelog</string>
+        </array>
+      </dict>
     </array>
   </dict>
 </plist>

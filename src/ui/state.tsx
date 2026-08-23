@@ -55,9 +55,10 @@ import {
   type AccountSalvato,
   cancellaAccount as chiudiAccountRemoto,
   ChiaviDelDatabase,
+  type Fornitore,
   leggiAccountSalvato,
 } from '../sync/account';
-import { accediConGoogle } from '../sync/accessoPiattaforma';
+import { accediConFornitore } from '../sync/accessoPiattaforma';
 import { SERVIZIO_ACCESSO } from '../sync/configurazione';
 import { archiveContext, decoPlanContext, diveContext, gasPlanContext, planContext } from '../ai/context';
 import {
@@ -192,7 +193,13 @@ interface DiveLogValue {
   accountAttivo: boolean;
   /** L'email di chi è entrato, o `null`. Solo da mostrare. */
   accountEmail: string | null;
-  accediConAccount: () => Promise<void>;
+  /**
+   * Il fornitore è un PARAMETRO: Apple e Google sono due pulsanti, non due
+   * funzioni. La linea guida 4.8 dell'App Store impone di offrire Sign in with
+   * Apple accanto a Google, e offrirli davvero alla pari significa che il resto
+   * dell'applicazione non deve sapere quale dei due è stato premuto.
+   */
+  accediConAccount: (fornitore: Fornitore) => Promise<void>;
   esciDallAccount: () => Promise<void>;
   /** Cancella il database remoto. **Non** tocca l'archivio locale. */
   cancellaAccount: () => Promise<void>;
@@ -1103,17 +1110,23 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
    * sessione è di gran lunga la cosa più preziosa delle due. Il fastidio
    * risparmiato è reale, il rischio aggiunto no.
    */
-  const accediConAccount = useCallback(async () => {
-    const esito = await accediConGoogle(traduci);
-    setSessioneAccount(esito.sessione);
-    setAccountEmail(esito.email);
-    chiaviAccount.current = new ChiaviDelDatabase({ servizio: SERVIZIO_ACCESSO, t: traduci }, esito.sessione);
-    if (store) {
-      const segreti = await openSecretStore(store);
-      const salvato: AccountSalvato = { sessione: esito.sessione, email: esito.email };
-      await segreti.write('account', salvato);
-    }
-  }, [store, traduci]);
+  const accediConAccount = useCallback(
+    async (fornitore: Fornitore) => {
+      const esito = await accediConFornitore(fornitore, traduci);
+      setSessioneAccount(esito.sessione);
+      setAccountEmail(esito.email);
+      chiaviAccount.current = new ChiaviDelDatabase(
+        { servizio: SERVIZIO_ACCESSO, t: traduci },
+        esito.sessione,
+      );
+      if (store) {
+        const segreti = await openSecretStore(store);
+        const salvato: AccountSalvato = { sessione: esito.sessione, email: esito.email };
+        await segreti.write('account', salvato);
+      }
+    },
+    [store, traduci],
+  );
 
   /*
    * Uscire NON cancella l'archivio locale, e nemmeno quello remoto.
@@ -1153,7 +1166,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
        */
       const credenziali = chiaviAccount.current ? await chiaviAccount.current.valida() : syncCredentials;
       if (!credenziali) {
-        throw new Error('Accedi con Google, oppure configura indirizzo e token del database.');
+        throw new Error('Accedi con Apple o con Google, oppure configura indirizzo e token del database.');
       }
       const sql = await connect(credenziali);
       try {

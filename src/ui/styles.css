@@ -1927,3 +1927,46 @@ button:focus-visible {
      aperto resta per intero — quello lo disegna il sistema, non la pagina. */
   max-width: 9.5rem;
 }
+
+/* Il pulsante «Sign in with Apple».
+
+   L'ASPETTO NON È UNA NOSTRA SCELTA. Apple pubblica delle linee guida su come
+   dev'essere disegnato questo pulsante — sfondo nero o bianco pieno, il marchio
+   della mela, la dicitura in inglese, angoli arrotondati, un'altezza che si
+   possa premere col pollice — e la revisione dell'App Store le guarda. Quindi
+   qui non si segue la palette dell'applicazione: si segue Apple, e le variabili
+   del tema restano fuori apposta.
+
+   Nero fisso anche in tema chiaro. La variante bianca esiste ed è consentita,
+   ma vuole un bordo per staccarsi dallo sfondo e su una carta chiara come le
+   nostre sparirebbe: il nero è la versione che funziona in tutti e due i temi
+   senza diventare due pulsanti diversi da mantenere.
+
+   44px di altezza minima è la dimensione minima di un bersaglio tattile su iOS:
+   questa stessa pagina si apre sull'iPhone, dove il pulsante si preme col dito
+   e non col cursore. */
+button.btn.bottone-apple {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+  min-height: 44px;
+  padding: 7px 16px;
+  /* Il carattere di sistema: su Mac e iPhone è San Francisco, che è quello che
+     Apple mostra nei propri esempi. Altrove si ripiega sul carattere della
+     pagina, che è quanto di più vicino ci sia. */
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  font-weight: 500;
+  gap: 8px;
+}
+
+button.btn.bottone-apple:hover {
+  background: #1a1a1a;
+}
+
+/* Il contorno del fuoco NON eredita quello dell'applicazione: su nero sarebbe
+   invisibile. Chi naviga da tastiera deve vedere dov'è, e su questo pulsante
+   l'unico contrasto disponibile è il bianco. */
+button.btn.bottone-apple:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}

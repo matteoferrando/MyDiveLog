@@ -228,3 +228,56 @@ describe('due piattaforme, due identificativi', () => {
     expect(daiPhone!.sub).toBe(daMac!.sub);
   });
 });
+
+describe('Apple: il Services ID è quello che arriva in `aud`', () => {
+  /*
+   * IL DIFETTO CHE QUESTO BLOCCO ESISTE PER IMPEDIRE. Sul portale di Apple ci
+   * sono due registrazioni che si somigliano: il **bundle id**
+   * (`it.ferrando.mydivelog`), che identifica l'applicazione installata e vale
+   * per il giro nativo, e il **Services ID** (`….accesso`), che identifica il
+   * servizio web ed è il `client_id` del giro con il browser.
+   *
+   * Il token porta in `aud` quello del giro da cui è nato. Il nostro giro è
+   * quello web, quindi arriva il Services ID — e finché `APPLE_CLIENT_ID`
+   * elencava il solo bundle id, quel token veniva rifiutato **da noi**, con un
+   * 401 che sembrava un problema di Apple.
+   */
+  const BUNDLE = 'it.ferrando.mydivelog';
+  const SERVICES = 'it.ferrando.mydivelog.accesso';
+  const daApple = {
+    ...opzioni,
+    provider: 'apple' as const,
+    pubblico: [BUNDLE, SERVICES],
+  };
+  const CORPO_APPLE = { ...CORPO_BUONO, iss: 'https://appleid.apple.com', aud: SERVICES };
+
+  it('il token del giro web, con il Services ID, passa', async () => {
+    const identita = await verificaTokenIdentita(await tokenFirmato(CORPO_APPLE), daApple);
+    expect(identita?.provider).toBe('apple');
+    expect(identita?.sub).toBe(CORPO_BUONO.sub);
+  });
+
+  it('anche quello del giro nativo, col bundle id, passa', async () => {
+    // Non si usa oggi, ma è elencato apposta: il giorno che si aggiunge
+    // `ASAuthorization` non si deve scoprire questa riga con un 401 in mano.
+    const token = await tokenFirmato({ ...CORPO_APPLE, aud: BUNDLE });
+    expect(await verificaTokenIdentita(token, daApple)).not.toBeNull();
+  });
+
+  it('un Services ID DI QUALCUN ALTRO no: due non vuol dire qualunque', async () => {
+    const token = await tokenFirmato({ ...CORPO_APPLE, aud: 'it.altrui.app.accesso' });
+    expect(await verificaTokenIdentita(token, daApple)).toBeNull();
+  });
+
+  it('un indirizzo `@privaterelay.appleid.com` esce come qualunque altro', async () => {
+    /*
+     * È l'inoltro che Apple crea per chi sceglie «Nascondi la mia email»:
+     * legittimo, funzionante, e da trattare come un indirizzo normale.
+     * Scartarlo — o «riconoscerlo» per fare qualcosa di diverso — vorrebbe dire
+     * punire chi usa una funzione che Apple offre apposta.
+     */
+    const token = await tokenFirmato({ ...CORPO_APPLE, email: 'a1b2@privaterelay.appleid.com' });
+    const identita = await verificaTokenIdentita(token, daApple);
+    expect(identita?.email).toBe('a1b2@privaterelay.appleid.com');
+  });
+});
