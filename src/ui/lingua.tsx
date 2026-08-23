@@ -17,7 +17,18 @@
  * venti lingue e un servizio di traduzione. Qui sono due lingue e un file.
  */
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+
+import type { Traduci } from '../core/traduci';
 
 export type Lingua = 'it' | 'en';
 
@@ -103,6 +114,37 @@ export function ProvvedituraLingua({ children }: { children: ReactNode }) {
   );
 
   return <CONTESTO.Provider value={valore}>{children}</CONTESTO.Provider>;
+}
+
+/**
+ * La stessa traduzione, ma con un'identità che non cambia mai.
+ *
+ * SERVE PER QUELLO CHE VIVE PIÙ A LUNGO DI UN RENDER. La `t` di `useLingua()` è
+ * una funzione nuova ogni volta che cambia la lingua o il dizionario, ed è
+ * giusto così: i componenti si devono ridisegnare. Ma alcune cose la ricevono
+ * **una volta sola** e se la tengono — l'archivio, che `getStore()` costruisce
+ * al primo avvio e poi restituisce sempre uguale; il trasporto Bluetooth, che è
+ * un oggetto solo per tutta la sessione. A quelle, passare la `t` del momento
+ * significa congelare la lingua di quel momento: si cambia lingua e i loro
+ * messaggi restano in italiano per sempre.
+ *
+ * Questa invece è una scorza stabile attorno a un riferimento che si aggiorna a
+ * ogni render: l'identità non cambia mai — quindi non fa ricostruire niente e
+ * non muove nessuna lista di dipendenze — ma quando la si chiama legge la
+ * lingua di ADESSO. È il classico «ref che insegue lo stato», e qui è il modo di
+ * far convivere un oggetto di lunga vita con una preferenza che cambia.
+ */
+export function useTraduciStabile(): Traduci {
+  const { t } = useLingua();
+  const ultima = useRef(t);
+  // L'aggiornamento sta in un effetto e non nel corpo del render: scrivere su un
+  // ref durante il render è ciò che `react-hooks/refs` segnala, e qui non serve —
+  // nessuno chiama la traduzione mentre si disegna, la chiamano gli avvisi di un
+  // import e i messaggi di un errore, sempre dopo.
+  useEffect(() => {
+    ultima.current = t;
+  }, [t]);
+  return useCallback((italiano: string) => ultima.current(italiano), []);
 }
 
 export function useLingua(): Contesto {

@@ -1817,4 +1817,132 @@ export const INGLESE: Record<string, string> = {
   sito: 'site',
   siti: 'sites',
   esportati: 'exported',
+
+  // --- avvisi dei parser, registro della sincronizzazione, errori dell'archivio ---
+  /* Non stanno in `src/ui`: li scrivono `src/core`, `src/storage` e `src/sync`,
+     che ricevono la traduzione come parametro (vedi `src/core/traduci.ts`). */
+  'Accesso non riuscito:': 'Sign-in failed:',
+  "Alcune bombole non hanno il collegamento alla miscela (limite noto dell'export UDDF di Shearwater): assegnata la prima miscela definita.":
+    'Some cylinders have no link to a gas mix (a known limit of the Shearwater UDDF export): the first mix defined was assigned.',
+  "anomalie; l'import continua sui dati validi.": 'anomalies; the import carries on with the valid data.',
+  'byte dedotta dal contenuto.': 'bytes inferred from the content.',
+  'byte su': 'bytes out of',
+  'Cancellazioni…': 'Deletions…',
+  'Caratteristiche viste:': 'Characteristics seen:',
+  Caricati: 'Pushed',
+  'Colonne ignorate perché non riconosciute:': 'Columns ignored because unrecognised:',
+  corrispondenze: 'matches',
+  'CSV senza righe di dati.': 'CSV with no data rows.',
+  'da caricare,': 'to push,',
+  'da scaricare,': 'to pull,',
+  'Database non inizializzato.': 'Database not initialised.',
+  'Database non leggibile:': 'Database not readable:',
+  'Decodifica disallineata: consumati': 'Decoding out of step: consumed',
+  'Di solito significa che non è il computer che pensavamo, o che è in modalità aggiornamento firmware invece che in modalità trasferimento.':
+    'Usually this means it is not the computer we thought, or that it is in firmware update mode instead of transfer mode.',
+  'dichiarati. Il profilo potrebbe essere incompleto.': 'declared. The profile may be incomplete.',
+  'era stata cancellata definitivamente': 'had been permanently deleted',
+  'erano state cancellate definitivamente': 'had been permanently deleted',
+  'Eventi del log non documentati, letti e non interpretati: codici':
+    'Undocumented log events, read but not interpreted: codes',
+  'File FIT vuoto.': 'Empty FIT file.',
+  'File scritto da': 'File written by',
+  'File vuoto.': 'Empty file.',
+  'Formato non riconosciuto. Formati supportati:': 'Unrecognised format. Supported formats:',
+  "fra l'orologio del computer e quello delle immersioni già in archivio":
+    'between the computer clock and that of the dives already in the logbook',
+  "fra l'orologio di questo computer e quello delle immersioni già in archivio":
+    'between this computer clock and that of the dives already in the logbook',
+  'già allineate.': 'already in sync.',
+  'Il Bluetooth di questo dispositivo è spento. Accendilo e riprova.':
+    'Bluetooth is off on this device. Turn it on and try again.',
+  'Il Bluetooth non è disponibile in questa versione dell’applicazione:':
+    'Bluetooth is not available in this build of the app:',
+  'Il decoder FIT ha segnalato': 'The FIT decoder reported',
+  'Il dispositivo non espone il servizio': 'The device does not expose service',
+  'il file non dichiara durata né profondità massima, ricavate dai campioni. Se il file è stato scaricato a metà, questi numeri descrivono solo la parte arrivata.':
+    'the file declares neither duration nor max depth, so both come from the samples. If the file was downloaded half way, these numbers describe only the part that arrived.',
+  'Il FIT non contiene il volume della bombola e non è deducibile da tank_summary: inserisci i litri nella scheda per avere il consumo in L/min.':
+    'The FIT has no cylinder volume and it cannot be derived from tank_summary: enter the litres on the dive to get the SAC rate in L/min.',
+  'Il permesso di usare il Bluetooth è stato negato. Si concede in Impostazioni di Sistema, alla voce Privacy e sicurezza → Bluetooth.':
+    'Permission to use Bluetooth was denied. Grant it in System Settings, under Privacy & Security → Bluetooth.',
+  'Il permesso di usare il Bluetooth è stato negato. Si concede in Impostazioni → MyDiveLog → Bluetooth.':
+    'Permission to use Bluetooth was denied. Grant it in Settings → MyDiveLog → Bluetooth.',
+  'Il servizio': 'Service',
+  'Il servizio ha risposto in un modo che non conosciamo.': 'The service answered in a way we do not know.',
+  illeggibile: 'unreadable',
+  'Immersione con data non interpretabile scartata:': 'Dive with an unreadable date discarded:',
+  'Immersione del': 'Dive on',
+  'immersione non è stata reimportata': 'dive was not re-imported',
+  'Immersione scartata: data': 'Dive discarded: date',
+  'Immersione senza <datetime> scartata.': 'Dive with no <datetime> discarded.',
+  'Immersione senza attributo date scartata.': 'Dive with no date attribute discarded.',
+  'Immersione Shearwater del': 'Shearwater dive on',
+  'Immersione Shearwater senza startDate scartata.': 'Shearwater dive with no startDate discarded.',
+  'immersioni cancellate altrove.': 'dives deleted elsewhere.',
+  'immersioni con il profilo completo letto dal log nativo del computer: tetto deco, TTS, NDL, CNS e impostazioni GF.':
+    'dives with the full profile read from the computer native log: deco ceiling, TTS, NDL, CNS and GF settings.',
+  'immersioni hanno il profilo dal log nativo del computer; per le altre restano i soli dati di riepilogo.':
+    'dives have the profile from the computer native log; for the others only the summary data is left.',
+  'immersioni importate senza profilo: statistiche di consumo e assetto non disponibili per queste.':
+    'dives imported without a profile: SAC rate and trim stats are not available for them.',
+  'immersioni non hanno il profilo nel file (LogTRAK non lo esporta per le immersioni inserite a mano): restano i dati di sintesi.':
+    'dives have no profile in the file (LogTRAK does not export one for dives entered by hand): only the summary data is left.',
+  'immersioni non sono state reimportate': 'dives were not re-imported',
+  'in un formato che non so leggere.': 'in a format I cannot read.',
+  'JSON non valido:': 'Invalid JSON:',
+  'La sessione è scaduta: rifai l’accesso.': 'Your session has expired: sign in again.',
+  'le immersioni sono state unite comunque.': 'the dives were merged anyway.',
+  'Lo scarico dal computer subacqueo funziona solo nell’applicazione, non nel browser: Safari non ha il Bluetooth per le pagine web, e gli altri browser lo espongono in un modo che non permette di parlare con questi dispositivi.':
+    'Downloading from the dive computer works only in the app, not in the browser: Safari has no Bluetooth for web pages, and the other browsers expose it in a way that cannot talk to these devices.',
+  'log nativo del computer non decodificabile': 'computer native log could not be decoded',
+  'L’accesso funziona solo nell’applicazione: nel browser non c’è modo di ricevere il ritorno da Google.':
+    'Signing in works only in the app: in the browser there is no way to receive the callback from Google.',
+  'L’accesso non è stato completato. Riprova quando vuoi.':
+    'Sign-in was not completed. Try again whenever you like.',
+  'Modello del computer non indicato: intestazione da': 'Computer model not stated: header of',
+  'Nessun <diveLog> valido trovato nel file Shearwater.': 'No valid <diveLog> found in the Shearwater file.',
+  'Nessun array "dives" nel file.': 'No "dives" array in the file.',
+  'Nessuna colonna di data riconosciuta.': 'No date column recognised.',
+  'Nessuna immersione in dive_details.': 'No dive in dive_details.',
+  'Nessuna immersione nel file FIT.': 'No dive in the FIT file.',
+  'Nessuna immersione trovata nel file Subsurface.': 'No dive found in the Subsurface file.',
+  'Nessuna immersione trovata nel file UDDF.': 'No dive found in the UDDF file.',
+  'Nessuna immersione valida nel file LogTRAK.': 'No valid dive in the LogTRAK file.',
+  'non ha': 'has no',
+  'Non si è potuto leggere l’elenco dei servizi del dispositivo:':
+    'Could not read the list of services on the device:',
+  'Passo di campionamento Shearwater non riconosciuto: i tempi sono interpretati come secondi.':
+    'Shearwater sample interval not recognised: times are read as seconds.',
+  'Per riaverle, rimettile a posto dal cestino in Impostazioni.':
+    'To get them back, restore them from the trash in Settings.',
+  perché: 'because',
+  'PPO2 Shearwater riscalata di 100: il campo non è documentato in unità.':
+    'Shearwater PPO2 rescaled by 100: the field has no documented unit.',
+  'Preparazione del database remoto…': 'Preparing the remote database…',
+  'profili non decodificabili: le immersioni sono state importate senza profilo.':
+    'profiles could not be decoded: those dives were imported without a profile.',
+  'profili…': 'profiles…',
+  'Profilo del': 'Profile of',
+  'Radice <divelog> non trovata.': '<divelog> root not found.',
+  'Restano i dati di riepilogo.': 'The summary data is left.',
+  'Riconosciuto uno sfasamento di': 'Recognised a clock offset of',
+  Riga: 'Row',
+  'righe scartate: data o durata non interpretabili.': 'rows discarded: date or duration unreadable.',
+  'scartata: data, durata o profondità non interpretabili.': 'discarded: date, duration or depth unreadable.',
+  'scartata: durata o profondità mancanti.': 'discarded: duration or depth missing.',
+  'senza profondità media: consumo non calcolabile.': 'has no average depth: SAC rate cannot be worked out.',
+  'Servizi trovati:': 'Services found:',
+  'Servizio di accesso non raggiungibile:': 'Sign-in service unreachable:',
+  'Sessioni subacquee trovate ma senza profilo utilizzabile.':
+    'Dive sessions found, but with no usable profile.',
+  'sono nel cestino': 'are in the trash',
+  'Store non inizializzato.': 'Storage not initialised.',
+  'UDDF vuole ISO 8601 (2026-06-14T10:38:00); segnala il file, che il formato si aggiunge.':
+    'UDDF wants ISO 8601 (2026-06-14T10:38:00); report the file and the format gets added.',
+  'una caratteristica che notifichi': 'characteristic that notifies',
+  'una caratteristica su cui scrivere': 'characteristic to write to',
+  "Unità dichiarate nell'intestazione e applicate a tutta la colonna:":
+    'Units declared in the header and applied to the whole column:',
+  'è nel cestino': 'is in the trash',
 };

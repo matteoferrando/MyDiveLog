@@ -33,6 +33,7 @@ import {
   type Waves,
   type Weather,
 } from '../model';
+import { comeSta, type Traduci } from '../traduci';
 import { diveIdFor } from '../dedupe';
 import { parseCylinderSpec } from '../cylinders';
 import { computeMetrics } from '../analysis/metrics';
@@ -58,7 +59,7 @@ export const logtrakParser: DiveParser = {
     return /"dives"\s*:/.test(head) && (/"diveLogBase64"/.test(input.text) || /"diveSites"\s*:/.test(head));
   },
 
-  parse(input: ParseInput): ParseResult {
+  parse(input: ParseInput, t: Traduci = comeSta): ParseResult {
     const warnings: string[] = [];
     let root: LogtrakFile;
     try {
@@ -67,11 +68,11 @@ export const logtrakParser: DiveParser = {
       return {
         format: 'logtrak',
         dives: [],
-        warnings: [`JSON non valido: ${err instanceof Error ? err.message : String(err)}`],
+        warnings: [`${t('JSON non valido:')} ${err instanceof Error ? err.message : String(err)}`],
       };
     }
     if (!Array.isArray(root.dives)) {
-      return { format: 'logtrak', dives: [], warnings: ['Nessun array "dives" nel file.'] };
+      return { format: 'logtrak', dives: [], warnings: [t('Nessun array "dives" nel file.')] };
     }
 
     const importedAt = new Date().toISOString();
@@ -89,7 +90,7 @@ export const logtrakParser: DiveParser = {
     let withoutProfile = 0;
 
     ordered.forEach((raw, i) => {
-      const dive = readDive(raw, i + 1, sites, computers, input.fileName, importedAt, warnings);
+      const dive = readDive(raw, i + 1, sites, computers, input.fileName, importedAt, warnings, t);
       if (!dive) return;
       if (!raw.diveLogBase64) withoutProfile++;
       else if ((dive.samples?.length ?? 0) === 0) profileFailures++;
@@ -98,15 +99,15 @@ export const logtrakParser: DiveParser = {
 
     if (withoutProfile > 0) {
       warnings.push(
-        `${withoutProfile} immersioni non hanno il profilo nel file (LogTRAK non lo esporta per le immersioni inserite a mano): restano i dati di sintesi.`,
+        `${withoutProfile} ${t('immersioni non hanno il profilo nel file (LogTRAK non lo esporta per le immersioni inserite a mano): restano i dati di sintesi.')}`,
       );
     }
     if (profileFailures > 0) {
       warnings.push(
-        `${profileFailures} profili non decodificabili: le immersioni sono state importate senza profilo.`,
+        `${profileFailures} ${t('profili non decodificabili: le immersioni sono state importate senza profilo.')}`,
       );
     }
-    if (dives.length === 0) warnings.push('Nessuna immersione valida nel file LogTRAK.');
+    if (dives.length === 0) warnings.push(t('Nessuna immersione valida nel file LogTRAK.'));
     return { format: 'logtrak', dives, warnings };
   },
 };
@@ -121,6 +122,7 @@ function readDive(
   fileName: string,
   importedAt: string,
   warnings: string[],
+  t: Traduci = comeSta,
 ): Dive | null {
   if (!raw.startTime) return null;
   const startMs = Date.parse(raw.startTime);
@@ -135,7 +137,10 @@ function readDive(
   if (raw.diveLogBase64) {
     try {
       const bytes = base64ToBytes(raw.diveLogBase64);
-      decoded = decodeUwatecSmart(bytes, { model: raw.deviceTypeNumber ?? deviceModel(raw, computers) });
+      decoded = decodeUwatecSmart(bytes, {
+        model: raw.deviceTypeNumber ?? deviceModel(raw, computers),
+        t,
+      });
       samples = uwatecSamplesToCanonical(trimSurface(decoded.samples));
       for (const w of decoded.warnings) {
         if (!warnings.includes(w)) warnings.push(w);
@@ -143,7 +148,9 @@ function readDive(
       if (decoded.durationS > 0) durationS = decoded.durationS;
     } catch (err) {
       warnings.push(
-        `Profilo del ${raw.startTime.slice(0, 10)} illeggibile (${err instanceof Error ? err.message : String(err)}).`,
+        `${t('Profilo del')} ${raw.startTime.slice(0, 10)} ${t('illeggibile')} (${
+          err instanceof Error ? err.message : String(err)
+        }).`,
       );
     }
   }

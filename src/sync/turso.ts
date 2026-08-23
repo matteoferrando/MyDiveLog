@@ -28,6 +28,7 @@
 
 import { BLE_MARKERS_KEY, type DownloadMarker } from '../core/ble/types';
 import type { Dive, Sample } from '../core/model';
+import { comeSta, type Traduci } from '../core/traduci';
 import type { DiveStore } from '../storage';
 import { normaliseDive } from '../storage/repair';
 import { TRASH_KEY, trashedIds, type TrashedDive } from '../storage/trash';
@@ -619,11 +620,17 @@ export async function syncArchive(
   store: DiveStore,
   sql: SqlExecutor,
   onProgress?: (message: string) => void,
+  /*
+   * In coda e con l'identità per difetto, come ovunque: le decine di chiamate
+   * dei test — che passano due argomenti e leggono il rapporto, non il registro
+   * — continuano a compilare, e senza traduzione il registro esce in italiano.
+   */
+  t: Traduci = comeSta,
 ): Promise<SyncReport> {
   const startedAt = Date.now();
   const say = (m: string) => onProgress?.(m);
 
-  say('Preparazione del database remoto…');
+  say(t('Preparazione del database remoto…'));
   await ensureRemoteSchema(sql);
 
   // --- lapidi, prima di tutto il resto -------------------------------------
@@ -632,9 +639,9 @@ export async function syncArchive(
   // costruisce su cosa c'è di qua e cosa c'è di là: se una cancellazione arriva
   // dopo, l'immersione viene prima scaricata e poi buttata via, e nel mezzo
   // compare in elenco.
-  say('Cancellazioni…');
+  say(t('Cancellazioni…'));
   const deleted = await syncDeletions(store, sql);
-  if (deleted.applied) say(`${deleted.applied} immersioni cancellate altrove.`);
+  if (deleted.applied) say(`${deleted.applied} ${t('immersioni cancellate altrove.')}`);
 
   // Il cestino non viaggia, ma la sincronizzazione lo deve rispettare in
   // ENTRAMBI i versi: quello che è nel cestino non si carica (l'abbiamo tolto qui)
@@ -646,7 +653,16 @@ export async function syncArchive(
   const local = localFingerprints(localDives, await store.sampleCounts(), await store.altSampleCounts());
   const remote = (await remoteFingerprints(sql)).filter((f) => !deleted.ids.has(f.id) && !inTrash.has(f.id));
   const plan = planSync(local, remote);
-  say(`${plan.push.length} da caricare, ${plan.pull.length} da scaricare, ${plan.unchanged} già allineate.`);
+  /*
+   * Tre numeri in mezzo alla frase, quindi tre pezzi.
+   *
+   * Spezzata così regge entrambe le lingue: «12 da caricare, 3 da scaricare, 40
+   * già allineate» e «12 to upload, 3 to download, 40 already in sync». Il
+   * numero precede sempre il suo pezzo, in italiano come in inglese.
+   */
+  say(
+    `${plan.push.length} ${t('da caricare,')} ${plan.pull.length} ${t('da scaricare,')} ${plan.unchanged} ${t('già allineate.')}`,
+  );
 
   // --- scarico -------------------------------------------------------------
   let pulled = 0;
@@ -698,7 +714,7 @@ export async function syncArchive(
       }
       await store.putDives(dives);
       pulled += dives.length;
-      say(`Scaricate ${pulled} di ${plan.pull.length}…`);
+      say(`${t('Scaricate')} ${pulled} ${t('di')} ${plan.pull.length}…`);
     }
   }
 
@@ -752,7 +768,7 @@ export async function syncArchive(
       ],
     );
     pushed++;
-    if (pushed % 10 === 0) say(`Caricate ${pushed} di ${plan.push.length}…`);
+    if (pushed % 10 === 0) say(`${t('Caricate')} ${pushed} ${t('di')} ${plan.push.length}…`);
   }
 
   // Le correzioni fatte scendendo tornano su, così il giro successivo trova le
@@ -788,7 +804,7 @@ export async function syncArchive(
     // successivo ricaricherebbe lo stesso profilo all'infinito.
     await sql.execute('UPDATE dives SET sample_count = ? WHERE id = ?', [samples.length, id]);
     pushedProfiles++;
-    say(`Caricati ${pushedProfiles} profili…`);
+    say(`${t('Caricati')} ${pushedProfiles} ${t('profili…')}`);
   }
 
   const total = (await store.listDives()).length;

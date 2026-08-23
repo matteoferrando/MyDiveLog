@@ -16,6 +16,7 @@
 import { AIR, type Cylinder, type Dive } from '../model';
 import { parseCylinderSpec } from '../cylinders';
 import { feetToM, fahrenheitToC, isoFromParts, psiToBar, wallClockToIso } from '../units';
+import { comeSta, type Traduci } from '../traduci';
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
 import type { DiveParser, ParseInput, ParseResult } from './types';
@@ -95,11 +96,11 @@ export const csvParser: DiveParser = {
     return headers.filter((h) => resolveField(h) !== undefined).length >= 3;
   },
 
-  parse(input: ParseInput): ParseResult {
+  parse(input: ParseInput, t: Traduci = comeSta): ParseResult {
     const warnings: string[] = [];
     const text = (input.text ?? '').replace(/^﻿/, '');
     const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-    if (lines.length < 2) return { format: 'csv', dives: [], warnings: ['CSV senza righe di dati.'] };
+    if (lines.length < 2) return { format: 'csv', dives: [], warnings: [t('CSV senza righe di dati.')] };
 
     const delim = detectDelimiter(lines[0]);
     const rawHeaders = splitRow(lines[0], delim);
@@ -110,16 +111,20 @@ export const csvParser: DiveParser = {
     const imperiali = rawHeaders.filter((_, i) => unitaColonna[i] !== undefined);
     if (imperiali.length) {
       warnings.push(
-        `Unità dichiarate nell'intestazione e applicate a tutta la colonna: ${imperiali.join(', ')}.`,
+        `${t("Unità dichiarate nell'intestazione e applicate a tutta la colonna:")} ${imperiali.join(', ')}.`,
       );
     }
 
     const unmapped = rawHeaders.filter((_, i) => fields[i] === undefined);
     if (unmapped.length) {
-      warnings.push(`Colonne ignorate perché non riconosciute: ${unmapped.slice(0, 8).join(', ')}.`);
+      warnings.push(`${t('Colonne ignorate perché non riconosciute:')} ${unmapped.slice(0, 8).join(', ')}.`);
     }
     if (!fields.includes('date')) {
-      return { format: 'csv', dives: [], warnings: [...warnings, 'Nessuna colonna di data riconosciuta.'] };
+      return {
+        format: 'csv',
+        dives: [],
+        warnings: [...warnings, t('Nessuna colonna di data riconosciuta.')],
+      };
     }
 
     const importedAt = new Date().toISOString();
@@ -136,12 +141,16 @@ export const csvParser: DiveParser = {
 
       const dive = rowToDive(row, input.fileName, importedAt);
       if (dive) dives.push(dive);
-      else warnings.push(`Riga ${ln + 1} scartata: data, durata o profondità non interpretabili.`);
+      else {
+        warnings.push(
+          `${t('Riga')} ${ln + 1} ${t('scartata: data, durata o profondità non interpretabili.')}`,
+        );
+      }
     }
 
     if (dives.length) {
       warnings.push(
-        `${dives.length} immersioni importate senza profilo: statistiche di consumo e assetto non disponibili per queste.`,
+        `${dives.length} ${t('immersioni importate senza profilo: statistiche di consumo e assetto non disponibili per queste.')}`,
       );
     }
     return { format: 'csv', dives, warnings };

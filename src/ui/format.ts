@@ -1,4 +1,5 @@
 import type { Severity } from '../core/analysis/coaching';
+import { comeSta, type Traduci } from '../core/traduci';
 
 /**
  * Date e ore delle immersioni.
@@ -113,9 +114,14 @@ export const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
  * usato anche dai test e dalle esportazioni, dove non esiste nessun contesto
  * React. Chi ha la traduzione la passa; chi non ce l'ha ottiene l'italiano, che
  * è la stessa cosa che fa `t()` per una frase non tradotta.
+ *
+ * IL TIPO ORA VIVE NEL NUCLEO — vedi `core/traduci.ts` — perché lo usano anche i
+ * parser e la sincronizzazione, che non possono importare da `src/ui`. Qui viene
+ * riesportato e non ridichiarato: due dichiarazioni identiche restano uguali
+ * finché qualcuno non ne cambia una sola, e allora `Traduci` di qua e `Traduci`
+ * di là smettono di essere lo stesso tipo senza che nessuno se ne accorga.
  */
-export type Traduci = (s: string) => string;
-const comeSta: Traduci = (s) => s;
+export type { Traduci };
 
 /**
  * Numero più sostantivo, con il singolare quando serve.

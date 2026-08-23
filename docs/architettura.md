@@ -365,12 +365,27 @@ Tre conseguenze pratiche, tutte volute:
   esportazioni, dove nessun contesto esiste. Con l'identità come valore
   predefinito, chi non passa niente ottiene l'italiano.
 
-**Cosa resta fuori.** `src/core`, `src/storage` e `src/sync` producono testo che
-l'utente legge — avvisi dei parser, righe del registro di sincronizzazione,
-messaggi d'errore — e sono ancora solo in italiano. Vanno fatti con lo stesso
-schema del parametro `Traduci`; non è stato fatto nella prima passata perché
-quei moduli sono anche la parte più testata, e cambiarli insieme all'interfaccia
-avrebbe mescolato due categorie di rischio.
+**Anche fuori dall'interfaccia.** `src/core`, `src/storage` e `src/sync`
+producono testo che l'utente legge — gli avvisi dei parser nella tabella
+dell'esito, le righe del registro di sincronizzazione, i messaggi d'errore
+dell'archivio — e non possono importare da `src/ui`. Il tipo `Traduci` sta
+quindi in [`src/core/traduci.ts`](../src/core/traduci.ts), che `src/ui/format.ts`
+riesporta, e ogni funzione che produce testo lo riceve come ultimo parametro con
+l'identità come valore predefinito: chi non passa niente ottiene l'italiano, e
+nessun chiamante esistente — test compresi — si è dovuto toccare.
+
+Due dettagli che sono costati più di quanto sembri:
+
+- **le frasi con dentro un numero vanno spezzate.** `«18 immersioni importate
+  senza profilo»` non può essere una chiave, perché ce ne sarebbe una per ogni
+  numero possibile: il numero esce dalla chiave e la frase comincia dal
+  sostantivo. Funziona finché l'inglese regge lo stesso ordine — e dove non lo
+  reggeva, la frase italiana è stata riscritta perché lo reggesse;
+- **gli oggetti che vivono più a lungo di un render** — `SqliteStore`,
+  `IndexedDbStore`, `TauriBleTransport` — ricevono la traduzione nel costruttore.
+  Passargli la `t` del momento avrebbe congelato la lingua del primo avvio:
+  `lingua.tsx` espone per questo `useTraduciStabile()`, una funzione di identità
+  fissa che dentro rilegge la lingua corrente.
 
 ## Roadmap
 

@@ -14,6 +14,7 @@
  */
 
 import type { Dive, Sample } from '../core/model';
+import { comeSta, type Traduci } from '../core/traduci';
 import { stripSamples, type DiveStore, type DiveSummary } from './types';
 
 interface SqlDatabase {
@@ -54,8 +55,12 @@ const SCHEMA = [
 
 export class SqliteStore implements DiveStore {
   readonly kind = 'sqlite' as const;
+  /** Come in `IndexedDbStore`: la frase è la chiave, e si traduce a schermo. */
   readonly location = "File SQLite nella cartella dati dell'app";
   private db: SqlDatabase | null = null;
+
+  /** Vedi `IndexedDbStore`: serve solo alla guardia qui sotto. */
+  constructor(private readonly t: Traduci = comeSta) {}
 
   async init(): Promise<void> {
     if (this.db) return;
@@ -66,7 +71,7 @@ export class SqliteStore implements DiveStore {
   }
 
   private get sql(): SqlDatabase {
-    if (!this.db) throw new Error('Database non inizializzato.');
+    if (!this.db) throw new Error(this.t('Database non inizializzato.'));
     return this.db;
   }
 

@@ -31,6 +31,7 @@ import {
   tempValue,
   text,
 } from './xml';
+import { comeSta, type Traduci } from '../traduci';
 import { wallClockToIso } from '../units';
 import type { DiveParser, ParseInput, ParseResult } from './types';
 
@@ -46,11 +47,13 @@ export const subsurfaceParser: DiveParser = {
     return !!input.text && /<divelog[\s>]/.test(input.text);
   },
 
-  parse(input: ParseInput): ParseResult {
+  parse(input: ParseInput, t: Traduci = comeSta): ParseResult {
     const warnings: string[] = [];
     const root = parseXml(input.text ?? '');
     const divelog = child(root, 'divelog') as Record<string, unknown> | undefined;
-    if (!divelog) return { format: 'subsurface', dives: [], warnings: ['Radice <divelog> non trovata.'] };
+    if (!divelog) {
+      return { format: 'subsurface', dives: [], warnings: [t('Radice <divelog> non trovata.')] };
+    }
 
     const importedAt = new Date().toISOString();
     const sites = readSites(divelog);
@@ -65,10 +68,10 @@ export const subsurfaceParser: DiveParser = {
 
     const dives: Dive[] = [];
     for (const { node, tripLocation } of raw) {
-      const dive = readDive(node, sites, tripLocation, input.fileName, importedAt, warnings);
+      const dive = readDive(node, sites, tripLocation, input.fileName, importedAt, warnings, t);
       if (dive) dives.push(dive);
     }
-    if (dives.length === 0) warnings.push('Nessuna immersione trovata nel file Subsurface.');
+    if (dives.length === 0) warnings.push(t('Nessuna immersione trovata nel file Subsurface.'));
     return { format: 'subsurface', dives, warnings };
   },
 };
@@ -99,11 +102,12 @@ function readDive(
   fileName: string,
   importedAt: string,
   warnings: string[],
+  t: Traduci = comeSta,
 ): Dive | null {
   const date = attr(node, 'date');
   const time = attr(node, 'time') ?? '00:00:00';
   if (!date) {
-    warnings.push('Immersione senza attributo date scartata.');
+    warnings.push(t('Immersione senza attributo date scartata.'));
     return null;
   }
   // `wallClockToIso` e non `new Date(...)`: Subsurface scrive l'ora dell'orologio
@@ -111,7 +115,7 @@ function readDive(
   // dell'immersione da dove ti trovi quando importi.
   const startTime = wallClockToIso(`${date}T${padTime(time)}`);
   if (!startTime) {
-    warnings.push(`Immersione con data non interpretabile scartata: ${date} ${time}`);
+    warnings.push(`${t('Immersione con data non interpretabile scartata:')} ${date} ${time}`);
     return null;
   }
 
@@ -149,7 +153,7 @@ function readDive(
     (samples.length ? samples[samples.length - 1].t : undefined);
 
   if (!maxDepth || !durationS) {
-    warnings.push(`Immersione del ${date} scartata: durata o profondità mancanti.`);
+    warnings.push(`${t('Immersione del')} ${date} ${t('scartata: durata o profondità mancanti.')}`);
     return null;
   }
 

@@ -34,6 +34,7 @@ import { applyPeriod, DEFAULT_PERIOD, type PeriodId, type Scope } from '../core/
 import { mergeDive, mergeImports } from '../core/dedupe';
 import { buildBackup, planRestore, type BackupFile } from '../core/export/backup';
 import { parseBrowserFile } from '../core/parsers';
+import { useTraduciStabile } from './lingua';
 import { getStore, type DiveStore } from '../storage';
 import { openSecretStore, type SecretPlace } from '../storage/secrets';
 import { hydrateForMerge, repairArchive } from '../storage/repair';
@@ -319,6 +320,22 @@ function fondiRaccolta(key: string, attuale: unknown, dalFile: unknown): unknown
 }
 
 export function DiveLogProvider({ children }: { children: ReactNode }) {
+  /*
+   * LA TRADUZIONE CHE SCENDE SOTTO L'INTERFACCIA.
+   *
+   * Questo componente sta dentro `ProvvedituraLingua` (vedi `main.tsx`), quindi
+   * la lingua ce l'ha; sotto di lui — parser, sincronizzazione, archivio — non
+   * c'è React e non ci può essere: `src/core` non importa da `src/ui`, ed è il
+   * vincolo su cui è costruito tutto il progetto. Quello che passa il confine è
+   * una funzione sola, `Traduci`, dichiarata nel nucleo.
+   *
+   * STABILE e non la `t` del render: le liste di dipendenze qui sotto sono
+   * lunghe e delicate, e una funzione che cambia identità a ogni cambio di
+   * lingua le farebbe ricalcolare tutte. Soprattutto, `getStore()` la riceve
+   * una volta sola per tutta la vita dell'applicazione — vedi
+   * `useTraduciStabile`.
+   */
+  const traduci = useTraduciStabile();
   const [store, setStore] = useState<DiveStore | null>(null);
   const [dives, setDives] = useState<Dive[]>([]);
   const [ready, setReady] = useState(false);
@@ -353,7 +370,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const s = await getStore();
+      const s = await getStore(traduci);
       /*
        * L'ARCHIVIO SI REGISTRA SUBITO.
        *
@@ -479,7 +496,10 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       if (conto) {
         setSessioneAccount(conto.sessione);
         setAccountEmail(conto.email);
-        chiaviAccount.current = new ChiaviDelDatabase({ servizio: SERVIZIO_ACCESSO }, conto.sessione);
+        chiaviAccount.current = new ChiaviDelDatabase(
+          { servizio: SERVIZIO_ACCESSO, t: traduci },
+          conto.sessione,
+        );
       }
       if (savedAnalyses) setAnalyses(savedAnalyses);
       if (savedGas?.depthM) setGasInputState(savedGas);
@@ -508,7 +528,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [traduci]);
 
   /*
    * Obiettivo e periodo viaggiano fra dispositivi, e per farlo servono i TIMBRI.
@@ -566,21 +586,33 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       const { keep, inTrash, buried } = filterDeleted(arrivate, trash, tombs);
       if (!inTrash && !buried) return { keep };
       const pezzi: string[] = [];
-      if (inTrash) pezzi.push(`${inTrash} ${inTrash === 1 ? 'è nel cestino' : 'sono nel cestino'}`);
+      /*
+       * Questa nota finisce nella STESSA tabella degli avvisi dei parser, quindi
+       * segue la stessa regola: si traduce a pezzi, con i numeri fuori dalle
+       * chiavi. «definitivamente» rientra dentro la chiave invece di restare
+       * appeso in coda perché in inglese l'avverbio precede il participio
+       * («permanently deleted»), e una coda fissa lo lascerebbe alla fine.
+       */
+      if (inTrash) {
+        pezzi.push(`${inTrash} ${traduci(inTrash === 1 ? 'è nel cestino' : 'sono nel cestino')}`);
+      }
       if (buried) {
         pezzi.push(
-          `${buried} ${buried === 1 ? 'era stata cancellata' : 'erano state cancellate'} definitivamente`,
+          `${buried} ${traduci(
+            buried === 1 ? 'era stata cancellata definitivamente' : 'erano state cancellate definitivamente',
+          )}`,
         );
       }
       const quante = inTrash + buried;
       return {
         keep,
         nota:
-          `${quante} ${quante === 1 ? 'immersione non è stata reimportata' : 'immersioni non sono state reimportate'} ` +
-          `perché ${pezzi.join(' e ')}. Per riaverle, rimettile a posto dal cestino in Impostazioni.`,
+          `${quante} ${traduci(quante === 1 ? 'immersione non è stata reimportata' : 'immersioni non sono state reimportate')} ` +
+          `${traduci('perché')} ${pezzi.join(` ${traduci('e')} `)}. ` +
+          traduci('Per riaverle, rimettile a posto dal cestino in Impostazioni.'),
       };
     },
-    [store, trash],
+    [store, trash, traduci],
   );
 
   const importFiles = useCallback(
@@ -592,7 +624,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
 
       for (const file of files) {
         try {
-          const parsed = await parseBrowserFile(file);
+          const parsed = await parseBrowserFile(file, traduci);
           const filtro = await scartaCancellate(parsed.dives);
           const result = { ...parsed, dives: filtro.keep };
           // I profili delle immersioni già in archivio vanno caricati PRIMA di
@@ -607,7 +639,10 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
           for (const c of report.clockOffsets) {
             const hours = c.offsetMs / 3_600_000;
             warnings.push(
-              `Riconosciuto uno sfasamento di ${formatOffset(hours)} fra l'orologio di questo computer e quello delle immersioni già in archivio (su ${c.pairs} corrispondenze): le immersioni sono state unite comunque.`,
+              `${traduci('Riconosciuto uno sfasamento di')} ${formatOffset(hours)} ` +
+                `${traduci("fra l'orologio di questo computer e quello delle immersioni già in archivio")} ` +
+                `(${traduci('su')} ${c.pairs} ${traduci('corrispondenze')}): ` +
+                traduci('le immersioni sono state unite comunque.'),
             );
           }
           outcomes.push({
@@ -642,7 +677,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       setDives(current.map(stripForList));
       return outcomes;
     },
-    [dives, store, scartaCancellate],
+    [dives, store, scartaCancellate, traduci],
   );
 
   /**
@@ -667,7 +702,10 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         for (const c of report.clockOffsets) {
           const hours = c.offsetMs / 3_600_000;
           warnings.push(
-            `Riconosciuto uno sfasamento di ${formatOffset(hours)} fra l'orologio del computer e quello delle immersioni già in archivio (su ${c.pairs} corrispondenze): le immersioni sono state unite comunque.`,
+            `${traduci('Riconosciuto uno sfasamento di')} ${formatOffset(hours)} ` +
+              `${traduci("fra l'orologio del computer e quello delle immersioni già in archivio")} ` +
+              `(${traduci('su')} ${c.pairs} ${traduci('corrispondenze')}): ` +
+              traduci('le immersioni sono state unite comunque.'),
           );
         }
         const previous = new Map(dives.map((d) => [d.id, d]));
@@ -696,7 +734,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         };
       }
     },
-    [dives, store, scartaCancellate],
+    [dives, store, scartaCancellate, traduci],
   );
 
   /*
@@ -1066,16 +1104,16 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
    * risparmiato è reale, il rischio aggiunto no.
    */
   const accediConAccount = useCallback(async () => {
-    const esito = await accediConGoogle();
+    const esito = await accediConGoogle(traduci);
     setSessioneAccount(esito.sessione);
     setAccountEmail(esito.email);
-    chiaviAccount.current = new ChiaviDelDatabase({ servizio: SERVIZIO_ACCESSO }, esito.sessione);
+    chiaviAccount.current = new ChiaviDelDatabase({ servizio: SERVIZIO_ACCESSO, t: traduci }, esito.sessione);
     if (store) {
       const segreti = await openSecretStore(store);
       const salvato: AccountSalvato = { sessione: esito.sessione, email: esito.email };
       await segreti.write('account', salvato);
     }
-  }, [store]);
+  }, [store, traduci]);
 
   /*
    * Uscire NON cancella l'archivio locale, e nemmeno quello remoto.
@@ -1096,9 +1134,9 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
 
   const cancellaAccount = useCallback(async () => {
     if (!sessioneAccount) return;
-    await chiudiAccountRemoto({ servizio: SERVIZIO_ACCESSO }, sessioneAccount);
+    await chiudiAccountRemoto({ servizio: SERVIZIO_ACCESSO, t: traduci }, sessioneAccount);
     await esciDallAccount();
-  }, [sessioneAccount, esciDallAccount]);
+  }, [sessioneAccount, esciDallAccount, traduci]);
 
   const testSync = useCallback((creds: SyncCredentials) => testConnection(creds), []);
 
@@ -1119,7 +1157,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       }
       const sql = await connect(credenziali);
       try {
-        const report = await syncArchive(store, sql, onProgress);
+        const report = await syncArchive(store, sql, onProgress, traduci);
         // La lista in memoria è ora vecchia: la sincronizzazione ha scritto
         // direttamente nell'archivio, quindi la ricarichiamo da lì.
         //
@@ -1177,7 +1215,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [store, syncCredentials],
+    [store, syncCredentials, traduci],
   );
 
   const saveAiCredentials = useCallback(

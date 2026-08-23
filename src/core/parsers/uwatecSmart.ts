@@ -69,6 +69,7 @@ import {
   type Voce,
 } from './uwatecBitstream';
 import type { Sample } from '../model';
+import { comeSta, type Traduci } from '../traduci';
 
 /** Millisecondi fra l'epoca Uwatec (2000-01-01 UTC) e quella Unix. */
 const UWATEC_EPOCH_MS = 946_684_800_000;
@@ -394,10 +395,20 @@ export interface DecodeOptions {
   model?: number;
   /** Forza la dimensione dell'intestazione, per i casi ambigui. */
   headerSize?: number;
+  /**
+   * Come tradurre gli avvisi, che l'utente legge nella tabella dell'import.
+   *
+   * Sta nelle opzioni e non in coda come altrove perché qui le opzioni CI SONO
+   * GIÀ: aggiungere un quarto parametro posizionale accanto a un oggetto di
+   * configurazione è il modo di avere due posti dove cercare la stessa cosa.
+   * Assente, gli avvisi restano in italiano — che è la chiave del dizionario.
+   */
+  t?: Traduci;
 }
 
 export function decodeUwatecSmart(bytes: Uint8Array, opts: DecodeOptions = {}): UwatecDive {
   const warnings: string[] = [];
+  const t = opts.t ?? comeSta;
   if (!hasUwatecMagic(bytes)) {
     throw new Error('Firma Uwatec (A5 A5 5A 5A) non trovata.');
   }
@@ -415,7 +426,7 @@ export function decodeUwatecSmart(bytes: Uint8Array, opts: DecodeOptions = {}): 
       candidates.find((c) => bytes.length > c.size && iniziaConUnRecordValido(bytes, c.size, c.samples)) ??
       TRIMIX_HEADER;
     warnings.push(
-      `Modello del computer non indicato: intestazione da ${layout.size} byte dedotta dal contenuto.`,
+      `${t('Modello del computer non indicato: intestazione da')} ${layout.size} ${t('byte dedotta dal contenuto.')}`,
     );
   }
   const headerSize = opts.headerSize ?? layout.size;
@@ -508,7 +519,7 @@ export function decodeUwatecSmart(bytes: Uint8Array, opts: DecodeOptions = {}): 
   dive.bytesConsumed = flusso.byteConsumati;
   if (flusso.byteConsumati !== declared) {
     warnings.push(
-      `Decodifica disallineata: consumati ${flusso.byteConsumati} byte su ${declared} dichiarati. Il profilo potrebbe essere incompleto.`,
+      `${t('Decodifica disallineata: consumati')} ${flusso.byteConsumati} ${t('byte su')} ${declared} ${t('dichiarati. Il profilo potrebbe essere incompleto.')}`,
     );
   }
   return dive;

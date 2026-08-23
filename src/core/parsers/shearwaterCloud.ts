@@ -40,6 +40,7 @@
 import { AIR, type Cylinder, type Dive, type DiveMode, type ReportedSummary, type Salinity } from '../model';
 import { parseCylinderSpec } from '../cylinders';
 import { psiToBar, wallClockToIso } from '../units';
+import { comeSta, type Traduci } from '../traduci';
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
 import { isSqlite, readSqliteTables, sqliteTableNames, type SqlRow } from './sqliteReader';
@@ -65,9 +66,9 @@ export const shearwaterCloudParser: DiveParser = {
     }
   },
 
-  parse(input: ParseInput): ParseResult {
+  parse(input: ParseInput, t: Traduci = comeSta): ParseResult {
     const warnings: string[] = [];
-    if (!input.bytes) return { format: 'shearwater-cloud', dives: [], warnings: ['File vuoto.'] };
+    if (!input.bytes) return { format: 'shearwater-cloud', dives: [], warnings: [t('File vuoto.')] };
 
     let tables;
     try {
@@ -76,7 +77,7 @@ export const shearwaterCloudParser: DiveParser = {
       return {
         format: 'shearwater-cloud',
         dives: [],
-        warnings: [`Database non leggibile: ${err instanceof Error ? err.message : String(err)}`],
+        warnings: [`${t('Database non leggibile:')} ${err instanceof Error ? err.message : String(err)}`],
       };
     }
 
@@ -85,7 +86,11 @@ export const shearwaterCloudParser: DiveParser = {
       (tables.get('log_data')?.rows ?? []).map((r) => [String(r.log_id ?? ''), r] as const),
     );
     if (details.length === 0) {
-      return { format: 'shearwater-cloud', dives: [], warnings: ['Nessuna immersione in dive_details.'] };
+      return {
+        format: 'shearwater-cloud',
+        dives: [],
+        warnings: [t('Nessuna immersione in dive_details.')],
+      };
     }
 
     const importedAt = new Date().toISOString();
@@ -95,7 +100,7 @@ export const shearwaterCloudParser: DiveParser = {
 
     for (const row of details) {
       const log = logs.get(String(row.DiveId ?? ''));
-      const dive = readDive(row, log, input.fileName, importedAt, warnings, eventCodes);
+      const dive = readDive(row, log, input.fileName, importedAt, warnings, eventCodes, t);
       if (dive) dives.push(dive);
       else withoutTiming++;
     }
@@ -103,15 +108,15 @@ export const shearwaterCloudParser: DiveParser = {
     const withProfile = dives.filter((d) => (d.samples?.length ?? 0) > 0).length;
     warnings.push(
       withProfile === dives.length
-        ? `${dives.length} immersioni con il profilo completo letto dal log nativo del computer: tetto deco, TTS, NDL, CNS e impostazioni GF.`
-        : `${withProfile} di ${dives.length} immersioni hanno il profilo dal log nativo del computer; per le altre restano i soli dati di riepilogo.`,
+        ? `${dives.length} ${t('immersioni con il profilo completo letto dal log nativo del computer: tetto deco, TTS, NDL, CNS e impostazioni GF.')}`
+        : `${withProfile} ${t('di')} ${dives.length} ${t('immersioni hanno il profilo dal log nativo del computer; per le altre restano i soli dati di riepilogo.')}`,
     );
     if (withoutTiming > 0) {
-      warnings.push(`${withoutTiming} righe scartate: data o durata non interpretabili.`);
+      warnings.push(`${withoutTiming} ${t('righe scartate: data o durata non interpretabili.')}`);
     }
     if (eventCodes.size) {
       warnings.push(
-        `Eventi del log non documentati, letti e non interpretati: codici ${[...eventCodes]
+        `${t('Eventi del log non documentati, letti e non interpretati: codici')} ${[...eventCodes]
           .sort((a, b) => +a - +b)
           .join(', ')}.`,
       );
@@ -129,6 +134,7 @@ function readDive(
   importedAt: string,
   warnings: string[],
   eventCodes: Set<string>,
+  t: Traduci = comeSta,
 ): Dive | null {
   const meta = parseJson(log?.data_bytes_2);
   const header = parseJson(log?.data_bytes_3);
@@ -166,7 +172,7 @@ function readDive(
 
   // Il log nativo del computer, se c'è: è la fonte più affidabile di tutto ciò
   // che segue, e quando c'è vince su qualsiasi colonna del database.
-  const native = readNativeLog(log, warnings, localText, eventCodes);
+  const native = readNativeLog(log, warnings, localText, eventCodes, t);
 
   const model = modelFromFileName(str(log?.file_name) ?? str(row.FileName));
   const serial = str(row.SerialNumber);
@@ -232,7 +238,7 @@ function readDive(
   dive.metrics = computeMetrics(dive);
   if (dive.avgDepth === undefined) {
     warnings.push(
-      `Immersione del ${base.startTime.slice(0, 10)} senza profondità media: consumo non calcolabile.`,
+      `${t('Immersione del')} ${base.startTime.slice(0, 10)} ${t('senza profondità media: consumo non calcolabile.')}`,
     );
   }
   return dive;
@@ -365,6 +371,7 @@ function readNativeLog(
   warnings: string[],
   when: string | undefined,
   eventCodes: Set<string>,
+  t: Traduci = comeSta,
 ): PnfLog | undefined {
   const blob = log?.data_bytes_1;
   if (!(blob instanceof Uint8Array) || !isPnfBlob(blob)) return undefined;
@@ -378,14 +385,14 @@ function readNativeLog(
         // I codici visti si accumulano in un elenco unico: dire QUALI sono è
         // l'informazione utile, ripeterla per ogni immersione no.
         for (const code of note.match(/\d+/g) ?? []) eventCodes.add(code);
-      } else warnings.push(`${when ?? 'Immersione'}: ${note}`);
+      } else warnings.push(`${when ?? t('Immersione')}: ${note}`);
     }
     return decoded;
   } catch (err) {
     warnings.push(
-      `${when ?? 'Immersione'}: log nativo del computer non decodificabile (${
+      `${when ?? t('Immersione')}: ${t('log nativo del computer non decodificabile')} (${
         err instanceof Error ? err.message : String(err)
-      }). Restano i dati di riepilogo.`,
+      }). ${t('Restano i dati di riepilogo.')}`,
     );
     return undefined;
   }

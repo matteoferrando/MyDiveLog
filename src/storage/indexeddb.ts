@@ -7,6 +7,7 @@
  */
 
 import type { Dive, Sample } from '../core/model';
+import { comeSta, type Traduci } from '../core/traduci';
 import { ALT_SUFFIX, altKey, isAltKey, stripSamples, type DiveStore, type DiveSummary } from './types';
 
 const DB_NAME = 'mydivelog';
@@ -21,8 +22,27 @@ const SETTINGS = 'settings';
 
 export class IndexedDbStore implements DiveStore {
   readonly kind = 'indexeddb' as const;
+  /**
+   * DOVE VIVE L'ARCHIVIO, detto all'utente nelle impostazioni.
+   *
+   * Resta la frase italiana e non passa da `t()` qui: è una stringa costante,
+   * letta da chi la mostra, e la traduzione si fa a schermo — `t(storeLocation)`
+   * in `ImportPage` e `SyncPage`. Tradurla alla costruzione la congelerebbe
+   * nella lingua di quel momento, perché l'archivio si apre una volta sola
+   * all'avvio mentre la lingua si può cambiare dopo.
+   */
   readonly location = 'Archivio del browser (IndexedDB)';
   private db: IDBDatabase | null = null;
+
+  /**
+   * La traduzione degli errori che possono arrivare a schermo.
+   *
+   * È una guardia che in pratica non scatta — `getStore()` aspetta sempre
+   * `init()` — ma se scattasse il messaggio finirebbe nel banner rosso come
+   * qualunque altro, e allora segue la stessa regola di tutti: chi non passa
+   * niente ottiene l'italiano.
+   */
+  constructor(private readonly t: Traduci = comeSta) {}
 
   async init(): Promise<void> {
     if (this.db) return;
@@ -62,7 +82,7 @@ export class IndexedDbStore implements DiveStore {
   }
 
   private tx(stores: string[], mode: IDBTransactionMode) {
-    if (!this.db) throw new Error('Store non inizializzato.');
+    if (!this.db) throw new Error(this.t('Store non inizializzato.'));
     return this.db.transaction(stores, mode);
   }
 

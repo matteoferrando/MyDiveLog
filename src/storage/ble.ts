@@ -18,6 +18,7 @@
  */
 
 import { ByteStream, chunkForMtu } from '../core/ble/stream';
+import { comeSta, type Traduci } from '../core/traduci';
 import type {
   BleFoundDevice,
   BleLink,
@@ -147,13 +148,18 @@ const PROP_INDICATE = 0x20;
 export function resolveChannels(
   services: PluginService[],
   profile: BleServiceProfile,
+  t: Traduci = comeSta,
 ): Canali | { error: string } {
   const cercato = profile.service.toLowerCase();
   const s = services.find((x) => x.uuid.toLowerCase() === cercato);
   if (!s) {
-    const elenco = services.map((x) => x.uuid).join(', ') || 'nessuno';
+    const elenco = services.map((x) => x.uuid).join(', ') || t('nessuno');
     return {
-      error: `Il dispositivo non espone il servizio ${profile.service}. Servizi trovati: ${elenco}. Di solito significa che non è il computer che pensavamo, o che è in modalità aggiornamento firmware invece che in modalità trasferimento.`,
+      error:
+        `${t('Il dispositivo non espone il servizio')} ${profile.service}. ${t('Servizi trovati:')} ${elenco}. ` +
+        t(
+          'Di solito significa che non è il computer che pensavamo, o che è in modalità aggiornamento firmware invece che in modalità trasferimento.',
+        ),
     };
   }
   const scoperta = s.characteristics.find((c) => c.properties & (PROP_WRITE | PROP_WRITE_NO_RESP));
@@ -166,7 +172,13 @@ export function resolveChannels(
     s.characteristics.find((c) => c.properties & (PROP_NOTIFY | PROP_INDICATE))?.uuid;
   if (!write || !notify) {
     return {
-      error: `Il servizio ${profile.service} non ha ${!write ? 'una caratteristica su cui scrivere' : 'una caratteristica che notifichi'}. Caratteristiche viste: ${s.characteristics.map((c) => `${c.uuid} (0x${c.properties.toString(16)})`).join(', ')}.`,
+      error:
+        `${t('Il servizio')} ${profile.service} ${t('non ha')} ${
+          !write ? t('una caratteristica su cui scrivere') : t('una caratteristica che notifichi')
+        }. ` +
+        `${t('Caratteristiche viste:')} ${s.characteristics
+          .map((c) => `${c.uuid} (0x${c.properties.toString(16)})`)
+          .join(', ')}.`,
     };
   }
   return { service: s.uuid, write, notify, writeProps };
@@ -265,18 +277,43 @@ class TauriBleLink implements BleLink {
  * che è il percorso del Mac: su iPhone quel pannello non esiste, e chi lo cerca
  * conclude che l'app sia rotta. Su iOS il permesso di una singola applicazione
  * sta dentro la voce dell'applicazione.
+ *
+ * È una FUNZIONE e non più una costante, per due motivi che vanno insieme: deve
+ * poter ricevere la traduzione, e così `suIOS()` viene valutata quando serve
+ * invece che al caricamento del modulo.
  */
-export const PERMESSO_NEGATO = suIOS()
-  ? 'Il permesso di usare il Bluetooth è stato negato. Si concede in Impostazioni → MyDiveLog → Bluetooth.'
-  : 'Il permesso di usare il Bluetooth è stato negato. Si concede in Impostazioni di Sistema, alla voce Privacy e sicurezza → Bluetooth.';
+export const permessoNegato = (t: Traduci = comeSta): string =>
+  suIOS()
+    ? t(
+        'Il permesso di usare il Bluetooth è stato negato. Si concede in Impostazioni → MyDiveLog → Bluetooth.',
+      )
+    : t(
+        'Il permesso di usare il Bluetooth è stato negato. Si concede in Impostazioni di Sistema, alla voce Privacy e sicurezza → Bluetooth.',
+      );
 
 export class TauriBleTransport implements BleTransport {
+  /**
+   * COME ARRIVA LA TRADUZIONE QUI DENTRO: dal costruttore, non dai metodi.
+   *
+   * `BleTransport` è l'interfaccia che `core/ble/download.ts` usa e che
+   * `FakeTransport` implementa nei test: allargarne tre firme per una cosa che
+   * riguarda solo il messaggio d'errore di questa implementazione avrebbe fatto
+   * pagare il cambiamento a chi non c'entra. Il trasporto invece si costruisce
+   * una volta sola, ed è il posto naturale.
+   *
+   * Chi lo costruisce deve passare una funzione STABILE che rilegga la lingua
+   * corrente (`useTraduciStabile`), non la `t` del render: l'oggetto sopravvive
+   * ai cambi di lingua.
+   */
+  constructor(private readonly t: Traduci = comeSta) {}
+
   async available(): Promise<true | BleUnavailable> {
     if (!isTauri()) {
       return {
         reason: 'unsupported',
-        detail:
+        detail: this.t(
           'Lo scarico dal computer subacqueo funziona solo nell’applicazione, non nel browser: Safari non ha il Bluetooth per le pagine web, e gli altri browser lo espongono in un modo che non permette di parlare con questi dispositivi.',
+        ),
       };
     }
     try {
@@ -285,7 +322,7 @@ export class TauriBleTransport implements BleTransport {
       if (stato === 'Off') {
         return {
           reason: 'off',
-          detail: 'Il Bluetooth di questo dispositivo è spento. Accendilo e riprova.',
+          detail: this.t('Il Bluetooth di questo dispositivo è spento. Accendilo e riprova.'),
         };
       }
       /*
@@ -317,7 +354,7 @@ export class TauriBleTransport implements BleTransport {
       if (!(await api.checkPermissions(true))) {
         return {
           reason: 'denied',
-          detail: PERMESSO_NEGATO,
+          detail: permessoNegato(this.t),
         };
       }
       return true;
@@ -325,7 +362,7 @@ export class TauriBleTransport implements BleTransport {
       // Una build senza il plugin, o una piattaforma dove non è compilato.
       return {
         reason: 'unsupported',
-        detail: `Il Bluetooth non è disponibile in questa versione dell’applicazione: ${
+        detail: `${this.t('Il Bluetooth non è disponibile in questa versione dell’applicazione:')} ${
           err instanceof Error ? err.message : String(err)
         }`,
       };
@@ -454,9 +491,9 @@ export class TauriBleTransport implements BleTransport {
     const elenco = await api.listServices(deviceId).catch((err: unknown) => String(err));
     if (typeof elenco === 'string') {
       await api.disconnect().catch(() => undefined);
-      throw new Error(`Non si è potuto leggere l’elenco dei servizi del dispositivo: ${elenco}`);
+      throw new Error(`${this.t('Non si è potuto leggere l’elenco dei servizi del dispositivo:')} ${elenco}`);
     }
-    const canali = resolveChannels(elenco, profile);
+    const canali = resolveChannels(elenco, profile, this.t);
     if ('error' in canali) {
       await api.disconnect().catch(() => undefined);
       throw new Error(canali.error);

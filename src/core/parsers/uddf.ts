@@ -22,6 +22,7 @@ import { AIR, type Cylinder, type Dive, type DiveMode, type GasMix, type Sample 
 import { cubicMToL, kelvinToC, pascalToBar, wallClockToIso } from '../units';
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
+import { comeSta, type Traduci } from '../traduci';
 import { asArray, attr, attrNumAny, child, children, num, parseXml, text } from './xml';
 import type { DiveParser, ParseInput, ParseResult } from './types';
 
@@ -34,7 +35,7 @@ export const uddfParser: DiveParser = {
     return !!input.text && /<uddf[\s>]/i.test(input.text);
   },
 
-  parse(input: ParseInput): ParseResult {
+  parse(input: ParseInput, t: Traduci = comeSta): ParseResult {
     const warnings: string[] = [];
     const root = parseXml(input.text ?? '');
     const uddf = (child(root, 'uddf') ?? root) as Record<string, unknown>;
@@ -46,24 +47,24 @@ export const uddfParser: DiveParser = {
     // che ha scritto il file, e finisce nell'avviso quando serve, non fra gli
     // strumenti.
     const generator = text(child(child(uddf, 'generator'), 'name'));
-    if (generator) warnings.push(`File scritto da ${generator}.`);
+    if (generator) warnings.push(`${t('File scritto da')} ${generator}.`);
 
     const dives: Dive[] = [];
     for (const group of children(child(uddf, 'profiledata'), 'repetitiongroup')) {
       for (const node of children(group, 'dive')) {
-        const dive = readDive(node, mixes, sites, input.fileName, importedAt, warnings);
+        const dive = readDive(node, mixes, sites, input.fileName, importedAt, warnings, t);
         if (dive) dives.push(dive);
       }
     }
     // Alcuni generatori mettono <dive> direttamente sotto <profiledata>.
     if (dives.length === 0) {
       for (const node of children(child(uddf, 'profiledata'), 'dive')) {
-        const dive = readDive(node, mixes, sites, input.fileName, importedAt, warnings);
+        const dive = readDive(node, mixes, sites, input.fileName, importedAt, warnings, t);
         if (dive) dives.push(dive);
       }
     }
 
-    if (dives.length === 0) warnings.push('Nessuna immersione trovata nel file UDDF.');
+    if (dives.length === 0) warnings.push(t('Nessuna immersione trovata nel file UDDF.'));
     return { format: 'uddf', dives, warnings };
   },
 };
@@ -116,20 +117,28 @@ function readDive(
   fileName: string,
   importedAt: string,
   warnings: string[],
+  t: Traduci = comeSta,
 ): Dive | null {
   const before = child(node, 'informationbeforedive');
   const after = child(node, 'informationafterdive');
 
   const datetime = text(child(before, 'datetime'));
   if (!datetime) {
-    warnings.push('Immersione senza <datetime> scartata.');
+    warnings.push(t('Immersione senza <datetime> scartata.'));
     return null;
   }
   const startTime = normaliseDateTime(datetime);
   if (!startTime) {
+    /*
+     * SPEZZATA IN TRE, e la ragione vale per tutti gli avvisi che seguono: una
+     * chiave di dizionario con dentro una data è una voce diversa per ogni file
+     * che si importa, cioè una voce che non si può tradurre. Le virgolette
+     * basse restano fuori dalle chiavi perché sono punteggiatura attorno al
+     * dato, non parte della frase.
+     */
     warnings.push(
-      `Immersione scartata: data «${datetime}» in un formato che non so leggere. ` +
-        'UDDF vuole ISO 8601 (2026-06-14T10:38:00); segnala il file, che il formato si aggiunge.',
+      `${t('Immersione scartata: data')} «${datetime}» ${t('in un formato che non so leggere.')} ` +
+        t('UDDF vuole ISO 8601 (2026-06-14T10:38:00); segnala il file, che il formato si aggiunge.'),
     );
     return null;
   }
@@ -158,7 +167,9 @@ function readDive(
   }
   if (linkFallbackUsed) {
     warnings.push(
-      "Alcune bombole non hanno il collegamento alla miscela (limite noto dell'export UDDF di Shearwater): assegnata la prima miscela definita.",
+      t(
+        "Alcune bombole non hanno il collegamento alla miscela (limite noto dell'export UDDF di Shearwater): assegnata la prima miscela definita.",
+      ),
     );
   }
   if (cylinders.length === 0 && mixIds.length) {
@@ -179,9 +190,9 @@ function readDive(
   const samples: Sample[] = [];
   let currentGas: number | undefined;
   for (const wp of children(child(node, 'samples'), 'waypoint')) {
-    const t = num(child(wp, 'divetime'));
+    const tempoS = num(child(wp, 'divetime'));
     const depth = num(child(wp, 'depth'));
-    if (t === undefined || depth === undefined) continue;
+    if (tempoS === undefined || depth === undefined) continue;
 
     const switchRef = attr(child(wp, 'switchmix'), 'ref');
     if (switchRef) currentGas = gasIndexByRef.get(switchRef) ?? currentGas;
@@ -193,7 +204,7 @@ function readDive(
 
     const tankPressurePa = num(child(wp, 'tankpressure'));
     const sample: Sample = {
-      t: Math.round(t),
+      t: Math.round(tempoS),
       depth,
       tempC: mapDefined(num(child(wp, 'temperature')), kelvinToC),
       pressureBar:
@@ -227,13 +238,15 @@ function readDive(
   const maxDepth = declaredDepth ?? (samples.length ? Math.max(...samples.map((s) => s.depth)) : 0);
   if (declaredDuration === undefined && declaredDepth === undefined && samples.length > 2) {
     warnings.push(
-      `Immersione del ${startTime.slice(0, 16)}: il file non dichiara durata né profondità massima, ` +
-        'ricavate dai campioni. Se il file è stato scaricato a metà, questi numeri descrivono solo la parte arrivata.',
+      `${t('Immersione del')} ${startTime.slice(0, 16)}: ` +
+        t(
+          'il file non dichiara durata né profondità massima, ricavate dai campioni. Se il file è stato scaricato a metà, questi numeri descrivono solo la parte arrivata.',
+        ),
     );
   }
 
   if (!durationS || !maxDepth) {
-    warnings.push(`Immersione del ${startTime} scartata: durata o profondità mancanti.`);
+    warnings.push(`${t('Immersione del')} ${startTime} ${t('scartata: durata o profondità mancanti.')}`);
     return null;
   }
 

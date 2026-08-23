@@ -535,6 +535,37 @@ immersioni esportate» dopo il KML, che conta siti. La frase è ora composta da 
 sa cosa sta contando — participio compreso, perché «7 siti esportate» è
 sbagliato in italiano.
 
+## Anche il nucleo parla inglese, 23 agosto 2026
+
+La passata sull'interfaccia aveva lasciato fuori il testo prodotto da
+`src/core`, `src/storage` e `src/sync`: gli avvisi dei parser nella tabella
+dell'esito («PPO2 Shearwater riscalata di 100…»), le sette righe del registro di
+sincronizzazione, i messaggi d'errore dell'archivio. In un'app impostata su EN
+erano l'unica cosa che restava italiana, e comparivano proprio nel momento in
+cui qualcosa non era andato liscio.
+
+Il tipo `Traduci` è passato in `src/core/traduci.ts` — `src/core` non può
+importare da `src/ui`, ed è il vincolo su cui è costruito tutto il progetto — e
+`src/ui/format.ts` lo riesporta. Ogni funzione che produce testo lo riceve come
+ultimo parametro, con l'identità come valore predefinito: **nessun chiamante si
+è dovuto toccare, test compresi**, e infatti i 1211 test sono passati senza
+correggere una sola aspettativa. È la prova che l'italiano prodotto è rimasto
+identico carattere per carattere.
+
+Due cose imparate:
+
+- le frasi con dentro un numero vanno spezzate col numero FUORI dalla chiave,
+  altrimenti servirebbe una voce di dizionario per ogni numero possibile;
+- gli oggetti che vivono più a lungo di un render (`SqliteStore`,
+  `IndexedDbStore`, `TauriBleTransport`) prendono la traduzione nel costruttore,
+  e passargli la `t` del momento congelerebbe la lingua del primo avvio. Da lì
+  `useTraduciStabile()` in `lingua.tsx`: una funzione fissa che dentro rilegge la
+  lingua corrente.
+
+Restano italiane, e sono dichiarate: le cinque note di `shearwaterPnf.ts` (la
+traduzione andrebbe infilata in tutta la catena del decodificatore a bit) e i
+messaggi che nessuno vede a schermo.
+
 ## Prossimi passi, in ordine
 
 1. **Scarico Bluetooth dai computer**, Aladin per primo. Il decoder del formato
@@ -553,13 +584,7 @@ sbagliato in italiano.
    cambiato niente.
 3. **Tarare le istruzioni delle analisi** su quello che producono davvero
    sull'archivio reale: le quattro modalità sono scritte al buio.
-4. **Le stringhe che restano italiane in inglese** vengono da `src/core`,
-   `src/storage` e `src/sync`: gli avvisi dei parser («PPO2 Shearwater riscalata
-   di 100…»), le righe del registro di sincronizzazione, i messaggi d'errore
-   dell'archivio. Non sono nell'interfaccia, quindi la passata dell'inglese non
-   le ha toccate. Vanno fatte con lo stesso schema di `format.ts`: un parametro
-   `t: Traduci` con l'identità come valore predefinito.
-5. **libdivecomputer su iPhone**: la libreria si compila già per macOS da
+4. **libdivecomputer su iPhone**: la libreria si compila già per macOS da
    `build.rs`; mancano la compilazione incrociata per `aarch64-apple-ios`, il
    collegamento vero di `FlussoBle` a `blec`, e la scelta di marca e modello fra
    i 356 supportati.

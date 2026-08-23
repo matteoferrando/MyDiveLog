@@ -14,6 +14,7 @@ import { shearwaterParser } from './shearwater';
 import { shearwaterCloudParser } from './shearwaterCloud';
 import { subsurfaceParser } from './subsurface';
 import { uddfParser } from './uddf';
+import { comeSta, type Traduci } from '../traduci';
 import { ParseError, type DiveParser, type ParseInput, type ParseResult } from './types';
 
 export const PARSERS: DiveParser[] = [
@@ -28,6 +29,7 @@ export const PARSERS: DiveParser[] = [
 
 export { ParseError };
 export type { DiveParser, ParseInput, ParseResult };
+export type { Traduci };
 
 /** Estensioni accettate dal selettore di file. */
 export const ACCEPTED_EXTENSIONS = [...new Set(PARSERS.flatMap((p) => p.extensions))].sort();
@@ -42,21 +44,30 @@ export function detectParser(input: ParseInput): DiveParser | undefined {
   });
 }
 
-/** Legge un file e restituisce le immersioni nel modello canonico. */
-export async function parseFile(input: ParseInput): Promise<ParseResult> {
+/**
+ * Legge un file e restituisce le immersioni nel modello canonico.
+ *
+ * LA TRADUZIONE È L'ULTIMO PARAMETRO, OPZIONALE. Le alternative erano metterla
+ * dentro `ParseInput` o farne un oggetto di opzioni nuovo: la prima mescola il
+ * contenuto del file con il modo di raccontarlo (vedi `types.ts`), la seconda
+ * costringe a toccare ogni chiamata esistente. Così non se ne rompe nessuna —
+ * `parseFile(input)` continua a compilare e risponde in italiano, che è la
+ * chiave del dizionario — e chi la traduzione ce l'ha la passa in coda.
+ */
+export async function parseFile(input: ParseInput, t: Traduci = comeSta): Promise<ParseResult> {
   const parser = detectParser(input);
   if (!parser) {
     throw new ParseError(
-      `Formato non riconosciuto. Formati supportati: ${PARSERS.map((p) => p.label).join(', ')}.`,
+      `${t('Formato non riconosciuto. Formati supportati:')} ${PARSERS.map((p) => p.label).join(', ')}.`,
       input.fileName,
     );
   }
-  if (parser.format === 'garmin-fit') return parseFit(input);
-  return parser.parse(input);
+  if (parser.format === 'garmin-fit') return parseFit(input, t);
+  return parser.parse(input, t);
 }
 
 /** Legge un `File` del browser, scegliendo testo o binario in base al formato. */
-export async function parseBrowserFile(file: File): Promise<ParseResult> {
+export async function parseBrowserFile(file: File, t: Traduci = comeSta): Promise<ParseResult> {
   const name = file.name;
   const lower = name.toLowerCase();
   const isBinary =
@@ -67,14 +78,14 @@ export async function parseBrowserFile(file: File): Promise<ParseResult> {
 
   if (isBinary) {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    return parseFile({ fileName: name, bytes });
+    return parseFile({ fileName: name, bytes }, t);
   }
 
   const text = await file.text();
   // Un file rinominato può nascondere un binario: controlliamo le firme comunque.
   if (text.slice(8, 12) === '.FIT' || text.startsWith('SQLite format 3')) {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    return parseFile({ fileName: name, bytes });
+    return parseFile({ fileName: name, bytes }, t);
   }
-  return parseFile({ fileName: name, text });
+  return parseFile({ fileName: name, text }, t);
 }

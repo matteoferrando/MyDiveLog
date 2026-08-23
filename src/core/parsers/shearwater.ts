@@ -26,6 +26,7 @@ import { AIR, type Cylinder, type Dive, type DiveMode, type GasMix, type Sample 
 import { fahrenheitToC, feetToM, mbarToBar, shearwaterTankToBar, wallClockToIso } from '../units';
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
+import { comeSta, type Traduci } from '../traduci';
 import { child, children, num, parseXml, text } from './xml';
 import type { DiveParser, ParseInput, ParseResult } from './types';
 
@@ -38,7 +39,7 @@ export const shearwaterParser: DiveParser = {
     return !!input.text && /<diveLog[\s>]/.test(input.text);
   },
 
-  parse(input: ParseInput): ParseResult {
+  parse(input: ParseInput, t: Traduci = comeSta): ParseResult {
     const warnings: string[] = [];
     const root = parseXml(input.text ?? '');
     const importedAt = new Date().toISOString();
@@ -52,24 +53,30 @@ export const shearwaterParser: DiveParser = {
 
     const dives: Dive[] = [];
     for (const log of logs) {
-      const dive = readLog(log, input.fileName, importedAt, warnings);
+      const dive = readLog(log, input.fileName, importedAt, warnings, t);
       if (dive) dives.push(dive);
     }
-    if (dives.length === 0) warnings.push('Nessun <diveLog> valido trovato nel file Shearwater.');
+    if (dives.length === 0) warnings.push(t('Nessun <diveLog> valido trovato nel file Shearwater.'));
     return { format: 'shearwater-xml', dives, warnings };
   },
 };
 
 // ---------------------------------------------------------------------------
 
-function readLog(log: unknown, fileName: string, importedAt: string, warnings: string[]): Dive | null {
+function readLog(
+  log: unknown,
+  fileName: string,
+  importedAt: string,
+  warnings: string[],
+  t: Traduci = comeSta,
+): Dive | null {
   const imperial = (num(child(log, 'imperialUnits')) ?? 0) === 1;
   const depth = (v: number | undefined) => (v === undefined ? undefined : imperial ? feetToM(v) : v);
   const temp = (v: number | undefined) => (v === undefined ? undefined : imperial ? fahrenheitToC(v) : v);
 
   const startDate = text(child(log, 'startDate'));
   if (!startDate) {
-    warnings.push('Immersione Shearwater senza startDate scartata.');
+    warnings.push(t('Immersione Shearwater senza startDate scartata.'));
     return null;
   }
   const startTime = parseShearwaterDate(startDate);
@@ -78,7 +85,7 @@ function readLog(log: unknown, fileName: string, importedAt: string, warnings: s
   const timeScale = detectTimeScale(records.map((r) => num(child(r, 'currentTime'))));
   if (timeScale === null && records.length > 2) {
     warnings.push(
-      'Passo di campionamento Shearwater non riconosciuto: i tempi sono interpretati come secondi.',
+      t('Passo di campionamento Shearwater non riconosciuto: i tempi sono interpretati come secondi.'),
     );
   }
   const divisor = timeScale ?? 1;
@@ -148,7 +155,7 @@ function readLog(log: unknown, fileName: string, importedAt: string, warnings: s
     });
   }
   if (ppo2NeedsScaling) {
-    warnings.push('PPO2 Shearwater riscalata di 100: il campo non è documentato in unità.');
+    warnings.push(t('PPO2 Shearwater riscalata di 100: il campo non è documentato in unità.'));
   }
 
   const maxDepth =
@@ -159,7 +166,11 @@ function readLog(log: unknown, fileName: string, importedAt: string, warnings: s
     (samples.length ? samples[samples.length - 1].t : undefined);
 
   if (!maxDepth || !durationS) {
-    warnings.push(`Immersione Shearwater del ${startDate} scartata: durata o profondità mancanti.`);
+    // Spezzata perché una chiave con la data dentro sarebbe una voce di
+    // dizionario diversa per ogni immersione. Vale per tutte quelle che seguono.
+    warnings.push(
+      `${t('Immersione Shearwater del')} ${startDate} ${t('scartata: durata o profondità mancanti.')}`,
+    );
     return null;
   }
 

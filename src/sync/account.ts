@@ -24,6 +24,7 @@
  * rifiuto — senza aprire un'applicazione.
  */
 
+import { comeSta, type Traduci } from '../core/traduci';
 import type { SyncCredentials } from './turso';
 
 export type Fornitore = 'apple' | 'google';
@@ -62,8 +63,8 @@ export interface EsitoAccesso {
  * traducono e si riscrivono — mentre un tipo regge alle riscritture.
  */
 export class SessioneScaduta extends Error {
-  constructor() {
-    super('La sessione è scaduta: rifai l’accesso.');
+  constructor(t: Traduci = comeSta) {
+    super(t('La sessione è scaduta: rifai l’accesso.'));
     this.name = 'SessioneScaduta';
   }
 }
@@ -84,6 +85,15 @@ export interface OpzioniAccount {
   fetchImpl?: typeof fetch;
   /** Iniettabile per i test. */
   adessoS?: () => number;
+  /**
+   * Come tradurre i messaggi d'errore, che qui finiscono tutti a schermo.
+   *
+   * NELLE OPZIONI e non in coda a ogni funzione: `accedi`, `rinnovaChiave` e
+   * `chiudiAccountRemoto` prendono già questo oggetto come primo parametro e
+   * lo passano a `chiedi`, che è dove i messaggi nascono. Un parametro in più
+   * su ognuna avrebbe voluto dire ricordarsi di inoltrarlo tre volte.
+   */
+  t?: Traduci;
 }
 
 async function chiedi(
@@ -92,6 +102,7 @@ async function chiedi(
   init: RequestInit,
 ): Promise<Record<string, unknown>> {
   const f = opzioni.fetchImpl ?? fetch;
+  const t = opzioni.t ?? comeSta;
   let risposta: Response;
   try {
     risposta = await f(`${opzioni.servizio}${percorso}`, init);
@@ -103,22 +114,22 @@ async function chiedi(
      * gli farebbe perdere la sessione che ha.
      */
     throw new Error(
-      `Servizio di accesso non raggiungibile: ${err instanceof Error ? err.message : String(err)}`,
+      `${t('Servizio di accesso non raggiungibile:')} ${err instanceof Error ? err.message : String(err)}`,
     );
   }
-  if (risposta.status === 401) throw new SessioneScaduta();
+  if (risposta.status === 401) throw new SessioneScaduta(t);
   const dati = (await risposta.json().catch(() => ({}))) as Record<string, unknown>;
   if (!risposta.ok) {
     const detto = typeof dati.errore === 'string' ? dati.errore : `HTTP ${risposta.status}`;
-    throw new Error(`Accesso non riuscito: ${detto}`);
+    throw new Error(`${t('Accesso non riuscito:')} ${detto}`);
   }
   return dati;
 }
 
-function leggiChiave(dati: Record<string, unknown>): ChiaveDatabase {
+function leggiChiave(dati: Record<string, unknown>, t: Traduci = comeSta): ChiaveDatabase {
   const { url, chiave, scadeIlS } = dati;
   if (typeof url !== 'string' || typeof chiave !== 'string' || typeof scadeIlS !== 'number') {
-    throw new Error('Il servizio ha risposto in un modo che non conosciamo.');
+    throw new Error(t('Il servizio ha risposto in un modo che non conosciamo.'));
   }
   return { url, authToken: chiave, scadeIlS };
 }
@@ -185,12 +196,12 @@ export async function accedi(
   });
   const sessione = dati.sessione;
   if (typeof sessione !== 'string' || !sessione) {
-    throw new Error('Il servizio non ha restituito una sessione.');
+    throw new Error((opzioni.t ?? comeSta)('Il servizio non ha restituito una sessione.'));
   }
   // Un'email mancante non è un guasto: l'accesso è riuscito lo stesso, e
   // l'unica conseguenza è una frase in meno nelle impostazioni.
   const email = typeof dati.email === 'string' && dati.email ? dati.email : null;
-  return { sessione, email, chiave: leggiChiave(dati) };
+  return { sessione, email, chiave: leggiChiave(dati, opzioni.t) };
 }
 
 /** Una chiave nuova per il proprio database, partendo dalla sessione. */
@@ -200,6 +211,7 @@ export async function rinnovaChiave(opzioni: OpzioniAccount, sessione: string): 
       method: 'POST',
       headers: { Authorization: `Bearer ${sessione}` },
     }),
+    opzioni.t,
   );
 }
 

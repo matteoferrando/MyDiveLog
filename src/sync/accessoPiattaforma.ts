@@ -29,6 +29,7 @@ import { accedi, type EsitoAccesso } from './account';
 import { clientGoogle, ritornoDaAccesso, schemaRitornoIOS, SERVIZIO_ACCESSO } from './configurazione';
 import { iniziaAccesso, leggiRitorno } from './googleAccesso';
 import { inApp, suIOS } from '../piattaforma';
+import { comeSta, type Traduci } from '../core/traduci';
 
 /** Quanto si aspetta il ritorno prima di rinunciare, lato interfaccia. */
 const ATTESA_MS = 300_000;
@@ -75,10 +76,12 @@ async function attendiRitorno(): Promise<string | null> {
  * rapido — password già salvata, consenso già dato — potrebbe tornare su una
  * porta che non c'è ancora.
  */
-export async function accediConGoogle(): Promise<EsitoAccesso> {
+export async function accediConGoogle(t: Traduci = comeSta): Promise<EsitoAccesso> {
   if (!inApp()) {
     throw new Error(
-      'L’accesso funziona solo nell’applicazione: nel browser non c’è modo di ricevere il ritorno da Google.',
+      t(
+        'L’accesso funziona solo nell’applicazione: nel browser non c’è modo di ricevere il ritorno da Google.',
+      ),
     );
   }
 
@@ -101,7 +104,7 @@ export async function accediConGoogle(): Promise<EsitoAccesso> {
 
   const indirizzo = await attesa;
   if (!indirizzo) {
-    throw new Error('L’accesso non è stato completato. Riprova quando vuoi.');
+    throw new Error(t('L’accesso non è stato completato. Riprova quando vuoi.'));
   }
 
   const esito = leggiRitorno(indirizzo, avvio.state);
@@ -112,7 +115,7 @@ export async function accediConGoogle(): Promise<EsitoAccesso> {
    * client desktop, senza il quale Google rifiuta lo scambio. Quello che torna
    * indietro è già la sessione — l'app non vede mai un token di Google.
    */
-  return accedi({ servizio: SERVIZIO_ACCESSO }, 'google', {
+  return accedi({ servizio: SERVIZIO_ACCESSO, t }, 'google', {
     clientId,
     codice: esito.codice,
     verificatore: avvio.verificatore,

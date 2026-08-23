@@ -342,6 +342,7 @@ src/
     model.ts                   modello canonico e unità di misura
     units.ts                   conversioni e fisica dell'immersione
     dedupe.ts                  riconoscimento della stessa immersione
+    traduci.ts                 il tipo `Traduci`: `src/core` non importa da `src/ui`
     export/                    UDDF, CSV, KML, backup completo, stampa
     parsers/                   un file per formato + rilevamento
       uwatecSmart.ts             decoder del bitstream binario Scubapro/Uwatec
@@ -589,6 +590,13 @@ Il dizionario ([`src/ui/traduzioni.ts`](src/ui/traduzioni.ts), circa
 millecinquecento voci) arriva con un `import()` pigro e **solo per chi sceglie
 l'inglese**: sono 89 kB che nel pezzo di codice del primo avvio non entrano, e
 che chi usa l'app in italiano non scarica mai.
+
+Anche il testo che **non** nasce nell'interfaccia è tradotto: gli avvisi dei
+parser, le righe del registro di sincronizzazione, i messaggi d'errore
+dell'archivio. `src/core` non può importare da `src/ui`, quindi il tipo sta in
+[`src/core/traduci.ts`](src/core/traduci.ts) e ogni funzione che produce testo lo
+riceve come ultimo parametro, con l'identità come valore predefinito — nessun
+chiamante esistente ha dovuto cambiare, test compresi.
 
 Per aggiungere una lingua servono un file come `traduzioni.ts` e una riga in
 `lingua.tsx`. Per trovare le frasi ancora da tradurre:

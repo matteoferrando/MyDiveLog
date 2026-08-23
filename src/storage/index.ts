@@ -6,6 +6,7 @@
  * app nel browser (IndexedDB) senza compilazioni condizionali.
  */
 
+import { comeSta, type Traduci } from '../core/traduci';
 import { IndexedDbStore } from './indexeddb';
 import { SqliteStore } from './sqlite';
 import type { DiveStore } from './types';
@@ -19,11 +20,20 @@ export function isTauri(): boolean {
 
 let instance: DiveStore | null = null;
 
-export async function getStore(): Promise<DiveStore> {
+/**
+ * L'archivio, uno solo per tutta la vita dell'applicazione.
+ *
+ * `t` in coda e opzionale: chi chiama senza — i test, e sono parecchi — ottiene
+ * gli errori in italiano. Attenzione a COSA si passa: l'istanza è memorizzata,
+ * quindi una `t` che cattura la lingua di adesso resterebbe quella per sempre.
+ * `state.tsx` passa apposta una funzione stabile che rilegge la lingua corrente
+ * a ogni chiamata — vedi `useTraduciStabile`.
+ */
+export async function getStore(t: Traduci = comeSta): Promise<DiveStore> {
   if (instance) return instance;
 
   if (isTauri()) {
-    const store = new SqliteStore();
+    const store = new SqliteStore(t);
     try {
       await store.init();
       instance = store;
@@ -34,7 +44,7 @@ export async function getStore(): Promise<DiveStore> {
     }
   }
 
-  const fallback = new IndexedDbStore();
+  const fallback = new IndexedDbStore(t);
   await fallback.init();
   instance = fallback;
   return fallback;

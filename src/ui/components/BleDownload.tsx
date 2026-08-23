@@ -25,7 +25,7 @@
  * 104» e le importa comunque.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { downloadFromComputer } from '../../core/ble/download';
 import { DRIVERS, recognise, type RecognisedDevice } from '../../core/ble/registry';
 import { markerKey, type BleUnavailable, type DownloadEvent } from '../../core/ble/types';
@@ -33,7 +33,7 @@ import { TauriBleTransport } from '../../storage/ble';
 import { esporta } from '../esporta';
 import { suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
-import { useLingua } from '../lingua';
+import { useLingua, useTraduciStabile } from '../lingua';
 import type { DownloadMarker } from '../../core/ble/types';
 import { dateShort, imm } from '../format';
 
@@ -66,8 +66,6 @@ type Stato =
       };
     };
 
-const transport = new TauriBleTransport();
-
 /** Byte → base64, senza dipendenze e senza far esplodere lo stack sui blocchi grandi. */
 function byteInBase64(b: Uint8Array): string {
   let s = '';
@@ -81,6 +79,17 @@ function byteInBase64(b: Uint8Array): string {
 export function BleDownload() {
   const { importDives, bleMarkers, saveBleMarker, forgetBleMarker } = useDiveLog();
   const { t } = useLingua();
+  /*
+   * IL TRASPORTO È UNO SOLO, e sa tradurre i propri errori.
+   *
+   * Stava fuori dal componente, costruito all'import del modulo: lì la lingua
+   * non esiste ancora. Ora nasce qui, una volta sola — `useTraduciStabile()`
+   * non cambia mai identità, quindi `useMemo` non lo ricostruisce mai — e la
+   * traduzione che riceve rilegge la lingua di adesso a ogni chiamata, non
+   * quella del momento in cui l'oggetto è stato creato.
+   */
+  const traduci = useTraduciStabile();
+  const transport = useMemo(() => new TauriBleTransport(traduci), [traduci]);
   const [stato, setStato] = useState<Stato>({ fase: 'iniziale' });
   const [trovati, setTrovati] = useState<RecognisedDevice[]>([]);
   const [copiato, setCopiato] = useState(false);
@@ -169,7 +178,7 @@ export function BleDownload() {
         },
       });
     }
-  }, []);
+  }, [transport]);
 
   /*
    * Stabile fra un render e l'altro, e senza leggere `stato`.
@@ -333,7 +342,7 @@ export function BleDownload() {
         ],
       });
     },
-    [importDives, fermaRicerca, bleMarkers, saveBleMarker, forgetBleMarker, tuttoDaCapo],
+    [importDives, fermaRicerca, bleMarkers, saveBleMarker, forgetBleMarker, tuttoDaCapo, transport],
   );
 
   return (

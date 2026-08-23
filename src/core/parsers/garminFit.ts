@@ -23,6 +23,7 @@
  */
 
 import { AIR, type Cylinder, type Dive, type DiveMode, type GasMix, type Sample } from '../model';
+import { comeSta, type Traduci } from '../traduci';
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
 import type { DiveParser, ParseInput, ParseResult } from './types';
@@ -50,9 +51,9 @@ export const garminFitParser: DiveParser = {
  * Il decoder FIT è un import dinamico: l'SDK pesa e non serve finché non si
  * importa davvero un file Garmin. Su iOS e web questo mantiene il bundle iniziale leggero.
  */
-export async function parseFit(input: ParseInput): Promise<ParseResult> {
+export async function parseFit(input: ParseInput, t: Traduci = comeSta): Promise<ParseResult> {
   const warnings: string[] = [];
-  if (!input.bytes) return { format: 'garmin-fit', dives: [], warnings: ['File FIT vuoto.'] };
+  if (!input.bytes) return { format: 'garmin-fit', dives: [], warnings: [t('File FIT vuoto.')] };
 
   const { Decoder, Stream } = await import('@garmin/fitsdk');
   const stream = Stream.fromByteArray(input.bytes);
@@ -67,7 +68,7 @@ export async function parseFit(input: ParseInput): Promise<ParseResult> {
   });
   if (errors?.length) {
     warnings.push(
-      `Il decoder FIT ha segnalato ${errors.length} anomalie; l'import continua sui dati validi.`,
+      `${t('Il decoder FIT ha segnalato')} ${errors.length} ${t("anomalie; l'import continua sui dati validi.")}`,
     );
   }
 
@@ -89,13 +90,17 @@ export async function parseFit(input: ParseInput): Promise<ParseResult> {
       : [];
 
   if (sessions.length === 0) {
-    return { format: 'garmin-fit', dives: [], warnings: [...warnings, 'Nessuna immersione nel file FIT.'] };
+    return {
+      format: 'garmin-fit',
+      dives: [],
+      warnings: [...warnings, t('Nessuna immersione nel file FIT.')],
+    };
   }
 
   const device = (m.fileIdMesgs ?? [])[0];
   const deviceModel = readModel(m);
   const gases = readGases(m);
-  const tanks = readTanks(m, warnings);
+  const tanks = readTanks(m, warnings, t);
 
   const dives: Dive[] = [];
   sessions.forEach((session, sessionIndex) => {
@@ -165,7 +170,7 @@ export async function parseFit(input: ParseInput): Promise<ParseResult> {
     dives.push(dive);
   });
 
-  if (dives.length === 0) warnings.push('Sessioni subacquee trovate ma senza profilo utilizzabile.');
+  if (dives.length === 0) warnings.push(t('Sessioni subacquee trovate ma senza profilo utilizzabile.'));
   return { format: 'garmin-fit', dives, warnings };
 }
 
@@ -195,7 +200,7 @@ function readGases(m: FitMessages): GasMix[] {
   return mixes.length ? mixes : [AIR];
 }
 
-function readTanks(m: FitMessages, warnings: string[]): TankStream[] {
+function readTanks(m: FitMessages, warnings: string[], t: Traduci = comeSta): TankStream[] {
   const bySensor = new Map<string, TankStream>();
   for (const u of m.tankUpdateMesgs ?? []) {
     if (!(u.timestamp instanceof Date) || typeof u.pressure !== 'number') continue;
@@ -222,10 +227,13 @@ function readTanks(m: FitMessages, warnings: string[]): TankStream[] {
   }
 
   const tanks = [...bySensor.values()];
-  tanks.forEach((t) => t.readings.sort((a, b) => a.at - b.at));
-  if (tanks.length && !tanks.some((t) => t.sizeL !== undefined)) {
+  // `bombola` e non `t`: il nome corto qui è ora la funzione che traduce.
+  tanks.forEach((bombola) => bombola.readings.sort((a, b) => a.at - b.at));
+  if (tanks.length && !tanks.some((bombola) => bombola.sizeL !== undefined)) {
     warnings.push(
-      'Il FIT non contiene il volume della bombola e non è deducibile da tank_summary: inserisci i litri nella scheda per avere il consumo in L/min.',
+      t(
+        'Il FIT non contiene il volume della bombola e non è deducibile da tank_summary: inserisci i litri nella scheda per avere il consumo in L/min.',
+      ),
     );
   }
   return tanks;
