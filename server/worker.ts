@@ -46,6 +46,7 @@ import {
 import { scambiaCodiceGoogle } from './googleScambio';
 import { creaArchivioChiavi, verificaTokenIdentita } from './identita';
 import { entroIlLimite, LimiteFrequenza, type SpazioLimiti } from './limite';
+import { paginaRimbalzo } from './paginaRimbalzo';
 import { firmaSessione, idUtente, verificaSessione } from './sessione';
 import {
   ArchivioNonCreato,
@@ -544,6 +545,29 @@ export default {
           const utente = modulo.get('user');
           if (utente) verso.searchParams.set('user', utente);
         }
+
+        /*
+         * ► DUE STRADE, E A SCEGLIERE È IL SISTEMA OPERATIVO, NON NOI. ◄
+         *
+         * Verso `127.0.0.1` — il Mac — si rimbalza col 303, che è la strada
+         * corta e funziona. Verso `mydivelog://` — l'iPhone — il 303 NON arriva
+         * da nessuna parte: i browser di iOS non seguono un rimando automatico
+         * verso uno schema che non sia http o https, ed è una difesa, non un
+         * difetto. Il sintomo è il peggiore possibile: la pagina resta bianca,
+         * il browser non dice niente, qui non si registra nessun errore, e
+         * l'accesso muore in silenzio. Visto su Chrome il 23 agosto 2026.
+         *
+         * Per quel caso si risponde con una pagina che ha un pulsante: il tocco
+         * di una persona verso uno schema d'applicazione iOS lo esegue senza
+         * discutere. Tutto il ragionamento sta in `paginaRimbalzo.ts`.
+         *
+         * Il controllo è `!== 'http:'` e non `=== 'mydivelog:'` apposta: chi
+         * decide quali destinazioni esistono è `destinazionePermessa`, e questa
+         * riga non deve diventare un secondo elenco da tenere allineato al
+         * primo. Qui interessa una cosa sola — è un indirizzo che il browser sa
+         * seguire da solo, sì o no.
+         */
+        if (verso.protocol !== 'http:') return paginaRimbalzo(verso.toString(), richiesta);
 
         /*
          * 303 e non 302: la richiesta in arrivo è una POST, e un 302 lascerebbe

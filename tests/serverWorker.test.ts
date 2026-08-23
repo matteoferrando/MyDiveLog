@@ -377,11 +377,48 @@ describe('il ritorno di Apple', () => {
     expect(dove.searchParams.get('state')).toBe(s);
   });
 
-  it('funziona anche verso lo schema dell’app, che è la strada dell’iPhone', async () => {
+  it('verso lo schema dell’app NON rimbalza: risponde con la pagina col pulsante', async () => {
+    /*
+     * ► La prova che tiene in piedi l'accesso su iPhone. ◄
+     *
+     * Un 303 verso `mydivelog://` i browser di iOS non lo seguono — è una
+     * difesa loro, non un difetto nostro — e il modo in cui non lo seguono è
+     * il peggiore che ci sia: pagina bianca, nessun errore da nessuna parte,
+     * accesso morto in silenzio. Se qualcuno un giorno «semplifica» questa
+     * riga rimettendo il 303 per tutti, il Mac continuerà a funzionare e
+     * l'iPhone smetterà, senza che nessun altro test se ne accorga.
+     */
     const { env } = ambiente();
     const risposta = await worker.fetch(ritorno({ code: 'cod-1', state: stato('mydivelog://accesso') }), env);
-    expect(risposta.status).toBe(303);
-    expect(risposta.headers.get('Location')).toContain('mydivelog://accesso?');
+
+    expect(risposta.status).toBe(200);
+    expect(risposta.headers.get('Location')).toBeNull();
+    expect(risposta.headers.get('Content-Type')).toContain('text/html');
+    // Il codice sta nella pagina: non deve finire in nessuna cache.
+    expect(risposta.headers.get('Cache-Control')).toBe('no-store');
+
+    const pagina = await risposta.text();
+    // Il pulsante È il collegamento: senza `href` non c'è niente da toccare.
+    expect(pagina).toContain('href="mydivelog://accesso?');
+    expect(pagina).toContain('code=cod-1');
+  });
+
+  it('la pagina del rimbalzo non si lascia iniettare dello script', async () => {
+    /*
+     * Il codice lo scrive Apple, la destinazione la scrive il browser di chi
+     * accede: nessuno dei due è nostro, e tutti e due finiscono dentro l'HTML.
+     * Qui si passa un `code` che prova a chiudere l'attributo e ad aprire uno
+     * script, e si pretende che nella pagina non ce ne sia traccia eseguibile.
+     */
+    const { env } = ambiente();
+    const cattivo = '"><script>alert(1)</script>';
+    const risposta = await worker.fetch(ritorno({ code: cattivo, state: stato('mydivelog://accesso') }), env);
+    const pagina = await risposta.text();
+
+    expect(pagina).not.toContain('<script>alert(1)</script>');
+    expect(pagina).not.toContain('"><script');
+    // E la CSP col nonce resta la rete sotto il trapezio.
+    expect(risposta.headers.get('Content-Security-Policy')).toContain("script-src 'nonce-");
   });
 
   it('RIFIUTA `https://attaccante.example` invece di seguirlo', async () => {
