@@ -25,7 +25,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { downloadFromComputer } from '../src/core/ble/download';
-import { FakeTransport, fakeDevice } from '../src/core/ble/fake';
+import { FakeTransport, fakeDevice, fintoPeregrine, logPnfSintetico } from '../src/core/ble/fake';
 import {
   SlipDecoder,
   decompressLre,
@@ -235,213 +235,19 @@ describe('base del logbook', () => {
 
 // ---------------------------------------------------- il finto Peregrine
 
-/**
- * Un Peregrine che non esiste, scritto dall'altra parte del protocollo.
+/*
+ * IL FINTO PEREGRINE È IN `src/core/ble/fake.ts`, non più qui.
  *
- * Riceve notifiche, riassembla lo SLIP con un decodificatore proprio, e
- * risponde. Il carico delle immersioni è un log PNF sintetico, così il giro
- * arriva fino a `decodePnf` e non si ferma ai byte.
- */
-function fintoPeregrine(logs: Uint8Array[]) {
-  let inArrivo: number[] = [];
-  let escaped = false;
-  const daMandare: Uint8Array[] = [];
-
-  /** L'inverso di quello che fa il driver, scritto a parte apposta. */
-  const incapsula = (payload: number[]) => {
-    const pacchetto = [0x01, 0xff, payload.length + 1, 0x00, ...payload];
-    const esc: number[] = [];
-    for (const c of pacchetto) {
-      if (c === END) esc.push(ESC, 0xdc);
-      else if (c === ESC) esc.push(ESC, 0xdd);
-      else esc.push(c);
-    }
-    esc.push(END);
-    const n = Math.ceil(esc.length / 18);
-    for (let i = 0; i < n; i++) {
-      daMandare.push(Uint8Array.from([n, i, ...esc.slice(i * 18, (i + 1) * 18)]));
-    }
-  };
-
-  const comprimi = (bytes: Uint8Array) => {
-    // XOR prima (è il rovescio del disfacimento), poi RLE.
-    const x = bytes.slice();
-    for (let i = x.length - 1; i >= 32; i--) x[i] ^= x[i - 32];
-    const bits: number[] = [];
-    const spingi = (v: number) => {
-      for (let i = 8; i >= 0; i--) bits.push((v >> i) & 1);
-    };
-    let i = 0;
-    while (i < x.length) {
-      if (x[i] === 0) {
-        let run = 0;
-        while (i < x.length && x[i] === 0 && run < 255) {
-          run++;
-          i++;
-        }
-        spingi(run);
-      } else {
-        spingi(0x100 | x[i]);
-        i++;
-      }
-    }
-    spingi(0);
-    while (bits.length % 72 !== 0) spingi(0);
-    const out = new Uint8Array(bits.length / 8);
-    bits.forEach((b, k) => {
-      if (b) out[k >> 3] |= 0x80 >> (k & 7);
-    });
-    return out;
-  };
-
-  const manifesto = () => {
-    const p = new Uint8Array(0x600);
-    logs.forEach((_, i) => {
-      const o = i * 32;
-      p[o] = 0xa5;
-      p[o + 1] = 0xc4;
-      p.set([0, 0, 0, i + 1], o + 4);
-      p[o + 23] = (i + 1) * 0x40;
-    });
-    return p;
-  };
-
-  /** Il trasferimento in corso: cosa si sta mandando e a che blocco si è. */
-  let corrente: Uint8Array | null = null;
-  let compresso = false;
-
-  const rispondi = (payload: number[]) => {
-    const cmd = payload[0];
-
-    if (cmd === 0x22) {
-      const id = (payload[1] << 8) | payload[2];
-      const dati =
-        id === 0x8010
-          ? // Il seriale è TESTO: otto caratteri ASCII col seriale scritto in
-            // esadecimale, come risponde un Peregrine vero (verificato sul
-            // diario di uno scarico reale). Il finto lo imita, perché un finto
-            // che risponde con quattro byte binari avrebbe lasciato passare
-            // l'errore di lettura che c'era.
-            [...new TextEncoder().encode('988B023F')]
-          : id === 0x8011
-            ? [...new TextEncoder().encode('V93')]
-            : id === 0x8060
-              ? [9] // Peregrine
-              : id === 0x8021
-                ? [0, 0x80, 0x00, 0x00, 0x00] // formato nuovo
-                : null;
-      if (!dati) return incapsula([0x7f, 0x22, 0x31]);
-      return incapsula([0x62, payload[1], payload[2], ...dati]);
-    }
-
-    if (cmd === 0x35) {
-      compresso = (payload[1] & 0x10) !== 0;
-      const addr = ((payload[3] << 24) >>> 0) + (payload[4] << 16) + (payload[5] << 8) + payload[6];
-      if (addr === 0xe0000000) corrente = manifesto();
-      else {
-        const i = (addr - 0x80000000) / 0x40 - 1;
-        corrente = comprimi(logs[i]);
-      }
-      return incapsula([0x75, 0x10, 0x00, 0x02]);
-    }
-
-    if (cmd === 0x36) {
-      const block = payload[1];
-      if (!corrente) return incapsula([0x7f, 0x36, 0x22]);
-      // Blocchi da 60 byte: piccoli apposta, così ogni risposta attraversa più
-      // notifiche e il riassemblaggio viene esercitato davvero.
-      const start = (block - 1) * 60;
-      const pezzo = corrente.subarray(start, start + 60);
-      if (pezzo.length === 0 && !compresso) return incapsula([0x76, block]);
-      return incapsula([0x76, block, ...pezzo]);
-    }
-
-    if (cmd === 0x37) {
-      corrente = null;
-      return incapsula([0x77, 0x00]);
-    }
-
-    return incapsula([0x7f, cmd, 0x11]);
-  };
-
-  return (frame: Uint8Array): Uint8Array[] | undefined => {
-    for (let i = 2; i < frame.length; i++) {
-      const c = frame[i];
-      if (c === END) {
-        if (inArrivo.length) {
-          const p = inArrivo;
-          inArrivo = [];
-          // `FF 01 len 00 payload`
-          rispondi(p.slice(4));
-        }
-        continue;
-      }
-      if (c === ESC) {
-        escaped = true;
-        continue;
-      }
-      if (escaped) {
-        escaped = false;
-        inArrivo.push(c === 0xdc ? END : c === 0xdd ? ESC : c);
-        continue;
-      }
-      inArrivo.push(c);
-    }
-    /*
-     * Le notifiche di risposta escono TUTTE INSIEME, già inquadrate.
-     *
-     * È come si comporta un collegamento vero: il firmware risponde a un
-     * comando completo mandando la sua raffica di notifiche, non una a ogni
-     * scrittura ricevuta. E vanno consegnate così come sono, senza farle
-     * rispezzare dall'MTU: i due byte di intestazione contano le notifiche, e
-     * ritagliarle a venti byte sposterebbe i confini rendendo i contatori falsi.
-     *
-     * Una scrittura intermedia — quelle che compongono un comando lungo — non
-     * produce niente, ed è giusto: il finto restituisce un elenco vuoto e il
-     * driver continua a scrivere.
-     */
-    if (!daMandare.length) return undefined;
-    return daMandare.splice(0, daMandare.length);
-  };
-}
-
-/**
- * Un log PNF minimo ma vero: apertura, un campione, chiusura, finale.
+ * Era nato in questo file e ci è rimasto finché a chiederlo c'era solo questo
+ * test. Ora lo chiede anche il Bluetooth finto dell'interfaccia
+ * (`src/ui/bluetoothFinto.ts`), che serve a fotografare le schermate dello
+ * scarico: copiarlo là avrebbe prodotto due finti destinati a divergere al
+ * primo ritocco del driver — e a divergere in silenzio, perché il secondo non
+ * lo esegue nessuno tante volte quante questo.
  *
- * Costruito con gli stessi offset che `decodePnf` legge, così il giro completo
- * arriva a un'immersione con una data e una profondità invece che a dei byte.
+ * Quello che valeva prima vale ancora, ed è scritto in cima alla funzione: è un'
+ * implementazione del protocollo scritta guardando il C, con codificatori propri.
  */
-function logSintetico(startTimeS: number, depthDm: number): Uint8Array {
-  const R = 32;
-  const rec: number[][] = [];
-  const apertura = new Array(R).fill(0);
-  apertura[0] = 0x10;
-  apertura[4] = 40; // GF basso
-  apertura[5] = 85; // GF alto
-  apertura[8] = 0; // metrico
-  apertura[12] = (startTimeS >>> 24) & 0xff;
-  apertura[13] = (startTimeS >>> 16) & 0xff;
-  apertura[14] = (startTimeS >>> 8) & 0xff;
-  apertura[15] = startTimeS & 0xff;
-  apertura[20] = 21; // prima miscela: aria
-  rec.push(apertura);
-
-  const campione = new Array(R).fill(0);
-  campione[0] = 0x01;
-  campione[1] = (depthDm >> 8) & 0xff;
-  campione[2] = depthDm & 0xff;
-  rec.push(campione);
-
-  const chiusura = new Array(R).fill(0);
-  chiusura[0] = 0x20;
-  rec.push(chiusura);
-
-  const finale = new Array(R).fill(0);
-  finale[0] = 0xff;
-  rec.push(finale);
-
-  return Uint8Array.from(rec.flat());
-}
 
 describe('scarico completo dal finto Peregrine', () => {
   const trasporto = (logs: Uint8Array[]) =>
@@ -456,12 +262,12 @@ describe('scarico completo dal finto Peregrine', () => {
   it('il log sintetico è davvero un log PNF leggibile', () => {
     // Se questo fallisce, tutto il resto del blocco proverebbe il protocollo
     // contro un carico che non è un log — cioè non proverebbe niente.
-    const l = decodePnf(logSintetico(1_750_000_000, 234));
+    const l = decodePnf(logPnfSintetico(1_750_000_000, 234));
     expect(l.startTimeS).toBe(1_750_000_000);
   });
 
   it('si presenta, conta le immersioni e le scarica tutte', async () => {
-    const t = trasporto([logSintetico(1_750_000_000, 200), logSintetico(1_750_100_000, 300)]);
+    const t = trasporto([logPnfSintetico(1_750_000_000, 200), logPnfSintetico(1_750_100_000, 300)]);
     const eventi: string[] = [];
     const out = await downloadFromComputer(t, fakeDevice({ name: 'Peregrine' }), shearwaterDriver, {
       onEvent: (e) => eventi.push(e.kind),
@@ -476,7 +282,7 @@ describe('scarico completo dal finto Peregrine', () => {
   });
 
   it('le immersioni scaricate hanno data, profondità e provenienza giuste', async () => {
-    const t = trasporto([logSintetico(1_750_000_000, 234)]);
+    const t = trasporto([logPnfSintetico(1_750_000_000, 234)]);
     const out = await downloadFromComputer(t, fakeDevice({ name: 'Peregrine' }), shearwaterDriver);
     const d = out.dives[0];
     expect(d.startTime).toBe(new Date(1_750_000_000_000).toISOString());
@@ -493,9 +299,9 @@ describe('scarico completo dal finto Peregrine', () => {
      * un'immersione già importata da Shearwater Cloud ne creerebbe una seconda,
      * e le note scritte a mano resterebbero sulla copia sbagliata.
      */
-    const t = trasporto([logSintetico(1_750_000_000, 234)]);
+    const t = trasporto([logPnfSintetico(1_750_000_000, 234)]);
     const a = await downloadFromComputer(t, fakeDevice({ name: 'Peregrine' }), shearwaterDriver);
-    const t2 = trasporto([logSintetico(1_750_000_000, 234)]);
+    const t2 = trasporto([logPnfSintetico(1_750_000_000, 234)]);
     const b = await downloadFromComputer(t2, fakeDevice({ name: 'Peregrine' }), shearwaterDriver);
     expect(a.dives[0].id).toBe(b.dives[0].id);
   });
@@ -507,7 +313,7 @@ describe('scarico completo dal finto Peregrine', () => {
      * deve quindi essere la prima immersione arrivata, non l'ultima. Con la
      * più vecchia, il prossimo scarico rileggerebbe tutto tranne una.
      */
-    const t = trasporto([logSintetico(1_750_000_000, 200), logSintetico(1_750_100_000, 300)]);
+    const t = trasporto([logPnfSintetico(1_750_000_000, 200), logPnfSintetico(1_750_100_000, 300)]);
     const out = await downloadFromComputer(t, fakeDevice({ name: 'Peregrine' }), shearwaterDriver);
     expect(out.status).toBe('complete');
     expect(out.newestKey).toBe('00000001');
@@ -527,7 +333,7 @@ describe('scarico completo dal finto Peregrine', () => {
     const t = new FakeTransport([
       {
         device: fakeDevice({ name: 'Peregrine' }),
-        responder: fintoPeregrine([logSintetico(1_750_000_000, 200), logSintetico(1_750_100_000, 300)]),
+        responder: fintoPeregrine([logPnfSintetico(1_750_000_000, 200), logPnfSintetico(1_750_100_000, 300)]),
         // Cade dopo qualche comando: abbastanza per presentarsi e leggere il
         // manifesto, non abbastanza per finire.
         quirks: { mtu: 20, dropAfterCommands: 20 },
@@ -540,7 +346,7 @@ describe('scarico completo dal finto Peregrine', () => {
   it('`since` ferma il manifesto e non riscarica niente', async () => {
     // Il secondo scarico deve durare secondi, non minuti: senza questo, ogni
     // volta si rilegge tutta la memoria del computer.
-    const t = trasporto([logSintetico(1_750_000_000, 200), logSintetico(1_750_100_000, 300)]);
+    const t = trasporto([logPnfSintetico(1_750_000_000, 200), logPnfSintetico(1_750_100_000, 300)]);
     const out = await downloadFromComputer(t, fakeDevice({ name: 'Peregrine' }), shearwaterDriver, {
       since: () => '00000001',
     });
@@ -566,7 +372,7 @@ describe('scarico completo dal finto Peregrine', () => {
      * la fusione. Il dato utile è QUALI codici si sono visti, non quante volte.
      */
     const conEventi = (t: number) => {
-      const l = logSintetico(t, 200);
+      const l = logPnfSintetico(t, 200);
       // Un evento di tipo sconosciuto in coda al log, prima del record finale.
       const evento = new Uint8Array(32);
       evento[0] = 0x02;

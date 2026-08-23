@@ -218,3 +218,240 @@ export class FakeTransport implements BleTransport {
 export function fakeDevice(over: Partial<BleFoundDevice> = {}): BleFoundDevice {
   return { id: 'dev-1', name: 'Peregrine', rssi: -55, serviceUuids: [], ...over };
 }
+
+// --------------------------------------------------- un Peregrine che risponde
+
+const SLIP_END = 0xc0;
+const SLIP_ESC = 0xdb;
+
+/**
+ * Un Peregrine che non esiste, scritto dall'altra parte del protocollo.
+ *
+ * Riceve notifiche, riassembla lo SLIP con un decodificatore proprio, e
+ * risponde: identificazione, manifesto, immersioni compresse con lo stesso RLE
+ * a nove bit e lo stesso XOR a blocchi di trentadue. Il carico è un log PNF
+ * sintetico (vedi `logPnfSintetico`), così il giro arriva fino a `decodePnf` e
+ * non si ferma ai byte.
+ *
+ * PERCHÉ STA QUI E NON NEL SUO TEST. Ci è nato dentro, in
+ * `tests/shearwaterBle.test.ts`, ed è rimasto lì finché a chiederlo era solo
+ * quello. Ora lo chiede anche il Bluetooth finto dell'interfaccia
+ * (`src/ui/bluetoothFinto.ts`), che serve a fotografare le schermate dello
+ * scarico — elenco, avanzamento, esito — le sole che nessun test può vedere
+ * perché esistono unicamente quando una ricerca Bluetooth trova qualcosa.
+ * Duplicarlo avrebbe prodotto due finti che divergono al primo ritocco del
+ * driver, e il secondo — quello dell'interfaccia — nessuno lo eseguirebbe mai
+ * abbastanza da accorgersene.
+ *
+ * RESTA SCRITTO GUARDANDO IL C, non il nostro TypeScript: usa codificatori
+ * propri invece di riusare `slipFrames` e compagnia. Un finto che costruisce la
+ * risposta con le stesse funzioni che dovranno leggerla non prova niente, e
+ * questo vale anche adesso che vive in `src/`.
+ *
+ * IL SERIALE È UN PARAMETRO, e la ragione è stata trovata a caro prezzo: il
+ * segnalibro dello scarico incrementale si ricorda SOTTO IL SERIALE. Due finti
+ * con lo stesso seriale sono lo stesso computer per l'archivio, quindi appena
+ * il primo ha finito, il secondo si sente rispondere «niente di nuovo» e non
+ * scarica una riga — che è il comportamento giusto, applicato a due dispositivi
+ * che nella realtà sono distinti.
+ */
+export function fintoPeregrine(logs: Uint8Array[], seriale = '988B023F'): FakeResponder {
+  let inArrivo: number[] = [];
+  let escaped = false;
+  const daMandare: Uint8Array[] = [];
+
+  /** L'inverso di quello che fa il driver, scritto a parte apposta. */
+  const incapsula = (payload: number[]) => {
+    const pacchetto = [0x01, 0xff, payload.length + 1, 0x00, ...payload];
+    const esc: number[] = [];
+    for (const c of pacchetto) {
+      if (c === SLIP_END) esc.push(SLIP_ESC, 0xdc);
+      else if (c === SLIP_ESC) esc.push(SLIP_ESC, 0xdd);
+      else esc.push(c);
+    }
+    esc.push(SLIP_END);
+    const n = Math.ceil(esc.length / 18);
+    for (let i = 0; i < n; i++) {
+      daMandare.push(Uint8Array.from([n, i, ...esc.slice(i * 18, (i + 1) * 18)]));
+    }
+  };
+
+  const comprimi = (bytes: Uint8Array) => {
+    // XOR prima (è il rovescio del disfacimento), poi RLE.
+    const x = bytes.slice();
+    for (let i = x.length - 1; i >= 32; i--) x[i] ^= x[i - 32];
+    const bits: number[] = [];
+    const spingi = (v: number) => {
+      for (let i = 8; i >= 0; i--) bits.push((v >> i) & 1);
+    };
+    let i = 0;
+    while (i < x.length) {
+      if (x[i] === 0) {
+        let run = 0;
+        while (i < x.length && x[i] === 0 && run < 255) {
+          run++;
+          i++;
+        }
+        spingi(run);
+      } else {
+        spingi(0x100 | x[i]);
+        i++;
+      }
+    }
+    spingi(0);
+    while (bits.length % 72 !== 0) spingi(0);
+    const out = new Uint8Array(bits.length / 8);
+    bits.forEach((b, k) => {
+      if (b) out[k >> 3] |= 0x80 >> (k & 7);
+    });
+    return out;
+  };
+
+  const manifesto = () => {
+    const p = new Uint8Array(0x600);
+    logs.forEach((_, i) => {
+      const o = i * 32;
+      p[o] = 0xa5;
+      p[o + 1] = 0xc4;
+      p.set([0, 0, 0, i + 1], o + 4);
+      p[o + 23] = (i + 1) * 0x40;
+    });
+    return p;
+  };
+
+  /** Il trasferimento in corso: cosa si sta mandando e a che blocco si è. */
+  let corrente: Uint8Array | null = null;
+  let compresso = false;
+
+  const rispondi = (payload: number[]) => {
+    const cmd = payload[0];
+
+    if (cmd === 0x22) {
+      const id = (payload[1] << 8) | payload[2];
+      const dati =
+        id === 0x8010
+          ? // Il seriale è TESTO: otto caratteri ASCII col seriale scritto in
+            // esadecimale, come risponde un Peregrine vero (verificato sul
+            // diario di uno scarico reale). Il finto lo imita, perché un finto
+            // che risponde con quattro byte binari avrebbe lasciato passare
+            // l'errore di lettura che c'era.
+            [...new TextEncoder().encode(seriale)]
+          : id === 0x8011
+            ? [...new TextEncoder().encode('V93')]
+            : id === 0x8060
+              ? [9] // Peregrine
+              : id === 0x8021
+                ? [0, 0x80, 0x00, 0x00, 0x00] // formato nuovo
+                : null;
+      if (!dati) return incapsula([0x7f, 0x22, 0x31]);
+      return incapsula([0x62, payload[1], payload[2], ...dati]);
+    }
+
+    if (cmd === 0x35) {
+      compresso = (payload[1] & 0x10) !== 0;
+      const addr = ((payload[3] << 24) >>> 0) + (payload[4] << 16) + (payload[5] << 8) + payload[6];
+      if (addr === 0xe0000000) corrente = manifesto();
+      else {
+        const i = (addr - 0x80000000) / 0x40 - 1;
+        corrente = comprimi(logs[i]);
+      }
+      return incapsula([0x75, 0x10, 0x00, 0x02]);
+    }
+
+    if (cmd === 0x36) {
+      const block = payload[1];
+      if (!corrente) return incapsula([0x7f, 0x36, 0x22]);
+      // Blocchi da 60 byte: piccoli apposta, così ogni risposta attraversa più
+      // notifiche e il riassemblaggio viene esercitato davvero.
+      const start = (block - 1) * 60;
+      const pezzo = corrente.subarray(start, start + 60);
+      if (pezzo.length === 0 && !compresso) return incapsula([0x76, block]);
+      return incapsula([0x76, block, ...pezzo]);
+    }
+
+    if (cmd === 0x37) {
+      corrente = null;
+      return incapsula([0x77, 0x00]);
+    }
+
+    return incapsula([0x7f, cmd, 0x11]);
+  };
+
+  return (frame: Uint8Array): Uint8Array[] | undefined => {
+    for (let i = 2; i < frame.length; i++) {
+      const c = frame[i];
+      if (c === SLIP_END) {
+        if (inArrivo.length) {
+          const p = inArrivo;
+          inArrivo = [];
+          // `FF 01 len 00 payload`
+          rispondi(p.slice(4));
+        }
+        continue;
+      }
+      if (c === SLIP_ESC) {
+        escaped = true;
+        continue;
+      }
+      if (escaped) {
+        escaped = false;
+        inArrivo.push(c === 0xdc ? SLIP_END : c === 0xdd ? SLIP_ESC : c);
+        continue;
+      }
+      inArrivo.push(c);
+    }
+    /*
+     * Le notifiche di risposta escono TUTTE INSIEME, già inquadrate.
+     *
+     * È come si comporta un collegamento vero: il firmware risponde a un
+     * comando completo mandando la sua raffica di notifiche, non una a ogni
+     * scrittura ricevuta. E vanno consegnate così come sono, senza farle
+     * rispezzare dall'MTU: i due byte di intestazione contano le notifiche, e
+     * ritagliarle a venti byte sposterebbe i confini rendendo i contatori falsi.
+     *
+     * Una scrittura intermedia — quelle che compongono un comando lungo — non
+     * produce niente, ed è giusto: il finto restituisce un elenco vuoto e il
+     * driver continua a scrivere.
+     */
+    if (!daMandare.length) return undefined;
+    return daMandare.splice(0, daMandare.length);
+  };
+}
+
+/**
+ * Un log PNF minimo ma vero: apertura, un campione, chiusura, finale.
+ *
+ * Costruito con gli stessi offset che `decodePnf` legge, così il giro completo
+ * arriva a un'immersione con una data e una profondità invece che a dei byte.
+ */
+export function logPnfSintetico(startTimeS: number, depthDm: number): Uint8Array {
+  const R = 32;
+  const rec: number[][] = [];
+  const apertura = new Array(R).fill(0);
+  apertura[0] = 0x10;
+  apertura[4] = 40; // GF basso
+  apertura[5] = 85; // GF alto
+  apertura[8] = 0; // metrico
+  apertura[12] = (startTimeS >>> 24) & 0xff;
+  apertura[13] = (startTimeS >>> 16) & 0xff;
+  apertura[14] = (startTimeS >>> 8) & 0xff;
+  apertura[15] = startTimeS & 0xff;
+  apertura[20] = 21; // prima miscela: aria
+  rec.push(apertura);
+
+  const campione = new Array(R).fill(0);
+  campione[0] = 0x01;
+  campione[1] = (depthDm >> 8) & 0xff;
+  campione[2] = depthDm & 0xff;
+  rec.push(campione);
+
+  const chiusura = new Array(R).fill(0);
+  chiusura[0] = 0x20;
+  rec.push(chiusura);
+
+  const finale = new Array(R).fill(0);
+  finale[0] = 0xff;
+  rec.push(finale);
+
+  return Uint8Array.from(rec.flat());
+}

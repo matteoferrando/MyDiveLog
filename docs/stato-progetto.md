@@ -747,6 +747,20 @@ pianificatore spinto su profili estremi. Non verifica che i numeri siano giusti
 (per quello ci sono i test dei moduli e il riscontro con Shearwater): verifica che
 la catena non si rompa e non produca assurdità quando l'app la userà qualcun altro.
 
+`npm run schermate:ble` copre la metà che nessun test poteva vedere: le schermate
+dello scarico Bluetooth esistono solo quando una ricerca trova qualcosa, e nel
+browser il Bluetooth non c'è — è di lì che è passato il difetto arrivato fino
+all'utente, l'elenco dei dispositivi che si trascinava di lato su iPhone. Compila
+con `VITE_FINTO_BLUETOOTH=1` in `dist-ble/` (nella build normale il finto non
+esiste: la bandiera è di compilazione, e lo script lo verifica cercandolo dentro
+`dist/`), e fotografa a 390 e 1280 px elenco dei dispositivi, avanzamento, esito
+riuscito, diario tecnico aperto, riquadro dei segnalibri, scarico interrotto a
+metà, computer che non risponde, ricerca a vuoto dopo i dodici secondi e Bluetooth
+spento. Soprattutto MISURA: per ogni contenitore che può scorrere confronta
+`scrollWidth` con `clientWidth` ed esce con errore se sfora — la misura che
+mancava, perché il documento restava pulito mentre un riquadro dentro la pagina si
+trascinava di lato.
+
 ## Da verificare con file reali
 
 - **`currentTime` di Shearwater XML** non ha unità documentate: il parser ricava la

@@ -1,6 +1,10 @@
 # Dipendenze e prodotti di compilazione
 node_modules
 dist
+# La build col Bluetooth finto, che `npm run schermate:ble` rifà ogni volta.
+# Non va confusa con `dist/`: quella si pubblica, questa contiene quattro
+# computer subacquei che non esistono e non deve uscire di qui.
+dist-ble
 dist-ssr
 .vite
 coverage

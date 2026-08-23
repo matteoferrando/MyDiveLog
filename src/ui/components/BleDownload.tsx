@@ -28,7 +28,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { downloadFromComputer } from '../../core/ble/download';
 import { DRIVERS, recognise, type RecognisedDevice } from '../../core/ble/registry';
-import { markerKey, type BleUnavailable, type DownloadEvent } from '../../core/ble/types';
+import { markerKey, type BleTransport, type BleUnavailable, type DownloadEvent } from '../../core/ble/types';
 import { TauriBleTransport } from '../../storage/ble';
 import { esporta } from '../esporta';
 import { suIOS } from '../../piattaforma';
@@ -89,7 +89,44 @@ export function BleDownload() {
    * quella del momento in cui l'oggetto è stato creato.
    */
   const traduci = useTraduciStabile();
-  const transport = useMemo(() => new TauriBleTransport(traduci), [traduci]);
+  const vero = useMemo(() => new TauriBleTransport(traduci), [traduci]);
+  /*
+   * IL BLUETOOTH FINTO, E PERCHÉ LA BANDIERA È DI COMPILAZIONE.
+   *
+   * Le schermate dello scarico — l’elenco dei dispositivi, l’avanzamento, il
+   * computer che si scollega a metà, l’esito — esistono soltanto quando una
+   * ricerca Bluetooth trova qualcosa, e nel browser il Bluetooth non c’è.
+   * Nessun controllo automatico poteva vederle, ed è lì che è passato il
+   * difetto arrivato fino all’utente: l’elenco che si trascinava di lato su
+   * iPhone. Compilando con `VITE_FINTO_BLUETOOTH=1`, al posto del trasporto
+   * vero ne arriva uno finto con dentro quattro computer, e
+   * `npm run schermate:ble` le fotografa e le misura.
+   *
+   * La bandiera è di COMPILAZIONE e non un interruttore, perché un finto
+   * computer subacqueo raggiungibile in una build di produzione immetterebbe
+   * immersioni inventate nell’archivio di qualcuno — e in un logbook è il
+   * difetto peggiore che ci sia. `import.meta.env.VITE_FINTO_BLUETOOTH` è una
+   * costante alla compilazione: senza la bandiera questa condizione è falsa
+   * per sempre, il ramo è codice morto e Rollup butta via l’`import()`
+   * insieme a tutto quello che raggiunge. Non «c’è ma non si arriva»: non
+   * c’è. Vedi `src/ui/bluetoothFinto.ts`.
+   *
+   * Arriva DOPO il primo disegno, perché un `import()` è asincrono: fino a
+   * che non è caricato si usa il trasporto vero, che nel browser risponde
+   * «non disponibile». È un istante, e comunque prima che si prema qualcosa.
+   */
+  const [finto, setFinto] = useState<BleTransport | null>(null);
+  useEffect(() => {
+    if (import.meta.env.VITE_FINTO_BLUETOOTH !== '1') return;
+    let vivo = true;
+    void import('../bluetoothFinto').then((m) => {
+      if (vivo) setFinto(m.trasportoFinto());
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
+  const transport = finto ?? vero;
   const [stato, setStato] = useState<Stato>({ fase: 'iniziale' });
   const [trovati, setTrovati] = useState<RecognisedDevice[]>([]);
   const [copiato, setCopiato] = useState(false);
@@ -732,12 +769,22 @@ export function BleDownload() {
                 </span>
               )}
             </div>
+            {/*
+             * `overflow-wrap: anywhere` INSIEME a `pre-wrap`, e non è una
+             * ridondanza: `pre-wrap` manda a capo agli spazi, ma nel diario le
+             * righe che contano sono esadecimale e identificativi — token lunghi
+             * senza un solo spazio, che non si spezzano da nessuna parte. A 390 px
+             * il riquadro si trascinava di lato di cinque pixel: poco, ma è
+             * esattamente il difetto che `npm run schermate:ble` è stato scritto
+             * per trovare, misurato dentro il contenitore e non nel documento.
+             */}
             <pre
               style={{
                 fontSize: 11,
                 maxHeight: 300,
                 overflow: 'auto',
                 whiteSpace: 'pre-wrap',
+                overflowWrap: 'anywhere',
                 background: 'var(--surface-3)',
                 padding: 10,
                 borderRadius: 'var(--radius-sm)',
