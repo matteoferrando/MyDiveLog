@@ -55,6 +55,22 @@ tauri-plugin-opener = "2"
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 keyring = { version = "3", features = ["apple-native"] }
 
+# L'aggiornamento automatico, e il riavvio che lo conclude. SOLO SU macOS.
+#
+# Non è una svista che manchi iOS: là gli aggiornamenti li distribuisce l'App
+# Store, e un'applicazione che se li scarica per conto suo verrebbe rifiutata
+# alla revisione. Dipendenza per bersaglio significa anche che su iPhone questi
+# due crate non vengono nemmeno compilati — e che il permesso corrispondente
+# deve stare in `capabilities/macos.json`, non in `default.json`, o la build
+# iOS fallisce con «permission not found».
+#
+# `process` serve a una riga sola: dopo aver installato l'aggiornamento
+# l'applicazione va riavviata, e senza questo plugin l'unico modo sarebbe
+# chiederlo a chi guarda.
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+
 # Il ritorno dall'accesso su iOS.
 #
 # Sul Mac si usa un ascoltatore su `127.0.0.1`, che è la strada raccomandata per

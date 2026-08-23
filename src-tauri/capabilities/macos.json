@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/macOS-schema.json",
+  "identifier": "macos",
+  "description": "Solo sul Mac: cercare, scaricare e installare un aggiornamento dell'applicazione, e riavviarla quando è installato. Su iPhone questi permessi non devono esistere — là gli aggiornamenti li distribuisce l'App Store, i plugin non vengono nemmeno compilati, e un permesso per un plugin assente fa fallire la build con «permission not found».",
+  "platforms": ["macOS"],
+  "windows": ["main"],
+  "permissions": ["updater:default", "process:allow-restart"]
+}

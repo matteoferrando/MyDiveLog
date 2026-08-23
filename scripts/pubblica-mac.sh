@@ -76,6 +76,46 @@ fi
 # dentro `tauri.conf.json`, dove romperebbe la compilazione a chiunque altro.
 export APPLE_SIGNING_IDENTITY="$IDENTITA"
 
+echo "→ controllo la chiave che firma gli aggiornamenti"
+# Due cose, entrambe fuori dal repository e nessuna delle due creabile da uno
+# script: la chiave privata (`npm run tauri signer generate`) e la sua password
+# nel portachiavi. Senza, `createUpdaterArtifacts` fa fallire la compilazione a
+# metà — dopo venti minuti, non prima.
+CHIAVE="${TAURI_CHIAVE:-$HOME/.tauri/mydivelog.key}"
+if [ ! -f "$CHIAVE" ]; then
+  cat >&2 <<FINE
+
+FERMO: non trovo la chiave che firma gli aggiornamenti ($CHIAVE).
+
+Creala una volta sola con:
+
+  npm run tauri signer generate -- -w ~/.tauri/mydivelog.key
+
+Annota la password: senza, non si possono più firmare aggiornamenti per chi ha
+già l'applicazione installata, e non c'è modo di rimediare.
+
+FINE
+  exit 1
+fi
+if ! PAROLA=$(security find-generic-password -s mydivelog-aggiornamenti -w 2>/dev/null); then
+  cat >&2 <<'FINE'
+
+FERMO: la password della chiave non è nel portachiavi.
+
+  security add-generic-password -a "$USER" -s mydivelog-aggiornamenti -w
+
+(non scrive niente a schermo: incolla la password e premi invio)
+
+FINE
+  exit 1
+fi
+# IL CONTENUTO, NON IL PERCORSO. `tauri build` accetta tutti e due, ma
+# `tauri signer sign` prova a decodificare come base64 quello che trova e si
+# ferma con «Invalid symbol 46» — il punto di `~/.tauri`, letto come se fosse
+# parte di una chiave. Un'ora buttata la prima volta.
+export TAURI_SIGNING_PRIVATE_KEY="$(cat "$CHIAVE")"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$PAROLA"
+
 echo "→ compilo"
 npm run desktop:build
 
@@ -113,6 +153,22 @@ case "$FIRMA" in
     ;;
 esac
 
+# --- l'archivio per l'aggiornamento automatico -------------------------------
+#
+# RIFATTO QUI, e non lasciato a Tauri. Il bundler lo produce durante la
+# compilazione, cioè PRIMA della rifirma qui sopra: quell'archivio conterrebbe
+# l'applicazione senza runtime irrobustito, e chi si aggiorna finirebbe con una
+# copia diversa da quella che scarica dal sito. Un aggiornamento deve consegnare
+# esattamente lo stesso programma del pacchetto, o le due strade divergono e
+# nessuno se ne accorge finché non si va a cercare un difetto che esiste su una
+# sola delle due.
+echo "→ preparo l'archivio dell'aggiornamento"
+ARCHIVIO="src-tauri/target/release/bundle/macos/MyDiveLog.app.tar.gz"
+rm -f "$ARCHIVIO" "$ARCHIVIO.sig"
+tar -czf "$ARCHIVIO" -C "$(dirname "$APP")" "$(basename "$APP")"
+npm run --silent tauri -- signer sign "$ARCHIVIO" >/dev/null
+node scripts/manifesto-aggiornamento.mjs "${NOTE_VERSIONE:-}"
+
 # --- il pacchetto ------------------------------------------------------------
 #
 # COSTRUITO QUI E NON DA TAURI, per una ragione sola: quello di Tauri contiene
@@ -148,4 +204,11 @@ spctl -a -t open --context context:primary-signature -v "$DMG"
 
 echo
 echo "Pronto: $DMG"
-echo "Da qui si allega a una release su GitHub."
+echo
+echo "Da allegare alla release, TUTTI E QUATTRO:"
+echo "  $DMG"
+echo "  (una copia col nome stabile MyDiveLog-macOS-arm64.dmg, per il pulsante del sito)"
+echo "  $ARCHIVIO"
+echo "  src-tauri/target/release/bundle/latest.json"
+echo
+echo "Senza gli ultimi due, chi ha già l'applicazione non vedrà mai questo aggiornamento."

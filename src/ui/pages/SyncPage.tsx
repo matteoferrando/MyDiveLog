@@ -14,11 +14,18 @@
  * e l'altra strada resta aperta per il giorno che la prima non funziona.
  */
 
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { esporta } from '../esporta';
 import { suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
 import { useLingua } from '../lingua';
+import {
+  cercaAggiornamento,
+  descriviScaricamento,
+  installaAggiornamento,
+  type StatoAggiornamento,
+  suMac,
+} from '../../aggiornamento/aggiornamento';
 import { TRASH_DAYS, TRASH_SOFT_LIMIT, daysLeft, sortTrash } from '../../storage/trash';
 import { formatDuration } from '../../core/units';
 import { dateShort, imm, plural } from '../format';
@@ -153,6 +160,8 @@ export function SyncPage() {
       </div>
 
       <AccountCard />
+
+      <AggiornamentoCard />
 
       <div className="card">
         <h2>{t('Sincronizza ora')}</h2>
@@ -1311,6 +1320,139 @@ function TrashCard() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+/**
+ * L'aggiornamento dell'applicazione, sul Mac.
+ *
+ * ► NON COMPARE DOVE NON HA SENSO. ◄ Nel browser e su iPhone questa carta non
+ * si disegna affatto: là gli aggiornamenti li distribuisce l'App Store, e una
+ * carta che dice «sei aggiornato» in un posto dove non aggiorniamo niente è una
+ * bugia gentile. Meglio il silenzio.
+ *
+ * ► CERCA DA SÉ, INSTALLA SU RICHIESTA. ◄ La ricerca parte all'apertura della
+ * pagina: è una richiesta piccola, senza conseguenze, e serve a far sapere che
+ * esiste una versione nuova a chi non andrebbe mai a controllare. Scaricare e
+ * installare, invece, parte da un pulsante — come la sincronizzazione. Un
+ * programma che si sostituisce da solo sotto le mani di chi lo sta usando è una
+ * cosa che si subisce, non che si sceglie.
+ *
+ * La ricerca automatica NON mostra i propri errori. Se la rete manca, chi ha
+ * aperto le impostazioni per tutt'altro non deve leggere un errore rosso su una
+ * cosa che non ha chiesto. Quando invece è lui a premere «Controlla», l'errore
+ * si vede eccome: ha fatto una domanda e ha diritto alla risposta vera, invece
+ * di un «sei aggiornato» che non abbiamo verificato.
+ */
+function AggiornamentoCard() {
+  const { t } = useLingua();
+  const [stato, setStato] = useState<StatoAggiornamento>({ fase: 'fermo' });
+
+  const cerca = useCallback((dichiaraErrori: boolean) => {
+    setStato({ fase: 'cerco' });
+    void cercaAggiornamento()
+      .then((trovato) => setStato(trovato ? { fase: 'trovato', ...trovato } : { fase: 'nessuno' }))
+      .catch((err) => {
+        if (!dichiaraErrori) {
+          setStato({ fase: 'fermo' });
+          return;
+        }
+        setStato({ fase: 'errore', messaggio: err instanceof Error ? err.message : String(err) });
+      });
+  }, []);
+
+  /*
+   * Una volta sola all'apertura della pagina. `suMac()` è già stato controllato
+   * da chi disegna la carta, ma la guardia resta anche qui: questo effetto non
+   * deve dipendere da chi lo monta.
+   */
+  useEffect(() => {
+    if (suMac()) cerca(false);
+  }, [cerca]);
+
+  const installa = () => {
+    setStato({ fase: 'scarico', fatti: 0 });
+    void installaAggiornamento((fatti, totali) => setStato({ fase: 'scarico', fatti, totali }))
+      .then(() => setStato({ fase: 'installato' }))
+      .catch((err) =>
+        setStato({ fase: 'errore', messaggio: err instanceof Error ? err.message : String(err) }),
+      );
+  };
+
+  if (!suMac()) return null;
+
+  return (
+    <div className="card">
+      <h2>{t('Aggiornamenti')}</h2>
+      <p className="card-sub">
+        {t('L’app controlla se c’è una versione nuova. Scaricarla e installarla lo decidi tu.')}
+      </p>
+
+      {stato.fase === 'cerco' && <p style={{ fontSize: 13, margin: 0 }}>{t('Controllo…')}</p>}
+
+      {stato.fase === 'nessuno' && (
+        <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13 }}>{t('Sei alla versione più recente.')}</span>
+          <button onClick={() => cerca(true)}>{t('Controlla di nuovo')}</button>
+        </div>
+      )}
+
+      {stato.fase === 'fermo' && <button onClick={() => cerca(true)}>{t('Controlla')}</button>}
+
+      {stato.fase === 'trovato' && (
+        <>
+          <div className="notice" role="status" style={{ marginBottom: 12 }}>
+            {t('C’è la versione')} <b>{stato.versione}</b>.
+          </div>
+          {/*
+           * Le note di versione le scrive chi pubblica e arrivano dalla rete:
+           * si mostrano come TESTO, mai come markup, e in uno spazio limitato
+           * con lo scorrimento — una nota lunga non deve spingere il pulsante
+           * fuori dallo schermo.
+           */}
+          {stato.note && (
+            <pre
+              style={{
+                fontSize: 12,
+                whiteSpace: 'pre-wrap',
+                maxHeight: 160,
+                overflow: 'auto',
+                margin: '0 0 12px',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              {stato.note}
+            </pre>
+          )}
+          <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+            <button className="btn btn-primary" onClick={installa}>
+              {t('Installa e riavvia')}
+            </button>
+            <span className="muted" style={{ fontSize: 11, alignSelf: 'center' }}>
+              {t('L’applicazione si chiude e si riapre da sola.')}
+            </span>
+          </div>
+        </>
+      )}
+
+      {stato.fase === 'scarico' && (
+        <p style={{ fontSize: 13, margin: 0 }} role="status">
+          {descriviScaricamento(stato.fatti, stato.totali, t)}
+        </p>
+      )}
+
+      {stato.fase === 'installato' && (
+        <p style={{ fontSize: 13, margin: 0 }} role="status">
+          {t('Installato. L’applicazione si sta riavviando.')}
+        </p>
+      )}
+
+      {stato.fase === 'errore' && (
+        <div className="notice notice-error" role="alert">
+          {stato.messaggio}
+        </div>
+      )}
     </div>
   );
 }

@@ -297,6 +297,23 @@ pub fn run() {
     #[cfg(target_os = "ios")]
     let builder = builder.plugin(tauri_plugin_deep_link::init());
 
+    /*
+     * L'aggiornamento automatico, e il riavvio che lo conclude. SOLO SU macOS.
+     *
+     * Su iPhone gli aggiornamenti li distribuisce l'App Store: un'applicazione
+     * che se li scaricasse per conto suo verrebbe rifiutata alla revisione, e i
+     * due crate qui sotto su iOS non vengono nemmeno compilati.
+     *
+     * Il plugin non fa niente da solo: espone il comando che l'interfaccia
+     * chiama quando vuole sapere se c'è una versione nuova. La decisione di
+     * scaricarla resta di chi usa il programma — come per la sincronizzazione,
+     * niente parte da sé.
+     */
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init());
+
     #[cfg(target_os = "macos")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         segreti::segreto_leggi,

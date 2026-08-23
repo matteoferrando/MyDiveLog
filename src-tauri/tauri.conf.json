@@ -37,6 +37,7 @@
     ],
     "copyright": "© Matteo Ferrando",
     "category": "Utility",
+    "createUpdaterArtifacts": true,
     "shortDescription": "Il meglio dei tuoi computer, in un logbook solo",
     "longDescription": "Logbook delle immersioni che unisce i dati di più computer subacquei prendendo da ognuno quello che registra meglio, e ne ricava statistiche, suggerimenti e pianificazione del gas sul consumo misurato.",
     "macOS": {
@@ -46,6 +47,12 @@
       "minimumSystemVersion": "15.0",
       "developmentTeam": "73F4VR2CMU",
       "frameworks": ["CoreBluetooth"]
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://github.com/matteoferrando/MyDiveLog/releases/latest/download/latest.json"],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc2M0VDMjI4RjI1QTEyMjQKUldRa0VscnlLTUkrZGxYMjNmVnFIbFFQbWgzeGRFd25xbWE2cjQwSXUyL3M3KzE1VWJIa3NzTDAK"
     }
   }
 }

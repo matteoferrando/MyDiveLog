@@ -1992,4 +1992,16 @@ export const INGLESE: Record<string, string> = {
   'sono arrivate': 'I got',
   'sono arrivate ma non si sono potute salvare': 'came through but could not be saved',
   'Sto cercando…': 'Scanning…',
+  Aggiornamenti: 'Updates',
+  'L’app controlla se c’è una versione nuova. Scaricarla e installarla lo decidi tu.':
+    'The app checks whether a new version exists. Downloading and installing it is your call.',
+  'Controllo…': 'Checking…',
+  'Sei alla versione più recente.': 'You are on the latest version.',
+  'Controlla di nuovo': 'Check again',
+  Controlla: 'Check',
+  'C’è la versione': 'Version available:',
+  'Installa e riavvia': 'Install and restart',
+  'L’applicazione si chiude e si riapre da sola.': 'The application closes and reopens by itself.',
+  'Scarico l’aggiornamento…': 'Downloading the update…',
+  'Installato. L’applicazione si sta riavviando.': 'Installed. The application is restarting.',
 };
