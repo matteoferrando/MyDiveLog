@@ -34,6 +34,18 @@ Le schermate sono prodotte dall'applicazione vera con l'archivio dimostrativo
 
 ---
 
+## Scaricalo
+
+Il pacchetto macOS sta **[nelle release](https://github.com/matteoferrando/MyDiveLog/releases/latest)**:
+`MyDiveLog_…_aarch64.dmg`, firmato Developer ID e **notarizzato da Apple**, quindi
+si apre con un doppio clic invece che con «apri comunque» nascosto nelle
+preferenze di sicurezza. Serve un Mac Apple Silicon.
+
+Non c'è ancora un pacchetto per Intel, Windows o Linux, e la versione iPhone —
+che esiste e gira — si compila dal sorgente: non è sull'App Store.
+
+---
+
 ## Provalo in due minuti
 
 ```bash
