@@ -47,6 +47,21 @@ export interface FirmaGuida {
   quando: string;
   /** Chi ha firmato. Di norma è la guida dell'immersione, e si propone quella. */
   nome?: string;
+  /**
+   * Il fuso del dispositivo su cui si è firmato, in minuti rispetto a UTC.
+   *
+   * ► SENZA QUESTO CAMPO LA DATA DELLA FIRMA CAMBIA DA SOLA. ◄ `quando` è un
+   * istante, e un istante non è una data: le 22:30 del 23 agosto in Italia sono
+   * le 20:30 UTC dello stesso giorno, ma le 00:30 del 24 alle Kiribati. Chi
+   * legge il libretto vuole il giorno in cui la guida ha firmato — quello che
+   * scriverebbe lei sul foglio — non il giorno del meridiano di Greenwich né
+   * quello della macchina che sta mostrando il libretto.
+   *
+   * È la stessa scelta di `utcOffsetMinutes` sull'immersione, per la stessa
+   * ragione. La CI l'ha presa dopo mezz'ora: gira anche con `TZ` alle Kiribati
+   * (UTC+14) e la data della firma si spostava di un giorno.
+   */
+  offsetMinuti?: number;
 }
 
 /**
@@ -113,10 +128,21 @@ export function firmaPath(firma: FirmaGuida, larghezza: number, altezza: number)
  * è per questo che chi la mostra deve mostrare anche i tratti.
  */
 export function descriviFirma(firma: FirmaGuida, t: Traduci = comeSta): string {
-  const quando = new Date(firma.quando);
-  const data = Number.isNaN(quando.getTime())
-    ? ''
-    : `${String(quando.getDate()).padStart(2, '0')}/${String(quando.getMonth() + 1).padStart(2, '0')}/${quando.getFullYear()}`;
+  /*
+   * Si sposta l'istante del fuso di chi ha firmato e poi si leggono i campi
+   * UTC. Usare `getDate()` e compagnia significherebbe leggere il fuso della
+   * macchina che MOSTRA il libretto: la stessa firma comparirebbe con due date
+   * diverse su due computer, e una di quelle due sarebbe sbagliata.
+   *
+   * Senza offset si ripiega su UTC. Non è la data giusta per tutti, ma è
+   * STABILE — e una data che non cambia guardandola da un altro paese vale più
+   * di una che si adatta a chi guarda.
+   */
+  const istante = Date.parse(firma.quando);
+  const spostato = Number.isNaN(istante) ? null : new Date(istante + (firma.offsetMinuti ?? 0) * 60_000);
+  const data = spostato
+    ? `${String(spostato.getUTCDate()).padStart(2, '0')}/${String(spostato.getUTCMonth() + 1).padStart(2, '0')}/${spostato.getUTCFullYear()}`
+    : '';
   const chi = firma.nome?.trim();
   if (chi && data) return `${t('firmato da')} ${chi} ${t('il')} ${data}`;
   if (chi) return `${t('firmato da')} ${chi}`;

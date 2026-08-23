@@ -28,6 +28,7 @@ const FIRMA: FirmaGuida = {
   larghezza: 600,
   altezza: 200,
   quando: '2026-07-11T10:30:00Z',
+  offsetMinuti: 120,
   nome: 'Anna Bianchi',
 };
 
@@ -130,6 +131,30 @@ describe('la lettera o) del libretto', () => {
     const finta = { ...FIRMA, tratti: [[{ x: 3, y: 3 }]] };
     const o = libretto({ ...IMMERSIONE, firmaGuida: finta }, {}).find((v) => v.lettera === 'o');
     expect(o?.valore).toBeNull();
+  });
+
+  it('la data della firma NON dipende dal fuso di chi la legge', () => {
+    /*
+     * ► Presa dalla CI, non da qui. ◄ La suite gira anche con `TZ` alle
+     * Kiribati (UTC+14) e a Midway (UTC−11): con `getDate()` la stessa firma
+     * usciva col 12 luglio invece che con l'11, cioè la data cambiava a seconda
+     * della macchina che mostrava il libretto. Su un documento che qualcuno
+     * controlla è esattamente il difetto che non ci si può permettere.
+     *
+     * Le 10:30 UTC con due ore di fuso sono le 12:30 dell'11 luglio dove si è
+     * firmato, e quello deve restare a prescindere da dove si rilegge.
+     */
+    expect(descriviFirma(FIRMA)).toContain('11/07/2026');
+    // Vicino alla mezzanotte, dove la differenza si vede davvero.
+    const notte = { ...FIRMA, quando: '2026-07-11T22:30:00Z', offsetMinuti: 120 };
+    expect(descriviFirma(notte)).toContain('12/07/2026');
+    const prima = { ...FIRMA, quando: '2026-07-11T01:30:00Z', offsetMinuti: -300 };
+    expect(descriviFirma(prima)).toContain('10/07/2026');
+  });
+
+  it('senza fuso ripiega su UTC, che almeno è stabile', () => {
+    const senza = { ...FIRMA, quando: '2026-07-11T22:30:00Z', offsetMinuti: undefined };
+    expect(descriviFirma(senza)).toContain('11/07/2026');
   });
 
   it('la descrizione passa dal dizionario', () => {

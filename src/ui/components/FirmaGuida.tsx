@@ -126,7 +126,15 @@ export function RiquadroFirma({
         <button
           className="btn btn-primary"
           disabled={vuota}
-          onClick={() => onFirma({ ...provvisoria, quando: new Date().toISOString() })}
+          onClick={() =>
+            onFirma({
+              ...provvisoria,
+              quando: new Date().toISOString(),
+              // Il fuso di QUI, adesso: senza, la data della firma cambia a
+              // seconda di dove viene riletta. Vedi `core/firma.ts`.
+              offsetMinuti: -new Date().getTimezoneOffset(),
+            })
+          }
         >
           {t('Salva la firma')}
         </button>
