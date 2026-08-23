@@ -528,7 +528,19 @@ a {
 
 .schermate {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  /*
+    Ventiquattro rem e non tredici: con tredici ci stavano quattro colonne, e una
+    schermata da 1600 px larga 245 non è una schermata, è un francobollo. Meglio
+    due colonne grandi che quattro illeggibili — chi guarda deve poterci leggere
+    dentro, altrimenti tanto vale non metterle.
+  */
+  /*
+    `min(24rem, 100%)` e non `24rem` secco: un minimo più largo della colonna
+    disponibile non si comprime — SFONDA. Su un telefono da 390 px una traccia
+    da 384 px più i margini faceva traboccare la pagina di lato, che è
+    esattamente il difetto che questo sito ha già pagato una volta.
+  */
+  grid-template-columns: repeat(auto-fit, minmax(min(24rem, 100%), 1fr));
   gap: 20px;
   margin-top: 28px;
 }
@@ -552,9 +564,17 @@ a {
   margin-top: 10px;
 }
 
+/*
+  La prima schermata occupa tutta la riga, e NIENTE PIÙ.
+  Il `max-width: 22rem` che stava qui veniva dal tempo in cui questa figura
+  stava da sola sotto il titolo, fuori dalla griglia. Rientrata nella griglia,
+  quel tetto la rimpiccioliva rispetto alle altre — e su un telefono, dove la
+  griglia è una colonna sola, il risultato era un elenco di immagini di misure
+  diverse, che è la prima cosa che si nota e l'ultima che si spiega.
+*/
 .vetrina {
   grid-column: 1 / -1;
-  max-width: 22rem;
+  max-width: none;
 }
 
 /* ------------------------------------------------------------- evidenze */
@@ -865,49 +885,61 @@ a {
   }
 }
 
-/* ============================================================== I NUMERI */
+/* =============================================================== LE PAGINE */
 
 /*
-  La fascia dei numeri. Sono fatti del prodotto, non risultati di qualcuno:
-  quanti formati legge, quanti compartimenti calcola, quante righe di
-  pubblicità mostra. Lo zero in fondo è il più importante dei cinque.
+  L'indice dell'applicazione, subito sotto il profilo.
+
+  Prima qui c'era una fascia di numeri — sette formati, sedici compartimenti,
+  zero pubblicità — ed era vera ma raccontava il COME. Chi arriva su un sito di
+  logbook si chiede prima un'altra cosa: «che cosa ci trovo dentro?». Sei nomi
+  con una riga ciascuno rispondono a quella, e nell'ordine in cui si usano
+  davvero: prima si guarda l'elenco, alla fine si prepara l'immersione dopo.
 */
-.numeri {
+.pagine {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
   gap: 14px;
   margin: 34px 0 10px;
   padding: 0;
   list-style: none;
 }
 
-.numeri li {
+.pagine li {
   border: 1px solid var(--bordo);
   border-radius: 16px;
-  padding: 20px 18px;
+  padding: 20px;
   background: var(--vetro);
   backdrop-filter: blur(10px);
-  text-align: center;
+  transition:
+    transform 0.2s,
+    border-color 0.2s,
+    background 0.2s;
 }
 
-.numeri b {
+.pagine li:hover {
+  transform: translateY(-3px);
+  border-color: rgba(157, 220, 255, 0.34);
+  background: rgba(255, 255, 255, 0.075);
+}
+
+.pagine b {
   display: block;
-  font-size: clamp(2rem, 4.4vw, 2.9rem);
-  font-weight: 660;
-  letter-spacing: -0.035em;
-  line-height: 1;
-  background: linear-gradient(160deg, var(--riflesso), var(--ciano));
+  font-size: 1.12rem;
+  font-weight: 640;
+  letter-spacing: -0.015em;
+  margin-bottom: 6px;
+  background: linear-gradient(120deg, var(--riflesso), var(--ciano));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-.numeri span {
+.pagine span {
   display: block;
-  margin-top: 8px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--testo-tenue);
-  line-height: 1.35;
+  line-height: 1.45;
 }
 
 /* ====================================================== il termoclino */
@@ -982,6 +1014,18 @@ section:not(:first-of-type)::after {
   .schermate .schermata:nth-child(even) img {
     transform: none;
     transition: none;
+  }
+}
+
+/*
+  L'inclinazione è un vezzo da schermo largo: là c'è aria intorno e si legge
+  come profondità. Su un telefono, dove l'immagine tocca i due bordi, la stessa
+  rotazione non dice «profondità» — dice «storto», e sembra un difetto.
+*/
+@media (max-width: 900px) {
+  .schermata img,
+  .schermate .schermata:nth-child(even) img {
+    transform: none;
   }
 }
 
