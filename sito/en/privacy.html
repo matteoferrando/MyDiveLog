@@ -18,7 +18,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/privacy" />
-    <link rel="stylesheet" href="../stile.css?v=97f64a90" />
+    <link rel="stylesheet" href="../stile.css?v=3f54fbfc" />
     <link rel="alternate" hreflang="it" href="/privacy.html" />
   </head>
   <body>
@@ -85,7 +85,7 @@
         </p>
 
         <h2 id="when">3. When data leaves your device</h2>
-        <p>Three cases, all optional. If you enable none of them, nothing leaves.</p>
+        <p>Four cases, all optional. If you enable none of them, nothing leaves.</p>
         <table>
           <thead>
             <tr>
@@ -96,19 +96,32 @@
           </thead>
           <tbody>
             <tr>
-              <td>Sign in with Google</td>
-              <td>The code Google returns and, as a result, your Google identifier and email address</td>
-              <td>Google and the MyDiveLog sign-in service</td>
+              <td data-col="If you">Sign in with Apple</td>
+              <td data-col="What leaves">
+                The code Apple returns and, as a result, your Apple identifier and the email address you
+                choose to share - either your real one or the anonymous relay address Apple generates in its
+                place
+              </td>
+              <td data-col="Who receives it">Apple and the MyDiveLog sign-in service</td>
             </tr>
             <tr>
-              <td>Press <em>Sync</em></td>
-              <td>Dives, profiles, equipment, certifications, shared settings and the deletion record</td>
-              <td>The database you are using, yours or created by the service</td>
+              <td data-col="If you">Sign in with Google</td>
+              <td data-col="What leaves">
+                The code Google returns and, as a result, your Google identifier and email address
+              </td>
+              <td data-col="Who receives it">Google and the MyDiveLog sign-in service</td>
             </tr>
             <tr>
-              <td>Ask for an AI analysis</td>
-              <td>The measured data of the dive being analysed</td>
-              <td>Anthropic, using the API key you entered yourself</td>
+              <td data-col="If you">Press <em>Sync</em></td>
+              <td data-col="What leaves">
+                Dives, profiles, equipment, certifications, shared settings and the deletion record
+              </td>
+              <td data-col="Who receives it">The database you are using, yours or created by the service</td>
+            </tr>
+            <tr>
+              <td data-col="If you">Ask for an AI analysis</td>
+              <td data-col="What leaves">The measured data of the dive being analysed</td>
+              <td data-col="Who receives it">Anthropic, using the API key you entered yourself</td>
             </tr>
           </tbody>
         </table>
@@ -124,8 +137,8 @@
           hours.
         </p>
         <p>
-          It receives from Google a signed token containing a stable identifier for your account
-          (<code>sub</code>) and your email address. From that identifier it derives a
+          It receives from Apple or from Google a signed token containing a stable identifier for your account
+          (<code>sub</code>) and an email address. From that identifier it derives a
           <strong>cryptographic fingerprint</strong>, and uses it as the name of your database. The email
           address is returned to the application so it can be shown in the settings, and is
           <strong>not stored by the service</strong>.
@@ -133,6 +146,11 @@
         <p>
           There is no table of users, and therefore no record linking an email address to a logbook. The only
           trace of your existence is a database with an opaque name.
+        </p>
+        <p>
+          With Sign in with Apple you can choose <strong>not to share your real address</strong>: Apple
+          generates a relay address that forwards mail to yours. It makes no difference to us - we do not keep
+          that address either way - but you have a right to know before you choose.
         </p>
         <p>
           The service logs technical errors so they can be fixed. Those logs are retained by the
@@ -154,24 +172,29 @@
           </thead>
           <tbody>
             <tr>
-              <td>Cloudflare</td>
-              <td>Hosts this website and the sign-in service</td>
-              <td>Always, for the site; at sign-in, for the service</td>
+              <td data-col="Provider">Cloudflare</td>
+              <td data-col="Purpose">Hosts this website and the sign-in service</td>
+              <td data-col="When it applies">Always, for the site; at sign-in, for the service</td>
             </tr>
             <tr>
-              <td>Turso</td>
-              <td>Hosts the shared databases</td>
-              <td>Only if you sync</td>
+              <td data-col="Provider">Turso</td>
+              <td data-col="Purpose">Hosts the shared databases</td>
+              <td data-col="When it applies">Only if you sync</td>
             </tr>
             <tr>
-              <td>Google</td>
-              <td>Verifies your identity</td>
-              <td>Only if you sign in with Google</td>
+              <td data-col="Provider">Apple</td>
+              <td data-col="Purpose">Verifies your identity</td>
+              <td data-col="When it applies">Only if you sign in with Apple</td>
             </tr>
             <tr>
-              <td>Anthropic</td>
-              <td>Generates the written analyses</td>
-              <td>Only if you enter an API key and request an analysis</td>
+              <td data-col="Provider">Google</td>
+              <td data-col="Purpose">Verifies your identity</td>
+              <td data-col="When it applies">Only if you sign in with Google</td>
+            </tr>
+            <tr>
+              <td data-col="Provider">Anthropic</td>
+              <td data-col="Purpose">Generates the written analyses</td>
+              <td data-col="When it applies">Only if you enter an API key and request an analysis</td>
             </tr>
           </tbody>
         </table>

@@ -18,7 +18,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/privacy" />
-    <link rel="stylesheet" href="stile.css?v=97f64a90" />
+    <link rel="stylesheet" href="stile.css?v=3f54fbfc" />
     <link rel="alternate" hreflang="en" href="/en/privacy.html" />
   </head>
   <body>
@@ -86,7 +86,7 @@
         </p>
 
         <h2 id="quando">3. Quando qualcosa esce dal dispositivo</h2>
-        <p>Tre casi, tutti facoltativi. Se non ne attivi nessuno, non esce niente.</p>
+        <p>Quattro casi, tutti facoltativi. Se non ne attivi nessuno, non esce niente.</p>
         <table>
           <thead>
             <tr>
@@ -97,25 +97,34 @@
           </thead>
           <tbody>
             <tr>
-              <td>Fai l'accesso con Google</td>
-              <td>
+              <td data-col="Se">Fai l'accesso con Apple</td>
+              <td data-col="Cosa esce">
+                Il codice restituito da Apple e, di conseguenza, il tuo identificativo Apple e l'indirizzo
+                email che scegli di comunicare — che può essere quello vero o l'indirizzo di inoltro anonimo
+                che Apple genera al posto tuo
+              </td>
+              <td data-col="Verso chi">Apple e il servizio di accesso di MyDiveLog</td>
+            </tr>
+            <tr>
+              <td data-col="Se">Fai l'accesso con Google</td>
+              <td data-col="Cosa esce">
                 Il codice restituito da Google e, di conseguenza, il tuo identificativo Google e il tuo
                 indirizzo email
               </td>
-              <td>Google e il servizio di accesso di MyDiveLog</td>
+              <td data-col="Verso chi">Google e il servizio di accesso di MyDiveLog</td>
             </tr>
             <tr>
-              <td>Premi <em>Sincronizza</em></td>
-              <td>
+              <td data-col="Se">Premi <em>Sincronizza</em></td>
+              <td data-col="Cosa esce">
                 Immersioni, profili, attrezzatura, brevetti, impostazioni condivise e registro delle
                 cancellazioni
               </td>
-              <td>Il database che stai usando, tuo o creato dal servizio</td>
+              <td data-col="Verso chi">Il database che stai usando, tuo o creato dal servizio</td>
             </tr>
             <tr>
-              <td>Chiedi un'analisi con l'intelligenza artificiale</td>
-              <td>I dati misurati dell'immersione che stai analizzando</td>
-              <td>Anthropic, con la chiave API che hai inserito tu</td>
+              <td data-col="Se">Chiedi un'analisi con l'intelligenza artificiale</td>
+              <td data-col="Cosa esce">I dati misurati dell'immersione che stai analizzando</td>
+              <td data-col="Verso chi">Anthropic, con la chiave API che hai inserito tu</td>
             </tr>
           </tbody>
         </table>
@@ -130,8 +139,8 @@
           sei, crea il tuo database la prima volta, consegna una chiave che vale due ore.
         </p>
         <p>
-          Riceve da Google un token firmato che contiene un identificativo stabile del tuo account
-          (<code>sub</code>) e il tuo indirizzo email. Da quell'identificativo ricava un'<strong
+          Riceve da Apple o da Google un token firmato che contiene un identificativo stabile del tuo account
+          (<code>sub</code>) e un indirizzo email. Da quell'identificativo ricava un'<strong
             >impronta crittografica</strong
           >, e usa quella come nome del tuo database. L'indirizzo email viene restituito all'applicazione per
           poterlo mostrare nelle impostazioni, e <strong>non viene conservato dal servizio</strong>.
@@ -139,6 +148,11 @@
         <p>
           Non esiste nessuna tabella di utenti, e quindi non esiste nessun archivio che colleghi un indirizzo
           email a un logbook. L'unica traccia della tua esistenza è un database dal nome opaco.
+        </p>
+        <p>
+          Con l'accesso di Apple puoi scegliere di <strong>non comunicare il tuo indirizzo vero</strong>:
+          Apple ne genera uno di inoltro che gira le email al tuo. Per noi cambia niente — quell'indirizzo non
+          lo conserviamo comunque — ma è tuo diritto saperlo prima di scegliere.
         </p>
         <p>
           Il servizio registra gli errori tecnici per poterli correggere. Questi registri sono conservati dal
@@ -160,24 +174,29 @@
           </thead>
           <tbody>
             <tr>
-              <td>Cloudflare</td>
-              <td>Ospita questo sito e il servizio di accesso</td>
-              <td>Sempre, per il sito; all'accesso, per il servizio</td>
+              <td data-col="Fornitore">Cloudflare</td>
+              <td data-col="A cosa serve">Ospita questo sito e il servizio di accesso</td>
+              <td data-col="Quando entra in gioco">Sempre, per il sito; all'accesso, per il servizio</td>
             </tr>
             <tr>
-              <td>Turso</td>
-              <td>Ospita i database condivisi</td>
-              <td>Solo se sincronizzi</td>
+              <td data-col="Fornitore">Turso</td>
+              <td data-col="A cosa serve">Ospita i database condivisi</td>
+              <td data-col="Quando entra in gioco">Solo se sincronizzi</td>
             </tr>
             <tr>
-              <td>Google</td>
-              <td>Verifica la tua identità</td>
-              <td>Solo se fai l'accesso con Google</td>
+              <td data-col="Fornitore">Apple</td>
+              <td data-col="A cosa serve">Verifica la tua identità</td>
+              <td data-col="Quando entra in gioco">Solo se fai l'accesso con Apple</td>
             </tr>
             <tr>
-              <td>Anthropic</td>
-              <td>Genera le analisi testuali</td>
-              <td>Solo se inserisci una chiave API e chiedi un'analisi</td>
+              <td data-col="Fornitore">Google</td>
+              <td data-col="A cosa serve">Verifica la tua identità</td>
+              <td data-col="Quando entra in gioco">Solo se fai l'accesso con Google</td>
+            </tr>
+            <tr>
+              <td data-col="Fornitore">Anthropic</td>
+              <td data-col="A cosa serve">Genera le analisi testuali</td>
+              <td data-col="Quando entra in gioco">Solo se inserisci una chiave API e chiedi un'analisi</td>
             </tr>
           </tbody>
         </table>

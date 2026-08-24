@@ -1160,3 +1160,146 @@ section.prosa p {
   margin: 18px 0 0;
   max-width: 44rem;
 }
+
+/* ---------------------------------------------------------------------------
+   TABELLE
+
+   Servono a due pagine sole — privacy e termini — e per un pezzo non sono
+   esistite affatto: riscrivendo il foglio di stile per il tema «la discesa»
+   le regole delle tabelle sono rimaste indietro, e le tre colonne
+   dell'informativa uscivano come testo giustapposto sul fondo scuro. Un
+   elenco di chi tratta i tuoi dati che non si legge come tabella non è un
+   dettaglio estetico: è la parte del documento fatta apposta per essere
+   scorsa con l'occhio invece che letta.
+
+   La prima colonna è la condizione («se fai l'accesso»), e va in grassetto
+   perché è quella che si cerca. Le righe si separano con una linea sola: su
+   fondo scuro un reticolo completo pesa più del contenuto.
+   --------------------------------------------------------------------------- */
+
+.documento table,
+.prosa table,
+table.dati {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.4rem 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.documento table th,
+.prosa table th,
+table.dati th {
+  text-align: left;
+  padding: 0.7rem 0.9rem 0.7rem 0;
+  /* Stessa tinta di `--bordo`, più marcata: separa l'intestazione senza
+     accendere una riga di ciano larga tutta la pagina. */
+  border-bottom: 1px solid rgba(157, 220, 255, 0.4);
+  color: var(--testo);
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.documento table td,
+.prosa table td,
+table.dati td {
+  padding: 0.75rem 0.9rem 0.75rem 0;
+  border-bottom: 1px solid var(--bordo);
+  color: var(--testo-tenue);
+  vertical-align: top;
+}
+
+/*
+  LE LARGHEZZE SONO DICHIARATE, non lasciate al browser.
+
+  In automatico il browser distribuisce lo spazio in proporzione al testo, e la
+  prima colonna — quella con cui si cerca la propria riga — finiva a due parole
+  per riga mentre la colonna di mezzo si prendeva metà pagina. Qui la chiave sta
+  larga abbastanza da leggersi in una riga o due, e il resto va alla spiegazione.
+*/
+.documento table th:first-child,
+.prosa table th:first-child,
+table.dati th:first-child {
+  width: 22%;
+}
+
+.documento table th:last-child,
+.prosa table th:last-child,
+table.dati th:last-child {
+  width: 26%;
+}
+
+/* La condizione: è la colonna con cui si cerca la propria riga. */
+.documento table td:first-child,
+.prosa table td:first-child,
+table.dati td:first-child {
+  color: var(--testo);
+  font-weight: 600;
+  padding-right: 1.2rem;
+}
+
+.documento table tr:last-child td,
+.prosa table tr:last-child td,
+table.dati tr:last-child td {
+  border-bottom: none;
+}
+
+/*
+  SOTTO I 640 px LA TABELLA SMETTE DI ESSERE UNA TABELLA.
+
+  Tre colonne di prosa su uno schermo da telefono diventano tre colonne da
+  otto caratteri, e si legge una parola per riga. Qui ogni riga diventa un
+  blocco, con l'intestazione ripetuta davanti al valore tramite `data-col` —
+  è il motivo per cui gli attributi sono scritti nell'HTML e non sono
+  ornamento.
+*/
+@media (max-width: 640px) {
+  .documento table,
+  .prosa table,
+  table.dati {
+    display: block;
+  }
+
+  .documento table thead,
+  .prosa table thead,
+  table.dati thead {
+    display: none;
+  }
+
+  .documento table tr,
+  .prosa table tr,
+  table.dati tr {
+    display: block;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid var(--bordo);
+  }
+
+  .documento table td,
+  .prosa table td,
+  table.dati td {
+    display: block;
+    padding: 0.15rem 0;
+    border: none;
+  }
+
+  .documento table td[data-col]::before,
+  .prosa table td[data-col]::before,
+  table.dati td[data-col]::before {
+    content: attr(data-col);
+    display: block;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--testo-tenue);
+    margin-bottom: 0.15rem;
+  }
+
+  .documento table td:first-child,
+  .prosa table td:first-child,
+  table.dati td:first-child {
+    font-size: 1.02rem;
+    padding-bottom: 0.35rem;
+  }
+}
