@@ -38,6 +38,7 @@
 import type { GasMix, Sample } from '../../model';
 import { decodePnf, type PnfLog } from '../../parsers/shearwaterPnf';
 import { computeMetrics } from '../../analysis/metrics';
+import { istanteDaOraAParete } from '../../oraAParete';
 import { diveIdFor } from '../../dedupe';
 import type { Cylinder, Dive, DiveMode, Salinity } from '../../model';
 import { nameStartsWith } from '../match';
@@ -673,7 +674,7 @@ export const shearwaterDriver: DiveComputerDriver = {
     return out;
   },
 
-  decode(records) {
+  decode(records, opts) {
     const dives: Dive[] = [];
     const warnings: string[] = [];
     /*
@@ -700,7 +701,7 @@ export const shearwaterDriver: DiveComputerDriver = {
     const importedAt = new Date().toISOString();
     for (const r of records) {
       try {
-        dives.push(buildDive(decodePnf(r.bytes), r.key, importedAt, raccogli));
+        dives.push(buildDive(decodePnf(r.bytes), r.key, importedAt, raccogli, opts?.fuso));
       } catch (err) {
         warnings.push(
           `Immersione ${r.key} scaricata ma non decodificabile: ${err instanceof Error ? err.message : String(err)}.`,
@@ -738,11 +739,40 @@ function buildDive(
   key: string,
   importedAt: string,
   nota: (testo: string, quando: string) => void,
+  fuso?: (oraAParete: number) => number,
 ): Dive {
   if (log.startTimeS === undefined) {
     throw new Error("il log non porta l'orario di inizio, quindi l'immersione non è collocabile nel tempo");
   }
-  const startTime = new Date(log.startTimeS * 1000).toISOString();
+
+  /*
+   * ► QUEI SECONDI SONO L'ORA A PARETE, NON UTC. ◄
+   *
+   * `shearwater_predator_parser.c` li legge con `dc_datetime_gmtime` e poi
+   * scrive `datetime->timezone = DC_TIMEZONE_NONE`: nella convenzione di
+   * `libdivecomputer` il `datetime` è l'ora LOCALE, quindi il fuso non è
+   * ignoto per svista — non c'è proprio, e quello che resta è il numero che il
+   * computer ti mostrava al polso. Il Peregrine un fuso non ce l'ha; i Teric
+   * sì, ed è l'unico ramo in cui quel file legge un offset vero.
+   *
+   * Prendendoli per UTC, un'immersione delle 09:24 di Camogli entrava in
+   * archivio come 09:24Z, cioè due ore avanti. La prova sta nel confronto con
+   * l'istante dello scarico: il 24 agosto 2026 il log dichiarava un inizio
+   * alle 09:24:02Z e lo scarico è avvenuto alle 09:05:36Z — un'immersione
+   * cominciata diciotto minuti dopo essere stata scaricata.
+   *
+   * Sullo schermo non si vedeva niente, perché senza `utcOffsetMinutes`
+   * l'applicazione mostra l'UTC, che era di nuovo l'ora a parete. Sbagliato
+   * era solo l'istante assoluto — e quello lo guarda la deduplica, che infatti
+   * ha aggiunto lo stesso tuffo una seconda volta.
+   *
+   * Il racconto per esteso sta in `src/core/oraAParete.ts`.
+   */
+  const oraAParete = log.startTimeS * 1000;
+  const fusoMinuti = fuso?.(oraAParete);
+  const startTime = new Date(
+    fusoMinuti === undefined ? oraAParete : istanteDaOraAParete(oraAParete, fusoMinuti),
+  ).toISOString();
   const samples: Sample[] = log.samples;
 
   /*
@@ -789,6 +819,9 @@ function buildDive(
 
   const base: Omit<Dive, 'id'> = {
     startTime,
+    // Dichiarato solo quando lo sappiamo davvero: senza, `startTime` è ancora
+    // l'ora a parete e fingere un fuso la sposterebbe una seconda volta.
+    utcOffsetMinutes: fusoMinuti,
     durationS,
     maxDepth,
     mode,

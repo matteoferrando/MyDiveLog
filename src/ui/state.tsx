@@ -31,10 +31,11 @@ import {
 } from '../core/analysis/gasPlan';
 import { storicoDi, buildPlan, type GoalId, type Plan } from '../core/analysis/coaching';
 import { applyPeriod, DEFAULT_PERIOD, type PeriodId, type Scope } from '../core/analysis/window';
-import { mergeDive, mergeImports } from '../core/dedupe';
+import { mergeDive, mergeImports, profileChannels, type Sospetto } from '../core/dedupe';
 import { buildBackup, planRestore, type BackupFile } from '../core/export/backup';
 import { parseBrowserFile } from '../core/parsers';
 import { useTraduciStabile } from './lingua';
+import type { Traduci } from '../core/traduci';
 import { getStore, type DiveStore } from '../storage';
 import { openSecretStore, type SecretPlace } from '../storage/secrets';
 import { hydrateForMerge, repairArchive } from '../storage/repair';
@@ -155,6 +156,20 @@ interface DiveLogValue {
    * precedenti e le immersioni non finiscono da nessuna parte.
    */
   removeDives: (ids: string[]) => Promise<void>;
+  /**
+   * Fonde due immersioni GIÀ in archivio in una sola.
+   *
+   * ► PERCHÉ SERVE, e perché prima non c'era. ◄ L'unica fusione che esisteva
+   * avveniva all'import: se due letture dello stesso tuffo entravano separate —
+   * il 24 agosto 2026 è successo, per un'ora di scarto fra gli orologi di due
+   * computer — non c'era nessun modo di rimediare dentro l'applicazione.
+   * Restavano due righe, per sempre, e l'unica strada era cancellarne una
+   * buttando via i dati che solo quella aveva.
+   *
+   * Restituisce l'id di quella rimasta. L'altra finisce nel cestino, non nel
+   * nulla: se l'unione era sbagliata si rimette a posto con un gesto.
+   */
+  unisciImmersioni: (ids: [string, string]) => Promise<string>;
   clearAll: () => Promise<void>;
   /**
    * Il cestino: le immersioni cancellate ma non ancora perdute.
@@ -668,6 +683,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
                 traduci('le immersioni sono state unite comunque.'),
             );
           }
+          warnings.push(...frasiSospetti(report.sospetti, traduci));
           outcomes.push({
             fileName: file.name,
             ok: true,
@@ -731,6 +747,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
               traduci('le immersioni sono state unite comunque.'),
           );
         }
+        warnings.push(...frasiSospetti(report.sospetti, traduci));
         const previous = new Map(dives.map((d) => [d.id, d]));
         const changed = report.dives.filter((d) => previous.get(d.id) !== d);
         if (store && changed.length) await store.putDives(changed);
@@ -957,6 +974,46 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   );
 
   const removeDive = useCallback((id: string) => removeDives([id]), [removeDives]);
+
+  /**
+   * Due schede in una.
+   *
+   * QUALE DELLE DUE RESTA non è indifferente e non lo si chiede all'utente:
+   * resta quella col profilo più ricco, misurato in CANALI e non in campioni —
+   * la stessa regola che `mergeDive` usa già da sola per decidere quale curva
+   * tenere. Un Aladin campiona ogni quattro secondi ma non sa niente di
+   * decompressione; un Peregrine ogni dieci ma registra tetto, TTS, NDL e CNS.
+   * Chiedere «quale vuoi tenere?» scaricherebbe sull'utente una domanda a cui
+   * l'applicazione sa rispondere meglio di lui.
+   *
+   * I profili si caricano PRIMA di fondere. È lo stesso motivo per cui l'import
+   * chiama `hydrateForMerge`: un profilo non caricato conta zero canali, e
+   * senza questa riga vincerebbe sempre e comunque quello appena letto.
+   *
+   * L'assorbita va nel CESTINO, non cancellata: l'unione è un gesto
+   * irreversibile solo se lo si rende tale, e qui non serve che lo sia.
+   */
+  const unisciImmersioni = useCallback(
+    async ([primo, secondo]: [string, string]): Promise<string> => {
+      const a = dives.find((d) => d.id === primo);
+      const b = dives.find((d) => d.id === secondo);
+      if (!a || !b) throw new Error(traduci('Una delle due immersioni non è più in archivio.'));
+      if (a.id === b.id) throw new Error(traduci('Sono la stessa immersione.'));
+
+      const pieno = async (d: Dive): Promise<Dive> =>
+        d.samples ? d : { ...d, ...(await loadProfiles(d.id)) };
+      const [pa, pb] = await Promise.all([pieno(a), pieno(b)]);
+
+      const base = profileChannels(pb) > profileChannels(pa) ? pb : pa;
+      const altra = base === pa ? pb : pa;
+
+      const fusa = mergeDive(base, altra);
+      await saveDive(fusa);
+      await removeDives([altra.id]);
+      return fusa.id;
+    },
+    [dives, loadProfiles, saveDive, removeDives, traduci],
+  );
 
   /**
    * Rimette in archivio una o più immersioni, esattamente com'erano, profilo
@@ -1662,6 +1719,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     createDive,
     removeDive,
     removeDives,
+    unisciImmersioni,
     clearAll,
     trash,
     restoreDive,
@@ -1716,6 +1774,31 @@ export function useDiveLog(): DiveLogValue {
  * scarto misurato di 59 minuti e 13 secondi è un'ora, e scriverlo "-0 h 59 min"
  * fa sembrare approssimativo un dato che è esatto.
  */
+/**
+ * I sospetti della deduplica, detti in italiano.
+ *
+ * ► PERCHÉ QUESTE RIGHE ESISTONO. ◄ Il 24 agosto 2026 due immersioni scaricate
+ * da due computer sono entrate in archivio quattro volte, e il rapporto
+ * dell'import diceva soltanto «2 aggiunte». Tutto quello che serviva per
+ * insospettirsi la deduplica ce l'aveva — stessa profondità, stessa durata,
+ * un'ora esatta di scarto — e non l'ha detto. Aggiungere è la scelta prudente e
+ * resta quella giusta; tacere no.
+ *
+ * La frase nomina il giorno e lo scarto misurato, perché è da lì che si capisce
+ * in un secondo se si hanno davanti due tuffi o due letture dello stesso.
+ */
+function frasiSospetti(sospetti: Sospetto[], t: Traduci): string[] {
+  return sospetti.map((s) => {
+    const quando = s.aggiunta.startTime.slice(0, 10);
+    const ore = s.scartoMs / 3_600_000;
+    return (
+      `${t('Aggiunta come nuova un’immersione del')} ${quando} ${t('che somiglia a una già in archivio')} ` +
+      `(${t('stessa profondità e stessa durata')}), ${t('ma con')} ${formatOffset(ore)} ${t('di scarto sull’orario')}. ` +
+      `${t('Se è la stessa immersione vista da due computer, uno dei due orologi è impostato male: unisci le due schede dal logbook.')}`
+    );
+  });
+}
+
 function formatOffset(hours: number): string {
   const quarters = Math.round(hours * 4) / 4;
   const sign = quarters < 0 ? '-' : '+';

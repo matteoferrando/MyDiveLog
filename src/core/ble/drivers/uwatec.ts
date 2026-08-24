@@ -47,6 +47,7 @@
  */
 
 import { computeMetrics } from '../../analysis/metrics';
+import { istanteDaOraAParete } from '../../oraAParete';
 import { diveIdFor } from '../../dedupe';
 import type { Cylinder, Dive, DiveMode, Sample } from '../../model';
 import {
@@ -913,7 +914,7 @@ export const uwatecDriver: DiveComputerDriver = {
     return record;
   },
 
-  decode(records) {
+  decode(records, opts) {
     const dives: Dive[] = [];
     const warnings: string[] = [];
     const ripetuti = new Map<string, number>();
@@ -925,7 +926,7 @@ export const uwatecDriver: DiveComputerDriver = {
         const identita = identitaDaChiave(r.key);
         const decodificata = decodeUwatecSmart(r.bytes, { model: identita.modello });
         for (const w of decodificata.warnings) nota(w);
-        dives.push(costruisci(decodificata, r.key, identita, importedAt));
+        dives.push(costruisci(decodificata, r.key, identita, importedAt, opts?.fuso));
       } catch (err) {
         warnings.push(
           `Immersione ${r.key} scaricata ma non decodificabile: ${err instanceof Error ? err.message : String(err)}.`,
@@ -1066,6 +1067,7 @@ function costruisci(
   key: string,
   identita: { modello?: number; seriale?: string },
   importedAt: string,
+  fuso?: (oraAParete: number) => number,
 ): Dive {
   const samples: Sample[] = uwatecSamplesToCanonical(trimSurface(d.samples));
 
@@ -1133,9 +1135,37 @@ function costruisci(
 
   const mode: DiveMode = d.mode === 'freedive' ? 'freedive' : d.mode === 'gauge' ? 'gauge' : 'oc';
 
+  /*
+   * ► IL FUSO CHE L'APPARECCHIO DICHIARA NON È QUELLO IN CUI SEI. ◄
+   *
+   * `d.startMs` è l'UTC che il computer CREDE di avere, e `d.utcOffsetMinutes`
+   * il byte del fuso che qualcuno gli ha impostato una volta. Sommandoli si
+   * ottiene l'unica cosa che l'apparecchio sa per certo: l'ora che ti ha
+   * mostrato al polso.
+   *
+   * Sull'Aladin di riferimento quel byte vale +60 anche il 24 agosto, cioè è
+   * fermo sull'ora solare — sull'orologio da polso non si vede perché l'ora
+   * mostrata è comunque quella giusta, ma l'UTC che ne discende è sbagliato di
+   * un'ora. Contro un Peregrine, che l'ora a parete la scrive senza fuso
+   * (vedi il driver Shearwater), lo scarto diventa i 59 minuti che hanno fatto
+   * entrare lo stesso tuffo due volte in archivio.
+   *
+   * Quindi si riparte dall'ora a parete e la si àncora al fuso del telefono
+   * alla data di quell'immersione — che è quello che fanno LogTRAK e
+   * Shearwater Cloud, ed è il motivo per cui in quelle applicazioni l'ora è
+   * giusta. Il ragionamento per esteso in `src/core/oraAParete.ts`.
+   *
+   * Senza risolutore del fuso non si cambia niente: `decode` resta aritmetica
+   * pura per i test dei decoder.
+   */
+  const oraAParete = d.startMs + (d.utcOffsetMinutes ?? 0) * 60_000;
+  const fusoMinuti = fuso?.(oraAParete);
+
   const base: Omit<Dive, 'id'> = {
-    startTime: new Date(d.startMs).toISOString(),
-    utcOffsetMinutes: d.utcOffsetMinutes,
+    startTime: new Date(
+      fusoMinuti === undefined ? d.startMs : istanteDaOraAParete(oraAParete, fusoMinuti),
+    ).toISOString(),
+    utcOffsetMinutes: fusoMinuti ?? d.utcOffsetMinutes,
     durationS,
     maxDepth,
     avgDepth: d.avgDepth,

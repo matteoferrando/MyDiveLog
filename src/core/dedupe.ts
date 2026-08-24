@@ -175,10 +175,44 @@ const MAX_PLAUSIBLE_OFFSET_MS = 14 * 3600_000;
 export function inferClockOffsets(
   existing: Dive[],
   incoming: Dive[],
-  opts: { minPairs?: number; clusterMs?: number } = {},
+  opts: {
+    minPairs?: number;
+    clusterMs?: number;
+    /** Quante coppie bastano quando concordano dentro la finestra stretta. */
+    minPairsStrette?: number;
+    /** La finestra stretta: due letture dello stesso tuffo concordano al secondo. */
+    clusterStrettoMs?: number;
+  } = {},
 ): ClockOffset[] {
   const minPairs = opts.minPairs ?? 3;
   const clusterMs = opts.clusterMs ?? 5 * 60_000;
+  /*
+   * DUE COPPIE BASTANO, SE CONCORDANO AL SECONDO.
+   *
+   * IL DIFETTO CHE CHIUDE, misurato su due immersioni vere del 24 agosto 2026.
+   * Lo stesso tuffo scaricato dai due computer è entrato in archivio due volte,
+   * con uno scarto d'orario di 3565 s sulla prima coppia e 3567 s sulla
+   * seconda. Uno sfasamento d'orologio scritto in fronte — e `inferClockOffsets`
+   * l'ha ignorato, perché ne pretende tre di coppie e uno scarico incrementale
+   * ne porta due. L'archivio è cresciuto di quattro righe invece che di due,
+   * senza un avviso.
+   *
+   * Tre coppie non erano una soglia arbitraria: servivano a non scambiare per
+   * sfasamento le differenze fra tuffi DIVERSI di un orario di bordo regolare —
+   * 09:00, 11:30, 14:30 tutti i giorni — che si accumulano sugli stessi valori.
+   * Abbassarla a due e basta rimetterebbe in piedi proprio quel difetto.
+   *
+   * Ma quelle differenze finte si somigliano al MINUTO, non al secondo: nessuno
+   * entra in acqua allo stesso istante due giorni di fila. Due letture dello
+   * stesso tuffo sì — i due computer vedono lo stesso ingresso, e i due scarti
+   * qui sopra distano due secondi.
+   *
+   * Quindi la seconda coppia si accetta solo dentro una finestra molto più
+   * stretta. Non è una soglia più permissiva: è una soglia diversa, che misura
+   * una cosa diversa.
+   */
+  const coppieStrette = opts.minPairsStrette ?? 2;
+  const clusterStrettoMs = opts.clusterStrettoMs ?? 120_000;
   if (existing.length === 0 || incoming.length === 0) return [];
 
   /*
@@ -226,7 +260,7 @@ export function inferClockOffsets(
   // immersioni simili quasi ogni coppia è ambigua — e con pochi dati uno dei due
   // sfasamenti reali resta invisibile. Le differenze casuali si distribuiscono,
   // quelle vere si accumulano nello stesso punto.
-  if (deltas.length < minPairs) return [];
+  if (deltas.length < Math.min(minPairs, coppieStrette)) return [];
 
   // Raggruppa le differenze vicine fra loro. Possono essere PIÙ DI UNA: nei dati
   // reali si trova un gruppo a un'ora e un gruppo a due ore, perché nel frattempo
@@ -234,23 +268,35 @@ export function inferClockOffsets(
   // sfasamento globale lascerebbe fuori il secondo gruppo.
   deltas.sort((a, b) => a - b);
   const clusters: ClockOffset[] = [];
-  let i = 0;
-  while (i < deltas.length) {
-    let j = i;
-    let sum = 0;
-    while (j < deltas.length && deltas[j] - deltas[i] <= clusterMs) {
-      sum += deltas[j];
-      j++;
+  const visto = new Set<number>();
+  // Prima la finestra stretta, poi quella larga: un gruppo compatto è la
+  // spiegazione migliore di uno sparso che lo contiene, e trovandolo per primo
+  // non viene assorbito dall'altro.
+  for (const [finestra, quante] of [
+    [clusterStrettoMs, coppieStrette],
+    [clusterMs, minPairs],
+  ] as const) {
+    let i = 0;
+    while (i < deltas.length) {
+      let j = i;
+      let sum = 0;
+      while (j < deltas.length && deltas[j] - deltas[i] <= finestra) {
+        sum += deltas[j];
+        j++;
+      }
+      const count = j - i;
+      if (count >= quante) {
+        const offsetMs = Math.round(sum / count);
+        // Sotto i due minuti non è uno sfasamento di orologi, è il normale scarto
+        // fra due computer che rilevano l'ingresso in acqua con un attimo di
+        // differenza: la finestra ordinaria della deduplica lo copre già.
+        if (Math.abs(offsetMs) >= 120_000 && !visto.has(offsetMs)) {
+          visto.add(offsetMs);
+          clusters.push({ offsetMs, pairs: count });
+        }
+      }
+      i = j;
     }
-    const count = j - i;
-    if (count >= minPairs) {
-      const offsetMs = Math.round(sum / count);
-      // Sotto i due minuti non è uno sfasamento di orologi, è il normale scarto
-      // fra due computer che rilevano l'ingresso in acqua con un attimo di
-      // differenza: la finestra ordinaria della deduplica lo copre già.
-      if (Math.abs(offsetMs) >= 120_000) clusters.push({ offsetMs, pairs: count });
-    }
-    i = j;
   }
   return clusters.sort((a, b) => b.pairs - a.pairs).slice(0, MAX_OFFSETS);
 }
@@ -275,6 +321,91 @@ export interface MergeReport {
   duplicates: number;
   /** Sfasamenti fra gli orologi riconosciuti e compensati, dal più rappresentato. */
   clockOffsets: ClockOffset[];
+  /** Immersioni aggiunte che somigliano a una già in archivio. Vedi `Sospetto`. */
+  sospetti: Sospetto[];
+}
+
+/**
+ * Un'immersione aggiunta che somiglia troppo a una che c'era già.
+ *
+ * ► PERCHÉ QUESTO TIPO ESISTE. ◄
+ *
+ * Il 24 agosto 2026 due immersioni scaricate da due computer sono entrate in
+ * archivio quattro volte. La deduplica aveva davanti due coppie che collimavano
+ * su profondità e durata e discordavano di un'ora — e ha aggiunto quattro righe
+ * **in silenzio**, dicendo soltanto «2 aggiunte». Da fuori, un archivio che
+ * cresce del doppio e un rapporto che non se ne accorge.
+ *
+ * Il difetto peggiore non era non unirle: era non dirlo. Unire due immersioni
+ * diverse è un danno, quindi la deduplica ha ragione a essere prudente — ma la
+ * prudenza che tace è indistinguibile dalla svista. Quando i numeri combaciano
+ * e a non tornare è solo l'orologio, si aggiunge e SI DICE, con lo scarto
+ * misurato: chi legge capisce in un secondo se ha davanti due tuffi o due
+ * letture dello stesso.
+ */
+export interface Sospetto {
+  aggiunta: Dive;
+  simile: Dive;
+  /** Scarto d'orario fra le due, in millisecondi. Positivo se l'aggiunta è dopo. */
+  scartoMs: number;
+}
+
+/** Il quarto d'ora più vicino, in millisecondi. */
+const QUARTO_MS = 15 * 60_000;
+
+/**
+ * Vero se questo scarto ha la FORMA di un orologio sbagliato.
+ *
+ * I fusi orari e l'ora legale si muovono a quarti d'ora: un orologio impostato
+ * male sbaglia di 30, 60, 120 minuti, non di 39. Due immersioni ripetitive
+ * dello stesso giorno, invece, distano un'ora e trentotto — un numero che con i
+ * quarti d'ora non c'entra niente.
+ *
+ * È il filtro che tiene l'avviso raro e quindi credibile. Sui dati veri del
+ * 24 agosto separa esattamente le due coppie giuste (59′25″ e 59′27″, cioè a
+ * mezzo minuto dall'ora tonda) dall'accoppiamento sbagliato fra la prima
+ * immersione di un computer e la seconda dell'altro (39′10″, lontano da
+ * qualunque quarto d'ora).
+ */
+function formaDiOrologio(scartoMs: number): boolean {
+  const assoluto = Math.abs(scartoMs);
+  if (assoluto < 120_000 || assoluto > MAX_PLAUSIBLE_OFFSET_MS) return false;
+  const residuo = Math.abs(assoluto - Math.round(assoluto / QUARTO_MS) * QUARTO_MS);
+  return residuo <= 120_000;
+}
+
+/**
+ * Fra le immersioni già in archivio, quella che somiglia troppo a questa.
+ *
+ * Cerca solo fra computer DIVERSI, e non è un dettaglio: due immersioni dello
+ * stesso apparecchio con identificativi interni diversi sono due immersioni —
+ * lo dice il computer, ed è il veto di `likelySame`. La stessa immersione letta
+ * due volte dallo stesso apparecchio si riconosce già per chiave o per
+ * impronta. Resta solo il caso che conta: due computer al polso della stessa
+ * persona.
+ */
+function sospettoPer(dive: Dive, pool: Dive[]): Sospetto | undefined {
+  let migliore: Sospetto | undefined;
+  for (const altra of pool) {
+    if (altra === dive) continue;
+    const ca = altra.computer;
+    const cb = dive.computer;
+    const stessoApparecchio =
+      !!ca?.model &&
+      !!cb?.model &&
+      ca.model.toLowerCase() === cb.model.toLowerCase() &&
+      (ca.deviceId ?? '') === (cb.deviceId ?? '');
+    if (stessoApparecchio) continue;
+    if (!similar(altra.maxDepth, dive.maxDepth, TOLERANCE.depthM)) continue;
+    if (!altra.durationS || !dive.durationS) continue;
+    if (!similar(altra.durationS, dive.durationS, TOLERANCE.durationS)) continue;
+    const scartoMs = epoch(dive) - epoch(altra);
+    if (!formaDiOrologio(scartoMs)) continue;
+    if (!migliore || Math.abs(scartoMs) < Math.abs(migliore.scartoMs)) {
+      migliore = { aggiunta: dive, simile: altra, scartoMs };
+    }
+  }
+  return migliore;
 }
 
 /**
@@ -300,6 +431,7 @@ export function mergeImports(
   let added = 0;
   let merged = 0;
   let duplicates = 0;
+  const aggiunte: Dive[] = [];
 
   // Stimati una volta sull'intero lotto, non immersione per immersione: uno
   // sfasamento di orologi è una proprietà della coppia di dispositivi, non della
@@ -336,13 +468,29 @@ export function mergeImports(
     // Un'immersione nuova nasce con la data di modifica: senza, la
     // sincronizzazione non avrebbe modo di sapere quale versione è più avanti
     // quando la stessa immersione viene poi ritoccata su un altro dispositivo.
-    result.push(dive.updatedAt ? dive : { ...dive, updatedAt: now });
+    const nata = dive.updatedAt ? dive : { ...dive, updatedAt: now };
+    result.push(nata);
     byId.set(dive.id, result.length - 1);
+    aggiunte.push(nata);
     added++;
   }
 
+  /*
+   * I sospetti si cercano ALLA FINE, sull'archivio completo.
+   *
+   * Farlo dentro il ciclo guarderebbe un archivio a metà: la seconda immersione
+   * di un lotto non vedrebbe la prima, e su uno scarico da due — che è
+   * esattamente il caso che ha prodotto il difetto — sarebbe cieca proprio dove
+   * serve.
+   */
+  const sospetti: Sospetto[] = [];
+  for (const nata of aggiunte) {
+    const s = sospettoPer(nata, result);
+    if (s) sospetti.push(s);
+  }
+
   result.sort((a, b) => epoch(b) - epoch(a));
-  return { dives: result, added, merged, duplicates, clockOffsets };
+  return { dives: result, added, merged, duplicates, clockOffsets, sospetti };
 }
 
 /**
@@ -630,9 +778,41 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
       'surfaceIntervalS',
       'weightKg',
       'suit',
-      'utcOffsetMinutes',
     ] as const
   ).forEach(takeIfEmpty);
+
+  /*
+   * ► IL FUSO NON SI PRENDE DA UN'IMMERSIONE CON UN ALTRO ORARIO. ◄
+   *
+   * `utcOffsetMinutes` stava nell'elenco qui sopra, e sembra un campo come gli
+   * altri. Non lo è: il fuso non è un dato per conto suo, è la SECONDA METÀ di
+   * `startTime`. I due insieme dicono «quel computer segnava le 09:24»;
+   * prendere il fuso da una scheda e l'istante da un'altra produce un orario
+   * che non è mai esistito su nessun quadrante.
+   *
+   * Il caso vero, e sarebbe capitato al primo uso dell'unione manuale: le due
+   * letture del 24 agosto 2026 avevano `startTime` a un'ora di distanza —
+   * Peregrine 09:24:02Z senza fuso, Aladin 08:24:35Z con fuso +60. Tutte e due
+   * mostravano le 09:24. Fondendole, la scheda che resta è quella col profilo
+   * più ricco (il Peregrine) e da lì `takeIfEmpty` le avrebbe attaccato il +60
+   * dell'Aladin: 09:24 + 60 = **10:24**, un'ora che nessuno dei due computer ha
+   * mai segnato. Riparando un difetto se ne sarebbe visto nascere un altro,
+   * peggiore perché visibile.
+   *
+   * Quindi il fuso si prende solo quando i due orari sono LO STESSO orario. Un
+   * quarto d'ora è la soglia giusta perché è il passo minimo di un fuso: sotto
+   * c'è solo lo scarto fra due computer che si accorgono dell'ingresso in acqua
+   * a mezzo minuto di distanza; sopra si sta parlando di due letture diverse
+   * dell'orologio, e allora il fuso dell'altra non descrive questa.
+   */
+  if (
+    base.utcOffsetMinutes === undefined &&
+    incoming.utcOffsetMinutes !== undefined &&
+    Math.abs(epoch(base) - epoch(incoming)) < QUARTO_MS
+  ) {
+    out.utcOffsetMinutes = incoming.utcOffsetMinutes;
+    changed = true;
+  }
 
   /*
    * IL BLOCCO `computer` SI FONDE CAMPO PER CAMPO, non tutto o niente.

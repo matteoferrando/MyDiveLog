@@ -112,6 +112,14 @@ export async function downloadFromComputer(
      * connessi.
      */
     since?: (identity: { serial?: string; model?: string }) => string | undefined;
+    /**
+     * Il fuso in cui l'immersione è avvenuta, chiesto per la sua ora a parete.
+     *
+     * Arriva da fuori perché è l'unica cosa qui dentro che dipende
+     * dall'ambiente: `src/core` non legge l'orologio del sistema. Quando manca,
+     * i tempi restano come li scrive il computer — vedi `DecodeOptions`.
+     */
+    fuso?: (oraAParete: number) => number;
   } = {},
 ): Promise<DownloadOutcome> {
   const warnings: string[] = [];
@@ -307,7 +315,7 @@ export async function downloadFromComputer(
   let tutteDecodificate = saltate === 0;
   if (records.length) {
     try {
-      const out = driver.decode(records);
+      const out = driver.decode(records, { fuso: opts.fuso });
       dives = out.dives;
       warnings.push(...out.warnings);
       tutteDecodificate = out.dives.length === records.length && saltate === 0;

@@ -335,5 +335,36 @@ export interface DiveComputerDriver {
    * decoder che esistono già — `shearwaterPnf.ts` legge esattamente il blob che
    * il Peregrine manda, perché è la copia della sua memoria.
    */
-  decode(records: DownloadedRecord[]): { dives: import('../model').Dive[]; warnings: string[] };
+  decode(
+    records: DownloadedRecord[],
+    opts?: DecodeOptions,
+  ): { dives: import('../model').Dive[]; warnings: string[] };
+}
+
+/**
+ * Quello che la decodifica non può sapere da sola.
+ *
+ * Per ora una cosa sola, e pesa: il fuso in cui l'immersione è avvenuta. Un
+ * computer subacqueo sa che ora segnava quando sei entrato in acqua, non in che
+ * fuso si trovava — e quando crede di saperlo spesso sbaglia, perché quel byte
+ * lo imposta una persona e resta fermo sull'ora solare. Il ragionamento per
+ * esteso, con i numeri delle due immersioni che l'hanno fatto emergere, sta in
+ * `src/core/oraAParete.ts`.
+ *
+ * È un parametro e non una lettura dell'ambiente perché `src/core` non legge
+ * l'ambiente: è la regola che lo tiene compilabile ovunque e i test verdi nei
+ * fusi estremi.
+ */
+export interface DecodeOptions {
+  /**
+   * Minuti di scarto del fuso, chiesti per l'ora a parete di QUELLA immersione.
+   *
+   * Chiedere «il fuso di adesso» sposterebbe di un'ora le immersioni di gennaio
+   * scaricate a luglio: l'ora legale va valutata alla data giusta.
+   *
+   * Quando manca, la decodifica lascia i tempi come li scrive il computer — che
+   * è il comportamento di prima, sbagliato ma prevedibile, e permette ai test
+   * dei decoder di restare aritmetica pura.
+   */
+  fuso?: (oraAParete: number) => number;
 }

@@ -672,6 +672,20 @@ export const INGLESE: Record<string, string> = {
   'esce al': 'leaves at',
   'Esci con questa pressione, qualunque sia la profondità.':
     'You surface on this pressure, whatever the depth.',
+  'Aggiunta come nuova un’immersione del': 'Added as new a dive from',
+  'che somiglia a una già in archivio': 'that looks like one already in the logbook',
+  'stessa profondità e stessa durata': 'same depth, same duration',
+  'ma con': 'but with',
+  'di scarto sull’orario': 'of difference in the time',
+  'Se è la stessa immersione vista da due computer, uno dei due orologi è impostato male: unisci le due schede dal logbook.':
+    'If this is the same dive seen by two computers, one of the two clocks is set wrong: merge the two entries from the logbook.',
+  'Unisci le due': 'Merge the two',
+  'Sì, uniscile': 'Yes, merge them',
+  'Diventano una scheda sola: resta quella col profilo più ricco e l’altra va nel cestino, da dove si rimette a posto in un gesto.':
+    'They become a single entry: the one with the richer profile stays, the other goes to the trash, from where one tap puts it back.',
+  'Unite: la scheda assorbita è nel cestino.': 'Merged: the absorbed entry is in the trash.',
+  'Una delle due immersioni non è più in archivio.': 'One of the two dives is no longer in the logbook.',
+  'Sono la stessa immersione.': 'They are the same dive.',
   'Esporta PDF': 'Export PDF',
   'Esposizione all’ossigeno': 'Oxygen exposure',
   'Fai rileggere il piano a Claude': 'Have Claude check the plan',

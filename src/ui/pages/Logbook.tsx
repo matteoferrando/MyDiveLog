@@ -544,7 +544,7 @@ function BulkEdit({
   onSoloVisibili: () => void;
   onDone: () => void;
 }) {
-  const { dives, saveDive, removeDives, gear, saveGear } = useDiveLog();
+  const { dives, saveDive, removeDives, unisciImmersioni, gear, saveGear } = useDiveLog();
   const { t } = useLingua();
   const aggiungiAttrezzo = (kind: EquipmentKind, name: string): string => {
     const voce = vocePerNome(kind, name);
@@ -728,6 +728,31 @@ function BulkEdit({
           toccate++;
         }
         setFatto(`${toccate} ${t(toccate === 1 ? 'immersione aggiornata' : 'immersioni aggiornate')}.`);
+        onDone();
+      } catch (err) {
+        setErrore(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLavoro(false);
+      }
+    })();
+  };
+
+  /*
+   * L'UNIONE C'È SOLO QUANDO LE SELEZIONATE SONO DUE, e non è una restrizione
+   * arbitraria: fondere tre schede vuol dire decidere due volte quale resta, e
+   * la seconda decisione la si prenderebbe su un'immersione che nel frattempo è
+   * cambiata. Due alla volta è l'unico gesto che si può spiegare in una riga e
+   * annullare in una.
+   */
+  const dueScelte = scelte.length === 2 ? ([scelte[0], scelte[1]] as const) : undefined;
+  const unisci = () => {
+    if (!dueScelte) return;
+    void (async () => {
+      setLavoro(true);
+      setErrore(null);
+      try {
+        await unisciImmersioni([dueScelte[0].id, dueScelte[1].id]);
+        setFatto(t('Unite: la scheda assorbita è nel cestino.'));
         onDone();
       } catch (err) {
         setErrore(err instanceof Error ? err.message : String(err));
@@ -981,6 +1006,34 @@ function BulkEdit({
         <button className="btn" disabled={!qualcosaDaFare || zavorraRotta || lavoro} onClick={applica}>
           {lavoro ? t('Scrivo…') : `${t('Applica a')} ${ids.length}`}
         </button>
+        {/*
+         * ► UNISCI DUE SCHEDE. ◄
+         *
+         * Serve quando la deduplica non ce l'ha fatta — due letture dello
+         * stesso tuffo entrate separate perché gli orologi dei due computer non
+         * erano allineati. Prima non c'era rimedio: restavano due righe per
+         * sempre, e l'unica strada era cancellarne una buttando via i dati che
+         * solo quella aveva.
+         *
+         * La domanda dice PERCHÉ una delle due sparisce e dove finisce, perché
+         * un'unione che «perde» una riga senza spiegare dove sia andata è
+         * indistinguibile da una cancellazione.
+         */}
+        {dueScelte && (
+          <BottoneConferma
+            disabled={lavoro}
+            etichetta={t('Unisci le due')}
+            conferma={t('Sì, uniscile')}
+            domanda={
+              <>
+                {t(
+                  'Diventano una scheda sola: resta quella col profilo più ricco e l’altra va nel cestino, da dove si rimette a posto in un gesto.',
+                )}
+              </>
+            }
+            onConferma={unisci}
+          />
+        )}
         <span style={{ flex: 1 }} />
         {/* `BottoneConferma` non traduce da sé: le sue etichette arrivano già
             tradotte da qui. */}

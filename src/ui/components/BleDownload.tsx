@@ -26,6 +26,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { fusoDelDispositivo } from '../../core/oraAParete';
 import { downloadFromComputer } from '../../core/ble/download';
 import { DRIVERS, recognise, type RecognisedDevice } from '../../core/ble/registry';
 import { markerKey, type BleTransport, type BleUnavailable, type DownloadEvent } from '../../core/ble/types';
@@ -306,6 +307,16 @@ export function BleDownload() {
           usato = { chiave, marker: m };
           return m.fingerprint;
         },
+        /*
+         * Il fuso lo mette il telefono che sta scaricando, ed è l'unico posto
+         * dell'applicazione che lo sa. Il nucleo non legge l'orologio di
+         * sistema — è la regola che tiene verdi i test a Kiritimati e a Midway
+         * — quindi la funzione parte da qui e scende fino al driver.
+         *
+         * È esattamente quello che fanno LogTRAK e Shearwater Cloud, ed è il
+         * motivo per cui in quelle applicazioni l'ora è giusta.
+         */
+        fuso: fusoDelDispositivo,
       });
       scarico.current = null;
 
