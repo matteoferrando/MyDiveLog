@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { conNumeri } from '../../core/numerazione';
 import { esporta } from '../esporta';
 import { suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
@@ -55,6 +56,7 @@ export function SyncPage() {
     saveAiCredentials,
     testAiKey,
     exportArchive,
+    numeri,
   } = useDiveLog();
   const { t, lingua } = useLingua();
   const [exporting, setExporting] = useState(false);
@@ -455,7 +457,9 @@ export function SyncPage() {
                  * coppia non dà nessun errore: apre il file in una colonna sola,
                  * oppure fa entrare i numeri come testo.
                  */
-                const { csv, righe } = esportaCsv(dives, {
+                // Il numero è la posizione nel logbook: sul foglio di calcolo
+                // deve essere il tuo, non quello della fonte da cui è arrivata.
+                const { csv, righe } = esportaCsv(conNumeri(dives, numeri), {
                   separatore: lingua === 'it' ? ';' : ',',
                   lingua,
                 });

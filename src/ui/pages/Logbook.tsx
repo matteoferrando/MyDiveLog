@@ -22,7 +22,7 @@ import { useLingua } from '../lingua';
 type SortKey = 'date' | 'depth' | 'duration' | 'rmv';
 
 export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
-  const { dives } = useDiveLog();
+  const { dives, numeri } = useDiveLog();
   const { t } = useLingua();
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('date');
@@ -322,7 +322,12 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                     per mandare il progressivo in fondo alla scheda sul
                     telefono. È anche una sigla, non una frase. */}
                 <td className="num muted" data-col="n.">
-                  {d.number ?? '—'}
+                  {/* Il numero è la posizione nel logbook, calcolata
+                      sull'archivio: `d.number` è quello che l'immersione aveva
+                      nella fonte da cui è arrivata, e non c'è per chi scarica
+                      dal computer — i due Bluetooth un progressivo non lo
+                      registrano affatto. Vedi `core/numerazione.ts`. */}
+                  {numeri.get(d.id) ?? '—'}
                 </td>
                 {/*
                  * La data è un BOTTONE VERO, non una riga cliccabile e basta.

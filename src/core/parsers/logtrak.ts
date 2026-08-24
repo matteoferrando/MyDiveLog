@@ -79,8 +79,28 @@ export const logtrakParser: DiveParser = {
     const sites = new Map((root.diveSites ?? []).map((s) => [s.id, s]));
     const computers = new Map((root.equipment?.diveComputers ?? []).map((c) => [c.id, c]));
 
-    // LogTRAK non esporta il numero progressivo dell'immersione: lo assegniamo
-    // in ordine cronologico, che è quello che un logbook cartaceo riporta.
+    /*
+     * ► IL NUMERO PROGRESSIVO NON SI ASSEGNA QUI. ◄
+     *
+     * LogTRAK non lo esporta, e qui dentro veniva inventato contando le
+     * immersioni DI QUESTO FILE in ordine cronologico. Funzionava per un
+     * accidente — l'archivio era nato da un unico file letto tutto insieme — e
+     * si rompeva in due modi opposti.
+     *
+     * Verso il basso: le immersioni scaricate via Bluetooth non passano di qui
+     * e restavano senza numero, un trattino nel logbook accanto a righe
+     * numerate. Nessuno dei due computer un progressivo lo registra: nel loro
+     * log c'è solo un indice interno di memoria, che si riusa.
+     *
+     * Verso l'alto, ed è peggio: importando un secondo export con dieci
+     * immersioni, quelle prendevano i numeri da 1 a 10 SOPRA a quelli già in
+     * archivio. Dieci doppioni, in silenzio, sul dato con cui un subacqueo cita
+     * la propria immersione a qualcun altro.
+     *
+     * Il numero è la posizione nel logbook, si calcola sull'archivio e non si
+     * conserva: `core/numerazione.ts`. L'ordinamento resta perché serve a
+     * leggere il file in ordine, non più a numerare.
+     */
     const ordered = [...root.dives].sort(
       (a, b) => Date.parse(a.startTime ?? '') - Date.parse(b.startTime ?? ''),
     );
@@ -89,8 +109,8 @@ export const logtrakParser: DiveParser = {
     let profileFailures = 0;
     let withoutProfile = 0;
 
-    ordered.forEach((raw, i) => {
-      const dive = readDive(raw, i + 1, sites, computers, input.fileName, importedAt, warnings, t);
+    ordered.forEach((raw) => {
+      const dive = readDive(raw, sites, computers, input.fileName, importedAt, warnings, t);
       if (!dive) return;
       if (!raw.diveLogBase64) withoutProfile++;
       else if ((dive.samples?.length ?? 0) === 0) profileFailures++;
@@ -116,7 +136,6 @@ export const logtrakParser: DiveParser = {
 
 function readDive(
   raw: LogtrakDive,
-  number: number,
   sites: Map<string, LogtrakSite>,
   computers: Map<string, LogtrakComputer>,
   fileName: string,
@@ -211,7 +230,6 @@ function readDive(
 
   const dive: Dive = {
     id: diveIdFor(base),
-    number,
     startTime: base.startTime,
     utcOffsetMinutes: raw.utcDifferenceMinutes ?? decoded?.utcOffsetMinutes,
     durationS,

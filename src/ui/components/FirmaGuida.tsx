@@ -12,9 +12,23 @@
  * davanti a un Mac. `setPointerCapture` tiene il tratto attaccato al dito anche
  * quando esce dal riquadro, altrimenti una firma un po' larga si taglia da sola.
  *
- * ► `touch-action: none` NON È UN DETTAGLIO. ◄ Senza, il primo movimento del
- * dito fa scorrere la pagina invece di disegnare, e il riquadro sembra rotto. È
- * la riga che fa la differenza fra una firma e una pagina che scivola via.
+ * ► `touch-action: none` NON BASTA, e l'iPhone lo dimostra. ◄ Quella riga di
+ * CSS dichiara l'intenzione giusta — il primo movimento del dito deve
+ * disegnare, non far scorrere la pagina — e sul Mac funziona. Dentro la
+ * WKWebView di iOS no: firmando col dito la pagina scivolava via sotto il
+ * tratto, e la firma usciva strappata.
+ *
+ * La ragione è che React registra `touchmove` in modo PASSIVO sulla radice, e
+ * un ascoltatore passivo per definizione non può annullare lo scorrimento:
+ * `preventDefault()` da lì dentro non ha nessun effetto e non dà nessun errore.
+ * L'unico modo è agganciare l'ascoltatore a mano sull'elemento, con
+ * `{ passive: false }`. Vedi `useEffect` più sotto.
+ *
+ * E lo si annulla SOLO MENTRE SI STA DISEGNANDO, non sempre. Bloccare ogni
+ * movimento sul riquadro vorrebbe dire che chi appoggia il pollice lì per
+ * scorrere la pagina — il riquadro è largo quanto lo schermo — si ritrova la
+ * pagina incollata e pensa che l'applicazione sia bloccata. Un tratto di
+ * troppo, invece, si toglie con «Rifai».
  *
  * ► NIENTE CANVAS. ◄ Si disegna in SVG, con una `path` per tratto, come tutti
  * gli altri grafici di questa applicazione: gli stessi punti che finiscono nel
@@ -22,7 +36,7 @@
  * letteralmente quello che viene salvato — non una sua fotografia.
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { firmaPath, firmaVuota, semplifica, type FirmaGuida, type Tratto } from '../../core/firma';
 import { useLingua } from '../lingua';
 
@@ -58,10 +72,39 @@ export function RiquadroFirma({
     };
   };
 
+  /*
+   * Lo stesso «sto disegnando», ma leggibile SUBITO.
+   *
+   * Lo stato di React si aggiorna al render successivo, e il primo `touchmove`
+   * arriva prima: leggendo `disegnando` l'ascoltatore qui sotto troverebbe
+   * ancora `false` proprio sul movimento che conta, cioè quello che fa partire
+   * lo scorrimento. Il riferimento si scrive nello stesso istante del tocco.
+   */
+  const staDisegnando = useRef(false);
+
+  /*
+   * L'ascoltatore non passivo che tiene ferma la pagina.
+   *
+   * `addEventListener` a mano e non `onTouchMove`: React registra `touchmove`
+   * come passivo, e da un ascoltatore passivo `preventDefault()` non fa niente
+   * e non si lamenta. È il genere di riga che sembra superflua finché non la si
+   * prova su un telefono vero.
+   */
+  useEffect(() => {
+    const nodo = svg.current;
+    if (!nodo) return;
+    const fermaLoScorrimento = (e: TouchEvent) => {
+      if (staDisegnando.current) e.preventDefault();
+    };
+    nodo.addEventListener('touchmove', fermaLoScorrimento, { passive: false });
+    return () => nodo.removeEventListener('touchmove', fermaLoScorrimento);
+  }, []);
+
   const giu = (e: React.PointerEvent) => {
     const p = punto(e);
     if (!p) return;
     e.currentTarget.setPointerCapture(e.pointerId);
+    staDisegnando.current = true;
     setDisegnando(true);
     setTratti((t) => [...t, [p]]);
   };
@@ -78,6 +121,7 @@ export function RiquadroFirma({
   };
 
   const su = () => {
+    staDisegnando.current = false;
     if (!disegnando) return;
     setDisegnando(false);
     // Si semplifica alla fine del tratto e non a ogni punto: durante il

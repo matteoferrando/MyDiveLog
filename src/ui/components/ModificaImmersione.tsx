@@ -204,12 +204,22 @@ export function ModificaImmersione({
   onSave,
   onDelete,
   onSporco,
+  chiudi,
 }: {
   dive: Dive;
   gear: GearArchive;
   onSalvaAttrezzatura: (archivio: GearArchive) => Promise<void>;
   onSave: (d: Dive) => Promise<void>;
   onDelete: () => void;
+  /**
+   * Il pulsante che chiude la modifica, costruito da chi ci sta sopra.
+   *
+   * Arriva come nodo e non come `onChiudi` perché la conferma sulle modifiche
+   * non salvate la conosce il chiamante, che sa se la bozza è sporca: qui
+   * dentro si finirebbe per averne due versioni, e quella che si sbaglia
+   * cancella il lavoro di qualcuno senza chiedere.
+   */
+  chiudi?: React.ReactNode;
   /**
    * Avvisa chi ospita la scheda che ci sono modifiche non salvate.
    *
@@ -627,6 +637,7 @@ export function ModificaImmersione({
         <button className="btn btn-primary" onClick={salva}>
           {t('Salva')}
         </button>
+        {chiudi}
         {saved && (
           <span className="muted" style={{ fontSize: 12 }}>
             {t('Salvato.')}

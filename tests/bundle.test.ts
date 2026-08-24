@@ -45,11 +45,23 @@ const MAX_CHUNK_KB = 420;
 /*
  * Il numero che conta davvero: quanto pesa, compresso, ciò che il browser deve
  * scaricare PRIMA di disegnare. Misurato 169 kB dopo la divisione, contro i
- * 233 kB del pezzo unico di prima. La soglia a 190 kB lascia respiro al codice
- * dell'applicazione ma non basta a riassorbire il pianificatore (27 kB gzip),
- * che è il candidato più probabile a rientrare per sbaglio.
+ * 233 kB del pezzo unico di prima.
+ *
+ * ALZATA DA 190 A 200 IL 24 AGOSTO 2026, e vale la pena dire perché — alzare
+ * una soglia perché la si è superata è il modo in cui le soglie muoiono.
+ *
+ * La misura era 190.3 kB: trecento byte oltre, accumulati da mesi di codice
+ * dell'applicazione vero e proprio (il libretto di legge, la firma, la
+ * numerazione), non da una dipendenza entrata di soppiatto. Il pezzo `index` è
+ * anzi CALATO — 113.1 kB gzip alla 1.3.0, 111.2 adesso.
+ *
+ * Quello che questa soglia esiste per intercettare è un'altra cosa: il
+ * pianificatore che rientra nel pezzo iniziale, e sono 27 kB gzip. Con 200 il
+ * margine è di quasi dieci kB, cioè un terzo di quel salto: il guardiano fa
+ * ancora il suo mestiere. Se un giorno servisse alzarla di nuovo, la domanda
+ * giusta non è «di quanto» ma «cosa è entrato».
  */
-const MAX_EAGER_GZIP_KB = 190;
+const MAX_EAGER_GZIP_KB = 200;
 
 /** Le pagine che devono restare in un pezzo proprio, caricato solo se si apre. */
 const PAGINE_PIGRE = ['Planner', 'Stats', 'Coach', 'Compare', 'Gear', 'ImportPage', 'SyncPage', 'DiveDetail'];

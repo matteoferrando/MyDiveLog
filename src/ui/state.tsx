@@ -32,6 +32,7 @@ import {
 import { storicoDi, buildPlan, type GoalId, type Plan } from '../core/analysis/coaching';
 import { applyPeriod, DEFAULT_PERIOD, type PeriodId, type Scope } from '../core/analysis/window';
 import { mergeDive, mergeImports, profileChannels, type Sospetto } from '../core/dedupe';
+import { conNumeri, numeriProgressivi } from '../core/numerazione';
 import { buildBackup, planRestore, type BackupFile } from '../core/export/backup';
 import { parseBrowserFile } from '../core/parsers';
 import { useTraduciStabile } from './lingua';
@@ -156,6 +157,15 @@ interface DiveLogValue {
    * precedenti e le immersioni non finiscono da nessuna parte.
    */
   removeDives: (ids: string[]) => Promise<void>;
+  /**
+   * Da identificativo a numero progressivo dell'immersione nel logbook.
+   *
+   * Si calcola, non si conserva: scriverlo in archivio vorrebbe dire riscrivere
+   * ogni record ogni volta che ne arriva una vecchia, e ognuna di quelle
+   * riscritture porta una data di modifica che la sincronizzazione legge come
+   * «qui è cambiato qualcosa». Il perché per esteso in `core/numerazione.ts`.
+   */
+  numeri: Map<string, number>;
   /**
    * Fonde due immersioni GIÀ in archivio in una sola.
    *
@@ -975,6 +985,12 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
 
   const removeDive = useCallback((id: string) => removeDives([id]), [removeDives]);
 
+  /*
+   * Una volta sola per tutto l'archivio, non una volta per riga: con duemila
+   * immersioni un conteggio per riga sarebbe quadratico, e si vedrebbe.
+   */
+  const numeri = useMemo(() => numeriProgressivi(dives), [dives]);
+
   /**
    * Due schede in una.
    *
@@ -1369,9 +1385,11 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         includeProfiles && store
           ? await Promise.all(dives.map(async (d) => ({ ...d, samples: await store.getSamples(d.id) })))
           : dives;
-      return exportUddf(full, { includeProfiles });
+      // Sul file che dai a un altro programma deve comparire il TUO numero, non
+      // quello che l'immersione aveva nel logbook da cui è arrivata.
+      return exportUddf(conNumeri(full, numeri), { includeProfiles });
     },
-    [dives, store],
+    [dives, store, numeri],
   );
 
   /**
@@ -1719,6 +1737,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     createDive,
     removeDive,
     removeDives,
+    numeri,
     unisciImmersioni,
     clearAll,
     trash,

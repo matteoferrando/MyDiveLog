@@ -291,10 +291,25 @@ describe('parser LogTRAK', () => {
     expect(condizioniTesto(d)).toContain('sole');
   });
 
-  it('numera le immersioni in ordine cronologico', async () => {
+  it('NON numera le immersioni: il numero è la posizione nel logbook', async () => {
+    /*
+     * Questo test diceva il contrario, e il contrario era il difetto.
+     *
+     * Il lettore assegnava un progressivo contando le immersioni DI QUESTO
+     * FILE. Funzionava finché l'archivio nasceva da un unico file letto tutto
+     * insieme, e si rompeva in due modi opposti: le immersioni scaricate via
+     * Bluetooth non passano di qui e restavano senza numero — un trattino nel
+     * logbook accanto a righe numerate — e un secondo import dava alle sue
+     * immersioni i numeri da 1 in su SOPRA a quelli già in archivio.
+     *
+     * Il numero è la posizione nel logbook e si calcola sull'archivio:
+     * `core/numerazione.ts`, verificato in `tests/numerazione.test.ts`.
+     */
     const { dives } = await parseFile({ fileName: 'export.logtrak', text });
-    const byTime = [...dives].sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
-    expect(byTime.map((d) => d.number)).toEqual([1, 2]);
+    expect(dives.map((d) => d.number)).toEqual([undefined, undefined]);
+    // L'ordine di lettura resta cronologico: serve al resto della catena.
+    const tempi = dives.map((d) => Date.parse(d.startTime));
+    expect(tempi).toEqual([...tempi].sort((a, b) => a - b));
   });
 
   it('non calcola il consumo quando manca il profilo', async () => {

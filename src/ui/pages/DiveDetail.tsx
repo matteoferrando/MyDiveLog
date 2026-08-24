@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { suIOS } from '../../piattaforma';
 import { BottoneConferma } from '../components/Conferma';
 import { LIMITS, type ComputerInfo, type Dive, type Sample } from '../../core/model';
@@ -7,6 +7,7 @@ import { modeLabel, positionAgainst, quartilesOf } from '../../core/analysis/agg
 import { debriefDive } from '../../core/analysis/coaching';
 import { logbookHtml } from '../../core/export/logbookPrint';
 import { schedePdf } from '../../core/export/pdf';
+import { conNumeri } from '../../core/numerazione';
 import { esporta } from '../esporta';
 import type { Subacqueo } from '../../core/libretto';
 import { descriviFirma, firmaPath, firmaVuota } from '../../core/firma';
@@ -33,9 +34,11 @@ import {
 import { useLingua } from '../lingua';
 
 export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
-  const { dives, loadProfiles, saveDive, removeDive, gear, saveGear, subacqueo } = useDiveLog();
+  const { dives, loadProfiles, saveDive, removeDive, gear, saveGear, subacqueo, numeri } = useDiveLog();
   const { t } = useLingua();
   const summary = dives.find((d) => d.id === id);
+  /* La posizione nel logbook, non il numero che l'immersione aveva nella fonte. */
+  const numero = numeri.get(id);
   const [dive, setDive] = useState<Dive | undefined>(summary);
   const [editing, setEditing] = useState(false);
   // Vero quando la scheda di modifica ha qualcosa di non salvato. Vedi il
@@ -54,6 +57,33 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const [esitoPdf, setEsitoPdf] = useState<string | null>(null);
 
   /*
+   * ► LA MODIFICA SI APRE SOTTO GLI OCCHI. ◄
+   *
+   * La scheda di modifica sta in fondo alla pagina, dopo il profilo, le
+   * tabelle e i grafici. Premendo «Modifica dati» in cima non succedeva
+   * NIENTE di visibile: la scheda si apriva due schermate più giù e bisognava
+   * andarla a cercare scorrendo. Su iPhone, dove lo schermo è corto e la
+   * pagina lunga, sembrava che il pulsante non funzionasse.
+   *
+   * E vale anche al contrario: chiudendo dal fondo si restava dove la scheda
+   * non c'è più, cioè in un punto qualunque della pagina. Si torna alla barra
+   * dei pulsanti, che è da dove si era partiti.
+   */
+  const rifModifica = useRef<HTMLDivElement>(null);
+  const rifAzioni = useRef<HTMLDivElement>(null);
+  const eraInModifica = useRef(false);
+  useEffect(() => {
+    // Chi ha chiesto meno animazioni non vuole nemmeno questa: lo scorrimento
+    // avviene lo stesso, di colpo. La destinazione conta, il viaggio no.
+    const modo: ScrollBehavior = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      ? 'auto'
+      : 'smooth';
+    if (editing) rifModifica.current?.scrollIntoView({ behavior: modo, block: 'start' });
+    else if (eraInModifica.current) rifAzioni.current?.scrollIntoView({ behavior: modo, block: 'center' });
+    eraInModifica.current = editing;
+  }, [editing]);
+
+  /*
    * Il nome del file lo legge una persona in un elenco: data prima, poi il
    * sito. «MyDiveLog-2026-07-11-Camogli.pdf» si riconosce; «scheda.pdf» no, e
    * dopo tre esportazioni sono tre file uguali.
@@ -67,7 +97,8 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
     setEsitoPdf(null);
     try {
       const campioni = dive.samples ?? (await loadProfiles(dive.id)).samples;
-      const pdf = schedePdf([dive], new Map([[dive.id, campioni]]), {
+      // Sul foglio che consegni deve comparire il tuo numero di immersione.
+      const pdf = schedePdf(conNumeri([dive], numeri), new Map([[dive.id, campioni]]), {
         subacqueo,
         etichetteFormato: FORMAT_LABEL,
       });
@@ -115,6 +146,38 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
     );
   }
 
+  /**
+   * Il pulsante che apre e chiude la modifica.
+   *
+   * È una funzione perché lo stesso controllo compare in DUE posti: nella barra
+   * in alto, dove lo si preme la prima volta, e in fondo alla scheda di
+   * modifica, dove si è quando si ha finito. Duplicarne il codice vorrebbe dire
+   * duplicare anche la conferma sulle modifiche non salvate, che è la parte che
+   * non si può sbagliare.
+   */
+  const controlloModifica = () =>
+    editing && sporco ? (
+      <BottoneConferma
+        etichetta={t('Chiudi modifica')}
+        conferma={t('Sì, butta via le modifiche')}
+        domanda={<>{t('Ci sono modifiche non salvate: chiudendo vanno perse.')}</>}
+        onConferma={() => {
+          setSporco(false);
+          setEditing(false);
+        }}
+      />
+    ) : (
+      <button
+        className="btn"
+        onClick={() => {
+          setSporco(false);
+          setEditing((v) => !v);
+        }}
+      >
+        {editing ? t('Chiudi modifica') : t('Modifica dati')}
+      </button>
+    );
+
   const m = dive.metrics;
   const hasAlt = (dive.altSamples?.length ?? 0) > 2;
   // Il profilo mostrato può essere il secondo, su richiesta. Le metriche NON
@@ -139,10 +202,10 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
              * fatte nello stesso posto; il sito resta nella riga sotto.
              */}
             {dive.title || dive.site?.name || t('Immersione')}
-            {dive.number !== undefined && (
+            {numero !== undefined && (
               <span className="muted" style={{ fontWeight: 400 }}>
                 {' '}
-                · #{dive.number}
+                · #{numero}
               </span>
             )}
           </h1>
@@ -157,7 +220,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
             )}
           </div>
         </div>
-        <div className="row">
+        <div className="row" ref={rifAzioni}>
           <button className="btn btn-quiet" onClick={onBack}>
             ← {t('Logbook')}
           </button>
@@ -179,7 +242,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
           {!suIOS() && (
             <button
               className="btn"
-              onClick={() => setStampaBloccata(!apriStampa(dive, gear.equipment, subacqueo))}
+              onClick={() => setStampaBloccata(!apriStampa(dive, gear.equipment, subacqueo, numeri))}
             >
               {t('Stampa questa immersione')}
             </button>
@@ -208,27 +271,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
            * sparivano, e sparivano anche solo cambiando pagina. Con la scheda
            * pulita il pulsante resta quello di prima, senza domande inutili.
            */}
-          {editing && sporco ? (
-            <BottoneConferma
-              etichetta={t('Chiudi modifica')}
-              conferma={t('Sì, butta via le modifiche')}
-              domanda={<>{t('Ci sono modifiche non salvate: chiudendo vanno perse.')}</>}
-              onConferma={() => {
-                setSporco(false);
-                setEditing(false);
-              }}
-            />
-          ) : (
-            <button
-              className="btn"
-              onClick={() => {
-                setSporco(false);
-                setEditing((v) => !v);
-              }}
-            >
-              {editing ? t('Chiudi modifica') : t('Modifica dati')}
-            </button>
-          )}
+          {controlloModifica()}
         </div>
       </div>
 
@@ -722,14 +765,20 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
       )}
 
       {editing && (
-        <ModificaImmersione
-          dive={dive}
-          gear={gear}
-          onSalvaAttrezzatura={saveGear}
-          onSave={saveDive}
-          onDelete={() => void removeDive(dive.id).then(onBack)}
-          onSporco={setSporco}
-        />
+        <div ref={rifModifica}>
+          <ModificaImmersione
+            dive={dive}
+            gear={gear}
+            onSalvaAttrezzatura={saveGear}
+            onSave={saveDive}
+            onDelete={() => void removeDive(dive.id).then(onBack)}
+            onSporco={setSporco}
+            /* Lo stesso controllo della barra in alto, qui in fondo: quando si
+               ha finito si è QUI, e risalire tutta la pagina per chiudere è
+               una fatica che il pulsante può risparmiare. */
+            chiudi={controlloModifica()}
+          />
+        </div>
       )}
 
       <AnalysisCard
@@ -768,8 +817,13 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
  * Restituisce `false` quando il blocco dei popup ha rifiutato la finestra: è
  * l'unico modo in cui questa operazione può fallire, e chi chiama lo dice.
  */
-function apriStampa(dive: Dive, inventario: Equipment[], subacqueo: Subacqueo): boolean {
-  const html = logbookHtml([dive], new Map([[dive.id, dive.samples ?? []]]), {
+function apriStampa(
+  dive: Dive,
+  inventario: Equipment[],
+  subacqueo: Subacqueo,
+  numeri: Map<string, number>,
+): boolean {
+  const html = logbookHtml(conNumeri([dive], numeri), new Map([[dive.id, dive.samples ?? []]]), {
     title: 'Logbook',
     // Nome e brevetto: le lettere a) e b) del libretto. Vengono dalle
     // impostazioni, non dall'immersione, e senza restano due trattini.
