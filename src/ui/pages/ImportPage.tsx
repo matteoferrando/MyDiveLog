@@ -197,11 +197,29 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
         */}
         <label className="btn btn-primary" aria-busy={busy}>
           {t(busy ? 'Lettura in corso…' : 'Scegli file')}
+          {/*
+           * ► SU iOS NON SI FILTRA PER ESTENSIONE. ◄
+           *
+           * `accept` è una comodità sul desktop: nel dialogo di sistema i file
+           * che non c'entrano restano in grigio. Su iPhone è una trappola.
+           * L'app File non ragiona per estensioni ma per UTI, e `.uddf`,
+           * `.ssrf`, `.fit` un UTI dichiarato non ce l'hanno: la WKWebView non
+           * sa a che tipo mapparli e nel selettore quei file risultano NON
+           * SELEZIONABILI. Li vedi, sono lì, e toccandoli non succede niente —
+           * il difetto peggiore che si possa avere sulla porta d'ingresso
+           * dell'applicazione, perché sembra rotto il telefono.
+           *
+           * Toglierlo non perde niente, ed è coerente con il resto: il formato
+           * lo riconosciamo dal CONTENUTO, non dall'estensione — è il motivo
+           * per cui `detectParser` esiste. Un file che non c'entra viene
+           * respinto con un messaggio che dice cosa non ha funzionato, che è
+           * meglio di un file che non si può nemmeno toccare.
+           */}
           <input
             ref={inputRef}
             type="file"
             multiple
-            accept={ACCEPTED_EXTENSIONS.join(',')}
+            accept={suIOS() ? undefined : ACCEPTED_EXTENSIONS.join(',')}
             style={{ display: 'none' }}
             onChange={(e) => void handle(e.target.files)}
             disabled={busy}
