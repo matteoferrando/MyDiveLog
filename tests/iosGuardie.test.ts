@@ -186,6 +186,33 @@ describe('quello che il pacchetto iOS deve dichiarare ad Apple', () => {
     expect(plist).toMatch(/<key>ITSAppUsesNonExemptEncryption<\/key>\s*\n\s*<false \/>/);
   });
 
+  it('il Bluetooth è l’UNICO permesso che l’app può chiedere', () => {
+    /*
+     * ► È UNA PROMESSA FATTA AD APPLE PER ISCRITTO. ◄
+     *
+     * Nelle note per la revisione c'è scritto che il Bluetooth è il solo
+     * permesso che l'applicazione chiede mai: niente posizione, contatti,
+     * fotocamera, foto, notifiche, e nessun pannello ATT perché non si traccia
+     * niente. Questo test è quella frase, resa verificabile.
+     *
+     * PERCHÉ SERVE, e non è teoria: il 25 agosto 2026 l'app è stata terminata
+     * da iOS in revisione perché il selettore dei file offriva «Take Photo or
+     * Video» e nel plist non c'era `NSCameraUsageDescription`. La strada breve
+     * per chiudere quel crash era aggiungere la chiave — cioè chiedere
+     * all'utente un permesso per una funzione che non esiste, e smentire le
+     * note appena mandate.
+     *
+     * La strada presa è stata togliere il ramo della fotocamera (vedi
+     * `src/ui/accettaFile.ts`). Questo test difende la scelta: se un giorno
+     * qualcuno aggiunge una chiave di permesso, deve prima cambiare questa
+     * riga — e nel farlo si accorge di cosa sta promettendo.
+     */
+    const plist = leggi('src-tauri/Info.ios.plist');
+    const permessi = [...plist.matchAll(/<key>(NS\w*UsageDescription)<\/key>/g)].map((m) => m[1]);
+    expect(permessi).toEqual(['NSBluetoothAlwaysUsageDescription']);
+    expect(plist).not.toContain('NSUserTrackingUsageDescription');
+  });
+
   it('il manifesto della privacy esiste e dichiara lo spazio su disco', () => {
     /*
      * Misurato, non supposto: `nm -u` sul binario compilato trova `statfs`, che
