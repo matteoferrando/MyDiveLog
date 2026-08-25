@@ -51,7 +51,7 @@
  * mentre nascondere dieci modelli per prudenza li rende invisibili a chi li ha.
  */
 
-import { MODELLI_BLE, SENZA_SCARICO_DIRETTO, type ModelloComputer } from './catalogo';
+import { MODELLI_BLE, SENZA_SCARICO_DIRETTO, type ModelloComputer, type VoceCatalogo } from './catalogo';
 
 /**
  * Le famiglie di libdivecomputer che i driver scritti in casa sanno leggere.
@@ -82,10 +82,19 @@ export type Esito =
  * (`elenca_computer_supportati` risponde con un elenco vuoto quando la
  * funzionalità non c'è): il valore arriva da lì, non da un'ipotesi.
  */
-export function esitoPer(modello: ModelloComputer, conLibdivecomputer = false): Esito {
+export function esitoPer(modello: VoceCatalogo, conLibdivecomputer = false): Esito {
   if ((SENZA_SCARICO_DIRETTO as readonly string[]).includes(modello.marca)) {
     return { tipo: 'mai-via-radio' };
   }
+  /*
+   * NESSUNA FAMIGLIA = NESSUN DRIVER, e non è un dato mancante.
+   *
+   * Le voci di `MODELLI_SENZA_BLE` esistono per essere trovate dalla ricerca e
+   * ricevere una risposta vera: libdivecomputer un driver per loro non ce l'ha,
+   * quindi accenderla non cambierebbe niente e «non ancora» sarebbe una
+   * promessa che nessuno può mantenere.
+   */
+  if (!modello.famiglia) return { tipo: 'mai-via-radio' };
   const driverId = FAMIGLIE_CON_DRIVER[modello.famiglia];
   if (driverId) return { tipo: 'si-scarica', driverId };
   return conLibdivecomputer ? { tipo: 'si-scarica-ldc' } : { tipo: 'non-ancora' };

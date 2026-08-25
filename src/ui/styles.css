@@ -2048,6 +2048,17 @@ button.btn.bottone-apple:focus-visible {
   width: 100%;
 }
 
+/*
+ * La testa del pannello: ricerca a sinistra, «Chiudi» a destra, sempre visibile.
+ * `align-items: flex-end` perché il campo ha un'etichetta sopra e il pulsante
+ * no: allineandoli in alto, il pulsante fluttuerebbe sopra il campo.
+ */
+.catalogo-testa {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
 .catalogo-computer .marche,
 .catalogo-computer .modelli {
   list-style: none;
@@ -2097,7 +2108,18 @@ button.btn.bottone-apple:focus-visible {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  justify-content: center;
   gap: 2px;
   white-space: normal;
   text-align: left;
+  /*
+   * QUARANTAQUATTRO PIXEL, che è la misura di un polpastrello.
+   *
+   * Le voci senza etichetta sotto venivano 36 px, con 4 px di distanza fra una
+   * riga e l'altra: sopra il minimo delle WCAG (24), sotto le linee guida di
+   * Apple, e in un elenco di voci attaccate — dove sbagliare riga significa
+   * mandare comandi a un dispositivo che non è il proprio. Chi sceglie qui ha
+   * il computer in una mano e il telefono nell'altra, su una barca.
+   */
+  min-height: 44px;
 }

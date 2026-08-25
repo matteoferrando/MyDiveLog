@@ -335,6 +335,31 @@ async function giro({ px, alto, nome: larghezza }) {
   const nonAncora = await page.locator('.notice', { hasText: 'non legge ancora' }).first().innerText();
   await page.locator('button:has-text("Ho capito")').click();
 
+  /*
+   * ► GARMIN: la risposta che per un giorno intero non era raggiungibile. ◄
+   *
+   * Il ramo «mai via radio» esisteva nel codice e nel dizionario, ma nel
+   * catalogo di libdivecomputer «Garmin» non compare nemmeno una volta: chi
+   * cercava la quarta marca più diffusa al mondo riceveva «Nessun modello con
+   * questo nome». Adesso le voci ci sono apposta, e questa fotografia è la
+   * prova che la frase arriva a schermo.
+   */
+  await senzaNome.locator('button:has-text("Che computer è?")').click();
+  await senzaNome.locator('input[type="search"]').fill('garmin');
+  await page.waitForTimeout(300);
+  await scatta(page, larghezza, '6e-catalogo-garmin');
+  await misura(page, `${larghezza} px · catalogo con Garmin cercata`);
+  await senzaNome.locator('.modelli button').first().click();
+  await page.waitForSelector('.notice:has-text("non manda le immersioni")', { timeout: 10_000 });
+  await page.waitForTimeout(300);
+  await scatta(page, larghezza, '6f-garmin-mai-via-radio');
+  await misura(page, `${larghezza} px · Garmin, mai via radio`);
+  const maiViaRadio = await page
+    .locator('.notice', { hasText: 'non manda le immersioni' })
+    .first()
+    .innerText();
+  await page.locator('button:has-text("Ho capito")').click();
+
   // Adesso quello che si scarica davvero, per arrivare allo scarico interrotto.
   await senzaNome.locator('button:has-text("Che computer è?")').click();
   await senzaNome.locator('input[type="search"]').fill('peregrine');
@@ -354,6 +379,27 @@ async function giro({ px, alto, nome: larghezza }) {
   await page.waitForFunction(() => document.querySelectorAll('.dispositivi li').length === 4, null, {
     timeout: 15_000,
   });
+
+  /*
+   * ► IL PANNELLO NON DEVE RISORGERE, e per un giorno risorgeva. ◄
+   *
+   * `scegliPer` tiene l'IDENTIFICATIVO del dispositivo, non l'oggetto. La
+   * ricerca precedente ha lasciato il catalogo aperto sulla riga «senza nome»;
+   * questa ricerca ritrova lo stesso dispositivo con lo stesso identificativo,
+   * e senza un azzeramento esplicito il pannello si riapriva DA SOLO — con
+   * l'`autoFocus` dentro, cioè con la tastiera che sale su un telefono. A 390
+   * px spingeva il quarto dispositivo fuori dallo schermo.
+   *
+   * Nessun controllo automatico poteva prenderlo: è uno stato che esiste solo
+   * fra due ricerche, e i test dei componenti non arrivano fin qui.
+   */
+  const risorto = await page.locator('.catalogo-computer').count();
+  if (risorto > 0) {
+    trabocchi.push(
+      `${larghezza} px — il catalogo si è riaperto da solo dopo una ricerca nuova ` +
+        '(scegliPer non azzerato in `cerca`)',
+    );
+  }
   await page
     .locator('.dispositivi li', { hasText: 'Aladin Sport' })
     .locator('button:has-text("Scarica")')
@@ -390,7 +436,7 @@ async function giro({ px, alto, nome: larghezza }) {
   const spento = await page.locator('.notice-error').first().innerText();
 
   await contesto.close();
-  return { elenco, esito, segnalibro, interrotto, muto, vuoto, spento, nonAncora };
+  return { elenco, esito, segnalibro, interrotto, muto, vuoto, spento, nonAncora, maiViaRadio };
 }
 
 const esiti = {};
@@ -441,6 +487,7 @@ riga('');
 riga('ESITO RIUSCITO: ' + esiti['390'].esito.replace(/\n/g, ' ').slice(0, 220));
 riga('SEGNALIBRO: ' + esiti['390'].segnalibro.replace(/\n/g, ' ').slice(0, 220));
 riga('MODELLO NON ANCORA LETTO: ' + esiti['390'].nonAncora.replace(/\n/g, ' ').slice(0, 260));
+riga('GARMIN, MAI VIA RADIO: ' + esiti['390'].maiViaRadio.replace(/\n/g, ' ').slice(0, 260));
 riga('SCARICO INTERROTTO: ' + esiti['390'].interrotto.replace(/\n/g, ' ').slice(0, 260));
 riga('NESSUNA RISPOSTA: ' + esiti['390'].muto.replace(/\n/g, ' ').slice(0, 260));
 riga('RICERCA A VUOTO: ' + esiti['390'].vuoto.replace(/\n/g, ' ').slice(0, 260));

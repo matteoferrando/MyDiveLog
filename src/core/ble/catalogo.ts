@@ -66,6 +66,21 @@
 import { MODELLI_BLE, type ModelloComputer } from './catalogoGenerato';
 
 /**
+ * Una voce scegliibile: quelle del catalogo, più quelle che un driver non ce
+ * l'hanno affatto.
+ *
+ * `famiglia` è opzionale perché la sua assenza SIGNIFICA qualcosa — «nessun
+ * driver di libdivecomputer legge questo apparecchio» — e non è un dato
+ * mancante da riempire più avanti.
+ */
+export interface VoceCatalogo {
+  marca: string;
+  modello: string;
+  famiglia?: string;
+  numeri?: readonly number[];
+}
+
+/**
  * Quanto è diffusa una marca fra i subacquei, in percentuale.
  *
  * Fonte: Business of Diving Institute, indagine sull'uso dei computer
@@ -98,6 +113,38 @@ const DIFFUSIONE: Record<string, number> = {
  * sembrare necessaria una scelta che non lo è.
  */
 export const RICONOSCIUTE_DA_SOLE = ['Shearwater', 'Scubapro', 'Uwatec'] as const;
+
+/**
+ * I computer che NON stanno nel catalogo di libdivecomputer, e che qualcuno
+ * cercherà lo stesso.
+ *
+ * ► IL DIFETTO CHE CHIUDE: la risposta su Garmin era irraggiungibile. ◄
+ *
+ * `SENZA_SCARICO_DIRETTO` c'era già ed `esitoPer` sapeva rispondere
+ * «mai-via-radio» — ma nel catalogo generato la parola «Garmin» non compare
+ * nemmeno una volta, perché libdivecomputer un driver per i Descent non ce l'ha.
+ * Quindi quel ramo, e la frase che l'interfaccia gli aveva preparato accanto,
+ * non li vedeva nessuno: chi scriveva «garmin» nella ricerca riceveva «Nessun
+ * modello con questo nome», cioè la risposta più inutile possibile su una delle
+ * marche più diffuse al mondo.
+ *
+ * Queste voci esistono per essere TROVATE dalla ricerca e ricevere la risposta
+ * vera. Non hanno famiglia perché non c'è nessun driver dietro, ed è esattamente
+ * quello che vogliamo dire.
+ *
+ * L'elenco è corto di proposito — i modelli in commercio — perché non è un
+ * catalogo: è un cartello che dice «di qua non si passa, si passa di là».
+ */
+export const MODELLI_SENZA_BLE: readonly VoceCatalogo[] = [
+  { marca: 'Garmin', modello: 'Descent Mk1' },
+  { marca: 'Garmin', modello: 'Descent Mk2' },
+  { marca: 'Garmin', modello: 'Descent Mk2i' },
+  { marca: 'Garmin', modello: 'Descent Mk2S' },
+  { marca: 'Garmin', modello: 'Descent Mk3' },
+  { marca: 'Garmin', modello: 'Descent Mk3i' },
+  { marca: 'Garmin', modello: 'Descent G1' },
+  { marca: 'Garmin', modello: 'Descent G2' },
+];
 
 /**
  * ► GARMIN NON C'È, ED È LA DOMANDA CHE ARRIVERÀ PER PRIMA. ◄
@@ -152,9 +199,15 @@ export function marchePerDiffusione(): MarcaCatalogo[] {
 /**
  * Quante marche coprono la maggioranza dei subacquei.
  *
- * Serve al selettore per decidere dove mettere il «mostra tutte»: le prime
- * coprono quasi tutti, e le altre sedici sono una coda che va cercata, non
- * scorsa.
+ * ► IL SELETTORE NON LA USA, e il commento diceva di sì. ◄ Doveva servirgli
+ * «per decidere dove mettere il mostra tutte»; poi il selettore ha finito per
+ * mostrarle tutte e venti, che con l'ordinamento per diffusione è la scelta
+ * giusta — le rare stanno in fondo e chi le ha scrive il nome nella ricerca.
+ *
+ * Resta perché il numero che restituisce è il ragionamento di questo file
+ * ridotto a una cifra: **quattro marche coprono l'81% dei subacquei.** È quello
+ * che i test verificano, ed è quello che va riguardato il giorno in cui
+ * qualcuno propone di ordinare l'elenco in un altro modo.
  */
 export function marchePrincipali(soglia = 90): string[] {
   const out: string[] = [];
@@ -176,10 +229,19 @@ export function marchePrincipali(soglia = 90): string[] {
  * per cui esiste anche con l'elenco ordinato bene: chi ha un Perdix scrive
  * «perdix» e ha finito, senza sapere che Shearwater è la prima marca.
  */
-export function cercaModelli(testo: string): ModelloComputer[] {
+export function cercaModelli(testo: string): VoceCatalogo[] {
   const q = testo.trim().toLowerCase();
   if (!q) return [];
-  return MODELLI_BLE.filter((m) => m.marca.toLowerCase().includes(q) || m.modello.toLowerCase().includes(q));
+  const combacia = (m: VoceCatalogo) =>
+    m.marca.toLowerCase().includes(q) || m.modello.toLowerCase().includes(q);
+  /*
+   * Le voci senza driver vengono DOPO quelle che si scaricano, sempre.
+   *
+   * Chi cerca «mk2» deve trovare prima i modelli con cui può fare qualcosa; chi
+   * cerca «garmin» trova solo quelle, che è il punto. Metterle prima vorrebbe
+   * dire mettere in cima all'elenco l'unica cosa che non funziona.
+   */
+  return [...MODELLI_BLE.filter(combacia), ...MODELLI_SENZA_BLE.filter(combacia)];
 }
 
 export { MODELLI_BLE };

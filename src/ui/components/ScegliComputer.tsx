@@ -36,8 +36,8 @@
  * ricorda — ed è la minoranza, ma è quella che senza elenco si arena.
  */
 
-import { useMemo, useState } from 'react';
-import { cercaModelli, marchePerDiffusione, type ModelloComputer } from '../../core/ble/catalogo';
+import { useId, useMemo, useState } from 'react';
+import { cercaModelli, marchePerDiffusione, type VoceCatalogo } from '../../core/ble/catalogo';
 import { esitoPer } from '../../core/ble/scelta';
 import { useLingua } from '../lingua';
 
@@ -54,7 +54,7 @@ export function ScegliComputer({
    * quella scelta — qui dentro quel contesto non c'è, e fingere di averlo
    * vorrebbe dire duplicare la logica dello scarico in un selettore.
    */
-  onScegli: (modello: ModelloComputer) => void;
+  onScegli: (modello: VoceCatalogo) => void;
   onAnnulla: () => void;
   /**
    * Vero se questa copia dell'applicazione ha dentro libdivecomputer.
@@ -69,25 +69,66 @@ export function ScegliComputer({
   const { t } = useLingua();
   const [testo, setTesto] = useState('');
   const [marcaAperta, setMarcaAperta] = useState<string | null>(null);
+  // Per legare ogni pulsante di marca all'elenco che apre: `aria-expanded` da
+  // solo dice CHE qualcosa si è aperto, non che cosa.
+  const base = useId();
 
   const marche = useMemo(() => marchePerDiffusione(), []);
   const trovati = useMemo(() => cercaModelli(testo), [testo]);
   const cercando = testo.trim().length > 0;
 
   return (
-    <div className="catalogo-computer">
-      <label className="stack" style={{ gap: 4 }}>
-        <span className="muted" style={{ fontSize: 12 }}>
-          {t('Cerca la marca o il modello')}
-        </span>
-        <input
-          type="search"
-          value={testo}
-          autoFocus
-          placeholder={t('per esempio: perdix')}
-          onChange={(e) => setTesto(e.target.value)}
-        />
-      </label>
+    /*
+     * ESC CHIUDE, ed è l'unica scorciatoia che questo pannello ha.
+     *
+     * Un elenco alto mezzo schermo che si apre dentro una riga ha bisogno di
+     * un'uscita che non sia «trova il pulsante Annulla»: su un telefono quel
+     * pulsante finisce sotto la piega, e chi naviga da tastiera si aspetta Esc
+     * da qualunque cosa somigli a un pannello. `onKeyDown` sul contenitore e
+     * non un ascoltatore sul documento: così vale solo quando il fuoco è qui
+     * dentro, e due pannelli aperti non si chiuderebbero a vicenda.
+     */
+    <div
+      className="catalogo-computer"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          onAnnulla();
+        }
+      }}
+    >
+      {/*
+       * ► «CHIUDI» STA IN CIMA, E CI STA PER FORZA. ◄
+       *
+       * Stava in fondo, dopo l'elenco. Su un telefono il pannello si apre già a
+       * metà pagina ed è alto quasi mezzo schermo: il pulsante finiva sotto la
+       * piega, e l'elenco sopra ha `overscroll-behavior: contain`, quindi
+       * scorrendo col dito sopra le marche la pagina non si muoveva e quel
+       * pulsante restava irraggiungibile. Misurato: a 390 px stava a 886 px in
+       * una finestra alta 780.
+       *
+       * In cima è sempre visibile, è dove guarda già l'occhio — accanto al
+       * campo di ricerca — e non litiga con l'area che scorre. E si chiama
+       * «Chiudi» e non «Annulla» perché non c'è niente da annullare: non è
+       * ancora stato scelto niente.
+       */}
+      <div className="catalogo-testa">
+        <label className="stack" style={{ gap: 4, flex: '1 1 auto', minWidth: 0 }}>
+          <span className="muted" style={{ fontSize: 12 }}>
+            {t('Cerca la marca o il modello')}
+          </span>
+          <input
+            type="search"
+            value={testo}
+            autoFocus
+            placeholder={t('per esempio: perdix')}
+            onChange={(e) => setTesto(e.target.value)}
+          />
+        </label>
+        <button className="btn secondary" onClick={onAnnulla}>
+          {t('Chiudi')}
+        </button>
+      </div>
 
       {cercando ? (
         trovati.length === 0 ? (
@@ -114,6 +155,7 @@ export function ScegliComputer({
               <button
                 className="btn secondary"
                 aria-expanded={marcaAperta === marca}
+                aria-controls={`${base}-${marca.replace(/\W+/g, '')}`}
                 onClick={() => setMarcaAperta(marcaAperta === marca ? null : marca)}
               >
                 <span>{marca}</span>
@@ -131,16 +173,17 @@ export function ScegliComputer({
                 )}
               </button>
               {marcaAperta === marca && (
-                <ElencoModelli modelli={modelli} onScegli={onScegli} conLdc={conLibdivecomputer} />
+                <ElencoModelli
+                  id={`${base}-${marca.replace(/\W+/g, '')}`}
+                  modelli={modelli}
+                  onScegli={onScegli}
+                  conLdc={conLibdivecomputer}
+                />
               )}
             </li>
           ))}
         </ul>
       )}
-
-      <button className="btn secondary" onClick={onAnnulla}>
-        {t('Annulla')}
-      </button>
     </div>
   );
 }
@@ -149,14 +192,17 @@ function ElencoModelli({
   modelli,
   onScegli,
   conLdc,
+  id,
 }: {
-  modelli: readonly ModelloComputer[];
-  onScegli: (m: ModelloComputer) => void;
+  modelli: readonly VoceCatalogo[];
+  onScegli: (m: VoceCatalogo) => void;
   conLdc: boolean;
+  /** Il bersaglio dell'`aria-controls` del pulsante che ha aperto questo elenco. */
+  id?: string;
 }) {
   const { t } = useLingua();
   return (
-    <ul className="modelli">
+    <ul className="modelli" id={id}>
       {modelli.map((m) => {
         const esito = esitoPer(m, conLdc);
         return (

@@ -147,7 +147,7 @@ export function trasportoFinto(modo: ModoFinto = modoDaIndirizzo(location.search
        * nessuna cella. Adesso l'elenco dice «senza nome» e la tabella non c'è
        * più: questo finto resta qui perché il caso resta, e la fotografia
        * serve a vedere che ci sta. Ed è anche
-       * il caso in cui si usa la tendina «provalo come…» — chi ha il computer
+       * il caso in cui si usa la tendina «Che computer è?» — chi ha il computer
        * in mano sa cos'è, l'applicazione no. Risponde come un Peregrine e si
        * SCOLLEGA A METÀ: è l'altra schermata che serve, quella dello scarico
        * interrotto che tiene quello che è arrivato invece di buttarlo.

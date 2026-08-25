@@ -29,7 +29,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fusoDelDispositivo } from '../../core/oraAParete';
 import { downloadFromComputer } from '../../core/ble/download';
 import { DRIVERS, recognise, type RecognisedDevice } from '../../core/ble/registry';
-import type { ModelloComputer } from '../../core/ble/catalogo';
+import type { VoceCatalogo } from '../../core/ble/catalogo';
 import { esitoPer } from '../../core/ble/scelta';
 import { ScegliComputer } from './ScegliComputer';
 import { scaricaDaComputerEsterno } from '../../storage/computerEsterni';
@@ -160,7 +160,7 @@ export function BleDownload() {
    * suo passaggio: il selettore si chiude, e quello che resta a schermo è la
    * frase che dice come fare invece.
    */
-  const [spiegazione, setSpiegazione] = useState<ModelloComputer | null>(null);
+  const [spiegazione, setSpiegazione] = useState<VoceCatalogo | null>(null);
   /*
    * ► QUESTA COPIA DELL'APPLICAZIONE HA DENTRO LIBDIVECOMPUTER? ◄
    *
@@ -273,6 +273,22 @@ export function BleDownload() {
     const ctl = new AbortController();
     ricerca.current = ctl;
     setTrovati([]);
+    /*
+     * ► UNA RICERCA NUOVA È UNA SCHERMATA NUOVA. ◄
+     *
+     * Senza queste due righe il catalogo e la risposta «non legge ancora»
+     * sopravvivevano alla ricerca precedente, e alla successiva RISORGEVANO da
+     * soli: `scegliPer` tiene l'identificativo del dispositivo, la nuova
+     * scansione ritrova lo stesso dispositivo con lo stesso identificativo, e
+     * il pannello si riapriva senza che nessuno avesse premuto niente — con
+     * l'`autoFocus` che su un telefono tira su la tastiera.
+     *
+     * Non era teoria: bastava aprire il catalogo, fermare la ricerca e
+     * ripremere «Cerca il computer». A 390 px il pannello riaperto spingeva il
+     * quarto dispositivo fuori dallo schermo.
+     */
+    setScegliPer(null);
+    setSpiegazione(null);
     setStato({ fase: 'cerca' });
     try {
       await transport.scan((devs) => setTrovati(recognise(devs, DRIVERS)), ctl.signal);
@@ -301,6 +317,33 @@ export function BleDownload() {
     ricerca.current?.abort();
     ricerca.current = null;
     setStato((p) => (p.fase === 'cerca' ? { fase: 'iniziale' } : p));
+  }, []);
+
+  /*
+   * ► IL FUOCO TORNA DA DOVE È PARTITO. ◄
+   *
+   * Chiudendo il selettore il fuoco cadeva su `<body>`: chi naviga da tastiera
+   * ricominciava a tabulare dall'inizio della pagina, riattraversando la
+   * navigazione, l'area dei file e tutte le righe dei dispositivi per tornare
+   * al punto in cui era. È il difetto classico di un pannello che si smonta.
+   *
+   * Si cerca per attributo invece di tenere un riferimento per ogni riga:
+   * l'elenco dei dispositivi si riscrive a ogni giro della scansione e i
+   * riferimenti seguirebbero righe che non esistono più. L'attributo invece sta
+   * sul pulsante di adesso, qualunque esso sia — e se quel dispositivo è
+   * sparito dall'elenco non si trova niente e non succede niente, che è la cosa
+   * giusta.
+   *
+   * `requestAnimationFrame` perché al momento del clic React non ha ancora
+   * ridisegnato: il pulsante da mettere a fuoco, in quell'istante, è ancora
+   * coperto dal pannello che si sta chiudendo.
+   */
+  const tornaAlPulsante = useCallback((idDispositivo: string) => {
+    requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLButtonElement>(`button[data-scegli="${CSS.escape(idDispositivo)}"]`)
+        ?.focus();
+    });
   }, []);
 
   const scarica = useCallback(
@@ -804,6 +847,7 @@ export function BleDownload() {
                       <button
                         className="btn secondary"
                         style={{ fontSize: 12 }}
+                        data-scegli={device.id}
                         onClick={() => {
                           setSpiegazione(null);
                           setScegliPer(scegliPer === device.id ? null : device.id);
@@ -822,11 +866,21 @@ export function BleDownload() {
                    */}
                   {scegliPer === device.id && (
                     <ScegliComputer
-                      onAnnulla={() => setScegliPer(null)}
+                      onAnnulla={() => {
+                        setScegliPer(null);
+                        tornaAlPulsante(device.id);
+                      }}
                       conLibdivecomputer={conLibdivecomputer}
                       onScegli={(modello) => {
                         const esito = esitoPer(modello, conLibdivecomputer);
                         setScegliPer(null);
+                        // Il fuoco torna al pulsante solo quando si RESTA qui:
+                        // se parte uno scarico la schermata cambia del tutto, e
+                        // rimettere il fuoco su un pulsante che sta per sparire
+                        // sposterebbe la pagina per niente.
+                        if (esito.tipo !== 'si-scarica' && esito.tipo !== 'si-scarica-ldc') {
+                          tornaAlPulsante(device.id);
+                        }
                         if (esito.tipo === 'si-scarica') {
                           const scelto = DRIVERS.find((d) => d.id === esito.driverId);
                           if (scelto) void scarica({ device, driver: scelto });
@@ -871,7 +925,7 @@ export function BleDownload() {
                     'non manda le immersioni via Bluetooth a nessuna applicazione: le tiene per quella del costruttore. Esporta le immersioni da lì e importa qui il file — i dati sono gli stessi.',
                   )
                 : t(
-                    'usa un protocollo che l’applicazione non legge ancora. Nel frattempo esporta le immersioni dall’applicazione del costruttore e importa qui il file: dal Diario si importano i formati più diffusi.',
+                    'usa un protocollo che l’applicazione non legge ancora. Nel frattempo esporta le immersioni dall’applicazione del costruttore e importa qui il file: i formati accettati sono elencati qui sotto.',
                   )}
               <div style={{ marginTop: 8 }}>
                 <button className="btn secondary" onClick={() => setSpiegazione(null)}>

@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { MODELLI_BLE } from '../src/core/ble/catalogo';
+import { cercaModelli, MODELLI_BLE } from '../src/core/ble/catalogo';
 import { DRIVERS } from '../src/core/ble/registry';
 import { esitoPer, FAMIGLIE_CON_DRIVER, modelliScaricabili } from '../src/core/ble/scelta';
 
@@ -112,5 +112,49 @@ describe('la scelta di un modello', () => {
      */
     const garmin = MODELLI_BLE.filter((m) => m.marca === 'Garmin');
     expect(garmin).toEqual([]);
+  });
+});
+
+describe('Garmin, e la risposta che nessuno vedeva', () => {
+  it('cercando «garmin» si trova qualcosa, e la risposta è quella vera', () => {
+    /*
+     * ► IL DIFETTO: il ramo «mai-via-radio» era irraggiungibile. ◄
+     *
+     * `SENZA_SCARICO_DIRETTO` conteneva Garmin ed `esitoPer` sapeva rispondere,
+     * ma nel catalogo di libdivecomputer «Garmin» non compare nemmeno una volta
+     * — quindi la ricerca dava zero risultati e l'utente riceveva «Nessun
+     * modello con questo nome» su una delle marche più diffuse al mondo. La
+     * frase preparata per quel caso non la leggeva nessuno.
+     */
+    const trovati = cercaModelli('garmin');
+    expect(trovati.length).toBeGreaterThan(0);
+    for (const g of trovati) {
+      expect(g.marca).toBe('Garmin');
+      expect(esitoPer(g).tipo).toBe('mai-via-radio');
+      // E accendere libdivecomputer non cambia niente, perché non è questione
+      // di driver: i Descent i dati via Bluetooth non li danno a nessuno.
+      expect(esitoPer(g, true).tipo).toBe('mai-via-radio');
+    }
+  });
+
+  it('anche cercando il nome del modello, che è come lo chiama chi ce l’ha', () => {
+    // Nessuno cerca «garmin»: si cerca «descent» o «mk2i».
+    expect(cercaModelli('descent').length).toBeGreaterThan(0);
+    expect(cercaModelli('mk2i').map((m) => m.modello)).toContain('Descent Mk2i');
+  });
+
+  it('le voci senza driver vengono DOPO quelle che si scaricano', () => {
+    /*
+     * Metterle prima significherebbe mettere in cima all'elenco l'unica cosa
+     * che non funziona. `g2` combacia con lo Scubapro G2 (che si scarica) e col
+     * Garmin Descent G2 (che no): il primo risultato dev'essere lo Scubapro.
+     */
+    const trovati = cercaModelli('g2');
+    expect(trovati.length).toBeGreaterThan(1);
+    expect(esitoPer(trovati[0]).tipo).toBe('si-scarica');
+    expect(trovati.some((m) => m.marca === 'Garmin')).toBe(true);
+    const primoGarmin = trovati.findIndex((m) => m.marca === 'Garmin');
+    const ultimoScaricabile = trovati.map((m) => esitoPer(m).tipo).lastIndexOf('si-scarica');
+    expect(primoGarmin).toBeGreaterThan(ultimoScaricabile);
   });
 });

@@ -711,6 +711,23 @@ pub struct ImmersioneLdc {
     pub temp_max_c: Option<f64>,
     /// Frazioni di ossigeno ed elio, una per miscela, nell'ordine del computer.
     pub gas: Vec<GasLdc>,
+    /// Le bombole, che sono una lista a sé: vedi `BombolaLdc`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub bombole: Vec<BombolaLdc>,
+    /// `oc`, `ccr`, `scr`, `gauge`, `freedive`. Assente se il computer non lo dice.
+    #[serde(rename = "mode", skip_serializing_if = "Option::is_none")]
+    pub modalita: Option<&'static str>,
+    /**
+     * Vero quando il computer NON ha dato una data.
+     *
+     * Serviva, e mancava: `dc_parser_get_datetime` può fallire, e
+     * `millisecondi()` restituisce zero per un anno zero. Uno zero è un istante
+     * legittimo — il 1° gennaio 1970 — quindi il lato TypeScript non aveva modo
+     * di distinguere «mezzanotte del 1970» da «non lo so», e ci applicava il
+     * fuso: l'immersione entrava in archivio datata **31 dicembre 1969**.
+     */
+    #[serde(rename = "senzaData", skip_serializing_if = "std::ops::Not::not")]
+    pub senza_data: bool,
     pub samples: Vec<CampioneLdc>,
 }
 
@@ -718,6 +735,30 @@ pub struct ImmersioneLdc {
 pub struct GasLdc {
     pub o2: f64,
     pub he: f64,
+}
+
+/// Una bombola, con il suo legame verso la miscela che contiene.
+///
+/// ► ESISTE PERCHÉ `pressione_bar` DEI CAMPIONI È INDICIZZATA QUI, NON SUI GAS. ◄
+///
+/// `dc_sample_value_t.pressure.tank` è un indice in QUESTA lista. Passarlo al
+/// lato TypeScript come se fosse un indice di miscela era il difetto: un
+/// computer con un gas dichiarato e il trasmettitore sulla bombola 2 mandava
+/// `[null, 220]`, il logbook leggeva solo la posizione 0, e dichiarava per
+/// iscritto «nessuna pressione bombola: consumo gas non calcolabile» su
+/// un'immersione in cui il computer aveva registrato 130 bar consumati.
+#[derive(serde::Serialize, Default, Clone, Debug)]
+pub struct BombolaLdc {
+    /// L'indice della miscela in `gas`, assente se il computer non lo dice.
+    #[serde(rename = "gasIndex", skip_serializing_if = "Option::is_none")]
+    pub indice_gas: Option<usize>,
+    /// Capacità in acqua, litri. Assente quando la bombola non la dichiara.
+    #[serde(rename = "sizeL", skip_serializing_if = "Option::is_none")]
+    pub volume_l: Option<f64>,
+    #[serde(rename = "startBar", skip_serializing_if = "Option::is_none")]
+    pub pressione_iniziale_bar: Option<f64>,
+    #[serde(rename = "endBar", skip_serializing_if = "Option::is_none")]
+    pub pressione_finale_bar: Option<f64>,
 }
 
 /// Quello che si accumula mentre libdivecomputer sciorina i campioni.
@@ -728,9 +769,37 @@ struct Accumulatore {
     quante_bombole: usize,
 }
 
-/// Il tipo di sosta secondo libdivecomputer: 0 nessuna, 1 NDL, 2 sosta deco,
-/// 3 sosta di sicurezza.
-const DECO_NDL: c_uint = 1;
+/*
+ * ► IL TIPO DI SOSTA. LA COSTANTE ERA SBAGLIATA DI UNO, E NON DAVA ERRORE. ◄
+ *
+ * Il commento che stava qui diceva «0 nessuna, 1 NDL, 2 sosta deco, 3 sosta di
+ * sicurezza». È un ordine inventato. Quello vero sta in
+ * `vendor/libdivecomputer-0.9.0.tar.gz`, `include/libdivecomputer/parser.h`:
+ *
+ *     typedef enum dc_deco_type_t {
+ *         DC_DECO_NDL,        // 0
+ *         DC_DECO_SAFETYSTOP, // 1
+ *         DC_DECO_DECOSTOP,   // 2
+ *         DC_DECO_DEEPSTOP    // 3
+ *     }
+ *
+ * Con `DECO_NDL = 1` succedevano tre cose insieme, tutte silenziose:
+ *
+ *  1. **`ndlS` non arrivava mai**, per nessun modello: il ramo dell'NDL non si
+ *     imboccava. Sparivano il grafico dell'NDL nella scheda e la colonna nei
+ *     contesti per l'analisi.
+ *  2. I secondi di una **sosta di sicurezza** finivano dentro `ndlS`: «180
+ *     secondi di curva» a tre metri dalla superficie.
+ *  3. Ogni campione IN CURVA riceveva **`ceiling: 0`** — perché la profondità
+ *     di un NDL è zero — e questo è il peggiore dei tre. `hasCeiling` diventava
+ *     vero, e in `dedupe.ts` un profilo con «dati decompressivi» vale due punti
+ *     nel confronto dei canali: un profilo letto da libdivecomputer poteva
+ *     **battere e sostituire** il profilo vero di uno dei driver di casa.
+ *
+ * Nessuna di queste tre cose dà errore. È il motivo per cui una costante
+ * copiata a occhio da un'intestazione C va confrontata con l'intestazione.
+ */
+const DECO_NDL: c_uint = 0;
 
 extern "C" fn campione(tipo: c_uint, valore: *const ValoreCampione, userdata: *mut c_void) {
     // SICUREZZA: entrambi i puntatori arrivano da libdivecomputer e valgono per
@@ -840,6 +909,16 @@ const CAMPO_GAS_QUANTI: c_uint = 3;
 const CAMPO_GAS: c_uint = 4;
 const CAMPO_TEMP_MIN: c_uint = 8;
 const CAMPO_TEMP_MAX: c_uint = 9;
+/*
+ * Le bombole, che sono una lista DIVERSA dalle miscele, ed è la distinzione che
+ * mancava. `dc_tank_t` porta un campo `gasmix` proprio perché le due liste non
+ * coincidono: un trasmettitore assegnato alla seconda bombola su un computer
+ * che dichiara un gas solo è la normalità su un integrato d'aria.
+ */
+const CAMPO_BOMBOLE_QUANTE: c_uint = 10;
+const CAMPO_BOMBOLA: c_uint = 11;
+/// La modalità: circuito aperto, chiuso, semichiuso, profondimetro, apnea.
+const CAMPO_MODALITA: c_uint = 12;
 
 #[repr(C)]
 #[derive(Default, Clone, Copy)]
@@ -849,6 +928,28 @@ struct GasMix {
     azoto: f64,
     _tipo: c_uint,
 }
+
+/// `dc_tank_t`, campo per campo nell'ordine dell'intestazione.
+///
+/// `gasmix` è **l'indice nella lista delle miscele**, o `0xFFFFFFFF` quando il
+/// computer non lo dice. È l'unico ponte fra le due liste, ed è il motivo per
+/// cui questa struttura va letta invece di dare per scontato che bombola *n* e
+/// miscela *n* siano la stessa cosa: su un integrato d'aria non lo sono quasi
+/// mai. `volume` è sempre la capacità in acqua, in litri: libdivecomputer
+/// converte da sé le bombole imperiali.
+#[repr(C)]
+#[derive(Default, Clone, Copy)]
+struct BombolaC {
+    gasmix: c_uint,
+    _tipo: c_uint,
+    volume: f64,
+    _pressione_lavoro: f64,
+    pressione_iniziale: f64,
+    pressione_finale: f64,
+    _uso: c_uint,
+}
+
+const GASMIX_SCONOSCIUTA: c_uint = 0xFFFF_FFFF;
 
 #[repr(C)]
 struct DcDatetime {
@@ -910,9 +1011,22 @@ pub fn traduci(
 
     let mut immersione = ImmersioneLdc::default();
 
+    /*
+     * LA DATA PUÒ NON ESSERCI, e va detto invece che finto.
+     *
+     * `dc_parser_get_datetime` può fallire, e `millisecondi()` restituisce zero
+     * per un anno zero. Zero però è un istante vero — il 1° gennaio 1970 — e
+     * chi legge dall'altra parte non poteva distinguerlo da «non lo so»:
+     * applicandoci il fuso, l'immersione entrava in archivio datata 31 dicembre
+     * 1969, con la catena dei tessuti e ogni statistica per giornata al
+     * seguito. Adesso c'è una bandiera, e chi legge decide.
+     */
     let mut quando = DcDatetime { anno: 0, mese: 0, giorno: 0, ora: 0, minuto: 0, secondo: 0, fuso: 0 };
-    if unsafe { dc_parser_get_datetime(parser, &mut quando) } == DC_STATUS_SUCCESS {
+    if unsafe { dc_parser_get_datetime(parser, &mut quando) } == DC_STATUS_SUCCESS && quando.anno != 0
+    {
         immersione.inizio_ms = millisecondi(&quando);
+    } else {
+        immersione.senza_data = true;
     }
 
     let leggi_numero = |campo: c_uint| -> Option<f64> {
@@ -954,6 +1068,65 @@ pub fn traduci(
                 immersione.gas.push(GasLdc { o2: mix.ossigeno, he: mix.elio });
             }
         }
+    }
+
+    /*
+     * LE BOMBOLE, che sono la lista su cui sono indicizzate le pressioni dei
+     * campioni. Da qui arrivano anche volume e pressioni di inizio e fine —
+     * senza le quali il consumo in litri al minuto non si calcola affatto, e
+     * infatti non si calcolava.
+     */
+    let mut quante_bombole: c_uint = 0;
+    if unsafe {
+        dc_parser_get_field(
+            parser,
+            CAMPO_BOMBOLE_QUANTE,
+            0,
+            &mut quante_bombole as *mut c_uint as *mut c_void,
+        )
+    } == DC_STATUS_SUCCESS
+    {
+        for i in 0..quante_bombole {
+            let mut b = BombolaC::default();
+            if unsafe {
+                dc_parser_get_field(parser, CAMPO_BOMBOLA, i, &mut b as *mut BombolaC as *mut c_void)
+            } == DC_STATUS_SUCCESS
+            {
+                immersione.bombole.push(BombolaLdc {
+                    indice_gas: (b.gasmix != GASMIX_SCONOSCIUTA).then_some(b.gasmix as usize),
+                    // Zero non è una misura: è «non dichiarato». `dc_tank_t` lo
+                    // dice esplicitamente per il volume, e una bombola da zero
+                    // litri o da zero bar farebbe divisioni per zero a valle.
+                    volume_l: (b.volume > 0.0).then_some(b.volume),
+                    pressione_iniziale_bar: (b.pressione_iniziale > 0.0)
+                        .then_some(b.pressione_iniziale),
+                    pressione_finale_bar: (b.pressione_finale > 0.0).then_some(b.pressione_finale),
+                });
+            }
+        }
+    }
+
+    /*
+     * LA MODALITÀ. Senza, ogni immersione entrava in archivio a circuito aperto
+     * — compreso un rebreather, che il logbook conta a parte in mezzo posto:
+     * statistiche, attrezzatura, e il libretto a valore legale.
+     */
+    let mut modalita: c_uint = 0;
+    if unsafe {
+        dc_parser_get_field(parser, CAMPO_MODALITA, 0, &mut modalita as *mut c_uint as *mut c_void)
+    } == DC_STATUS_SUCCESS
+    {
+        // `dc_divemode_t`: 0 apnea, 1 profondimetro, 2 circuito aperto,
+        // 3 circuito chiuso, 4 semichiuso. Le parole sono quelle di `DiveMode`
+        // in `src/core/model.ts`, così il lato TypeScript non deve tradurre.
+        immersione.modalita = match modalita {
+            0 => Some("freedive"),
+            1 => Some("gauge"),
+            2 => Some("oc"),
+            3 => Some("ccr"),
+            4 => Some("scr"),
+            _ => None,
+        };
     }
 
     let mut acc = Accumulatore {

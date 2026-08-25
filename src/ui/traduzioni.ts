@@ -2008,7 +2008,6 @@ export const INGLESE: Record<string, string> = {
     'Nothing new: the computer has no dives newer than the ones you already have.',
   'non riconosciuto come computer subacqueo': 'not recognised as a dive computer',
   'Non è arrivata nessuna immersione': 'No dive came through',
-  'provalo come…': 'try it as…',
   // --- il catalogo dei computer: marca, modello, e cosa succede davvero ---
   'Che computer è?': 'Which computer is it?',
   'Cerca la marca o il modello': 'Search by brand or model',
@@ -2022,8 +2021,8 @@ export const INGLESE: Record<string, string> = {
     'No model by that name. It may be called something else, or that computer may not hand out its data over Bluetooth at all: either way you can export your dives from the maker’s app and import the file here.',
   'non manda le immersioni via Bluetooth a nessuna applicazione: le tiene per quella del costruttore. Esporta le immersioni da lì e importa qui il file — i dati sono gli stessi.':
     'does not send dives over Bluetooth to any app: it keeps them for the maker’s own. Export your dives there and import the file here — the data is the same.',
-  'usa un protocollo che l’applicazione non legge ancora. Nel frattempo esporta le immersioni dall’applicazione del costruttore e importa qui il file: dal Diario si importano i formati più diffusi.':
-    'uses a protocol this app cannot read yet. Meanwhile, export your dives from the maker’s app and import the file here: the Logbook takes the common formats.',
+  'usa un protocollo che l’applicazione non legge ancora. Nel frattempo esporta le immersioni dall’applicazione del costruttore e importa qui il file: i formati accettati sono elencati qui sotto.':
+    'uses a protocol this app cannot read yet. Meanwhile, export your dives from the maker’s app and import the file here: the formats we take are listed below.',
   'quello che è arrivato è salvato, il resto si riprende riscaricando.':
     'what arrived is saved, the rest resumes on the next download.',
   riga: 'line',

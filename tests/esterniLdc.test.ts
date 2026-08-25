@@ -225,3 +225,132 @@ describe('l’elenco', () => {
     expect(out.length).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// I sei difetti del debug del 25 agosto 2026.
+//
+// Tutti trovati da una revisione avversariale con l'intera catena di controlli
+// VERDE: tipi, 1382 test, lint, formato, build, cargo con e senza
+// libdivecomputer, e la compilazione per iPhone. Nessuno di loro dava errore —
+// è il motivo per cui esistono questi controlli e non un giro di prove a mano.
+// ---------------------------------------------------------------------------
+
+describe('i difetti del 25 agosto', () => {
+  it('le pressioni sono indicizzate sulle BOMBOLE, non sulle miscele', () => {
+    /*
+     * Un computer integrato con UN gas dichiarato e il trasmettitore sulla
+     * seconda bombola è la normalità, non un caso limite. Prima: `cylinders`
+     * nasceva dalle miscele, quindi era lungo 1, e la pressione in posizione 1
+     * veniva letta come se fosse della bombola 0 — o buttata. Il logbook
+     * scriveva «nessuna pressione bombola: consumo gas non calcolabile» su
+     * un'immersione in cui il computer aveva registrato 130 bar consumati.
+     */
+    const d = immersioneDaLdc(
+      unaImmersione({
+        gas: [{ o2: 0.21, he: 0 }],
+        bombole: [{ gasIndex: 0 }, { gasIndex: 0, sizeL: 12, startBar: 220, endBar: 90 }],
+        samples: [
+          { t: 0, depth: 1, pressureBar: [null, 220] },
+          { t: 900, depth: 20, pressureBar: [null, 150] },
+          { t: 1800, depth: 0.5, pressureBar: [null, 90] },
+        ],
+      }),
+      { marca: 'Aqualung', modello: 'i770R', importedAt: IMPORTATA },
+    )!;
+    expect(d.cylinders.length).toBe(2);
+    expect(d.cylinders[1]).toMatchObject({ sizeL: 12, startBar: 220, endBar: 90 });
+    expect(d.samples![0].pressureBar).toEqual([undefined, 220]);
+    // E il consumo si calcola, che è il punto di tutto quanto sopra.
+    expect(d.metrics?.quality.hasTankPressure).toBe(true);
+    expect(d.metrics?.sacBarPerMin).toBeGreaterThan(0);
+  });
+
+  it('una pressione che punta a una bombola inesistente si butta', () => {
+    // `Sample.pressureBar` è indicizzata come `Dive.cylinders`: una posizione in
+    // più attribuirebbe una pressione a un contenitore che nell'immersione non
+    // c'è, e tutto ciò che sta a valle si fida di quella corrispondenza.
+    const d = immersioneDaLdc(
+      unaImmersione({
+        gas: [{ o2: 0.21, he: 0 }],
+        bombole: [{ gasIndex: 0 }],
+        samples: [{ t: 0, depth: 5, pressureBar: [200, 180, 160] }],
+      }),
+      { marca: 'Suunto', modello: 'D5', importedAt: IMPORTATA },
+    )!;
+    expect(d.samples![0].pressureBar).toEqual([200]);
+  });
+
+  it('la profondità media e la temperatura del computer non si buttano', () => {
+    /*
+     * Non è ridondanza col profilo: `computeMetrics` le usa come RIPIEGO quando
+     * il profilo non c'è, e i record di sola sintesi esistono su parecchi
+     * computer. Prima quelle immersioni entravano senza profondità media, senza
+     * pressione ambiente media e senza temperatura.
+     */
+    const d = immersioneDaLdc(unaImmersione({ samples: [], avgDepth: 14.2, tempMinC: 12.5 }), {
+      marca: 'Mares',
+      modello: 'Genius',
+      importedAt: IMPORTATA,
+    })!;
+    expect(d.avgDepth).toBe(14.2);
+    expect(d.minTempC).toBe(12.5);
+    expect(d.metrics?.avgAta).toBeGreaterThan(2);
+  });
+
+  it('un rebreather non entra in archivio a circuito aperto', () => {
+    // Prima `mode` era `'oc'` fisso. Le CCR si contano a parte, l'apnea e il
+    // profondimetro vengono esclusi dalle statistiche che falserebbero, e la
+    // modalità finisce sul libretto a valore legale.
+    const ccr = immersioneDaLdc(unaImmersione({ mode: 'ccr' }), {
+      marca: 'Divesoft',
+      modello: 'Liberty',
+      importedAt: IMPORTATA,
+    })!;
+    expect(ccr.mode).toBe('ccr');
+    // Senza dichiarazione resta 'oc', che è un ripiego dichiarato e non
+    // un'invenzione.
+    expect(immersioneDaLdc(unaImmersione(), { marca: 'x', modello: 'y', importedAt: IMPORTATA })!.mode).toBe(
+      'oc',
+    );
+  });
+
+  it('un record senza data non entra, e lo dice', () => {
+    /*
+     * Zero millisecondi è un istante legittimo — il 1° gennaio 1970 — quindi
+     * senza bandiera non c'era modo di distinguerlo da «non lo so». Col fuso
+     * applicato sopra, l'immersione entrava in archivio datata 31 dicembre 1969,
+     * e da lì avvelenava la catena dei tessuti e il raggruppamento per giornata.
+     */
+    const motivi: string[] = [];
+    const d = immersioneDaLdc(unaImmersione({ startMs: 0, senzaData: true }), {
+      marca: 'Cressi',
+      modello: 'Goa',
+      fuso: () => 120,
+      importedAt: IMPORTATA,
+      onScarto: (m) => motivi.push(m),
+    });
+    expect(d).toBeUndefined();
+    expect(motivi).toHaveLength(1);
+    expect(motivi[0]).toContain('data');
+  });
+
+  it('la durata è il MASSIMO dei tempi, non l’ultimo campione', () => {
+    // Con istanti non ordinati, l'ultimo campione dava 60 secondi su
+    // un'immersione di cinquanta minuti: la deduplica non riconosceva più la
+    // stessa immersione da un'altra fonte, e il consumo veniva diviso per un
+    // minuto invece che per cinquanta.
+    const d = immersioneDaLdc(
+      unaImmersione({
+        durationS: 0,
+        samples: [
+          { t: 0, depth: 5 },
+          { t: 3000, depth: 30 },
+          { t: 60, depth: 12 },
+        ],
+      }),
+      { marca: 'Oceanic', modello: 'Geo 4.0', importedAt: IMPORTATA },
+    )!;
+    expect(d.durationS).toBe(3000);
+    expect(d.maxDepth).toBe(30);
+  });
+});

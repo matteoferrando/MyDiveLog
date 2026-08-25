@@ -470,9 +470,28 @@ await page.screenshot({ path: 'screenshots/10-impostazioni.png', fullPage: true 
  */
 await page.locator('details.card summary').first().click();
 await page.waitForTimeout(300);
+/*
+ * ► SI SCEGLIE IL CAMPO PER IL SUO SEGNAPOSTO, NON PER IL SUO TIPO. ◄
+ *
+ * `page.fill('input[type=text]', …)` prende il PRIMO campo di testo della
+ * pagina. Nelle impostazioni oggi i primi due sono il nome del subacqueo e il
+ * brevetto — il campo dell'indirizzo è il terzo. Cioè: l'indirizzo Turso
+ * finiva scritto nel NOME del subacqueo, il campo dell'indirizzo restava
+ * vuoto, il pulsante «Prova la connessione» restava spento, e lo script moriva
+ * lì dopo trenta secondi.
+ *
+ * Il risultato pratico è che questo controllo — il giro completo
+ * dell'interfaccia, quello che ha già preso il difetto peggiore del progetto —
+ * **non girava più**, e nessuno se n'era accorto, perché lo si lancia a mano.
+ * Un controllo che non parte non è un controllo che passa: è un controllo che
+ * non c'è.
+ *
+ * Il segnaposto è anche una descrizione di cosa ci si aspetta di trovare, e
+ * cambiandolo questo script si ferma dicendo il perché.
+ */
 // Con credenziali finte la connessione DEVE fallire con un messaggio, non con una
 // pagina bianca: è il modo più rapido di verificare che il client si carichi.
-await page.fill('input[type=text]', 'libsql://non-esiste-xyz.turso.io');
+await page.fill('input[placeholder^="libsql://"]', 'libsql://non-esiste-xyz.turso.io');
 await page.fill('input[type=password]', 'token-finto');
 await page.click('button:has-text("Prova la connessione")');
 // Il limite di tempo del client è 30 s: qui si aspetta che il messaggio arrivi,

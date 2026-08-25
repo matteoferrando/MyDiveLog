@@ -43,7 +43,7 @@
 import { istanteDaOraAParete } from '../oraAParete';
 import { computeMetrics } from '../analysis/metrics';
 import { diveIdFor } from '../dedupe';
-import type { Cylinder, Dive, GasMix, Sample } from '../model';
+import type { Cylinder, Dive, DiveMode, GasMix, Sample } from '../model';
 
 /**
  * Un'immersione come la consegna il guscio Rust.
@@ -56,6 +56,16 @@ import type { Cylinder, Dive, GasMix, Sample } from '../model';
 export interface ImmersioneLdc {
   /** Ora a parete letta come UTC, millisecondi dall'epoca. Vedi sopra. */
   startMs: number;
+  /**
+   * Vero quando il computer non ha dato nessuna data.
+   *
+   * Senza questa bandiera `startMs` valeva zero, che è un istante legittimo — il
+   * 1° gennaio 1970 — e l'immersione entrava in archivio datata 31 dicembre
+   * 1969, col fuso applicato sopra. In un logbook una data inventata non è un
+   * dettaglio: la catena dei tessuti si calcola sugli orari, e le statistiche si
+   * raggruppano per giornata.
+   */
+  senzaData?: boolean;
   durationS: number;
   maxDepth: number;
   avgDepth?: number;
@@ -63,7 +73,26 @@ export interface ImmersioneLdc {
   tempMaxC?: number;
   /** Le miscele nell'ordine in cui le dichiara il computer. */
   gas: { o2: number; he: number }[];
+  /**
+   * Le bombole, che sono una lista DIVERSA dalle miscele.
+   *
+   * `CampioneLdc.pressureBar` è indicizzata **qui**, non su `gas`. Un computer
+   * integrato con un gas dichiarato e il trasmettitore sulla seconda bombola è
+   * la normalità, non un caso limite.
+   */
+  bombole?: BombolaLdc[];
+  /** La modalità dichiarata dal computer. Assente se non la dice. */
+  mode?: DiveMode;
   samples: CampioneLdc[];
+}
+
+export interface BombolaLdc {
+  /** L'indice della miscela in `gas`, quando il computer lo dichiara. */
+  gasIndex?: number;
+  /** Capacità in acqua, litri. */
+  sizeL?: number;
+  startBar?: number;
+  endBar?: number;
 }
 
 export interface CampioneLdc {
@@ -71,7 +100,7 @@ export interface CampioneLdc {
   t: number;
   depth?: number;
   tempC?: number;
-  /** Una voce per bombola, nell'ordine di `gas`. */
+  /** Una voce per BOMBOLA, nell'ordine di `bombole` — non di `gas`. */
   pressureBar?: (number | null)[];
   ndlS?: number;
   ttsS?: number;
@@ -99,6 +128,14 @@ export interface ContestoEsterno {
   fuso?: (oraAParete: number) => number;
   /** L'istante dello scarico, per `source.importedAt`. */
   importedAt: string;
+  /**
+   * Che cosa è stato scartato, e perché.
+   *
+   * Esiste perché uno scarto silenzioso è peggio di un'immersione sbagliata:
+   * chi ha appena aspettato tre minuti di trasferimento conta le immersioni, e
+   * se ne mancano una deve poter sapere che non è stata persa per un guasto.
+   */
+  onScarto?: (motivo: string) => void;
 }
 
 /**
@@ -111,7 +148,28 @@ export interface ContestoEsterno {
  * cancellate a mano una per una.
  */
 export function immersioneDaLdc(imm: ImmersioneLdc, ctx: ContestoEsterno): Dive | undefined {
-  const samples = campioni(imm);
+  /*
+   * ► UN RECORD SENZA DATA NON ENTRA IN ARCHIVIO. ◄
+   *
+   * Non è prudenza eccessiva. `dc_parser_get_datetime` può fallire, e senza
+   * questa bandiera `startMs` valeva zero: l'immersione si piazzava al 1°
+   * gennaio 1970 — al 31 dicembre 1969 col fuso applicato sopra — e da lì
+   * avvelenava la catena dei tessuti, che si calcola sugli orari, e il
+   * raggruppamento per giornata di CNS e OTU. E `diveIdFor` si ricava
+   * dall'orario: due record senza data sarebbero diventati la stessa
+   * immersione, cioè una delle due sparita.
+   *
+   * Si scarta DICENDOLO, mai in silenzio: chi ha appena aspettato tre minuti di
+   * trasferimento conta le immersioni, e ha diritto di sapere che una non è
+   * entrata e perché.
+   */
+  if (imm.senzaData) {
+    ctx.onScarto?.('Il computer non ha dato la data di questa immersione: non è stata importata.');
+    return undefined;
+  }
+
+  const bombole = cilindri(imm);
+  const samples = campioni(imm, bombole.length);
 
   /*
    * IL MASSIMO FRA IL DICHIARATO E I CAMPIONI, e non uno dei due.
@@ -124,7 +182,15 @@ export function immersioneDaLdc(imm: ImmersioneLdc, ctx: ContestoEsterno): Dive 
    */
   const daiCampioni = samples.length ? Math.max(...samples.map((s) => s.depth)) : 0;
   const maxDepth = Math.max(imm.maxDepth || 0, daiCampioni);
-  const durationS = Math.max(imm.durationS || 0, samples.length ? samples[samples.length - 1].t : 0);
+  /*
+   * IL MASSIMO DEI TEMPI, non l'ultimo campione — che è quello che c'era
+   * scritto qui, ed era incoerente con la riga sopra, che il massimo lo prende
+   * davvero. Con istanti non perfettamente ordinati, `[0, 3000, 60]` dava una
+   * durata di **60 secondi** su un'immersione di cinquanta minuti: la deduplica
+   * non avrebbe più riconosciuto la stessa immersione venuta da un'altra fonte,
+   * e il consumo sarebbe stato diviso per un minuto invece che per cinquanta.
+   */
+  const durationS = Math.max(imm.durationS || 0, ...samples.map((s) => s.t), 0);
   if (maxDepth <= 0 && durationS <= 0) return undefined;
 
   const oraAParete = imm.startMs;
@@ -133,19 +199,6 @@ export function immersioneDaLdc(imm: ImmersioneLdc, ctx: ContestoEsterno): Dive 
     fusoMinuti === undefined ? oraAParete : istanteDaOraAParete(oraAParete, fusoMinuti),
   ).toISOString();
 
-  /*
-   * ALMENO UNA BOMBOLA, SEMPRE.
-   *
-   * Un computer in modalità profondimetro non dichiara nessuna miscela, e
-   * un'immersione senza bombole manda a vuoto ogni conto sul gas e ogni
-   * calcolo di PPO2. Aria è l'assunzione che fanno tutti — compresa la
-   * didattica quando parla di «immersione ad aria» come caso di riferimento —
-   * ed è dichiarata qui invece che nascosta dentro un `?? 0.21` sparso.
-   */
-  const cylinders: Cylinder[] = imm.gas.length
-    ? imm.gas.map((g) => ({ mix: miscela(g) }))
-    : [{ mix: { o2: 0.21, he: 0 } }];
-
   const base: Omit<Dive, 'id'> = {
     startTime,
     // Dichiarato solo quando lo sappiamo davvero: senza, `startTime` è ancora
@@ -153,8 +206,33 @@ export function immersioneDaLdc(imm: ImmersioneLdc, ctx: ContestoEsterno): Dive 
     utcOffsetMinutes: fusoMinuti,
     durationS,
     maxDepth,
-    mode: 'oc',
-    cylinders,
+    /*
+     * LA PROFONDITÀ MEDIA E LA TEMPERATURA MINIMA DICHIARATE DAL COMPUTER.
+     *
+     * Arrivavano dal Rust e venivano buttate. Non è ridondanza col profilo:
+     * `computeMetrics` le usa **come ripiego quando il profilo non c'è** — e i
+     * record di sola sintesi, senza campioni, esistono su parecchi computer.
+     * Senza, quelle immersioni entravano in archivio senza profondità media,
+     * senza pressione ambiente media e senza temperatura.
+     *
+     * `tempMaxC` invece resta fuori, e non per dimenticanza: `Dive` non ha un
+     * campo per la temperatura massima dell'acqua. `airTempC` è un'altra cosa —
+     * è l'aria in superficie — e infilarcela dentro vorrebbe dire scrivere in
+     * archivio un dato che dice quello che non è.
+     */
+    avgDepth: imm.avgDepth,
+    minTempC: imm.tempMinC,
+    /*
+     * LA MODALITÀ ARRIVA DAL COMPUTER, e prima era `'oc'` fisso.
+     *
+     * Un rebreather entrava in archivio a circuito aperto. Non è un'etichetta:
+     * le CCR si contano a parte, l'apnea e il profondimetro vengono esclusi
+     * dalle statistiche che falserebbero, e la modalità finisce sul libretto a
+     * valore legale. Quando il computer non la dichiara resta `'oc'`, che è
+     * l'assunzione di tutti — ma adesso è un ripiego, non un'invenzione.
+     */
+    mode: imm.mode ?? 'oc',
+    cylinders: bombole,
     computer: {
       model: `${ctx.marca} ${ctx.modello}`.trim(),
       deviceId: ctx.dispositivo,
@@ -182,6 +260,58 @@ export function immersioniDaLdc(imm: ImmersioneLdc[], ctx: ContestoEsterno): Div
 }
 
 /**
+ * Le bombole, e il legame con le miscele che è la parte che si sbaglia.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► DUE LISTE, NON UNA. ◄
+ *
+ * libdivecomputer tiene le **miscele** (`DC_FIELD_GASMIX`) e le **bombole**
+ * (`DC_FIELD_TANK`) in due elenchi separati, e `dc_tank_t` porta un campo
+ * `gasmix` proprio perché non coincidono. La pressione di un campione è
+ * indicizzata sulle BOMBOLE.
+ *
+ * Il difetto che c'era: `cylinders` nasceva dalle miscele e le pressioni
+ * venivano copiate con l'indice della bombola. Un computer con un gas
+ * dichiarato e il trasmettitore assegnato alla seconda bombola — la normalità
+ * su un integrato d'aria — mandava `[null, 220]`, il logbook leggeva la sola
+ * posizione 0 e scriveva nella scheda «nessuna pressione bombola: consumo gas
+ * non calcolabile». Su un'immersione in cui il computer aveva registrato 130
+ * bar consumati.
+ *
+ * Adesso: se le bombole ci sono, sono loro l'elenco, e ognuna prende la miscela
+ * che dichiara. Se non ci sono — parecchi computer non le espongono — si
+ * ricade sulle miscele, che è il comportamento di prima ed è corretto proprio
+ * perché in quel caso le due liste non hanno modo di divergere.
+ */
+function cilindri(imm: ImmersioneLdc): Cylinder[] {
+  const gas = imm.gas.map(miscela);
+  const bombole = imm.bombole ?? [];
+  if (bombole.length) {
+    return bombole.map((b) => ({
+      // Una bombola senza miscela dichiarata prende la prima, che è quasi
+      // sempre quella giusta e comunque meglio di nessun gas: senza `mix` non
+      // si calcola né PPO2 né MOD né consumo.
+      mix: (b.gasIndex !== undefined ? gas[b.gasIndex] : undefined) ?? gas[0] ?? ARIA,
+      sizeL: b.sizeL,
+      startBar: b.startBar,
+      endBar: b.endBar,
+    }));
+  }
+  /*
+   * ALMENO UNA BOMBOLA, SEMPRE.
+   *
+   * Un computer in modalità profondimetro non dichiara nessuna miscela, e
+   * un'immersione senza bombole manda a vuoto ogni conto sul gas e ogni calcolo
+   * di PPO2. Aria è l'assunzione che fanno tutti — compresa la didattica quando
+   * parla di «immersione ad aria» come caso di riferimento — ed è dichiarata
+   * qui invece che nascosta dentro un `?? 0.21` sparso.
+   */
+  return gas.length ? gas.map((mix) => ({ mix })) : [{ mix: ARIA }];
+}
+
+const ARIA: GasMix = { o2: 0.21, he: 0 };
+
+/**
  * I campioni, con la profondità riportata avanti quando manca.
  *
  * libdivecomputer manda un istante e poi i soli valori CAMBIATI: il guscio Rust
@@ -196,7 +326,7 @@ export function immersioniDaLdc(imm: ImmersioneLdc[], ctx: ContestoEsterno): Div
  * avanti: quei campioni si buttano, invece di inventare uno zero che il grafico
  * mostrerebbe come una discesa dalla superficie che non è stata registrata.
  */
-function campioni(imm: ImmersioneLdc): Sample[] {
+function campioni(imm: ImmersioneLdc, quanteBombole: number): Sample[] {
   const out: Sample[] = [];
   let ultima: number | undefined;
   for (const c of imm.samples) {
@@ -213,7 +343,19 @@ function campioni(imm: ImmersioneLdc): Sample[] {
      * il messaggio opposto e finisce dritto nel calcolo del consumo.
      */
     if (c.pressureBar?.length) {
-      s.pressureBar = c.pressureBar.map((p) => (p === null ? undefined : p));
+      /*
+       * SI PORTA A LUNGHEZZA, e la lunghezza è quella delle bombole.
+       *
+       * `Sample.pressureBar` è indicizzata come `Dive.cylinders`, e un array
+       * più corto o più lungo dell'elenco delle bombole è una promessa rotta
+       * verso tutto ciò che sta a valle. Più corto: le posizioni mancanti
+       * restano indefinite, che è la verità («quella bombola non ha mandato
+       * niente»). Più lungo: le posizioni in eccesso si buttano, perché
+       * puntano a una bombola che nell'immersione non esiste — tenerle
+       * significherebbe attribuire una pressione a un contenitore inventato.
+       */
+      const p = c.pressureBar.slice(0, quanteBombole).map((v) => (v === null ? undefined : v));
+      if (p.some((v) => v !== undefined)) s.pressureBar = p;
     }
     if (c.ndlS !== undefined) s.ndlS = c.ndlS;
     if (c.ttsS !== undefined) s.ttsS = c.ttsS;
@@ -238,7 +380,7 @@ function campioni(imm: ImmersioneLdc): Sample[] {
  * riconosce e si legge come aria, che è ciò che l'apparecchio intendeva.
  */
 function miscela(g: { o2: number; he: number }): GasMix {
-  const o2 = g.o2 > 0 ? g.o2 : 0.21;
+  const o2 = g.o2 > 0 ? g.o2 : ARIA.o2;
   const he = g.he > 0 ? g.he : 0;
   return { o2, he };
 }

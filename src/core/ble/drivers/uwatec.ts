@@ -106,7 +106,7 @@ const SERVIZIO = 'fdcdeaaa-295d-470e-bf15-04217b7aa0a0';
  *    di qualcun altro e mandargli i byte di un comando Uwatec.
  *
  * Chi non rientra in nessuna delle due resta nell'elenco senza etichetta, e da
- * lì lo si può forzare a mano: vedi il pulsante «provalo come…» nella schermata
+ * lì lo si può forzare a mano: vedi il pulsante «Che computer è?» nella schermata
  * dello scarico. È la rete di sicurezza per il prossimo nome che non avevamo
  * previsto — perché ce ne sarà un altro.
  */
