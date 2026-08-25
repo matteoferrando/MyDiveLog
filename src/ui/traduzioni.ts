@@ -484,8 +484,8 @@ export const INGLESE: Record<string, string> = {
   Data: 'Date',
   'Con brevetto miscele.': 'Mixed-gas certified.',
   'I tuoi brevetti': 'Your certifications',
-  'Il nome sulla tessera è quello che potrai scegliere per il libretto.':
-    'The name on the card is what you will be able to pick for the logbook.',
+  'Sul libretto finiscono didattica e livello, non il nome sulla tessera.':
+    'The logbook carries agency and level, not the name on the card.',
   'Quelli che scrivi qui sono quelli che puoi scegliere qui sopra per il libretto. Il campo che conta è il livello.':
     'What you enter here is what you can pick above for the logbook. The field that counts is the level.',
   Didattica: 'Agency',

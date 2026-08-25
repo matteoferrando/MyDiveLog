@@ -243,7 +243,7 @@ function SchedaBrevetto({
        * detto qui, dove si scrive, e non nella carta sopra, dove si sceglie.
        */}
       <p className="muted" style={{ fontSize: 11, margin: '10px 0 0' }}>
-        {t('Il nome sulla tessera è quello che potrai scegliere per il libretto.')}
+        {t('Sul libretto finiscono didattica e livello, non il nome sulla tessera.')}
       </p>
     </div>
   );

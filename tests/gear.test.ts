@@ -163,12 +163,11 @@ describe('livello più alto', () => {
 });
 
 describe('il brevetto come si sceglie per il libretto', () => {
-  const brevetto = (name: string, agency: string): Certification => ({
-    id: name,
-    agency,
-    name,
-    level: 'advanced',
-  });
+  const brevetto = (
+    name: string,
+    agency: string,
+    level: Certification['level'] = 'advanced',
+  ): Certification => ({ id: `${name}${level}`, agency, name, level });
 
   /*
    * L'etichetta sta nel cuore dell'applicazione e non nelle due pagine che la
@@ -177,10 +176,38 @@ describe('il brevetto come si sceglie per il libretto', () => {
    * ritocco la tendina smetterebbe di riconoscere il valore già salvato e
    * comparirebbe vuota a chi il brevetto l'aveva scelto.
    */
-  it('mette insieme nome e didattica, e regge i campi mancanti', () => {
-    expect(etichettaBrevetto(brevetto('Advanced Open Water', 'PADI'))).toBe('Advanced Open Water — PADI');
-    expect(etichettaBrevetto(brevetto('Advanced Open Water', ''))).toBe('Advanced Open Water');
-    expect(etichettaBrevetto(brevetto('  Deep  ', '  SSI '))).toBe('Deep — SSI');
+  it('mette insieme didattica e livello, e regge la didattica mancante', () => {
+    expect(etichettaBrevetto(brevetto('Advanced Open Water', 'PADI'))).toBe('PADI Avanzato (fino a 30 m)');
+    expect(etichettaBrevetto(brevetto('Advanced Open Water', ''))).toBe('Avanzato (fino a 30 m)');
+    expect(etichettaBrevetto(brevetto('Deep', '  SSI '))).toBe('SSI Avanzato (fino a 30 m)');
+  });
+
+  /*
+   * ► IL DIFETTO CHE QUESTO BLOCCO ESISTE PER IMPEDIRE. ◄
+   *
+   * L'etichetta era nome + didattica. Sul primo archivio vero — quattro
+   * brevetti PADI di quattro livelli diversi — il campo «Nome sulla tessera»
+   * conteneva quattro volte il nome del subacqueo, quindi le quattro etichette
+   * erano IDENTICHE e la tendina, che scarta i doppioni, ne mostrava una sola.
+   * Non è un caso limite: quel campo si compila così quasi sempre.
+   */
+  it('quattro brevetti della stessa didattica restano quattro voci distinte', () => {
+    const suoi = [
+      brevetto('Matteo Ferrando', 'PADI', 'deep'),
+      brevetto('Matteo Ferrando', 'PADI', 'nitrox'),
+      brevetto('Matteo Ferrando', 'PADI', 'advanced'),
+      brevetto('Matteo Ferrando', 'PADI', 'base'),
+    ];
+    expect(new Set(suoi.map(etichettaBrevetto)).size).toBe(4);
+  });
+
+  /*
+   * La chiave salvata NON si traduce: è la stessa regola degli `id` degli
+   * obiettivi. Se cambiasse con la lingua, chi passa all'inglese si ritroverebbe
+   * la tendina vuota e il brevetto scelto declassato a «scritto a mano».
+   */
+  it('la chiave è italiana, perché è una chiave d’archivio', () => {
+    expect(etichettaBrevetto(brevetto('x', 'PADI', 'deep'))).toBe('PADI Profondo (fino a 40 m)');
   });
 });
 

@@ -41,7 +41,7 @@ import type { Fornitore } from '../../sync/account';
 import type { SyncReport } from '../../sync/turso';
 import { BottoneConferma } from '../components/Conferma';
 import { Brevetti } from '../components/Brevetti';
-import { etichettaBrevetto, sortCertifications } from '../../core/analysis/gear';
+import { CERT_LEVEL_LABEL, etichettaBrevetto, sortCertifications } from '../../core/analysis/gear';
 
 export function SyncPage() {
   const {
@@ -1431,13 +1431,33 @@ function LibrettoCard() {
    * solo, in un posto solo.
    */
   const brevetti = useMemo(() => sortCertifications(gear.certifications), [gear.certifications]);
-  const scelte = useMemo(
-    // Due brevetti con lo stesso nome e la stessa didattica sono indistinguibili
-    // anche per chi li ha presi: una voce sola, o la tendina mostra due righe
-    // identiche e React litiga sulle chiavi.
-    () => Array.from(new Set(brevetti.map(etichettaBrevetto).filter(Boolean))),
-    [brevetti],
-  );
+  /*
+   * Ogni voce ha una CHIAVE e un TESTO, e non sono la stessa cosa.
+   *
+   * La chiave è quella che si salva e che finisce sul libretto: italiana
+   * sempre, perché è una chiave d'archivio (vedi `etichettaBrevetto`). Il testo
+   * è quello che si legge nella tendina, e passa dal dizionario come tutto il
+   * resto. `<option>` permette esattamente questo — un valore e un'etichetta
+   * diversi — ed è il motivo per cui cambiare lingua non fa perdere la scelta.
+   *
+   * I doppioni si scartano perché due voci identiche nella stessa tendina non
+   * si possono distinguere: due brevetti della stessa didattica allo stesso
+   * livello sono, per il libretto, la stessa riga.
+   */
+  const scelte = useMemo(() => {
+    const viste = new Set<string>();
+    const voci: { chiave: string; testo: string }[] = [];
+    for (const c of brevetti) {
+      const chiave = etichettaBrevetto(c);
+      if (!chiave || viste.has(chiave)) continue;
+      viste.add(chiave);
+      voci.push({
+        chiave,
+        testo: [c.agency.trim(), t(CERT_LEVEL_LABEL[c.level])].filter(Boolean).join(' '),
+      });
+    }
+    return voci;
+  }, [brevetti, t]);
   const brevetto = subacqueo.brevetto ?? '';
   /*
    * Quello che c'era scritto prima può non corrispondere a nessuna voce.
@@ -1446,7 +1466,7 @@ function LibrettoCard() {
    * come voce della tendina, con una riga che spiega da dove viene, finché non
    * ne sceglie un'altra.
    */
-  const fuoriElenco = brevetto !== '' && !scelte.includes(brevetto);
+  const fuoriElenco = brevetto !== '' && !scelte.some((v) => v.chiave === brevetto);
 
   const nomeSporco = nome !== (subacqueo.nome ?? '');
   const salvaNome = () => {
@@ -1484,8 +1504,8 @@ function LibrettoCard() {
             </option>
             {fuoriElenco && <option value={brevetto}>{brevetto}</option>}
             {scelte.map((voce) => (
-              <option key={voce} value={voce}>
-                {voce}
+              <option key={voce.chiave} value={voce.chiave}>
+                {voce.testo}
               </option>
             ))}
           </select>

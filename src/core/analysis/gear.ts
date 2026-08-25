@@ -654,15 +654,36 @@ export function haMiscele(certs: Certification[]): boolean {
 }
 
 /**
- * Il brevetto in una riga, come lo si sceglie e come finisce sul libretto.
+ * Il brevetto in una riga: DIDATTICA e LIVELLO. «PADI Profondo (fino a 40 m)».
  *
  * Sta qui e non nella pagina perché la STESSA stringa serve in due posti — la
  * tendina della carta del libretto e il valore salvato che poi si stampa — e se
  * i due la componessero ognuno per conto suo, al primo ritocco la tendina
- * smetterebbe di riconoscere il valore già salvato e sembrerebbe vuota.
+ * smetterebbe di riconoscere il valore già salvato e comparirebbe vuota.
+ *
+ * ► PERCHÉ NON IL NOME SULLA TESSERA. ◄ La prima versione metteva nome +
+ * didattica, e sul primo archivio vero è uscita sbagliata all'istante. Il campo
+ * «Nome sulla tessera» invita a scriverci il nome DI CHI HA la tessera — che è
+ * quello che c'è scritto sopra, in effetti — e quattro brevetti diversi
+ * portavano tutti e quattro «Matteo Ferrando — PADI». La tendina, che scarta i
+ * doppioni perché due voci identiche non si possono distinguere, ne mostrava
+ * UNA SOLA. Non è un caso limite: il campo si compila così quasi sempre.
+ *
+ * Didattica e livello invece sono sempre pieni — il livello è obbligatorio, la
+ * didattica la si ricorda — sono diversi fra un brevetto e l'altro, e sono le
+ * due cose che dicono qualcosa a chi legge il libretto: fin dove sei addestrato
+ * e chi te l'ha insegnato. Il nome commerciale, che nessuno ricorda per esteso,
+ * resta nell'elenco per chi lo consulta.
+ *
+ * ► PERCHÉ LA STRINGA RESTA ITALIANA ANCHE IN INGLESE. ◄ Questa è la chiave
+ * SALVATA, non il testo mostrato: la tendina traduce al disegno. Salvando la
+ * versione tradotta, cambiare lingua renderebbe irriconoscibile il brevetto già
+ * scelto e la tendina comparirebbe vuota — con il valore vecchio degradato a
+ * «scritto a mano». È la stessa regola degli `id` degli obiettivi: un'etichetta
+ * si traduce, una chiave d'archivio no.
  */
 export function etichettaBrevetto(c: Certification): string {
-  return [c.name.trim(), c.agency.trim()].filter(Boolean).join(' — ');
+  return [c.agency.trim(), CERT_LEVEL_LABEL[c.level]].filter(Boolean).join(' ');
 }
 
 // ---------------------------------------------------------------------------
