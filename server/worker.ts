@@ -58,7 +58,31 @@ import {
   tokenDatabase,
 } from './turso';
 
+/**
+ * L'archivio chiave-valore di Cloudflare, dichiarato per quel poco che ne usiamo.
+ *
+ * PERCHÉ NON I TIPI VERI. `@cloudflare/workers-types` porta dentro qualche
+ * migliaio di dichiarazioni per descrivere una piattaforma intera, e qui servono
+ * due metodi. È la stessa scelta già fatta per `SpazioLimiti` in `limite.ts`: si
+ * scrive la forma che si usa, e il compilatore controlla quella. Il giorno che
+ * servisse davvero il resto, quel pacchetto si aggiunge in una riga.
+ */
+export interface ArchivioChiaveValore {
+  put(chiave: string, valore: string): Promise<void>;
+  get(chiave: string): Promise<string | null>;
+  list(opzioni?: { prefix?: string; limit?: number }): Promise<{ keys: { name: string }[] }>;
+}
+
 export interface Ambiente {
+  /**
+   * Dove finiscono le segnalazioni dal modulo del sito.
+   *
+   * Facoltativo di proposito: un Worker distribuito senza questo legame — una
+   * copia di prova, un ambiente nuovo — deve continuare a fare l'accesso, che è
+   * il suo mestiere. La rotta delle segnalazioni risponde che non c'è, e tutto
+   * il resto funziona.
+   */
+  SEGNALAZIONI?: ArchivioChiaveValore;
   /** Segreto per firmare le sessioni. Cambiarlo scollega tutti i dispositivi. */
   SESSION_KEY: string;
   /** Token dell'organizzazione Turso: crea, legge e cancella OGNI database. */
@@ -172,6 +196,16 @@ export interface Ambiente {
  */
 const TETTO_ACCESSO = { limite: 10, finestraS: 60 };
 const TETTO_CHIAVE = { limite: 60, finestraS: 60 };
+/*
+ * Le segnalazioni: sei al minuto dallo stesso indirizzo.
+ *
+ * Basso di proposito, e non è avarizia: una persona che segnala un difetto ne
+ * manda una, forse due se si accorge di aver dimenticato un dettaglio. Sei è
+ * già il triplo del caso peggiore onesto, e sotto quel tetto riempire l'archivio
+ * a mano diventa un lavoro noioso — che è tutto quello che serve, visto che qui
+ * non si chiede nessun account a nessuno.
+ */
+const TETTO_SEGNALAZIONE = { limite: 6, finestraS: 60 };
 
 /**
  * Il percorso su cui atterra la POST di Apple.
@@ -317,6 +351,72 @@ export default {
     }
 
     try {
+      // --- segnalazioni dal sito ------------------------------------------
+      /*
+       * ► IL MODULO DEL SITO SCRIVE QUI. ◄
+       *
+       * Prima apriva la posta: quattro campi compilati con cura finivano in una
+       * bozza di email che chi segnala doveva mandare a mano, e metà delle volte
+       * non la manda. Un modulo che chiede di completare l'invio da un'altra
+       * parte è un modulo che perde le segnalazioni proprio di chi si era preso
+       * la briga di scriverle.
+       *
+       * NIENTE ORIGINE, NIENTE SESSIONE, NIENTE ACCOUNT. Chi ha un difetto da
+       * segnalare non deve prima dimostrare chi è: la barriera più bassa
+       * possibile è il punto di questa rotta. Quello che la protegge è il limite
+       * di frequenza qui sotto e il taglio dei campi — non un permesso.
+       *
+       * `waitUntil` NON si usa: la risposta si dà dopo aver scritto. Rispondere
+       * «ricevuta» e poi scoprire che la scrittura è fallita sarebbe la bugia
+       * peggiore che questa rotta possa dire.
+       */
+      if (percorso === '/segnalazione' && richiesta.method === 'POST') {
+        const limiteSegn = await entroIlLimite(
+          env.LIMITI,
+          'segnalazione',
+          chiamante(richiesta),
+          TETTO_SEGNALAZIONE.limite,
+          TETTO_SEGNALAZIONE.finestraS,
+        );
+        if (!limiteSegn.consentito) return troppeRichieste(origine, limiteSegn.riprovaFraS);
+        if (!env.SEGNALAZIONI) return rifiuto(503, 'archivio non configurato', origine);
+
+        let corpo: Record<string, unknown> = {};
+        try {
+          corpo = (await richiesta.json()) as Record<string, unknown>;
+        } catch {
+          return rifiuto(400, 'corpo non leggibile', origine);
+        }
+
+        // Quattromila caratteri per campo: abbastanza per raccontare un difetto
+        // con dentro un pezzo di registro, poco perché riempire l'archivio
+        // diventi comodo.
+        const taglia = (v: unknown) => String(v ?? '').slice(0, 4000);
+        const testo = taglia(corpo.testo).trim();
+        // Senza testo non c'è segnalazione: è la riga che tiene fuori le
+        // richieste vuote di chi passa di lì a caso.
+        if (!testo) return rifiuto(400, 'la segnalazione è vuota', origine);
+
+        // La chiave porta la data davanti perché KV elenca in ordine di chiave:
+        // così `list` restituisce già le segnalazioni in ordine di arrivo, senza
+        // doverle ordinare dopo averle lette tutte.
+        const quando = new Date().toISOString();
+        await env.SEGNALAZIONI.put(
+          `s:${quando}:${crypto.randomUUID().slice(0, 8)}`,
+          JSON.stringify({
+            quando,
+            tipo: taglia(corpo.tipo),
+            dove: taglia(corpo.dove),
+            testo,
+            contatto: taglia(corpo.contatto),
+            pagina: taglia(corpo.pagina),
+          }),
+        );
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { 'Content-Type': 'application/json', ...intestazioniCors(origine) },
+        });
+      }
+
       // --- accesso -------------------------------------------------------
       /*
        * Entra un CODICE, non un token d'identità.

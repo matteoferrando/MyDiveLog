@@ -75,6 +75,25 @@ GOOGLE_CLIENT_DESKTOP = "883995552043-fcsjcnlb5o6ih7af686bk0j7pls9k5bi.apps.goog
 # Vuoto = qualunque origine. Da restringere quando si sa da dove arriva l'app.
 ORIGINI_AMMESSE = ""
 
+# Dove finiscono le segnalazioni dal modulo del sito.
+#
+# PERCHÉ QUI E NON DIRETTAMENTE IN UN FOGLIO DI GOOGLE. Scrivere in un foglio
+# vuole una credenziale di Google che dovrebbe vivere dentro questo Worker, e una
+# credenziale in più è una cosa in più che può trapelare — per giunta con accesso
+# al Drive di chi la possiede. Il Worker invece un archivio ce l'ha già:
+# ottantacinque byte a segnalazione, gratis, e senza dipendere da nessun altro.
+#
+# Il foglio si riempie da lì, ed è un problema separato: vedi la rotta
+# `/segnalazioni.csv` in `worker.ts`.
+#
+# ► LE SEGNALAZIONI NON SI CANCELLANO DA SOLE. ◄ Niente scadenza: una
+# segnalazione che sparisce dopo un mese è una segnalazione persa, e chi l'ha
+# scritta non lo saprà mai.
+
+[[kv_namespaces]]
+binding = "SEGNALAZIONI"
+id = "4a843935b6094e6bb70d9086ffeaffbd"
+
 # Il contatore del limite di frequenza.
 #
 # PERCHÉ NON IL LEGAME NATIVO `[[ratelimits]]`. C'era, si configurava in tre

@@ -1643,12 +1643,24 @@ section {
   border-top: 0;
 }
 
-section + section::after,
 section::after {
   content: none;
 }
 
-section:not(:first-of-type)::after {
+/*
+  ► PERCHÉ NON `:first-of-type`, che è quello che c'era. ◄
+  Quel selettore dice «la prima sezione DEL SUO GENITORE», e le sezioni di
+  questa pagina stanno dentro contenitori diversi: la prima di ogni contenitore
+  restava senza riga, e il risultato era un ritmo che si interrompeva tre volte
+  senza una ragione visibile. Sembrava un difetto di stampa, ed era un selettore
+  che descriveva una struttura che la pagina non ha più.
+
+  Adesso la riga ce l'hanno tutte, tranne due che non la vogliono per ragioni
+  loro: il richiamo finale, che è un riquadro illuminato e una riga sopra gli
+  toglierebbe il fatto di essere staccato, e la donazione, che una riga sua ce
+  l'ha già scritta a mano.
+*/
+section:not(.richiamo):not(.dono)::after {
   content: '';
   position: absolute;
   top: 0;

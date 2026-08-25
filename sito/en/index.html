@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/" />
-    <link rel="stylesheet" href="../stile.css?v=337b56b4" />
+    <link rel="stylesheet" href="../stile.css?v=6e983afb" />
     <link rel="alternate" hreflang="it" href="/" />
     <link rel="alternate" hreflang="en" href="/en/" />
   </head>
@@ -705,18 +705,26 @@
     </div>
     <script>
       /*
-        L'invio del modulo. Diciassette righe, nessuna libreria.
+        L'invio del modulo. Nessuna libreria.
 
-        L'INDIRIZZO STA IN UNA COSTANTE SOLA, in cima, perché è l'unica cosa che
-        cambia il giorno che si ripubblica lo script di Google: si sostituisce
-        qui e nella pagina inglese, e non c'è nient'altro da toccare.
+        ► DOVE FINISCE. ◄ Nel nostro Worker, che è già lì per l'accesso e ha un
+        archivio suo. Prima questa costante era vuota e il modulo apriva la
+        posta: quattro campi compilati con cura diventavano una bozza di email
+        che chi segnala doveva mandare a mano, e metà delle volte non la manda.
+        Un modulo che chiede di completare l'invio da un'altra parte perde
+        proprio le segnalazioni di chi si era preso la briga di scriverle.
 
-        QUANDO NON C'È ANCORA UN INDIRIZZO — la stringa vuota — il modulo non
-        finge di funzionare: apre la posta con dentro già tutto quello che è
-        stato scritto. Un modulo che accetta e butta via è la cosa peggiore che
-        possa esserci in una pagina di segnalazioni.
+        PERCHÉ NON DIRETTAMENTE IN UN FOGLIO DI GOOGLE. Scrivere in un foglio
+        vuole una credenziale di Google che dovrebbe vivere da qualche parte, e
+        una credenziale in più è una cosa in più che può trapelare — per giunta
+        con accesso al Drive di chi la possiede. Il Worker un archivio ce l'ha
+        già, gratis, e non dipende da nessun altro. Il foglio si riempie da lì.
+
+        Se la richiesta non parte — rete assente, servizio giù — il modulo NON
+        dice «ricevuta»: dice che non è partita e offre la posta. Una conferma
+        falsa è l'unica cosa peggiore di un errore.
       */
-      const SCRIPT_SEGNALAZIONI = '';
+      const SCRIPT_SEGNALAZIONI = 'https://mydivelog-accesso.mydivelog.workers.dev/segnalazione';
 
       document.getElementById('modulo-segnalazione')?.addEventListener('submit', async (evento) => {
         evento.preventDefault();
@@ -738,17 +746,17 @@
         pulsante.disabled = true;
         esito.textContent = modulo.dataset.attesa;
         try {
-          // `no-cors`: uno script pubblicato da Google risponde con un rimando
-          // verso un altro dominio, e il browser non lascia leggere quella
-          // risposta a una pagina che sta altrove. Si sceglie fra un errore che
-          // non significa niente e dichiarare che la risposta non ci interessa.
-          // La seconda è vera: quello che ci interessa è che la richiesta parta.
-          await fetch(SCRIPT_SEGNALAZIONI, {
+          // NIENTE `no-cors`, ed è la differenza che conta: il Worker risponde
+          // con le sue intestazioni CORS, quindi la risposta si può leggere e
+          // sappiamo davvero se la segnalazione è arrivata. Con `no-cors` — che
+          // serviva quando l'idea era passare da uno script di Google — la
+          // pagina avrebbe detto «ricevuta» anche a servizio spento.
+          const risposta = await fetch(SCRIPT_SEGNALAZIONI, {
             method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...dati, pagina: location.pathname }),
           });
+          if (!risposta.ok) throw new Error(String(risposta.status));
           modulo.reset();
           esito.textContent = modulo.dataset.fatto;
         } catch {
