@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/" />
-    <link rel="stylesheet" href="stile.css?v=3049dfce" />
+    <link rel="stylesheet" href="stile.css?v=77e85de3" />
     <link rel="alternate" hreflang="en" href="/en/" />
     <link rel="alternate" hreflang="it" href="/" />
   </head>
@@ -49,6 +49,7 @@
           <a href="privacy.html">Privacy</a>
           <a href="termini.html">Termini</a>
           <a href="https://github.com/matteoferrando/MyDiveLog">Codice</a>
+          <button class="voce-segnala" type="button" data-apri-segnala>Segnala</button>
           <span class="lingua"><a href="/en/">English</a></span>
         </nav>
       </header>
@@ -61,74 +62,70 @@
       <div class="apertura">
         <h1>Il tuo logbook <em>subacqueo</em></h1>
         <p class="occhiello">
-          <strong>Tutte le immersioni della tua vita in un archivio solo</strong>, anche se hai cambiato tre
-          computer. Unite senza doppioni, analizzate, e con tutti i dati che la
-          <strong>legge 70/2026</strong> chiede al libretto — pronti in PDF. Gratis, senza account, e niente
-          esce dal tuo dispositivo.
+          <strong>Per chi vuole capire cosa gli dicono i propri dati, non solo conservarli.</strong> Tutte le
+          immersioni della tua vita in un archivio solo, anche se hai cambiato tre computer: unite senza
+          doppioni, analizzate, e con dentro tutti i dati che la <strong>legge 70/2026</strong> chiede al
+          libretto — pronti in PDF. Gratis, senza account, e niente esce dal tuo dispositivo.
         </p>
         <!--
-          ► IL BLOCCO DI SCARICO: DUE LIVELLI, E LA GERARCHIA È IL MESSAGGIO. ◄
+          ► DUE LIVELLI, E LA DISTANZA FRA I DUE È IL MESSAGGIO. ◄
 
-          Sopra le due piattaforme per cui l'applicazione è PENSATA — il Mac e
-          l'iPhone — e sotto, più piccole, le due per cui esiste. Non è modestia
-          mal riposta: chi arriva qui da un Mac deve trovare il suo pulsante
-          senza scegliere fra quattro, e chi arriva da un PC deve trovare il
-          proprio senza sentirsi dire che non è previsto. Due righe fanno
-          entrambe le cose; una riga sola con quattro pulsanti nessuna delle due.
+          «Questo progetto è nato per» non è una scusa: è la cosa che rende
+          credibili le altre due. Un'applicazione che dichiara per cosa è stata
+          pensata dice implicitamente che là è provata — e lascia a Windows e
+          Android il posto che hanno davvero, senza spacciarli per il piatto
+          forte e senza nasconderli in fondo alla pagina.
 
-          IL PULSANTE SCARICA IL FILE, non porta alla pagina delle release. Chi
-          arriva qui vuole l'applicazione, e la pagina di GitHub è un elenco di
+          I PULSANTI SCARICANO IL FILE, non portano alla pagina delle release.
+          Chi arriva qui vuole l'applicazione, e quella pagina è un elenco di
           file, note e sorgenti compressi in cui il pacchetto è una riga fra le
           altre: un passaggio in più e un'occasione di sbagliare file.
 
           Il nome nell'indirizzo NON contiene il numero di versione, ed è il
           punto: `releases/latest/download/<nome>` rimanda all'allegato con QUEL
           nome nella release più recente, quindi il collegamento resta buono a
-          ogni pubblicazione. Se un giorno si pubblica una release senza quel
-          nome, il pulsante dà 404: è la sola cosa da ricordare.
+          ogni pubblicazione.
         -->
         <div class="scarico">
+          <p class="scarico-titolo">Questo progetto è nato per:</p>
           <div class="pulsanti">
             <a
               class="pulsante pulsante-primario"
               href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
-              >Scarica per macOS</a
+              >macOS</a
             >
             <!--
-              L'iPhone SI VEDE MA NON SI PREME, ed è una scelta contro
-              l'alternativa peggiore: un collegamento all'App Store verso una
-              scheda che non esiste ancora dà una pagina d'errore, e una pagina
-              d'errore dice «progetto abbandonato» molto più forte di quanto
-              «in arrivo» dica «non ancora pronto».
+              L'iPhone SI VEDE MA NON SI PREME. L'alternativa era un
+              collegamento all'App Store verso una scheda che non esiste ancora:
+              una pagina d'errore dice «progetto abbandonato» molto più forte di
+              quanto «in arrivo» dica «non ancora pronto».
 
               `aria-disabled` e non `disabled`: questo è un collegamento, non un
               pulsante di modulo, e l'attributo che i lettori di schermo
-              capiscono è il primo. Il `tabindex="-1"` lo toglie dal giro della
-              tastiera, così non si arriva col tasto Tab su qualcosa che non
-              porta da nessuna parte.
+              capiscono è il primo. `tabindex="-1"` lo toglie dal giro della
+              tastiera, così non ci si arriva col Tab.
             -->
             <span class="pulsante pulsante-attesa" role="link" aria-disabled="true" tabindex="-1">
-              iPhone <em>in arrivo</em>
+              iOS <em>in arrivo</em>
             </span>
           </div>
-          <p class="scarico-nota">
-            Il pacchetto macOS è <strong>firmato e notarizzato da Apple</strong>: si apre con un doppio clic.
-            Serve un Mac Apple Silicon. La versione iPhone è <strong>in revisione da Apple</strong> — questo
-            pulsante si accende il giorno che passa.
-          </p>
-          <p class="scarico-altre">
-            L'abbiamo sviluppata anche per
-            <a
-              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
-              >Windows</a
-            >
-            e
-            <a
-              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
-              >Android</a
-            >
-            — <a href="#altre-piattaforme">leggi prima cosa cambia</a>.
-          </p>
+
+          <div class="scarico-altre">
+            <p class="scarico-altre-testa">L'abbiamo sviluppata anche per</p>
+            <div class="pulsanti pulsanti-piccoli">
+              <a
+                class="pulsante pulsante-piccolo"
+                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
+                >Windows</a
+              >
+              <a
+                class="pulsante pulsante-piccolo"
+                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
+                >Android</a
+              >
+            </div>
+            <p class="scarico-altre-nota"><a href="#altre-piattaforme">leggi prima cosa cambia</a></p>
+          </div>
         </div>
       </div>
 
@@ -343,7 +340,10 @@
 
       <section>
         <h2>Cosa fa</h2>
-        <p>Un logbook per chi vuole capire cosa gli dicono i propri dati, non solo conservarli.</p>
+        <p>
+          Sette cose, e nessuna di queste è «tenere un elenco». Quello lo fa anche un quaderno, e lo fa da
+          cinquant'anni senza batteria.
+        </p>
 
         <div class="griglia">
           <div class="riquadro">
@@ -410,8 +410,8 @@
       <section>
         <h2>Com'è fatta</h2>
         <p>
-          Sono schermate vere, prese dall'applicazione con un archivio di prova: non ci sono ritocchi e non
-          c'è niente che il programma non faccia davvero.
+          Nessun ritocco, nessun mockup: è l'applicazione, così com'è quando la apri. Se lo vedi qui, lo trovi
+          dentro.
         </p>
         <div class="schermate">
           <figure class="schermata vetrina">
@@ -482,24 +482,36 @@
           </p>
         </div>
         <p>
-          Ogni persona ha un database separato dagli altri — non una riga in una tabella comune. Il servizio
-          che consegna le chiavi non conserva nessun elenco di iscritti e non vede passare le immersioni: dice
-          chi sei e ti dà una chiave che vale due ore. Puoi cancellare il tuo account dall'app, e con lui il
-          database. Dettagli in <a href="privacy.html">Privacy</a>.
+          Ogni persona ha un database separato dagli altri, non una riga in una tabella comune. Il servizio
+          che apre la porta non tiene nessun elenco di iscritti e
+          <strong>le immersioni non gli passano nemmeno davanti</strong>: verifica che sei tu, consegna un
+          lasciapassare che scade da solo dopo due ore, e da lì in poi l'applicazione parla direttamente col
+          tuo database. Cancellando l'account dall'app sparisce anche quello. Per esteso in
+          <a href="privacy.html">Privacy</a>.
         </p>
       </section>
 
       <section class="prosa">
         <h2>Libero e aperto</h2>
         <p>
-          MyDiveLog è software libero sotto licenza MIT: il codice si legge, si copia e si modifica. Non costa
-          niente, non ha abbonamenti, non ha pubblicità e non raccoglie statistiche d'uso.
+          <strong
+            >Ogni applicazione ti chiede di fidarti. Questa ti mette in mano il modo di controllare.</strong
+          >
+          MyDiveLog è software libero sotto licenza MIT: il codice si legge, si copia, si modifica e si
+          ricompila. Chiunque, senza chiedere permesso a noi.
         </p>
         <p>
-          Non è aperto per posa: è aperto perché un logbook decide dove finiscono i tuoi dati, e
-          <strong>l'unico modo di verificarlo è leggerlo</strong>. Ogni riga di codice che tocca le tue
-          immersioni è <a href="https://github.com/matteoferrando/MyDiveLog">pubblica su GitHub</a>, compresa
-          quella che calcola la decompressione — e quella che decide di non mandare niente da nessuna parte.
+          Non è una posa da programmatori. Un logbook decide dove vanno a finire i tuoi dati, e una promessa
+          scritta su un sito vale esattamente quanto chi l'ha scritta:
+          <strong>l'unico modo di sapere davvero cosa fa un programma è leggerlo</strong>. Su GitHub c'è tutto
+          — il calcolo della decompressione, il codice che parla col tuo computer subacqueo, e le righe che
+          decidono di non mandare niente da nessuna parte.
+        </p>
+        <p>
+          E c'è una cosa che il software libero ti dà e nessun abbonamento potrà mai darti:
+          <strong>se un giorno sparissimo, il programma resta.</strong> Non scade, non si spegne da remoto,
+          non ti chiude fuori dal tuo archivio. Le tue immersioni sono tue, e restano leggibili anche senza di
+          noi. <a href="https://github.com/matteoferrando/MyDiveLog">Guarda il codice</a>.
         </p>
       </section>
 
@@ -537,7 +549,6 @@
             <p>
               Windows: «Ulteriori informazioni» → «Esegui comunque». Android: chiederà il permesso di
               installare da questa origine, la stessa domanda che fa per qualunque app fuori dal Play Store.
-              Firmare costa un certificato annuale che un progetto gratuito non compra.
             </p>
           </div>
           <div class="riquadro">
@@ -550,16 +561,6 @@
               >: se combacia con quella del file che hai scaricato, è il nostro.
             </p>
           </div>
-        </div>
-
-        <div class="evidenza avvertenza">
-          <p>
-            <strong>Nessuno le ha ancora provate sul serio.</strong> Qui non c'è un PC e non c'è un telefono
-            Android. Dentro gira lo stesso motore del Mac e dell'iPhone, con millequattrocento controlli
-            automatici dietro, ma il giro completo su quelle due piattaforme non l'ha fatto una persona vera.
-            Se qualcosa non torna, <a href="#segnala">scrivicelo qui sotto</a>: è il modo più veloce per farlo
-            diventare un problema di qualcun altro invece che tuo.
-          </p>
         </div>
       </section>
 
@@ -579,33 +580,105 @@
     </div>
 
     <div class="contenitore">
-      <!--
-        ► IL MODULO DELLE SEGNALAZIONI. ◄
+      <section class="richiamo">
+        <h2>Le tue immersioni, tutte insieme</h2>
+        <p>
+          Gratis, senza account e senza abbonamento. Scarichi, trascini dentro i file che hai già, e in un
+          minuto tutto il tuo storico è in un elenco solo.
+        </p>
+        <!--
+          QUI I QUATTRO PULSANTI SONO ALLA PARI, e in cima no.
 
-        PERCHÉ UN MODULO E NON UN INDIRIZZO EMAIL. Un indirizzo email chiede a
-        chi segnala di aprire un programma, inventarsi un oggetto e decidere da
-        solo cosa scrivere. Tre decisioni, e ognuna è un motivo per rimandare.
-        Quattro campi con dentro già le domande giuste costano un minuto e
-        arrivano completi — soprattutto il campo «cosa usi», che è la prima cosa
-        che chiederemmo comunque e che nessuno pensa mai a scrivere.
+          Non è un'incoerenza: sono due momenti diversi. In cima si arriva senza
+          sapere cosa sia questo programma, e la gerarchia serve a non far
+          scegliere fra quattro cose a chi non ha ancora deciso niente. Qui si
+          arriva dopo aver letto tutta la pagina — la decisione è presa, e
+          l'unica domanda rimasta è «da dove lo prendo io». A quella domanda una
+          gerarchia non serve: serve trovare subito il proprio sistema.
+        -->
+        <div class="pulsanti pulsanti-pari">
+          <a
+            class="pulsante pulsante-primario"
+            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
+            >macOS</a
+          >
+          <span class="pulsante pulsante-attesa" role="link" aria-disabled="true" tabindex="-1">
+            iOS <em>in arrivo</em>
+          </span>
+          <a
+            class="pulsante"
+            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
+            >Windows</a
+          >
+          <a
+            class="pulsante"
+            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
+            >Android</a
+          >
+        </div>
+      </section>
+    </div>
 
-        DOVE FINISCE. In un foglio di calcolo, attraverso uno script pubblicato
-        da Google. Non c'è nessun servizio di terze parti caricato in questa
-        pagina: il modulo è HTML nostro, e quando si preme parte UNA richiesta
-        verso quello script. Chi non lo usa non contatta nessuno.
+    <!--
+      LA DONAZIONE È UN COLLEGAMENTO, NON IL PULSANTE DI PAYPAL.
 
-        `no-cors` NON È UNA SCORCIATOIA MAL POSTA. Uno script pubblicato da
-        Google risponde con un rimando verso un altro dominio, e il browser non
-        lascia leggere quella risposta a una pagina che sta altrove. Si può
-        scegliere fra ricevere un errore che non significa niente o dichiarare
-        in partenza che la risposta non ci interessa. La seconda è vera: quello
-        che ci interessa è che la richiesta parta.
-        CONSEGUENZA DA NON NASCONDERE: non possiamo sapere se è arrivata. Per
-        questo sotto al messaggio di conferma c'è comunque l'indirizzo email —
-        se la segnalazione era importante e nessuno risponde, esiste una seconda
-        strada che non dipende da noi.
-      -->
-      <section id="segnala">
+      Il frammento che PayPal fornisce carica `donate-sdk.js` dal loro dominio e
+      disegna una GIF: due richieste a un terzo, su OGNI visita, anche di chi non
+      donerà mai. Questo sito dice — ed è vero — che non traccia nessuno: uno
+      script di terze parti caricato sempre lo renderebbe falso, e andrebbe
+      scritto nell'informativa.
+
+      Il collegamento qui sotto porta allo STESSO modulo, con lo stesso
+      `hosted_button_id`. La differenza è che PayPal vede solo chi decide di
+      donare, e il pulsante è il nostro: stessa forma, stessi colori, stesso
+      comportamento al passaggio del mouse degli altri due della pagina.
+    -->
+    <div class="contenitore">
+      <section class="dono">
+        <p>
+          MyDiveLog è un progetto <strong>open source e gratuito</strong>. Se ti piace e vuoi contribuire alla
+          sua sopravvivenza, puoi farlo qui. <span class="cuore" aria-hidden="true">❤︎</span>
+        </p>
+        <a
+          class="pulsante pulsante-dono"
+          href="https://www.paypal.com/donate/?hosted_button_id=7PQDU6GPHQK34"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span class="cuore" aria-hidden="true">❤︎</span> Offrimi un caffè
+        </a>
+        <p class="dono-nota">Si apre PayPal. Nessun account richiesto: si paga anche con carta.</p>
+      </section>
+    </div>
+
+    <!--
+      IL POPUP DELLE SEGNALAZIONI.
+
+      Sta nella barra in alto e non in fondo alla pagina, e la differenza non è
+      di posto: è di momento. Chi trova un difetto lo trova MENTRE usa
+      l'applicazione, non mentre legge la pagina di presentazione — e quando
+      torna qui per segnalarlo deve trovare la strada subito, non scorrere sei
+      sezioni cercando dove.
+
+      Un popup e non una pagina, per la stessa ragione: una pagina nuova perde
+      il posto in cui eri, e chi si è interrotto per segnalare vuole tornare
+      esattamente lì.
+
+      `hidden` sull'elemento: nasconde davvero anche prima che lo script sia
+      partito. Un modulo che compare per un istante al caricamento e poi sparisce
+      è il difetto classico dei layer fatti a mano.
+    -->
+    <div
+      class="strato"
+      id="strato-segnala"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="titolo-segnala"
+      hidden
+    >
+      <div class="strato-riquadro">
+        <button class="strato-chiudi" type="button" aria-label="Chiudi">×</button>
+
         <h2>Hai trovato qualcosa che non va?</h2>
         <p>
           Un difetto, un computer subacqueo che non si collega, un numero che non torna, o anche solo una cosa
@@ -667,64 +740,7 @@
             <p class="modulo-esito" id="modulo-esito" role="status" aria-live="polite"></p>
           </div>
         </form>
-
-        <p class="nota-modulo">
-          Finisce in un foglio che leggiamo noi. Non c'è nessun account da fare, e l'email la chiediamo solo
-          se vuoi una risposta. Se preferisci la strada di sempre:
-          <a href="mailto:m.ferrando@gmail.com">m.ferrando@gmail.com</a>, oppure
-          <a href="https://github.com/matteoferrando/MyDiveLog/issues">apri una issue su GitHub</a>.
-        </p>
-      </section>
-    </div>
-
-    <div class="contenitore">
-      <section class="richiamo">
-        <h2>Le tue immersioni, tutte insieme</h2>
-        <p>
-          Gratis, senza account e senza abbonamento. Scarichi, trascini dentro i file che hai già, e in un
-          minuto tutto il tuo storico è in un elenco solo.
-        </p>
-        <div class="pulsanti">
-          <a
-            class="pulsante pulsante-primario"
-            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
-            >Scarica per macOS</a
-          >
-          <a class="pulsante" href="https://github.com/matteoferrando/MyDiveLog">Guarda il codice</a>
-        </div>
-      </section>
-    </div>
-
-    <!--
-      LA DONAZIONE È UN COLLEGAMENTO, NON IL PULSANTE DI PAYPAL.
-
-      Il frammento che PayPal fornisce carica `donate-sdk.js` dal loro dominio e
-      disegna una GIF: due richieste a un terzo, su OGNI visita, anche di chi non
-      donerà mai. Questo sito dice — ed è vero — che non traccia nessuno: uno
-      script di terze parti caricato sempre lo renderebbe falso, e andrebbe
-      scritto nell'informativa.
-
-      Il collegamento qui sotto porta allo STESSO modulo, con lo stesso
-      `hosted_button_id`. La differenza è che PayPal vede solo chi decide di
-      donare, e il pulsante è il nostro: stessa forma, stessi colori, stesso
-      comportamento al passaggio del mouse degli altri due della pagina.
-    -->
-    <div class="contenitore">
-      <section class="dono">
-        <p>
-          MyDiveLog è un progetto <strong>open source e gratuito</strong>. Se ti piace e vuoi contribuire alla
-          sua sopravvivenza, puoi farlo qui. <span class="cuore" aria-hidden="true">❤︎</span>
-        </p>
-        <a
-          class="pulsante pulsante-dono"
-          href="https://www.paypal.com/donate/?hosted_button_id=7PQDU6GPHQK34"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <span class="cuore" aria-hidden="true">❤︎</span> Offrimi un caffè
-        </a>
-        <p class="dono-nota">Si apre PayPal. Nessun account richiesto: si paga anche con carta.</p>
-      </section>
+      </div>
     </div>
 
     <div class="contenitore">
@@ -790,6 +806,65 @@
           pulsante.disabled = false;
         }
       });
+    </script>
+
+    <script>
+      /*
+        ► IL POPUP DELLE SEGNALAZIONI. ◄
+
+        Sta nella barra in alto e non in fondo alla pagina, e la differenza non
+        è di posto: è di momento. Chi trova un difetto lo trova MENTRE usa
+        l'applicazione, non mentre legge la pagina di presentazione — e quando
+        torna qui per segnalarlo deve trovare la strada subito, non scorrere
+        sei sezioni cercando dove.
+
+        UN POPUP E NON UNA PAGINA, per la stessa ragione: una pagina nuova
+        perde il posto in cui eri, e chi stava leggendo qualcosa e si è
+        interrotto per segnalare vuole tornare esattamente lì.
+
+        LE TRE COSE CHE UN LAYER DEVE FARE PER NON ESSERE UNA TRAPPOLA, e che
+        quasi nessuno fa:
+
+        · si chiude con Esc, perché è il primo tasto che prova chiunque;
+        · si chiude cliccando fuori, perché è il primo gesto che prova chiunque
+          altro;
+        · restituisce il fuoco al punto da cui è stato aperto, altrimenti chi
+          naviga con la tastiera si ritrova all'inizio del documento e deve
+          rifare tutta la strada.
+      */
+      (() => {
+        const strato = document.getElementById('strato-segnala');
+        if (!strato) return;
+        let apriva = null;
+
+        const apri = (evento) => {
+          evento.preventDefault();
+          apriva = document.activeElement;
+          strato.hidden = false;
+          // Il corpo si blocca, o scorrendo dentro il popup si trascina la
+          // pagina sotto e alla chiusura ci si ritrova da un'altra parte.
+          document.body.style.overflow = 'hidden';
+          strato.querySelector('select, input, textarea')?.focus();
+        };
+
+        const chiudi = () => {
+          strato.hidden = true;
+          document.body.style.overflow = '';
+          apriva?.focus();
+        };
+
+        document.querySelectorAll('[data-apri-segnala]').forEach((n) => n.addEventListener('click', apri));
+        strato.querySelector('.strato-chiudi').addEventListener('click', chiudi);
+        // Solo il velo, non quello che ci sta dentro: un clic partito dentro il
+        // riquadro e finito sul velo — capita selezionando del testo — non deve
+        // buttare via quello che si stava scrivendo.
+        strato.addEventListener('mousedown', (e) => {
+          if (e.target === strato) chiudi();
+        });
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && !strato.hidden) chiudi();
+        });
+      })();
     </script>
   </body>
 </html>

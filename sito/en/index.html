@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/" />
-    <link rel="stylesheet" href="../stile.css?v=3049dfce" />
+    <link rel="stylesheet" href="../stile.css?v=77e85de3" />
     <link rel="alternate" hreflang="it" href="/" />
     <link rel="alternate" hreflang="en" href="/en/" />
   </head>
@@ -46,6 +46,7 @@
           <a href="privacy.html">Privacy</a>
           <a href="terms.html">Terms</a>
           <a href="https://github.com/matteoferrando/MyDiveLog">Source</a>
+          <button class="voce-segnala" type="button" data-apri-segnala>Report</button>
           <span class="lingua"><a href="/">Italiano</a></span>
         </nav>
       </header>
@@ -58,41 +59,43 @@
       <div class="apertura">
         <h1>Your <em>dive</em> logbook</h1>
         <p class="occhiello">
-          <strong>Every dive you have ever made, in one archive</strong> — even if you have changed computers
-          three times. Merged without duplicates, analysed, and holding every field
-          <strong>Italian law 70/2026</strong> asks of a dive logbook — ready as a PDF. Free, no account, and
-          nothing leaves your device.
+          <strong
+            >For divers who want to understand what their data is telling them, not just store it.</strong
+          >
+          Every dive you have ever made in one archive, even if you have changed computers three times: merged
+          without duplicates, analysed, and holding every field <strong>Italian law 70/2026</strong> asks of a
+          dive logbook — ready as a PDF. Free, no account, and nothing leaves your device.
         </p>
         <!-- Vedi il commento gemello nella pagina italiana. -->
         <div class="scarico">
+          <p class="scarico-titolo">This project was born for:</p>
           <div class="pulsanti">
             <a
               class="pulsante pulsante-primario"
               href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
-              >Download for macOS</a
+              >macOS</a
             >
             <span class="pulsante pulsante-attesa" role="link" aria-disabled="true" tabindex="-1">
-              iPhone <em>coming soon</em>
+              iOS <em>coming soon</em>
             </span>
           </div>
-          <p class="scarico-nota">
-            The macOS package is <strong>signed and notarised by Apple</strong>: it opens with a double click.
-            Needs an Apple Silicon Mac. The iPhone version is <strong>in review with Apple</strong> — this
-            button lights up the day it passes.
-          </p>
-          <p class="scarico-altre">
-            We also built it for
-            <a
-              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
-              >Windows</a
-            >
-            and
-            <a
-              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
-              >Android</a
-            >
-            — <a href="#altre-piattaforme">read what differs first</a>.
-          </p>
+
+          <div class="scarico-altre">
+            <p class="scarico-altre-testa">We also built it for</p>
+            <div class="pulsanti pulsanti-piccoli">
+              <a
+                class="pulsante pulsante-piccolo"
+                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
+                >Windows</a
+              >
+              <a
+                class="pulsante pulsante-piccolo"
+                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
+                >Android</a
+              >
+            </div>
+            <p class="scarico-altre-nota"><a href="#altre-piattaforme">read what differs first</a></p>
+          </div>
         </div>
       </div>
     </div>
@@ -291,7 +294,10 @@
 
       <section>
         <h2>What it does</h2>
-        <p>A logbook for divers who want to understand what their data is telling them, not just store it.</p>
+        <p>
+          Seven things, and not one of them is «keeping a list». A paper notebook does that, and has done it
+          for fifty years without a battery.
+        </p>
 
         <div class="griglia">
           <div class="riquadro">
@@ -357,8 +363,8 @@
       <section>
         <h2>What it looks like</h2>
         <p>
-          Real screenshots, taken from the app with a sample logbook: nothing retouched, and nothing the
-          program does not actually do.
+          No retouching, no mockups: this is the application, exactly as it looks when you open it. If you see
+          it here, you will find it inside.
         </p>
         <div class="schermate">
           <figure class="schermata vetrina">
@@ -440,14 +446,23 @@
       <section class="prosa">
         <h2>Free and open</h2>
         <p>
-          MyDiveLog is free software under the MIT licence: the code can be read, copied and modified. It
-          costs nothing, has no subscriptions, no advertising, and collects no usage statistics.
+          <strong>Every app asks you to trust it. This one hands you the means to check.</strong> MyDiveLog is
+          free software under the MIT licence: the code can be read, copied, modified and rebuilt. By anyone,
+          without asking us.
         </p>
         <p>
-          It is not open for show: a logbook decides where your data ends up, and
-          <strong>the only way to check that is to read it</strong>. Every line that touches your dives is
-          <a href="https://github.com/matteoferrando/MyDiveLog">public on GitHub</a>, including the one that
-          computes decompression — and the one that decides to send nothing anywhere.
+          That is not a programmer's pose. A logbook decides where your data ends up, and a promise written on
+          a website is worth exactly as much as whoever wrote it:
+          <strong>the only way to really know what a program does is to read it</strong>. It is all on GitHub
+          — the decompression maths, the code that talks to your dive computer, and the lines that decide to
+          send nothing anywhere.
+        </p>
+        <p>
+          And there is one thing free software gives you that no subscription ever will:
+          <strong>if we vanished tomorrow, the program stays.</strong> It does not expire, cannot be switched
+          off from a distance, and will not lock you out of your own logbook. Your dives are yours, and they
+          stay readable without us.
+          <a href="https://github.com/matteoferrando/MyDiveLog">Look at the code</a>.
         </p>
       </section>
 
@@ -472,8 +487,7 @@
             <h3>The system will say it doesn't know us</h3>
             <p>
               Windows: “More info” → “Run anyway”. Android: it will ask permission to install from this
-              source, the same question it asks for any app outside the Play Store. Signing costs a yearly
-              certificate a free project does not buy.
+              source, the same question it asks for any app outside the Play Store.
             </p>
           </div>
           <div class="riquadro">
@@ -485,16 +499,6 @@
               if it matches the file you downloaded, it is ours.
             </p>
           </div>
-        </div>
-
-        <div class="evidenza avvertenza">
-          <p>
-            <strong>Nobody has really tried them yet.</strong> There is no PC and no Android phone here.
-            Inside runs the same engine as the Mac and iPhone builds, with fourteen hundred automated checks
-            behind it, but no real person has taken those two all the way round. If something looks wrong,
-            <a href="#segnala">tell us below</a>: it is the fastest way to make it someone else's problem
-            instead of yours.
-          </p>
         </div>
       </section>
 
@@ -514,8 +518,83 @@
     </div>
 
     <div class="contenitore">
-      <!-- Vedi il commento gemello nella pagina italiana. -->
-      <section id="segnala">
+      <section class="richiamo">
+        <h2>All your dives, in one place</h2>
+        <p>
+          Free, no account and no subscription. Download it, drop in the files you already have, and a minute
+          later your whole history is in a single list.
+        </p>
+        <!-- Vedi il commento gemello nella pagina italiana. -->
+        <div class="pulsanti pulsanti-pari">
+          <a
+            class="pulsante pulsante-primario"
+            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
+            >macOS</a
+          >
+          <span class="pulsante pulsante-attesa" role="link" aria-disabled="true" tabindex="-1">
+            iOS <em>coming soon</em>
+          </span>
+          <a
+            class="pulsante"
+            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
+            >Windows</a
+          >
+          <a
+            class="pulsante"
+            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
+            >Android</a
+          >
+        </div>
+      </section>
+    </div>
+
+    <!-- Vedi il commento gemello nella pagina italiana: il pulsante è nostro, lo script di PayPal non si carica. -->
+    <div class="contenitore">
+      <section class="dono">
+        <p>
+          MyDiveLog is <strong>open source and free</strong>. If you like it and want to help keep it alive,
+          you can do it here. <span class="cuore" aria-hidden="true">❤︎</span>
+        </p>
+        <a
+          class="pulsante pulsante-dono"
+          href="https://www.paypal.com/donate/?hosted_button_id=7PQDU6GPHQK34"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span class="cuore" aria-hidden="true">❤︎</span> Buy me a coffee
+        </a>
+        <p class="dono-nota">Opens PayPal. No account needed — a card works too.</p>
+      </section>
+    </div>
+
+    <!--
+      IL POPUP DELLE SEGNALAZIONI.
+
+      Sta nella barra in alto e non in fondo alla pagina, e la differenza non è
+      di posto: è di momento. Chi trova un difetto lo trova MENTRE usa
+      l'applicazione, non mentre legge la pagina di presentazione — e quando
+      torna qui per segnalarlo deve trovare la strada subito, non scorrere sei
+      sezioni cercando dove.
+
+      Un popup e non una pagina, per la stessa ragione: una pagina nuova perde
+      il posto in cui eri, e chi si è interrotto per segnalare vuole tornare
+      esattamente lì.
+
+      `hidden` sull'elemento: nasconde davvero anche prima che lo script sia
+      partito. Un modulo che compare per un istante al caricamento e poi sparisce
+      è il difetto classico dei layer fatti a mano.
+    -->
+    <div
+      class="strato"
+      id="strato-segnala"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="titolo-segnala"
+      hidden
+    >
+      <div class="strato-riquadro">
+        <button class="strato-chiudi" type="button" aria-label="Close">×</button>
+
         <h2>Found something wrong?</h2>
         <p>
           A bug, a dive computer that will not connect, a number that looks off, or just something missing.
@@ -571,51 +650,7 @@
             <p class="modulo-esito" id="modulo-esito" role="status" aria-live="polite"></p>
           </div>
         </form>
-
-        <p class="nota-modulo">
-          It lands in a spreadsheet we read. No account to create, and we only ask for your email if you want
-          a reply. If you prefer the old way:
-          <a href="mailto:m.ferrando@gmail.com">m.ferrando@gmail.com</a>, or
-          <a href="https://github.com/matteoferrando/MyDiveLog/issues">open an issue on GitHub</a>.
-        </p>
-      </section>
-    </div>
-
-    <div class="contenitore">
-      <section class="richiamo">
-        <h2>All your dives, in one place</h2>
-        <p>
-          Free, no account and no subscription. Download it, drop in the files you already have, and a minute
-          later your whole history is in a single list.
-        </p>
-        <div class="pulsanti">
-          <a
-            class="pulsante pulsante-primario"
-            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
-            >Download for macOS</a
-          >
-          <a class="pulsante" href="https://github.com/matteoferrando/MyDiveLog">View the source</a>
-        </div>
-      </section>
-    </div>
-
-    <!-- Vedi il commento gemello nella pagina italiana: il pulsante è nostro, lo script di PayPal non si carica. -->
-    <div class="contenitore">
-      <section class="dono">
-        <p>
-          MyDiveLog is <strong>open source and free</strong>. If you like it and want to help keep it alive,
-          you can do it here. <span class="cuore" aria-hidden="true">❤︎</span>
-        </p>
-        <a
-          class="pulsante pulsante-dono"
-          href="https://www.paypal.com/donate/?hosted_button_id=7PQDU6GPHQK34"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <span class="cuore" aria-hidden="true">❤︎</span> Buy me a coffee
-        </a>
-        <p class="dono-nota">Opens PayPal. No account needed — a card works too.</p>
-      </section>
+      </div>
     </div>
 
     <div class="contenitore">
@@ -681,6 +716,65 @@
           pulsante.disabled = false;
         }
       });
+    </script>
+
+    <script>
+      /*
+        ► IL POPUP DELLE SEGNALAZIONI. ◄
+
+        Sta nella barra in alto e non in fondo alla pagina, e la differenza non
+        è di posto: è di momento. Chi trova un difetto lo trova MENTRE usa
+        l'applicazione, non mentre legge la pagina di presentazione — e quando
+        torna qui per segnalarlo deve trovare la strada subito, non scorrere
+        sei sezioni cercando dove.
+
+        UN POPUP E NON UNA PAGINA, per la stessa ragione: una pagina nuova
+        perde il posto in cui eri, e chi stava leggendo qualcosa e si è
+        interrotto per segnalare vuole tornare esattamente lì.
+
+        LE TRE COSE CHE UN LAYER DEVE FARE PER NON ESSERE UNA TRAPPOLA, e che
+        quasi nessuno fa:
+
+        · si chiude con Esc, perché è il primo tasto che prova chiunque;
+        · si chiude cliccando fuori, perché è il primo gesto che prova chiunque
+          altro;
+        · restituisce il fuoco al punto da cui è stato aperto, altrimenti chi
+          naviga con la tastiera si ritrova all'inizio del documento e deve
+          rifare tutta la strada.
+      */
+      (() => {
+        const strato = document.getElementById('strato-segnala');
+        if (!strato) return;
+        let apriva = null;
+
+        const apri = (evento) => {
+          evento.preventDefault();
+          apriva = document.activeElement;
+          strato.hidden = false;
+          // Il corpo si blocca, o scorrendo dentro il popup si trascina la
+          // pagina sotto e alla chiusura ci si ritrova da un'altra parte.
+          document.body.style.overflow = 'hidden';
+          strato.querySelector('select, input, textarea')?.focus();
+        };
+
+        const chiudi = () => {
+          strato.hidden = true;
+          document.body.style.overflow = '';
+          apriva?.focus();
+        };
+
+        document.querySelectorAll('[data-apri-segnala]').forEach((n) => n.addEventListener('click', apri));
+        strato.querySelector('.strato-chiudi').addEventListener('click', chiudi);
+        // Solo il velo, non quello che ci sta dentro: un clic partito dentro il
+        // riquadro e finito sul velo — capita selezionando del testo — non deve
+        // buttare via quello che si stava scrivendo.
+        strato.addEventListener('mousedown', (e) => {
+          if (e.target === strato) chiudi();
+        });
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && !strato.hidden) chiudi();
+        });
+      })();
     </script>
   </body>
 </html>

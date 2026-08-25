@@ -947,6 +947,190 @@ a {
 }
 
 /*
+  Il titolino sopra i due pulsanti principali. Dice per cosa il programma è
+  nato, e serve a rendere credibili gli altri due: un'applicazione che dichiara
+  per cosa è stata pensata dice implicitamente che LÌ è provata, e lascia a
+  Windows e Android il posto che hanno davvero — senza spacciarli per il piatto
+  forte e senza nasconderli.
+*/
+.scarico-titolo {
+  margin: 0 0 14px;
+  max-width: none;
+  font-size: 0.92rem;
+  font-weight: 560;
+  letter-spacing: 0.01em;
+  color: var(--riflesso);
+}
+
+.scarico-altre-testa {
+  margin: 0 0 10px;
+  max-width: none;
+  font-size: 0.86rem;
+  color: var(--testo-tenue);
+}
+
+.scarico-altre-nota {
+  margin: 10px 0 0;
+  max-width: none;
+  font-size: 0.8rem;
+  color: var(--testo-tenue);
+  opacity: 0.85;
+}
+
+/*
+  I pulsanti piccoli: stessa forma, due terzi del peso. La differenza di
+  dimensione fa da sola il lavoro che farebbe una frase — «queste sono
+  secondarie» — senza doverla scrivere.
+*/
+.pulsante-piccolo {
+  padding: 9px 16px;
+  font-size: 13.5px;
+  border-radius: 10px;
+}
+
+.pulsanti-piccoli {
+  gap: 10px;
+}
+
+/*
+  In fondo alla pagina invece i quattro pulsanti sono alla pari, e non è
+  un'incoerenza: là si arriva senza sapere cosa sia questo programma, e la
+  gerarchia serve a non far scegliere fra quattro cose a chi non ha ancora
+  deciso niente. Qui si arriva dopo aver letto tutto: la decisione è presa, e
+  l'unica domanda rimasta è «da dove lo prendo io».
+*/
+.pulsanti-pari {
+  justify-content: center;
+}
+
+/* ------------------------------------------------- il popup delle segnalazioni */
+
+/*
+  Il velo. `hidden` fa il lavoro di nascondere — niente `display:none` scritto a
+  mano — e questa riga esiste solo perché `display:flex` più sotto lo
+  sovrascriverebbe: senza, il modulo resterebbe visibile a pagina aperta.
+*/
+.strato[hidden] {
+  display: none;
+}
+
+.strato {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 5vh 20px;
+  overflow-y: auto;
+  background: rgba(4, 15, 26, 0.78);
+  backdrop-filter: blur(6px);
+}
+
+.strato-riquadro {
+  position: relative;
+  width: 100%;
+  max-width: 46rem;
+  border: 1px solid rgba(67, 214, 255, 0.26);
+  border-radius: 20px;
+  padding: 34px 34px 30px;
+  background: linear-gradient(165deg, var(--dieci), var(--trenta));
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55);
+}
+
+.strato-riquadro h2 {
+  margin-top: 0;
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+}
+
+.strato-riquadro p {
+  max-width: none;
+}
+
+/*
+  La X. Quarantaquattro pixel perché è la misura sotto la quale un bersaglio
+  diventa difficile da colpire col pollice — e chi apre questo modulo dal
+  telefono, dopo aver trovato un difetto, è già abbastanza infastidito così.
+*/
+.strato-chiudi {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--testo-tenue);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 0.18s,
+    background 0.18s;
+}
+
+.strato-chiudi:hover {
+  color: var(--testo);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/*
+  La voce nella barra: un pulsante, non un collegamento, perché non porta da
+  nessuna parte — apre qualcosa qui. Si veste da voce di menu ma con un contorno
+  che la stacca dalle altre tre, che invece sono pagine.
+*/
+.voce-segnala {
+  font: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border: 1px solid var(--bordo);
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: var(--vetro);
+  color: var(--testo);
+  transition:
+    border-color 0.18s,
+    background 0.18s;
+}
+
+.voce-segnala:hover {
+  border-color: rgba(157, 220, 255, 0.4);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 640px) {
+  .strato {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .strato-riquadro {
+    border-radius: 0;
+    border: 0;
+    min-height: 100%;
+    padding: 64px 20px 32px;
+  }
+}
+
+/*
+  Un pulsante che si veste da collegamento. Serve dove nel testo si rimanda al
+  modulo: un <a href="#..."> porterebbe a un'ancora che non esiste più, e un
+  pulsante nudo in mezzo a una frase sembra un errore di stile.
+*/
+.come-link {
+  font: inherit;
+  color: var(--ciano);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/*
   LA DONAZIONE. Sta dopo il richiamo e prima del piede, ed è deliberatamente
   più quieta di entrambi: chiedere soldi subito dopo aver chiesto di scaricare
   suona come un pedaggio, e questo non lo è. Niente riquadro illuminato, niente
