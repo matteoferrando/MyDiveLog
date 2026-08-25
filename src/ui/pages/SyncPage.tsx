@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { conNumeri } from '../../core/numerazione';
 import { esporta } from '../esporta';
-import { suIOS } from '../../piattaforma';
+import { suComputer, suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
 import { useLingua } from '../lingua';
 import {
@@ -25,7 +25,6 @@ import {
   descriviScaricamento,
   installaAggiornamento,
   type StatoAggiornamento,
-  suMac,
 } from '../../aggiornamento/aggiornamento';
 import { TRASH_DAYS, TRASH_SOFT_LIMIT, daysLeft, sortTrash } from '../../storage/trash';
 import { formatDuration } from '../../core/units';
@@ -1282,12 +1281,12 @@ function AggiornamentoCard() {
   }, []);
 
   /*
-   * Una volta sola all'apertura della pagina. `suMac()` è già stato controllato
+   * Una volta sola all'apertura della pagina. `suComputer()` è già stato controllato
    * da chi disegna la carta, ma la guardia resta anche qui: questo effetto non
    * deve dipendere da chi lo monta.
    */
   useEffect(() => {
-    if (suMac()) cerca(false);
+    if (suComputer()) cerca(false);
   }, [cerca]);
 
   const installa = () => {
@@ -1299,7 +1298,7 @@ function AggiornamentoCard() {
       );
   };
 
-  if (!suMac()) return null;
+  if (!suComputer()) return null;
 
   return (
     <div className="card">

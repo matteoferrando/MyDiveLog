@@ -10,7 +10,8 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { descriviScaricamento, percentualeScaricata, suMac } from '../src/aggiornamento/aggiornamento';
+import { descriviScaricamento, percentualeScaricata } from '../src/aggiornamento/aggiornamento';
+import { suComputer } from '../src/piattaforma';
 
 describe('la percentuale scaricata', () => {
   it('è indefinita quando la lunghezza totale non si sa', () => {
@@ -53,7 +54,7 @@ describe('dove ha senso aggiornarsi', () => {
 
   it('nel browser, no', () => {
     // Senza `__TAURI_INTERNALS__` non siamo nell'applicazione.
-    expect(suMac()).toBe(false);
+    expect(suComputer()).toBe(false);
   });
 
   it('su iPhone, no — e non è una dimenticanza', () => {
@@ -64,12 +65,45 @@ describe('dove ha senso aggiornarsi', () => {
      */
     vi.stubGlobal('window', { __TAURI_INTERNALS__: {} });
     vi.stubGlobal('navigator', { platform: 'iPhone', maxTouchPoints: 5 });
-    expect(suMac()).toBe(false);
+    expect(suComputer()).toBe(false);
+  });
+
+  /*
+   * ► QUESTO È IL CASO CHE MANCAVA, ED È IL MOTIVO PER CUI LA FUNZIONE HA
+   * CAMBIATO NOME. ◄
+   *
+   * Si chiamava `suMac` e diceva «nell'app e non su iPhone»: giusta finché il
+   * Mac era l'unico computer su cui girassimo. Con Android è diventata vera
+   * anche là, dove il plugin dell'aggiornamento NON è compilato — quindi la
+   * scheda sarebbe comparsa e il pulsante avrebbe risposto «comando
+   * sconosciuto», che non spiega niente a nessuno.
+   *
+   * Android si riconosce dall'agente e non da `navigator.platform`, che là dice
+   * «Linux armv8l»: vero, inutile, e indistinguibile da un computer Linux.
+   */
+  it('su Android, no — là l’APK si riscarica dal sito', () => {
+    vi.stubGlobal('window', { __TAURI_INTERNALS__: {} });
+    vi.stubGlobal('navigator', {
+      platform: 'Linux armv8l',
+      maxTouchPoints: 5,
+      userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36',
+    });
+    expect(suComputer()).toBe(false);
   });
 
   it('nell’applicazione del Mac, sì', () => {
     vi.stubGlobal('window', { __TAURI_INTERNALS__: {} });
     vi.stubGlobal('navigator', { platform: 'MacIntel', maxTouchPoints: 0 });
-    expect(suMac()).toBe(true);
+    expect(suComputer()).toBe(true);
+  });
+
+  it('nell’applicazione di Windows, sì — e prima era no', () => {
+    vi.stubGlobal('window', { __TAURI_INTERNALS__: {} });
+    vi.stubGlobal('navigator', {
+      platform: 'Win32',
+      maxTouchPoints: 0,
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+    });
+    expect(suComputer()).toBe(true);
   });
 });

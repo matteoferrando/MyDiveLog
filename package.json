@@ -20,6 +20,7 @@
     "desktop": "tauri dev",
     "desktop:build": "tauri build",
     "mac:pubblica": "bash scripts/pubblica-mac.sh",
+    "windows:firma": "node scripts/firma-windows.mjs",
     "ios:init": "rm -f src-tauri/gen/apple/project.yml && mkdir -p src-tauri/gen/apple/mydivelog_iOS && cp src-tauri/PrivacyInfo.xcprivacy src-tauri/gen/apple/mydivelog_iOS/ && tauri ios init",
     "ios:dev": "rm -f src-tauri/gen/apple/project.yml && mkdir -p src-tauri/gen/apple/mydivelog_iOS && cp src-tauri/PrivacyInfo.xcprivacy src-tauri/gen/apple/mydivelog_iOS/ && tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios dev",
     "demo": "tsx scripts/generate-demo-data.ts",

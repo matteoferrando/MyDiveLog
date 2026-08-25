@@ -2657,6 +2657,7 @@ dependencies = [
 name = "mydivelog"
 version = "1.6.3"
 dependencies = [
+ "cc",
  "keyring",
  "serde",
  "serde_json",

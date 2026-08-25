@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "aggiornamento",
+  "description": "Cercare, scaricare e installare un aggiornamento dell'applicazione, e riavviarla quando è installato. Vale su tutti i computer — Mac e Windows — e NON sui telefoni: su iPhone gli aggiornamenti li distribuisce l'App Store e un'app che se li scaricasse da sé verrebbe rifiutata alla revisione; su Android un APK non si installa da solo senza chiedere un permesso che spaventa. Là i plugin non vengono nemmeno compilati, e un permesso per un plugin assente fa fallire la build con «permission not found» — che è la ragione per cui questo file esiste separato e non sta in default.json.",
+  "platforms": ["macOS", "windows", "linux"],
+  "windows": ["main"],
+  "permissions": ["updater:default", "process:allow-restart"]
+}

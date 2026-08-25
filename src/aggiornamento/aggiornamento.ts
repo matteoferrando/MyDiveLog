@@ -1,13 +1,15 @@
 /**
- * L'aggiornamento dell'applicazione del Mac.
+ * L'aggiornamento dell'applicazione sui computer.
  *
  * ► PERCHÉ ESISTE. ◄ Fino a ieri una versione nuova voleva dire: accorgersene,
  * andare sul sito, scaricare un `.dmg`, trascinare l'applicazione, sostituire
  * quella vecchia. Cinque passaggi che nessuno fa, e il risultato è che la gente
  * resta ferma alla versione con cui ha cominciato — comprese le correzioni che
- * riguardano proprio lei. Su iPhone il problema non si pone: là c'è l'App
- * Store, e un'applicazione che si aggiornasse da sé verrebbe rifiutata alla
- * revisione.
+ * riguardano proprio lei. Vale sul Mac e su Windows; sui telefoni no, e per due
+ * ragioni diverse: su iPhone c'è l'App Store, e un'applicazione che si
+ * aggiornasse da sé verrebbe rifiutata alla revisione; su Android un APK non si
+ * installa da solo senza chiedere un permesso che spaventa più di quanto serva.
+ * Là si riscarica dal sito, e il sito lo dice.
  *
  * ► COSA NON FA, ed è una scelta. ◄ Non scarica niente da solo. Cerca — che è
  * una richiesta di rete piccola e senza conseguenze — e se trova qualcosa lo
@@ -25,18 +27,13 @@
  * o si fa così o non si fa.
  *
  * Questo file NON importa il plugin in cima: lo carica con `import()` solo
- * quando serve. Nel browser e su iPhone quel modulo non esiste, e importarlo in
- * cima farebbe fallire il caricamento della pagina invece di mancare una
+ * quando serve. Nel browser e sui telefoni quel modulo non esiste, e importarlo
+ * in cima farebbe fallire il caricamento della pagina invece di mancare una
  * funzione.
  */
 
 import { comeSta, type Traduci } from '../core/traduci';
-import { inApp, suIOS } from '../piattaforma';
-
-/** Vero solo dentro l'applicazione del Mac: l'unico posto dove ha senso. */
-export function suMac(): boolean {
-  return inApp() && !suIOS();
-}
+import { suComputer } from '../piattaforma';
 
 /**
  * Dove siamo nel giro. Uno stato solo, esplicito, invece di tre booleani che
@@ -82,7 +79,7 @@ export function descriviScaricamento(
  * non c'era, invece di leggere «sei aggiornato» e crederci.
  */
 export async function cercaAggiornamento(): Promise<{ versione: string; note?: string } | null> {
-  if (!suMac()) return null;
+  if (!suComputer()) return null;
   const { check } = await import('@tauri-apps/plugin-updater');
   const trovato = await check();
   if (!trovato) return null;
@@ -102,7 +99,8 @@ export async function cercaAggiornamento(): Promise<{ versione: string; note?: s
 export async function installaAggiornamento(
   avanzamento: (fatti: number, totali?: number) => void,
 ): Promise<void> {
-  if (!suMac()) throw new Error('Gli aggiornamenti automatici esistono solo nell’applicazione del Mac.');
+  if (!suComputer())
+    throw new Error('Gli aggiornamenti automatici esistono solo nell’applicazione per computer.');
 
   const { check } = await import('@tauri-apps/plugin-updater');
   const trovato = await check();

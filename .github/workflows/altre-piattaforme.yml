@@ -22,30 +22,26 @@ on:
         description: 'Numero da scrivere nel nome dei file (es. 1.6.3)'
         type: string
         required: true
-      windows_con_libdivecomputer:
-        description: 'Windows: provare anche libdivecomputer (sperimentale, vedi i commenti)'
-        type: boolean
-        default: false
-
 jobs:
   # ------------------------------------------------------------------ Windows
   #
-  # WINDOWS ESCE SENZA libdivecomputer, ED È UNA SCELTA. La libreria si compila
-  # con autotools, che sotto MSVC non gira. La via che sembra ovvia — MSYS2, e
-  # compilarla con gcc — produce un archivio con l'ABI di mingw e un runtime C
-  # diverso da quello del binario Rust, che è MSVC: si lega, parte, e poi cade
-  # da qualche parte dentro una malloc, su una macchina che non abbiamo per
-  # capire dove. **Un pacchetto che si installa e crolla è peggio di uno che
-  # dichiara di fare meno.**
+  # ► WINDOWS ADESSO HA libdivecomputer, e ci è arrivato da un'altra strada. ◄
   #
-  # Cosa resta a chi usa Windows: l'import da file (sette formati) e i due
-  # driver BLE scritti in casa e provati sul campo — Shearwater e Uwatec — che
-  # passano da `tauri-plugin-blec`, il quale su Windows usa WinRT e non ha
-  # bisogno di niente di tutto questo. Cosa manca: gli altri ottantatré modelli
-  # del catalogo, che il selettore dichiara già uno per uno.
+  # Il primo tentativo era MSYS2 e gcc, e produceva un archivio con l'ABI di
+  # mingw da mettere accanto a un binario Rust con quella di MSVC. Non è stato
+  # nemmeno provato fino in fondo: si sarebbe legato, sarebbe partito, e sarebbe
+  # caduto dentro una malloc su una macchina che non abbiamo per capire dove.
   #
-  # In compenso questa build non contiene una riga di codice LGPL, quindi la
-  # questione delle licenze su Windows non esiste proprio.
+  # La strada buona era togliere autotools di mezzo: `build.rs` legge la lista
+  # dei file da `src/Makefile.am`, si scrive `config.h` da sé e compila con la
+  # cassa `cc`, che su Windows usa `cl.exe` — stesso compilatore, stessa ABI,
+  # stesso runtime C del resto del binario. Vedi `compila_con_cc` in `build.rs`.
+  #
+  # QUELLA STRADA È STATA VERIFICATA PRIMA DI ARRIVARE QUI, e non su Windows:
+  # sul Mac, dove le due librerie — quella di `configure` e quella di `cc` — si
+  # possono mettere una accanto all'altra. Stessi 356 descrittori, e le stesse
+  # 85 immersioni vere decodificate campione per campione, 64.706 in tutto, con
+  # lo stesso hash. Su Windows resta un'incognita sola: il compilatore.
   windows:
     runs-on: windows-latest
     steps:
@@ -64,29 +60,12 @@ jobs:
 
       - run: npm ci
 
-      # `--bundles nsis`: la configurazione dice `dmg` e `app`, che su Windows
-      # non esistono. NSIS fa un installatore singolo, che è quello che serve a
-      # chi scarica da un sito; l'MSI chiede privilegi e spaventa.
+      # `--bundles nsis`: la configurazione dice `dmg` e `app`, che su Windows non
+      # esistono. NSIS fa un installatore singolo, che è quello che serve a chi
+      # scarica da un sito; l'MSI chiede privilegi e spaventa.
       #
-      # Quello che sta dopo `--` va a cargo, non a Tauri: il CLI di Tauri non
-      # ha `--no-default-features`, ha solo `--features`.
+      # Niente `--no-default-features`: libdivecomputer si compila anche qui.
       - name: Costruisci
-        run: npx tauri build --bundles nsis -- --no-default-features
-        if: ${{ !inputs.windows_con_libdivecomputer }}
-
-      # La strada sperimentale, dietro un interruttore perché è probabile che
-      # non regga: vedi il commento in testa al job. Se un giorno funziona, si
-      # toglie l'interruttore e si cancella questo commento.
-      - uses: msys2/setup-msys2@v2
-        if: ${{ inputs.windows_con_libdivecomputer }}
-        with:
-          update: true
-          install: base-devel mingw-w64-x86_64-toolchain autoconf automake libtool
-          path-type: inherit
-
-      - name: Costruisci con libdivecomputer (sperimentale)
-        if: ${{ inputs.windows_con_libdivecomputer }}
-        shell: msys2 {0}
         run: npx tauri build --bundles nsis
 
       - name: Raccogli

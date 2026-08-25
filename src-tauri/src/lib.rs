@@ -298,18 +298,25 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_deep_link::init());
 
     /*
-     * L'aggiornamento automatico, e il riavvio che lo conclude. SOLO SU macOS.
+     * L'aggiornamento automatico, e il riavvio che lo conclude. SUI COMPUTER.
      *
-     * Su iPhone gli aggiornamenti li distribuisce l'App Store: un'applicazione
-     * che se li scaricasse per conto suo verrebbe rifiutata alla revisione, e i
-     * due crate qui sotto su iOS non vengono nemmeno compilati.
+     * Sui telefoni no, e per due ragioni diverse: su iPhone gli aggiornamenti li
+     * distribuisce l'App Store — un'applicazione che se li scaricasse per conto
+     * suo verrebbe rifiutata alla revisione — e su Android un APK non si
+     * installa da sé senza un permesso che spaventa. Là i due crate non vengono
+     * nemmeno compilati.
+     *
+     * `desktop` e non `macos`: quella condizione risaliva a quando il Mac era
+     * l'unico computer su cui girassimo, ed è rimasta com'era quando è arrivato
+     * Windows. Chi avesse installato l'applicazione su un PC non avrebbe mai
+     * saputo che ne era uscita una nuova.
      *
      * Il plugin non fa niente da solo: espone il comando che l'interfaccia
      * chiama quando vuole sapere se c'è una versione nuova. La decisione di
      * scaricarla resta di chi usa il programma — come per la sincronizzazione,
      * niente parte da sé.
      */
-    #[cfg(target_os = "macos")]
+    #[cfg(desktop)]
     let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init());

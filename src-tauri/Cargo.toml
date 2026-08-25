@@ -15,6 +15,13 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
+# Il compilatore C, per la strada che salta autotools.
+#
+# Serve SOLO su Windows, dove `./configure` non gira: `cc` sceglie il
+# compilatore giusto del bersaglio (là `cl.exe` di MSVC) e gli dà in pasto i file
+# uno per uno. Vedi il commento lungo in `build.rs`, sopra `compila_con_cc`.
+cc = { version = "1", optional = true }
+
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
@@ -55,19 +62,28 @@ tauri-plugin-opener = "2"
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 keyring = { version = "3", features = ["apple-native"] }
 
-# L'aggiornamento automatico, e il riavvio che lo conclude. SOLO SU macOS.
+# L'aggiornamento automatico, e il riavvio che lo conclude. SUI COMPUTER, NON
+# SUI TELEFONI.
 #
-# Non è una svista che manchi iOS: là gli aggiornamenti li distribuisce l'App
-# Store, e un'applicazione che se li scarica per conto suo verrebbe rifiutata
-# alla revisione. Dipendenza per bersaglio significa anche che su iPhone questi
-# due crate non vengono nemmeno compilati — e che il permesso corrispondente
-# deve stare in `capabilities/macos.json`, non in `default.json`, o la build
-# iOS fallisce con «permission not found».
+# Non è una svista che manchino iOS e Android: su iPhone gli aggiornamenti li
+# distribuisce l'App Store, e un'applicazione che se li scarica per conto suo
+# verrebbe rifiutata alla revisione; su Android un APK non si installa da solo
+# senza chiedere un permesso che spaventa più di quanto serva.
+#
+# Windows invece ci sta, e prima non c'era: la condizione diceva `macos` quando
+# macOS era l'unico computer su cui girassimo, ed è rimasta lì per inerzia
+# quando è arrivato Windows. Il risultato sarebbe stato che chi installa
+# l'applicazione su un PC non scopre MAI che ne è uscita una nuova.
+#
+# Dipendenza per bersaglio significa anche che sui telefoni questi due crate non
+# vengono nemmeno compilati — e che il permesso corrispondente deve stare in
+# `capabilities/aggiornamento.json`, che dichiara le sue piattaforme, e non in
+# `default.json`, o la build iOS fallisce con «permission not found».
 #
 # `process` serve a una riga sola: dopo aver installato l'aggiornamento
 # l'applicazione va riavviata, e senza questo plugin l'unico modo sarebbe
 # chiederlo a chi guarda.
-[target.'cfg(target_os = "macos")'.dependencies]
+[target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 
@@ -121,8 +137,9 @@ custom-protocol = ["tauri/custom-protocol"]
 # sull'interfaccia può ancora saltarli con `--no-default-features`.
 default = ["computer-esterni"]
 
-# Accende anche `uuid`, che serve al ponte BLE e a nient'altro.
-computer-esterni = ["dep:uuid"]
+# Accende anche `uuid`, che serve al ponte BLE e a nient'altro, e `cc`, che
+# serve a compilare la parte C dove autotools non arriva.
+computer-esterni = ["dep:uuid", "dep:cc"]
 
 [profile.release]
 codegen-units = 1

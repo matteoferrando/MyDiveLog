@@ -120,14 +120,29 @@ fn compila_libdivecomputer() {
     // cambia quando cambia la configurazione, bersaglio compreso, quindi
     // l'archivio del Mac e quello dell'iPhone non si pestano i piedi, e il
     // tarball è sotto controllo.
-    if !libreria.exists() {
-        if !sorgenti.exists() {
-            esegui(
-                Command::new("tar").arg("xzf").arg(&tarball).current_dir(&lavoro),
-                "estrazione di libdivecomputer",
-            );
-        }
+    if !sorgenti.exists() {
+        esegui(
+            Command::new("tar").arg("xzf").arg(&tarball).current_dir(&lavoro),
+            "estrazione di libdivecomputer",
+        );
+    }
 
+    /*
+     * IL BIVIO: `configure` dove c'è una shell, `cc` dove non c'è.
+     *
+     * Su Windows autotools non gira e la strada è quella lunga, spiegata sopra
+     * `compila_con_cc`. `LDC_CON_CC=1` la accende anche altrove, ed è così che
+     * è stata verificata prima di consegnarla: se regge sul Mac, dove il
+     * risultato si può confrontare con quello di `configure` facendo girare
+     * millequattrocento test, allora l'unica incognita che resta su Windows è
+     * il compilatore.
+     */
+    if bersaglio.contains("-windows-") || std::env::var("LDC_CON_CC").is_ok() {
+        compila_con_cc(&sorgenti, &bersaglio);
+        return;
+    }
+
+    if !libreria.exists() {
         let mut configure = Command::new("./configure");
         configure
             // Statica: il pacchetto deve reggersi da solo, senza chiedere a
@@ -218,6 +233,192 @@ fn compila_libdivecomputer() {
     // scritte a mano in `computer_esterni.rs`, senza bindgen — che porterebbe
     // dentro libclang su ogni macchina che compila, per generare venti righe.
     println!("cargo:include={}", sorgenti.join("include").display());
+}
+
+/// ► COMPILARE libdivecomputer SENZA autotools, che è come si fa su Windows. ◄
+///
+/// PERCHÉ NON BASTA `./configure`. Quel copione è uno script di shell, e chiama
+/// `make`, `sed`, `grep`. Su Windows con MSVC non c'è niente di tutto questo. La
+/// via che sembra ovvia è portarsi dietro MSYS2 e compilare con gcc — e produce
+/// un archivio con l'ABI di mingw da mettere accanto a un binario Rust con
+/// quella di MSVC: due runtime C nello stesso processo, che si legano, partono,
+/// e cadono dentro una `malloc` da qualche parte. Un pacchetto che si installa e
+/// crolla è peggio di uno che dichiara di fare meno.
+///
+/// COSA FA `configure` CHE CI SERVE DAVVERO. Tre cose, e sono tutte piccole:
+///
+/// 1. decide **quali file compilare** — ma la lista non la inventa, la legge da
+///    `src/Makefile.am`, e possiamo leggerla anche noi;
+/// 2. scrive `config.h`, cioè l'elenco di cosa questa piattaforma ha. Lo scopre
+///    compilando programmini di prova; noi il bersaglio lo sappiamo già, quindi
+///    le risposte le scriviamo;
+/// 3. scrive `version.h` e `revision.h`, che sono quattro numeri e una stringa.
+///
+/// Il resto — libtool, i .la, l'installazione, i test, gli esempi — è roba che
+/// buttiamo via comunque.
+///
+/// ► LA LISTA DEI FILE SI LEGGE, NON SI TRASCRIVE. ◄ È il punto su cui questa
+/// funzione può marcire in silenzio: il giorno che si aggiorna il tarball e
+/// arriva un driver nuovo, una lista scritta a mano resterebbe indietro e
+/// mancherebbe quel modello **senza nessun errore** — la libreria compilerebbe
+/// benissimo, semplicemente non conoscerebbe quel computer. Leggendo
+/// `Makefile.am` la lista si aggiorna da sola, e un test in `tests/` conta i
+/// file per accorgersi se il formato di quel Makefile cambiasse.
+///
+/// PERCHÉ SOLO SU WINDOWS, e non dappertutto. Perché su Mac, iPhone e Android
+/// `configure` funziona, è provato, e ci passano i pacchetti che la gente
+/// installa davvero. Una seconda strada accesa ovunque sarebbe due strade da
+/// mantenere per il gusto della simmetria. Chi vuole provarla altrove — ed è
+/// come è stata verificata prima di consegnarla — accende `LDC_CON_CC=1`.
+#[cfg(feature = "computer-esterni")]
+fn compila_con_cc(sorgenti: &std::path::Path, bersaglio: &str) {
+    use std::path::PathBuf;
+
+    let generati = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("intestazioni-generate");
+    std::fs::create_dir_all(generati.join("libdivecomputer"))
+        .unwrap_or_else(|e| panic!("FERMO: non si crea {}: {e}", generati.display()));
+
+    // --- 1. config.h, cioè cosa ha questa piattaforma -----------------------
+    //
+    // Tutto il codice di libdivecomputer prova queste con `#ifdef`, mai con
+    // `#if`: quello che non scriviamo qui è semplicemente «non c'è», che è
+    // esattamente la risposta giusta. Quindi l'elenco contiene SOLO i sì, e
+    // aggiungerne uno di troppo è l'unico modo di sbagliare.
+    let mut config = String::from("/* Scritto da build.rs: vedi compila_con_cc. */\n");
+    config.push_str("#define ENABLE_LOGGING 1\n");
+    let apple = bersaglio.contains("-apple-");
+    let windows = bersaglio.contains("-windows-");
+    if windows {
+        // MSVC non ha `timegm`, ha `_mkgmtime`, che fa la stessa cosa con un
+        // altro nome. È l'unica riga che serve: tutto il resto del codice, su
+        // Windows, sta dietro a `#ifdef _WIN32`, che il compilatore definisce
+        // da sé.
+        config.push_str("#define HAVE__MKGMTIME 1\n");
+    } else {
+        config.push_str("#define HAVE_TIMEGM 1\n");
+        config.push_str("#define HAVE_STRUCT_TM_TM_GMTOFF 1\n");
+        config.push_str("#define HAVE_LOCALTIME_R 1\n");
+        config.push_str("#define HAVE_GMTIME_R 1\n");
+        config.push_str("#define HAVE_STRERROR_R 1\n");
+        config.push_str("#define HAVE_PTHREAD_H 1\n");
+        config.push_str("#define HAVE_CLOCK_GETTIME 1\n");
+        if apple {
+            config.push_str("#define HAVE_MACH_MACH_TIME_H 1\n");
+            config.push_str("#define HAVE_MACH_ABSOLUTE_TIME 1\n");
+        }
+    }
+    scrivi(&generati.join("config.h"), &config);
+
+    // --- 2. version.h, dai numeri della versione vendorizzata ---------------
+    //
+    // Il file `.in` si sostituisce invece di riscriverlo: quello che c'è
+    // intorno alle quattro righe con le chiocciole sono guardie e macro di
+    // confronto che non ci riguardano, e ricopiarle a mano vorrebbe dire
+    // rifarlo a ogni aggiornamento del tarball.
+    let numeri: Vec<&str> = VERSIONE.split('.').collect();
+    let modello = std::fs::read_to_string(sorgenti.join("include/libdivecomputer/version.h.in"))
+        .expect("FERMO: manca version.h.in dentro il tarball");
+    let version = modello
+        .replace("@DC_VERSION@", VERSIONE)
+        .replace("@DC_VERSION_MAJOR@", numeri[0])
+        .replace("@DC_VERSION_MINOR@", numeri[1])
+        .replace("@DC_VERSION_MICRO@", numeri[2]);
+    scrivi(&generati.join("libdivecomputer/version.h"), &version);
+
+    // --- 3. revision.h ------------------------------------------------------
+    //
+    // `make` ci mette l'hash di git del sorgente. Noi non partiamo da un
+    // deposito git ma da un tarball rilasciato, quindi la revisione è la
+    // versione: dire «0.9.0» è vero, dire una stringa vuota lascerebbe
+    // `dc_version()` a metà.
+    scrivi(
+        &generati.join("revision.h"),
+        &format!("#define DC_VERSION_REVISION \"{VERSIONE}\"\n"),
+    );
+
+    // --- 4. i file da compilare, letti da Makefile.am -----------------------
+    let elenco = sorgenti_da_makefile(&sorgenti.join("src/Makefile.am"), windows);
+    println!("cargo:warning=libdivecomputer: {} file C con cc", elenco.len());
+
+    let mut compilatore = cc::Build::new();
+    compilatore
+        .include(&generati)
+        .include(sorgenti.join("src"))
+        .include(sorgenti.join("include"))
+        .define("HAVE_CONFIG_H", None)
+        // I sorgenti di libdivecomputer non sono nostri e non li correggiamo:
+        // i loro avvisi sarebbero rumore in mezzo ai nostri, che invece
+        // vogliamo leggere.
+        .warnings(false)
+        .flag_if_supported("-w");
+    for f in &elenco {
+        compilatore.file(sorgenti.join("src").join(f));
+    }
+    compilatore.compile("divecomputer");
+
+    if windows {
+        // `socket.c` chiama `WSAStartup`, che sta in Winsock. Con autotools
+        // questa riga la scriveva `configure`; qui la scriviamo noi, ed è
+        // l'unica libreria di sistema che serve — libusb, hidapi e il
+        // Bluetooth di sistema sono spenti come su tutte le altre piattaforme.
+        println!("cargo:rustc-link-lib=ws2_32");
+    }
+
+    println!("cargo:include={}", sorgenti.join("include").display());
+    println!("cargo:include={}", generati.display());
+}
+
+/// Scrive un file generato, e muore dicendo quale se non ci riesce.
+#[cfg(feature = "computer-esterni")]
+fn scrivi(dove: &std::path::Path, cosa: &str) {
+    std::fs::write(dove, cosa).unwrap_or_else(|e| panic!("FERMO: non si scrive {}: {e}", dove.display()));
+}
+
+/// Legge da `src/Makefile.am` l'elenco dei `.c` che compongono la libreria.
+///
+/// COME È FATTO QUEL PEZZO DI FILE. Una variabile che continua sulle righe
+/// successive con la barra rovescia, con dentro `.c` e `.h` mescolati, e in
+/// fondo due `+=` dentro condizionali di automake — uno per il seriale, che ha
+/// una versione Windows e una POSIX, e uno per la risorsa `.rc`, che è roba da
+/// linker di Windows e non un sorgente C.
+///
+/// Si prendono solo i `.c`, si scarta `serial_*.c` dal blocco principale (lì
+/// non c'è) e si aggiunge quello giusto per il bersaglio. Il `.rc` si lascia
+/// stare: contiene le informazioni di versione che Esplora Risorse mostra nelle
+/// proprietà del file, e senza di esse il programma funziona identico.
+#[cfg(feature = "computer-esterni")]
+fn sorgenti_da_makefile(makefile: &std::path::Path, windows: bool) -> Vec<String> {
+    let testo = std::fs::read_to_string(makefile)
+        .unwrap_or_else(|e| panic!("FERMO: non si legge {}: {e}", makefile.display()));
+
+    let inizio = testo
+        .find("libdivecomputer_la_SOURCES =")
+        .expect("FERMO: in Makefile.am non c'è libdivecomputer_la_SOURCES: il tarball è cambiato forma");
+
+    // Il blocco finisce alla prima riga che NON continua con la barra rovescia.
+    let mut file = Vec::new();
+    for riga in testo[inizio..].lines() {
+        let continua = riga.trim_end().ends_with('\\');
+        for pezzo in riga.trim_end_matches('\\').split_whitespace() {
+            if pezzo.ends_with(".c") {
+                file.push(pezzo.to_string());
+            }
+        }
+        if !continua {
+            break;
+        }
+    }
+
+    file.push(if windows { "serial_win32.c".into() } else { "serial_posix.c".into() });
+
+    assert!(
+        file.len() > 100,
+        "FERMO: da Makefile.am sono usciti solo {} file C. Erano 118 con libdivecomputer 0.9.0: \
+         o il tarball è cambiato, o questo lettore ha smesso di capirlo. Meglio fermarsi che \
+         consegnare una libreria a cui mancano dei driver senza che nessuno se ne accorga.",
+        file.len()
+    );
+    file
 }
 
 /// Come parlare a `configure` quando il bersaglio è un telefono Android.

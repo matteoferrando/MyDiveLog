@@ -25,6 +25,39 @@ export function inApp(): boolean {
  * Si guarda `maxTouchPoints` oltre alla piattaforma perché su iPadOS Safari si
  * dichiara «MacIntel»: senza, un iPad verrebbe scambiato per un Mac.
  */
+/**
+ * Vero su un telefono Android.
+ *
+ * Si guarda la stringa dell'agente e non `navigator.platform`, che su Android
+ * dice «Linux armv8l» — vero, inutile, e indistinguibile da un computer Linux.
+ * «Android» invece nell'agente c'è sempre, ed è quello che tutti guardano.
+ */
+export function suAndroid(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Android/i.test(navigator.userAgent ?? '');
+}
+
+/**
+ * Vero dentro l'applicazione su un COMPUTER — Mac o Windows — e falso sui
+ * telefoni e nel browser.
+ *
+ * SERVE A UNA COSA SOLA, e vale la pena dire quale: l'aggiornamento automatico.
+ * Quel plugin è compilato solo per i computer, quindi chiamarlo altrove non dà
+ * «funzione assente», dà un comando sconosciuto — cioè un errore che non spiega
+ * niente a chi lo legge.
+ *
+ * PERCHÉ NON SI CHIAMA PIÙ `suMac`. Perché si chiamava così, era scritta
+ * «nell'app e non su iPhone», e per due mesi è stata giusta perché il Mac era
+ * l'unico computer che avessimo. Il giorno che sono arrivati Windows e Android
+ * è diventata vera su tutti e due — e su Android sbagliata, perché lì
+ * l'aggiornamento automatico non c'è. **Una funzione il cui nome descrive un
+ * caso e il cui corpo ne descrive un altro è una trappola che scatta da sola**
+ * appena il mondo si allarga.
+ */
+export function suComputer(): boolean {
+  return inApp() && !suIOS() && !suAndroid();
+}
+
 export function suIOS(): boolean {
   if (typeof navigator === 'undefined') return false;
   const p = navigator.platform ?? '';
