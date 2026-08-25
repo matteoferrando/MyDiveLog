@@ -1,6 +1,6 @@
 [package]
 name = "mydivelog"
-version = "1.6.1"
+version = "1.6.2"
 description = "Logbook subacqueo multi-computer"
 authors = ["Matteo Ferrando"]
 edition = "2021"
@@ -84,33 +84,43 @@ tauri-plugin-deep-link = "2"
 # Attivato automaticamente da `tauri build`.
 custom-protocol = ["tauri/custom-protocol"]
 
-# I computer subacquei di tutti gli altri: libdivecomputer.
+# ► ACCESA, DAL 25 AGOSTO 2026. ◄
 #
-# SPENTA DI SUA INIZIATIVA. È una funzionalità di SVILUPPO: non entra nei
-# pacchetti che si pubblicano.
+# `computer-esterni` entra in ogni build, pacchetti pubblicati compresi. Prima
+# era spenta di sua iniziativa, e le ragioni erano due.
 #
-# Due ragioni. La prima, piccola: accenderla fa compilare centoquindici file C
-# prima di ogni build pulita, e chi lavora su una schermata non deve pagarli.
+# LA LICENZA. libdivecomputer è LGPL-2.1: un programma MIT la può usare purché
+# chi lo riceve possa ricompilare la libreria e rimetterla al suo posto. Dentro
+# un binario firmato da Apple nessuno può rilinkare niente. La posizione che
+# regge — e che il manutentore della libreria condivide — è che per
+# un'applicazione OPEN SOURCE la condizione è comunque soddisfatta: chi riceve
+# il programma può ricostruire *tutto*, libreria compresa, dal sorgente. Perché
+# questo resti vero servono due cose, e vanno difese:
 #
-# ► LA SECONDA, CHE PESA DI PIÙ: NESSUN COMPUTER SUBACQUEO DI TERZI È MAI STATO
-#   COLLEGATO A QUESTO CODICE. ◄
+#   · il sorgente dell'applicazione resta pubblico;
+#   · il tarball in `vendor/` resta versionato e resta QUELLO da cui si compila.
+#     Sostituirlo con un sottomodulo o con un download in fase di build
+#     toglierebbe a chi riceve il binario la possibilità di rifarlo identico, ed
+#     è esattamente la proprietà su cui poggia tutto il ragionamento.
 #
-# La catena è scritta per intero — trasporto, scarico, traduzione nel modello
-# canonico, ponte sul Bluetooth, selettore di marca e modello — e tutto quello
-# che si può inchiodare senza hardware è inchiodato: il trasporto contro un
-# flusso finto, l'accorpamento dei campioni, la traduzione contro immersioni
-# sintetiche. Il primo apparecchio vero, però, non è ancora esistito.
+# ► E QUELLO CHE RESTA VERO ANCHE ORA CHE È ACCESA. ◄
 #
-# Accenderla prima di quella prova vuol dire offrire un pulsante «Scarica» che
-# potrebbe non funzionare, e in un logbook una lettura sbagliata non dà errore:
-# dà un profilo plausibile e falso. Nel selettore quei modelli lo dichiarano —
-# «via libdivecomputer, mai provato su questo modello».
+# Nessun computer subacqueo di terzi è mai stato collegato a questo codice. Il
+# trasporto è provato contro un flusso finto, l'accorpamento dei campioni e la
+# traduzione contro immersioni sintetiche, ma il primo apparecchio vero non è
+# ancora esistito. Il selettore lo dichiara sotto ogni modello — «via
+# libdivecomputer, mai provato su questo modello» — e non è una formula di
+# cortesia: è la verità, e va tolta solo quando smette di esserlo.
 #
-# Chi la accenderà: sono due righe, qui e in `tauri.conf.json`, e vanno cambiate
-# DOPO la prova con l'hardware. Insieme va portata l'attribuzione a
-# libdivecomputer DENTRO l'applicazione: chi installa un pacchetto il README non
-# lo vede.
+# La protezione che rende accettabile spedirla: in `core/dedupe.ts` un profilo
+# arrivato da questa strada NON può sostituire quello di un driver provato sul
+# campo. Il danno peggiore possibile è quindi un'immersione nuova sbagliata, che
+# si vede e si corregge — non un'immersione giusta sovrascritta in silenzio.
 #
+# Costo: centoquindici file C prima di ogni build pulita. Chi lavora solo
+# sull'interfaccia può ancora saltarli con `--no-default-features`.
+default = ["computer-esterni"]
+
 # Accende anche `uuid`, che serve al ponte BLE e a nient'altro.
 computer-esterni = ["dep:uuid"]
 

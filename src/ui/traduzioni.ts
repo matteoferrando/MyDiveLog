@@ -2003,6 +2003,16 @@ export const INGLESE: Record<string, string> = {
   'Centro di immersione': 'Dive centre',
   'chi ha organizzato l’uscita': 'who organised the trip',
   'Profondità programmata': 'Planned depth',
+  // --- riconoscimenti ---
+  Riconoscimenti: 'Credits',
+  'MyDiveLog legge i computer subacquei grazie al lavoro di chi ha decifrato i loro protocolli e lo ha reso pubblico.':
+    'MyDiveLog reads dive computers thanks to the people who worked out their protocols and made that public.',
+  'di Jef Driesen e collaboratori, licenza LGPL-2.1.': 'by Jef Driesen and contributors, LGPL-2.1 licensed.',
+  'È inclusa in questa applicazione e serve a parlare con i computer per cui non abbiamo un driver scritto a mano.':
+    'It ships inside this app and is what talks to the computers we have no hand-written driver for.',
+  'Il sorgente di MyDiveLog è pubblico sotto licenza MIT, e il sorgente esatto di libdivecomputer usato per compilare questa versione è dentro il repository: chiunque può ricostruire l’applicazione, libreria compresa.':
+    'MyDiveLog’s source is public under the MIT licence, and the exact libdivecomputer source this build was compiled against is in the repository: anyone can rebuild the app, library included.',
+  'Il token del database resta su ogni dispositivo.': 'The database token stays on each device.',
   'Il tuo libretto': 'Your logbook record',
   'Nome e brevetto finiscono sulla stampa del libretto, che è l’unico posto dove servono. Non sono obbligatori.':
     'Your name and certification appear on the printed logbook, which is the only place they are needed. Neither is required.',

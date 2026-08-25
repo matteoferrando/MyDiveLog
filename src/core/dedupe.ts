@@ -710,7 +710,46 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
   if (newSamples > 0) {
     const baseChannels = profileChannels(base);
     const newChannels = profileChannels(incoming);
-    const better = newChannels !== baseChannels ? newChannels > baseChannels : newSamples > baseSamples;
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► UN PROFILO MAI VERIFICATO NON SCALZA UNO VERIFICATO. ◄
+     *
+     * `libdivecomputer` è una sorgente diversa dalle altre, e non per la
+     * qualità della libreria — che legge questi formati da vent'anni — ma per
+     * quello che sappiamo NOI di questa applicazione: nessun computer di terzi
+     * è mai stato collegato a questo ponte. I due driver scritti in casa hanno
+     * letto centinaia di immersioni con l'apparecchio in mano; questa strada
+     * zero.
+     *
+     * Senza questa riga il confronto dei canali basta a farla vincere: i dati
+     * decompressivi valgono due punti, e un profilo che porta un `ceiling` o un
+     * `ndlS` scalza quello del Peregrine. Il 25 agosto 2026 succedeva davvero —
+     * una costante trascritta male dava `ceiling: 0` a OGNI campione in curva,
+     * e quel profilo vinceva sempre.
+     *
+     * Il difetto è stato corretto, ma la struttura che l'ha reso possibile no:
+     * finché la sorgente non è verificata sul campo, il caso peggiore
+     * dev'essere **un'immersione nuova sbagliata** — che si vede, e si
+     * corregge — e mai **un'immersione giusta sovrascritta in silenzio**. La
+     * seconda non la segnala nessuno: il profilo resta plausibile, il grafico
+     * si disegna, e l'archivio è rovinato senza un sintomo.
+     *
+     * NON impedisce a quelle immersioni di ENTRARE: una immersione che
+     * l'archivio non ha arriva normalmente, con tutto il suo profilo. Impedisce
+     * solo di **sostituire** un profilo che c'è già e viene da una strada
+     * provata. E non è per sempre: si toglie il giorno in cui questa strada
+     * viene verificata contro un apparecchio vero, insieme all'etichetta «mai
+     * provato su questo modello» nel selettore.
+     * ════════════════════════════════════════════════════════════════════════
+     */
+    const nonVerificata = incoming.source?.format === 'libdivecomputer';
+    const baseVerificata = base.source?.format !== 'libdivecomputer';
+    const better =
+      nonVerificata && baseVerificata
+        ? false
+        : newChannels !== baseChannels
+          ? newChannels > baseChannels
+          : newSamples > baseSamples;
     if (!better) {
       // Anche quando il profilo in arrivo non vince, può essere il più fitto.
       const candidate = denserOf(incoming.samples, out.altSamples, incoming.altSamples);

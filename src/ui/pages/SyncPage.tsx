@@ -555,7 +555,7 @@ export function SyncPage() {
             {t('Se hai scaricato l’Aladin dal Mac, il telefono prende solo le immersioni nuove.')}
           </li>
           <li>
-            <b>{t('Le credenziali no.')}</b> {t('Token e chiave API restano su ogni dispositivo.')}
+            <b>{t('Le credenziali no.')}</b> {t('Il token del database resta su ogni dispositivo.')}
           </li>
           <li>
             <b>{t('Riepilogo e profilo viaggiano separati.')}</b>{' '}
@@ -567,6 +567,56 @@ export function SyncPage() {
           </li>
         </ul>
       </div>
+
+      <RiconoscimentiCard />
+    </div>
+  );
+}
+
+/**
+ * I riconoscimenti, e perché stanno DENTRO l'applicazione e non solo nel README.
+ *
+ * ► LA RAGIONE È PRECISA, NON DECORATIVA. ◄
+ *
+ * Da questa versione l'applicazione **contiene** libdivecomputer, che è
+ * LGPL-2.1. Chi la riceve dall'App Store non vede il repository, non vede il
+ * README, e non ha nessun altro posto in cui scoprire che parte di quello che
+ * sta usando l'ha scritta qualcun altro in vent'anni di reverse engineering.
+ * Un'attribuzione che vive solo dove il pubblico non arriva non è
+ * un'attribuzione.
+ *
+ * Dice anche dove trovare il sorgente, ed è l'altra metà: la LGPL regge in
+ * questo progetto proprio perché chi riceve il programma può ricostruirlo
+ * tutto, libreria compresa. Se quel collegamento non è raggiungibile
+ * dall'applicazione, quella possibilità resta teorica.
+ */
+function RiconoscimentiCard() {
+  const { t } = useLingua();
+  return (
+    <div className="card">
+      <h2>{t('Riconoscimenti')}</h2>
+      <p className="card-sub">
+        {t(
+          'MyDiveLog legge i computer subacquei grazie al lavoro di chi ha decifrato i loro protocolli e lo ha reso pubblico.',
+        )}
+      </p>
+      <p style={{ fontSize: 13 }}>
+        <b>libdivecomputer</b> — {t('di Jef Driesen e collaboratori, licenza LGPL-2.1.')}{' '}
+        {t(
+          'È inclusa in questa applicazione e serve a parlare con i computer per cui non abbiamo un driver scritto a mano.',
+        )}{' '}
+        <a href="https://libdivecomputer.org" target="_blank" rel="noreferrer">
+          libdivecomputer.org
+        </a>
+      </p>
+      <p className="muted" style={{ fontSize: 12 }}>
+        {t(
+          'Il sorgente di MyDiveLog è pubblico sotto licenza MIT, e il sorgente esatto di libdivecomputer usato per compilare questa versione è dentro il repository: chiunque può ricostruire l’applicazione, libreria compresa.',
+        )}{' '}
+        <a href="https://github.com/matteoferrando/MyDiveLog" target="_blank" rel="noreferrer">
+          github.com/matteoferrando/MyDiveLog
+        </a>
+      </p>
     </div>
   );
 }

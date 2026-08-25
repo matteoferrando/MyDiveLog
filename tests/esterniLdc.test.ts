@@ -11,6 +11,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { immersioneDaLdc, immersioniDaLdc, type ImmersioneLdc } from '../src/core/ble/esterni';
+import { mergeDive } from '../src/core/dedupe';
+import type { Dive, Sample, SourceFormat } from '../src/core/model';
 
 const IMPORTATA = '2026-08-25T09:00:00.000Z';
 
@@ -352,5 +354,77 @@ describe('i difetti del 25 agosto', () => {
     )!;
     expect(d.durationS).toBe(3000);
     expect(d.maxDepth).toBe(30);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// La protezione che rende accettabile spedire una strada mai verificata.
+// ---------------------------------------------------------------------------
+
+describe('un profilo di libdivecomputer non scalza uno verificato', () => {
+  /*
+   * ► PERCHÉ QUESTO CONTROLLO ESISTE. ◄
+   *
+   * I dati decompressivi valgono DUE punti in `profileChannels`, quindi un
+   * profilo che porta un `ceiling` o un `ndlS` vince il confronto e sostituisce
+   * quello che c'era. Con una sorgente mai provata contro un apparecchio vero,
+   * quel meccanismo può cancellare il profilo buono del Peregrine — e nessuno
+   * lo segnala, perché il risultato resta plausibile.
+   *
+   * Il caso peggiore ammesso è un'immersione NUOVA sbagliata. Mai
+   * un'immersione giusta sovrascritta in silenzio.
+   */
+  const profilo = (n: number, deco: boolean): Sample[] =>
+    Array.from({ length: n }, (_, i) => ({
+      t: i * 10,
+      depth: 20,
+      ...(deco ? { ndlS: 600, ceiling: 0 } : {}),
+    }));
+
+  const immersione = (formato: SourceFormat, samples: Sample[]): Dive => ({
+    id: 'x',
+    startTime: '2026-08-24T05:46:00.000Z',
+    durationS: 2400,
+    maxDepth: 23.4,
+    mode: 'oc',
+    cylinders: [{ mix: { o2: 0.21, he: 0 } }],
+    source: { format: formato, file: 'f', importedAt: IMPORTATA },
+    tags: [],
+    samples,
+  });
+
+  it('non sostituisce il profilo di un driver provato sul campo', () => {
+    // Il Peregrine: nessun dato deco in questo profilo, quindi meno canali.
+    const inArchivio = immersione('shearwater-ble', profilo(200, false));
+    // libdivecomputer: porta i dati deco, quindi vincerebbe due a zero.
+    const arrivo = immersione('libdivecomputer', profilo(200, true));
+
+    const fuso = mergeDive(inArchivio, arrivo);
+    expect(fuso.samples).toEqual(inArchivio.samples);
+    expect(fuso.samples![0].ndlS).toBeUndefined();
+  });
+
+  it('e nemmeno quello di un file importato', () => {
+    const inArchivio = immersione('uddf', profilo(200, false));
+    const arrivo = immersione('libdivecomputer', profilo(200, true));
+    expect(mergeDive(inArchivio, arrivo).samples).toEqual(inArchivio.samples);
+  });
+
+  it('ma fra due letture di libdivecomputer vince la migliore, come sempre', () => {
+    // La protezione riguarda il confronto FRA sorgenti diverse. Due letture
+    // dalla stessa strada si confrontano con la regola di sempre, altrimenti la
+    // prima lettura resterebbe congelata per sempre.
+    const prima = immersione('libdivecomputer', profilo(200, false));
+    const meglio = immersione('libdivecomputer', profilo(200, true));
+    expect(mergeDive(prima, meglio).samples![0].ndlS).toBe(600);
+  });
+
+  it('e un profilo verificato scalza ancora uno di libdivecomputer', () => {
+    // Nell'altro senso la protezione non deve mordere: se in archivio c'è una
+    // lettura mai verificata e arriva il driver provato, deve vincere il
+    // secondo.
+    const inArchivio = immersione('libdivecomputer', profilo(200, false));
+    const arrivo = immersione('shearwater-ble', profilo(200, true));
+    expect(mergeDive(inArchivio, arrivo).samples![0].ndlS).toBe(600);
   });
 });
