@@ -2063,4 +2063,392 @@ export const INGLESE: Record<string, string> = {
   'firmato il': 'signed on',
   firmato: 'signed',
   il: 'on',
+
+  // --- il piano di miglioramento ---
+  /* Non stanno in `src/ui`: le scrivono `core/analysis/coaching.ts` e
+     `core/analysis/nextDive.ts`, che ricevono la traduzione come parametro. Le
+     frasi con dentro un numero arrivano da `frase()`: i segnaposti `{0}`, `{1}`
+     devono esserci tutti anche in inglese, e possono cambiare posto. */
+  'Consumo medio di superficie {0} L/min su {1} immersioni con pressione e volume bombola.':
+    'Average RMV {0} L/min over {1} dives with cylinder pressure and volume.',
+  'Ultime 10 immersioni: {0} L/min.': 'Last 10 dives: {0} L/min.',
+  'Tendenza: {0} → {1} L/min fra prima e seconda metà dello storico.':
+    'Trend: {0} → {1} L/min between the first and second half of the logbook.',
+  'Consumo basso e utilizzabile per la pianificazione: {0} L/min':
+    'RMV low and usable for planning: {0} L/min',
+  'A questo livello il consumo è abbastanza stabile per essere usato nei calcoli di gas con un margine ragionevole. Continua a registrare pressione iniziale e finale a ogni immersione: un consumo affidabile vale più di uno basso.':
+    'At this level your RMV is steady enough to plan gas with a sensible margin. Keep logging start and end pressure on every dive: a reliable RMV is worth more than a low one.',
+  'Verifica il valore su miscele e profondità diverse prima di usarlo per pianificare.':
+    'Check the figure on other mixes and depths before you plan with it.',
+  "Consumo di superficie {0} L/min: c'è margine": 'RMV {0} L/min: there is room',
+  "Sopra i 25 L/min il gas diventa il vincolo dominante dell'immersione e riduce i margini nella pianificazione tecnica. Nella maggior parte dei casi la causa non è polmonare: è assetto, pinneggiata e sovra-zavorra.":
+    'Above 25 L/min gas becomes the dive’s dominant constraint and cuts your margins in technical planning. Most of the time the cause is not your lungs: it is buoyancy, finning and overweighting.',
+  "Un consumo in questa fascia è normale ma comprimibile. Il guadagno più rapido viene dall'assetto, non dalla respirazione.":
+    'An RMV in this range is normal but compressible. The quickest gain comes from buoyancy, not from breathing.',
+  'Portare la media sotto {0} L/min nelle prossime 10 immersioni.':
+    'Bring the average under {0} L/min over the next 10 dives.',
+  'Prova di zavorra a fine immersione con 50 bar: devi restare fermo a 5 m con polmoni a metà. Togli piombo finché non ci riesci.':
+    'Weight check at the end of a dive with 50 bar: you must hold 5 m with half-full lungs. Drop lead until you can.',
+  'Sospensione statica: 5 minuti a 6 m senza toccare il jacket e senza usare le pinne. In piscina o su un fondale basso.':
+    'Static hover: 5 minutes at 6 m without touching the BCD and without finning. In a pool or on a shallow bottom.',
+  "Pinneggiata a rana per tutta la fase di fondo di un'immersione: riduce la spinta parassita e il consumo con essa.":
+    'Frog kick for the whole bottom phase of a dive: it cuts parasitic thrust, and RMV with it.',
+  'Ripeti lo stesso sito due volte a un mese di distanza e confronta il consumo: elimina la variabile "immersione diversa".':
+    'Repeat the same site twice a month apart and compare RMV: it removes the "different dive" variable.',
+  'Il consumo sta salendo nel tempo': 'Your RMV is creeping up over time',
+  'La tendenza è in crescita. Prima di lavorare sulla tecnica, controlla le cause banali: cambio di muta o di zavorra, acqua più fredda, immersioni più profonde o più impegnative, erogatore da regolare.':
+    'The trend is rising. Before working on technique, check the dull causes: a new suit or weighting, colder water, deeper or harder dives, a regulator due for a service.',
+  'Da {0} a {1} L/min fra prima e seconda metà ({2} immersioni).':
+    'From {0} to {1} L/min between the first and second half ({2} dives).',
+  "Variazione stimata {0} L/min all'anno.": 'Estimated change {0} L/min a year.',
+  'Riportare la media delle prossime 10 immersioni al livello della prima metà dello storico.':
+    'Bring the next 10 dives back to the average of the first half of the logbook.',
+  'Confronta il consumo su immersioni allo stesso sito e stagione: se il delta sparisce, è la condizione e non la tecnica.':
+    'Compare RMV on dives at the same site and season: if the gap goes, it is conditions, not technique.',
+  "Controlla la regolazione dell'erogatore: uno sforzo inspiratorio alto si paga in consumo.":
+    'Check how your regulator breathes: a high inhalation effort is paid for in gas.',
+  '{0} m verticali "sprecati" al minuto mentre tieni la quota, media su {1} immersioni.':
+    '{0} m of vertical "wasted" per minute while holding depth, averaged over {1} dives.',
+  'Tendenza: {0} → {1} m/min.': 'Trend: {0} → {1} m/min.',
+  'Assetto solido: {0} m/min di oscillazione': 'Solid buoyancy: {0} m/min of drift',
+  'Tieni la quota con precisione. È il prerequisito che rende possibile tutto il resto: soste di deco stabili, riprese fotografiche, lavoro in coppia.':
+    'You hold depth precisely. It is the prerequisite for everything else: steady deco stops, photography, working as a buddy pair.',
+  'Mantieni il livello aggiungendo un compito: bobina, dSMB, gestione stage.':
+    'Hold the level while adding a task: reel, dSMB, stage handling.',
+  'Oscillazione verticale di {0} m/min a quota tenuta': 'Vertical drift of {0} m/min while holding depth',
+  'Nei tratti in cui dovresti tenere la quota, la profondità cambia più del necessario. È la prima causa di consumo elevato e, in immersione con decompressione, rende imprecise le soste. Le cause tipiche in ordine di frequenza: sovra-zavorra, assetto non orizzontale, uso del jacket al posto del respiro per le correzioni piccole.':
+    'Where you should be holding depth, your depth moves more than it needs to. It is the first cause of high gas use and, on deco dives, it makes the stops imprecise. Typical causes in order: overweighting, trim off horizontal, using the BCD instead of the breath for small corrections.',
+  'Scendere sotto {0} m/min di oscillazione media.': 'Get average drift under {0} m/min.',
+  'Prova di zavorra corretta (fine immersione, 50 bar, fermo a 5 m). Quasi sempre si scopre di portare 2 kg di troppo.':
+    'Proper weight check (end of dive, 50 bar, still at 5 m). You almost always find you carry 2 kg too much.',
+  'Hover a testa in giù e poi orizzontale per 3 minuti ciascuno: rivela dove è concentrato il peso.':
+    'Hover head down and then horizontal for 3 minutes each: it shows where the weight sits.',
+  'Riposiziona la zavorra: se le gambe cadono, spostane una parte verso le spalle o usa una piastra più pesante.':
+    'Move the lead: if your legs drop, shift some towards the shoulders or use a heavier backplate.',
+  'Correzioni piccole col respiro, il jacket solo per i cambi di quota veri.':
+    'Small corrections with the breath, the BCD only for real changes of depth.',
+  "Passa un'immersione a seguire una parete a quota costante e guarda il profilo dopo: il grafico è il giudice.":
+    'Spend a dive following a wall at constant depth and look at the profile after: the graph is the judge.',
+  'Velocità di risalita sotto controllo': 'Ascent rate under control',
+  'Le risalite rispettano i limiti in modo costante, anche nella fascia finale, che è quella che conta di più.':
+    'Your ascents keep within the limits consistently, including the last stretch, which is the one that counts most.',
+  '{0} immersioni su {1} con almeno 30 s fuori limite.':
+    '{0} dives out of {1} with at least 30 s over the limit.',
+  'Risalite oltre il limite nel {0} delle immersioni': 'Ascents over the limit on {0} of your dives',
+  'Il limite di riferimento è {0} m/min sotto i 10 m e {1} m/min sopra.':
+    'The reference limit is {0} m/min below 10 m and {1} m/min above.',
+  "Le violazioni sono concentrate negli ultimi metri, dove l'espansione del gas è massima e il controllo è più difficile: è lì che serve rallentare, non sul fondo.":
+    'The breaches cluster in the last few metres, where gas expansion is greatest and control is hardest: that is where you need to slow down, not on the bottom.',
+  'Rallentare la risalita è il singolo intervento con il miglior rapporto fra sforzo e riduzione del rischio.':
+    'Slowing the ascent is the single change with the best ratio of effort to risk cut.',
+  '{0} immersioni su {1} con almeno 30 s sopra il limite.':
+    '{0} dives out of {1} with at least 30 s above the limit.',
+  'Di queste, {0} con violazioni sopra i 10 m.': 'Of those, {0} breached above 10 m.',
+  'Picco registrato: {0} m/min.': 'Peak recorded: {0} m/min.',
+  'Portare le immersioni con violazioni sotto il {0}.': 'Get the dives with breaches below {0}.',
+  'Risali contando: 3 m ogni 20 secondi sotto i 10 m, 3 m ogni 30 secondi sopra. Cronometra, non stimare.':
+    'Count your ascent: 3 m every 20 seconds below 10 m, 3 m every 30 seconds above. Time it, do not guess.',
+  'Usa la cima o la parete come riferimento visivo: senza riferimenti la percezione della velocità è inaffidabile.':
+    'Use the line or the wall as a visual reference: without one your sense of speed is unreliable.',
+  'Guarda il grafico di profondità dopo ogni immersione: la pendenza della risalita è la verifica.':
+    'Look at the depth graph after every dive: the slope of the ascent is the check.',
+  'Se risali con dSMB, lancia la boa e poi risali sulla sagola: dà un riferimento e impone un ritmo.':
+    'If you ascend on a dSMB, shoot the bag and go up the line: it gives a reference and sets a pace.',
+  'Sosta di sicurezza sistematica': 'Safety stop every time',
+  "La sosta di sicurezza è un'abitudine, non un'eccezione. È esattamente la disciplina che serve quando le soste diventano obbligatorie.":
+    'The safety stop is a habit, not an exception. It is exactly the discipline you need when stops become mandatory.',
+  'Completata nel {0} delle {1} immersioni in curva sopra i 10 m.':
+    'Completed on {0} of the {1} no-deco dives past 10 m.',
+  'Sosta di sicurezza completata nel {0} delle immersioni': 'Safety stop completed on {0} of your dives',
+  'Consideriamo completata una sosta di almeno {0} minuti fra 3 e 6 m.':
+    'We count a stop as complete from {0} minutes between 3 and 6 m.',
+  'Al di là del beneficio decompressivo, è il momento in cui si allena il controllo di quota a bassa profondità: la stessa abilità che serve per una sosta di deco.':
+    'Beyond the decompression benefit, it is where you train depth control in shallow water: the same skill a deco stop needs.',
+  '{0} soste complete su {1} immersioni valutabili.': '{0} complete stops out of {1} dives we can judge.',
+  'Valutate solo le immersioni in curva oltre i 10 m con profilo campionato.':
+    'Only no-deco dives past 10 m with a sampled profile are counted.',
+  'Superare il {0} nelle prossime 15 immersioni.': 'Get past {0} over the next 15 dives.',
+  'Programma la sosta come parte del profilo, non come extra: pianifica il gas per 5 m/5 min.':
+    'Plan the stop as part of the profile, not as an extra: plan gas for 5 m / 5 min.',
+  'Se il problema è tenere la quota a 5 m con la bombola scarica, torna alla prova di zavorra: è quella la causa.':
+    'If the trouble is holding 5 m with an empty cylinder, go back to the weight check: that is the cause.',
+  "Un'immersione con violazione del tetto di decompressione": 'One dive that broke the deco ceiling',
+  '{0} immersioni con violazione del tetto di decompressione': '{0} dives that broke the deco ceiling',
+  "Il profilo è salito sopra il tetto imposto dal computer. È il tipo di errore che va chiuso prima di aggiungere complessità, e vale la pena rivederlo con l'istruttore guardando i profili insieme.":
+    'The profile went above the ceiling the computer set. It is the kind of mistake to close before adding complexity, and it is worth going through the profiles with your instructor.',
+  '{0}: {1} sopra il tetto (max {2} m).': '{0}: {1} above the ceiling (max {2} m).',
+  'Zero violazioni. Non è un obiettivo da migliorare gradualmente.':
+    'Zero breaches. Not a target to improve gradually.',
+  "Rivedi i profili con l'istruttore: capire perché è successo conta più di sapere che è successo.":
+    'Go through the profiles with your instructor: understanding why matters more than knowing it happened.',
+  'Verifica di leggere il tetto e non la profondità della prossima tappa: sono due numeri diversi sullo stesso schermo.':
+    'Check you are reading the ceiling and not the depth of the next stop: two different numbers on the same screen.',
+  'Allena il mantenimento della quota a 6 e 3 m con un compito in mano.':
+    'Practise holding depth at 6 and 3 m with a task in hand.',
+  'Riserva di gas rispettata': 'Gas reserve respected',
+  'Chiudi le immersioni con margine. È la premessa della pianificazione a regola dei terzi.':
+    'You end dives with margin. It is the premise of planning by the rule of thirds.',
+  "Solo il {0} delle {1} immersioni sotto i 50 bar all'uscita.":
+    'Only {0} of the {1} dives ended below 50 bar.',
+  'Uscita sotto i 50 bar nel {0} delle immersioni': 'Out of the water below 50 bar on {0} of your dives',
+  'Una riserva sottile funziona finché tutto va secondo previsione. Nella Subacquea Tecnica la logica cambia: il gas di riserva non è "quello che resta" ma una quantità calcolata prima di entrare in acqua.':
+    'A thin reserve works as long as everything goes to plan. In technical diving the logic changes: reserve gas is not "what is left" but an amount worked out before you get in the water.',
+  '{0}: uscita a {1} bar da {2} m.': '{0}: out at {1} bar from {2} m.',
+  "Nessuna immersione sotto i 50 bar; risalita iniziata alla pressione decisa prima dell'ingresso.":
+    'No dive below 50 bar; ascent started at the pressure decided before the water.',
+  'Fissa la pressione di risalita prima di entrare e comunicala al compagno. Poi rispettala anche se "c\'era ancora tempo".':
+    'Set your turn pressure before you get in and tell your buddy. Then keep it even if "there was still time".',
+  'Con il consumo che hai, calcola il gas necessario per risalire in due da profondità massima: è quella la riserva minima.':
+    'With the RMV you have, work out the gas to bring two divers up from max depth: that is your minimum reserve.',
+  'Passa alla regola dei terzi sulle immersioni in cui non puoi risalire in verticale.':
+    'Move to the rule of thirds on dives where you cannot go straight up.',
+  'negli ultimi 12 mesi': 'in the last 12 months',
+  'negli ultimi {0} mesi': 'in the last {0} months',
+  "{0} giorni dall'ultima immersione": '{0} days since your last dive',
+  'Dopo una pausa lunga la manualità si degrada in modo prevedibile: assetto, gestione della zavorra, procedure di emergenza. La rientrata è più utile se è deliberata invece che "la prima immersione della stagione".':
+    'After a long break your handling degrades predictably: buoyancy, weighting, emergency drills. Coming back is more use if it is deliberate rather than "the first dive of the season".',
+  'Ultima immersione: {0}.': 'Last dive: {0}.',
+  '{0} immersioni {1} ({2}/mese).': '{0} dives {1} ({2}/month).',
+  'Una prima immersione di rientro bassa e semplice, con ripasso di assetto e procedure.':
+    'A first dive back that is shallow and simple, with a buoyancy and drills refresher.',
+  'Prima immersione di rientro entro i 18 m, su sito conosciuto, con prova di zavorra.':
+    'First dive back within 18 m, on a site you know, with a weight check.',
+  'Ripasso a secco: monta e smonta l’attrezzatura, e prova a raggiungere i rubinetti della bombola.':
+    'Dry run: build and strip the kit, and practise reaching the cylinder valves.',
+  'Una sessione in piscina prima del mare, se possibile.': 'A pool session before the sea, if you can.',
+  '{0} immersioni al mese: poche per consolidare': '{0} dives a month: too few to consolidate',
+  'A questa frequenza ogni immersione serve in parte a recuperare quello che si è perso dalla precedente, e i progressi si accumulano lentamente. Non è un problema di sicurezza: è un problema di velocità di apprendimento.':
+    'At this rate each dive partly goes on recovering what you lost since the last one, and progress builds slowly. It is not a safety problem: it is a learning-speed problem.',
+  '{0} immersioni {1}.': '{0} dives {1}.',
+  '{0} negli ultimi 90 giorni.': '{0} in the last 90 days.',
+  'Quattro immersioni al mese nella stagione, con un obiettivo dichiarato per ciascuna.':
+    'Four dives a month in season, each with a stated goal.',
+  'Un obiettivo per immersione, scritto prima: assetto, consumo, o una procedura.':
+    'One goal per dive, written down first: buoyancy, gas, or a drill.',
+  'Le uscite in lago valgono come allenamento anche fuori stagione: acqua fredda, visibilità corta, e nessuna scusa per non curare l’assetto.':
+    'Lake dives count as training out of season too: cold water, short visibility, and no excuse for sloppy buoyancy.',
+  'In allenamento: {0} immersioni al mese': 'In practice: {0} dives a month',
+  'La frequenza è quella giusta per far attecchire i miglioramenti tecnici invece di ricominciare ogni volta.':
+    'That is the rate that lets technical gains stick instead of starting over every time.',
+  '{0} immersioni {1}, ultima {2} giorni fa.': '{0} dives {1}, the last one {2} days ago.',
+  '{0} immersioni su {1} hanno un profilo campionato.': '{0} dives out of {1} have a sampled profile.',
+  '{0} immersioni su {1} permettono di calcolare il consumo.':
+    '{0} dives out of {1} allow RMV to be worked out.',
+  '{0} immersioni hanno la pressione ma non il volume della bombola.':
+    '{0} dives have the pressure but not the cylinder volume.',
+  '{0} immersioni non hanno le pressioni.': '{0} dives have no pressures at all.',
+  '{0} hanno pressioni e volume ma manca la profondità media, che serve al calcolo.':
+    '{0} have pressures and volume but no average depth, which the sum needs.',
+  "Una parte dell'analisi è bloccata da dati mancanti": 'Part of the analysis is blocked by missing data',
+  "Manca soprattutto la profondità media: {0} immersioni hanno pressioni e volume ma nessun profilo da cui ricavarla, e senza quella il consumo in L/min non si può calcolare. Si può scriverla a mano nella scheda dell'immersione.":
+    'What is mostly missing is average depth: {0} dives have pressures and volume but no profile to derive it from, and without that RMV in L/min cannot be worked out. You can type it in by hand on the dive.',
+  'Manca soprattutto il volume delle bombole: {0} immersioni hanno le pressioni ma non il volume. È un campo che si compila una volta per configurazione, e su quelle sblocca il consumo in L/min — senza, il logbook può dire solo bar/min, che non è confrontabile fra bombole diverse.':
+    'What is mostly missing is cylinder volume: {0} dives have the pressures but not the volume. It is a field you fill once per configuration, and on those it unlocks RMV in L/min — without it the logbook can only say bar/min, which does not compare between cylinders.',
+  'Mancano soprattutto le pressioni: {0} immersioni su {1} non le hanno, e senza pressione iniziale e finale il consumo non esiste.':
+    'What is mostly missing are the pressures: {0} dives out of {1} have none, and without start and end pressure there is no RMV.',
+  "Compilare i volumi sbloccherebbe le {0} che le pressioni ce l'hanno già.":
+    'Filling in the volumes would unlock the {0} that already have pressures.',
+  'Volume bombola e pressione iniziale/finale su tutte le immersioni future.':
+    'Cylinder volume and start/end pressure on every future dive.',
+  'Compila il volume nella scheda bombola: si fa una volta per configurazione.':
+    'Fill the volume in on the cylinder: once per configuration.',
+  'Se il computer non registra la pressione, annota pressione iniziale e finale a fine immersione.':
+    'If the computer does not log pressure, note start and end pressure after the dive.',
+  'Se hai i file esportati dal programma che usavi prima, reimportali: spesso contengono più dati di quanti quel programma ne mostrasse.':
+    'If you have files exported from the program you used before, import them again: they often hold more than that program showed.',
+  '{0} immersioni con obbligo decompressivo, gestite senza violazioni':
+    '{0} dives with a deco obligation, handled without breaches',
+  "L'esposizione alla decompressione sta crescendo e i profili sono stati rispettati. Il passo successivo è rendere ripetibile la parte noiosa: soste stabili al metro, tempi rispettati anche quando fa freddo e il gas scarseggia.":
+    'Your decompression exposure is growing and the profiles were respected. Next comes making the dull part repeatable: stops steady to the metre, times kept even when it is cold and gas is short.',
+  '{0} di obbligo decompressivo cumulato su {1} immersioni.':
+    '{0} of deco obligation in total over {1} dives.',
+  'Obbligo massimo su una singola immersione: {0}.': 'Largest obligation on a single dive: {0}.',
+  'Nessuna violazione del tetto registrata.': 'No ceiling breach on record.',
+  'Soste con compito in mano: bobina, dSMB, cambio gas simulato.':
+    'Stops with a task in hand: reel, dSMB, simulated gas switch.',
+  "GF99 mediano all'uscita {0}%, massimo {1}%, su {2} immersioni.":
+    'Median GF99 on surfacing {0}%, highest {1}%, over {2} dives.',
+  "Un'immersione chiusa oltre l'85% del proprio gradient factor alto.":
+    'One dive ended past 85% of its own high gradient factor.',
+  "{0} immersioni chiuse oltre l'85% del proprio gradient factor alto.":
+    '{0} dives ended past 85% of their own high gradient factor.',
+  'Il gradient factor alto è quello registrato dal computer su tutte le immersioni.':
+    'The high gradient factor is the one the computer logged, on every dive.',
+  'Attenzione: il gradient factor alto è registrato solo su {0} immersioni su {1}; sulle altre è stato assunto {2}, che è il valore più diffuso ma non è il tuo dato.':
+    'Careful: the high gradient factor is logged on only {0} dives out of {1}; on the others {2} was assumed, which is the most common value but is not your data.',
+  'Calcolato dal profilo con Bühlmann ZH-L16C, carico residuo compreso: c’è su tutte le immersioni con profilo, anche quando il computer non lo registra.':
+    'Worked out from the profile with Bühlmann ZH-L16C, residual load included: it is there on every dive with a profile, even when the computer does not log it.',
+  'Di solito esci con margine, ma {0} {1} vicine al tuo limite':
+    'You usually surface with margin, but {0} {1} close to your limit',
+  "La mediana dice che il margine c'è quasi sempre; il caso isolato è quello da guardare, perché nasce da una circostanza specifica e non da un'abitudine.":
+    'The median says the margin is nearly always there; the odd case is the one to look at, because it comes from a specific circumstance and not from a habit.',
+  'Apri le immersioni vicine al limite e confronta la risalita con quella delle altre: di solito la differenza sta lì.':
+    'Open the dives close to the limit and compare the ascent with the others: that is usually where the difference is.',
+  "Riportare anche i casi isolati sotto l'85% del gradient factor impostato.":
+    'Bring even the odd case under 85% of the gradient factor you set.',
+  'Esci con margine: GF99 mediano {0}%': 'You surface with margin: median GF99 {0}%',
+  "Il gradiente residuo all'uscita lascia spazio rispetto al limite impostato sul computer. È la condizione che rende ripetibili le immersioni multiple e le giornate consecutive.":
+    'The residual gradient on surfacing leaves room against the limit set on your computer. It is what makes repetitive dives and consecutive days repeatable.',
+  "GF99 mediano all'uscita {0}%: margine ridotto": 'Median GF99 on surfacing {0}%: little margin',
+  "Esci con una sovrasaturazione vicina a quella che il tuo computer ammette. Non è una violazione — il computer te lo consente — ma significa usare quasi tutto il margine, e su immersioni ripetitive o giornate consecutive il margine è ciò che si accumula. Quanto sia accettabile dipende dai gradient factor che hai impostato: verifica quali sono e parlane con l'istruttore prima di cambiare qualcosa.":
+    'You surface with a supersaturation close to what your computer allows. It is not a breach — the computer lets you — but it means using nearly all the margin, and on repetitive dives or consecutive days margin is what adds up. How acceptable that is depends on the gradient factors you set: check what they are and talk to your instructor before you change anything.',
+  'Abbassare il GF99 mediano allungando la sosta negli ultimi metri, a impostazioni invariate.':
+    'Lower the median GF99 by stretching the stop in the last metres, settings unchanged.',
+  'Allunga la sosta fra 3 e 6 m: è la leva che abbassa il GF99 senza toccare le impostazioni.':
+    'Stretch the stop between 3 and 6 m: it is the lever that lowers GF99 without touching the settings.',
+  "Risali gli ultimi 6 metri in almeno un minuto: è il tratto dove l'espansione conta di più.":
+    'Take at least a minute over the last 6 metres: that is where expansion counts most.',
+  'Guarda il GF99 sul computer appena riemergi e annotalo: diventa un numero su cui lavorare.':
+    'Look at GF99 on the computer as you surface and write it down: it becomes a number to work on.',
+  'Verifica quali gradient factor hai impostato — molti non lo sanno, e senza quel dato il GF99 non si interpreta.':
+    'Check which gradient factors you have set — many divers do not know, and without that GF99 cannot be read.',
+  "Velocità mediana sull'ultimo tratto {0} m/min, su {1} immersioni.":
+    'Median speed on the last stretch {0} m/min, over {1} dives.',
+  '{0} immersioni sopra i {1} m/min raccomandati nei metri finali{2}.':
+    '{0} dives above the {1} m/min recommended in the final metres{2}.',
+  ', di cui {0} sopra i 60 m/min': ', of which {0} above 60 m/min',
+  'Misurata dalla sosta alla superficie, punto per punto: è un tratto troppo breve perché la velocità media dell’immersione lo mostri.':
+    'Measured from the stop to the surface, point by point: too short a stretch for the dive’s average ascent rate to show it.',
+  'Ultimi metri controllati: {0} m/min di mediana': 'Last metres under control: {0} m/min median',
+  'Il tratto fra la sosta e la superficie è quello dove si accelera senza accorgersene, ed è anche quello dove la sovrasaturazione è massima. Qui non succede.':
+    'The stretch between the stop and the surface is where people speed up without noticing, and it is also where supersaturation is highest. Here it does not happen.',
+  'Gli ultimi metri li fai a {0} m/min': 'You do the last metres at {0} m/min',
+  'Dalla sosta di sicurezza alla superficie la velocità sale, perché il tratto è corto e sembra finito. È il punto in cui il gradiente fra tessuti e ambiente è più alto, quindi è il tratto in cui la velocità conta di più, non di meno.':
+    'From the safety stop to the surface the speed rises, because the stretch is short and feels finished. It is where the gradient between tissues and ambient is highest, so it is where speed counts most, not least.',
+  'Ultimi metri sotto i {0} m/min: dalla sosta alla superficie ci vuole quasi un minuto.':
+    'Last metres under {0} m/min: from the stop to the surface should take almost a minute.',
+  'Conta: da 5 metri alla superficie devono passare almeno 50 secondi.':
+    'Count: from 5 metres to the surface at least 50 seconds must pass.',
+  'Sgonfia il jacket PRIMA di lasciare la sosta: la maggior parte delle risalite veloci finali è aria che si espande, non pinneggiata.':
+    'Dump the BCD BEFORE you leave the stop: most fast final ascents are expanding air, not finning.',
+  "Guarda il computer nell'ultimo tratto, non la barca.":
+    'Watch the computer on the last stretch, not the boat.',
+  'Giornata peggiore per il CNS: {0}% il {1} su {2} immersioni, limite 100%.':
+    'Worst day for CNS: {0}% on {1} over {2} dives, limit 100%.',
+  'Giornata peggiore per le OTU: {0}, su una dose di riferimento di 300 al giorno quando si fanno più giorni di fila.':
+    'Worst day for OTU: {0}, against a reference dose of 300 a day when diving several days running.',
+  "Calcolato dall'app sul profilo con le tabelle NOAA, su {0} immersioni. Il computer usa un modello suo e può dare numeri diversi.":
+    'Worked out by the app from the profile with the NOAA tables, over {0} dives. Your computer uses its own model and may give other figures.',
+  "Esposizione all'ossigeno larga: {0}% di CNS nella giornata peggiore":
+    'Oxygen exposure well inside the limits: {0}% CNS on the worst day',
+  "C'è margine per aggiungere immersioni in giornata o giorni consecutivi senza avvicinarsi ai limiti di tossicità.":
+    'There is room to add dives in a day, or consecutive days, without coming near the toxicity limits.',
+  'Orologio CNS al {0}% in una giornata': 'CNS clock at {0}% in one day',
+  '{0} OTU nella giornata peggiore': '{0} OTU on the worst day',
+  "L'esposizione all'ossigeno si somma fra le immersioni della giornata: il CNS recupera a metà ogni novanta minuti in superficie, le OTU non recuperano affatto e si sommano anche da un giorno all'altro.":
+    'Oxygen exposure adds up across the day’s dives: CNS halves every ninety minutes on the surface, OTU do not recover at all and carry over from one day to the next.',
+  'CNS sotto il 100% nella giornata e OTU sotto le 300 quando si fanno più giorni di fila.':
+    'CNS under 100% in a day and OTU under 300 when diving several days running.',
+  "Allunga l'intervallo di superficie fra la prima e la seconda: novanta minuti dimezzano il CNS accumulato.":
+    'Stretch the surface interval between the first and second dive: ninety minutes halve the CNS you built up.',
+  'Su più giorni di fila guarda le OTU, non il CNS: sono loro a limitare.':
+    'On consecutive days watch OTU, not CNS: they are what limits you.',
+  'Se usi miscele ricche, la stessa immersione costa più ossigeno: controlla la PPO2 di fondo prima di scegliere il gas.':
+    'On a rich mix the same dive costs more oxygen: check your bottom PPO2 before you pick the gas.',
+  "Ridiscese dopo essere già risalito: {0} metri l'ora di mediana, {1} nel caso peggiore, su {2} immersioni.":
+    'Going back down after already coming up: {0} metres an hour median, {1} at worst, over {2} dives.',
+  'Parte profonda per prima in {0} immersioni su {1}{2}.': 'Deepest part first on {0} dives out of {1}{2}.',
+  ', con la prima metà mediamente {0} m {1} della seconda':
+    ', with the first half on average {0} m {1} than the second',
+  'più profonda': 'deeper',
+  'più alta': 'shallower',
+  'Il tuo quarto peggiore comincia a {0} m/h{1}.': 'Your worst quarter starts at {0} m/h{1}.',
+  ', e {0} immersioni stanno oltre il doppio di quella soglia':
+    ', and {0} dives sit past twice that threshold',
+  'Troppe poche immersioni per dire dove cade una rispetto alle altre.':
+    'Too few dives to say where one falls against the others.',
+  'La didattica sconsiglia i profili a dente di sega senza dare una soglia: questo indice va letto contro le tue immersioni, non contro un limite.':
+    'The agencies advise against saw-tooth profiles without giving a threshold: read this index against your own dives, not against a limit.',
+  'Profili regolari: parte profonda per prima, nessuno fuori scala':
+    'Regular profiles: deepest part first, none off the scale',
+  'È la forma che la didattica raccomanda, e quella su cui i modelli decompressivi sono tarati meglio. Nessuna delle tue immersioni si stacca dalle altre.':
+    'It is the shape the agencies recommend, and the one decompression models are tuned for best. None of your dives stands out from the rest.',
+  'La parte profonda non viene per prima in {0} immersioni su {1}':
+    'The deepest part does not come first on {0} dives out of {1}',
+  '{0} immersione si stacca dalle tue per ridiscese': '{0} dive stands out from yours for going back down',
+  '{0} immersioni si staccano dalle tue per ridiscese': '{0} dives stand out from yours for going back down',
+  'Risalire e riscendere carica e scarica i tessuti veloci più volte, e il modello decompressivo non lo gestisce come un profilo che scende una volta sola e poi risale. Andare prima sul punto più profondo e poi risalire progressivamente è la forma da cercare.':
+    'Going up and back down loads and unloads the fast tissues several times, and the decompression model does not handle that like a profile that goes down once and then comes up. Deepest point first and then progressively up is the shape to look for.',
+  "Un solo passaggio: giù al punto più profondo all'inizio, poi verso l'alto.":
+    'One pass: down to the deepest point at the start, then upwards.',
+  "Pianifica il giro in modo che il punto più profondo sia all'inizio, non a metà.":
+    'Plan the route so the deepest point is at the start, not halfway.',
+  'Quando risali per superare un ostacolo, resta alla quota nuova invece di riscendere.':
+    'When you go up to clear an obstacle, stay at the new depth instead of dropping back.',
+  '{0} cambi di gas fatti sotto la profondità operativa del gas':
+    '{0} gas switches made below the gas’s operating depth',
+  'Passare a una miscela più ricca prima di essere risaliti alla sua profondità operativa massima porta la pressione parziale di ossigeno oltre il limite: prima di cambiare erogatore va verificata la profondità.':
+    'Switching to a richer mix before you are up at its maximum operating depth pushes the oxygen partial pressure past the limit: check the depth before you change regulator.',
+  'Rilevati sui profili con più di una bombola, confrontando la profondità del cambio con la MOD a 1.6 bar del gas di destinazione.':
+    'Found on profiles with more than one cylinder, comparing the switch depth with the target gas’s MOD at 1.6 bar.',
+  'Zero. Non è un obiettivo da migliorare gradualmente.': 'Zero. Not a target to improve gradually.',
+  'Quattro gesti nell’ordine, prima di ogni cambio gas: mostra la bombola al compagno, aprila, verifica la PROFONDITÀ, poi cambia erogatore.':
+    'Four gestures in order, before every gas switch: show the cylinder to your buddy, open it, check the DEPTH, then change regulator.',
+  'Etichetta le bombole con la MOD in numeri grandi, non con la percentuale.':
+    'Label the cylinders with the MOD in big numbers, not with the percentage.',
+  "{0} immersioni dell'archivio sono ripetitive: sono cominciate con dell'azoto ancora in circolo.":
+    '{0} dives in the logbook are repetitive: they started with nitrogen still on board.',
+  "Il carico residuo costa in mediana {0} punti di GF99 all'uscita.":
+    'Residual load costs a median {0} GF99 points on surfacing.',
+  'Il caso peggiore è {0}{1}: {2} punti in più di quanti ne avresti avuti partendo da tessuti puliti.':
+    'The worst case is {0}{1}: {2} points more than you would have had from clean tissues.',
+  ' dopo {0} minuti di superficie': ' after a {0} minute surface interval',
+  'Intervallo di superficie mediano: {0} minuti.': 'Median surface interval: {0} minutes.',
+  'Calcolato rigiocando la stessa immersione da tessuti puliti con Bühlmann ZH-L16C: è un confronto fra due esecuzioni dello stesso profilo, non una stima.':
+    'Worked out by replaying the same dive from clean tissues with Bühlmann ZH-L16C: a comparison between two runs of one profile, not an estimate.',
+  'Le tue ripetitive costano poco: {0} punti di GF99': 'Your repetitive dives cost little: {0} GF99 points',
+  'Gli intervalli di superficie che tieni bastano a smaltire quasi tutto: la seconda immersione della giornata esce quasi come se fosse la prima.':
+    'The surface intervals you take are enough to offgas nearly everything: the day’s second dive surfaces almost like the first.',
+  'Le ripetitive escono {0} punti di GF99 più alte': 'Repetitive dives surface {0} GF99 points higher',
+  'È il prezzo dell’azoto che ti porti dietro dalla prima immersione: la stessa identica seconda immersione, fatta da tessuti puliti, finirebbe più bassa di così. Le due leve sono l’intervallo di superficie e la forma della seconda immersione — una più bassa e più corta paga molto meno.':
+    'It is the price of the nitrogen you carry over from the first dive: the very same second dive, done from clean tissues, would end lower. The two levers are the surface interval and the shape of the second dive — shallower and shorter pays far less.',
+  'Sapere, prima di scendere la seconda volta, con quanto margine in meno stai partendo.':
+    'Know, before you go down a second time, how much less margin you are starting with.',
+  'Apri la seconda immersione di una giornata: la scheda dice quanti punti è costata la pausa.':
+    'Open the second dive of a day: the card says how many points the break cost.',
+  'Nel pianificatore, modalità tecnica, scegli l’immersione precedente e l’intervallo: la tabella cambia sotto gli occhi.':
+    'In the planner, technical mode, pick the previous dive and the interval: the table changes as you watch.',
+  "Tutti i criteri di riferimento sono soddisfatti. Il passo successivo è una verifica in acqua con l'istruttore, non un altro numero.":
+    'Every reference criterion is met. The next step is a check in the water with your instructor, not another number.',
+  'Manca un criterio: {0}.': 'One criterion missing: {0}.',
+  'Mancano {0} criteri su {1}. I più vicini: {2}.': '{0} criteria missing out of {1}. Closest: {2}.',
+  '{0} sopra il tetto di decompressione (max {1} m).': '{0} above the deco ceiling (max {1} m).',
+  'Risalita oltre il limite per {0}, picco {1} m/min{2}.':
+    'Ascent over the limit for {0}, peak {1} m/min{2}.',
+  '(anche sopra i 10 m)': '(also above 10 m)',
+  'Quota tenuta bene: {0} m/min di oscillazione.': 'Depth well held: {0} m/min of drift.',
+  '{0} m/min di oscillazione a quota tenuta (obiettivo sotto {1}).':
+    '{0} m/min of drift while holding depth (target under {1}).',
+  'Sosta di sicurezza di {0}.': 'Safety stop of {0}.',
+  'Sosta di sicurezza breve: {0} fra 3 e 6 m.': 'Short safety stop: {0} between 3 and 6 m.',
+  'Nessuna sosta di sicurezza fra 3 e 6 m.': 'No safety stop between 3 and 6 m.',
+  'Uscita a {0} bar, sotto la riserva di {1} bar.': 'Out at {0} bar, below the {1} bar reserve.',
+  'Uscita a {0} bar.': 'Out at {0} bar.',
+  'Consumo di superficie {0} L/min a {1} m di media.': 'RMV {0} L/min at {1} m average depth.',
+  'Consumo di superficie {0} L/min.': 'RMV {0} L/min.',
+  'PPO2 di picco {0} bar, oltre il limite di fondo di {1} bar.':
+    'Peak PPO2 {0} bar, past the {1} bar bottom limit.',
+  'Hai ancora {0} bar di azoto in più del normale': 'You still carry {0} bar of nitrogen above normal',
+  'Sono passate {0} dall’ultima immersione. Se scendi adesso non riparti da zero: la stessa immersione ti farà uscire più carico, e il computer lo terrà in conto.':
+    'It has been {0} since your last dive. If you go down now you do not start from zero: the same dive will leave you more loaded, and the computer will take it into account.',
+  'Orologio CNS ancora al {0}%': 'CNS clock still at {0}%',
+  'Si dimezza ogni novanta minuti in superficie. Conta se la prossima è una immersione con miscele ricche o profonda: parte da qui, non da zero.':
+    'It halves every ninety minutes on the surface. It counts if the next one is deep or on a rich mix: it starts from here, not from zero.',
+  'Archivio vuoto': 'Empty logbook',
+  'Importa un export dal tuo computer o dal logbook che usavi prima: da lì in poi tutto il resto si calcola da solo.':
+    'Import an export from your computer or from the logbook you used before: from there on everything else works itself out.',
+  '{0} giorni dall’ultima immersione': '{0} days since your last dive',
+  'Dopo una pausa lunga la didattica consiglia un ripasso: la prima uscita facile, poco profonda, con qualcuno che ti conosce. L’assetto è la prima cosa che si perde e la più visibile nei numeri.':
+    'After a long break the agencies advise a refresher: an easy first dive, shallow, with someone who knows you. Buoyancy is the first thing to go and the most visible in the numbers.',
+  'Non è una pausa lunga, ma la prima immersione dopo due mesi consuma sempre un po’ più del solito. Vale la pena saperlo prima di pianificare il gas al minuto.':
+    'It is not a long break, but the first dive after two months always uses a little more gas than usual. Worth knowing before you plan gas to the minute.',
+  'Su cosa lavorare: {0}': 'What to work on: {0}',
+  'È la prima delle osservazioni sull’archivio. Una cosa sola per immersione: due non si tengono a mente sott’acqua.':
+    'It is the first of the observations on your logbook. One thing per dive: two do not stay in mind underwater.',
+  'Niente in circolo': 'Nothing on board',
+  'Nessun azoto residuo dall’immersione precedente e nessuna nota da leggere. Resta solo da decidere dove andare.':
+    'No residual nitrogen from the previous dive and nothing to read. All that is left is deciding where to go.',
+  '{0} minuti': '{0} minutes',
+  '{0} ore': '{0} hours',
+  '{0} giorni': '{0} days',
 };

@@ -29,7 +29,7 @@ import { mergeDive, mergeImports, profileChannels, type Sospetto } from '../core
 import { conNumeri, numeriProgressivi } from '../core/numerazione';
 import { buildBackup, planRestore, type BackupFile } from '../core/export/backup';
 import { parseBrowserFile } from '../core/parsers';
-import { useTraduciStabile } from './lingua';
+import { useLingua, useTraduciStabile } from './lingua';
 import type { Traduci } from '../core/traduci';
 import { getStore, type DiveStore } from '../storage';
 import { dimenticaChiaveAi, openSecretStore, type SecretPlace } from '../storage/secrets';
@@ -1511,9 +1511,20 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
    * `storicoDi`.
    */
   const storico = useMemo(() => storicoDi(dives), [dives]);
+  /*
+   * QUI SERVE LA `t` DEL RENDER, non quella stabile.
+   *
+   * Il piano è testo: le sue frasi nascono dentro `buildPlan` e devono rinascere
+   * quando cambia la lingua. `useTraduciStabile` ha apposta un'identità che non
+   * cambia mai — è quello che serve a chi vive più a lungo di un render, come
+   * l'archivio — e messa in questa lista di dipendenze lascerebbe il piano
+   * scritto nella lingua di quando è stato calcolato, fino al prossimo cambio di
+   * periodo o di obiettivo.
+   */
+  const { t } = useLingua();
   const plan = useMemo(
-    () => buildPlan(scope.dives, aggregates, goalId, storico),
-    [scope, aggregates, goalId, storico],
+    () => buildPlan(scope.dives, aggregates, goalId, storico, t),
+    [scope, aggregates, goalId, storico, t],
   );
 
   const value: DiveLogValue = {

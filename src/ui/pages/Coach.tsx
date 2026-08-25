@@ -39,12 +39,12 @@ export function Coach() {
   const testoAnnuncio =
     scope.dives.length < 3
       ? `${t('Piano non calcolabile')}: ${imm(scope.dives.length, t)} ${t('nel periodo')} ` +
-        `«${scope.period.label}», ${dives.length} ${t('in tutto l’archivio')}, ${t('e ne servono almeno 3')}.`
-      : `${t('Piano ricalcolato per l’obiettivo')} «${plan.readiness.goal.label}»: ${t('prontezza')} ` +
+        `«${t(scope.period.label)}», ${dives.length} ${t('in tutto l’archivio')}, ${t('e ne servono almeno 3')}.`
+      : `${t('Piano ricalcolato per l’obiettivo')} «${t(plan.readiness.goal.label)}»: ${t('prontezza')} ` +
         `${Math.round(plan.readiness.score * 100)}%, ${criteriSoddisfatti} ${t('criteri su')} ` +
         `${plan.readiness.items.length} ${t('soddisfatti')}, ${plan.focus.length} ${t('priorità su cui lavorare adesso')}, ` +
         `${dopo.length} ${t('punti dopo')}, ${plan.strengths.length} ${t('punti di forza')}. ${t('Calcolato su')} ` +
-        `${imm(scope.dives.length, t)} ${t('del periodo')} «${scope.period.label}».`;
+        `${imm(scope.dives.length, t)} ${t('del periodo')} «${t(scope.period.label)}».`;
 
   // Il piano si legge sulle immersioni della finestra: la soglia di "troppo poche"
   // guarda quelle, non l'archivio intero.
@@ -118,10 +118,10 @@ export function Coach() {
               <span className="hero" style={{ fontSize: 34 }}>
                 {Math.round(readiness.score * 100)}%
               </span>
-              {/* Il verdetto arriva già scritto con dentro i nomi dei criteri
-                  mancanti: è una frase diversa a ogni conteggio e non ha una
-                  chiave di dizionario possibile. Resta in italiano finché non
-                  lo si compone a pezzi nel cuore dell'applicazione. */}
+              {/* Il verdetto arriva già tradotto: `readinessFor` lo compone con
+                  `frase()` e ci rimonta dentro le etichette dei criteri, che
+                  passano dal dizionario lì. Qui non va toccato — un `t()` su una
+                  frase già inglese non troverebbe niente. */}
               <span className="secondary" style={{ fontSize: 13, flex: 1 }}>
                 {readiness.verdict}
               </span>

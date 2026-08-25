@@ -13,9 +13,17 @@
  * sei pronto»: mette in fila fatti che hanno un termine, ordinati per quanto stringe il
  * tempo, e lascia il giudizio a chi lo deve dare. Un semaforo verde su una schermata
  * è esattamente il genere di cosa che fa saltare i controlli veri.
+ *
+ * ► COME PARLA DUE LINGUE. ◄ Prende `t` come ultimo parametro, con l'identità
+ * come valore predefinito: chi non lo passa ottiene l'italiano, che è la chiave
+ * del dizionario. Le frasi con dentro un numero passano da `frase()`, che
+ * traduce PRIMA e riempie DOPO — vedi `core/frase.ts` per il perché non si
+ * possono spezzare in pezzi.
  */
 
 import type { Dive } from '../model';
+import { comeSta, type Traduci } from '../traduci';
+import { frase } from '../frase';
 
 import { CHAIN_BREAK_HOURS, entryStateFor } from './tissues';
 import { cnsAfterSurface } from './oxygen';
@@ -43,7 +51,6 @@ export interface NextDiveBriefing {
   residualN2Bar?: number;
   /** CNS residuo adesso, percentuale, dopo il dimezzamento in superficie. */
   residualCnsPct?: number;
-  /** Le note che contano, già ordinate. */
 }
 
 /**
@@ -57,6 +64,7 @@ export function nextDiveBriefing(
   dives: Dive[],
   topSuggestion: { headline: string; area: string } | undefined,
   now = Date.now(),
+  t: Traduci = comeSta,
 ): NextDiveBriefing {
   const notes: NextDiveNote[] = [];
 
@@ -99,8 +107,12 @@ export function nextDiveBriefing(
       notes.push({
         id: 'residual',
         level: residualN2Bar > 0.15 ? 'warning' : 'info',
-        headline: `Hai ancora ${residualN2Bar.toFixed(2)} bar di azoto in più del normale`,
-        detail: `Sono passate ${fmtHours(hoursSinceLast)} dall'ultima immersione. Se scendi adesso non riparti da zero: la stessa immersione ti farà uscire più carico, e il computer lo terrà in conto.`,
+        headline: frase(t, 'Hai ancora {0} bar di azoto in più del normale', residualN2Bar.toFixed(2)),
+        detail: frase(
+          t,
+          'Sono passate {0} dall’ultima immersione. Se scendi adesso non riparti da zero: la stessa immersione ti farà uscire più carico, e il computer lo terrà in conto.',
+          durata(hoursSinceLast, t),
+        ),
         goTo: 'planner',
         priority: residualN2Bar > 0.15 ? 10 : 45,
       });
@@ -109,9 +121,10 @@ export function nextDiveBriefing(
       notes.push({
         id: 'residual-cns',
         level: residualCnsPct >= 50 ? 'warning' : 'info',
-        headline: `Orologio CNS ancora al ${residualCnsPct.toFixed(0)}%`,
-        detail:
+        headline: frase(t, 'Orologio CNS ancora al {0}%', residualCnsPct.toFixed(0)),
+        detail: t(
           'Si dimezza ogni novanta minuti in superficie. Conta se la prossima è una immersione con miscele ricche o profonda: parte da qui, non da zero.',
+        ),
         goTo: 'planner',
         priority: residualCnsPct >= 50 ? 12 : 50,
       });
@@ -123,9 +136,10 @@ export function nextDiveBriefing(
     notes.push({
       id: 'no-dives',
       level: 'info',
-      headline: 'Archivio vuoto',
-      detail:
+      headline: t('Archivio vuoto'),
+      detail: t(
         'Importa un export dal tuo computer o dal logbook che usavi prima: da lì in poi tutto il resto si calcola da solo.',
+      ),
       goTo: 'import',
       priority: 5,
     });
@@ -133,9 +147,10 @@ export function nextDiveBriefing(
     notes.push({
       id: 'layoff',
       level: 'warning',
-      headline: `${daysSinceLast} giorni dall'ultima immersione`,
-      detail:
+      headline: frase(t, '{0} giorni dall’ultima immersione', daysSinceLast),
+      detail: t(
         'Dopo una pausa lunga la didattica consiglia un ripasso: la prima uscita facile, poco profonda, con qualcuno che ti conosce. L’assetto è la prima cosa che si perde e la più visibile nei numeri.',
+      ),
       goTo: 'coach',
       priority: 15,
     });
@@ -143,9 +158,10 @@ export function nextDiveBriefing(
     notes.push({
       id: 'rusty',
       level: 'info',
-      headline: `${daysSinceLast} giorni dall'ultima immersione`,
-      detail:
+      headline: frase(t, '{0} giorni dall’ultima immersione', daysSinceLast),
+      detail: t(
         'Non è una pausa lunga, ma la prima immersione dopo due mesi consuma sempre un po’ più del solito. Vale la pena saperlo prima di pianificare il gas al minuto.',
+      ),
       goTo: 'planner',
       priority: 55,
     });
@@ -156,9 +172,12 @@ export function nextDiveBriefing(
     notes.push({
       id: 'focus',
       level: 'info',
-      headline: `Su cosa lavorare: ${topSuggestion.headline}`,
-      detail:
+      // `headline` arriva dal piano di miglioramento, che è già passato dal
+      // dizionario: qui si traduce solo la cornice, non il contenuto.
+      headline: frase(t, 'Su cosa lavorare: {0}', topSuggestion.headline),
+      detail: t(
         'È la prima delle osservazioni sull’archivio. Una cosa sola per immersione: due non si tengono a mente sott’acqua.',
+      ),
       goTo: 'coach',
       priority: 40,
     });
@@ -178,9 +197,10 @@ export function nextDiveBriefing(
     notes.push({
       id: 'clear',
       level: 'good',
-      headline: 'Niente in circolo',
-      detail:
+      headline: t('Niente in circolo'),
+      detail: t(
         'Nessun azoto residuo dall’immersione precedente e nessuna nota da leggere. Resta solo da decidere dove andare.',
+      ),
       priority: 30,
     });
   }
@@ -189,8 +209,15 @@ export function nextDiveBriefing(
   return { notes, daysSinceLast, hoursSinceLast, residualN2Bar, residualCnsPct };
 }
 
-function fmtHours(h: number): string {
-  if (h < 1) return `${Math.round(h * 60)} minuti`;
-  if (h < 24) return `${h.toFixed(h < 3 ? 1 : 0)} ore`;
-  return `${Math.floor(h / 24)} giorni`;
+/**
+ * «45 minuti», «3.5 ore», «2 giorni».
+ *
+ * Il numero e l'unità restano insieme in una sola chiave perché in inglese
+ * l'ordine è lo stesso ma la parola cambia al plurale in modo diverso: tenerli
+ * separati costringerebbe chi traduce a indovinare dove finisce il numero.
+ */
+function durata(h: number, t: Traduci): string {
+  if (h < 1) return frase(t, '{0} minuti', Math.round(h * 60));
+  if (h < 24) return frase(t, '{0} ore', h.toFixed(h < 3 ? 1 : 0));
+  return frase(t, '{0} giorni', Math.floor(h / 24));
 }

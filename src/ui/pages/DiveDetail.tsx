@@ -124,7 +124,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
     };
   }, [summary, loadProfiles]);
 
-  const observations = useMemo(() => (dive ? debriefDive(dive) : []), [dive]);
+  const observations = useMemo(() => (dive ? debriefDive(dive, t) : []), [dive, t]);
 
   // Curva, tetto e TTS ricalcolati da noi lungo tutta l'immersione. Costa una
   // trentina di millisecondi su un profilo da quaranta minuti, e si rifà solo

@@ -437,7 +437,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
  */
 function NextDive({ dives }: { dives: Dive[] }) {
   const { t } = useLingua();
-  const briefing = useMemo(() => nextDiveBriefing(dives, undefined), [dives]);
+  const briefing = useMemo(() => nextDiveBriefing(dives, undefined, Date.now(), t), [dives, t]);
   const urgent = briefing.notes.filter((n) => n.level === 'critical' || n.level === 'warning');
   const [open, setOpen] = useState(urgent.length > 0);
 
