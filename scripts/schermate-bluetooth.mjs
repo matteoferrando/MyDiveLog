@@ -288,7 +288,58 @@ async function giro({ px, alto, nome: larghezza }) {
   // annunciarsi senza nome perché il caso resta quello, e la fotografia serve
   // a vedere che adesso ci sta.
   const senzaNome = page.locator('.dispositivi li', { hasText: 'senza nome' });
-  await senzaNome.locator('select').selectOption('shearwater');
+  await senzaNome.locator('button:has-text("Che computer è?")').click();
+  await page.waitForSelector('.catalogo-computer', { timeout: 10_000 });
+  await page.waitForTimeout(300);
+  /*
+   * ► IL CATALOGO APERTO, A 390 PX. ◄
+   *
+   * È esattamente la forma del difetto già arrivato all'utente: un elenco
+   * lungo dentro la riga di un dispositivo, su uno schermo di telefono. Qui ci
+   * sono 20 marche e nomi come «Heinrichs Weikamp OSTC 2 TR», che è la
+   * stringa più lunga del catalogo — se qualcosa si trascina di lato, si
+   * trascina qui.
+   */
+  await scatta(page, larghezza, '6a-catalogo-marche');
+  await misura(page, `${larghezza} px · catalogo aperto sulle marche`);
+
+  // La ricerca: tre lettere e si è arrivati, che è la strada di chi sa cosa ha
+  // al polso. È anche il modo in cui questo giro sceglie il driver, al posto
+  // della tendina di prima.
+  await senzaNome.locator('input[type="search"]').fill('peregrine');
+  await page.waitForTimeout(300);
+  await scatta(page, larghezza, '6b-catalogo-ricerca');
+  await misura(page, `${larghezza} px · catalogo con la ricerca fatta`);
+
+  /*
+   * LA MARCA PIÙ PROLISSA, APERTA. Heinrichs Weikamp ha i nomi più lunghi del
+   * catalogo e sei modelli: è il caso peggiore per la larghezza, e va misurato
+   * PRIMA di far partire lo scarico, perché dopo la schermata cambia.
+   */
+  await senzaNome.locator('input[type="search"]').fill('');
+  await page.waitForTimeout(200);
+  await senzaNome.locator('.marche button:has-text("Heinrichs Weikamp")').click();
+  await page.waitForTimeout(300);
+  await scatta(page, larghezza, '6c-catalogo-marca-aperta');
+  await misura(page, `${larghezza} px · catalogo con la marca più prolissa aperta`);
+
+  /*
+   * E LA RISPOSTA A CHI SCEGLIE UN COMPUTER CHE NON SI SCARICA: è la schermata
+   * che decide se quella persona resta, quindi si fotografa come le altre.
+   */
+  await senzaNome.locator('.modelli button:has-text("OSTC 2 TR")').click();
+  await page.waitForSelector('.notice:has-text("non legge ancora")', { timeout: 10_000 });
+  await page.waitForTimeout(300);
+  await scatta(page, larghezza, '6d-modello-non-ancora');
+  await misura(page, `${larghezza} px · modello che non si scarica ancora`);
+  const nonAncora = await page.locator('.notice', { hasText: 'non legge ancora' }).first().innerText();
+  await page.locator('button:has-text("Ho capito")').click();
+
+  // Adesso quello che si scarica davvero, per arrivare allo scarico interrotto.
+  await senzaNome.locator('button:has-text("Che computer è?")').click();
+  await senzaNome.locator('input[type="search"]').fill('peregrine');
+  await page.waitForTimeout(300);
+  await senzaNome.locator('.modelli button').first().click();
   await page.waitForSelector('button:has-text("Interrompi")', { timeout: 10_000 });
   await page.waitForTimeout(500);
   await scatta(page, larghezza, '6-avanzamento-senza-nome');
@@ -339,7 +390,7 @@ async function giro({ px, alto, nome: larghezza }) {
   const spento = await page.locator('.notice-error').first().innerText();
 
   await contesto.close();
-  return { elenco, esito, segnalibro, interrotto, muto, vuoto, spento };
+  return { elenco, esito, segnalibro, interrotto, muto, vuoto, spento, nonAncora };
 }
 
 const esiti = {};
@@ -389,6 +440,7 @@ riga(esiti['390'].elenco.replace(/^/gm, '  '));
 riga('');
 riga('ESITO RIUSCITO: ' + esiti['390'].esito.replace(/\n/g, ' ').slice(0, 220));
 riga('SEGNALIBRO: ' + esiti['390'].segnalibro.replace(/\n/g, ' ').slice(0, 220));
+riga('MODELLO NON ANCORA LETTO: ' + esiti['390'].nonAncora.replace(/\n/g, ' ').slice(0, 260));
 riga('SCARICO INTERROTTO: ' + esiti['390'].interrotto.replace(/\n/g, ' ').slice(0, 260));
 riga('NESSUNA RISPOSTA: ' + esiti['390'].muto.replace(/\n/g, ' ').slice(0, 260));
 riga('RICERCA A VUOTO: ' + esiti['390'].vuoto.replace(/\n/g, ' ').slice(0, 260));

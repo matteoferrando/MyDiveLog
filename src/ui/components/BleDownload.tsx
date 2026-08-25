@@ -29,6 +29,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fusoDelDispositivo } from '../../core/oraAParete';
 import { downloadFromComputer } from '../../core/ble/download';
 import { DRIVERS, recognise, type RecognisedDevice } from '../../core/ble/registry';
+import type { ModelloComputer } from '../../core/ble/catalogo';
+import { esitoPer } from '../../core/ble/scelta';
+import { ScegliComputer } from './ScegliComputer';
 import { markerKey, type BleTransport, type BleUnavailable, type DownloadEvent } from '../../core/ble/types';
 import { TauriBleTransport } from '../../storage/ble';
 import { esporta } from '../esporta';
@@ -131,6 +134,25 @@ export function BleDownload() {
   const [stato, setStato] = useState<Stato>({ fase: 'iniziale' });
   const [trovati, setTrovati] = useState<RecognisedDevice[]>([]);
   const [copiato, setCopiato] = useState(false);
+  /*
+   * IL DISPOSITIVO PER CUI SI STA SCEGLIENDO MARCA E MODELLO.
+   *
+   * È l'identificativo e non l'oggetto: l'elenco dei trovati si riscrive a ogni
+   * giro della scansione, e tenere qui una copia vecchia vorrebbe dire mandare
+   * lo scarico a un dispositivo che nel frattempo non è più quello. Con
+   * l'identificativo si ripesca sempre la riga di adesso — e se il dispositivo
+   * è sparito dall'elenco, il selettore si chiude da solo invece di parlare a
+   * un fantasma.
+   */
+  const [scegliPer, setScegliPer] = useState<string | null>(null);
+  /*
+   * La risposta data a chi ha scelto un modello che non si scarica.
+   *
+   * Sta qui e non nel selettore perché è la CONCLUSIONE della scelta, non un
+   * suo passaggio: il selettore si chiude, e quello che resta a schermo è la
+   * frase che dice come fare invece.
+   */
+  const [spiegazione, setSpiegazione] = useState<ModelloComputer | null>(null);
   /*
    * L'esito del salvataggio dei grezzi si DICHIARA.
    *
@@ -623,28 +645,79 @@ export function BleDownload() {
                        * protocollo comunque non trova il suo servizio e si
                        * ferma con un errore leggibile, senza scrivere niente.
                        */
-                      <select
-                        defaultValue=""
-                        aria-label={t('provalo come…')}
+                      <button
+                        className="btn secondary"
                         style={{ fontSize: 12 }}
-                        onChange={(e) => {
-                          const scelto = DRIVERS.find((d) => d.id === e.target.value);
-                          e.target.value = '';
-                          if (scelto) void scarica({ device, driver: scelto });
+                        onClick={() => {
+                          setSpiegazione(null);
+                          setScegliPer(scegliPer === device.id ? null : device.id);
                         }}
                       >
-                        <option value="">{t('provalo come…')}</option>
-                        {DRIVERS.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {t(d.label)}
-                          </option>
-                        ))}
-                      </select>
+                        {t('Che computer è?')}
+                      </button>
                     )}
                   </div>
+                  {/*
+                   * IL SELETTORE SI APRE SOTTO LA RIGA DEL DISPOSITIVO, non
+                   * altrove. Sono 105 modelli: aperti in un'altra schermata si
+                   * perde di vista A QUALE dei dispositivi trovati si sta
+                   * dando un nome, e in una barca con tre computer accesi non è
+                   * un dettaglio.
+                   */}
+                  {scegliPer === device.id && (
+                    <ScegliComputer
+                      onAnnulla={() => setScegliPer(null)}
+                      onScegli={(modello) => {
+                        const esito = esitoPer(modello);
+                        setScegliPer(null);
+                        if (esito.tipo !== 'si-scarica') {
+                          setSpiegazione(modello);
+                          return;
+                        }
+                        const scelto = DRIVERS.find((d) => d.id === esito.driverId);
+                        if (scelto) void scarica({ device, driver: scelto });
+                      }}
+                    />
+                  )}
                 </li>
               ))}
             </ul>
+          )}
+
+          {/*
+           * ► LA RISPOSTA A CHI HA SCELTO UN COMPUTER CHE NON SI SCARICA. ◄
+           *
+           * È il momento in cui l'applicazione deve dire una cosa scomoda, e il
+           * modo in cui la dice decide se quella persona resta. Quindi: cosa
+           * NON si può fare, perché, e cosa si può fare INVECE — in
+           * quest'ordine, e senza «prossimamente», che è una promessa che non
+           * possiamo mantenere a data certa.
+           *
+           * I due casi sono diversi e vanno detti diversi. «Non ancora» vuol
+           * dire che il protocollo si conosce e prima o poi ci arriviamo.
+           * Garmin vuol dire che non ci arriveremo mai, perché i Descent i dati
+           * via Bluetooth non li danno a nessuna applicazione: li mandano ai
+           * server di Garmin. Dire «non ancora» anche lì sarebbe una bugia
+           * comoda, e qualcuno aspetterebbe una versione che non esisterà.
+           */}
+          {spiegazione && (
+            <div className="notice" role="status">
+              <b>
+                {spiegazione.marca} {spiegazione.modello}
+              </b>{' '}
+              {esitoPer(spiegazione).tipo === 'mai-via-radio'
+                ? t(
+                    'non manda le immersioni via Bluetooth a nessuna applicazione: le tiene per quella del costruttore. Esporta le immersioni da lì e importa qui il file — i dati sono gli stessi.',
+                  )
+                : t(
+                    'usa un protocollo che l’applicazione non legge ancora. Nel frattempo esporta le immersioni dall’applicazione del costruttore e importa qui il file: dal Diario si importano i formati più diffusi.',
+                  )}
+              <div style={{ marginTop: 8 }}>
+                <button className="btn secondary" onClick={() => setSpiegazione(null)}>
+                  {t('Ho capito')}
+                </button>
+              </div>
+            </div>
           )}
         </>
       )}

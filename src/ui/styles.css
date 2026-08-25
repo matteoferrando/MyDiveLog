@@ -2019,3 +2019,85 @@ button.btn.bottone-apple:focus-visible {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
+/*
+ * IL CATALOGO DEI COMPUTER SUBACQUEI, quando il nome annunciato non basta.
+ *
+ * Vive dentro la riga del dispositivo trovato, quindi la prima regola è che non
+ * la faccia crescere all'infinito: 105 modelli aperti tutti insieme sono uno
+ * schermo di telefono per otto. Da qui l'altezza massima con lo scorrimento
+ * proprio — si scorre il catalogo, non la pagina, e il dispositivo di cui si
+ * sta parlando resta visibile sopra.
+ *
+ * `overscroll-behavior: contain` non è un fronzolo: senza, arrivati in fondo
+ * all'elenco il gesto prosegue sulla pagina sotto e la schermata dello scarico
+ * scappa via mentre si sta scegliendo.
+ */
+.catalogo-computer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.catalogo-computer input[type='search'] {
+  width: 100%;
+}
+
+.catalogo-computer .marche,
+.catalogo-computer .modelli {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 44vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/*
+ * I modelli di una marca aperta scorrono insieme alle marche, non per conto
+ * loro: due aree di scorrimento annidate su un telefono sono due aree che si
+ * rubano il gesto a vicenda, e il risultato è un elenco che non si muove.
+ */
+.catalogo-computer .marche .modelli {
+  max-height: none;
+  overflow: visible;
+  margin: 4px 0 8px 12px;
+}
+
+/*
+ * I risultati della ricerca NON sono rientrati: lì non stanno dentro una
+ * marca, sono l'elenco. Il rientro nato per mostrare «questi modelli
+ * appartengono a quella marca» sotto la ricerca diventa un margine senza
+ * ragione, e su 390 px è larghezza buttata.
+ */
+.catalogo-computer > .modelli {
+  max-height: 44vh;
+}
+
+/*
+ * I pulsanti prendono la riga intera e il testo va a capo.
+ *
+ * «Heinrichs Weikamp OSTC 2 TR» in un pulsante che si adatta al contenuto
+ * sfonda i 312 px di un iPhone SE, e la riga si trascina di lato — lo stesso
+ * difetto già visto nell'elenco dei dispositivi. Riga intera, testo a
+ * bandiera, e l'etichetta di stato sotto al nome.
+ */
+.catalogo-computer .marche > li > .btn,
+.catalogo-computer .modelli .btn {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  white-space: normal;
+  text-align: left;
+}
