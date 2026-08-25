@@ -407,7 +407,31 @@ export function App() {
             </div>
           </div>
         )}
-        <ErrorBoundary t={t}>
+        {/*
+         * ► LA `key` È QUELLO CHE RENDE VERA LA FRASE «Le altre schede
+         *   funzionano». ◄
+         *
+         * Un confine d'errore, una volta scattato, NON si azzera da solo:
+         * `state.error` resta finché il componente non viene rimontato. Senza
+         * questa `key` React vedeva sempre lo stesso elemento al cambio di
+         * scheda e lo conservava — la schermata rotta restava lì mentre il suo
+         * testo prometteva che altrove si può lavorare. Chi ci provava scopriva
+         * che non era vero, e da quel momento non si fida più di nessun altro
+         * messaggio dell'applicazione.
+         *
+         * Cambiando `key` React smonta e rimonta: lo stato dell'errore muore
+         * con il componente vecchio, che è l'unico modo che un confine d'errore
+         * ha di dimenticare. Il pulsante «Riprova» resta perché serve a un'altra
+         * cosa — riprovare la STESSA pagina, senza andarsene.
+         *
+         * L'immersione aperta entra nella chiave insieme alla scheda, e non è
+         * un di più: `go('logbook')` con una scheda d'immersione rotta sopra al
+         * logbook azzera `openDive` ma lascia `view` su `logbook`. Una chiave
+         * fatta della sola vista non cambierebbe, e da un dettaglio che si è
+         * rotto — dove il pulsante «indietro» sta dentro la parte che non c'è
+         * più — non si uscirebbe in nessun modo.
+         */}
+        <ErrorBoundary key={openDive ? `immersione:${openDive}` : `scheda:${view}`} t={t}>
           <Suspense fallback={<PagePlaceholder />}>
             <ProvvedituraNavigazione vaiA={go}>
               {openDive ? (

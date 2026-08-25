@@ -73,6 +73,30 @@ export interface GasMix {
 }
 
 export interface Cylinder {
+  /**
+   * L'identificativo di QUESTA bombola dentro l'immersione. Non si mostra a
+   * nessuno e non entra in nessun conto.
+   *
+   * Esiste per una ragione sola, e non è di comodo. La scheda di modifica
+   * elenca le bombole e permette di toglierne una IN MEZZO: con la posizione
+   * come chiave, chi toglie la prima di tre fa scorrere le altre di un posto
+   * mentre i componenti restano dove sono, e lo stato che ognuno tiene per sé —
+   * la nota che dice da dove vengono i litri della sigla appena scritta — si
+   * ritrova addosso a un'altra bombola. Su un dato che dice quale gas c'è
+   * dentro, non è un fastidio d'interfaccia.
+   *
+   * È opzionale perché le immersioni già in archivio non ce l'hanno: la scheda
+   * lo assegna aprendo la bozza e il salvataggio se lo porta dietro, quindi da
+   * lì in poi la chiave sopravvive alla rilettura — che è l'unico modo di non
+   * far rientrare il difetto dalla porta di servizio.
+   *
+   * NON è una chiave con cui accoppiare due copie della stessa immersione:
+   * `mergeCylinders` unisce per posizione e deve continuare a farlo. Due
+   * computer che raccontano la stessa bombola non hanno modo di concordare un
+   * identificativo, e usarlo per accoppiarle spaccherebbe in due quella che è
+   * una bombola sola.
+   */
+  id?: string;
   /** Etichetta libera: "D12 200", "S80", "stage 40%". */
   description?: string;
   /**

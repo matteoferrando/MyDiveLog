@@ -27,7 +27,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fusoDelDispositivo } from '../../core/oraAParete';
-import { downloadFromComputer } from '../../core/ble/download';
+import { downloadFromComputer, type DownloadOutcome } from '../../core/ble/download';
+import { frase } from '../../core/frase';
 import { DRIVERS, recognise, type RecognisedDevice } from '../../core/ble/registry';
 import type { VoceCatalogo } from '../../core/ble/catalogo';
 import { esitoPer } from '../../core/ble/scelta';
@@ -366,6 +367,29 @@ export function BleDownload() {
     });
   }, []);
 
+  /*
+   * ► «INTERROMPI» DEVE FARE QUALCOSA, SEMPRE. ◄
+   *
+   * Il controllore esiste solo per la strada dei driver di casa; lo scarico che
+   * passa da libdivecomputer non ne ha uno, e per tutta la sua durata il
+   * pulsante chiamava `abort()` su `null` — cioè non faceva niente, davanti a
+   * una schermata ferma su «Leggo…» che non offre nessun'altra uscita. Un
+   * bersaglio che non risponde non si legge come «non c'è niente da fermare»:
+   * si legge come un'applicazione bloccata, e chi lo preme due volte a vuoto
+   * chiude l'app e perde quello che stava arrivando.
+   *
+   * Quando c'è un trasferimento da fermare lo si ferma davvero. Quando non c'è,
+   * si restituisce almeno la schermata — l'unica cosa onesta che resti da fare,
+   * visto che quello che è già entrato in archivio ci resta comunque.
+   */
+  const interrompi = useCallback(() => {
+    if (scarico.current) {
+      scarico.current.abort();
+      return;
+    }
+    setStato((p) => (p.fase === 'scarica' ? { fase: 'iniziale' } : p));
+  }, []);
+
   const scarica = useCallback(
     async (scelto: RecognisedDevice) => {
       // Estratto in una costante: dentro la funzione passata a `since` il
@@ -413,136 +437,218 @@ export function BleDownload() {
       };
 
       /*
-       * Il segnalibro si cerca col SERIALE, quando il computer si è presentato.
+       * ► DA QUI IN POI TUTTO STA DENTRO UN `try`, E IL MOTIVO NON È IL DECORO. ◄
        *
-       * Non prima: prima si avrebbe solo l'identificativo che dà il sistema
-       * operativo, che su Apple vale per quel Mac e per quella installazione
-       * soltanto. Salvare sotto il seriale e rileggere sotto l'identificativo
-       * — che è quello che facevo — significa non trovare MAI il segnalibro:
-       * lo scarico incrementale c'era e rileggeva comunque tutta la memoria,
-       * senza un solo errore a schermo.
+       * Nel Bluetooth si lancia: il dispositivo si addormenta, il permesso
+       * cade, l'archivio rifiuta una scrittura. Senza questa rete la schermata
+       * restava su «Leggo…» PER SEMPRE — nessun messaggio, nessun pulsante che
+       * riporti indietro — e chi guardava non aveva modo di sapere se le
+       * immersioni erano entrate in archivio o no. È il caso peggiore, perché
+       * la reazione naturale è riscaricare tutto, che è esattamente la cosa che
+       * non serve quando erano entrate.
        */
-      let usato: { chiave: string; marker: DownloadMarker } | undefined;
-      const esito = await downloadFromComputer(transport, scelto.device, driver, {
-        onEvent,
-        signal: ctl.signal,
-        since: ({ serial }) => {
-          if (tuttoDaCapo) return undefined;
-          const chiave = markerKey(driver.id, serial, scelto.device.id);
-          const m = bleMarkers[chiave];
-          // Impronta vuota = segnalibro dimenticato: si riparte da capo, ed è
-          // esattamente quello che era stato chiesto premendo «Dimentica».
-          if (!m?.fingerprint) return undefined;
-          usato = { chiave, marker: m };
-          return m.fingerprint;
-        },
+      let esito: DownloadOutcome | undefined;
+      /** Quante immersioni sono già in archivio, se poi qualcosa va storto. */
+      let inArchivio = 0;
+      try {
         /*
-         * Il fuso lo mette il telefono che sta scaricando, ed è l'unico posto
-         * dell'applicazione che lo sa. Il nucleo non legge l'orologio di
-         * sistema — è la regola che tiene verdi i test a Kiritimati e a Midway
-         * — quindi la funzione parte da qui e scende fino al driver.
+         * Il segnalibro si cerca col SERIALE, quando il computer si è presentato.
          *
-         * È esattamente quello che fanno LogTRAK e Shearwater Cloud, ed è il
-         * motivo per cui in quelle applicazioni l'ora è giusta.
+         * Non prima: prima si avrebbe solo l'identificativo che dà il sistema
+         * operativo, che su Apple vale per quel Mac e per quella installazione
+         * soltanto. Salvare sotto il seriale e rileggere sotto l'identificativo
+         * — che è quello che facevo — significa non trovare MAI il segnalibro:
+         * lo scarico incrementale c'era e rileggeva comunque tutta la memoria,
+         * senza un solo errore a schermo.
          */
-        fuso: fusoDelDispositivo,
-      });
-      scarico.current = null;
-
-      /*
-       * Si importa anche quando lo scarico è finito male.
-       *
-       * `status: 'partial'` con quaranta immersioni in mano significa quaranta
-       * immersioni, non un fallimento: buttarle costringerebbe a rifare tutto
-       * il trasferimento per riavere quello che si aveva già.
-       */
-      const avvisi = [...esito.warnings];
-      let testo: string;
-      if (esito.dives.length === 0) {
-        testo = esito.error
-          ? `${t('Non è arrivata nessuna immersione')}: ${esito.error}`
-          : usato && !tuttoDaCapo
-            ? t('Niente di nuovo: il computer non ha immersioni più recenti di quelle che hai già.')
-            : t('Il computer non ha immersioni in memoria da scaricare.');
-      } else {
-        const r = await importDives(esito.dives, `${esito.model ?? origine} via Bluetooth`);
-        if (!r.ok) {
-          testo = `${imm(esito.dives.length, t)} ${t('sono arrivate ma non si sono potute salvare')}: ${r.error}`;
-        } else {
-          testo =
-            `${imm(r.found, t)} ${t('lette dal computer')}: ${r.added} ${t('nuove')}, ` +
-            `${r.merged} ${t('arricchite')}, ${r.duplicates} ${t('già in archivio')}.`;
-          if (esito.status === 'partial') {
-            testo += ` ${t('Il trasferimento si è interrotto prima della fine')}${
-              esito.total ? ` (${esito.dives.length} ${t('su')} ${esito.total})` : ''
-            }: ${t('quello che è arrivato è salvato, il resto si riprende riscaricando.')}`;
-          }
-          avvisi.push(...r.warnings);
-
+        let usato: { chiave: string; marker: DownloadMarker } | undefined;
+        esito = await downloadFromComputer(transport, scelto.device, driver, {
+          onEvent,
+          signal: ctl.signal,
+          since: ({ serial }) => {
+            if (tuttoDaCapo) return undefined;
+            const chiave = markerKey(driver.id, serial, scelto.device.id);
+            const m = bleMarkers[chiave];
+            // Impronta vuota = segnalibro dimenticato: si riparte da capo, ed è
+            // esattamente quello che era stato chiesto premendo «Dimentica».
+            if (!m?.fingerprint) return undefined;
+            usato = { chiave, marker: m };
+            return m.fingerprint;
+          },
           /*
-           * Il segnalibro si sposta SOLO a scarico completo, e solo dopo che
-           * le immersioni sono in archivio.
+           * Il fuso lo mette il telefono che sta scaricando, ed è l'unico posto
+           * dell'applicazione che lo sa. Il nucleo non legge l'orologio di
+           * sistema — è la regola che tiene verdi i test a Kiritimati e a Midway
+           * — quindi la funzione parte da qui e scende fino al driver.
            *
-           * Su uno scarico interrotto abbiamo le più recenti e non le più
-           * vecchie; scrivere «ho tutto fino alla più recente» perderebbe
-           * quelle in fondo PER SEMPRE, perché il protocollo non permette di
-           * ripartire da metà manifesto. Meglio rileggerle la prossima volta:
-           * costa minuti, non dati.
-           *
-           * E dopo `importDives`, non prima: se il salvataggio fallisse, il
-           * segnalibro salterebbe proprio le immersioni che non sono entrate.
+           * È esattamente quello che fanno LogTRAK e Shearwater Cloud, ed è il
+           * motivo per cui in quelle applicazioni l'ora è giusta.
            */
-          if (esito.status === 'complete' && esito.newestKey) {
-            const chiave = markerKey(driver.id, esito.serial, scelto.device.id);
-            await saveBleMarker(chiave, {
-              fingerprint: esito.newestKey,
-              at: new Date().toISOString(),
-              dives: r.found,
-              model: esito.model,
-            });
-            // Un segnalibro vecchio salvato sotto una chiave diversa — per
-            // esempio prima che il computer dichiarasse il seriale — non serve
-            // più: due chiavi per lo stesso computer si contraddirebbero.
-            if (usato && usato.chiave !== chiave) await forgetBleMarker(usato.chiave);
+          fuso: fusoDelDispositivo,
+        });
+
+        /*
+         * Si importa anche quando lo scarico è finito male.
+         *
+         * `status: 'partial'` con quaranta immersioni in mano significa quaranta
+         * immersioni, non un fallimento: buttarle costringerebbe a rifare tutto
+         * il trasferimento per riavere quello che si aveva già.
+         */
+        const avvisi = [...esito.warnings];
+        let testo: string;
+        if (esito.dives.length === 0) {
+          testo = esito.error
+            ? `${t('Non è arrivata nessuna immersione')}: ${esito.error}`
+            : usato && !tuttoDaCapo
+              ? t('Niente di nuovo: il computer non ha immersioni più recenti di quelle che hai già.')
+              : t('Il computer non ha immersioni in memoria da scaricare.');
+        } else {
+          const r = await importDives(esito.dives, `${esito.model ?? origine} via Bluetooth`);
+          if (!r.ok) {
+            testo = `${imm(esito.dives.length, t)} ${t('sono arrivate ma non si sono potute salvare')}: ${r.error}`;
+          } else {
+            /*
+             * QUANTE NE SONO ENTRATE DAVVERO, tenuto da parte per il caso in cui
+             * da qui in poi qualcosa esploda.
+             *
+             * `added` più `merged` è quello che l'archivio ha in più adesso e non
+             * aveva un minuto fa; i doppioni erano già lì. Il numero serve al ramo
+             * dell'errore qui sotto: da questo punto in avanti si scrive ancora —
+             * il segnalibro — e un guasto che tacesse su cosa è stato salvato
+             * lascerebbe l'unica via d'uscita nel riscaricare tutto per scoprirlo.
+             */
+            inArchivio = r.added + r.merged;
+            testo =
+              `${imm(r.found, t)} ${t('lette dal computer')}: ${r.added} ${t('nuove')}, ` +
+              `${r.merged} ${t('arricchite')}, ${r.duplicates} ${t('già in archivio')}.`;
+            if (esito.status === 'partial') {
+              testo += ` ${t('Il trasferimento si è interrotto prima della fine')}${
+                esito.total ? ` (${esito.dives.length} ${t('su')} ${esito.total})` : ''
+              }: ${t('quello che è arrivato è salvato, il resto si riprende riscaricando.')}`;
+            }
+            avvisi.push(...r.warnings);
+
+            /*
+             * Il segnalibro si sposta SOLO a scarico completo, e solo dopo che
+             * le immersioni sono in archivio.
+             *
+             * Su uno scarico interrotto abbiamo le più recenti e non le più
+             * vecchie; scrivere «ho tutto fino alla più recente» perderebbe
+             * quelle in fondo PER SEMPRE, perché il protocollo non permette di
+             * ripartire da metà manifesto. Meglio rileggerle la prossima volta:
+             * costa minuti, non dati.
+             *
+             * E dopo `importDives`, non prima: se il salvataggio fallisse, il
+             * segnalibro salterebbe proprio le immersioni che non sono entrate.
+             */
+            if (esito.status === 'complete' && esito.newestKey) {
+              const chiave = markerKey(driver.id, esito.serial, scelto.device.id);
+              await saveBleMarker(chiave, {
+                fingerprint: esito.newestKey,
+                at: new Date().toISOString(),
+                dives: r.found,
+                model: esito.model,
+              });
+              // Un segnalibro vecchio salvato sotto una chiave diversa — per
+              // esempio prima che il computer dichiarasse il seriale — non serve
+              // più: due chiavi per lo stesso computer si contraddirebbero.
+              if (usato && usato.chiave !== chiave) await forgetBleMarker(usato.chiave);
+            }
           }
         }
-      }
-      if (esito.error) avvisi.push(esito.error);
-      setStato({
-        fase: 'finito',
-        testo,
-        avvisi,
-        parziale: esito.status === 'partial',
-        grezzi: {
-          driver: driver.id,
-          model: esito.model,
-          serial: esito.serial,
-          firmware: esito.firmware,
-          records: esito.records.map((r) => ({ key: r.key, base64: byteInBase64(r.bytes) })),
-        },
+        if (esito.error) avvisi.push(esito.error);
+        setStato({
+          fase: 'finito',
+          testo,
+          avvisi,
+          parziale: esito.status === 'partial',
+          grezzi: {
+            driver: driver.id,
+            model: esito.model,
+            serial: esito.serial,
+            firmware: esito.firmware,
+            records: esito.records.map((r) => ({ key: r.key, base64: byteInBase64(r.bytes) })),
+          },
+          /*
+           * IL DIARIO NON SI TRADUCE, ed è l'unica cosa qui dentro che resta
+           * italiana per scelta.
+           *
+           * Non è testo dell'interfaccia: è il blocco che si incolla in una
+           * segnalazione, e le righe che contano davvero — `esito.trace` — le
+           * scrivono i driver, che l'italiano ce l'hanno cucito dentro insieme ai
+           * numeri. Tradurre solo le sei intestazioni darebbe un rapporto metà e
+           * metà, più difficile da leggere per chi lo riceve e da confrontare con
+           * quello di ieri. L'etichetta del pulsante che lo apre, invece, si
+           * traduce: quella la legge chi usa l'app, non chi la ripara.
+           */
+          diario: [
+            `MyDiveLog — diario dello scarico`,
+            `dispositivo: ${scelto.device.name || 'senza nome'}`,
+            `driver: ${driver.id}`,
+            `modello: ${esito.model ?? '—'} · seriale ${esito.serial ?? '—'} · firmware ${esito.firmware ?? '—'}`,
+            `esito: ${esito.status}${esito.error ? ` — ${esito.error}` : ''}`,
+            `immersioni: ${esito.dives.length}${esito.total !== undefined ? ` su ${esito.total}` : ''}`,
+            '',
+            ...esito.trace,
+          ],
+        });
+      } catch (guasto) {
         /*
-         * IL DIARIO NON SI TRADUCE, ed è l'unica cosa qui dentro che resta
-         * italiana per scelta.
+         * ► IL MESSAGGIO DICE DUE COSE, NON UNA. ◄
          *
-         * Non è testo dell'interfaccia: è il blocco che si incolla in una
-         * segnalazione, e le righe che contano davvero — `esito.trace` — le
-         * scrivono i driver, che l'italiano ce l'hanno cucito dentro insieme ai
-         * numeri. Tradurre solo le sei intestazioni darebbe un rapporto metà e
-         * metà, più difficile da leggere per chi lo riceve e da confrontare con
-         * quello di ieri. L'etichetta del pulsante che lo apre, invece, si
-         * traduce: quella la legge chi usa l'app, non chi la ripara.
+         * Che si è interrotto, e che cosa è già salvato. Un errore che tace sul
+         * secondo punto costringe chi legge a rifare tutto il trasferimento
+         * solo per sapere a che punto era — minuti di radio e di batteria per
+         * un'informazione che l'applicazione aveva già in mano.
+         *
+         * `parziale` accende il riquadro rosso: qui non è «si è fermato prima
+         * della fine», che è un esito previsto e lo dice `esito.status`, ma
+         * «si è rotto», che non lo è.
          */
-        diario: [
-          `MyDiveLog — diario dello scarico`,
-          `dispositivo: ${scelto.device.name || 'senza nome'}`,
-          `driver: ${driver.id}`,
-          `modello: ${esito.model ?? '—'} · seriale ${esito.serial ?? '—'} · firmware ${esito.firmware ?? '—'}`,
-          `esito: ${esito.status}${esito.error ? ` — ${esito.error}` : ''}`,
-          `immersioni: ${esito.dives.length}${esito.total !== undefined ? ` su ${esito.total}` : ''}`,
-          '',
-          ...esito.trace,
-        ],
-      });
+        const motivo = guasto instanceof Error ? guasto.message : String(guasto);
+        setStato({
+          fase: 'finito',
+          testo: inArchivio
+            ? frase(
+                t,
+                'Lo scarico si è interrotto: {0}. Quello che era già arrivato è salvato in archivio: {1}.',
+                motivo,
+                imm(inArchivio, t),
+              )
+            : frase(t, 'Lo scarico si è interrotto: {0}. Non è stata salvata nessuna immersione.', motivo),
+          avvisi: [],
+          parziale: true,
+          /*
+           * Il diario porta comunque le righe del protocollo, quando ce ne sono.
+           *
+           * È il motivo per cui `esito` è dichiarato fuori dal `try`: se il
+           * guasto è arrivato dopo il trasferimento — il salvataggio, il
+           * segnalibro — quelle righe raccontano che cosa il computer aveva
+           * risposto, e senza di loro una segnalazione su un guasto del genere
+           * non contiene niente su cui lavorare.
+           */
+          diario: [
+            `MyDiveLog — diario dello scarico`,
+            `dispositivo: ${scelto.device.name || 'senza nome'}`,
+            `driver: ${driver.id}`,
+            `esito: guasto — ${motivo}`,
+            `immersioni salvate prima del guasto: ${inArchivio}`,
+            '',
+            ...(esito?.trace ?? []),
+          ],
+        });
+      } finally {
+        /*
+         * Il controllore muore QUI, non appena il trasferimento è finito.
+         *
+         * Azzerato subito dopo `downloadFromComputer` lasciava scoperta tutta la
+         * fase in cui si scrive in archivio: in quella finestra «Interrompi»
+         * chiamava `abort()` su `null`, cioè non faceva niente, davanti a una
+         * schermata che diceva ancora «Leggo…». E su un percorso che lanciava
+         * restava `null` per sempre.
+         */
+        scarico.current = null;
+      }
     },
     [importDives, fermaRicerca, bleMarkers, saveBleMarker, forgetBleMarker, tuttoDaCapo, transport, t],
   );
@@ -673,7 +779,7 @@ export function BleDownload() {
         {stato.fase === 'cerca' ? (
           <button onClick={fermaRicerca}>{t('Ferma la ricerca')}</button>
         ) : stato.fase === 'scarica' ? (
-          <button onClick={() => scarico.current?.abort()}>{t('Interrompi')}</button>
+          <button onClick={interrompi}>{t('Interrompi')}</button>
         ) : (
           <button className="btn" onClick={() => void cerca()}>
             {t('Cerca il computer')}

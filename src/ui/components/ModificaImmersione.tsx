@@ -41,6 +41,31 @@ import { useLingua } from '../lingua';
 import { descriviAnalisi, discorda } from '../../core/analisiGas';
 import { useDiveLog } from '../state';
 import { BottoneConferma } from './Conferma';
+import { nuovoId } from './moduli';
+
+/**
+ * L'immersione con una chiave stabile addosso a ogni bombola.
+ *
+ * ► PERCHÉ NON BASTA L'INDICE. ◄ L'elenco delle bombole si può accorciare in
+ * mezzo, e `RigaBombola` ha uno stato suo — `notaSigla`, la riga che dice se i
+ * litri vengono dal dato di targa o dalla formula. Con `key={i}` React tiene i
+ * componenti dove sono e ci fa scorrere sotto i dati: togliendo la prima di
+ * tre, la nota della seconda si ritrova sotto la terza, cioè accanto a un gas
+ * che non è il suo.
+ *
+ * ► PERCHÉ SI ASSEGNA QUI E NON AL DISEGNO. ◄ Generare la chiave dentro il
+ * `map` la rifarebbe nuova a ogni render, che è peggio dell'indice: React
+ * rimonterebbe tutte le righe a ogni battuta di tasto. Assegnandola una volta
+ * all'apertura della bozza, la chiave entra nel salvataggio insieme al resto e
+ * alla riapertura è già lì.
+ *
+ * Le bombole che una chiave ce l'hanno già NON la cambiano, ed è ciò che la fa
+ * sopravvivere alla rilettura.
+ */
+function conChiaviDelleBombole(d: Dive): Dive {
+  if (d.cylinders.every((c) => c.id)) return d;
+  return { ...d, cylinders: d.cylinders.map((c) => (c.id ? c : { ...c, id: nuovoId() })) };
+}
 
 /** Un numero da un campo di testo, dove vuoto è «non lo so» e non zero. */
 // La conversione sta in `ui/numero.ts`, in un posto solo: la virgola decimale
@@ -328,7 +353,7 @@ export function ModificaImmersione({
 }) {
   const { t } = useLingua();
   const { dives } = useDiveLog();
-  const [draft, setDraft] = useState<Dive>(dive);
+  const [draft, setDraft] = useState<Dive>(() => conChiaviDelleBombole(dive));
   const [saved, setSaved] = useState(false);
   /*
    * L'inventario si aggiorna in locale mentre si compila.
@@ -605,7 +630,7 @@ export function ModificaImmersione({
       </p>
       {draft.cylinders.map((c, i) => (
         <RigaBombola
-          key={i}
+          key={c.id}
           c={c}
           onChange={(patch) =>
             tocca({ cylinders: draft.cylinders.map((x, idx) => (idx === i ? { ...x, ...patch } : x)) })
@@ -617,7 +642,9 @@ export function ModificaImmersione({
         type="button"
         className="btn btn-small"
         style={{ marginBottom: 14 }}
-        onClick={() => tocca({ cylinders: [...draft.cylinders, { mix: { o2: 0.21, he: 0 } }] })}
+        onClick={() =>
+          tocca({ cylinders: [...draft.cylinders, { id: nuovoId(), mix: { o2: 0.21, he: 0 } }] })
+        }
       >
         ＋ {t('Aggiungi una bombola')}
       </button>
