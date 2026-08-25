@@ -482,8 +482,12 @@ export const INGLESE: Record<string, string> = {
   'Configurazione, contata sui log': 'Setup, counted from the logs',
   'dall’ultima': 'since service',
   Data: 'Date',
-  'Dicono fino a dove sei addestrato. Il campo che conta è il livello.':
-    'They say how far you are trained. The field that counts is the level.',
+  'Con brevetto miscele.': 'Mixed-gas certified.',
+  'I tuoi brevetti': 'Your certifications',
+  'Il nome sulla tessera è quello che potrai scegliere per il libretto.':
+    'The name on the card is what you will be able to pick for the logbook.',
+  'Quelli che scrivi qui sono quelli che puoi scegliere qui sopra per il libretto. Il campo che conta è il livello.':
+    'What you enter here is what you can pick above for the logbook. The field that counts is the level.',
   Didattica: 'Agency',
   Elimino: 'Delete',
   fa: 'ago',
@@ -2010,7 +2014,13 @@ export const INGLESE: Record<string, string> = {
   'Il sorgente di MyDiveLog è pubblico sotto licenza MIT, e il sorgente esatto di libdivecomputer usato per compilare questa versione è dentro il repository: chiunque può ricostruire l’applicazione, libreria compresa.':
     'MyDiveLog’s source is public under the MIT licence, and the exact libdivecomputer source this build was compiled against is in the repository: anyone can rebuild the app, library included.',
   'Il token del database resta su ogni dispositivo.': 'The database token stays on each device.',
-  'Il tuo libretto': 'Your logbook record',
+  'Dati per il LogBook': 'Logbook details',
+  'Il brevetto scelto è scritto a mano e non è fra quelli registrati. Continua a valere sul libretto; se lo aggiungi qui sotto, resta legato al tuo elenco.':
+    'The certification shown was typed by hand and is not one of the ones on file. It still prints on the logbook; add it below and it stays tied to your list.',
+  'La tendina si riempie con i brevetti che registri qui sotto.':
+    'The list fills up with the certifications you add below.',
+  'nessun brevetto registrato': 'no certification on file',
+  '— scegli —': '— pick one —',
   'Nome e brevetto finiscono sulla stampa del libretto, che è l’unico posto dove servono. Non sono obbligatori.':
     'Your name and certification appear on the printed logbook, which is the only place they are needed. Neither is required.',
   'Nome e cognome': 'Full name',

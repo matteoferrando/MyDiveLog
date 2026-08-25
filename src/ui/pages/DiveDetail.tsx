@@ -32,6 +32,7 @@ import {
   tzLabel,
 } from '../format';
 import { useLingua } from '../lingua';
+import { usePortaInVista } from '../scorri';
 
 export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const { dives, loadProfiles, saveDive, removeDive, gear, saveGear, subacqueo, numeri } = useDiveLog();
@@ -1257,9 +1258,16 @@ function CartaFirma({ dive, onSalva }: { dive: Dive; onSalva: (d: Dive) => void 
   const { t } = useLingua();
   const [aperto, setAperto] = useState(false);
   const firmata = !firmaVuota(dive.firmaGuida);
+  /*
+   * `fuoco: false`: qui non c'è un campo da riempire ma una lavagna su cui si
+   * firma col dito. Un cursore che lampeggia da qualche parte, e su iPhone la
+   * tastiera che si apre, sarebbero solo di intralcio a chi ha il telefono in
+   * mano in barca.
+   */
+  const rif = usePortaInVista<HTMLDivElement>({ quando: aperto, fuoco: false });
 
   return (
-    <div className="card">
+    <div className="card" ref={rif}>
       <h2>{t('Firma della guida')}</h2>
       <p className="card-sub">
         {t('È la lettera o) del libretto: l’unica delle tredici che non è un dato ma un gesto.')}

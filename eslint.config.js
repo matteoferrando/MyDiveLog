@@ -44,6 +44,7 @@ export default tseslint.config(
       'docs/**',
       'public/**',
       'screenshots/**',
+      '_transfer/**',
     ],
   },
 

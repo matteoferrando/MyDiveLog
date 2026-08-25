@@ -586,6 +586,35 @@ export function sortCertifications(items: Certification[]): Certification[] {
 }
 
 /**
+ * Quanto in giù ti autorizza ad andare ciascun livello.
+ *
+ * ► NON È L'ORDINE IN CUI I CINQUE VALORI STANNO SCRITTI NEL TIPO. ◄ E per mesi
+ * lo è stato: `['base','advanced','deep','nitrox','tech']` usato come classifica
+ * diceva che il Nitrox viene dopo il Profondo, e a chi aveva tutti e due
+ * l'applicazione mostrava «livello più alto registrato: Nitrox / miscele».
+ * Falso, e falso nel verso pericoloso: sembra una promozione e invece è la
+ * risposta a un'altra domanda.
+ *
+ * Il Nitrox non è uno scalino di profondità. Insegna a calcolare la PPO2 e a
+ * leggere una EAD, non a scendere più giù — anzi, con l'EAN32 la profondità
+ * operativa massima è PIÙ BASSA che in aria (circa 33 m a PPO2 1,4), perché il
+ * limite non è più l'azoto ma l'ossigeno. Un brevetto Nitrox, da solo, non dice
+ * niente su fin dove sei addestrato: qui vale quanto il primo livello, non fa
+ * punteggio per conto suo e non deve mai scavalcare un Avanzato o un Profondo.
+ *
+ * Vale quanto `base` e non zero perché serve una risposta anche a chi ha SOLO
+ * quello: `undefined` vorrebbe dire «non hai brevetti», che è un'altra cosa e
+ * sarebbe una bugia detta a una persona che un brevetto ce l'ha.
+ */
+const PROFONDITA_DEL_LIVELLO: Record<CertLevel, number> = {
+  base: 1,
+  nitrox: 1,
+  advanced: 2,
+  deep: 3,
+  tech: 4,
+};
+
+/**
  * Il livello più alto raggiunto, per il Coach.
  *
  * `undefined` quando non c'è nessun brevetto registrato: la scheda di prontezza
@@ -593,13 +622,47 @@ export function sortCertifications(items: Certification[]): Certification[] {
  * un'affermazione su di te che nessuno ha fatto.
  */
 export function highestLevel(certs: Certification[]): CertLevel | undefined {
-  const rank: CertLevel[] = ['base', 'advanced', 'deep', 'nitrox', 'tech'];
-  let best = -1;
+  let migliore: CertLevel | undefined;
   for (const c of certs) {
-    const i = rank.indexOf(c.level);
-    if (i > best) best = i;
+    const grado = PROFONDITA_DEL_LIVELLO[c.level];
+    // Un livello che non conosciamo — un archivio vecchio, un backup ritoccato a
+    // mano — si salta invece di far finta che valga zero.
+    if (grado === undefined) continue;
+    if (migliore === undefined) {
+      migliore = c.level;
+      continue;
+    }
+    const attuale = PROFONDITA_DEL_LIVELLO[migliore];
+    if (grado > attuale) migliore = c.level;
+    // A pari grado vince quello che parla di profondità: fra `base` e `nitrox`
+    // la risposta utile alla domanda «fin dove sei addestrato» è `base`.
+    else if (grado === attuale && c.level === 'base') migliore = 'base';
   }
-  return best < 0 ? undefined : rank[best];
+  return migliore;
+}
+
+/**
+ * Se fra i brevetti c'è qualcosa che autorizza le miscele.
+ *
+ * Esiste perché `highestLevel` ha smesso di dirlo: il Nitrox è uscito dalla
+ * classifica delle profondità, ma resta un'informazione che chi legge vuole
+ * vedere. Il tecnico la comprende: non si arriva alla decompressione senza
+ * passare dalle miscele.
+ */
+export function haMiscele(certs: Certification[]): boolean {
+  return certs.some((c) => c.level === 'nitrox' || c.level === 'tech');
+}
+
+/**
+ * Il brevetto in una riga, come lo si sceglie e come finisce sul libretto.
+ *
+ * Sta qui e non nella pagina perché la STESSA stringa serve in due posti — la
+ * tendina della carta del libretto e il valore salvato che poi si stampa — e se
+ * i due la componessero ognuno per conto suo, al primo ritocco la tendina
+ * smetterebbe di riconoscere il valore già salvato e sembrerebbe vuota.
+ */
+export function etichettaBrevetto(c: Certification): string {
+  return [c.name.trim(), c.agency.trim()].filter(Boolean).join(' — ');
 }
 
 // ---------------------------------------------------------------------------

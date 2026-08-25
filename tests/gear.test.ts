@@ -17,6 +17,8 @@ import {
   addMonths,
   equipmentUsage,
   configurationRows,
+  etichettaBrevetto,
+  haMiscele,
   highestLevel,
   migrateGear,
   serviceFacts,
@@ -118,6 +120,67 @@ describe('livello più alto', () => {
   it('prende il massimo, non l’ultimo inserito', () => {
     expect(highestLevel([cert('tech'), cert('base')])).toBe('tech');
     expect(highestLevel([cert('base'), cert('advanced')])).toBe('advanced');
+  });
+
+  /*
+   * ► IL DIFETTO CHE QUESTO BLOCCO ESISTE PER IMPEDIRE. ◄
+   *
+   * La classifica era l'ordine in cui i cinque valori stanno scritti nel tipo,
+   * `['base','advanced','deep','nitrox','tech']`, e il Nitrox ci finiva sopra il
+   * Profondo per puro caso di scrittura. A chi aveva tutti e due — che è il caso
+   * NORMALE, il Nitrox si prende presto — l'applicazione rispondeva «livello più
+   * alto registrato: Nitrox / miscele» a una domanda che chiede fin dove sei
+   * addestrato a scendere. Il Nitrox non risponde a quella domanda: con l'EAN32
+   * la profondità operativa è più bassa che in aria, non più alta.
+   *
+   * Il test è scritto in tutti e due gli ordini di inserimento apposta: un
+   * confronto sbagliato passa spesso in un ordine solo.
+   */
+  it('il Nitrox non scavalca il Profondo, in nessun ordine', () => {
+    expect(highestLevel([cert('nitrox'), cert('deep')])).toBe('deep');
+    expect(highestLevel([cert('deep'), cert('nitrox')])).toBe('deep');
+    expect(highestLevel([cert('nitrox'), cert('advanced')])).toBe('advanced');
+    expect(highestLevel([cert('advanced'), cert('nitrox')])).toBe('advanced');
+  });
+
+  it('il Nitrox da solo si dice, perché è pur sempre un brevetto', () => {
+    // `undefined` vorrebbe dire «non hai brevetti»: sarebbe un'altra cosa, e
+    // detta a una persona che un brevetto ce l'ha.
+    expect(highestLevel([cert('nitrox')])).toBe('nitrox');
+  });
+
+  it('a pari grado vince quello che parla di profondità', () => {
+    expect(highestLevel([cert('nitrox'), cert('base')])).toBe('base');
+    expect(highestLevel([cert('base'), cert('nitrox')])).toBe('base');
+  });
+
+  it('le miscele si dicono a parte, che è il posto dove non fanno danni', () => {
+    expect(haMiscele([cert('deep')])).toBe(false);
+    expect(haMiscele([cert('deep'), cert('nitrox')])).toBe(true);
+    // Alla decompressione non ci si arriva senza passare dalle miscele.
+    expect(haMiscele([cert('tech')])).toBe(true);
+  });
+});
+
+describe('il brevetto come si sceglie per il libretto', () => {
+  const brevetto = (name: string, agency: string): Certification => ({
+    id: name,
+    agency,
+    name,
+    level: 'advanced',
+  });
+
+  /*
+   * L'etichetta sta nel cuore dell'applicazione e non nelle due pagine che la
+   * mostrano, perché la STESSA stringa è il valore salvato e la voce della
+   * tendina: se le due parti la componessero ognuna per conto suo, al primo
+   * ritocco la tendina smetterebbe di riconoscere il valore già salvato e
+   * comparirebbe vuota a chi il brevetto l'aveva scelto.
+   */
+  it('mette insieme nome e didattica, e regge i campi mancanti', () => {
+    expect(etichettaBrevetto(brevetto('Advanced Open Water', 'PADI'))).toBe('Advanced Open Water — PADI');
+    expect(etichettaBrevetto(brevetto('Advanced Open Water', ''))).toBe('Advanced Open Water');
+    expect(etichettaBrevetto(brevetto('  Deep  ', '  SSI '))).toBe('Deep — SSI');
   });
 });
 

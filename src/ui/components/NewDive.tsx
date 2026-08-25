@@ -36,6 +36,7 @@ import { FASCE_VISIBILITA, WAVES_LABEL, WEATHER_LABEL } from '../../core/conditi
 import { ScegliAttrezzo, vocePerNome } from './ScegliAttrezzo';
 import { pesoDelGav, type Equipment, type EquipmentKind } from '../../core/analysis/gear';
 import { useLingua } from '../lingua';
+import { usePortaInVista } from '../scorri';
 import { useDiveLog } from '../state';
 
 /** Il momento «adesso» arrotondato all'ora, nel formato di `datetime-local`. */
@@ -165,6 +166,14 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
     return voce.id;
   };
   const [aperto, setAperto] = useState(false);
+  /*
+   * Il modulo prende il posto della riga di invito, quindi il riquadro NON
+   * rinasce: senza `quando` l'effetto sarebbe partito una volta sola, al primo
+   * disegno della pagina, quando non c'era ancora niente da vedere. Il modulo è
+   * lungo — venti campi — e chi lo apre da metà pagina se lo ritrovava a
+   * cavallo dello schermo.
+   */
+  const rif = usePortaInVista<HTMLDivElement>({ quando: aperto });
   const [d, setD] = useState<Draft>(vuoto);
   const [salvando, setSalvando] = useState(false);
   const [esito, setEsito] = useState<{ merged: boolean; id: string } | null>(null);
@@ -241,7 +250,7 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
   }
 
   return (
-    <div className="card">
+    <div className="card" ref={rif}>
       <div className="spread" style={{ alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
         <div style={{ flex: '1 1 320px', minWidth: 0 }}>
           <h2 style={{ margin: 0 }}>{t('Nuova immersione')}</h2>

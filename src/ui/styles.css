@@ -788,6 +788,165 @@ tbody tr.clickable:hover {
 }
 
 /*
+ * ══════════════════════════ la tabella che sul telefono diventa un elenco ═════
+ *
+ * ► IL PROBLEMA. ◄ `.table-scroll` risolve le tabelle strette facendole scorrere
+ * di lato, e per una tabella di tre colonne va benissimo. Per l'inventario
+ * dell'attrezzatura, che di colonne ne ha sette, no: su 390 px se ne vedono due
+ * e mezzo, e uno scorrimento orizzontale dentro una pagina che scorre in
+ * verticale è la cosa più scomoda che ci sia da toccare col pollice. Appena
+ * guardi la data della revisione hai perso di vista il nome del pezzo, e per
+ * sapere di quale bombola stavi leggendo devi trascinare indietro. La tabella
+ * c'è, si può consultare, e non la consulta nessuno.
+ *
+ * ► LA SOLUZIONE, CHE NON È UN SECONDO DISEGNO. ◄ Sotto i 700 px ogni riga
+ * diventa una scheda e ogni cella una riga «etichetta: valore». Il markup resta
+ * UNO SOLO — una tabella vera, con `thead` e `tbody` — e questo conta più
+ * dell'aspetto: due strutture parallele, una per il telefono e una per lo
+ * schermo grande, divergono al primo ritocco, e quella che nessuno guarda
+ * mentre lavora è sempre quella sbagliata. Qui non c'è niente da tenere
+ * allineato: cambia una colonna e cambiano tutte e due le forme.
+ *
+ * ► DA DOVE VIENE L'ETICHETTA. ◄ Da `data-eti` sulla cella, non da `thead`: il
+ * CSS non sa contare le colonne e non può pescare l'intestazione corrispondente.
+ * Sta scritta nel JSX accanto al valore, già tradotta — è per questo che le
+ * pagine passano `data-eti={t('Matricola')}` e non `data-eti="Matricola"`.
+ *
+ * ► LE CELLE SENZA ETICHETTA. ◄ Due: `.cella-titolo`, che è il nome della riga e
+ * fa da intestazione della scheda, e `.cella-azione`, che porta il bottone
+ * «Apri». Un'etichetta davanti a entrambe direbbe una cosa che si vede già.
+ */
+
+.tabella-adattiva {
+  overflow-x: auto;
+  /* Su iOS lo scorrimento di un contenitore va dichiarato, altrimenti la
+     tabella si trascina solo con il rimbalzo della pagina. */
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 700px) {
+  /* Niente più scorrimento laterale: da qui in giù non c'è niente che sbordi,
+     e un contenitore che scorre taglierebbe l'ombra delle schede. */
+  .tabella-adattiva {
+    overflow-x: visible;
+  }
+
+  /*
+   * Le intestazioni spariscono alla vista ma NON dal documento: `display: none`
+   * le toglierebbe anche a chi legge con VoiceOver, che le usa per annunciare
+   * «Matricola, riga 3». Restano lì, larghe un pixel, fuori campo.
+   */
+  .tabella-adattiva thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /*
+   * `display: block` e basta: `width: 100%` non serve.
+   *
+   * Un elemento di blocco riempie già il contenitore da sé. Dichiararlo sarebbe
+   * per di più rischioso: `width` è la larghezza del CONTENUTO, e la riga ha 12
+   * px di riempimento per lato più un bordo, quindi al primo foglio senza
+   * `box-sizing: border-box` la scheda sborderebbe di 26 px.
+   */
+  .tabella-adattiva table,
+  .tabella-adattiva tbody,
+  .tabella-adattiva tr,
+  .tabella-adattiva td {
+    display: block;
+  }
+
+  .tabella-adattiva tr {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--surface-1);
+  }
+
+  .tabella-adattiva tr:last-child {
+    margin-bottom: 0;
+  }
+
+  /*
+   * Etichetta a sinistra, valore a destra, su due colonne che non si spostano
+   * da riga a riga: è quello che rende la scheda leggibile in verticale invece
+   * che un elenco di frasi. `minmax(0, …)` su tutte e due perché una matricola
+   * lunga o il nome di una muta senza spazi altrimenti allargano la griglia
+   * oltre la scheda.
+   */
+  .tabella-adattiva td {
+    display: grid;
+    grid-template-columns: minmax(0, 7.5em) minmax(0, 1fr);
+    /*
+     * Righe strette, colonne larghe. Il distacco fra etichetta e valore deve
+     * essere ampio perché sono due cose diverse; quello fra un valore e la sua
+     * precisazione — «84» e «12 dall'ultima», una data e «17 mesi fa» — deve
+     * essere minimo, perché sono la stessa cosa. Con un solo `gap: 12px` la
+     * precisazione galleggiava a mezza strada fra il campo suo e quello dopo, e
+     * a occhio sembrava appartenere al secondo.
+     */
+    gap: 1px 12px;
+    align-items: baseline;
+    border: 0;
+    padding: 3px 0;
+  }
+
+  .tabella-adattiva td::before {
+    content: attr(data-eti);
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+
+  /*
+   * ► LA RIGA CHE TIENE INSIEME LA COLONNA DEI VALORI. ◄
+   *
+   * Parecchie celle non hanno un contenuto solo: sotto «84» c'è «12
+   * dall'ultima», sotto una data c'è «17 mesi fa». Per la griglia quelli sono
+   * DUE elementi, e il secondo si sistemava da sé nella prima casella libera —
+   * che è sotto l'etichetta, a sinistra. Il risultato allo screenshot: «12
+   * dall'ultima» incolonnato con «Matricola», come se fosse il nome di un
+   * campo.
+   *
+   * Questa riga dice che i figli veri stanno tutti nella seconda colonna;
+   * il testo nudo, che è un elemento anonimo e non si può prendere di mira, si
+   * accomoda da sé nella prima casella libera — la prima riga a destra
+   * dell'etichetta, che è dove deve stare. Da lì in giù la colonna sinistra
+   * resta vuota e i valori restano incolonnati.
+   */
+  .tabella-adattiva td > * {
+    grid-column: 2;
+  }
+
+  /* I numeri tornano allineati a sinistra: incolonnarli a destra ha senso
+     quando sotto c'è un altro numero, e qui sotto c'è un'altra etichetta. */
+  .tabella-adattiva td.num {
+    text-align: left;
+  }
+
+  .tabella-adattiva td.cella-titolo,
+  .tabella-adattiva td.cella-azione {
+    display: block;
+  }
+
+  .tabella-adattiva td.cella-titolo {
+    font-size: 14px;
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--grid);
+  }
+
+  .tabella-adattiva td.cella-azione {
+    text-align: right;
+    padding-top: 8px;
+  }
+}
+
+/*
  * Le caselle di spunta su uno schermo che si tocca.
  *
  * Quella di sistema misura circa 13×13 px: con un mouse è un bersaglio scomodo,

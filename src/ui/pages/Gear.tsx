@@ -1,10 +1,17 @@
 /**
- * Attrezzatura, brevetti, zavorra.
+ * Attrezzatura e zavorra.
  *
- * Tre sezioni e non un elenco unico, perché sono tre cose che si consultano in
- * momenti diversi: l'attrezzatura prima di andare al centro ricarica, i brevetti
- * quando qualcuno te li chiede o quando il Coach valuta se sei pronto per un
- * passo in più, la zavorra quando cambi muta.
+ * Due sezioni e non un elenco unico, perché sono due cose che si consultano in
+ * momenti diversi: l'attrezzatura prima di andare al centro ricarica, la zavorra
+ * quando cambi muta.
+ *
+ * I BREVETTI SE NE SONO ANDATI, ad agosto 2026, e vale la pena dire perché: qui
+ * ci stavano solo per forma — erano una lista di record con una data, come le
+ * bombole — ma non c'entravano niente. L'attrezzatura è quello che porti in
+ * acqua e che si revisiona; un brevetto non si revisiona, non scade e non lo
+ * porti in acqua: dice chi sei, e il posto dove serve è il libretto. Ora stanno
+ * nelle Impostazioni, sotto la carta che compone il libretto, in
+ * `components/Brevetti.tsx`.
  *
  * E NIENTE AVVISI. La versione precedente accendeva pallini rossi sulle
  * scadenze, e nella card del logbook comparivano quattro note su cose che chi
@@ -22,21 +29,16 @@
 import { useMemo, useState } from 'react';
 import { numeroDaTesto } from '../numero';
 import {
-  CERT_LEVEL_LABEL,
   EQUIPMENT_LABEL,
   SERVICE_LABEL,
   TYPICAL_INTERVAL_MONTHS,
   TYPICAL_SERVICE,
   configurationRows,
-  highestLevel,
   serviceFacts,
-  sortCertifications,
   sortEquipment,
   equipmentUsage,
   pesoDelGav,
   weightingBySuit,
-  type CertLevel,
-  type Certification,
   type Equipment,
   type EquipmentKind,
   type ServiceKind,
@@ -45,44 +47,23 @@ import { LIMITS } from '../../core/model';
 import { useDiveLog } from '../state';
 import { dateShort, imm, plural } from '../format';
 import { useLingua } from '../lingua';
-
-const nuovoId = () => `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+import { usePortaInVista } from '../scorri';
+import { BottoniScheda, Campo, nuovoId } from '../components/moduli';
 
 export function Gear() {
   const { gear, saveGear, dives } = useDiveLog();
   const { t } = useLingua();
   const [bozzaAttrezzo, setBozzaAttrezzo] = useState<Equipment | null>(null);
-  const [bozzaBrevetto, setBozzaBrevetto] = useState<Certification | null>(null);
   const [mostraRitirati, setMostraRitirati] = useState(false);
-
-  /*
-   * Una scheda alla volta.
-   *
-   * Con due stati indipendenti si arrivava ad avere il modulo di un erogatore e
-   * quello di un brevetto aperti insieme, uno sopra l'altro, entrambi con il
-   * bottone «Salva»: a quel punto quale dei due si stia modificando lo si capisce
-   * solo leggendo i campi. Aprire una cosa ne chiude un'altra è il comportamento
-   * che chiunque si aspetta da un elenco con un dettaglio sotto.
-   */
-  const apriAttrezzo = (a: Equipment | null) => {
-    setBozzaBrevetto(null);
-    setBozzaAttrezzo(a);
-  };
-  const apriBrevetto = (c: Certification | null) => {
-    setBozzaAttrezzo(null);
-    setBozzaBrevetto(c);
-  };
 
   const attrezzi = useMemo(() => sortEquipment(gear.equipment), [gear.equipment]);
   const uso = useMemo(() => equipmentUsage(dives, gear.equipment), [dives, gear.equipment]);
   const visibili = mostraRitirati ? attrezzi : attrezzi.filter((a) => !a.retired);
   const ritirati = attrezzi.filter((a) => a.retired).length;
-  const brevetti = useMemo(() => sortCertifications(gear.certifications), [gear.certifications]);
   // L'inventario serve a recuperare il peso della piastra sulle immersioni che
   // hanno il GAV ma non i chili scritti sopra. Vedi `piastraDellImmersione`.
   const zavorra = useMemo(() => weightingBySuit(dives, 2, gear.equipment), [dives, gear.equipment]);
   const configurazioni = useMemo(() => configurationRows(dives), [dives]);
-  const livello = highestLevel(gear.certifications);
 
   const salvaAttrezzo = (item: Equipment) => {
     const esiste = gear.equipment.some((g) => g.id === item.id);
@@ -92,25 +73,11 @@ export function Gear() {
         ? gear.equipment.map((g) => (g.id === item.id ? item : g))
         : [...gear.equipment, item],
     });
-    apriAttrezzo(null);
+    setBozzaAttrezzo(null);
   };
   const eliminaAttrezzo = (id: string) => {
     void saveGear({ ...gear, equipment: gear.equipment.filter((g) => g.id !== id) });
-    apriAttrezzo(null);
-  };
-  const salvaBrevetto = (item: Certification) => {
-    const esiste = gear.certifications.some((g) => g.id === item.id);
-    void saveGear({
-      ...gear,
-      certifications: esiste
-        ? gear.certifications.map((g) => (g.id === item.id ? item : g))
-        : [...gear.certifications, item],
-    });
-    apriBrevetto(null);
-  };
-  const eliminaBrevetto = (id: string) => {
-    void saveGear({ ...gear, certifications: gear.certifications.filter((g) => g.id !== id) });
-    apriBrevetto(null);
+    setBozzaAttrezzo(null);
   };
 
   return (
@@ -141,7 +108,7 @@ export function Gear() {
           <button
             className="btn"
             onClick={() =>
-              apriAttrezzo({
+              setBozzaAttrezzo({
                 id: nuovoId(),
                 kind: 'regulator',
                 name: '',
@@ -161,7 +128,18 @@ export function Gear() {
             )}
           </p>
         ) : (
-          <div className="table-scroll">
+          /*
+           * SUL TELEFONO QUESTA TABELLA NON SCORRE PIÙ DI LATO.
+           *
+           * Sette colonne su 390 px non ci stanno in nessun modo, e uno
+           * scorrimento orizzontale dentro una pagina che scorre in verticale è
+           * la cosa peggiore da toccare col pollice: si perde la colonna del
+           * nome appena si guarda una data, e per tornare indietro bisogna
+           * trascinare al contrario. `.tabella-adattiva` fa diventare ogni riga
+           * una scheda con le etichette accanto ai valori — è per quello che ogni
+           * cella porta un `data-eti`. Vedi il foglio di stile.
+           */
+          <div className="tabella-adattiva">
             <table>
               <thead>
                 <tr>
@@ -178,8 +156,8 @@ export function Gear() {
                 {visibili.map((a) => {
                   const f = serviceFacts(a);
                   return (
-                    <tr key={a.id} className="clickable" onClick={() => apriAttrezzo(a)}>
-                      <td>
+                    <tr key={a.id} className="clickable" onClick={() => setBozzaAttrezzo(a)}>
+                      <td className="cella-titolo">
                         <div style={{ fontWeight: 550 }}>
                           {a.name || t('senza nome')}{' '}
                           {a.retired && <span className="muted">· {t('ritirato')}</span>}
@@ -193,7 +171,7 @@ export function Gear() {
                           {a.workingBar ? ` · ${a.workingBar} bar` : ''}
                         </div>
                       </td>
-                      <td className="muted" style={{ fontSize: 12 }}>
+                      <td className="muted" style={{ fontSize: 12 }} data-eti={t('Matricola')}>
                         {a.serial || '—'}
                       </td>
                       {/*
@@ -211,7 +189,7 @@ export function Gear() {
                        * immersioni dalla scheda: senza quel collegamento non è zero,
                        * è ignoto, e scrivere «0» direbbe una cosa falsa.
                        */}
-                      <td className="num tabular" style={{ fontSize: 12 }}>
+                      <td className="num tabular" style={{ fontSize: 12 }} data-eti={t('Immersioni')}>
                         {(uso.get(a.id)?.dives ?? 0) === 0 ? (
                           <span className="muted">—</span>
                         ) : (
@@ -225,13 +203,13 @@ export function Gear() {
                           </>
                         )}
                       </td>
-                      <td className="muted" style={{ fontSize: 12 }}>
+                      <td className="muted" style={{ fontSize: 12 }} data-eti={t('Manutenzione')}>
                         {t(SERVICE_LABEL[a.service])}
                         {a.service !== 'none' && a.intervalMonths
                           ? ` · ${t('ogni')} ${plural(a.intervalMonths, 'mese', 'mesi', t)}`
                           : ''}
                       </td>
-                      <td className="muted" style={{ fontSize: 12 }}>
+                      <td className="muted" style={{ fontSize: 12 }} data-eti={t('Ultima')}>
                         {a.lastServiceOn ? (
                           <>
                             {dateShort(a.lastServiceOn)}
@@ -248,7 +226,7 @@ export function Gear() {
                         )}
                       </td>
                       {/* Nessun colore e nessun pallino: è una data, non un verdetto. */}
-                      <td className="muted tabular" style={{ fontSize: 12 }}>
+                      <td className="muted tabular" style={{ fontSize: 12 }} data-eti={t('Prossima')}>
                         {f.nextOn ? (
                           <>
                             {dateShort(f.nextOn)}
@@ -264,7 +242,7 @@ export function Gear() {
                           '—'
                         )}
                       </td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td className="cella-azione" style={{ textAlign: 'right' }}>
                         <button style={{ fontSize: 11, padding: '3px 8px' }}>{t('Apri')}</button>
                       </td>
                     </tr>
@@ -310,100 +288,11 @@ export function Gear() {
           item={bozzaAttrezzo}
           onSave={salvaAttrezzo}
           onDelete={eliminaAttrezzo}
-          onCancel={() => apriAttrezzo(null)}
+          onCancel={() => setBozzaAttrezzo(null)}
         />
       )}
 
-      {/* ------------------------------------------------------- 2. i brevetti */}
-      <div className="card">
-        <div className="spread" style={{ alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
-          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-            <h2 style={{ margin: 0 }}>{t('Brevetti')}</h2>
-            {/*
-             * Dei brevetti l'applicazione legge SOLO il livello: i nomi
-             * commerciali delle didattiche sono decine e non si mettono in fila.
-             * Il resto — didattica, numero, istruttore — è archivio per chi lo
-             * consulta. Detto qui e non a schermo: a chi compila basta sapere
-             * che il campo «Livello» conta.
-             */}
-            <p className="card-sub" style={{ marginBottom: 0 }}>
-              {t('Dicono fino a dove sei addestrato. Il campo che conta è il livello.')}
-            </p>
-          </div>
-          <button
-            className="btn"
-            onClick={() => apriBrevetto({ id: nuovoId(), agency: '', name: '', level: 'base' })}
-          >
-            {t('Aggiungi')}
-          </button>
-        </div>
-
-        {brevetti.length === 0 ? (
-          <p className="muted" style={{ fontSize: 13, margin: 0 }}>
-            {t('Nessun brevetto registrato. Servono ai')} <b>{t('Suggerimenti')}</b>{' '}
-            {t('per dirti quanto manca al passo successivo.')}
-          </p>
-        ) : (
-          <>
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>{t('Brevetto')}</th>
-                    <th>{t('Didattica')}</th>
-                    <th>{t('Livello')}</th>
-                    <th>{t('Data')}</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {brevetti.map((c) => (
-                    <tr key={c.id} className="clickable" onClick={() => apriBrevetto(c)}>
-                      <td>
-                        <div style={{ fontWeight: 550 }}>{c.name || t('senza nome')}</div>
-                        {(c.number || c.instructor) && (
-                          <div className="muted" style={{ fontSize: 11 }}>
-                            {[c.number, c.instructor].filter(Boolean).join(' · ')}
-                          </div>
-                        )}
-                      </td>
-                      <td className="muted" style={{ fontSize: 12 }}>
-                        {c.agency || '—'}
-                      </td>
-                      <td className="muted" style={{ fontSize: 12 }}>
-                        {t(CERT_LEVEL_LABEL[c.level])}
-                      </td>
-                      <td className="muted" style={{ fontSize: 12 }}>
-                        {c.issuedOn ? dateShort(c.issuedOn) : '—'}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button style={{ fontSize: 11, padding: '3px 8px' }}>{t('Apri')}</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {livello && (
-              <p className="muted" style={{ fontSize: 12, marginTop: 10, marginBottom: 0 }}>
-                {t('Livello più alto registrato')}: <b>{t(CERT_LEVEL_LABEL[livello])}</b>.
-              </p>
-            )}
-          </>
-        )}
-      </div>
-
-      {bozzaBrevetto && (
-        <SchedaBrevetto
-          key={bozzaBrevetto.id}
-          item={bozzaBrevetto}
-          onSave={salvaBrevetto}
-          onDelete={eliminaBrevetto}
-          onCancel={() => apriBrevetto(null)}
-        />
-      )}
-
-      {/* ------------------------------------------ 3. zavorra e configurazione */}
+      {/* ---------------------------------------------- 2. zavorra e configurazione */}
       <div className="card">
         <h2>{t('Zavorra e configurazione')}</h2>
         {/*
@@ -423,7 +312,7 @@ export function Gear() {
             )}
           </p>
         ) : (
-          <div className="table-scroll">
+          <div className="tabella-adattiva">
             <table>
               <thead>
                 <tr>
@@ -445,12 +334,16 @@ export function Gear() {
               <tbody>
                 {zavorra.map((r) => (
                   <tr key={r.suit}>
-                    <td style={{ fontWeight: 550 }}>{r.suit}</td>
-                    <td className="num tabular">{r.medianKg} kg</td>
-                    <td className="num tabular muted">
+                    <td className="cella-titolo" style={{ fontWeight: 550 }}>
+                      {r.suit}
+                    </td>
+                    <td className="num tabular" data-eti={t('Zavorra mediana')}>
+                      {r.medianKg} kg
+                    </td>
+                    <td className="num tabular muted" data-eti={t('Intervallo')}>
                       {r.minKg === r.maxKg ? t('sempre uguale') : `${r.minKg}–${r.maxKg} kg`}
                     </td>
-                    <td className="num tabular">
+                    <td className="num tabular" data-eti={t('Assetto')}>
                       {r.medianTrimMpm !== undefined ? (
                         <>
                           {r.medianTrimMpm.toFixed(1)} m/min
@@ -467,7 +360,9 @@ export function Gear() {
                         <span className="muted">—</span>
                       )}
                     </td>
-                    <td className="num tabular muted">{r.dives}</td>
+                    <td className="num tabular muted" data-eti={t('Con zavorra')}>
+                      {r.dives}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -512,103 +407,6 @@ export function Gear() {
 
 // ---------------------------------------------------------------------------
 
-/**
- * Un campo del modulo, con la sua etichetta.
- *
- * L'etichetta si traduce QUI e non a ogni chiamata: sono venti campi, e venti
- * `t(...)` sparsi sarebbero venti occasioni di dimenticarne uno. L'unità di
- * misura invece non passa da `t()`: `L`, `bar`, `kg` si scrivono uguali nelle
- * due lingue.
- */
-function Campo({
-  etichetta,
-  unita,
-  children,
-}: {
-  etichetta: string;
-  unita?: string;
-  children: React.ReactNode;
-}) {
-  const { t } = useLingua();
-  return (
-    <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-      <span className="muted">
-        {t(etichetta)} {unita && <span className="muted">({unita})</span>}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-/**
- * Salva, annulla, elimina — con la conferma sull'eliminazione.
- *
- * Prima «Elimina» cancellava al primo clic, e su un elenco dove ogni riga apre
- * la scheda basta un tocco fuori bersaglio su un telefono per perdere la
- * matricola di una bombola che nessuno si ricorda a memoria. Non c'è un annulla,
- * perché l'attrezzatura non ha cestino: quindi la conferma serve.
- *
- * NON è un `window.confirm`: una finestra modale del browser blocca tutto il
- * thread e su iOS compare con un testo che non si può tradurre. Il bottone si
- * trasforma nella domanda, e chiunque clicchi altrove torna indietro da solo.
- */
-function BottoniScheda({
-  onSave,
-  onCancel,
-  onDelete,
-  cosa,
-  salvabile,
-}: {
-  onSave: () => void;
-  onCancel: () => void;
-  onDelete: () => void;
-  cosa: string;
-  /**
-   * Falso quando la scheda non ha ancora un nome.
-   *
-   * Senza, «Salva» su una scheda vuota creava una riga «senza nome», e
-   * ripetendolo se ne accumulavano di indistinguibili l'una dall'altra — con la
-   * sola conferma di eliminazione a proteggerle. Il nome è l'unica cosa che
-   * distingue un pezzo di attrezzatura da un altro: senza, la riga non serve a
-   * niente e non si può nemmeno cancellare con cognizione.
-   */
-  salvabile?: boolean;
-}) {
-  const { t } = useLingua();
-  const [conferma, setConferma] = useState(false);
-  return (
-    <div className="row" style={{ gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-      <button className="btn" onClick={onSave} disabled={salvabile === false}>
-        {t('Salva')}
-      </button>
-      {salvabile === false && (
-        <span className="muted" style={{ fontSize: 12, alignSelf: 'center' }}>
-          {t('Serve un nome.')}
-        </span>
-      )}
-      <button onClick={onCancel}>{t('Annulla')}</button>
-      <span style={{ flex: 1 }} />
-      {conferma ? (
-        <>
-          {/* `cosa` arriva già tradotto o è il nome scritto dall'utente: la
-              domanda si compone a pezzi perché il nome sta in mezzo. */}
-          <span className="muted" style={{ fontSize: 12, alignSelf: 'center' }}>
-            {t('Elimino')} {cosa}? {t('Non si recupera.')}
-          </span>
-          <button onClick={() => setConferma(false)}>{t('No')}</button>
-          <button onClick={onDelete} style={{ color: 'var(--critical)' }}>
-            {t('Sì, elimina')}
-          </button>
-        </>
-      ) : (
-        <button onClick={() => setConferma(true)} style={{ color: 'var(--critical)' }}>
-          {t('Elimina')}
-        </button>
-      )}
-    </div>
-  );
-}
-
 function SchedaAttrezzo({
   item,
   onSave,
@@ -623,9 +421,10 @@ function SchedaAttrezzo({
   const { t } = useLingua();
   const [d, setD] = useState<Equipment>(item);
   const set = <K extends keyof Equipment>(k: K, v: Equipment[K]) => setD((p) => ({ ...p, [k]: v }));
+  const rif = usePortaInVista<HTMLDivElement>();
 
   return (
-    <div className="card">
+    <div className="card" ref={rif}>
       <h2>{d.name || t('Nuovo pezzo')}</h2>
       <div className="grid grid-3" style={{ marginBottom: 8 }}>
         <Campo etichetta="Tipo">
@@ -825,87 +624,6 @@ function SchedaAttrezzo({
 
       <BottoniScheda
         cosa={d.name ? `«${d.name}»` : t('questo pezzo')}
-        salvabile={!!d.name?.trim()}
-        onSave={() => onSave(d)}
-        onCancel={onCancel}
-        onDelete={() => onDelete(d.id)}
-      />
-    </div>
-  );
-}
-
-function SchedaBrevetto({
-  item,
-  onSave,
-  onDelete,
-  onCancel,
-}: {
-  item: Certification;
-  onSave: (item: Certification) => void;
-  onDelete: (id: string) => void;
-  onCancel: () => void;
-}) {
-  const { t } = useLingua();
-  const [d, setD] = useState<Certification>(item);
-  const set = <K extends keyof Certification>(k: K, v: Certification[K]) => setD((p) => ({ ...p, [k]: v }));
-
-  return (
-    <div className="card">
-      <h2>{d.name || t('Nuovo brevetto')}</h2>
-      <div className="grid grid-3" style={{ marginBottom: 8 }}>
-        <Campo etichetta="Didattica">
-          <input
-            type="text"
-            placeholder="PADI, SSI, CMAS, TDI…"
-            value={d.agency}
-            onChange={(e) => set('agency', e.target.value)}
-          />
-        </Campo>
-        <Campo etichetta="Nome sulla tessera">
-          <input type="text" value={d.name} onChange={(e) => set('name', e.target.value)} />
-        </Campo>
-        <Campo etichetta="Livello">
-          <select value={d.level} onChange={(e) => set('level', e.target.value as CertLevel)}>
-            {(Object.keys(CERT_LEVEL_LABEL) as CertLevel[]).map((k) => (
-              <option key={k} value={k}>
-                {t(CERT_LEVEL_LABEL[k])}
-              </option>
-            ))}
-          </select>
-        </Campo>
-      </div>
-      <div className="grid grid-3" style={{ marginBottom: 8 }}>
-        <Campo etichetta="Preso il">
-          <input
-            type="date"
-            value={d.issuedOn ?? ''}
-            onChange={(e) => set('issuedOn', e.target.value || undefined)}
-          />
-        </Campo>
-        <Campo etichetta="Numero">
-          <input
-            type="text"
-            value={d.number ?? ''}
-            onChange={(e) => set('number', e.target.value || undefined)}
-          />
-        </Campo>
-        <Campo etichetta="Istruttore">
-          <input
-            type="text"
-            value={d.instructor ?? ''}
-            onChange={(e) => set('instructor', e.target.value || undefined)}
-          />
-        </Campo>
-      </div>
-      <Campo etichetta="Note">
-        <textarea
-          rows={2}
-          value={d.notes ?? ''}
-          onChange={(e) => set('notes', e.target.value || undefined)}
-        />
-      </Campo>
-      <BottoniScheda
-        cosa={d.name ? `«${d.name}»` : t('questo brevetto')}
         salvabile={!!d.name?.trim()}
         onSave={() => onSave(d)}
         onCancel={onCancel}

@@ -1,7 +1,7 @@
 {
   "name": "mydivelog",
   "private": true,
-  "version": "1.6.4",
+  "version": "1.6.5",
   "type": "module",
   "description": "Logbook subacqueo multi-computer con statistiche e piani di miglioramento",
   "scripts": {

@@ -14,7 +14,7 @@
  * e l'altra strada resta aperta per il giorno che la prima non funziona.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { conNumeri } from '../../core/numerazione';
 import { esporta } from '../esporta';
 import { suComputer, suIOS } from '../../piattaforma';
@@ -40,6 +40,8 @@ import {
 import type { Fornitore } from '../../sync/account';
 import type { SyncReport } from '../../sync/turso';
 import { BottoneConferma } from '../components/Conferma';
+import { Brevetti } from '../components/Brevetti';
+import { etichettaBrevetto, sortCertifications } from '../../core/analysis/gear';
 
 export function SyncPage() {
   const {
@@ -161,6 +163,15 @@ export function SyncPage() {
       <AggiornamentoCard />
 
       <LibrettoCard />
+
+      {/*
+       * I brevetti stanno QUI, sotto, e non in Attrezzatura dov'erano nati: il
+       * campo «Brevetto» della carta sopra sceglie da questo elenco, e mettere
+       * la tendina in una scheda e la sua sorgente in un'altra significava
+       * chiedere a chi compila di andare avanti e indietro fra due pagine per
+       * capire perché la tendina è vuota.
+       */}
+      <Brevetti />
 
       <div className="card">
         <h2>{t('Sincronizza ora')}</h2>
@@ -1400,20 +1411,54 @@ function AggiornamentoCard() {
  * esattamente il punto: un documento da mostrare a qualcuno.
  */
 function LibrettoCard() {
-  const { subacqueo, saveSubacqueo } = useDiveLog();
+  const { subacqueo, saveSubacqueo, gear } = useDiveLog();
   const { t } = useLingua();
   const [nome, setNome] = useState(subacqueo.nome ?? '');
-  const [brevetto, setBrevetto] = useState(subacqueo.brevetto ?? '');
 
-  const sporco = nome !== (subacqueo.nome ?? '') || brevetto !== (subacqueo.brevetto ?? '');
+  /*
+   * ► IL BREVETTO NON SI SCRIVE PIÙ A MANO. ◄
+   *
+   * Era un campo di testo libero, e sembrava la scelta comoda: una riga, la
+   * scrivi come vuoi. Il risultato è che l'applicazione aveva DUE verità sullo
+   * stesso fatto — l'elenco dei brevetti registrati e questa riga — che non si
+   * parlavano. Chi scriveva «Advanced PADI» qui e registrava «Advanced Open
+   * Water Diver» nell'elenco stampava sul libretto una cosa che nel suo archivio
+   * non esisteva, e nessuna delle due parti sapeva dell'altra. Peggio: la riga
+   * restava com'era anche dopo aver preso un brevetto nuovo, perché niente la
+   * collegava a niente.
+   *
+   * Ora si SCEGLIE, e le voci sono i brevetti registrati qui sotto. Un dato
+   * solo, in un posto solo.
+   */
+  const brevetti = useMemo(() => sortCertifications(gear.certifications), [gear.certifications]);
+  const scelte = useMemo(
+    // Due brevetti con lo stesso nome e la stessa didattica sono indistinguibili
+    // anche per chi li ha presi: una voce sola, o la tendina mostra due righe
+    // identiche e React litiga sulle chiavi.
+    () => Array.from(new Set(brevetti.map(etichettaBrevetto).filter(Boolean))),
+    [brevetti],
+  );
+  const brevetto = subacqueo.brevetto ?? '';
+  /*
+   * Quello che c'era scritto prima può non corrispondere a nessuna voce.
+   * Cancellarlo di nascosto sarebbe la cosa peggiore: è un dato che una persona
+   * ha scritto, e sparirebbe dal libretto senza che nessuno glielo dica. Resta
+   * come voce della tendina, con una riga che spiega da dove viene, finché non
+   * ne sceglie un'altra.
+   */
+  const fuoriElenco = brevetto !== '' && !scelte.includes(brevetto);
 
-  const salva = () => {
-    void saveSubacqueo({ nome: nome.trim() || undefined, brevetto: brevetto.trim() || undefined });
+  const nomeSporco = nome !== (subacqueo.nome ?? '');
+  const salvaNome = () => {
+    void saveSubacqueo({ ...subacqueo, nome: nome.trim() || undefined });
+  };
+  const salvaBrevetto = (scelto: string) => {
+    void saveSubacqueo({ ...subacqueo, brevetto: scelto || undefined });
   };
 
   return (
     <div className="card">
-      <h2>{t('Il tuo libretto')}</h2>
+      <h2>{t('Dati per il LogBook')}</h2>
       <p className="card-sub">
         {t(
           'Nome e brevetto finiscono sulla stampa del libretto, che è l’unico posto dove servono. Non sono obbligatori.',
@@ -1422,23 +1467,46 @@ function LibrettoCard() {
       <div className="grid grid-2" style={{ marginBottom: 12 }}>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">{t('Nome e cognome')}</span>
-          <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} onBlur={salva} />
+          <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} onBlur={salvaNome} />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">{t('Brevetto')}</span>
-          <input
-            type="text"
-            placeholder={t('livello e organizzazione')}
+          {/* Una tendina si salva al cambio e non alla perdita di fuoco: non c'è
+              niente da digitare, quindi non c'è un momento in cui la scelta è
+              «a metà». */}
+          <select
             value={brevetto}
-            onChange={(e) => setBrevetto(e.target.value)}
-            onBlur={salva}
-          />
+            onChange={(e) => salvaBrevetto(e.target.value)}
+            disabled={scelte.length === 0 && !fuoriElenco}
+          >
+            <option value="">
+              {scelte.length === 0 ? t('nessun brevetto registrato') : t('— scegli —')}
+            </option>
+            {fuoriElenco && <option value={brevetto}>{brevetto}</option>}
+            {scelte.map((voce) => (
+              <option key={voce} value={voce}>
+                {voce}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
-      {sporco && (
-        <button className="btn" onClick={salva}>
+      {nomeSporco && (
+        <button className="btn" onClick={salvaNome}>
           {t('Salva')}
         </button>
+      )}
+      {scelte.length === 0 && !fuoriElenco && (
+        <p className="muted" style={{ fontSize: 11, margin: '0 0 10px' }}>
+          {t('La tendina si riempie con i brevetti che registri qui sotto.')}
+        </p>
+      )}
+      {fuoriElenco && (
+        <p className="muted" style={{ fontSize: 11, margin: '0 0 10px' }}>
+          {t(
+            'Il brevetto scelto è scritto a mano e non è fra quelli registrati. Continua a valere sul libretto; se lo aggiungi qui sotto, resta legato al tuo elenco.',
+          )}
+        </p>
       )}
       <p className="muted" style={{ fontSize: 11, margin: '10px 0 0' }}>
         {t(
