@@ -26,6 +26,7 @@
 
 import { LIMITS, type Dive } from '../model';
 import { formatDuration } from '../units';
+import { localeCorrente } from '../locale';
 import { comeSta, type Traduci } from '../traduci';
 import { frase } from '../frase';
 import { medianOf, type Aggregates } from './aggregate';
@@ -623,7 +624,7 @@ const ruleCurrency: Rule = (agg, _dives, t) => {
       id: 'currency-layoff',
       area: 'experience',
       severity: days > 180 ? 'serious' : 'warning',
-      headline: frase(t, "{0} giorni dall'ultima immersione", days),
+      headline: frase(t, '{0} giorni dall’ultima immersione', days),
       detail: t(
         'Dopo una pausa lunga la manualità si degrada in modo prevedibile: assetto, gestione della zavorra, procedure di emergenza. La rientrata è più utile se è deliberata invece che "la prima immersione della stagione".',
       ),
@@ -1800,6 +1801,21 @@ function mean(v: number[]): number | undefined {
   return v.reduce((a, b) => a + b, 0) / v.length;
 }
 
+/**
+ * La data dentro le frasi del piano, nella lingua scelta.
+ *
+ * Queste date NON stanno in un documento: finiscono in mezzo a frasi che passano
+ * dal dizionario — «Ultima immersione: {0}.» — quindi una data italiana dentro
+ * una frase inglese è la stessa incoerenza che il registro dei locale esiste per
+ * togliere. Il locale arriva da lì e non da un parametro perché `coaching.ts` sta
+ * nel nucleo, non vede React, e le sue funzioni prendono già `t`: aggiungere un
+ * secondo argomento di lingua accanto a uno che la lingua ce l'ha dentro
+ * significherebbe poterli far divergere.
+ */
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+  return new Date(iso).toLocaleDateString(localeCorrente(), {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }

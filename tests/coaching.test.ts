@@ -10,6 +10,7 @@ import {
   aggregate,
 } from '../src/core/analysis/aggregate';
 import { buildPlan, debriefDive } from '../src/core/analysis/coaching';
+import { LOCALE_DELLA_LINGUA, registraLocale } from '../src/core/locale';
 import { computeMetrics } from '../src/core/analysis/metrics';
 import type { Dive, Sample } from '../src/core/model';
 import { AIR } from '../src/core/model';
@@ -159,6 +160,38 @@ describe('piano di miglioramento', () => {
       expect(f.evidence.length).toBeGreaterThan(0);
       expect(f.basis).toBeGreaterThan(0);
     }
+  });
+
+  /*
+   * Le date DENTRO le frasi del piano seguono la lingua, come le frasi.
+   *
+   * `formatDate` scriveva `'it-IT'` a mano, e nessuno se ne accorgeva perché il
+   * dizionario traduceva tutto il resto: chi usava l'app in inglese leggeva
+   * «Ultima immersione: 29 gen 2026.» — frase inglese, data italiana. Qui non è
+   * come sulla stampa del libretto, che in italiano ci resta per legge: questa
+   * data sta in mezzo a una frase che passa dal dizionario, quindi deve parlare
+   * la stessa lingua della frase che la contiene.
+   *
+   * Si controlla la MAIUSCOLA del mese abbreviato e non una data precisa: le
+   * abbreviazioni italiane sono minuscole («gen»), quelle inglesi maiuscole
+   * («Jan»), e questa differenza la decide il locale — mentre quale mese esca
+   * dipende anche dal fuso della macchina che lancia i test, che `npm run
+   * test:tz` cambia apposta.
+   */
+  it('scrive le date del piano nella lingua scelta', () => {
+    const dives = archive(6, {}, { endingDaysAgo: 200 });
+    const agg = aggregate(dives, NOW);
+
+    registraLocale(LOCALE_DELLA_LINGUA.it);
+    const inItaliano = buildPlan(dives, agg, 'general').findings.find((f) => f.id === 'currency-layoff');
+    expect(inItaliano).toBeDefined();
+    expect(inItaliano!.evidence[0]).toMatch(/\d{2} [a-z]{3}\.? \d{4}/);
+
+    registraLocale(LOCALE_DELLA_LINGUA.en);
+    const inInglese = buildPlan(dives, agg, 'general').findings.find((f) => f.id === 'currency-layoff');
+    expect(inInglese!.evidence[0]).toMatch(/\d{2} [A-Z][a-z]{2} \d{4}/);
+
+    registraLocale(LOCALE_DELLA_LINGUA.it);
   });
 });
 

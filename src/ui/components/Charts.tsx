@@ -40,6 +40,7 @@ import {
 // qui darebbe due implementazioni che possono divergere, e la descrizione a voce
 // direbbe un numero diverso da quello stampato accanto al grafico.
 import { correlation } from '../../core/analysis/aggregate';
+import { localeCorrente } from '../../core/locale';
 import { useLingua } from '../lingua';
 import { imm, plural, type Traduci } from '../format';
 
@@ -412,9 +413,15 @@ export function versoTendenza(
   return dopo > prima ? 'aumento' : 'diminuzione';
 }
 
-/** Data estesa in italiano: «12 luglio 2026». */
+/**
+ * Data estesa nella lingua scelta: «12 luglio 2026», «12 July 2026».
+ *
+ * Il locale viene dal registro (`core/locale.ts`) e non da `useLingua()` perché
+ * questa non è una funzione di componente: la chiamano anche i riassunti
+ * testuali dei grafici, che girano fuori da qualunque render.
+ */
 export const dataLunga = (ms: number) =>
-  new Date(ms).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+  new Date(ms).toLocaleDateString(localeCorrente(), { day: 'numeric', month: 'long', year: 'numeric' });
 
 /**
  * Riassunto di un istogramma o di un elenco di barre.
@@ -1091,7 +1098,7 @@ export function TimeSeriesChart({
               {...perElemento(() => ({
                 x: px(p.at),
                 y: py(p.value),
-                title: new Date(p.at).toLocaleDateString('it-IT', {
+                title: new Date(p.at).toLocaleDateString(localeCorrente(), {
                   day: '2-digit',
                   month: 'short',
                   year: 'numeric',
@@ -1218,7 +1225,7 @@ export function niceTicks(lo: number, hi: number, count = 4): number[] {
 }
 
 const shortDate = (ms: number) =>
-  new Date(ms).toLocaleDateString('it-IT', { month: 'short', year: '2-digit' });
+  new Date(ms).toLocaleDateString(localeCorrente(), { month: 'short', year: '2-digit' });
 
 function truncate(s: string, max: number): string {
   return s.length <= max ? s : `${s.slice(0, Math.max(1, max - 1))}…`;

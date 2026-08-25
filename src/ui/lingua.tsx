@@ -28,6 +28,7 @@ import {
   type ReactNode,
 } from 'react';
 
+import { LOCALE_DELLA_LINGUA, registraLocale } from '../core/locale';
 import type { Traduci } from '../core/traduci';
 
 export type Lingua = 'it' | 'en';
@@ -46,6 +47,10 @@ const CHIAVE = 'mydivelog.lingua';
  * avesse un buco, in italiano quel buco non c'è.
  */
 function linguaIniziale(): Lingua {
+  return adotta(linguaSalvataOdiSistema());
+}
+
+function linguaSalvataOdiSistema(): Lingua {
   try {
     const salvata = localStorage.getItem(CHIAVE);
     if (salvata === 'it' || salvata === 'en') return salvata;
@@ -54,6 +59,28 @@ function linguaIniziale(): Lingua {
   }
   const sistema = typeof navigator !== 'undefined' ? navigator.language : 'it';
   return sistema?.toLowerCase().startsWith('it') ? 'it' : 'en';
+}
+
+/**
+ * Scegliere una lingua vuol dire anche scegliere come si scrivono date e numeri.
+ *
+ * Le due cose erano separate e non dovevano esserlo: il dizionario traduceva le
+ * frasi, ma «domenica 12 luglio 2026» non passa dal dizionario — la scrive ICU,
+ * a cui bisogna dire il locale. Chi sceglieva EN si ritrovava le frasi inglesi e
+ * le date italiane. Da qui in poi il locale si registra NELLO STESSO PUNTO in cui
+ * la lingua viene decisa, così i due non possono più separarsi.
+ *
+ * Perché qui e non in un `useEffect`: un effetto gira dopo il primo disegno, e il
+ * locale non è stato di React — nessuno ridisegnerebbe le date già scritte, e chi
+ * apre l'app in inglese si terrebbe una prima schermata di date italiane. Qui
+ * invece la registrazione avviene prima che i figli disegnino qualunque cosa. È
+ * una scrittura, quindi impura in un inizializzatore di `useState`; ma è
+ * idempotente — riscrivere lo stesso locale non fa niente — e questo la rende
+ * innocua anche al doppio giro che StrictMode fa in sviluppo.
+ */
+function adotta(l: Lingua): Lingua {
+  registraLocale(LOCALE_DELLA_LINGUA[l]);
+  return l;
 }
 
 interface Contesto {
@@ -95,7 +122,7 @@ export function ProvvedituraLingua({ children }: { children: ReactNode }) {
   }, [lingua, dizionario]);
 
   const cambia = useCallback((l: Lingua) => {
-    setLingua(l);
+    setLingua(adotta(l));
     try {
       localStorage.setItem(CHIAVE, l);
     } catch {
@@ -151,7 +178,10 @@ export function useLingua(): Contesto {
   const c = useContext(CONTESTO);
   if (!c) {
     // Fuori dalla provveditura — succede nei test che montano un componente da
-    // solo — si resta in italiano invece di far cadere il componente.
+    // solo — si resta in italiano invece di far cadere il componente. Nemmeno il
+    // locale si tocca: chi non è dentro la provveditura non ha scelto niente, e
+    // sovrascrivere il registro da qui vorrebbe dire che montare un componente
+    // isolato riporta in italiano le date di tutta l'applicazione.
     return { lingua: 'it', cambia: () => {}, t: (s) => s };
   }
   return c;

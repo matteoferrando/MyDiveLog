@@ -1,8 +1,16 @@
 import type { Severity } from '../core/analysis/coaching';
+import { localeCorrente } from '../core/locale';
 import { comeSta, type Traduci } from '../core/traduci';
 
 /**
  * Date e ore delle immersioni.
+ *
+ * IL LOCALE ARRIVA DAL REGISTRO — `core/locale.ts` — e non da un parametro né da
+ * un hook. Questo modulo non è un componente (vedi il commento su `Traduci` più
+ * in basso: lo usano anche i test e le esportazioni, dove non c'è nessun
+ * contesto React), quindi `useLingua()` qui dentro non si può proprio scrivere;
+ * e un argomento in più su funzioni chiamate da una quarantina di punti sarebbe
+ * un argomento in più da dimenticare in uno. Il perché per esteso sta là.
  *
  * `offsetMinutes` è il fuso del LUOGO dell'immersione. Quando c'è, formattiamo
  * spostando l'istante e leggendolo in UTC: è l'unico modo di mostrare l'ora che
@@ -25,7 +33,7 @@ function shifted(iso: string, offsetMinutes?: number): { date: Date; tz: string 
 
 export const dateShort = (iso: string, offsetMinutes?: number) => {
   const { date, tz } = shifted(iso, offsetMinutes);
-  return date.toLocaleDateString('it-IT', {
+  return date.toLocaleDateString(localeCorrente(), {
     day: '2-digit',
     month: '2-digit',
     year: '2-digit',
@@ -35,7 +43,7 @@ export const dateShort = (iso: string, offsetMinutes?: number) => {
 
 export const dateLong = (iso: string, offsetMinutes?: number) => {
   const { date, tz } = shifted(iso, offsetMinutes);
-  return date.toLocaleDateString('it-IT', {
+  return date.toLocaleDateString(localeCorrente(), {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -46,7 +54,7 @@ export const dateLong = (iso: string, offsetMinutes?: number) => {
 
 export const timeShort = (iso: string, offsetMinutes?: number) => {
   const { date, tz } = shifted(iso, offsetMinutes);
-  return date.toLocaleTimeString('it-IT', {
+  return date.toLocaleTimeString(localeCorrente(), {
     hour: '2-digit',
     minute: '2-digit',
     ...(tz === 'UTC' ? { timeZone: 'UTC' } : {}),
@@ -65,8 +73,13 @@ export function tzLabel(offsetMinutes: number | undefined): string | undefined {
   return `UTC${sign}${h}${m ? ':' + String(m).padStart(2, '0') : ''}`;
 }
 
-/** 1284 → "1.284"; 12900 → "12,9 mila" solo dove serve compattare. */
-export const int = (v: number) => v.toLocaleString('it-IT');
+/**
+ * Il raggruppamento delle migliaia nella lingua scelta: 12900 → «12.900» in
+ * italiano, «12,900» in inglese. Il punto e la virgola si scambiano di ruolo fra
+ * le due lingue, quindi il locale sbagliato non fa un numero brutto: ne fa uno
+ * che si legge come un altro numero.
+ */
+export const int = (v: number) => v.toLocaleString(localeCorrente());
 
 export const pct = (v: number | undefined) => (v === undefined ? '—' : `${Math.round(v * 100)}%`);
 

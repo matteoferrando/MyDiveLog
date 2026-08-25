@@ -168,6 +168,15 @@ function avvisi(elenco: FoglioPiano['avvisi']): string {
  *
  * Spiega come ottenere il PDF, perché la scorciatoia del sistema è l'unico
  * passaggio che l'applicazione non può fare al posto di chi la usa.
+ *
+ * LA DATA RESTA `it-IT` PERCHÉ TUTTO IL FOGLIO È IN ITALIANO: le intestazioni,
+ * gli avvisi, le righe delle firme e il piede sono stringhe scritte qui dentro e
+ * non passano dal dizionario, e il documento dichiara `<html lang="it">`. Mettere
+ * il locale dell'interfaccia solo su questa riga darebbe un foglio italiano con
+ * una data inglese in cima, che è peggio di tutte e due le scelte intere. Il
+ * giorno che il foglio del piano viene tradotto, questa riga va tradotta con
+ * lui — non prima. Non è il caso del libretto, che in italiano ci resta per
+ * legge (vedi `logbookPrint.ts`).
  */
 function istruzioni(now?: string): string {
   const quando = now ? new Date(now) : undefined;

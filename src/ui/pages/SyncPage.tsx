@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { conNumeri } from '../../core/numerazione';
+import { localeCorrente } from '../../core/locale';
 import { esporta } from '../esporta';
 import { suComputer, suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
@@ -29,6 +30,7 @@ import {
 import { TRASH_DAYS, TRASH_SOFT_LIMIT, daysLeft, sortTrash } from '../../storage/trash';
 import { formatDuration } from '../../core/units';
 import { dateShort, imm, plural } from '../format';
+import { campoModificato } from '../modificato';
 import {
   backupFileName,
   checkBackup,
@@ -80,7 +82,18 @@ export function SyncPage() {
   const [error, setError] = useState<string | null>(null);
 
   const configured = Boolean(syncCredentials);
-  const dirty = url.trim() !== (syncCredentials?.url ?? '') || token !== (syncCredentials?.authToken ?? '');
+  /*
+   * Il token si confronta RIPULITO, come viene salvato — vedi `save()` qui
+   * sotto, che scrive `token.trim()`. Prima il confronto era `token !== salvato`
+   * con `salvato` già ripulito: normalizzato da un lato solo. Bastava lo spazio
+   * che il copia-e-incolla si porta dietro — cioè il caso normale, non quello
+   * limite — perché i due non coincidessero mai, `dirty` restasse vero per
+   * sempre e «Sincronizza» non si riaccendesse più, senza che niente a schermo
+   * dicesse perché. La regola generale, e perché sta in una funzione sola, in
+   * `ui/modificato.ts`.
+   */
+  const dirty =
+    campoModificato(url, syncCredentials?.url) || campoModificato(token, syncCredentials?.authToken);
   /*
    * Si può sincronizzare per due strade, e all'interfaccia interessa solo se ce
    * n'è una aperta. L'account ha la precedenza (lo decide `syncNow`), quindi chi
@@ -886,7 +899,7 @@ function BackupCard() {
          */
         const dove = await esporta(backupFileName(), JSON.stringify(file), 'application/json');
         setEsito(
-          `${t('Backup scritto')} ${dove.dove}: ${imm(file.summary.dives, t)}, ${file.summary.samples.toLocaleString('it')} ${t('campioni')}, ${file.summary.settings.length} ${t('impostazioni')}.`,
+          `${t('Backup scritto')} ${dove.dove}: ${imm(file.summary.dives, t)}, ${file.summary.samples.toLocaleString(localeCorrente())} ${t('campioni')}, ${file.summary.settings.length} ${t('impostazioni')}.`,
         );
       } catch (err) {
         setErrore(err instanceof Error ? err.message : String(err));
@@ -1024,7 +1037,7 @@ function BackupCard() {
         <div className="notice" style={{ marginTop: 12 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>
             {t('Backup del')} {dateShort(candidato.createdAt)} · {imm(candidato.summary.dives, t)} ·{' '}
-            {candidato.summary.samples.toLocaleString('it')} {t('campioni')}
+            {candidato.summary.samples.toLocaleString(localeCorrente())} {t('campioni')}
           </div>
           {/* Il piano PRIMA dell'esecuzione: senza, «ripristina» è un salto nel buio. */}
           <ul style={{ margin: '0 0 10px', paddingLeft: 18 }}>
@@ -1478,7 +1491,11 @@ function LibrettoCard() {
    */
   const fuoriElenco = brevetto !== '' && !scelte.some((v) => v.chiave === brevetto);
 
-  const nomeSporco = nome !== (subacqueo.nome ?? '');
+  // Stesso difetto di `dirty`, stessa cura: `salvaNome` scrive `nome.trim()`,
+  // quindi il confronto deve ripulire tutti e due i lati. Qui il sintomo era più
+  // discreto — un pulsante «Salva» che non spariva più dopo aver salvato — ma la
+  // causa è identica: normalizzare da un lato solo del confronto.
+  const nomeSporco = campoModificato(nome, subacqueo.nome);
   const salvaNome = () => {
     void saveSubacqueo({ ...subacqueo, nome: nome.trim() || undefined });
   };

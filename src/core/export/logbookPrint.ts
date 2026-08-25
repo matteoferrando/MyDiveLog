@@ -99,12 +99,28 @@ const sv = (v: number): string => String(Number(v.toFixed(2)));
 /**
  * I nomi dei mesi e dei giorni scritti a mano invece di `toLocaleDateString`.
  *
- * Non è diffidenza verso l'internazionalizzazione: è che questo modulo deve
- * produrre lo stesso identico foglio ovunque giri, e `toLocaleDateString` dipende
- * dai dati ICU compilati dentro il runtime. Un Node senza ICU completo stampa
- * «June» su un logbook italiano, e un test che ci gira sopra passa o fallisce a
- * seconda di come è stato costruito l'interprete. Dodici parole scritte qui
- * costano meno di quella incertezza.
+ * ► QUESTO FOGLIO È IN ITALIANO ANCHE PER CHI USA L'APP IN INGLESE, E NON È UNA
+ * DIMENTICANZA. ◄ È l'ECCEZIONE alla regola che vale in tutto il resto del
+ * progetto — dove date, ore e numeri seguono la lingua scelta, vedi
+ * `core/locale.ts`. Qui no: questo modulo non stampa una schermata, stampa il
+ * **libretto delle immersioni previsto dall'art. 12, comma 8 della legge
+ * 70/2026** (vedi `core/libretto.ts`). È un documento italiano che si mostra in
+ * Italia, a un istruttore o a un centro, e che qualcuno controfirma; le tredici
+ * voci hanno le lettere e i nomi che gli dà quel testo di legge. Un libretto con
+ * le voci in italiano e le date in inglese non sarebbe più internazionale:
+ * sarebbe un documento incoerente da mostrare a chi lo deve leggere. Per la
+ * stessa ragione il documento dichiara `<html lang="it">` e non traduce nessuna
+ * etichetta.
+ *
+ * Quindi: **se un giorno qualcuno passa di qui a “sistemare l'hardcoded”, non
+ * c'è niente da sistemare.** Il locale corrente NON va letto in questo file.
+ *
+ * ► E POI, INDIPENDENTEMENTE DALLA LINGUA: ◄ questo modulo deve produrre lo
+ * stesso identico foglio ovunque giri, e `toLocaleDateString` dipende dai dati
+ * ICU compilati dentro il runtime. Un Node senza ICU completo stampa «June» su
+ * un logbook italiano, e un test che ci gira sopra passa o fallisce a seconda di
+ * come è stato costruito l'interprete. Dodici parole scritte qui costano meno di
+ * quella incertezza.
  */
 const MESI = [
   'gennaio',
