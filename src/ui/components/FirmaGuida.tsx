@@ -48,12 +48,24 @@ export function RiquadroFirma({
   firma,
   nomeProposto,
   onFirma,
+  onAnnulla,
   onCancella,
 }: {
   firma?: FirmaGuida;
   /** Chi ci si aspetta che firmi: la guida dell'immersione, se c'è. */
   nomeProposto?: string;
   onFirma: (firma: FirmaGuida) => void;
+  /**
+   * Chiudere senza firmare, lasciando l'immersione esattamente com'era.
+   *
+   * ► È UNA COSA DIVERSA DA `onCancella`. ◄ Quella toglie una firma già
+   * raccolta e cambia il record; questa non tocca niente. Tenerle separate è
+   * l'unico modo di avere una via d'uscita che non fa danni: se chiudere
+   * volesse dire togliere, chi ha aperto il riquadro per sbaglio su
+   * un'immersione già controfirmata perderebbe la firma della guida proprio
+   * mentre cerca di non fare niente.
+   */
+  onAnnulla: () => void;
   onCancella: () => void;
 }) {
   const { t } = useLingua();
@@ -129,6 +141,28 @@ export function RiquadroFirma({
     setTratti((t) => t.map(semplifica));
   };
 
+  /*
+   * L'uscita che non firma niente.
+   *
+   * ► PERCHÉ RIMETTE I CAMPI COM'ERANO invece di svuotarli. ◄ Il riquadro nasce
+   * con dentro la firma già raccolta, se c'è: annullare deve riportare a
+   * QUELLO, non a un foglio bianco. Se svuotasse, chi apre «Rifai la firma» su
+   * un'immersione già firmata e poi ci ripensa si ritroverebbe il riquadro
+   * vuoto — cioè vedrebbe sparire una firma che nel record c'è ancora, e da lì
+   * in poi non saprebbe più a quale delle due credere.
+   *
+   * Finché chi ospita il riquadro lo SMONTA chiudendolo — è quello che fa la
+   * scheda dell'immersione — questo ripristino è ridondante, perché lo stato
+   * riparte comunque da `firma` alla riapertura. Sta qui lo stesso: un
+   * componente che si comporta bene solo se chi lo usa lo tratta in un modo
+   * preciso è una trappola per il prossimo che lo monta senza saperlo.
+   */
+  const annulla = () => {
+    setTratti(firma?.tratti ?? []);
+    setNome(firma?.nome ?? nomeProposto ?? '');
+    onAnnulla();
+  };
+
   const provvisoria: FirmaGuida = {
     tratti,
     larghezza: LARGHEZZA,
@@ -166,9 +200,23 @@ export function RiquadroFirma({
         />
       </label>
 
+      {/*
+        L'ordine è quello di `BottoniScheda` (vedi `components/moduli.tsx`), e per
+        la stessa ragione: conferma e uscita vicine a sinistra, lo spazio
+        elastico, e in fondo da solo quello che distrugge. Qui il distacco pesa
+        più che altrove — «Annulla» e «Togli la firma» chiudono tutti e due il
+        riquadro, ma uno lascia il record intatto e l'altro cancella la firma
+        della guida. Attaccati, su un telefono tenuto in mano in barca, sono un
+        dito storto di distanza.
+      */}
       <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
         <button
           className="btn btn-primary"
+          /*
+           * Spento finché non c'è un segno: senza, sfiorare il riquadro e premere
+           * salvare farebbe risultare firmata la lettera o) con niente dentro —
+           * un'immersione che il libretto dà per controfirmata e che non lo è.
+           */
           disabled={vuota}
           onClick={() =>
             onFirma({
@@ -182,10 +230,16 @@ export function RiquadroFirma({
         >
           {t('Salva la firma')}
         </button>
+        <button onClick={annulla}>{t('Annulla')}</button>
         <button onClick={() => setTratti([])} disabled={tratti.length === 0}>
           {t('Rifai')}
         </button>
-        {!firmaVuota(firma) && <button onClick={onCancella}>{t('Togli la firma')}</button>}
+        <span style={{ flex: 1 }} />
+        {!firmaVuota(firma) && (
+          <button onClick={onCancella} style={{ color: 'var(--critical)' }}>
+            {t('Togli la firma')}
+          </button>
+        )}
       </div>
       <p className="muted" style={{ fontSize: 11, margin: 0 }}>
         {t(

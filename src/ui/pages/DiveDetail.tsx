@@ -1248,6 +1248,12 @@ function DecoTimelineCard({
  * scavalcare un modulo a ogni pagina. Si apre quando serve, e quando c'è una
  * firma si vede la firma.
  *
+ * ► E SI ESCE SENZA FIRMARE. ◄ Aprire il riquadro non è un impegno a firmare.
+ * Per un po' lo è stato — una volta aperto le uscite erano firmare o togliere la
+ * firma — e su un dato che è un GESTO e non un numero è la cosa peggiore che si
+ * possa chiedere: nessuno deve trovarsi a firmare perché non sa come uscire.
+ * «Annulla» chiude e non salva niente.
+ *
  * ► SU IPHONE È PIÙ UTILE CHE SUL MAC, ed è l'unica superficie di questa
  * applicazione di cui si può dire. La guida firma col dito, in barca, sul
  * telefono che hai in mano — non davanti a un computer a casa. Per questo il
@@ -1309,6 +1315,14 @@ function CartaFirma({ dive, onSalva }: { dive: Dive; onSalva: (d: Dive) => void 
             onSalva({ ...dive, firmaGuida: firma });
             setAperto(false);
           }}
+          /*
+           * Si chiude e basta: nessun `onSalva`, quindi l'immersione resta
+           * quella di prima — firmata se lo era, non firmata se non lo era. È
+           * anche il motivo per cui il riquadro sta dentro un `&&` invece di
+           * essere sempre montato e nascosto: chiudendolo si smonta, e i tratti
+           * disegnati e poi abbandonati non sopravvivono da nessuna parte.
+           */
+          onAnnulla={() => setAperto(false)}
           onCancella={() => {
             onSalva({ ...dive, firmaGuida: undefined });
             setAperto(false);
