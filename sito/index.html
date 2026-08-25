@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/" />
-    <link rel="stylesheet" href="stile.css?v=ea545e65" />
+    <link rel="stylesheet" href="stile.css?v=edb0569a" />
     <link rel="alternate" hreflang="en" href="/en/" />
     <link rel="alternate" hreflang="it" href="/" />
   </head>
@@ -179,7 +179,7 @@
 
             <p class="fiducia">
               <span>Gratis</span><span>Senza account</span><span>Codice aperto</span>
-              <a href="#altre-piattaforme">Windows e Android: cosa cambia</a>
+              <a class="fiducia-oltre" href="#altre-piattaforme">Windows e Android: cosa cambia →</a>
             </p>
           </div>
         </div>
@@ -253,6 +253,42 @@
         </svg>
       </div>
 
+      <!--
+      ► LA FASCIA DEI NUMERI. ◄
+
+      Sta subito dopo l'apertura, ed è la risposta alla domanda che uno si fa
+      dopo aver letto una promessa: «sì, ma quanto è vero?». Quattro numeri
+      rispondono meglio di quattro aggettivi, e sono tutti verificabili — chi
+      vuole controllare trova il codice.
+
+      NON CI SONO NUMERI CHE INVECCHIANO IN SILENZIO. Il conto dei controlli
+      automatici cresce ogni settimana, quindi è scritto «1400+» e non con la
+      cifra esatta: un numero preciso accanto a una cosa che cresce sbaglia da
+      solo, e sbaglia senza avvisare. I 356 modelli invece sono fissati dalla
+      versione di libdivecomputer che spediamo, i sette formati e le tredici
+      lettere dalla realtà.
+    -->
+      <div class="contenitore">
+        <div class="numeri">
+          <div class="numero">
+            <b>356</b>
+            <span>modelli di computer subacquei conosciuti</span>
+          </div>
+          <div class="numero">
+            <b>7</b>
+            <span>formati di file letti, riconosciuti dal contenuto</span>
+          </div>
+          <div class="numero">
+            <b>13</b>
+            <span>campi che la legge chiede al libretto, tutti</span>
+          </div>
+          <div class="numero">
+            <b>1400<em>+</em></b>
+            <span>controlli automatici a ogni modifica</span>
+          </div>
+        </div>
+      </div>
+
       <ul class="pagine">
         <li>
           <b>Logbook</b
@@ -279,6 +315,7 @@
 
     <div class="contenitore">
       <section>
+        <p class="occhiello-sezione" data-numero="01">L’unione</p>
         <h2>Due computer, una sola immersione</h2>
         <p>
           Porti un computer al polso e un secondo di riserva. Ne hai cambiato uno negli anni. Scarichi sia
@@ -340,6 +377,7 @@
       </section>
 
       <section class="sezione-legge">
+        <p class="occhiello-sezione" data-numero="02">La legge</p>
         <h2>Il libretto delle immersioni, come lo chiede la legge</h2>
         <p>
           Dal 10 maggio 2026 la legge italiana —
@@ -415,6 +453,7 @@
       </section>
 
       <section>
+        <p class="occhiello-sezione" data-numero="03">Le funzioni</p>
         <h2>Cosa fa</h2>
         <p>
           Non «tenere un elenco»: quello lo fa anche un quaderno, e lo fa da cinquant'anni senza batteria.
@@ -484,6 +523,7 @@
       </section>
 
       <section>
+        <p class="occhiello-sezione" data-numero="04">Le schermate</p>
         <h2>Com'è fatta</h2>
         <p>
           Nessun ritocco, nessun mockup: è l'applicazione, così com'è quando la apri. Se lo vedi qui, lo trovi
@@ -543,6 +583,7 @@
       </section>
 
       <section class="prosa">
+        <p class="occhiello-sezione" data-numero="05">La sincronizzazione</p>
         <h2>Il servizio di sincronizzazione</h2>
         <p>
           Chi usa più di un dispositivo può tenere l'archivio allineato. Si entra con un account
@@ -568,6 +609,7 @@
       </section>
 
       <section class="prosa">
+        <p class="occhiello-sezione" data-numero="06">Il codice</p>
         <h2>Libero e aperto</h2>
         <p>
           <strong
@@ -605,6 +647,7 @@
         come si verifica il file — sta qui, dove lo cerca chi ha già deciso.
       -->
       <section id="altre-piattaforme">
+        <p class="occhiello-sezione" data-numero="07">Le altre piattaforme</p>
         <h2>Windows e Android: quello che c'è da sapere</h2>
         <p>
           Fanno tutto quello che fa la versione Mac. Restano due differenze e due domande che il sistema ti
@@ -641,6 +684,7 @@
       </section>
 
       <section class="prosa">
+        <p class="occhiello-sezione" data-numero="08">La sicurezza</p>
         <h2>Un avvertimento che conta</h2>
         <div class="evidenza avvertenza">
           <p>
@@ -948,6 +992,56 @@
         document.addEventListener('keydown', (e) => {
           if (e.key === 'Escape' && !strato.hidden) chiudi();
         });
+      })();
+    </script>
+    <script>
+      /*
+        La comparsa mentre si scorre. Undici righe, nessuna libreria.
+
+        ► LO STATO DI PARTENZA LO METTE QUESTO SCRIPT, non il foglio di stile. ◄
+        Se la classe `.appare` fosse scritta nell'HTML, un browser con lo script
+        spento — o con lo script che non parte per un errore qualunque —
+        mostrerebbe una pagina PERMANENTEMENTE VUOTA: tutto il contenuto
+        invisibile, in attesa di qualcuno che non arriverà mai. Aggiungendola
+        qui, il caso peggiore è una pagina che non si anima, e nessuno se ne
+        accorge.
+
+        `IntersectionObserver` e non un ascoltatore sullo scorrimento: quello
+        chiamerebbe la nostra funzione decine di volte al secondo mentre si
+        scorre, e su un telefono si sente. Questo chiama solo quando qualcosa
+        attraversa la soglia.
+
+        `unobserve` dopo la prima volta: un elemento già comparso non deve
+        ricomparire tornando indietro. Un'animazione che si ripete a ogni
+        passaggio smette di dire «sei arrivato» e diventa quella cosa che si
+        muove mentre provi a leggere.
+      */
+      (() => {
+        const roba = document.querySelectorAll(
+          'section > h2, section > p, .griglia, .numeri, .schermata, .evidenza, .modulo, .pagine, .unione',
+        );
+        if (!('IntersectionObserver' in window)) return;
+
+        const guardia = new IntersectionObserver(
+          (voci) => {
+            for (const v of voci) {
+              if (!v.isIntersecting) continue;
+              v.target.classList.add('visibile');
+              guardia.unobserve(v.target);
+            }
+          },
+          // SOGLIA ZERO, e non un decimo. Con 0.1 un blocco più alto dello
+          // schermo — la griglia delle tredici lettere, l'elenco delle funzioni —
+          // può toccare il bordo senza mai mostrarne un decimo, e resterebbe
+          // invisibile mentre ci sei sopra. Verificato: con 0.1 un elemento in
+          // vista restava a opacità zero. Basta che sfiori il bordo.
+          { threshold: 0, rootMargin: '0px 0px -40px 0px' },
+        );
+
+        for (const n of roba) {
+          n.classList.add('appare');
+          guardia.observe(n);
+        }
       })();
     </script>
   </body>

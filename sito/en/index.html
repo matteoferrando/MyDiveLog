@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/" />
-    <link rel="stylesheet" href="../stile.css?v=ea545e65" />
+    <link rel="stylesheet" href="../stile.css?v=edb0569a" />
     <link rel="alternate" hreflang="it" href="/" />
     <link rel="alternate" hreflang="en" href="/en/" />
   </head>
@@ -154,7 +154,7 @@
 
             <p class="fiducia">
               <span>Free</span><span>No account</span><span>Open source</span>
-              <a href="#altre-piattaforme">Windows and Android: what differs</a>
+              <a class="fiducia-oltre" href="#altre-piattaforme">Windows and Android: what differs →</a>
             </p>
           </div>
         </div>
@@ -230,6 +230,28 @@
         </svg>
       </div>
 
+      <!-- Vedi il commento gemello nella pagina italiana. -->
+      <div class="contenitore">
+        <div class="numeri">
+          <div class="numero">
+            <b>356</b>
+            <span>dive computer models it knows</span>
+          </div>
+          <div class="numero">
+            <b>7</b>
+            <span>file formats read, detected by content</span>
+          </div>
+          <div class="numero">
+            <b>13</b>
+            <span>fields Italian law asks of a logbook — all of them</span>
+          </div>
+          <div class="numero">
+            <b>1400<em>+</em></b>
+            <span>automated checks on every change</span>
+          </div>
+        </div>
+      </div>
+
       <ul class="pagine">
         <li><b>Logbook</b><span>Every dive in a single list, each one saying where it came from.</span></li>
         <li>
@@ -248,6 +270,7 @@
 
     <div class="contenitore">
       <section>
+        <p class="occhiello-sezione" data-numero="01">The merge</p>
         <h2>Two computers, one dive</h2>
         <p>
           You wear one computer and carry a backup. You changed computer a few years ago. You download both
@@ -306,6 +329,7 @@
       </section>
 
       <section class="sezione-legge">
+        <p class="occhiello-sezione" data-numero="02">The law</p>
         <h2>The dive logbook Italian law asks for</h2>
         <p>
           Since 10 May 2026 Italian law — <strong>law 70/2026, article 12(8)</strong> — requires every diver
@@ -374,6 +398,7 @@
       </section>
 
       <section>
+        <p class="occhiello-sezione" data-numero="03">Features</p>
         <h2>What it does</h2>
         <p>
           Not «keeping a list»: a paper notebook does that, and has done it for fifty years without a battery.
@@ -442,6 +467,7 @@
       </section>
 
       <section>
+        <p class="occhiello-sezione" data-numero="04">Screens</p>
         <h2>What it looks like</h2>
         <p>
           No retouching, no mockups: this is the application, exactly as it looks when you open it. If you see
@@ -501,6 +527,7 @@
       </section>
 
       <section class="prosa">
+        <p class="occhiello-sezione" data-numero="05">Sync</p>
         <h2>The sync service</h2>
         <p>
           If you use more than one device, you can keep your logbook aligned. You sign in with an
@@ -525,6 +552,7 @@
       </section>
 
       <section class="prosa">
+        <p class="occhiello-sezione" data-numero="06">The code</p>
         <h2>Free and open</h2>
         <p>
           <strong>Every app asks you to trust it. This one hands you the means to check.</strong> MyDiveLog is
@@ -549,6 +577,7 @@
 
       <!-- Vedi il commento gemello nella pagina italiana. -->
       <section id="altre-piattaforme">
+        <p class="occhiello-sezione" data-numero="07">Other platforms</p>
         <h2>Windows and Android: what to know</h2>
         <p>
           They do everything the Mac version does. Two differences remain, and two questions the system will
@@ -584,6 +613,7 @@
       </section>
 
       <section class="prosa">
+        <p class="occhiello-sezione" data-numero="08">Safety</p>
         <h2>One warning that matters</h2>
         <div class="evidenza avvertenza">
           <p>
@@ -863,6 +893,56 @@
         document.addEventListener('keydown', (e) => {
           if (e.key === 'Escape' && !strato.hidden) chiudi();
         });
+      })();
+    </script>
+    <script>
+      /*
+        La comparsa mentre si scorre. Undici righe, nessuna libreria.
+
+        ► LO STATO DI PARTENZA LO METTE QUESTO SCRIPT, non il foglio di stile. ◄
+        Se la classe `.appare` fosse scritta nell'HTML, un browser con lo script
+        spento — o con lo script che non parte per un errore qualunque —
+        mostrerebbe una pagina PERMANENTEMENTE VUOTA: tutto il contenuto
+        invisibile, in attesa di qualcuno che non arriverà mai. Aggiungendola
+        qui, il caso peggiore è una pagina che non si anima, e nessuno se ne
+        accorge.
+
+        `IntersectionObserver` e non un ascoltatore sullo scorrimento: quello
+        chiamerebbe la nostra funzione decine di volte al secondo mentre si
+        scorre, e su un telefono si sente. Questo chiama solo quando qualcosa
+        attraversa la soglia.
+
+        `unobserve` dopo la prima volta: un elemento già comparso non deve
+        ricomparire tornando indietro. Un'animazione che si ripete a ogni
+        passaggio smette di dire «sei arrivato» e diventa quella cosa che si
+        muove mentre provi a leggere.
+      */
+      (() => {
+        const roba = document.querySelectorAll(
+          'section > h2, section > p, .griglia, .numeri, .schermata, .evidenza, .modulo, .pagine, .unione',
+        );
+        if (!('IntersectionObserver' in window)) return;
+
+        const guardia = new IntersectionObserver(
+          (voci) => {
+            for (const v of voci) {
+              if (!v.isIntersecting) continue;
+              v.target.classList.add('visibile');
+              guardia.unobserve(v.target);
+            }
+          },
+          // SOGLIA ZERO, e non un decimo. Con 0.1 un blocco più alto dello
+          // schermo — la griglia delle tredici lettere, l'elenco delle funzioni —
+          // può toccare il bordo senza mai mostrarne un decimo, e resterebbe
+          // invisibile mentre ci sei sopra. Verificato: con 0.1 un elemento in
+          // vista restava a opacità zero. Basta che sfiori il bordo.
+          { threshold: 0, rootMargin: '0px 0px -40px 0px' },
+        );
+
+        for (const n of roba) {
+          n.classList.add('appare');
+          guardia.observe(n);
+        }
       })();
     </script>
   </body>

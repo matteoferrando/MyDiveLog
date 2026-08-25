@@ -1090,6 +1090,148 @@ a {
   cursor: pointer;
 }
 
+/* ══════════════════════════════════════════ la fascia dei numeri ══════════ */
+
+/*
+  Quattro numeri subito dopo l'apertura, ed è la risposta alla domanda che uno
+  si fa dopo aver letto una promessa: «sì, ma quanto è vero?». Quattro numeri
+  rispondono meglio di quattro aggettivi.
+
+  Il numero è grande, tabellare e ciano; l'etichetta è piccola e tenue. La
+  differenza di scala fa tutto il lavoro: si legge la fila dei numeri in un
+  colpo d'occhio, e ci si ferma sull'etichetta solo di quello che ha incuriosito.
+*/
+.numeri {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+  gap: 2px;
+  margin: 2vh 0 4vh;
+  border: 1px solid var(--bordo);
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--bordo);
+}
+
+/*
+  IL TRUCCO DELLA GRIGLIA: il fondo del contenitore è del colore del bordo e le
+  celle hanno due pixel di distanza. Le linee fra una cella e l'altra sono
+  quello sfondo che si vede in mezzo — così sono perfette a qualunque numero di
+  colonne, anche quando la griglia va a capo, e non c'è nessun bordo da spegnere
+  sull'ultima di ogni riga.
+*/
+.numero {
+  padding: 26px 24px;
+  background: linear-gradient(180deg, rgba(13, 63, 110, 0.55), rgba(7, 35, 65, 0.55));
+  backdrop-filter: blur(8px);
+}
+
+.numero b {
+  display: block;
+  font-size: clamp(2rem, 4.2vw, 2.9rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(160deg, var(--ciano), var(--riflesso));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.numero b em {
+  font-style: normal;
+  font-size: 0.55em;
+  vertical-align: super;
+  letter-spacing: 0;
+}
+
+.numero span {
+  display: block;
+  margin-top: 10px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--testo-tenue);
+}
+
+/* ═════════════════════════════════════ gli occhielli delle sezioni ════════ */
+
+/*
+  Un numero e una parola sopra ogni titolo. Costano una riga e cambiano il
+  carattere della pagina: senza, le sezioni sono un elenco di cose che
+  capitano una dopo l'altra; con, sono i capitoli di qualcosa che qualcuno ha
+  pensato in che ordine raccontare.
+
+  Il numero si scrive nell'HTML e non con un contatore CSS: un contatore
+  automatico si sposta da solo il giorno che una sezione viene riordinata, e la
+  numerazione finirebbe a raccontare una storia diversa da quella che il testo
+  racconta.
+*/
+.occhiello-sezione {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+  max-width: none;
+  font-size: 0.74rem;
+  font-weight: 620;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(157, 220, 255, 0.62);
+}
+
+.occhiello-sezione::before {
+  content: attr(data-numero);
+  font-variant-numeric: tabular-nums;
+  color: var(--ciano);
+  letter-spacing: 0.06em;
+}
+
+.occhiello-sezione::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(157, 220, 255, 0.26), transparent);
+}
+
+/* ══════════════════════════════════ la comparsa mentre si scorre ══════════ */
+
+/*
+  ► COSA FA, E PERCHÉ NON È UN VEZZO. ◄ Ogni blocco entra salendo di dodici
+  pixel mentre arriva sullo schermo. Non è per far muovere le cose: è perché
+  una pagina lunga di sezioni tutte uguali si legge come un muro, e un elemento
+  che compare quando ci arrivi ti dice che sei arrivato. È la stessa cosa che
+  fa una pagina impaginata bene con lo spazio bianco, con mezzo secondo di
+  aiuto.
+
+  ► LA REGOLA CHE RENDE SICURO FARLO. ◄ Lo stato di partenza — invisibile e
+  spostato — lo mette lo SCRIPT, non il foglio di stile. Se lo mettesse il
+  foglio, un browser senza JavaScript, o con lo script che non parte per un
+  errore qualunque, mostrerebbe una pagina PERMANENTEMENTE VUOTA: tutto il
+  contenuto invisibile, in attesa di qualcuno che non arriverà mai. Scritto
+  così, il caso peggiore è una pagina che non si anima.
+*/
+.appare {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.appare.visibile {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 0.55s ease-out,
+    transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appare,
+  .appare.visibile {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 /* ════════════════════════════════════ l'apertura a due colonne ════════════ */
 
 /*
@@ -1418,8 +1560,28 @@ a.scheda-piattaforma.minore:hover {
   transform: rotate(-45deg);
 }
 
-.fiducia a {
-  margin-left: auto;
+/*
+  Il collegamento è l'ULTIMO ELEMENTO DELLA FILA, non un satellite.
+
+  Prima aveva `margin-left: auto` e finiva spinto contro il bordo destro: su
+  uno schermo largo galleggiava lontano da tutto, allineato a niente, e su uno
+  stretto andava a capo e restava sospeso sotto il vuoto. La freccia in fondo al
+  testo fa il lavoro che faceva la distanza — dire che porta da qualche parte —
+  senza staccarlo dalla riga a cui appartiene.
+*/
+.fiducia-oltre {
+  color: var(--riflesso);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(157, 220, 255, 0.34);
+  padding-bottom: 1px;
+  transition:
+    color 0.18s,
+    border-color 0.18s;
+}
+
+.fiducia-oltre:hover {
+  color: var(--ciano);
+  border-color: var(--ciano);
 }
 
 @media (max-width: 560px) {
@@ -1433,8 +1595,8 @@ a.scheda-piattaforma.minore:hover {
     min-width: 0;
   }
 
-  .fiducia a {
-    margin-left: 0;
+  .fiducia {
+    gap: 8px 14px;
   }
 }
 
