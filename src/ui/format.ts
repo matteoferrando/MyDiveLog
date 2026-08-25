@@ -98,6 +98,10 @@ export const FORMAT_LABEL: Record<string, string> = {
   csv: 'CSV',
   'shearwater-ble': 'Shearwater via Bluetooth',
   'uwatec-ble': 'Scubapro via Bluetooth',
+  // Il nome della libreria e non «altro computer»: chi legge la provenienza di
+  // un'immersione vuole sapere CHI l'ha letta, ed è l'unico modo di capire
+  // perché le impostazioni di decompressione sono vuote.
+  libdivecomputer: 'Bluetooth (libdivecomputer)',
   manual: 'Inserita a mano',
 };
 

@@ -16,10 +16,47 @@ import { esitoPer, FAMIGLIE_CON_DRIVER, modelliScaricabili } from '../src/core/b
 describe('la scelta di un modello', () => {
   it('non lascia mai l’utente senza risposta', () => {
     // La regola che tiene in piedi tutto il resto: un modello nell'elenco è un
-    // modello per cui abbiamo qualcosa da dire, sempre.
+    // modello per cui abbiamo qualcosa da dire, sempre. E vale in tutte e due
+    // le compilazioni, perché l'utente non sa come è stata compilata la sua.
     for (const m of MODELLI_BLE) {
-      expect(['si-scarica', 'non-ancora', 'mai-via-radio']).toContain(esitoPer(m).tipo);
+      for (const conLdc of [false, true]) {
+        expect(['si-scarica', 'si-scarica-ldc', 'non-ancora', 'mai-via-radio']).toContain(
+          esitoPer(m, conLdc).tipo,
+        );
+      }
     }
+  });
+
+  it('senza libdivecomputer non promette niente in più: è il difetto per difetto', () => {
+    /*
+     * IL VALORE PREDEFINITO CONTA. Se `esitoPer` presumesse la funzionalità
+     * accesa, una copia compilata senza mostrerebbe «Scarica» su ottantatré
+     * modelli e fallirebbe su tutti. Chi sa com'è compilata questa copia è
+     * l'interfaccia, che lo chiede al guscio Rust.
+     */
+    const mares = MODELLI_BLE.find((m) => m.marca === 'Mares')!;
+    expect(esitoPer(mares).tipo).toBe('non-ancora');
+    expect(esitoPer(mares, true).tipo).toBe('si-scarica-ldc');
+  });
+
+  it('con libdivecomputer i driver di casa restano distinti, e non è pignoleria', () => {
+    /*
+     * I due driver di casa sono stati provati con l'apparecchio in mano, cento
+     * e passa immersioni a testa. libdivecomputer quel formato lo legge da
+     * vent'anni, ma con QUEL modello dentro QUESTA applicazione potrebbe non
+     * essere mai stata eseguita. Un solo esito per i due casi cancellerebbe la
+     * differenza — e in un logbook una lettura sbagliata non dà errore, dà un
+     * profilo plausibile e falso.
+     */
+    const peregrine = MODELLI_BLE.find((m) => m.modello === 'Peregrine')!;
+    expect(esitoPer(peregrine, true)).toEqual({ tipo: 'si-scarica', driverId: 'shearwater' });
+  });
+
+  it('Garmin resta «mai», anche con libdivecomputer acceso', () => {
+    // Non è una questione di driver: i Descent i dati via BLE non li danno a
+    // nessuna applicazione. Accendere la libreria non cambia il fatto.
+    const garmin = MODELLI_BLE.filter((m) => m.marca === 'Garmin');
+    for (const g of garmin) expect(esitoPer(g, true).tipo).toBe('mai-via-radio');
   });
 
   it('promette uno scarico solo dove c’è un driver che esiste davvero', () => {
@@ -42,6 +79,18 @@ describe('la scelta di un modello', () => {
     // 11 + 11. Se questo numero cambia senza che sia cambiato un driver, è
     // cambiato il catalogo e qualcuno deve guardare cosa è entrato.
     expect(scaricabili.length).toBe(22);
+  });
+
+  it('con libdivecomputer si scarica quasi tutto, ma non tutto', () => {
+    /*
+     * «Quasi» è la parola giusta e va tenuta: restano fuori i modelli che via
+     * Bluetooth i dati non li danno. Un controllo che dicesse «tutti» sarebbe
+     * verde oggi e falso il giorno in cui Garmin entra nel catalogo della
+     * libreria senza cambiare politica.
+     */
+    const conLdc = modelliScaricabili(true);
+    expect(conLdc.length).toBe(MODELLI_BLE.length);
+    expect(conLdc.length).toBeGreaterThan(modelliScaricabili().length * 4);
   });
 
   it('la maggioranza dei modelli NON si scarica, e va detto ad alta voce', () => {

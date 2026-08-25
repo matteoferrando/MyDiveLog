@@ -48,6 +48,7 @@ import { useLingua } from '../lingua';
 export function ScegliComputer({
   onScegli,
   onAnnulla,
+  conLibdivecomputer = false,
 }: {
   /**
    * Il modello scelto, con l'esito già calcolato da chi lo riceve.
@@ -59,6 +60,15 @@ export function ScegliComputer({
    */
   onScegli: (modello: ModelloComputer) => void;
   onAnnulla: () => void;
+  /**
+   * Vero se questa copia dell'applicazione ha dentro libdivecomputer.
+   *
+   * Cambia l'etichetta di ottantatré modelli su centocinque: senza, dicono
+   * «non ancora via Bluetooth»; con, non dicono niente perché si scaricano. Il
+   * valore lo sa solo chi ha chiesto al guscio Rust — qui arriva, non si
+   * indovina, e il difetto è **spento**, che è la risposta prudente.
+   */
+  conLibdivecomputer?: boolean;
 }) {
   const { t } = useLingua();
   const [testo, setTesto] = useState('');
@@ -99,7 +109,7 @@ export function ScegliComputer({
             )}
           </p>
         ) : (
-          <ElencoModelli modelli={trovati} onScegli={onScegli} />
+          <ElencoModelli modelli={trovati} onScegli={onScegli} conLdc={conLibdivecomputer} />
         )
       ) : (
         <ul className="marche">
@@ -124,7 +134,9 @@ export function ScegliComputer({
                   </span>
                 )}
               </button>
-              {marcaAperta === marca && <ElencoModelli modelli={modelli} onScegli={onScegli} />}
+              {marcaAperta === marca && (
+                <ElencoModelli modelli={modelli} onScegli={onScegli} conLdc={conLibdivecomputer} />
+              )}
             </li>
           ))}
         </ul>
@@ -140,15 +152,17 @@ export function ScegliComputer({
 function ElencoModelli({
   modelli,
   onScegli,
+  conLdc,
 }: {
   modelli: readonly ModelloComputer[];
   onScegli: (m: ModelloComputer) => void;
+  conLdc: boolean;
 }) {
   const { t } = useLingua();
   return (
     <ul className="modelli">
       {modelli.map((m) => {
-        const esito = esitoPer(m);
+        const esito = esitoPer(m, conLdc);
         return (
           <li key={`${m.marca}|${m.modello}`}>
             <button
@@ -166,11 +180,23 @@ function ElencoModelli({
               <span>
                 {m.marca} {m.modello}
               </span>
+              {/*
+               * L'ETICHETTA SOTTO IL NOME DICE COSA SUCCEDE PREMENDO, e i
+               * quattro casi sono quattro frasi diverse perché sono quattro
+               * cose diverse. In particolare «via libdivecomputer» non è
+               * decorazione: quel modello lo legge una libreria che qui dentro,
+               * con quell'apparecchio, potrebbe non essere mai stata eseguita —
+               * mentre i due driver di casa hanno letto centinaia di immersioni
+               * vere. Chi preme ha diritto di sapere su quale delle due strade
+               * sta mettendo il piede.
+               */}
               {esito.tipo !== 'si-scarica' && (
                 <span className="muted" style={{ fontSize: 11 }}>
                   {esito.tipo === 'mai-via-radio'
                     ? t('solo importando il file')
-                    : t('non ancora via Bluetooth')}
+                    : esito.tipo === 'si-scarica-ldc'
+                      ? t('via libdivecomputer, mai provato su questo modello')
+                      : t('non ancora via Bluetooth')}
                 </span>
               )}
             </button>

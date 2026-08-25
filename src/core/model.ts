@@ -37,6 +37,22 @@ export type SourceFormat =
    */
   | 'shearwater-ble'
   | 'uwatec-ble'
+  /*
+   * Scaricata via Bluetooth da un computer che parla un protocollo di
+   * libdivecomputer, cioè uno dei modelli per cui non abbiamo un driver
+   * scritto in casa.
+   *
+   * È una provenienza a sé e non `shearwater-ble`/`uwatec-ble` per una ragione
+   * che si vede nella scheda dell'immersione: da qui NON arrivano le
+   * impostazioni di decompressione. I nostri due driver le leggono e le
+   * scrivono in `computer` — gradient factor, modello deco, densità
+   * dell'acqua; libdivecomputer non le espone in modo uniforme fra le
+   * famiglie, e la «conservatism» di un Suunto non è il gradient factor di un
+   * Peregrine. Dichiarare la provenienza è ciò che permette di dire PERCHÉ
+   * quei campi sono vuoti, invece di far sembrare che il computer non li abbia
+   * mandati.
+   */
+  | 'libdivecomputer'
   // Inserita a mano, senza nessun file dietro. È una sorgente a tutti gli
   // effetti e non un caso speciale: l'immersione col computer a noleggio o
   // ricopiata dal libretto di carta vale quanto le altre, e soprattutto DEVE

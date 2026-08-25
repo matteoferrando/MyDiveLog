@@ -32,7 +32,15 @@ import { DRIVERS, recognise, type RecognisedDevice } from '../../core/ble/regist
 import type { ModelloComputer } from '../../core/ble/catalogo';
 import { esitoPer } from '../../core/ble/scelta';
 import { ScegliComputer } from './ScegliComputer';
-import { markerKey, type BleTransport, type BleUnavailable, type DownloadEvent } from '../../core/ble/types';
+import { scaricaDaComputerEsterno } from '../../storage/computerEsterni';
+import type { Dive } from '../../core/model';
+import {
+  markerKey,
+  type BleFoundDevice,
+  type BleTransport,
+  type BleUnavailable,
+  type DownloadEvent,
+} from '../../core/ble/types';
 import { TauriBleTransport } from '../../storage/ble';
 import { esporta } from '../esporta';
 import { suIOS } from '../../piattaforma';
@@ -153,6 +161,42 @@ export function BleDownload() {
    * frase che dice come fare invece.
    */
   const [spiegazione, setSpiegazione] = useState<ModelloComputer | null>(null);
+  /*
+   * ► QUESTA COPIA DELL'APPLICAZIONE HA DENTRO LIBDIVECOMPUTER? ◄
+   *
+   * Non è una cosa che si può sapere leggendo il codice: `computer-esterni` è
+   * una funzionalità di compilazione, e la stessa `src/` produce due binari
+   * diversi. Lo si CHIEDE al guscio Rust, che risponde con l'elenco dei modelli
+   * che la libreria conosce — vuoto quando la funzionalità non c'è.
+   *
+   * Perché non presumerlo acceso: il selettore mostrerebbe «Scarica» su
+   * ottantatré modelli e fallirebbe su tutti. Perché non presumerlo spento:
+   * direbbe «non ancora» a chi ce l'ha, e quella persona non proverebbe mai.
+   * L'unica risposta giusta è quella vera, e costa una chiamata all'avvio.
+   *
+   * L'elenco NON si tiene: sono trecentocinquantasei voci di cui ci serve
+   * soltanto sapere se sono più di zero. Il catalogo che l'interfaccia mostra
+   * è quello generato in `core/ble/catalogoGenerato.ts`, che esiste anche
+   * quando la libreria non è compilata — ed è il motivo per cui il selettore
+   * funziona comunque, dicendo la verità su ogni modello.
+   */
+  const [conLibdivecomputer, setConLibdivecomputer] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    void (async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const elenco = await invoke<unknown[]>('elenca_computer_supportati');
+        if (vivo) setConLibdivecomputer(elenco.length > 0);
+      } catch {
+        // Nel browser il modulo non c'è, e va benissimo: resta spento, che è
+        // la verità — nel browser non si scarica da nessun computer.
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, []);
   /*
    * L'esito del salvataggio dei grezzi si DICHIARA.
    *
@@ -440,6 +484,118 @@ export function BleDownload() {
     [importDives, fermaRicerca, bleMarkers, saveBleMarker, forgetBleMarker, tuttoDaCapo, transport, t],
   );
 
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► LO SCARICO CHE PASSA DA LIBDIVECOMPUTER. ◄
+   *
+   * È una funzione a parte e non un ramo dentro `scarica`, e la ragione non è
+   * di stile: le due strade hanno un pezzo che non si può condividere. I
+   * driver scritti in casa leggono un MANIFESTO e si fermano al segnalibro —
+   * «dammi solo quelle dopo questa» — e su un Peregrine pieno sono minuti di
+   * attesa e batteria risparmiati. libdivecomputer non espone quel punto di
+   * arresto in modo uniforme fra le famiglie: legge la memoria e basta.
+   *
+   * Quindi qui NON si salva nessun segnalibro. Non è una mancanza da colmare:
+   * un segnalibro che non viene onorato dallo scarico successivo è peggio di
+   * nessun segnalibro, perché fa credere di aver risparmiato una lettura che
+   * invece è avvenuta. La deduplica fa il resto, come per i file, ed è la
+   * stessa strada che percorrono le immersioni importate da un `.uddf`.
+   */
+  const scaricaEsterno = useCallback(
+    async (device: BleFoundDevice, marca: string, modello: string) => {
+      fermaRicerca();
+      const nome = `${marca} ${modello}`;
+      setStato({ fase: 'scarica', nome, fatte: 0, passo: t('Mi collego…') });
+
+      const diario: string[] = [];
+      const onEvent = (e: DownloadEvent) => {
+        // Come nell'altra strada: le righe di diario non toccano lo stato
+        // mostrato, sarebbero un aggiornamento di React per ogni notifica.
+        if (e.kind === 'trace') {
+          diario.push(e.line);
+          return;
+        }
+        setStato((p) =>
+          p.fase !== 'scarica'
+            ? p
+            : e.kind === 'counted'
+              ? { ...p, totale: e.total, passo: t('Leggo…') }
+              : e.kind === 'record'
+                ? {
+                    ...p,
+                    fatte: e.done,
+                    totale: e.total ?? p.totale,
+                    passo: t('Leggo…'),
+                    byte: undefined,
+                  }
+                : e.kind === 'progress'
+                  ? {
+                      ...p,
+                      passo: e.label,
+                      byte: e.total ? { fatti: e.done, totali: e.total } : p.byte,
+                    }
+                  : p,
+        );
+      };
+
+      let dives: Dive[] = [];
+      let errore: string | undefined;
+      try {
+        dives = await scaricaDaComputerEsterno({
+          dispositivo: device.id,
+          marca,
+          modello,
+          emit: onEvent,
+        });
+      } catch (e) {
+        errore = e instanceof Error ? e.message : String(e);
+      }
+
+      let testo: string;
+      const avvisi: string[] = [];
+      if (dives.length === 0) {
+        testo = errore
+          ? `${t('Non è arrivata nessuna immersione')}: ${errore}`
+          : t('Il computer non ha immersioni in memoria da scaricare.');
+      } else {
+        /*
+         * L'ORIGINE DICE DA DOVE PASSA, e non è un dettaglio di etichetta.
+         *
+         * Una lettura fatta da libdivecomputer con un modello che qui dentro
+         * non è mai stato provato non è la stessa cosa di una fatta dai driver
+         * di casa, che con l'apparecchio in mano hanno letto cento e passa
+         * immersioni a testa. Se un giorno un profilo risultasse storto, la
+         * prima domanda sarà «da dove è entrato»: la risposta va scritta
+         * addosso all'immersione, non ricostruita dopo.
+         */
+        const r = await importDives(dives, `${marca} ${modello} via libdivecomputer`);
+        testo = r.ok
+          ? `${imm(r.found, t)} ${t('lette dal computer')}: ${r.added} ${t('nuove')}, ` +
+            `${r.merged} ${t('arricchite')}, ${r.duplicates} ${t('già in archivio')}.`
+          : `${imm(dives.length, t)} ${t('sono arrivate ma non si sono potute salvare')}: ${r.error}`;
+        if (r.ok) avvisi.push(...r.warnings);
+      }
+      if (errore) avvisi.push(errore);
+
+      setStato({
+        fase: 'finito',
+        testo,
+        avvisi,
+        parziale: false,
+        diario: [
+          `MyDiveLog — diario dello scarico (libdivecomputer)`,
+          `dispositivo: ${device.name || 'senza nome'}`,
+          `modello scelto: ${marca} ${modello}`,
+          `esito: ${errore ? `errore — ${errore}` : 'completato'}`,
+          `immersioni: ${dives.length}`,
+          '',
+          ...diario,
+        ],
+      });
+    },
+    [fermaRicerca, importDives, t],
+  );
+
   return (
     <div className="card">
       <div className="spread" style={{ alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
@@ -667,15 +823,20 @@ export function BleDownload() {
                   {scegliPer === device.id && (
                     <ScegliComputer
                       onAnnulla={() => setScegliPer(null)}
+                      conLibdivecomputer={conLibdivecomputer}
                       onScegli={(modello) => {
-                        const esito = esitoPer(modello);
+                        const esito = esitoPer(modello, conLibdivecomputer);
                         setScegliPer(null);
-                        if (esito.tipo !== 'si-scarica') {
-                          setSpiegazione(modello);
+                        if (esito.tipo === 'si-scarica') {
+                          const scelto = DRIVERS.find((d) => d.id === esito.driverId);
+                          if (scelto) void scarica({ device, driver: scelto });
                           return;
                         }
-                        const scelto = DRIVERS.find((d) => d.id === esito.driverId);
-                        if (scelto) void scarica({ device, driver: scelto });
+                        if (esito.tipo === 'si-scarica-ldc') {
+                          void scaricaEsterno(device, modello.marca, modello.modello);
+                          return;
+                        }
+                        setSpiegazione(modello);
                       }}
                     />
                   )}
@@ -705,7 +866,7 @@ export function BleDownload() {
               <b>
                 {spiegazione.marca} {spiegazione.modello}
               </b>{' '}
-              {esitoPer(spiegazione).tipo === 'mai-via-radio'
+              {esitoPer(spiegazione, conLibdivecomputer).tipo === 'mai-via-radio'
                 ? t(
                     'non manda le immersioni via Bluetooth a nessuna applicazione: le tiene per quella del costruttore. Esporta le immersioni da lì e importa qui il file — i dati sono gli stessi.',
                   )
