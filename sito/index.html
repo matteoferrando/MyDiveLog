@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/" />
-    <link rel="stylesheet" href="stile.css?v=4e213534" />
+    <link rel="stylesheet" href="stile.css?v=3049dfce" />
     <link rel="alternate" hreflang="en" href="/en/" />
     <link rel="alternate" hreflang="it" href="/" />
   </head>
@@ -66,27 +66,69 @@
           <strong>legge 70/2026</strong> chiede al libretto — pronti in PDF. Gratis, senza account, e niente
           esce dal tuo dispositivo.
         </p>
-        <div class="pulsanti">
-          <!--
-            IL PULSANTE SCARICA IL FILE, non porta alla pagina delle release.
-            Chi arriva qui vuole l'applicazione, e la pagina di GitHub è un
-            elenco di file, note e sorgenti compressi in cui il .dmg è una riga
-            fra le altre: un passaggio in più e un'occasione di sbagliare file.
+        <!--
+          ► IL BLOCCO DI SCARICO: DUE LIVELLI, E LA GERARCHIA È IL MESSAGGIO. ◄
 
-            Il nome del pacchetto in questo indirizzo NON contiene il numero di
-            versione, ed è il punto: `releases/latest/download/<nome>` rimanda
-            all'allegato con QUEL nome nella release più recente, quindi il link
-            resta buono a ogni pubblicazione. Se un giorno si pubblica una
-            release senza quell'allegato, questo pulsante dà 404: è la sola cosa
-            da ricordare.
-          -->
-          <a
-            class="pulsante pulsante-primario"
-            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
-            >Scarica per macOS</a
-          >
-          <a class="pulsante" href="https://github.com/matteoferrando/MyDiveLog">Guarda il codice</a>
-          <a class="pulsante" href="privacy.html">Come tratta i tuoi dati</a>
+          Sopra le due piattaforme per cui l'applicazione è PENSATA — il Mac e
+          l'iPhone — e sotto, più piccole, le due per cui esiste. Non è modestia
+          mal riposta: chi arriva qui da un Mac deve trovare il suo pulsante
+          senza scegliere fra quattro, e chi arriva da un PC deve trovare il
+          proprio senza sentirsi dire che non è previsto. Due righe fanno
+          entrambe le cose; una riga sola con quattro pulsanti nessuna delle due.
+
+          IL PULSANTE SCARICA IL FILE, non porta alla pagina delle release. Chi
+          arriva qui vuole l'applicazione, e la pagina di GitHub è un elenco di
+          file, note e sorgenti compressi in cui il pacchetto è una riga fra le
+          altre: un passaggio in più e un'occasione di sbagliare file.
+
+          Il nome nell'indirizzo NON contiene il numero di versione, ed è il
+          punto: `releases/latest/download/<nome>` rimanda all'allegato con QUEL
+          nome nella release più recente, quindi il collegamento resta buono a
+          ogni pubblicazione. Se un giorno si pubblica una release senza quel
+          nome, il pulsante dà 404: è la sola cosa da ricordare.
+        -->
+        <div class="scarico">
+          <div class="pulsanti">
+            <a
+              class="pulsante pulsante-primario"
+              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
+              >Scarica per macOS</a
+            >
+            <!--
+              L'iPhone SI VEDE MA NON SI PREME, ed è una scelta contro
+              l'alternativa peggiore: un collegamento all'App Store verso una
+              scheda che non esiste ancora dà una pagina d'errore, e una pagina
+              d'errore dice «progetto abbandonato» molto più forte di quanto
+              «in arrivo» dica «non ancora pronto».
+
+              `aria-disabled` e non `disabled`: questo è un collegamento, non un
+              pulsante di modulo, e l'attributo che i lettori di schermo
+              capiscono è il primo. Il `tabindex="-1"` lo toglie dal giro della
+              tastiera, così non si arriva col tasto Tab su qualcosa che non
+              porta da nessuna parte.
+            -->
+            <span class="pulsante pulsante-attesa" role="link" aria-disabled="true" tabindex="-1">
+              iPhone <em>in arrivo</em>
+            </span>
+          </div>
+          <p class="scarico-nota">
+            Il pacchetto macOS è <strong>firmato e notarizzato da Apple</strong>: si apre con un doppio clic.
+            Serve un Mac Apple Silicon. La versione iPhone è <strong>in revisione da Apple</strong> — questo
+            pulsante si accende il giorno che passa.
+          </p>
+          <p class="scarico-altre">
+            L'abbiamo sviluppata anche per
+            <a
+              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
+              >Windows</a
+            >
+            e
+            <a
+              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
+              >Android</a
+            >
+            — <a href="#altre-piattaforme">leggi prima cosa cambia</a>.
+          </p>
         </div>
       </div>
 
@@ -163,7 +205,7 @@
     </div>
 
     <div class="contenitore">
-      <section data-quota="−10 m">
+      <section>
         <h2>Due computer, una sola immersione</h2>
         <p>
           Porti un computer al polso e un secondo di riserva. Ne hai cambiato uno negli anni. Scarichi sia
@@ -224,7 +266,7 @@
         </div>
       </section>
 
-      <section class="sezione-legge" data-quota="−14 m">
+      <section class="sezione-legge">
         <h2>Il libretto delle immersioni, come lo chiede la legge</h2>
         <p>
           Dal 10 maggio 2026 la legge italiana —
@@ -273,13 +315,22 @@
               dopo esser risalito.
             </p>
           </div>
-          <div class="riquadro">
-            <h3>Niente è obbligatorio</h3>
-            <p>
-              Un'immersione fra amici non ha un centro né una guida, e non per questo è irregolare. Nessun
-              campo rosso, nessun avviso: l'app tiene i dati, non fa la maestra.
-            </p>
-          </div>
+        </div>
+
+        <!--
+          QUESTO ERA UN QUARTO RIQUADRO, e stava da solo su una riga sua perché
+          la griglia ne mette tre. Un riquadro spaiato non è solo brutto: sembra
+          l'ultimo di un elenco che continua, e invece è la cosa più importante
+          della sezione — quella che dice che l'applicazione NON ti obbliga a
+          niente. Da sola, in evidenza, la si legge; quarta in una griglia, la
+          si salta.
+        -->
+        <div class="evidenza">
+          <p>
+            <strong>E niente di tutto questo è obbligatorio.</strong> Un'immersione fra amici non ha un centro
+            né una guida, e non per questo è irregolare: nessun campo rosso, nessun avviso, nessun promemoria.
+            L'app tiene i dati, non fa la maestra.
+          </p>
         </div>
 
         <p class="nota-legge">
@@ -290,7 +341,7 @@
         </p>
       </section>
 
-      <section data-quota="−18 m">
+      <section>
         <h2>Cosa fa</h2>
         <p>Un logbook per chi vuole capire cosa gli dicono i propri dati, non solo conservarli.</p>
 
@@ -356,7 +407,7 @@
         </div>
       </section>
 
-      <section data-quota="−26 m">
+      <section>
         <h2>Com'è fatta</h2>
         <p>
           Sono schermate vere, prese dall'applicazione con un archivio di prova: non ci sono ritocchi e non
@@ -415,7 +466,7 @@
         </div>
       </section>
 
-      <section data-quota="−34 m" class="prosa">
+      <section class="prosa">
         <h2>Il servizio di sincronizzazione</h2>
         <p>
           Chi usa più di un dispositivo può tenere l'archivio allineato. Si entra con un account
@@ -438,83 +489,81 @@
         </p>
       </section>
 
-      <section data-quota="−40 m" class="prosa">
+      <section class="prosa">
         <h2>Libero e aperto</h2>
         <p>
           MyDiveLog è software libero sotto licenza MIT: il codice si legge, si copia e si modifica. Non costa
           niente, non ha abbonamenti, non ha pubblicità e non raccoglie statistiche d'uso.
         </p>
         <p>
-          Il pacchetto macOS è
-          <a href="https://github.com/matteoferrando/MyDiveLog/releases/latest">nelle release</a>: è firmato
-          Developer ID e <strong>notarizzato da Apple</strong>, quindi si apre con un doppio clic. Serve un
-          Mac Apple Silicon.
-        </p>
-        <p>
-          La versione iPhone gira, ed è stata <strong>inviata all'App Store</strong>: nell'attesa si compila
-          dal sorgente, e le istruzioni stanno nel
-          <a href="https://github.com/matteoferrando/MyDiveLog">repository</a>.
+          Non è aperto per posa: è aperto perché un logbook decide dove finiscono i tuoi dati, e
+          <strong>l'unico modo di verificarlo è leggerlo</strong>. Ogni riga di codice che tocca le tue
+          immersioni è <a href="https://github.com/matteoferrando/MyDiveLog">pubblica su GitHub</a>, compresa
+          quella che calcola la decompressione — e quella che decide di non mandare niente da nessuna parte.
         </p>
       </section>
 
       <!--
-        WINDOWS E ANDROID STANNO IN FONDO, E NON PER MODESTIA.
+        LE INFORMAZIONI UTILI STANNO SOTTO IL PULSANTE, NON PRIMA.
 
-        Chi arriva su questa pagina da un Mac o da un iPhone non deve inciampare
-        in due pacchetti che nessuno ha provato. Chi invece li cerca li trova, e
-        li trova insieme a tutto quello che c'è da sapere prima di premere —
-        compreso quello che su quelle due versioni NON funziona. Un elenco di
-        limiti scritto prima del pulsante costa qualche scaricamento in meno e
-        risparmia la delusione di scoprirli dopo.
+        Prima c'era una sezione che si apriva con «non le ha mai provate
+        nessuno» e proseguiva elencando cosa mancava. Era onesta e faceva
+        esattamente il danno che vuole evitare: chi legge tre paragrafi di
+        avvertimenti prima di vedere un pulsante non scarica niente.
+
+        L'onestà non è sparita, si è spostata di posto e di tono. Quello che uno
+        deve sapere PRIMA di premere sta nel blocco di scarico, in due righe.
+        Quello che deve sapere DOPO — come si installa, cosa dirà il sistema,
+        come si verifica il file — sta qui, dove lo cerca chi ha già deciso.
       -->
-      <section data-quota="−43 m" class="prosa">
-        <h2>Windows e Android</h2>
+      <section id="altre-piattaforme">
+        <h2>Windows e Android: quello che c'è da sapere</h2>
         <p>
-          Ci sono, si scaricano, e <strong>non le ha mai provate nessuno</strong>. Qui non c'è un PC e non c'è
-          un telefono Android: dentro c'è lo stesso motore che gira su Mac e iPhone, con millequattrocento
-          controlli automatici dietro, ma il giro completo su quelle due piattaforme non l'ha fatto una
-          persona vera. Se le usi, sei tu la prima.
+          Fanno tutto quello che fa la versione Mac. Restano due differenze e due domande che il sistema ti
+          farà: meglio saperlo prima che dopo.
         </p>
-        <p>
-          Fanno <strong>tutto quello che fa la versione Mac</strong>: leggono i sette formati di file,
-          scaricano via Bluetooth da tutti i modelli del catalogo, analizzano, pianificano, esportano il
-          libretto in PDF, e l'accesso con Google e con Apple funziona.
-        </p>
+
+        <div class="griglia">
+          <div class="riquadro">
+            <h3>Su Android si riscarica a mano</h3>
+            <p>
+              Windows ti avvisa quando esce una versione nuova, come il Mac. Android no: un'applicazione che
+              si installa da sola chiederebbe un permesso che spaventa più di quanto serva. Quando esce una
+              versione nuova, l'APK si riprende da qui.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>Il sistema dirà che non ci conosce</h3>
+            <p>
+              Windows: «Ulteriori informazioni» → «Esegui comunque». Android: chiederà il permesso di
+              installare da questa origine, la stessa domanda che fa per qualunque app fuori dal Play Store.
+              Firmare costa un certificato annuale che un progetto gratuito non compra.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>L'impronta dice da dove viene</h3>
+            <p>
+              Il file non è firmato da un'autorità, quindi non racconta la propria origine. Lo fa la sua
+              impronta SHA-256, pubblicata accanto al pacchetto
+              <a href="https://github.com/matteoferrando/MyDiveLog/releases/latest"
+                >nella pagina delle release</a
+              >: se combacia con quella del file che hai scaricato, è il nostro.
+            </p>
+          </div>
+        </div>
+
         <div class="evidenza avvertenza">
           <p>
-            <strong>Una differenza sola, e riguarda Android:</strong> non si aggiorna da solo. Su Windows sì —
-            l'applicazione ti avvisa quando esce una versione nuova, come sul Mac — mentre su Android
-            un'applicazione che si installa da sé chiederebbe un permesso che spaventa più di quanto serva.
-            Quando esce una versione nuova, l'APK si riscarica da qui.
+            <strong>Nessuno le ha ancora provate sul serio.</strong> Qui non c'è un PC e non c'è un telefono
+            Android. Dentro gira lo stesso motore del Mac e dell'iPhone, con millequattrocento controlli
+            automatici dietro, ma il giro completo su quelle due piattaforme non l'ha fatto una persona vera.
+            Se qualcosa non torna, <a href="#segnala">scrivicelo qui sotto</a>: è il modo più veloce per farlo
+            diventare un problema di qualcun altro invece che tuo.
           </p>
         </div>
-        <p>
-          <strong>Windows dirà che il programma è sconosciuto</strong>, e ha ragione: firmarlo costa un
-          certificato annuale che un progetto gratuito non compra. Si apre da «Ulteriori informazioni» →
-          «Esegui comunque». <strong>Android chiederà il permesso di installare da questa origine</strong>: è
-          la stessa domanda che fa per qualunque applicazione fuori dal Play Store.
-        </p>
-        <div class="pulsanti">
-          <a
-            class="pulsante"
-            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
-            >Scarica per Windows</a
-          >
-          <a
-            class="pulsante"
-            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
-            >Scarica per Android</a
-          >
-        </div>
-        <p class="nota-impronte">
-          Nessuno dei due è firmato da un'autorità, quindi il file non dice da dove viene. Quello che lo dice
-          è la sua <strong>impronta SHA-256</strong>, pubblicata accanto al pacchetto
-          <a href="https://github.com/matteoferrando/MyDiveLog/releases/latest">nella pagina delle release</a
-          >: se combacia con quella del file che hai scaricato, è il nostro.
-        </p>
       </section>
 
-      <section data-quota="−46 m" class="prosa">
+      <section class="prosa">
         <h2>Un avvertimento che conta</h2>
         <div class="evidenza avvertenza">
           <p>
@@ -526,6 +575,105 @@
             giudizio. L'immersione subacquea comporta rischi, anche mortali.
           </p>
         </div>
+      </section>
+    </div>
+
+    <div class="contenitore">
+      <!--
+        ► IL MODULO DELLE SEGNALAZIONI. ◄
+
+        PERCHÉ UN MODULO E NON UN INDIRIZZO EMAIL. Un indirizzo email chiede a
+        chi segnala di aprire un programma, inventarsi un oggetto e decidere da
+        solo cosa scrivere. Tre decisioni, e ognuna è un motivo per rimandare.
+        Quattro campi con dentro già le domande giuste costano un minuto e
+        arrivano completi — soprattutto il campo «cosa usi», che è la prima cosa
+        che chiederemmo comunque e che nessuno pensa mai a scrivere.
+
+        DOVE FINISCE. In un foglio di calcolo, attraverso uno script pubblicato
+        da Google. Non c'è nessun servizio di terze parti caricato in questa
+        pagina: il modulo è HTML nostro, e quando si preme parte UNA richiesta
+        verso quello script. Chi non lo usa non contatta nessuno.
+
+        `no-cors` NON È UNA SCORCIATOIA MAL POSTA. Uno script pubblicato da
+        Google risponde con un rimando verso un altro dominio, e il browser non
+        lascia leggere quella risposta a una pagina che sta altrove. Si può
+        scegliere fra ricevere un errore che non significa niente o dichiarare
+        in partenza che la risposta non ci interessa. La seconda è vera: quello
+        che ci interessa è che la richiesta parta.
+        CONSEGUENZA DA NON NASCONDERE: non possiamo sapere se è arrivata. Per
+        questo sotto al messaggio di conferma c'è comunque l'indirizzo email —
+        se la segnalazione era importante e nessuno risponde, esiste una seconda
+        strada che non dipende da noi.
+      -->
+      <section id="segnala">
+        <h2>Hai trovato qualcosa che non va?</h2>
+        <p>
+          Un difetto, un computer subacqueo che non si collega, un numero che non torna, o anche solo una cosa
+          che manca. <strong>Le segnalazioni sono il modo in cui questo progetto migliora</strong>, e questa è
+          la strada più corta.
+        </p>
+
+        <form
+          class="modulo"
+          id="modulo-segnalazione"
+          data-attesa="Mando…"
+          data-fatto="Ricevuta. Grazie: le segnalazioni sono il modo in cui questo progetto migliora."
+          data-storto="Non è partita. Riprova, o scrivi a m.ferrando@gmail.com."
+        >
+          <div class="campo">
+            <label for="s-tipo">Di cosa si tratta</label>
+            <select id="s-tipo" name="tipo">
+              <option>Qualcosa non funziona</option>
+              <option>Un computer subacqueo che non si collega</option>
+              <option>Un numero che non mi torna</option>
+              <option>Vorrei che facesse anche…</option>
+              <option>Altro</option>
+            </select>
+          </div>
+
+          <div class="campo">
+            <label for="s-dove">Cosa usi</label>
+            <input
+              id="s-dove"
+              name="dove"
+              type="text"
+              placeholder="es. Mac, versione 1.6.4 — oppure Windows 11, oppure Pixel 8"
+            />
+          </div>
+
+          <div class="campo campo-largo">
+            <label for="s-testo">Raccontacelo</label>
+            <textarea
+              id="s-testo"
+              name="testo"
+              rows="5"
+              required
+              placeholder="Cosa hai fatto, cosa ti aspettavi, cosa è successo invece. Anche poche righe vanno benissimo."
+            ></textarea>
+          </div>
+
+          <div class="campo campo-largo">
+            <label for="s-contatto">La tua email <span class="facoltativo">(facoltativa)</span></label>
+            <input
+              id="s-contatto"
+              name="contatto"
+              type="email"
+              placeholder="serve solo se vuoi una risposta"
+            />
+          </div>
+
+          <div class="campo campo-largo modulo-fondo">
+            <button class="pulsante pulsante-primario" type="submit">Manda la segnalazione</button>
+            <p class="modulo-esito" id="modulo-esito" role="status" aria-live="polite"></p>
+          </div>
+        </form>
+
+        <p class="nota-modulo">
+          Finisce in un foglio che leggiamo noi. Non c'è nessun account da fare, e l'email la chiediamo solo
+          se vuoi una risposta. Se preferisci la strada di sempre:
+          <a href="mailto:m.ferrando@gmail.com">m.ferrando@gmail.com</a>, oppure
+          <a href="https://github.com/matteoferrando/MyDiveLog/issues">apri una issue su GitHub</a>.
+        </p>
       </section>
     </div>
 
@@ -588,5 +736,60 @@
         <p>Matteo Ferrando — <a href="mailto:m.ferrando@gmail.com">m.ferrando@gmail.com</a></p>
       </footer>
     </div>
+    <script>
+      /*
+        L'invio del modulo. Diciassette righe, nessuna libreria.
+
+        L'INDIRIZZO STA IN UNA COSTANTE SOLA, in cima, perché è l'unica cosa che
+        cambia il giorno che si ripubblica lo script di Google: si sostituisce
+        qui e nella pagina inglese, e non c'è nient'altro da toccare.
+
+        QUANDO NON C'È ANCORA UN INDIRIZZO — la stringa vuota — il modulo non
+        finge di funzionare: apre la posta con dentro già tutto quello che è
+        stato scritto. Un modulo che accetta e butta via è la cosa peggiore che
+        possa esserci in una pagina di segnalazioni.
+      */
+      const SCRIPT_SEGNALAZIONI = '';
+
+      document.getElementById('modulo-segnalazione')?.addEventListener('submit', async (evento) => {
+        evento.preventDefault();
+        const modulo = evento.target;
+        const esito = document.getElementById('modulo-esito');
+        const dati = Object.fromEntries(new FormData(modulo));
+
+        if (!SCRIPT_SEGNALAZIONI) {
+          const corpo = Object.entries(dati)
+            .map(([chiave, valore]) => `${chiave}: ${valore}`)
+            .join('\n\n');
+          location.href = `mailto:m.ferrando@gmail.com?subject=${encodeURIComponent(
+            'MyDiveLog — segnalazione',
+          )}&body=${encodeURIComponent(corpo)}`;
+          return;
+        }
+
+        const pulsante = modulo.querySelector('button');
+        pulsante.disabled = true;
+        esito.textContent = modulo.dataset.attesa;
+        try {
+          // `no-cors`: uno script pubblicato da Google risponde con un rimando
+          // verso un altro dominio, e il browser non lascia leggere quella
+          // risposta a una pagina che sta altrove. Si sceglie fra un errore che
+          // non significa niente e dichiarare che la risposta non ci interessa.
+          // La seconda è vera: quello che ci interessa è che la richiesta parta.
+          await fetch(SCRIPT_SEGNALAZIONI, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ ...dati, pagina: location.pathname }),
+          });
+          modulo.reset();
+          esito.textContent = modulo.dataset.fatto;
+        } catch {
+          esito.textContent = modulo.dataset.storto;
+        } finally {
+          pulsante.disabled = false;
+        }
+      });
+    </script>
   </body>
 </html>

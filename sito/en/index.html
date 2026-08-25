@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/" />
-    <link rel="stylesheet" href="../stile.css?v=4e213534" />
+    <link rel="stylesheet" href="../stile.css?v=3049dfce" />
     <link rel="alternate" hreflang="it" href="/" />
     <link rel="alternate" hreflang="en" href="/en/" />
   </head>
@@ -63,30 +63,36 @@
           <strong>Italian law 70/2026</strong> asks of a dive logbook — ready as a PDF. Free, no account, and
           nothing leaves your device.
         </p>
-        <div class="pulsanti">
-          <!-- Vedi il commento gemello nella pagina italiana. -->
-          <!--
-            IL PULSANTE SCARICA IL FILE, non porta alla pagina delle release.
-            Chi arriva qui vuole l'applicazione, e la pagina di GitHub è un
-            elenco di file, note e sorgenti compressi in cui il .dmg è una riga
-            fra le altre: un passaggio in più e un'occasione di sbagliare file.
-
-            Il nome del pacchetto in questo indirizzo NON contiene il numero di
-            versione, ed è il punto: `releases/latest/download/<nome>` rimanda
-            all'allegato con QUEL nome nella release più recente, quindi il link
-            resta buono a ogni pubblicazione. Il .dmg col numero dentro
-            (MyDiveLog_0.2.0_aarch64.dmg) sta nella release accanto a questo,
-            perché serve a chi vuole una versione precisa; il sito punta alla
-            copia dal nome stabile. Se un giorno si pubblica una release senza
-            quell'allegato, questo pulsante dà 404: è la sola cosa da ricordare.
-          -->
-          <a
-            class="pulsante pulsante-primario"
-            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
-            >Download for macOS</a
-          >
-          <a class="pulsante" href="https://github.com/matteoferrando/MyDiveLog">View the source</a>
-          <a class="pulsante" href="privacy.html">How it handles your data</a>
+        <!-- Vedi il commento gemello nella pagina italiana. -->
+        <div class="scarico">
+          <div class="pulsanti">
+            <a
+              class="pulsante pulsante-primario"
+              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
+              >Download for macOS</a
+            >
+            <span class="pulsante pulsante-attesa" role="link" aria-disabled="true" tabindex="-1">
+              iPhone <em>coming soon</em>
+            </span>
+          </div>
+          <p class="scarico-nota">
+            The macOS package is <strong>signed and notarised by Apple</strong>: it opens with a double click.
+            Needs an Apple Silicon Mac. The iPhone version is <strong>in review with Apple</strong> — this
+            button lights up the day it passes.
+          </p>
+          <p class="scarico-altre">
+            We also built it for
+            <a
+              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
+              >Windows</a
+            >
+            and
+            <a
+              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
+              >Android</a
+            >
+            — <a href="#altre-piattaforme">read what differs first</a>.
+          </p>
         </div>
       </div>
     </div>
@@ -157,7 +163,7 @@
     </div>
 
     <div class="contenitore">
-      <section data-quota="−10 m">
+      <section>
         <h2>Two computers, one dive</h2>
         <p>
           You wear one computer and carry a backup. You changed computer a few years ago. You download both
@@ -215,7 +221,7 @@
         </div>
       </section>
 
-      <section class="sezione-legge" data-quota="−14 m">
+      <section class="sezione-legge">
         <h2>The dive logbook Italian law asks for</h2>
         <p>
           Since 10 May 2026 Italian law — <strong>law 70/2026, article 12(8)</strong> — requires every diver
@@ -264,13 +270,15 @@
               minutes after surfacing.
             </p>
           </div>
-          <div class="riquadro">
-            <h3>Nothing is mandatory</h3>
-            <p>
-              A dive with friends has no centre and no guide, and that does not make it irregular. No red
-              fields, no warnings: the app keeps the data, it does not lecture you.
-            </p>
-          </div>
+        </div>
+
+        <!-- Vedi il commento gemello nella pagina italiana. -->
+        <div class="evidenza">
+          <p>
+            <strong>And none of this is mandatory.</strong> A dive with friends has no centre and no guide,
+            and that does not make it irregular: no red fields, no warnings, no reminders. The app keeps the
+            data, it does not lecture you.
+          </p>
         </div>
 
         <p class="nota-legge">
@@ -281,7 +289,7 @@
         </p>
       </section>
 
-      <section data-quota="−18 m">
+      <section>
         <h2>What it does</h2>
         <p>A logbook for divers who want to understand what their data is telling them, not just store it.</p>
 
@@ -346,7 +354,7 @@
         </div>
       </section>
 
-      <section data-quota="−26 m">
+      <section>
         <h2>What it looks like</h2>
         <p>
           Real screenshots, taken from the app with a sample logbook: nothing retouched, and nothing the
@@ -405,7 +413,7 @@
         </div>
       </section>
 
-      <section data-quota="−34 m" class="prosa">
+      <section class="prosa">
         <h2>The sync service</h2>
         <p>
           If you use more than one device, you can keep your logbook aligned. You sign in with an
@@ -429,74 +437,68 @@
         </p>
       </section>
 
-      <section data-quota="−40 m" class="prosa">
+      <section class="prosa">
         <h2>Free and open</h2>
         <p>
           MyDiveLog is free software under the MIT licence: the code can be read, copied and modified. It
           costs nothing, has no subscriptions, no advertising, and collects no usage statistics.
         </p>
         <p>
-          The macOS package is
-          <a href="https://github.com/matteoferrando/MyDiveLog/releases/latest">in the releases</a>: signed
-          with a Developer ID and <strong>notarised by Apple</strong>, so it opens with a double click. It
-          needs an Apple Silicon Mac.
-        </p>
-        <p>
-          The iPhone version runs, and it has been <strong>submitted to the App Store</strong>: meanwhile you
-          build it from source, and the instructions are in the
-          <a href="https://github.com/matteoferrando/MyDiveLog">repository</a>.
+          It is not open for show: a logbook decides where your data ends up, and
+          <strong>the only way to check that is to read it</strong>. Every line that touches your dives is
+          <a href="https://github.com/matteoferrando/MyDiveLog">public on GitHub</a>, including the one that
+          computes decompression — and the one that decides to send nothing anywhere.
         </p>
       </section>
 
       <!-- Vedi il commento gemello nella pagina italiana. -->
-      <section data-quota="−43 m" class="prosa">
-        <h2>Windows and Android</h2>
+      <section id="altre-piattaforme">
+        <h2>Windows and Android: what to know</h2>
         <p>
-          They exist, you can download them, and <strong>nobody has ever tried them</strong>. There is no PC
-          and no Android phone here: inside is the same engine that runs on Mac and iPhone, with fourteen
-          hundred automated checks behind it, but no real person has taken those two builds all the way round.
-          If you use one, you are the first.
+          They do everything the Mac version does. Two differences remain, and two questions the system will
+          ask you: better to know now than later.
         </p>
-        <p>
-          They do <strong>everything the Mac version does</strong>: read all seven file formats, download over
-          Bluetooth from every model in the catalogue, analyse, plan, export the logbook as a PDF, and signing
-          in with Google or Apple works.
-        </p>
+
+        <div class="griglia">
+          <div class="riquadro">
+            <h3>Android re-downloads by hand</h3>
+            <p>
+              Windows tells you when a new version is out, like the Mac. Android does not: an app that
+              installs itself would have to ask for a permission scarier than it is worth. When a new version
+              appears, get the APK again from here.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>The system will say it doesn't know us</h3>
+            <p>
+              Windows: “More info” → “Run anyway”. Android: it will ask permission to install from this
+              source, the same question it asks for any app outside the Play Store. Signing costs a yearly
+              certificate a free project does not buy.
+            </p>
+          </div>
+          <div class="riquadro">
+            <h3>The fingerprint tells you where it came from</h3>
+            <p>
+              The file is not signed by an authority, so it cannot vouch for itself. Its SHA-256 fingerprint
+              can, and it is published next to the package
+              <a href="https://github.com/matteoferrando/MyDiveLog/releases/latest">on the releases page</a>:
+              if it matches the file you downloaded, it is ours.
+            </p>
+          </div>
+        </div>
+
         <div class="evidenza avvertenza">
           <p>
-            <strong>One difference, and it is Android's:</strong> it does not update itself. Windows does —
-            the app tells you when a new version is out, just like on the Mac — while on Android an app that
-            installed itself would have to ask for a permission scarier than it is worth. When a new version
-            appears, download the APK again from here.
+            <strong>Nobody has really tried them yet.</strong> There is no PC and no Android phone here.
+            Inside runs the same engine as the Mac and iPhone builds, with fourteen hundred automated checks
+            behind it, but no real person has taken those two all the way round. If something looks wrong,
+            <a href="#segnala">tell us below</a>: it is the fastest way to make it someone else's problem
+            instead of yours.
           </p>
         </div>
-        <p>
-          <strong>Windows will call the program unknown</strong>, and it is right: signing it costs a yearly
-          certificate a free project does not buy. Open it with “More info” → “Run anyway”.
-          <strong>Android will ask permission to install from this source</strong>: the same question it asks
-          for any app outside the Play Store.
-        </p>
-        <div class="pulsanti">
-          <a
-            class="pulsante"
-            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
-            >Download for Windows</a
-          >
-          <a
-            class="pulsante"
-            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
-            >Download for Android</a
-          >
-        </div>
-        <p class="nota-impronte">
-          Neither is signed by an authority, so the file cannot tell you where it came from. Its
-          <strong>SHA-256 fingerprint</strong> can, and it is published next to the package
-          <a href="https://github.com/matteoferrando/MyDiveLog/releases/latest">on the releases page</a>: if
-          it matches the file you downloaded, it is ours.
-        </p>
       </section>
 
-      <section data-quota="−46 m" class="prosa">
+      <section class="prosa">
         <h2>One warning that matters</h2>
         <div class="evidenza avvertenza">
           <p>
@@ -508,6 +510,74 @@
             your judgement. Scuba diving carries risks, including death.
           </p>
         </div>
+      </section>
+    </div>
+
+    <div class="contenitore">
+      <!-- Vedi il commento gemello nella pagina italiana. -->
+      <section id="segnala">
+        <h2>Found something wrong?</h2>
+        <p>
+          A bug, a dive computer that will not connect, a number that looks off, or just something missing.
+          <strong>Reports are how this project gets better</strong>, and this is the shortest way in.
+        </p>
+
+        <form
+          class="modulo"
+          id="modulo-segnalazione"
+          data-attesa="Sending…"
+          data-fatto="Got it. Thank you — reports are how this project gets better."
+          data-storto="It did not go through. Try again, or write to m.ferrando@gmail.com."
+        >
+          <div class="campo">
+            <label for="s-tipo">What is it about</label>
+            <select id="s-tipo" name="tipo">
+              <option>Something doesn't work</option>
+              <option>A dive computer that won't connect</option>
+              <option>A number that looks wrong</option>
+              <option>I wish it also did…</option>
+              <option>Something else</option>
+            </select>
+          </div>
+
+          <div class="campo">
+            <label for="s-dove">What you're using</label>
+            <input
+              id="s-dove"
+              name="dove"
+              type="text"
+              placeholder="e.g. Mac, version 1.6.4 — or Windows 11, or a Pixel 8"
+            />
+          </div>
+
+          <div class="campo campo-largo">
+            <label for="s-testo">Tell us</label>
+            <textarea
+              id="s-testo"
+              name="testo"
+              rows="5"
+              required
+              placeholder="What you did, what you expected, what happened instead. A few lines are plenty."
+            ></textarea>
+          </div>
+
+          <div class="campo campo-largo">
+            <label for="s-contatto">Your email <span class="facoltativo">(optional)</span></label>
+            <input id="s-contatto" name="contatto" type="email" placeholder="only if you want an answer" />
+          </div>
+
+          <div class="campo campo-largo modulo-fondo">
+            <button class="pulsante pulsante-primario" type="submit">Send the report</button>
+            <p class="modulo-esito" id="modulo-esito" role="status" aria-live="polite"></p>
+          </div>
+        </form>
+
+        <p class="nota-modulo">
+          It lands in a spreadsheet we read. No account to create, and we only ask for your email if you want
+          a reply. If you prefer the old way:
+          <a href="mailto:m.ferrando@gmail.com">m.ferrando@gmail.com</a>, or
+          <a href="https://github.com/matteoferrando/MyDiveLog/issues">open an issue on GitHub</a>.
+        </p>
       </section>
     </div>
 
@@ -557,5 +627,60 @@
         <p>Matteo Ferrando — <a href="mailto:m.ferrando@gmail.com">m.ferrando@gmail.com</a></p>
       </footer>
     </div>
+    <script>
+      /*
+        L'invio del modulo. Diciassette righe, nessuna libreria.
+
+        L'INDIRIZZO STA IN UNA COSTANTE SOLA, in cima, perché è l'unica cosa che
+        cambia il giorno che si ripubblica lo script di Google: si sostituisce
+        qui e nella pagina inglese, e non c'è nient'altro da toccare.
+
+        QUANDO NON C'È ANCORA UN INDIRIZZO — la stringa vuota — il modulo non
+        finge di funzionare: apre la posta con dentro già tutto quello che è
+        stato scritto. Un modulo che accetta e butta via è la cosa peggiore che
+        possa esserci in una pagina di segnalazioni.
+      */
+      const SCRIPT_SEGNALAZIONI = '';
+
+      document.getElementById('modulo-segnalazione')?.addEventListener('submit', async (evento) => {
+        evento.preventDefault();
+        const modulo = evento.target;
+        const esito = document.getElementById('modulo-esito');
+        const dati = Object.fromEntries(new FormData(modulo));
+
+        if (!SCRIPT_SEGNALAZIONI) {
+          const corpo = Object.entries(dati)
+            .map(([chiave, valore]) => `${chiave}: ${valore}`)
+            .join('\n\n');
+          location.href = `mailto:m.ferrando@gmail.com?subject=${encodeURIComponent(
+            'MyDiveLog — segnalazione',
+          )}&body=${encodeURIComponent(corpo)}`;
+          return;
+        }
+
+        const pulsante = modulo.querySelector('button');
+        pulsante.disabled = true;
+        esito.textContent = modulo.dataset.attesa;
+        try {
+          // `no-cors`: uno script pubblicato da Google risponde con un rimando
+          // verso un altro dominio, e il browser non lascia leggere quella
+          // risposta a una pagina che sta altrove. Si sceglie fra un errore che
+          // non significa niente e dichiarare che la risposta non ci interessa.
+          // La seconda è vera: quello che ci interessa è che la richiesta parta.
+          await fetch(SCRIPT_SEGNALAZIONI, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ ...dati, pagina: location.pathname }),
+          });
+          modulo.reset();
+          esito.textContent = modulo.dataset.fatto;
+        } catch {
+          esito.textContent = modulo.dataset.storto;
+        } finally {
+          pulsante.disabled = false;
+        }
+      });
+    </script>
   </body>
 </html>

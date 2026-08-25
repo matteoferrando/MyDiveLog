@@ -361,28 +361,18 @@ section:first-of-type {
 }
 
 /*
-  La scala dei metri. Ogni sezione dichiara la propria quota con
-  `data-quota="-10 m"`, e qui diventa una tacca sul bordo sinistro. Sotto i
-  1100 px sparisce invece di accavallarsi al testo: una decorazione che rende
-  illeggibile il contenuto ha smesso di essere una decorazione.
-*/
-section[data-quota]::before {
-  content: attr(data-quota) ' ────';
-  position: absolute;
-  left: -128px;
-  top: calc(6vh + 6px);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: rgba(157, 220, 255, 0.34);
-  white-space: nowrap;
-}
+  QUI C'ERA UNA SECONDA SCALA DEI METRI, e se n'è andata.
 
-@media (max-width: 1180px) {
-  section[data-quota]::before {
-    display: none;
-  }
-}
+  Ogni sezione dichiarava la propria quota — `data-quota="−10 m"` — e diventava
+  una tacca sul bordo sinistro. L'idea era carina e il difetto era fatale: a
+  destra scorre il profondimetro vero, che segue lo scorrimento, e a sinistra
+  c'erano numeri fermi che non avevano nessun rapporto con quelli. Due scale di
+  profondità sullo stesso schermo che dicono cose diverse non sono una
+  decorazione doppia: sono una che smentisce l'altra, e chi legge si ferma a
+  chiedersi quale delle due sbagli.
+
+  Il nastro a destra resta perché è vero: si muove con la pagina. Questa no.
+*/
 
 h2 {
   font-size: clamp(1.6rem, 3.4vw, 2.35rem);
@@ -749,6 +739,211 @@ a {
 
 .richiamo .pulsanti {
   justify-content: center;
+}
+
+/*
+  ► IL BLOCCO DI SCARICO. ◄
+
+  Due livelli, e la distanza fra i due è il messaggio: sopra le piattaforme per
+  cui l'applicazione è pensata, sotto quelle per cui esiste. Se le quattro
+  stessero sulla stessa riga con lo stesso peso, chi arriva da un Mac dovrebbe
+  scegliere fra quattro pulsanti — e una scelta in più su una pagina di
+  presentazione è gente che non scarica.
+*/
+.scarico {
+  margin-top: 30px;
+}
+
+.scarico-nota,
+.scarico-altre {
+  max-width: var(--misura);
+  color: var(--testo-tenue);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.scarico-nota {
+  margin: 18px 0 0;
+}
+
+/*
+  La riga delle altre piattaforme: più piccola, e staccata da una linea sottile.
+  La linea fa il lavoro che farebbe un'intestazione «Altre piattaforme» senza
+  occupare una riga intera per dire una cosa che si capisce guardando.
+*/
+.scarico-altre {
+  margin: 16px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--bordo);
+  font-size: 0.86rem;
+  opacity: 0.92;
+}
+
+/*
+  IL PULSANTE CHE NON SI PREME.
+
+  Ha la forma degli altri e il colore di niente: bordo tratteggiato, sfondo
+  appena accennato, cursore che non cambia. Deve leggersi come «questo posto è
+  prenotato», non come «questo pulsante è rotto» — la differenza la fa il
+  tratteggio, che nessun pulsante attivo ha mai.
+*/
+.pulsante-attesa {
+  border-style: dashed;
+  border-color: rgba(157, 220, 255, 0.28);
+  background: transparent;
+  color: var(--testo-tenue);
+  cursor: default;
+}
+
+.pulsante-attesa:hover {
+  transform: none;
+  border-color: rgba(157, 220, 255, 0.28);
+  background: transparent;
+}
+
+.pulsante-attesa em {
+  font-style: normal;
+  color: var(--ambra);
+  font-weight: 600;
+}
+
+/*
+  ► IL MODULO DELLE SEGNALAZIONI. ◄
+
+  Due colonne dove c'è spazio, una sola sul telefono. I campi lunghi — il
+  racconto e l'email — attraversano tutta la larghezza anche a due colonne:
+  un'area di testo alta e stretta invita a scrivere una riga, e una riga sola
+  non basta mai a capire un difetto.
+*/
+.modulo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin: 28px 0 0;
+}
+
+.campo-largo {
+  grid-column: 1 / -1;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.modulo label {
+  font-size: 0.86rem;
+  font-weight: 560;
+  color: var(--riflesso);
+  letter-spacing: 0.01em;
+}
+
+.facoltativo {
+  color: var(--testo-tenue);
+  font-weight: 400;
+}
+
+.modulo input,
+.modulo select,
+.modulo textarea {
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--testo);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--bordo);
+  border-radius: 11px;
+  padding: 12px 14px;
+  width: 100%;
+  transition:
+    border-color 0.18s,
+    background 0.18s;
+}
+
+.modulo textarea {
+  resize: vertical;
+  min-height: 120px;
+  line-height: 1.55;
+}
+
+.modulo input::placeholder,
+.modulo textarea::placeholder {
+  color: rgba(159, 182, 204, 0.7);
+}
+
+.modulo input:focus,
+.modulo select:focus,
+.modulo textarea:focus {
+  outline: none;
+  border-color: rgba(67, 214, 255, 0.55);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/*
+  La freccia del menu a tendina disegnata a mano, perché quella di sistema
+  arriva col suo sfondo chiaro e su questa pagina scura sembra un buco. È
+  l'unico posto del foglio in cui si sostituisce un controllo nativo, e si fa
+  solo perché `appearance: none` lascia intatto tutto il resto — tastiera
+  compresa.
+*/
+.modulo select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--riflesso) 50%),
+    linear-gradient(135deg, var(--riflesso) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) calc(50% + 2px),
+    calc(100% - 14px) calc(50% + 2px);
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 40px;
+}
+
+.modulo select option {
+  background: var(--venti);
+  color: var(--testo);
+}
+
+.modulo-fondo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.modulo-fondo button {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.modulo-fondo button:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+/*
+  L'esito sta ACCANTO al pulsante e non sotto: comparendo di fianco non sposta
+  niente, e una pagina che si riassesta sotto le dita mentre leggi la conferma
+  è il modo più semplice per far dubitare che sia andata bene.
+*/
+.modulo-esito {
+  margin: 0;
+  max-width: none;
+  font-size: 0.9rem;
+  color: var(--riflesso);
+}
+
+.nota-modulo {
+  margin-top: 22px;
+  font-size: 0.88rem;
+  color: var(--testo-tenue);
+}
+
+@media (max-width: 760px) {
+  .modulo {
+    grid-template-columns: 1fr;
+  }
 }
 
 /*
