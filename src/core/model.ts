@@ -581,7 +581,7 @@ export interface DiveMetrics {
    * **«consumo di superficie»**, che è corretto e non ha bisogno di sigle.
    */
   rmvLpm?: number;
-  /** SAC in bar/min sulla bombola principale (dipende dalla bombola: meno confrontabile). */
+  /** Consumo in bar/min sulla bombola principale (dipende dalla bombola: meno confrontabile). */
   sacBarPerMin?: number;
   /** Pressione a fine immersione sulla bombola principale, bar. */
   endPressureBar?: number;

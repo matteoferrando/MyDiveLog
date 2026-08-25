@@ -100,7 +100,7 @@ export function nextDiveBriefing(
         id: 'residual',
         level: residualN2Bar > 0.15 ? 'warning' : 'info',
         headline: `Hai ancora ${residualN2Bar.toFixed(2)} bar di azoto in più del normale`,
-        detail: `Sono passate ${fmtHours(hoursSinceLast)} dall'ultima immersione. Se scendi adesso non riparti da zero: la stessa immersione ti farà uscire con un GF99 più alto, e il computer lo terrà in conto — questa nota serve a non sorprendersene.`,
+        detail: `Sono passate ${fmtHours(hoursSinceLast)} dall'ultima immersione. Se scendi adesso non riparti da zero: la stessa immersione ti farà uscire più carico, e il computer lo terrà in conto.`,
         goTo: 'planner',
         priority: residualN2Bar > 0.15 ? 10 : 45,
       });

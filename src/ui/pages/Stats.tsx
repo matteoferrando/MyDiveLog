@@ -818,7 +818,7 @@ function Distributions({ dives }: { dives: Dive[] }) {
       id: 'ascent',
       title: `${t('Velocità di risalita massima (m/min)')} — ${t('limite')} ${LIMITS.ascentRateDeepMpm}`,
       bins: ascent,
-      note: t('Il valore massimo di ciascuna immersione, su finestra di 30 s.'),
+      note: t('Il valore massimo di ciascuna immersione.'),
     },
     {
       id: 'rmv',

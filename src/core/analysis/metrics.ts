@@ -622,7 +622,7 @@ function analyseGas(dive: Dive, samples: Sample[], avgAta: number | undefined, c
   let rmvLpm: number | undefined;
   if (avgAta === undefined && hasTankPressure && hasCylinderVolume) {
     caveats.push(
-      'Profondità media sconosciuta (nessun profilo campionato): il consumo in L/min non è calcolabile, resta il SAC in bar/min.',
+      'Profondità media sconosciuta (nessun profilo campionato): l’RMV in L/min non è calcolabile, resta il consumo in bar/min.',
     );
   }
   if (avgAta !== undefined && hasCylinderVolume && consumedBarL > 0 && durationMin > 0 && avgAta > 0) {
@@ -643,11 +643,11 @@ function analyseGas(dive: Dive, samples: Sample[], avgAta: number | undefined, c
        * che riguarda una bombola sola, e dirlo dove il numero viene letto.
        */
       caveats.push(
-        'Più bombole: il consumo in L/min è calcolato sul totale di tutte, mentre il SAC in bar/min, la pressione finale e la frazione di riserva riguardano SOLO la prima bombola — i bar di bombole di volume diverso non si sommano.',
+        'Più bombole: l’RMV in L/min è calcolato sul totale di tutte, mentre il consumo in bar/min, la pressione finale e la frazione di riserva riguardano SOLO la prima bombola — i bar di bombole di volume diverso non si sommano.',
       );
     }
   } else if (hasTankPressure && !hasCylinderVolume) {
-    caveats.push('Volume bombola non indicato: calcolabile solo il SAC in bar/min, non il consumo in L/min.');
+    caveats.push('Volume bombola non indicato: calcolabile solo il consumo in bar/min, non l’RMV in L/min.');
   } else if (!hasTankPressure) {
     caveats.push('Nessuna pressione bombola: consumo gas non calcolabile.');
   }

@@ -72,16 +72,29 @@ export interface Goal {
   description: string;
 }
 
+/*
+ * I NOMI SONO QUELLI DELLA DIDATTICA, non descrizioni nostre.
+ *
+ * «Passaggio al tecnico» e «Profondo ricreativo» erano frasi inventate qui
+ * dentro: descrivevano bene la cosa, ma non sono come le chiama nessuno. Chi si
+ * immerge riconosce **Subacquea Tecnica** e **Avanzato Ricreativo**, che sono i
+ * nomi dei percorsi formativi — e un obiettivo che porta il nome giusto si
+ * sceglie senza doverci pensare.
+ *
+ * Gli `id` restano quelli: finiscono nelle impostazioni salvate e nei backup, e
+ * rinominarli farebbe ripartire da «Miglioramento generale» chi aveva scelto
+ * altro. Un'etichetta si cambia, una chiave d'archivio no.
+ */
 export const GOALS: Goal[] = [
   {
     id: 'tec',
-    label: 'Passaggio al tecnico',
+    label: 'Subacquea Tecnica',
     description:
       'Immersioni con decompressione pianificata, configurazione hogarthiana, gestione di più miscele.',
   },
   {
     id: 'deep-recreational',
-    label: 'Profondo ricreativo',
+    label: 'Avanzato Ricreativo',
     description: 'Consolidare la fascia 30–40 m in curva, con margini di gas ampi.',
   },
   {
@@ -184,7 +197,7 @@ const ruleGasLevel: Rule = (agg) => {
       severity: 'good',
       headline: `Consumo basso e utilizzabile per la pianificazione: ${rmv.toFixed(1)} L/min`,
       detail:
-        'A questo livello il consumo è abbastanza stabile per essere usato nei calcoli di gas con un margine ragionevole. Continua a registrare pressione iniziale e finale a ogni immersione: un RMV affidabile vale più di uno basso.',
+        'A questo livello il consumo è abbastanza stabile per essere usato nei calcoli di gas con un margine ragionevole. Continua a registrare pressione iniziale e finale a ogni immersione: un consumo affidabile vale più di uno basso.',
       evidence,
       drills: ['Verifica il valore su miscele e profondità diverse prima di usarlo per pianificare.'],
       priority: 15,
@@ -206,7 +219,7 @@ const ruleGasLevel: Rule = (agg) => {
     target: `Portare la media sotto ${BENCHMARK.rmvGood} L/min nelle prossime 10 immersioni.`,
     drills: [
       'Prova di zavorra a fine immersione con 50 bar: devi restare fermo a 5 m con polmoni a metà. Togli piombo finché non ci riesci.',
-      'Sospensione statica: 5 minuti a 6 m senza toccare il jacket e senza usare le pinne. Fallo in piscina il venerdì.',
+      'Sospensione statica: 5 minuti a 6 m senza toccare il jacket e senza usare le pinne. In piscina o su un fondale basso.',
       "Pinneggiata a rana per tutta la fase di fondo di un'immersione: riduce la spinta parassita e il consumo con essa.",
       'Ripeti lo stesso sito due volte a un mese di distanza e confronta il consumo: elimina la variabile "immersione diversa".',
     ],
@@ -440,7 +453,7 @@ const ruleGasReserve: Rule = (agg, dives) => {
     severity: rate > 0.2 ? 'serious' : 'warning',
     headline: `Uscita sotto i 50 bar nel ${pct(rate)} delle immersioni`,
     detail:
-      'Una riserva sottile funziona finché tutto va secondo previsione. Nel percorso verso il tecnico la logica cambia: il gas di riserva non è "quello che resta" ma una quantità calcolata prima di entrare in acqua.',
+      'Una riserva sottile funziona finché tutto va secondo previsione. Nella Subacquea Tecnica la logica cambia: il gas di riserva non è "quello che resta" ma una quantità calcolata prima di entrare in acqua.',
     evidence: low.map(
       (d) =>
         `${formatDate(d.startTime)}: uscita a ${d.metrics!.endPressureBar} bar da ${d.maxDepth.toFixed(0)} m.`,
@@ -484,7 +497,7 @@ const ruleCurrency: Rule = (agg) => {
       target: 'Una prima immersione di rientro bassa e semplice, con ripasso di assetto e procedure.',
       drills: [
         'Prima immersione di rientro entro i 18 m, su sito conosciuto, con prova di zavorra.',
-        'Ripasso a secco: smontaggio e rimontaggio della configurazione, prove di raggiungimento delle valvole.',
+        'Ripasso a secco: monta e smonta l’attrezzatura, e prova a raggiungere i rubinetti della bombola.',
         'Una sessione in piscina prima del mare, se possibile.',
       ],
       priority: days > 180 ? 74 : 48,
@@ -504,7 +517,7 @@ const ruleCurrency: Rule = (agg) => {
       target: 'Quattro immersioni al mese nella stagione, con un obiettivo dichiarato per ciascuna.',
       drills: [
         'Un obiettivo per immersione, scritto prima: assetto, consumo, o una procedura.',
-        'Le uscite in lago (Moregallo) valgono come allenamento tecnico anche fuori stagione.',
+        'Le uscite in lago valgono come allenamento anche fuori stagione: acqua fredda, visibilità corta, e nessuna scusa per non curare l’assetto.',
       ],
       priority: 44,
       basis: agg.count,
@@ -588,7 +601,7 @@ const ruleDataQuality: Rule = (agg, dives) => {
     drills: [
       'Compila il volume nella scheda bombola: si fa una volta per configurazione.',
       'Se il computer non registra la pressione, annota pressione iniziale e finale a fine immersione.',
-      'Reimporta i vecchi export UDDF: contengono spesso più campi di quanti il logbook precedente ne mostrasse.',
+      'Se hai i file esportati dal programma che usavi prima, reimportali: spesso contengono più dati di quanti quel programma ne mostrasse.',
     ],
     priority: 40,
     basis: agg.count,
@@ -684,7 +697,7 @@ const ruleGf99: Rule = (agg, dives) => {
     conGfNoto === n
       ? 'Il gradient factor alto è quello registrato dal computer su tutte le immersioni.'
       : `Attenzione: il gradient factor alto è registrato solo su ${conGfNoto} immersioni su ${n}; sulle altre è stato assunto ${GF_ALTO_ASSUNTO}, che è il valore più diffuso ma non è il tuo dato.`,
-    'Calcolato da noi dal profilo con Bühlmann ZH-L16C, carico residuo compreso: c’è su tutte le immersioni campionate, non solo su quelle dei computer che lo scrivono.',
+    'Calcolato dal profilo con Bühlmann ZH-L16C, carico residuo compreso: c’è su tutte le immersioni con profilo, anche quando il computer non lo registra.',
   ];
 
   // Il ramo "buono" chiede sia una mediana bassa sia nessun caso oltre il 75%.
@@ -761,7 +774,7 @@ const ruleFinalAscent: Rule = (agg) => {
   const evidence = [
     `Velocità mediana sull'ultimo tratto ${median.toFixed(0)} m/min, su ${n} immersioni.`,
     `${overLimit} immersioni sopra i ${LIMITS.ascentRateShallowMpm} m/min raccomandati nei metri finali${fast ? `, di cui ${fast} sopra i 60 m/min` : ''}.`,
-    'Misurata dalla sosta alla superficie punto a punto: la finestra mobile di 30 s la diluisce e la nasconde.',
+    'Misurata dalla sosta alla superficie, punto per punto: è un tratto troppo breve perché la velocità media dell’immersione lo mostri.',
   ];
 
   if (median <= LIMITS.ascentRateShallowMpm && fast === 0) {
@@ -914,7 +927,7 @@ const ruleProfileShape: Rule = (agg) => {
       severity: 'good',
       headline: 'Profili regolari: parte profonda per prima, nessuno fuori scala',
       detail:
-        'È la forma che la didattica raccomanda, e quella su cui i modelli decompressivi sono tarati meglio. «Regolari» qui vuol dire coerenti fra loro: nessuna immersione si stacca dalle tue, e non che stiano sotto una soglia — quella soglia non esiste in nessun manuale.',
+        'È la forma che la didattica raccomanda, e quella su cui i modelli decompressivi sono tarati meglio. Nessuna delle tue immersioni si stacca dalle altre.',
       evidence,
       drills: [],
       priority: 7,
@@ -963,13 +976,13 @@ const ruleGasSwitch: Rule = (agg) => {
     severity: 'critical',
     headline: `${agg.badGasSwitches} cambi di gas fatti sotto la profondità operativa del gas`,
     detail:
-      "Passare a una miscela più ricca prima di essere risaliti alla sua MOD porta la pressione parziale di ossigeno oltre il limite. Il passo D dell'acronimo MODS esiste per questo: verificare la profondità prima di cambiare erogatore.",
+      'Passare a una miscela più ricca prima di essere risaliti alla sua profondità operativa massima porta la pressione parziale di ossigeno oltre il limite: prima di cambiare erogatore va verificata la profondità.',
     evidence: [
       `Rilevati sui profili con più di una bombola, confrontando la profondità del cambio con la MOD a 1.6 bar del gas di destinazione.`,
     ],
     target: 'Zero. Non è un obiettivo da migliorare gradualmente.',
     drills: [
-      'MODS: mostra la bombola al compagno, apri, verifica la PROFONDITÀ, poi cambia.',
+      'Quattro gesti nell’ordine, prima di ogni cambio gas: mostra la bombola al compagno, aprila, verifica la PROFONDITÀ, poi cambia erogatore.',
       'Etichetta le bombole con la MOD in numeri grandi, non con la percentuale.',
     ],
     priority: 95,

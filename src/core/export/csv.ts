@@ -86,7 +86,7 @@ const COLONNE: Colonna[] = [
   { it: 'T aria (°C)', en: 'Air temp (°C)', valore: (d) => arrotonda(d.airTempC, 1) },
   {
     it: 'Consumo (L/min)',
-    en: 'SAC rate (L/min)',
+    en: 'RMV (L/min)',
     valore: (d) => arrotonda(d.metrics?.rmvLpm, 1),
   },
   {

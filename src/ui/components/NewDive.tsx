@@ -408,13 +408,13 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
         </Campo>
       </div>
       {/*
-        Volume più le due pressioni danno il SAC, l'unico consumo confrontabile
+        Volume più le due pressioni danno l'RMV, l'unico consumo confrontabile
         fra bombole e profondità diverse. Se ne manca uno, l'immersione esce da
         tutte le statistiche sul consumo — ed è questo che va detto a schermo.
       */}
       <p className="planner-hint" style={{ marginTop: 0 }}>
         {t(
-          'Volume e le due pressioni danno il SAC. Se ne manca uno, questa immersione resta fuori dalle statistiche sul consumo.',
+          'Volume e le due pressioni danno l’RMV, il consumo riportato alla superficie. Se ne manca uno, questa immersione resta fuori dalle statistiche sul consumo.',
         )}
       </p>
 

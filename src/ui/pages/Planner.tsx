@@ -1065,7 +1065,7 @@ export function Planner() {
          * riga per riga è un'aggiunta nostra e va dichiarata.
          */}
         <p className="muted" style={{ fontSize: 11, marginTop: 10, marginBottom: 0 }}>
-          {t('La colonna dei bar è un’aggiunta nostra: il run time schedule della didattica non ce l’ha.')}
+          {t('La colonna dei bar non fa parte della tabella di risalita che insegnano i corsi: è in più.')}
         </p>
       </div>
 
@@ -1404,7 +1404,11 @@ export function Planner() {
             )}
           </li>
           <li>{t('Il gas di ogni fase è calcolato alla sua profondità media.')}</li>
-          <li>{t('L’END conta narcotico anche l’ossigeno: è la convenzione più prudente.')}</li>
+          <li>
+            {t(
+              'La profondità narcotica equivalente (END) conta narcotico anche l’ossigeno: è la convenzione più prudente.',
+            )}
+          </li>
           <li>
             {t(
               'Le soste sono calcolate sul fondo alla profondità media: un profilo più profondo ne chiede di più.',

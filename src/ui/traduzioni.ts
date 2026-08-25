@@ -19,7 +19,7 @@
  *    lungo, di solito vuol dire che l'italiano si poteva accorciare;
  *  - i termini subacquei restano quelli che usa chi si immerge in inglese:
  *    *dive*, *logbook*, *gradient factor*, *deco stop*, *surface interval*,
- *    *SAC*, *no-deco limit*, *cylinder*, *buddy*. Non si traducono in inglese
+ *    *RMV*, *no-deco limit*, *cylinder*, *buddy*. Non si traducono in inglese
  *    scolastico;
  *  - le voci sono raggruppate per scheda dell'applicazione, non in ordine
  *    alfabetico: chi traduce lavora su una schermata alla volta.
@@ -114,7 +114,7 @@ export const INGLESE: Record<string, string> = {
   'Azzera i filtri': 'Clear filters',
   'Cerca fra le immersioni': 'Search your dives',
   'Cerca sito, compagno, note…': 'Search site, buddy, notes…',
-  consumo: 'SAC rate',
+  consumo: 'RMV',
   data: 'date',
   Deseleziona: 'Deselect',
   durata: 'duration',
@@ -178,8 +178,8 @@ export const INGLESE: Record<string, string> = {
   'con l’azoto residuo dell’immersione precedente. Tratteggiati, i numeri del tuo computer.':
     'with residual nitrogen from the previous dive. Dashed, your computer’s own numbers.',
   Conservatorismo: 'Conservatism',
-  'Consumo di superficie': 'SAC rate',
-  'Consumo dichiarato': 'SAC reported',
+  'Consumo di superficie': 'RMV',
+  'Consumo dichiarato': 'RMV reported',
   'Cosa dice il profilo di questa immersione.': 'What this dive profile says.',
   'Curva e obbligo, minuto per minuto': 'NDL and deco, minute by minute',
   'dal carico che avevi in quel momento': 'from the load you had at that moment',
@@ -214,7 +214,7 @@ export const INGLESE: Record<string, string> = {
   'm più profonda, come si raccomanda': 'm deeper, as recommended',
   'media non disponibile': 'average not available',
   'Minuti residui in curva (NDL)': 'No-deco limit left (NDL)',
-  'Minuti residui in curva, calcolati da noi': 'No-deco minutes left, computed here',
+  'Minuti residui in curva': 'No-deco minutes left',
   'NDL minimo': 'Lowest NDL',
   'nessun cambio di gas': 'no gas switch',
   'Nessun campionamento nel file di origine.': 'No samples in the source file.',
@@ -265,8 +265,7 @@ export const INGLESE: Record<string, string> = {
   'Tempo di fondo residuo (RBT)': 'Remaining bottom time (RBT)',
   'Tempo di risalita (TTS) del computer': 'Time to surface (TTS) from the computer',
   'Tempo in deco': 'Time in deco',
-  'Tempo per arrivare in superficie (TTS), calcolato da noi': 'Time to surface (TTS), computed here',
-  'Tetto di decompressione, calcolato da noi': 'Deco ceiling, computed here',
+  'Tempo per arrivare in superficie (TTS)': 'Time to surface (TTS)',
   'Tetto di decompressione: mai comparso': 'Deco ceiling: never appeared',
   'Torna al logbook': 'Back to the logbook',
   Usati: 'Used',
@@ -301,11 +300,11 @@ export const INGLESE: Record<string, string> = {
   'con pressione finale': 'with an end pressure',
   'con profilo': 'with profile',
   'Configurazione, miscele, esposizione.': 'Setup, mixes, exposure.',
-  Consumo: 'SAC',
-  'consumo di superficie': 'SAC rate',
-  'Consumo di superficie (L/min)': 'SAC rate (L/min)',
-  'Consumo in superficie': 'SAC rate',
-  'Consumo per': 'SAC by',
+  Consumo: 'RMV',
+  'consumo di superficie': 'RMV',
+  'Consumo di superficie (L/min)': 'RMV (L/min)',
+  'Consumo in superficie': 'RMV',
+  'Consumo per': 'RMV by',
   'Cosa dipende da cosa': 'What depends on what',
   'Costo mediano': 'Median cost',
   Dal: 'From',
@@ -329,7 +328,7 @@ export const INGLESE: Record<string, string> = {
   'Il GF99 all’uscita dipende da queste impostazioni: tienine conto quando confronti due periodi.':
     'GF99 on surfacing depends on these settings: keep that in mind when comparing periods.',
   'il massimo in un giorno': 'max in one day',
-  'Il valore massimo di ciascuna immersione, su finestra di 30 s.': 'Each dive’s peak, over a 30 s window.',
+  'Il valore massimo di ciascuna immersione.': 'Each dive’s peak.',
   'Immersioni nel periodo': 'Dives in the period',
   'Immersioni per anno': 'Dives per year',
   'Importa le immersioni e le statistiche appaiono qui.': 'Import your dives and the statistics appear here.',
@@ -349,7 +348,7 @@ export const INGLESE: Record<string, string> = {
   'Le prime due colonne sono le uscite sotto la riserva.': 'The first two columns are exits below reserve.',
   'Le ripetitive': 'Repetitive dives',
   'Le tue mediane divise per mare, visibilità e meteo. Accanto al consumo trovi profondità e temperatura dello stesso gruppo: se salgono insieme, non sono state le onde. Solo i gruppi da tre immersioni in su.':
-    'Your medians split by sea, visibility and weather. Next to SAC you get the group’s depth and temperature: if they rise together, it was not the waves. Only groups of three dives or more.',
+    'Your medians split by sea, visibility and weather. Next to RMV you get the group’s depth and temperature: if they rise together, it was not the waves. Only groups of three dives or more.',
   'l’ultima': 'the last one',
   'mediana dalla sosta alla superficie': 'median from the stop to the surface',
   'Mediane sul periodo. Ogni tessera dice su quante immersioni si basa.':
@@ -431,7 +430,7 @@ export const INGLESE: Record<string, string> = {
     'One has no profile: the chart shows only the other.',
 
   // --- piano di miglioramento ---
-  'bastano per il consumo': 'are enough for SAC',
+  'bastano per il consumo': 'are enough for RMV',
   'Calcolato su': 'Based on',
   'Come è costruito questo piano': 'How this plan is built',
   'Criteri di riferimento': 'Reference criteria',
@@ -594,12 +593,12 @@ export const INGLESE: Record<string, string> = {
   'Con la modalità': 'In',
   'Conservatorismo VPM': 'VPM conservatism',
   Consumati: 'Used',
-  'Consumo al fondo': 'Bottom SAC',
-  'Consumo del compagno': 'Buddy SAC rate',
-  'Consumo in deco': 'Deco SAC',
-  'Consumo in decompressione': 'Deco SAC rate',
-  'Consumo in emergenza': 'Stressed SAC rate',
-  'Consumo misurato su': 'SAC rate measured on',
+  'Consumo al fondo': 'Bottom RMV',
+  'Consumo del compagno': 'Buddy RMV',
+  'Consumo in deco': 'Deco RMV',
+  'Consumo in decompressione': 'Deco RMV',
+  'Consumo in emergenza': 'Stressed RMV',
+  'Consumo misurato su': 'RMV measured on',
   'Consumo O₂ al fondo': 'Bottom O₂ use',
   'Consumo O₂ in deco': 'Deco O₂ use',
   'contro i': 'against the',
@@ -755,7 +754,7 @@ export const INGLESE: Record<string, string> = {
   'Il resto del fondo sta a': 'The rest of the bottom sits at',
   'Il tempo del primo livello comprende la discesa. Sui livelli successivi il transito è in più.':
     'The first level’s time includes the descent. On later levels travel is extra.',
-  'Il tuo consumo': 'Your SAC rate',
+  'Il tuo consumo': 'Your RMV',
   'Il tuo piano': 'Your plan',
   Immersione: 'Dive',
   'Immersione pianificata': 'Planned dive',
@@ -778,8 +777,8 @@ export const INGLESE: Record<string, string> = {
     'instead of 1.013: you breathe less gas, and the no-deco limit shortens.',
   iterazioni: 'iterations',
   'L/min in superficie': 'L/min at the surface',
-  'La colonna dei bar è un’aggiunta nostra: il run time schedule della didattica non ce l’ha.':
-    'The pressure column is ours: the standard run time schedule has none.',
+  'La colonna dei bar non fa parte della tabella di risalita che insegnano i corsi: è in più.':
+    'The bar column is not part of the run-time table taught on courses: it is extra.',
   'la decompressione si allunga.': 'deco gets longer.',
   'La desaturazione comincia a': 'Off-gassing starts at',
   'la faccio': 'I do it',
@@ -804,7 +803,7 @@ export const INGLESE: Record<string, string> = {
     'The stops with their runtime, and the plan as plain text: copy, paste, print.',
   'Le soste le calcola.': 'It does compute the stops.',
   'Le soste si pagano con lei, alla sua profondità e col suo consumo. Margine del 50%.':
-    'Stops are paid from it, at its depth and its SAC rate. 50% margin.',
+    'Stops are paid from it, at its depth and its RMV. 50% margin.',
   'Le soste sono calcolate sul fondo alla profondità media: un profilo più profondo ne chiede di più.':
     'Stops are computed on a bottom at average depth: a deeper profile will want more.',
   'Le soste, in tabella': 'The stops, as a table',
@@ -817,8 +816,8 @@ export const INGLESE: Record<string, string> = {
   'Lo stesso limite impostato sul computer.': 'The same limit set on your computer.',
   'Lo stesso piano con un parametro cambiato. «E se resto giù cinque minuti in più» va chiesto adesso, non a quaranta metri.':
     'The same plan with one thing changed. “What if I stay five more minutes” is a question for now, not for forty metres.',
-  'L’END conta narcotico anche l’ossigeno: è la convenzione più prudente.':
-    'END counts oxygen as narcotic too: the more conservative convention.',
+  'La profondità narcotica equivalente (END) conta narcotico anche l’ossigeno: è la convenzione più prudente.':
+    'Equivalent narcotic depth (END) counts oxygen as narcotic too: the more cautious convention.',
   'L’ossigeno metabolico non dipende dalla profondità; il diluente serve solo a riempire il circuito in discesa.':
     'Metabolic oxygen does not depend on depth; diluent only fills the loop on the way down.',
   'ma di solito esci con': 'but you usually surface on',
@@ -858,7 +857,7 @@ export const INGLESE: Record<string, string> = {
     'No model requires it: we count it because almost everyone does it, and three minutes are three minutes of gas.',
   'Nessuna immersione con i tessuti calcolati.': 'No dive with tissues calculated.',
   'Nessuna immersione con pressioni: scrivi il consumo a mano.':
-    'No dive has cylinder pressures: enter the SAC rate by hand.',
+    'No dive has cylinder pressures: enter the RMV by hand.',
   'Nessuna immersione del periodo ha bombola e pressioni. Scrivile in una scheda immersione, oppure tieni il valore predefinito qui sotto.':
     'No dive in this period has cylinder and pressures. Add them to a dive, or keep the default below.',
   'Nessuna immersione simile con la pressione d’uscita: niente da confrontare.':
@@ -933,7 +932,7 @@ export const INGLESE: Record<string, string> = {
   'Profondità della sosta': 'Stop depth',
   'Profondità di cambio di': 'Switch depth of',
   'Profondità massima operativa': 'Maximum operating depth',
-  'Prova a pianificare col consumo peggiore.': 'Try planning on your worst SAC rate.',
+  'Prova a pianificare col consumo peggiore.': 'Try planning on your worst RMV.',
   'Prova dell’esaurimento gas e controllo bolle, erogatore di scorta in mano.':
     'Out-of-gas drill and bubble check, backup reg in hand.',
   'Quanti bar devi avere, e quando': 'How many bar you should have, and when',
@@ -1012,7 +1011,8 @@ export const INGLESE: Record<string, string> = {
     'Same profile, two theories about bubbles: VPM-B puts stops deeper and takes them off shallow. There is no winner.',
   'Su iPhone e iPad la stampa non c’è. Stampa il piano dal Mac: i dati sono gli stessi.':
     'Printing is not available on iPhone or iPad. Print from the Mac: same data.',
-  'Su questo profilo il volume critico non converge': 'On this profile critical volume does not converge',
+  'Su questo profilo il calcolo non arriva a un risultato stabile':
+    'On this profile the calculation does not settle',
   'su una bombola da': 'on a cylinder of',
   sui: 'of the',
   'sul gas del fondo. È il piano minimo: con un gas di deco dedicato sarebbero più corte.':
@@ -1029,7 +1029,7 @@ export const INGLESE: Record<string, string> = {
   'Tempo di fondo': 'Bottom time',
   'Tempo di fondo che il gas consente, al variare della profondità.':
     'Bottom time the gas allows, against depth.',
-  'tempo di fondo consentito al variare del consumo.': 'bottom time allowed, against SAC rate.',
+  'tempo di fondo consentito al variare del consumo.': 'bottom time allowed, against RMV.',
   'Tempo sopra 1.4 bar': 'Time above 1.4 bar',
   'Terzi — subacquea tecnica': 'Thirds — technical diving',
   terzo: 'third',
@@ -1358,8 +1358,8 @@ export const INGLESE: Record<string, string> = {
   'verrà tolto da tutte le immersioni scelte': 'it will be removed from every selected dive',
   Visibilità: 'Visibility',
   'Volume bombola': 'Cylinder volume',
-  'Volume e le due pressioni danno il SAC. Se ne manca uno, questa immersione resta fuori dalle statistiche sul consumo.':
-    'Volume and both pressures give the SAC rate. Miss one and this dive stays out of the consumption stats.',
+  'Volume e le due pressioni danno l’RMV, il consumo riportato alla superficie. Se ne manca uno, questa immersione resta fuori dalle statistiche sul consumo.':
+    'Volume and both pressures give your RMV, consumption normalised to the surface. Miss one and this dive stays out of the consumption stats.',
   Voto: 'Rating',
   Zavorra: 'Weight',
   'Zavorra (kg)': 'Weight (kg)',
@@ -1476,10 +1476,8 @@ export const INGLESE: Record<string, string> = {
   'Scarica UDDF': 'Download UDDF',
   scaricate: 'pulled',
   'Se hai fatto l’accesso, lascia questi campi vuoti.': 'If you signed in, leave these fields empty.',
-  'Se hai scaricato l’Aladin dal Mac, il telefono prende solo le immersioni nuove.':
-    'If you downloaded the Aladin on the Mac, your phone only takes the new dives.',
-  'Se il resoconto mostra ancora numeri diversi da zero, è un bug: segnalalo.':
-    'If the report still shows non-zero numbers, that is a bug: report it.',
+  'Se hai già scaricato un computer da un dispositivo, gli altri prendono solo le immersioni nuove.':
+    'If you already downloaded a computer on one device, the others only take the new dives.',
   'Se è un UDDF, va nella scheda Importa.': 'If it is a UDDF, it goes in the Import tab.',
   'Sei entrato come': 'Signed in as',
   'Sei entrato. L’app sincronizza sul database del tuo account.':
@@ -1506,7 +1504,6 @@ export const INGLESE: Record<string, string> = {
   'Sì, ricostruisci da zero': 'Yes, rebuild from scratch',
   'Sì, rimetti': 'Yes, put back',
   'Token di accesso': 'Auth token',
-  'Token e chiave API restano su ogni dispositivo.': 'Tokens and API key stay on each device.',
   'Tornano com’erano, profilo compreso.': 'They come back as they were, profile included.',
   'tutti i dispositivi': 'every device',
   tutto: 'everything',
@@ -1546,7 +1543,7 @@ export const INGLESE: Record<string, string> = {
   'Ancora niente da confrontare': 'Nothing to compare yet',
   Apnea: 'Freediving',
   Aria: 'Air',
-  'Assetto e consumo': 'Buoyancy and SAC',
+  'Assetto e consumo': 'Buoyancy and RMV',
   'Assetto, consumo e ripetibilità, senza un traguardo specifico.':
     'Trim, gas use and consistency, with no specific target.',
   'Avanzato (fino a 30 m)': 'Advanced (to 30 m)',
@@ -1570,9 +1567,9 @@ export const INGLESE: Record<string, string> = {
   'Con una sosta profonda': 'With a deep stop',
   'Consolidare la fascia 30–40 m in curva, con margini di gas ampi.':
     'Settle into 30–40 m no-deco, with wide gas margins.',
-  'consumo (L/min)': 'SAC (L/min)',
-  'Consumo e profondità media': 'SAC and average depth',
-  'Consumo e temperatura': 'SAC and temperature',
+  'consumo (L/min)': 'RMV (L/min)',
+  'Consumo e profondità media': 'RMV and average depth',
+  'Consumo e temperatura': 'RMV and temperature',
   'Consumo gas': 'Gas use',
   'Continuità: conta più del totale storico.': 'Currency: counts more than the lifetime total.',
   'Contropiastra o schienalino': 'Backplate or pad',
@@ -1599,7 +1596,7 @@ export const INGLESE: Record<string, string> = {
     'both at once: the worst case the manual wants you to carry',
   'I suggerimenti si basano su medie e tendenze: con poche immersioni sarebbero rumore. Importa lo storico e torna qui.':
     'Coaching is based on averages and trends: with only a few dives it would be noise. Import your history and come back.',
-  'Il freddo alza il consumo: qui vedi di quanto.': 'Cold raises SAC: here you see by how much.',
+  'Il freddo alza il consumo: qui vedi di quanto.': 'Cold raises RMV: here you see by how much.',
   'Il freddo fa consumare di più, quindi la muta e la temperatura dicono in parte la stessa cosa: guarda le due colonne insieme.':
     'Cold raises consumption, so wetsuit and temperature partly say the same thing: read the two columns together.',
   'Il meglio dei tuoi computer, in un logbook solo.': 'The best of every dive computer, in one logbook.',
@@ -1640,12 +1637,12 @@ export const INGLESE: Record<string, string> = {
     'The season so far. Few dives, so fragile trends.',
   'Le due cose insieme: è il caso che costa di più.': 'Both together: the case that costs most.',
   'le soste tornano sul gas di fondo, con il tuo consumo normale':
-    'stops fall back on bottom gas, at your normal SAC rate',
+    'stops fall back on bottom gas, at your normal RMV',
   'Lettura in corso…': 'Reading…',
   'Litri al minuto riportati alla superficie. Solo dove il volume della bombola è noto.':
     'Litres per minute at the surface. Only where cylinder size is known.',
   'Litri e materiale non cambiano quanto respiri, cambiano quanto ti dura: se il consumo differisce, differiscono le immersioni in cui la porti.':
-    'Size and material do not change how much you breathe, only how long it lasts: if SAC differs, so do the dives.',
+    'Size and material do not change how much you breathe, only how long it lasts: if RMV differs, so do the dives.',
   'Marca e modello': 'Make and model',
   'mare agitato': 'rough sea',
   'mare calmo': 'calm sea',
@@ -1675,7 +1672,7 @@ export const INGLESE: Record<string, string> = {
   'oscillazione a quota tenuta (m/min)': 'wobble at held depth (m/min)',
   OTU: 'OTU',
   'Parte profonda per prima': 'Deepest part first',
-  'Passaggio al tecnico': 'Moving to tech',
+  'Subacquea Tecnica': 'Technical Diving',
   Peggiore: 'Worst',
   permissivo: 'permissive',
   Piastra: 'Plate',
@@ -1691,7 +1688,7 @@ export const INGLESE: Record<string, string> = {
   'Profili scaricati': 'Profiles pulled',
   'profondità media (m)': 'average depth (m)',
   'Profondo (fino a 40 m)': 'Deep (to 40 m)',
-  'Profondo ricreativo': 'Deep recreational',
+  'Avanzato Ricreativo': 'Advanced Recreational',
   prudente: 'conservative',
   'Qualità dei dati': 'Data quality',
   'Quanto eri sovrasaturo arrivando in superficie. Dipende dai gradient factor che hai impostato.':
@@ -1715,14 +1712,14 @@ export const INGLESE: Record<string, string> = {
   Sconosciuto: 'Unknown',
   'Scubapro via Bluetooth': 'Scubapro over Bluetooth',
   'Se il consumo cresce con la profondità, di solito è affaticamento o assetto.':
-    'If SAC rises with depth, it is usually effort or buoyancy.',
+    'If RMV rises with depth, it is usually effort or buoyancy.',
   selezionata: 'selected',
   'selezionata non è in elenco': 'selected dive is not listed',
   selezionate: 'selected',
   'selezionate non sono in elenco': 'selected dives are not listed',
   semichiuso: 'semi-closed',
   'Senza le due pressioni e il volume della bombola il consumo non si può calcolare, e questa immersione resterà fuori dalle statistiche sul consumo.':
-    'Without both pressures and the cylinder volume there is no SAC rate, and this dive stays out of the consumption stats.',
+    'Without both pressures and the cylinder volume there is no RMV, and this dive stays out of the consumption stats.',
   'Senza profondità media i tessuti verranno stimati su un profilo quadro al 70% della massima. Se te la ricordi, scrivila: è il numero che decide quanto azoto passa all’immersione successiva.':
     'Without an average depth, tissues are estimated on a square profile at 70% of max. Write it if you remember it: it decides how much nitrogen carries over to the next dive.',
   'Senza temperatura questa immersione non entra nelle correlazioni fra freddo e consumo.':
@@ -1846,7 +1843,7 @@ export const INGLESE: Record<string, string> = {
   'il file non dichiara durata né profondità massima, ricavate dai campioni. Se il file è stato scaricato a metà, questi numeri descrivono solo la parte arrivata.':
     'the file declares neither duration nor max depth, so both come from the samples. If the file was downloaded half way, these numbers describe only the part that arrived.',
   'Il FIT non contiene il volume della bombola e non è deducibile da tank_summary: inserisci i litri nella scheda per avere il consumo in L/min.':
-    'The FIT has no cylinder volume and it cannot be derived from tank_summary: enter the litres on the dive to get the SAC rate in L/min.',
+    'The FIT has no cylinder volume and it cannot be derived from tank_summary: enter the litres on the dive to get the RMV in L/min.',
   'Il permesso di usare il Bluetooth è stato negato. Si concede in Impostazioni di Sistema, alla voce Privacy e sicurezza → Bluetooth.':
     'Permission to use Bluetooth was denied. Grant it in System Settings, under Privacy & Security → Bluetooth.',
   'Il permesso di usare il Bluetooth è stato negato. Si concede in Impostazioni → MyDiveLog → Bluetooth.':
@@ -1868,7 +1865,7 @@ export const INGLESE: Record<string, string> = {
   'immersioni hanno il profilo dal log nativo del computer; per le altre restano i soli dati di riepilogo.':
     'dives have the profile from the computer native log; for the others only the summary data is left.',
   'immersioni importate senza profilo: statistiche di consumo e assetto non disponibili per queste.':
-    'dives imported without a profile: SAC rate and trim stats are not available for them.',
+    'dives imported without a profile: RMV and trim stats are not available for them.',
   'immersioni non hanno il profilo nel file (LogTRAK non lo esporta per le immersioni inserite a mano): restano i dati di sintesi.':
     'dives have no profile in the file (LogTRAK does not export one for dives entered by hand): only the summary data is left.',
   'immersioni non sono state reimportate': 'dives were not re-imported',
@@ -1914,7 +1911,7 @@ export const INGLESE: Record<string, string> = {
   'righe scartate: data o durata non interpretabili.': 'rows discarded: date or duration unreadable.',
   'scartata: data, durata o profondità non interpretabili.': 'discarded: date, duration or depth unreadable.',
   'scartata: durata o profondità mancanti.': 'discarded: duration or depth missing.',
-  'senza profondità media: consumo non calcolabile.': 'has no average depth: SAC rate cannot be worked out.',
+  'senza profondità media: consumo non calcolabile.': 'has no average depth: RMV cannot be worked out.',
   'Servizi trovati:': 'Services found:',
   'Servizio di accesso non raggiungibile:': 'Sign-in service unreachable:',
   'Sessioni subacquee trovate ma senza profilo utilizzabile.':
@@ -2008,8 +2005,8 @@ export const INGLESE: Record<string, string> = {
   'MyDiveLog legge i computer subacquei grazie al lavoro di chi ha decifrato i loro protocolli e lo ha reso pubblico.':
     'MyDiveLog reads dive computers thanks to the people who worked out their protocols and made that public.',
   'di Jef Driesen e collaboratori, licenza LGPL-2.1.': 'by Jef Driesen and contributors, LGPL-2.1 licensed.',
-  'È inclusa in questa applicazione e serve a parlare con i computer per cui non abbiamo un driver scritto a mano.':
-    'It ships inside this app and is what talks to the computers we have no hand-written driver for.',
+  'È inclusa in questa applicazione ed è quello che legge i computer subacquei che l’app non sa leggere da sé.':
+    'It ships inside this app and is what reads the dive computers the app cannot read on its own.',
   'Il sorgente di MyDiveLog è pubblico sotto licenza MIT, e il sorgente esatto di libdivecomputer usato per compilare questa versione è dentro il repository: chiunque può ricostruire l’applicazione, libreria compresa.':
     'MyDiveLog’s source is public under the MIT licence, and the exact libdivecomputer source this build was compiled against is in the repository: anyone can rebuild the app, library included.',
   'Il token del database resta su ogni dispositivo.': 'The database token stays on each device.',

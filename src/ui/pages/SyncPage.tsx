@@ -552,7 +552,9 @@ export function SyncPage() {
           </li>
           <li>
             <b>{t('Viaggia anche fin dove sei arrivato con ogni computer.')}</b>{' '}
-            {t('Se hai scaricato l’Aladin dal Mac, il telefono prende solo le immersioni nuove.')}
+            {t(
+              'Se hai già scaricato un computer da un dispositivo, gli altri prendono solo le immersioni nuove.',
+            )}
           </li>
           <li>
             <b>{t('Le credenziali no.')}</b> {t('Il token del database resta su ogni dispositivo.')}
@@ -562,8 +564,7 @@ export function SyncPage() {
             {t('Dopo la sincronizzazione ogni dispositivo ha tutti e due.')}
           </li>
           <li>
-            <b>{t('Sincronizzare due volte di fila non fa niente la seconda volta.')}</b>{' '}
-            {t('Se il resoconto mostra ancora numeri diversi da zero, è un bug: segnalalo.')}
+            <b>{t('Sincronizzare due volte di fila non fa niente la seconda volta.')}</b>
           </li>
         </ul>
       </div>
@@ -603,7 +604,7 @@ function RiconoscimentiCard() {
       <p style={{ fontSize: 13 }}>
         <b>libdivecomputer</b> — {t('di Jef Driesen e collaboratori, licenza LGPL-2.1.')}{' '}
         {t(
-          'È inclusa in questa applicazione e serve a parlare con i computer per cui non abbiamo un driver scritto a mano.',
+          'È inclusa in questa applicazione ed è quello che legge i computer subacquei che l’app non sa leggere da sé.',
         )}{' '}
         <a href="https://libdivecomputer.org" target="_blank" rel="noreferrer">
           libdivecomputer.org

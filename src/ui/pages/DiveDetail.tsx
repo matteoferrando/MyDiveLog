@@ -1131,7 +1131,7 @@ function DecoTimelineCard({
       <MiniSeries
         samples={points}
         pick={(_s, i) => at(i)?.ndlMin}
-        label={t('Minuti residui in curva, calcolati da noi')}
+        label={t('Minuti residui in curva')}
         unit="min"
         color="var(--series-1)"
         cursor={cursor}
@@ -1153,11 +1153,7 @@ function DecoTimelineCard({
         <MiniSeries
           samples={points}
           pick={(_s, i) => at(i)?.ceilingM}
-          label={
-            maxCeiling > 0
-              ? t('Tetto di decompressione, calcolato da noi')
-              : t('Tetto di decompressione: mai comparso')
-          }
+          label={maxCeiling > 0 ? t('Tetto di decompressione') : t('Tetto di decompressione: mai comparso')}
           unit="m"
           color="var(--critical)"
           cursor={cursor}
@@ -1177,7 +1173,7 @@ function DecoTimelineCard({
         <MiniSeries
           samples={points}
           pick={(_s, i) => at(i)?.ttsMin}
-          label={t('Tempo per arrivare in superficie (TTS), calcolato da noi')}
+          label={t('Tempo per arrivare in superficie (TTS)')}
           unit="min"
           color="var(--series-2)"
           cursor={cursor}

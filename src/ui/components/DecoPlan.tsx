@@ -876,8 +876,8 @@ export function DecoPlanner({
             {vpm.iterations >= 12 && (
               <>
                 {' '}
-                <b>{t('Su questo profilo il volume critico non converge')}</b> ({vpm.iterations}{' '}
-                {t('iterazioni')}): {t('non usare la tabella.')}
+                <b>{t('Su questo profilo il calcolo non arriva a un risultato stabile')}</b>:{' '}
+                {t('non usare la tabella.')}
               </>
             )}
           </div>
