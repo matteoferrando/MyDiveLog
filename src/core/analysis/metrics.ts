@@ -30,7 +30,7 @@ import {
   type Salinity,
   type Sample,
 } from '../model';
-import { ambientAta, end as endDepth, mod } from '../units';
+import { ambientAta, ambientBar, end as endDepth, mod } from '../units';
 import { exposureOfProfile } from './oxygen';
 
 /** Ampiezza della finestra mobile per le velocità verticali, secondi. */
@@ -112,6 +112,32 @@ export function computeMetrics(dive: Dive): DiveMetrics {
     : avgDepth !== undefined
       ? round(ambientAta(avgDepth, salinity, dive.surfacePressureBar), 3)
       : undefined;
+  /*
+   * L'RMV SI CALCOLA SUI BAR, NON SUGLI ATA LOCALI. È la convenzione che
+   * `gasPlan.ts` ha già scelto («i litri si contano sulla pressione assoluta»),
+   * e i due file devono dire la stessa cosa, perché il valore misurato qui
+   * finisce nel pianificatore e lì viene rimoltiplicato per `ambientBar`.
+   *
+   * Il consumo misurato è in bar·litro (delta di pressione × volume della
+   * bombola): dividerlo per gli ATA locali invece che per la pressione media in
+   * bar sbagliava di un fattore pari alla pressione di superficie. Al mare è
+   * l'1.3% (8.2 L/min mostrati contro 8.07 veri), ma con la pressione di
+   * superficie di un lago alpino — 0.795 bar, un valore che Shearwater scrive
+   * davvero nei file — diventa il 21% in meno: 6.9 invece di 8.71. Da qui
+   * passano la media dell'archivio, la regola del consumo nei suggerimenti e il
+   * valore precompilato nel pianificatore.
+   *
+   * `avgAta` resta, ma solo per essere mostrato: è la profondità espressa come
+   * multiplo dell'atmosfera del posto, non un fattore di consumo.
+   */
+  const avgBar = hasProfile
+    ? round(
+        timeWeightedMean(samples, (s) => ambientBar(s.depth, salinity, dive.surfacePressureBar)),
+        3,
+      )
+    : avgDepth !== undefined
+      ? round(ambientBar(avgDepth, salinity, dive.surfacePressureBar), 3)
+      : undefined;
 
   // LE VELOCITÀ VERTICALI SI MISURANO SUL PROFILO PIÙ FITTO DISPONIBILE.
   //
@@ -145,7 +171,7 @@ export function computeMetrics(dive: Dive): DiveMetrics {
   const shape = analyseShape(samples, dive.durationS);
   const badGasSwitches = analyseGasSwitches(dive, samples, salinity);
   const deco = analyseDeco(samples);
-  const gas = analyseGas(dive, samples, avgAta, caveats);
+  const gas = analyseGas(dive, samples, avgBar, caveats);
   const oxygen = analyseOxygen(dive, samples, maxDepth, salinity);
   // Sul profilo più fitto disponibile: un tratto di cinque secondi su un passo di
   // dieci non esiste proprio, e questa è la metrica che vive lì.
@@ -587,7 +613,7 @@ function analyseDeco(samples: Sample[]) {
 // Consumo gas
 // ---------------------------------------------------------------------------
 
-function analyseGas(dive: Dive, samples: Sample[], avgAta: number | undefined, caveats: string[]) {
+function analyseGas(dive: Dive, samples: Sample[], avgBar: number | undefined, caveats: string[]) {
   const cylinders = dive.cylinders ?? [];
   const durationMin = dive.durationS / 60;
 
@@ -620,13 +646,16 @@ function analyseGas(dive: Dive, samples: Sample[], avgAta: number | undefined, c
   });
 
   let rmvLpm: number | undefined;
-  if (avgAta === undefined && hasTankPressure && hasCylinderVolume) {
+  if (avgBar === undefined && hasTankPressure && hasCylinderVolume) {
     caveats.push(
       'Profondità media sconosciuta (nessun profilo campionato): l’RMV in L/min non è calcolabile, resta il consumo in bar/min.',
     );
   }
-  if (avgAta !== undefined && hasCylinderVolume && consumedBarL > 0 && durationMin > 0 && avgAta > 0) {
-    rmvLpm = round(consumedBarL / (durationMin * avgAta), 1);
+  if (avgBar !== undefined && hasCylinderVolume && consumedBarL > 0 && durationMin > 0 && avgBar > 0) {
+    // `consumedBarL` è bar·litro: il divisore è la pressione media in BAR. Con
+    // gli ATA locali il risultato dipendeva dalla pressione di superficie del
+    // posto — vedi il commento sulla convenzione dove `avgBar` viene calcolato.
+    rmvLpm = round(consumedBarL / (durationMin * avgBar), 1);
     if (cylinders.length > 1) {
       /*
        * DUE GRANDEZZE SU DUE INSIEMI DIVERSI, e finora lo diceva a metà.
@@ -707,7 +736,12 @@ function analyseOxygen(dive: Dive, samples: Sample[], maxDepth: number, salinity
   }
 
   const trimix = dive.cylinders.find((c) => c.mix.he > 0.01);
-  const endM = trimix ? round(endDepth(trimix.mix, maxDepth, salinity), 1) : undefined;
+  // Anche qui l'END vuole la pressione di superficie: è lo stesso difetto
+  // corretto nei due pianificatori, e senza di essa in quota l'END dichiarata è
+  // più bassa del vero.
+  const endM = trimix
+    ? round(endDepth(trimix.mix, maxDepth, salinity, { surfaceBar: dive.surfacePressureBar }), 1)
+    : undefined;
 
   // CNS e OTU calcolati da NOI dal profilo, con le tabelle NOAA. Il computer ne
   // scrive una sua versione (`cnsEndPct`): sono due numeri diversi con due

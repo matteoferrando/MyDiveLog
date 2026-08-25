@@ -641,7 +641,22 @@ export function planDeco(
     // per cui un rebreather permette immersioni lunghe e profonde con bombole
     // piccole.
     const closed = (setpointBar ?? gas.setpointBar) !== undefined;
-    const litres = closed ? 0 : rmv * minutes * ambientAta(meanM, s.salinity, s.surfacePressureBar);
+    /*
+     * I LITRI SI CONTANO SULLA PRESSIONE IN BAR, non sugli ATA locali.
+     *
+     * Questi «litri» sono bar·litro: più sotto diventano bar dividendoli per
+     * `g.tankL`. Il fattore giusto è quindi la pressione ambiente assoluta, non
+     * il suo rapporto con la pressione di superficie del posto. È lo stesso
+     * difetto che `gasPlan.ts` ha già chiuso per il pianificatore ricreativo, ma
+     * la correzione non era arrivata qui, dove la quota entra dal suo campo:
+     * 30 m per 30 minuti in aria con una 24 L danno 125 bar al mare (dichiarati
+     * 123) e 127 a 2000 metri, dove il piano ne chiedeva 159.
+     *
+     * Le due righe del diluente qui sotto restano in ATA ed è giusto così: lì il
+     * volume del circuito si riempie in proporzione alla pressione ambiente e il
+     * risultato è già in litri liberi.
+     */
+    const litres = closed ? 0 : rmv * minutes * ambientBar(meanM, s.salinity, s.surfacePressureBar);
     litresByGas.set(gasIndex, (litresByGas.get(gasIndex) ?? 0) + litres);
     if (closed) {
       ccrO2Litres += (kind === 'stop' || kind === 'switch' ? s.decoMorLpm : s.morLpm) * minutes;
@@ -664,7 +679,11 @@ export function planDeco(
       gasIndex,
       ppo2: round2(ppo2),
       eadM: round1(Math.max(0, ead(breathed, deepM, s.salinity, s.surfacePressureBar))),
-      endM: round1(Math.max(0, endOf(breathed, deepM, s.salinity))),
+      // L'END con la pressione di superficie: senza, in quota diceva un numero
+      // più basso del vero (Tx18/30 a 60 m a 2000 m: 38.99 invece di 39.64) e
+      // muoveva con sé la soglia dell'avvertenza sulla narcosi. Invisibile senza
+      // elio, perché lì l'END coincide con la profondità.
+      endM: round1(Math.max(0, endOf(breathed, deepM, s.salinity, { surfaceBar: s.surfacePressureBar }))),
       cnsAdded: round1(cnsAdded),
       cnsTotal: round1(cnsTotal),
       litres: Math.round(litres),

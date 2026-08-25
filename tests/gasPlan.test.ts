@@ -17,6 +17,7 @@
  * gli scostamenti dell'ordine dell'1% sono attesi.
  */
 
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   ascentGeometry,
@@ -877,5 +878,138 @@ describe('coerenza fra tabella delle pressioni e totali del piano', () => {
     const before = rows.filter((r) => r.runMin < at).pop();
     expect(before!.bar).toBeGreaterThan(plan.turnBar!);
     expect(rows.find((r) => r.runMin === at)!.bar).toBeLessThanOrEqual(plan.turnBar!);
+  });
+});
+
+describe('difetti di calcolo trovati nella revisione', () => {
+  /**
+   * L'ESPOSIZIONE ALL'OSSIGENO SI CONTA SUL GAS CHE SI RESPIRA DAVVERO.
+   *
+   * Le soste pagate con lo stage si respirano col gas di decompressione — i litri
+   * lo sapevano già, l'ossigeno no: la somma usava il gas di FONDO per tutte le
+   * fasi. Con 40 m in aria e 18 minuti a 6 m in ossigeno puro il piano dichiarava
+   * CNS 8% e zero minuti sopra 1.6 bar, dove i valori veri sono ~48% e 18 minuti.
+   * Se questo test torna rosso, l'avvertenza sull'80% è di nuovo cieca proprio
+   * sulle immersioni che l'ossigeno lo usano.
+   */
+  it('conta l’ossigeno delle soste sul gas di decompressione, non su quello di fondo', () => {
+    const plan = planGas(
+      input({
+        depthM: 40,
+        avgDepthM: 40,
+        bottomMin: 20,
+        maxTimeMin: 0,
+        totalMin: 44,
+        stopDepthM: 6,
+        stopMin: 3,
+        extraStopMin: 15,
+        tankL: 24,
+        startBar: 230,
+        decoMix: { o2: 1, he: 0 },
+        decoTankL: 11,
+        decoStartBar: 200,
+      }),
+    );
+    const stop = plan.planned.find((p) => p.fromStage);
+    expect(stop).toBeDefined();
+    // La fase porta la sua miscela: è il campo che impedisce a chi legge le fasi
+    // di doverla indovinare.
+    expect(stop!.mix.o2).toBe(1);
+    expect(plan.planned[0].mix.o2).toBeCloseTo(0.21, 6);
+    // A 6 m l'ossigeno puro sta a 1.62 bar: i 18 minuti di sosta stanno TUTTI
+    // sopra 1.6. Col gas di fondo erano zero.
+    expect(plan.oxygen.minutesAbove16).toBeCloseTo(18, 1);
+    expect(plan.oxygen.cnsPercent).toBeGreaterThan(40);
+    expect(plan.oxygen.cnsPercent).toBeLessThan(60);
+    expect(plan.oxygen.otu).toBeGreaterThan(50);
+  });
+
+  /**
+   * L'END VUOLE LA PRESSIONE DI SUPERFICIE, come MOD, PPO2, EAD e CNS.
+   *
+   * Era l'unica dell'elenco di `units.ts` rimasta indietro. Senza elio non si
+   * vede — l'END coincide con la profondità — quindi il test usa il trimix.
+   */
+  it('la profondità narcotica tiene conto della quota', () => {
+    const tx = { o2: 0.18, he: 0.3 };
+    const mare = planGas(
+      input({ depthM: 60, avgDepthM: 55, bottomMin: 15, totalMin: 40, mix: tx, maxPpo2: 1.6 }),
+    );
+    const quota = planGas(
+      input({
+        depthM: 60,
+        avgDepthM: 55,
+        bottomMin: 15,
+        totalMin: 40,
+        mix: tx,
+        maxPpo2: 1.6,
+        altitudeM: 2000,
+      }),
+    );
+    // In quota la stessa profondità narcotizza di più, non di meno: l'aria di
+    // riferimento con cui si confronta è quella del posto.
+    expect(quota.endM).toBeGreaterThan(mare.endM);
+    expect(quota.endM).toBeCloseTo(39.6, 1);
+    expect(mare.endM).toBeCloseTo(39.0, 1);
+  });
+
+  /**
+   * «IMMERSIONI SIMILI» CONFRONTA DURATE COMPLETE.
+   *
+   * Il filtro guarda `d.durationS`, cioè l'immersione intera: passargli il tempo
+   * di FONDO del piano confrontava due grandezze diverse e sceglieva le
+   * immersioni sbagliate — le corte, che escono con molto gas — spegnendo
+   * l'avviso «ma di solito esci con…» proprio quando doveva parlare.
+   */
+  it('sceglie le immersioni simili sulla durata totale, non sul tempo di fondo', () => {
+    const d = (durationMin: number, endBar: number): Dive => ({
+      id: Math.random().toString(36).slice(2),
+      startTime: '2026-06-14T10:00:00Z',
+      durationS: durationMin * 60,
+      maxDepth: 30,
+      mode: 'oc',
+      cylinders: [{ mix: { o2: 0.21, he: 0 }, sizeL: 15, startBar: 200 }],
+      source: { format: 'logtrak', file: 'a', importedAt: 'x' },
+      tags: [],
+      metrics: { endPressureBar: endBar } as Dive['metrics'],
+    });
+    const dives = [
+      d(45, 70),
+      d(46, 65),
+      d(48, 60),
+      d(49, 58),
+      d(50, 55),
+      d(47, 62),
+      d(22, 125),
+      d(25, 120),
+      d(28, 118),
+    ];
+    // Il piano: 25 minuti di fondo, 45 di durata totale. È quest'ultima che va
+    // confrontata con l'archivio.
+    const plan = planGas(input({ depthM: 30, avgDepthM: 25, bottomMin: 25, maxTimeMin: 0, totalMin: 45 }));
+    expect(plan.totalRuntimeMin).toBe(45);
+    const similar = similarDives(dives, plan.input.depthM, 5, plan.totalRuntimeMin);
+    expect(similar.byDurationToo).toBe(true);
+    expect(similar.n).toBe(6);
+    // Le sei lunghe: mediana d'uscita intorno ai 60 bar, non i 120 delle corte.
+    expect(similar.medianEndBar).toBeLessThan(70);
+    expect(similar.medianDurationMin).toBeGreaterThan(40);
+    // Col tempo di fondo (25) sceglieva le tre corte: la prova del difetto.
+    const sbagliato = similarDives(dives, plan.input.depthM, 5, plan.input.bottomMin);
+    expect(sbagliato.medianEndBar).toBeGreaterThan(100);
+  });
+
+  /*
+   * La grandezza giusta va anche PASSATA, e chi la passa è una pagina che questi
+   * test non montano. La regola si verifica sulla sorgente, come le guardie di
+   * `iosGuardie.test.ts`: è grossolana, ma è l'unica rete fra «compila» e «il
+   * pannello confronta due cose diverse».
+   */
+  it('il Planner passa a similarDives la durata totale, non il tempo di fondo', () => {
+    const planner = readFileSync(new URL('../src/ui/pages/Planner.tsx', import.meta.url), 'utf8');
+    const chiamata = /similarDives\([^)]*\)/.exec(planner);
+    expect(chiamata).not.toBeNull();
+    expect(chiamata![0]).toContain('totalRuntimeMin');
+    expect(chiamata![0]).not.toContain('bottomMin');
   });
 });

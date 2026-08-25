@@ -267,6 +267,19 @@ export interface GasPhase {
   /** Quante persone respirano in questa fase. */
   divers: number;
   rmvLpm: number;
+  /**
+   * La miscela respirata in QUESTA fase.
+   *
+   * Sta nella fase e non si indovina da fuori perché il piano può avere due
+   * gas: le soste pagate con lo stage si respirano col gas di decompressione.
+   * Chi calcolava l'esposizione all'ossigeno rileggeva le fasi assumendo il gas
+   * di fondo per tutte, e con soste a 6 m in ossigeno puro dopo 40 m in aria il
+   * piano dichiarava CNS 8% e zero minuti sopra 1.6 bar dove i valori veri sono
+   * 48% e 18 minuti: l’avvertenza sopra l’80% non poteva scattare. `deco.ts` la
+   * stessa somma la fa sul gas davvero respirato in ogni tratto, e due
+   * pianificatori della stessa app non possono dare due risposte diverse.
+   */
+  mix: GasMix;
   litres: number;
   /** Profondità di inizio e fine: servono a disegnare il profilo. */
   fromM: number;
@@ -421,6 +434,7 @@ function phaseAt(
   rmvLpm: number,
   divers: number,
   salinity: Salinity,
+  mix: GasMix,
   kind: GasPhase['kind'] = fromM === toM ? 'stop' : 'travel',
   surfaceBar = ATM_BAR,
 ): GasPhase {
@@ -454,6 +468,7 @@ function phaseAt(
     meanAta: Math.round(meanAta * 100) / 100,
     divers,
     rmvLpm,
+    mix,
     litres: Math.round(minutes * meanBar * rmvLpm * divers),
     fromM: round1(fromM),
     toM: round1(toM),
@@ -508,6 +523,8 @@ export function planGas(raw: GasPlanInput): GasPlan {
     divers: number,
     sal: Salinity,
     kind?: GasPhase['kind'],
+    /** Solo per le fasi che NON si respirano col gas di fondo (le soste con lo stage). */
+    phaseMix?: GasMix,
   ) =>
     phaseAt(
       label,
@@ -517,6 +534,7 @@ export function planGas(raw: GasPlanInput): GasPlan {
       rmvLpm,
       divers,
       sal,
+      phaseMix ?? mix,
       kind ?? (fromM === toM ? 'stop' : 'travel'),
       surfaceBar,
     );
@@ -615,6 +633,9 @@ export function planGas(raw: GasPlanInput): GasPlan {
             1,
             salinity,
             'stop',
+            // Le soste con lo stage si pagano col gas di deco: i litri già lo
+            // sapevano, l'ossigeno no. Ora lo sa anche lui, da un campo solo.
+            stopsOnDeco ? decoMix : undefined,
           ),
         ]
       : []),
@@ -746,12 +767,23 @@ export function planGas(raw: GasPlanInput): GasPlan {
   // --- ossigeno e narcosi ---------------------------------------------------
   const modAtLimit = mod(mix, maxPpo2, salinity, surfaceBar);
   const ppo2AtDepth = ppo2At(mix, depthM, salinity, surfaceBar);
-  const end = endDepth(mix, depthM, salinity);
+  // L'END con la pressione di superficie del posto: era l'unica delle cinque
+  // grandezze elencate nel commento di `units.ts` («MOD, PPO2, END, EAD e CNS»)
+  // rimasta indietro, e senza elio non si vede perché coincide con la
+  // profondità. Con Tx18/30 a 60 m a 2000 m di quota: 39.64 m veri contro 38.99
+  // dichiarati — e la soglia dell'avvertenza si sposta con lui.
+  const end = endDepth(mix, depthM, salinity, { surfaceBar });
   const ppn2 = ppn2At(mix, depthM, salinity, surfaceBar);
   // L'esposizione all'ossigeno del piano: ogni fase è un tratto a PPO2 costante
-  // (o mediamente costante, che per una grandezza affine è lo stesso).
+  // (o mediamente costante, che per una grandezza affine è lo stesso), respirato
+  // con la SUA miscela. Usare qui il gas di fondo per tutte le fasi significava
+  // non vedere l'ossigeno delle soste sullo stage, cioè proprio il tratto che
+  // l'esposizione la fa salire.
   const oxygen = exposureOfSegments(
-    planned.map((ph) => ({ ppo2: ppo2At(mix, ph.meanDepthM, salinity, surfaceBar), minutes: ph.minutes })),
+    planned.map((ph) => ({
+      ppo2: ppo2At(ph.mix, ph.meanDepthM, salinity, surfaceBar),
+      minutes: ph.minutes,
+    })),
   );
 
   // --- avvertenze -----------------------------------------------------------
@@ -1317,7 +1349,14 @@ export interface SimilarDives {
   n: number;
   medianEndBar?: number;
   minEndBar?: number;
-  medianBottomMin?: number;
+  /**
+   * Mediana della durata TOTALE delle immersioni simili, minuti.
+   *
+   * Si chiamava `medianBottomMin` e restituiva questa stessa cosa: il nome
+   * prometteva un tempo di fondo, e chi chiamava gli passava il tempo di fondo
+   * del piano da confrontare con durate complete d'archivio.
+   */
+  medianDurationMin?: number;
   belowReserve: number;
 }
 
@@ -1336,15 +1375,22 @@ export function similarDives(
    * corrispondeva a nessuna immersione fatta davvero. La tolleranza è larga —
    * un terzo della durata — perché stringendola l'insieme si svuota, e un
    * confronto con due immersioni non è un confronto.
+   *
+   * DURATA TOTALE, non tempo di fondo: il filtro guarda `d.durationS`, cioè
+   * l’immersione intera. Il Planner passava invece il tempo di fondo del piano,
+   * e le due grandezze non sono confrontabili: con un piano da 25 minuti di
+   * fondo (45 di durata) il pannello pescava le uscite corte da 22-28 minuti,
+   * scriveva «uscita tipica 120 bar» accanto a un piano che ne prevede 70 e
+   * spegneva l’avviso «ma di solito esci con…» proprio quando doveva parlare.
    */
-  bottomMin?: number,
+  durationMin?: number,
 ): SimilarDives {
-  const durationTolerance = bottomMin !== undefined ? Math.max(10, bottomMin / 3) : undefined;
+  const durationTolerance = durationMin !== undefined ? Math.max(10, durationMin / 3) : undefined;
   const closeEnough = (d: Dive) =>
     Math.abs(d.maxDepth - depthM) <= toleranceM && d.metrics?.endPressureBar !== undefined;
   const sameLength = (d: Dive) =>
     durationTolerance === undefined ||
-    Math.abs(d.durationS / 60 - (bottomMin as number)) <= durationTolerance;
+    Math.abs(d.durationS / 60 - (durationMin as number)) <= durationTolerance;
 
   // Se filtrando anche sulla durata resta troppo poco, si torna al solo criterio
   // di profondità e lo si dichiara: meglio un confronto più largo, dichiarato,
@@ -1361,7 +1407,7 @@ export function similarDives(
     n: pool.length,
     medianEndBar: Math.round(mid(ends)),
     minEndBar: Math.round(ends[0]),
-    medianBottomMin: Math.round(mid(durations)),
+    medianDurationMin: Math.round(mid(durations)),
     belowReserve: ends.filter((b) => b < LIMITS.minReserveBar).length,
     byDurationToo,
   };

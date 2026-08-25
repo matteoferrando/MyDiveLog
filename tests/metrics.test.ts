@@ -396,3 +396,44 @@ describe('soste profonde e forma del profilo', () => {
     expect(computeMetrics(dive).badGasSwitches).toBe(0);
   });
 });
+
+describe('difetti di calcolo trovati nella revisione', () => {
+  /**
+   * L'RMV MISURATO E QUELLO PIANIFICATO DEVONO ESSERE LA STESSA GRANDEZZA.
+   *
+   * Il consumo è in bar·litro (delta di pressione × volume), quindi si divide per
+   * la pressione media in BAR: è la convenzione che `gasPlan.ts` ha già scelto, e
+   * il valore misurato qui finisce proprio lì. Dividendo per gli ATA locali il
+   * risultato sbagliava di un fattore pari alla pressione di superficie: al mare
+   * l'1.3%, ma su un lago alpino (0.795 bar, un valore che Shearwater scrive
+   * davvero nei file) il 21% in meno — e con il segno sbagliato, perché in quota
+   * l'RMV vero è più ALTO, non più basso.
+   */
+  const cinquantaMinutiA20m = () => {
+    const samples: Sample[] = [];
+    for (let t = 0; t <= 3000; t += 30) samples.push({ t, depth: 20 });
+    return samples;
+  };
+  const bombola = [{ mix: AIR, sizeL: 12, startBar: 200, endBar: 100 }];
+
+  it('calcola l’RMV sui bar, non sugli ATA locali', () => {
+    // 100 bar × 12 L = 1200 bar·litro in 50 minuti a 20 m.
+    const mare = computeMetrics(makeDive(cinquantaMinutiA20m(), { durationS: 3000, cylinders: bombola }));
+    // 1200 / (50 × 3.033 bar) = 7.9 L/min.
+    expect(mare.rmvLpm).toBeCloseTo(7.9, 1);
+  });
+
+  it('in quota l’RMV sale, invece di scendere', () => {
+    const mare = computeMetrics(makeDive(cinquantaMinutiA20m(), { durationS: 3000, cylinders: bombola }));
+    const lago = computeMetrics(
+      makeDive(cinquantaMinutiA20m(), { durationS: 3000, cylinders: bombola, surfacePressureBar: 0.795 }),
+    );
+    // 1200 / (50 × 2.815 bar) = 8.5 L/min: la stessa bombola svuotata alla stessa
+    // profondità rende di più in quota, perché la pressione ambiente è più bassa.
+    expect(lago.rmvLpm).toBeCloseTo(8.5, 1);
+    expect(lago.rmvLpm!).toBeGreaterThan(mare.rmvLpm!);
+    // La convenzione, scritta come formula: il divisore è la pressione media in
+    // bar, cioè gli ATA locali moltiplicati per la pressione di superficie.
+    expect(lago.rmvLpm!).toBeCloseTo(1200 / (50 * lago.avgAta! * 0.795), 1);
+  });
+});

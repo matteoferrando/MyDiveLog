@@ -766,3 +766,53 @@ describe('difetti trovati dalla revisione', () => {
     expect(Number.isFinite(r.runtimeMin)).toBe(true);
   });
 });
+
+describe('difetti di calcolo trovati nella revisione', () => {
+  /**
+   * I LITRI SONO BAR·LITRO, quindi il fattore è la pressione ambiente in BAR.
+   *
+   * Il pianificatore ricreativo lo aveva già corretto («a 2000 metri il piano
+   * chiedeva 142 bar dove ne servono 113»), questo no, e ha un suo campo quota.
+   * Con gli ATA locali il divisore cala in quota e il consumo si gonfia: 30 m per
+   * 30 minuti in aria con una 24 L chiedeva 159 bar a 2000 metri dove ne servono
+   * 127. Se il test torna rosso, il piano tecnico in quota chiede di nuovo un
+   * quarto di gas in più di quello che serve.
+   */
+  it('conta il gas sui bar e non sugli ATA locali, anche in quota', () => {
+    const air24: PlanGas = { mix: { o2: 0.21, he: 0 }, role: 'bottom', tankL: 24, startBar: 200 };
+    const mare = planDeco([{ depthM: 30, minutes: 30 }], [air24], GF);
+    const quota = planDeco([{ depthM: 30, minutes: 30 }], [air24], {
+      ...GF,
+      surfacePressureBar: barometric(2000),
+    });
+    expect(mare.gasUsage[0].bar).toBeGreaterThan(118);
+    expect(mare.gasUsage[0].bar).toBeLessThan(132);
+    // In quota il consumo sale un poco, perché la decompressione si allunga: NON
+    // di un quarto, che era l'effetto del divisore sbagliato.
+    expect(quota.gasUsage[0].bar!).toBeGreaterThan(mare.gasUsage[0].bar!);
+    expect(quota.gasUsage[0].bar!).toBeLessThan(mare.gasUsage[0].bar! * 1.15);
+    expect(quota.gasUsage[0].bar!).toBeLessThan(140);
+  });
+
+  /**
+   * L'END VUOLE LA PRESSIONE DI SUPERFICIE.
+   *
+   * Quattro delle cinque grandezze elencate in `units.ts` la ricevevano, l'END no,
+   * in tutti e due i pianificatori. Senza elio è invisibile, perché l'END coincide
+   * con la profondità: qui serve il trimix.
+   */
+  it('la profondità narcotica dei tratti tiene conto della quota', () => {
+    const tx1830: PlanGas = { mix: { o2: 0.18, he: 0.3 }, role: 'bottom', tankL: 24, startBar: 200 };
+    const peggiore = (r: { segments: { endM: number }[] }) => Math.max(...r.segments.map((x) => x.endM));
+    const mare = planDeco([{ depthM: 60, minutes: 20 }], [tx1830, EAN50, OXY], GF);
+    const quota = planDeco([{ depthM: 60, minutes: 20 }], [tx1830, EAN50, OXY], {
+      ...GF,
+      surfacePressureBar: barometric(2000),
+    });
+    // A quota l'aria di riferimento è più rarefatta: la stessa miscela narcotizza
+    // un po' di più, non di meno.
+    expect(peggiore(quota)).toBeGreaterThan(peggiore(mare));
+    expect(peggiore(mare)).toBeCloseTo(39.0, 1);
+    expect(peggiore(quota)).toBeCloseTo(39.6, 1);
+  });
+});

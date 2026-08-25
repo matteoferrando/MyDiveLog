@@ -152,9 +152,14 @@ export function Planner() {
   const plans = useMemo(() => contingencies(input), [input]);
   const turnAt = useMemo(() => turnMinute(plan), [plan]);
 
+  // La DURATA TOTALE del piano, non il suo tempo di fondo: `similarDives` filtra
+  // sulla durata completa delle immersioni in archivio, e passargli il tempo di
+  // fondo confrontava due grandezze diverse. Con 25 minuti di fondo (45 di
+  // durata) sceglieva le uscite corte da 22-28 minuti e dichiarava «uscita
+  // tipica 120 bar» accanto a un piano che ne prevede 70.
   const similar = useMemo(
-    () => similarDives(scope.dives, planGas(input).input.depthM, 5, planGas(input).input.bottomMin),
-    [scope.dives, input],
+    () => similarDives(scope.dives, plan.input.depthM, 5, plan.totalRuntimeMin),
+    [scope.dives, plan],
   );
 
   // Le curve: lo stesso piano ricalcolato al variare di un parametro. È il pezzo
@@ -1226,7 +1231,7 @@ export function Planner() {
                 value={<span className="tabular">{similar.n}</span>}
                 note={
                   similar.byDurationToo
-                    ? `${t('intorno ai')} ${shown.depthM} m ${t('e ai')} ${shown.bottomMin} min`
+                    ? `${t('intorno ai')} ${shown.depthM} m ${t('e ai')} ${Math.round(plan.totalRuntimeMin)} min`
                     : `${t('intorno ai')} ${shown.depthM} m — ${t('troppo poche per filtrare sulla durata')}`
                 }
               />
@@ -1256,7 +1261,7 @@ export function Planner() {
               />
               <StatTile
                 label={t('Durata tipica')}
-                value={<span className="tabular">{similar.medianBottomMin} min</span>}
+                value={<span className="tabular">{similar.medianDurationMin} min</span>}
                 note={`${t('il piano dura')} ${formatRuntime(plan.totalRuntimeMin)}`}
               />
             </div>

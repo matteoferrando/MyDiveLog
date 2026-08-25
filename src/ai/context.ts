@@ -972,7 +972,7 @@ export function gasPlanContext(
           quante: similar.n,
           uscitaTipicaBar: similar.medianEndBar ?? null,
           uscitaPiuBassaBar: similar.minEndBar ?? null,
-          durataTipicaMin: similar.medianBottomMin ?? null,
+          durataTipicaMin: similar.medianDurationMin ?? null,
           quanteSottoLaRiservaMinima: similar.belowReserve,
           filtrateAncheSullaDurata: similar.byDurationToo,
           avvertenza:
