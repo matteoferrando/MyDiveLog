@@ -211,7 +211,13 @@ async function main() {
         gasPlanContext(
           gas,
           contingencies(gas.input),
-          similarDives(dives, gas.input.depthM, 5, gas.input.bottomMin),
+          // La DURATA TOTALE del piano, come fa il Planner: `similarDives` filtra
+          // sulla durata completa delle immersioni in archivio, e il tempo di
+          // fondo è un'altra grandezza. Qui la conseguenza è peggiore che a
+          // schermo — questo script serve a LEGGERE il contesto prima di
+          // spedirlo al modello, e un contesto costruito con il filtro sbagliato
+          // fa passare per buono proprio ciò che si stava rileggendo.
+          similarDives(dives, gas.input.depthM, 5, gas.totalRuntimeMin),
           measuredRmv(dives),
           'tutto l’archivio',
         ),

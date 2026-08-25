@@ -35,6 +35,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+import { chiaviDi } from './chiaviDelSorgente';
 import { frase, segnapostiDi } from '../src/core/frase';
 import { INGLESE } from '../src/ui/traduzioni';
 
@@ -47,45 +48,6 @@ import { INGLESE } from '../src/ui/traduzioni';
  * può regredire senza che nessuno se ne accorga.
  */
 const SORGENTI = ['../src/core/analysis/coaching.ts', '../src/core/analysis/nextDive.ts'];
-
-/**
- * L'apertura di una chiamata che porta con sé una chiave di dizionario:
- * `t('…` oppure `frase(t, '…`, con le virgolette di un tipo o dell'altro —
- * prettier sceglie le doppie quando la frase contiene un apostrofo.
- */
-const APERTURA = /(?:\bfrase\s*\(\s*t\s*,\s*|\bt\s*\(\s*)(['"])/g;
-
-/**
- * Le chiavi che un file passa al dizionario.
- *
- * Legge il letterale a mano invece di fidarsi di un'espressione regolare fino
- * alle virgolette di chiusura: le frasi di questo progetto contengono apostrofi
- * sfuggiti (`\'`) e virgolette dentro virgolette, e una regolare avida o pigra
- * le taglierebbe nel posto sbagliato — restituendo chiavi che nel dizionario non
- * ci sono per un motivo che non ha niente a che fare col dizionario.
- */
-function chiaviDi(sorgente: string): string[] {
-  const fuori: string[] = [];
-  for (const m of sorgente.matchAll(APERTURA)) {
-    const apice = m[1];
-    let i = (m.index ?? 0) + m[0].length;
-    let testo = '';
-    while (i < sorgente.length) {
-      const c = sorgente[i];
-      if (c === '\\') {
-        const dopo = sorgente[i + 1];
-        testo += dopo === 'n' ? '\n' : dopo === 't' ? '\t' : dopo;
-        i += 2;
-        continue;
-      }
-      if (c === apice) break;
-      testo += c;
-      i += 1;
-    }
-    fuori.push(testo);
-  }
-  return fuori;
-}
 
 const chiavi = [
   ...new Set(

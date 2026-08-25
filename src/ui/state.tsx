@@ -1306,14 +1306,30 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   /**
    * Nome e brevetto di chi tiene il libretto.
    *
-   * Salvati come sono, senza timbrare niente: non sono un elenco che due
-   * dispositivi possono modificare in parallelo — sono due righe che cambiano
-   * una volta ogni qualche anno.
+   * IL TIMBRO SERVE ANCHE QUI, PROPRIO PERCHÉ SI CAMBIA DI RADO.
+   *
+   * `subacqueo` sta in `SHARED_SETTINGS` e la sincronizzazione lo risolve con
+   * «vince la più recente», confrontando `subacqueo:at` con la data del record
+   * remoto. Questo salvataggio la data non la scriveva: `localAt` restava la
+   * stringa vuota, che non è mai maggiore di un timestamp, quindi dopo il primo
+   * allineamento il confronto cadeva per sempre dalla stessa parte — il dato non
+   * risaliva più e a ogni giro veniva riscritto con la copia remota. In pratica
+   * il nome sul libretto si congelava: lo si correggeva sul telefono e la
+   * sincronizzazione successiva rimetteva quello vecchio, senza dire niente.
+   *
+   * Che cambi una volta ogni qualche anno è semmai un aggravante: chi lo corregge
+   * lo fa una volta sola e non torna a controllare se è rimasto.
+   *
+   * Non serve il timbro per elemento come in `saveGear`: qui non c'è una lista da
+   * fondere pezzo per pezzo, sono due righe che vincono o perdono insieme.
    */
   const saveSubacqueo = useCallback(
     async (chi: Subacqueo) => {
       setSubacqueoState(chi);
-      if (store) await store.setSetting('subacqueo', chi);
+      if (store) {
+        await store.setSetting('subacqueo', chi);
+        await store.setSetting('subacqueo:at', new Date().toISOString());
+      }
     },
     [store],
   );

@@ -84,6 +84,7 @@ export interface Synthetic {
 }
 
 const G_DENSITY = (1030 * 9.80665) / 100_000; // bar per metro, acqua salata
+/** Pressione atmosferica al livello del mare, bar: la stessa `ATM_BAR` di `core/units.ts`. */
 const ATM = 1.01325;
 
 export function synthesise(overrides: Partial<SyntheticSpec> = {}): Synthetic {
@@ -125,8 +126,26 @@ export function synthesise(overrides: Partial<SyntheticSpec> = {}): Synthetic {
   let prevT = 0;
   for (let t = 0; t <= spec.durationS; t += spec.intervalS) {
     const depth = Math.max(0, depthAt(t));
-    const ata = (ATM + depth * G_DENSITY) / ATM;
-    litres += spec.rmvLpm * ata * ((t - prevT) / 60);
+    /*
+     * I LITRI SI CONTANO SULLA PRESSIONE ASSOLUTA IN BAR, NON SUGLI ATA.
+     *
+     * Qui c'era `(ATM + depth * G_DENSITY) / ATM`, cioè la pressione espressa in
+     * multipli dell'atmosfera di superficie. Sembra la stessa cosa e non lo è:
+     * due righe più sotto questi litri diventano bar di bombola dividendoli per
+     * i litri d'acqua della bombola, e quella divisione presuppone litri
+     * misurati a UN BAR — è la definizione stessa della capacità di una bombola.
+     * Dividere per `ATM` toglieva quindi l'1.3% al consumo generato.
+     *
+     * Non è una sottigliezza di comodo: `core/analysis/metrics.ts` scrive a
+     * chiare lettere che «l'RMV si calcola sui bar, non sugli ATA locali», e
+     * ricava il consumo dividendo i bar·litro per la pressione media in bar. Con
+     * gli ATA qui dentro, la fixture chiedeva 18 L/min e l'applicazione ne
+     * rileggeva 17.71: ogni prova costruita su queste immersioni misurava il
+     * consumo contro un bersaglio spostato, e la fixture — che è il metro — era
+     * l'unica cosa che nessuno stava controllando.
+     */
+    const barAssoluti = ATM + depth * G_DENSITY;
+    litres += spec.rmvLpm * barAssoluti * ((t - prevT) / 60);
     prevT = t;
     profile.push({ t, depth, litres });
   }

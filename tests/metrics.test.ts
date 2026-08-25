@@ -197,11 +197,38 @@ describe('consumo gas', () => {
     expect(m.quality.caveats.join(' ')).toContain('Volume bombola');
   });
 
-  it('ricostruisce il consumo con cui il profilo era stato generato', async () => {
-    const synth = synthesise({ rmvLpm: 16, tankSizeL: 15, startBar: 230 });
-    const { dives } = await parseFile({ fileName: 'x.uddf', text: toUddf(synth) });
-    expect(dives[0].metrics!.rmvLpm!).toBeGreaterThan(14.5);
-    expect(dives[0].metrics!.rmvLpm!).toBeLessThan(17.5);
+  /*
+    ► LA PROVA CHE CONTROLLA IL METRO. ◄
+
+    C'era già, e accettava da 14.5 a 17.5 per un consumo chiesto di 16: una
+    banda larga il 9% da una parte e l'11% dall'altra. Dentro quella banda ci
+    stava comodo un difetto vero — `tests/fixtures.ts` generava i litri sugli
+    ATA invece che sui bar, e sbagliava dell'1.3% ogni immersione sintetica di
+    questo progetto. Nessuna prova è mai diventata rossa, perché nessuna
+    misurava abbastanza stretto: la fixture è il metro con cui si misura tutto
+    il resto, ed era l'unica cosa che nessuno stava misurando.
+
+    Adesso la banda è l'1%, che è quello che resta dopo l'arrotondamento
+    all'intero di `endBar` nel file UDDF — l'unico scarto che il giro completo
+    (genera → scrive UDDF → rilegge → ricalcola) può ancora introdurre. Con
+    l'errore di prima, l'1.3% non ci sta dentro: la prova sarebbe stata rossa
+    il giorno che il difetto è nato.
+
+    Tre combinazioni e non una, perché un solo consumo su una sola bombola può
+    tornare giusto per compensazione fra due errori.
+  */
+  it('ricostruisce il consumo con cui il profilo era stato generato, entro l’1%', async () => {
+    for (const spec of [
+      { rmvLpm: 16, tankSizeL: 15, startBar: 230 },
+      { rmvLpm: 12, tankSizeL: 12, startBar: 200 },
+      { rmvLpm: 22, tankSizeL: 18, startBar: 300 },
+    ]) {
+      const synth = synthesise(spec);
+      const { dives } = await parseFile({ fileName: 'x.uddf', text: toUddf(synth) });
+      const letto = dives[0].metrics!.rmvLpm!;
+      const scarto = Math.abs(letto - spec.rmvLpm) / spec.rmvLpm;
+      expect(scarto, `chiesto ${spec.rmvLpm} L/min, riletto ${letto.toFixed(3)}`).toBeLessThan(0.01);
+    }
   });
 });
 

@@ -1262,7 +1262,6 @@ export const INGLESE: Record<string, string> = {
   'Aggiungi una bombola': 'Add a cylinder',
   'al modello': 'to model',
   alluminio: 'aluminium',
-  "analisi rimossa dall'archivio locale.": 'analysis removed from local storage.',
   Annulla: 'Cancel',
   apnea: 'freediving',
   Aprila: 'Open it',
@@ -1350,7 +1349,6 @@ export const INGLESE: Record<string, string> = {
   'questi campi.': 'these fields.',
   'Recuperabile dalle': 'Recoverable from',
   Rigenera: 'Regenerate',
-  "rimozione dell'analisi salvata…": 'removing the saved analysis…',
   Rimuovi: 'Remove',
   Salva: 'Save',
   'Salva immersione': 'Save dive',
@@ -1800,7 +1798,6 @@ export const INGLESE: Record<string, string> = {
      si mostra. */
   'Archivio del browser (IndexedDB)': 'Browser storage (IndexedDB)',
   'File SQLite nella cartella dati dell’app': 'SQLite file in the app data folder',
-  "File SQLite nella cartella dati dell'app": 'SQLite file in the app data folder',
   'Non inizializzato': 'Not initialised',
   /* Il percentile: «75°» in italiano, «75th» in inglese. */
   '75°': '75th',
@@ -2204,7 +2201,6 @@ export const INGLESE: Record<string, string> = {
     'Move to the rule of thirds on dives where you cannot go straight up.',
   'negli ultimi 12 mesi': 'in the last 12 months',
   'negli ultimi {0} mesi': 'in the last {0} months',
-  "{0} giorni dall'ultima immersione": '{0} days since your last dive',
   'Dopo una pausa lunga la manualità si degrada in modo prevedibile: assetto, gestione della zavorra, procedure di emergenza. La rientrata è più utile se è deliberata invece che "la prima immersione della stagione".':
     'After a long break your handling degrades predictably: buoyancy, weighting, emergency drills. Coming back is more use if it is deliberate rather than "the first dive of the season".',
   'Ultima immersione: {0}.': 'Last dive: {0}.',
@@ -2451,4 +2447,29 @@ export const INGLESE: Record<string, string> = {
   '{0} minuti': '{0} minutes',
   '{0} ore': '{0} hours',
   '{0} giorni': '{0} days',
+
+  // --- le tredici voci del libretto di legge, e i tipi di autorespiratore ---
+  'Autorespiratore a circuito aperto (ARA)': 'Open-circuit scuba (OC)',
+  'Rebreather a circuito chiuso (CCR)': 'Closed-circuit rebreather (CCR)',
+  'Rebreather a circuito semichiuso (SCR)': 'Semi-closed rebreather (SCR)',
+  'Generalità del subacqueo': 'Diver’s details',
+  'Brevetto posseduto': 'Certification held',
+  'Data dell’immersione': 'Dive date',
+  Località: 'Location',
+  'Orario di inizio': 'Start time',
+  'Orario di fine': 'End time',
+  'Tipo di autorespiratore': 'Breathing apparatus type',
+  'Miscela respiratoria': 'Breathing gas',
+  'Profondità massima programmata': 'Planned maximum depth',
+  'Profondità massima raggiunta': 'Maximum depth reached',
+  'Istruttore o guida responsabile': 'Instructor or guide in charge',
+  'Firma dell’istruttore o della guida': 'Instructor or guide signature',
+  'Shearwater scrive «2026-06-14 10:38:00»; segnala il file, che il formato si aggiunge.':
+    'Shearwater writes «2026-06-14 10:38:00»; report the file and the format gets added.',
+
+  // --- lo scarico dal computer che si interrompe a metà ---
+  'Lo scarico si è interrotto: {0}. Quello che era già arrivato è salvato in archivio: {1}.':
+    'The download was interrupted: {0}. What had already arrived is saved in your logbook: {1}.',
+  'Lo scarico si è interrotto: {0}. Non è stata salvata nessuna immersione.':
+    'The download was interrupted: {0}. No dive was saved.',
 };
