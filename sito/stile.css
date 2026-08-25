@@ -1090,6 +1090,307 @@ a {
   cursor: pointer;
 }
 
+/* ══════════════════════════════════════ la fascia delle marche ════════════ */
+
+/*
+  Ventuno nomi che scorrono lenti. Dice in un colpo d'occhio quello che il
+  numero qui sopra dice in cifre — «tanti» — ma con i nomi che chi legge
+  riconosce: il proprio è lì dentro, e trovarcelo vale più di qualunque
+  aggettivo.
+
+  Le due sfumature ai lati sono la cosa che fa la differenza fra «scorre» e
+  «passa dietro una finestra»: senza, i nomi appaiono e spariscono di colpo sul
+  bordo, e si vede il trucco.
+*/
+.marche {
+  position: relative;
+  overflow: hidden;
+  margin: 0 0 5vh;
+  padding: 18px 0;
+  border-top: 1px solid var(--bordo);
+  border-bottom: 1px solid var(--bordo);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+.marche-nastro {
+  display: flex;
+  width: max-content;
+  animation: scorri-marche 46s linear infinite;
+}
+
+.marche ul {
+  display: flex;
+  gap: 44px;
+  margin: 0;
+  padding: 0 22px 0 0;
+  list-style: none;
+}
+
+.marche li {
+  font-size: 1rem;
+  font-weight: 560;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  color: rgba(157, 220, 255, 0.5);
+  transition: color 0.25s;
+}
+
+.marche:hover li {
+  color: rgba(157, 220, 255, 0.78);
+}
+
+/*
+  Metà esatta, perché l'elenco è scritto due volte: quando il nastro è arrivato
+  a −50% la seconda copia si trova esattamente dov'era la prima all'inizio, e
+  il salto a zero non si vede. Con qualunque altro valore si vedrebbe.
+*/
+@keyframes scorri-marche {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marche-nastro {
+    animation: none;
+  }
+}
+
+/* ═══════════════════════════════════════════ il blocco di codice ══════════ */
+
+/*
+  L'unico blocco monospaziato della pagina, e quel contrasto lo rende la cosa
+  che si guarda per prima nella sezione. Dentro c'è codice VERO, copiato da
+  `buhlmann.ts`: «il codice è pubblico» smette di essere un'affermazione da
+  verificare altrove — eccolo.
+*/
+.codice {
+  margin: 26px 0 0;
+  border: 1px solid rgba(157, 220, 255, 0.18);
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(4, 19, 31, 0.72);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+.codice-testa {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(157, 220, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.codice-punti {
+  display: flex;
+  gap: 6px;
+}
+
+.codice-punti i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(157, 220, 255, 0.22);
+}
+
+.codice-nome {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--testo-tenue);
+}
+
+.codice pre {
+  margin: 0;
+  padding: 16px 18px 18px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--riflesso);
+}
+
+.c-com {
+  color: rgba(157, 220, 255, 0.42);
+}
+
+.c-key {
+  color: var(--ambra);
+}
+
+.c-fun {
+  color: var(--ciano);
+}
+
+.c-num {
+  color: #9ae6b4;
+}
+
+/* ═════════════════════════════════════════ il richiamo, con l'aurora ══════ */
+
+/*
+  È l'ultima cosa che si vede prima di decidere, e prima era un riquadro
+  illuminato e basta. Adesso dietro c'è una luce che respira: due macchie di
+  colore che si muovono piano dentro il riquadro, tagliate dai suoi bordi.
+
+  `overflow: hidden` sul riquadro e non sulle macchie: sono più grandi di lui
+  apposta, così i loro bordi non entrano mai in scena e quello che si vede è
+  solo il centro, che è la parte senza contorni.
+*/
+.richiamo {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.richiamo::before,
+.richiamo::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  width: 60%;
+  padding-bottom: 60%;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.5;
+}
+
+.richiamo::before {
+  top: -30%;
+  left: -12%;
+  background: radial-gradient(circle, rgba(67, 214, 255, 0.75), transparent 68%);
+  animation: aurora-a 15s ease-in-out infinite alternate;
+}
+
+.richiamo::after {
+  bottom: -34%;
+  right: -14%;
+  background: radial-gradient(circle, rgba(157, 220, 255, 0.5), transparent 68%);
+  animation: aurora-b 19s ease-in-out infinite alternate;
+}
+
+@keyframes aurora-a {
+  to {
+    transform: translate(26%, 18%) scale(1.18);
+  }
+}
+
+@keyframes aurora-b {
+  to {
+    transform: translate(-22%, -16%) scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .richiamo::before,
+  .richiamo::after {
+    animation: none;
+  }
+}
+
+/*
+  Il titolo del richiamo prende la sfumatura, come i numeri della fascia: sono
+  i due punti in cui la pagina alza la voce, ed è giusto che lo facciano nello
+  stesso modo.
+*/
+.richiamo h2 {
+  font-size: clamp(1.9rem, 4.4vw, 3rem);
+  background: linear-gradient(150deg, #ffffff, var(--riflesso) 55%, var(--ciano));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ═════════════════════════════════════════════════ il piede, a colonne ════ */
+
+/*
+  Erano due righe di testo centrate sotto tutto. Un piede a colonne non è
+  ordine per l'ordine: è il posto dove chi è arrivato in fondo cerca le cose
+  che non stavano da nessun'altra parte — il codice, le licenze, la lingua — e
+  trovarle allineate invece che in fila indiana significa trovarle.
+*/
+.piede-griglia {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 32px;
+  padding-bottom: 26px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid rgba(157, 220, 255, 0.1);
+  text-align: left;
+}
+
+.piede-marchio {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--testo);
+  text-decoration: none;
+  margin-bottom: 12px;
+}
+
+.piede-marchio img {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+}
+
+.piede-griglia p {
+  margin: 0;
+  max-width: 22rem;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--testo-tenue);
+}
+
+.piede-colonna h3 {
+  margin: 0 0 12px;
+  font-size: 0.74rem;
+  font-weight: 620;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(157, 220, 255, 0.55);
+}
+
+.piede-colonna ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 9px;
+}
+
+.piede-colonna a,
+.piede-colonna button {
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--testo-tenue);
+  text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.18s;
+}
+
+.piede-colonna a:hover,
+.piede-colonna button:hover {
+  color: var(--riflesso);
+}
+
+@media (max-width: 760px) {
+  .piede-griglia {
+    grid-template-columns: 1fr;
+    gap: 26px;
+  }
+}
+
 /* ══════════════════════════════════════════ la fascia dei numeri ══════════ */
 
 /*
@@ -1186,12 +1487,19 @@ a {
   letter-spacing: 0.06em;
 }
 
-.occhiello-sezione::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(157, 220, 255, 0.26), transparent);
-}
+/*
+  ► QUI C'ERA UNA SECONDA RIGA, e faceva un danno visibile. ◄
+
+  L'occhiello si portava dietro un filo che correva fino al bordo destro, e
+  poco sopra c'era già la riga che separa una sezione dall'altra. Due righe
+  orizzontali quasi parallele a quella distanza non si leggono come una
+  decorazione ricca: si leggono come un errore di stampa, e l'occhio si ferma a
+  chiedersi quale delle due sia quella giusta.
+
+  Ne resta una sola, ed è quella che ha un mestiere: separare le sezioni.
+  L'occhiello è già in maiuscoletto spaziato col numero in ciano davanti — che è
+  un'etichetta si vede benissimo, senza un filo che glielo dica.
+*/
 
 /* ══════════════════════════════════ la comparsa mentre si scorre ══════════ */
 
@@ -2032,6 +2340,21 @@ section.prosa > h2 {
 
 section.prosa > *:not(h2) {
   grid-column: 2;
+}
+
+/*
+  L'occhiello è l'unica eccezione: sta nella colonna del titolo e sopra di lui.
+  La regola qui sopra lo avrebbe spedito a destra insieme al testo, e sarebbe
+  finito ACCANTO al capitolo invece che davanti — come mettere il numero di
+  pagina in mezzo al paragrafo.
+*/
+section.prosa > .occhiello-sezione {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+section.prosa > h2 {
+  grid-row: 2;
 }
 
 section.prosa p {

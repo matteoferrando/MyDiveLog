@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/" />
-    <link rel="stylesheet" href="../stile.css?v=edb0569a" />
+    <link rel="stylesheet" href="../stile.css?v=42ff83b6" />
     <link rel="alternate" hreflang="it" href="/" />
     <link rel="alternate" hreflang="en" href="/en/" />
   </head>
@@ -235,7 +235,12 @@
         <div class="numeri">
           <div class="numero">
             <b>356</b>
-            <span>dive computer models it knows</span>
+            <span
+              >dive computer models supported, thanks to
+              <a href="https://libdivecomputer.org" target="_blank" rel="noopener noreferrer"
+                >libdivecomputer</a
+              ></span
+            >
           </div>
           <div class="numero">
             <b>7</b>
@@ -243,12 +248,64 @@
           </div>
           <div class="numero">
             <b>13</b>
-            <span>fields Italian law asks of a logbook — all of them</span>
+            <span>logbook fields required by law, every one of them</span>
           </div>
           <div class="numero">
             <b>1400<em>+</em></b>
             <span>automated checks on every change</span>
           </div>
+        </div>
+      </div>
+
+      <!-- Vedi il commento gemello nella pagina italiana. -->
+      <div class="marche" aria-label="Some of the dive computer brands the app reads">
+        <div class="marche-nastro">
+          <ul>
+            <li>Shearwater</li>
+            <li>Suunto</li>
+            <li>Scubapro</li>
+            <li>Uwatec</li>
+            <li>Mares</li>
+            <li>Cressi</li>
+            <li>Oceanic</li>
+            <li>Aqualung</li>
+            <li>Garmin</li>
+            <li>Ratio</li>
+            <li>Atomic Aquatics</li>
+            <li>Heinrichs Weikamp</li>
+            <li>Divesoft</li>
+            <li>Seac</li>
+            <li>Deepblu</li>
+            <li>Sherwood</li>
+            <li>Tusa</li>
+            <li>Zeagle</li>
+            <li>Genesis</li>
+            <li>Beuchat</li>
+            <li>McLean</li>
+          </ul>
+          <ul aria-hidden="true">
+            <li>Shearwater</li>
+            <li>Suunto</li>
+            <li>Scubapro</li>
+            <li>Uwatec</li>
+            <li>Mares</li>
+            <li>Cressi</li>
+            <li>Oceanic</li>
+            <li>Aqualung</li>
+            <li>Garmin</li>
+            <li>Ratio</li>
+            <li>Atomic Aquatics</li>
+            <li>Heinrichs Weikamp</li>
+            <li>Divesoft</li>
+            <li>Seac</li>
+            <li>Deepblu</li>
+            <li>Sherwood</li>
+            <li>Tusa</li>
+            <li>Zeagle</li>
+            <li>Genesis</li>
+            <li>Beuchat</li>
+            <li>McLean</li>
+          </ul>
         </div>
       </div>
 
@@ -573,6 +630,20 @@
           stay readable without us.
           <a href="https://github.com/matteoferrando/MyDiveLog">Look at the code</a>.
         </p>
+        <!-- Vedi il commento gemello nella pagina italiana. -->
+        <div class="codice">
+          <div class="codice-testa">
+            <span class="codice-punti" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="codice-nome">src/core/analysis/buhlmann.ts</span>
+          </div>
+          <pre><code><span class="c-com">// The Schreiner equation: how much gas enters a tissue</span>
+<span class="c-com">// while ambient pressure changes at a constant rate.</span>
+<span class="c-key">const</span> k = <span class="c-fun">Math</span>.<span class="c-fun">LN2</span> / semiperiodo;
+<span class="c-key">const</span> carico =
+  gasIniziale +
+  tasso * (tempo - <span class="c-num">1</span> / k) -
+  (gasIniziale - inerteIniziale - tasso / k) * <span class="c-fun">Math</span>.<span class="c-fun">exp</span>(-k * tempo);</code></pre>
+        </div>
       </section>
 
       <!-- Vedi il commento gemello nella pagina italiana. -->
@@ -766,10 +837,35 @@
 
     <div class="contenitore">
       <footer class="piede">
-        <p>
-          MyDiveLog — <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms of service</a> ·
-          <a href="https://github.com/matteoferrando/MyDiveLog">GitHub</a> · <a href="/">Italiano</a>
-        </p>
+        <div class="piede-griglia">
+          <div>
+            <a class="piede-marchio" href="/">
+              <img src="../logo.svg" alt="" />
+              MyDiveLog
+            </a>
+            <p>
+              The dive logbook that merges the data from all your computers, analyses it and holds the fields
+              Italian law asks for. Free software, MIT licence.
+            </p>
+          </div>
+          <div class="piede-colonna">
+            <h3>The app</h3>
+            <ul>
+              <li><a href="privacy.html">Privacy</a></li>
+              <li><a href="terms.html">Terms of service</a></li>
+              <li><a href="https://github.com/matteoferrando/MyDiveLog/releases/latest">All releases</a></li>
+              <li><button type="button" data-apri-segnala>Report a problem</button></li>
+            </ul>
+          </div>
+          <div class="piede-colonna">
+            <h3>The project</h3>
+            <ul>
+              <li><a href="https://github.com/matteoferrando/MyDiveLog">Code on GitHub</a></li>
+              <li><a href="https://libdivecomputer.org">libdivecomputer</a></li>
+              <li><a href="/">Italiano</a></li>
+            </ul>
+          </div>
+        </div>
         <p>Matteo Ferrando — <a href="mailto:m.ferrando@gmail.com">m.ferrando@gmail.com</a></p>
       </footer>
     </div>
@@ -943,6 +1039,57 @@
           n.classList.add('appare');
           guardia.observe(n);
         }
+      })();
+    </script>
+    <script>
+      /*
+        I numeri della fascia salgono quando ci si arriva.
+
+        NON È UN VEZZO: un numero che si ferma davanti a te dice «guarda questo»
+        molto più forte di un numero che era già lì quando sei arrivato. Dura
+        poco più di un secondo — abbastanza da vedersi, troppo poco per far
+        aspettare chi vuole solo leggerlo.
+
+        LA REGOLA DI SICUREZZA È LA STESSA DELLA COMPARSA: la cifra vera sta
+        nell'HTML e resta lì. Questo script la legge, la sostituisce per un
+        secondo e poi la rimette. Se non parte, o se qualcuno ha chiesto meno
+        movimento, il numero è semplicemente già scritto — non c'è nessun caso
+        in cui la fascia resti con dentro degli zeri.
+      */
+      (() => {
+        const meno = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const cifre = document.querySelectorAll('.numero b');
+        if (meno || !cifre.length || !('IntersectionObserver' in window)) return;
+
+        const sali = (n) => {
+          const finale = parseInt(n.textContent.replace(/\D/g, ''), 10);
+          if (!finale) return;
+          const coda = n.querySelector('em')?.outerHTML ?? '';
+          const durata = 1100;
+          const inizio = performance.now();
+          const passo = (ora) => {
+            const t = Math.min(1, (ora - inizio) / durata);
+            // Una curva che parte veloce e si ferma dolcemente: un conteggio
+            // lineare sembra un contatore rotto, questo sembra qualcosa che
+            // arriva a destinazione.
+            const q = 1 - Math.pow(1 - t, 3);
+            n.innerHTML = Math.round(finale * q).toLocaleString('it-IT') + coda;
+            if (t < 1) requestAnimationFrame(passo);
+          };
+          requestAnimationFrame(passo);
+        };
+
+        const guardia = new IntersectionObserver(
+          (voci) => {
+            for (const v of voci) {
+              if (!v.isIntersecting) continue;
+              sali(v.target);
+              guardia.unobserve(v.target);
+            }
+          },
+          { threshold: 0.4 },
+        );
+        for (const c of cifre) guardia.observe(c);
       })();
     </script>
   </body>
