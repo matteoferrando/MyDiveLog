@@ -6,7 +6,7 @@
     <title>MyDiveLog — il tuo logbook subacqueo, sul tuo dispositivo</title>
     <meta
       name="description"
-      content="Logbook subacqueo libero e open source. Unisce la stessa immersione registrata da computer diversi tenendo il meglio di ciascuno, analizza i profili e pianifica. L'archivio resta sul tuo dispositivo."
+      content="Logbook subacqueo libero e gratuito. Unisce le immersioni di tutti i tuoi computer senza doppioni, analizza i profili, pianifica e tiene tutti i dati che la legge 70/2026 chiede al libretto delle immersioni. Niente account, niente pubblicità: l'archivio resta sul tuo dispositivo."
     />
     <meta name="theme-color" content="#07203c" />
     <link rel="icon" href="logo.svg" type="image/svg+xml" />
@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/" />
-    <link rel="stylesheet" href="stile.css?v=3f54fbfc" />
+    <link rel="stylesheet" href="stile.css?v=1b2ccb47" />
     <link rel="alternate" hreflang="en" href="/en/" />
     <link rel="alternate" hreflang="it" href="/" />
   </head>
@@ -61,9 +61,10 @@
       <div class="apertura">
         <h1>Il tuo logbook <em>subacqueo</em></h1>
         <p class="occhiello">
-          Legge i file di tutti i tuoi computer e, quando due hanno registrato la stessa immersione, ne fa
-          <strong>una riga sola tenendo il meglio di ciascuno</strong>. Poi analizza i profili e pianifica.
-          L'archivio resta sul tuo dispositivo.
+          <strong>Tutte le immersioni della tua vita in un archivio solo</strong>, anche se hai cambiato tre
+          computer. Unite senza doppioni, analizzate, e con tutti i dati che la
+          <strong>legge 70/2026</strong> chiede al libretto — pronti in PDF. Gratis, senza account, e niente
+          esce dal tuo dispositivo.
         </p>
         <div class="pulsanti">
           <!--
@@ -486,6 +487,38 @@
           >
           <a class="pulsante" href="https://github.com/matteoferrando/MyDiveLog">Guarda il codice</a>
         </div>
+      </section>
+    </div>
+
+    <!--
+      LA DONAZIONE È UN COLLEGAMENTO, NON IL PULSANTE DI PAYPAL.
+
+      Il frammento che PayPal fornisce carica `donate-sdk.js` dal loro dominio e
+      disegna una GIF: due richieste a un terzo, su OGNI visita, anche di chi non
+      donerà mai. Questo sito dice — ed è vero — che non traccia nessuno: uno
+      script di terze parti caricato sempre lo renderebbe falso, e andrebbe
+      scritto nell'informativa.
+
+      Il collegamento qui sotto porta allo STESSO modulo, con lo stesso
+      `hosted_button_id`. La differenza è che PayPal vede solo chi decide di
+      donare, e il pulsante è il nostro: stessa forma, stessi colori, stesso
+      comportamento al passaggio del mouse degli altri due della pagina.
+    -->
+    <div class="contenitore">
+      <section class="dono">
+        <p>
+          MyDiveLog è un progetto <strong>open source e gratuito</strong>. Se ti piace e vuoi contribuire alla
+          sua sopravvivenza, puoi farlo qui. <span class="cuore" aria-hidden="true">❤︎</span>
+        </p>
+        <a
+          class="pulsante pulsante-dono"
+          href="https://www.paypal.com/donate/?hosted_button_id=7PQDU6GPHQK34"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span class="cuore" aria-hidden="true">❤︎</span> Offrimi una bombola
+        </a>
+        <p class="dono-nota">Si apre PayPal. Nessun account richiesto: si paga anche con carta.</p>
       </section>
     </div>
 

@@ -742,6 +742,79 @@ a {
 }
 
 /*
+  LA DONAZIONE. Sta dopo il richiamo e prima del piede, ed è deliberatamente
+  più quieta di entrambi: chiedere soldi subito dopo aver chiesto di scaricare
+  suona come un pedaggio, e questo non lo è. Niente riquadro illuminato, niente
+  gradiente: una riga di testo e un pulsante caldo.
+
+  Il colore è l'ambra, l'unico della tavolozza che non sia acqua — le due
+  varianti del ciano sono già prese dai pulsanti «Scarica» e «Guarda il codice»,
+  e un terzo pulsante ciano avrebbe fatto pensare a un'altra copia dell'app.
+  L'ambra qui dentro è già il colore della segnalazione, quindi non è un colore
+  nuovo: è quello che sulla pagina significa «guarda qui».
+*/
+.dono {
+  text-align: center;
+  margin: 0 0 6vh;
+  padding: 28px 24px 8px;
+  border-top: 1px solid var(--bordo);
+}
+
+.dono p {
+  max-width: 42rem;
+  margin: 0 auto 18px;
+  color: var(--testo-tenue);
+}
+
+.pulsante-dono {
+  border-color: rgba(255, 180, 84, 0.42);
+  background: rgba(255, 180, 84, 0.1);
+  color: var(--ambra);
+}
+
+.pulsante-dono:hover {
+  border-color: rgba(255, 180, 84, 0.75);
+  background: rgba(255, 180, 84, 0.17);
+}
+
+/*
+  Il cuore batte una volta ogni due secondi e mezzo — il ritmo di un cuore a
+  riposo, non quello di una notifica. Chi ha chiesto meno movimento non lo vede
+  muovere affatto, e il cuore resta.
+*/
+.dono .cuore {
+  color: var(--ambra);
+  display: inline-block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pulsante-dono .cuore {
+    animation: battito 2.5s ease-in-out infinite;
+  }
+}
+
+@keyframes battito {
+  0%,
+  82%,
+  100% {
+    transform: scale(1);
+  }
+  88% {
+    transform: scale(1.22);
+  }
+  94% {
+    transform: scale(1.08);
+  }
+}
+
+.dono-nota {
+  margin: 16px auto 0;
+  font-size: 0.86rem;
+  color: var(--testo-tenue);
+  opacity: 0.8;
+}
+
+/*
   Le bolle. Tre, lente, quasi trasparenti, e solo in apertura: chi le nota
   sorride, chi non le nota non è disturbato. È il limite oltre il quale una
   metafora diventa un fastidio, e sta un passo prima.
