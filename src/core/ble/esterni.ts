@@ -124,10 +124,7 @@ export function immersioneDaLdc(imm: ImmersioneLdc, ctx: ContestoEsterno): Dive 
    */
   const daiCampioni = samples.length ? Math.max(...samples.map((s) => s.depth)) : 0;
   const maxDepth = Math.max(imm.maxDepth || 0, daiCampioni);
-  const durationS = Math.max(
-    imm.durationS || 0,
-    samples.length ? samples[samples.length - 1].t : 0,
-  );
+  const durationS = Math.max(imm.durationS || 0, samples.length ? samples[samples.length - 1].t : 0);
   if (maxDepth <= 0 && durationS <= 0) return undefined;
 
   const oraAParete = imm.startMs;

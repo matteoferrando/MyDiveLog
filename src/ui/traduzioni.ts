@@ -2015,8 +2015,7 @@ export const INGLESE: Record<string, string> = {
   'per esempio: perdix': 'for example: perdix',
   'di solito riconosciuto da solo': 'usually recognised on its own',
   'non ancora via Bluetooth': 'not over Bluetooth yet',
-  'via libdivecomputer, mai provato su questo modello':
-    'via libdivecomputer, never tested on this model',
+  'via libdivecomputer, mai provato su questo modello': 'via libdivecomputer, never tested on this model',
   'solo importando il file': 'file import only',
   'Ho capito': 'Got it',
   'Nessun modello con questo nome. Può darsi che si chiami in un altro modo, o che quel computer i dati via Bluetooth non li dia: in tutti e due i casi puoi esportare le immersioni dall’applicazione del costruttore e importare qui il file.':

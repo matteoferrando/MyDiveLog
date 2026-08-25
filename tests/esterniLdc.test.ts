@@ -191,10 +191,11 @@ describe('quello che non arriva e quello che si assume', () => {
   it('un record vuoto non è un’immersione e non entra in archivio', () => {
     // La memoria di alcuni computer contiene record vuoti o troncati. Farli
     // entrare vuol dire immersioni di zero minuti da cancellare a mano.
-    const vuota = immersioneDaLdc(
-      unaImmersione({ durationS: 0, maxDepth: 0, samples: [] }),
-      { marca: 'Mares', modello: 'Quad Ci', importedAt: IMPORTATA },
-    );
+    const vuota = immersioneDaLdc(unaImmersione({ durationS: 0, maxDepth: 0, samples: [] }), {
+      marca: 'Mares',
+      modello: 'Quad Ci',
+      importedAt: IMPORTATA,
+    });
     expect(vuota).toBeUndefined();
   });
 });

@@ -135,13 +135,26 @@ export interface ModelloComputer {
 export const MODELLI_BLE: readonly ModelloComputer[] = [
 `;
 
+/*
+ * APICI SINGOLI, e non `JSON.stringify`.
+ *
+ * `JSON.stringify` produce apici doppi, e Prettier — che in questo progetto
+ * gira anche in CI, nel passo «Formato» — li riscriverebbe singoli. Il
+ * risultato sarebbe un file generato che nasce già sporco: si rigenera, la CI
+ * diventa rossa, e la correzione consiste nel formattare a mano un file che
+ * dice «non modificarlo a mano». Meglio nascere nella forma giusta.
+ */
+const apici = (s) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+
 const righe = accorpati
   .map(
     (m) =>
-      `  { marca: ${JSON.stringify(m.marca)}, modello: ${JSON.stringify(m.modello)}, famiglia: ${JSON.stringify(m.famiglia)}, numeri: [${m.numeri.join(', ')}] },`,
+      `  { marca: ${apici(m.marca)}, modello: ${apici(m.modello)}, famiglia: ${apici(m.famiglia)}, numeri: [${m.numeri.join(', ')}] },`,
   )
   .join('\n');
 
 writeFileSync(USCITA, `${testa}${righe}\n];\n`);
-console.log(`${USCITA}: ${accorpati.length} nomi (${modelli.length} descrittori BLE), ${marche.length} marche`);
+console.log(
+  `${USCITA}: ${accorpati.length} nomi (${modelli.length} descrittori BLE), ${marche.length} marche`,
+);
 console.log(marche.join(', '));

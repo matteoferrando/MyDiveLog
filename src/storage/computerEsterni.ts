@@ -80,9 +80,7 @@ export async function scaricaDaComputerEsterno({
      * una frase, invece di lasciar fallire `invoke` con un errore di modulo
      * mancante: quello arriverebbe all'utente come una riga di JavaScript.
      */
-    throw new Error(
-      'Lo scarico dal computer subacqueo funziona nell’applicazione, non nel browser.',
-    );
+    throw new Error('Lo scarico dal computer subacqueo funziona nell’applicazione, non nel browser.');
   }
 
   const { invoke } = await import('@tauri-apps/api/core');

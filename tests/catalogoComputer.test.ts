@@ -72,7 +72,9 @@ describe('l’ordine delle marche', () => {
      */
     const marche = marchePerDiffusione().map((m) => m.marca);
     const note = marchePrincipali(100);
-    const ignote = marche.slice(marche.findIndex((m) => !note.includes(m) && !['Divesoft', 'Sherwood', 'Ratio'].includes(m)));
+    const ignote = marche.slice(
+      marche.findIndex((m) => !note.includes(m) && !['Divesoft', 'Sherwood', 'Ratio'].includes(m)),
+    );
     const ordinate = [...ignote].sort((a, b) => a.localeCompare(b));
     expect(ignote).toEqual(ordinate);
   });
@@ -81,7 +83,9 @@ describe('l’ordine delle marche', () => {
     // Sono i due driver scritti in casa, e da soli coprono il 57% dei
     // subacquei ricreativi e l'80% di quelli tecnici: il selettore serve per
     // il resto, ed è la ragione per cui non va messo davanti a tutti.
-    const automatiche = marchePerDiffusione().filter((m) => m.automatica).map((m) => m.marca);
+    const automatiche = marchePerDiffusione()
+      .filter((m) => m.automatica)
+      .map((m) => m.marca);
     expect(automatiche).toContain('Shearwater');
     expect(automatiche).toContain('Scubapro');
     expect(RICONOSCIUTE_DA_SOLE).toContain('Uwatec');

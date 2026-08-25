@@ -37,11 +37,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import {
-  cercaModelli,
-  marchePerDiffusione,
-  type ModelloComputer,
-} from '../../core/ble/catalogo';
+import { cercaModelli, marchePerDiffusione, type ModelloComputer } from '../../core/ble/catalogo';
 import { esitoPer } from '../../core/ble/scelta';
 import { useLingua } from '../lingua';
 

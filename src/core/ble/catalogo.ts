@@ -179,9 +179,7 @@ export function marchePrincipali(soglia = 90): string[] {
 export function cercaModelli(testo: string): ModelloComputer[] {
   const q = testo.trim().toLowerCase();
   if (!q) return [];
-  return MODELLI_BLE.filter(
-    (m) => m.marca.toLowerCase().includes(q) || m.modello.toLowerCase().includes(q),
-  );
+  return MODELLI_BLE.filter((m) => m.marca.toLowerCase().includes(q) || m.modello.toLowerCase().includes(q));
 }
 
 export { MODELLI_BLE };
