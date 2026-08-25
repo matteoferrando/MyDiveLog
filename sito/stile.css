@@ -1109,10 +1109,14 @@ a {
   allineato a niente.
 */
 .marche-titolo {
+  /*
+    Niente larghezza e niente riempimento: sta già dentro `.contenitore`, che i
+    conti li ha fatti. La versione precedente li rifaceva da capo e sommava i
+    suoi 24 px a quelli del contenitore, mandando l'etichetta 48 px a destra di
+    tutto il resto — compreso il nastro che dice di intestare.
+  */
   max-width: none;
-  margin: 0 auto 12px;
-  padding: 0 24px;
-  width: min(100% - 48px, var(--largo));
+  margin: 0 0 12px;
   font-size: 0.74rem;
   font-weight: 620;
   letter-spacing: 0.16em;
@@ -1127,8 +1131,8 @@ a {
   padding: 18px 0;
   border-top: 1px solid var(--bordo);
   border-bottom: 1px solid var(--bordo);
-  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent);
 }
 
 .marche-nastro {
@@ -1646,18 +1650,6 @@ a {
 
   .vetrina-apertura img {
     transform: none;
-  }
-}
-
-/*
-  L'intestazione laterale delle sezioni in prosa stava in quindici rem, e
-  «Un avvertimento che conta» ci finiva su tre righe spezzate male. Due rem in
-  più costano niente al testo — la colonna che legge resta la stessa — e le
-  fanno stare tutte su due righe.
-*/
-@media (min-width: 900px) {
-  section.prosa {
-    grid-template-columns: 17rem 1fr;
   }
 }
 
@@ -2329,66 +2321,37 @@ section:not(.richiamo):not(.dono)::after {
 /* ================================================== le sezioni di sola prosa */
 
 /*
-  IL FONDO DELLA PAGINA ERA VUOTO. Le ultime sezioni sono testo e basta, e su
-  uno schermo largo diventavano una colonna stretta a sinistra con mezza pagina
-  di buio a destra: la parte più profonda dell'immersione era anche la più
-  sciatta.
+  ► QUI C'ERA UNA COLONNA LATERALE COL TITOLO, E SE N'È ANDATA. ◄
 
-  Qui il titolo passa in una colonna sua, a sinistra, e ci resta appiccicato
-  mentre il testo scorre — così la larghezza è occupata da una struttura invece
-  che dal vuoto, e mentre leggi sai sempre di cosa si sta parlando. Sotto i 900
-  px torna una colonna sola, perché due colonne su un telefono sono due colonne
-  strette.
+  Le ultime sezioni sono testo e basta, e su uno schermo largo diventavano una
+  colonna stretta a sinistra con mezza pagina di buio a destra. Il rimedio era
+  spostare il titolo in una colonna sua, appiccicato in alto mentre il testo
+  scorreva accanto. Sulla carta funzionava. A schermo faceva tre danni, e il
+  terzo da solo basta a chiudere il discorso.
+
+  IL PRIMO. Il titolo stava nella riga 2 della griglia e il primo pezzo di testo
+  nella riga 1 della colonna accanto. L'altezza della riga 1 la decideva il
+  testo, non l'occhiello: il titolo scivolava giù di quanto era alto il primo
+  paragrafo e restava appeso a mezz'aria, lontano sia dall'occhiello che lo
+  annuncia sia dal testo che introduce. Non era una svista di misura, era il
+  funzionamento della griglia.
+
+  IL SECONDO. Quelle sezioni avevano il titolo più piccolo di tutte le altre —
+  30 px contro 38 — e la pagina finiva con due gerarchie che non si spiegano.
+
+  IL TERZO. Nella sezione dell'avvertimento il primo elemento è il riquadro
+  giallo. Con quella griglia il riquadro finiva SOPRA il suo titolo: si leggeva
+  l'avvertimento, e solo dopo si scopriva che era un avvertimento. Su una pagina
+  che parla di rischi mortali l'ordine di lettura non è una questione di gusto.
+
+  Adesso sono fatte come tutte le altre — occhiello, titolo, testo, uno sotto
+  l'altro — e il vuoto a destra che si voleva evitare non si vede comunque:
+  ciascuna ha un elemento a tutta larghezza (il riquadro, il blocco di codice),
+  e una colonna di testo larga quaranta rem con aria intorno è come sono fatte
+  le pagine che si leggono davvero.
 */
-section.prosa {
-  display: grid;
-  grid-template-columns: 15rem 1fr;
-  gap: 16px 48px;
-  align-items: start;
-}
-
-section.prosa > h2 {
-  grid-column: 1;
-  position: sticky;
-  top: 28px;
-  margin: 0;
-  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
-  color: var(--riflesso);
-}
-
-section.prosa > *:not(h2) {
-  grid-column: 2;
-}
-
-/*
-  L'occhiello è l'unica eccezione: sta nella colonna del titolo e sopra di lui.
-  La regola qui sopra lo avrebbe spedito a destra insieme al testo, e sarebbe
-  finito ACCANTO al capitolo invece che davanti — come mettere il numero di
-  pagina in mezzo al paragrafo.
-*/
-section.prosa > .occhiello-sezione {
-  grid-column: 1;
-  grid-row: 1;
-}
-
-section.prosa > h2 {
-  grid-row: 2;
-}
-
 section.prosa p {
   max-width: 40rem;
-}
-
-@media (max-width: 900px) {
-  section.prosa {
-    grid-template-columns: 1fr;
-  }
-  section.prosa > h2 {
-    position: static;
-  }
-  section.prosa > *:not(h2) {
-    grid-column: 1;
-  }
 }
 
 /*
