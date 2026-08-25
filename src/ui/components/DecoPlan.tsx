@@ -45,7 +45,6 @@ import { OTU_DAILY_TDI } from '../../core/analysis/oxygen';
 import type { GasMix, Salinity } from '../../core/model';
 import { withFraction } from '../../core/units';
 import { StatTile } from './Charts';
-import { AnalysisCard } from './Analysis';
 import { useLingua } from '../lingua';
 
 export interface DecoSeed {
@@ -1521,28 +1520,6 @@ export function DecoPlanner({
           </div>
         )}
       </div>
-
-      <AnalysisCard
-        kind="deco"
-        deco={{
-          result: plan,
-          levels: effectiveLevels,
-          gases,
-          settings,
-          contingencies: contingenze,
-          modelLabel:
-            model === 'buhlmann'
-              ? `Bühlmann ZH-L16C con GF ${Math.round(settings.gfLow * 100)}/${Math.round(settings.gfHigh * 100)}`
-              : model === 'vpm'
-                ? `VPM-B, conservatorismo ${conservatism}`
-                : `il più lungo fra Bühlmann-GF ${Math.round(settings.gfLow * 100)}/${Math.round(settings.gfHigh * 100)} e VPM-B conservatorismo ${conservatism}, sosta per sosta`,
-        }}
-        title={t('Fai rileggere il piano a Claude')}
-        description={t(
-          'Livelli, miscele, soste, gas, ossigeno e contingenze vanno a Claude, con l’istruzione di non riscrivere la tabella: se una sosta non convince, deve dire quale controllo la mette in dubbio.',
-        )}
-        currentFingerprint={tableText}
-      />
 
       <div className="card">
         <h2>{t('Se qualcosa cambia')}</h2>

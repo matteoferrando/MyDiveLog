@@ -1,12 +1,12 @@
 /**
  * Dove vivono le credenziali.
  *
- * IL PROBLEMA. Il token di sincronizzazione Turso e la chiave dell'API Anthropic
+ * IL PROBLEMA. Il token di sincronizzazione Turso e la sessione dell'accesso
  * stavano nella tabella delle impostazioni, in chiaro, insieme all'obiettivo del
  * mese e al periodo scelto. Sono l'unica cosa in tutta l'applicazione che, se
  * letta da qualcun altro, fa danno FUORI dall'applicazione: il token apre il
- * database remoto con tutte le immersioni, la chiave API si spende a spese di chi
- * l'ha generata. E l'archivio SQLite è un file: finisce nei backup di sistema,
+ * database remoto con tutte le immersioni. E l'archivio SQLite è un file:
+ * finisce nei backup di sistema,
  * nelle copie su disco esterno, nelle cartelle sincronizzate, e in qualunque
  * copia che qualcuno faccia per sicurezza.
  *
@@ -29,8 +29,16 @@ import { isTauri } from './index';
 /**
  * Le chiavi dei segreti.
  *
- * `sync` è l'indirizzo più il token del database scritti a mano; `ai` la chiave
- * dell'API di Anthropic; `account` la sessione dell'accesso con Google.
+ * `sync` è l'indirizzo più il token del database scritti a mano; `account` la
+ * sessione dell'accesso con Google o con Apple.
+ *
+ * ► `ai` NON C'È PIÙ, ED È RIMASTA NELL'ELENCO APPOSTA. ◄ Era la chiave
+ * dell'API di Anthropic, per l'analisi dentro l'app, tolta il 25 agosto 2026.
+ * Chi l'aveva configurata ha ancora quella chiave nel portachiavi di sistema, e
+ * una credenziale conservata da un'applicazione che non la usa più è una
+ * responsabilità che non serve a nessuno: `dimenticaChiaveAi()` la cancella al
+ * primo avvio della versione nuova. Tolta dal tipo, quella cancellazione non si
+ * potrebbe nemmeno scrivere.
  *
  * Quest'ultima merita una riga: dura settimane e vale per l'identità, mentre la
  * chiave del database che se ne ricava dura due ore e **non si salva da nessuna
@@ -184,4 +192,32 @@ export function describePlace(place: SecretPlace): string {
   return place === 'keychain'
     ? 'Nel portachiavi di sistema: cifrate dal sistema operativo e leggibili solo da questa applicazione. Non entrano nell’archivio né nei backup.'
     : 'Nell’archivio locale di questo dispositivo, in chiaro. Un browser non ha un portachiavi che una pagina possa usare, e cifrare con una chiave che sta nella stessa pagina sarebbe teatro. Sull’app desktop finiscono invece nel portachiavi di macOS.';
+}
+
+/**
+ * Cancella la chiave dell'API di Anthropic rimasta dalla versione precedente.
+ *
+ * ► PERCHÉ UNA FUNZIONE APPOSTA, e non «tanto sta lì e non dà fastidio». ◄
+ *
+ * L'analisi con Claude è stata tolta dall'applicazione il 25 agosto 2026. Chi
+ * l'aveva configurata ha dato a questa applicazione una credenziale che si
+ * spende a spese sue, per una funzione che non esiste più. Tenerla è una
+ * responsabilità senza contropartita: se un giorno qualcuno legge il
+ * portachiavi, trova una chiave che non serviva a niente da mesi.
+ *
+ * Si esegue una volta sola e non fallisce mai in modo rumoroso: è pulizia, non
+ * una funzione dell'applicazione, e non deve poter impedire l'avvio a nessuno.
+ * Su un archivio dove quella chiave non c'è mai stata non fa niente.
+ */
+export async function dimenticaChiaveAi(archive: {
+  getSetting<T>(key: string): Promise<T | undefined>;
+  setSetting<T>(key: string, value: T): Promise<void>;
+}): Promise<void> {
+  try {
+    const segreti = await openSecretStore(archive);
+    await segreti.remove('ai');
+  } catch {
+    // Un portachiavi che non risponde non deve impedire l'avvio: la chiave
+    // resterà lì, e ci riproveremo al prossimo avvio.
+  }
 }

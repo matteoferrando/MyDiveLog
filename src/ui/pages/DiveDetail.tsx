@@ -17,7 +17,6 @@ import { DepthProfile, MiniSeries } from '../components/DepthProfile';
 import { RATE_WINDOW_S, windowedRates } from '../../core/analysis/metrics';
 import { StatTile } from '../components/Charts';
 import { useDiveLog } from '../state';
-import { AnalysisCard } from '../components/Analysis';
 import { SaturationCard } from '../components/Saturation';
 import { decoTimeline, entryStateFor, gfOf, type DecoPoint } from '../../core/analysis/tissues';
 import { ModificaImmersione } from '../components/ModificaImmersione';
@@ -809,14 +808,6 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
           />
         </div>
       )}
-
-      <AnalysisCard
-        kind="dive"
-        dive={dive}
-        title={t('Analisi di questa immersione con Claude')}
-        description={t('Legge il profilo e i numeri del computer, e dice cosa provare la prossima volta.')}
-        currentFingerprint={dive.updatedAt ?? dive.id}
-      />
 
       {dive.notes && (
         <div className="card">

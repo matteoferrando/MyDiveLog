@@ -9,7 +9,6 @@ import {
   useWidth,
 } from '../components/Charts';
 import { useDiveLog } from '../state';
-import { AnalysisCard } from '../components/Analysis';
 import { PeriodPicker } from '../components/PeriodPicker';
 import { dateShort, imm, int, pct, type Traduci } from '../format';
 import { OTU_DAILY_MAX, OTU_DAILY_TDI } from '../../core/analysis/oxygen';
@@ -609,15 +608,6 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
       <Distributions dives={scoped} />
       <SettingsHistory dives={scoped} />
       <Seasonality dives={scoped} />
-
-      <AnalysisCard
-        kind="archive"
-        title={t('Analisi dell’archivio con Claude')}
-        description={t(
-          'Legge le immersioni una per una, non solo le medie: cambi nel tempo, indicatori che si muovono insieme, immersioni fuori scala.',
-        )}
-        currentFingerprint={`${scope.period.id}:${scope.dives.length}:${a.lastDive ?? ''}`}
-      />
     </div>
   );
 }

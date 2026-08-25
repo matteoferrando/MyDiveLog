@@ -2,14 +2,17 @@
 /**
  * Quello che succede, detto a chi non guarda lo schermo.
  *
- * PERCHÉ ESISTE. Tre punti dell'applicazione fanno partire un'operazione che
- * dura — leggere una manciata di file, chiedere un'analisi a Claude, ricalcolare
- * il piano di miglioramento — e finché non finisce cambiano solo cose che si
- * vedono: il testo di un pulsante, un flusso di testo che cresce, una tabella che
- * compare in fondo alla pagina. Nessuna di queste è udibile. Con uno screen
- * reader si premeva un pulsante e da lì in poi non arrivava più niente: non se era
- * partito, non se era finito, non se era fallito — e nel caso peggiore, quello
- * dell'analisi, l'attesa muta dura mezzo minuto.
+ * PERCHÉ ESISTE. Due punti dell'applicazione fanno partire un'operazione che
+ * dura — leggere una manciata di file, ricalcolare il piano di miglioramento — e
+ * finché non finisce cambiano solo cose che si vedono: il testo di un pulsante,
+ * una tabella che compare in fondo alla pagina. Nessuna di queste è udibile. Con
+ * uno screen reader si premeva un pulsante e da lì in poi non arrivava più
+ * niente: non se era partito, non se era finito, non se era fallito.
+ *
+ * Erano tre. Il terzo era l'analisi con Claude, tolta dall'applicazione il 25
+ * agosto 2026: la sua parte di questo file se n'è andata con lei, ma le regole
+ * qui sotto valgono identiche per il prossimo pulsante che farà aspettare
+ * qualcuno.
  *
  * COSA VERIFICA. Le tre regioni live nei TRE momenti, eseguendo davvero il
  * componente e portandolo attraverso gli stati con una promessa che il test
@@ -38,8 +41,7 @@ import { aggregate } from '../src/core/analysis/aggregate';
 import { buildPlan, type Plan } from '../src/core/analysis/coaching';
 import { periodOf } from '../src/core/analysis/window';
 import { AIR, type Dive, type Sample } from '../src/core/model';
-import { int } from '../src/ui/format';
-import type { ImportOutcome, StoredAnalysis } from '../src/ui/state';
+import type { ImportOutcome } from '../src/ui/state';
 
 /**
  * L'archivio finto.
@@ -51,7 +53,6 @@ const finto = vi.hoisted(() => ({ valore: {} as Record<string, unknown> }));
 vi.mock('../src/ui/state', () => ({ useDiveLog: () => finto.valore }));
 
 import { ImportPage } from '../src/ui/pages/ImportPage';
-import { AnalysisCard } from '../src/ui/components/Analysis';
 import { Coach } from '../src/ui/pages/Coach';
 
 // ---------------------------------------------------------------------------
@@ -287,114 +288,6 @@ describe('annunci della pagina di import', () => {
     // L'esito visivo è la sparizione di mezza pagina: nulla che una voce possa
     // raccontare da sé, quindi lo si dice — con quante ne sono state cancellate.
     expect(stato(vista.host)).toContain('Archivio azzerato: 128 immersioni');
-    vista.smonta();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Analisi con Claude
-// ---------------------------------------------------------------------------
-
-describe('annunci dell’analisi con Claude', () => {
-  const analisi = (over: Partial<StoredAnalysis> = {}): StoredAnalysis => ({
-    kind: 'plan',
-    subject: '-',
-    text: 'Consumo in calo, assetto da sistemare nei primi cinque minuti di fondo.',
-    model: 'claude-x-1',
-    at: '2026-08-18T10:00:00Z',
-    inputTokens: 8210,
-    outputTokens: 1190,
-    fingerprint: 'x',
-    ...over,
-  });
-
-  const archivioFinto = (runAnalysis: () => Promise<StoredAnalysis>) => {
-    finto.valore = {
-      aiCredentials: { apiKey: 'chiave', model: 'claude-x-1' },
-      analysis: () => undefined,
-      runAnalysis,
-      clearAnalysis: async () => undefined,
-    };
-  };
-
-  const carta = () => (
-    <AnalysisCard kind="plan" title="Rilettura del piano" description="Mette in ordine i risultati." />
-  );
-
-  it('annuncia la partenza col modello e l’esito con parole e token', async () => {
-    const { promessa, risolvi } = differita<StoredAnalysis>();
-    archivioFinto(() => promessa);
-    const vista = monta(carta());
-
-    expect(stato(vista.host)).toBe('');
-    const bottone = premi(vista.host, 'Analizza con Claude');
-
-    // È PARTITA. Mezzo minuto di attesa muta era il caso peggiore di tutta
-    // l'applicazione: qui si dice che la richiesta è andata, e a quale modello.
-    expect(stato(vista.host)).toContain('richiesta inviata al modello claude-x-1');
-    expect(stato(vista.host)).toContain('qualche decina di secondi');
-    expect(bottone.getAttribute('aria-busy')).toBe('true');
-    expect(bottone.textContent).toContain('Analisi in corso');
-
-    await act(async () => {
-      risolvi(analisi({ text: 'una due tre quattro cinque sei' }));
-    });
-
-    // È FINITA COSÌ: quanto è lunga e quanto è costata — i due numeri che la
-    // carta mostra sotto il testo, e gli unici che dicono se vale la pena
-    // mettersi a leggerla.
-    const detto = stato(vista.host);
-    expect(detto).toContain('analisi pronta, 6 parole');
-    // Passa da `int` e non da una costante scritta a mano: in italiano i numeri
-    // di quattro cifre non prendono il punto — 8210 resta «8210», 18210 diventa
-    // «18.210» — e una stringa fissa qui si romperebbe al primo cambio di soglia.
-    expect(detto).toContain(`${int(8210)} token in ingresso e ${int(1190)} in uscita`);
-    expect(bottone.getAttribute('aria-busy')).toBe('false');
-    vista.smonta();
-  });
-
-  it('il fallimento passa dall’allarme e viene detto UNA volta sola', async () => {
-    const { promessa, rifiuta } = differita<StoredAnalysis>();
-    archivioFinto(() => promessa);
-    const vista = monta(carta());
-
-    // La regione assertiva c'è già, vuota, prima che l'errore esista.
-    expect(vista.host.querySelector('[role="alert"]')).not.toBeNull();
-    expect(allarme(vista.host)).toBe('');
-
-    premi(vista.host, 'Analizza con Claude');
-    await act(async () => {
-      rifiuta(new Error('credito esaurito sull’account Anthropic'));
-    });
-
-    expect(allarme(vista.host)).toBe('credito esaurito sull’account Anthropic');
-    // Il messaggio visibile È il contenuto della regione, non una seconda copia
-    // nascosta accanto: altrimenti lo screen reader lo leggerebbe due volte.
-    const paragrafo = vista.host.querySelector('[role="alert"] p');
-    expect(paragrafo).not.toBeNull();
-    const quante = (vista.host.textContent ?? '').split('credito esaurito').length - 1;
-    expect(quante, 'il motivo dell’errore compare più di una volta').toBe(1);
-    // E il «richiesta inviata» non resta appeso a dire il falso.
-    expect(stato(vista.host)).toBe('');
-    vista.smonta();
-  });
-
-  it('anche la rimozione dell’analisi salvata si annuncia', async () => {
-    const { promessa, risolvi } = differita<void>();
-    finto.valore = {
-      aiCredentials: { apiKey: 'chiave', model: 'claude-x-1' },
-      analysis: () => analisi(),
-      runAnalysis: async () => analisi(),
-      clearAnalysis: () => promessa,
-    };
-    const vista = monta(carta());
-
-    premi(vista.host, 'Rimuovi');
-    expect(stato(vista.host)).toContain("rimozione dell'analisi salvata");
-    await act(async () => {
-      risolvi();
-    });
-    expect(stato(vista.host)).toContain("analisi rimossa dall'archivio locale");
     vista.smonta();
   });
 });

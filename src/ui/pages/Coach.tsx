@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { AREA_LABEL, GOALS, type Finding, type GoalId } from '../../core/analysis/coaching';
 import { Meter } from '../components/Charts';
 import { useDiveLog } from '../state';
-import { AnalysisCard } from '../components/Analysis';
 import { PeriodPicker } from '../components/PeriodPicker';
 import { imm, plural, SEVERITY_CLASS, SEVERITY_TEXT, type Traduci } from '../format';
 import { Vuoto } from '../components/Vuoto';
@@ -235,15 +234,6 @@ export function Coach() {
           <li>{t('Sulla sicurezza il piano dice cosa guardare, non sostituisce l’istruttore.')}</li>
         </ul>
       </div>
-
-      <AnalysisCard
-        kind="plan"
-        title={t('Rilettura del piano con Claude')}
-        description={t(
-          'Mette i risultati in ordine e li trasforma in un programma per le prossime dieci immersioni.',
-        )}
-        currentFingerprint={`${goalId}:${scope.period.id}:${scope.dives.length}:${plan.findings.length}`}
-      />
     </div>
   );
 }

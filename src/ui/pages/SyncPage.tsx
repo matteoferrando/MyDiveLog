@@ -40,7 +40,6 @@ import {
 } from '../../core/export/backup';
 import type { Fornitore } from '../../sync/account';
 import type { SyncReport } from '../../sync/turso';
-import type { AiModel } from '../../ai/client';
 import { BottoneConferma } from '../components/Conferma';
 
 export function SyncPage() {
@@ -52,9 +51,6 @@ export function SyncPage() {
     testSync,
     syncNow,
     storeLocation,
-    aiCredentials,
-    saveAiCredentials,
-    testAiKey,
     exportArchive,
     numeri,
   } = useDiveLog();
@@ -369,8 +365,6 @@ export function SyncPage() {
         </ol>
       </details>
 
-      <ClaudeSettings credentials={aiCredentials} onSave={saveAiCredentials} onTest={testAiKey} />
-
       <TrashCard />
 
       <BackupCard />
@@ -572,150 +566,6 @@ export function SyncPage() {
             {t('Se il resoconto mostra ancora numeri diversi da zero, è un bug: segnalalo.')}
           </li>
         </ul>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Chiave dell'API di Anthropic e scelta del modello.
- *
- * Il modello NON è scritto nel codice: l'elenco arriva dall'API con la chiave
- * dell'utente. I nomi dei modelli cambiano nel tempo, e fissarne uno significa
- * un'app che smette di funzionare a una data ignota.
- */
-function ClaudeSettings({
-  credentials,
-  onSave,
-  onTest,
-}: {
-  credentials: { apiKey: string; model?: string } | null;
-  onSave: (c: { apiKey: string; model?: string } | null) => Promise<void>;
-  onTest: (c: {
-    apiKey: string;
-    model?: string;
-  }) => Promise<{ ok: true; models: AiModel[] } | { ok: false; error: string }>;
-}) {
-  const { t } = useLingua();
-  const [key, setKey] = useState(credentials?.apiKey ?? '');
-  const [model, setModel] = useState(credentials?.model ?? '');
-  const [models, setModels] = useState<AiModel[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [ok, setOk] = useState(false);
-
-  const load = async () => {
-    setBusy(true);
-    setError(null);
-    setOk(false);
-    const result = await onTest({ apiKey: key.trim(), model: model || undefined });
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setModels(result.models);
-    setOk(true);
-    // Al primo caricamento seleziona il modello più recente fra quelli disponibili.
-    const chosen = model && result.models.some((m) => m.id === model) ? model : result.models[0].id;
-    setModel(chosen);
-    await onSave({ apiKey: key.trim(), model: chosen });
-  };
-
-  const dirty = key.trim() !== (credentials?.apiKey ?? '') || model !== (credentials?.model ?? '');
-
-  return (
-    <div className="card">
-      <h2>{t('Analisi con Claude')}</h2>
-      {/*
-       * COSA RICEVE IL MODELLO, detto qui perché è una garanzia sul codice e
-       * non un'istruzione per l'utente: gli si passano i valori calcolati
-       * dall'app e quelli letti dai computer subacquei, tenuti distinti, con
-       * l'istruzione esplicita di non stimare niente. A schermo basta la
-       * promessa: i numeri restano quelli misurati.
-       */}
-      <p className="card-sub">
-        {t('Con una chiave API di Anthropic puoi far analizzare una immersione, l’archivio o un piano.')}{' '}
-        {t('Al modello vanno i numeri misurati, non stime.')}
-      </p>
-
-      <div style={{ display: 'grid', gap: 12, maxWidth: 620 }}>
-        <label style={{ display: 'grid', gap: 5, fontSize: 12, color: 'var(--text-secondary)' }}>
-          {t('Chiave API')}
-          <input
-            type="password"
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder="sk-ant-…"
-            spellCheck={false}
-            autoComplete="off"
-          />
-          {/* Sulla versione web pubblicata una chiave che sta nel browser è
-           * comunque esposta a chi apre gli strumenti di sviluppo: l'avviso
-           * qui sotto è l'unica difesa possibile, perché il rimedio vero —
-           * un server che tenga la chiave — questa app non ce l'ha. */}
-          <span className="muted" style={{ fontSize: 11 }}>
-            {t('Resta su questo dispositivo e va solo ad Anthropic. Sul web è meglio non metterla.')}
-          </span>
-        </label>
-        <DoveStannoLeCredenziali />
-
-        {models.length > 0 && (
-          <label style={{ display: 'grid', gap: 5, fontSize: 12, color: 'var(--text-secondary)' }}>
-            {t('Modello')}
-            <select
-              value={model}
-              onChange={(e) => {
-                setModel(e.target.value);
-                void onSave({ apiKey: key.trim(), model: e.target.value });
-              }}
-            >
-              {models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.displayName ?? m.id}
-                </option>
-              ))}
-            </select>
-            {/* Nessun nome di modello è scritto nel codice: i nomi cambiano nel
-             * tempo, e fissarne uno vuol dire un'app che smette di funzionare a
-             * una data ignota. L'elenco lo dà l'API con la chiave dell'utente. */}
-            <span className="muted" style={{ fontSize: 11 }}>
-              {t('L’elenco arriva dalla tua chiave.')}
-            </span>
-          </label>
-        )}
-
-        <div className="row">
-          <button className="btn btn-primary" onClick={() => void load()} disabled={busy || !key.trim()}>
-            {busy ? t('Verifica…') : models.length ? t('Aggiorna e salva') : t('Verifica e carica i modelli')}
-          </button>
-          {credentials?.apiKey && (
-            <button
-              className="btn btn-danger"
-              onClick={() => {
-                setKey('');
-                setModel('');
-                setModels([]);
-                setOk(false);
-                void onSave(null);
-              }}
-            >
-              {t('Dimentica')}
-            </button>
-          )}
-          {credentials?.model && !dirty && (
-            <span className="muted" style={{ fontSize: 12 }}>
-              {t('Pronta')}: {credentials.model}
-            </span>
-          )}
-        </div>
-
-        {ok && (
-          <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-            {t('Chiave valida')}, {models.length} {t('modelli disponibili')}.
-          </p>
-        )}
-        {error && <p style={{ margin: 0, fontSize: 12, color: 'var(--critical)' }}>{error}</p>}
       </div>
     </div>
   );

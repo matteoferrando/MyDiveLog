@@ -56,7 +56,17 @@ const SCHEMA = [
 export class SqliteStore implements DiveStore {
   readonly kind = 'sqlite' as const;
   /** Come in `IndexedDbStore`: la frase è la chiave, e si traduce a schermo. */
-  readonly location = "File SQLite nella cartella dati dell'app";
+  /*
+   * L'apostrofo è quello TIPOGRAFICO, e la differenza non è estetica.
+   *
+   * La chiave del dizionario è la frase italiana copiata carattere per
+   * carattere. Qui c'era l'apostrofo dritto, nel dizionario quello tipografico:
+   * due stringhe diverse, quindi la traduzione non veniva mai trovata e questa
+   * riga usciva in italiano anche in inglese. Nessun errore, nessun test rosso —
+   * è il difetto silenzioso che la regola in testa a `traduzioni.ts` avverte di
+   * evitare, e ci sono cascato lo stesso.
+   */
+  readonly location = 'File SQLite nella cartella dati dell’app';
   private db: SqlDatabase | null = null;
 
   /** Vedi `IndexedDbStore`: serve solo alla guardia qui sotto. */

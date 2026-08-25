@@ -164,7 +164,6 @@ export const INGLESE: Record<string, string> = {
   'Ultima immersione': 'Last dive',
 
   // --- la scheda di una singola immersione ---
-  'Analisi di questa immersione con Claude': 'Claude’s take on this dive',
   'Annotazioni del logbook': 'Logbook notes',
   aria: 'air',
   'Bombole e miscele': 'Cylinders and mixes',
@@ -207,8 +206,6 @@ export const INGLESE: Record<string, string> = {
   'Impostazioni del computer': 'Computer settings',
   'Integrazione aria': 'Air integration',
   'la distanza fra le due curve è quella differenza.': 'the gap between the two curves is that difference.',
-  'Legge il profilo e i numeri del computer, e dice cosa provare la prossima volta.':
-    'Reads the profile and the computer numbers, and says what to try next time.',
   'Lette dal log del computer, non inserite a mano.': 'Read from the computer log, not typed in.',
   'Letto dal computer': 'From the computer',
   'Limite di PPO2 impostato': 'PPO2 limit set',
@@ -282,7 +279,6 @@ export const INGLESE: Record<string, string> = {
 
   // --- statistiche ---
   Al: 'To',
-  'Analisi dell’archivio con Claude': 'Logbook analysis with Claude',
   'Ancora nessun dato da analizzare': 'No data to analyse yet',
   'Andamento di': 'Trend of',
   assetto: 'buoyancy',
@@ -354,8 +350,6 @@ export const INGLESE: Record<string, string> = {
   'Le ripetitive': 'Repetitive dives',
   'Le tue mediane divise per mare, visibilità e meteo. Accanto al consumo trovi profondità e temperatura dello stesso gruppo: se salgono insieme, non sono state le onde. Solo i gruppi da tre immersioni in su.':
     'Your medians split by sea, visibility and weather. Next to SAC you get the group’s depth and temperature: if they rise together, it was not the waves. Only groups of three dives or more.',
-  'Legge le immersioni una per una, non solo le medie: cambi nel tempo, indicatori che si muovono insieme, immersioni fuori scala.':
-    'Reads every dive, not just the averages: changes over time, indicators moving together, outliers.',
   'l’ultima': 'the last one',
   'mediana dalla sosta alla superficie': 'median from the stop to the surface',
   'Mediane sul periodo. Ogni tessera dice su quante immersioni si basa.':
@@ -453,8 +447,6 @@ export const INGLESE: Record<string, string> = {
     'The numbers you see are the ones behind the verdict.',
   'immersioni su': 'dives out of',
   'in tutto l’archivio': 'in the whole logbook',
-  'Mette i risultati in ordine e li trasforma in un programma per le prossime dieci immersioni.':
-    'Puts the findings in order and turns them into a plan for your next ten dives.',
   'non misurato': 'not measured',
   Obiettivo: 'Goal',
   'Piano di miglioramento': 'Improvement plan',
@@ -466,7 +458,6 @@ export const INGLESE: Record<string, string> = {
   'Punti di forza': 'Strengths',
   'punti dopo': 'points for later',
   'Quello che già funziona, con i numeri che lo dicono.': 'What already works, with the numbers behind it.',
-  'Rilettura del piano con Claude': 'Second read of the plan with Claude',
   'Servono più immersioni': 'More dives needed',
   soddisfatti: 'met',
   'Sono riferimenti, non i requisiti di un corso: quelli chiedili all’istruttore.':
@@ -696,8 +687,6 @@ export const INGLESE: Record<string, string> = {
   'Non coincide con la miscela dichiarata qui sopra. Se l’analisi è quella giusta, correggi anche quella: MOD, PPO2 ed esposizione all’ossigeno sono calcolate su quel numero.':
     'This does not match the mix declared above. If the analysis is the right one, correct that too: MOD, PPO2 and oxygen exposure are all computed from that number.',
   dichiarato: 'declared',
-  'cioè il limite mostrato finora era più profondo di quello vero.':
-    'meaning the limit shown until now was deeper than the real one.',
   'La MOD a 1.4 bar è': 'The MOD at 1.4 bar is',
   'invece di': 'instead of',
   'il limite mostrato finora era più profondo di quello vero.':
@@ -705,7 +694,6 @@ export const INGLESE: Record<string, string> = {
   'i conti fatti finora erano prudenti.': 'the figures so far were on the safe side.',
   'Esporta PDF': 'Export PDF',
   'Esposizione all’ossigeno': 'Oxygen exposure',
-  'Fai rileggere il piano a Claude': 'Have Claude check the plan',
   fase: 'phase',
   Fase: 'Phase',
   'Fermi si respira meno che sul fondo. Zero: come quello di fondo.':
@@ -725,8 +713,6 @@ export const INGLESE: Record<string, string> = {
   'GF alto': 'GF high',
   'GF basso': 'GF low',
   'GF99 previsto': 'GF99 expected',
-  'Guarda le ipotesi del piano — consumo, media, riserva — e dice cosa cambia se una è ottimistica.':
-    'It looks at the plan’s assumptions — SAC rate, average depth, reserve — and says what changes if one is optimistic.',
   'hai pianificato': 'you planned',
   'Hai scelto la riserva fissa di': 'You chose a fixed reserve of',
   'I due modelli a confronto': 'The two models side by side',
@@ -828,8 +814,6 @@ export const INGLESE: Record<string, string> = {
   'limite impostato': 'limit set to',
   litri: 'litres',
   Litri: 'Litres',
-  'Livelli, miscele, soste, gas, ossigeno e contingenze vanno a Claude, con l’istruzione di non riscrivere la tabella: se una sosta non convince, deve dire quale controllo la mette in dubbio.':
-    'Levels, mixes, stops, gas, oxygen and contingencies go to Claude, told not to rewrite the table: if a stop looks wrong, it must say which check casts doubt on it.',
   'Lo stesso limite impostato sul computer.': 'The same limit set on your computer.',
   'Lo stesso piano con un parametro cambiato. «E se resto giù cinque minuti in più» va chiesto adesso, non a quaranta metri.':
     'The same plan with one thing changed. “What if I stay five more minutes” is a question for now, not for forty metres.',
@@ -1257,10 +1241,7 @@ export const INGLESE: Record<string, string> = {
   'Aggiungi una bombola': 'Add a cylinder',
   'al modello': 'to model',
   alluminio: 'aluminium',
-  'Analisi in corso…': 'Analysing…',
-  'analisi pronta': 'analysis ready',
   "analisi rimossa dall'archivio locale.": 'analysis removed from local storage.',
-  'Analizza con Claude': 'Analyse with Claude',
   Annulla: 'Cancel',
   apnea: 'freediving',
   Aprila: 'Open it',
@@ -1290,22 +1271,14 @@ export const INGLESE: Record<string, string> = {
   Fine: 'End',
   'Gas e consumo': 'Gas and consumption',
   'GAV o sacco': 'BCD or wing',
-  'Generata da un modello: i numeri sono tuoi, le conclusioni no.':
-    'Written by a model: the numbers are yours, the conclusions are not.',
   'Guida sub': 'Dive guide',
-  'I dati sono cambiati dopo questa analisi: rigenerala.':
-    'The data changed after this analysis: regenerate it.',
   'I primi tre campi bastano per salvare. Il resto migliora i calcoli.':
     'The first three fields are enough to save. The rest improves the numbers.',
   'il logbook le mostra comunque': 'the logbook still shows them all',
-  'Il pulsante torna a «Analizza con Claude».': 'The button goes back to «Analyse with Claude».',
-  'Il testo è qui sotto.': 'The text is below.',
   'Immersione aggiunta.': 'Dive added.',
   Impostazioni: 'Settings',
   'in inventario': 'in your gear',
-  'in uscita': 'out',
   Inizio: 'Start',
-  'Invio i dati…': 'Sending the data…',
   "L'immersione": 'The dive',
   "L'immersione era in un altro fuso orario": 'The dive was in another time zone',
   "Litri d'acqua": 'Water capacity',
@@ -1349,14 +1322,12 @@ export const INGLESE: Record<string, string> = {
   profondimetro: 'gauge',
   'Profondità massima': 'Max depth',
   'Profondità media': 'Average depth',
-  'Può richiedere qualche decina di secondi.': 'It can take a few tens of seconds.',
   'Quando, quanto giù, quanto a lungo': 'When, how deep, how long',
   'Quello che hai scritto è ancora qui.': 'What you typed is still here.',
   'Quello che il computer non misura. Un import successivo':
     'What the computer does not measure. A later import',
   'questi campi.': 'these fields.',
   'Recuperabile dalle': 'Recoverable from',
-  'richiesta inviata': 'request sent',
   Rigenera: 'Regenerate',
   "rimozione dell'analisi salvata…": 'removing the saved analysis…',
   Rimuovi: 'Remove',
@@ -1373,7 +1344,6 @@ export const INGLESE: Record<string, string> = {
     'Write it if you remember it: it decides how much nitrogen carries over. Without it, 70% of max is assumed.',
   'Secondo erogatore': 'Second regulator',
   "Serve a mettere l'immersione nell'ora giusta del posto.": 'Puts the dive at the right local time.',
-  'Serve la chiave API di Anthropic. La metti in': 'You need an Anthropic API key. Set it in',
   'Si può salvare lo stesso, ma:': 'You can save anyway, but:',
   'Sigla o descrizione': 'Size or description',
   Sito: 'Site',
@@ -1383,8 +1353,6 @@ export const INGLESE: Record<string, string> = {
   'Temperatura minima': 'Min temperature',
   Titolo: 'Title',
   'Togli questa bombola': 'Remove this cylinder',
-  'token in ingresso': 'tokens in',
-  'token in ingresso e': 'tokens in and',
   'Unisci a quella esistente': 'Merge into the existing one',
   Valutazione: 'Rating',
   'verrà tolto da tutte le immersioni scelte': 'it will be removed from every selected dive',
@@ -1404,11 +1372,8 @@ export const INGLESE: Record<string, string> = {
   Accesso: 'Sign in',
   'Accesso in corso…': 'Signing in…',
   'Aggiorna credenziali': 'Update credentials',
-  'Aggiorna e salva': 'Refresh and save',
   aggiornate: 'updated',
   aggiunte: 'added',
-  'Al modello vanno i numeri misurati, non stime.': 'The model gets measured numbers, not estimates.',
-  'Analisi con Claude': 'Analysis with Claude',
   'Archivio locale, in chiaro.': 'Local storage, in the clear.',
   'arricchite, senza perdere quello che hai scritto tu': 'enriched, keeping what you wrote',
   'Attrezzatura, brevetti, piani e analisi si fondono; a parità di voce vince la più recente.':
@@ -1431,8 +1396,6 @@ export const INGLESE: Record<string, string> = {
   'che avevi solo qui sono rimaste dov’erano.': 'you only had here stayed where they were.',
   'che hai adesso,': 'you have now,',
   'che hai solo qui': 'you only have here',
-  'Chiave API': 'API key',
-  'Chiave valida': 'Key valid',
   'col loro profilo. Finché sono qui, «Rimetti a posto» le riporta com’erano.':
     'with their profile. While they are here, “Put back” restores them as they were.',
   'Come ottenere le credenziali': 'How to get the credentials',
@@ -1441,18 +1404,14 @@ export const INGLESE: Record<string, string> = {
     'with their profiles: emptying it frees space and makes the deletions final.',
   'Con un account Apple o Google l’app crea un database tuo: gli altri dispositivi si allineano con lo stesso account.':
     'With a Google account the app makes a database of your own: other devices line up with the same account.',
-  'Con una chiave API di Anthropic puoi far analizzare una immersione, l’archivio o un piano.':
-    'With an Anthropic API key you can have a dive, your logbook or a plan analysed.',
   'Connessione riuscita.': 'Connected.',
   'Cosa fa e cosa non fa': 'What it does and what it doesn’t',
   'Definitiva fra': 'Final in',
   Dimentica: 'Forget',
   'Dopo la sincronizzazione ogni dispositivo ha tutti e due.': 'After a sync every device has both.',
-  'e i loro profili: lo leggono gli altri programmi.': 'and their profiles: other programs read it.',
   'e non si torna indietro.': 'and there is no undo.',
   Esci: 'Sign out',
   'Esporta l’archivio': 'Export your logbook',
-  esportata: 'exported',
   esportate: 'exported',
   'File di backup da ripristinare': 'Backup file to restore',
   'Finché un’immersione è nel cestino resta solo qui. Svuotandolo, sparisce ovunque.':
@@ -1481,8 +1440,6 @@ export const INGLESE: Record<string, string> = {
     'The first sync uploads your logbook; on other devices it downloads it.',
   'La stessa immersione importata su due dispositivi resta una.':
     'The same dive imported on two devices stays one dive.',
-  'lascia fuori parecchi campi. Per una copia completa usa il backup.':
-    'it leaves out several fields. For a full copy use the backup.',
   'Le cancellazioni viaggiano, il cestino no.': 'Deletions travel, the trash does not.',
   'Le credenziali no.': 'Credentials do not.',
   'Le immersioni sì. Riprova, e se l’errore torna segnalalo.':
@@ -1490,22 +1447,16 @@ export const INGLESE: Record<string, string> = {
   'Le legge solo questa app, e non finiscono nei backup.':
     'Only this app can read them, and they stay out of backups.',
   'L’archivio vive in': 'Your logbook lives in',
-  'L’elenco arriva dalla tua chiave.': 'The list comes from your key.',
-  'modelli disponibili': 'models available',
   'Nel browser non c’è un portachiavi. Sull’app desktop ci finiscono.':
     'A browser has no keychain. On the desktop app they go into one.',
   'Non duplica.': 'No duplicates.',
   'Non passano dal cestino e non si torna indietro.': 'They skip the trash and there is no undo.',
   'Non è obbligatorio': 'Not required',
-  'Non è un backup': 'Not a backup',
   'Portachiavi di sistema.': 'System keychain.',
   'Preparazione…': 'Preparing…',
   'Prima scarica, poi carica. Niente viene cancellato.': 'Pulls first, then pushes. Nothing is deleted.',
-  Pronta: 'Ready',
   'Prova la connessione': 'Test the connection',
   'Queste impostazioni non si sono allineate.': 'These settings did not sync.',
-  'Resta su questo dispositivo e va solo ad Anthropic. Sul web è meglio non metterla.':
-    'Stays on this device and only goes to Anthropic. On the web, better not to enter it.',
   'Resta su questo dispositivo: va solo a Turso.': 'Stays on this device: it only goes to Turso.',
   restano: 'stay',
   'Restano fuori': 'Left out',
@@ -1560,10 +1511,8 @@ export const INGLESE: Record<string, string> = {
   'tutti i dispositivi': 'every device',
   tutto: 'everything',
   'Un file JSON con': 'A JSON file with',
-  'Un file UDDF con tutte le': 'A UDDF file with all',
   'Uscire smette solo di sincronizzare. Le immersioni di questo dispositivo':
     'Signing out only stops syncing. The dives on this device',
-  'Verifica e carica i modelli': 'Check the key and load models',
   'Verifica…': 'Checking…',
   'verranno cancellate': 'will be deleted',
   'Viaggia anche fin dove sei arrivato con ogni computer.': 'So does how far each dive computer got.',

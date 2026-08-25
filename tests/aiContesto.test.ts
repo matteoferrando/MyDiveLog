@@ -1,17 +1,20 @@
 /**
- * Analisi con Claude: contesto, prompt, client e resa del markdown.
+ * Il contesto e le istruzioni per l'analisi con Claude.
  *
- * Il client viene provato con un `fetch` iniettato: si verificano gli header, il
- * corpo della richiesta, lo streaming spezzato a metà fra due blocchi di rete e la
- * traduzione degli errori. Nessuna chiave, nessuna rete, nessun costo.
+ * ► L'ANALISI DENTRO L'APP NON C'È PIÙ, dal 25 agosto 2026. ◄ Restano il
+ * costruttore del contesto e le istruzioni, che servono a `npm run dump:ai`:
+ * uno strumento da riga di comando, fuori dal pacchetto che si spedisce. Il
+ * client HTTP e la schermata se ne sono andati con la funzione — e con loro il
+ * traffico verso un terzo, la voce nella CSP e una dichiarazione di privacy.
  *
- * Sul contesto la proprietà che conta è una sola e vale più di tutte le altre:
- * **un dato che l'app non ha non deve comparire nel contesto come numero.** È
- * l'unico modo di impedire che un modello riempia un buco con un valore
- * plausibile che poi finisce in un piano di gas.
+ * La proprietà che questi test difendono è una sola e vale più di tutte le
+ * altre: **un dato che l'app non ha non deve comparire nel contesto come
+ * numero.** È l'unico modo di impedire che un modello riempia un buco con un
+ * valore plausibile — e vale identica adesso che il contesto lo si legge a
+ * mano.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { gasPlanContext } from '../src/ai/context';
 import {
   DEFAULT_PLAN,
@@ -20,7 +23,6 @@ import {
   planGas,
   similarDives,
 } from '../src/core/analysis/gasPlan';
-import { ask, listModels, testKey, AiError } from '../src/ai/client';
 import { archiveContext, diveContext, reduceProfile } from '../src/ai/context';
 import { diveAnalysis, archiveAnalysis, planAnalysis, decoPlanAnalysis, SYSTEM } from '../src/ai/prompts';
 import { decoPlanContext } from '../src/ai/context';
@@ -34,24 +36,6 @@ import {
 import { aggregate } from '../src/core/analysis/aggregate';
 import { computeMetrics } from '../src/core/analysis/metrics';
 import type { Dive, Sample } from '../src/core/model';
-
-const CREDS = { apiKey: 'sk-ant-test', model: 'test-model' };
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-}
-
-/** Un flusso SSE spezzato in blocchi arbitrari, come arriva dalla rete. */
-function sseResponse(chunks: string[]): Response {
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    start(controller) {
-      for (const c of chunks) controller.enqueue(encoder.encode(c));
-      controller.close();
-    },
-  });
-  return new Response(stream, { status: 200 });
-}
 
 function dive(overrides: Partial<Dive> = {}): Dive {
   const base: Dive = {
@@ -165,88 +149,6 @@ describe('istruzioni', () => {
       expect(spec.system).toBe(SYSTEM);
       expect(spec.maxTokens).toBeGreaterThan(2000);
     }
-  });
-});
-
-describe('client', () => {
-  it('manda gli header richiesti dall’API', async () => {
-    const calls: { url: string; init: RequestInit }[] = [];
-    const fake = vi.fn(async (url: string, init: RequestInit) => {
-      calls.push({ url, init });
-      return jsonResponse({
-        content: [{ type: 'text', text: 'ciao' }],
-        model: 'test-model',
-        usage: { input_tokens: 10, output_tokens: 3 },
-      });
-    });
-    const result = await ask(CREDS, { system: 'S', prompt: 'P', fetchImpl: fake });
-    expect(result.text).toBe('ciao');
-    expect(result.usage?.inputTokens).toBe(10);
-    const headers = calls[0].init.headers as Record<string, string>;
-    expect(headers['x-api-key']).toBe('sk-ant-test');
-    expect(headers['anthropic-version']).toBe('2023-06-01');
-    // Senza questo header il browser blocca la richiesta.
-    expect(headers['anthropic-dangerous-direct-browser-access']).toBe('true');
-    const body = JSON.parse(String(calls[0].init.body));
-    expect(body.model).toBe('test-model');
-    expect(body.system).toBe('S');
-    expect(body.messages).toEqual([{ role: 'user', content: 'P' }]);
-    expect(body.stream).toBe(false);
-  });
-
-  it('legge un flusso spezzato fra due blocchi di rete', async () => {
-    // Il taglio cade in mezzo a un evento: se il resto non viene conservato, il
-    // testo esce mutilato e nessun test lo noterebbe con blocchi "puliti".
-    const chunks = [
-      'event: message_start\ndata: {"type":"message_start","message":{"usage":{"input_tokens":42}}}\n\n',
-      'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Prima "}}\n\ndata: {"type":"content_bl',
-      'ock_delta","delta":{"type":"text_delta","text":"parte"}}\n\ndata: {"type":"message_delta","usage":{"output_tokens":7}}\n\n',
-    ];
-    const seen: string[] = [];
-    const result = await ask(CREDS, {
-      system: 'S',
-      prompt: 'P',
-      onChunk: (t) => seen.push(t),
-      fetchImpl: async () => sseResponse(chunks),
-    });
-    expect(result.text).toBe('Prima parte');
-    expect(seen[seen.length - 1]).toBe('Prima parte');
-    expect(result.usage).toEqual({ inputTokens: 42, outputTokens: 7 });
-  });
-
-  it('traduce gli errori dell’API in messaggi utili', async () => {
-    await expect(
-      ask(CREDS, {
-        system: 'S',
-        prompt: 'P',
-        fetchImpl: async () => jsonResponse({ error: { message: 'x' } }, 401),
-      }),
-    ).rejects.toThrow(/non valida/);
-    await expect(
-      ask(CREDS, { system: 'S', prompt: 'P', fetchImpl: async () => jsonResponse({}, 429) }),
-    ).rejects.toThrow(/Limite di richieste/);
-    await expect(
-      ask(CREDS, { system: 'S', prompt: 'P', fetchImpl: async () => jsonResponse({}, 503) }),
-    ).rejects.toThrow(/503/);
-  });
-
-  it('rifiuta di chiamare senza chiave o senza modello', async () => {
-    await expect(ask({ apiKey: '' }, { system: 'S', prompt: 'P' })).rejects.toThrow(AiError);
-    await expect(ask({ apiKey: 'k' }, { system: 'S', prompt: 'P' })).rejects.toThrow(/modello/);
-  });
-
-  it('elenca i modelli senza fissarne nessuno nel codice', async () => {
-    const models = await listModels(CREDS, async () =>
-      jsonResponse({ data: [{ id: 'modello-b', display_name: 'B' }, { id: 'modello-a' }] }),
-    );
-    expect(models.map((m) => m.id)).toEqual(['modello-b', 'modello-a']);
-    const check = await testKey(CREDS, async () => jsonResponse({ data: [{ id: 'x' }] }));
-    expect(check.ok).toBe(true);
-  });
-
-  it('una chiave valida senza modelli non passa per buona', async () => {
-    const check = await testKey(CREDS, async () => jsonResponse({ data: [] }));
-    expect(check).toEqual({ ok: false, error: expect.stringContaining('nessun modello') });
   });
 });
 

@@ -22,13 +22,7 @@ import { TRASH_KEY, filterDeleted, partitionTrash, type TrashedDive } from '../s
 import { BLE_MARKERS_KEY, type DownloadMarker } from '../core/ble/types';
 import { computeMetrics } from '../core/analysis/metrics';
 import { aggregate, type Aggregates } from '../core/analysis/aggregate';
-import {
-  contingencies,
-  measuredRmv,
-  planGas,
-  similarDives,
-  type GasPlanInput,
-} from '../core/analysis/gasPlan';
+import type { GasPlanInput } from '../core/analysis/gasPlan';
 import { storicoDi, buildPlan, type GoalId, type Plan } from '../core/analysis/coaching';
 import { applyPeriod, DEFAULT_PERIOD, type PeriodId, type Scope } from '../core/analysis/window';
 import { mergeDive, mergeImports, profileChannels, type Sospetto } from '../core/dedupe';
@@ -38,9 +32,8 @@ import { parseBrowserFile } from '../core/parsers';
 import { useTraduciStabile } from './lingua';
 import type { Traduci } from '../core/traduci';
 import { getStore, type DiveStore } from '../storage';
-import { openSecretStore, type SecretPlace } from '../storage/secrets';
+import { dimenticaChiaveAi, openSecretStore, type SecretPlace } from '../storage/secrets';
 import { hydrateForMerge, repairArchive } from '../storage/repair';
-import { digestOf } from '../sync/plan';
 import {
   connect,
   describeSyncError,
@@ -52,7 +45,6 @@ import {
   type SyncCredentials,
   type SyncReport,
 } from '../sync/turso';
-import { ask, testKey, type AiCredentials, type AiModel, type AiResult } from '../ai/client';
 import {
   type AccountSalvato,
   cancellaAccount as chiudiAccountRemoto,
@@ -62,14 +54,6 @@ import {
 } from '../sync/account';
 import { accediConFornitore } from '../sync/accessoPiattaforma';
 import { SERVIZIO_ACCESSO } from '../sync/configurazione';
-import { archiveContext, decoPlanContext, diveContext, gasPlanContext, planContext } from '../ai/context';
-import {
-  archiveAnalysis,
-  decoPlanAnalysis,
-  diveAnalysis,
-  gasPlanAnalysis,
-  planAnalysis,
-} from '../ai/prompts';
 import type { DecoContingency, DecoResult, DecoSettings, PlanGas, PlanLevel } from '../core/analysis/deco';
 
 /** Un piano tecnico messo da parte con un nome. */
@@ -259,25 +243,11 @@ interface DiveLogValue {
   saveNamedDecoPlan: (name: string, state: unknown) => Promise<void>;
   deleteNamedDecoPlan: (name: string) => Promise<void>;
 
-  /** Chiave dell'API di Anthropic, salvata nell'archivio locale. */
-  aiCredentials: AiCredentials | null;
-  saveAiCredentials: (creds: AiCredentials | null) => Promise<void>;
   /**
    * Dove stanno le credenziali su questo dispositivo: nel portachiavi di sistema
    * o, dove non esiste, nell'archivio locale in chiaro. Va mostrato, non dedotto.
    */
   secretPlace: SecretPlace;
-  testAiKey: (
-    creds: AiCredentials,
-  ) => Promise<{ ok: true; models: AiModel[] } | { ok: false; error: string }>;
-  /** Analisi già generate, per non farle pagare due volte. */
-  analysis: (kind: AnalysisKind, subject?: string) => StoredAnalysis | undefined;
-  runAnalysis: (
-    kind: AnalysisKind,
-    input: { dive?: Dive; gasInput?: GasPlanInput; deco?: DecoAnalysisInput },
-    onChunk?: (text: string) => void,
-  ) => Promise<StoredAnalysis>;
-  clearAnalysis: (kind: AnalysisKind, subject?: string) => Promise<void>;
 
   /** Attrezzatura e scadenze: pochi record, salvati fra le impostazioni. */
   gear: GearArchive;
@@ -318,24 +288,6 @@ interface DiveLogValue {
     file: BackupFile,
     mode?: 'merge' | 'replace',
   ) => Promise<{ added: number; merged: number; onlyLocal: number; settings: number }>;
-}
-
-export type AnalysisKind = 'dive' | 'archive' | 'plan' | 'gas' | 'deco';
-
-export interface StoredAnalysis {
-  kind: AnalysisKind;
-  /** Id dell'immersione per le analisi singole, `-` per quelle globali. */
-  subject: string;
-  text: string;
-  model: string;
-  at: string;
-  inputTokens?: number;
-  outputTokens?: number;
-  /**
-   * Impronta dei dati su cui l'analisi è stata fatta: se cambia, l'analisi in
-   * archivio è vecchia e l'interfaccia lo dice invece di mostrarla come attuale.
-   */
-  fingerprint: string;
 }
 
 const Ctx = createContext<DiveLogValue | null>(null);
@@ -400,7 +352,6 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   const [sessioneAccount, setSessioneAccount] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const chiaviAccount = useRef<ChiaviDelDatabase | null>(null);
-  const [aiCredentials, setAiCredentials] = useState<AiCredentials | null>(null);
   const [gasInput, setGasInputState] = useState<GasPlanInput | null>(null);
   const [decoInput, setDecoInputState] = useState<unknown>(null);
   const [decoPlans, setDecoPlans] = useState<SavedDecoPlan[]>([]);
@@ -409,7 +360,6 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   const [bleMarkers, setBleMarkers] = useState<Record<string, DownloadMarker>>({});
   /** Dove finiscono davvero le credenziali su QUESTO dispositivo. */
   const [secretPlace, setSecretPlace] = useState<SecretPlace>('archive');
-  const [analyses, setAnalyses] = useState<Record<string, StoredAnalysis>>({});
   const [trash, setTrash] = useState<TrashedDive[]>([]);
 
   useEffect(() => {
@@ -459,14 +409,24 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       const segreti = await prova('portachiavi', () => openSecretStore(s));
       if (!cancelled && segreti) setSecretPlace(segreti.place);
 
+      /*
+       * Pulizia una volta sola: la chiave dell'API di Anthropic.
+       *
+       * L'analisi con Claude non c'è più. Chi l'aveva configurata ha dato
+       * all'applicazione una credenziale che si spende a spese sue, per una
+       * funzione che non esiste: tenerla è una responsabilità senza
+       * contropartita. Si cancella qui, all'avvio, e su chi non l'aveva mai
+       * messa non fa niente. Non si aspetta il risultato e non può fallire in
+       * modo rumoroso: è pulizia, non una funzione dell'app.
+       */
+      void dimenticaChiaveAi(s);
+
       const [
         list,
         savedGoal,
         savedPeriod,
         savedSync,
-        savedAi,
         savedSessione,
-        savedAnalyses,
         savedGas,
         savedGear,
         savedSubacqueo,
@@ -479,9 +439,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         // dei segreti, che su macOS è il portachiavi di sistema e che al primo
         // avvio migra da solo quelle rimaste in chiaro nell'archivio.
         prova('credenziali di sincronizzazione', async () => segreti?.read<SyncCredentials>('sync')),
-        prova('chiave dell’API', async () => segreti?.read<AiCredentials>('ai')),
         prova('sessione dell’account', async () => segreti?.read<AccountSalvato | string>('account')),
-        prova('analisi', () => s.getSetting<Record<string, StoredAnalysis>>('analyses')),
         prova('piano gas', () => s.getSetting<GasPlanInput>('gasPlan')),
         prova('attrezzatura', () => s.getSetting<unknown>('gear')),
         prova('subacqueo', () => s.getSetting<Subacqueo>('subacqueo')),
@@ -532,7 +490,6 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       if (savedGoal) setGoalIdState(savedGoal);
       if (savedPeriod) setPeriodState(savedPeriod);
       if (savedSync?.url && savedSync?.authToken) setSyncCredentials(savedSync);
-      if (savedAi?.apiKey) setAiCredentials(savedAi);
       /*
        * La sessione dell'account sopravvive alla chiusura dell'app; la chiave
        * del database no, e viene richiesta al primo bisogno. È la ragione per
@@ -548,7 +505,6 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
           conto.sessione,
         );
       }
-      if (savedAnalyses) setAnalyses(savedAnalyses);
       if (savedGas?.depthM) setGasInputState(savedGas);
       if (savedDeco) setDecoInputState(savedDeco);
       if (savedPlans.length) setDecoPlans(savedPlans);
@@ -1286,19 +1242,16 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
          * a niente. L'elenco qui deve restare allineato a `SHARED_SETTINGS`.
          */
         if (report.settingsPulled > 0) {
-          const [gas, saved, savedGear, deco, piani, segnalibri, obiettivo, periodoSalvato] =
-            await Promise.all([
-              store.getSetting<GasPlanInput>('gasPlan'),
-              store.getSetting<Record<string, StoredAnalysis>>('analyses'),
-              store.getSetting<unknown>('gear'),
-              store.getSetting<unknown>('decoPlan'),
-              store.getSetting<SavedDecoPlan[]>('decoPlans'),
-              store.getSetting<Record<string, DownloadMarker>>(BLE_MARKERS_KEY),
-              store.getSetting<GoalId>('goal'),
-              store.getSetting<PeriodId>('period'),
-            ]);
+          const [gas, savedGear, deco, piani, segnalibri, obiettivo, periodoSalvato] = await Promise.all([
+            store.getSetting<GasPlanInput>('gasPlan'),
+            store.getSetting<unknown>('gear'),
+            store.getSetting<unknown>('decoPlan'),
+            store.getSetting<SavedDecoPlan[]>('decoPlans'),
+            store.getSetting<Record<string, DownloadMarker>>(BLE_MARKERS_KEY),
+            store.getSetting<GoalId>('goal'),
+            store.getSetting<PeriodId>('period'),
+          ]);
           if (gas?.depthM) setGasInputState(gas);
-          if (saved) setAnalyses(saved);
           if (savedGear) setGearState(migrateGear(savedGear as never));
           if (deco) setDecoInputState(deco);
           if (piani) setDecoPlans(piani);
@@ -1319,20 +1272,6 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     },
     [store, syncCredentials, traduci],
   );
-
-  const saveAiCredentials = useCallback(
-    async (creds: AiCredentials | null) => {
-      setAiCredentials(creds);
-      if (store) {
-        const segreti = await openSecretStore(store);
-        if (creds) await segreti.write('ai', creds);
-        else await segreti.remove('ai');
-      }
-    },
-    [store],
-  );
-
-  const testAiKey = useCallback((creds: AiCredentials) => testKey(creds), []);
 
   const saveGear = useCallback(
     async (archive: GearArchive) => {
@@ -1505,9 +1444,6 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         if (mode === 'merge' && (key === 'gear' || key === 'decoPlans')) {
           const attuale = await store.getSetting<unknown>(key);
           await store.setSetting(key, fondiRaccolta(key, attuale, value));
-        } else if (mode === 'merge' && key === 'analyses') {
-          const attuale = (await store.getSetting<Record<string, StoredAnalysis>>(key)) ?? {};
-          await store.setSetting(key, { ...(value as Record<string, StoredAnalysis>), ...attuale });
         } else {
           await store.setSetting(key, value);
         }
@@ -1527,14 +1463,12 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
        * manifestava al riavvio successivo — staccata dalla sua causa, cioè nel
        * modo in cui è più difficile capire cos'è successo.
        */
-      const [savedGear, savedAnalyses, savedGas, savedPlans] = await Promise.all([
+      const [savedGear, savedGas, savedPlans] = await Promise.all([
         store.getSetting<unknown>('gear'),
-        store.getSetting<Record<string, StoredAnalysis>>('analyses'),
         store.getSetting<GasPlanInput>('gasPlan'),
         store.getSetting<SavedDecoPlan[]>('decoPlans'),
       ]);
       setGearState(migrateGear(savedGear as never));
-      if (savedAnalyses) setAnalyses(savedAnalyses);
       if (savedGas?.depthM) setGasInputState(savedGas);
       if (savedPlans) setDecoPlans(savedPlans);
 
@@ -1580,137 +1514,6 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   const plan = useMemo(
     () => buildPlan(scope.dives, aggregates, goalId, storico),
     [scope, aggregates, goalId, storico],
-  );
-
-  const analysis = useCallback(
-    (kind: AnalysisKind, subject = '-') => analyses[`${kind}:${subject}`],
-    [analyses],
-  );
-
-  const clearAnalysis = useCallback(
-    async (kind: AnalysisKind, subject = '-') => {
-      const next = { ...analyses };
-      delete next[`${kind}:${subject}`];
-      setAnalyses(next);
-      if (store) {
-        await store.setSetting('analyses', next);
-        await store.setSetting('analyses:at', new Date().toISOString());
-      }
-    },
-    [analyses, store],
-  );
-
-  /**
-   * Genera un'analisi e la conserva.
-   *
-   * Le analisi si pagano a token, quindi vengono salvate nell'archivio locale con
-   * l'impronta dei dati su cui sono state fatte: riaprire la scheda non rigenera
-   * niente, e se i dati intanto sono cambiati l'interfaccia lo segnala invece di
-   * spacciare per attuale un testo vecchio.
-   */
-  const runAnalysis = useCallback(
-    async (
-      kind: AnalysisKind,
-      input: { dive?: Dive; gasInput?: GasPlanInput; deco?: DecoAnalysisInput },
-      onChunk?: (text: string) => void,
-    ) => {
-      if (!aiCredentials?.apiKey) throw new Error('Configura prima la chiave API nelle impostazioni.');
-      if (!aiCredentials.model) throw new Error('Scegli prima il modello nelle impostazioni.');
-
-      let spec;
-      let subject = '-';
-      let fingerprint: string;
-      if (kind === 'dive') {
-        const dive = input.dive;
-        if (!dive) throw new Error('Nessuna immersione da analizzare.');
-        // Il profilo serve all'analisi: se la scheda non lo ha ancora caricato, lo
-        // prendiamo qui invece di analizzare mezza immersione.
-        const withSamples =
-          dive.samples?.length || !store ? dive : { ...dive, samples: await store.getSamples(dive.id) };
-        subject = dive.id;
-        const context = diveContext(withSamples, gear.equipment);
-        fingerprint = digestOf(withSamples as unknown as Record<string, unknown>);
-        spec = diveAnalysis(context);
-      } else if (kind === 'archive') {
-        fingerprint = `${period}:${scope.dives.length}:${aggregates.lastDive ?? ''}:${digestOf({
-          rmv: aggregates.avgRmv,
-          trim: aggregates.avgTrim,
-        } as Record<string, unknown>)}`;
-        // Al modello va lo stesso insieme di immersioni che vede l'interfaccia,
-        // con la finestra dichiarata: altrimenti descriverebbe come "l'archivio"
-        // un sottoinsieme, o incrocerebbe righe di un periodo con medie di un altro.
-        spec = archiveAnalysis(archiveContext(scope.dives, aggregates, scope.period.label, gear.equipment));
-      } else if (kind === 'deco') {
-        const d = input.deco;
-        if (!d) throw new Error('Nessun piano di decompressione da analizzare.');
-        subject = 'deco';
-        // L'impronta è la tabella prodotta, non i campi del modulo: due moduli
-        // diversi che generano la stessa tabella sono lo stesso piano, e
-        // rigenerare l'analisi per un campo che non ha spostato niente costa
-        // token per nulla.
-        fingerprint = digestOf({
-          stops: JSON.stringify(d.result.stops),
-          runtime: d.result.runtimeMin,
-          gas: JSON.stringify(d.result.gasUsage),
-          model: d.modelLabel,
-        } as Record<string, unknown>);
-        spec = decoPlanAnalysis(
-          decoPlanContext(d.result, d.levels, d.gases, d.settings, d.contingencies, d.modelLabel),
-        );
-      } else if (kind === 'gas') {
-        const gas = input.gasInput;
-        if (!gas) throw new Error('Nessun piano da analizzare.');
-        const computed = planGas(gas);
-        subject = 'gas';
-        fingerprint = digestOf(computed.input as unknown as Record<string, unknown>);
-        spec = gasPlanAnalysis(
-          gasPlanContext(
-            computed,
-            contingencies(gas),
-            // Lo STESSO filtro che si vede a schermo, durata compresa.
-            //
-            // Senza `bottomMin`, `sameLength()` è sempre vero e il contesto
-            // dichiarava al modello `filtrateAncheSullaDurata: true` su un confronto
-            // filtrato solo sulla profondità — mentre l'avvertenza scritta apposta
-            // per quel caso non si attivava mai. Sul piano di prova: 20 minuti
-            // pianificati contro una durata tipica di 51.
-            similarDives(scope.dives, computed.input.depthM, 5, computed.input.bottomMin),
-            measuredRmv(scope.dives),
-            scope.period.label,
-          ),
-        );
-      } else {
-        subject = goalId;
-        fingerprint = `${goalId}:${period}:${scope.dives.length}:${plan.findings.length}:${plan.readiness.score.toFixed(2)}`;
-        spec = planAnalysis(planContext(plan, aggregates, scope.period.label));
-      }
-
-      const result: AiResult = await ask(aiCredentials, {
-        system: spec.system,
-        prompt: spec.prompt,
-        maxTokens: spec.maxTokens,
-        onChunk,
-      });
-
-      const stored: StoredAnalysis = {
-        kind,
-        subject,
-        text: result.text,
-        model: result.model,
-        at: new Date().toISOString(),
-        inputTokens: result.usage?.inputTokens,
-        outputTokens: result.usage?.outputTokens,
-        fingerprint,
-      };
-      const next = { ...analyses, [`${kind}:${subject}`]: stored };
-      setAnalyses(next);
-      if (store) {
-        await store.setSetting('analyses', next);
-        await store.setSetting('analyses:at', new Date().toISOString());
-      }
-      return stored;
-    },
-    [aiCredentials, aggregates, analyses, gear.equipment, goalId, period, plan, scope, store],
   );
 
   const value: DiveLogValue = {
@@ -1761,13 +1564,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     saveNamedDecoPlan,
     deleteNamedDecoPlan,
     saveGasInput,
-    aiCredentials,
-    saveAiCredentials,
     secretPlace,
-    testAiKey,
-    analysis,
-    runAnalysis,
-    clearAnalysis,
     gear,
     subacqueo,
     saveSubacqueo,

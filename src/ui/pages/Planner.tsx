@@ -32,7 +32,6 @@ import {
 import { LIMITS, type GasMix } from '../../core/model';
 import { OTU_DAILY_TDI } from '../../core/analysis/oxygen';
 import { formatRuntime, mixName } from '../../core/units';
-import { AnalysisCard } from '../components/Analysis';
 import {
   CurveChart,
   StatTile,
@@ -151,11 +150,6 @@ export function Planner() {
   const shown = plan.input;
   const schedule = useMemo(() => pressureSchedule(plan), [plan]);
   const plans = useMemo(() => contingencies(input), [input]);
-  // L'impronta del piano: se cambia, l'analisi salvata è vecchia e la carta lo dice.
-  const fingerprint = useMemo(
-    () => JSON.stringify(plan.input) + `|${scope.period.id}|${scope.dives.length}`,
-    [plan.input, scope],
-  );
   const turnAt = useMemo(() => turnMinute(plan), [plan]);
 
   const similar = useMemo(
@@ -1362,16 +1356,6 @@ export function Planner() {
           ))}
         </div>
       </div>
-
-      <AnalysisCard
-        kind="gas"
-        gasInput={input}
-        title={t('Rilettura del piano con Claude')}
-        description={t(
-          'Guarda le ipotesi del piano — consumo, media, riserva — e dice cosa cambia se una è ottimistica.',
-        )}
-        currentFingerprint={fingerprint}
-      />
 
       {/*
        * LE NOTE, E PERCHÉ SONO CORTE.

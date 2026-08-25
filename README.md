@@ -175,7 +175,7 @@ risposte diverse:
   coordinate vengono elencati invece di sparire.
 
 Più il **backup completo in JSON**, che è l'unico che riporta indietro tutto:
-immersioni, profili, attrezzatura, brevetti, piani e analisi.
+immersioni, profili, attrezzatura, brevetti e piani.
 
 **Tiene un solo archivio su più dispositivi.** Facoltativo: si entra con un
 account Google e il servizio crea un database libSQL/Turso tutto tuo — indirizzo
@@ -378,9 +378,8 @@ src/
     googleAccesso.ts           OAuth con PKCE: prepara il giro, legge il ritorno
     accessoPiattaforma.ts      il ritorno dal browser: porta locale sul Mac, schema URL su iPhone
     pkce.ts                    verificatore e sfida
-  ai/                        ← analisi con Claude, facoltativa
-    client.ts                  API di Anthropic, modello scelto dall'utente
-    context.ts                 i dati misurati, compattati per il prompt
+  ai/                        ← NON entra nell'applicazione: serve a `npm run dump:ai`
+    context.ts                 i dati misurati, compattati per la lettura
     prompts.ts                 istruzioni: niente numeri inventati
   ui/                        ← React: pagine, grafici, stato
     lingua.tsx                 italiano e inglese: la chiave è la frase italiana
