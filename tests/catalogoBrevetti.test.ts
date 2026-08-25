@@ -209,6 +209,64 @@ describe('i numeri che tutti sbagliano', () => {
     expect(b.ruolo).toBe('soccorso');
     expect(b.livello).toBe('base');
   });
+
+  it('NADD: le tre grafie di «Advanced» portano tutte allo stesso brevetto', () => {
+    // Il sito ufficiale ne usa tre in tre pagine diverse — «Advanced Open Water
+    // Diver», «Advanced Diver», «Advanced Scuba Diver». Chi ne aveva scritta a
+    // mano una qualunque deve ritrovarsi, non vedersi degradare a «scritto a mano».
+    const d = didatticaPerSigla('NADD')!;
+    const canonico = brevettoPerNome(d, 'Advanced Open Water Diver');
+    expect(canonico?.profonditaM).toBe(30);
+    for (const grafia of ['Advanced Diver', 'Advanced Scuba Diver', 'advanced diver']) {
+      expect(brevettoPerNome(d, grafia), grafia).toBe(canonico);
+    }
+  });
+
+  it('NADD: il Light Deco dichiara 42 metri, non i 45 del titolo', () => {
+    // Il titolo della sezione dice 45, ma copre DUE corsi insieme e i 45 sono
+    // del secondo. Il corpo del testo assegna 42 al Light Deco. È esattamente
+    // il genere di numero che qualcuno «correggerà» leggendo solo il titolo.
+    expect(voce('NADD', 'Light Deco Diver').profonditaM).toBe(42);
+    expect(voce('NADD', 'Decompression Procedures').profonditaM).toBe(45);
+  });
+
+  it('NADD: nessun brevetto rebreather, perché NADD non ne pubblica il nome', () => {
+    /*
+      La pagina dei corsi tecnici dice che NADD ha «sviluppato specifici corsi»
+      per il circuito chiuso, e poi si ferma: nessun nome, nessuna sigla,
+      nessun metro. Tutte le altre didattiche tecniche di questo file hanno una
+      scala CCR, ed è precisamente per questo che qualcuno un giorno sarà
+      tentato di inventarne una qui per simmetria. Questa riga glielo impedisce.
+    */
+    const d = didatticaPerSigla('NADD')!;
+    const sospetti = d.brevetti.filter((b) => /ccr|rebreather|circuito chiuso/i.test(b.nome));
+    expect(sospetti).toEqual([]);
+  });
+
+  it('NADD: le specialità non dichiarano metri, e la scala professionale nemmeno', () => {
+    // Nessuna delle due cose sta sul sito. I 40 m che hanno i divemaster di
+    // un'altra didattica, copiati qui, sarebbero un'autorizzazione inventata.
+    for (const nome of ['Nitrox Diver', 'Wreck Diver', 'Side Mount', 'Rescue Diver']) {
+      expect(voce('NADD', nome).profonditaM, nome).toBeUndefined();
+    }
+    for (const nome of ['Divemaster', 'Open Water Instructor', 'Instructor Trainer']) {
+      expect(voce('NADD', nome).profonditaM, nome).toBeUndefined();
+    }
+    expect(voce('NADD', 'Divemaster').ruolo).toBe('guida');
+  });
+
+  it('NADD: niente apnea in una scala che misura le bombole', () => {
+    /*
+      NADD insegna anche apnea, e il sito dichiara i metri: 5, 10, 18, 25. Sono
+      numeri veri, e messi su `CertLevel` direbbero una cosa falsa — quella
+      scala risponde a «fin dove scendi con le bombole». Finché non esiste una
+      scala per l'apnea, quei brevetti stanno fuori: meglio assenti che
+      travestiti.
+    */
+    const d = didatticaPerSigla('NADD')!;
+    const apnea = d.brevetti.filter((b) => /apnea|mermaid|monopinna|snorkel/i.test(b.nome));
+    expect(apnea).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------

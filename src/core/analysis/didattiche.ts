@@ -53,8 +53,8 @@
  *
  * ► LE FONTI. ◄ Ogni didattica porta la sua. Dove lo standard ufficiale è
  * scaricabile — TDI, GUE, NAUI, SDI, CMAS, FIPSAS — i numeri vengono da lì.
- * Dove la didattica pubblica solo le pagine dei corsi — PADI, IANTD, RAID, PSAI
- * — vengono da quelle, che sono ufficiali ma più sintetiche: è il motivo per cui
+ * Dove la didattica pubblica solo le pagine dei corsi — PADI, IANTD, RAID, PSAI,
+ * NADD — vengono da quelle, che sono ufficiali ma più sintetiche: è il motivo per cui
  * lì i campi vuoti sono di più.
  */
 
@@ -374,6 +374,186 @@ const ESA: Didattica = {
   ],
 };
 
+/*
+  ► NADD, E PERCHÉ QUI DENTRO C'È SOLO METÀ DEL SUO CATALOGO. ◄
+
+  NADD è italiana, e il suo catalogo è largo il doppio di tutti gli altri di
+  questo file: oltre alla subacquea insegna apnea, nuoto e mermaiding, e nella
+  subacquea affianca alla scala ordinaria una linea di archeologia che nessun'altra
+  didattica ha. Metterlo tutto in una tendina voleva dire seppellire l'Open Water
+  sotto sessanta voci. Le scelte, dichiarate una per una perché ognuna toglie
+  qualcosa che sul sito c'è:
+
+   - **Niente apnea, niente nuoto.** Non è una gerarchia di valore, è che qui la
+     scala è `CertLevel`, che misura fin dove si scende CON LE BOMBOLE. Un
+     «Apnea 2° livello — 18 m» messo su quella scala direbbe una cosa falsa, e
+     non c'è un gradino giusto dove metterlo. Il giorno che l'applicazione
+     saprà leggere un'immersione in apnea, quella scala nascerà insieme.
+   - **Niente BLS, BLSD, Oxygen Provider, gas blender, operatore compressore.**
+     Sono qualifiche vere e utili, ma non sono brevetti subacquei: non
+     autorizzano niente sott'acqua. Il guaio non è filosofico — `livello` è
+     obbligatorio, e qualunque gradino gli si desse finirebbe nel calcolo del
+     «livello più alto raggiunto». Un gas blender che risulta subacqueo tecnico
+     è esattamente il genere di bugia che questo file esiste per non dire.
+     Chi le vuole nel libretto usa «Altro», che è lì per questo.
+   - **Niente Scuba Experience e niente Scuba Review.** Lo dice NADD stessa:
+     l'Experience «non prevede un corso e il rilascio di un brevetto», e la
+     Review è un ripasso. Un catalogo di brevetti che contiene cose che
+     brevetti non sono smette di essere un catalogo di brevetti.
+
+  ► I NUMERI. ◄ Dieci brevetti su trentacinque dichiarano una profondità, e sono
+  questi dieci e basta. Il resto — tutte le specialità, tutta la linea grotta,
+  tutta la scala professionale — non la dichiara, e qui resta vuoto.
+
+  ► IL REBREATHER NON C'È PERCHÉ NON HA UN NOME. ◄ La pagina dei corsi tecnici
+  dice che NADD «ha sviluppato specifici corsi per gli apparati di respirazione
+  a Circuito Chiuso e Semi Chiuso», e poi si ferma: non un livello, non una
+  sigla, non un metro. Non si può mettere in tendina un brevetto di cui non si
+  conosce il nome, e inventarne uno plausibile — «CCR Diver Level 1», che è
+  quello che avrebbero tutte le altre — sarebbe scrivere nel logbook di
+  qualcuno un brevetto che non esiste. Quando NADD lo pubblicherà, si aggiunge.
+  Stessa storia per il livello di mezzo della linea grotta: il sito dice «tre
+  livelli», ne nomina due, e qui ce ne sono due.
+
+  ► IL NOME PER ESTESO È UN NOME PROPRIO. ◄ «NADD Global Diving Agency» sembra
+  una sigla non sciolta, e lo è: la didattica non scioglie mai l'acronimo, da
+  nessuna parte. Scrivere qui una nostra espansione — «National Association of
+  Diving Development» o simili, che in rete circola — vorrebbe dire attribuirle
+  un nome che non ha mai usato.
+*/
+const NADD: Didattica = {
+  id: 'nadd',
+  sigla: 'NADD',
+  // Non è una sigla lasciata a metà: vedi il commento qui sopra.
+  nome: 'NADD Global Diving Agency',
+  tipo: 'ricreativa',
+  fonte:
+    'naddeurope.com — corsi ricreativi, tecnici, professionali, di emergenza e la pagina Training Programs, agosto 2026',
+  brevetti: [
+    // ── la scala ricreativa ──────────────────────────────────────────────────
+    // I due programmi in piscina: brevetti veri, ma senza una profondità
+    // dichiarata, perché una piscina non ne ha una da dichiarare.
+    { nome: 'Indoor Diver', livello: 'intro' },
+    { nome: 'Baby Dolphin', livello: 'intro' },
+    { nome: 'Scuba Diver', livello: 'intro', profonditaM: 12 },
+    { nome: 'Open Water Diver', livello: 'base', profonditaM: 18 },
+    /*
+      Tre grafie per lo stesso brevetto, tutte e tre sul sito ufficiale:
+      «Advanced Open Water Diver» nella pagina dei corsi ricreativi, «Advanced
+      Diver» nell'elenco Training Programs, «Advanced Scuba Diver» nella pagina
+      «impara a immergerti». Qui la prima fa da nome e le altre due da alias,
+      così chi ha scritto a mano una qualunque delle tre se la ritrova.
+    */
+    {
+      nome: 'Advanced Open Water Diver',
+      livello: 'advanced',
+      profonditaM: 30,
+      alias: ['Advanced Diver', 'Advanced Scuba Diver', 'AOWD'],
+    },
+    // «entro i 40 metri ed entro la curva di sicurezza»: la deco è esclusa a parole.
+    { nome: 'Deep Diver', livello: 'deep', profonditaM: 40, decompressione: false },
+    { nome: 'Rescue Diver', livello: 'base', ruolo: 'soccorso' },
+    { nome: 'Nitrox Diver', livello: 'nitrox' },
+    /*
+      ── le specialità ──────────────────────────────────────────────────────
+      Nessuna dichiara una profondità: qui `profonditaM` è vuoto per tutte, e
+      non è una mancanza da colmare. `livello` invece è obbligatorio, e vale
+      `base` perché è il prerequisito che NADD chiede per accedervi — dice «hai
+      almeno l'Open Water», che è vero, e non dice niente di più.
+    */
+    { nome: 'Wreck Diver', livello: 'base' },
+    { nome: 'Night Diver', livello: 'base' },
+    { nome: 'Underwater Navigation', livello: 'base' },
+    { nome: 'Digital Underwater Photographer', livello: 'base', alias: ['Scuba Photographer'] },
+    { nome: 'Dry Suit', livello: 'base' },
+    { nome: 'Altitude Diver', livello: 'base' },
+    { nome: 'Naturalist Diver', livello: 'base' },
+    { nome: 'Advanced Buoyancy Diver', livello: 'base', alias: ['Performance Buoyancy'] },
+    { nome: 'Drift Diver', livello: 'base' },
+    { nome: 'Search And Recovery', livello: 'base' },
+    { nome: 'Shark Awareness', livello: 'base' },
+    { nome: 'Propulsion Vehicle', livello: 'base', alias: ['Diving Propulsion Vehicle', 'DPV'] },
+    { nome: 'Dive Buddy for Disabled Diver', livello: 'base' },
+    { nome: 'Full Face Mask', livello: 'base' },
+    { nome: 'Side Mount', livello: 'base' },
+    /*
+      ── la linea di archeologia ────────────────────────────────────────────
+      È la parte che NADD ha e le altre didattiche di questo file no. Quattro
+      gradini, nessuno con una profondità dichiarata.
+
+      «Archeology Guide» NON prende `ruolo: 'guida'`. In questo file quel ruolo
+      vuol dire conduzione di subacquei, e qui la parola guida un cantiere
+      archeologico: attribuirle l'altro significato le farebbe dire, nel
+      libretto di chi ce l'ha, un'abilitazione che non le risulta.
+    */
+    { nome: 'Archeology Experience', livello: 'base' },
+    { nome: 'Archeology Guide', livello: 'base' },
+    { nome: 'Archeology Operator', livello: 'base' },
+    { nome: 'Archeology Instructor', livello: 'advanced', ruolo: 'istruttore' },
+    { nome: 'Archeology Instructor Trainer', livello: 'advanced', ruolo: 'istruttore' },
+    /*
+      ── la linea tecnica ───────────────────────────────────────────────────
+      I 42 m del Light Deco vengono da «Durante il corso potrai raggiungere i
+      42 metri (137 feet) come massima profondità»: è la profondità del corso,
+      non un limite operativo scritto altrove — NADD altrove non lo scrive. Il
+      titolo della sezione dice 45, ma quel titolo copre due corsi insieme
+      («LIGHT DECO DIVER & DECOMPRESSION PROCEDURES») e i 45 sono del secondo.
+
+      Per i Trimix 80 e 100 il numero sta nel nome del corso, con la conversione
+      in piedi che la mette il sito («Trimix 80m (262 feet) e Trimix 100m (328
+      feet)»). È una base più fragile di quella dell'Extended Range, che ha una
+      frase intera dedicata, ed è comunque una dichiarazione di NADD e non una
+      nostra deduzione.
+    */
+    { nome: 'Light Deco Diver', livello: 'tech', profonditaM: 42, decompressione: true },
+    {
+      nome: 'Decompression Procedures',
+      livello: 'tech',
+      profonditaM: 45,
+      decompressione: true,
+      alias: ['Decompression Procedures Diver'],
+    },
+    { nome: 'Extended Range', livello: 'tech', profonditaM: 54, decompressione: true },
+    {
+      nome: 'Trimix 60m',
+      livello: 'tech',
+      profonditaM: 60,
+      decompressione: true,
+      alias: ['Trimix 60', 'Trimix Normossico'],
+    },
+    { nome: 'Trimix 80m', livello: 'tech', profonditaM: 80, decompressione: true, alias: ['Trimix 80'] },
+    {
+      nome: 'Trimix 100m',
+      livello: 'tech',
+      profonditaM: 100,
+      decompressione: true,
+      alias: ['Trimix 100'],
+    },
+    // Grotta: due nomi su tre livelli annunciati. Il terzo NADD non lo nomina.
+    { nome: 'Cavern', livello: 'tech' },
+    { nome: 'Full Cave', livello: 'tech' },
+    /*
+      ── la scala professionale ─────────────────────────────────────────────
+      Nessuno di questi livelli dichiara una profondità propria — NADD non la
+      scrive da nessuna parte, e i 40 m che hanno i divemaster SSI qui sarebbero
+      copiati da un'altra didattica.
+    */
+    { nome: 'Divemaster', livello: 'advanced', ruolo: 'guida', alias: ['Dive Master'] },
+    { nome: 'Assistant Instructor', livello: 'advanced', ruolo: 'assistente' },
+    { nome: 'Open Water Instructor', livello: 'advanced', ruolo: 'istruttore' },
+    { nome: 'Advanced Instructor', livello: 'advanced', ruolo: 'istruttore' },
+    { nome: 'Specialty Instructor', livello: 'advanced', ruolo: 'istruttore' },
+    { nome: 'Tek Instructor', livello: 'tech', ruolo: 'istruttore' },
+    {
+      nome: 'I.T.C. Staff Instructor',
+      livello: 'advanced',
+      ruolo: 'istruttore',
+      alias: ['ITC Staff Instructor'],
+    },
+    { nome: 'Instructor Trainer', livello: 'advanced', ruolo: 'istruttore' },
+  ],
+};
+
 // ---------------------------------------------------------------------------
 // Le didattiche tecniche
 // ---------------------------------------------------------------------------
@@ -509,6 +689,7 @@ export const DIDATTICHE: Didattica[] = [
   FIPSAS,
   SNSI,
   ESA,
+  NADD,
   NAUI,
   SDI,
   RAID,
