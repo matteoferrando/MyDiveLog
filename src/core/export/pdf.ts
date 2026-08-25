@@ -216,7 +216,13 @@ function bombole(dive: Dive): string {
     // usciva «210?60 bar», che sembra un errore di lettura del computer. Le
     // due preposizioni costano quattro caratteri e si leggono ad alta voce.
     const pressioni = b.startBar && b.endBar ? `da ${b.startBar} a ${b.endBar} bar` : '';
-    return [misura, pressioni].filter(Boolean).join(' ');
+    /*
+     * L'analisi va sul foglio che consegni, ed è il posto dove serve di più:
+     * chi te lo chiede — un centro, un istruttore — vuole sapere che il gas
+     * l'hai verificato, non che c'era scritto sull'adesivo.
+     */
+    const analisi = b.analisi ? `(${Math.round(b.analisi.o2 * 100)}% analizzato)` : '';
+    return [misura, pressioni, analisi].filter(Boolean).join(' ');
   });
   return pezzi.filter(Boolean).join(' · ') || '—';
 }

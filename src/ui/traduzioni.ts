@@ -686,6 +686,23 @@ export const INGLESE: Record<string, string> = {
   'Unite: la scheda assorbita è nel cestino.': 'Merged: the absorbed entry is in the trash.',
   'Una delle due immersioni non è più in archivio.': 'One of the two dives is no longer in the logbook.',
   'Sono la stessa immersione.': 'They are the same dive.',
+  'Gas analizzato': 'Analysed gas',
+  'O₂ analizzato': 'Analysed O₂',
+  'He analizzato': 'Analysed He',
+  'Analizzato il': 'Analysed on',
+  'Analizzato da': 'Analysed by',
+  Analizzato: 'Analysed',
+  'io, il diving, il compagno': 'me, the dive centre, my buddy',
+  'Non coincide con la miscela dichiarata qui sopra. Se l’analisi è quella giusta, correggi anche quella: MOD, PPO2 ed esposizione all’ossigeno sono calcolate su quel numero.':
+    'This does not match the mix declared above. If the analysis is the right one, correct that too: MOD, PPO2 and oxygen exposure are all computed from that number.',
+  dichiarato: 'declared',
+  'cioè il limite mostrato finora era più profondo di quello vero.':
+    'meaning the limit shown until now was deeper than the real one.',
+  'La MOD a 1.4 bar è': 'The MOD at 1.4 bar is',
+  'invece di': 'instead of',
+  'il limite mostrato finora era più profondo di quello vero.':
+    'the limit shown until now was deeper than the real one.',
+  'i conti fatti finora erano prudenti.': 'the figures so far were on the safe side.',
   'Esporta PDF': 'Export PDF',
   'Esposizione all’ossigeno': 'Oxygen exposure',
   'Fai rileggere il piano a Claude': 'Have Claude check the plan',

@@ -38,6 +38,7 @@ import {
 import { parseCylinderSpec } from '../../core/cylinders';
 import type { Cylinder, Dive, DiveGear, GearRef, Waves, Weather } from '../../core/model';
 import { useLingua } from '../lingua';
+import { descriviAnalisi, discorda } from '../../core/analisiGas';
 import { useDiveLog } from '../state';
 import { BottoneConferma } from './Conferma';
 
@@ -185,6 +186,99 @@ function RigaBombola({
           {notaSigla}
         </p>
       )}
+
+      {/*
+       * ► IL GAS ANALIZZATO, che è una MISURA e non una dichiarazione. ◄
+       *
+       * I campi qui sopra dicono cosa c'è scritto sull'adesivo della bombola.
+       * Questi dicono cosa ha letto l'analizzatore quando ci hai messo sopra la
+       * cella. È l'unica procedura che i manuali impongono senza sfumature —
+       * «No diver should breathe any mixture they have not personally confirmed
+       * prior to the dive», TDI Advanced Nitrox p. 73 — e fino a oggi
+       * nell'applicazione non c'era un posto dove registrarla.
+       *
+       * Sta in una riga separata e non accanto all'ossigeno dichiarato apposta:
+       * confonderli è esattamente ciò che rende inutile la procedura. Quando i
+       * due numeri non coincidono l'applicazione lo dice nella scheda, con la
+       * MOD dell'uno e dell'altro.
+       */}
+      <details style={{ marginTop: 10 }}>
+        <summary className="muted" style={{ fontSize: 12, cursor: 'pointer' }}>
+          {t('Gas analizzato')}
+          {c.analisi ? ` — ${descriviAnalisi(c.analisi)}` : ''}
+        </summary>
+        <div
+          className="grid"
+          style={{ gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', marginTop: 8 }}
+        >
+          <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+            <span className="muted">{t('O₂ analizzato')} %</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={c.analisi ? Math.round(c.analisi.o2 * 100) || '' : ''}
+              onChange={(e) => {
+                const v = numero(e.target.value);
+                /*
+                 * Svuotare il campo TOGLIE l'analisi, non la mette a zero: una
+                 * bombola analizzata allo 0% di ossigeno non esiste, e un
+                 * valore finto qui farebbe scattare l'avviso di discordanza su
+                 * ogni immersione in cui qualcuno ha aperto e richiuso questo
+                 * riquadro.
+                 */
+                if (v === undefined) return onChange({ analisi: undefined });
+                onChange({ analisi: { ...(c.analisi ?? {}), o2: v / 100 } });
+              }}
+            />
+          </label>
+          <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+            <span className="muted">{t('He analizzato')} %</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              disabled={!c.analisi}
+              value={c.analisi?.he !== undefined ? Math.round(c.analisi.he * 100) || '' : ''}
+              onChange={(e) => {
+                if (!c.analisi) return;
+                const v = numero(e.target.value);
+                onChange({ analisi: { ...c.analisi, he: v === undefined ? undefined : v / 100 } });
+              }}
+            />
+          </label>
+          <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+            <span className="muted">{t('Analizzato il')}</span>
+            <input
+              type="date"
+              disabled={!c.analisi}
+              value={c.analisi?.quando?.slice(0, 10) ?? ''}
+              onChange={(e) => {
+                if (!c.analisi) return;
+                onChange({ analisi: { ...c.analisi, quando: e.target.value || undefined } });
+              }}
+            />
+          </label>
+          <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+            <span className="muted">{t('Analizzato da')}</span>
+            <input
+              type="text"
+              disabled={!c.analisi}
+              placeholder={t('io, il diving, il compagno')}
+              value={c.analisi?.chi ?? ''}
+              onChange={(e) => {
+                if (!c.analisi) return;
+                onChange({ analisi: { ...c.analisi, chi: e.target.value || undefined } });
+              }}
+            />
+          </label>
+        </div>
+        {c.analisi && discorda(c.mix, c.analisi) && (
+          <p className="notice" style={{ fontSize: 12, marginTop: 8 }}>
+            {t(
+              'Non coincide con la miscela dichiarata qui sopra. Se l’analisi è quella giusta, correggi anche quella: MOD, PPO2 ed esposizione all’ossigeno sono calcolate su quel numero.',
+            )}
+          </p>
+        )}
+      </details>
       <div className="row" style={{ marginTop: 8 }}>
         <span className="topbar-spacer" />
         <button type="button" className="btn btn-small" onClick={onRimuovi}>

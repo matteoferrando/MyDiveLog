@@ -3,6 +3,7 @@ import { suIOS } from '../../piattaforma';
 import { BottoneConferma } from '../components/Conferma';
 import { LIMITS, type ComputerInfo, type Dive, type Sample } from '../../core/model';
 import { formatDuration, mixName } from '../../core/units';
+import { descriviAnalisi, descriviScarto, scartiDiAnalisi } from '../../core/analisiGas';
 import { modeLabel, positionAgainst, quartilesOf } from '../../core/analysis/aggregate';
 import { debriefDive } from '../../core/analysis/coaching';
 import { logbookHtml } from '../../core/export/logbookPrint';
@@ -678,6 +679,10 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                   <th className="num">{t('Inizio')}</th>
                   <th className="num">{t('Fine')}</th>
                   <th className="num">{t('Usati')}</th>
+                  {/* La colonna compare solo se almeno una bombola è stata
+                      analizzata: su un archivio dove nessuno lo fa sarebbe una
+                      colonna di trattini larga quanto le altre. */}
+                  {dive.cylinders.some((c) => c.analisi) && <th>{t('Analizzato')}</th>}
                 </tr>
               </thead>
               <tbody>
@@ -690,11 +695,35 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                     <td className="num tabular">
                       {c.startBar !== undefined && c.endBar !== undefined ? c.startBar - c.endBar : '—'}
                     </td>
+                    {dive.cylinders.some((x) => x.analisi) && (
+                      <td>{c.analisi ? descriviAnalisi(c.analisi) : '—'}</td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          {/*
+           * ► QUANDO L'ETICHETTA E L'ANALIZZATORE NON VANNO D'ACCORDO. ◄
+           *
+           * È il momento in cui registrare l'analisi serve davvero. Tutto ciò
+           * che l'applicazione ha calcolato — MOD, PPO2, esposizione
+           * all'ossigeno — è appoggiato alla miscela DICHIARATA: se quella non
+           * è la miscela che hai respirato, quei numeri sono sbagliati, e lo
+           * sono nella direzione che conta.
+           *
+           * L'avviso nomina le due MOD e non le due percentuali: «due punti
+           * percentuali» non dice niente a nessuno, «trentasette metri invece
+           * di quaranta» dice tutto.
+           */}
+          {scartiDiAnalisi(dive.cylinders).map((s) => (
+            <div key={s.bombola} className="notice" style={{ marginTop: 12 }}>
+              <b>
+                {t('Bombola')} {s.bombola + 1}
+              </b>{' '}
+              — {descriviScarto(s, t)}
+            </div>
+          ))}
           {m?.quality.caveats.length ? (
             <div className="notice" style={{ marginTop: 12 }}>
               {m.quality.caveats.map((c) => (

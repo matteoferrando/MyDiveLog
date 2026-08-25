@@ -71,6 +71,45 @@ export interface Cylinder {
   startBar?: number;
   endBar?: number;
   mix: GasMix;
+  /**
+   * La miscela **analizzata di persona**, quando è stata analizzata.
+   *
+   * ► PERCHÉ ESISTE UN CAMPO SEPARATO DA `mix`. ◄
+   *
+   * `mix` è quello che c'è scritto sull'etichetta della bombola, o quello che
+   * ha scritto il computer subacqueo perché glielo hai impostato tu. È una
+   * dichiarazione. Questo è una **misura**, ed è l'unica procedura che i
+   * manuali impongono senza sfumature:
+   *
+   *   «No diver should breathe any mixture they have not personally confirmed
+   *    prior to the dive» — TDI Advanced Nitrox (2013), p. 73
+   *
+   * Tenerli separati è il punto. Sovrascrivendo `mix` col valore analizzato si
+   * perderebbe proprio l'informazione che conta: che i due numeri non
+   * coincidono. Ed è quando non coincidono che serve saperlo — se l'etichetta
+   * dice 32% e l'analizzatore dice 30%, la MOD che l'applicazione ha mostrato
+   * finora è più profonda di quella vera.
+   */
+  analisi?: AnalisiGas;
+}
+
+/**
+ * Il risultato dell'analisi di una bombola, com'è stata fatta davvero.
+ *
+ * Data e persona non sono burocrazia: in un diving la bombola la analizza chi
+ * la consegna, e sul registro si firma. Un valore senza chi e quando è un
+ * numero che nessuno può risalire a verificare — cioè esattamente ciò che la
+ * procedura serve a evitare.
+ */
+export interface AnalisiGas {
+  /** Frazione di ossigeno misurata, fra 0 e 1. `0.32` per un 32%. */
+  o2: number;
+  /** Frazione di elio misurata. Assente se l'analizzatore non la legge. */
+  he?: number;
+  /** Quando è stata fatta, in ISO. */
+  quando?: string;
+  /** Chi l'ha fatta: il subacqueo, o chi gli ha consegnato la bombola. */
+  chi?: string;
 }
 
 /**
@@ -505,7 +544,26 @@ export interface DiveMetrics {
   phases: DivePhases;
 
   // --- consumo gas ---
-  /** Consumo di superficie (Respiratory Minute Volume), L/min. */
+  /**
+   * Consumo riportato alla superficie, L/min.
+   *
+   * ► IL NOME DEL CAMPO DICE «RMV» E IL NUMERO NON È UN RMV. ◄
+   *
+   * Per la didattica tecnica che questa applicazione cita, il valore
+   * normalizzato alla superficie si chiama **SCR** (Surface Consumption Rate);
+   * «RMV» richiede che si dichiari a quale profondità è stato misurato, perché
+   * a venti metri lo stesso subacqueo consuma il triplo (TDI *Decompression
+   * Procedures* 2011, p. 162). Chiamare RMV un valore di superficie è usare il
+   * termine al contrario di chi lo ha insegnato.
+   *
+   * Il campo NON viene rinominato, e la ragione è concreta: finisce dentro il
+   * documento JSON di ogni immersione in archivio, nei backup e nei file
+   * esportati. Rinominarlo renderebbe illeggibile il consumo di tutte le
+   * immersioni salvate finora — un danno vero per una correzione di vocabolario.
+   *
+   * A schermo il problema non si pone: l'interfaccia lo chiama sempre
+   * **«consumo di superficie»**, che è corretto e non ha bisogno di sigle.
+   */
   rmvLpm?: number;
   /** SAC in bar/min sulla bombola principale (dipende dalla bombola: meno confrontabile). */
   sacBarPerMin?: number;

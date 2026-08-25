@@ -51,7 +51,9 @@ type Series = 'rmv' | 'trim' | 'ascent' | 'gf99';
  * Le `blurb` sono volutamente corte. Il dettaglio tecnico che c'era prima sta
  * qui sotto in commento, perché serve a chi legge il codice:
  *
- *  - RMV: si mostra in L/min riportati alla superficie e non in bar/min perché
+ *  - consumo di superficie (SCR per TDI; il campo si chiama `rmvLpm` per
+ *    ragioni di compatibilità, vedi `model.ts`): si mostra in L/min riportati
+ *    alla superficie e non in bar/min perché
  *    così è confrontabile fra bombole di volume diverso e fra profondità diverse.
  *    Senza il volume della bombola non si può calcolare, e non si stima.
  *  - assetto: sono i metri verticali percorsi al minuto nei soli tratti in cui la
