@@ -1102,6 +1102,24 @@ a {
   «passa dietro una finestra»: senza, i nomi appaiono e spariscono di colpo sul
   bordo, e si vede il trucco.
 */
+/*
+  L'etichetta sopra il nastro. Sta FUORI dal nastro che scorre — dentro se ne
+  andrebbe via con lui — e allineata al contenitore, non ai nomi: quelli entrano
+  ed escono dal bordo, e un titolo allineato a qualcosa che si muove non è
+  allineato a niente.
+*/
+.marche-titolo {
+  max-width: none;
+  margin: 0 auto 12px;
+  padding: 0 24px;
+  width: min(100% - 48px, var(--largo));
+  font-size: 0.74rem;
+  font-weight: 620;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(157, 220, 255, 0.5);
+}
+
 .marche {
   position: relative;
   overflow: hidden;
