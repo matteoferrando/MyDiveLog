@@ -29,13 +29,21 @@ const IOS_MINIMA: &str = "14.0";
 
 /// Livello di API Android per cui compilare la parte C.
 ///
-/// **Deve restare allineata a quella dell'applicazione**: Tauri genera il
-/// progetto Gradle con `minSdkVersion 24`, e un archivio statico compilato
-/// contro un'API più alta userebbe simboli che su un telefono con Android 7 non
-/// esistono. Il guasto non si vedrebbe qui: si vedrebbe al primo avvio, su un
-/// apparecchio che non abbiamo, con un errore di simbolo mancante.
+/// **Deve restare allineata a quella dell'applicazione**, che la dichiara in
+/// `tauri.android.conf.json`. Un archivio statico compilato contro un'API più
+/// alta userebbe simboli che su un telefono più vecchio non esistono, e il
+/// guasto non si vedrebbe qui: si vedrebbe al primo avvio, su un apparecchio
+/// che non abbiamo, con un errore di simbolo mancante.
+///
+/// PERCHÉ 26 E NON 24, che sarebbe il minimo di Tauri. Lo impone
+/// `tauri-plugin-blec`: il suo manifesto dichiara `minSdkVersion 26` e il
+/// fonditore dei manifesti di Android si rifiuta di mettere insieme una
+/// libreria che chiede più di quello che l'applicazione promette. Si potrebbe
+/// forzare con `tools:overrideLibrary` — e si otterrebbe un APK che si installa
+/// su Android 7 e cade appena qualcuno tocca il Bluetooth. Android 8 è del
+/// 2017: chi ha meno di così non ha nemmeno un computer subacqueo con BLE.
 #[cfg(feature = "computer-esterni")]
-const ANDROID_API: &str = "24";
+const ANDROID_API: &str = "26";
 
 /// Le opzioni di `configure` che spengono quello che a noi non serve.
 ///
