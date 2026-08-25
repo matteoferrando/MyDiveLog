@@ -162,7 +162,8 @@ body::before {
 .navigazione {
   display: flex;
   align-items: center;
-  gap: 22px;
+  flex-wrap: wrap;
+  gap: 12px 22px;
   font-size: 15px;
 }
 
@@ -755,16 +756,7 @@ a {
 }
 
 .scarico-nota,
-.scarico-altre {
-  max-width: var(--misura);
-  color: var(--testo-tenue);
-  font-size: 0.92rem;
-  line-height: 1.55;
-}
 
-.scarico-nota {
-  margin: 18px 0 0;
-}
 
 /*
   La riga delle altre piattaforme: più piccola, e staccata da una linea sottile.
@@ -953,44 +945,12 @@ a {
   Windows e Android il posto che hanno davvero — senza spacciarli per il piatto
   forte e senza nasconderli.
 */
-.scarico-titolo {
-  margin: 0 0 14px;
-  max-width: none;
-  font-size: 0.92rem;
-  font-weight: 560;
-  letter-spacing: 0.01em;
-  color: var(--riflesso);
-}
-
-.scarico-altre-testa {
-  margin: 0 0 10px;
-  max-width: none;
-  font-size: 0.86rem;
-  color: var(--testo-tenue);
-}
-
-.scarico-altre-nota {
-  margin: 10px 0 0;
-  max-width: none;
-  font-size: 0.8rem;
-  color: var(--testo-tenue);
-  opacity: 0.85;
-}
 
 /*
   I pulsanti piccoli: stessa forma, due terzi del peso. La differenza di
   dimensione fa da sola il lavoro che farebbe una frase — «queste sono
   secondarie» — senza doverla scrivere.
 */
-.pulsante-piccolo {
-  padding: 9px 16px;
-  font-size: 13.5px;
-  border-radius: 10px;
-}
-
-.pulsanti-piccoli {
-  gap: 10px;
-}
 
 /*
   In fondo alla pagina invece i quattro pulsanti sono alla pari, e non è
@@ -1128,6 +1088,274 @@ a {
   padding: 0;
   text-decoration: underline;
   cursor: pointer;
+}
+
+/* ═══════════════════════════════════════ le schede delle piattaforme ═══════ */
+
+/*
+  L'occhiello sopra le schede. Maiuscoletto spaziato e piccolo: deve dire
+  «guarda sotto» e poi sparire dalla vista, non competere col titolo che gli sta
+  sopra né con le schede che gli stanno sotto.
+*/
+.occhietto {
+  margin: 0 0 16px;
+  max-width: none;
+  font-size: 0.76rem;
+  font-weight: 620;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(157, 220, 255, 0.72);
+}
+
+.schede-piattaforma {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+/*
+  Una scheda per sistema. Il disegno sopra, il nome, e una riga che dice cosa
+  ottieni premendo — «Scarica ora», «APK», «In arrivo». Quella terza riga è la
+  differenza fra una vetrina e uno sportello: un pulsante che dice solo
+  «Windows» chiede di indovinare cosa succede dopo.
+*/
+.scheda-piattaforma {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 158px;
+  padding: 20px 22px 18px;
+  border: 1px solid var(--bordo);
+  border-radius: 18px;
+  background: var(--vetro);
+  backdrop-filter: blur(10px);
+  color: var(--testo);
+  text-decoration: none;
+  transition:
+    transform 0.2s,
+    border-color 0.2s,
+    background 0.2s,
+    box-shadow 0.2s;
+}
+
+.scheda-piattaforma .disegno {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 10px;
+  fill: none;
+  stroke: var(--riflesso);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.2s;
+}
+
+.scheda-piattaforma .nome {
+  font-size: 1.06rem;
+  font-weight: 640;
+  letter-spacing: -0.01em;
+}
+
+.scheda-piattaforma .riga {
+  font-size: 0.8rem;
+  color: var(--testo-tenue);
+}
+
+a.scheda-piattaforma:hover {
+  transform: translateY(-3px);
+  border-color: rgba(157, 220, 255, 0.45);
+  background: rgba(255, 255, 255, 0.075);
+}
+
+/*
+  LA SCHEDA PRINCIPALE. È l'unica cosa colorata di tutta l'apertura, ed è
+  esattamente per questo che funziona: in una pagina blu scuro, un solo blocco
+  di ciano acceso non si sceglie, si vede — e il ciano è lo stesso della linea
+  del profilo, quindi non arriva da fuori la tavolozza.
+*/
+.scheda-piattaforma.principale {
+  min-width: 200px;
+  border-color: transparent;
+  background: linear-gradient(150deg, var(--ciano), var(--ciano-cupo));
+  color: #04121d;
+  box-shadow: 0 14px 44px rgba(67, 214, 255, 0.32);
+}
+
+.scheda-piattaforma.principale .disegno {
+  stroke: #04121d;
+  stroke-width: 1.8;
+}
+
+.scheda-piattaforma.principale .riga {
+  color: rgba(4, 18, 29, 0.72);
+  font-weight: 560;
+}
+
+a.scheda-piattaforma.principale:hover {
+  background: linear-gradient(150deg, #63e0ff, #229ec9);
+  border-color: transparent;
+  box-shadow: 0 18px 54px rgba(67, 214, 255, 0.42);
+}
+
+/*
+  Il riflesso che attraversa la scheda principale. Dura un secondo e torna ogni
+  sei: abbastanza da farsi notare con la coda dell'occhio, troppo raro per
+  diventare quella cosa che lampeggia mentre uno prova a leggere il resto della
+  pagina. Chi ha chiesto meno movimento non lo vede affatto — e non perde
+  niente, perché la scheda resta comunque l'unica colorata.
+*/
+@media (prefers-reduced-motion: no-preference) {
+  .scheda-piattaforma.principale::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 40%;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.38), transparent);
+    animation: riflesso 6s ease-in-out infinite;
+  }
+}
+
+@keyframes riflesso {
+  0% {
+    left: -45%;
+  }
+  22%,
+  100% {
+    left: 125%;
+  }
+}
+
+/*
+  Le due minori: stessa forma, meno peso. La gerarchia la fanno la dimensione e
+  l'opacità, non un'etichetta che dica «secondarie» — perché quella etichetta
+  suonerebbe come una scusa, e queste due versioni non sono una scusa.
+*/
+.scheda-piattaforma.minore {
+  min-width: 140px;
+  padding: 16px 18px 14px;
+  opacity: 0.88;
+}
+
+.scheda-piattaforma.minore .disegno {
+  width: 24px;
+  height: 24px;
+  margin-bottom: 8px;
+}
+
+.scheda-piattaforma.minore .nome {
+  font-size: 0.95rem;
+}
+
+a.scheda-piattaforma.minore:hover {
+  opacity: 1;
+}
+
+/*
+  L'iPhone: tratteggiata, e il cursore non cambia. Deve leggersi come «questo
+  posto è prenotato», non come «questo pulsante è rotto» — la differenza la fa
+  il tratteggio, che nessuna scheda attiva ha.
+*/
+.scheda-piattaforma.attesa {
+  border-style: dashed;
+  border-color: rgba(157, 220, 255, 0.3);
+  background: transparent;
+  cursor: default;
+}
+
+.scheda-piattaforma.attesa .disegno {
+  stroke: rgba(157, 220, 255, 0.55);
+}
+
+.scheda-piattaforma.attesa .nome {
+  color: var(--testo-tenue);
+}
+
+.riga-attesa {
+  color: var(--ambra) !important;
+  font-weight: 600;
+}
+
+/*
+  La riga di fiducia. Tre parole che rispondono alle tre domande che uno si fa
+  prima di scaricare qualcosa da un sito che non conosce — quanto costa, cosa
+  devo dare in cambio, di chi mi sto fidando — e un collegamento per la quarta,
+  che riguarda solo chi ha un PC o un telefono Android.
+*/
+.fiducia {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin: 22px 0 0;
+  max-width: none;
+  font-size: 0.82rem;
+  color: var(--testo-tenue);
+}
+
+.fiducia span {
+  position: relative;
+  padding-left: 18px;
+}
+
+/* La spunta, disegnata con due tratti: un carattere ✓ cambia forma da un font
+   all'altro, e su Windows arriva quello sbagliato. */
+.fiducia span::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.42em;
+  width: 8px;
+  height: 4px;
+  border-left: 1.6px solid var(--ciano);
+  border-bottom: 1.6px solid var(--ciano);
+  transform: rotate(-45deg);
+}
+
+.fiducia a {
+  margin-left: auto;
+}
+
+@media (max-width: 560px) {
+  .schede-piattaforma {
+    gap: 10px;
+  }
+
+  .scheda-piattaforma,
+  .scheda-piattaforma.principale {
+    flex: 1 1 44%;
+    min-width: 0;
+  }
+
+  .fiducia a {
+    margin-left: 0;
+  }
+}
+
+/*
+  La voce del caffè nella barra. Ambra come il pulsante in fondo alla pagina:
+  è la stessa cosa detta due volte, e due colori diversi per la stessa cosa
+  farebbero pensare a due cose diverse.
+*/
+.voce-caffe {
+  border: 1px solid rgba(255, 180, 84, 0.42);
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: rgba(255, 180, 84, 0.1);
+  color: var(--ambra);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    border-color 0.18s,
+    background 0.18s;
+}
+
+.voce-caffe:hover {
+  border-color: rgba(255, 180, 84, 0.75);
+  background: rgba(255, 180, 84, 0.17);
 }
 
 /*

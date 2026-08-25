@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/" />
-    <link rel="stylesheet" href="../stile.css?v=77e85de3" />
+    <link rel="stylesheet" href="../stile.css?v=337b56b4" />
     <link rel="alternate" hreflang="it" href="/" />
     <link rel="alternate" hreflang="en" href="/en/" />
   </head>
@@ -47,6 +47,14 @@
           <a href="terms.html">Terms</a>
           <a href="https://github.com/matteoferrando/MyDiveLog">Source</a>
           <button class="voce-segnala" type="button" data-apri-segnala>Report</button>
+          <a
+            class="voce-caffe"
+            href="https://www.paypal.com/donate/?hosted_button_id=7PQDU6GPHQK34"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span aria-hidden="true">❤︎</span> Buy me a coffee
+          </a>
           <span class="lingua"><a href="/">Italiano</a></span>
         </nav>
       </header>
@@ -62,40 +70,73 @@
           <strong
             >For divers who want to understand what their data is telling them, not just store it.</strong
           >
-          Every dive you have ever made in one archive, even if you have changed computers three times: merged
-          without duplicates, analysed, and holding every field <strong>Italian law 70/2026</strong> asks of a
-          dive logbook — ready as a PDF. Free, no account, and nothing leaves your device.
+          Every dive you have ever made in one archive — even if you have changed computers three times.
+          MyDiveLog merges them without duplicates, analyses them one by one, and holds every field
+          <strong>Italian law 70/2026</strong> asks for: ready to show, as a PDF, five minutes after
+          surfacing.
         </p>
         <!-- Vedi il commento gemello nella pagina italiana. -->
         <div class="scarico">
-          <p class="scarico-titolo">This project was born for:</p>
-          <div class="pulsanti">
+          <p class="occhietto">This project was born for</p>
+
+          <div class="schede-piattaforma">
             <a
-              class="pulsante pulsante-primario"
+              class="scheda-piattaforma principale"
               href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
-              >macOS</a
             >
-            <span class="pulsante pulsante-attesa" role="link" aria-disabled="true" tabindex="-1">
-              iOS <em>coming soon</em>
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <rect x="5" y="7" width="22" height="15" rx="2" />
+                <path d="M2 25h28l-2 2H4z" />
+              </svg>
+              <span class="nome">macOS</span>
+              <span class="riga">Download now</span>
+            </a>
+
+            <!--
+              L'iPhone SI VEDE MA NON SI PREME. L'alternativa era un
+              collegamento all'App Store verso una scheda che non esiste ancora:
+              una pagina d'errore dice «progetto abbandonato» molto più forte di
+              quanto «in arrivo» dica «non ancora pronto».
+            -->
+            <span class="scheda-piattaforma attesa" role="link" aria-disabled="true">
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <rect x="10" y="3" width="12" height="26" rx="3" />
+                <line x1="14" y1="6" x2="18" y2="6" />
+              </svg>
+              <span class="nome">iOS</span>
+              <span class="riga riga-attesa">Coming soon</span>
             </span>
+
+            <a
+              class="scheda-piattaforma minore"
+              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
+            >
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <rect x="3" y="6" width="26" height="17" rx="2" />
+                <line x1="12" y1="27" x2="20" y2="27" />
+                <line x1="16" y1="23" x2="16" y2="27" />
+              </svg>
+              <span class="nome">Windows</span>
+              <span class="riga">Installer</span>
+            </a>
+
+            <a
+              class="scheda-piattaforma minore"
+              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
+            >
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <rect x="9" y="4" width="14" height="24" rx="3" />
+                <circle cx="16" cy="24" r="1.4" />
+              </svg>
+              <span class="nome">Android</span>
+              <span class="riga">APK</span>
+            </a>
           </div>
 
-          <div class="scarico-altre">
-            <p class="scarico-altre-testa">We also built it for</p>
-            <div class="pulsanti pulsanti-piccoli">
-              <a
-                class="pulsante pulsante-piccolo"
-                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
-                >Windows</a
-              >
-              <a
-                class="pulsante pulsante-piccolo"
-                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
-                >Android</a
-              >
-            </div>
-            <p class="scarico-altre-nota"><a href="#altre-piattaforme">read what differs first</a></p>
-          </div>
+          <p class="fiducia">
+            <span>Free</span><span>No account</span><span>Open source</span>
+            <a href="#altre-piattaforme">Windows and Android: what differs</a>
+          </p>
         </div>
       </div>
     </div>

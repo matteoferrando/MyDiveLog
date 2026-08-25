@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/" />
-    <link rel="stylesheet" href="stile.css?v=77e85de3" />
+    <link rel="stylesheet" href="stile.css?v=337b56b4" />
     <link rel="alternate" hreflang="en" href="/en/" />
     <link rel="alternate" hreflang="it" href="/" />
   </head>
@@ -50,6 +50,14 @@
           <a href="termini.html">Termini</a>
           <a href="https://github.com/matteoferrando/MyDiveLog">Codice</a>
           <button class="voce-segnala" type="button" data-apri-segnala>Segnala</button>
+          <a
+            class="voce-caffe"
+            href="https://www.paypal.com/donate/?hosted_button_id=7PQDU6GPHQK34"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span aria-hidden="true">❤︎</span> Offrimi un caffè
+          </a>
           <span class="lingua"><a href="/en/">English</a></span>
         </nav>
       </header>
@@ -63,69 +71,97 @@
         <h1>Il tuo logbook <em>subacqueo</em></h1>
         <p class="occhiello">
           <strong>Per chi vuole capire cosa gli dicono i propri dati, non solo conservarli.</strong> Tutte le
-          immersioni della tua vita in un archivio solo, anche se hai cambiato tre computer: unite senza
-          doppioni, analizzate, e con dentro tutti i dati che la <strong>legge 70/2026</strong> chiede al
-          libretto — pronti in PDF. Gratis, senza account, e niente esce dal tuo dispositivo.
+          immersioni della tua vita in un archivio solo — anche se hai cambiato tre computer. MyDiveLog le
+          unisce senza doppioni, le analizza una per una, e tiene tutti i dati che la
+          <strong>legge 70/2026</strong> chiede: pronti da mostrare, in PDF, cinque minuti dopo esser
+          risalito.
         </p>
         <!--
-          ► DUE LIVELLI, E LA DISTANZA FRA I DUE È IL MESSAGGIO. ◄
+          ► LE PIATTAFORME COME SCHEDE, NON COME PULSANTI IN FILA. ◄
 
-          «Questo progetto è nato per» non è una scusa: è la cosa che rende
-          credibili le altre due. Un'applicazione che dichiara per cosa è stata
-          pensata dice implicitamente che là è provata — e lascia a Windows e
-          Android il posto che hanno davvero, senza spacciarli per il piatto
-          forte e senza nasconderli in fondo alla pagina.
+          Prima erano quattro pillole una accanto all'altra sotto un'etichetta:
+          leggibili, corrette, e con l'aria di un modulo da compilare. In
+          apertura di un sito quella forma non dice «prendilo», dice «scegli
+          un'opzione» — che è la stessa differenza che passa fra una vetrina e
+          uno sportello.
 
-          I PULSANTI SCARICANO IL FILE, non portano alla pagina delle release.
-          Chi arriva qui vuole l'applicazione, e quella pagina è un elenco di
-          file, note e sorgenti compressi in cui il pacchetto è una riga fra le
-          altre: un passaggio in più e un'occasione di sbagliare file.
+          Adesso ogni sistema ha una scheda sua, con il suo disegno e una riga
+          che dice cosa ottieni. Il disegno non è un vezzo: è la sola cosa che
+          si riconosce senza leggere, e su una fila di quattro voci è quella che
+          fa trovare la propria in un colpo d'occhio invece che in tre.
 
-          Il nome nell'indirizzo NON contiene il numero di versione, ed è il
-          punto: `releases/latest/download/<nome>` rimanda all'allegato con QUEL
-          nome nella release più recente, quindi il collegamento resta buono a
-          ogni pubblicazione.
+          I DISEGNI SONO NOSTRI, e rappresentano APPARECCHI, non marche. Un
+          portatile, un telefono, un monitor. I marchi dei sistemi operativi
+          sono di chi li possiede e non si mettono su un sito che non ha
+          nessun rapporto con loro: il nome scritto dice già tutto, e un
+          contorno di computer non lo rivendica nessuno.
+
+          LE SCHEDE SCARICANO IL FILE, non portano alla pagina delle release:
+          `releases/latest/download/<nome>` rimanda all'allegato con QUEL nome
+          nella release più recente, quindi il collegamento resta buono a ogni
+          pubblicazione.
         -->
         <div class="scarico">
-          <p class="scarico-titolo">Questo progetto è nato per:</p>
-          <div class="pulsanti">
+          <p class="occhietto">Questo progetto è nato per</p>
+
+          <div class="schede-piattaforma">
             <a
-              class="pulsante pulsante-primario"
+              class="scheda-piattaforma principale"
               href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
-              >macOS</a
             >
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <rect x="5" y="7" width="22" height="15" rx="2" />
+                <path d="M2 25h28l-2 2H4z" />
+              </svg>
+              <span class="nome">macOS</span>
+              <span class="riga">Scarica ora</span>
+            </a>
+
             <!--
               L'iPhone SI VEDE MA NON SI PREME. L'alternativa era un
               collegamento all'App Store verso una scheda che non esiste ancora:
               una pagina d'errore dice «progetto abbandonato» molto più forte di
               quanto «in arrivo» dica «non ancora pronto».
-
-              `aria-disabled` e non `disabled`: questo è un collegamento, non un
-              pulsante di modulo, e l'attributo che i lettori di schermo
-              capiscono è il primo. `tabindex="-1"` lo toglie dal giro della
-              tastiera, così non ci si arriva col Tab.
             -->
-            <span class="pulsante pulsante-attesa" role="link" aria-disabled="true" tabindex="-1">
-              iOS <em>in arrivo</em>
+            <span class="scheda-piattaforma attesa" role="link" aria-disabled="true">
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <rect x="10" y="3" width="12" height="26" rx="3" />
+                <line x1="14" y1="6" x2="18" y2="6" />
+              </svg>
+              <span class="nome">iOS</span>
+              <span class="riga riga-attesa">In arrivo</span>
             </span>
+
+            <a
+              class="scheda-piattaforma minore"
+              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
+            >
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <rect x="3" y="6" width="26" height="17" rx="2" />
+                <line x1="12" y1="27" x2="20" y2="27" />
+                <line x1="16" y1="23" x2="16" y2="27" />
+              </svg>
+              <span class="nome">Windows</span>
+              <span class="riga">Installatore</span>
+            </a>
+
+            <a
+              class="scheda-piattaforma minore"
+              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
+            >
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <rect x="9" y="4" width="14" height="24" rx="3" />
+                <circle cx="16" cy="24" r="1.4" />
+              </svg>
+              <span class="nome">Android</span>
+              <span class="riga">APK</span>
+            </a>
           </div>
 
-          <div class="scarico-altre">
-            <p class="scarico-altre-testa">L'abbiamo sviluppata anche per</p>
-            <div class="pulsanti pulsanti-piccoli">
-              <a
-                class="pulsante pulsante-piccolo"
-                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
-                >Windows</a
-              >
-              <a
-                class="pulsante pulsante-piccolo"
-                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
-                >Android</a
-              >
-            </div>
-            <p class="scarico-altre-nota"><a href="#altre-piattaforme">leggi prima cosa cambia</a></p>
-          </div>
+          <p class="fiducia">
+            <span>Gratis</span><span>Senza account</span><span>Codice aperto</span>
+            <a href="#altre-piattaforme">Windows e Android: cosa cambia</a>
+          </p>
         </div>
       </div>
 
