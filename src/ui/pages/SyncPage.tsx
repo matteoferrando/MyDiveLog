@@ -1453,7 +1453,17 @@ function LibrettoCard() {
       viste.add(chiave);
       voci.push({
         chiave,
-        testo: [c.agency.trim(), t(CERT_LEVEL_LABEL[c.level])].filter(Boolean).join(' '),
+        /*
+         * Il testo segue la STESSA regola della chiave, o le due si
+         * scollegherebbero: quando il brevetto viene dal catalogo il nome è già
+         * un nome proprio — «Deep Diver», «3° Grado AR» — e non si traduce,
+         * quindi testo e chiave coincidono. Quando è scritto a mano si ripiega
+         * sul livello, che invece passa dal dizionario.
+         */
+        testo:
+          c.didatticaId && c.name.trim()
+            ? chiave
+            : [c.agency.trim(), t(CERT_LEVEL_LABEL[c.level])].filter(Boolean).join(' '),
       });
     }
     return voci;

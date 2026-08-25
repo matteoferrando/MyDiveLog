@@ -155,9 +155,24 @@ export interface Equipment {
  * battaglia persa. Quello che serve al Coach è: fino a che profondità sei
  * addestrato, e sai gestire una decompressione. Questi cinque scalini rispondono.
  */
-export type CertLevel = 'base' | 'advanced' | 'deep' | 'nitrox' | 'tech';
+export type CertLevel = 'intro' | 'base' | 'advanced' | 'deep' | 'nitrox' | 'tech';
 
+/*
+ * ► LE ETICHETTE PORTANO I METRI, MA I METRI VERI STANNO ALTROVE. ◄
+ *
+ * «fino a 18 m» è il tipico, non il vangelo: un CMAS One Star dice 20, un
+ * FIPSAS 3° Grado dice 42, un SNSI Advanced Open Water dice 39. Il numero che
+ * conta per un singolo brevetto è quello che dichiara la SUA didattica, e sta
+ * nel catalogo (`didattiche.ts`) e sul brevetto salvato. Questo scalino serve a
+ * un'altra cosa: mettere a confronto brevetti di scuole diverse quando la
+ * domanda è «fin dove è addestrato», e lì cinque gradini bastano.
+ *
+ * Le cinque frasi storiche NON si toccano: sono chiavi del dizionario e, per i
+ * brevetti scritti a mano, anche il valore salvato sul libretto. Cambiarne una
+ * scollegherebbe quello che qualcuno ha già scelto.
+ */
 export const CERT_LEVEL_LABEL: Record<CertLevel, string> = {
+  intro: 'Introduttivo (solo con guida)',
   base: 'Primo livello (fino a 18 m)',
   advanced: 'Avanzato (fino a 30 m)',
   deep: 'Profondo (fino a 40 m)',
@@ -165,13 +180,58 @@ export const CERT_LEVEL_LABEL: Record<CertLevel, string> = {
   tech: 'Tecnico (decompressione)',
 };
 
+/**
+ * Quello che un brevetto aggiunge OLTRE alla profondità.
+ *
+ * Un Rescue Diver non scende più giù di prima; un Divemaster nemmeno. Sono
+ * qualifiche su un altro asse, e tenerle nella classifica dei metri è
+ * esattamente l'errore già pagato con il Nitrox, quando l'applicazione
+ * rispondeva «Nitrox» a chi chiedeva fin dove fosse addestrato.
+ *
+ * `assistente` sta fra `guida` e `istruttore` perché è lì che sta in quasi
+ * tutte le didattiche: l'Assistant Instructor si prende dopo il Divemaster e
+ * prima dell'Istruttore.
+ */
+export type RuoloBrevetto = 'soccorso' | 'guida' | 'assistente' | 'istruttore';
+
+export const RUOLO_LABEL: Record<RuoloBrevetto, string> = {
+  soccorso: 'Soccorso',
+  guida: 'Guida subacquea',
+  assistente: 'Assistente istruttore',
+  istruttore: 'Istruttore',
+};
+
+const SCALA_RUOLI: RuoloBrevetto[] = ['soccorso', 'guida', 'assistente', 'istruttore'];
+
 export interface Certification {
   id: string;
-  /** PADI, SSI, CMAS, TDI, FIPSAS… testo libero: le didattiche sono decine. */
+  /** PADI, SSI, CMAS, TDI, FIPSAS… la sigla, scelta dall'elenco o scritta a mano. */
   agency: string;
+  /**
+   * L'id della didattica del catalogo, quando il brevetto è stato SCELTO da lì.
+   *
+   * È la differenza fra un nome di cui ci si può fidare e uno digitato a mano.
+   * Con questo campo pieno, `name` è il nome ufficiale di un corso vero e può
+   * finire sul libretto così com'è; senza, `name` è quello che ha scritto una
+   * persona — e la storia dice che ci scrive il proprio, di nome.
+   */
+  didatticaId?: string;
   /** Il nome commerciale, come sta scritto sulla tessera. */
   name: string;
   level: CertLevel;
+  /** Soccorso, guida, istruttore: quello che aggiunge oltre ai metri. */
+  ruolo?: RuoloBrevetto;
+  /**
+   * La profondità che la didattica dichiara per questo brevetto, in metri.
+   *
+   * Assente quando la didattica NON la dichiara, che è il caso di un brevetto
+   * su tre — un Enriched Air non parla di profondità, un Rescue nemmeno. Vedi
+   * il commento in testa a `didattiche.ts`: qui non si inventa un numero
+   * perché il campo sarebbe più bello pieno.
+   */
+  profonditaM?: number;
+  /** Vero se il brevetto prevede immersioni con decompressione pianificata. */
+  decompressione?: boolean;
   /** Quando l'hai preso, `YYYY-MM-DD`. */
   issuedOn?: string;
   /** Numero della tessera. */
@@ -607,6 +667,9 @@ export function sortCertifications(items: Certification[]): Certification[] {
  * sarebbe una bugia detta a una persona che un brevetto ce l'ha.
  */
 const PROFONDITA_DEL_LIVELLO: Record<CertLevel, number> = {
+  // Un brevetto introduttivo non autorizza a immergersi da soli: sta sotto a
+  // tutto, e non deve scavalcare niente.
+  intro: 0,
   base: 1,
   nitrox: 1,
   advanced: 2,
@@ -683,7 +746,58 @@ export function haMiscele(certs: Certification[]): boolean {
  * si traduce, una chiave d'archivio no.
  */
 export function etichettaBrevetto(c: Certification): string {
-  return [c.agency.trim(), CERT_LEVEL_LABEL[c.level]].filter(Boolean).join(' ');
+  const didattica = c.agency.trim();
+  const nome = c.name.trim();
+  /*
+   * Il NOME vale come etichetta solo se viene dal catalogo.
+   *
+   * Se è stato scelto da un elenco è il nome ufficiale di un corso — «Deep
+   * Diver», «3° Grado AR» — ed è la cosa migliore che si possa scrivere sul
+   * libretto. Se è stato digitato, non si sa cosa sia: sul primo archivio vero
+   * quattro brevetti diversi avevano tutti e quattro il nome del subacqueo,
+   * perché il campo si chiama «Nome sulla tessera» e sulla tessera il nome
+   * c'è davvero. Lì si torna al livello, che almeno è scelto da una lista.
+   */
+  if (c.didatticaId && nome) return [didattica, nome].filter(Boolean).join(' ');
+  return [didattica, CERT_LEVEL_LABEL[c.level]].filter(Boolean).join(' ');
+}
+
+/**
+ * La qualifica più alta fra i brevetti registrati, se ce n'è una.
+ *
+ * Separata da `highestLevel` perché risponde a un'altra domanda: non «fin dove
+ * scendi» ma «cosa sei abilitato a fare». Un istruttore può benissimo non
+ * avere il Profondo, e un Profondo non è una guida.
+ */
+export function ruoloPiuAlto(certs: Certification[]): RuoloBrevetto | undefined {
+  let migliore = -1;
+  for (const c of certs) {
+    const i = c.ruolo ? SCALA_RUOLI.indexOf(c.ruolo) : -1;
+    if (i > migliore) migliore = i;
+  }
+  return migliore < 0 ? undefined : SCALA_RUOLI[migliore];
+}
+
+/**
+ * La profondità più alta DICHIARATA dai brevetti registrati, in metri.
+ *
+ * `undefined` quando nessuno dei brevetti ne dichiara una — e succede: chi ha
+ * solo brevetti scritti a mano non ha nessun numero da nessuna parte, e
+ * inventarne uno partendo dal livello vorrebbe dire attribuirgli
+ * un'autorizzazione che nessuna didattica gli ha dato.
+ */
+export function profonditaDichiarata(certs: Certification[]): number | undefined {
+  let massima: number | undefined;
+  for (const c of certs) {
+    if (c.profonditaM === undefined) continue;
+    if (massima === undefined || c.profonditaM > massima) massima = c.profonditaM;
+  }
+  return massima;
+}
+
+/** Se fra i brevetti ce n'è almeno uno che prevede la decompressione. */
+export function haDecompressione(certs: Certification[]): boolean {
+  return certs.some((c) => c.decompressione === true);
 }
 
 // ---------------------------------------------------------------------------

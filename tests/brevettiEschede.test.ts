@@ -49,13 +49,20 @@ describe('i brevetti stanno nelle Impostazioni, sotto il libretto', () => {
    * che carico».
    */
   it('il brevetto del libretto si sceglie fra quelli registrati, non si digita', () => {
-    const carta = IMPOSTAZIONI.slice(
-      IMPOSTAZIONI.indexOf('function LibrettoCard()'),
-      IMPOSTAZIONI.indexOf('function LibrettoCard()') + 4000,
-    );
+    /*
+     * Il ritaglio arriva alla PARENTESI CHE CHIUDE la funzione, non a un numero
+     * fisso di caratteri. Prima erano 4000, e la carta li ha superati appena le
+     * è stato aggiunto un commento: il test è diventato rosso senza che
+     * l'applicazione avesse niente che non andasse. Una guardia che si accende
+     * per la lunghezza di un commento insegna solo a non fidarsi di lei.
+     */
+    const inizio = IMPOSTAZIONI.indexOf('function LibrettoCard()');
+    const carta = IMPOSTAZIONI.slice(inizio, IMPOSTAZIONI.indexOf('\n}\n', inizio));
     expect(carta).toContain('sortCertifications');
     expect(carta).toContain('<select');
     expect(carta).toContain('etichettaBrevetto');
+    // E la tendina pesca dal catalogo, non più dalle sole etichette di livello.
+    expect(IMPOSTAZIONI).toContain('didatticaId');
   });
 });
 

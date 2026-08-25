@@ -482,12 +482,29 @@ export const INGLESE: Record<string, string> = {
   'Configurazione, contata sui log': 'Setup, counted from the logs',
   'dall’ultima': 'since service',
   Data: 'Date',
+  'Altro (scrivo io)': 'Other (I’ll type it)',
+  'Assistente istruttore': 'Assistant instructor',
+  'come si chiama il corso': 'what the course is called',
+  'con decompressione': 'with decompression',
+  'Con brevetti che prevedono la decompressione.': 'Some certifications cover decompression.',
   'Con brevetto miscele.': 'Mixed-gas certified.',
+  'Guida subacquea': 'Dive guide',
   'I tuoi brevetti': 'Your certifications',
-  'Sul libretto finiscono didattica e livello, non il nome sulla tessera.':
-    'The logbook carries agency and level, not the name on the card.',
-  'Quelli che scrivi qui sono quelli che puoi scegliere qui sopra per il libretto. Il campo che conta è il livello.':
-    'What you enter here is what you can pick above for the logbook. The field that counts is the level.',
+  'Introduttivo (solo con guida)': 'Intro level (supervised only)',
+  'La profondità più alta che le tue didattiche dichiarano è': 'The deepest limit your agencies state is',
+  'Nome della didattica': 'Agency name',
+  'Nome sul brevetto': 'Name on the certification',
+  'Profondità dichiarata da': 'Depth stated by',
+  'Qualifica più alta': 'Highest rating',
+  'Questa didattica non dichiara una profondità per questo brevetto.':
+    'This agency does not state a depth for this certification.',
+  Ricreative: 'Recreational',
+  'Scegli la didattica e il corso: il nome e i limiti arrivano da soli. Quelli che registri qui sono quelli che puoi mettere sul libretto.':
+    'Pick the agency and the course: the name and the limits come with it. What you add here is what you can put on the logbook.',
+  'Se non ti torna, scegli «Altro (scrivo io)» e compila a mano.':
+    'If that looks wrong, pick “Other (I’ll type it)” and fill it in yourself.',
+  Soccorso: 'Rescue',
+  Tecniche: 'Technical',
   Didattica: 'Agency',
   Elimino: 'Delete',
   fa: 'ago',
