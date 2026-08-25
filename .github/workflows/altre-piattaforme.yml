@@ -1,0 +1,196 @@
+# Windows e Android: le due piattaforme che non si costruiscono su un Mac.
+#
+# PERCHÉ UN WORKFLOW SEPARATO DA `ci.yml`. Quello è la guardia: gira a ogni
+# push, dev'essere veloce e dev'essere verde, perché una spunta rossa lì
+# significa «è appena cambiato qualcosa». Questo costruisce pacchetti per due
+# piattaforme che nessuno qui possiede: è normale che sia lento, ed è possibile
+# che ogni tanto sia rosso. Tenerli insieme farebbe esattamente il danno che
+# `ci.yml` evita — abituare a ignorare il rosso.
+#
+# ► QUESTE BUILD NON LE HA PROVATE NESSUNO. ◄ Non c'è un PC e non c'è un
+# telefono Android in questa casa. `src/core` è lo stesso codice che gira sul
+# Mac e sull'iPhone, con millequattrocento test dietro, ma il giro completo —
+# finestra, Bluetooth, archivio, stampa — su quelle due piattaforme non l'ha
+# fatto nessuno. Il sito lo dice, e va continuato a dirlo finché resta vero.
+
+name: Windows e Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      versione:
+        description: 'Numero da scrivere nel nome dei file (es. 1.6.3)'
+        type: string
+        required: true
+      windows_con_libdivecomputer:
+        description: 'Windows: provare anche libdivecomputer (sperimentale, vedi i commenti)'
+        type: boolean
+        default: false
+
+jobs:
+  # ------------------------------------------------------------------ Windows
+  #
+  # WINDOWS ESCE SENZA libdivecomputer, ED È UNA SCELTA. La libreria si compila
+  # con autotools, che sotto MSVC non gira. La via che sembra ovvia — MSYS2, e
+  # compilarla con gcc — produce un archivio con l'ABI di mingw e un runtime C
+  # diverso da quello del binario Rust, che è MSVC: si lega, parte, e poi cade
+  # da qualche parte dentro una malloc, su una macchina che non abbiamo per
+  # capire dove. **Un pacchetto che si installa e crolla è peggio di uno che
+  # dichiara di fare meno.**
+  #
+  # Cosa resta a chi usa Windows: l'import da file (sette formati) e i due
+  # driver BLE scritti in casa e provati sul campo — Shearwater e Uwatec — che
+  # passano da `tauri-plugin-blec`, il quale su Windows usa WinRT e non ha
+  # bisogno di niente di tutto questo. Cosa manca: gli altri ottantatré modelli
+  # del catalogo, che il selettore dichiara già uno per uno.
+  #
+  # In compenso questa build non contiene una riga di codice LGPL, quindi la
+  # questione delle licenze su Windows non esiste proprio.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      # `--bundles nsis`: la configurazione dice `dmg` e `app`, che su Windows
+      # non esistono. NSIS fa un installatore singolo, che è quello che serve a
+      # chi scarica da un sito; l'MSI chiede privilegi e spaventa.
+      #
+      # Quello che sta dopo `--` va a cargo, non a Tauri: il CLI di Tauri non
+      # ha `--no-default-features`, ha solo `--features`.
+      - name: Costruisci
+        run: npx tauri build --bundles nsis -- --no-default-features
+        if: ${{ !inputs.windows_con_libdivecomputer }}
+
+      # La strada sperimentale, dietro un interruttore perché è probabile che
+      # non regga: vedi il commento in testa al job. Se un giorno funziona, si
+      # toglie l'interruttore e si cancella questo commento.
+      - uses: msys2/setup-msys2@v2
+        if: ${{ inputs.windows_con_libdivecomputer }}
+        with:
+          update: true
+          install: base-devel mingw-w64-x86_64-toolchain autoconf automake libtool
+          path-type: inherit
+
+      - name: Costruisci con libdivecomputer (sperimentale)
+        if: ${{ inputs.windows_con_libdivecomputer }}
+        shell: msys2 {0}
+        run: npx tauri build --bundles nsis
+
+      - name: Raccogli
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory consegna | Out-Null
+          Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe | Copy-Item -Destination consegna/
+          Copy-Item src-tauri/target/release/MyDiveLog.exe consegna/MyDiveLog-portable.exe
+          # Le impronte servono a chi scarica: un binario non firmato non dice
+          # da dove viene, e questo è l'unico modo che ha per verificarlo.
+          Get-FileHash consegna/* -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Out-File -Encoding ascii consegna/SHA256.txt
+          Get-Content consegna/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MyDiveLog-${{ inputs.versione }}-Windows
+          path: consegna/
+          if-no-files-found: error
+
+  # ------------------------------------------------------------------ Android
+  #
+  # ANDROID INVECE CE L'HA, libdivecomputer: `build.rs` sa incrociare con l'NDK
+  # dall'agosto 2026, e il wrapper clang dell'NDK è una catena coerente — niente
+  # ABI mescolate come su Windows.
+  #
+  # LA FIRMA, E PERCHÉ È PUBBLICA. Un APK non firmato non si installa, nemmeno
+  # a mano. La firma seria vuole un keystore con una password che deve stare
+  # nelle mani del proprietario e in nessun altro posto — e oggi quel passaggio
+  # non c'è. Allora la chiave la genera questo workflow, con una password
+  # scritta qui sotto in chiaro: **non è un segreto trapelato, è un segreto che
+  # non c'è.**
+  #
+  # Va detto a chi scarica, e il sito lo dice: la firma di questo APK NON
+  # garantisce da chi viene, perché chiunque può rifarne una uguale. Quello che
+  # garantisce l'origine è l'impronta SHA-256 pubblicata accanto al file. Il
+  # giorno che esiste un keystore vero, si mettono tre segreti su GitHub e
+  # questo blocco diventa quattro righe più corto.
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      # La versione dell'NDK è fissata. Un NDK che cambia sotto i piedi è il
+      # modo classico per avere una build che ieri passava e oggi no, con in
+      # mezzo nessuna riga di codice cambiata.
+      - name: NDK
+        run: |
+          sdkmanager --install "ndk;27.2.12479018"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+
+      # Solo arm64: è quello che hanno tutti i telefoni in circolazione da anni.
+      # Le altre tre architetture triplicherebbero tempo e peso per coprire
+      # apparecchi che chi installa un APK a mano non ha.
+      - run: rustup target add aarch64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - name: Prepara il progetto Android
+        run: npx tauri android init --ci
+
+      # La chiave, e le sue credenziali pubbliche. Vedi il commento in testa.
+      - name: Chiave di firma (pubblica, vedi i commenti)
+        run: |
+          keytool -genkeypair -v \
+            -keystore "$RUNNER_TEMP/chiave.jks" \
+            -alias mydivelog -keyalg RSA -keysize 4096 -validity 10000 \
+            -storepass mydivelog -keypass mydivelog \
+            -dname "CN=MyDiveLog, O=MyDiveLog, C=IT"
+          cat > src-tauri/gen/android/keystore.properties <<PROPS
+          storeFile=$RUNNER_TEMP/chiave.jks
+          keyAlias=mydivelog
+          password=mydivelog
+          PROPS
+
+      - name: Costruisci
+        run: npx tauri android build --apk --target aarch64
+
+      - name: Raccogli
+        run: |
+          mkdir consegna
+          find src-tauri/gen/android -name '*.apk' -exec cp {} consegna/ \;
+          cd consegna
+          for f in *.apk; do mv "$f" "MyDiveLog-${{ inputs.versione }}-android-arm64.apk"; break; done
+          sha256sum * > SHA256.txt
+          cat SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MyDiveLog-${{ inputs.versione }}-Android
+          path: consegna/
+          if-no-files-found: error

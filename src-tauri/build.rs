@@ -27,6 +27,16 @@ const VERSIONE: &str = "0.9.0";
 #[cfg(feature = "computer-esterni")]
 const IOS_MINIMA: &str = "14.0";
 
+/// Livello di API Android per cui compilare la parte C.
+///
+/// **Deve restare allineata a quella dell'applicazione**: Tauri genera il
+/// progetto Gradle con `minSdkVersion 24`, e un archivio statico compilato
+/// contro un'API più alta userebbe simboli che su un telefono con Android 7 non
+/// esistono. Il guasto non si vedrebbe qui: si vedrebbe al primo avvio, su un
+/// apparecchio che non abbiamo, con un errore di simbolo mancante.
+#[cfg(feature = "computer-esterni")]
+const ANDROID_API: &str = "24";
+
 /// Le opzioni di `configure` che spengono quello che a noi non serve.
 ///
 /// PERCHÉ SPEGNERE INVECE DI LASCIAR FARE. Noi apriamo il computer subacqueo
@@ -118,7 +128,36 @@ fn compila_libdivecomputer() {
             .args(SPENTI)
             .current_dir(&sorgenti);
 
-        if let Some(incrocio) = incrocio_apple(&bersaglio) {
+        if let Some(incrocio) = incrocio_android(&bersaglio) {
+            // ANDROID NON HA UN `xcrun`. La catena sta dentro l'NDK, in un
+            // percorso che contiene il nome della macchina che compila: si
+            // guarda cosa c'è invece di indovinarlo, perché un NDK scaricato su
+            // Linux e uno scaricato su un Mac hanno cartelle diverse.
+            //
+            // Il compilatore NON è `clang` ma `aarch64-linux-android24-clang`,
+            // uno script che chiama clang con il `--target` e il `--sysroot`
+            // giusti già dentro. Usare il clang nudo e passargli le bandiere a
+            // mano è la strada che sembra più pulita e non lo è: il wrapper
+            // sceglie anche la libreria C giusta per quel livello di API, e
+            // quella scelta cambia da versione a versione dell'NDK.
+            configure
+                .arg(format!("--host={}", incrocio.host_autoconf))
+                .env("CC", &incrocio.cc)
+                // `llvm-ar` e `llvm-ranlib` e non quelli prefissati col nome
+                // del bersaglio: dall'NDK 23 in poi i secondi non ci sono più,
+                // e autoconf che non li trova ripiegherebbe sull'`ar` di
+                // sistema — che produce un archivio che il linker di Android
+                // non riconosce.
+                .env("AR", &incrocio.ar)
+                .env("RANLIB", &incrocio.ranlib)
+                // `-fPIC` perché il risultato finisce dentro una libreria
+                // condivisa: Tauri su Android costruisce l'applicazione come
+                // `.so` caricata dalla macchina virtuale Java, e un archivio
+                // non rilocabile lì dentro non ci entra. Su iOS non serviva:
+                // là il codice è statico fino in fondo.
+                .env("CFLAGS", "-fPIC -Os")
+                .env_remove("SDKROOT");
+        } else if let Some(incrocio) = incrocio_apple(&bersaglio) {
             let sdk = xcrun(incrocio.sdk, &["--show-sdk-path"]);
             let bandiere = format!(
                 "-target {} -isysroot {} {}",
@@ -171,6 +210,95 @@ fn compila_libdivecomputer() {
     // scritte a mano in `computer_esterni.rs`, senza bindgen — che porterebbe
     // dentro libclang su ogni macchina che compila, per generare venti righe.
     println!("cargo:include={}", sorgenti.join("include").display());
+}
+
+/// Come parlare a `configure` quando il bersaglio è un telefono Android.
+#[cfg(feature = "computer-esterni")]
+struct IncrocioAndroid {
+    /// Tripletta per `--host=` di autoconf.
+    host_autoconf: &'static str,
+    /// Percorso pieno del wrapper clang dell'NDK per quel bersaglio.
+    cc: String,
+    ar: String,
+    ranlib: String,
+}
+
+/// Traduce la tripletta di cargo in come si compila per Android, oppure `None`
+/// quando il bersaglio non è Android e la domanda non si pone.
+///
+/// PERCHÉ `armv7a-linux-androideabi` E NON `armv7-linux-androideabi`. Rust
+/// chiama quel bersaglio `armv7-linux-androideabi`; l'NDK il suo wrapper lo
+/// chiama `armv7a-linux-androideabi{API}-clang`, con la «a». Sono lo stesso
+/// processore e due nomi, e chi si fida della tripletta di cargo trova un file
+/// che non c'è. Autoconf invece vuole la forma senza «a».
+#[cfg(feature = "computer-esterni")]
+fn incrocio_android(bersaglio: &str) -> Option<IncrocioAndroid> {
+    let (host_autoconf, prefisso) = match bersaglio {
+        "aarch64-linux-android" => ("aarch64-linux-android", "aarch64-linux-android"),
+        "armv7-linux-androideabi" => ("arm-linux-androideabi", "armv7a-linux-androideabi"),
+        "i686-linux-android" => ("i686-linux-android", "i686-linux-android"),
+        "x86_64-linux-android" => ("x86_64-linux-android", "x86_64-linux-android"),
+        _ => return None,
+    };
+
+    let ndk = radice_ndk();
+    let attrezzi = prebuilt(&ndk);
+
+    Some(IncrocioAndroid {
+        host_autoconf,
+        cc: attrezzi
+            .join(format!("{prefisso}{ANDROID_API}-clang"))
+            .display()
+            .to_string(),
+        ar: attrezzi.join("llvm-ar").display().to_string(),
+        ranlib: attrezzi.join("llvm-ranlib").display().to_string(),
+    })
+}
+
+/// Dove sta l'NDK, e un errore che dice cosa fare se non c'è.
+///
+/// I tre nomi sono tutti in uso: `NDK_HOME` è quello che vuole Tauri,
+/// `ANDROID_NDK_HOME` e `ANDROID_NDK_ROOT` sono quelli che impostano
+/// rispettivamente Android Studio e le azioni di CI. Guardarli tutti e tre
+/// costa tre righe e toglie un'ora di «ma io ce l'ho, l'NDK».
+#[cfg(feature = "computer-esterni")]
+fn radice_ndk() -> std::path::PathBuf {
+    for nome in ["NDK_HOME", "ANDROID_NDK_HOME", "ANDROID_NDK_ROOT"] {
+        if let Ok(valore) = std::env::var(nome) {
+            if !valore.is_empty() {
+                return std::path::PathBuf::from(valore);
+            }
+        }
+    }
+    panic!(
+        "FERMO: si sta compilando per Android ma l'NDK non si trova.\n\n\
+         Serve una di queste variabili: NDK_HOME, ANDROID_NDK_HOME, ANDROID_NDK_ROOT.\n\
+         Chi vuole solo l'interfaccia può saltare tutta la parte C con\n\
+         `--no-default-features`."
+    );
+}
+
+/// La cartella `bin` della catena LLVM dentro l'NDK.
+///
+/// Il pezzo di mezzo del percorso porta il nome della macchina CHE COMPILA
+/// (`linux-x86_64`, `darwin-x86_64`), non del bersaglio. Non si indovina: si
+/// legge cosa c'è. Su un Mac Apple Silicon la cartella si chiama comunque
+/// `darwin-x86_64` — dentro ci sono binari universali — ed è esattamente il
+/// genere di dettaglio per cui indovinare è peggio che guardare.
+#[cfg(feature = "computer-esterni")]
+fn prebuilt(ndk: &std::path::Path) -> std::path::PathBuf {
+    let base = ndk.join("toolchains/llvm/prebuilt");
+    let mut voci: Vec<_> = std::fs::read_dir(&base)
+        .unwrap_or_else(|e| panic!("FERMO: {} non si legge ({e})", base.display()))
+        .filter_map(|v| v.ok())
+        .map(|v| v.path())
+        .filter(|p| p.is_dir())
+        .collect();
+    voci.sort();
+    let prima = voci.into_iter().next().unwrap_or_else(|| {
+        panic!("FERMO: dentro {} non c'è nessuna catena LLVM", base.display())
+    });
+    prima.join("bin")
 }
 
 /// Come parlare a `configure` quando il bersaglio non è la macchina che compila.
