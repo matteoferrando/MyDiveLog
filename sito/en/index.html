@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/" />
-    <link rel="stylesheet" href="../stile.css?v=6e983afb" />
+    <link rel="stylesheet" href="../stile.css?v=ea545e65" />
     <link rel="alternate" hreflang="it" href="/" />
     <link rel="alternate" hreflang="en" href="/en/" />
   </head>
@@ -64,79 +64,119 @@
       <!-- Three slow bubbles: decorative, so hidden from screen readers. -->
       <div class="bolle" aria-hidden="true"><span></span><span></span><span></span></div>
 
-      <div class="apertura">
-        <h1>Your <em>dive</em> logbook</h1>
-        <p class="occhiello">
-          <strong
-            >For divers who want to understand what their data is telling them, not just store it.</strong
-          >
-          Every dive you have ever made in one archive — even if you have changed computers three times.
-          MyDiveLog merges them without duplicates, analyses them one by one, and holds every field
-          <strong>Italian law 70/2026</strong> asks for: ready to show, as a PDF, five minutes after
-          surfacing.
-        </p>
-        <!-- Vedi il commento gemello nella pagina italiana. -->
-        <div class="scarico">
-          <p class="occhietto">This project was born for</p>
+      <!--
+        ► L'APERTURA È A DUE COLONNE, e prima ne usava una sola. ◄
 
-          <div class="schede-piattaforma">
-            <a
-              class="scheda-piattaforma principale"
-              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
+        Su uno schermo largo il testo e le schede occupavano la metà sinistra e
+        la metà destra restava acqua vuota: non «minimalista», vuota — la
+        differenza è che il minimalismo toglie, e qui non c'era stato niente da
+        togliere. Una pagina di presentazione che lascia metà schermo senza
+        niente sta dicendo che non ha altro da mostrare.
+
+        Aveva altro da mostrare: la schermata dell'elenco immersioni, che era
+        sepolta a metà pagina. È l'unica immagine che spiega il prodotto senza
+        una parola — un elenco di immersioni vere, con da dove viene ciascuna —
+        e sta bene dove la si guarda per prima.
+
+        Sotto i 1000 px torna una colonna sola e la schermata scende sotto le
+        schede: su un telefono due colonne sono due colonne strette, e la prima
+        cosa che deve entrare nello schermo è il pulsante.
+      -->
+      <div class="apertura-griglia">
+        <div class="apertura">
+          <h1>Your <em>dive</em> logbook</h1>
+          <p class="occhiello">
+            <strong
+              >For divers who want to understand what their data is telling them, not just store it.</strong
             >
-              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
-                <rect x="5" y="7" width="22" height="15" rx="2" />
-                <path d="M2 25h28l-2 2H4z" />
-              </svg>
-              <span class="nome">macOS</span>
-              <span class="riga">Download now</span>
-            </a>
+            Every dive you have ever made in one archive — even if you have changed computers three times.
+            MyDiveLog merges them without duplicates, analyses them one by one, and holds every field
+            <strong>Italian law 70/2026</strong> asks for: ready to show, as a PDF, five minutes after
+            surfacing.
+          </p>
+          <!-- Vedi il commento gemello nella pagina italiana. -->
+          <div class="scarico">
+            <p class="occhietto">This project was born for</p>
 
-            <!--
+            <div class="schede-piattaforma">
+              <a
+                class="scheda-piattaforma principale"
+                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
+              >
+                <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                  <rect x="5" y="7" width="22" height="15" rx="2" />
+                  <path d="M2 25h28l-2 2H4z" />
+                </svg>
+                <span class="nome">macOS</span>
+                <span class="riga">Download now</span>
+              </a>
+
+              <!--
               L'iPhone SI VEDE MA NON SI PREME. L'alternativa era un
               collegamento all'App Store verso una scheda che non esiste ancora:
               una pagina d'errore dice «progetto abbandonato» molto più forte di
               quanto «in arrivo» dica «non ancora pronto».
             -->
-            <span class="scheda-piattaforma attesa" role="link" aria-disabled="true">
-              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
-                <rect x="10" y="3" width="12" height="26" rx="3" />
-                <line x1="14" y1="6" x2="18" y2="6" />
-              </svg>
-              <span class="nome">iOS</span>
-              <span class="riga riga-attesa">Coming soon</span>
-            </span>
+              <span class="scheda-piattaforma attesa" role="link" aria-disabled="true">
+                <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                  <rect x="10" y="3" width="12" height="26" rx="3" />
+                  <line x1="14" y1="6" x2="18" y2="6" />
+                </svg>
+                <span class="nome">iOS</span>
+                <span class="riga riga-attesa">Coming soon</span>
+              </span>
 
-            <a
-              class="scheda-piattaforma minore"
-              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
-            >
-              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
-                <rect x="3" y="6" width="26" height="17" rx="2" />
-                <line x1="12" y1="27" x2="20" y2="27" />
-                <line x1="16" y1="23" x2="16" y2="27" />
-              </svg>
-              <span class="nome">Windows</span>
-              <span class="riga">Installer</span>
-            </a>
+              <a
+                class="scheda-piattaforma minore"
+                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
+              >
+                <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                  <rect x="3" y="6" width="26" height="17" rx="2" />
+                  <line x1="12" y1="27" x2="20" y2="27" />
+                  <line x1="16" y1="23" x2="16" y2="27" />
+                </svg>
+                <span class="nome">Windows</span>
+                <span class="riga">Installer</span>
+              </a>
 
-            <a
-              class="scheda-piattaforma minore"
-              href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
-            >
-              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
-                <rect x="9" y="4" width="14" height="24" rx="3" />
-                <circle cx="16" cy="24" r="1.4" />
-              </svg>
-              <span class="nome">Android</span>
-              <span class="riga">APK</span>
-            </a>
+              <a
+                class="scheda-piattaforma minore"
+                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
+              >
+                <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                  <rect x="9" y="4" width="14" height="24" rx="3" />
+                  <circle cx="16" cy="24" r="1.4" />
+                </svg>
+                <span class="nome">Android</span>
+                <span class="riga">APK</span>
+              </a>
+            </div>
+
+            <p class="fiducia">
+              <span>Free</span><span>No account</span><span>Open source</span>
+              <a href="#altre-piattaforme">Windows and Android: what differs</a>
+            </p>
           </div>
+        </div>
 
-          <p class="fiducia">
-            <span>Free</span><span>No account</span><span>Open source</span>
-            <a href="#altre-piattaforme">Windows and Android: what differs</a>
-          </p>
+        <!--
+        La schermata NON è dentro `.apertura`: è la seconda colonna della
+        griglia. Dentro erediterebbe la larghezza del testo, che è misurata sulla
+        leggibilità — sessanta caratteri — e una vetrina larga come una colonna
+        di testo non è una vetrina.
+
+        `loading="eager"` e non pigra: è la prima cosa che si vede, e caricarla
+        in ritardo vorrebbe dire mostrare un buco proprio dove si guarda per
+        primo. Le altre schermate, a metà pagina, restano pigre.
+      -->
+        <div class="vetrina-apertura">
+          <img
+            src="../immagini/logbook-en.jpg"
+            alt="The MyDiveLog dive list: date, site, max depth, duration, RMV and where each dive came from."
+            loading="eager"
+            width="1600"
+            height="1000"
+          />
         </div>
       </div>
     </div>
@@ -336,8 +376,8 @@
       <section>
         <h2>What it does</h2>
         <p>
-          Seven things, and not one of them is «keeping a list». A paper notebook does that, and has done it
-          for fifty years without a battery.
+          Not «keeping a list»: a paper notebook does that, and has done it for fifty years without a battery.
+          This one reads, merges, computes — and tells you what to work on next time.
         </p>
 
         <div class="griglia">

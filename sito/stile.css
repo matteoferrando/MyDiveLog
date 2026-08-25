@@ -1090,6 +1090,109 @@ a {
   cursor: pointer;
 }
 
+/* ════════════════════════════════════ l'apertura a due colonne ════════════ */
+
+/*
+  ► PERCHÉ DUE COLONNE. ◄ Con una sola, su uno schermo largo, il testo e le
+  schede occupavano la metà sinistra e la metà destra restava acqua vuota. Non
+  «minimalista»: vuota. La differenza è che il minimalismo toglie, e lì non
+  c'era stato niente da togliere — una pagina di presentazione che lascia metà
+  schermo senza niente sta dicendo che non ha altro da mostrare.
+
+  `1.05fr 1fr` e non `1fr 1fr`: la colonna del testo ha bisogno di un filo in
+  più perché il titolo non si spezzi male, e la vetrina un filo in meno perché
+  è un'immagine e si adatta a qualunque larghezza le si dia.
+*/
+.apertura-griglia {
+  display: grid;
+  grid-template-columns: 1fr 1.12fr;
+  align-items: center;
+  gap: 44px;
+}
+
+/*
+  Senza questo, la colonna del testo si rifiuta di restringersi sotto la
+  larghezza della sua parola più lunga e spinge la vetrina fuori dalla griglia:
+  è il comportamento predefinito di una colonna `grid`, e il sintomo è
+  un'immagine che a certe larghezze esce dallo schermo di venti pixel.
+*/
+.apertura-griglia > * {
+  min-width: 0;
+}
+
+/*
+  La vetrina: inclinata di pochi gradi e sollevata, come una finestra vera
+  poggiata sul fondo. L'inclinazione si raddrizza al passaggio del mouse —
+  mezzo secondo, con una curva che rallenta alla fine — e quel movimento dice
+  «è una cosa vera, guardala» senza doverlo scrivere.
+
+  Il riflesso ciano sotto non è un'ombra: un'ombra nera su fondo blu scuro non
+  si vede. È luce della stessa tinta dell'acqua, e stacca l'immagine dal fondo
+  facendola sembrare più vicina.
+*/
+.vetrina-apertura {
+  perspective: 1400px;
+}
+
+.vetrina-apertura img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(157, 220, 255, 0.24);
+  transform: perspective(1400px) rotateY(-6deg) rotateX(2deg) scale(1.02);
+  box-shadow:
+    0 34px 90px rgba(0, 0, 0, 0.55),
+    0 0 70px rgba(67, 214, 255, 0.16),
+    0 0 0 7px rgba(255, 255, 255, 0.02);
+  transition:
+    transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.5s;
+}
+
+.vetrina-apertura img:hover {
+  transform: perspective(1400px) rotateY(0deg) rotateX(0deg) scale(1.04);
+  box-shadow:
+    0 40px 110px rgba(0, 0, 0, 0.6),
+    0 0 110px rgba(67, 214, 255, 0.26),
+    0 0 0 7px rgba(255, 255, 255, 0.03);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vetrina-apertura img {
+    transform: none;
+    transition: none;
+  }
+}
+
+/*
+  Sotto i 1000 px torna una colonna sola e la vetrina scende sotto le schede: su
+  un telefono due colonne sono due colonne strette, e la prima cosa che deve
+  entrare nello schermo è il pulsante, non l'immagine.
+*/
+@media (max-width: 1000px) {
+  .apertura-griglia {
+    grid-template-columns: 1fr;
+    gap: 34px;
+  }
+
+  .vetrina-apertura img {
+    transform: none;
+  }
+}
+
+/*
+  L'intestazione laterale delle sezioni in prosa stava in quindici rem, e
+  «Un avvertimento che conta» ci finiva su tre righe spezzate male. Due rem in
+  più costano niente al testo — la colonna che legge resta la stessa — e le
+  fanno stare tutte su due righe.
+*/
+@media (min-width: 900px) {
+  section.prosa {
+    grid-template-columns: 17rem 1fr;
+  }
+}
+
 /* ═══════════════════════════════════════ le schede delle piattaforme ═══════ */
 
 /*
