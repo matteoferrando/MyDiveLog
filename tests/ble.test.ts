@@ -433,3 +433,123 @@ describe('lo scarico dall’inizio alla fine', () => {
     expect(out.total).toBe(3);
   });
 });
+
+// ---------------------------------------------------------------------------
+// L'elenco che sfarfalla, 25 agosto 2026.
+// ---------------------------------------------------------------------------
+
+describe('l’ordine dei dispositivi trovati non trema', () => {
+  /*
+   * ► IL DIFETTO, SEGNALATO CON UN VIDEO. ◄
+   *
+   * Cercando i computer dall'iPhone le righe si scambiavano di posto in
+   * continuazione, e il modello non si riusciva a toccare. La causa: l'elenco
+   * era ordinato per SEGNALE, e un dispositivo BLE si annuncia più volte al
+   * secondo con un RSSI ogni volta diverso — basta muovere la mano. Siccome la
+   * chiave React è l'identificativo, il browser spostava davvero le righe.
+   *
+   * Nessuna prova poteva prenderlo: il Bluetooth finto emetteva i dispositivi
+   * una volta sola, col segnale fermo. Adesso trema anche lui.
+   */
+  const dispositivo = (id: string, rssi: number, name = id) => ({
+    id,
+    name,
+    rssi,
+    serviceUuids: [],
+  });
+
+  it('due dispositivi che si scambiano il segnale NON si scambiano di posto', () => {
+    const primo = recognise([dispositivo('a', -60), dispositivo('b', -62)], []);
+    expect(primo.map((r) => r.device.id)).toEqual(['a', 'b']);
+
+    // Adesso «b» è più vicino. Prima questo bastava a farlo saltare in cima.
+    const dopo = recognise(
+      [dispositivo('a', -64), dispositivo('b', -55)],
+      [],
+      primo.map((r) => r.device.id),
+    );
+    expect(dopo.map((r) => r.device.id)).toEqual(['a', 'b']);
+  });
+
+  it('e senza l’ordine precedente si riordina: è esattamente il difetto', () => {
+    /*
+     * Questo controllo tiene in vita la DIMOSTRAZIONE del difetto, non solo la
+     * correzione. Passando un ordine precedente vuoto si ottiene il
+     * comportamento di prima — e si vede che bastavano due dB per far saltare
+     * una riga sopra l'altra. Senza questa riga, fra sei mesi qualcuno
+     * guarderebbe `recognise` e penserebbe che il terzo parametro sia una
+     * complicazione senza motivo.
+     */
+    const a = recognise([dispositivo('a', -60), dispositivo('b', -62)], []);
+    expect(a.map((r) => r.device.id)).toEqual(['a', 'b']);
+    const b = recognise([dispositivo('a', -64), dispositivo('b', -55)], []);
+    expect(b.map((r) => r.device.id)).toEqual(['b', 'a']);
+  });
+
+  it('l’ordine regge a cinquanta giri di segnale ballerino', () => {
+    /*
+     * Cinquanta aggiornamenti sono una decina di secondi di ricerca vera. Se
+     * l'ordine tiene per cinquanta giri con l'RSSI che si muove di sei dB,
+     * tiene per tutta la ricerca — ed è la durata che conta, perché il dito
+     * arriva sullo schermo dopo qualche secondo, non al primo giro.
+     */
+    let ordine: string[] = [];
+    let visto: string[] = [];
+    for (let giro = 0; giro < 50; giro++) {
+      const devs = ['a', 'b', 'c', 'd'].map((id, i) =>
+        dispositivo(id, -60 + Math.round(6 * Math.sin(giro * 1.1 + i * 2.3))),
+      );
+      const elenco = recognise(devs, [], ordine);
+      ordine = elenco.map((r) => r.device.id);
+      if (giro === 0) visto = ordine;
+      expect(ordine, `giro ${giro}`).toEqual(visto);
+    }
+  });
+
+  it('un dispositivo nuovo entra in fondo, non scavalca chi c’era già', () => {
+    // Quello che l'utente stava per toccare non si deve muovere perché è
+    // comparso qualcosa di più vicino.
+    const primo = recognise([dispositivo('a', -70)], []);
+    const dopo = recognise(
+      [dispositivo('a', -70), dispositivo('b', -30)],
+      [],
+      primo.map((r) => r.device.id),
+    );
+    expect(dopo.map((r) => r.device.id)).toEqual(['a', 'b']);
+  });
+
+  it('ma fra due dispositivi NUOVI il segnale decide ancora', () => {
+    // È l'unico momento in cui quell'informazione serve a qualcosa: al primo
+    // giro, il più vicino è quello che probabilmente hai in mano.
+    const elenco = recognise([dispositivo('lontano', -85), dispositivo('vicino', -40)], []);
+    expect(elenco.map((r) => r.device.id)).toEqual(['vicino', 'lontano']);
+  });
+
+  it('diventare riconoscibile SPOSTA la riga, e deve farlo', () => {
+    /*
+     * Non è tremolio, è una notizia: succede quando un dispositivo annuncia
+     * prima un nome corto e poi quello completo — è esattamente come si è
+     * comportato l'Aladin Sport Matrix. Portarlo in cima è quello che serve.
+     */
+    const driver = {
+      id: 'finto',
+      label: 'Finto',
+      profile: { service: 's', write: 'w', notify: 'n' },
+      matches: (d: { name?: string }) => d.name === 'Aladin Sport',
+      download: async () => [],
+    } as unknown as DiveComputerDriver;
+
+    const primo = recognise(
+      [dispositivo('altro', -50, 'TV'), dispositivo('aladin', -80, 'Aladin')],
+      [driver],
+    );
+    expect(primo.map((r) => r.device.id)).toEqual(['altro', 'aladin']);
+
+    const dopo = recognise(
+      [dispositivo('altro', -50, 'TV'), dispositivo('aladin', -80, 'Aladin Sport')],
+      [driver],
+      primo.map((r) => r.device.id),
+    );
+    expect(dopo.map((r) => r.device.id)).toEqual(['aladin', 'altro']);
+  });
+});

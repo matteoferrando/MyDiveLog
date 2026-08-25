@@ -200,7 +200,43 @@ export class FakeTransport implements BleTransport {
       onUpdate(this.devices.slice(0, i + 1).map((d) => d.device));
     }
     if (signal.aborted) return;
+
+    /*
+     * ► IL SEGNALE TREMA, E DEVE TREMARE ANCHE QUI. ◄
+     *
+     * Un dispositivo BLE annuncia sé stesso più volte al secondo, e l'RSSI
+     * cambia a ogni annuncio: una mano che si sposta, il corpo che passa
+     * davanti, la batteria. È fisica, non rumore da filtrare.
+     *
+     * Il finto non lo faceva: emetteva i quattro dispositivi in un ciclo
+     * sincrono e poi stava zitto. Risultato, un difetto arrivato fino
+     * all'utente che NESSUNA prova poteva prendere — l'elenco riordinato per
+     * segnale a ogni annuncio, cioè le righe che si scambiano di posto sotto
+     * il dito mentre si cerca di toccarne una. Su iPhone, con la scheda del
+     * catalogo aperta dentro una riga, diventa impossibile scegliere un
+     * modello.
+     *
+     * Adesso l'aggiornamento continua finché la ricerca non viene annullata,
+     * con l'RSSI che si muove di qualche dB come nella realtà. Chi guarda le
+     * schermate vede il difetto se torna, invece di vedere un elenco fermo che
+     * non esiste da nessuna parte.
+     */
+    let giro = 0;
+    const tremolio = setInterval(() => {
+      giro++;
+      onUpdate(
+        this.devices.map(({ device }, i) => ({
+          ...device,
+          // Un'oscillazione che NON è casuale: dev'essere ripetibile, o due
+          // esecuzioni della stessa prova darebbero fotografie diverse e
+          // nessuno saprebbe se è cambiato il codice o il caso.
+          rssi: (device.rssi ?? -70) + Math.round(6 * Math.sin(giro * 1.1 + i * 2.3)),
+        })),
+      );
+    }, 250);
+
     await new Promise<void>((risolvi) => signal.addEventListener('abort', () => risolvi(), { once: true }));
+    clearInterval(tremolio);
   }
 
   async open(deviceId: string, _profile: BleServiceProfile, signal: AbortSignal): Promise<BleLink> {

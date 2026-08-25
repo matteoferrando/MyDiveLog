@@ -86,19 +86,30 @@ custom-protocol = ["tauri/custom-protocol"]
 
 # I computer subacquei di tutti gli altri: libdivecomputer.
 #
-# SPENTA DI SUA INIZIATIVA, per due ragioni.
+# SPENTA DI SUA INIZIATIVA. È una funzionalità di SVILUPPO: non entra nei
+# pacchetti che si pubblicano.
 #
-# La prima è pratica: accenderla fa compilare centoquindici file C prima di ogni
-# build pulita, e chi lavora su una schermata non deve pagarli.
+# Due ragioni. La prima, piccola: accenderla fa compilare centoquindici file C
+# prima di ogni build pulita, e chi lavora su una schermata non deve pagarli.
 #
-# La seconda è la licenza, e pesa di più. libdivecomputer è LGPL-2.1: un
-# programma MIT la può usare purché chi lo riceve possa ricompilare la libreria
-# e rimetterla al suo posto. Per un pacchetto scaricato da GitHub, con tutto il
-# sorgente pubblico, la condizione è soddisfatta. Per un binario firmato da
-# Apple e distribuito su App Store, dove nessuno può rilinkare niente, la stessa
-# domanda non ha una risposta comoda — e finché non ce l'ha, una funzionalità
-# che si accende per bersaglio tiene aperte entrambe le strade invece di
-# chiuderne una per distrazione.
+# ► LA SECONDA, CHE PESA DI PIÙ: NESSUN COMPUTER SUBACQUEO DI TERZI È MAI STATO
+#   COLLEGATO A QUESTO CODICE. ◄
+#
+# La catena è scritta per intero — trasporto, scarico, traduzione nel modello
+# canonico, ponte sul Bluetooth, selettore di marca e modello — e tutto quello
+# che si può inchiodare senza hardware è inchiodato: il trasporto contro un
+# flusso finto, l'accorpamento dei campioni, la traduzione contro immersioni
+# sintetiche. Il primo apparecchio vero, però, non è ancora esistito.
+#
+# Accenderla prima di quella prova vuol dire offrire un pulsante «Scarica» che
+# potrebbe non funzionare, e in un logbook una lettura sbagliata non dà errore:
+# dà un profilo plausibile e falso. Nel selettore quei modelli lo dichiarano —
+# «via libdivecomputer, mai provato su questo modello».
+#
+# Chi la accenderà: sono due righe, qui e in `tauri.conf.json`, e vanno cambiate
+# DOPO la prova con l'hardware. Insieme va portata l'attribuzione a
+# libdivecomputer DENTRO l'applicazione: chi installa un pacchetto il README non
+# lo vede.
 #
 # Accende anche `uuid`, che serve al ponte BLE e a nient'altro.
 computer-esterni = ["dep:uuid"]

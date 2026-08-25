@@ -34,3 +34,6 @@ _to_delete/
 # nel repository non ci deve entrare in nessun caso.
 server/.dev.vars
 server/.wrangler/
+
+# La cartella delle licenze e delle note riservate resta fuori dal repository.
+LICENSES/

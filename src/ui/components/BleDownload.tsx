@@ -142,6 +142,8 @@ export function BleDownload() {
   const [stato, setStato] = useState<Stato>({ fase: 'iniziale' });
   const [trovati, setTrovati] = useState<RecognisedDevice[]>([]);
   const [copiato, setCopiato] = useState(false);
+  /** L'ordine in cui i dispositivi stanno adesso. Vedi `recognise`. */
+  const ordine = useRef<string[]>([]);
   /*
    * IL DISPOSITIVO PER CUI SI STA SCEGLIENDO MARCA E MODELLO.
    *
@@ -291,7 +293,25 @@ export function BleDownload() {
     setSpiegazione(null);
     setStato({ fase: 'cerca' });
     try {
-      await transport.scan((devs) => setTrovati(recognise(devs, DRIVERS)), ctl.signal);
+      /*
+       * L'ORDINE DI PRIMA SI PASSA A QUELLO DI ADESSO.
+       *
+       * `recognise` da sola non può ricordare niente: è una funzione pura, ed è
+       * giusto che lo resti. La memoria sta qui, in un riferimento e non in uno
+       * stato, perché serve DENTRO la richiamata della scansione e non deve far
+       * ridisegnare niente da sé — è l'ordine, non un dato da mostrare.
+       *
+       * Senza questo, l'elenco si riordinava a ogni annuncio Bluetooth: le
+       * righe si scambiavano di posto sotto il dito, e sul telefono la scheda
+       * del catalogo aperta dentro una riga saltava su e giù mentre si stava
+       * scegliendo un modello.
+       */
+      ordine.current = [];
+      await transport.scan((devs) => {
+        const elenco = recognise(devs, DRIVERS, ordine.current);
+        ordine.current = elenco.map((r) => r.device.id);
+        setTrovati(elenco);
+      }, ctl.signal);
     } catch (err) {
       setStato({
         fase: 'non-disponibile',

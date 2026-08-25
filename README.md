@@ -541,21 +541,24 @@ modelli, 110 dei quali parlano Bluetooth LE**. Il sorgente è vendorizzato in
 cargo build --features computer-esterni    # dentro src-tauri/
 ```
 
-**È spenta di sua iniziativa**, per due ragioni. La prima: centoquindici file C
-prima di ogni build pulita non li deve pagare chi lavora su una schermata. La
-seconda, che pesa di più: libdivecomputer è **LGPL-2.1**, e un programma MIT la
-può usare purché chi lo riceve possa ricompilarla e rimetterla al suo posto. Per
-un pacchetto scaricato da qui, con tutto il sorgente pubblico, la condizione è
-soddisfatta. Per un binario firmato da Apple su App Store, dove nessuno può
-rilinkare niente, la stessa domanda non ha una risposta comoda — e finché non ce
-l'ha, una funzionalità che si accende per bersaglio tiene aperte entrambe le
-strade.
+**È spenta di sua iniziativa**, ed è una funzionalità di sviluppo: non entra nei
+pacchetti che si pubblicano.
 
-Oggi la libreria è collegata e risponde, e il **ponte sul Bluetooth** è scritto
-e provato: libdivecomputer legge e scrive attraverso il nostro trasporto, con un
-flusso finto al posto del computer subacqueo. Manca lo scarico vero — aprire il
-dispositivo, scorrere le immersioni, convertirle nel modello canonico — che ha
-bisogno di un computer acceso per essere verificato.
+Due ragioni. La prima, piccola: centoquindici file C prima di ogni build pulita
+non li deve pagare chi lavora su una schermata. La seconda, che pesa di più:
+**nessun computer subacqueo di terzi è mai stato collegato a questo codice.** La
+catena è scritta per intero — trasporto, scarico, traduzione nel modello
+canonico, ponte sul Bluetooth, selettore di marca e modello — e tutto quello che
+si può inchiodare senza hardware è inchiodato: il trasporto contro un flusso
+finto, l'accorpamento dei campioni, la traduzione contro immersioni sintetiche.
+Il resto è una promessa finché qualcuno non accende un computer vero e guarda
+cosa succede.
+
+Per questo, nel selettore, i modelli che passerebbero di lì lo dichiarano: «via
+libdivecomputer, mai provato su questo modello». Accendere la funzionalità prima
+di quella prova vorrebbe dire offrire un pulsante «Scarica» che potrebbe non
+funzionare — e in un logbook una lettura sbagliata non dà errore: dà un profilo
+plausibile e falso.
 
 ### Le due implementazioni danno gli stessi numeri, e lo sappiamo
 
@@ -689,9 +692,17 @@ niente accesso al filesystem arbitrario.
 ## Licenza e riconoscimenti
 
 MIT — vedi [LICENSE](LICENSE). **Il codice dell'applicazione è tutto MIT.**
-L'unica eccezione è la libreria libdivecomputer vendorizzata in
-`src-tauri/vendor/`, che è LGPL-2.1 e viene compilata solo con la funzionalità
-cargo `computer-esterni`: vedi [`LICENSES/LEGGIMI.md`](LICENSES/LEGGIMI.md).
+
+L'unica eccezione è **libdivecomputer**, vendorizzata in `src-tauri/vendor/`, che
+è **LGPL-2.1** e porta la propria licenza dentro il tarball. Viene compilata solo
+con la funzionalità cargo `computer-esterni`, che è di sviluppo e non entra nei
+pacchetti pubblicati.
+
+Il tarball è versionato e la build lo scompatta **da lì**, non da una copia
+scaricata al momento: chiunque abbia questo repository ha gli **stessi byte**
+contro cui è stato compilato tutto quanto. È una scelta deliberata — evita di
+pretendere autoconf su ogni macchina che compila — ed è anche ciò che rende
+verificabile qualunque affermazione su cosa c'è dentro.
 
 ### Il debito verso libdivecomputer, dichiarato per intero
 
@@ -711,6 +722,22 @@ Questa tabella è il risultato di un confronto riga per riga fatto apposta, non 
 una stima. **Dichiararla per intero è deliberato**: un'attribuzione volontaria e
 completa è la difesa migliore della tesi che il resto sia farina nostra, e
 tacerla non renderebbe il debito più piccolo — solo più difficile da vedere.
+
+### E il debito va anche nell'altro senso
+
+Quello che si scopre lavorando su un protocollo **torna a monte**: è il modo in
+cui questi formati sono diventati leggibili in primo luogo. Quello che abbiamo
+trovato finora e non abbiamo ancora proposto:
+
+- **l'Aladin Sport Matrix si annuncia via BLE come «Aladin Sport»**, non
+  «Aladin» come lo elenca `descriptor.c`. È il motivo per cui il riconoscimento
+  automatico falliva su un apparecchio che la libreria supporta;
+- **il campo a offset 24 dell'intestazione Uwatec Smart**, che `descriptor.c`
+  marca come sconosciuto, **è la profondità media**: verificato su 85 immersioni
+  contro la media pesata sul tempo dei campioni.
+
+Finché non sono proposti a monte, è un debito aperto, e sta scritto qui perché
+non si dimentichi.
 
 `uwatecSmart.ts` era il caso grave — il suo nucleo era una traduzione, non una
 reimplementazione — ed è stato **riscritto**: il flusso ora lo legge
