@@ -24,11 +24,19 @@
 //! codice. È la sola parte di questa integrazione che si possa inchiodare senza
 //! hardware, e sarebbe un peccato non farlo.
 //!
-//! COSA C'È E COSA MANCA. C'è il trasporto: libdivecomputer scrive byte che
-//! finiscono sul nostro flusso e legge byte che vengono dal nostro flusso. Manca
-//! lo scarico vero — aprire il dispositivo, scorrere le immersioni, convertirle
-//! nel modello canonico — che è il passo dopo e ha bisogno di un computer vero
-//! per essere verificato.
+//! COSA C'È E COSA MANCA. C'è il trasporto — libdivecomputer scrive byte che
+//! finiscono sul nostro flusso e legge byte che vengono dal nostro flusso — e
+//! c'è lo scarico: `dc_device_open`, `dc_device_foreach`, e `traduci()` che
+//! passa ogni record al parser della famiglia giusta e ne cava
+//! `ImmersioneLdc`. Da lì in poi la palla passa a
+//! `src/core/ble/esterni.ts`.
+//!
+//! MANCA LA PROVA CON UN COMPUTER VERO, e va detto ogni volta perché è l'unica
+//! cosa che manca e la più facile da dimenticare: nessun apparecchio di terzi è
+//! mai stato collegato a questo codice. Quello che si può inchiodare senza —
+//! il trasporto contro un flusso finto, l'accorpamento dei campioni, la
+//! traduzione — è inchiodato; il resto è una promessa finché qualcuno non
+//! accende un Mares e guarda cosa succede.
 
 #![cfg(feature = "computer-esterni")]
 
@@ -479,12 +487,28 @@ impl CollegamentoLdc {
         Ok(Self { contesto, flusso })
     }
 
+    /*
+     * ► QUESTI TRE METODI ESISTONO PER LE PROVE, E VANNO TENUTI. ◄
+     *
+     * Nello scarico vero non li chiama nessuno: è libdivecomputer a chiamare
+     * NOI, attraverso le callback di `dc_custom_open`. Servono al contrario —
+     * a spingere byte DENTRO la libreria e a rileggerli — che è il solo modo
+     * di verificare, senza un computer subacqueo, che il ponte trasporti
+     * davvero i byte invece di sembrarlo.
+     *
+     * Sono usati solo da `mod prove`, quindi in una compilazione normale
+     * risultano morti. `#[allow(dead_code)]` e non un avviso lasciato acceso:
+     * un avviso che compare a ogni compilazione insegna a non guardare gli
+     * avvisi, ed è esattamente così che passa quello vero.
+     */
+    #[allow(dead_code)]
     pub fn imposta_attesa(&self, millisecondi: i32) {
         unsafe { dc_iostream_set_timeout(self.flusso, millisecondi) };
     }
 
     /// Scrive attraverso libdivecomputer. Serve ai test: nello scarico vero
     /// scrive la libreria, per conto suo.
+    #[allow(dead_code)]
     pub fn scrivi(&self, dati: &[u8]) -> Result<usize, String> {
         let mut scritti: usize = 0;
         let esito = unsafe {
@@ -498,6 +522,7 @@ impl CollegamentoLdc {
     }
 
     /// Legge attraverso libdivecomputer. Come sopra: serve ai test.
+    #[allow(dead_code)]
     pub fn leggi(&self, quanti: usize) -> Result<Vec<u8>, String> {
         let mut buffer = vec![0u8; quanti];
         let mut letti: usize = 0;
@@ -890,7 +915,7 @@ pub fn traduci(
         immersione.inizio_ms = millisecondi(&quando);
     }
 
-    let mut leggi_numero = |campo: c_uint| -> Option<f64> {
+    let leggi_numero = |campo: c_uint| -> Option<f64> {
         let mut valore: f64 = 0.0;
         let esito =
             unsafe { dc_parser_get_field(parser, campo, 0, &mut valore as *mut f64 as *mut c_void) };

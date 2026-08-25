@@ -19,11 +19,24 @@
 //! e produrrebbe diecimila righe di cui ne servono venti. È la stessa ragione
 //! per cui in questo progetto gzip e il lettore SQLite sono scritti a mano.
 //!
-//! COSA C'È QUI OGGI, e cosa manca. C'è l'elenco dei modelli riconosciuti, che è
-//! la prova che la libreria si compila, si collega e risponde. Mancano il ponte
-//! sul Bluetooth e la conversione delle immersioni nel modello canonico: sono i
-//! due passi successivi, e vengono dopo perché senza questo non avrebbero dove
-//! appoggiarsi.
+//! COSA C'È QUI, e dove sta il resto. Qui c'è **solo l'elenco** dei modelli che
+//! la libreria riconosce — che è anche la prova che si compila, si collega e
+//! risponde. Il ponte sul Bluetooth sta in `ponte_blec.rs`, lo scarico e la
+//! conversione nel modello canonico in `trasporto_ldc.rs`, e la traduzione nel
+//! modello del logbook in `src/core/ble/esterni.ts`.
+//!
+//! ► L'ELENCO VUOTO È UNA RISPOSTA, NON UN ERRORE. ◄ Compilata senza
+//! `computer-esterni`, questa funzione restituisce zero modelli, e
+//! l'interfaccia lo usa proprio per sapere com'è stata compilata la copia che
+//! sta girando: `computer-esterni` è una funzionalità di compilazione, quindi
+//! la stessa `src/` produce due binari diversi e leggere il codice non basta a
+//! dire quale dei due si ha in mano.
+//!
+//! COSA MANCA DAVVERO, al 25 agosto 2026: **la prova con un computer vero.**
+//! Tutta la catena si compila e si prova a pezzi — il trasporto contro un
+//! flusso finto, la traduzione contro immersioni sintetiche — ma nessun
+//! apparecchio di terzi è mai stato collegato. Finché non succede, il selettore
+//! lo dichiara sotto ogni modello: «mai provato su questo modello».
 
 use serde::Serialize;
 
