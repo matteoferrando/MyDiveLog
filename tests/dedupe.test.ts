@@ -280,3 +280,156 @@ describe('il blocco computer si fonde campo per campo', () => {
     expect(dopo.dives).toHaveLength(1);
   });
 });
+
+/**
+ * IL TEST CHE IMPEDISCE AL PROSSIMO CAMPO DI SPARIRE.
+ *
+ * `mergeDive` riempie i buchi della scheda di base con i valori di quella in
+ * arrivo, ma solo per le chiavi elencate a mano dentro `takeIfEmpty`. Un campo
+ * nuovo del modello che nessuno aggiunge a quell'elenco esce `undefined` dalla
+ * fusione — mentre `changed` si accende per altri motivi e l'interfaccia
+ * annuncia «arricchita». È già successo tre volte: con `conditions` e `gear`,
+ * con la miscela delle bombole, e da ultimo con `center`, `plannedMaxDepth`,
+ * `firmaGuida` (le lettere i, m, o del libretto di legge) e con `analisi`, la
+ * miscela misurata col banco.
+ *
+ * Quindi non si elencano di nuovo i campi qui dentro: si costruisce una scheda
+ * PIENA IN OGNI CHIAVE DEL MODELLO e si verifica che fondendola su una scheda
+ * scarna non se ne perda nessuna. Aggiungere un campo a `Dive` senza aggiungerlo
+ * a `mergeDive` fa diventare rosso questo test, non un utente.
+ */
+describe('nessun campo si perde nella fusione', () => {
+  const profilo = (n: number, passoS: number, deco = false) =>
+    Array.from({ length: n }, (_, i) => ({
+      t: i * passoS,
+      depth: 5 + (i % 20),
+      tempC: 18,
+      ...(deco ? { ndlS: 600, ttsS: 60, ceiling: 0, cns: 3 } : {}),
+    }));
+
+  /** Una scheda con OGNI chiave di `Dive` valorizzata. */
+  const piena: Dive = {
+    id: 'x',
+    updatedAt: '2026-08-20T10:00:00.000Z',
+    number: 137,
+    startTime: '2026-06-14T10:38:00.000Z',
+    utcOffsetMinutes: 120,
+    durationS: 44 * 60,
+    maxDepth: 33,
+    avgDepth: 19.4,
+    minTempC: 15.2,
+    airTempC: 27,
+    site: { name: 'Punta Chiappa', region: 'Liguria', country: 'IT', lat: 44.3, lon: 9.15 },
+    buddy: 'Marco',
+    notes: 'corrente forte in uscita',
+    mode: 'oc',
+    cylinders: [
+      {
+        description: 'D12 200',
+        material: 'steel',
+        sizeL: 12,
+        workPressureBar: 200,
+        startBar: 210,
+        endBar: 70,
+        mix: { o2: 0.32, he: 0 },
+        analisi: { o2: 0.305, he: 0, quando: '2026-06-14T08:00:00.000Z', chi: 'Diving del Golfo' },
+      },
+    ],
+    salinity: 'salt',
+    surfacePressureBar: 1.013,
+    surfaceIntervalS: 3600,
+    computer: { model: 'Peregrine', serial: 'SW1001', firmware: '92', gfLow: 30, gfHigh: 85 },
+    otherComputers: [{ model: 'Aladin', serial: '63034502', ppo2MaxBar: 1.4 }],
+    source: { format: 'shearwater-xml', file: 'sw.xml', importedAt: '2026-06-14T20:00:00.000Z' },
+    extraSources: [{ format: 'logtrak', file: 'a.logtrak', importedAt: '2026-06-15T08:00:00.000Z' }],
+    rating: 4,
+    title: 'notturna al relitto',
+    guide: 'Anna',
+    center: 'Diving del Golfo',
+    plannedMaxDepth: 30,
+    firmaGuida: {
+      tratti: [
+        [
+          { x: 1, y: 2 },
+          { x: 3, y: 4 },
+        ],
+      ],
+      larghezza: 320,
+      altezza: 120,
+      quando: '2026-06-14T21:00:00.000Z',
+      nome: 'Anna',
+    },
+    visibilityM: 8,
+    visibilityMaxM: 12,
+    conditions: { weather: 'sunny', waves: 'calm' },
+    gear: {
+      regulators: [{ id: 'r1', name: 'MK25' }],
+      bcd: { id: 'b1', name: 'Ala 17' },
+      suit: { id: 's1', name: 'Umida 7 mm' },
+      backplateKg: 3,
+      other: [{ id: 'o1', name: 'Torcia' }],
+    },
+    weightKg: 6,
+    suit: 'umida 7 mm',
+    annotations: { 'Comfort termico': 'Fresco' },
+    reported: { gf99End: 71, maxDecoObligationS: 0, minNdlS: 300, avgSac: '14' },
+    events: [{ t: 600, bearing: 180, label: 'relitto' }],
+    tags: ['relitto'],
+    samples: profilo(200, 10, true),
+    altSamples: profilo(500, 4),
+    metrics: undefined,
+  };
+
+  /** Il minimo indispensabile: solo i campi obbligatori del modello. */
+  const scarna: Dive = {
+    id: 'x',
+    startTime: '2026-06-14T10:38:00.000Z',
+    durationS: 40 * 60,
+    maxDepth: 31,
+    mode: 'oc',
+    cylinders: [{ mix: { o2: 0.21, he: 0 } }],
+    source: { format: 'manual', file: 'a mano', importedAt: '2026-08-01T00:00:00.000Z' },
+    tags: [],
+  };
+
+  it('fonde due schede e non lascia indietro nessuna chiave del modello', () => {
+    const fusa = mergeDive(scarna, piena, '2026-08-25T00:00:00.000Z');
+    const perse = Object.keys(piena).filter(
+      (k) =>
+        (piena as unknown as Record<string, unknown>)[k] !== undefined &&
+        (fusa as unknown as Record<string, unknown>)[k] === undefined,
+    );
+    expect(perse, `campi persi dalla fusione: ${perse.join(', ')}`).toEqual([]);
+    // Le metriche non si ereditano, si ricalcolano: la chiave c'è comunque.
+    expect(fusa.metrics).toBeDefined();
+  });
+
+  it('porta con sé le tre voci del libretto che solo una persona può aver scritto', () => {
+    // i) profondità programmata, m) centro, o) firma della guida. Non le
+    // ricava nessun computer e nessun formato: o si fondono o si perdono.
+    const fusa = mergeDive(scarna, piena, '2026-08-25T00:00:00.000Z');
+    expect(fusa.plannedMaxDepth).toBe(30);
+    expect(fusa.center).toBe('Diving del Golfo');
+    expect(fusa.firmaGuida?.tratti).toHaveLength(1);
+  });
+
+  it('porta con sé la miscela ANALIZZATA, che non è la miscela dichiarata', () => {
+    // `mix` è l'etichetta della bombola, `analisi` è la misura fatta col banco.
+    // Perdendo la seconda si perde proprio l'informazione che conta: che i due
+    // numeri non coincidono, e che la MOD mostrata finora era più profonda.
+    const fusa = mergeDive(scarna, piena, '2026-08-25T00:00:00.000Z');
+    expect(fusa.cylinders[0].analisi?.o2).toBe(0.305);
+    expect(fusa.cylinders[0].analisi?.chi).toBe('Diving del Golfo');
+    // …e non ha sovrascritto la dichiarazione.
+    expect(fusa.cylinders[0].mix.o2).toBe(0.32);
+  });
+
+  it('non sovrascrive un’analisi già presente con quella dell’altra scheda', () => {
+    const mia: Dive = {
+      ...scarna,
+      cylinders: [{ mix: { o2: 0.32, he: 0 }, analisi: { o2: 0.318, chi: 'io' } }],
+    };
+    const fusa = mergeDive(mia, piena, '2026-08-25T00:00:00.000Z');
+    expect(fusa.cylinders[0].analisi?.chi).toBe('io');
+  });
+});

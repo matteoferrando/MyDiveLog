@@ -608,6 +608,23 @@ function mergeCylinders(
       'endBar',
       'material',
       'description',
+      /*
+       * `analisi` — la miscela MISURATA col banco — stava fuori da questo
+       * elenco, e nessun'altra riga la copiava.
+       *
+       * È il dato che solo una persona può aver scritto: nessun computer e
+       * nessun formato di export lo portano, lo digita chi ha analizzato la
+       * bombola o chi gliel'ha consegnata. Fondendo due schede della stessa
+       * immersione — ripristino da backup in modalità «Fondi», «unisci due
+       * immersioni», inserimento a mano su un'immersione già in archivio — la
+       * bombola tornava senza `analisi` mentre `changed` era acceso e
+       * l'interfaccia annunciava «arricchita».
+       *
+       * Stessa regola degli altri campi: chi ce l'ha vince su chi non ce l'ha,
+       * e chi ce l'ha già non viene sovrascritto. Non tocca `mix`, che resta la
+       * dichiarazione: tenerli separati è tutto il senso del campo.
+       */
+      'analisi',
     ] as const) {
       if (merged[key] === undefined && other[key] !== undefined) {
         // @ts-expect-error assegnazione per chiave omogenea
@@ -817,6 +834,29 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
       'surfaceIntervalS',
       'weightKg',
       'suit',
+      /*
+       * Le tre voci del libretto di legge che restavano fuori da questo elenco:
+       * i) `plannedMaxDepth`, m) `center`, o) `firmaGuida` (art. 12 comma 8;
+       * vedi `core/libretto.ts`).
+       *
+       * Come `analisi` fra le bombole, sono dati che NESSUNA fonte automatica
+       * porta: la profondità programmata è un'intenzione, il centro è chi ha
+       * organizzato l'uscita, la firma è un gesto. O li scrive una persona o
+       * non esistono. Non essendo qui, fondere due schede li faceva uscire
+       * `undefined` — mentre `changed` si accendeva per altri motivi e la
+       * scheda diceva «arricchita». Succedeva nei tre percorsi reali della
+       * fusione: ripristino da backup in modalità «Fondi», «unisci due
+       * immersioni», inserimento a mano su un'immersione già in archivio.
+       *
+       * È lo stesso difetto che il commento su `conditions` e `gear` più sotto
+       * dichiara di aver chiuso: la correzione non era stata estesa a questi.
+       * `tests/dedupe.test.ts` fonde ora due schede piene in OGNI campo del
+       * modello e verifica che nessuna chiave si perda, così il prossimo campo
+       * nuovo non ricasca qui.
+       */
+      'center',
+      'plannedMaxDepth',
+      'firmaGuida',
     ] as const
   ).forEach(takeIfEmpty);
 

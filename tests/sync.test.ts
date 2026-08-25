@@ -349,6 +349,120 @@ describe('syncArchive contro un SQLite vero', () => {
     expect(await syncArchive(other, sql)).toMatchObject({ pushed: 0, pulled: 0, pulledProfiles: 0 });
   });
 
+  it('due lati che toccano campi DIVERSI non si cancellano a vicenda', async () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * IL CASO CHE NESSUN TEST COPRIVA, ED È IL CASO NORMALE DI DUE DISPOSITIVI.
+     *
+     * I test di `planSync` qui sopra verificano che i due dispositivi nominino
+     * lo STESSO vincitore — cioè che la sincronizzazione converga — non che
+     * cosa succede ai campi del perdente. E il perdente perdeva tutto: il
+     * conflitto si risolveva per RECORD, e il documento del vincitore veniva
+     * scritto sopra quello dell'altro senza fondere.
+     *
+     * Il Mac scrive le note dell'immersione il 1° agosto. L'iPhone, offline,
+     * mette compagno e voto sulla STESSA immersione il 2 agosto. Si sincronizza
+     * il Mac, poi l'iPhone, poi di nuovo il Mac: le note sparivano da entrambi
+     * i dispositivi e dal database remoto. Il rapporto diceva `pulled: 1`, non
+     * c'era cestino, non c'era avviso, e non restava nessun file da cui
+     * rileggerle.
+     * ════════════════════════════════════════════════════════════════════════
+     */
+    const mac = memoryStore([
+      dive('a', { notes: 'corrente forte in uscita', updatedAt: '2026-08-01T00:00:00Z' }),
+    ]);
+    const iphone = memoryStore([dive('a', { buddy: 'Marco', rating: 5, updatedAt: '2026-08-02T00:00:00Z' })]);
+
+    await syncArchive(mac, sql);
+    await syncArchive(iphone, sql);
+    await syncArchive(mac, sql);
+
+    for (const [nome, store] of [
+      ['mac', mac],
+      ['iphone', iphone],
+    ] as const) {
+      const d = await store.getDive('a');
+      expect(d?.notes, `note su ${nome}`).toBe('corrente forte in uscita');
+      expect(d?.buddy, `compagno su ${nome}`).toBe('Marco');
+      expect(d?.rating, `voto su ${nome}`).toBe(5);
+    }
+
+    // Anche il database condiviso tiene la versione fusa: un terzo dispositivo
+    // che arrivasse adesso non riceverebbe una scheda amputata.
+    const { rows } = await sql.execute("SELECT doc FROM dives WHERE id = 'a'");
+    const remoto = JSON.parse(String(rows[0].doc));
+    expect(remoto.notes).toBe('corrente forte in uscita');
+    expect(remoto.buddy).toBe('Marco');
+
+    // E la faccenda si chiude: fondere non deve far rimbalzare il record.
+    for (const store of [mac, iphone]) {
+      expect(await syncArchive(store, sql)).toMatchObject({ pushed: 0, pulled: 0 });
+    }
+  });
+
+  it('scaricando la versione più recente non si perde il campo che c’è solo qui', async () => {
+    // Lo stesso difetto visto dal ramo di SCARICO: il remoto vince per
+    // `updatedAt`, ma il campo scritto solo qui non deve sparire scrivendogli
+    // sopra. E la versione fusa risale nello stesso giro, altrimenti resterebbe
+    // su questo dispositivo soltanto.
+    const altro = memoryStore([dive('a', { buddy: 'Marco', updatedAt: '2026-08-02T00:00:00Z' })]);
+    await syncArchive(altro, sql);
+
+    const mio = memoryStore([dive('a', { notes: 'la mia nota', updatedAt: '2026-08-01T00:00:00Z' })]);
+    const report = await syncArchive(mio, sql);
+    expect(report.pulled).toBe(1);
+    const d = await mio.getDive('a');
+    expect(d?.notes).toBe('la mia nota');
+    expect(d?.buddy).toBe('Marco');
+
+    const back = await syncArchive(altro, sql);
+    expect(back.pulled).toBe(1);
+    expect((await altro.getDive('a'))?.notes).toBe('la mia nota');
+
+    for (const store of [mio, altro]) {
+      expect(await syncArchive(store, sql)).toMatchObject({ pushed: 0, pulled: 0 });
+    }
+  });
+
+  it('fondere il riepilogo non ricalcola le metriche su un riepilogo senza campioni', async () => {
+    /*
+     * La fusione riguarda il RIEPILOGO, e due cose devono restarne fuori.
+     *
+     * Il PROFILO: quale tenere lo decide il piano, per conteggio di campioni, e
+     * `mergeDive` lo deciderebbe con un altro criterio — i canali. Due giudici
+     * sullo stesso dato fanno rimbalzare il profilo fra i dispositivi.
+     *
+     * Le METRICHE: `mergeDive` chiude sempre con `computeMetrics(out)`, che qui
+     * girerebbe su un riepilogo senza campioni. Il risultato è plausibile e
+     * sbagliato — `quality.sampleCount` a zero, assetto e velocità assenti — e
+     * andrebbe a sostituire quelle buone in silenzio, a ogni sincronizzazione.
+     */
+    const metriche = { quality: { sampleCount: 120 } } as unknown as Dive['metrics'];
+    const mio = memoryStore([
+      dive('a', {
+        samples: profile(120),
+        notes: 'la mia nota',
+        metrics: metriche,
+        updatedAt: '2026-01-01T00:00:00Z',
+      }),
+    ]);
+    await syncArchive(mio, sql);
+
+    // L'altro vince per data e fonde: la nota entra, e con lei devono restare
+    // in piedi le metriche calcolate sul profilo che sta scendendo.
+    const altro = memoryStore([dive('a', { buddy: 'Marco', updatedAt: '2027-01-01T00:00:00Z' })]);
+    await syncArchive(altro, sql);
+    const fusaLi = await altro.getDive('a');
+    expect(fusaLi?.notes).toBe('la mia nota');
+    expect(fusaLi?.metrics?.quality?.sampleCount).toBe(120);
+
+    await syncArchive(mio, sql);
+    expect(await mio.getSamples('a')).toHaveLength(120);
+    const qui = await mio.getDive('a');
+    expect(qui?.buddy).toBe('Marco');
+    expect(qui?.metrics?.quality?.sampleCount).toBe(120);
+  });
+
   it('due archivi diversi convergono, e poi restano fermi', async () => {
     const alpha = memoryStore([
       dive('a', { samples: profile(150) }),

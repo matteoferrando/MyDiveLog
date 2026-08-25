@@ -109,6 +109,27 @@ export const SETTING_KEYS = [
   'analyses:at',
   'gear',
   'gear:at',
+  /*
+   * ► NOME E BREVETTO DEL SUBACQUEO. Lettere a) e b) del libretto di legge. ◄
+   *
+   * `state.tsx` scrive questa impostazione da sempre e non era in NESSUNA delle
+   * due liste bianche — né qui né in `SHARED_SETTINGS` — quindi il backup «che
+   * contiene tutto quello che l'applicazione sa» non la conteneva, e anche
+   * mettendocela a mano il ripristino l'avrebbe scartata (`planRestore` accetta
+   * solo le chiavi di questa lista).
+   *
+   * Come si vedeva: backup, cambio telefono, ripristino. L'archivio torna
+   * intero — immersioni, profili, attrezzatura, piani — e il libretto stampato
+   * esce senza generalità e senza brevetto, cioè le due voci che lo rendono un
+   * documento invece che un elenco. Nessun avviso, perché non manca niente che
+   * l'applicazione sappia di dover cercare.
+   *
+   * `tests/backup.test.ts` confronta ora l'insieme delle chiavi passate a
+   * `setSetting` in `src/` con l'unione delle due liste più le esclusioni
+   * dichiarate, così il prossimo che aggiunge un'impostazione se ne accorge.
+   */
+  'subacqueo',
+  'subacqueo:at',
   // Fin dove si era arrivati con ogni computer subacqueo. Sta nel backup
   // perché ripristinare le immersioni senza il segnalibro farebbe rileggere
   // tutta la memoria del computer al primo collegamento successivo.

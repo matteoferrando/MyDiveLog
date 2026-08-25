@@ -340,6 +340,31 @@ const WINDOW_MS = 36 * 3600 * 1000;
 export async function hydrateForMerge(store: DiveStore, existing: Dive[], incoming: Dive[]): Promise<Dive[]> {
   if (!existing.length || !incoming.length) return existing;
   const counts = await store.sampleCounts();
+  /*
+   * ► ANCHE IL SECONDO PROFILO, non solo il principale. ◄
+   *
+   * Questa funzione esiste perché «un profilo non caricato conta zero e
+   * qualunque cosa arrivi sembra migliore», e idratava solo `dive.samples`.
+   * Quindi `out.altSamples` restava SEMPRE `undefined` durante una fusione
+   * d'import, e le due decisioni che `mergeDive` prende sul secondo profilo
+   * (`denserOf` e il confronto `piuFitto`, in `dedupe.ts`) venivano prese
+   * contro lo zero.
+   *
+   * Due danni, e il secondo non si ripara:
+   *
+   *  1. a ogni import di un'immersione registrata da due computer il secondo
+   *     profilo spariva dal record fuso, e velocità e assetto venivano
+   *     ricalcolati sul profilo rado. Si rimetteva a posto al riavvio
+   *     successivo — `repairArchive` il secondo profilo lo legge — non
+   *     prima: nel frattempo la scheda mostrava numeri peggiori del vero.
+   *  2. quando il profilo in arrivo era più fitto del principale ma MENO
+   *     fitto del secondo già in archivio, `denserOf` lo confrontava con
+   *     `undefined` e lo scriveva sopra: da lì in poi il profilo fitto vero
+   *     non era più in nessun file.
+   *
+   * `repairArchive` legge entrambi i conteggi da sempre; qui mancava e basta.
+   */
+  const altCounts = await store.altSampleCounts();
   const times = incoming.map((d) => Date.parse(d.startTime)).filter((t) => Number.isFinite(t));
   if (!times.length) return existing;
 
@@ -347,10 +372,15 @@ export async function hydrateForMerge(store: DiveStore, existing: Dive[], incomi
   const out = [...existing];
   for (let i = 0; i < out.length; i++) {
     const dive = out[i];
-    if (dive.samples?.length) continue;
-    if (!(counts.get(dive.id) ?? 0)) continue;
+    const serve = !dive.samples?.length && (counts.get(dive.id) ?? 0) > 0;
+    const serveAlt = !dive.altSamples?.length && (altCounts.get(dive.id) ?? 0) > 0;
+    if (!serve && !serveAlt) continue;
     if (!near(Date.parse(dive.startTime))) continue;
-    out[i] = { ...dive, samples: await store.getSamples(dive.id) };
+    out[i] = {
+      ...dive,
+      ...(serve ? { samples: await store.getSamples(dive.id) } : {}),
+      ...(serveAlt ? { altSamples: await store.getAltSamples(dive.id) } : {}),
+    };
   }
   return out;
 }

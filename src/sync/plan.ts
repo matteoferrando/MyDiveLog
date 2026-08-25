@@ -118,6 +118,17 @@ export function planSync(local: SyncFingerprint[], remote: SyncFingerprint[]): S
  * condividono — entrambi nominano lo stesso vincitore e la faccenda si chiude al
  * primo giro. La parità si verifica solo su record vecchi senza `updatedAt`: da
  * quando lo scriviamo a ogni modifica, il criterio 2 basta.
+ *
+ * ► CHI PERDE QUI NON PERDE I SUOI CAMPI. ◄ Questa funzione dice quale delle due
+ * versioni è più avanti, cioè in che DIREZIONE si muove il record; non dice che
+ * il perdente vada buttato. Il trasporto (`turso.ts`, `fondiRiepiloghi`) fonde
+ * le due versioni campo per campo con `mergeDive` prima di scrivere, in
+ * entrambi i versi: dove i due si contraddicono vince chi ha scritto per ultimo
+ * — cioè quello che decide questa funzione — e dove il dato ce l'ha uno solo,
+ * quel dato resta. Finché la fusione non c'era, «vince il più recente»
+ * significava «l'altro perde tutto», e i test qui sotto non se ne accorgevano:
+ * verificano che i due dispositivi nominino lo STESSO vincitore, non che cosa
+ * succede ai campi del perdente. Il caso è coperto in `tests/sync.test.ts`.
  */
 function pickWinner(local: SyncFingerprint, remote: SyncFingerprint): 'local' | 'remote' | 'equal' {
   if (local.digest === remote.digest) return 'equal';

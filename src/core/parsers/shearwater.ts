@@ -80,6 +80,16 @@ function readLog(
     return null;
   }
   const startTime = parseShearwaterDate(startDate);
+  if (!startTime) {
+    // Si scarta con un avviso, come per lo `startDate` mancante qui sopra e
+    // come fa `uddf.ts` per la stessa ragione: senza questo ramo l'immersione
+    // entrava con la data del 1970 e si fondeva con le sue vicine.
+    warnings.push(
+      `${t('Immersione scartata: data')} «${startDate}» ${t('in un formato che non so leggere.')} ` +
+        t('Shearwater scrive «2026-06-14 10:38:00»; segnala il file, che il formato si aggiunge.'),
+    );
+    return null;
+  }
 
   const records = children(child(log, 'diveLogRecords'), 'diveLogRecord');
   const timeScale = detectTimeScale(records.map((r) => num(child(r, 'currentTime'))));
@@ -283,13 +293,32 @@ function readMix(record: unknown): GasMix | undefined {
 }
 
 /**
- * "2026-06-14 10:38:00" o ISO.
+ * "2026-06-14 10:38:00" o ISO. `undefined` se non è nessuna delle due.
  *
  * Shearwater scrive la lettura dell'orologio senza fuso: fissata su UTC per non
  * far dipendere l'istante dal fuso della macchina. Vedi `wallClockToIso`.
+ *
+ * ► PERCHÉ NON C'È PIÙ UN RIPIEGO. ◄
+ *
+ * Qui c'era `?? new Date(0).toISOString()`, cioè il 1° gennaio 1970 per
+ * qualunque data che `wallClockToIso` non riconosce — e ne riconosce una sola
+ * forma, `YYYY-MM-DD…`: bastava un file con `08/11/2019 9:35:00 AM` o
+ * `11.08.2019 09:35` per cadere sul ripiego, in silenzio e su TUTTE le
+ * immersioni del file.
+ *
+ * Il danno non era la data sbagliata — è lo stesso difetto già chiuso in
+ * `uddf.ts`, con le stesse parole: era che tutte le immersioni finivano allo
+ * STESSO istante, e a quel punto la deduplica, che riconosce come la stessa
+ * immersione due tuffi vicini nel tempo e simili per profondità e durata, ne
+ * fondeva a due a due. Ogni gruppo di tuffi simili collassava in uno solo, e la
+ * schermata di import diceva «duplicati» invece di dire che non aveva capito la
+ * data.
+ *
+ * Un istante finto è peggio di un'immersione dichiaratamente illeggibile: la
+ * seconda si vede e si segnala, il primo entra in archivio e ci resta.
  */
-export function parseShearwaterDate(raw: string): string {
-  return wallClockToIso(raw) ?? new Date(0).toISOString();
+export function parseShearwaterDate(raw: string): string | undefined {
+  return wallClockToIso(raw);
 }
 
 const round1 = (v: number) => Math.round(v * 10) / 10;

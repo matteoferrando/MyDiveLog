@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import { detectParser, parseFile } from '../src/core/parsers';
 import { parseFit } from '../src/core/parsers/garminFit';
-import { detectTimeScale } from '../src/core/parsers/shearwater';
+import { detectTimeScale, parseShearwaterDate, shearwaterParser } from '../src/core/parsers/shearwater';
 import { parseDateTime, parseDurationCell, splitRow } from '../src/core/parsers/csv';
 import { synthesise, toCsv, toFit, toShearwaterXml, toSubsurface, toUddf } from './fixtures';
 
@@ -115,6 +115,60 @@ describe('Shearwater XML', () => {
     expect(detectTimeScale([0, 10, 20, 30])).toBe(1);
     expect(detectTimeScale([0, 2, 4, 6])).toBe(1);
     expect(detectTimeScale([0, 7777, 15_554])).toBeNull();
+  });
+
+  /*
+   * ══════════════════════════════════════════════════════════════════════════
+   * UNA DATA CHE NON SI SA LEGGERE NON DIVENTA IL 1° GENNAIO 1970.
+   *
+   * `parseShearwaterDate` chiudeva con `?? new Date(0).toISOString()`, e
+   * `wallClockToIso` accetta una sola forma: `YYYY-MM-DD…`. Qualunque altra —
+   * `08/11/2019 9:35:00 AM`, `11.08.2019 09:35` — cadeva sul ripiego, in
+   * silenzio e su TUTTE le immersioni del file.
+   *
+   * Il danno non era la data sbagliata: era che tutte le immersioni finivano
+   * allo stesso istante, e a quel punto `likelySame` le considerava
+   * compatibili e la deduplica ne fondeva a due a due. Tre immersioni
+   * entravano, una restava, e la schermata diceva «duplicati».
+   *
+   * L'unica fixture di prova genera la data già in ISO, quindi il ramo non era
+   * mai stato esercitato da nessun test.
+   * ══════════════════════════════════════════════════════════════════════════
+   */
+  const conData = (xml: string, data: string) =>
+    xml.replace(/<startDate>[^<]*<\/startDate>/, `<startDate>${data}</startDate>`);
+
+  it('restituisce undefined su una data che non riconosce, non un istante finto', () => {
+    expect(parseShearwaterDate('2026-06-14 10:38:00')).toBe('2026-06-14T10:38:00.000Z');
+    for (const raw of ['08/11/2019 9:35:00 AM', '11.08.2019 09:35', '14 giugno 2026', '']) {
+      expect(parseShearwaterDate(raw), `«${raw}»`).toBeUndefined();
+    }
+  });
+
+  it('scarta l’immersione con una data illeggibile e lo dice', async () => {
+    const { dives, warnings } = await parseFile({
+      fileName: 'sw.xml',
+      text: conData(toShearwaterXml(synth), '08/11/2019 9:35:00 AM'),
+    });
+    expect(dives).toHaveLength(0);
+    const testo = warnings.join(' ');
+    expect(testo).toContain('08/11/2019 9:35:00 AM');
+    expect(testo).toMatch(/non so leggere/);
+  });
+
+  it('tre immersioni illeggibili restano tre avvisi, non una sola immersione', () => {
+    // Il vero danno del ripiego: con lo stesso istante finto la deduplica le
+    // fondeva fra loro. Ora nessuna entra, e ognuna ha il suo avviso.
+    const solo = (n: number) =>
+      conData(toShearwaterXml(synth, { diveNumber: n }), '11.08.2019 09:35').match(
+        /<diveLog>[\s\S]*<\/diveLog>/,
+      )![0];
+    const file = `<?xml version="1.0" encoding="utf-8"?>\n<dive>\n${[1, 2, 3]
+      .map(solo)
+      .join('\n')}\n</dive>\n`;
+    const { dives, warnings } = shearwaterParser.parse({ fileName: 'tre.xml', text: file });
+    expect(dives).toHaveLength(0);
+    expect(warnings.filter((w) => /non so leggere/.test(w))).toHaveLength(3);
   });
 });
 

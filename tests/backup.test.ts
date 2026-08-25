@@ -11,10 +11,14 @@
  * lascia un archivio peggiore di come si era partiti.
  */
 
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   BACKUP_VERSION,
   SECRET_KEYS,
+  SETTING_KEYS,
   backupFileName,
   buildBackup,
   checkBackup,
@@ -23,6 +27,9 @@ import {
   type ArchiveSource,
   type BackupFile,
 } from '../src/core/export/backup';
+import { SHARED_SETTINGS, TOMBSTONE_KEY } from '../src/sync/turso';
+import { TRASH_KEY } from '../src/storage/trash';
+import { BLE_MARKERS_KEY } from '../src/core/ble/types';
 import { computeMetrics } from '../src/core/analysis/metrics';
 import type { Dive, Sample } from '../src/core/model';
 import { synthesise } from './fixtures';
@@ -332,5 +339,107 @@ describe('impedimenti che dipendono dal modo', () => {
   it('un backup con dentro qualcosa non è impedito da niente', async () => {
     const file = await buildBackup(fakeStore([dive('a', '2026-06-01T09:00:00Z')]));
     expect(restoreBlockers(file, 'replace', 42)).toEqual([]);
+  });
+});
+
+/**
+ * LE DUE LISTE BIANCHE NON DEVONO RESTARE INDIETRO.
+ *
+ * Un'impostazione che l'applicazione scrive e che non sta né in `SETTING_KEYS`
+ * né in `SHARED_SETTINGS` non entra nel backup e non si sincronizza — e non lo
+ * dice a nessuno: il backup si costruisce, il ripristino riesce, l'archivio
+ * torna intero, e quel dato non c'è più. È successo con `subacqueo`, cioè nome
+ * e brevetto del subacqueo, le lettere a) e b) del libretto previsto dalla
+ * legge: chi cambiava telefono ritrovava tutte le immersioni e un libretto
+ * senza generalità.
+ *
+ * Quindi non si elencano di nuovo le chiavi qui dentro: si LEGGE il sorgente e
+ * si raccoglie ogni chiave passata a `setSetting`, poi si confronta con
+ * l'unione delle due liste più le esclusioni dichiarate. Chi aggiunge
+ * un'impostazione e dimentica le liste fa diventare rosso questo test.
+ */
+describe('nessuna impostazione resta fuori dalle liste bianche', () => {
+  const SRC = fileURLToPath(new URL('../src', import.meta.url));
+
+  const sorgenti = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? sorgenti(join(dir, e.name)) : /\.tsx?$/.test(e.name) ? [join(dir, e.name)] : [],
+    );
+
+  /**
+   * Le costanti che il codice usa al posto di un letterale. Risolverle qui —
+   * importandole, non ricopiandone il valore — è ciò che permette al controllo
+   * di riconoscere `setSetting(TRASH_KEY, …)` e `setSetting(`${BLE_MARKERS_KEY}:at`, …)`.
+   */
+  const COSTANTI: Record<string, string> = {
+    TRASH_KEY,
+    TOMBSTONE_KEY,
+    BLE_MARKERS_KEY,
+  };
+
+  /** Ogni chiave scritta con `setSetting` in `src/`, per quanto è determinabile leggendo. */
+  const chiaviScritte = (): Set<string> => {
+    const fuori = new Set<string>();
+    for (const file of sorgenti(SRC)) {
+      const testo = readFileSync(file, 'utf8');
+      for (const m of testo.matchAll(
+        /setSetting(?:<[^>]*>)?\(\s*(`[^`]*`|'[^']*'|"[^"]*"|[A-Za-z_$][\w$]*)/g,
+      )) {
+        const grezzo = m[1];
+        if (grezzo.startsWith("'") || grezzo.startsWith('"')) {
+          fuori.add(grezzo.slice(1, -1));
+        } else if (grezzo.startsWith('`')) {
+          const risolto = grezzo
+            .slice(1, -1)
+            .replace(/\$\{([A-Za-z_$][\w$]*)\}/g, (_, nome: string) => COSTANTI[nome] ?? '\u0000');
+          if (!risolto.includes('\u0000')) fuori.add(risolto);
+        } else if (COSTANTI[grezzo]) {
+          fuori.add(COSTANTI[grezzo]);
+        }
+        /*
+         * Un identificativo che non è una costante nota è una chiave DINAMICA
+         * (`setSetting(key, …)` dentro la sincronizzazione e il negozio dei
+         * segreti): il suo valore arriva già da queste liste o da `SECRET_KEYS`,
+         * e non c'è niente da controllare.
+         */
+      }
+    }
+    return fuori;
+  };
+
+  it('trova davvero le chiavi nel sorgente', () => {
+    // Se il codice cambiasse forma — un aiutante che avvolge `setSetting`, per
+    // dire — questo controllo diventerebbe una rete vuota che passa sempre.
+    const trovate = chiaviScritte();
+    expect(trovate.size).toBeGreaterThan(8);
+    expect(trovate).toContain('gasPlan');
+    expect(trovate).toContain(TRASH_KEY);
+  });
+
+  it('ogni impostazione che l’applicazione scrive sta in una delle due liste', () => {
+    const ammesse = new Set<string>([
+      ...SETTING_KEYS,
+      ...SHARED_SETTINGS,
+      ...SHARED_SETTINGS.map((k) => `${k}:at`),
+      // Le esclusioni dichiarate, e il perché di ciascuna.
+      ...SECRET_KEYS, // credenziali: un backup che le contiene le sparge
+      TRASH_KEY, // il cestino non viaggia: è una decisione di questo dispositivo
+      TOMBSTONE_KEY, // le lapidi: ripristinarle cancellerebbe archivi altrui
+    ]);
+    const fuoriLista = [...chiaviScritte()].filter((k) => !ammesse.has(k)).sort();
+    expect(
+      fuoriLista,
+      `impostazioni scritte e mai salvate né sincronizzate: ${fuoriLista.join(', ')}`,
+    ).toEqual([]);
+  });
+
+  it('tutto ciò che si sincronizza sta anche nel backup, col suo timbro', () => {
+    // L'asimmetria opposta è altrettanto silenziosa: una chiave che viaggia fra
+    // due dispositivi ma non entra nel backup sparisce quando i dispositivi
+    // diventano zero.
+    for (const k of SHARED_SETTINGS) {
+      expect(SETTING_KEYS, k).toContain(k);
+      expect(SETTING_KEYS, `${k}:at`).toContain(`${k}:at`);
+    }
   });
 });

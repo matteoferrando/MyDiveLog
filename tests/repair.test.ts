@@ -229,6 +229,48 @@ describe('profili caricati prima di una fusione', () => {
     expect(correct.dives[0].samples?.[0].ndlS).toBe(600); // il profilo con la deco resta
   });
 
+  it('carica anche il SECONDO profilo, non solo il principale', async () => {
+    // `DiveStore` espone entrambi i conteggi e entrambe le letture, e
+    // `repairArchive` li usa da sempre. Qui si leggeva solo il principale.
+    const stored = dive({ id: 'd1', samples: undefined });
+    const { store } = memoryStore([stored], { d1: rich(300) }, { d1: profile(750, 4) });
+
+    const hydrated = await hydrateForMerge(store, [stored], [dive({ id: 'x' })]);
+
+    expect(hydrated[0].samples?.length).toBe(300);
+    expect(hydrated[0].altSamples?.length).toBe(750);
+  });
+
+  it('senza il secondo profilo la fusione lo sostituisce con uno più rado', async () => {
+    /*
+     * IL DANNO CHE NON SI RIPARA, e per cui questo test esiste.
+     *
+     * In archivio c'è il profilo del Peregrine come principale (300 campioni a
+     * 10 s, con i dati decompressivi) e quello dell'Aladin come secondo (750 a
+     * 4 s): le velocità e l'assetto si misurano su quest'ultimo. In arrivo c'è
+     * un profilo intermedio — più fitto del principale, più rado del secondo.
+     *
+     * Con `out.altSamples` non idratato, `denserOf` confrontava il nuovo con
+     * `undefined`, lo trovava migliore e lo scriveva sopra: da quel momento il
+     * profilo a 4 s non era più in nessun file, e nessuna riparazione poteva
+     * ricostruirlo. La prima conseguenza — metriche ricalcolate sul profilo
+     * rado — si sarebbe rimessa a posto al riavvio successivo; questa no.
+     */
+    const stored = dive({ id: 'd1', samples: undefined, metrics: undefined });
+    const { store } = memoryStore([stored], { d1: rich(300) }, { d1: profile(750, 4) });
+    const intermedio = dive({
+      id: 'd1',
+      samples: profile(400, 7),
+      source: { format: 'csv', file: 'c.csv', importedAt: 'x' },
+    });
+
+    const hydrated = await hydrateForMerge(store, [stored], [intermedio]);
+    const fusa = mergeImports(hydrated, [intermedio], '2026-08-17T00:00:00Z').dives[0];
+
+    expect(fusa.samples).toHaveLength(300); // il principale, coi dati deco, resta
+    expect(fusa.altSamples).toHaveLength(750); // e il secondo, il più fitto, pure
+  });
+
   it('non duplica il computer principale reimportando gli stessi file', async () => {
     const peregrine = { model: 'Shearwater Peregrine', serial: 'A1B2C3D4', gfLow: 20, gfHigh: 85 };
     const aladin = { model: 'Scubapro Aladin Sport Matrix', serial: '6303450223', ppo2MaxBar: 1.5 };

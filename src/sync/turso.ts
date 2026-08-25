@@ -21,12 +21,18 @@
  * separatamente — il più recente per l'uno, il più ricco per l'altro — e le regole
  * stanno in `plan.ts` con i loro test.
  *
+ * E «arricchita in modo diverso» va preso alla lettera: quando il riepilogo
+ * remoto vince, non si SOSTITUISCE quello locale, si FONDONO campo per campo
+ * (vedi `fondiRiepiloghi`). Questo commento lo prometteva già e il codice
+ * scriveva `putDives(remoto)` e basta.
+ *
  * IL TOKEN NON STA NEL CODICE. Vive nella tabella delle impostazioni del
  * database locale, inserito una volta dall'interfaccia. Nel repository non c'è
  * nessuna credenziale, e un `git push` distratto non ne può portare fuori.
  */
 
 import { BLE_MARKERS_KEY, type DownloadMarker } from '../core/ble/types';
+import { mergeDive } from '../core/dedupe';
 import type { Dive, Sample } from '../core/model';
 import { comeSta, type Traduci } from '../core/traduci';
 import type { DiveStore } from '../storage';
@@ -130,19 +136,30 @@ export interface Tombstone {
  * dà consigli diversi. Erano le uniche due chiavi presenti nel backup e assenti
  * di qui.
  *
+ * `subacqueo`: nome e brevetto di chi si immerge, lettere a) e b) del libretto
+ * previsto dalla legge. Non arrivano da nessun file, come `gear`, e sono le due
+ * voci senza cui il libretto stampato non è un documento ma un elenco. Erano
+ * assenti da qui E dal backup: chi cambiava telefono si ritrovava l'archivio
+ * intero e il libretto anonimo, senza nessun avviso.
+ *
  * `bleMarkers`: fin dove si era arrivati con ciascun computer. Senza, il secondo
  * dispositivo che si collega rilegge la memoria intera — su BLE sono minuti, non
  * secondi: centodiciassette immersioni dall'Aladin sono state 204 secondi di
  * trasferimento. Viaggia in fondo al giro, DOPO le immersioni, ed è l'ordine che
  * lo rende sicuro: un segnalibro che arrivasse prima direbbe «hai già tutto fino
  * a qui» a un archivio che quelle immersioni non le ha ancora ricevute.
+ *
+ * Esportata perché `tests/backup.test.ts` la confronta con `SETTING_KEYS`: le
+ * due liste bianche devono coprire insieme ogni chiave che l'applicazione
+ * scrive davvero, e prima di questo controllo `subacqueo` mancava a entrambe.
  */
-const SHARED_SETTINGS = [
+export const SHARED_SETTINGS = [
   'gasPlan',
   'decoPlan',
   'decoPlans',
   'analyses',
   'gear',
+  'subacqueo',
   BLE_MARKERS_KEY,
   'goal',
   'period',
@@ -684,6 +701,8 @@ export async function syncArchive(
    * tocca `updatedAt`, quindi non fa rimbalzare niente sugli altri dispositivi.
    */
   const daRimandareSu: Dive[] = [];
+  /** I riepiloghi locali per id: servono a FONDERE quello che scende, non a sostituirlo. */
+  const localById = new Map(localDives.map((d) => [d.id, d]));
   if (plan.pull.length) {
     for (const chunk of chunks(plan.pull, PUSH_CHUNK)) {
       const { rows } = await sql.execute(
@@ -698,10 +717,57 @@ export async function syncArchive(
       const dives = rows.map((r) => {
         const grezza = JSON.parse(String(r.doc)) as Dive;
         const pulita = normaliseDive(grezza);
-        // Vedi `daRimandareSu`: se la pulizia ha cambiato qualcosa, il remoto
-        // tiene ancora la versione sporca e va corretto in questo stesso giro.
-        if (pulita !== grezza) daRimandareSu.push(pulita);
-        return pulita;
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► IL CONFLITTO SI RISOLVE CAMPO PER CAMPO, NON PER RECORD. ◄
+         *
+         * Qui c'era `putDives(remoto)` e basta: il documento remoto veniva
+         * scritto SOPRA quello locale, e tutto ciò che esisteva solo di qua
+         * spariva. `mergeDive` — la funzione che fa esattamente questo lavoro
+         * per l'import e per il ripristino da backup — non veniva chiamata da
+         * nessuna parte della sincronizzazione, mentre il commento in testa al
+         * file prometteva il contrario.
+         *
+         * Il caso vero, misurato: il Mac scrive le note dell'immersione il 1°
+         * agosto; l'iPhone, offline, mette compagno e voto sulla STESSA
+         * immersione il 2 agosto. Si sincronizza il Mac, poi l'iPhone, poi di
+         * nuovo il Mac. L'iPhone ha `updatedAt` più recente, quindi vince il
+         * record intero: le note del 1° agosto sparivano da tutti e due i
+         * dispositivi. Il rapporto diceva `pulled: 1`, non c'era cestino, non
+         * c'era avviso, e non c'era nessun file da cui rileggerle.
+         *
+         * ORDINE DEGLI ARGOMENTI. `mergeDive(base, incoming)` protegge i campi
+         * di `base` e riempie solo i suoi buchi con quelli di `incoming` —
+         * `takeIfEmpty` — ed è la stessa convenzione di `planRestore`, dove il
+         * backup è la parte «in arrivo». Quindi la BASE è il remoto, che è il
+         * vincitore per `updatedAt`: dove i due si contraddicono vince chi ha
+         * scritto per ultimo, come prima; dove uno solo dei due ha un dato,
+         * quel dato non si perde più. Invertire gli argomenti farebbe vincere
+         * il locale sui campi in conflitto, cioè cambierebbe la regola.
+         *
+         * I PROFILI RESTANO FUORI dalla fusione, e non è un dettaglio: quale
+         * profilo tenere lo ha già deciso il piano, per conteggio dei campioni,
+         * e `mergeDive` lo deciderebbe con un altro criterio — i canali. Due
+         * giudici diversi sullo stesso dato fanno rimbalzare il profilo fra i
+         * dispositivi senza mai convergere. Vedi `fondiRiepiloghi`.
+         * ════════════════════════════════════════════════════════════════════
+         */
+        const locale = localById.get(pulita.id);
+        const fusa = locale
+          ? fondiRiepiloghi(
+              pulita,
+              locale,
+              // Le metriche del lato che porta il profilo che resterà qui.
+              plan.pullSamples.includes(pulita.id) ? pulita.metrics : locale.metrics,
+            )
+          : pulita;
+        // Vedi `daRimandareSu`: se la pulizia o la fusione hanno cambiato
+        // qualcosa, il remoto tiene ancora la versione di prima e va corretto
+        // in questo stesso giro — altrimenti l'arricchimento resterebbe su
+        // questo dispositivo soltanto, e il giro dopo il remoto lo rimanderebbe
+        // indietro amputato.
+        if (fusa !== grezza) daRimandareSu.push(fusa);
+        return fusa;
       });
       // I profili arrivano solo per le immersioni che li hanno da scaricare.
       for (const dive of dives) {
@@ -736,10 +802,60 @@ export async function syncArchive(
   const digests = new Map(local.map((f) => [f.id, f]));
 
   const remoteById = new Map(remote.map((r) => [r.id, r]));
+
+  /*
+   * ► ANCHE SALENDO SI FONDE, e per la stessa ragione di quando si scende. ◄
+   *
+   * Il ramo di scarico da solo rende il difetto guaribile ma non lo chiude: chi
+   * vince per `updatedAt` scriveva il proprio documento sopra la riga remota, e
+   * i campi che esistevano SOLO là dentro sparivano dal database condiviso.
+   * Restavano sul dispositivo che li aveva scritti — ed è per questo che la
+   * fusione in discesa poi li recuperava — ma nel mezzo c'era una finestra in
+   * cui il dato non era più nel remoto: un terzo dispositivo che si
+   * sincronizzasse lì dentro riceveva la versione amputata, e se l'archivio del
+   * dispositivo «proprietario» andava perso prima del suo giro successivo,
+   * quel campo non era più in nessun file.
+   *
+   * Si leggono quindi i documenti remoti delle sole immersioni che stiamo per
+   * sovrascrivere — non di tutte quelle da caricare: un primo caricamento su un
+   * database vuoto non legge niente — e si fondono con la versione locale, che
+   * qui è il vincitore e quindi la base. La versione fusa si scrive in ENTRAMBI
+   * i posti: se la salvassimo solo di là, l'impronta locale resterebbe diversa
+   * da quella remota e la stessa immersione si riscaricherebbe a ogni giro.
+   */
+  const daFondereSalendo = plan.push.filter((id) => remoteById.has(id));
+  const remotiPerFusione = new Map<string, Dive>();
+  for (const chunk of chunks(daFondereSalendo, PUSH_CHUNK)) {
+    const { rows } = await sql.execute(
+      `SELECT doc FROM dives WHERE id IN (${placeholders(chunk.length)})`,
+      chunk,
+    );
+    for (const r of rows) {
+      const d = JSON.parse(String(r.doc)) as Dive;
+      if (d?.id) remotiPerFusione.set(d.id, d);
+    }
+  }
+  const fuseSalendo: Dive[] = [];
+
   for (const id of plan.push) {
-    const dive = localDives.find((d) => d.id === id);
-    if (!dive) continue;
+    const locale = localDives.find((d) => d.id === id);
+    if (!locale) continue;
+    const remoto = remotiPerFusione.get(id);
+    const dive = remoto
+      ? fondiRiepiloghi(
+          locale,
+          remoto,
+          // Le metriche del lato che porta il profilo che resterà in archivio.
+          plan.pullSamples.includes(id) ? remoto.metrics : locale.metrics,
+        )
+      : locale;
+    if (dive !== locale) fuseSalendo.push(dive);
     const fp = digests.get(id)!;
+    const doc = stripSamples(dive);
+    // L'impronta si ricalcola sul documento che si sta davvero scrivendo: su
+    // una versione fusa quella del piano descrive il riepilogo di prima, e
+    // salvarla farebbe divergere per sempre le due parti.
+    const digest = dive === locale ? fp.digest : digestOf(doc as unknown as Record<string, unknown>);
     await sql.execute(
       `INSERT INTO dives (id, start_time, updated_at, sample_count, digest, doc)
        VALUES (?, ?, ?, ?, ?, ?)
@@ -763,19 +879,35 @@ export async function syncArchive(
         dive.startTime,
         dive.updatedAt ?? null,
         Math.max(fp.sampleCount, remoteById.get(id)?.sampleCount ?? 0),
-        fp.digest,
-        JSON.stringify(stripSamples(dive)),
+        digest,
+        JSON.stringify(doc),
       ],
     );
     pushed++;
     if (pushed % 10 === 0) say(`${t('Caricate')} ${pushed} ${t('di')} ${plan.push.length}…`);
   }
+  // Le versioni fuse salendo restano anche qui: vedi il commento sopra.
+  if (fuseSalendo.length) await store.putDives(fuseSalendo);
 
-  // Le correzioni fatte scendendo tornano su, così il giro successivo trova le
-  // due parti d'accordo invece di riscaricare lo stesso documento all'infinito.
+  // Le correzioni e le fusioni fatte scendendo tornano su, così il giro
+  // successivo trova le due parti d'accordo invece di riscaricare lo stesso
+  // documento all'infinito.
   for (const dive of daRimandareSu) {
     const doc = stripSamples(dive);
-    await sql.execute(`UPDATE dives SET digest = ?, doc = ? WHERE id = ?`, [
+    /*
+     * `updated_at` VIAGGIA ANCHE LUI, e prima no.
+     *
+     * Per le sole correzioni di `normaliseDive` non cambiava niente — la
+     * pulizia non tocca `updatedAt`, quindi riscriverlo è riscrivere lo stesso
+     * valore — ma una fusione sì: `mergeDive` timbra il documento fuso. Senza
+     * questa colonna, la riga remota avrebbe continuato a dichiarare la data
+     * del perdente, e un TERZO dispositivo con una copia vecchia ma più
+     * recente di quella data si sarebbe visto vincente e avrebbe riscritto
+     * sopra la versione fusa — cioè avrebbe rifatto sparire il campo appena
+     * salvato.
+     */
+    await sql.execute(`UPDATE dives SET updated_at = ?, digest = ?, doc = ? WHERE id = ?`, [
+      dive.updatedAt ?? null,
       digestOf(doc as unknown as Record<string, unknown>),
       JSON.stringify(doc),
       dive.id,
@@ -847,8 +979,61 @@ async function pullSamples(
   }
 }
 
-function stripSamples(dive: Dive): Omit<Dive, 'samples'> {
-  const { samples: _s, ...rest } = dive;
+/**
+ * Fonde il riepilogo remoto che sta scendendo con quello locale, campo per campo.
+ *
+ * Restituisce `remoto` per riferimento quando non c'è niente da aggiungere: chi
+ * chiama distingue così «fuso» da «identico» e non rimanda su un documento che
+ * non è cambiato.
+ *
+ * DUE CAUTELE, entrambe necessarie perché la fusione non faccia danni sue.
+ *
+ *  1. I PROFILI RESTANO FUORI. Si tolgono da tutti e due i lati prima di
+ *     chiamare `mergeDive` e si rimettono verbatim quelli del remoto dopo: la
+ *     scelta di quale profilo tenere è del piano (`plan.ts`, per conteggio di
+ *     campioni) e `mergeDive` la rifarebbe con un criterio diverso (i canali).
+ *     Il riepilogo locale che arriva da `listDives` i campioni non li ha
+ *     comunque, quindi lasciarglieli decidere significherebbe farglieli
+ *     decidere contro lo zero.
+ *
+ *  2. LE METRICHE NON SI RICALCOLANO QUI. `mergeDive` chiude sempre con
+ *     `computeMetrics(out)`, che è la cosa giusta durante un import — lì i
+ *     campioni ci sono — e la cosa sbagliata qui: su due riepiloghi senza
+ *     profilo produrrebbe metriche da immersione senza profilo e le
+ *     scriverebbe sopra quelle buone, in silenzio e su ogni sincronizzazione.
+ *     Chi chiama passa quelle del lato che possiede il profilo destinato a
+ *     restare in archivio. Le metriche stanno fuori dal digest (`digestOf`),
+ *     quindi questa scelta non influisce sulla convergenza.
+ *
+ * `base` è sempre il VINCITORE per `updatedAt` — il remoto quando si scarica, il
+ * locale quando si carica — così la regola «vince chi ha scritto per ultimo»
+ * resta quella di prima sui campi in conflitto, e cambia solo il destino dei
+ * campi che uno solo dei due possiede.
+ */
+function fondiRiepiloghi(base: Dive, arricchisce: Dive, metriche: Dive['metrics']): Dive {
+  const senzaProfilo = stripSamples(base) as Dive;
+  const fusa = mergeDive(senzaProfilo, stripSamples(arricchisce) as Dive);
+  if (fusa === senzaProfilo) return base;
+  if (base.samples) fusa.samples = base.samples;
+  if (base.altSamples) fusa.altSamples = base.altSamples;
+  fusa.metrics = metriche ?? base.metrics ?? arricchisce.metrics;
+  return fusa;
+}
+
+/**
+ * Il documento che viaggia non contiene profili: stanno nelle loro tabelle.
+ *
+ * ANCHE IL SECONDO. Prima toglieva solo `samples`, e `altSamples` finiva dentro
+ * il documento remoto ogni volta che un'immersione ripartiva verso l'alto dopo
+ * essere scesa (vedi `daRimandareSu`). Da lì in poi il digest remoto conteneva
+ * il secondo profilo e quello locale no — la lista in memoria i profili non li
+ * porta — quindi le due impronte non potevano più coincidere e la stessa
+ * immersione si riscaricava a ogni sincronizzazione, per sempre. È la stessa
+ * definizione di `stripSamples` che sta in `storage/types.ts`, che entrambi i
+ * profili li toglieva già.
+ */
+function stripSamples(dive: Dive): Omit<Dive, 'samples' | 'altSamples'> {
+  const { samples: _s, altSamples: _a, ...rest } = dive;
   return rest;
 }
 
