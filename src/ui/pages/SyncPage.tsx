@@ -602,7 +602,19 @@ function RiconoscimentiCard() {
         )}
       </p>
       <p style={{ fontSize: 13 }}>
-        <b>libdivecomputer</b> — {t('di Jef Driesen e collaboratori, licenza LGPL-2.1.')}{' '}
+        <b>libdivecomputer</b> — {t('di Jef Driesen e collaboratori, licenza')}{' '}
+        {/*
+          IL NOME DELLA LICENZA È IL COLLEGAMENTO AL SUO TESTO, e non è un vezzo:
+          la LGPL-2.1 chiede al §1 che la libreria sia accompagnata da una copia
+          della licenza. Il sorgente ce l'ha (`COPYING` dentro il tarball
+          versionato), ma chi riceve l'app dal negozio il sorgente non lo apre:
+          per lui la copia è questa. Il testo sta su gnu.org, che è la fonte, e
+          non una nostra trascrizione che potrebbe divergere.
+        */}
+        <a href="https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html" target="_blank" rel="noreferrer">
+          LGPL-2.1
+        </a>
+        .{' '}
         {t(
           'È inclusa in questa applicazione ed è quello che legge i computer subacquei che l’app non sa leggere da sé.',
         )}{' '}

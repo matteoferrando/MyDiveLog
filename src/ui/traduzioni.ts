@@ -2004,7 +2004,7 @@ export const INGLESE: Record<string, string> = {
   Riconoscimenti: 'Credits',
   'MyDiveLog legge i computer subacquei grazie al lavoro di chi ha decifrato i loro protocolli e lo ha reso pubblico.':
     'MyDiveLog reads dive computers thanks to the people who worked out their protocols and made that public.',
-  'di Jef Driesen e collaboratori, licenza LGPL-2.1.': 'by Jef Driesen and contributors, LGPL-2.1 licensed.',
+  'di Jef Driesen e collaboratori, licenza': 'by Jef Driesen and contributors, licensed under',
   'È inclusa in questa applicazione ed è quello che legge i computer subacquei che l’app non sa leggere da sé.':
     'It ships inside this app and is what reads the dive computers the app cannot read on its own.',
   'Il sorgente di MyDiveLog è pubblico sotto licenza MIT, e il sorgente esatto di libdivecomputer usato per compilare questa versione è dentro il repository: chiunque può ricostruire l’applicazione, libreria compresa.':
