@@ -337,6 +337,42 @@ pub fn run() {
         ponte_blec::scarica_da_computer_esterno
     ]);
 
+    /*
+     * ► WINDOWS E ANDROID, E PERCHÉ QUESTI DUE RAMI ESISTONO. ◄
+     *
+     * Prima c'erano solo i due rami di sopra, macOS e iOS. Su qualunque altra
+     * piattaforma il costruttore arrivava a `run()` **senza nessun
+     * `invoke_handler`**, e il risultato non era «qualche funzione in meno»: era
+     * che OGNI comando Rust rispondeva «comando sconosciuto». Non dava errore in
+     * compilazione, non dava errore all'avvio, e si vedeva solo toccando la cosa
+     * giusta sull'apparecchio giusto — che qui non c'è.
+     *
+     * Le differenze rispetto ad Apple non sono arbitrarie: sono esattamente i
+     * moduli che su queste piattaforme non vengono compilati.
+     *
+     * `segreti` non c'è: il portachiavi è di Apple, e `keyring` è una dipendenza
+     * dichiarata solo per macOS e iOS. Il lato TypeScript se lo aspetta e ripiega
+     * sull'archivio locale dicendolo.
+     *
+     * `ritorno_accesso` c'è su Windows, che è `desktop`, e NON su Android, che
+     * non lo è. Conseguenza da dire e non da nascondere: **su Android l'accesso
+     * con Google e con Apple non torna indietro**, perché non c'è né la porta
+     * locale del desktop né lo schema URL di iOS. Il logbook funziona lo stesso,
+     * senza account, che è come lo usa la maggioranza.
+     */
+    #[cfg(all(desktop, not(target_os = "macos")))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        ritorno_accesso::apri_ritorno_accesso,
+        computer_esterni::elenca_computer_supportati,
+        ponte_blec::scarica_da_computer_esterno
+    ]);
+
+    #[cfg(target_os = "android")]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        computer_esterni::elenca_computer_supportati,
+        ponte_blec::scarica_da_computer_esterno
+    ]);
+
     builder
         .run(tauri::generate_context!())
         .expect("errore durante l'avvio dell'applicazione Tauri");

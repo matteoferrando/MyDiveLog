@@ -93,8 +93,14 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory consegna | Out-Null
-          Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe | Copy-Item -Destination consegna/
-          Copy-Item src-tauri/target/release/MyDiveLog.exe consegna/MyDiveLog-portable.exe
+          # I NOMI NON PORTANO IL NUMERO DI VERSIONE, ed è voluto: il pulsante
+          # del sito punta a `releases/latest/download/<nome>`, che vale solo se
+          # il nome resta lo stesso a ogni pubblicazione. NSIS invece il numero
+          # ce lo mette, quindi si rinomina qui.
+          Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe |
+            Select-Object -First 1 |
+            Copy-Item -Destination consegna/MyDiveLog-Windows-setup.exe
+          Copy-Item src-tauri/target/release/MyDiveLog.exe consegna/MyDiveLog-Windows-portatile.exe
           # Le impronte servono a chi scarica: un binario non firmato non dice
           # da dove viene, e questo è l'unico modo che ha per verificarlo.
           #
@@ -192,7 +198,9 @@ jobs:
           mkdir consegna
           find src-tauri/gen/android -name '*.apk' -exec cp {} consegna/ \;
           cd consegna
-          for f in *.apk; do mv "$f" "MyDiveLog-${{ inputs.versione }}-android-arm64.apk"; break; done
+          # Nome senza numero di versione: vedi il commento gemello nel job
+          # Windows. Il collegamento del sito dev'essere sempre lo stesso.
+          for f in *.apk; do mv "$f" MyDiveLog-Android-arm64.apk; break; done
           sha256sum * > SHA256.txt
           cat SHA256.txt
 
