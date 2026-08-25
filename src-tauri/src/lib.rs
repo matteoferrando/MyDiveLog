@@ -173,7 +173,27 @@ mod ponte_blec;
 /// Il controllo che conta però non è qui: è lo `state` confrontato dal lato
 /// TypeScript. Questa porta è aperta, e chiunque sulla macchina può bussarci;
 /// quello che arriva senza uno `state` che combacia non viene guardato.
-#[cfg(desktop)]
+/// ► E ANDROID? CI STA DENTRO, ED È LA RAGIONE PER CUI LÌ SI ENTRA. ◄
+///
+/// Questo modulo era `#[cfg(desktop)]`, cioè fuori da Android, e la conseguenza
+/// era che su Android non si poteva accedere affatto. La strada che sembrava
+/// obbligata era quella dell'iPhone — uno schema URL — e costava: un filtro
+/// d'intenti dentro un manifesto GENERATO, quindi uno script che lo rimetta a
+/// ogni build, e per l'accesso con Google la registrazione di un client Android
+/// su Google Cloud, che pretende l'impronta del certificato di firma. La chiave
+/// con cui firmiamo l'APK si rigenera a ogni build: quell'impronta non esiste.
+///
+/// Il loopback invece **su Android c'è**, ed è lo stesso identico codice del
+/// desktop: `127.0.0.1` non passa dalla rete, non chiede permessi che l'app non
+/// abbia già, e non lascia in giro nessuna associazione permanente. L'unico
+/// dubbio ragionevole era se Android tenga vivo l'ascoltatore mentre il browser
+/// è in primo piano: un processo appena passato in secondo piano non viene
+/// ucciso subito, e i trecento secondi di attesa qui sotto sono molto più di
+/// quanto duri un accesso.
+///
+/// Se un giorno si scoprisse che su qualche telefono non regge, la strada dello
+/// schema URL resta lì, col suo costo, come ripiego — non come prima scelta.
+#[cfg(any(desktop, target_os = "android"))]
 mod ritorno_accesso {
     use std::io::{BufRead, BufReader, Write};
     use std::net::TcpListener;
@@ -376,6 +396,7 @@ pub fn run() {
 
     #[cfg(target_os = "android")]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        ritorno_accesso::apri_ritorno_accesso,
         computer_esterni::elenca_computer_supportati,
         ponte_blec::scarica_da_computer_esterno
     ]);
