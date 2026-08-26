@@ -19,7 +19,12 @@
  * sbaglia. Sono i casi in cui qualcuno, un domani, «correggerà» un numero giusto
  * perché in rete ne circola un altro. Ogni controllo porta scritto perché.
  */
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
+
+import { inLettere } from './inLettere';
 import {
   DIDATTICHE,
   DIDATTICA_ALTRO,
@@ -266,6 +271,32 @@ describe('i numeri che tutti sbagliano', () => {
     const d = didatticaPerSigla('NADD')!;
     const apnea = d.brevetti.filter((b) => /apnea|mermaid|monopinna|snorkel/i.test(b.nome));
     expect(apnea).toEqual([]);
+  });
+
+  it('NADD: il commento in testa dice il numero vero di brevetti', () => {
+    /*
+      ► UN NUMERO SBAGLIATO IN UN COMMENTO È UNA BUGIA CHE NESSUNO VEDE. ◄
+
+      Il commento sopra NADD diceva «dieci brevetti su trentacinque» quando
+      erano quarantaquattro: il conto era stato scritto su una versione
+      dell'elenco più corta, e l'elenco è cresciuto senza che il commento se ne
+      accorgesse. Nessun compilatore guarda dentro un commento, e chi legge un
+      catalogo si fida di quello che c'è scritto in testa proprio perché non ha
+      voglia di contare quarantaquattro righe.
+
+      È la stessa regola dei metri, applicata alla prosa: qui non si scrivono
+      numeri che nessuno controlla.
+    */
+    const testa = readFileSync(
+      fileURLToPath(new URL('../src/core/analysis/didattiche.ts', import.meta.url)),
+      'utf8',
+    );
+    const d = didatticaPerSigla('NADD')!;
+    const conProfondita = d.brevetti.filter((b) => b.profonditaM !== undefined).length;
+    const scritto = testa.slice(testa.indexOf('► I NUMERI. ◄'), testa.indexOf('const NADD: Didattica'));
+    expect(scritto, 'il commento di NADD non nomina più i numeri').not.toBe('');
+    expect(scritto, `brevetti nell'elenco: ${d.brevetti.length}`).toContain(inLettere(d.brevetti.length));
+    expect(scritto, `con profondità dichiarata: ${conProfondita}`).toContain(inLettere(conProfondita));
   });
 });
 

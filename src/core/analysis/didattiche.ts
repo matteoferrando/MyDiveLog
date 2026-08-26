@@ -401,8 +401,8 @@ const ESA: Didattica = {
      Review è un ripasso. Un catalogo di brevetti che contiene cose che
      brevetti non sono smette di essere un catalogo di brevetti.
 
-  ► I NUMERI. ◄ Dieci brevetti su trentacinque dichiarano una profondità, e sono
-  questi dieci e basta. Il resto — tutte le specialità, tutta la linea grotta,
+  ► I NUMERI. ◄ Dieci brevetti su quarantaquattro dichiarano una profondità, e
+  sono questi dieci e basta. Il resto — tutte le specialità, tutta la linea grotta,
   tutta la scala professionale — non la dichiara, e qui resta vuoto.
 
   ► IL REBREATHER NON C'È PERCHÉ NON HA UN NOME. ◄ La pagina dei corsi tecnici
