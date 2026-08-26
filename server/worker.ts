@@ -73,6 +73,18 @@ export interface ArchivioChiaveValore {
   list(opzioni?: { prefix?: string; limit?: number }): Promise<{ keys: { name: string }[] }>;
 }
 
+/**
+ * Il contesto d'esecuzione di Cloudflare, ridotto all'unico metodo che serve.
+ *
+ * Stessa scelta di `ArchivioChiaveValore` qui sopra: si dichiara la forma che si
+ * usa invece di tirare dentro i tipi della piattaforma intera. È facoltativo nel
+ * `fetch` perché i test montano il Worker chiamandolo con due argomenti, e
+ * perché senza contesto il travaso si fa comunque — solo aspettando.
+ */
+export interface ContestoEsecuzione {
+  waitUntil(promessa: Promise<unknown>): void;
+}
+
 export interface Ambiente {
   /**
    * Dove finiscono le segnalazioni dal modulo del sito.
@@ -83,6 +95,28 @@ export interface Ambiente {
    * il resto funziona.
    */
   SEGNALAZIONI?: ArchivioChiaveValore;
+  /**
+   * ► IL FOGLIO DI GOOGLE: L'INDIRIZZO DELLO SCRIPT E IL GETTONE CHE PRETENDE. ◄
+   *
+   * `FOGLIO_SEGNALAZIONI` è l'indirizzo `/exec` dell'Apps Script pubblicato dal
+   * foglio; `FOGLIO_GETTONE` è la parola d'ordine che quello script controlla
+   * prima di scrivere una riga.
+   *
+   * ► PERCHÉ IL GETTONE ESISTE. ◄ Un Apps Script pubblicato «per CHIUNQUE» è un
+   * indirizzo su Internet che aggiunge righe a un foglio, e chi lo scopre può
+   * riempirlo. L'indirizzo non è segreto per costruzione — basta che finisca in
+   * un log, in una segnalazione di errore, in uno screenshot — quindi non ci si
+   * può appoggiare. Il gettone sì: sta qui come segreto del Worker, sta nello
+   * script, e non passa da nessuna parte in mezzo. Chi conosce l'indirizzo e non
+   * il gettone si prende un rifiuto.
+   *
+   * Tutti e due FACOLTATIVI, come `SEGNALAZIONI`: senza, la segnalazione si
+   * salva lo stesso e resta marcata da travasare. Il foglio è **una copia**, non
+   * l'archivio — se lo si scambiasse per l'archivio, un guasto di Google
+   * diventerebbe una segnalazione persa.
+   */
+  FOGLIO_SEGNALAZIONI?: string;
+  FOGLIO_GETTONE?: string;
   /** Segreto per firmare le sessioni. Cambiarlo scollega tutti i dispositivi. */
   SESSION_KEY: string;
   /** Token dell'organizzazione Turso: crea, legge e cancella OGNI database. */
@@ -312,8 +346,74 @@ function configurazioneTurso(env: Ambiente) {
   };
 }
 
+/** Una segnalazione come sta nell'archivio. `foglio` dice se è già stata copiata. */
+interface SegnalazioneSalvata {
+  quando: string;
+  tipo: string;
+  dove: string;
+  testo: string;
+  contatto: string;
+  pagina: string;
+  foglio?: boolean;
+}
+
+/**
+ * Copia una segnalazione nel foglio di Google, e segna sull'archivio se è
+ * andata.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► L'ARCHIVIO È KV, IL FOGLIO È UNA COPIA. ◄ In quest'ordine, e l'ordine è
+ * tutto il disegno. La segnalazione è già salvata quando questa funzione parte:
+ * se Google è lento, se lo script è stato ripubblicato con un altro indirizzo,
+ * se la rete cade a metà, non si perde niente — resta una riga con `foglio`
+ * falso, che `scripts/travasa-segnalazioni.mjs` ritrova e riprova.
+ *
+ * Il contrario — scrivere nel foglio e considerarlo fatto — legherebbe la sorte
+ * di quello che qualcuno si è preso la briga di scrivere alla disponibilità di
+ * un servizio di terzi, per giunta in un momento in cui nessuno sta guardando.
+ *
+ * ► PERCHÉ NON GUARDA COSA RISPONDE LO SCRIPT. ◄ Lo guarda eccome: un Apps
+ * Script risponde 200 anche quando ha rifiutato, perché il rifiuto è testo nel
+ * corpo, non uno stato. Quindi si legge il corpo e si accetta solo `ok`. Senza
+ * questo controllo un gettone sbagliato marcherebbe tutto come travasato
+ * lasciando il foglio vuoto: **il modo peggiore di fallire, perché somiglia in
+ * tutto al successo.**
+ */
+async function versaNelFoglio(env: Ambiente, chiave: string, dati: SegnalazioneSalvata): Promise<boolean> {
+  if (!env.FOGLIO_SEGNALAZIONI || !env.SEGNALAZIONI) return false;
+  try {
+    /*
+     * Otto secondi e poi si lascia perdere. Non è una scelta di prestazioni —
+     * qui non aspetta nessuno, la risposta al sito è già partita — ma di igiene:
+     * una chiamata senza scadenza, dentro un `waitUntil`, tiene in vita
+     * l'esecuzione finché la piattaforma non la stronca, e allora il travaso
+     * muore a metà senza lasciare traccia di esserci provato.
+     */
+    const taglio = AbortSignal.timeout(8000);
+    const risposta = await fetch(env.FOGLIO_SEGNALAZIONI, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...dati, gettone: env.FOGLIO_GETTONE ?? '' }),
+      signal: taglio,
+      // Apps Script risponde con un rimando a `script.googleusercontent.com`:
+      // senza seguirlo si leggerebbe il corpo vuoto del 302 e ogni travaso
+      // riuscito risulterebbe fallito.
+      redirect: 'follow',
+    });
+    if (!risposta.ok) return false;
+    if ((await risposta.text()).trim() !== 'ok') return false;
+    await env.SEGNALAZIONI.put(chiave, JSON.stringify({ ...dati, foglio: true }));
+    return true;
+  } catch {
+    // Nessun rilancio: chi chiama non ha niente da fare con l'errore, e la
+    // segnalazione è al sicuro comunque. Resta `foglio` falso, che è il modo in
+    // cui questo guasto si dichiara.
+    return false;
+  }
+}
+
 export default {
-  async fetch(richiesta: Request, env: Ambiente): Promise<Response> {
+  async fetch(richiesta: Request, env: Ambiente, ctx?: ContestoEsecuzione): Promise<Response> {
     const origine = richiesta.headers.get('Origin');
     const percorso = new URL(richiesta.url).pathname;
     const ammesse = (env.ORIGINI_AMMESSE ?? '')
@@ -401,17 +501,41 @@ export default {
         // così `list` restituisce già le segnalazioni in ordine di arrivo, senza
         // doverle ordinare dopo averle lette tutte.
         const quando = new Date().toISOString();
-        await env.SEGNALAZIONI.put(
-          `s:${quando}:${crypto.randomUUID().slice(0, 8)}`,
-          JSON.stringify({
-            quando,
-            tipo: taglia(corpo.tipo),
-            dove: taglia(corpo.dove),
-            testo,
-            contatto: taglia(corpo.contatto),
-            pagina: taglia(corpo.pagina),
-          }),
-        );
+        const chiave = `s:${quando}:${crypto.randomUUID().slice(0, 8)}`;
+        const dati: SegnalazioneSalvata = {
+          quando,
+          tipo: taglia(corpo.tipo),
+          dove: taglia(corpo.dove),
+          testo,
+          contatto: taglia(corpo.contatto),
+          pagina: taglia(corpo.pagina),
+          // Nasce «non ancora nel foglio» e lo diventa se il travaso riesce. Il
+          // valore predefinito è quello PESSIMISTA apposta: una segnalazione che
+          // si dichiara copiata senza esserlo sparirebbe dai controlli.
+          foglio: false,
+        };
+        await env.SEGNALAZIONI.put(chiave, JSON.stringify(dati));
+
+        /*
+         * ► IL FOGLIO SI RIEMPIE QUI, DOPO CHE LA RISPOSTA È GIÀ VERA. ◄
+         *
+         * Il commento in testa a questa rotta dice che `waitUntil` non si usa, e
+         * vale ancora — per la scrittura in ARCHIVIO, che è quella che rende
+         * vera la parola «ricevuta» e resta bloccante due righe più su.
+         *
+         * La copia nel foglio è un'altra cosa: quando parte, la segnalazione è
+         * già salvata. Farla aspettare a chi ha premuto «invia» vorrebbe dire
+         * far pagare a lui la lentezza di Google per un lavoro che non lo
+         * riguarda, e in cambio di niente — perché comunque, se fallisse, la
+         * risposta resterebbe «ok».
+         *
+         * Senza contesto d'esecuzione (i test, un ambiente che non lo passa) si
+         * aspetta: meglio lento che saltato in silenzio.
+         */
+        const copia = versaNelFoglio(env, chiave, dati);
+        if (ctx) ctx.waitUntil(copia);
+        else await copia;
+
         return new Response(JSON.stringify({ ok: true }), {
           headers: { 'Content-Type': 'application/json', ...intestazioniCors(origine) },
         });

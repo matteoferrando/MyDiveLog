@@ -77,14 +77,26 @@ ORIGINI_AMMESSE = ""
 
 # Dove finiscono le segnalazioni dal modulo del sito.
 #
-# PERCHÉ QUI E NON DIRETTAMENTE IN UN FOGLIO DI GOOGLE. Scrivere in un foglio
-# vuole una credenziale di Google che dovrebbe vivere dentro questo Worker, e una
-# credenziale in più è una cosa in più che può trapelare — per giunta con accesso
-# al Drive di chi la possiede. Il Worker invece un archivio ce l'ha già:
-# ottantacinque byte a segnalazione, gratis, e senza dipendere da nessun altro.
+# ► QUESTO È L'ARCHIVIO. IL FOGLIO DI GOOGLE È UNA COPIA. ◄ Il modulo del sito
+# scrive qui passando dalla rotta `/segnalazione`, e solo dopo il Worker manda
+# una copia al foglio. L'ordine non è
+# indifferente: così un guasto di Google costa una copia mancata, non una
+# segnalazione persa — la riga resta con `foglio: false` e
+# `scripts/travasa-segnalazioni.mjs` la riprende.
 #
-# Il foglio si riempie da lì, ed è un problema separato: vedi la rotta
-# `/segnalazioni.csv` in `worker.ts`.
+# PERCHÉ NON SI SCRIVE NEL FOGLIO E BASTA. Perché allora la sorte di quello che
+# qualcuno si è preso la briga di scrivere dipenderebbe da un servizio di terzi,
+# proprio nel momento in cui nessuno sta guardando. E perché l'indirizzo dello
+# script che scrive nel foglio è pubblico per costruzione: quello che lo protegge
+# è il gettone in `FOGLIO_GETTONE`, non la segretezza dell'indirizzo.
+#
+# ► QUI C'ERA SCRITTO «vedi la rotta /segnalazioni.csv in worker.ts», E QUELLA
+# ROTTA NON È MAI ESISTITA. ◄ Per settimane le segnalazioni sono entrate qui
+# dentro e non è uscito niente: da fuori era indistinguibile da un modulo rotto.
+# Una riga di commento che rimanda a codice che non c'è è peggio di nessuna riga,
+# perché chiude la domanda invece di lasciarla aperta —
+# `tests/rotteDichiarate.test.ts` adesso confronta le rotte nominate in questo
+# file con quelle che `worker.ts` ha davvero.
 #
 # ► LE SEGNALAZIONI NON SI CANCELLANO DA SOLE. ◄ Niente scadenza: una
 # segnalazione che sparisce dopo un mese è una segnalazione persa, e chi l'ha
