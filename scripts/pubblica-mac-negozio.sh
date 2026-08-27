@@ -42,9 +42,20 @@ FUORI=src-tauri/target/negozio
 PROFILO=${PROFILO_NEGOZIO:-src-tauri/MyDiveLog_Mac_App_Store.provisionprofile}
 
 # ── i certificati, controllati PRIMA di compilare per venti minuti ──────────
+# ► DUE NOMI PER LA STESSA COSA, e cercarne uno solo era un errore mio. ◄
+#
+# Il certificato che firma un'applicazione per il Mac App Store si chiama
+# "3rd Party Mac Developer Application" se creato con il tipo storico
+# («Mac App Distribution»), e "Apple Distribution" se creato con quello
+# unificato, che è il tipo che Xcode genera da solo e che vale per iOS e per
+# macOS insieme. Sono tutti e due validi e Apple accetta entrambi.
+#
+# Cercare solo il primo voleva dire mandare qualcuno a rifare un certificato che
+# aveva già, per un nome. Si cercano tutti e due, in quest'ordine: se ci sono
+# entrambi vince quello specifico per il Mac, che è il più stretto.
 FIRMA_APP=$(security find-identity -v -p codesigning \
-  | grep "3rd Party Mac Developer Application" | head -1 \
-  | sed 's/.*"\(.*\)"/\1/' || true)
+  | grep -E "3rd Party Mac Developer Application|Apple Distribution" \
+  | sort | head -1 | sed 's/.*"\(.*\)"/\1/' || true)
 FIRMA_PKG=$(security find-identity -v \
   | grep "3rd Party Mac Developer Installer" | head -1 \
   | sed 's/.*"\(.*\)"/\1/' || true)
@@ -55,8 +66,11 @@ FERMO: mancano i certificati per il negozio.
 
 Sul portachiavi ce ne servono DUE, e sono diversi da quello che firma il .dmg:
 
-  · 3rd Party Mac Developer Application  — firma l'applicazione
-  · 3rd Party Mac Developer Installer    — firma il .pkg
+  · per l'APPLICAZIONE, uno qualsiasi dei due:
+      "Apple Distribution"                    (tipo unificato, vale anche per iOS)
+      "3rd Party Mac Developer Application"   (tipo storico, solo Mac)
+  · per il PACCHETTO:
+      "3rd Party Mac Developer Installer"     (tipo «Mac Installer Distribution»)
 
 Si creano su developer.apple.com → Certificates, IDs & Profiles → Certificates,
 scegliendo «Mac App Distribution» e «Mac Installer Distribution». Servono una
