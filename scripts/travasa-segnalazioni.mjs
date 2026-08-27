@@ -53,11 +53,46 @@
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 
 const SCRIVI = process.argv.includes('--scrivi');
-const INDIRIZZO = process.env.FOGLIO_SEGNALAZIONI ?? '';
-const GETTONE = process.env.FOGLIO_GETTONE ?? '';
+
+/**
+ * Chiede un valore alla tastiera, senza farlo comparire a schermo.
+ *
+ * ► PERCHÉ NON BASTA L'AMBIENTE. ◄ `FOGLIO_GETTONE='…' node script.mjs` scrive
+ * la parola d'ordine in due posti che sopravvivono al comando: la cronologia
+ * della shell (`~/.zsh_history`, in chiaro, per sempre) e la riga di comando del
+ * processo, che sulla stessa macchina la legge chiunque con un `ps`. Sono
+ * esattamente i due posti da cui un segreto trapela senza che nessuno abbia
+ * fatto niente di sbagliato.
+ *
+ * Chiesto qui invece vive solo in memoria, per il tempo del travaso. Le due
+ * variabili d'ambiente restano accettate — servono a chi lo lancia da uno
+ * script — ma non sono più la strada normale.
+ */
+async function chiedi(domanda, nascosto) {
+  const riga = createInterface({ input: process.stdin, output: process.stdout });
+  if (nascosto) {
+    // Il carattere digitato non si riscrive: al suo posto niente. `readline` non
+    // ha una modalità password, e questa è la sua scorciatoia consueta.
+    riga.output.write = ((scrivi) => (testo) => {
+      if (riga.stdoutMuted && !testo.includes(domanda)) return true;
+      return scrivi.call(riga.output, testo);
+    })(riga.output.write);
+  }
+  const promessa = riga.question(domanda);
+  riga.stdoutMuted = Boolean(nascosto);
+  const risposta = await promessa;
+  riga.stdoutMuted = false;
+  if (nascosto) process.stdout.write('\n');
+  riga.close();
+  return risposta.trim();
+}
+
+let INDIRIZZO = process.env.FOGLIO_SEGNALAZIONI ?? '';
+let GETTONE = process.env.FOGLIO_GETTONE ?? '';
 
 /**
  * L'identificativo dell'archivio si LEGGE da `wrangler.toml`, non si copia qui.
@@ -107,6 +142,19 @@ async function main() {
   console.log(`da travasare: ${arretrate.length}`);
   if (!arretrate.length) return;
 
+  // I due valori si chiedono UNA VOLTA SOLA, e solo se si scrive davvero: la
+  // prova a vuoto non ha niente da mandare a nessuno, e chiederle lo stesso
+  // insegnerebbe a digitarle senza motivo.
+  if (SCRIVI) {
+    if (!INDIRIZZO) INDIRIZZO = await chiedi('Indirizzo /exec dello script del foglio: ', false);
+    if (!GETTONE) GETTONE = await chiedi('Parola d’ordine (non compare a schermo): ', true);
+    if (!INDIRIZZO || !GETTONE) {
+      console.error('FERMO: senza indirizzo e parola d’ordine non si travasa niente.');
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   for (const { chiave, dati } of arretrate) {
     const riassunto = `${dati.quando ?? '(senza data)'} — ${String(dati.testo ?? '')
       .slice(0, 60)
@@ -114,11 +162,6 @@ async function main() {
     if (!SCRIVI) {
       console.log(`  · ${riassunto}`);
       continue;
-    }
-    if (!INDIRIZZO || !GETTONE) {
-      console.error('\nFERMO: servono FOGLIO_SEGNALAZIONI e FOGLIO_GETTONE nell’ambiente.');
-      process.exitCode = 1;
-      return;
     }
     const risposta = await fetch(INDIRIZZO, {
       method: 'POST',
