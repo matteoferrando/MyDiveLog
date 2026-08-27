@@ -1675,44 +1675,36 @@ a {
 }
 
 /*
-  ► IL BADGE DI APPLE, E PERCHÉ È UN'IMMAGINE E NON UN DISEGNO NOSTRO. ◄
+  ► LA MELA NELL'OCCHIELLO. ◄
 
-  Tutti gli altri disegni di questa fascia sono nostri e rappresentano
-  APPARECCHI, non marche — un portatile, un telefono, un monitor — per la
-  ragione scritta nel commento in cima alla sezione: i marchi dei sistemi
-  operativi sono di chi li possiede.
+  Sta dopo il «per» di «Questo progetto è nato per», e dice in un simbolo quello
+  che le due schede sotto dicono a parole: qui c'è la famiglia per cui questa
+  applicazione è stata scritta.
 
-  Questo è l'unica eccezione, ed è l'eccezione che Apple stessa prevede: il
-  badge «Scarica su App Store» è artwork ufficiale, scaricato dalle loro
-  Marketing Resources, che si può usare **per rimandare alla propria app** — ed è
-  l'unico modo consentito di mettere la mela su un sito di terzi. La mela da sola,
-  come icona di sezione, non lo è.
+  È un tracciato in linea e non il carattere  (U+F8FF): quel carattere vive
+  nell'area privata di Unicode e lo disegna solo un dispositivo Apple. Su
+  Windows e Android — che sono metà del pubblico di questa pagina, e hanno una
+  scheda a due centimetri da qui — verrebbe fuori un rettangolo vuoto, cioè il
+  modo più goffo possibile di parlare di Apple.
 
-  ► NON SI TOCCA, E QUESTE RIGHE SERVONO A NON TOCCARLO. ◄ Le condizioni d'uso
-  vietano di modificarlo, ricolorarlo, ritagliarlo o applicargli effetti. Per
-  questo sta in un `<img>` e non incollato dentro l'HTML: un SVG in linea
-  erediterebbe le regole di questa pagina — a cominciare dallo `stroke` di
-  `.disegno`, due righe più su — e si troverebbe alterato senza che nessuno lo
-  abbia deciso. Dentro un `<img>` nessun foglio di stile lo raggiunge.
+  ► IL COLORE. ◄ `currentColor`: prende quello dell'occhiello che la ospita.
+  Nera com'è di solito qui non si vedrebbe — il fondo è blu scuro — e una mela
+  che si intuisce solo girando lo schermo verso la finestra non è un simbolo, è
+  una macchia. Così invece sta sulla stessa riga e sullo stesso tono del testo
+  che accompagna, che è quello che deve fare un segno in un occhiello.
 
-  Qui si fissa solo la misura, che è consentita perché mantiene le proporzioni.
-  La versione è quella BIANCA perché il fondo è scuro, com'è previsto, ed è
-  localizzata: badge italiano sulla pagina italiana, inglese su quella inglese.
+  La misura è in `em` e non in pixel: cresce con il testo invece di restare
+  indietro il giorno che l'occhiello cambia corpo.
 */
-.badge-negozio {
-  display: block;
-  width: auto;
-  height: 34px;
-  /*
-    `auto` e non un valore: spinge il badge in fondo alla scheda, così si
-    appoggia alla stessa linea di «Scarica ora» nella scheda accanto. Con un
-    margine fisso il badge — che è più alto di una riga di testo — restava
-    dieci pixel più in basso della sua vicina, e due schede appaiate con le
-    ultime righe sfalsate si notano prima di qualunque altra cosa.
-  */
-  margin-top: auto;
-  /* Lo spazio libero intorno che le condizioni chiedono: almeno un decimo
-     dell'altezza del badge. Qui è di più, e viene dal riempimento della scheda. */
+.mela {
+  display: inline-block;
+  width: 0.92em;
+  height: 0.92em;
+  /* Mezzo passo sotto la linea di base: le maiuscole dell'occhiello sono corte
+     e senza questa correzione la mela galleggia sopra la parola. */
+  vertical-align: -0.12em;
+  margin-left: 0.5em;
+  fill: currentColor;
 }
 
 /*
@@ -1798,8 +1790,26 @@ a.scheda-piattaforma:hover {
   di ciano acceso non si sceglie, si vede — e il ciano è lo stesso della linea
   del profilo, quindi non arriva da fuori la tavolozza.
 */
+/*
+  ► LE DUE SCHEDE DEL PRIMO GRUPPO SONO GRANDI UGUALI. ◄
+
+  La principale aveva `min-width: 200px` contro i 158 delle altre, e insieme al
+  colore pieno faceva capire in un colpo d'occhio quale fosse il download
+  principale quando le schede erano quattro in fila.
+
+  Adesso macOS e iOS sono una coppia — due sistemi della stessa famiglia, non un
+  primo e un secondo — e due schede appaiate di larghezza diversa si leggono come
+  una gerarchia che qui non c'è. `flex: 1 1 158px` le fa dividere la riga in
+  parti uguali qualunque sia la larghezza della finestra, e sotto i 158 px
+  ciascuna vanno a capo da sole. La differenza di colore resta: dice qual è il
+  download diretto, senza dire che l'altro conta meno.
+*/
+.appaiate > .scheda-piattaforma {
+  flex: 1 1 158px;
+  min-width: 0;
+}
+
 .scheda-piattaforma.principale {
-  min-width: 200px;
   border-color: transparent;
   background: linear-gradient(150deg, var(--ciano), var(--ciano-cupo));
   color: #04121d;
