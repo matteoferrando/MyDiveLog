@@ -3,9 +3,9 @@
 Logbook subacqueo che importa da computer diversi, calcola statistiche e ne
 ricava un piano di miglioramento.
 
-App desktop macOS (Tauri), con lo stesso codice pronto per iOS e per il web.
-Interfaccia in italiano e in inglese, con un pulsante per passare dall'una
-all'altra. Il sito è [mydivelog.site](https://mydivelog.site).
+App per macOS, iPhone, Windows e Android (Tauri), con lo stesso `src/` sotto
+tutte e quattro. Interfaccia in italiano e in inglese, con un pulsante per
+passare dall'una all'altra. Il sito è [mydivelog.site](https://mydivelog.site).
 
 > **Non è un computer subacqueo e non sostituisce il tuo.**
 > MyDiveLog contiene un'implementazione di Bühlmann ZH-L16C con gradient factor e
@@ -36,13 +36,28 @@ Le schermate sono prodotte dall'applicazione vera con l'archivio dimostrativo
 
 ## Scaricalo
 
-Il pacchetto macOS sta **[nelle release](https://github.com/matteoferrando/MyDiveLog/releases/latest)**:
-`MyDiveLog_…_aarch64.dmg`, firmato Developer ID e **notarizzato da Apple**, quindi
-si apre con un doppio clic invece che con «apri comunque» nascosto nelle
-preferenze di sicurezza. Serve un Mac Apple Silicon.
+**iPhone: [sull'App Store](https://apps.apple.com/app/mydivelog/id6804439480)**,
+gratis, da iOS 15.
 
-Non c'è ancora un pacchetto per Intel, Windows o Linux, e la versione iPhone —
-che esiste e gira — si compila dal sorgente: non è sull'App Store.
+**macOS, Windows e Android stanno
+[nelle release](https://github.com/matteoferrando/MyDiveLog/releases/latest)**, e
+i pulsanti sono anche su [mydivelog.site](https://mydivelog.site).
+
+| | File | Cosa sapere prima di scaricare |
+|---|---|---|
+| macOS | `MyDiveLog-macOS-arm64.dmg` | firmato Developer ID e **notarizzato**: doppio clic, niente «apri comunque». **Serve un Mac Apple Silicon e macOS 12** — su un Mac Intel installa e non si apre |
+| Windows | `MyDiveLog-Windows-setup.exe`, o la versione portatile | firmato dal Mac, si aggiorna da solo. **Non l'ha provato nessuno su una macchina vera** |
+| Android | `MyDiveLog-Android-arm64.apk` | **niente aggiornamento automatico**, e la firma non garantisce da chi viene il file: lo garantisce l'impronta SHA-256 pubblicata nelle note della release. **Non l'ha provato nessuno su un telefono vero** |
+
+Non c'è un pacchetto per Mac Intel né per Linux.
+
+> **Perché i limiti stanno PRIMA del pulsante e non dopo.** Costano qualche
+> scaricamento in meno e risparmiano la delusione di scoprirli a installazione
+> fatta — che è la forma peggiore, perché somiglia a un difetto di chi scarica.
+> La riga su macOS 12 è lì per un motivo preciso: fino al 27 agosto 2026 il
+> pacchetto **dichiarava 10.15** mentre il binario era solo arm64, e nessuno se
+> n'era accorto. L'ha scoperto un controllo automatico di Apple, non un utente e
+> non un test.
 
 ---
 
@@ -246,7 +261,7 @@ e simili, e non nomina ne' il Bluetooth ne' il plugin: sembra un guasto del
 progetto Xcode. La cura sta in una riga di `tauri.conf.json`:
 
 ```json
-"iOS": { "minimumSystemVersion": "14.0", "frameworks": ["CoreBluetooth"] }
+"iOS": { "minimumSystemVersion": "15.0", "frameworks": ["CoreBluetooth"] }
 ```
 
 Vale anche per il simulatore, che di CoreBluetooth ha solo la versione finta —
