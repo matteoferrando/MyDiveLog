@@ -36,6 +36,33 @@ import { comeSta, type Traduci } from '../core/traduci';
 import { suComputer } from '../piattaforma';
 
 /**
+ * Se in QUESTA copia l'aggiornamento automatico esiste.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► PERCHÉ UNA COPIA DEL MAC POTREBBE NON AVERLO. ◄
+ *
+ * Perché ne esistono due, e sono la stessa applicazione distribuita in due modi.
+ * Quella che si scarica dal sito si aggiorna da sé, per la ragione scritta in
+ * cima a questo file. Quella del **Mac App Store** no: ad aggiornarla ci pensa
+ * il negozio, e un programma che si sostituisce da solo dentro un pacchetto
+ * firmato da Apple non è una scelta di stile — è un motivo di rifiuto, la stessa
+ * regola che vale su iPhone.
+ *
+ * Il pacchetto del negozio si costruisce con `VITE_SENZA_AGGIORNAMENTI=1`, che
+ * Vite sostituisce con una costante alla compilazione: il ramo qui sotto
+ * scompare, e con lui l'`import()` del plugin. Non resta codice morto da
+ * spiegare a nessuno.
+ *
+ * ► PERCHÉ NON BASTA `suComputer()`. ◄ Perché il Mac del negozio È un computer,
+ * e alla domanda «siamo su un computer» risponde sì. La domanda giusta non è
+ * dove giri ma **come sei stato distribuito**, e quella il codice non la può
+ * dedurre: gliela si dice quando lo si compila.
+ */
+export function aggiornamentiQui(): boolean {
+  return suComputer() && import.meta.env.VITE_SENZA_AGGIORNAMENTI !== '1';
+}
+
+/**
  * Dove siamo nel giro. Uno stato solo, esplicito, invece di tre booleani che
  * possono contraddirsi.
  */
@@ -79,7 +106,7 @@ export function descriviScaricamento(
  * non c'era, invece di leggere «sei aggiornato» e crederci.
  */
 export async function cercaAggiornamento(): Promise<{ versione: string; note?: string } | null> {
-  if (!suComputer()) return null;
+  if (!aggiornamentiQui()) return null;
   const { check } = await import('@tauri-apps/plugin-updater');
   const trovato = await check();
   if (!trovato) return null;
@@ -99,7 +126,7 @@ export async function cercaAggiornamento(): Promise<{ versione: string; note?: s
 export async function installaAggiornamento(
   avanzamento: (fatti: number, totali?: number) => void,
 ): Promise<void> {
-  if (!suComputer())
+  if (!aggiornamentiQui())
     throw new Error('Gli aggiornamenti automatici esistono solo nell’applicazione per computer.');
 
   const { check } = await import('@tauri-apps/plugin-updater');

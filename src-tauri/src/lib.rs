@@ -336,10 +336,23 @@ pub fn run() {
      * scaricarla resta di chi usa il programma — come per la sincronizzazione,
      * niente parte da sé.
      */
+    /*
+      ► NEL PACCHETTO DEL MAC APP STORE QUESTO PLUGIN NON C'È. ◄
+
+      `senza-aggiornamenti` lo toglie dalla compilazione, non lo disattiva:
+      dentro il negozio aggiorna Apple, e un programma che si sostituisce da sé
+      viene rifiutato. Togliere il codice invece di spegnerlo evita anche che nel
+      binario restino le stringhe di un aggiornatore che non aggiorna — che è
+      esattamente la cosa su cui una revisione fa domande.
+
+      `tauri_plugin_process` invece resta: serve al riavvio, che l'aggiornamento
+      usa ma non è solo suo.
+    */
+    #[cfg(all(desktop, not(feature = "senza-aggiornamenti")))]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+
     #[cfg(desktop)]
-    let builder = builder
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init());
+    let builder = builder.plugin(tauri_plugin_process::init());
 
     #[cfg(target_os = "macos")]
     let builder = builder.invoke_handler(tauri::generate_handler![

@@ -141,6 +141,24 @@ default = ["computer-esterni"]
 # serve a compilare la parte C dove autotools non arriva.
 computer-esterni = ["dep:uuid", "dep:cc"]
 
+# ► SPENTA QUASI SEMPRE: serve solo al pacchetto del Mac App Store. ◄
+#
+# Dentro il negozio ad aggiornare ci pensa Apple, e un programma che si
+# sostituisce da sé è motivo di rifiuto — la stessa regola che vale su iPhone.
+# Con questa caratteristica accesa il plugin dell'aggiornamento NON viene
+# registrato: non è disattivato, non c'è proprio.
+#
+# ► PERCHÉ UNA CARATTERISTICA E NON UN CONTROLLO A TEMPO DI ESECUZIONE. ◄
+# Perché quello che va tolto non è il comportamento, è il CODICE. Un revisore
+# che trova nel binario le stringhe di un aggiornatore ha ragione a chiedere
+# cosa ci facciano, e la risposta «c'è ma non parte» è la peggiore che si possa
+# dare. Così il binario del negozio non contiene niente da spiegare.
+#
+# Il lato interfaccia si spegne da sé con `VITE_SENZA_AGGIORNAMENTI=1`: le due
+# metà si accendono insieme in `scripts/pubblica-mac-negozio.sh`, che è l'unico
+# posto da cui questa build si costruisce.
+senza-aggiornamenti = []
+
 [profile.release]
 codegen-units = 1
 lto = true

@@ -18,10 +18,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { conNumeri } from '../../core/numerazione';
 import { localeCorrente } from '../../core/locale';
 import { esporta } from '../esporta';
-import { suComputer, suIOS } from '../../piattaforma';
+import { suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
 import { useLingua } from '../lingua';
 import {
+  aggiornamentiQui,
   cercaAggiornamento,
   descriviScaricamento,
   installaAggiornamento,
@@ -1310,7 +1311,7 @@ function AggiornamentoCard() {
    * deve dipendere da chi lo monta.
    */
   useEffect(() => {
-    if (suComputer()) cerca(false);
+    if (aggiornamentiQui()) cerca(false);
   }, [cerca]);
 
   const installa = () => {
@@ -1322,7 +1323,14 @@ function AggiornamentoCard() {
       );
   };
 
-  if (!suComputer()) return null;
+  /*
+    Nella copia del Mac App Store la carta non c'è proprio: `aggiornamentiQui()`
+    è falsa e qui si esce. Mostrarla spenta, o con scritto «aggiorna dal
+    negozio», vorrebbe dire occupare spazio per dire che qualcosa non si fa —
+    mentre chi ha installato dal negozio gli aggiornamenti li riceve comunque,
+    solo da un'altra parte.
+  */
+  if (!aggiornamentiQui()) return null;
 
   return (
     <div className="card">

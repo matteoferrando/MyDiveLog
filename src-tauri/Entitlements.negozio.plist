@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  I permessi della versione per il Mac App Store, e SOLO di quella.
+
+  ==========================================================================
+  > PERCHE ESISTE UN SECONDO PACCHETTO.
+
+  Il .dmg che si scarica dal sito e firmato Developer ID e gira SENZA sandbox:
+  e il modo in cui macOS distribuisce le applicazioni fuori dal negozio, e non
+  ha bisogno di dichiarare niente di quello che c'e qui sotto. Il negozio
+  invece IMPONE la sandbox, e dentro la sandbox tutto cio che non e dichiarato
+  non succede: non da errore, non chiede un permesso - semplicemente non
+  funziona.
+
+  Da qui la regola di questo file: ogni riga e una cosa che l'applicazione fa
+  davvero. Un permesso in piu e superficie che qualcuno deve giustificare; un
+  permesso in meno e una funzione che sparisce in silenzio.
+
+  > LE COSE CHE NON SONO QUI DENTRO, e non ci sono per scelta:
+
+   - fotocamera, microfono, posizione, contatti, calendario: l'applicazione
+     non li tocca. La versione iPhone ha un solo UsageDescription in tutto, ed
+     e il Bluetooth: qui vale lo stesso.
+   - files.downloads, files.pictures e le altre cartelle note: non serve un
+     accesso generico a una cartella. Chi importa un file lo sceglie lui, e
+     user-selected copre esattamente quello - con il vantaggio che il permesso
+     dura quanto la scelta invece di restare acceso.
+   - print: su macOS la stampa passa dal PDF che l'applicazione genera da se,
+     non dal pannello di sistema.
+-->
+<plist version="1.0">
+  <dict>
+    <!-- La sandbox stessa. Senza questa riga il pacchetto non viene nemmeno
+         accettato dal caricamento. -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <!-- RETE IN USCITA. Tre destinazioni, tutte dichiarate nella CSP e visibili
+         nel sorgente: il database libSQL della sincronizzazione, il Worker che
+         fa l'accesso, e lo scambio del token con Google e Apple. Nessuna
+         telemetria: non c'e codice che ne mandi. -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- > RETE IN ASCOLTO, ed e l'unica voce che va spiegata.
+
+         L'accesso con Google e con Apple funziona cosi: l'applicazione apre il
+         browser sulla pagina del fornitore, e il fornitore rimanda il risultato
+         a un indirizzo. Su iPhone quell'indirizzo e uno schema URL; su desktop
+         e http://127.0.0.1:<porta>, che e il metodo che Google documenta e
+         raccomanda per le applicazioni installate (RFC 8252).
+
+         Quindi si, l'applicazione mette in ascolto una porta - ma:
+
+          - su 127.0.0.1, che non esce dalla macchina. Nessun altro computer
+            della rete la vede;
+          - per pochi secondi: si apre quando premi Entra e si chiude appena
+            arriva il ritorno, o quando scade l'attesa;
+          - accetta una richiesta sola, quella che porta il codice di
+            autorizzazione;
+          - il codice da solo non apre niente: senza il verificatore PKCE che
+            l'applicazione tiene per se, e senza il segreto del client che sta
+            sul Worker, non si scambia con nessun token.
+
+         L'alternativa sarebbe uno schema URL anche su desktop. E possibile, e
+         non e stata scelta perche il loopback e la strada documentata da Google
+         per questo caso ed e gia provata su quattro piattaforme. Se un giorno
+         la revisione la contestasse, il cambio e circoscritto a src/sync/. -->
+    <key>com.apple.security.network.server</key>
+    <true/>
+
+    <!-- BLUETOOTH. E il cuore dell'applicazione: scaricare le immersioni dal
+         computer subacqueo. Il perche per l'utente sta in Info.plist
+         (NSBluetoothAlwaysUsageDescription) e compare nel pannello di sistema. -->
+    <key>com.apple.security.device.bluetooth</key>
+    <true/>
+
+    <!-- I FILE CHE L'UTENTE SCEGLIE, in lettura e in scrittura.
+
+         In lettura: l'import, sette formati diversi. In scrittura: l'uscita -
+         PDF della scheda, CSV, UDDF, KML, backup JSON - che l'utente salva dove
+         vuole con il pannello di sistema.
+
+         read-write e non due voci separate perche e lo stesso permesso: il
+         pannello di scelta file e l'unico modo in cui questa applicazione tocca
+         qualcosa fuori dalla propria cartella. -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+  </dict>
+</plist>
