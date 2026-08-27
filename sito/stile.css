@@ -1656,11 +1656,63 @@ a {
   color: rgba(157, 220, 255, 0.72);
 }
 
+/*
+  `stretch` e non più `flex-end`.
+
+  Quando le quattro schede stavano in una fila sola, allinearle in basso era la
+  scelta giusta: la principale era più alta delle altre tre, e appoggiarle tutte
+  sulla stessa base le teneva insieme. Da quando sono due gruppi da due, quella
+  regola faceva l'opposto — nel primo gruppo il badge di Apple rende la scheda
+  iOS più alta della sua vicina, e allineate in basso la principale risultava
+  MOZZA in cima. Due schede appaiate si leggono come una coppia solo se sono
+  alte uguale.
+*/
 .schede-piattaforma {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: stretch;
   gap: 14px;
+}
+
+/*
+  ► IL BADGE DI APPLE, E PERCHÉ È UN'IMMAGINE E NON UN DISEGNO NOSTRO. ◄
+
+  Tutti gli altri disegni di questa fascia sono nostri e rappresentano
+  APPARECCHI, non marche — un portatile, un telefono, un monitor — per la
+  ragione scritta nel commento in cima alla sezione: i marchi dei sistemi
+  operativi sono di chi li possiede.
+
+  Questo è l'unica eccezione, ed è l'eccezione che Apple stessa prevede: il
+  badge «Scarica su App Store» è artwork ufficiale, scaricato dalle loro
+  Marketing Resources, che si può usare **per rimandare alla propria app** — ed è
+  l'unico modo consentito di mettere la mela su un sito di terzi. La mela da sola,
+  come icona di sezione, non lo è.
+
+  ► NON SI TOCCA, E QUESTE RIGHE SERVONO A NON TOCCARLO. ◄ Le condizioni d'uso
+  vietano di modificarlo, ricolorarlo, ritagliarlo o applicargli effetti. Per
+  questo sta in un `<img>` e non incollato dentro l'HTML: un SVG in linea
+  erediterebbe le regole di questa pagina — a cominciare dallo `stroke` di
+  `.disegno`, due righe più su — e si troverebbe alterato senza che nessuno lo
+  abbia deciso. Dentro un `<img>` nessun foglio di stile lo raggiunge.
+
+  Qui si fissa solo la misura, che è consentita perché mantiene le proporzioni.
+  La versione è quella BIANCA perché il fondo è scuro, com'è previsto, ed è
+  localizzata: badge italiano sulla pagina italiana, inglese su quella inglese.
+*/
+.badge-negozio {
+  display: block;
+  width: auto;
+  height: 34px;
+  /*
+    `auto` e non un valore: spinge il badge in fondo alla scheda, così si
+    appoggia alla stessa linea di «Scarica ora» nella scheda accanto. Con un
+    margine fisso il badge — che è più alto di una riga di testo — restava
+    dieci pixel più in basso della sua vicina, e due schede appaiate con le
+    ultime righe sfalsate si notano prima di qualunque altra cosa.
+  */
+  margin-top: auto;
+  /* Lo spazio libero intorno che le condizioni chiedono: almeno un decimo
+     dell'altezza del badge. Qui è di più, e viene dal riempimento della scheda. */
 }
 
 /*
@@ -1723,6 +1775,13 @@ a {
 }
 
 .scheda-piattaforma .riga {
+  /*
+    `margin-top: auto` come il badge qui sotto: la riga che dice cosa ottieni si
+    appoggia in fondo alla scheda. Serve da quando le schede sono alte uguale
+    (`align-items: stretch`) — prima ogni scheda era alta quanto il suo
+    contenuto e il fondo coincideva da sé.
+  */
+  margin-top: auto;
   font-size: 0.8rem;
   color: var(--testo-tenue);
 }
