@@ -933,7 +933,7 @@ export default {
         console.error('archivio non creato', err.stato);
         return rifiuto(
           503,
-          'il servizio non è al momento in grado di creare nuovi archivi: scrivi a m.ferrando@gmail.com',
+          'il servizio non è al momento in grado di creare nuovi archivi: scrivi a matteozinin@protonmail.com',
           origine,
         );
       }
