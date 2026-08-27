@@ -772,32 +772,18 @@ a {
 }
 
 /*
-  IL PULSANTE CHE NON SI PREME.
+  ► QUI C'ERANO LE REGOLE DEL PULSANTE CHE NON SI PREME, E SE NE SONO ANDATE. ◄
 
-  Ha la forma degli altri e il colore di niente: bordo tratteggiato, sfondo
-  appena accennato, cursore che non cambia. Deve leggersi come «questo posto è
-  prenotato», non come «questo pulsante è rotto» — la differenza la fa il
-  tratteggio, che nessun pulsante attivo ha mai.
+  Servivano all'iPhone finché era «in arrivo»: bordo tratteggiato, cursore che
+  non cambia, per leggersi come «questo posto è prenotato» e non come «questo
+  pulsante è rotto». Il 26 agosto 2026 l'app è stata approvata, il pulsante è
+  diventato un collegamento vero, e queste regole non le usava più nessuno.
+
+  Si tolgono invece di lasciarle lì per la prossima volta. Un foglio di stile che
+  descrive uno stato che l'interfaccia non ha più è la stessa bugia di un
+  commento che rimanda a codice inesistente: chi legge crede che quello stato
+  esista, e va a cercarlo. Il giorno che servisse di nuovo, `git log` ce l'ha.
 */
-.pulsante-attesa {
-  border-style: dashed;
-  border-color: rgba(157, 220, 255, 0.28);
-  background: transparent;
-  color: var(--testo-tenue);
-  cursor: default;
-}
-
-.pulsante-attesa:hover {
-  transform: none;
-  border-color: rgba(157, 220, 255, 0.28);
-  background: transparent;
-}
-
-.pulsante-attesa em {
-  font-style: normal;
-  color: var(--ambra);
-  font-weight: 600;
-}
 
 /*
   ► IL MODULO DELLE SEGNALAZIONI. ◄
@@ -1678,6 +1664,20 @@ a {
 }
 
 /*
+  Il secondo occhiello — «ma è stato poi rilasciato anche per» — ha bisogno di
+  aria SOPRA e non sotto: deve staccarsi dalle schede che chiude, non da quelle
+  che apre. Con lo stesso margine da tutte e due le parti galleggerebbe in mezzo
+  senza appartenere a nessuno dei due gruppi, che è il modo in cui un titolo
+  smette di essere un titolo.
+
+  Il margine è in `em` e non in pixel: se un giorno quel testo cambia corpo, lo
+  stacco lo segue invece di restare indietro.
+*/
+.occhietto-poi {
+  margin-top: 2.4em;
+}
+
+/*
   Una scheda per sistema. Il disegno sopra, il nome, e una riga che dice cosa
   ottieni premendo — «Scarica ora», «APK», «In arrivo». Quella terza riga è la
   differenza fra una vetrina e uno sportello: un pulsante che dice solo
@@ -1815,31 +1815,6 @@ a.scheda-piattaforma.principale:hover {
 
 a.scheda-piattaforma.minore:hover {
   opacity: 1;
-}
-
-/*
-  L'iPhone: tratteggiata, e il cursore non cambia. Deve leggersi come «questo
-  posto è prenotato», non come «questo pulsante è rotto» — la differenza la fa
-  il tratteggio, che nessuna scheda attiva ha.
-*/
-.scheda-piattaforma.attesa {
-  border-style: dashed;
-  border-color: rgba(157, 220, 255, 0.3);
-  background: transparent;
-  cursor: default;
-}
-
-.scheda-piattaforma.attesa .disegno {
-  stroke: rgba(157, 220, 255, 0.55);
-}
-
-.scheda-piattaforma.attesa .nome {
-  color: var(--testo-tenue);
-}
-
-.riga-attesa {
-  color: var(--ambra) !important;
-  font-weight: 600;
 }
 
 /*

@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/" />
-    <link rel="stylesheet" href="../stile.css?v=c500065d" />
+    <link rel="stylesheet" href="../stile.css?v=4c98a317" />
     <link rel="alternate" hreflang="it" href="/" />
     <link rel="alternate" hreflang="en" href="/en/" />
   </head>
@@ -112,20 +112,44 @@
               </a>
 
               <!--
-              L'iPhone SI VEDE MA NON SI PREME. L'alternativa era un
-              collegamento all'App Store verso una scheda che non esiste ancora:
-              una pagina d'errore dice «progetto abbandonato» molto più forte di
-              quanto «in arrivo» dica «non ancora pronto».
+              ► L'iPHONE ADESSO SI PREME. ◄ Fino al 26 agosto 2026 questa scheda
+              era spenta, e il commento che stava qui spiegava perché: un
+              collegamento all'App Store verso una scheda che non esiste ancora
+              porta a una pagina d'errore, e una pagina d'errore dice «progetto
+              abbandonato» molto più forte di quanto «in arrivo» dica «non ancora
+              pronto».
+
+              Adesso la scheda esiste, quindi la ragione è finita e con lei la
+              scheda spenta. Resta la regola, che vale per la prossima volta: si
+              promette un collegamento solo quando c'è qualcosa dall'altra parte.
             -->
-              <span class="scheda-piattaforma attesa" role="link" aria-disabled="true">
+              <a class="scheda-piattaforma" href="https://apps.apple.com/app/mydivelog/id6804439480">
                 <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
                   <rect x="10" y="3" width="12" height="26" rx="3" />
                   <line x1="14" y1="6" x2="18" y2="6" />
                 </svg>
                 <span class="nome">iOS</span>
-                <span class="riga riga-attesa">Coming soon</span>
-              </span>
+                <span class="riga">On the App Store</span>
+              </a>
+            </div>
 
+            <!--
+              ► DUE GRUPPI, PERCHÉ SONO DUE STORIE. ◄
+
+              macOS e iOS sono i sistemi per cui questa applicazione è stata
+              scritta: il Mac dove si guardano le immersioni, il telefono che si
+              porta in barca. Windows e Android sono arrivati dopo, e non li ha
+              provati nessuno su un apparecchio vero — cosa che il sito dice per
+              esteso più giù.
+
+              Prima stavano tutti e quattro in una fila sola, e la differenza la
+              faceva la grandezza delle schede: un'informazione che si legge solo
+              se qualcuno la nota. Detta a parole, invece, si legge e basta — e
+              chi arriva da Windows sa subito che c'è, e in che condizioni.
+            -->
+            <p class="occhietto occhietto-poi">But it was later released for</p>
+
+            <div class="schede-piattaforma">
               <a
                 class="scheda-piattaforma minore"
                 href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
@@ -712,9 +736,7 @@
             href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-macOS-arm64.dmg"
             >macOS</a
           >
-          <span class="pulsante pulsante-attesa" role="link" aria-disabled="true" tabindex="-1">
-            iOS <em>coming soon</em>
-          </span>
+          <a class="pulsante" href="https://apps.apple.com/app/mydivelog/id6804439480">iOS</a>
           <a
             class="pulsante"
             href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Windows-setup.exe"
