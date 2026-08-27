@@ -140,6 +140,28 @@ VITE_SENZA_AGGIORNAMENTI=1 npx tauri build \
 # ── il profilo dentro il pacchetto, e la firma ─────────────────────────────
 cp "$PROFILO" "$APP/Contents/embedded.provisionprofile"
 
+# ► VIA GLI ATTRIBUTI ESTESI, E VA FATTO QUI: DOPO IL PROFILO, PRIMA DELLA FIRMA. ◄
+#
+# Il profilo di provisioning si scarica dal portale con un browser, e macOS marca
+# tutto quello che arriva dalla rete con `com.apple.quarantine`. `cp` conserva
+# gli attributi estesi, quindi quel marchio entra dritto dentro il pacchetto — e
+# App Store Connect lo rifiuta: «The package contains one or more files with the
+# com.apple.quarantine extended file attribute».
+#
+# ► QUANTO COSTA SCOPRIRLO TARDI. ◄ Non è un errore di caricamento: il
+# caricamento RIESCE, il file arriva, e il rifiuto compare dopo, durante
+# l'elaborazione, come notifica separata. Cioè nel momento in cui uno ha già
+# archiviato la cosa come fatta.
+#
+# `-c` toglie tutti gli attributi, non solo la quarantena: dentro un pacchetto
+# firmato non deve viaggiare niente che il sistema abbia appiccicato di suo —
+# `kMDItemWhereFroms` dice da quale indirizzo del portale è stato scaricato il
+# profilo, e non è un'informazione che vada consegnata ad Apple insieme all'app.
+#
+# PRIMA DELLA FIRMA, sempre: `xattr` modifica i file, e farlo dopo
+# invaliderebbe la firma appena apposta.
+xattr -cr "$APP"
+
 # `--deep` è deliberatamente ASSENTE: Apple lo sconsiglia da anni perché firma
 # gli eseguibili annidati con gli entitlement sbagliati. Qui non ce ne sono di
 # annidati, e se un giorno ce ne fossero andrebbero firmati uno per uno.
@@ -181,6 +203,21 @@ if [ "$ID_APP" != "$ID_PROFILO" ]; then
   exit 1
 fi
 echo "identificativo: $ID_APP — combacia con il profilo"
+
+# ► E SI CONTROLLA CHE NON NE SIA RIMASTO NESSUNO. ◄
+#
+# Toglierli e non verificare sarebbe fidarsi: basta che un file venga toccato
+# fra il `xattr -cr` e qui — o che un domani qualcuno sposti quella riga — e il
+# rifiuto torna, con lo stesso ritardo di prima. Costa un decimo di secondo.
+SPORCHI=$(xattr -r "$APP" 2>/dev/null | grep -c "com.apple.quarantine" || true)
+if [ "$SPORCHI" != "0" ]; then
+  echo
+  echo "FERMO: $SPORCHI file portano ancora com.apple.quarantine."
+  echo "App Store Connect li rifiuta DOPO il caricamento, in fase di elaborazione."
+  xattr -r "$APP" | grep "com.apple.quarantine" | head -5
+  exit 1
+fi
+echo "attributi estesi: nessuna quarantena nel pacchetto"
 
 # ── il .pkg ────────────────────────────────────────────────────────────────
 mkdir -p "$FUORI"
