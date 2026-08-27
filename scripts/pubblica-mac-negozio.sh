@@ -112,6 +112,18 @@ p = sys.argv[1]
 c = json.load(io.open(p, encoding='utf8'))
 # Via l'aggiornatore: la sua configurazione finisce dentro il binario.
 c.get('plugins', {}).pop('updater', None)
+# ► E VIA ANCHE GLI ARTEFATTI DELL'AGGIORNAMENTO, o non si compila proprio. ◄
+#
+# `createUpdaterArtifacts` chiede al bundler di produrre l'archivio firmato che
+# l'aggiornatore scarica. Per farlo va a leggere `plugins.updater` — che qui
+# sopra è appena stato tolto — e si ferma con «plugins > updater doesn't exist».
+#
+# Sono due interruttori per la stessa funzione: uno la spegne nel programma,
+# l'altro nel confezionamento, e vanno mossi INSIEME. Toccarne uno solo non dà
+# un pacchetto sbagliato: non dà nessun pacchetto, e per fortuna — il modo
+# peggiore in cui questo poteva andare era un .pkg che si costruiva e portava
+# dentro un archivio di aggiornamento che nel negozio non serve a nessuno.
+c['bundle']['createUpdaterArtifacts'] = False
 mac = c['bundle'].setdefault('macOS', {})
 mac['entitlements'] = 'Entitlements.negozio.plist'
 # Niente .dmg: al negozio si consegna un .pkg, che si costruisce qui sotto.
@@ -139,6 +151,36 @@ codesign --verify --strict --verbose=2 "$APP"
 
 echo "── entitlement finiti nel pacchetto ──"
 codesign -d --entitlements - --xml "$APP" | plutil -p -
+
+# ► IL CONTROLLO CHE MANCAVA, E CHE È COSTATO UNA COMPILAZIONE. ◄
+#
+# `com.apple.application-identifier` dell'applicazione deve combaciare con
+# quello del profilo di provisioning. Se non combacia, la firma riesce lo
+# stesso: il guasto compare DOPO, al caricamento, come «Invalid Code Signing
+# Entitlements» — a venti minuti di compilazione di distanza, e senza dire quale
+# voce sia sbagliata.
+#
+# Le due voci le mette Xcode da solo. Qui si firma a mano, quindi qui si
+# controllano: costa un secondo e prende l'unico errore che questo script
+# potrebbe produrre in silenzio.
+security cms -D -i "$APP/Contents/embedded.provisionprofile" > /tmp/mdl-profilo.plist
+ID_PROFILO=$(plutil -extract 'Entitlements.com\.apple\.application-identifier' raw /tmp/mdl-profilo.plist)
+ID_APP=$(codesign -d --entitlements - --xml "$APP" 2>/dev/null \
+  | plutil -extract 'com\.apple\.application-identifier' raw - 2>/dev/null || true)
+rm -f /tmp/mdl-profilo.plist
+
+if [ "$ID_APP" != "$ID_PROFILO" ]; then
+  echo
+  echo "FERMO: l'identificativo dell'applicazione non combacia con il profilo."
+  echo "  nell'applicazione: ${ID_APP:-(assente)}"
+  echo "  nel profilo:       $ID_PROFILO"
+  echo
+  echo "Va corretto in src-tauri/Entitlements.negozio.plist, chiave"
+  echo "com.apple.application-identifier. Il .pkg NON è stato costruito:"
+  echo "caricarlo avrebbe dato «Invalid Code Signing Entitlements»."
+  exit 1
+fi
+echo "identificativo: $ID_APP — combacia con il profilo"
 
 # ── il .pkg ────────────────────────────────────────────────────────────────
 mkdir -p "$FUORI"

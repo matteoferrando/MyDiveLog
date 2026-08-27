@@ -39,3 +39,13 @@ server/.wrangler/
 
 # La cartella delle licenze e delle note riservate resta fuori dal repository.
 LICENSES/
+
+# Il profilo di provisioning del Mac App Store.
+#
+# Non è un segreto — dentro ci sono certificati pubblici e l'identificativo
+# della squadra, che sta in chiaro in ogni firma — ma è legato all'account di
+# chi pubblica e scade fra un anno. Versionarlo vorrebbe dire che il giorno che
+# scade qualcuno prova a compilare con quello vecchio e riceve un errore che
+# non parla di scadenze. Si scarica dal portale quando serve; il percorso lo
+# dice `scripts/pubblica-mac-negozio.sh`.
+*.provisionprofile

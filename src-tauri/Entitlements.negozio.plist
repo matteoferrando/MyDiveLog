@@ -31,6 +31,26 @@
 -->
 <plist version="1.0">
   <dict>
+    <!-- > CHI E QUESTA APPLICAZIONE, secondo Apple.
+
+         Queste due voci non abilitano niente: dicono chi sei. Devono
+         corrispondere ESATTAMENTE a quelle del profilo di provisioning che
+         viene infilato nel pacchetto, e il caricamento le confronta.
+
+         Le mette Xcode da solo, e qui si firma a mano: mancavano, e la firma
+         riusciva lo stesso. Il guasto sarebbe comparso DOPO, al caricamento su
+         App Store Connect, sotto forma di un rifiuto con scritto «Invalid Code
+         Signing Entitlements» - cioe nel momento peggiore, a venti minuti di
+         compilazione di distanza e senza dire quale voce manchi.
+
+         Per questo `pubblica-mac-negozio.sh` adesso le confronta con il profilo
+         PRIMA di costruire il .pkg. Il numero e l'identificativo della squadra,
+         che non e un segreto: sta in chiaro dentro ogni firma. -->
+    <key>com.apple.application-identifier</key>
+    <string>73F4VR2CMU.it.ferrando.mydivelog</string>
+    <key>com.apple.developer.team-identifier</key>
+    <string>73F4VR2CMU</string>
+
     <!-- La sandbox stessa. Senza questa riga il pacchetto non viene nemmeno
          accettato dal caricamento. -->
     <key>com.apple.security.app-sandbox</key>
