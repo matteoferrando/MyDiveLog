@@ -86,7 +86,33 @@
          L'alternativa sarebbe uno schema URL anche su desktop. E possibile, e
          non e stata scelta perche il loopback e la strada documentata da Google
          per questo caso ed e gia provata su quattro piattaforme. Se un giorno
-         la revisione la contestasse, il cambio e circoscritto a src/sync/. -->
+         la revisione la contestasse, il cambio e circoscritto a src/sync/.
+
+         > QUEL GIORNO E ARRIVATO: 27 AGOSTO 2026. <
+
+         La revisione automatica della prima consegna al Mac App Store ha
+         segnalato questa voce - "includes the com.apple.security.network.server
+         entitlement but does not appear to have matching functionality" - e ha
+         fermato l'esame. Non e un rifiuto di merito: e un controllo che cerca
+         entitlement senza funzione corrispondente, e qui la funzione c'e.
+
+         Si e risposto spiegando l'uso, come Apple stessa propone nel messaggio,
+         e la stessa spiegazione e stata aggiunta in App Review Information. Il
+         testo sta in _privato/, accanto alle note di revisione: se serve
+         rimandarlo, non si riscrive.
+
+         PERCHE NON SI E TOLTA LA VOCE, che era l'altra strada offerta. Toglierla
+         vuol dire passare allo schema URL, e su macOS quello schema lo puo
+         registrare qualunque altra applicazione installata: il ritorno
+         dell'accesso diventa intercettabile. E il motivo per cui RFC 8252
+         preferisce il loopback proprio sul desktop. Si sarebbe scambiata una
+         segnalazione automatica con una debolezza vera.
+
+         SE UN GIORNO APPLE INSISTESSE, il costo per intero: il ramo desktop
+         passa allo schema (src/sync/, gia scritto per iPhone), sulla console di
+         Google va registrato il bundle macOS sul client iOS/macOS perche il
+         client di tipo Desktop gli schemi propri non li accetta, e serve una
+         versione nuova - 1.7.0 build 1.7.0 e consumata. -->
     <key>com.apple.security.network.server</key>
     <true/>
 
