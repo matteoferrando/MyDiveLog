@@ -141,25 +141,31 @@ const PROP_INDICATE = 0x20;
  * criterio di Subsurface, ed è il motivo per cui il loro elenco contiene i
  * servizi e non le caratteristiche.
  *
- * Se la scoperta non riesce si dice CHE COSA è stato trovato: «nessuna
- * caratteristica notify» e «il servizio non c'è» sono due guasti diversi con
- * due rimedi diversi, e un messaggio unico li confonde.
+ * ► CHE COSA SI DICE A SCHERMO E CHE COSA NO. ◄ I due guasti restano due — «il
+ * servizio non c'è» e «il servizio c'è ma non ha un canale su cui parlare» —
+ * perché hanno rimedi diversi, e un messaggio unico li confonderebbe. Ma la
+ * distinzione si fa con una FRASE, non con l'elenco degli UUID: `0000fefb-…`
+ * e `(0x1a)` sono la mappa GATT del dispositivo, cioè esattamente il genere di
+ * cosa che chi legge non può usare per fare niente. Il dettaglio esce da
+ * `dettaglio`, e chi chiama lo manda nella console — dov'era già il suo posto,
+ * come per ogni altro errore di questa applicazione.
  */
 export function resolveChannels(
   services: PluginService[],
   profile: BleServiceProfile,
   t: Traduci = comeSta,
-): Canali | { error: string } {
+): Canali | { error: string; dettaglio: string } {
   const cercato = profile.service.toLowerCase();
   const s = services.find((x) => x.uuid.toLowerCase() === cercato);
   if (!s) {
-    const elenco = services.map((x) => x.uuid).join(', ') || t('nessuno');
+    const elenco = services.map((x) => x.uuid).join(', ') || 'nessuno';
     return {
       error:
-        `${t('Il dispositivo non espone il servizio')} ${profile.service}. ${t('Servizi trovati:')} ${elenco}. ` +
+        `${t('Questo apparecchio non risponde come un computer subacqueo.')} ` +
         t(
           'Di solito significa che non è il computer che pensavamo, o che è in modalità aggiornamento firmware invece che in modalità trasferimento.',
         ),
+      dettaglio: `servizio ${profile.service} non esposto; servizi visti: ${elenco}`,
     };
   }
   const scoperta = s.characteristics.find((c) => c.properties & (PROP_WRITE | PROP_WRITE_NO_RESP));
@@ -173,12 +179,15 @@ export function resolveChannels(
   if (!write || !notify) {
     return {
       error:
-        `${t('Il servizio')} ${profile.service} ${t('non ha')} ${
-          !write ? t('una caratteristica su cui scrivere') : t('una caratteristica che notifichi')
-        }. ` +
-        `${t('Caratteristiche viste:')} ${s.characteristics
+        `${t('Questo apparecchio non risponde come un computer subacqueo.')} ` +
+        t(
+          'Il collegamento si apre ma non c’è un canale su cui parlargli: spegni e riaccendi il computer, avvicinalo e riprova.',
+        ),
+      dettaglio:
+        `servizio ${profile.service} senza caratteristica ${!write ? 'di scrittura' : 'di notifica'}; ` +
+        `caratteristiche viste: ${s.characteristics
           .map((c) => `${c.uuid} (0x${c.properties.toString(16)})`)
-          .join(', ')}.`,
+          .join(', ')}`,
     };
   }
   return { service: s.uuid, write, notify, writeProps };
@@ -505,6 +514,9 @@ export class TauriBleTransport implements BleTransport {
     const canali = resolveChannels(elenco, profile, this.t);
     if ('error' in canali) {
       await api.disconnect().catch(() => undefined);
+      // La mappa GATT nella console, la frase nell'errore: il diario dello
+      // scarico riporta l'errore, e quello lo legge una persona.
+      console.warn('Canali GATT non risolti:', canali.dettaglio);
       throw new Error(canali.error);
     }
 

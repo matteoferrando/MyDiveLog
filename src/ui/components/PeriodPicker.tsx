@@ -20,6 +20,24 @@ export function PeriodPicker() {
   const { t } = useLingua();
   const thin = scope.dives.length < MIN_DIVES_FOR_ANALYSIS && dives.length > scope.dives.length;
 
+  /*
+   * CON L'ARCHIVIO VUOTO NON SI CHIEDE NIENTE.
+   *
+   * Prima la scheda compariva comunque: quattro pulsanti di periodo e la riga
+   * «0 immersioni nel periodo». Sono quattro scelte che non cambiano nulla —
+   * qualunque finestra si applichi a zero immersioni contiene zero immersioni —
+   * messe in cima alla pagina di chi non ha ancora niente. Chiedere una scelta
+   * prima di aver dato qualcosa è il modo più rapido di far sembrare complicata
+   * un'applicazione ancora vuota, e quello «0» accanto a un filtro suggerisce
+   * per giunta una colpa del filtro.
+   *
+   * Non c'è niente da mettere al suo posto: le pagine che montano questa scheda
+   * dicono già la loro — Statistiche e Piano con il riquadro vuoto, il
+   * Pianificatore con l'avviso sui valori di esempio. Un secondo cartello
+   * sarebbe solo un'altra riga da leggere.
+   */
+  if (dives.length === 0) return null;
+
   return (
     <div className="card">
       {/*

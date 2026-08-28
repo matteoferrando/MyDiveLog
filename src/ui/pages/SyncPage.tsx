@@ -41,10 +41,74 @@ import {
   type RestorePlan,
 } from '../../core/export/backup';
 import type { Fornitore } from '../../sync/account';
-import type { SyncReport } from '../../sync/turso';
+import { nomeImpostazione, traduciErroreSync, type StradaSync, type SyncReport } from '../../sync/turso';
+import { frase } from '../../core/frase';
 import { BottoneConferma } from '../components/Conferma';
 import { Brevetti } from '../components/Brevetti';
 import { CERT_LEVEL_LABEL, etichettaBrevetto, sortCertifications } from '../../core/analysis/gear';
+
+/**
+ * Quando questo dispositivo ha sincronizzato l'ultima volta.
+ *
+ * ► PERCHÉ SERVIVA. ◄ Non ne esisteva traccia da nessuna parte: il resoconto
+ * compare dopo aver premuto il pulsante e sparisce al riavvio, quindi chi ha
+ * fatto l'accesso una settimana fa e non ha mai sincronizzato vedeva esattamente
+ * la stessa schermata di chi ha sincronizzato un'ora prima. È l'unica domanda
+ * che si fa chi apre questa scheda senza un motivo preciso — «sono a posto?» — e
+ * la pagina non aveva modo di rispondere.
+ *
+ * ► PERCHÉ NELL'ARCHIVIO DEL BROWSER E NON IN QUELLO DELLE IMMERSIONI. ◄ Perché
+ * è un fatto di QUESTO dispositivo, come la lingua scelta (vedi `ui/lingua.tsx`,
+ * che sta nello stesso posto per la stessa ragione). Conservarla insieme alle
+ * immersioni la esporrebbe al giorno in cui qualcuno la aggiunge alle
+ * impostazioni condivise, e da lì in poi il telefono direbbe «sincronizzato
+ * un'ora fa» per una sincronizzazione fatta dal Mac: una data giusta accanto al
+ * soggetto sbagliato è peggio di nessuna data.
+ *
+ * Il fallimento è previsto e silenzioso da entrambi i lati: un browser che nega
+ * l'archivio locale non deve impedire una sincronizzazione, e una data che non
+ * si è potuta rileggere si comporta come «non hai ancora sincronizzato», che è
+ * la frase prudente delle due.
+ */
+const CHIAVE_ULTIMA_SYNC = 'mydivelog.ultimaSincronizzazione';
+
+type UltimaSync = { quando: string; quante: number };
+
+function leggiUltimaSync(): UltimaSync | null {
+  try {
+    const grezzo = localStorage.getItem(CHIAVE_ULTIMA_SYNC);
+    if (!grezzo) return null;
+    const letto = JSON.parse(grezzo) as Partial<UltimaSync>;
+    // Si controlla la FORMA, non solo la presenza: quella chiave la può aver
+    // scritta una versione precedente, o una mano nella console del browser, e
+    // una data invalida qui dentro diventa «Invalid Date» a schermo.
+    if (typeof letto?.quando !== 'string' || Number.isNaN(Date.parse(letto.quando))) return null;
+    return { quando: letto.quando, quante: typeof letto.quante === 'number' ? letto.quante : 0 };
+  } catch {
+    return null;
+  }
+}
+
+function scriviUltimaSync(quante: number): UltimaSync {
+  const appena: UltimaSync = { quando: new Date().toISOString(), quante };
+  try {
+    localStorage.setItem(CHIAVE_ULTIMA_SYNC, JSON.stringify(appena));
+  } catch {
+    // Non poterla scrivere non è un motivo per non mostrarla adesso: il valore
+    // restituito vale comunque per questa sessione, si perde solo al riavvio.
+  }
+  return appena;
+}
+
+/** Data e ora nel formato di chi guarda, senza secondi: è una data, non un cronometro. */
+const quandoEsteso = (iso: string) =>
+  new Date(iso).toLocaleString(localeCorrente(), {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
 export function SyncPage() {
   const {
@@ -54,7 +118,6 @@ export function SyncPage() {
     saveSyncCredentials,
     testSync,
     syncNow,
-    storeLocation,
     exportArchive,
     numeri,
   } = useDiveLog();
@@ -81,6 +144,7 @@ export function SyncPage() {
   const [log, setLog] = useState<string[]>([]);
   const [report, setReport] = useState<SyncReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ultima, setUltima] = useState<UltimaSync | null>(leggiUltimaSync);
 
   const configured = Boolean(syncCredentials);
   /*
@@ -102,6 +166,18 @@ export function SyncPage() {
    * vuoto — che è esattamente il caso normale da quando l'accesso esiste.
    */
   const pronto = accountAttivo || configured;
+  /*
+   * PER QUALE DELLE DUE STRADE si sta sincronizzando, e serve a una cosa sola:
+   * dare il rimedio giusto quando la chiave del database non viene accettata.
+   *
+   * Il messaggio nasce lontano da qui — `state.tsx` avvolge entrambe le strade
+   * nella stessa riga — e da lì non c'è modo di sapere quale sia. Qui invece si
+   * sa, ed è l'unico punto della catena in cui si sa: mandare a rigenerare un
+   * token su Turso qualcuno che è entrato con Google significa mandarlo a fare
+   * una cosa che non può fare. L'ordine è lo stesso di `syncNow`, che all'account
+   * dà la precedenza.
+   */
+  const strada: StradaSync = accountAttivo ? 'account' : configured ? 'manuale' : 'ignota';
 
   const save = async () => {
     setTestResult(null);
@@ -156,6 +232,9 @@ export function SyncPage() {
     try {
       const result = await syncNow((m) => setLog((prev) => [...prev, m]));
       setReport(result);
+      // Si segna solo dopo che è ANDATA BENE: un tentativo fallito non è una
+      // sincronizzazione, e datarlo direbbe «sei a posto» a chi non lo è.
+      setUltima(scriviUltimaSync(result.total));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -167,8 +246,18 @@ export function SyncPage() {
     <div className="page">
       <div className="page-title-row">
         <h1 className="page-title">{t('Impostazioni')}</h1>
+        {/*
+         * QUI SI DICE QUANTE, NON DOVE.
+         *
+         * Accanto al conteggio c'era anche il nome del motore d'archiviazione —
+         * «File SQLite nella cartella dati dell'app» — cioè la frase più tecnica
+         * dell'intera pagina messa nel punto in cui l'occhio arriva per primo.
+         * Non è sbagliata e non è stata tolta: è scesa dove serve, in fondo alla
+         * carta del backup, dove la domanda «e questo dov'è?» viene davvero. In
+         * un'intestazione era solo rumore fra chi guarda e la sua prima riga.
+         */}
         <span className="muted" style={{ fontSize: 12 }}>
-          {imm(dives.length, t)} {t('in archivio')} · {t(storeLocation)}
+          {imm(dives.length, t)} {t('in archivio')}
         </span>
       </div>
 
@@ -197,32 +286,74 @@ export function SyncPage() {
          * il pulsante serve sapere che non perde niente; il come è affare di
          * `syncNow`.
          */}
-        <p className="card-sub">{t('Prima scarica, poi carica. Niente viene cancellato.')}</p>
-        <div className="row">
-          <button
-            className="btn btn-primary"
-            onClick={() => void run()}
-            disabled={busy || !pronto || (!accountAttivo && dirty)}
-          >
-            {busy ? t('Sincronizzazione in corso…') : t('Sincronizza')}
-          </button>
-          {!pronto && (
-            <span className="muted" style={{ fontSize: 12 }}>
-              {t('Accedi qui sopra e il pulsante si accende.')}
-            </span>
-          )}
-          {/*
-           * L'avviso sulle credenziali non salvate riguarda SOLO chi sincronizza
-           * col campo manuale. A chi è entrato con l'account non si parla di
-           * credenziali da salvare: non ne ha, e sarebbe un avviso su una cosa
-           * che non lo tocca.
-           */}
-          {!accountAttivo && configured && dirty && (
-            <span className="muted" style={{ fontSize: 12 }}>
-              {t('Salva le credenziali prima di sincronizzare.')}
-            </span>
-          )}
-        </div>
+        {/* La riga descrive il giro che fa il pulsante: senza il pulsante è la
+         * didascalia di una cosa che non c'è, e l'elenco qui sotto la ridice
+         * meglio e per esteso. */}
+        {pronto && <p className="card-sub">{t('Prima scarica, poi carica. Niente viene cancellato.')}</p>}
+
+        {/*
+         * ► SENZA ACCESSO NON C'È NESSUN PULSANTE, E NON È UN PASSO SALTATO. ◄
+         *
+         * Qui c'era il pulsante spento più la riga «Accedi qui sopra e il
+         * pulsante si accende». Nelle impostazioni di chi non ha fatto l'accesso
+         * — cioè di tutti, il primo giorno — quella coppia è una carta morta che
+         * si legge come una cosa da completare, e contraddice il «Non è
+         * obbligatorio» scritto due carte più su. Un comando disattivato promette
+         * che prima o poi lo si dovrà usare.
+         *
+         * La scelta di fondo dell'applicazione è che il logbook funzioni senza
+         * account e che la sincronizzazione sia facoltativa: dove non c'è niente
+         * da premere si dice quello, e si dice che va bene così.
+         */}
+        {pronto ? (
+          <>
+            <div className="row">
+              <button
+                className="btn btn-primary"
+                onClick={() => void run()}
+                disabled={busy || (!accountAttivo && dirty)}
+              >
+                {busy ? t('Sincronizzazione in corso…') : t('Sincronizza')}
+              </button>
+              {/*
+               * L'avviso sulle credenziali non salvate riguarda SOLO chi sincronizza
+               * col campo manuale. A chi è entrato con l'account non si parla di
+               * credenziali da salvare: non ne ha, e sarebbe un avviso su una cosa
+               * che non lo tocca.
+               */}
+              {!accountAttivo && configured && dirty && (
+                <span className="muted" style={{ fontSize: 12 }}>
+                  {t('Salva le credenziali prima di sincronizzare.')}
+                </span>
+              )}
+            </div>
+
+            {/*
+             * L'ULTIMA VOLTA, e quante ce n'erano quando ha finito.
+             *
+             * «Mai» è un'informazione quanto una data, ed è quella che mancava:
+             * chi ha fatto l'accesso e non ha mai premuto il pulsante vedeva la
+             * stessa identica carta di chi aveva appena sincronizzato.
+             */}
+            <p className="muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
+              {ultima
+                ? frase(
+                    t,
+                    'Ultima sincronizzazione: {0}, con {1} in archivio.',
+                    quandoEsteso(ultima.quando),
+                    imm(ultima.quante, t),
+                  )
+                : t('Da questo dispositivo non hai ancora sincronizzato.')}
+            </p>
+          </>
+        ) : (
+          <p style={{ fontSize: 13, margin: 0, color: 'var(--text-secondary)' }}>
+            <b>{t('Non c’è niente da fare qui, e va bene così.')}</b>{' '}
+            {t(
+              'Le tue immersioni sono già salvate su questo dispositivo. La sincronizzazione serve solo se vuoi ritrovarle anche su un altro: in quel caso fai l’accesso qui sopra.',
+            )}
+          </p>
+        )}
 
         {log.length > 0 && (
           <ul style={{ margin: '14px 0 0', paddingLeft: 18, fontSize: 12, color: 'var(--text-secondary)' }}>
@@ -232,7 +363,21 @@ export function SyncPage() {
           </ul>
         )}
 
-        {error && <p style={{ marginTop: 12, fontSize: 13, color: 'var(--critical)' }}>{error}</p>}
+        {/*
+         * L'errore si RISCRIVE qui, e non si mostra come arriva.
+         *
+         * Arriva composto da `state.tsx`, che avvolge tutte e due le strade e
+         * quindi può solo dare un consiglio buono per entrambe; e arriva in
+         * italiano, perché lì un traduttore non c'è. Questo è l'unico punto che
+         * sa che cosa ha davanti, e `traduciErroreSync` fa le due cose insieme:
+         * traduce, e sostituisce il rimedio con quello eseguibile da chi guarda.
+         * Un messaggio che non riconosce lo lascia passare intatto.
+         */}
+        {error && (
+          <p role="alert" style={{ marginTop: 12, fontSize: 13, color: 'var(--critical)' }}>
+            {traduciErroreSync(error, t, strada)}
+          </p>
+        )}
 
         {report && (
           <table style={{ marginTop: 14 }}>
@@ -260,6 +405,33 @@ export function SyncPage() {
           </table>
         )}
         {/*
+         * QUALI, non solo quante.
+         *
+         * «Impostazioni condivise: 3 caricate, 0 scaricate» dice che qualcosa è
+         * successo e non dice a che cosa — e le nove chiavi che viaggiano non si
+         * assomigliano per niente: l'attrezzatura, i brevetti, il periodo delle
+         * statistiche, fin dove si era arrivati con ogni computer. Chi legge quel
+         * numero si sta chiedendo se è arrivato il pezzo che gli interessa.
+         *
+         * Sta SOTTO la tabella e non dentro: sono nomi lunghi, e una cella che si
+         * allarga rompe l'allineamento di tutte le altre righe.
+         */}
+        {report && (report.settingsPushedKeys.length > 0 || report.settingsPulledKeys.length > 0) && (
+          <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
+            {report.settingsPushedKeys.length > 0 && (
+              <>
+                {t('Caricate')}: {report.settingsPushedKeys.map((k) => nomeImpostazione(k, t)).join(', ')}
+                .{' '}
+              </>
+            )}
+            {report.settingsPulledKeys.length > 0 && (
+              <>
+                {t('Scaricate')}: {report.settingsPulledKeys.map((k) => nomeImpostazione(k, t)).join(', ')}.
+              </>
+            )}
+          </p>
+        )}
+        {/*
          * Le impostazioni che non si sono allineate si DICHIARANO.
          *
          * Un'impostazione che non viaggia assomiglia in tutto e per tutto a
@@ -270,7 +442,9 @@ export function SyncPage() {
         {report && report.settingsErrors.length > 0 && (
           <div className="notice notice-error" role="alert" style={{ marginTop: 12 }}>
             <b>{t('Queste impostazioni non si sono allineate.')}</b>{' '}
-            {t('Le immersioni sì. Riprova, e se l’errore torna segnalalo.')}
+            {t(
+              'Le immersioni sì. Riprova più tardi: finché non si allineano, i due dispositivi mostrano numeri diversi.',
+            )}
             <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
               {report.settingsErrors.map((e) => (
                 <li key={e}>{e}</li>
@@ -278,6 +452,72 @@ export function SyncPage() {
             </ul>
           </div>
         )}
+      </div>
+
+      {/*
+       * ► QUESTA CARTA STA QUI PERCHÉ DESCRIVE IL PULSANTE QUI SOPRA. ◄
+       *
+       * Era in fondo alla pagina, tre schermate sotto, e si intitolava «Cosa fa
+       * e cosa non fa»: un titolo senza soggetto, lontano dall'unica cosa di cui
+       * parla. Chi si ferma prima di premere «Sincronizza» — cioè chi ha proprio
+       * il dubbio a cui questo elenco risponde — non scorreva fin laggiù, e chi
+       * ci arrivava scorrendo non aveva più in mente il pulsante.
+       */}
+      <div className="card">
+        <h2>{t('Cosa succede quando premi Sincronizza')}</h2>
+        {/*
+         * QUESTO ELENCO ERA UN SAGGIO, ed è il posto giusto per tenerne le
+         * ragioni. Quello che si è spostato qui dentro:
+         *
+         *  - il cestino non viaggia perché finché un'immersione è lì ripescarla
+         *    dev'essere sempre possibile. Svuotandolo nasce la lapide — «questa
+         *    è stata cancellata, e quando» — che è l'unica informazione capace
+         *    di distinguere «non ce l'ho ancora» da «l'ho buttata via», e
+         *    quella sì che si propaga;
+         *  - non duplica perché l'identificativo dipende dal CONTENUTO
+         *    dell'immersione, non da chi l'ha importata;
+         *  - attrezzatura, brevetti, piani e analisi sono le uniche cose che
+         *    nessun file di importazione porta con sé: cioè le uniche che
+         *    altrimenti si ricompilano su ogni dispositivo. Le raccolte si
+         *    fondono pezzo per pezzo, e a parità di pezzo vince la modifica più
+         *    recente;
+         *  - il segnalibro dello scarico Bluetooth si allinea IN FONDO al giro,
+         *    dopo le immersioni: prima sarebbe una promessa che l'archivio non
+         *    ha ancora mantenuto, e il collegamento dopo salterebbe immersioni
+         *    mai arrivate;
+         *  - le credenziali no: un token che viaggia dentro il proprio stesso
+         *    database sarebbe un cerchio sciocco oltre che pericoloso. Quel punto
+         *    è SCESO dentro «Avanzate»: parlava di «token del database» a chi
+         *    quel pannello non l'ha mai aperto, cioè quasi tutti, e in un elenco
+         *    di cose comprensibili era l'unica riga da manuale. Dove i token si
+         *    incollano davvero, invece, è la frase più utile che ci sia.
+         */}
+        <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)', fontSize: 13 }}>
+          <li>
+            <b>{t('Le cancellazioni viaggiano, il cestino no.')}</b>{' '}
+            {t('Finché un’immersione è nel cestino resta solo qui. Svuotandolo, sparisce ovunque.')}
+          </li>
+          <li>
+            <b>{t('Non duplica.')}</b> {t('La stessa immersione importata su due dispositivi resta una.')}
+          </li>
+          <li>
+            <b>{t('Viaggia anche quello che hai scritto a mano.')}</b>{' '}
+            {t('Attrezzatura, brevetti, piani e analisi si fondono; a parità di voce vince la più recente.')}
+          </li>
+          <li>
+            <b>{t('Viaggia anche fin dove sei arrivato con ogni computer.')}</b>{' '}
+            {t(
+              'Se hai già scaricato un computer da un dispositivo, gli altri prendono solo le immersioni nuove.',
+            )}
+          </li>
+          <li>
+            <b>{t('Riepilogo e profilo viaggiano separati.')}</b>{' '}
+            {t('Dopo la sincronizzazione ogni dispositivo ha tutti e due.')}
+          </li>
+          <li>
+            <b>{t('Sincronizzare due volte di fila non fa niente la seconda volta.')}</b>
+          </li>
+        </ul>
       </div>
 
       {/*
@@ -340,6 +580,20 @@ export function SyncPage() {
             </span>
           </label>
           <DoveStannoLeCredenziali />
+          {/*
+           * ► SCESO QUI DALL'ELENCO «COSA SUCCEDE QUANDO PREMI SINCRONIZZA». ◄
+           *
+           * Lassù era l'unica riga scritta per chi conosce già il meccanismo:
+           * «Le credenziali no. Il token del database resta su ogni
+           * dispositivo» non vuol dire niente a chi «Avanzate» non l'ha mai
+           * aperto, e chi non l'ha mai aperto un token non ce l'ha. Qui invece è
+           * la risposta alla domanda che si fa proprio adesso chi sta per
+           * incollarne uno: «e sull'altro dispositivo?».
+           */}
+          <p className="muted" style={{ fontSize: 11, margin: 0 }}>
+            <b>{t('Il token non viaggia con le immersioni.')}</b>{' '}
+            {t('Su ogni altro dispositivo va incollato di nuovo, qui.')}
+          </p>
 
           <div className="row">
             <button className="btn btn-primary" onClick={() => void save()} disabled={!dirty}>
@@ -371,8 +625,13 @@ export function SyncPage() {
               {t('Connessione riuscita.')}
             </p>
           )}
+          {/* Qui la strada è nota per costruzione: questa prova esiste solo dentro
+           * «Avanzate» e prova quello che c'è scritto nei due campi qui sopra.
+           * Chi la preme un token ce l'ha, ed è quello il rimedio giusto. */}
           {testResult && !testResult.ok && (
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--critical)' }}>{testResult.error}</p>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--critical)' }}>
+              {traduciErroreSync(testResult.error ?? '', t, 'manuale')}
+            </p>
           )}
         </div>
 
@@ -406,123 +665,148 @@ export function SyncPage() {
          * immersioni (attrezzatura, brevetti, piani, analisi). Chi vuole poter
          * tornare indietro usa il backup completo, non questo file.
          */}
-        <p className="card-sub">
-          {t('Tre strade per portare fuori le tue')} {imm(dives.length, t)}:{' '}
-          {t('UDDF per un altro programma di immersioni, CSV per un foglio di calcolo, KML per una mappa.')}{' '}
-          <b>{t('Non sono un backup')}</b>:{' '}
-          {t('lasciano fuori parecchi campi. Per una copia completa usa il backup.')}
-        </p>
-        <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
-          <button
-            className="btn btn-primary"
-            disabled={exporting || dives.length === 0}
-            onClick={() =>
-              scarica(async () => {
-                const result = await exportArchive();
-                const dove = await esporta(
-                  `mydivelog-${new Date().toISOString().slice(0, 10)}.uddf`,
-                  result.xml,
-                );
-                return {
-                  quante: `${imm(result.dives, t)} ${t('esportate')}`,
-                  omitted: result.omitted,
-                  dove: dove.dove,
-                };
-              })
-            }
-          >
-            {exporting ? t('Preparazione…') : t('Scarica UDDF')}
-          </button>
-          <button
-            disabled={exporting || dives.length === 0}
-            onClick={() =>
-              scarica(async () => {
-                const result = await exportArchive({ includeProfiles: false });
-                const dove = await esporta(
-                  `mydivelog-riepiloghi-${new Date().toISOString().slice(0, 10)}.uddf`,
-                  result.xml,
-                );
-                return {
-                  quante: `${imm(result.dives, t)} ${t('esportate')}`,
-                  omitted: result.omitted,
-                  dove: dove.dove,
-                };
-              })
-            }
-          >
-            {t('Solo riepiloghi')}
-          </button>
-          {/*
-           * CSV e KML stanno accanto all'UDDF, e non è disordine.
-           *
-           * Sono tre risposte a tre domande diverse: l'UDDF porta le immersioni
-           * in un altro programma del settore, il CSV le porta in un foglio di
-           * calcolo dove si può fare quello che questo programma non fa, il KML
-           * porta i siti su una mappa vera. Metterli in tre schede separate
-           * costringerebbe a cercare, quando la domanda di chi arriva qui è una
-           * sola: «come porto fuori i miei dati».
-           */}
-          <button
-            disabled={exporting || dives.length === 0}
-            onClick={() =>
-              scarica(async () => {
-                const { esportaCsv } = await import('../../core/export/csv');
-                /*
-                 * Il separatore segue la lingua dell'interfaccia, e con lui il
-                 * separatore decimale. Chi usa l'app in italiano ha quasi certamente
-                 * un foglio italiano, che vuole il punto e virgola e la virgola nei
-                 * decimali; chi la usa in inglese ha l'altra coppia. Sbagliare
-                 * coppia non dà nessun errore: apre il file in una colonna sola,
-                 * oppure fa entrare i numeri come testo.
-                 */
-                // Il numero è la posizione nel logbook: sul foglio di calcolo
-                // deve essere il tuo, non quello della fonte da cui è arrivata.
-                const { csv, righe } = esportaCsv(conNumeri(dives, numeri), {
-                  separatore: lingua === 'it' ? ';' : ',',
-                  lingua,
-                });
-                const dove = await esporta(
-                  `mydivelog-${new Date().toISOString().slice(0, 10)}.csv`,
-                  csv,
-                  'text/csv;charset=utf-8',
-                );
-                return { quante: `${imm(righe, t)} ${t('esportate')}`, omitted: [], dove: dove.dove };
-              })
-            }
-          >
-            {t('Foglio di calcolo (CSV)')}
-          </button>
-          <button
-            disabled={exporting || dives.length === 0}
-            onClick={() =>
-              scarica(async () => {
-                const { esportaKml } = await import('../../core/export/kml');
-                const { kml, siti, senzaCoordinate } = esportaKml(dives, { lingua });
-                const dove = await esporta(
-                  `mydivelog-siti-${new Date().toISOString().slice(0, 10)}.kml`,
-                  kml,
-                  'application/vnd.google-earth.kml+xml',
-                );
-                /*
-                 * I siti senza coordinate entrano in `omitted`, cioè nella
-                 * stessa riga che l'UDDF usa per dire cosa non è entrato. Senza,
-                 * una mappa con quattro segnaposti su dodici siti sembra un
-                 * difetto del programma invece che un dato che i formati di
-                 * origine non contengono.
-                 */
-                return {
-                  quante: `${plural(siti, 'sito', 'siti', t)} ${t('esportati')}`,
-                  omitted: senzaCoordinate.length
-                    ? [`${t('siti senza coordinate')}: ${senzaCoordinate.join(', ')}`]
-                    : [],
-                  dove: dove.dove,
-                };
-              })
-            }
-          >
-            {t('Siti su mappa (KML)')}
-          </button>
-        </div>
+        {/*
+         * ► CON L'ARCHIVIO VUOTO NON SI OFFRONO QUATTRO PULSANTI SPENTI. ◄
+         *
+         * Diceva «Tre strade per portare fuori le tue 0 immersioni» sopra quattro
+         * comandi disattivati: una frase che si contraddice da sola — non esiste
+         * nessuna strada per portare fuori zero cose — e una fila di pulsanti che
+         * non si possono premere. Il primo giorno di chiunque, questa carta era
+         * la più affollata e la più inutile della pagina.
+         *
+         * L'elenco dei formati resta, perché sapere che ci sono è utile anche
+         * prima di averne bisogno; sparisce la promessa di un gesto impossibile.
+         */}
+        {dives.length === 0 ? (
+          <p className="card-sub">
+            <b>{t('Non c’è ancora niente da esportare.')}</b>{' '}
+            {t(
+              'Quando avrai la prima immersione in archivio troverai qui tre formati: UDDF per un altro programma di immersioni, CSV per un foglio di calcolo, KML per una mappa.',
+            )}
+          </p>
+        ) : (
+          <>
+            <p className="card-sub">
+              {t('Tre strade per portare fuori le tue')} {imm(dives.length, t)}:{' '}
+              {t(
+                'UDDF per un altro programma di immersioni, CSV per un foglio di calcolo, KML per una mappa.',
+              )}{' '}
+              <b>{t('Non sono un backup')}</b>:{' '}
+              {t('lasciano fuori parecchi campi. Per una copia completa usa il backup.')}
+            </p>
+            <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+              <button
+                className="btn btn-primary"
+                disabled={exporting || dives.length === 0}
+                onClick={() =>
+                  scarica(async () => {
+                    const result = await exportArchive();
+                    const dove = await esporta(
+                      `mydivelog-${new Date().toISOString().slice(0, 10)}.uddf`,
+                      result.xml,
+                    );
+                    return {
+                      quante: `${imm(result.dives, t)} ${t('esportate')}`,
+                      omitted: result.omitted,
+                      dove: dove.dove,
+                    };
+                  })
+                }
+              >
+                {exporting ? t('Preparazione…') : t('Scarica UDDF')}
+              </button>
+              <button
+                disabled={exporting || dives.length === 0}
+                onClick={() =>
+                  scarica(async () => {
+                    const result = await exportArchive({ includeProfiles: false });
+                    const dove = await esporta(
+                      `mydivelog-riepiloghi-${new Date().toISOString().slice(0, 10)}.uddf`,
+                      result.xml,
+                    );
+                    return {
+                      quante: `${imm(result.dives, t)} ${t('esportate')}`,
+                      omitted: result.omitted,
+                      dove: dove.dove,
+                    };
+                  })
+                }
+              >
+                {t('Solo riepiloghi')}
+              </button>
+              {/*
+               * CSV e KML stanno accanto all'UDDF, e non è disordine.
+               *
+               * Sono tre risposte a tre domande diverse: l'UDDF porta le immersioni
+               * in un altro programma del settore, il CSV le porta in un foglio di
+               * calcolo dove si può fare quello che questo programma non fa, il KML
+               * porta i siti su una mappa vera. Metterli in tre schede separate
+               * costringerebbe a cercare, quando la domanda di chi arriva qui è una
+               * sola: «come porto fuori i miei dati».
+               */}
+              <button
+                disabled={exporting || dives.length === 0}
+                onClick={() =>
+                  scarica(async () => {
+                    const { esportaCsv } = await import('../../core/export/csv');
+                    /*
+                     * Il separatore segue la lingua dell'interfaccia, e con lui il
+                     * separatore decimale. Chi usa l'app in italiano ha quasi certamente
+                     * un foglio italiano, che vuole il punto e virgola e la virgola nei
+                     * decimali; chi la usa in inglese ha l'altra coppia. Sbagliare
+                     * coppia non dà nessun errore: apre il file in una colonna sola,
+                     * oppure fa entrare i numeri come testo.
+                     */
+                    // Il numero è la posizione nel logbook: sul foglio di calcolo
+                    // deve essere il tuo, non quello della fonte da cui è arrivata.
+                    const { csv, righe } = esportaCsv(conNumeri(dives, numeri), {
+                      separatore: lingua === 'it' ? ';' : ',',
+                      lingua,
+                    });
+                    const dove = await esporta(
+                      `mydivelog-${new Date().toISOString().slice(0, 10)}.csv`,
+                      csv,
+                      'text/csv;charset=utf-8',
+                    );
+                    return { quante: `${imm(righe, t)} ${t('esportate')}`, omitted: [], dove: dove.dove };
+                  })
+                }
+              >
+                {t('Foglio di calcolo (CSV)')}
+              </button>
+              <button
+                disabled={exporting || dives.length === 0}
+                onClick={() =>
+                  scarica(async () => {
+                    const { esportaKml } = await import('../../core/export/kml');
+                    const { kml, siti, senzaCoordinate } = esportaKml(dives, { lingua });
+                    const dove = await esporta(
+                      `mydivelog-siti-${new Date().toISOString().slice(0, 10)}.kml`,
+                      kml,
+                      'application/vnd.google-earth.kml+xml',
+                    );
+                    /*
+                     * I siti senza coordinate entrano in `omitted`, cioè nella
+                     * stessa riga che l'UDDF usa per dire cosa non è entrato. Senza,
+                     * una mappa con quattro segnaposti su dodici siti sembra un
+                     * difetto del programma invece che un dato che i formati di
+                     * origine non contengono.
+                     */
+                    return {
+                      quante: `${plural(siti, 'sito', 'siti', t)} ${t('esportati')}`,
+                      omitted: senzaCoordinate.length
+                        ? [`${t('siti senza coordinate')}: ${senzaCoordinate.join(', ')}`]
+                        : [],
+                      dove: dove.dove,
+                    };
+                  })
+                }
+              >
+                {t('Siti su mappa (KML)')}
+              </button>
+            </div>
+          </>
+        )}
         {exported && (
           <div className="notice" style={{ marginTop: 12 }}>
             <b>
@@ -535,62 +819,6 @@ export function SyncPage() {
             )}
           </div>
         )}
-      </div>
-
-      <div className="card">
-        <h2>{t('Cosa fa e cosa non fa')}</h2>
-        {/*
-         * QUESTO ELENCO ERA UN SAGGIO, ed è il posto giusto per tenerne le
-         * ragioni. Quello che si è spostato qui dentro:
-         *
-         *  - il cestino non viaggia perché finché un'immersione è lì ripescarla
-         *    dev'essere sempre possibile. Svuotandolo nasce la lapide — «questa
-         *    è stata cancellata, e quando» — che è l'unica informazione capace
-         *    di distinguere «non ce l'ho ancora» da «l'ho buttata via», e
-         *    quella sì che si propaga;
-         *  - non duplica perché l'identificativo dipende dal CONTENUTO
-         *    dell'immersione, non da chi l'ha importata;
-         *  - attrezzatura, brevetti, piani e analisi sono le uniche cose che
-         *    nessun file di importazione porta con sé: cioè le uniche che
-         *    altrimenti si ricompilano su ogni dispositivo. Le raccolte si
-         *    fondono pezzo per pezzo, e a parità di pezzo vince la modifica più
-         *    recente;
-         *  - il segnalibro dello scarico Bluetooth si allinea IN FONDO al giro,
-         *    dopo le immersioni: prima sarebbe una promessa che l'archivio non
-         *    ha ancora mantenuto, e il collegamento dopo salterebbe immersioni
-         *    mai arrivate;
-         *  - le credenziali no: un token che viaggia dentro il proprio stesso
-         *    database sarebbe un cerchio sciocco oltre che pericoloso.
-         */}
-        <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)', fontSize: 13 }}>
-          <li>
-            <b>{t('Le cancellazioni viaggiano, il cestino no.')}</b>{' '}
-            {t('Finché un’immersione è nel cestino resta solo qui. Svuotandolo, sparisce ovunque.')}
-          </li>
-          <li>
-            <b>{t('Non duplica.')}</b> {t('La stessa immersione importata su due dispositivi resta una.')}
-          </li>
-          <li>
-            <b>{t('Viaggia anche quello che hai scritto a mano.')}</b>{' '}
-            {t('Attrezzatura, brevetti, piani e analisi si fondono; a parità di voce vince la più recente.')}
-          </li>
-          <li>
-            <b>{t('Viaggia anche fin dove sei arrivato con ogni computer.')}</b>{' '}
-            {t(
-              'Se hai già scaricato un computer da un dispositivo, gli altri prendono solo le immersioni nuove.',
-            )}
-          </li>
-          <li>
-            <b>{t('Le credenziali no.')}</b> {t('Il token del database resta su ogni dispositivo.')}
-          </li>
-          <li>
-            <b>{t('Riepilogo e profilo viaggiano separati.')}</b>{' '}
-            {t('Dopo la sincronizzazione ogni dispositivo ha tutti e due.')}
-          </li>
-          <li>
-            <b>{t('Sincronizzare due volte di fila non fa niente la seconda volta.')}</b>
-          </li>
-        </ul>
       </div>
 
       <RiconoscimentiCard />
@@ -800,10 +1028,25 @@ function AccountCard() {
              * questo dispositivo resta dov'è, ed è scritto qui sotto perché è
              * esattamente la domanda che si fa chi sta per premere.
              */}
+            {/*
+             * ► LE DUE COSE CHE LA DOMANDA NON DICEVA. ◄
+             *
+             * Diceva già bene cosa muore e cosa resta, e mancavano i due dubbi
+             * che restano addosso a chi legge «cancella l'account»:
+             *
+             *  - gli ALTRI dispositivi. Ognuno ha la sua copia intera, e nessuno
+             *    la perde: la cancellazione tocca lo spazio condiviso, non le
+             *    copie. Chi non lo sa immagina un pulsante che svuota il
+             *    telefono da lontano, e non preme;
+             *  - l'account Apple o Google. Non è nostro e non lo tocchiamo:
+             *    quello che sparisce è il database creato per te. Il timore
+             *    opposto — «mi cancella l'account Google?» — è irragionevole
+             *    solo per chi sa come è fatta questa cosa dentro.
+             */}
             <BottoneConferma
               etichetta={t('Cancella l’account')}
               domanda={t(
-                'Cancella il database remoto e le immersioni che contiene. Quelle su questo dispositivo restano.',
+                'Cancella il database remoto e le immersioni che contiene. Quelle su questo dispositivo restano, e anche quelle sugli altri dispositivi dove le hai già sincronizzate. Il tuo account Apple o Google non viene toccato.',
               )}
               conferma={t('Sì, cancella il database remoto')}
               onConferma={() => {
@@ -855,10 +1098,32 @@ function AccountCard() {
           <button className="btn btn-primary" onClick={() => accedi('google')} disabled={lavoro !== 'idle'}>
             {lavoro === 'google' ? t('Accesso in corso…') : t('Accedi con Google')}
           </button>
-          <span className="muted" style={{ fontSize: 11, alignSelf: 'center' }}>
-            {t('Si apre il browser di sistema: la password la scrivi al fornitore, non a noi.')}
-          </span>
+          {/*
+           * ► LA COSA PIÙ IMPORTANTE VA DETTA QUI, NON SOLO SUL SITO. ◄
+           *
+           * C'era mezza frase: la password si scrive al fornitore. Vera, e non è
+           * quella che si sta chiedendo chi ha il dito sul pulsante. La domanda è
+           * dove finiscono le IMMERSIONI, e la risposta — «non passano dal
+           * servizio di accesso, viaggiano fra l'applicazione e il database» — è
+           * dichiarata nella pagina della privacy del sito e in nessun punto
+           * dell'applicazione. Una garanzia che vive dove nessuno la legge nel
+           * momento in cui decide non è una garanzia: è documentazione.
+           *
+           * La riga occupa lo spazio di due, e va bene: è l'unico punto di questa
+           * pagina in cui si chiede di fidarsi.
+           */}
         </div>
+      )}
+
+      {/* Sta SOTTO i pulsanti e non di fianco: schiacciata nella riga si spezzava
+       * in tre colonne strette accanto ai due pulsanti, cioè la frase più
+       * importante della carta nella forma più faticosa da leggere. */}
+      {!accountAttivo && (
+        <p className="muted" style={{ fontSize: 11, margin: '10px 0 0' }}>
+          {t('Si apre il browser di sistema: la password la scrivi al fornitore, non a noi.')}{' '}
+          <b>{t('Le immersioni non passano dal servizio di accesso')}</b>:{' '}
+          {t('viaggiano fra questa app e il tuo database.')}
+        </p>
       )}
 
       {errore && (
@@ -1119,7 +1384,7 @@ function BackupCard() {
       {/* Il senso di un backup è che stia ALTROVE: sullo stesso disco
        * dell'archivio non protegge da niente. */}
       <p className="muted" style={{ fontSize: 11, marginTop: 12, marginBottom: 0 }}>
-        {t('L’archivio vive in')} {t(storeLocation)}. {t('Il backup è una copia da tenere altrove.')}
+        {t('L’archivio vive')} {t(storeLocation)}. {t('Il backup è una copia da tenere altrove.')}
       </p>
     </div>
   );

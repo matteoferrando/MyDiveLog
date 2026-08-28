@@ -124,7 +124,7 @@ function readDive(
 
   const datetime = text(child(before, 'datetime'));
   if (!datetime) {
-    warnings.push(t('Immersione senza <datetime> scartata.'));
+    warnings.push(t('Un’immersione del file è stata saltata: manca la data.'));
     return null;
   }
   const startTime = normaliseDateTime(datetime);
@@ -138,7 +138,9 @@ function readDive(
      */
     warnings.push(
       `${t('Immersione scartata: data')} «${datetime}» ${t('in un formato che non so leggere.')} ` +
-        t('UDDF vuole ISO 8601 (2026-06-14T10:38:00); segnala il file, che il formato si aggiunge.'),
+        t(
+          'Un UDDF scrive «2026-06-14T10:38:00»: se il tuo programma la scrive altrimenti, riesporta il file scegliendo un altro formato di data.',
+        ),
     );
     return null;
   }

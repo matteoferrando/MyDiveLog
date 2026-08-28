@@ -231,7 +231,7 @@ export type DownloadEvent =
    * riceve tutti in un blocco solo, e solo alla fine, tagliando quel blocco sui
    * marcatori `A5 A5 5A 5A`, scopre che erano ottantacinque immersioni.
    *
-   * Senza questo evento l'interfaccia resterebbe ferma su «Leggo…» per i tre o
+   * Senza questo evento l'interfaccia resterebbe ferma su «Lettura in corso…» per i tre o
    * quattro minuti che il trasferimento richiede — e un'applicazione ferma che
    * non dice niente è indistinguibile da una bloccata. È la differenza fra
    * aspettare e riavviare.

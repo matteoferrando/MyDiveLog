@@ -52,7 +52,9 @@ export const subsurfaceParser: DiveParser = {
     const root = parseXml(input.text ?? '');
     const divelog = child(root, 'divelog') as Record<string, unknown> | undefined;
     if (!divelog) {
-      return { format: 'subsurface', dives: [], warnings: [t('Radice <divelog> non trovata.')] };
+      // Il nome del tag che manca non serve a chi legge: serve a chi ha scritto
+      // il file, che non è la stessa persona. Vedi `uddf.ts` per la stessa cura.
+      return { format: 'subsurface', dives: [], warnings: [t('Il file non contiene immersioni leggibili.')] };
     }
 
     const importedAt = new Date().toISOString();
@@ -107,7 +109,7 @@ function readDive(
   const date = attr(node, 'date');
   const time = attr(node, 'time') ?? '00:00:00';
   if (!date) {
-    warnings.push(t('Immersione senza attributo date scartata.'));
+    warnings.push(t('Un’immersione del file è stata saltata: manca la data.'));
     return null;
   }
   // `wallClockToIso` e non `new Date(...)`: Subsurface scrive l'ora dell'orologio

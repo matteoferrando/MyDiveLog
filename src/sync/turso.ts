@@ -165,6 +165,44 @@ export const SHARED_SETTINGS = [
   'period',
 ] as const;
 
+/**
+ * Come si chiama, per chi legge il resoconto, ognuna delle impostazioni che
+ * viaggiano.
+ *
+ * ► STA QUI, ACCANTO A `SHARED_SETTINGS`, E NON NELLA PAGINA. ◄ Perché è
+ * l'elenco di fianco: una chiave aggiunta lassù e dimenticata quaggiù si vede
+ * subito — esce il nome tecnico — mentre la stessa dimenticanza fatta in un
+ * altro file non la nota nessuno finché non tocca a quella chiave viaggiare.
+ *
+ * Il ripiego è la chiave stessa e non «Altro»: `bleMarkers` a schermo è brutto e
+ * segnala che qui manca una riga; «Altro» invece è una risposta plausibile, cioè
+ * un difetto travestito da informazione.
+ */
+export function nomeImpostazione(key: string, t: Traduci = comeSta): string {
+  switch (key) {
+    case 'gear':
+      return t('attrezzatura e brevetti');
+    case 'subacqueo':
+      return t('i tuoi dati per il libretto');
+    case 'gasPlan':
+      return t('piano gas');
+    case 'decoPlan':
+      return t('piano di decompressione');
+    case 'decoPlans':
+      return t('piani salvati');
+    case 'analyses':
+      return t('analisi');
+    case BLE_MARKERS_KEY:
+      return t('fin dove sei arrivato con ogni computer');
+    case 'goal':
+      return t('obiettivo');
+    case 'period':
+      return t('periodo delle statistiche');
+    default:
+      return key;
+  }
+}
+
 /** Quante immersioni per richiesta: i riepiloghi sono piccoli, i profili no. */
 const PUSH_CHUNK = 25;
 
@@ -179,6 +217,21 @@ export interface SyncReport {
   /** Impostazioni condivise caricate e scaricate. */
   settingsPushed: number;
   settingsPulled: number;
+  /**
+   * QUALI si sono mosse, non solo quante.
+   *
+   * «Impostazioni condivise: 3 caricate, 0 scaricate» è un numero senza soggetto:
+   * dice che qualcosa è successo e non dice a che cosa, e le nove chiavi
+   * condivise sono cose che non si assomigliano per niente — l'attrezzatura, i
+   * brevetti, il periodo delle statistiche, fin dove si era arrivati con ogni
+   * computer. Chi legge quel numero si sta chiedendo se è arrivato il pezzo che
+   * gli interessa, e la risposta sono i nomi.
+   *
+   * Sono le CHIAVI tecniche, non le etichette: il nome da mostrare lo sceglie
+   * chi disegna, con `nomeImpostazione()`.
+   */
+  settingsPushedKeys: string[];
+  settingsPulledKeys: string[];
   /**
    * Le impostazioni che NON si sono allineate, con il perché.
    *
@@ -203,9 +256,26 @@ export interface SyncReport {
 async function syncSettings(
   store: DiveStore,
   sql: SqlExecutor,
-): Promise<{ pushed: number; pulled: number; errors: string[] }> {
+): Promise<{
+  pushed: number;
+  pulled: number;
+  pushedKeys: string[];
+  pulledKeys: string[];
+  errors: string[];
+}> {
+  /*
+   * I due conteggi RESTANO, e non sono la lunghezza dei due elenchi.
+   *
+   * Lo sono oggi, e potrebbero non esserlo domani: una chiave che si fonde in
+   * tutti e due i versi — `gear`, `analyses` — incrementa entrambi i contatori
+   * in un giro solo, e se un giorno una chiave venisse conteggiata due volte
+   * l'elenco resterebbe di uno. Tenerli separati costa due righe e non fa mai
+   * mentire il resoconto.
+   */
   let pushed = 0;
   let pulled = 0;
+  const pushedKeys: string[] = [];
+  const pulledKeys: string[] = [];
   const errors: string[] = [];
   const { rows } = await sql.execute('SELECT key, updated_at, doc FROM settings');
   const remote = new Map(rows.map((r) => [String(r.key), { at: String(r.updated_at), doc: String(r.doc) }]));
@@ -229,7 +299,7 @@ async function syncSettings(
       errors.push(`${key}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
-  return { pushed, pulled, errors };
+  return { pushed, pulled, pushedKeys, pulledKeys, errors };
 
   async function unaImpostazione(key: (typeof SHARED_SETTINGS)[number]): Promise<void> {
     const local = await store.getSetting<unknown>(key);
@@ -264,6 +334,7 @@ async function syncSettings(
         await store.setSetting(key, merged.value);
         await store.setSetting(`${key}:at`, new Date().toISOString());
         pulled++;
+        pulledKeys.push(key);
       }
       if (merged.changedRemotely) {
         await sql.execute(
@@ -272,6 +343,7 @@ async function syncSettings(
           [key, new Date().toISOString(), JSON.stringify(merged.value)],
         );
         pushed++;
+        pushedKeys.push(key);
       }
       return;
     }
@@ -282,6 +354,7 @@ async function syncSettings(
         await store.setSetting(key, merged.value);
         await store.setSetting(`${key}:at`, new Date().toISOString());
         pulled++;
+        pulledKeys.push(key);
       }
       if (merged.changedRemotely) {
         await sql.execute(
@@ -290,6 +363,7 @@ async function syncSettings(
           [key, new Date().toISOString(), JSON.stringify(merged.value)],
         );
         pushed++;
+        pushedKeys.push(key);
       }
       return;
     }
@@ -302,10 +376,12 @@ async function syncSettings(
         [key, at, JSON.stringify(local)],
       );
       pushed++;
+      pushedKeys.push(key);
     } else if (there && there.at > localAt) {
       await store.setSetting(key, JSON.parse(there.doc));
       await store.setSetting(`${key}:at`, there.at);
       pulled++;
+      pulledKeys.push(key);
     }
   }
 }
@@ -647,7 +723,15 @@ export async function syncArchive(
   const startedAt = Date.now();
   const say = (m: string) => onProgress?.(m);
 
-  say(t('Preparazione del database remoto…'));
+  /*
+   * IL REGISTRO LO LEGGE CHI PREME IL PULSANTE, non chi ha scritto lo schema.
+   *
+   * Diceva «Preparazione del database remoto…»: due parole da manuale — «database»
+   * e «remoto» — per dire che si sta controllando che dall'altra parte ci siano i
+   * cassetti dove mettere le immersioni. Chi guarda scorrere le righe vuole sapere
+   * a che punto è il suo trasferimento, non come si chiama il pezzo che ci lavora.
+   */
+  say(t('Controllo che dall’altra parte sia tutto pronto…'));
   await ensureRemoteSchema(sql);
 
   // --- lapidi, prima di tutto il resto -------------------------------------
@@ -943,6 +1027,8 @@ export async function syncArchive(
   const settings = await syncSettings(store, sql).catch((err) => ({
     pushed: 0,
     pulled: 0,
+    pushedKeys: [] as string[],
+    pulledKeys: [] as string[],
     errors: [`impostazioni: ${err instanceof Error ? err.message : String(err)}`],
   }));
 
@@ -952,6 +1038,8 @@ export async function syncArchive(
     deletionsApplied: deleted.applied,
     settingsPushed: settings.pushed,
     settingsPulled: settings.pulled,
+    settingsPushedKeys: settings.pushedKeys,
+    settingsPulledKeys: settings.pulledKeys,
     settingsErrors: settings.errors,
     pushed,
     pulled,
@@ -1129,19 +1217,110 @@ export async function testConnection(
 }
 
 /**
+ * Di che genere è un errore di sincronizzazione.
+ *
+ * Separato dalla frase da mostrare perché le due domande sono diverse e le fanno
+ * due pezzi diversi: qui si guarda il messaggio della libreria, l’interfaccia
+ * invece deve poter scegliere il CONSIGLIO in base alla strada che chi guarda ha
+ * seguito — e quella strada, qui dentro, non si sa.
+ *
+ * Funziona anche sul messaggio già composto da `describeSyncError`, perché
+ * quello si porta dietro l’originale fra parentesi: è quello che arriva alla
+ * pagina, che riceve un `Error` costruito altrove e non l’eccezione di partenza.
+ */
+export type GenereErroreSync = 'rete' | 'token' | 'altro';
+
+export function genereErroreSync(err: unknown): GenereErroreSync {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/failed to fetch|network|fetch failed|ENOTFOUND|EAI_AGAIN/i.test(raw)) return 'rete';
+  if (/401|403|unauthor|token/i.test(raw)) return 'token';
+  return 'altro';
+}
+
+/**
+ * Per quale strada si sta sincronizzando: è quello che decide il rimedio.
+ *
+ * `'ignota'` non è un ripiego pigro, è il caso vero di chi compone il messaggio
+ * lontano dalla pagina — `state.tsx` avvolge ENTRAMBE le strade nella stessa
+ * riga e non ha modo di sapere quale sia stata seguita.
+ */
+export type StradaSync = 'account' | 'manuale' | 'ignota';
+
+/**
+ * La frase da mostrare per un errore di sincronizzazione, o `''` se non ce n’è
+ * una migliore del messaggio della libreria.
+ *
+ * ► PERCHÉ IL RIMEDIO DIPENDE DALLA STRADA. ◄ Questa funzione nasce da un
+ * difetto preciso: la scadenza della chiave del database diceva a tutti
+ * «generane uno nuovo su Turso e reincollalo». Chi è entrato con Google o con
+ * Apple su Turso non ha nessun conto, nessun token da rigenerare e nessun campo
+ * dove reincollarlo: l’errore più probabile dell’intera pagina dava a metà
+ * delle persone un’istruzione impossibile da eseguire. Chi sbaglia strada nel
+ * consigliare fa danni peggiori di chi non consiglia niente.
+ *
+ * ► PERCHÉ LE `t()` STANNO QUI DENTRO E NON DOVE SI DISEGNA. ◄ Perché questo è
+ * l’unico punto in cui le quattro frasi esistono per intero e alla lettera: il
+ * controllo che cerca le frasi senza voce nel dizionario legge il sorgente e
+ * riconosce solo le chiavi scritte per intero dentro una chiamata a `t`. Tenendole qui non
+ * possono sfuggirgli — ed erano proprio sfuggite: `describeSyncError` componeva
+ * due frasi italiane che nessuno aveva mai passato dal dizionario, e chi usa
+ * l’app in inglese leggeva i suoi errori in italiano.
+ */
+export function frasePerErroreSync(
+  genere: GenereErroreSync,
+  strada: StradaSync,
+  t: Traduci = comeSta,
+): string {
+  if (genere === 'rete') {
+    return t('Non raggiungibile: controlla l’indirizzo del database e la connessione di rete.');
+  }
+  if (genere !== 'token') return '';
+  if (strada === 'account')
+    return t(
+      'La chiave del tuo database è scaduta. Fai «Esci» qui sopra e rientra con lo stesso account: l’app ne prende una nuova.',
+    );
+  if (strada === 'manuale')
+    return t('Il token non è stato accettato. Genera un token nuovo su Turso e reincollalo in «Avanzate».');
+  return t(
+    'La chiave del tuo database non è più valida. Se hai fatto l’accesso, esci e rientra; se hai incollato indirizzo e token a mano, generane uno nuovo su Turso.',
+  );
+}
+
+/**
  * Messaggi utili al posto di quelli della libreria.
  *
  * "TypeError: Failed to fetch" non dice niente a chi ha solo sbagliato a
  * incollare l'indirizzo, ed è esattamente l'errore che si ottiene sia con un
  * indirizzo inesistente sia con la rete staccata.
+ *
+ * Compone SEMPRE con la strada ignota, perché chi la chiama non la conosce. La
+ * pagina, che invece la conosce, rimette a posto la frase con
+ * `traduciErroreSync`; e chi lo mostrasse così com’è leggerebbe comunque
+ * un consiglio eseguibile da entrambe le parti.
  */
 export function describeSyncError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
-  if (/failed to fetch|network|fetch failed|ENOTFOUND|EAI_AGAIN/i.test(raw)) {
-    return `Non raggiungibile: controlla l'indirizzo del database e la connessione di rete. (${raw})`;
-  }
-  if (/401|403|unauthor|token/i.test(raw)) {
-    return `Il token non è stato accettato: generane uno nuovo su Turso e reincollalo. (${raw})`;
-  }
-  return raw;
+  const frase = frasePerErroreSync(genereErroreSync(raw), 'ignota');
+  return frase ? `${frase} (${raw})` : raw;
+}
+
+/**
+ * Il messaggio di `describeSyncError`, tradotto e con il consiglio giusto per la
+ * strada che si sta usando davvero.
+ *
+ * Non è un’analisi del testo: il prefisso che si toglie è esattamente quello
+ * che `describeSyncError` ha scritto — la stessa funzione, con la stessa strada
+ * ignota — quindi il confronto è fra due stringhe generate dallo stesso posto.
+ * Se non combacia, il messaggio non l’ha composto lui e passa intatto: un
+ * errore che non riconosciamo si mostra com’è, non si reinventa.
+ *
+ * La coda — `(TypeError: Failed to fetch)` — resta attaccata e non si traduce:
+ * è il testo della libreria, ed è quello che serve a chi deve segnalare il
+ * guasto.
+ */
+export function traduciErroreSync(messaggio: string, t: Traduci, strada: StradaSync): string {
+  const genere = genereErroreSync(messaggio);
+  const composta = frasePerErroreSync(genere, 'ignota');
+  if (!composta || !messaggio.startsWith(composta)) return messaggio;
+  return frasePerErroreSync(genere, strada, t) + messaggio.slice(composta.length);
 }

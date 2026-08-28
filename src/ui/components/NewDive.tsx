@@ -150,7 +150,29 @@ function toInput(d: Draft): ManualDiveInput {
   };
 }
 
-export function NewDive({ onDone }: { onDone: (id: string) => void }) {
+export function NewDive({
+  onDone,
+  apriSubito = false,
+}: {
+  onDone: (id: string) => void;
+  /*
+   * Aprire il modulo senza che nessuno abbia premuto il pulsante QUI DENTRO.
+   *
+   * Serve alla schermata dell'archivio vuoto: là la porta per scrivere a mano è
+   * un pulsante del riquadro vuoto, e se aprisse solo il riquadro richiuso di
+   * questo componente chiederebbe due tocchi per un gesto solo — il secondo
+   * peraltro su un pulsante che è appena comparso in fondo alla pagina.
+   *
+   * È un suggerimento, non un comando: il modulo resta padrone del proprio
+   * stato, perché «Chiudi» deve poter chiudere anche quando la richiesta di
+   * apertura è ancora vera. Per questo la prop viene letta come un FRONTE — si
+   * apre quando passa da falsa a vera — con la forma che React documenta per
+   * «aggiusta uno stato quando cambia una prop»: durante il render, non in un
+   * effetto, che disegnerebbe prima il riquadro chiuso e subito dopo quello
+   * aperto.
+   */
+  apriSubito?: boolean;
+}) {
   const { createDive, dives, gear, saveGear } = useDiveLog();
   const { t } = useLingua();
   /*
@@ -165,7 +187,12 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
     void saveGear({ ...gear, equipment: prossimo });
     return voce.id;
   };
-  const [aperto, setAperto] = useState(false);
+  const [aperto, setAperto] = useState(apriSubito);
+  const [richiestaPrecedente, setRichiestaPrecedente] = useState(apriSubito);
+  if (apriSubito !== richiestaPrecedente) {
+    setRichiestaPrecedente(apriSubito);
+    if (apriSubito) setAperto(true);
+  }
   /*
    * Il modulo prende il posto della riga di invito, quindi il riquadro NON
    * rinasce: senza `quando` l'effetto sarebbe partito una volta sola, al primo
@@ -625,7 +652,11 @@ export function NewDive({ onDone }: { onDone: (id: string) => void }) {
           aria-busy={salvando || undefined}
           onClick={() => void salva()}
         >
-          {salvando ? t('Salvo…') : giaPresente ? t('Unisci a quella esistente') : t('Salva immersione')}
+          {salvando
+            ? t('Salvataggio in corso…')
+            : giaPresente
+              ? t('Unisci a quella esistente')
+              : t('Salva immersione')}
         </button>
         <button
           onClick={() => {

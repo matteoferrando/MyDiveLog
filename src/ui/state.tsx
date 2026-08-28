@@ -20,6 +20,7 @@ import {
 import type { Dive, Sample } from '../core/model';
 import { TRASH_KEY, filterDeleted, partitionTrash, type TrashedDive } from '../storage/trash';
 import { BLE_MARKERS_KEY, type DownloadMarker } from '../core/ble/types';
+import { dettaglioLeggibile } from '../core/ble/causaGuasto';
 import { computeMetrics } from '../core/analysis/metrics';
 import { aggregate, type Aggregates } from '../core/analysis/aggregate';
 import type { GasPlanInput } from '../core/analysis/gasPlan';
@@ -27,6 +28,7 @@ import { storicoDi, buildPlan, type GoalId, type Plan } from '../core/analysis/c
 import { applyPeriod, DEFAULT_PERIOD, type PeriodId, type Scope } from '../core/analysis/window';
 import { mergeDive, mergeImports, profileChannels, type Sospetto } from '../core/dedupe';
 import { conNumeri, numeriProgressivi } from '../core/numerazione';
+import { frase } from '../core/frase';
 import { buildBackup, planRestore, type BackupFile } from '../core/export/backup';
 import { parseBrowserFile } from '../core/parsers';
 import { useLingua, useTraduciStabile } from './lingua';
@@ -406,7 +408,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         }
       };
 
-      const segreti = await prova('portachiavi', () => openSecretStore(s));
+      const segreti = await prova(traduci('portachiavi'), () => openSecretStore(s));
       if (!cancelled && segreti) setSecretPlace(segreti.place);
 
       /*
@@ -432,29 +434,57 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         savedSubacqueo,
         savedMarkers,
       ] = await Promise.all([
-        prova('immersioni', () => s.listDives()),
-        prova('obiettivo', () => s.getSetting<GoalId>('goal')),
-        prova('periodo', () => s.getSetting<PeriodId>('period')),
+        prova(traduci('immersioni'), () => s.listDives()),
+        prova(traduci('obiettivo'), () => s.getSetting<GoalId>('goal')),
+        prova(traduci('periodo delle statistiche'), () => s.getSetting<PeriodId>('period')),
         // Le credenziali NON passano più da `getSetting`: le legge il negozio
         // dei segreti, che su macOS è il portachiavi di sistema e che al primo
         // avvio migra da solo quelle rimaste in chiaro nell'archivio.
-        prova('credenziali di sincronizzazione', async () => segreti?.read<SyncCredentials>('sync')),
-        prova('sessione dell’account', async () => segreti?.read<AccountSalvato | string>('account')),
-        prova('piano gas', () => s.getSetting<GasPlanInput>('gasPlan')),
-        prova('attrezzatura', () => s.getSetting<unknown>('gear')),
-        prova('subacqueo', () => s.getSetting<Subacqueo>('subacqueo')),
-        prova('segnalibri Bluetooth', () => s.getSetting<Record<string, DownloadMarker>>(BLE_MARKERS_KEY)),
+        prova(traduci('chiavi della sincronizzazione'), async () => segreti?.read<SyncCredentials>('sync')),
+        prova(traduci('accesso al tuo account'), async () =>
+          segreti?.read<AccountSalvato | string>('account'),
+        ),
+        prova(traduci('piano gas'), () => s.getSetting<GasPlanInput>('gasPlan')),
+        prova(traduci('attrezzatura e brevetti'), () => s.getSetting<unknown>('gear')),
+        prova(traduci('i tuoi dati per il libretto'), () => s.getSetting<Subacqueo>('subacqueo')),
+        prova(traduci('fin dove sei arrivato con ogni computer'), () =>
+          s.getSetting<Record<string, DownloadMarker>>(BLE_MARKERS_KEY),
+        ),
       ]);
-      const savedDeco = await prova('piano deco', () => s.getSetting<unknown>('decoPlan'));
+      const savedDeco = await prova(traduci('piano di decompressione'), () =>
+        s.getSetting<unknown>('decoPlan'),
+      );
       const savedPlans =
-        (await prova('piani salvati', () => s.getSetting<SavedDecoPlan[]>('decoPlans'))) ?? [];
-      const savedTrash = (await prova('cestino', () => s.getSetting<TrashedDive[]>(TRASH_KEY))) ?? [];
+        (await prova(traduci('piani salvati'), () => s.getSetting<SavedDecoPlan[]>('decoPlans'))) ?? [];
+      const savedTrash =
+        (await prova(traduci('cestino'), () => s.getSetting<TrashedDive[]>(TRASH_KEY))) ?? [];
       if (cancelled) return;
       if (guasti.length) {
+        /*
+         * ► LA SECONDA STRINGA D'ERRORE FUORI DAL DIZIONARIO, e sbagliava nello
+         * stesso modo della prima. ◄
+         *
+         * Non passava da `traduci`, quindi in inglese restava italiana; e i
+         * pezzi che ci si infilavano dentro erano i NOMI CHE `prova` USA PER
+         * SÉ — «portachiavi», «subacqueo», «segnalibri Bluetooth» — cioè le
+         * chiavi con cui questo file identifica le proprie letture. Chi
+         * leggeva «subacqueo» non poteva sapere che si parla del suo nome sul
+         * libretto, e «segnalibri Bluetooth» non è una cosa che esista dal suo
+         * lato dello schermo. Adesso le etichette sono quelle che l'utente
+         * riconosce, sono le stesse che usa il resoconto della
+         * sincronizzazione (`nomeImpostazione`), e passano dal dizionario:
+         * `dizionario.test.ts` le vede una per una.
+         *
+         * IL RIMANDO ALLA CONSOLE È SPARITO. Diceva a una persona di aprire la
+         * console del sistema per leggere «il motivo esatto»: un consiglio che
+         * chi lo può seguire non aspettava, e chi non lo può seguire legge come
+         * «arrangiati». Il motivo esatto sta nel `console.error` di `prova`,
+         * dov'era già; a schermo resta quello che si può fare.
+         */
         setInitError(
-          `Alcune parti dell'archivio non si sono aperte: ${guasti.join(', ')}. Il resto funziona, ` +
-            'ma prima di aggiungere immersioni conviene capire perché — la console del sistema ne ' +
-            'riporta il motivo esatto.',
+          `${frase(traduci, 'Alcune parti dell’archivio non si sono aperte: {0}.', guasti.join(', '))} ` +
+            `${traduci('Il resto funziona.')} ` +
+            traduci('Chiudi e riapri l’applicazione; se succede di nuovo, libera spazio sul dispositivo.'),
         );
       }
 
@@ -523,9 +553,26 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       // il motivo si scrive a schermo, perché senza si vede una applicazione
       // vuota e nient'altro.
       console.error('Inizializzazione archivio fallita:', err);
+      /*
+       * ► ERA UNA STRINGA D'ERRORE FUORI DAL DIZIONARIO, ed è il primo schermo
+       * che una persona può vedere. ◄ (Si credeva l'unica: ce n'era una seconda
+       * quaranta righe più su, l'avvio parziale, ed è stata sistemata dopo.)
+       *
+       * Sbagliava in tutte e due le lingue, il che è quasi un risultato: in
+       * inglese restava italiana, perché non passava da `traduci`; in italiano
+       * finiva in inglese, perché ci si appendeva `err.message` e quel
+       * messaggio lo scrive il motore d'archivio — «no available storage method
+       * found». Chi la leggeva non aveva modo di sapere se il guasto fosse suo,
+       * dell'app o del telefono.
+       *
+       * IL DETTAGLIO TECNICO NON SI PERDE: sta nel `console.error` qui sopra,
+       * che è il posto dove serve — a chi apre la console, non a chi apre
+       * l'applicazione. A schermo resta quello che si può fare e che cosa
+       * succede ai dati, che è tutto quello che una persona può usare.
+       */
       setInitError(
-        `L'archivio locale non si è aperto: ${err instanceof Error ? err.message : String(err)}. ` +
-          'Quello che aggiungi adesso NON viene salvato.',
+        `${traduci('L’archivio locale non si è aperto: quello che aggiungi adesso non viene salvato.')} ` +
+          traduci('Chiudi e riapri l’applicazione; se succede di nuovo, libera spazio sul dispositivo.'),
       );
       setReady(true);
     });
@@ -668,7 +715,18 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
             merged: 0,
             duplicates: 0,
             warnings: [],
-            error: err instanceof Error ? err.message : String(err),
+            /*
+             * IL MOTIVO RIPULITO, oppure NIENTE — e «niente» è una risposta.
+             *
+             * Questa stringa finisce fra parentesi accanto al nome del file, in
+             * una riga che ne elenca parecchi: è il posto sbagliato per una
+             * frase lunga e il posto peggiore per il nome di una libreria. Se
+             * `dettaglioLeggibile` non riesce a ripulirla si lascia scoperto il
+             * campo, e chi mostra l'esito scrive «motivo non riportato» — che è
+             * onesto e si legge. Il consiglio su cosa fare sta una volta sola in
+             * fondo all'elenco (vedi `ImportPage`), non ripetuto per ogni file.
+             */
+            error: dettaglioLeggibile(err) || undefined,
           });
         }
       }
@@ -736,7 +794,11 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
           merged: 0,
           duplicates: 0,
           warnings: [],
-          error: err instanceof Error ? err.message : String(err),
+          // Ripulito come in `importFiles`, e per lo stesso motivo: da qui il
+          // testo esce dallo stato e va dritto in un riquadro rosso — nella
+          // pagina d'import e sotto lo scarico Bluetooth, che è la strada da
+          // cui il nome di un motore d'archivio arriverebbe più facilmente.
+          error: dettaglioLeggibile(err) || undefined,
         };
       }
     },
@@ -1551,7 +1613,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     setPeriod,
     scope,
     storeKind: store?.kind ?? '—',
-    storeLocation: store?.location ?? 'Non inizializzato',
+    storeLocation: store?.location ?? 'non ancora creato',
     aggregates,
     plan,
     goalId,

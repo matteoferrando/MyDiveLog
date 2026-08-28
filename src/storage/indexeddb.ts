@@ -25,13 +25,30 @@ export class IndexedDbStore implements DiveStore {
   /**
    * DOVE VIVE L'ARCHIVIO, detto all'utente nelle impostazioni.
    *
+   * ► QUI C'ERA IL NOME DEL MOTORE, E LO LEGGEVA CHIUNQUE. ◄ Diceva «File
+   * SQLite nella cartella dati dell'app» sul Mac e «Archivio del browser
+   * (IndexedDB)» sul web — le due frasi comparivano in cima alla schermata
+   * Importa, cioè **la prima riga della prima schermata di chi installa
+   * l'applicazione**. Si vedono nella fotografia che il primo utente esterno ha
+   * mandato il 28 agosto 2026: sopra l'errore del Bluetooth, che allora sembrava
+   * l'unico difetto di quello schermo, c'era già questa.
+   *
+   * A chi si immerge, «SQLite» e «IndexedDB» non dicono niente. La domanda a cui
+   * questa riga deve rispondere è un'altra, ed è la sola che una persona si fa:
+   * **dove sono i miei dati, e chi li vede.**
+   *
+   * La distinzione fra i due motori resta perché è VERA e ha una conseguenza
+   * pratica: quello che sta nella memoria di un browser sparisce se si cancellano
+   * i dati del sito, quello che sta in un file no. Cambia il modo di dirlo, non
+   * il fatto.
+   *
    * Resta la frase italiana e non passa da `t()` qui: è una stringa costante,
    * letta da chi la mostra, e la traduzione si fa a schermo — `t(storeLocation)`
    * in `ImportPage` e `SyncPage`. Tradurla alla costruzione la congelerebbe
    * nella lingua di quel momento, perché l'archivio si apre una volta sola
    * all'avvio mentre la lingua si può cambiare dopo.
    */
-  readonly location = 'Archivio del browser (IndexedDB)';
+  readonly location = 'nella memoria di questo browser';
   private db: IDBDatabase | null = null;
 
   /**
@@ -81,8 +98,28 @@ export class IndexedDbStore implements DiveStore {
     });
   }
 
+  /*
+   * ► «Store non inizializzato.» ERA UN'ASSERZIONE DA PROGRAMMATORE. ◄
+   *
+   * In teoria non scatta mai — `getStore()` aspetta sempre `init()` — ma una
+   * guardia che non scatta mai non esisterebbe: quando scatta, il testo esce
+   * dal `catch` di chi ha chiamato e finisce in un riquadro rosso. «Store» non
+   * è una parola italiana e non è una cosa che chi legge possa avere in mente;
+   * «non inizializzato» descrive lo stato di un oggetto in memoria, non quello
+   * dei dati di una persona.
+   *
+   * La frase nuova dice le due cose che servono: che si può fare (riavviare) e
+   * che cosa è successo a quello che si stava salvando (niente, non è stato
+   * scritto). È la STESSA di `SqliteStore`, di proposito: chi la legge non sa
+   * quale dei due motori sta usando, e non deve importargli.
+   */
   private tx(stores: string[], mode: IDBTransactionMode) {
-    if (!this.db) throw new Error(this.t('Store non inizializzato.'));
+    if (!this.db)
+      throw new Error(
+        this.t(
+          'L’archivio non è pronto. Chiudi e riapri l’applicazione: quello che stavi salvando non è stato scritto.',
+        ),
+      );
     return this.db.transaction(stores, mode);
   }
 

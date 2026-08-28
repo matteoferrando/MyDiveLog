@@ -79,8 +79,6 @@ export const INGLESE: Record<string, string> = {
   'già presenti': 'already there',
   'Il Bluetooth funziona, ma i protocolli si aggiungono uno alla volta. Per ora: esporta dall’app del costruttore e importa il file qui sopra.':
     'Bluetooth works, but protocols are added one at a time. For now: export from the manufacturer app and import the file above.',
-  'Il formato si riconosce dal contenuto, non dall’estensione: un .xml può essere UDDF, Subsurface o Shearwater.':
-    'The format is detected from the file content, not the extension: an .xml can be UDDF, Subsurface or Shearwater.',
   'Import fallito': 'Import failed',
   'Import finito': 'Import finished',
   'Importa immersioni': 'Import dives',
@@ -100,8 +98,6 @@ export const INGLESE: Record<string, string> = {
   'Sì, cancella': 'Yes, delete',
   Trovate: 'Found',
   trovate: 'found',
-  'Un permesso negato non dà errore: la ricerca sembra solo non trovare niente.':
-    'A denied permission raises no error: the scan simply seems to find nothing.',
   'Vai al logbook': 'Go to the logbook',
   'Via Bluetooth, senza l’app del costruttore. Le immersioni già presenti vengono arricchite, non duplicate.':
     'Over Bluetooth, without the manufacturer app. Dives you already have are enriched, not duplicated.',
@@ -114,7 +110,6 @@ export const INGLESE: Record<string, string> = {
   'Azzera i filtri': 'Clear filters',
   'Cerca fra le immersioni': 'Search your dives',
   'Cerca sito, compagno, note…': 'Search site, buddy, notes…',
-  consumo: 'RMV',
   data: 'date',
   Deseleziona: 'Deselect',
   durata: 'duration',
@@ -143,7 +138,6 @@ export const INGLESE: Record<string, string> = {
   Oltre: 'Deeper than',
   'Ordina per': 'Sort by',
   'per svuotare un campo su tutte.': 'to clear a field on all of them.',
-  'Prima della prossima': 'Before your next dive',
   'Prima della prossima immersione': 'Before your next dive',
   profondità: 'depth',
   'qualsiasi profondità': 'any depth',
@@ -152,7 +146,6 @@ export const INGLESE: Record<string, string> = {
     'They stay recoverable for 30 days, until you empty the trash.',
   Riduci: 'Collapse',
   Scrivi: 'Type',
-  'Scrivo…': 'Saving…',
   'Seleziona l’immersione del': 'Select the dive of',
   'Seleziona tutte le immersioni mostrate': 'Select every dive shown',
   'Si scrivono solo i campi che compili.': 'Only the fields you fill in are written.',
@@ -167,7 +160,6 @@ export const INGLESE: Record<string, string> = {
   'Annotazioni del logbook': 'Logbook notes',
   aria: 'air',
   'Bombole e miscele': 'Cylinders and mixes',
-  'Cambi di gas sotto la MOD': 'Gas switches below MOD',
   'campioni, uno ogni': 'samples, one every',
   'Chiudi modifica': 'Close editing',
   'Ci sono modifiche non salvate: chiudendo vanno perse.': 'There are unsaved changes: closing loses them.',
@@ -259,8 +251,6 @@ export const INGLESE: Record<string, string> = {
   'sotto i 10 m': 'below 10 m',
   'Sovrasaturazione istantanea (GF99)': 'Instant supersaturation (GF99)',
   'Stampa questa immersione': 'Print this dive',
-  'Su iPhone e iPad non si stampa. Il foglio si stampa dal Mac: i dati sono gli stessi.':
-    'No printing on iPhone and iPad. Print from the Mac: the data is the same.',
   'Sì, butta via le modifiche': 'Yes, discard my changes',
   'Tempo di fondo residuo (RBT)': 'Remaining bottom time (RBT)',
   'Tempo di risalita (TTS) del computer': 'Time to surface (TTS) from the computer',
@@ -300,10 +290,8 @@ export const INGLESE: Record<string, string> = {
   'con pressione finale': 'with an end pressure',
   'con profilo': 'with profile',
   'Configurazione, miscele, esposizione.': 'Setup, mixes, exposure.',
-  Consumo: 'RMV',
   'consumo di superficie': 'RMV',
   'Consumo di superficie (L/min)': 'RMV (L/min)',
-  'Consumo in superficie': 'RMV',
   'Consumo per': 'RMV by',
   'Cosa dipende da cosa': 'What depends on what',
   'Costo mediano': 'Median cost',
@@ -320,7 +308,6 @@ export const INGLESE: Record<string, string> = {
   'fra due immersioni della stessa giornata': 'between two dives on the same day',
   'GF99 medio all’uscita': 'Average GF99 on surfacing',
   'Giornata peggiore, CNS': 'Worst day, CNS',
-  'Giornata peggiore, OTU': 'Worst day, OTU',
   'giornate di immersione nel periodo': 'diving days in the period',
   'Giorni sopra 300 OTU': 'Days over 300 OTU',
   'Il CNS si dimezza ogni 90 minuti in superficie; le OTU non recuperano mai.':
@@ -476,7 +463,6 @@ export const INGLESE: Record<string, string> = {
   Assetto: 'Buoyancy',
   'Bombole, erogatori, sacco, computer, muta. L’intervallo di manutenzione lo decidi tu.':
     'Cylinders, regulators, BCD, computer, suit. You set the service interval.',
-  Brevetti: 'Certifications',
   Brevetto: 'Certification',
   'Con zavorra': 'With weight',
   'Configurazione, contata sui log': 'Setup, counted from the logs',
@@ -553,8 +539,6 @@ export const INGLESE: Record<string, string> = {
   Suggerimenti: 'Coaching',
   'Sì, elimina': 'Yes, delete',
   Ultima: 'Last',
-  'Un archivio, non un promemoria: nessun avviso, nessuna scadenza che lampeggia.':
-    'A record, not a reminder: no alerts, no flashing due dates.',
   'Vengono proposti come piastra sulle immersioni in cui lo scegli, e li puoi cambiare lì.':
     'Suggested as plate weight on dives where you pick it, and you can change it there.',
   'Zavorra e configurazione': 'Weighting and setup',
@@ -570,7 +554,6 @@ export const INGLESE: Record<string, string> = {
   'A quota': 'At',
   'accendi «calcola il gas minimo per l’emergenza» qui sopra.':
     'tick “compute the minimum gas for an emergency” above.',
-  'accettabile fino a 5.21 ata': 'acceptable up to 5.21 ata',
   Acqua: 'Water',
   Aggiungi: 'Add',
   'Aggiungi gas di transito': 'Add travel gas',
@@ -616,7 +599,6 @@ export const INGLESE: Record<string, string> = {
   Consumati: 'Used',
   'Consumo al fondo': 'Bottom RMV',
   'Consumo del compagno': 'Buddy RMV',
-  'Consumo in deco': 'Deco RMV',
   'Consumo in decompressione': 'Deco RMV',
   'Consumo in emergenza': 'Stressed RMV',
   'Consumo misurato su': 'RMV measured on',
@@ -640,8 +622,6 @@ export const INGLESE: Record<string, string> = {
     'From splash to the start of the ascent, descent included: as your computer counts it.',
   'Dall’ingresso all’uscita. Quello che avanza dal fondo è la risalita.':
     'From splash to surface. What is left over from the bottom is the ascent.',
-  'Decide gas d’emergenza, ppO2 e narcosi. La media segue in proporzione.':
-    'Drives bailout gas, ppO2 and narcosis. Average depth follows in proportion.',
   Decompressione: 'Decompression',
   decompressione: 'deco',
   'del compagno': 'buddy’s',
@@ -738,13 +718,9 @@ export const INGLESE: Record<string, string> = {
   'I due modelli a confronto': 'The two models side by side',
   'I livelli': 'The levels',
   'Il bailout non regge': 'The bailout does not hold',
-  'Il browser ha bloccato la finestra di stampa. Consenti i popup per questo sito e riprova.':
-    'The browser blocked the print window. Allow popups for this site and retry.',
   'Il circuito chiuso': 'Closed circuit',
   'Il circuito si chiude e si esce a circuito aperto. Dal fondo è il caso peggiore; se il gas non basta, prova quote diverse.':
     'The loop closes and you exit on open circuit. From the bottom is the worst case; if gas runs short, try other depths.',
-  'Il controllo in cinque lettere, da fare in superficie insieme al compagno.':
-    'The five-letter check, done on the surface with your buddy.',
   'Il fondo è disegnato alla sua profondità media. La riga tratteggiata è la massima.':
     'The bottom is drawn at its average depth. The dashed line is max depth.',
   'Il gas che serve': 'The gas you need',
@@ -796,7 +772,6 @@ export const INGLESE: Record<string, string> = {
   'intorno ai': 'around',
   'invece di 1.013: respiri meno gas, e la curva si accorcia.':
     'instead of 1.013: you breathe less gas, and the no-deco limit shortens.',
-  iterazioni: 'iterations',
   'L/min in superficie': 'L/min at the surface',
   'La colonna dei bar non fa parte della tabella di risalita che insegnano i corsi: è in più.':
     'The bar column is not part of the run-time table taught on courses: it is extra.',
@@ -806,8 +781,6 @@ export const INGLESE: Record<string, string> = {
   'La pressione che dovresti leggere sul manometro a ogni tappa. Serve ad accorgersi di uno scostamento':
     'What your SPG should read at each step. It catches a drift',
   'la profondità a cui stai davvero': 'the depth you are really at',
-  'La profondità di cambio viene dalla MOD e si può correggere. In risalita il piano passa da solo al gas più ricco respirabile.':
-    'Switch depth comes from the MOD and can be edited. On ascent the plan moves to the richest breathable gas by itself.',
   'La regola dei terzi vale se il ritorno è obbligato. Altrimenti conta il gas minimo.':
     'Thirds assume a forced return. Otherwise the number that counts is minimum gas.',
   'La risalita non si imposta: si ricava.': 'The ascent rate is not set: it comes out.',
@@ -829,8 +802,6 @@ export const INGLESE: Record<string, string> = {
     'Stops are computed on a bottom at average depth: a deeper profile will want more.',
   'Le soste, in tabella': 'The stops, as a table',
   'Le stesse righe del foglio, per leggerle sullo schermo.': 'The same rows as the sheet, to read on screen.',
-  'Le tabelle escono dal 5 al 10 per cento più corte di V-Planner e MultiDeco: se vuoi allinearti, alza di un livello.':
-    'Tables come out 5 to 10 per cent shorter than V-Planner and MultiDeco: to match them, go up one level.',
   'limite impostato': 'limit set to',
   litri: 'litres',
   Litri: 'Litres',
@@ -893,11 +864,8 @@ export const INGLESE: Record<string, string> = {
   'Non si aggiunge se il modello ha già una sosta a quella quota, né sotto i':
     'Not added if the model already stops at that depth, nor below',
   'Non si è potuto salvare': 'Could not save',
-  'non usare la tabella.': 'do not use the table.',
   'non è disponibile: resta ferma se qualcosa va storto.':
     'is not available: it stays put in case something goes wrong.',
-  'Non è obbligatoria, ma tre minuti non contati sono tre minuti di gas non contato.':
-    'Not mandatory, but three minutes uncounted are three minutes of gas uncounted.',
   'Obbligo totale': 'Total deco',
   Ogni: 'Each',
   'Ore già passate in quota': 'Hours already at altitude',
@@ -922,13 +890,11 @@ export const INGLESE: Record<string, string> = {
   'Piani messi da parte': 'Saved plans',
   pianificati: 'planned',
   'Pianificatore di gas': 'Gas planner',
-  'Più alto del tuo: chi condivide gas respira male. La didattica dice 30.':
-    'Higher than yours: sharing gas is bad breathing. Training says 30.',
   'più di quello che porti': 'more than you carry',
   'più in alto i tessuti che comandano scaricano invece di caricare.':
     'above that the leading tissues unload instead of loading.',
-  'PPO2 al fondo': 'ppO2 at depth',
-  'PPO2 massima': 'Max ppO2',
+  'PPO2 al fondo': 'PPO2 at depth',
+  'PPO2 massima': 'Max PPO2',
   'prendi un obbligo di decompressione. Accorcia il fondo, tira su la media, o passa alla modalità tecnica.':
     'you take on a deco obligation. Cut the bottom time, raise the average, or switch to technical mode.',
   'pressione attesa': 'expected pressure',
@@ -985,7 +951,7 @@ export const INGLESE: Record<string, string> = {
   Risalita: 'Ascent',
   'risalita che ne risulta': 'resulting ascent rate',
   'Risalita d’emergenza': 'Emergency ascent',
-  'Risalita, soste e limite di PPO2': 'Ascent, stops and ppO2 limit',
+  'Risalita, soste e limite di PPO2': 'Ascent, stops and PPO2 limit',
   riserva: 'reserve',
   'Riserva e regola di rientro': 'Reserve and turn rule',
   'riserva esclusa': 'reserve not counted',
@@ -1030,18 +996,11 @@ export const INGLESE: Record<string, string> = {
   'Stessi gradient factor della curva qui sopra': 'Same gradient factors as the no-deco limit above',
   'Stesso profilo, due teorie sulle bolle: VPM-B mette le soste più in profondità e ne toglie in superficie. Non c’è un vincitore.':
     'Same profile, two theories about bubbles: VPM-B puts stops deeper and takes them off shallow. There is no winner.',
-  'Su iPhone e iPad la stampa non c’è. Stampa il piano dal Mac: i dati sono gli stessi.':
-    'Printing is not available on iPhone or iPad. Print from the Mac: same data.',
-  'Su questo profilo il calcolo non arriva a un risultato stabile':
-    'On this profile the calculation does not settle',
   'su una bombola da': 'on a cylinder of',
   sui: 'of the',
   'sul gas del fondo. È il piano minimo: con un gas di deco dedicato sarebbero più corte.':
     'on bottom gas. This is the bare plan: a dedicated deco gas would shorten the stops.',
-  'Sul nostro VPM-B': 'About our VPM-B',
   Tabella: 'Table',
-  'Tabelle NOAA. Il CNS si dimezza ogni 90 minuti in superficie, gli OTU no.':
-    'NOAA tables. CNS halves every 90 surface minutes, OTU does not.',
   Tecnica: 'Technical',
   'Tecnica: la deco è prevista, con la tabella delle soste e i gas che porti.':
     'Technical: deco is planned, with the stop table and the gases you carry.',
@@ -1173,7 +1132,6 @@ export const INGLESE: Record<string, string> = {
   con: 'on',
   Correlazione: 'Correlation',
   'Correlazione non calcolabile su così pochi punti.': 'Correlation not computable on so few points.',
-  'cursore non posizionato, usa le frecce.': 'cursor not placed, use the arrow keys.',
   'Cursore non posizionato: usa le frecce.': 'Cursor not placed: use the arrow keys.',
   Curva: 'Curve',
   'curva piatta': 'flat curve',
@@ -1260,7 +1218,6 @@ export const INGLESE: Record<string, string> = {
   acciaio: 'steel',
   "Aggiungi un'immersione a mano": 'Add a dive by hand',
   'Aggiungi una bombola': 'Add a cylinder',
-  'al modello': 'to model',
   alluminio: 'aluminium',
   Annulla: 'Cancel',
   apnea: 'freediving',
@@ -1322,8 +1279,6 @@ export const INGLESE: Record<string, string> = {
   'Nuova immersione': 'New dive',
   ore: 'hours',
   Ossigeno: 'Oxygen',
-  parola: 'word',
-  parole: 'words',
   'Per l’assetto zavorra e piastra contano insieme: l’app le somma.':
     'For trim they count together: the app adds them up.',
   'Per quelle senza file: computer a noleggio, batteria scarica, libretto di carta.':
@@ -1348,17 +1303,14 @@ export const INGLESE: Record<string, string> = {
     'What the computer does not measure. A later import',
   'questi campi.': 'these fields.',
   'Recuperabile dalle': 'Recoverable from',
-  Rigenera: 'Regenerate',
-  Rimuovi: 'Remove',
   Salva: 'Save',
   'Salva immersione': 'Save dive',
   'Salvataggio non riuscito:': 'Could not save:',
   'Salvato.': 'Saved.',
-  'Salvo…': 'Saving…',
   'Scarto da UTC': 'UTC offset',
   'scegli o scrivi': 'pick or type',
   'scrivi il nome': 'type the name',
-  'Scrivi una sigla —': 'Write a size —',
+  'Scrivi una sigla —': 'Type a code —',
   'Se te la ricordi, scrivila: decide quanto azoto passa all’immersione dopo. Senza, si usa il 70% della massima.':
     'Write it if you remember it: it decides how much nitrogen carries over. Without it, 70% of max is assumed.',
   'Secondo erogatore': 'Second regulator',
@@ -1387,7 +1339,6 @@ export const INGLESE: Record<string, string> = {
   'Accedi con Google': 'Sign in with Google',
   'Accedi con Apple o con Google, oppure configura indirizzo e token del database.':
     'Sign in with Apple or Google, or set the database address and token.',
-  'Accedi qui sopra e il pulsante si accende.': 'Sign in above and this button lights up.',
   Accesso: 'Sign in',
   'Accesso in corso…': 'Signing in…',
   'Aggiorna credenziali': 'Update credentials',
@@ -1402,8 +1353,6 @@ export const INGLESE: Record<string, string> = {
   'Backup del': 'Backup of',
   'Backup scritto': 'Backup written',
   'campioni conservati': 'samples kept',
-  'Cancella il database remoto e le immersioni che contiene. Quelle su questo dispositivo restano.':
-    'Deletes the remote database and the dives on it. The ones on this device stay.',
   'Cancella le': 'Deletes the',
   'Cancella l’account': 'Delete the account',
   'Cancellare definitivamente': 'Permanently delete',
@@ -1422,9 +1371,8 @@ export const INGLESE: Record<string, string> = {
   'con i loro profili: svuotarlo libera spazio e rende definitive le cancellazioni.':
     'with their profiles: emptying it frees space and makes the deletions final.',
   'Con un account Apple o Google l’app crea un database tuo: gli altri dispositivi si allineano con lo stesso account.':
-    'With a Google account the app makes a database of your own: other devices line up with the same account.',
+    'With an Apple or Google account the app makes a database of your own: other devices line up with the same account.',
   'Connessione riuscita.': 'Connected.',
-  'Cosa fa e cosa non fa': 'What it does and what it doesn’t',
   'Definitiva fra': 'Final in',
   Dimentica: 'Forget',
   'Dopo la sincronizzazione ogni dispositivo ha tutti e due.': 'After a sync every device has both.',
@@ -1460,12 +1408,12 @@ export const INGLESE: Record<string, string> = {
   'La stessa immersione importata su due dispositivi resta una.':
     'The same dive imported on two devices stays one dive.',
   'Le cancellazioni viaggiano, il cestino no.': 'Deletions travel, the trash does not.',
-  'Le credenziali no.': 'Credentials do not.',
-  'Le immersioni sì. Riprova, e se l’errore torna segnalalo.':
-    'Your dives did. Try again, and report it if the error comes back.',
   'Le legge solo questa app, e non finiscono nei backup.':
     'Only this app can read them, and they stay out of backups.',
-  'L’archivio vive in': 'Your logbook lives in',
+  'L’archivio vive': 'Your logbook lives',
+  'in un file su questo dispositivo': 'in a file on this device',
+  'nella memoria di questo browser': 'in this browser’s storage',
+  'non ancora creato': 'not created yet',
   'Nel browser non c’è un portachiavi. Sull’app desktop ci finiscono.':
     'A browser has no keychain. On the desktop app they go into one.',
   'Non duplica.': 'No duplicates.',
@@ -1619,7 +1567,6 @@ export const INGLESE: Record<string, string> = {
   'Il freddo fa consumare di più, quindi la muta e la temperatura dicono in parte la stessa cosa: guarda le due colonne insieme.':
     'Cold raises consumption, so wetsuit and temperature partly say the same thing: read the two columns together.',
   'Il meglio dei tuoi computer, in un logbook solo.': 'The best of every dive computer, in one logbook.',
-  'Il picco su finestra di 30 secondi.': 'The peak over a 30-second window.',
   Illuminazione: 'Lights',
   'immersione aggiornata': 'dive updated',
   'immersioni aggiornate': 'dives updated',
@@ -1680,7 +1627,6 @@ export const INGLESE: Record<string, string> = {
   'Nessuna manutenzione periodica': 'No scheduled service',
   neve: 'snow',
   'Nitrox / miscele': 'Nitrox / mixes',
-  'Nome sulla tessera': 'Name on the card',
   'non oltre': 'no more than',
   Numero: 'Number',
   nuvoloso: 'cloudy',
@@ -1722,7 +1668,6 @@ export const INGLESE: Record<string, string> = {
   Revisione: 'Overhaul',
   'Rimasto al fondo più del previsto.': 'Longer on the bottom than planned.',
   'Risalita fino alla sosta': 'Ascent to the stop',
-  'S — Drill': 'S — Drill',
   Salata: 'Salt',
   Scaricate: 'Pulled',
   'Scegli file': 'Choose files',
@@ -1739,8 +1684,6 @@ export const INGLESE: Record<string, string> = {
   semichiuso: 'semi-closed',
   'Senza le due pressioni e il volume della bombola il consumo non si può calcolare, e questa immersione resterà fuori dalle statistiche sul consumo.':
     'Without both pressures and the cylinder volume there is no RMV, and this dive stays out of the consumption stats.',
-  'Senza profondità media i tessuti verranno stimati su un profilo quadro al 70% della massima. Se te la ricordi, scrivila: è il numero che decide quanto azoto passa all’immersione successiva.':
-    'Without an average depth, tissues are estimated on a square profile at 70% of max. Write it if you remember it: it decides how much nitrogen carries over to the next dive.',
   'Senza temperatura questa immersione non entra nelle correlazioni fra freddo e consumo.':
     'Without a temperature this dive is left out of the cold-versus-consumption figures.',
   'Serve un valore noto e stabile: la pianificazione del gas si basa su questo.':
@@ -1796,9 +1739,6 @@ export const INGLESE: Record<string, string> = {
   "−5 minuti: la via d'uscita se qualcosa non va": '−5 min: the way out if something is off',
   /* Dove vive l'archivio: la frase la scrive `src/storage`, la si traduce dove
      si mostra. */
-  'Archivio del browser (IndexedDB)': 'Browser storage (IndexedDB)',
-  'File SQLite nella cartella dati dell’app': 'SQLite file in the app data folder',
-  'Non inizializzato': 'Not initialised',
   /* Il percentile: «75°» in italiano, «75th» in inglese. */
   '75°': '75th',
   'm slm': 'm asl',
@@ -1824,25 +1764,17 @@ export const INGLESE: Record<string, string> = {
     'Some cylinders have no link to a gas mix (a known limit of the Shearwater UDDF export): the first mix defined was assigned.',
   "anomalie; l'import continua sui dati validi.": 'anomalies; the import carries on with the valid data.',
   'byte dedotta dal contenuto.': 'bytes inferred from the content.',
-  'byte su': 'bytes out of',
   'Cancellazioni…': 'Deletions…',
-  'Caratteristiche viste:': 'Characteristics seen:',
   Caricati: 'Pushed',
   'Colonne ignorate perché non riconosciute:': 'Columns ignored because unrecognised:',
   corrispondenze: 'matches',
   'CSV senza righe di dati.': 'CSV with no data rows.',
   'da caricare,': 'to push,',
   'da scaricare,': 'to pull,',
-  'Database non inizializzato.': 'Database not initialised.',
-  'Database non leggibile:': 'Database not readable:',
-  'Decodifica disallineata: consumati': 'Decoding out of step: consumed',
   'Di solito significa che non è il computer che pensavamo, o che è in modalità aggiornamento firmware invece che in modalità trasferimento.':
     'Usually this means it is not the computer we thought, or that it is in firmware update mode instead of transfer mode.',
-  'dichiarati. Il profilo potrebbe essere incompleto.': 'declared. The profile may be incomplete.',
   'era stata cancellata definitivamente': 'had been permanently deleted',
   'erano state cancellate definitivamente': 'had been permanently deleted',
-  'Eventi del log non documentati, letti e non interpretati: codici':
-    'Undocumented log events, read but not interpreted: codes',
   'File FIT vuoto.': 'Empty FIT file.',
   'File scritto da': 'File written by',
   'File vuoto.': 'Empty file.',
@@ -1857,26 +1789,21 @@ export const INGLESE: Record<string, string> = {
   'Il Bluetooth non è disponibile in questa versione dell’applicazione:':
     'Bluetooth is not available in this build of the app:',
   'Il decoder FIT ha segnalato': 'The FIT decoder reported',
-  'Il dispositivo non espone il servizio': 'The device does not expose service',
   'il file non dichiara durata né profondità massima, ricavate dai campioni. Se il file è stato scaricato a metà, questi numeri descrivono solo la parte arrivata.':
     'the file declares neither duration nor max depth, so both come from the samples. If the file was downloaded half way, these numbers describe only the part that arrived.',
-  'Il FIT non contiene il volume della bombola e non è deducibile da tank_summary: inserisci i litri nella scheda per avere il consumo in L/min.':
-    'The FIT has no cylinder volume and it cannot be derived from tank_summary: enter the litres on the dive to get the RMV in L/min.',
+  'Il FIT non porta il volume della bombola: inserisci i litri nella scheda per avere il consumo in L/min.':
+    'The FIT carries no cylinder volume: enter the litres on the dive to get the RMV in L/min.',
   'Il permesso di usare il Bluetooth è stato negato. Si concede in Impostazioni di Sistema, alla voce Privacy e sicurezza → Bluetooth.':
     'Permission to use Bluetooth was denied. Grant it in System Settings, under Privacy & Security → Bluetooth.',
   'Il permesso di usare il Bluetooth è stato negato. Si concede in Impostazioni → MyDiveLog → Bluetooth.':
     'Permission to use Bluetooth was denied. Grant it in Settings → MyDiveLog → Bluetooth.',
-  'Il servizio': 'Service',
   'Il servizio ha risposto in un modo che non conosciamo.': 'The service answered in a way we do not know.',
   illeggibile: 'unreadable',
   'Immersione con data non interpretabile scartata:': 'Dive with an unreadable date discarded:',
   'Immersione del': 'Dive on',
   'immersione non è stata reimportata': 'dive was not re-imported',
   'Immersione scartata: data': 'Dive discarded: date',
-  'Immersione senza <datetime> scartata.': 'Dive with no <datetime> discarded.',
-  'Immersione senza attributo date scartata.': 'Dive with no date attribute discarded.',
   'Immersione Shearwater del': 'Shearwater dive on',
-  'Immersione Shearwater senza startDate scartata.': 'Shearwater dive with no startDate discarded.',
   'immersioni cancellate altrove.': 'dives deleted elsewhere.',
   'immersioni con il profilo completo letto dal log nativo del computer: tetto deco, TTS, NDL, CNS e impostazioni GF.':
     'dives with the full profile read from the computer native log: deco ceiling, TTS, NDL, CNS and GF settings.',
@@ -1895,19 +1822,16 @@ export const INGLESE: Record<string, string> = {
     'Downloading from the dive computer works only in the app, not in the browser: Safari has no Bluetooth for web pages, and the other browsers expose it in a way that cannot talk to these devices.',
   'log nativo del computer non decodificabile': 'computer native log could not be decoded',
   'L’accesso funziona solo nell’applicazione: nel browser non c’è modo di ricevere il ritorno dal fornitore.':
-    'Signing in works only in the app: in the browser there is no way to receive the callback from Google.',
+    'Signing in works only in the app: in a browser there is no way to receive the provider’s callback.',
   'L’accesso non è stato completato. Riprova quando vuoi.':
     'Sign-in was not completed. Try again whenever you like.',
   'Modello del computer non indicato: intestazione da': 'Computer model not stated: header of',
-  'Nessun <diveLog> valido trovato nel file Shearwater.': 'No valid <diveLog> found in the Shearwater file.',
-  'Nessun array "dives" nel file.': 'No "dives" array in the file.',
+  'Nessuna immersione valida trovata nel file Shearwater.': 'No valid dive found in the Shearwater file.',
   'Nessuna colonna di data riconosciuta.': 'No date column recognised.',
-  'Nessuna immersione in dive_details.': 'No dive in dive_details.',
   'Nessuna immersione nel file FIT.': 'No dive in the FIT file.',
   'Nessuna immersione trovata nel file Subsurface.': 'No dive found in the Subsurface file.',
   'Nessuna immersione trovata nel file UDDF.': 'No dive found in the UDDF file.',
   'Nessuna immersione valida nel file LogTRAK.': 'No valid dive in the LogTRAK file.',
-  'non ha': 'has no',
   'Non si è potuto leggere l’elenco dei servizi del dispositivo:':
     'Could not read the list of services on the device:',
   'Passo di campionamento Shearwater non riconosciuto: i tempi sono interpretati come secondi.':
@@ -1915,14 +1839,10 @@ export const INGLESE: Record<string, string> = {
   'Per riaverle, rimettile a posto dal cestino in Impostazioni.':
     'To get them back, restore them from the trash in Settings.',
   perché: 'because',
-  'PPO2 Shearwater riscalata di 100: il campo non è documentato in unità.':
-    'Shearwater PPO2 rescaled by 100: the field has no documented unit.',
-  'Preparazione del database remoto…': 'Preparing the remote database…',
   'profili non decodificabili: le immersioni sono state importate senza profilo.':
     'profiles could not be decoded: those dives were imported without a profile.',
   'profili…': 'profiles…',
   'Profilo del': 'Profile of',
-  'Radice <divelog> non trovata.': '<divelog> root not found.',
   'Restano i dati di riepilogo.': 'The summary data is left.',
   'Riconosciuto uno sfasamento di': 'Recognised a clock offset of',
   Riga: 'Row',
@@ -1930,16 +1850,10 @@ export const INGLESE: Record<string, string> = {
   'scartata: data, durata o profondità non interpretabili.': 'discarded: date, duration or depth unreadable.',
   'scartata: durata o profondità mancanti.': 'discarded: duration or depth missing.',
   'senza profondità media: consumo non calcolabile.': 'has no average depth: RMV cannot be worked out.',
-  'Servizi trovati:': 'Services found:',
   'Servizio di accesso non raggiungibile:': 'Sign-in service unreachable:',
   'Sessioni subacquee trovate ma senza profilo utilizzabile.':
     'Dive sessions found, but with no usable profile.',
   'sono nel cestino': 'are in the trash',
-  'Store non inizializzato.': 'Storage not initialised.',
-  'UDDF vuole ISO 8601 (2026-06-14T10:38:00); segnala il file, che il formato si aggiunge.':
-    'UDDF wants ISO 8601 (2026-06-14T10:38:00); report the file and the format gets added.',
-  'una caratteristica che notifichi': 'characteristic that notifies',
-  'una caratteristica su cui scrivere': 'characteristic to write to',
   "Unità dichiarate nell'intestazione e applicate a tutta la colonna:":
     'Units declared in the header and applied to the whole column:',
   'è nel cestino': 'is in the trash',
@@ -1955,7 +1869,6 @@ export const INGLESE: Record<string, string> = {
   'Accendi il computer e mettilo in modalità trasferimento o Bluetooth — quasi tutti annunciano solo per qualche minuto dopo che li hai toccati, e si riaddormentano da soli. La ricerca continua finché non la fermi.':
     'Turn the computer on and put it in transfer or Bluetooth mode — most only advertise for a few minutes after you touch them, then fall asleep again. The scan keeps going until you stop it.',
   'Al prossimo collegamento prendo solo quelle più recenti.': 'Next time I only take the newer ones.',
-  'Chiedo quante immersioni ci sono…': 'Asking how many dives there are…',
   computer: 'computer',
   'Copia il diario': 'Copy the log',
   'Diario tecnico': 'Technical log',
@@ -1964,14 +1877,11 @@ export const INGLESE: Record<string, string> = {
     'The computer has no dives in memory to download.',
   'Il trasferimento si è interrotto prima della fine': 'The transfer stopped before the end',
   'La ricerca non è partita': 'The scan did not start',
-  'Leggo…': 'Reading…',
   'lette dal computer': 'read from the computer',
   'l’ultima volta': 'last time',
-  'Mi collego…': 'Connecting…',
   'Niente di nuovo: il computer non ha immersioni più recenti di quelle che hai già.':
     'Nothing new: the computer has no dives newer than the ones you already have.',
   'non riconosciuto come computer subacqueo': 'not recognised as a dive computer',
-  'Non è arrivata nessuna immersione': 'No dive came through',
   // --- il catalogo dei computer: marca, modello, e cosa succede davvero ---
   'Che computer è?': 'Which computer is it?',
   'Cerca la marca o il modello': 'Search by brand or model',
@@ -2027,7 +1937,6 @@ export const INGLESE: Record<string, string> = {
     'It ships inside this app and is what reads the dive computers the app cannot read on its own.',
   'Il sorgente di MyDiveLog è pubblico sotto licenza MIT, e il sorgente esatto di libdivecomputer usato per compilare questa versione è dentro il repository: chiunque può ricostruire l’applicazione, libreria compresa.':
     'MyDiveLog’s source is public under the MIT licence, and the exact libdivecomputer source this build was compiled against is in the repository: anyone can rebuild the app, library included.',
-  'Il token del database resta su ogni dispositivo.': 'The database token stays on each device.',
   'Dati per il LogBook': 'Logbook details',
   'Il brevetto scelto è scritto a mano e non è fra quelli registrati. Continua a valere sul libretto; se lo aggiungi qui sotto, resta legato al tuo elenco.':
     'The certification shown was typed by hand and is not one of the ones on file. It still prints on the logbook; add it below and it stays tied to your list.',
@@ -2038,7 +1947,6 @@ export const INGLESE: Record<string, string> = {
   'Nome e brevetto finiscono sulla stampa del libretto, che è l’unico posto dove servono. Non sono obbligatori.':
     'Your name and certification appear on the printed logbook, which is the only place they are needed. Neither is required.',
   'Nome e cognome': 'Full name',
-  'livello e organizzazione': 'level and agency',
   'Servono alle lettere a) e b) del libretto delle immersioni previsto dall’art. 12, comma 8 della legge 70/2026, che ammette espressamente il formato digitale.':
     'They fill letters a) and b) of the dive logbook required by art. 12(8) of Italian law 70/2026, which expressly allows the digital form.',
   'Firma della guida': 'Guide’s signature',
@@ -2335,8 +2243,6 @@ export const INGLESE: Record<string, string> = {
     'Oxygen exposure adds up across the day’s dives: CNS halves every ninety minutes on the surface, OTU do not recover at all and carry over from one day to the next.',
   'CNS sotto il 100% nella giornata e OTU sotto le 300 quando si fanno più giorni di fila.':
     'CNS under 100% in a day and OTU under 300 when diving several days running.',
-  "Allunga l'intervallo di superficie fra la prima e la seconda: novanta minuti dimezzano il CNS accumulato.":
-    'Stretch the surface interval between the first and second dive: ninety minutes halve the CNS you built up.',
   'Su più giorni di fila guarda le OTU, non il CNS: sono loro a limitare.':
     'On consecutive days watch OTU, not CNS: they are what limits you.',
   'Se usi miscele ricche, la stessa immersione costa più ossigeno: controlla la PPO2 di fondo prima di scegliere il gas.':
@@ -2464,12 +2370,151 @@ export const INGLESE: Record<string, string> = {
   'Profondità massima raggiunta': 'Maximum depth reached',
   'Istruttore o guida responsabile': 'Instructor or guide in charge',
   'Firma dell’istruttore o della guida': 'Instructor or guide signature',
-  'Shearwater scrive «2026-06-14 10:38:00»; segnala il file, che il formato si aggiunge.':
-    'Shearwater writes «2026-06-14 10:38:00»; report the file and the format gets added.',
 
   // --- lo scarico dal computer che si interrompe a metà ---
-  'Lo scarico si è interrotto: {0}. Quello che era già arrivato è salvato in archivio: {1}.':
-    'The download was interrupted: {0}. What had already arrived is saved in your logbook: {1}.',
-  'Lo scarico si è interrotto: {0}. Non è stata salvata nessuna immersione.':
-    'The download was interrupted: {0}. No dive was saved.',
+
+  // --- l’archivio che non si apre, e le parti che non rispondono ---
+  'L’archivio locale non si è aperto: quello che aggiungi adesso non viene salvato.':
+    'The local logbook did not open: anything you add now is not saved.',
+  'Chiudi e riapri l’applicazione; se succede di nuovo, libera spazio sul dispositivo.':
+    'Close and reopen the app; if it happens again, free up space on the device.',
+  'L’archivio non è pronto. Chiudi e riapri l’applicazione: quello che stavi salvando non è stato scritto.':
+    'Your logbook is not ready. Close and reopen the app: what you were saving was not written.',
+  'Alcune parti dell’archivio non si sono aperte: {0}.': 'Some parts of your logbook did not open: {0}.',
+  'Il resto funziona.': 'The rest works.',
+  portachiavi: 'keychain',
+  'chiavi della sincronizzazione': 'sync keys',
+  'accesso al tuo account': 'your account sign-in',
+  cestino: 'trash',
+
+  // --- i nomi delle impostazioni che viaggiano, e gli errori del database ---
+  'attrezzatura e brevetti': 'gear and certifications',
+  'i tuoi dati per il libretto': 'your logbook details',
+  'piano gas': 'gas plan',
+  'piano di decompressione': 'deco plan',
+  'piani salvati': 'saved plans',
+  analisi: 'analyses',
+  'fin dove sei arrivato con ogni computer': 'how far you got with each computer',
+  'periodo delle statistiche': 'statistics period',
+  'Controllo che dall’altra parte sia tutto pronto…': 'Checking that the other side is ready…',
+  'Non raggiungibile: controlla l’indirizzo del database e la connessione di rete.':
+    'Not reachable: check the database address and your network connection.',
+  'La chiave del tuo database è scaduta. Fai «Esci» qui sopra e rientra con lo stesso account: l’app ne prende una nuova.':
+    'Your database key has expired. Sign out above and sign back in with the same account: the app gets a new one.',
+  'Il token non è stato accettato. Genera un token nuovo su Turso e reincollalo in «Avanzate».':
+    'The token was refused. Generate a new token on Turso and paste it again under «Advanced».',
+  'La chiave del tuo database non è più valida. Se hai fatto l’accesso, esci e rientra; se hai incollato indirizzo e token a mano, generane uno nuovo su Turso.':
+    'Your database key is no longer valid. If you signed in, sign out and back in; if you pasted address and token by hand, generate a new one on Turso.',
+  'controlla la connessione e riprova.': 'check your connection and try again.',
+  'La sessione che hai non è stata chiusa.': 'The session you have was not closed.',
+
+  // --- la scheda Sincronizza ---
+  'Ultima sincronizzazione: {0}, con {1} in archivio.': 'Last sync: {0}, with {1} in your logbook.',
+  'Da questo dispositivo non hai ancora sincronizzato.': 'You have not synced from this device yet.',
+  'Non c’è niente da fare qui, e va bene così.': 'There is nothing to do here, and that is fine.',
+  'Le tue immersioni sono già salvate su questo dispositivo. La sincronizzazione serve solo se vuoi ritrovarle anche su un altro: in quel caso fai l’accesso qui sopra.':
+    'Your dives are already saved on this device. Syncing is only for finding them on another one: in that case sign in above.',
+  'Le immersioni sì. Riprova più tardi: finché non si allineano, i due dispositivi mostrano numeri diversi.':
+    'Your dives did. Try again later: until they line up, the two devices show different numbers.',
+  'Cosa succede quando premi Sincronizza': 'What happens when you press Sync',
+  'Il token non viaggia con le immersioni.': 'The token does not travel with your dives.',
+  'Su ogni altro dispositivo va incollato di nuovo, qui.':
+    'On every other device it has to be pasted again, here.',
+  'Le immersioni non passano dal servizio di accesso': 'Your dives do not go through the sign-in service',
+  'viaggiano fra questa app e il tuo database.': 'they travel between this app and your database.',
+  'Non c’è ancora niente da esportare.': 'There is nothing to export yet.',
+  'Quando avrai la prima immersione in archivio troverai qui tre formati: UDDF per un altro programma di immersioni, CSV per un foglio di calcolo, KML per una mappa.':
+    'Once you have your first dive in the logbook you will find three formats here: UDDF for another dive program, CSV for a spreadsheet, KML for a map.',
+  'Cancella il database remoto e le immersioni che contiene. Quelle su questo dispositivo restano, e anche quelle sugli altri dispositivi dove le hai già sincronizzate. Il tuo account Apple o Google non viene toccato.':
+    'Deletes the remote database and the dives in it. The ones on this device stay, and so do the ones on any other device you have already synced. Your Apple or Google account is not touched.',
+
+  // --- quello che i lettori di file possono dire a chi importa ---
+  'Il file non contiene immersioni leggibili.': 'The file has no readable dives.',
+  'Un’immersione del file è stata saltata: manca la data.':
+    'A dive in the file was skipped: the date is missing.',
+  'Shearwater scrive «2026-06-14 10:38:00»: se il tuo file la scrive altrimenti, riesportalo dall’applicazione di origine.':
+    'Shearwater writes «2026-06-14 10:38:00»: if your file writes it differently, export it again from the app it came from.',
+  'Un UDDF scrive «2026-06-14T10:38:00»: se il tuo programma la scrive altrimenti, riesporta il file scegliendo un altro formato di data.':
+    'A UDDF writes «2026-06-14T10:38:00»: if your program writes it differently, export the file again choosing another date format.',
+  'Le PPO2 di questo file sono state riportate in bar.':
+    'The PPO2 values in this file were converted to bar.',
+  'Alcuni eventi registrati dal computer non sono stati riconosciuti: il profilo e i numeri restano completi.':
+    'Some events recorded by the computer were not recognised: the profile and the numbers are still complete.',
+  'Il profilo di un’immersione potrebbe essere incompleto: una parte dei dati registrati non si è potuta rileggere.':
+    'One dive profile may be incomplete: part of the recorded data could not be read back.',
+  'Il file non si è potuto leggere: potrebbe essere incompleto o di una versione che non conosciamo.':
+    'The file could not be read: it may be incomplete, or a version we do not know.',
+  'Riesportalo dall’applicazione di origine e riprova: niente è stato aggiunto all’archivio.':
+    'Export it again from the app it came from and retry: nothing was added to your logbook.',
+  'Il formato si riconosce dal contenuto, non dall’estensione: un .xml può essere UDDF (il formato universale di scambio dei logbook), Subsurface o Shearwater.':
+    'The format is read from the content, not the extension: an .xml can be UDDF (the universal logbook exchange format), Subsurface or Shearwater.',
+  'Gli altri file sono stati salvati; controlla il formato di quelli rifiutati e riprova.':
+    'The other files were saved; check the format of the rejected ones and retry.',
+  'Niente è stato salvato: controlla il formato dei file e riprova.':
+    'Nothing was saved: check the file format and retry.',
+  'quello che è stato letto potrebbe non essere in archivio.': 'what was read may not be in your logbook.',
+  'Controlla lo spazio libero sul dispositivo e riprova; riaprendo l’elenco vedi che cosa c’è davvero.':
+    'Check the free space on your device and retry; reopening the list shows what is really there.',
+  'Chiudi e riapri l’applicazione e riprova.': 'Close and reopen the app, then retry.',
+
+  // --- lo scarico dal computer subacqueo ---
+  'Collegamento in corso…': 'Connecting…',
+  'Conteggio delle immersioni…': 'Counting dives…',
+  'Lo scarico si è interrotto. Non è stata salvata nessuna immersione.':
+    'The download was interrupted. No dive was saved.',
+  'Lo scarico si è interrotto. Quello che era già arrivato è salvato in archivio: {0}.':
+    'The download was interrupted. What had already arrived is saved in your logbook: {0}.',
+  'Spegni e riaccendi il computer subacqueo, avvicinalo e riprova.':
+    'Switch the dive computer off and on, bring it closer and retry.',
+  'Controlla lo spazio libero sul dispositivo e riprova.': 'Check the free space on your device and retry.',
+  'Controlla lo spazio libero sul dispositivo e riprova: il file non è stato scritto.':
+    'Check the free space on your device and retry: the file was not written.',
+  'Un permesso negato lo diremmo con un messaggio: qui la ricerca sta girando davvero.':
+    'A denied permission would come with a message: here the scan really is running.',
+  'Questo apparecchio non risponde come un computer subacqueo.':
+    'This device does not answer like a dive computer.',
+  'Il collegamento si apre ma non c’è un canale su cui parlargli: spegni e riaccendi il computer, avvicinalo e riprova.':
+    'The connection opens but there is no channel to talk on: switch the computer off and on, bring it closer and retry.',
+
+  // --- il pianificatore, le sigle sciolte e il modello a bolle ---
+  'Decide gas d’emergenza, pressione parziale dell’ossigeno (PPO2) e narcosi. La media segue in proporzione.':
+    'Sets bailout gas, oxygen partial pressure (PPO2) and narcosis. The average follows in proportion.',
+  'La profondità di cambio viene dalla profondità massima operativa (MOD) e si può correggere. In risalita il piano passa da solo al gas più ricco respirabile.':
+    'The switch depth comes from the maximum operating depth (MOD) and can be corrected. On the way up the plan switches by itself to the richest breathable gas.',
+  'Cambi di gas sotto la profondità massima operativa (MOD)':
+    'Gas switches below the maximum operating depth (MOD)',
+  'Tabelle NOAA. Il CNS si dimezza ogni 90 minuti in superficie, l’ossigeno sui polmoni (OTU) no.':
+    'NOAA tables. CNS halves every 90 minutes on the surface, lung oxygen (OTU) does not.',
+  'Giornata peggiore, ossigeno sui polmoni (OTU)': 'Worst day, lung oxygen (OTU)',
+  'nitrox: la sigla è la percentuale di ossigeno': 'nitrox: the number is the oxygen percentage',
+  'accettabile fino a 5.21 atmosfere assolute': 'acceptable up to 5.21 atmospheres absolute',
+  'Le cinque lettere fanno START: il controllo da fare in superficie insieme al compagno.':
+    'The five letters spell START: the check to run on the surface with your buddy.',
+  'S — Sicurezza': 'S — Drill',
+  'Tre minuti non contati sono tre minuti di gas non contato.':
+    'Three minutes not counted are three minutes of gas not counted.',
+  'Più alto del tuo: chi condivide gas respira male. La didattica tecnica usa 30.':
+    'Higher than yours: sharing gas is bad breathing. Technical agencies use 30.',
+  'Prima di usare questa tabella': 'Before you use this table',
+  'Il conservatorismo è la leva: ogni livello in più allunga le soste. Se le vuoi più prudenti, sali di uno.':
+    'Conservatism is the lever: each level up lengthens the stops. If you want them safer, go up one.',
+  'Su questo profilo il calcolo non si stabilizza': 'On this profile the computation does not settle',
+  'non usare questa tabella, passa a Bühlmann.': 'do not use this table, switch to Bühlmann.',
+  "Questi sono valori di esempio, non i tuoi. Cambiali con l'immersione che stai pianificando: il piano vale quanto i numeri che gli dai.":
+    'These are sample values, not yours. Replace them with the dive you are planning: the plan is worth as much as the numbers you give it.',
+  "La stampa si accende con la prima immersione in archivio: un foglio portato in barca non si porta dietro l'avviso qui sopra.":
+    'Printing turns on with your first dive in the logbook: a sheet taken on the boat does not carry the warning above with it.',
+  'Su iPhone e iPad non si stampa: dal Mac sì, e i dati sono gli stessi.':
+    'No printing on iPhone or iPad: from the Mac yes, and the data is the same.',
+
+  // --- il logbook, la scheda dell’immersione e l’attrezzatura ---
+  "Se hai un libretto di carta o un computer che non si collega, l'immersione la scrivi tu: data, durata, profondità, e il resto quando vuoi.":
+    'If you keep a paper logbook, or your computer will not connect, write the dive yourself: date, duration, depth, and the rest whenever you like.',
+  'Salvataggio in corso…': 'Saving…',
+  'Il PDF non è stato salvato: l’immersione in archivio non è stata toccata.':
+    'The PDF was not saved: the dive in your logbook was not touched.',
+  'Qui niente lampeggia: quello che scade lo trovi nel Logbook, prima della prossima immersione.':
+    'Nothing blinks here: what expires is in the Logbook, before your next dive.',
+  "Allunga l'intervallo di superficie fra la prima e la seconda immersione della giornata.":
+    'Stretch the surface interval between the first and the second dive of the day.',
 };

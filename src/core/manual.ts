@@ -175,7 +175,9 @@ export function buildManualDive(input: ManualDiveInput, now: Date = new Date()):
 
   if (avgDepth === undefined) {
     warnings.push(
-      'Senza profondità media i tessuti verranno stimati su un profilo quadro al 70% della massima. Se te la ricordi, scrivila: è il numero che decide quanto azoto passa all’immersione successiva.',
+      // Il 70% e il perché stanno nel suggerimento sotto il campo, in `NewDive`:
+      // qui, dentro l'elenco di quello che manca, basta il fatto.
+      'Senza la profondità media i tessuti si stimano su un profilo quadro.',
     );
   }
   if (input.startBar === undefined || input.endBar === undefined || !input.tankSizeL) {

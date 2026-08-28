@@ -290,10 +290,19 @@ describe('la pagina delle impostazioni, letta nelle sorgenti', () => {
      * indirizzo né token salvato, e con la vecchia condizione (`!configured`) si
      * troverebbe il pulsante spento subito dopo un accesso riuscito — cioè la
      * funzione appena aggiunta sembrerebbe non fare niente.
+     *
+     * ► LA FORMA È CAMBIATA, LA PROPRIETÀ NO. ◄ `!pronto` non sta più dentro
+     * `disabled`: senza accesso e senza credenziali il pulsante non viene
+     * disegnato affatto, perché un comando spento nelle impostazioni di chi non
+     * ha fatto l'accesso — cioè di tutti, il primo giorno — si legge come un
+     * passo da completare, e la sincronizzazione qui è facoltativa. Resta da
+     * inchiodare la stessa cosa di prima: quando il pulsante c'è, ad accenderlo
+     * non concorrono MAI le credenziali scritte a mano.
      */
     const testo = await sorgente();
     expect(testo).toContain('const pronto = accountAttivo || configured;');
-    expect(testo).toContain('disabled={busy || !pronto || (!accountAttivo && dirty)}');
+    expect(testo).toContain('{pronto ? (');
+    expect(testo).toContain('disabled={busy || (!accountAttivo && dirty)}');
     expect(testo).not.toContain('disabled={busy || !configured || dirty}');
   });
 });

@@ -736,7 +736,7 @@ export function MiniSeries({
           testo={
             cursorPoint
               ? `${label}: ${t('minuto')} ${formatDuration(cursorPoint.t)}, ${cursorPoint.v.toFixed(digits)} ${unit}`
-              : `${label}: ${t('cursore non posizionato, usa le frecce.')}`
+              : `${label}. ${t('Cursore non posizionato: usa le frecce.')}`
           }
         />
       )}

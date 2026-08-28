@@ -470,7 +470,7 @@ function paginaImmersione(
     ['Temperatura', temperatura(dive)],
     ['Miscela', miscele(dive)],
     ['Bombole e pressioni', bombole(dive)],
-    ['Consumo', consumo(dive)],
+    ['Consumo di superficie', consumo(dive)],
     ['Modalità', escapeHtml(modeLabel(dive))],
     // Senza salinità si scrive «—», non «Salata»: tutti gli altri campi assenti
     // stampano il trattino, e questo inventava un dato su un foglio da firmare.

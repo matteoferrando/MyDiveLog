@@ -228,7 +228,15 @@ describe('annunci della pagina di import', () => {
     expect(stato(vista.host)).toContain('1/2 file letti');
     // …quello che non è entrato interrompe, con il nome del file e il perché:
     // senza il nome, chi ha trascinato sei file non sa quale rimettere in coda.
-    expect(allarme(vista.host)).toBe('1/2 file non letti: rotto.xml (formato non riconosciuto).');
+    // La coda è arrivata dopo, il 28 agosto 2026: un elenco di nomi in rosso
+    // non diceva che fine avessero fatto GLI ALTRI file, e faceva credere che
+    // l'import fosse fallito tutto. Cambia con `letti`: quando non ne entra
+    // nessuno la frase è l'altra, perché «gli altri sono stati salvati»
+    // sarebbe falso.
+    expect(allarme(vista.host)).toBe(
+      '1/2 file non letti: rotto.xml (formato non riconosciuto). ' +
+        'Gli altri file sono stati salvati; controlla il formato di quelli rifiutati e riprova.',
+    );
     vista.smonta();
   });
 
@@ -246,7 +254,20 @@ describe('annunci della pagina di import', () => {
 
     // Prima di questa aggiunta la promessa rifiutata usciva da `void handle(...)`
     // e la pagina tornava com'era: nessun esito, nessuna spiegazione, per nessuno.
-    expect(allarme(vista.host)).toBe('Import fallito: spazio esaurito nell’archivio locale');
+    /*
+     * IL CONSIGLIO PRIMA, IL MOTIVO DOPO E FRA PARENTESI.
+     *
+     * Prima si leggeva «Import fallito: » più l'errore grezzo, e quell'errore
+     * qui viene dal motore d'archivio: in produzione porta il suo nome, che a
+     * chi legge non dice niente. Adesso passa da `conDettaglio`, che lo mostra
+     * solo se si può ripulire — e comunque dopo la frase che dice che fare e
+     * che fine possono aver fatto i dati.
+     */
+    expect(allarme(vista.host)).toBe(
+      'Import fallito: quello che è stato letto potrebbe non essere in archivio. ' +
+        'Controlla lo spazio libero sul dispositivo e riprova; riaprendo l’elenco vedi che cosa c’è davvero. ' +
+        '(spazio esaurito nell’archivio locale)',
+    );
     // Il «lettura avviata» non resta appeso: sarebbe diventato falso.
     expect(stato(vista.host)).toBe('');
     expect(vista.host.querySelector('.btn-primary')!.getAttribute('aria-busy')).toBe('false');

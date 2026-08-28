@@ -7,7 +7,7 @@
  *
  * *Il primo*: `scarica` non aveva un `try`. Nel Bluetooth si lancia — il
  * computer si addormenta, il permesso cade, l'archivio rifiuta una scrittura —
- * e un'eccezione a metà lasciava la schermata su «Leggo…» per sempre: nessun
+ * e un'eccezione a metà lasciava la schermata su «Lettura in corso…» per sempre: nessun
  * messaggio, nessun pulsante che riporti indietro. Il caso peggiore è quello
  * provato qui: il guasto arriva DOPO che le immersioni sono state salvate, che
  * è anche il più probabile, perché il segnalibro si scrive per ultimo. Chi
@@ -19,7 +19,7 @@
  * *Il secondo*: «Interrompi» che non interrompe. Il controllore veniva azzerato
  * appena il trasferimento finiva, cioè PRIMA della fase in cui si scrive in
  * archivio: in quella finestra il pulsante chiamava `abort()` su `null` e non
- * faceva niente, davanti a una schermata che diceva ancora «Leggo…».
+ * faceva niente, davanti a una schermata che diceva ancora «Lettura in corso…».
  *
  * Il Bluetooth qui è finto fin dove serve: il trasporto trova un Peregrine, il
  * trasferimento e l'archivio rispondono quello che la prova decide. Quello che
@@ -56,7 +56,7 @@ vi.mock('../src/core/ble/download', () => ({
   ) => {
     finto.segnale = opzioni.signal;
     // Un evento vero prima di rispondere: è quello che porta la schermata su
-    // «Leggo…», cioè sullo stato da cui il difetto non usciva più.
+    // «Lettura in corso…», cioè sullo stato da cui il difetto non usciva più.
     opzioni.onEvent({ kind: 'counted', total: 3 });
     return finto.scarico();
   },
@@ -169,7 +169,7 @@ afterEach(() => {
 });
 
 describe('lo scarico Bluetooth che si rompe a metà', () => {
-  it('non resta appeso a «Leggo…», e dice quante immersioni sono già in archivio', async () => {
+  it('non resta appeso a «Lettura in corso…», e dice quante immersioni sono già in archivio', async () => {
     // Il guasto arriva dopo l'import: le immersioni ci sono già, il segnalibro no.
     finto.salvaSegnalibro = () => Promise.reject(new Error('archivio non scrivibile'));
 
@@ -179,7 +179,7 @@ describe('lo scarico Bluetooth che si rompe a metà', () => {
 
       const testo = host.textContent ?? '';
       // Non è più fermo sull'avanzamento…
-      expect(testo).not.toContain('Leggo…');
+      expect(testo).not.toContain('Lettura in corso…');
       expect(testo).toContain('Lo scarico si è interrotto');
       // …dice PERCHÉ…
       expect(testo).toContain('archivio non scrivibile');
@@ -219,7 +219,7 @@ describe('lo scarico Bluetooth che si rompe a metà', () => {
     const { host, smonta } = await apri();
     try {
       await scarica(host);
-      expect(host.textContent).toContain('Leggo…');
+      expect(host.textContent).toContain('Lettura in corso…');
       expect(premi(host, 'Interrompi')).toBeTruthy();
       expect(finto.segnale?.aborted).toBe(false);
 

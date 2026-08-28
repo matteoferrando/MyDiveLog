@@ -43,7 +43,7 @@ import {
   type DownloadEvent,
 } from '../../core/ble/types';
 import { TauriBleTransport, permessoNegato } from '../../storage/ble';
-import { causaDelGuasto, dettaglioLeggibile } from '../../core/ble/causaGuasto';
+import { causaDelGuasto, conDettaglio, dettaglioLeggibile } from '../../core/ble/causaGuasto';
 import { esporta } from '../esporta';
 import { suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
@@ -405,7 +405,7 @@ export function BleDownload() {
    * Il controllore esiste solo per la strada dei driver di casa; lo scarico che
    * passa da libdivecomputer non ne ha uno, e per tutta la sua durata il
    * pulsante chiamava `abort()` su `null` — cioè non faceva niente, davanti a
-   * una schermata ferma su «Leggo…» che non offre nessun'altra uscita. Un
+   * una schermata ferma su «Lettura in corso…» che non offre nessun'altra uscita. Un
    * bersaglio che non risponde non si legge come «non c'è niente da fermare»:
    * si legge come un'applicazione bloccata, e chi lo preme due volte a vuoto
    * chiude l'app e perde quello che stava arrivando.
@@ -443,7 +443,7 @@ export function BleDownload() {
        * archivio comparirebbe come due sorgenti distinte.
        */
       const origine = scelto.device.name || 'computer';
-      setStato({ fase: 'scarica', nome, fatte: 0, passo: t('Mi collego…') });
+      setStato({ fase: 'scarica', nome, fatte: 0, passo: t('Collegamento in corso…') });
 
       const onEvent = (e: DownloadEvent) => {
         // Le righe del diario non toccano lo stato mostrato: sarebbero un
@@ -453,11 +453,17 @@ export function BleDownload() {
           p.fase !== 'scarica'
             ? p
             : e.kind === 'identified'
-              ? { ...p, nome: e.model, passo: t('Chiedo quante immersioni ci sono…') }
+              ? { ...p, nome: e.model, passo: t('Conteggio delle immersioni…') }
               : e.kind === 'counted'
-                ? { ...p, totale: e.total, passo: t('Leggo…') }
+                ? { ...p, totale: e.total, passo: t('Lettura in corso…') }
                 : e.kind === 'record'
-                  ? { ...p, fatte: e.done, totale: e.total ?? p.totale, passo: t('Leggo…'), byte: undefined }
+                  ? {
+                      ...p,
+                      fatte: e.done,
+                      totale: e.total ?? p.totale,
+                      passo: t('Lettura in corso…'),
+                      byte: undefined,
+                    }
                   : e.kind === 'progress'
                     ? {
                         ...p,
@@ -473,7 +479,7 @@ export function BleDownload() {
        *
        * Nel Bluetooth si lancia: il dispositivo si addormenta, il permesso
        * cade, l'archivio rifiuta una scrittura. Senza questa rete la schermata
-       * restava su «Leggo…» PER SEMPRE — nessun messaggio, nessun pulsante che
+       * restava su «Lettura in corso…» PER SEMPRE — nessun messaggio, nessun pulsante che
        * riporti indietro — e chi guardava non aveva modo di sapere se le
        * immersioni erano entrate in archivio o no. È il caso peggiore, perché
        * la reazione naturale è riscaricare tutto, che è esattamente la cosa che
@@ -530,14 +536,24 @@ export function BleDownload() {
         let testo: string;
         if (esito.dives.length === 0) {
           testo = esito.error
-            ? `${t('Non è arrivata nessuna immersione')}: ${esito.error}`
+            ? conDettaglio(
+                `${t('Lo scarico si è interrotto. Non è stata salvata nessuna immersione.')} ` +
+                  t('Spegni e riaccendi il computer subacqueo, avvicinalo e riprova.'),
+                esito.error,
+              )
             : usato && !tuttoDaCapo
               ? t('Niente di nuovo: il computer non ha immersioni più recenti di quelle che hai già.')
               : t('Il computer non ha immersioni in memoria da scaricare.');
         } else {
           const r = await importDives(esito.dives, `${esito.model ?? origine} via Bluetooth`);
           if (!r.ok) {
-            testo = `${imm(esito.dives.length, t)} ${t('sono arrivate ma non si sono potute salvare')}: ${r.error}`;
+            // `r.error` è già ripulito da `state.tsx` e può mancare del tutto:
+            // quando manca si dice «motivo non riportato» invece di stampare
+            // `undefined`, che è il modo più veloce di far sembrare rotta l'app.
+            testo =
+              `${imm(esito.dives.length, t)} ${t('sono arrivate ma non si sono potute salvare')}: ` +
+              `${r.error ?? t('motivo non riportato')}. ` +
+              t('Controlla lo spazio libero sul dispositivo e riprova.');
           } else {
             /*
              * QUANTE NE SONO ENTRATE DAVVERO, tenuto da parte per il caso in cui
@@ -588,7 +604,16 @@ export function BleDownload() {
             }
           }
         }
-        if (esito.error) avvisi.push(esito.error);
+        /*
+         * Il motivo grezzo resta NEL DIARIO, che è il posto per cui è nato; a
+         * schermo ci arriva solo se `dettaglioLeggibile` lo lascia passare.
+         *
+         * E solo quando qualcosa è arrivato: se non è arrivato niente, `testo`
+         * ha già detto tutto — compreso questo dettaglio — e ripeterlo qui
+         * sotto darebbe due righe che dicono la stessa cosa.
+         */
+        const dettaglioEsito = esito.error ? dettaglioLeggibile(esito.error) : '';
+        if (dettaglioEsito && esito.dives.length > 0) avvisi.push(dettaglioEsito);
         setStato({
           fase: 'finito',
           testo,
@@ -638,16 +663,33 @@ export function BleDownload() {
          * «si è rotto», che non lo è.
          */
         const motivo = guasto instanceof Error ? guasto.message : String(guasto);
+        /*
+         * ► IL MOTIVO NON APRE PIÙ LA FRASE, LA CHIUDE — e solo se si legge. ◄
+         *
+         * Prima era interpolato in mezzo: «Lo scarico si è interrotto: <roba
+         * inglese>. Quello che era già arrivato è salvato in archivio: 12.» La
+         * parte che conta — quante ne hai — stava DOPO una riga incomprensibile,
+         * e questo è il punto dell'applicazione in cui il motivo ha più
+         * probabilità di essere un errore del motore d'archivio, perché qui si
+         * finisce quando salta il salvataggio o il segnalibro.
+         *
+         * Il diario, due righe più giù, tiene il motivo grezzo: è il blocco che
+         * si incolla in una segnalazione, e lì serve intero.
+         */
         setStato({
           fase: 'finito',
-          testo: inArchivio
-            ? frase(
-                t,
-                'Lo scarico si è interrotto: {0}. Quello che era già arrivato è salvato in archivio: {1}.',
-                motivo,
-                imm(inArchivio, t),
-              )
-            : frase(t, 'Lo scarico si è interrotto: {0}. Non è stata salvata nessuna immersione.', motivo),
+          testo: conDettaglio(
+            `${
+              inArchivio
+                ? frase(
+                    t,
+                    'Lo scarico si è interrotto. Quello che era già arrivato è salvato in archivio: {0}.',
+                    imm(inArchivio, t),
+                  )
+                : t('Lo scarico si è interrotto. Non è stata salvata nessuna immersione.')
+            } ${t('Spegni e riaccendi il computer subacqueo, avvicinalo e riprova.')}`,
+            guasto,
+          ),
           avvisi: [],
           parziale: true,
           /*
@@ -676,7 +718,7 @@ export function BleDownload() {
          * Azzerato subito dopo `downloadFromComputer` lasciava scoperta tutta la
          * fase in cui si scrive in archivio: in quella finestra «Interrompi»
          * chiamava `abort()` su `null`, cioè non faceva niente, davanti a una
-         * schermata che diceva ancora «Leggo…». E su un percorso che lanciava
+         * schermata che diceva ancora «Lettura in corso…». E su un percorso che lanciava
          * restava `null` per sempre.
          */
         scarico.current = null;
@@ -706,7 +748,7 @@ export function BleDownload() {
     async (device: BleFoundDevice, marca: string, modello: string) => {
       fermaRicerca();
       const nome = `${marca} ${modello}`;
-      setStato({ fase: 'scarica', nome, fatte: 0, passo: t('Mi collego…') });
+      setStato({ fase: 'scarica', nome, fatte: 0, passo: t('Collegamento in corso…') });
 
       const diario: string[] = [];
       const onEvent = (e: DownloadEvent) => {
@@ -720,13 +762,13 @@ export function BleDownload() {
           p.fase !== 'scarica'
             ? p
             : e.kind === 'counted'
-              ? { ...p, totale: e.total, passo: t('Leggo…') }
+              ? { ...p, totale: e.total, passo: t('Lettura in corso…') }
               : e.kind === 'record'
                 ? {
                     ...p,
                     fatte: e.done,
                     totale: e.total ?? p.totale,
-                    passo: t('Leggo…'),
+                    passo: t('Lettura in corso…'),
                     byte: undefined,
                   }
                 : e.kind === 'progress'
@@ -740,7 +782,24 @@ export function BleDownload() {
       };
 
       let dives: Dive[] = [];
-      let errore: string | undefined;
+      /*
+       * ► DUE FORME DELLO STESSO GUASTO, e tenerle separate è tutto il punto. ◄
+       *
+       * `guasto` è l'errore com'è, e serve al DIARIO — il file che si allega a
+       * una segnalazione, dove «stato 5» e il nome della libreria sono
+       * esattamente quello che chi ripara vuole leggere.
+       *
+       * A SCHERMO invece arrivava lo stesso testo, e diceva due cose che non
+       * insegnano niente: «scarico non riuscito (stato 5)», che è un numero
+       * senza tabella, e «libdivecomputer non ha aperto il trasporto (stato
+       * 3)», che è il nome di una libreria — uno dei nomi che
+       * `dettaglioLeggibile` esiste apposta per togliere, nel punto più
+       * evidente in cui non veniva usata. Quel nome viene dal Rust
+       * (`src-tauri/src/trasporto_ldc.rs`) e non si può cambiare da qui senza
+       * perdere il diario: si filtra qui, dove si decide che cosa mostrare.
+       */
+      let guasto: unknown;
+      let grezzo: string | undefined;
       try {
         dives = await scaricaDaComputerEsterno({
           dispositivo: device.id,
@@ -749,14 +808,19 @@ export function BleDownload() {
           emit: onEvent,
         });
       } catch (e) {
-        errore = e instanceof Error ? e.message : String(e);
+        guasto = e;
+        grezzo = e instanceof Error ? e.message : String(e);
       }
 
       let testo: string;
       const avvisi: string[] = [];
       if (dives.length === 0) {
-        testo = errore
-          ? `${t('Non è arrivata nessuna immersione')}: ${errore}`
+        testo = grezzo
+          ? conDettaglio(
+              `${t('Lo scarico si è interrotto. Non è stata salvata nessuna immersione.')} ` +
+                t('Spegni e riaccendi il computer subacqueo, avvicinalo e riprova.'),
+              guasto,
+            )
           : t('Il computer non ha immersioni in memoria da scaricare.');
       } else {
         /*
@@ -773,10 +837,17 @@ export function BleDownload() {
         testo = r.ok
           ? `${imm(r.found, t)} ${t('lette dal computer')}: ${r.added} ${t('nuove')}, ` +
             `${r.merged} ${t('arricchite')}, ${r.duplicates} ${t('già in archivio')}.`
-          : `${imm(dives.length, t)} ${t('sono arrivate ma non si sono potute salvare')}: ${r.error}`;
+          : `${imm(dives.length, t)} ${t('sono arrivate ma non si sono potute salvare')}: ` +
+            `${r.error ?? t('motivo non riportato')}. ` +
+            t('Controlla lo spazio libero sul dispositivo e riprova.');
         if (r.ok) avvisi.push(...r.warnings);
       }
-      if (errore) avvisi.push(errore);
+      // Come sull'altra strada: se non è arrivato niente il motivo sta già in
+      // `testo`, e ripeterlo qui sarebbe la stessa riga scritta due volte.
+      if (dives.length > 0) {
+        const dettaglio = guasto === undefined ? '' : dettaglioLeggibile(guasto);
+        if (dettaglio) avvisi.push(dettaglio);
+      }
 
       setStato({
         fase: 'finito',
@@ -787,7 +858,7 @@ export function BleDownload() {
           `MyDiveLog — diario dello scarico (libdivecomputer)`,
           `dispositivo: ${device.name || 'senza nome'}`,
           `modello scelto: ${marca} ${modello}`,
-          `esito: ${errore ? `errore — ${errore}` : 'completato'}`,
+          `esito: ${grezzo ? `errore — ${grezzo}` : 'completato'}`,
           `immersioni: ${dives.length}`,
           '',
           ...diario,
@@ -865,6 +936,16 @@ export function BleDownload() {
        * permesso negato è nell'elenco per prudenza, non più perché non si sa
        * distinguerla. Dodici secondi: abbastanza perché un computer acceso e
        * vicino sia già comparso, poco perché nessuno si arrenda prima.
+       *
+       * ► E L'ULTIMA RIGA DEL RIQUADRO DICEVA ANCORA LA COSA SMENTITA. ◄ «Un
+       * permesso negato non dà errore: la ricerca sembra solo non trovare
+       * niente.» Era la premessa crollata il 28 agosto, rimasta a schermo dopo
+       * che il codice l'aveva abbandonata — e da lì contraddiceva il ramo
+       * `denied`, che un errore lo mostra eccome. Peggio: mandava a controllare
+       * un permesso a chi ce l'ha, cioè a cercare dove NON è il problema.
+       * Adesso dice il contrario, che è anche quello che serve sapere qui: se
+       * il permesso fosse negato lo diremmo, quindi la ricerca sta girando
+       * davvero e il computer è da cercare altrove.
        */}
       {stato.fase === 'cerca' && trovati.length === 0 && aLungoSenzaNulla && (
         <div className="notice" role="status">
@@ -875,7 +956,7 @@ export function BleDownload() {
               ? 'Impostazioni → MyDiveLog → Bluetooth.'
               : 'Impostazioni di Sistema → Privacy e sicurezza → Bluetooth.',
           )}{' '}
-          {t('Un permesso negato non dà errore: la ricerca sembra solo non trovare niente.')}
+          {t('Un permesso negato lo diremmo con un messaggio: qui la ricerca sta girando davvero.')}
         </div>
       )}
 
@@ -1125,7 +1206,7 @@ export function BleDownload() {
            * sono, byte quando si sa solo quanti ne mancano. La seconda serve a
            * Uwatec, che manda tutta la memoria in un blocco e le immersioni le
            * scopre alla fine: senza, l'unica cosa a schermo per tre minuti
-           * sarebbe la scritta «Leggo…», che è indistinguibile da un blocco.
+           * sarebbe la scritta «Lettura in corso…», che è indistinguibile da un blocco.
            */}
           {(() => {
             const q = stato.totale
@@ -1218,7 +1299,13 @@ export function BleDownload() {
                         setSalvataggio(`${t('Salvato')} ${dove.dove}.`);
                       } catch (err) {
                         setSalvataggio(
-                          `${t('Non si è potuto salvare')}: ${err instanceof Error ? err.message : String(err)}`,
+                          conDettaglio(
+                            `${t('Non si è potuto salvare')}. ` +
+                              t(
+                                'Controlla lo spazio libero sul dispositivo e riprova: il file non è stato scritto.',
+                              ),
+                            err,
+                          ),
                         );
                       }
                     })();

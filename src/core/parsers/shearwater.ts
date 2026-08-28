@@ -56,7 +56,9 @@ export const shearwaterParser: DiveParser = {
       const dive = readLog(log, input.fileName, importedAt, warnings, t);
       if (dive) dives.push(dive);
     }
-    if (dives.length === 0) warnings.push(t('Nessun <diveLog> valido trovato nel file Shearwater.'));
+    // Il nome del tag XML è per chi scrive il parser; a schermo vale la stessa
+    // forma degli altri lettori: si dice che cosa non si è trovato, non dove.
+    if (dives.length === 0) warnings.push(t('Nessuna immersione valida trovata nel file Shearwater.'));
     return { format: 'shearwater-xml', dives, warnings };
   },
 };
@@ -76,7 +78,7 @@ function readLog(
 
   const startDate = text(child(log, 'startDate'));
   if (!startDate) {
-    warnings.push(t('Immersione Shearwater senza startDate scartata.'));
+    warnings.push(t('Un’immersione del file è stata saltata: manca la data.'));
     return null;
   }
   const startTime = parseShearwaterDate(startDate);
@@ -86,7 +88,9 @@ function readLog(
     // entrava con la data del 1970 e si fondeva con le sue vicine.
     warnings.push(
       `${t('Immersione scartata: data')} «${startDate}» ${t('in un formato che non so leggere.')} ` +
-        t('Shearwater scrive «2026-06-14 10:38:00»; segnala il file, che il formato si aggiunge.'),
+        t(
+          'Shearwater scrive «2026-06-14 10:38:00»: se il tuo file la scrive altrimenti, riesportalo dall’applicazione di origine.',
+        ),
     );
     return null;
   }
@@ -165,7 +169,9 @@ function readLog(
     });
   }
   if (ppo2NeedsScaling) {
-    warnings.push(t('PPO2 Shearwater riscalata di 100: il campo non è documentato in unità.'));
+    // A schermo si dice il RISULTATO, non il fattore: che il numero sia in bar
+    // è tutto quello che serve per fidarsi della colonna PPO2 nella scheda.
+    warnings.push(t('Le PPO2 di questo file sono state riportate in bar.'));
   }
 
   const maxDepth =

@@ -54,9 +54,17 @@ export function Coach() {
         {/* Vedi il commento gemello nel ramo pieno: stessa posizione, stesso
             elemento padre, altrimenti l'annuncio si perde nel rimontaggio. */}
         <AnnuncioPiano testo={testoAnnuncio} />
+        {/*
+          TRE SITUAZIONI DIVERSE, e prima ne avevano due titoli in croce.
+          «Servono PIÙ immersioni» è vero quando ce n'è qualcuna; con l'archivio
+          completamente vuoto è una risposta a una domanda che nessuno ha fatto,
+          perché non c'è nessun «più» rispetto a niente — e per giunta lasciava
+          credere di aver sbagliato qualcosa in una pagina mai usata. Il caso
+          dello zero si dice per quello che è, e manda dove si comincia.
+        */}
         <Vuoto
           nuda
-          titolo="Servono più immersioni"
+          titolo={dives.length === 0 ? 'Nessuna immersione in archivio' : 'Servono più immersioni'}
           azione={
             dives.length > scope.dives.length
               ? { vista: 'stats', etichetta: 'Vai a Statistiche' }
@@ -64,9 +72,11 @@ export function Coach() {
           }
         >
           {t(
-            dives.length > scope.dives.length
-              ? 'Nel periodo scelto ce ne sono poche: allarga la finestra da Statistiche.'
-              : 'I suggerimenti si basano su medie e tendenze: con poche immersioni sarebbero rumore. Importa lo storico e torna qui.',
+            dives.length === 0
+              ? 'I suggerimenti nascono dalle tue immersioni, e qui non ce n’è ancora nessuna. Importa un file o scrivi la prima a mano dal Logbook: da tre in poi il piano si calcola.'
+              : dives.length > scope.dives.length
+                ? 'Nel periodo scelto ce ne sono poche: allarga la finestra da Statistiche.'
+                : 'I suggerimenti si basano su medie e tendenze: con poche immersioni sarebbero rumore. Importa lo storico e torna qui.',
           )}
         </Vuoto>
       </div>

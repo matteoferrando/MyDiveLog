@@ -10,6 +10,7 @@ import { logbookHtml } from '../../core/export/logbookPrint';
 import { schedePdf } from '../../core/export/pdf';
 import { conNumeri } from '../../core/numerazione';
 import { esporta } from '../esporta';
+import { conDettaglio } from '../../core/ble/causaGuasto';
 import type { Subacqueo } from '../../core/libretto';
 import { descriviFirma, firmaPath, firmaVuota } from '../../core/firma';
 import { RiquadroFirma } from '../components/FirmaGuida';
@@ -108,7 +109,27 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
       const esito = await esporta(`MyDiveLog-${giorno}-${sito}.pdf`, pdf, 'application/pdf');
       setEsitoPdf(`${t('PDF salvato')} ${esito.dove}.`);
     } catch (err) {
-      setEsitoPdf(err instanceof Error ? err.message : String(err));
+      /*
+       * ► QUI L'ERRORE GREZZO ERA TUTTO IL MESSAGGIO: nemmeno il guscio. ◄
+       *
+       * Sull'iPhone si leggeva «scrittura fallita: No space left on device (os
+       * error 28)», da sola, sotto il pulsante. Non diceva di che cosa stesse
+       * parlando — il PDF? l'immersione? l'archivio? — e la domanda che nasce
+       * subito dopo una frase così è «ho appena perso l'immersione?».
+       *
+       * Adesso dice le tre cose nell'ordine in cui servono: che cosa non è
+       * successo, che cosa NON è stato toccato, e cosa fare. Il messaggio del
+       * sistema resta in coda fra parentesi quando si può leggere: «No space
+       * left on device» è informazione vera per chi la sa leggere, e sparisce
+       * da sé quando porta con sé il nome di un livello interno.
+       */
+      setEsitoPdf(
+        conDettaglio(
+          `${t('Il PDF non è stato salvato: l’immersione in archivio non è stata toccata.')} ` +
+            t('Controlla lo spazio libero sul dispositivo e riprova.'),
+          err,
+        ),
+      );
     }
   };
 
@@ -285,7 +306,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
       {stampaBloccata && (
         <div className="notice">
           {suIOS()
-            ? t('Su iPhone e iPad non si stampa. Il foglio si stampa dal Mac: i dati sono gli stessi.')
+            ? t('Su iPhone e iPad non si stampa: dal Mac sì, e i dati sono gli stessi.')
             : t('Il browser ha bloccato la finestra di stampa. Consentila per questo sito e riprova.')}
         </div>
       )}
@@ -652,7 +673,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
               />
               {m !== undefined && m.badGasSwitches > 0 && (
                 <Row
-                  label={t('Cambi di gas sotto la MOD')}
+                  label={t('Cambi di gas sotto la profondità massima operativa (MOD)')}
                   value={`${m.badGasSwitches} — ${t('errore di procedura')}`}
                 />
               )}

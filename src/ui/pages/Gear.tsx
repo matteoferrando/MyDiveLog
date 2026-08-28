@@ -85,7 +85,7 @@ export function Gear() {
       <div className="page-title-row">
         <h1 className="page-title">{t('Attrezzatura')}</h1>
         <span className="muted" style={{ fontSize: 12 }}>
-          {t('Un archivio, non un promemoria: nessun avviso, nessuna scadenza che lampeggia.')}
+          {t('Qui niente lampeggia: quello che scade lo trovi nel Logbook, prima della prossima immersione.')}
         </span>
       </div>
 

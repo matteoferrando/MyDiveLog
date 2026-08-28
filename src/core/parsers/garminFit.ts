@@ -232,7 +232,7 @@ function readTanks(m: FitMessages, warnings: string[], t: Traduci = comeSta): Ta
   if (tanks.length && !tanks.some((bombola) => bombola.sizeL !== undefined)) {
     warnings.push(
       t(
-        'Il FIT non contiene il volume della bombola e non è deducibile da tank_summary: inserisci i litri nella scheda per avere il consumo in L/min.',
+        'Il FIT non porta il volume della bombola: inserisci i litri nella scheda per avere il consumo in L/min.',
       ),
     );
   }

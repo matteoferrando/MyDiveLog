@@ -91,7 +91,14 @@ const SERIES_META: Record<
     reference: 10,
     referenceLabel: 'limite',
     digits: 0,
-    blurb: 'Il picco su finestra di 30 secondi.',
+    /*
+     * «Il picco su finestra di 30 secondi» era tornato qui dopo essere già
+     * stato tolto ad agosto. La finestra di 30 s è come il numero viene
+     * calcolato, non che cosa significa: chi legge vuole sapere se sta salendo
+     * troppo in fretta, e la media di tutta la risalita glielo nasconderebbe
+     * dietro i tratti lenti. Il come sta nel codice che lo calcola.
+     */
+    blurb: 'Il momento più veloce della risalita, non la media.',
   },
   gf99: {
     label: 'GF99 all’uscita',
@@ -198,7 +205,7 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
         </div>
         <div className="grid grid-tiles">
           <MedianTile
-            label={t('Consumo in superficie')}
+            label={t('Consumo di superficie')}
             points={a.rmv}
             unit="L/min"
             digits={1}
@@ -328,7 +335,7 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               }
             />
             <StatTile
-              label={t('Giornata peggiore, OTU')}
+              label={t('Giornata peggiore, ossigeno sui polmoni (OTU)')}
               value={
                 <span
                   className="tabular"
@@ -530,7 +537,7 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               />
               {a.badGasSwitches > 0 && (
                 <DisciplineRow
-                  label="Cambi di gas sotto la MOD"
+                  label="Cambi di gas sotto la profondità massima operativa (MOD)"
                   value={int(a.badGasSwitches)}
                   basis={t('profili con più di una bombola')}
                   good={false}
@@ -1099,7 +1106,7 @@ function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipm
                 <tr>
                   <th>{t(tab.titolo)}</th>
                   <th className="num">{t('Immersioni')}</th>
-                  <th className="num">{t('Consumo')}</th>
+                  <th className="num">{t('Consumo di superficie')}</th>
                   <th className="num">{t('Prof. mediana')}</th>
                   {/* MEDIANA delle minime, non la più bassa: la tabella qui
                       sopra chiama «La più fredda» un vero minimo, e sulla stessa
@@ -1200,7 +1207,7 @@ function Condizioni({ dives }: { dives: Dive[] }) {
                 <tr>
                   <th>{t(tab.titolo)}</th>
                   <th className="num">{t('Immersioni')}</th>
-                  <th className="num">{t('Consumo')}</th>
+                  <th className="num">{t('Consumo di superficie')}</th>
                   <th className="num">{t('Assetto')}</th>
                   <th className="num">{t('Prof. mediana')}</th>
                   <th className="num">{t('Durata')}</th>

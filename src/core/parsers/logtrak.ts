@@ -72,7 +72,7 @@ export const logtrakParser: DiveParser = {
       };
     }
     if (!Array.isArray(root.dives)) {
-      return { format: 'logtrak', dives: [], warnings: [t('Nessun array "dives" nel file.')] };
+      return { format: 'logtrak', dives: [], warnings: [t('Il file non contiene immersioni leggibili.')] };
     }
 
     const importedAt = new Date().toISOString();

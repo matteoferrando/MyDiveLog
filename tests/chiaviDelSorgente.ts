@@ -16,6 +16,18 @@
  * `t('…` oppure `frase(t, '…`, con le virgolette di un tipo o dell'altro —
  * prettier sceglie le doppie quando la frase contiene un apostrofo.
  *
+ * ► E `traduci(`, CHE È LO STESSO TRADUTTORE CON UN ALTRO NOME. ◄ In
+ * `ui/state.tsx` la funzione arriva da `useTraduciStabile()` e si chiama
+ * `traduci`, perché lì dentro `t` è già il nome di altre cose. Per
+ * l'estrazione era un nome sconosciuto, quindi diciassette frasi
+ * dell'applicazione — fra cui il messaggio del PRIMO SCHERMO POSSIBILE,
+ * l'archivio che non si apre — passavano dal dizionario senza che nessuna
+ * prova potesse dire se la voce ci fosse. Il buco non si vedeva da nessuna
+ * parte: in italiano il dizionario non si apre, e in inglese una frase non
+ * tradotta esce corretta in italiano.
+ *
+ * *Due delle diciassette non avevano la voce, ed erano appena state scritte.*
+ *
  * ► E ANCHE L'APICE INVERSO, CHE È IL MOTIVO PRINCIPALE PER CUI SI GUARDA. ◄
  * `t(`Consumo ${x} L/min`)` è la forma sbagliata — la chiave cambia a ogni
  * chiamata e nel dizionario non ci sarà mai — ed è esattamente quella che
@@ -24,7 +36,7 @@
  * nemmeno di fronte al difetto che è nata per prendere: è successo, si è visto
  * provandola, ed è la ragione per cui quel carattere è qui.
  */
-const APERTURA = /(?:\bfrase\s*\(\s*t\s*,\s*|\bt\s*\(\s*)(['"`])/g;
+const APERTURA = /(?:\bfrase\s*\(\s*(?:t|traduci)\s*,\s*|\b(?:t|traduci)\s*\(\s*)(['"`])/g;
 
 /**
  * Legge il letterale a mano invece di fidarsi di un'espressione regolare fino

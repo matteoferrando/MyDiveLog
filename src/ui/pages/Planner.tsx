@@ -261,6 +261,25 @@ export function Planner() {
 
   const [stampaBloccata, setStampaBloccata] = useState(false);
 
+  /*
+   * NIENTE IN ARCHIVIO = NIENTE DI SUO IN QUESTA PAGINA.
+   *
+   * Con l'archivio vuoto il piano si calcola comunque, e sono conti giusti: 30
+   * metri, 20 minuti, 15 litri, aria. Ma nessuno di quei numeri viene da chi
+   * legge — il consumo in particolare non è misurato, è il 20 L/min di ripiego
+   * che scatta quando `measuredRmv` non trova pressioni — e la pagina li
+   * presentava con l'aria del fatto compiuto: «Gas minimo 69 bar», «Pressione
+   * di rientro 156 bar», la tabella minuto per minuto. Il calcolo rispettava la
+   * regola di non inventare numeri; a violarla era il modo di mostrarli.
+   *
+   * La condizione è l'archivio vuoto e non «il modulo non è stato toccato»:
+   * il modulo si salva da solo mezzo secondo dopo l'apertura, quindi «salvato»
+   * non distingue chi ha scritto i propri numeri da chi è solo passato di qui.
+   * L'archivio vuoto invece dice una cosa sola e la dice con certezza: il
+   * consumo su cui poggia tutto il resto non può essere misurato.
+   */
+  const senzaArchivio = dives.length === 0;
+
   return (
     <div className="page">
       <div className="page-title-row">
@@ -271,6 +290,18 @@ export function Planner() {
             : t('Nessuna immersione con pressioni: scrivi il consumo a mano.')}
         </span>
       </div>
+
+      {/*
+        L'avviso sta PRIMA di tutto, non accanto ai risultati: chi scorre fino a
+        «Gas minimo» ha già letto la pagina come se parlasse di lui.
+      */}
+      {senzaArchivio && (
+        <div className="notice">
+          {t(
+            "Questi sono valori di esempio, non i tuoi. Cambiali con l'immersione che stai pianificando: il piano vale quanto i numeri che gli dai.",
+          )}
+        </div>
+      )}
 
       <PeriodPicker />
 
@@ -306,9 +337,25 @@ export function Planner() {
              * non era quello. Il piano si stampa dal Mac, o si copia negli
              * appunti col pulsante qui accanto.
              */}
+            {/*
+             * E CON L'ARCHIVIO VUOTO IL PULSANTE È SPENTO, non solo avvisato.
+             *
+             * L'avviso qui sopra difende lo schermo, ma il foglio serve proprio
+             * a lasciare lo schermo: in barca resta il foglio, e sul foglio
+             * l'avviso non c'è. Un piano di esempio stampato è indistinguibile
+             * da un piano vero — stessa tabella, stessi bar — e finisce in mano
+             * a qualcuno che non ha visto questa pagina.
+             *
+             * Spento e non nascosto, con il motivo scritto sotto: un pulsante
+             * che sparisce fa cercare un'impostazione, uno spento con la sua
+             * ragione dice cosa fare. E cosa fare adesso è a un minuto di
+             * distanza — una qualsiasi immersione, anche scritta a mano dal
+             * Logbook, e la stampa si riaccende con dei numeri che sono tuoi.
+             */}
             {!suIOS() && (
               <button
                 className="btn"
+                disabled={senzaArchivio}
                 onClick={() =>
                   setStampaBloccata(
                     !apriStampaPiano(
@@ -331,6 +378,13 @@ export function Planner() {
             )}
           </div>
         </div>
+        {!suIOS() && senzaArchivio && (
+          <p className="muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
+            {t(
+              "La stampa si accende con la prima immersione in archivio: un foglio portato in barca non si porta dietro l'avviso qui sopra.",
+            )}
+          </p>
+        )}
       </div>
       {/*
        * DUE MOTIVI DIVERSI PER CUI LA STAMPA NON PARTE, e all'utente ne diciamo
@@ -346,8 +400,8 @@ export function Planner() {
       {stampaBloccata && (
         <div className="notice">
           {suIOS()
-            ? t('Su iPhone e iPad la stampa non c’è. Stampa il piano dal Mac: i dati sono gli stessi.')
-            : t('Il browser ha bloccato la finestra di stampa. Consenti i popup per questo sito e riprova.')}
+            ? t('Su iPhone e iPad non si stampa: dal Mac sì, e i dati sono gli stessi.')
+            : t('Il browser ha bloccato la finestra di stampa. Consentila per questo sito e riprova.')}
         </div>
       )}
 
@@ -425,7 +479,9 @@ export function Planner() {
             step={1}
             min={3}
             max={100}
-            hint={t('Decide gas d’emergenza, ppO2 e narcosi. La media segue in proporzione.')}
+            hint={t(
+              'Decide gas d’emergenza, pressione parziale dell’ossigeno (PPO2) e narcosi. La media segue in proporzione.',
+            )}
             onChange={(v) =>
               // La media e il tempo di risalita seguono la massima, con la stessa
               // funzione che usano le curve: così la curva a 40 m e il campo a 40 m
@@ -611,11 +667,11 @@ export function Planner() {
                 />
                 <span>{input.stopMin > 0 ? t('la faccio') : t('non la faccio')}</span>
               </label>
-              {/* Nessun modello la impone — su un'immersione bassa il piano
-                  arriva in superficie senza fermarsi — ma va contata lo stesso:
-                  tre minuti non calcolati sono tre minuti di gas non calcolato. */}
+              {/* Che non sia obbligatoria lo dicono già le righe della tabella
+                  delle soste e il foglio stampato, sulla stessa schermata: qui
+                  resta la sola cosa che questo campo può insegnare. */}
               <span className="planner-hint">
-                {t('Non è obbligatoria, ma tre minuti non contati sono tre minuti di gas non contato.')}
+                {t('Tre minuti non contati sono tre minuti di gas non contato.')}
               </span>
             </label>
             {input.stopMin > 0 && (
@@ -702,7 +758,7 @@ export function Planner() {
               step={1}
               min={10}
               max={60}
-              hint={t('Più alto del tuo: chi condivide gas respira male. La didattica dice 30.')}
+              hint={t('Più alto del tuo: chi condivide gas respira male. La didattica tecnica usa 30.')}
               onChange={(v) => set('stressRmvLpm', v)}
             />
             <NumField
@@ -1137,7 +1193,9 @@ export function Planner() {
               non recuperano fra un'immersione e l'altra. Tabelle NOAA come le
               riportano i manuali TDI. */}
           <p className="card-sub">
-            {t('Tabelle NOAA. Il CNS si dimezza ogni 90 minuti in superficie, gli OTU no.')}
+            {t(
+              'Tabelle NOAA. Il CNS si dimezza ogni 90 minuti in superficie, l’ossigeno sui polmoni (OTU) no.',
+            )}
           </p>
           <div className="grid grid-tiles" style={{ gap: 10 }}>
             <StatTile
@@ -1197,13 +1255,13 @@ export function Planner() {
               label={t('Miscela migliore per questa profondità')}
               value={<span className="tabular">EAN{Math.round(plan.bestMixO2 * 100)}</span>}
               /* Fg = 1.4 / pressione assoluta alla massima, troncato in giù:
-                 arrotondare per eccesso sforerebbe la ppO2 di un soffio. */
-              note={`${t('per 1.4 bar a')} ${shown.depthM} m`}
+                 arrotondare per eccesso sforerebbe la PPO2 di un soffio. */
+              note={`${t('nitrox: la sigla è la percentuale di ossigeno')} · ${t('per 1.4 bar a')} ${shown.depthM} m`}
             />
             <StatTile
               label={t('Azoto e narcosi')}
               value={<span className="tabular">{plan.ppn2AtDepth.toFixed(2)} ata</span>}
-              note={`END ${plan.endM.toFixed(0)} m · ${t('accettabile fino a 5.21 ata')}`}
+              note={`END ${plan.endM.toFixed(0)} m · ${t('accettabile fino a 5.21 atmosfere assolute')}`}
             />
           </div>
         </div>
@@ -1334,11 +1392,14 @@ export function Planner() {
       <div className="card">
         <h2>{t('Prima di scendere')}</h2>
         <p className="card-sub">
-          {t('Il controllo in cinque lettere, da fare in superficie insieme al compagno.')}
+          {t('Le cinque lettere fanno START: il controllo da fare in superficie insieme al compagno.')}
         </p>
         <div className="stack" style={{ gap: 10 }}>
           {[
-            ['S — Drill', t('Prova dell’esaurimento gas e controllo bolle, erogatore di scorta in mano.')],
+            [
+              'S — Sicurezza',
+              t('Prova dell’esaurimento gas e controllo bolle, erogatore di scorta in mano.'),
+            ],
             ['T — Team', t('Controllo incrociato: chi ha cosa, dove, e come si apre.')],
             [
               'A — Aria',

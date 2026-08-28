@@ -39,6 +39,16 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
   const [selezione, setSelezione] = useState<Set<string>>(new Set());
   const [site, setSite] = useState('');
   const [minDepth, setMinDepth] = useState('');
+  /*
+   * «Scrivila a mano» premuto dalla schermata dell'archivio vuoto.
+   *
+   * Lo stato sta QUI e non dentro `NewDive` perché il pulsante che lo accende
+   * sta nel riquadro vuoto, che è un altro componente: `NewDive` riceve la
+   * richiesta e apre il modulo. Non torna mai a falso — se la persona chiude il
+   * modulo, a chiuderlo è `NewDive` col proprio stato, e il riquadro
+   * dell'invito resta lì aperto a un tocco di distanza.
+   */
+  const [scriviAMano, setScriviAMano] = useState(false);
 
   const sites = useMemo(
     () => [...new Set(dives.map((d) => d.site?.name).filter((s): s is string => !!s))].sort(),
@@ -111,13 +121,58 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
   /** La finestra visibile: è questa, non `filtered`, che comanda la selezione. */
   const mostrate = useMemo(() => filtered.slice(0, quante), [filtered, quante]);
 
+  /*
+   * L'ARCHIVIO VUOTO AVEVA UNA PORTA SOLA, e non era quella di tutti.
+   *
+   * Questo ramo mandava a Importa e si fermava lì. Ma Importa vuole un file da
+   * un computer subacqueo o un collegamento Bluetooth, e chi arriva qui col
+   * libretto di carta, col brevetto preso ieri, con un computer a noleggio o
+   * con un modello che non si collega non ha nessuna delle due cose. Per loro
+   * l'applicazione finiva sulla prima schermata.
+   *
+   * Peggio: `NewDive` — l'UNICO punto di tutta l'applicazione in cui si scrive
+   * un'immersione a mano — stava sotto questo `return`, cioè era codice
+   * irraggiungibile proprio nel momento in cui serviva di più. Si vedeva solo
+   * quando l'archivio era già pieno, quando cioè una strada l'avevi già
+   * trovata.
+   *
+   * Adesso le porte sono due, dichiarate insieme: il file, e la penna. E il
+   * modulo è montato anche qui, così «Scrivila a mano» apre davvero il modulo
+   * invece di rivelare un altro pulsante da premere.
+   */
   if (dives.length === 0) {
     return (
-      <Vuoto titolo="Nessuna immersione in archivio" azione={{ vista: 'import', etichetta: 'Vai a Importa' }}>
-        {t(
-          'Importa un file dal tuo computer subacqueo per iniziare. Puoi caricarne più di uno: le immersioni doppie vengono unite.',
-        )}
-      </Vuoto>
+      <div className="page">
+        <Vuoto
+          nuda
+          titolo="Nessuna immersione in archivio"
+          azione={{ vista: 'import', etichetta: 'Vai a Importa' }}
+          secondaria={{ etichetta: 'Scrivila a mano', onClick: () => setScriviAMano(true) }}
+        >
+          {t(
+            'Importa un file dal tuo computer subacqueo per iniziare. Puoi caricarne più di uno: le immersioni doppie vengono unite.',
+          )}{' '}
+          {t(
+            "Se hai un libretto di carta o un computer che non si collega, l'immersione la scrivi tu: data, durata, profondità, e il resto quando vuoi.",
+          )}
+        </Vuoto>
+        {/*
+          IL MODULO COMPARE SOLO SE LO SI È CHIESTO, e non è timidezza.
+          Montandolo sempre, questa schermata mostrava DUE volte la stessa
+          porta: il pulsante «Scrivila a mano» qui sopra e, subito sotto, il
+          riquadro richiuso «Aggiungi un'immersione a mano» con il suo pulsante.
+          Due inviti identici a un passo di distanza non raddoppiano le
+          possibilità: fanno rileggere per capire se sono la stessa cosa.
+
+          La chiave è la stessa che porta nel ramo pieno. Salvando la prima
+          immersione si passa da questo ramo a quello, e senza chiave React
+          riconcilierebbe per posizione: `NewDive` verrebbe smontato e
+          rimontato, portandosi via la riga «salvata, vai a vederla» proprio
+          nell'istante in cui è appena comparsa. Con la chiave il componente è
+          riconosciuto come lo stesso e l'esito sopravvive al salto.
+        */}
+        {scriviAMano && <NewDive key="nuova-immersione" onDone={onOpen} apriSubito />}
+      </div>
     );
   }
 
@@ -125,7 +180,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
     <div className="page">
       <NextDive dives={dives} />
 
-      <NewDive onDone={onOpen} />
+      <NewDive key="nuova-immersione" onDone={onOpen} />
 
       <div className="page-title-row">
         <h1 className="page-title">{t('Logbook')}</h1>
@@ -187,7 +242,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
             <option value="date">{t('data')}</option>
             <option value="depth">{t('profondità')}</option>
             <option value="duration">{t('durata')}</option>
-            <option value="rmv">{t('consumo')}</option>
+            <option value="rmv">{t('consumo di superficie')}</option>
           </select>
         </label>
       </div>
@@ -448,7 +503,7 @@ function NextDive({ dives }: { dives: Dive[] }) {
         <div className="spread">
           <span className="row" style={{ gap: 8 }}>
             <span className="dot dot-good" />
-            <b>{t('Prima della prossima')}</b>
+            <b>{t('Prima della prossima immersione')}</b>
             <span className="muted">{t('niente in scadenza, niente in circolo')}</span>
           </span>
           <button style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => setOpen(true)}>
@@ -1009,7 +1064,7 @@ function BulkEdit({
 
       <div className="row" style={{ gap: 8, marginTop: 12 }}>
         <button className="btn" disabled={!qualcosaDaFare || zavorraRotta || lavoro} onClick={applica}>
-          {lavoro ? t('Scrivo…') : `${t('Applica a')} ${ids.length}`}
+          {lavoro ? t('Salvataggio in corso…') : `${t('Applica a')} ${ids.length}`}
         </button>
         {/*
          * ► UNISCI DUE SCHEDE. ◄

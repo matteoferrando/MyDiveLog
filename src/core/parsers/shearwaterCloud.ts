@@ -41,6 +41,7 @@ import { AIR, type Cylinder, type Dive, type DiveMode, type ReportedSummary, typ
 import { parseCylinderSpec } from '../cylinders';
 import { psiToBar, wallClockToIso } from '../units';
 import { comeSta, type Traduci } from '../traduci';
+import { conDettaglio } from '../ble/causaGuasto';
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
 import { isSqlite, readSqliteTables, sqliteTableNames, type SqlRow } from './sqliteReader';
@@ -74,10 +75,30 @@ export const shearwaterCloudParser: DiveParser = {
     try {
       tables = readSqliteTables(input.bytes, ['dive_details', 'log_data']);
     } catch (err) {
+      /*
+       * ► IL LETTORE È SQLITE, E `sqlite` STA IN `NOMI_INTERNI`. ◄
+       *
+       * Quindi l'errore grezzo di questo ramo è, quasi per definizione, uno di
+       * quelli che non devono uscire: «file is not a database», «database disk
+       * image is malformed», preceduti dal nome del motore. Finiva in un avviso
+       * dell'import, cioè in una riga gialla sotto il nome di un file che una
+       * persona ha appena scelto, e le lasciava una diagnosi in inglese su un
+       * componente di cui non sa l'esistenza.
+       *
+       * Quello che invece può fare è rifare l'esportazione dall'applicazione da
+       * cui il file viene — un file troncato a metà copia è il caso di gran
+       * lunga più comune — e sapere che l'archivio non è stato toccato.
+       */
       return {
         format: 'shearwater-cloud',
         dives: [],
-        warnings: [`${t('Database non leggibile:')} ${err instanceof Error ? err.message : String(err)}`],
+        warnings: [
+          conDettaglio(
+            `${t('Il file non si è potuto leggere: potrebbe essere incompleto o di una versione che non conosciamo.')} ` +
+              t('Riesportalo dall’applicazione di origine e riprova: niente è stato aggiunto all’archivio.'),
+            err,
+          ),
+        ],
       };
     }
 
@@ -89,7 +110,7 @@ export const shearwaterCloudParser: DiveParser = {
       return {
         format: 'shearwater-cloud',
         dives: [],
-        warnings: [t('Nessuna immersione in dive_details.')],
+        warnings: [t('Il file non contiene immersioni leggibili.')],
       };
     }
 
@@ -115,10 +136,23 @@ export const shearwaterCloudParser: DiveParser = {
       warnings.push(`${withoutTiming} ${t('righe scartate: data o durata non interpretabili.')}`);
     }
     if (eventCodes.size) {
+      /*
+       * I CODICI NON ESCONO PIÙ A SCHERMO, e non è una perdita.
+       *
+       * Erano numeri del formato di Shearwater — «12, 19, 33» — davanti a una
+       * persona che ha appena importato un file: non dicono che cosa è
+       * successo, non dicono che cosa fare, e sembrano un guasto. Quello che
+       * conta lo dice la frase: gli eventi non riconosciuti non tolgono niente
+       * al profilo né ai numeri calcolati.
+       */
+      console.info(
+        'Eventi Shearwater Cloud non interpretati:',
+        [...eventCodes].sort((a, b) => +a - +b),
+      );
       warnings.push(
-        `${t('Eventi del log non documentati, letti e non interpretati: codici')} ${[...eventCodes]
-          .sort((a, b) => +a - +b)
-          .join(', ')}.`,
+        t(
+          'Alcuni eventi registrati dal computer non sono stati riconosciuti: il profilo e i numeri restano completi.',
+        ),
       );
     }
     return { format: 'shearwater-cloud', dives, warnings };
@@ -394,10 +428,15 @@ function readNativeLog(
     }
     return decoded;
   } catch (err) {
+    // Le parentesi col motivo se le mette `conDettaglio`, che è anche l'unico
+    // punto in cui si decide se il motivo si può mostrare: qui sotto c'è il
+    // lettore SQLite, e i suoi errori portano il nome del motore.
     warnings.push(
-      `${when ?? t('Immersione')}: ${t('log nativo del computer non decodificabile')} (${
-        err instanceof Error ? err.message : String(err)
-      }). ${t('Restano i dati di riepilogo.')}`,
+      conDettaglio(
+        `${when ?? t('Immersione')}: ${t('log nativo del computer non decodificabile')}. ` +
+          t('Restano i dati di riepilogo.'),
+        err,
+      ),
     );
     return undefined;
   }

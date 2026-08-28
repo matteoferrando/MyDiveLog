@@ -1111,9 +1111,9 @@ const ruleOxygen: Rule = (agg, _dives, t) => {
     evidence,
     target: t('CNS sotto il 100% nella giornata e OTU sotto le 300 quando si fanno più giorni di fila.'),
     drills: [
-      t(
-        "Allunga l'intervallo di superficie fra la prima e la seconda: novanta minuti dimezzano il CNS accumulato.",
-      ),
+      // Il dimezzamento è già spiegato dal `detail` qui sopra: l'esercizio dice
+      // che cosa fare, non ripete il perché.
+      t("Allunga l'intervallo di superficie fra la prima e la seconda immersione della giornata."),
       t('Su più giorni di fila guarda le OTU, non il CNS: sono loro a limitare.'),
       t(
         'Se usi miscele ricche, la stessa immersione costa più ossigeno: controlla la PPO2 di fondo prima di scegliere il gas.',

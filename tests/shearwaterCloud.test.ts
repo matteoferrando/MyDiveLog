@@ -386,7 +386,10 @@ describe('parser Shearwater Cloud', () => {
     const empty = new Uint8Array(readFileSync(path));
     const { dives, warnings } = shearwaterCloudParser.parse({ fileName: 'vuoto.db', bytes: empty });
     expect(dives).toHaveLength(0);
-    expect(warnings.join(' ')).toContain('Nessuna immersione');
+    // L'avviso non nomina più `dive_details`, che è il nome della tabella
+    // dentro il file: dice a chi importa la sola cosa che lo riguarda.
+    expect(warnings.join(' ')).toContain('non contiene immersioni leggibili');
+    expect(warnings.join(' ')).not.toContain('dive_details');
   });
 });
 

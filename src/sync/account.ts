@@ -24,6 +24,7 @@
  * rifiuto — senza aprire un'applicazione.
  */
 
+import { conDettaglio } from '../core/ble/causaGuasto';
 import { comeSta, type Traduci } from '../core/traduci';
 import type { SyncCredentials } from './turso';
 
@@ -112,9 +113,21 @@ async function chiedi(
      * un'informazione, «errore» no. E soprattutto NON è una sessione scaduta —
      * mandare al pulsante di accesso chi è semplicemente in barca senza campo
      * gli farebbe perdere la sessione che ha.
+     *
+     * ► IL COMMENTO DICHIARAVA QUESTO, E LA RIGA SOTTO FACEVA IL CONTRARIO. ◄
+     * Ci si appendeva `err.message`, e quel messaggio è quasi sempre
+     * «TypeError: Failed to fetch» — l'unica frase che il browser produce sia
+     * per un indirizzo sbagliato sia per la rete staccata, cioè quella che non
+     * distingue niente e non suggerisce niente. Le due cose che l'intenzione
+     * prometteva — che cosa fare, e che la sessione è ancora buona — non erano
+     * scritte da nessuna parte.
      */
     throw new Error(
-      `${t('Servizio di accesso non raggiungibile:')} ${err instanceof Error ? err.message : String(err)}`,
+      conDettaglio(
+        `${t('Servizio di accesso non raggiungibile:')} ${t('controlla la connessione e riprova.')} ` +
+          t('La sessione che hai non è stata chiusa.'),
+        err,
+      ),
     );
   }
   if (risposta.status === 401) throw new SessioneScaduta(t);

@@ -38,7 +38,7 @@ import {
   type PlanGas,
   type PlanLevel,
 } from '../../core/analysis/deco';
-import { DEFAULT_VPM, planVpm, type VpmStop } from '../../core/analysis/vpm';
+import { DEFAULT_VPM, MAX_CRITICAL_VOLUME_ITERATIONS, planVpm, type VpmStop } from '../../core/analysis/vpm';
 import type { Dive } from '../../core/model';
 import { dateShort } from '../format';
 import { OTU_DAILY_TDI } from '../../core/analysis/oxygen';
@@ -46,6 +46,7 @@ import type { GasMix, Salinity } from '../../core/model';
 import { withFraction } from '../../core/units';
 import { StatTile } from './Charts';
 import { useLingua } from '../lingua';
+import { conDettaglio } from '../../core/ble/causaGuasto';
 
 export interface DecoSeed {
   depthM: number;
@@ -599,7 +600,7 @@ export function DecoPlanner({
             quella quota è la regola che evita di dimenticarsi l'ultimo cambio. */}
         <p className="card-sub">
           {t(
-            'La profondità di cambio viene dalla MOD e si può correggere. In risalita il piano passa da solo al gas più ricco respirabile.',
+            'La profondità di cambio viene dalla profondità massima operativa (MOD) e si può correggere. In risalita il piano passa da solo al gas più ricco respirabile.',
           )}
         </p>
         <div className="table-scroll">
@@ -773,7 +774,7 @@ export function DecoPlanner({
             onChange={(v) => set('rmvLpm', v)}
           />
           <NumField
-            label={t('Consumo in deco')}
+            label={t('Consumo in decompressione')}
             unit="L/min"
             value={base.decoRmvLpm}
             min={8}
@@ -864,20 +865,31 @@ export function DecoPlanner({
         </div>
         {model !== 'buhlmann' && (
           <div className="notice" style={{ marginTop: 10 }}>
-            {/* Il confronto con le schedule pubblicate di V-Planner e MultiDeco sta
-                nei test: a parità di conservatorismo le nostre tabelle escono dal 5
-                al 10 per cento più corte. Con Bühlmann il carico residuo della
-                giornata è invece tenuto in conto. */}
-            <strong style={{ fontWeight: 650 }}>{t('Sul nostro VPM-B')}. </strong>
+            {/*
+              ► ERANO NOTE DI SVILUPPO MESSE A SCHERMO. ◄
+
+              Diceva «Sul nostro VPM-B» — il nostro rispetto a chi? — e poi che
+              le tabelle escono dal 5 al 10 per cento più corte di V-Planner e
+              di MultiDeco. È una misura vera, sta nei test, e non è
+              un'informazione per chi pianifica: presuppone che si abbia in mano
+              uno degli altri due programmi e che si sappia già quanto sono
+              lunghe le loro tabelle. Chi non ce l'ha legge che il nostro
+              calcolo è più corto di un metro di paragone che non possiede, e
+              l'unica cosa che gli resta è il dubbio.
+
+              Il confronto resta dove serve — nei test, dove una regressione lo
+              fa fallire — e a schermo c'è la leva che si può muovere davvero.
+            */}
+            <strong style={{ fontWeight: 650 }}>{t('Prima di usare questa tabella')}. </strong>
             {t(
-              'Le tabelle escono dal 5 al 10 per cento più corte di V-Planner e MultiDeco: se vuoi allinearti, alza di un livello.',
+              'Il conservatorismo è la leva: ogni livello in più allunga le soste. Se le vuoi più prudenti, sali di uno.',
             )}{' '}
             {t('Manca l’algoritmo ripetitivo, quindi sulla seconda immersione della giornata è ottimista.')}
-            {vpm.iterations >= 12 && (
+            {vpm.iterations >= MAX_CRITICAL_VOLUME_ITERATIONS && (
               <>
                 {' '}
-                <b>{t('Su questo profilo il calcolo non arriva a un risultato stabile')}</b>:{' '}
-                {t('non usare la tabella.')}
+                <b>{t('Su questo profilo il calcolo non si stabilizza')}</b>:{' '}
+                {t('non usare questa tabella, passa a Bühlmann.')}
               </>
             )}
           </div>
@@ -1133,8 +1145,18 @@ export function DecoPlanner({
                     );
                     setSalvataggio(`${t('Salvato')} ${dove.dove}.`);
                   } catch (err) {
+                    // Il guscio c'era già; mancava il filtro. `esporta` chiama il
+                    // guscio nativo, e i suoi errori arrivano con il nome del
+                    // guscio attaccato davanti — che è il caso per cui
+                    // `dettaglioLeggibile` è stata scritta.
                     setSalvataggio(
-                      `${t('Non si è potuto salvare')}: ${err instanceof Error ? err.message : String(err)}`,
+                      conDettaglio(
+                        `${t('Non si è potuto salvare')}. ` +
+                          t(
+                            'Controlla lo spazio libero sul dispositivo e riprova: il file non è stato scritto.',
+                          ),
+                        err,
+                      ),
                     );
                   }
                 })();

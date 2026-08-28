@@ -518,8 +518,17 @@ export function decodeUwatecSmart(bytes: Uint8Array, opts: DecodeOptions = {}): 
 
   dive.bytesConsumed = flusso.byteConsumati;
   if (flusso.byteConsumati !== declared) {
+    /*
+     * I due conteggi restano nella console e non a schermo: «consumati 4812
+     * byte su 4830 dichiarati» è la misura del disallineamento, cioè una cosa
+     * che serve a chi ripara il decodificatore. Chi ha appena importato le sue
+     * immersioni ha bisogno di sapere una cosa sola, ed è la conseguenza.
+     */
+    console.warn(`Uwatec: consumati ${flusso.byteConsumati} byte su ${declared} dichiarati.`);
     warnings.push(
-      `${t('Decodifica disallineata: consumati')} ${flusso.byteConsumati} ${t('byte su')} ${declared} ${t('dichiarati. Il profilo potrebbe essere incompleto.')}`,
+      t(
+        'Il profilo di un’immersione potrebbe essere incompleto: una parte dei dati registrati non si è potuta rileggere.',
+      ),
     );
   }
   return dive;

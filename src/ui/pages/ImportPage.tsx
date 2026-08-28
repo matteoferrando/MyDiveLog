@@ -16,6 +16,7 @@ import { useDiveLog, type ImportOutcome } from '../state';
 import { BleDownload } from '../components/BleDownload';
 import { BottoneConferma } from '../components/Conferma';
 import { useLingua } from '../lingua';
+import { conDettaglio } from '../../core/ble/causaGuasto';
 
 export function ImportPage({ onDone }: { onDone: () => void }) {
   const { importFiles, dives, storeLocation, clearAll } = useDiveLog();
@@ -80,10 +81,26 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
               '.',
       );
       if (falliti.length > 0) {
+        /*
+         * ► L'ELENCO DEI RIFIUTATI DICEVA COSA ERA SUCCESSO, E BASTA. ◄
+         *
+         * Mancavano le due cose che servono davvero a chi legge: che fine
+         * hanno fatto GLI ALTRI file — e sono quasi sempre la maggioranza — e
+         * che cosa si può fare adesso. Senza la prima, una fila di nomi in
+         * rosso fa credere che l'import sia fallito tutto e invita a rifarlo,
+         * cioè a rileggere file che sono già in archivio.
+         *
+         * La coda cambia in base a `letti`: scrivere «gli altri sono stati
+         * salvati» quando non ne è entrato nessuno sarebbe una bugia, e una
+         * bugia rassicurante è il peggior genere di messaggio d'errore.
+         */
         setAllarme(
           `${falliti.length}/${result.length} ${t('file non letti')}: ` +
             falliti.map((o) => `${o.fileName} (${o.error ?? t('motivo non riportato')})`).join('; ') +
-            '.',
+            '. ' +
+            (letti.length > 0
+              ? t('Gli altri file sono stati salvati; controlla il formato di quelli rifiutati e riprova.')
+              : t('Niente è stato salvato: controlla il formato dei file e riprova.')),
         );
       }
     } catch (err) {
@@ -93,7 +110,28 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
       // annunciata da `void handle(...)`: la pagina tornava semplicemente com'era
       // prima, senza esito e senza spiegazione, per chiunque.
       setAnnuncio('');
-      setAllarme(`${t('Import fallito')}: ${err instanceof Error ? err.message : String(err)}`);
+      /*
+       * ► E ANCHE QUANDO C'ERA IL GUSCIO, IL CRUDO ARRIVAVA A SCHERMO. ◄
+       *
+       * Gli errori che finiscono qui non sono quelli dei singoli file — quelli
+       * tornano dentro l'esito, ripuliti da `state.tsx` — ma quelli
+       * dell'archivio: quota esaurita, database chiuso. Sono esattamente i
+       * messaggi che portano il nome di un motore di persistenza.
+       *
+       * E c'è una seconda cosa che mancava, più importante del nome: **che cosa
+       * è stato salvato**. Un guasto qui può arrivare prima o dopo la scrittura,
+       * e questa funzione non lo sa; dirlo con onestà — «potrebbe non essere in
+       * archivio», e come verificarlo — vale più di una certezza inventata.
+       */
+      setAllarme(
+        conDettaglio(
+          `${t('Import fallito')}: ${t('quello che è stato letto potrebbe non essere in archivio.')} ` +
+            t(
+              'Controlla lo spazio libero sul dispositivo e riprova; riaprendo l’elenco vedi che cosa c’è davvero.',
+            ),
+          err,
+        ),
+      );
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = '';
@@ -111,9 +149,17 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
       // niente che una voce possa raccontare da sola, quindi lo si dice.
       setAnnuncio(`${t('Archivio azzerato')}: ${imm(quante, t)}.`);
     } catch (err) {
+      // Stesso trattamento del ramo d'import qui sopra: il guscio c'era già —
+      // e diceva anche la cosa giusta sui dati — ma il motivo grezzo arrivava
+      // intero, e qui viene dal motore d'archivio, cioè dal livello i cui nomi
+      // non devono uscire.
       setAnnuncio('');
       setAllarme(
-        `${t('Cancellazione fallita')}: ${err instanceof Error ? err.message : String(err)}. ${t('L’archivio non è stato svuotato.')}`,
+        conDettaglio(
+          `${t('Cancellazione fallita')}: ${t('L’archivio non è stato svuotato.')} ` +
+            t('Chiudi e riapri l’applicazione e riprova.'),
+          err,
+        ),
       );
     } finally {
       setAzzerando(false);
@@ -285,7 +331,7 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
         <h2>{t('Formati supportati')}</h2>
         <p className="card-sub">
           {t(
-            'Il formato si riconosce dal contenuto, non dall’estensione: un .xml può essere UDDF, Subsurface o Shearwater.',
+            'Il formato si riconosce dal contenuto, non dall’estensione: un .xml può essere UDDF (il formato universale di scambio dei logbook), Subsurface o Shearwater.',
           )}
         </p>
         <div className="table-scroll">

@@ -122,3 +122,41 @@ export function dettaglioLeggibile(err: unknown): string {
   const minuscolo = senzaPrefisso.toLowerCase();
   return NOMI_INTERNI.some((nome) => minuscolo.includes(nome)) ? '' : senzaPrefisso;
 }
+
+/**
+ * La frase umana, e il dettaglio tecnico SOLO SE si può leggere.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► PERCHÉ QUESTA FUNZIONE È NATA DOPO, E DA UN CONTEGGIO. ◄
+ *
+ * `causaDelGuasto` e `dettaglioLeggibile` esistevano dal 28 agosto 2026 e
+ * facevano metà del lavoro bene. Il guaio era l'altra metà: **avevano un solo
+ * chiamante**. Il difetto del primo utente esterno era stato letto come «una
+ * riga sbagliata in `BleDownload`», e corretto lì. Rileggendo l'applicazione
+ * con l'occhio giusto, di quella riga ce n'erano dodici — l'archivio che non si
+ * apre, il PDF che non si scrive, il servizio di accesso irraggiungibile,
+ * l'import che fallisce, il file di Shearwater Cloud illeggibile. Tutte con la
+ * stessa forma: un guscio italiano e in coda `err.message`.
+ *
+ * ► LA FORMA È QUELLA DI `describeSyncError`, che ce l'aveva già giusta. ◄ In
+ * `sync/turso.ts` il consiglio viene prima e il tecnico dopo, fra parentesi:
+ * chi ha fretta legge la prima metà e sa cosa fare, chi deve segnalare un
+ * guasto copia la seconda. L'ordine inverso — quello che l'app faceva quasi
+ * ovunque — obbliga tutti a leggere una riga in inglese prima di arrivare
+ * all'unica utile.
+ *
+ * ► ED È UNA FUNZIONE E NON UN'ABITUDINE. ◄ Il ternario
+ * `dettaglio === '' ? frase : frase + dettaglio` era da scrivere dodici volte,
+ * e dodici volte è una volta di troppo perché qualcuno lo dimentichi. Chi
+ * chiama non deve ricordarsi né di ripulire né di controllare se è rimasto
+ * qualcosa: passa la frase che ha scritto per una persona, e riceve indietro
+ * l'unica cosa che si può mostrare.
+ *
+ * Le parentesi sono il segnale che quello che c'è dentro non è per tutti: si
+ * possono saltare senza perdere niente di azionabile, perché tutto ciò che si
+ * può fare sta già nella frase davanti.
+ */
+export function conDettaglio(frase: string, err: unknown): string {
+  const dettaglio = dettaglioLeggibile(err);
+  return dettaglio === '' ? frase : `${frase} (${dettaglio})`;
+}

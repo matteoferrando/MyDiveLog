@@ -191,8 +191,14 @@ const CONSERVATISM_FACTORS = [1.0, 1.05, 1.12, 1.22, 1.35, 1.51];
  * dentro un logbook deve restituire l'ultima tabella calcolata e dichiarare quante
  * iterazioni ha fatto (`VpmResult.iterations`), non girare per sempre: se il
  * risultato riporta questo numero, la convergenza NON è stata raggiunta.
+ *
+ * ► ED È ESPORTATO PERCHÉ IL CONFRONTO SI FA ALTROVE. ◄ Il pianificatore
+ * avvisa quando `iterations` ha toccato il tetto, e prima lo faceva contro un
+ * `12` scritto a mano dentro il componente: due copie dello stesso numero, una
+ * delle quali sarebbe rimasta indietro il giorno che si alza il tetto — e
+ * l'avviso sarebbe scattato sempre, oppure mai.
  */
-const MAX_CRITICAL_VOLUME_ITERATIONS = 12;
+export const MAX_CRITICAL_VOLUME_ITERATIONS = 12;
 
 /** Passo di integrazione dei tratti in pendenza, minuti. */
 const RAMP_SLICE_MIN = 0.1;

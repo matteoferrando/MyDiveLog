@@ -66,7 +66,7 @@ export class SqliteStore implements DiveStore {
    * è il difetto silenzioso che la regola in testa a `traduzioni.ts` avverte di
    * evitare, e ci sono cascato lo stesso.
    */
-  readonly location = 'File SQLite nella cartella dati dell’app';
+  readonly location = 'in un file su questo dispositivo';
   private db: SqlDatabase | null = null;
 
   /** Vedi `IndexedDbStore`: serve solo alla guardia qui sotto. */
@@ -80,8 +80,15 @@ export class SqliteStore implements DiveStore {
     await this.db.execute('PRAGMA foreign_keys = ON');
   }
 
+  // Stessa frase di `IndexedDbStore`, e non è una svista: vedi il commento
+  // lungo là, sul perché un'asserzione da programmatore non è un messaggio.
   private get sql(): SqlDatabase {
-    if (!this.db) throw new Error(this.t('Database non inizializzato.'));
+    if (!this.db)
+      throw new Error(
+        this.t(
+          'L’archivio non è pronto. Chiudi e riapri l’applicazione: quello che stavi salvando non è stato scritto.',
+        ),
+      );
     return this.db;
   }
 
