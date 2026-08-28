@@ -347,14 +347,25 @@ sotto il dito: un grafico che li usa non risponde e non segnala niente. Vale per
 elementi che considera cliccabili. Si usano gli eventi del puntatore, e lo
 stesso test di sorgente lo verifica.
 
-**Il permesso Bluetooth negato non produce nessun errore.**
-`checkPermissions` di `tauri-plugin-blec` e' implementato solo per Android e
-altrove risponde sempre di si'; lo stato dell'adattatore ha tre valori e nessuno
-significa «non autorizzato». Chi tocca «Non consentire» si ritrova una ricerca
-che gira a vuoto per sempre. Non potendo distinguerlo da «nessun computer acceso
-qui intorno», dopo dodici secondi di ricerca infruttuosa l'app elenca le tre
-cause possibili e dice dove si controlla il permesso — che su iPhone e'
-Impostazioni → MyDiveLog → Bluetooth, non il pannello di macOS.
+**Il permesso Bluetooth negato NON e' silenzioso, anche se per mesi qui c'era
+scritto il contrario.** `checkPermissions` di `tauri-plugin-blec` e' implementato
+solo per Android e altrove risponde sempre di si'; lo stato dell'adattatore ha
+tre valori e nessuno significa «non autorizzato». Da questi due fatti — veri — si
+era concluso che chi tocca «Non consentire» non ricevesse nessun errore. Falso:
+l'errore lo lancia **`scan()`**, e si legge `Btleplug error: Permission denied`.
+Si guardavano i due posti in cui l'informazione non c'era e non il terzo in cui
+c'era, e a smentirlo e' stato il primo utente esterno dell'app, il 28 agosto
+2026, con quella riga sullo schermo del suo iPhone.
+
+Adesso l'errore si classifica (`src/core/ble/causaGuasto.ts`) e il messaggio dice
+dove si concede il permesso — su iPhone Impostazioni → MyDiveLog → Bluetooth, non
+il pannello di macOS. Il riquadro dopo dodici secondi di ricerca a vuoto resta,
+per i casi che sono ancora muti davvero: computer spento, lontano o non in
+modalita' collegamento, e il pannello del permesso mai comparso.
+
+**E un messaggio d'errore non porta mai il nome di una libreria.** «Btleplug» non
+vuol dire niente per chi legge, ed era in inglese dentro un'app italiana:
+`tests/permessoBluetooth.test.ts` impedisce che ci ritorni.
 
 **Il simulatore non ha Bluetooth vero.** Serve a verificare layout, navigazione,
 import da file e tutto il resto; per provare lo scarico da un computer subacqueo

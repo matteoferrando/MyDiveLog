@@ -103,8 +103,18 @@ const SPENTO: BleUnavailable = {
  *
  * `vuoto` non è un errore: è la ricerca che gira e non trova niente, cioè il
  * caso in cui dopo dodici secondi compare il riquadro che elenca le tre cause
- * possibili — ed è la schermata che su iPhone sta davanti a chi ha negato il
- * permesso, perché lì un permesso negato non produce nessun errore.
+ * possibili.
+ *
+ * ► QUI C'ERA SCRITTO CHE ERA ANCHE LA SCHERMATA DI CHI HA NEGATO IL PERMESSO
+ * SU iPHONE, «perché lì un permesso negato non produce nessun errore». NON È
+ * VERO. ◄ Il 28 agosto 2026 il primo utente esterno dell'app ha negato il
+ * permesso e ha letto `Btleplug error: Permission denied`: l'errore lo lancia
+ * `scan()`, e adesso quel caso ha un messaggio suo (vedi
+ * `core/ble/causaGuasto.ts`). `vuoto` resta quello che dice di essere — una
+ * ricerca che non trova niente — e non imita più uno stato diverso.
+ *
+ * *Manca un modo finto per provare il permesso negato senza un telefono: oggi
+ * quella schermata si può solo descrivere, non fotografare.*
  */
 export function trasportoFinto(modo: ModoFinto = modoDaIndirizzo(location.search)): BleTransport {
   if (modo === 'spento') return new FakeTransport([], SPENTO);
