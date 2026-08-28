@@ -69,6 +69,19 @@ import { CERT_LEVEL_LABEL, etichettaBrevetto, sortCertifications } from '../../c
  * l'archivio locale non deve impedire una sincronizzazione, e una data che non
  * si è potuta rileggere si comporta come «non hai ancora sincronizzato», che è
  * la frase prudente delle due.
+ *
+ * ► LA DOMANDA È STATA RIAPERTA E CHIUSA: 28 agosto 2026. ◄ Era stata segnalata
+ * come un ripiego — «il posto giusto sarebbe l'archivio delle immersioni» — e a
+ * rileggere il ragionamento qui sopra la segnalazione era sbagliata: l'archivio
+ * è proprio la cosa che viaggia fra i dispositivi, cioè il posto in cui questa
+ * data diventerebbe falsa senza che nessuno rompa niente. **Decisione del
+ * proprietario: resta dov'è.** Non è un rinvio, ed è già stata presa una volta.
+ *
+ * Quello che resta, e si accetta: questo cassettino è meno robusto
+ * dell'archivio — iOS può svuotarlo quando lo spazio scarseggia, e si perde
+ * cancellando i dati del sito. Allora l'app dirà «non hai ancora sincronizzato»
+ * a chi invece l'ha fatto. È una frase falsa, ed è la più prudente delle due:
+ * costa una riga sbagliata in una scheda informativa, e non perde niente.
  */
 const CHIAVE_ULTIMA_SYNC = 'mydivelog.ultimaSincronizzazione';
 
