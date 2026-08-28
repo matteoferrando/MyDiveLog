@@ -1,7 +1,7 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **28 agosto 2026** — commit `cd2dcd5` su `main`, albero pulito, CI
-verde. Nel repository c'è la **1.7.0**.
+Aggiornato: **28 agosto 2026** — commit `bd8f86c` su `main`, albero pulito, CI
+verde. Nel repository c'è la **1.7.1**.
 
 **Il primo difetto l'ha trovato un estraneo.** Il primo utente esterno dell'app —
 non chi la scrive, non chi la possiede: una persona che l'ha scaricata dall'App
@@ -11,36 +11,65 @@ ed è la prima volta che un difetto di questo progetto non lo trova chi lo scriv
 
 I negozi Apple sono due. Su **App Store per iPhone** l'app è pubblica
 (`https://apps.apple.com/app/mydivelog/id6804439480`), approvata il 26 agosto
-2026 al terzo invio, e la versione che quel negozio serve — misurata il 27
-agosto — è ancora la **1.6.3**. Sul **Mac App Store** il primo pacchetto è stato
-consegnato la sera del 27 alle 21:44, dopo due consegne respinte da controlli
-automatici. Su GitHub c'è la release **v1.7.0** con i pacchetti per macOS,
-Windows e Android, e il sito [mydivelog.site](https://mydivelog.site) porta al
-negozio in italiano e in inglese.
+2026 al terzo invio, e la versione che quel negozio serve — misurata il 28
+agosto — è la **1.7.0**, approvata e pubblicata il **28 agosto 2026 alle
+16:02:32 UTC**. Sul **Mac App Store** il primo pacchetto è stato consegnato la
+sera del 27 alle 21:44, dopo due consegne respinte da controlli automatici, ed è
+pubblica **anche lì la 1.7.0**, dal 28 agosto: i due negozi adesso convergono.
+Su GitHub c'è la release **v1.7.1** con i pacchetti per macOS, Windows e
+Android — già rilasciata, ed è lei la prossima da consegnare ad Apple — e il
+sito [mydivelog.site](https://mydivelog.site) porta al negozio in italiano e in
+inglese.
 
 > ### ► «APPROVATA» NON VUOL DIRE «LA VERSIONE CHE HAI IN MANO» ◄
 >
 > Sono affermazioni diverse, e oggi non sono allineate: cosa c'è nel repository
-> (1.7.0), cosa c'è nelle release (1.7.0), **cosa il negozio iOS consegna a un
-> estraneo** (1.6.3) e **cosa è in attesa su App Store Connect** per i due
-> negozi. Il salto fra le prime e le altre è quello che chi scrive dimentica
-> sempre, perché sul suo telefono c'è già l'ultima.
+> (1.7.1), cosa c'è nelle release (1.7.1), **cosa il negozio iOS consegna a un
+> estraneo** (1.7.0, dal 28 agosto) e **cosa è in attesa su App Store Connect**
+> per i due negozi. Il salto fra le prime e le altre è quello che chi scrive
+> dimentica sempre, perché sul suo telefono c'è già l'ultima.
 >
 > **La verifica costa un comando e non passa da nessuna credenziale**, perché
 > quello che serve sapere è pubblico:
 >
 > ```
-> curl -s "https://itunes.apple.com/lookup?id=6804439480&country=it" \
+> curl -s "https://itunes.apple.com/lookup?id=6804439480&country=it&t=$(date +%s)" \
 >   | python3 -c "import json,sys;r=json.load(sys.stdin)['results'][0];print(r['version'], r['currentVersionReleaseDate'])"
 > ```
 >
-> Il 27 agosto risponde `1.6.3 2026-08-26T15:20:56Z`: l'app è stata **approvata e
-> pubblicata il 26 agosto**, ed è la 1.6.3 quella che scarica chi arriva dal
-> sito. Gli altri numeri si controllano come sempre — `gh release list` per le
-> release, `PlistBuddy` e `spctl` per la copia installata sul Mac. **Quello che
+> **► IL `&t=$(date +%s)` IN CODA NON SI TOGLIE: SENZA, IL COMANDO RISPONDE
+> DALLA CACHE. ◄** La vetrina di Apple serve risposte in cache, e **una risposta
+> in cache può essere vecchia di giorni senza dirlo**: torna un JSON identico,
+> con dentro un numero plausibile e vecchio. Misurato il **28 agosto 2026**, i
+> due comandi uno accanto all'altro — **senza** anti-cache, tre esecuzioni
+> consecutive, tutte e tre `1.6.3  2026-08-27T07:00:00Z`; **con** anti-cache,
+> `1.7.0  2026-08-28T16:02:32Z`, stabile e uguale sia con `country=it` sia con
+> `country=us`. **La versione vera era la 1.7.0**, pubblicata quel pomeriggio.
+> *E quella data in cache non è nemmeno la stessa che lo stesso comando aveva
+> restituito la mattina: di risposte in cache ne girano più d'una.* Chi trova
+> quel `&t=` e lo toglie credendolo rumore rimette in piedi il difetto — e il
+> difetto qui non è rumoroso: **è un comando che risponde con serenità una cosa
+> falsa**, e da una sua risposta in cache era già nata l'istruzione, dannosa, di
+> togliere da App Store Connect una build che era in revisione. La lezione per
+> esteso sta fra **le lezioni** di `stato-progetto.md` nei documenti del
+> progetto.
+>
+> Il 27 agosto rispondeva `1.6.3 2026-08-26T15:20:56Z`: l'app era stata
+> **approvata e pubblicata il 26 agosto**, ed era la 1.6.3 quella che scaricava
+> chi arrivava dal sito. **Il 28 agosto lo stesso comando risponde `1.7.0
+> 2026-08-28T16:02:32Z`**: la 1.7.0 è stata approvata e pubblicata quel
+> pomeriggio, ed è lei quella che scarica chi arriva dal sito oggi. Gli altri
+> numeri si controllano come sempre — `gh release list` per le release,
+> `PlistBuddy` e `spctl` per la copia installata sul Mac. **Quello che
 > si misura da fuori è solo il pubblicato**; il resto lo dice App Store Connect,
 > che vuole l'accesso di chi possiede l'app, e finché non lo guarda lui queste
 > righe restano come sono.
+>
+> **E per il Mac questo comando non risponde.** La scheda è una sola per iPhone,
+> iPod touch e Mac, e il `version` che torna è quello della versione iOS: che
+> esista una versione macOS pubblicata si misura altrove, dalla voce **Mac** nel
+> blocco «Compatibilità» della scheda — il comando sta più sotto, dove il
+> documento tiene lo stato dei due negozi.
 
 Documenti fratelli in questa cartella: [`architettura.md`](architettura.md),
 [`didattica.md`](didattica.md), [`formati-e-insidie.md`](formati-e-insidie.md).
@@ -1075,12 +1104,30 @@ protegge lo script e un travaso dal Mac per quello che resta indietro.
 **► iOS: pubblicata sull'App Store. ◄** Approvata il 26 agosto 2026 al terzo
 invio; i due rifiuti precedenti — 2.1 (informazioni) e 2.1(a) (crash su iPad
 toccando «Take Photo or Video») — sono chiusi tutti e due. La versione che il
-negozio serve è la **1.6.3**; la scheda è in **italiano soltanto**, e questo si
-misura: la stessa descrizione italiana torna interrogando la vetrina americana.
+negozio serve è la **1.7.0**, approvata e pubblicata il 28 agosto 2026 alle
+16:02:32 UTC; la scheda è in **italiano soltanto**, e questo si misura: la
+stessa descrizione italiana torna interrogando la vetrina americana.
 
-**► macOS: il pacchetto per il Mac App Store esiste ed è stato consegnato. ◄** 27
-agosto, 21:44, al terzo tentativo. Non è ancora in revisione: manca la risposta
-alla domanda doganale e l'invio.
+**► macOS: pubblicata sul Mac App Store. ◄** Il pacchetto era stato consegnato il
+27 agosto alle 21:44, al terzo tentativo; sciolta la «Conformità mancante» e
+mandata in revisione, la **1.7.0** è pubblica anche sul Mac — il 28 agosto.
+
+**Come si misura, perché il `lookup` qui non risponde.** La scheda dell'App Store
+è **una sola** per iPhone, iPod touch e Mac (`6804439480`), e il campo `version`
+che il `lookup` restituisce è quello della versione **iOS**: da lì la
+pubblicazione macOS non si vede, né oggi né fra un mese. Quello che si misura è
+la voce **Mac** nel blocco «Compatibilità» della scheda, che l'App Store mostra
+**solo se esiste una versione macOS pubblicata**:
+
+```
+curl -s "https://apps.apple.com/it/app/mydivelog/id6804439480" \
+  | grep -o "Richiede macOS[^\"]*"
+```
+
+Il 28 agosto risponde «Richiede macOS 12.0 o versioni successive e un Mac con
+chip Apple M1 o versioni successive». **L'ora della pubblicazione sul Mac non è
+stata misurata**: si sa il giorno, non il momento — e quel che non è stato
+misurato qui non si scrive.
 
 ---
 
@@ -1088,19 +1135,19 @@ alla domanda doganale e l'invio.
 
 ### Tocca a chi pubblica
 
-1. **Il Mac: sciogliere «Conformità mancante» e MANDARE IN REVISIONE.** La build
-   `1.7.0 (1.7.0)` è consegnata e la sua scheda aspetta una risposta alla domanda
-   sull'esportazione della crittografia — che è **no**, nessuna crittografia
-   oltre le esenzioni. Poi si sceglie la build, si caricano schermate e
-   descrizione, e **si invia**. _Se serve rifare il pacchetto, quel numero è
-   consumato: serve una versione nuova._
-2. **La 1.7.0 su App Store Connect per iPhone: guardare a che punto è, e mandarla
-   in revisione se è solo caricata.** Il proprietario dice di averla già
-   caricata — **non è verificato, e non si sa se sia soltanto caricata o già
-   inviata**. Il pacchetto esiste e non serve ricompilare niente. **Il segno che
-   è arrivata a destinazione è pubblico**, e non serve nessun accesso:
-   `itunes.apple.com/lookup?id=6804439480` smetterà di rispondere `1.6.3`.
-3. **La scheda del negozio in inglese**, e adesso vale per **due** negozi. È una
+1. **La 1.7.1 ai due negozi.** Le due voci che stavano qui — _sciogliere
+   «Conformità mancante» sul Mac e mandarla in revisione_ e _guardare a che punto
+   è la 1.7.0 su App Store Connect per iPhone_ — **sono chiuse tutte e due**: la
+   1.7.0 è pubblica su App Store per iPhone (misurato il 28 agosto alle 16:02:32
+   UTC) e sul Mac App Store (misurato il 28 agosto dalla voce **Mac** nella
+   compatibilità della scheda, non dal `lookup`). Resta da consegnare la
+   **1.7.1**, già rilasciata su GitHub, **e va consegnata a tutti e due**: il
+   pacchetto esiste e non serve ricompilare niente. _Se per il Mac serve rifare
+   il pacchetto, il numero `1.7.0 (1.7.0)` è consumato: serve una versione
+   nuova._ **Il segno che è arrivata a destinazione è pubblico**, e non serve
+   nessun accesso: per iPhone `itunes.apple.com/lookup?id=6804439480` — con
+   l'anti-cache — smetterà di rispondere `1.7.0`.
+2. **La scheda del negozio in inglese**, e adesso vale per **due** negozi. È una
    localizzazione su App Store Connect, non una build nuova, e non promette più
    niente che l'app non mantenga: l'interfaccia è tradotta per intero, piano di
    miglioramento compreso. **Oggi non c'è**: la vetrina americana serve la
@@ -1113,6 +1160,13 @@ alla domanda doganale e l'invio.
 > cose da fare da cui le righe spariscono senza motivo diventa, nel giro di un
 > mese, un elenco di cui nessuno sa più cosa sia stato deciso e cosa
 > dimenticato._
+>
+> _Il 28 agosto ne sono uscite altre due, e nemmeno queste sono state
+> dimenticate: **«la 1.7.0 su App Store Connect per iPhone»** e **«il Mac:
+> sciogliere Conformità mancante e mandare in revisione»** sono chiuse tutte e
+> due, perché la 1.7.0 è pubblica su tutti e due i negozi — misurata, non
+> dedotta. Quello che resta è consegnare la 1.7.1 a entrambi, ed è scritto sopra
+> al posto loro._
 
 ### Tocca al codice
 
