@@ -171,6 +171,22 @@ export class FakeTransport implements BleTransport {
   constructor(
     private devices: { device: BleFoundDevice; responder: FakeResponder; quirks?: FakeQuirks }[],
     private stato: true | BleUnavailable = true,
+    /**
+     * Se c'è, `scan()` LANCIA con questo messaggio invece di cercare.
+     *
+     * ► SERVE PERCHÉ IL CASO PIÙ IMPORTANTE NON PASSA DA `available()`. ◄ Il
+     * permesso Bluetooth negato su iPhone non lo vede nessuno dei due controlli
+     * preventivi — né lo stato dell'adattatore né `checkPermissions` — e si
+     * manifesta solo qui, come eccezione della scansione. Finché il finto sapeva
+     * simulare soltanto l'indisponibilità dichiarata in anticipo (`stato`), la
+     * schermata che una persona vera ha visto davvero il 28 agosto 2026 non era
+     * riproducibile su nessuna macchina di sviluppo.
+     *
+     * *Un difetto che si può solo descrivere e non riprodurre è un difetto che
+     * torna: la prossima volta che quel ramo si rompe, non se ne accorge
+     * nessuno finché non lo tocca un altro estraneo.*
+     */
+    private erroreScansione?: string,
   ) {}
 
   /** L'ultimo collegamento aperto, per poterci asserire sopra. */
@@ -190,6 +206,11 @@ export class FakeTransport implements BleTransport {
   }
 
   async scan(onUpdate: (devices: BleFoundDevice[]) => void, signal: AbortSignal): Promise<void> {
+    // Prima di tutto: se questa scansione deve fallire, fallisce subito e come
+    // fallisce quella vera — lanciando. Non emette dispositivi, non aspetta
+    // l'annullamento, non fa il giro. È il permesso negato.
+    if (this.erroreScansione !== undefined) throw new Error(this.erroreScansione);
+
     // Come il vero: l'elenco cresce un dispositivo alla volta, e la ricerca
     // finisce solo quando la si ANNULLA. Prima tornava da sé appena finito
     // l'elenco, contro il contratto in `types.ts` — e chi la chiama la aspetta:
@@ -397,10 +418,22 @@ export function fintoPeregrine(logs: Uint8Array[], seriale = '988B023F'): FakeRe
     if (cmd === 0x36) {
       const block = payload[1];
       if (!corrente) return incapsula([0x7f, 0x36, 0x22]);
-      // Blocchi da 60 byte: piccoli apposta, così ogni risposta attraversa più
-      // notifiche e il riassemblaggio viene esercitato davvero.
-      const start = (block - 1) * 60;
-      const pezzo = corrente.subarray(start, start + 60);
+      /*
+       * Blocchi da 63 byte: piccoli apposta, così ogni risposta attraversa più
+       * notifiche e il riassemblaggio viene esercitato davvero.
+       *
+       * SESSANTATRÉ E NON SESSANTA, e non è un'inezia: 63 byte sono 56 gruppi
+       * da nove bit esatti. Il flusso compresso è fatto di gruppi da nove bit
+       * che non rispettano i confini dei byte, e un blocco che ne tagli uno a
+       * metà il driver lo rifiuta — giustamente, perché un computer vero non
+       * può mandarlo. Con 60 il finto se la cavava solo perché i suoi log
+       * stavano tutti in un blocco solo: appena il carico è un profilo vero,
+       * il secondo blocco arrivava tagliato e lo scarico falliva. Il pezzo di
+       * protocollo che ne esce provato — un trasferimento compresso su PIÙ
+       * blocchi — prima non lo provava nessuno.
+       */
+      const start = (block - 1) * 63;
+      const pezzo = corrente.subarray(start, start + 63);
       if (pezzo.length === 0 && !compresso) return incapsula([0x76, block]);
       return incapsula([0x76, block, ...pezzo]);
     }

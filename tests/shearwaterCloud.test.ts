@@ -25,6 +25,9 @@ import { inferClockOffsets, mergeImports } from '../src/core/dedupe';
 import { aggregate } from '../src/core/analysis/aggregate';
 import { buildPlan } from '../src/core/analysis/coaching';
 import { logtrakParser } from '../src/core/parsers/logtrak';
+import { downloadFromComputer } from '../src/core/ble/download';
+import { FakeTransport, fakeDevice, fintoPeregrine } from '../src/core/ble/fake';
+import { shearwaterDriver } from '../src/core/ble/drivers/shearwater';
 import { encodePnf, encodeUwatecSmart, packPnfBlob, toLogtrak, type UwatecFixtureSpec } from './fixtures';
 import type { Dive } from '../src/core/model';
 
@@ -52,6 +55,19 @@ interface SwDive {
   o2?: number;
   /** Se vero, la riga porta anche il log nativo del computer come nei file veri. */
   withNativeLog?: boolean;
+  /**
+   * Il log nativo ESATTO da mettere nel blob, invece di costruirne uno dal
+   * riepilogo. Serve quando la stessa immersione deve arrivare anche da
+   * un'altra strada — lo scarico Bluetooth — e le due devono avere gli stessi
+   * byte, come le hanno nella realtà: è la copia della memoria del computer.
+   */
+  nativeRaw?: Uint8Array;
+  /**
+   * L'istante vero in secondi Unix, quando NON coincide con la lettura
+   * dell'orologio. `clock` è l'ora del posto; questo è l'epoch che Shearwater
+   * Cloud tiene a parte, ed è la differenza fra i due a dare il fuso.
+   */
+  epochOverrideS?: number;
 }
 
 /**
@@ -93,7 +109,7 @@ function buildShearwaterDb(name: string, dives: SwDive[]): Uint8Array {
     const id = `14332781617${String(487726 + i).padStart(6, '0')}`;
     const fileName = `Peregrine[A1B2C3D4]#${i + 1} ${d.clock.slice(0, 10)}.swlogzp`;
     // Il campo si chiama epoch ma contiene la lettura dell'orologio letta come UTC.
-    const epochS = Math.round(Date.parse(`${d.clock.replace(' ', 'T')}Z`) / 1000);
+    const epochS = d.epochOverrideS ?? Math.round(Date.parse(`${d.clock.replace(' ', 'T')}Z`) / 1000);
     const tankProfile = JSON.stringify({
       GasProfiles: [
         {
@@ -156,28 +172,30 @@ function buildShearwaterDb(name: string, dives: SwDive[]): Uint8Array {
         MinNDL: 99,
         MaxDecoObligation: d.decoMin,
       }),
-      d.withNativeLog
-        ? Buffer.from(
-            packPnfBlob(
-              encodePnf({
-                // Un profilo grossolano ma coerente con il riepilogo della riga:
-                // serve a verificare che il parser prenda il profilo dal log e
-                // non dalle colonne.
-                depths: nativeProfile(d),
-                intervalS: 10,
-                gfLow: 45,
-                gfHigh: 95,
-                cnsPct: nativeProfile(d).map((_, i) => Math.min(99, i)),
-                ceilingM: nativeProfile(d).map((depth, i, all) =>
-                  d.decoMin > 0 && i > all.length / 2 && depth < 12 ? 3 : 0,
-                ),
-                minutes: nativeProfile(d).map((depth, i, all) =>
-                  d.decoMin > 0 && i > all.length / 2 && depth < 12 ? d.decoMin : 20,
-                ),
-              }),
-            ),
-          )
-        : new Uint8Array([0x80, 0x33, 0, 0, 0x1f, 0x8b]),
+      d.nativeRaw
+        ? Buffer.from(packPnfBlob(d.nativeRaw))
+        : d.withNativeLog
+          ? Buffer.from(
+              packPnfBlob(
+                encodePnf({
+                  // Un profilo grossolano ma coerente con il riepilogo della riga:
+                  // serve a verificare che il parser prenda il profilo dal log e
+                  // non dalle colonne.
+                  depths: nativeProfile(d),
+                  intervalS: 10,
+                  gfLow: 45,
+                  gfHigh: 95,
+                  cnsPct: nativeProfile(d).map((_, i) => Math.min(99, i)),
+                  ceilingM: nativeProfile(d).map((depth, i, all) =>
+                    d.decoMin > 0 && i > all.length / 2 && depth < 12 ? 3 : 0,
+                  ),
+                  minutes: nativeProfile(d).map((depth, i, all) =>
+                    d.decoMin > 0 && i > all.length / 2 && depth < 12 ? d.decoMin : 20,
+                  ),
+                }),
+              ),
+            )
+          : new Uint8Array([0x80, 0x33, 0, 0, 0x1f, 0x8b]),
       Buffer.from(JSON.stringify({ DIVE_NUMBER_KEY: i + 1, DIVE_START_TIME: epochS, DB_VERSION: 12 })),
       Buffer.from(
         JSON.stringify({
@@ -568,5 +586,87 @@ describe('log nativo dentro il database', () => {
     const { dives, warnings } = shearwaterCloudParser.parse({ fileName: 'sw.db', bytes });
     expect(dives.length).toBe(SW.length);
     expect(warnings.some((w) => /riepilogo/.test(w))).toBe(true);
+  });
+});
+
+/**
+ * LO STESSO TUFFO DA SHEARWATER CLOUD E DAL BLUETOOTH.
+ *
+ * È la coppia di strade che l'applicazione offre davvero per un Peregrine, e le
+ * due NON concordano sull'istante:
+ *
+ *  - il database porta l'epoch vero (`DIVE_START_TIME`) più l'ora del posto in
+ *    `DiveDate`, e dalla differenza il parser ricava il fuso;
+ *  - il log nativo porta solo la lettura dell'orologio — l'ora a parete — e chi
+ *    scarica ci mette sopra il fuso DEL TELEFONO alla data dell'immersione
+ *    (`fusoDelDispositivo`, in `BleDownload.tsx`). Immersione fatta a +5 e
+ *    scaricata a casa a +2: tre ore di scarto.
+ *
+ * Tre ore sfondano la finestra di riconoscimento, che per un'immersione di
+ * tre minuti e venti è di sessanta secondi. Uno sfasamento sistematico non lo
+ * si può nemmeno dedurre: `inferClockOffsets` ne vuole almeno due coppie, e qui
+ * l'immersione è una. Resta l'impronta del profilo — e il profilo è lo stesso,
+ * perché il blob nel database è la copia della memoria del computer, cioè
+ * esattamente i byte che il Bluetooth riporta.
+ */
+describe('la stessa immersione da Shearwater Cloud e dal Bluetooth', () => {
+  const profilo = [3, 9, 16, 22, 27, 30, 31, 30, 28, 24, 19, 15, 11, 8, 6, 5, 5, 5, 3, 1];
+  // L'orologio del computer segnava le 05:07 del posto; il posto era a +5.
+  const oraAPareteS = Math.round(Date.parse('2026-06-14T05:07:00Z') / 1000);
+  const raw = encodePnf({
+    startTimeS: oraAPareteS,
+    depths: profilo,
+    cnsPct: profilo.map((_, i) => i),
+  });
+
+  // Il database si costruisce una volta sola: `buildShearwaterDb` scrive un file
+  // vero, e ricrearlo con lo stesso nome fallisce sulle tabelle già esistenti.
+  const dbBytes = buildShearwaterDb('due-strade', [
+    {
+      clock: '2026-06-14 05:07:00',
+      epochOverrideS: oraAPareteS - 5 * 3600,
+      depth: Math.max(...profilo),
+      durationS: profilo.length * 10,
+      avgDepth: 16,
+      gf99: 60,
+      decoMin: 0,
+      site: 'Maaya Thila',
+      nativeRaw: raw,
+    },
+  ]);
+  const daCloud = () => shearwaterCloudParser.parse({ fileName: 'sw.db', bytes: dbBytes }).dives;
+
+  const dalBluetooth = async () => {
+    const t = new FakeTransport([
+      { device: fakeDevice({ name: 'Peregrine' }), responder: fintoPeregrine([raw]), quirks: { mtu: 20 } },
+    ]);
+    const out = await downloadFromComputer(t, fakeDevice({ name: 'Peregrine' }), shearwaterDriver, {
+      // Il telefono che scarica sta a casa, a +2: è quello che fa il difetto.
+      fuso: () => 120,
+    });
+    return out.dives;
+  };
+
+  it('le due strade datano lo stesso tuffo a tre ore di distanza', async () => {
+    const [cloud] = daCloud();
+    const [ble] = await dalBluetooth();
+    expect(Date.parse(ble.startTime) - Date.parse(cloud.startTime)).toBe(3 * 3600 * 1000);
+    // Profondità e durata invece coincidono: è solo l'orario a divergere, ed è
+    // il solo criterio che senza impronta resta a decidere.
+    expect(ble.maxDepth).toBeCloseTo(cloud.maxDepth, 1);
+    expect(ble.durationS).toBe(cloud.durationS);
+  });
+
+  it('portano la stessa impronta del profilo', async () => {
+    const [cloud] = daCloud();
+    const [ble] = await dalBluetooth();
+    expect(cloud.computer?.profileFingerprint).toBeTruthy();
+    expect(ble.computer?.profileFingerprint).toBe(cloud.computer?.profileFingerprint);
+  });
+
+  it('si fondono in una sola immersione invece di entrare due volte', async () => {
+    const rep = mergeImports(daCloud(), await dalBluetooth());
+    expect(rep.added).toBe(0);
+    expect(rep.dives).toHaveLength(1);
   });
 });

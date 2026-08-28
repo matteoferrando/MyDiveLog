@@ -85,12 +85,22 @@ const dispositivo = (over: Partial<BleFoundDevice> & { id: string }): BleFoundDe
  * non si vedrebbe mai. Si scelgono con `?finto=…` nell'indirizzo — che qui è
  * lecito proprio perché tutto questo file non esiste nella build normale.
  */
-export type ModoFinto = 'normale' | 'vuoto' | 'spento';
+export type ModoFinto = 'normale' | 'vuoto' | 'spento' | 'negato';
 
 export function modoDaIndirizzo(ricerca: string): ModoFinto {
   const v = new URLSearchParams(ricerca).get('finto');
-  return v === 'vuoto' || v === 'spento' ? v : 'normale';
+  return v === 'vuoto' || v === 'spento' || v === 'negato' ? v : 'normale';
 }
+
+/**
+ * Il messaggio ESATTO che il plugin lancia quando il permesso è negato.
+ *
+ * Trascritto dalla schermata di chi l'ha trovato, non ricostruito a memoria: se
+ * un giorno la libreria cambierà quelle parole, la classificazione in
+ * `core/ble/causaGuasto.ts` smetterà di riconoscerlo — e allora è QUESTA riga
+ * che deve cambiare per prima, perché è quella che tiene onesta la prova.
+ */
+const PERMESSO_NEGATO = 'Btleplug error: Permission denied';
 
 const SPENTO: BleUnavailable = {
   reason: 'off',
@@ -113,11 +123,14 @@ const SPENTO: BleUnavailable = {
  * `core/ble/causaGuasto.ts`). `vuoto` resta quello che dice di essere — una
  * ricerca che non trova niente — e non imita più uno stato diverso.
  *
- * *Manca un modo finto per provare il permesso negato senza un telefono: oggi
- * quella schermata si può solo descrivere, non fotografare.*
+ * `negato` riproduce quella schermata: la scansione lancia il messaggio vero del
+ * plugin, e l'interfaccia deve rispondere col percorso delle impostazioni. Prima
+ * non c'era, e quel caso si poteva solo descrivere — che per un difetto trovato
+ * da un estraneo è il modo di lasciarlo tornare.
  */
 export function trasportoFinto(modo: ModoFinto = modoDaIndirizzo(location.search)): BleTransport {
   if (modo === 'spento') return new FakeTransport([], SPENTO);
+  if (modo === 'negato') return new FakeTransport([], true, PERMESSO_NEGATO);
   if (modo === 'vuoto') return new FakeTransport([]);
 
   return new FakeTransport([

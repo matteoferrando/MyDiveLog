@@ -41,6 +41,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { causaDelGuasto, dettaglioLeggibile, NOMI_INTERNI } from '../src/core/ble/causaGuasto';
+import { trasportoFinto } from '../src/ui/bluetoothFinto';
 
 const leggi = (p: string) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), 'utf8');
 
@@ -168,5 +169,89 @@ describe('► nessun nome interno arriva sotto gli occhi di chi usa l’app ◄'
     expect(ricerca).toContain('causaDelGuasto(err)');
     expect(ricerca).toContain('dettaglioLeggibile(err)');
     expect(ricerca).not.toMatch(/La ricerca non è partita'\)}: \$\{err instanceof Error/);
+  });
+});
+
+/**
+ * Un segnale che si annulla da solo dopo un istante.
+ *
+ * ► SERVE PERCHÉ ALTRIMENTI QUESTE GUARDIE DIVENTANO ROSSE IN TRENTA SECONDI. ◄
+ * Provate a rovescio la prima volta — togliendo il `throw` dal finto — hanno
+ * fallito per SCADENZA e non per asserzione: `scan()` per contratto non torna
+ * finché non la si annulla, quindi senza l'errore restava lì. Rosso lo era, ma
+ * dopo mezzo minuto e con scritto «test timed out», che non dice a chi legge
+ * quale proprietà si sia rotta.
+ *
+ * Con un segnale che si arrende, la stessa rottura fallisce in un decimo di
+ * secondo e dicendo la cosa giusta: la promessa si è risolta invece di
+ * rifiutare. *Una guardia che si accende male insegna a non fidarsi di lei
+ * quanto una che non si accende.*
+ */
+function segnaleCheSiArrende(dopoMs = 60): AbortSignal {
+  const ctl = new AbortController();
+  setTimeout(() => ctl.abort(), dopoMs);
+  return ctl.signal;
+}
+
+describe('► il permesso negato adesso si può riprodurre senza un telefono ◄', () => {
+  /*
+   * Prima di questo modo, la schermata che il primo utente esterno ha visto
+   * davvero si poteva soltanto descrivere. Un difetto che non si riproduce è un
+   * difetto che torna: la prossima volta che quel ramo si rompe non se ne
+   * accorge nessuno finché non lo tocca un altro estraneo.
+   *
+   * Il caso non passa da `available()` — il permesso negato su iPhone non lo
+   * vede né lo stato dell'adattatore né `checkPermissions` — quindi il finto
+   * doveva imparare a fallire nel punto giusto: dentro `scan()`, lanciando.
+   */
+  it('il trasporto finto fallisce la scansione col messaggio vero del plugin', async () => {
+    const finto = trasportoFinto('negato');
+    expect(await finto.available()).toBe(true); // il controllo preventivo dice di sì
+    await expect(finto.scan(() => {}, segnaleCheSiArrende())).rejects.toThrow(/Permission denied/);
+  });
+
+  it('e quel messaggio viene classificato come «permesso negato»', async () => {
+    /*
+     * La prova che chiude il cerchio: il messaggio che il finto lancia è lo
+     * stesso che la classificazione riconosce. Se un giorno divergessero — nel
+     * finto o nel classificatore — questo test lo direbbe, ed è l'unico punto in
+     * cui le due cose si guardano in faccia.
+     *
+     * ► SCRITTO COSÌ PERCHÉ LA PRIMA VERSIONE PASSAVA A VUOTO. ◄ Usava
+     * `.catch(...)` con le asserzioni dentro: togliendo il `throw` dal finto la
+     * promessa si risolveva, il ramo del `catch` non veniva eseguito, e il test
+     * restava VERDE senza aver verificato niente. Se ne è accorto solo il giro
+     * di mutazione — dove le rosse erano una invece di due.
+     *
+     * Adesso una risoluzione è un fallimento dichiarato: se la scansione non
+     * lancia, il test lo dice con parole sue invece di tacere.
+     */
+    const finto = trasportoFinto('negato');
+    const guasto = await finto
+      .scan(() => {}, segnaleCheSiArrende())
+      .then(
+        () => {
+          throw new Error('la scansione è finita senza lanciare: il permesso negato non è stato simulato');
+        },
+        (err: unknown) => err,
+      );
+    expect(causaDelGuasto(guasto)).toBe('denied');
+    // E comunque vada la classificazione, il nome della libreria sparisce:
+    // `dettaglioLeggibile` toglie il prefisso «Btleplug error: » e lascia solo
+    // le parole del sistema operativo. Per il ramo `denied` l'interfaccia non
+    // usa nemmeno questo — usa `permessoNegato()` — ma la proprietà vale su
+    // qualunque strada l'errore prenda.
+    expect(dettaglioLeggibile(guasto)).toBe('Permission denied');
+    expect(dettaglioLeggibile(guasto).toLowerCase()).not.toContain('btleplug');
+  });
+
+  it('gli altri modi finti non lanciano: solo questo', async () => {
+    // `vuoto` è una ricerca che non trova niente, non un errore. Confonderli è
+    // esattamente quello che il commento di `bluetoothFinto.ts` diceva per
+    // sbaglio prima del 28 agosto.
+    const ctl = new AbortController();
+    const vuoto = trasportoFinto('vuoto');
+    ctl.abort();
+    await expect(vuoto.scan(() => {}, ctl.signal)).resolves.toBeUndefined();
   });
 });

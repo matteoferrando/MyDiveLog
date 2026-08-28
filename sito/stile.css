@@ -1887,6 +1887,31 @@ a.scheda-piattaforma.minore:hover {
 }
 
 /*
+  La nota sotto le due schede principali: i limiti del pacchetto macOS e la
+  seconda strada del Mac App Store.
+
+  Sta QUI e non piu' in basso per la stessa ragione per cui i limiti di Windows
+  e Android stanno prima dei loro pulsanti: un vincolo scoperto dopo l'installazione
+  somiglia a un difetto di chi ha scaricato. Costa qualche scaricamento in meno,
+  e li fa risparmiare a chi tanto non avrebbe potuto aprirla.
+
+  Piu' piccola del testo ma NON piu' chiara del testo tenue: un avviso sbiadito
+  e' un avviso che non si legge. Stessa scelta gia' fatta per `.nota-impronte`.
+*/
+.nota-schede {
+  margin: 16px 0 0;
+  max-width: 34rem;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--testo-tenue);
+}
+
+.nota-schede b {
+  color: var(--testo);
+  font-weight: 600;
+}
+
+/*
   La riga di fiducia. Tre parole che rispondono alle tre domande che uno si fa
   prima di scaricare qualcosa da un sito che non conosce — quanto costa, cosa
   devo dare in cambio, di chi mi sto fidando — e un collegamento per la quarta,

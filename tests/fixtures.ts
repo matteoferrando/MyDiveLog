@@ -783,6 +783,15 @@ export interface PnfFixtureSpec {
   tank1Bar?: number[];
   /** Coordinate di ingresso, se il computer ha il GPS. */
   entry?: { lat: number; lon: number };
+  /**
+   * L'orologio del computer, secondi Unix, nel blocco di apertura 0.
+   *
+   * Assente di proposito nei log costruiti per il decoder, dove la data la
+   * porta la riga del database. Serve allo scarico via Bluetooth, che un
+   * database non ce l'ha: senza questo campo il driver rifiuta il log, perché
+   * un'immersione senza istante non è collocabile nel tempo.
+   */
+  startTimeS?: number;
 }
 
 export const DEFAULT_PNF: PnfFixtureSpec = {
@@ -837,6 +846,7 @@ export function encodePnf(overrides: Partial<PnfFixtureSpec> = {}): Uint8Array {
     r[4] = spec.gfLow;
     r[5] = spec.gfHigh;
     r[8] = 0; // metrico
+    if (spec.startTimeS !== undefined) be32(r, 12, spec.startTimeS);
     r[20] = spec.o2Percent;
     r[30] = spec.hePercent;
   });

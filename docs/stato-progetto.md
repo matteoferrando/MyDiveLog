@@ -1122,16 +1122,30 @@ alla domanda doganale e l'invio.
 5. **Restituire a monte le due scoperte**: il nome BLE dell'Aladin Sport Matrix e
    l'offset 24 dell'intestazione Uwatec (profondità media). È la sola condizione
    che il manutentore della libreria ha chiesto, quindi non è una cortesia.
-6. **Un'impronta del profilo anche per il log PNF Shearwater.**
-7. **Un riscontro indipendente per VPM-B.**
-8. **Dire sul sito che il pacchetto macOS vuole macOS 12 e Apple Silicon.** Il
+6. **Un riscontro indipendente per VPM-B.**
+7. **Dire sul sito che il pacchetto macOS vuole macOS 12 e Apple Silicon.** Il
    pacchetto ha smesso di dichiarare il falso, ma la pagina non dichiara niente,
    e per chi ha un Mac Intel il risultato è lo stesso — scarica, installa, non si
    apre. _È una riga di HTML._
-9. **Scarico via USB/seriale**, TestFlight, iPad, **condivisione di
+8. **Scarico via USB/seriale**, TestFlight, iPad, **condivisione di
    un'immersione in sola lettura**: fuori. _(L'ultima è entrata in questa riga il
    26 agosto, per decisione del proprietario e senza che il motivo sia stato
    messo agli atti — vedi le **decisioni prese**. Le altre tre stavano già qui.)_
+
+> _Il 28 agosto da questo elenco è uscita **«Un'impronta del profilo anche per il
+> log PNF Shearwater»**, ed è uscita perché è **fatta**. `improntaPnf` in
+> `src/core/parsers/shearwaterPnf.ts` calcola l'impronta sui soli record di
+> campione — non sull'intestazione, che porta l'orologio, né sul riempimento a
+> zero, che nelle due strade è di lunghezza diversa — e la scrivono in archivio
+> sia il parser di Shearwater Cloud sia lo scarico Bluetooth. Il difetto che
+> chiude è misurato in `tests/shearwaterCloud.test.ts`: lo stesso tuffo
+> importato da Shearwater Cloud e scaricato via Bluetooth entrava **due volte**,
+> perché il database porta l'epoch vero mentre il computer porta l'ora a parete e
+> il fuso ce lo mette il telefono che scarica — tre ore di scarto per
+> un'immersione fatta a +5 e scaricata a casa a +2, contro una finestra di
+> riconoscimento che è metà della durata. Uno sfasamento sistematico non era
+> nemmeno deducibile: `inferClockOffsets` vuole almeno due coppie che concordino,
+> e con un computer solo non ce n'è nessuna._
 
 ### Le insidie di iOS, pagate e scritte in README
 

@@ -832,6 +832,16 @@ function buildDive(
       model: log.computer.model,
       serial: log.computer.serial,
       firmware: log.computer.firmware,
+      /*
+       * L'impronta del profilo, e qui pesa più che altrove.
+       *
+       * `startTime` sopra è l'ora a parete con sopra il fuso DEL TELEFONO che
+       * sta scaricando: quando l'immersione è stata fatta in un altro fuso,
+       * quell'istante non è quello che Shearwater Cloud ha per lo stesso
+       * tuffo, e lo scarto è di ore. L'impronta è l'unica cosa che le due
+       * strade hanno in comune, perché i byte del profilo sono gli stessi.
+       */
+      profileFingerprint: log.profileFingerprint,
       decoModel: log.settings.decoModel,
       gfLow: log.settings.gfLow,
       gfHigh: log.settings.gfHigh,

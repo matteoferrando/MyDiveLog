@@ -185,6 +185,11 @@ function readDive(
       serial: native?.computer.serial ?? serial,
       deviceId: native?.computer.serial ?? serial,
       diveId: str(row.DiveId),
+      // L'impronta del profilo: è ciò che riconosce questa immersione quando la
+      // stessa arriva dallo scarico Bluetooth, che la data la ricava dall'ora a
+      // parete e quindi non concorda con l'epoch del database. Vedi
+      // `improntaPnf`.
+      profileFingerprint: native?.profileFingerprint,
       firmware: native?.computer.firmware,
       decoModel: native?.settings.decoModel,
       gfLow: native?.settings.gfLow,

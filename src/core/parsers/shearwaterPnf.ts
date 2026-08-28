@@ -136,6 +136,94 @@ export interface PnfLog {
   bookmarks: { t: number; bearing?: number; value?: number }[];
   /** Cose viste e non interpretate: servono a non far finta che il file sia tutto noto. */
   notes: string[];
+  /**
+   * Impronta del flusso dei campioni: vedi `improntaPnf`. Assente sui profili
+   * troppo corti, e sui log che di campioni non ne hanno affatto.
+   */
+  profileFingerprint?: string;
+}
+
+/** I record che contengono la MISURA: i campioni e la loro estensione. */
+const TIPI_CAMPIONE: readonly number[] = [TYPE.sample, TYPE.freediveSample, TYPE.aveloSample, TYPE.sampleExt];
+
+/**
+ * Sotto questo numero di record di campioni non si calcola nessuna impronta.
+ *
+ * La ragione è la stessa dei sessantaquattro byte di `profiloImpronta` per i
+ * Uwatec: un profilo cortissimo è fatto di pochi valori tutti simili fra loro,
+ * e due immersioni brevi e banali possono avere gli stessi byte per davvero.
+ * Un falso positivo qui non lascia un duplicato — ne fa SPARIRE una, fondendo
+ * due immersioni diverse in una sola, e per quello vale la regola «meglio
+ * nessuna impronta che un'impronta che sbaglia».
+ *
+ * Sedici record: col passo di dieci secondi che è quello di fabbrica dei
+ * Petrel sono due minuti e quaranta, cioè lo stesso ordine di grandezza della
+ * soglia Uwatec. Non è una misura, è una soglia — e il costo di sbagliarla in
+ * eccesso è solo che l'impronta non c'è e si torna al criterio di sempre.
+ */
+const MINIMO_RECORD = 16;
+
+/**
+ * L'impronta del PROFILO per il log nativo Shearwater.
+ *
+ * A COSA SERVE. A riconoscere che due immersioni sono la stessa immersione
+ * quando i loro ORARI non lo dicono. Per il Peregrine il caso non è teorico ed
+ * è scritto nel codice che lo produce: lo stesso tuffo arriva da due strade e
+ * le due datano diversamente.
+ *
+ *  - Da Shearwater Cloud l'istante è l'epoch che il database tiene a parte
+ *    (`DIVE_START_TIME`), con il fuso ricavato dal confronto con `DiveDate`.
+ *  - Dallo scarico Bluetooth non c'è nessun database: il log porta solo la
+ *    lettura dell'orologio — l'ora a parete, vedi il commento in
+ *    `buildDive` del driver — e il fuso lo mette il TELEFONO che scarica,
+ *    perché è l'unico che ne conosca uno. Immersione fatta a +5 e scaricata a
+ *    casa a +2: tre ore di scarto.
+ *
+ * Tre ore sfondano la finestra di riconoscimento, che è metà della durata
+ * dell'immersione. E non è nemmeno recuperabile come sfasamento sistematico:
+ * `inferClockOffsets` vuole almeno due coppie che concordino, e un viaggio
+ * fatto con un computer solo di coppie non ne offre nessuna.
+ *
+ * SI CONFRONTANO SOLO I RECORD DI CAMPIONE. I campioni sono la misura, e la
+ * misura non la riscrive nessuno. Tutto il resto no:
+ *
+ *  - il blocco di apertura porta proprio l'orologio, cioè il campo su cui le
+ *    due strade litigano: legarci l'impronta la farebbe cambiare esattamente
+ *    nei casi per cui serve;
+ *  - la lunghezza totale del log non è la stessa nelle due strade. Il blob del
+ *    database dichiara la propria lunghezza; il Bluetooth chiede
+ *    `DIVE_SIZE = 0xFFFFFF` byte ed è il computer a dire quando smettere.
+ *    Quanto riempimento a zero resti in coda non è una proprietà
+ *    dell'immersione, e infatti i record a zero qui si saltano.
+ *
+ * VALE SOLO IN POSITIVO, come quella dei Uwatec: due impronte uguali sono
+ * almeno cinquecentododici byte di profilo identici — la soglia qui sopra —
+ * e decidono da sole; due impronte diverse
+ * non dicono niente e si torna al criterio di sempre. Non può quindi togliere
+ * fusioni, solo aggiungerne.
+ *
+ * IL PREFISSO `pnf-` non è ornamentale. `improntePresenti` in `dedupe.ts`
+ * confronta le impronte di tutti i computer di un'immersione senza sapere da
+ * che formato vengano, e quella dei Uwatec ha la stessa forma; il prefisso
+ * rende impossibile che un profilo Scubapro e uno Shearwater si riconoscano
+ * per una collisione dell'hash.
+ */
+export function improntaPnf(data: Uint8Array): string | undefined {
+  // FNV-1a a 32 bit, e in più la lunghezza: due flussi di lunghezza diversa non
+  // possono avere la stessa impronta nemmeno se l'hash collidesse.
+  let h = 0x811c9dc5;
+  let record = 0;
+  for (let offset = 0; offset + RECORD <= data.length; offset += RECORD) {
+    if (isZero(data, offset, RECORD)) continue;
+    if (!TIPI_CAMPIONE.includes(data[offset])) continue;
+    record++;
+    for (let i = offset; i < offset + RECORD; i++) {
+      h ^= data[i];
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+  }
+  if (record < MINIMO_RECORD) return undefined;
+  return `pnf-${(record * RECORD).toString(36)}-${h.toString(16).padStart(8, '0')}`;
 }
 
 /** Vero se il blob è un log PNF compresso (prefisso di 4 byte + gzip). */
@@ -503,6 +591,7 @@ export function decodePnf(data: Uint8Array): PnfLog {
     exit,
     bookmarks,
     notes,
+    profileFingerprint: improntaPnf(data),
   };
 }
 

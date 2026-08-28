@@ -35,7 +35,8 @@ import {
   shearwaterDriver,
   slipFrames,
 } from '../src/core/ble/drivers/shearwater';
-import { decodePnf } from '../src/core/parsers/shearwaterPnf';
+import { decodePnf, improntaPnf } from '../src/core/parsers/shearwaterPnf';
+import { encodePnf } from './fixtures';
 
 const END = 0xc0;
 const ESC = 0xdb;
@@ -304,6 +305,33 @@ describe('scarico completo dal finto Peregrine', () => {
     const t2 = trasporto([logPnfSintetico(1_750_000_000, 234)]);
     const b = await downloadFromComputer(t2, fakeDevice({ name: 'Peregrine' }), shearwaterDriver);
     expect(a.dives[0].id).toBe(b.dives[0].id);
+  });
+
+  it('l’immersione scaricata porta l’impronta del profilo', async () => {
+    /*
+     * L'impronta è ciò che riconosce questa immersione quando la STESSA arriva
+     * da Shearwater Cloud con un altro istante — vedi
+     * `tests/shearwaterPnf.test.ts`. Se il driver la calcola e non la scrive
+     * nell'immersione, non la vede nessuno: la deduplica legge
+     * `computer.profileFingerprint`, non il log.
+     *
+     * `logPnfSintetico` ha un campione solo e apposta non basta: qui serve un
+     * profilo vero, quindi il carico del finto Peregrine è un log costruito
+     * con `encodePnf`.
+     */
+    const raw = encodePnf({
+      startTimeS: 1_750_000_000,
+      depths: [3, 9, 16, 22, 27, 30, 31, 30, 28, 24, 19, 15, 11, 8, 6, 5, 5, 5, 3, 1],
+      cnsPct: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+    });
+    const out = await downloadFromComputer(
+      trasporto([raw]),
+      fakeDevice({ name: 'Peregrine' }),
+      shearwaterDriver,
+    );
+    expect(out.dives).toHaveLength(1);
+    expect(improntaPnf(raw)).toBeTruthy();
+    expect(out.dives[0].computer?.profileFingerprint).toBe(improntaPnf(raw));
   });
 
   it('lo scarico completo restituisce il segnalibro della PIÙ RECENTE', async () => {

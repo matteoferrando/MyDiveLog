@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/" />
-    <link rel="stylesheet" href="../stile.css?v=e68aa6b8" />
+    <link rel="stylesheet" href="../stile.css?v=db509fd7" />
     <link rel="alternate" hreflang="it" href="/" />
     <link rel="alternate" hreflang="en" href="/en/" />
   </head>
@@ -139,6 +139,34 @@
                 <span class="riga">Download on the App Store</span>
               </a>
             </div>
+
+            <!--
+              ► TWO THINGS THIS PAGE DID NOT SAY, AND THE FIRST ONE COST US. ◄
+
+              First: the Mac package runs ONLY on Apple Silicon, and only from
+              macOS 12. Until 27 August 2026 it declared 10.15 inside itself,
+              which was false — the binary is arm64 only — and the page said
+              nothing at all. Anyone on an Intel Mac downloaded it, installed it,
+              and the app would not open: the worst kind of failure, because it
+              looks like the downloader's fault. The package tells the truth now,
+              and so does this line — before the button, not after it.
+
+              Second: since 28 August 2026 the Mac also has the Mac App Store
+              route, and it is a real choice between two different things, not
+              the same file in two places. The store gives you a sandboxed copy
+              that Apple keeps updated; this button gives you a Developer ID
+              build that updates itself. That difference gets written down
+              instead of left to guesswork.
+
+              Same rule as the Windows and Android caveats further down: before
+              the button, not after.
+            -->
+            <p class="nota-schede">
+              The package above needs <b>macOS 12</b> and an <b>Apple Silicon</b> Mac, and updates itself. The
+              same app is also
+              <a href="https://apps.apple.com/app/mydivelog/id6804439480">on the Mac App Store</a>, if you
+              would rather let Apple keep it up to date.
+            </p>
 
             <!--
               ► DUE GRUPPI, PERCHÉ SONO DUE STORIE. ◄
