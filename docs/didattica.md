@@ -9,6 +9,17 @@ Servono a due cose: sapere quali numeri dell'app hanno una fonte, e sapere quali
 non ce l'hanno. La seconda lista è la più importante, perché è quella che l'app
 non deve spacciare per didattica.
 
+> **Nota di manutenzione, 25 agosto 2026 — e vale più del resto della nota.**
+> Questo documento teneva una lista di **otto** cose «da prendere». Riconfrontata
+> voce per voce col codice, **erano già state fatte tutte e otto.** Non due, non
+> tre: tutte. Il documento è stato letto e ricopiato come se fosse aggiornato, e
+> la lista è servita per mesi solo a far ricominciare lavoro già finito.
+>
+> Da qui in avanti: una voce si chiude spostandola in «Già preso» **con il punto
+> del codice accanto**, e prima di riaprire questa sezione si rilegge il codice,
+> non questo file. Una lista di cose da fare che contiene cose fatte è peggio di
+> nessuna lista.
+
 ## I numeri che l'app ora usa, con la loro fonte
 
 **Esposizione all'ossigeno** (`core/analysis/oxygen.ts`). Tabelle NOAA come le
@@ -69,6 +80,72 @@ versione precedente diceva al subacqueo che col nitrox era meno narcotizzato —
 meno prudente delle due letture. Ora `end()` prende `oxygenNarcotic`, che è vero per
 difetto; l'EAD, che è una domanda diversa (quanto azoto respiri), resta com'era.
 
+## Già preso
+
+Con il punto del codice accanto a ogni voce. Sono le otto della vecchia lista
+«da prendere», tutte verificate nel codice il **25 agosto 2026**.
+
+**Sosta di sicurezza: 3 minuti, non 150 secondi** — `core/model.ts`,
+`LIMITS.safetyStopMinS = 180`, con `safetyStopFullS = 300` per il limite alto
+della fascia. La soglia precedente di 150 s faceva risultare completa una sosta
+che *Advanced Nitrox* p. 76 considera corta: lì la sosta bassa tradizionale è
+data da tre a cinque minuti. Il consiglio in `coaching.ts` calcola la soglia da
+`LIMITS` invece di ripeterla a mano.
+
+**Terminologia SCR** — `core/model.ts`, sopra `rmvLpm`. Per TDI il valore
+normalizzato alla superficie è lo **SCR**; «RMV» esige che si dichiari a quale
+profondità (*Deco* p. 162). Il campo **non è stato rinominato**, ed è una scelta,
+non una dimenticanza: `rmvLpm` sta dentro il JSON di ogni immersione in archivio,
+nei backup e nei file esportati, e rinominarlo renderebbe illeggibile il consumo di
+tutto lo storico per una correzione di vocabolario. A schermo l'interfaccia dice
+sempre **«consumo di superficie»**, che è corretto e non ha bisogno di sigle.
+
+**Gas analizzato per bombola** — `core/model.ts` (`Cylinder.analisi`, tipo
+`AnalisiGas` con `o2`, `he`, `quando`, `chi`) e `core/analisiGas.ts` per il
+confronto con la miscela dichiarata. È la procedura che i manuali impongono senza
+sfumature: *"No diver should breathe any mixture they have not personally confirmed
+prior to the dive"* (*Advanced Nitrox* p. 73).
+
+> Il verso dello scarto è la parte che si sbaglia, e l'ho sbagliata: **più
+> ossigeno del dichiarato abbassa la MOD**, quindi analizzare 34% dove la bombola
+> dice 32% è il caso pericoloso, non quello tranquillo. Il controllo automatico su
+> `descriviScarto()` esiste per questo, e la prima versione l'ha bocciata.
+
+**CNS e OTU sulle immersioni vere, giorno per giorno** — `core/analysis/oxygen.ts`,
+`oxygenLoad()`. Per ogni giornata: il **picco** dell'orologio CNS tenendo conto del
+dimezzamento ogni 90 minuti negli intervalli di superficie (`cnsAfterSurface`), le
+OTU sommate senza recupero, e `daysOverOtu300`. Entra in `aggregate.ts` come
+`agg.oxygen`. La giornata si costruisce sul **giorno locale del luogo**
+(`giornoLocale`), non sui primi dieci caratteri dell'istante UTC: alle Maldive o ai
+Caraibi la mezzanotte UTC attraversa la giornata di immersioni, e quattro
+immersioni dello stesso giovedì diventavano due giornate da 160 OTU l'una — sotto
+la dose — invece di una da 320, che è sopra.
+
+**Velocità sul tratto finale** — `core/analysis/metrics.ts`, `analyseFinalAscent()`,
+che produce `finalAscentRateMpm` e `finalAscentFromM`. È misurata **punto a punto e
+non su finestra mobile**, che era esattamente l'obiezione: un tratto 5 m →
+superficie dura cinque secondi e una finestra da trenta lo diluisce. La superficie
+si considera raggiunta a 0.5 m, perché aspettare lo zero esatto include il tempo in
+cui il subacqueo galleggia già. Si vede nella scheda dell'immersione e nel
+confronto; `aggregate.ts` conta `fastFinalAscents` rispetto a
+`LIMITS.danFinalAscentMpm`, che resta un **termine di paragone** e non un criterio
+di violazione — è la media misurata da DAN su un comportamento che il manuale porta
+come esempio di ciò che si dovrebbe migliorare.
+
+**Soste profonde** — `metrics.ts` produce `deepStopS` e `deepStopDepthM` sulla
+fascia `LIMITS.deepStopBandFraction` (0.4–0.6 della massima) con `deepStopMinS` di
+un minuto; `aggregate.ts` tiene `deepStopDives` su `deepStopEligible`.
+
+**Indice di dente di sega** — `sawtoothMPerHour` in `metrics.ts`, presentato
+**relativo alle proprie immersioni** e non come pass/fail: `coaching.ts` usa i
+percentili dell'archivio (`agg.sawtoothRef`, p50 e p75) invece di una soglia
+inventata, perché una soglia numerica il manuale non la dà.
+
+**Consumo di squadra** — `core/analysis/gasPlan.ts`: il piano usa **il più alto dei
+due** consumi e lo dichiara in chiaro («la didattica impone di pianificare sul
+respiro più alto della squadra, altrimenti è lui a girare prima e il piano non lo
+sa»).
+
 ## Quello che l'app fa e che i manuali NON coprono
 
 Va scritto, perché la tentazione di attribuire tutto alla didattica è forte:
@@ -97,36 +174,19 @@ Va scritto, perché la tentazione di attribuire tutto alla didattica è forte:
 
 ## Cosa resta da prendere
 
-In ordine di rapporto fra valore e lavoro:
+**Da questi quattro documenti, niente.** Le otto voci che stavano qui sono tutte
+nella sezione «Già preso», con il riferimento al codice.
 
-1. **CNS e OTU sulle immersioni vere**, non solo sul piano: accumulo per giornata,
-   emivita di 90 minuti fra un'immersione e l'altra per il CNS, somma pura per gli
-   OTU. Tutti i dati ci sono già (PPO2 campione per campione, orari di inizio e
-   fine). Il valore è per le settimane di immersioni, dove il limite morde davvero.
-2. **Velocità sul tratto finale**, dopo la sosta di sicurezza. DAN misura una media
-   reale di **60 m/min** su quel tratto (*Advanced Nitrox* p. 38). La metrica attuale
-   usa una finestra di 30 secondi, e un tratto 5 m → superficie dura 5 secondi:
-   la finestra lo diluisce e lo nasconde. È un difetto diffuso, misurabile con i
-   dati che abbiamo, e oggi invisibile.
-3. **Soste profonde**: la regola pratica è metà della profondità massima per 1-2
-   minuti, poi a metà fra lì e la sosta bassa (*Advanced Nitrox* pp. 75-76; il
-   metodo Pyle in cinque passi è in *Deco* p. 70). Verificabile a posteriori sul
-   profilo. Da presentare come regola del 2011-2013: la letteratura successiva sulle
-   deep stop è controversa.
-4. **Sosta di sicurezza 3-5 minuti** (p. 76). L'app oggi considera completata una
-   sosta di 150 secondi: è più permissiva del manuale.
-5. **Gas switch validati contro la MOD** e campo "gas analizzato" per bombola. È
-   l'unica procedura che i manuali impongono senza sfumature: *"No diver should
-   breathe any mixture they have not personally confirmed prior to the dive"*
-   (*Advanced Nitrox* p. 73). Un logbook è il posto giusto dove registrarla.
-6. **Indice di dente di sega** e "la parte profonda viene per prima" (p. 38). Il
-   manuale non dà una soglia numerica: da presentare come indice relativo alle
-   proprie immersioni, non come pass/fail.
-7. **Consumo di squadra**: i manuali impongono di pianificare sull'SCR **più alto**
-   del team (*Deco* p. 163, 174). L'app pianifica sul consumo di chi la usa.
-8. **Terminologia**: per TDI il valore normalizzato a superficie si chiama **SCR**;
-   l'RMV richiede che si dichiari a quale profondità (*Deco* p. 162). L'app chiama
-   RMV quello che il manuale chiama SCR.
+Quello che resta è di natura diversa e non viene da queste fonti:
+
+- **La letteratura successiva al 2013.** Tutto quanto sta qui viene da testi
+  2009-2013. Sulle deep stop in particolare la ricerca posteriore è controversa, e
+  l'app presenta la regola come regola *di quei manuali*, con l'anno accanto. Serve
+  una lettura nuova, non un'altra estrazione da questi.
+- **La verifica indipendente del VPM-B**, che è un impegno preso altrove e non una
+  voce di didattica.
+
+Prima di riaprire questa sezione: rileggere il codice, non questo file.
 
 ## Cosa NON prendere
 

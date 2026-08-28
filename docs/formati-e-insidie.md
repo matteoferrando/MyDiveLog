@@ -10,9 +10,10 @@ numeri sbagliati senza segnalare nessun errore.
 |---|---|---|---|---|---|---|
 | UDDF | sì | sì | sì | no | no | a volte |
 | Shearwater XML | sì | sì | **no** | no | no | no |
-| Shearwater Cloud `.db` | **sì, dal log nativo** | **sì, campione per campione** | a volte | **sì** | **sì** (all'uscita) | no |
+| Shearwater Cloud `.db` | **sì, dal log nativo** | **sì, campione per campione** | a volte | **sì** | **sì** (all'uscita) | **ricavabile** |
 | Garmin FIT | sì | sì | dedotto da `tank_summary` | no | no | no |
 | Scubapro LogTRAK | sì (blob Uwatec) | **mai** | sì | no | no | sì |
+| Log nativo Shearwater (BLE) | sì | sì | a volte | sì | no | **no, e non esiste** |
 | CSV | no | no | se c'è la colonna | no | no | no |
 
 Conseguenza pratica: nessuna fonte è completa. Il valore della deduplica non è
@@ -82,8 +83,11 @@ temperature, GF: `null`. L'applicazione le riempie solo se l'utente scrive quei
 campi a mano. Chi legge solo quelle colonne conclude che il database non contiene
 niente. Contiene tutto, in `log_data.data_bytes_1`.
 
-Il campo `DIVE_START_TIME` sembra un epoch UTC ed è la lettura dell'orologio: il
-fuso non è salvato da nessuna parte.
+`DIVE_START_TIME` **è** un epoch vero: lo calcola il programma di Shearwater al
+momento dello scarico, usando il fuso del computer su cui gira. Il fuso in sé non
+è salvato, ma si ricava confrontandolo con `DiveDate`, che è lo stesso momento
+scritto in ora locale. È il motivo per cui questo è l'unico lettore Shearwater che
+è sempre stato corretto sull'ora.
 
 ## Il log nativo Shearwater ("sw-pnf")
 
@@ -119,7 +123,13 @@ Cose da sapere, tutte prese da `libdivecomputer/src/shearwater_predator_parser.c
 - il **GF99 campione per campione non c'è**. Shearwater Cloud lo ricalcola con la
   propria implementazione di Bühlmann e salva il risultato in
   `calculated_values_from_samples`: quello è il valore da leggere, ricalcolarlo per
-  conto nostro darebbe una colonna che sembra letta dal computer e non lo è.
+  conto nostro darebbe una colonna che sembra letta dal computer e non lo è;
+- **l'orario NON è UTC.** `opening[0] + 12`, big-endian a 32 bit, è l'ora a parete:
+  `libdivecomputer` la legge con `dc_datetime_gmtime` e poi scrive
+  `timezone = DC_TIMEZONE_NONE` — nella sua convenzione il datetime è l'ora locale,
+  quindi il fuso non è ignoto per svista, non c'è. Solo i Teric dalla versione 9 ne
+  dichiarano uno. Costato quattro righe in archivio dove dovevano essercene due: la
+  sezione qui sotto.
 
 Verifica: `calculated_values_from_samples` contiene profondità media e massima,
 temperature min/max, durata e obbligo deco calcolati da Shearwater **dagli stessi
@@ -130,10 +140,33 @@ grado.
 
 ## Orologi sfasati
 
-Due computer allo stesso polso possono avere l'ora impostata diversamente. Nei
-dati reali l'Aladin e il Peregrine differiscono di **un'ora** su 32
-immersioni e di **due** sulle ultime 4, perché a un certo punto l'orologio è stato
-corretto. Una deduplica che confronta gli istanti non ne riconosce nemmeno una.
+Questa sezione è nata dopo che due immersioni sono entrate in archivio **quattro
+volte**.
+
+Due computer allo stesso polso hanno l'ora impostata diversamente, e sbagliano in
+modi diversi:
+
+- il **Peregrine** non ha nessun fuso da dichiarare: il numero nel log è l'ora a
+  parete. Preso per UTC, sono due ore di errore in estate in Italia;
+- l'**Aladin** il fuso ce l'ha, ma quel byte lo imposta una persona e sul
+  computer di riferimento è fermo sull'ora solare (+60 anche in agosto): l'UTC che
+  ne discende è avanti di un'ora.
+
+Fra i due restano **59 minuti**, misurati su due coppie a due secondi l'una
+dall'altra. Nessuno dei due errori si vede a schermo, perché in entrambi i casi
+l'ora *mostrata* torna giusta: sbagliato è solo l'istante assoluto, e quello lo
+guarda una cosa sola — la deduplica.
+
+**La regola che ne è uscita:** il dato affidabile è l'ora a parete. Un computer sa
+che ora segnava, non in che fuso si trovava. Si prende quella e la si àncora al
+fuso del dispositivo che sta scaricando, alla data di quell'immersione. È quello
+che fanno LogTRAK e Shearwater Cloud. Il risolutore è iniettato dall'interfaccia:
+`src/core` non legge l'ambiente.
+
+**Il fuso non è un campo come gli altri**: è la seconda metà di `startTime`.
+`mergeDive` lo prende dall'altra scheda solo quando i due orari distano meno di un
+quarto d'ora, cioè quando sono lo stesso orario. Prenderlo da una scheda con un
+altro istante produce un'ora che non è mai esistita su nessun quadrante.
 
 `inferClockOffsets` stima gli scarti dalla *distribuzione* delle differenze fra
 immersioni che coincidono per profondità e durata: quelle casuali si
@@ -141,6 +174,17 @@ distribuiscono, quelle vere si accumulano. Ne riconosce più di uno per import.
 Escludere le coppie ambigue sembrava più prudente e in pratica svuota il campione:
 su un archivio con molte immersioni simili quasi ogni coppia è ambigua, e uno dei
 due sfasamenti reali resta invisibile.
+
+Servono **tre coppie entro cinque minuti, oppure due entro due minuti**. Le tre
+proteggevano da un falso positivo vero — un orario di bordo regolare (09:00,
+11:30, 14:30 tutti i giorni) accumula differenze finte sugli stessi valori tondi —
+ma quelle si somigliano al minuto, non al secondo: nessuno entra in acqua allo
+stesso istante due giorni di fila. Due letture dello stesso tuffo sì.
+
+Quando comunque non ce la fa, **lo dice**: il rapporto nomina l'immersione
+aggiunta che somiglia a una già in archivio, con lo scarto misurato, e solo se
+quello scarto ha la forma di un orologio sbagliato — a meno di due minuti da un
+multiplo di un quarto d'ora.
 
 ## Verificare un parser senza avere la specifica
 
@@ -156,9 +200,17 @@ degli stessi numeri e confrontarle.
 - gzip e DEFLATE scritti a mano si confrontano con `zlib` di Node, su dati casuali
   e sui casi limite (blocchi non compressi, Huffman fisso e dinamico, riferimenti
   indietro *sovrapposti* — dove una copia a blocchi dà il risultato sbagliato).
+- **Per gli orari, l'ancora è l'istante dello scarico.** `source.importedAt` è
+  l'orologio vero del telefono: un'immersione che comincia dopo il momento in cui
+  è stata scaricata dimostra che il tempo letto non è UTC. È così che il difetto
+  del Peregrine è passato da sospetto a certezza in una riga.
 - I dati di prova nei test sono **generati**, non registrati, con valori scelti:
   così il test verifica che il parser li ricostruisca. E devono essere non banali —
-  un blob di zeri nasconde un troncamento.
+  un blob di zeri nasconde un troncamento. L'eccezione dichiarata è
+  `tests/oraDeiDueComputer.test.ts`, dove i quattro record veri del 24 agosto 2026
+  sono la fixture: lì il punto è proprio che quei numeri sono successi davvero.
 
 Script pronti: `npm run validate:logtrak <file>`,
-`npm run validate:pnf <database.db>`, `npm run screenshot`.
+`npm run validate:pnf <database.db>`, `npm run screenshot`, e
+`npx tsx scripts/perche-non-unite.ts <backup.json>` che stampa, anello per anello,
+quale criterio della deduplica ha ceduto e con quali numeri.

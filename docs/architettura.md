@@ -1,6 +1,10 @@
 # Architettura e roadmap
 
-Le decisioni prese, perché, e cosa serve per arrivare a iOS e al web.
+Aggiornato: 28 agosto 2026
+
+Le decisioni prese, perché, e cosa resta. iOS è fatto — l'app gira su un iPhone
+vero ed è pubblicata sull'App Store; il web resta la strada aperta e non
+percorsa.
 
 ---
 
@@ -16,9 +20,18 @@ conversioni, metriche, deduplica e regole del piano sono funzioni pure su
 strutture dati. È il 70% del progetto e viaggia identico su tutte e tre le
 piattaforme.
 
-Il guscio Rust (`src-tauri`) fa una cosa sola: registrare il plugin SQL. Se un
-giorno servisse il download diretto dal computer subacqueo via USB o Bluetooth
-— l'unica cosa che il web non potrà mai fare — è lì che andrebbe.
+Il guscio Rust (`src-tauri`) fa poche cose, e sono esattamente quelle che il web
+non può fare: registra il plugin SQL, registra il Bluetooth verso i computer
+subacquei, mette le credenziali nel portachiavi di sistema, e su iOS scrive i
+file esportati nella cartella dell'app — perché lì il download del browser non
+esiste. Tutto il resto sta in TypeScript.
+
+Accanto c'è una seconda regola, imparata su iOS: **`src/piattaforma.ts` sta
+fuori da `ui/`**, perché serve anche alla persistenza, e un modulo di storage
+che importa dall'interfaccia è una dipendenza al contrario. Riconoscere la
+piattaforma non è interfaccia. E si usa solo dove una funzione **non esiste**
+altrove — la stampa, il download — mai per decidere l'aspetto: quello dipende
+dalla larghezza della finestra, che vale anche per un Mac a metà schermo.
 
 ---
 
@@ -42,6 +55,11 @@ da test.
 Questa è la decisione più importante del progetto. L'alternativa — tenere le
 unità della sorgente e convertire al momento di mostrarle — sembra più flessibile
 e in pratica garantisce che prima o poi due unità si mescolino in un calcolo.
+
+*(Il limite di questa difesa è misurato, ed è che copre l'ingresso e non
+l'interno. Bar e ATA sono tutti e due nel modello e tutti e due legittimi, e la
+revisione della 1.7.0 ha trovato cinque conti in cui uno stava al posto
+dell'altro.)*
 
 ---
 
@@ -86,7 +104,9 @@ sintetica dei fixture e verifichi che torni identica.
 **Aggiungere una regola al piano.** Una funzione `Rule` in `coaching.ts` e un
 elemento nell'array `RULES`. La funzione riceve le aggregate e le immersioni e
 restituisce un `Finding` o `null`. Deve dichiarare `basis` e riempire
-`evidence`: sono i due campi che rendono il consiglio verificabile.
+`evidence`: sono i due campi che rendono il consiglio verificabile. **E le frasi
+con dentro un numero si compongono con `frase()`**, non con un template literal:
+il perché sta più sotto, in «Le due lingue».
 
 **Aggiungere una metrica.** Un campo in `DiveMetrics`, il calcolo in
 `metrics.ts`, e — se è derivata dal profilo — una voce in `MetricQuality` che
@@ -132,6 +152,53 @@ temperatura minima e massima, durata e obbligo decompressivo coincidono tutti. D
 scoperte sono arrivate proprio da quel confronto: la media di Shearwater esclude i
 campioni a profondità zero, e il piede del gzip non sta in fondo al blob perché
 dopo il flusso compresso c'è del riempimento.
+
+---
+
+## Gli altri computer, e cosa comporta compilarci dentro libdivecomputer
+
+I driver Bluetooth scritti a mano sono due — Shearwater e Scubapro/Uwatec — e
+sono verificati su apparecchi veri. Bastano a chi possiede quei due e a nessun
+altro, perché ogni costruttore parla un protocollo suo. Per gli altri c'è la
+funzionalità cargo **`computer-esterni`**, che compila
+[libdivecomputer](https://libdivecomputer.org) dentro il guscio Rust — 356
+modelli, 110 dei quali parlano Bluetooth LE — con il sorgente vendorizzato in
+`src-tauri/vendor/`, che si compila da sé senza bindgen né autoconf. **Dal 25
+agosto 2026 è accesa di sua iniziativa**, pacchetti pubblicati compresi.
+
+Quello che l'accensione non cambia, e che va detto per primo: **nessun computer
+subacqueo di terzi è mai stato collegato a questo codice.** Il trasporto è
+provato contro un flusso finto, l'accorpamento dei campioni e la traduzione
+contro immersioni sintetiche, ma il primo apparecchio vero non è ancora
+esistito. Il selettore lo dichiara sotto ogni modello che passerebbe di lì —
+«via libdivecomputer, mai provato su questo modello» — e quella riga si toglie
+quando smette di essere vera, non prima.
+
+La protezione che rende accettabile spedirla sta dove stanno le altre decisioni
+sui dati: in `core/dedupe.ts` un profilo arrivato da questa strada **non può
+sostituire** quello di un driver provato sul campo. Il danno peggiore possibile
+è quindi un'immersione nuova sbagliata, che si vede e si corregge, e non
+un'immersione giusta sovrascritta in silenzio.
+
+**La licenza è un vincolo di progetto, non una nota a piè di pagina.**
+L'applicazione è MIT, libdivecomputer è LGPL-2.1, e la LGPL vuole che chi riceve
+il programma possa ricompilare la libreria e rimetterla al suo posto: dentro un
+binario firmato non si rilinka niente. Il manutentore di libdivecomputer,
+interpellato nell'agosto 2026, non ha obiezioni e considera la posizione
+conforme allo **spirito** della licenza — per un'applicazione open source
+ritiene accettabile anche il collegamento statico, perché chiunque può
+ricostruire tutto dal sorgente. Non ha dichiarato che la **lettera** sia
+soddisfatta: dice il contrario. La sola condizione che chiede è che modifiche e
+miglioramenti alla libreria tornino a monte.
+
+Da qui due cose che questo progetto si è impegnato a difendere, e che non sono
+cosmetiche: il sorgente dell'applicazione resta pubblico, e il tarball in
+`src-tauri/vendor/` resta versionato e resta **quello** da cui si compila.
+Sostituirlo con un sottomodulo o con un download in fase di build toglierebbe a
+chi riceve il binario la possibilità di rifarlo identico, che è la proprietà su
+cui poggia tutto il ragionamento. Il debito di lettura verso quei sorgenti —
+quali file di questo progetto sono nati leggendo quali file suoi — è dichiarato
+per intero nel README.
 
 ---
 
@@ -185,8 +252,34 @@ zero per ogni immersione con profilo, e l'app riscaricherebbe a ogni giro profil
 che ha già. Su SQLite è una colonna, su IndexedDB un cursore su un indice: in
 entrambi i casi nessun campione viene deserializzato.
 
-Il token vive nel portachiavi di sistema, non più nella tabella delle
-impostazioni. Nel repository non c'è nessuna credenziale.
+*(La fusione vera e propria è stata corretta nella 1.7.0: `turso.ts` fondeva i
+riepiloghi solo in ingresso, e uno `stripSamples` che dimenticava `altSamples`
+faceva riscaricare la stessa immersione a ogni giro, per sempre.)*
+
+Il token vive nel portachiavi di sistema su Apple, inserito una volta
+dall'interfaccia; dove un portachiavi di sistema non c'è, l'applicazione ripiega
+sull'archivio locale e lo dichiara invece di far finta. Nel repository non c'è
+nessuna credenziale.
+
+### ► LA CSP È L'ELENCO DEI SERVIZI RAGGIUNGIBILI ◄
+
+`connect-src` in `tauri.conf.json` deve nominare **Turso e il servizio di
+accesso**, e nient'altro: senza, la webview blocca le chiamate prima che partano,
+e il sintomo non è un errore di rete ma «le credenziali non funzionano». Non si
+vede sviluppando, perché `npm run dev` gira in un browser normale dove quella CSP
+non esiste — si vede solo nell'app impacchettata.
+
+**`api.anthropic.com` era il terzo nome, ed è uscito con la 1.6.2**, insieme
+all'analisi con un modello linguistico. Toglierlo dalla CSP non è stata una
+pulizia cosmetica fatta dopo: **è la stessa operazione.** Un elenco di servizi
+raggiungibili che nomina un servizio che l'applicazione non chiama più è un
+permesso concesso a vuoto — nessuno ne trae beneficio, e resta aperta una porta
+verso un terzo per il solo motivo che una volta serviva. Verificato sul pacchetto
+1.6.2 con `strings`: zero occorrenze nel binario.
+
+**Ogni voce in più in quell'elenco è una porta aperta**, quindi ci stanno due
+nomi e nient'altro — e quando una funzione esce dall'applicazione, il suo nome
+esce da qui nello stesso commit.
 
 ---
 
@@ -294,6 +387,11 @@ dice invece di lasciarlo dentro un totale che sembra ragionevole. La velocità n
 imposta: si ricava. Quella impostabile è solo la velocità della risalita
 d'**emergenza**, dove è lo standard a dettarla e il tempo è la conseguenza.
 
+*(Proprio qui la revisione della 1.7.0 ha trovato lo scambio fra tempo di fondo e
+runtime, e i litri della decompressione contati in ATA invece che in bar. Un
+pianificatore che mostra le ipotesi resta controllabile solo se le ipotesi sono
+nell'unità che dichiarano.)*
+
 Un dettaglio che cambia i numeri più di quanto sembri: il gas del fondo si calcola
 sulla profondità **media**, non sulla massima. Pianificare tutto il tempo di fondo
 alla massima gonfia il consumo di circa un terzo, e chi controlla il conto con la
@@ -379,8 +477,9 @@ Due dettagli che sono costati più di quanto sembri:
 - **le frasi con dentro un numero vanno spezzate.** `«18 immersioni importate
   senza profilo»` non può essere una chiave, perché ce ne sarebbe una per ogni
   numero possibile: il numero esce dalla chiave e la frase comincia dal
-  sostantivo. Funziona finché l'inglese regge lo stesso ordine — e dove non lo
-  reggeva, la frase italiana è stata riscritta perché lo reggesse;
+  sostantivo. È il lavoro che fa `frase()`, coi suoi segnaposti. Funziona finché
+  l'inglese regge lo stesso ordine — e dove non lo reggeva, la frase italiana è
+  stata riscritta perché lo reggesse;
 - **gli oggetti che vivono più a lungo di un render** — `SqliteStore`,
   `IndexedDbStore`, `TauriBleTransport` — ricevono la traduzione nel costruttore.
   Passargli la `t` del momento avrebbe congelato la lingua del primo avvio:
@@ -389,31 +488,41 @@ Due dettagli che sono costati più di quanto sembri:
 
 ## Roadmap
 
-### iOS
+### iOS — fatto, e cosa ha insegnato
 
-Tauri 2 supporta iOS come target. Il percorso:
+L'app gira su un iPhone vero ed è pubblicata sull'App Store. La previsione
+architetturale ha tenuto: il nucleo non è stato toccato, `tauri-plugin-sql` apre
+lo stesso database, il frontend compilato per `safari15` gira in WKWebView senza
+modifiche. Tutto quello che è costato lavoro sta ai bordi — e vale la pena
+scrivere quali bordi, perché la lezione si generalizza.
 
-```bash
-npm run ios:init          # genera il progetto Xcode in src-tauri/gen/apple
-npm run ios:dev           # simulatore
-```
+**La categoria di difetto che iOS produce**: funziona sul Mac, non fa niente sul
+telefono, non lancia nessun errore. Tre casi veri, tutti scoperti usando l'app e
+nessuno da un test:
 
-Serve Xcode e un account sviluppatore Apple per il dispositivo fisico. Il
-frontend è già compilato per `safari15`, quindi WKWebView lo esegue senza
-modifiche, e `tauri-plugin-sql` funziona su iOS con lo stesso database.
+| Cosa | Perché muto | Dove sta ora la difesa |
+|---|---|---|
+| Chiamate a Turso e al servizio di accesso | `connect-src` della CSP non le elencava, e la webview rifiuta prima di partire | `tauri.conf.json`, e la CSP va letta come **l'elenco dei servizi raggiungibili** |
+| Esportazione di file | `<a download>` in WKWebView non scrive e non lancia | `ui/esporta.ts`, unico punto, che **lancia** se non riesce |
+| Riquadri e cursori dei grafici | `mousemove` non esiste sotto il dito, e `pointercancel` va gestito o resta tutto aperto | eventi del puntatore ovunque, con `tests/iosGuardie.test.ts` a leggerlo dalle sorgenti |
 
-Cosa va rivisto nell'interfaccia — nessuno è un problema di architettura:
+La difesa che si è rivelata utile non è un test di unità — non se ne può
+scrivere uno che apra una WKWebView — ma un test che **legge le sorgenti** e
+verifica che il costrutto sbagliato non rientri. È grossolano e copre la
+distanza fra «compila» e «serve a qualcosa su un telefono».
 
-- **la tabella del logbook** va sostituita da una lista di righe impilate sotto i
-  ~600 px: nove colonne su un iPhone non stanno, e lo scorrimento orizzontale è
-  un ripiego, non una soluzione;
-- **il tooltip dei grafici** oggi risponde a `mousemove`. Su iOS serve
-  `touchmove`, con il riquadro spostato sopra il dito invece che sotto;
-- **la navigazione** starebbe meglio come barra in basso, dentro la safe area
-  (le variabili CSS `--safe-top` / `--safe-bottom` sono già in `styles.css`);
-- **l'import da file** funziona con `<input type=file>`, che su iOS apre il
-  selettore di iCloud Drive. Per prendere i file direttamente dall'app Shearwater
-  servirebbe una share extension, che è lavoro nativo.
+**La catena di build ha una regola sola**: `src-tauri/gen/apple` è generata e non
+versionata, quindi tutto ciò che deve sopravvivere sta in `tauri.conf.json`
+(permessi via `Info.ios.plist`, `frameworks`, `developmentTeam`) oppure in uno
+script che gira dopo la generazione. Gli script `ios:*` fanno tre cose in fila:
+generano, ricopiano le icone — che `tauri ios init` non aggiorna se esistono
+già — e passano `scripts/pulisci-progetto-ios.mjs`, che toglie `libapp.a` dalle
+risorse del pacchetto. Senza quest'ultimo l'app pesa 470 MB invece di 6, e con
+due architetture compilate la build si ferma.
+
+Quello che su iPhone **non c'è**: la stampa, perché `window.open` e
+`window.print` non esistono in WKWebView. I pulsanti sono nascosti, non
+lasciati a mostrare un errore che dà la colpa alla cosa sbagliata.
 
 ### Web
 
@@ -434,31 +543,54 @@ Le due cose da decidere prima di pubblicarla:
 
 ### Funzionalità in coda
 
-In ordine di rapporto fra utilità e lavoro:
+I sei punti che stavano qui — export UDDF, attrezzatura e scadenze, mappa dei
+siti, scarico diretto dal computer, confronto fra immersioni, Bühlmann con
+gradient factor — sono **tutti fatti**, e con loro l'accesso con account, che ha
+una sezione sua qui sopra. Quello che resta, in ordine di rapporto fra utilità e
+lavoro:
 
-1. **Esportazione dell'archivio** in UDDF. Chiude il cerchio: i dati entrano da
-   qualsiasi computer ed escono in un formato standard. È anche il backup, e
-   togliere il timore del vendor lock-in su un archivio di anni vale molto.
-2. **Attrezzatura e scadenze** — bombole, mute, revisioni erogatori, scadenze
-   brevetti e certificato medico. Era una delle opzioni della v1 e non è entrata;
-   il modello ha già `Cylinder`, servirebbe un'entità `Gear` con le date.
-3. **Mappa dei siti.** Le coordinate arrivano già da UDDF, Subsurface e dal GPS
-   dei Garmin. Serve una libreria di mappe, che è la prima dipendenza pesante che
-   il progetto si prenderebbe.
-4. **Download diretto dal computer subacqueo.** Per i computer Scubapro il pezzo
-   difficile è già fatto: `uwatecSmart.ts` decodifica il formato dei record, che è
-   lo stesso che il computer manda via Bluetooth. Mancherebbe solo il trasporto —
-   che sul web non esiste (WASM non raggiunge USB né Bluetooth) e in Tauri
-   richiederebbe un plugin BLE nativo. Per gli altri costruttori le strade sono
-   invocare un binario esterno (`subsurface-downloader`, `divecmd`, che producono
-   XML già leggibile dai parser esistenti) oppure il crate Rust
-   `libdivecomputer` (maturità bassa).
-5. **Confronto fra immersioni.** Due profili sovrapposti sullo stesso grafico,
-   per vedere cosa è cambiato allo stesso sito a un anno di distanza.
-6. **Modello di Bühlmann con gradient factor** nostro, da validare contro i valori
-   di GF99 che Shearwater Cloud calcola sulle stesse immersioni: 38 confronti già
-   disponibili. Servirebbe per pianificare la decompressione, che oggi il
-   pianificatore di gas dichiara esplicitamente di non fare.
+1. **Il Bluetooth dall'iPhone.** I due driver hanno scaricato da computer veri,
+   ma sempre dal Mac: sul telefono manca ancora la prova di uno scarico vero da
+   un computer subacqueo, e per questo il punto resta il primo. **Ma la ragione
+   scritta qui fino al 28 agosto 2026 era sbagliata, e l'ha smentita un utente.**
+   Si diceva che il caso peggiore fosse muto — permesso negato e nessun errore,
+   perché `checkPermissions` di `tauri-plugin-blec` è implementato solo per
+   Android. Il primo utente esterno dell'app, su iPhone e dall'App Store, ha
+   premuto «Cerca il computer» avendo negato il permesso, e si è visto scrivere a
+   schermo `La ricerca non è partita: Btleplug error: Permission denied`.
+   L'informazione c'era: non la danno `getAdapterState` né `checkPermissions` —
+   per quei due il ragionamento regge ancora — la lancia **`scan()`**. Si
+   guardavano i due posti in cui l'informazione non c'era, e non il terzo in cui
+   c'era. Corretto con `29b51a0`: il nuovo `src/core/ble/causaGuasto.ts`
+   (`causaDelGuasto()`, `dettaglioLeggibile()`, `NOMI_INTERNI`) classifica
+   l'errore, e il `catch` della ricerca in `BleDownload.tsx` accende i rami
+   `denied` e `off` di `BleUnavailable` — che esistevano da sempre, coi testi già
+   tradotti, e non venivano mai raggiunti; `tests/permessoBluetooth.test.ts`
+   tiene ferma la classificazione, e le sue prove sono state viste rosse
+   rimettendo il ramo di prima. L'elenco delle cause possibili dopo dodici
+   secondi di ricerca a vuoto resta la risposta per tutto il resto. Scrivere il
+   pezzo di CoreBluetooth nel guscio Rust **non serve più** per questo caso:
+   quella mezza giornata di lavoro resta necessaria solo per distinguere gli
+   altri stati — per esempio «permesso non ancora chiesto» — non per il permesso
+   negato.
+2. **Un secondo modello decompressivo verificato.** VPM-B è implementato ma non
+   ha nessun riscontro indipendente: Bühlmann è stato validato contro Shearwater
+   su 38 immersioni, VPM-B contro niente. Finché è così, l'app deve continuare a
+   dichiararlo.
+
+> **Uscita dalla coda il 26 agosto 2026: condividere un'immersione in sola
+> lettura.** Era il secondo punto di questo elenco, ed era la funzione che serve
+> davvero quando si dice «multiutente»: un compagno, un istruttore, un medico
+> iperbarico devono poter LEGGERE, non modificare, e non vedere il resto. Oggi
+> l'unica strada resta dare il token del database, che dà tutto e permette di
+> cancellare.
+>
+> È stata messa fuori dal perimetro, e il motivo non è stato messo agli atti. Non
+> è stata rimandata per costo, né scartata per un rischio: è stata tolta, e qui
+> non ne viene scritta una ragione inventata al posto di quella che non c'è.
+>
+> *Resta scritto cosa sarebbe servita, perché il giorno che qualcuno la
+> rimettesse in coda non deve ricominciare dalla domanda.*
 
 ---
 
@@ -472,6 +604,12 @@ In ordine di rapporto fra utilità e lavoro:
   bene, e le altre quattro forme sono cinquanta righe di SVG ciascuna. In cambio:
   bundle leggero (conta su iOS) e regole di stile applicate una volta invece di
   combattere i default di qualcun altro.
+- **Nessuna analisi con un modello linguistico dentro l'applicazione.** C'è
+  stata fino alla 1.6.1 ed è stata tolta: era l'unica uscita che nessuno aveva
+  verificato, l'unica cosa che il revisore Apple non poteva provare, e l'unica
+  eccezione a una storia di privacy senza asterischi. Restano `src/ai/context.ts`
+  e `src/ai/prompts.ts` **fuori dal pacchetto**, per lo strumento da riga di
+  comando `npm run dump:ai`.
 - **Nessuna gestione degli stati di caricamento oltre il minimo.** L'archivio si
   apre in una frazione di secondo e sta in memoria: gli spinner sarebbero
   decorazione.

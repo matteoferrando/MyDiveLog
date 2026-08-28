@@ -1,783 +1,1458 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: 23 agosto 2026
+Aggiornato: **28 agosto 2026** — commit `cd2dcd5` su `main`, albero pulito, CI
+verde. Nel repository c'è la **1.7.0**.
+
+**Il primo difetto l'ha trovato un estraneo.** Il primo utente esterno dell'app —
+non chi la scrive, non chi la possiede: una persona che l'ha scaricata dall'App
+Store — ha premuto «Cerca il computer» con il permesso Bluetooth negato, e si è
+visto rispondere, in inglese, il nome di una libreria. Il racconto sta qui sotto,
+ed è la prima volta che un difetto di questo progetto non lo trova chi lo scrive.
+
+I negozi Apple sono due. Su **App Store per iPhone** l'app è pubblica
+(`https://apps.apple.com/app/mydivelog/id6804439480`), approvata il 26 agosto
+2026 al terzo invio, e la versione che quel negozio serve — misurata il 27
+agosto — è ancora la **1.6.3**. Sul **Mac App Store** il primo pacchetto è stato
+consegnato la sera del 27 alle 21:44, dopo due consegne respinte da controlli
+automatici. Su GitHub c'è la release **v1.7.0** con i pacchetti per macOS,
+Windows e Android, e il sito [mydivelog.site](https://mydivelog.site) porta al
+negozio in italiano e in inglese.
+
+> ### ► «APPROVATA» NON VUOL DIRE «LA VERSIONE CHE HAI IN MANO» ◄
+>
+> Sono affermazioni diverse, e oggi non sono allineate: cosa c'è nel repository
+> (1.7.0), cosa c'è nelle release (1.7.0), **cosa il negozio iOS consegna a un
+> estraneo** (1.6.3) e **cosa è in attesa su App Store Connect** per i due
+> negozi. Il salto fra le prime e le altre è quello che chi scrive dimentica
+> sempre, perché sul suo telefono c'è già l'ultima.
+>
+> **La verifica costa un comando e non passa da nessuna credenziale**, perché
+> quello che serve sapere è pubblico:
+>
+> ```
+> curl -s "https://itunes.apple.com/lookup?id=6804439480&country=it" \
+>   | python3 -c "import json,sys;r=json.load(sys.stdin)['results'][0];print(r['version'], r['currentVersionReleaseDate'])"
+> ```
+>
+> Il 27 agosto risponde `1.6.3 2026-08-26T15:20:56Z`: l'app è stata **approvata e
+> pubblicata il 26 agosto**, ed è la 1.6.3 quella che scarica chi arriva dal
+> sito. Gli altri numeri si controllano come sempre — `gh release list` per le
+> release, `PlistBuddy` e `spctl` per la copia installata sul Mac. **Quello che
+> si misura da fuori è solo il pubblicato**; il resto lo dice App Store Connect,
+> che vuole l'accesso di chi possiede l'app, e finché non lo guarda lui queste
+> righe restano come sono.
+
+Documenti fratelli in questa cartella: [`architettura.md`](architettura.md),
+[`didattica.md`](didattica.md), [`formati-e-insidie.md`](formati-e-insidie.md).
+Il [`README.md`](../README.md) dice come si scarica e cosa sapere prima.
+
+---
+
+## Il 28 agosto: il primo utente esterno, e le due cose che ha trovato in una riga
+
+**Ha installato l'app sull'iPhone, ha premuto «Cerca il computer» avendo negato
+il permesso Bluetooth, e ha letto a schermo questo:**
+
+```
+La ricerca non è partita: Btleplug error: Permission denied
+```
+
+**Quella riga smentisce da sola un limite che questo documento dichiarava da
+mesi.** Fra i **limiti noti** c'era scritto che «il permesso Bluetooth negato è
+indistinguibile da _nessun computer qui intorno_». Non è vero: l'errore esiste,
+ha un nome, e lo lancia **`scan()`**. Non lo danno né `getAdapterState` né
+`checkPermissions` — per quei due il ragionamento vecchio resta valido, e sono
+esattamente i due posti in cui si era guardato. _Si erano guardati i due posti in
+cui l'informazione non c'era, e non il terzo in cui c'era_ — e la conclusione era
+finita scritta in **due commenti del codice come se fosse stata misurata**.
+
+> ### ► NESSUN TEST POTEVA PRENDERLO ◄
+>
+> Per vedere quella riga serve un telefono su cui qualcuno abbia detto di no, e
+> su quelli di casa era stato detto di sì **una volta per sempre**. Non è un buco
+> della copertura e non è una svista di chi scrive le prove: è il genere di
+> difetto che si vede solo quando lo tocca **una persona che non sa cosa sta per
+> fare**. Ci sono voluti mesi e un estraneo.
+
+**E sotto ce n'era un secondo, indipendente e più generale — e più grave del
+primo.** Quel messaggio mostrava **il nome di una libreria**, `Btleplug`, a una
+persona, in inglese, dentro un'app italiana. Chi legge non impara niente e non sa
+cosa fare: non gli si dice che ha negato un permesso, non gli si dice dove
+riaccenderlo, non gli si dice nemmeno che il problema è suo e risolvibile.
+_Sembra soltanto che l'app si sia rotta._ Il permesso negato è solo il caso che
+ha fatto emergere la regola: **il nome di una dipendenza non è mai una risposta a
+una domanda di un utente.**
+
+**La macchina per rispondere bene c'era già, e nessuno l'aveva accesa.** Il tipo
+`BleUnavailable` ha `denied` e `off` **da sempre**, e i loro testi erano già
+tradotti, col percorso delle impostazioni giusto per ogni sistema. Il ramo della
+ricerca fallita, invece, metteva `unsupported` fisso e ci appendeva `err.message`
+— cioè scartava la classificazione che aveva in casa e stampava la stringa della
+libreria. _Non mancava il codice per dare la risposta giusta: mancava chi la
+chiamasse._
+
+**La correzione è il commit `29b51a0`.** Un modulo nuovo,
+`src/core/ble/causaGuasto.ts` — `causaDelGuasto()` che riconosce la causa vera,
+`dettaglioLeggibile()` che decide cosa si può mostrare, `NOMI_INTERNI` che è
+l'elenco di quello che non esce mai — e un test nuovo,
+`tests/permessoBluetooth.test.ts`, **nove prove, viste rosse rimettendo il ramo
+di prima**. Per il caso che non si riesce a classificare il dettaglio tecnico
+viene ripulito, e **se non si può ripulire non si mostra affatto**: meglio una
+frase in italiano che non spiega tutto, che una riga inglese che non spiega
+niente e spaventa.
+
+> **La guardia nuova si è accesa due volte su sé stessa, e aveva ragione il
+> codice.** Nella sua prima forma pretendeva che l'elenco dei nomi da nascondere
+> coprisse **tutte le dipendenze di `package.json`**, ed è diventata rossa due
+> volte di fila:
+>
+> - su **`@garmin/fitsdk`** — ma «garmin» nel catalogo dei computer è una
+>   **marca**, che nominiamo apposta, e a chi cerca il suo Descent la parola
+>   Garmin dobbiamo dirla;
+> - su «rust», che si accendeva dentro «t**hrust**», in una frase inglese del
+>   piano di miglioramento.
+>
+> La regola è diventata più stretta e più vera: **si nascondono i livelli sotto
+> l'interfaccia, non le dipendenze.** Con due eccezioni dichiarate, ciascuna col
+> suo motivo scritto: **`libdivecomputer`**, perché l'attribuzione LGPL deve
+> restare visibile e l'etichetta «via libdivecomputer, mai provato su questo
+> modello» dice a chi sceglie una cosa vera e utile; e **`SQLite`**, per la riga
+> che dice dove stanno i dati. _Una guardia che si accende su un nome che
+> vogliamo dire non è severa: è sbagliata, e insegna a spegnerla._
+
+---
 
 ## Dove sta il codice
 
-`~/Documents/Claude/Projects/MyDiveLog/mydivelog/` sul Mac, con `node_modules`
-installato (`npm install` eseguito il 17 agosto per `@libsql/client`, `@types/node`
-e `tsx`). La cartella `_to_delete` accanto contiene i vecchi zip e le cartelle di
-staging degli aggiornamenti: si può cancellare a mano (il ponte verso il Mac non
-può eliminare file).
+Su GitHub: `matteoferrando/MyDiveLog`, pubblico, MIT.
+
+**I pacchetti firmati per i negozi stanno fuori dal repository**, e sono tenuti
+separati perché **le firme non sono intercambiabili**: quella del negozio non si
+installa sul telefono, quella di sviluppo non si carica su App Store Connect.
+Stanno fuori perché `src-tauri/gen/apple/` viene rigenerata a ogni build, e il
+pacchetto che c'è dentro viene sovrascritto dalla compilazione successiva, dieci
+minuti dopo. Le versioni già consegnate si conservano ma **non si ricaricano**:
+App Store Connect rifiuta un numero di versione già visto.
+
+> **La differenza fra i due pacchetti iOS è verificabile, e conviene farlo invece
+> di fidarsi del nome del file.** Estraendo `embedded.mobileprovision` dal `.ipa`
+> e leggendolo con `security cms -D`, quello del telefono è `iOS Team
+> Provisioning Profile` con l'UDID dell'iPhone elencato e `get-task-allow: true`;
+> quello del negozio è `iOS Team Store Provisioning Profile`, **nessun
+> dispositivo elencato** e `get-task-allow: false`. È `get-task-allow` — il
+> permesso di attaccare un debugger — **il campo che fa rifiutare da Transporter
+> un pacchetto di sviluppo**; nell'altra direzione è la lista dei dispositivi
+> vuota a rendere impossibile installare a mano un pacchetto del negozio.
+>
+> Il nome del file è un'etichetta scritta a mano, e un'etichetta può essere
+> sbagliata: quando la risposta conta, si guarda dentro.
+
+CI «Controlli» a ogni push: Tipi → Formato → Lint → Test → Test fusi orari →
+Build.
+
+**Stato dei controlli, misurato il 28 agosto sul commit `29b51a0`:**
+
+| Comando | Esito |
+| --- | --- |
+| `npx vitest run` | **1549 test in 86 file, tutti verdi** |
+| `npx tsc --noEmit` | pulito, nessuna riga in uscita |
+| `npx prettier --check .` | _All matched files use Prettier code style!_ |
+| `npm run lint` | **0 errori, 14 avvisi** preesistenti |
+
+_(Il 26 agosto erano 1523 test in 82 file; il 27 sera 1540 in 85 — i sei aggiunti
+quella sera, e il file in più, erano `tests/macNegozio.test.ts`. I nove aggiunti
+il 28 e il file in più sono `tests/permessoBluetooth.test.ts`. Gli avvisi del
+lint sono rimasti 14: se diventano quindici, qualcuno ne ha aggiunto uno.)_
+
+---
+
+## Il Mac App Store: il secondo negozio
+
+Il `.pkg` del negozio e il `.dmg` del sito **non sono lo stesso programma con un
+involucro diverso**: firma da negozio invece di Developer ID, **sandbox accesa**
+con sette entitlements, e **l'aggiornatore tolto alla compilazione** — la feature
+Rust `senza-aggiornamenti` spegne il plugin, `VITE_SENZA_AGGIORNAMENTI=1` spegne
+il pulsante. Una copia del negozio che si aggiorna da sola è motivo di rifiuto, e
+un pulsante «cerca aggiornamenti» che non fa niente è peggio di nessun pulsante.
+Tutto si costruisce con `scripts/pubblica-mac-negozio.sh`, che scambia
+`tauri.conf.json` e lo ripristina con un `trap` anche se muore a metà.
+
+**Le prime due consegne sono state respinte, e non da un revisore: da un
+controllo automatico, dopo una compilazione intera.**
+
+1. **«supports arm64 but not Intel… deployment target must be 12.0 or higher».**
+   `minimumSystemVersion` diceva `10.15` mentre il binario è solo arm64. **La
+   parte grave non è il rifiuto**: quel numero era falso **da sempre**, e il
+   `.dmg` sul sito lo dichiarava agli utenti da settimane. Su un Mac Intel — o su
+   un Mac fermo al Catalina — quel download **installa e non si apre**. Non l'ha
+   scoperto un utente, non un test, non una rilettura: l'ha scoperto Apple, per
+   un motivo che col sito non c'entrava niente. _Un numero scritto a mano che
+   descrive il binario sbagliato è una bugia che non fa rumore._
+2. **ITMS-91109: `com.apple.quarantine` sul profilo di provisioning.** Scaricato
+   con Chrome, `cp` ne conserva gli attributi estesi, e la quarantena è finita
+   **dentro** il pacchetto firmato. Ora `xattr -cr` dopo aver copiato il profilo
+   e **prima** di firmare — l'ordine è tutto — con una verifica che stampa
+   _nessuna quarantena nel pacchetto_.
+3. **Consegna riuscita**, con **«Conformità mancante»**: la domanda doganale
+   sulla crittografia, fatta a mano perché il pacchetto non portava la risposta
+   dentro.
+
+> **► LA RIGA CHE VALEVA PER DUE NEGOZI ERA SCRITTA IN UN FILE SOLO. ◄**
+> `ITSAppUsesNonExemptEncryption` stava in `src-tauri/Info.ios.plist` da mesi,
+> difesa da un test. Nel plist di macOS non c'era mai stata, e non se n'era
+> accorto nessuno perché fino a quella sera **su macOS non si caricava niente**:
+> a un `.dmg` la dogana non chiede niente. _Una dichiarazione che manca non
+> produce un errore: produce un'attesa._
+>
+> Corretta nel commit `8e7964f`, e messa sotto guardia:
+> **`tests/macNegozio.test.ts`**, sei prove, **tutte viste rosse mutando i file**
+> prima di crederle. Le tre che non esistevano la sera prima sarebbero costate,
+> ciascuna, quello che sono costate: una compilazione e una consegna a testa.
+
+---
+
+## Le segnalazioni dal sito: entravano in un cassetto senza maniglia
+
+Il modulo del sito scriveva nel Worker, il Worker salvava in KV, e **il foglio di
+Google non lo riempiva nessuno**: `sito/segnalazioni.gs` erano settantun righe di
+Apps Script che nessuno chiamava. Il difetto vero però è un altro:
+`wrangler.toml` rimandava «alla rotta `/segnalazioni.csv` in worker.ts», e
+**quella rotta non è mai esistita**. Le segnalazioni entravano e non usciva
+niente — che da fuori è indistinguibile da un modulo rotto.
+
+Adesso il Worker, **dopo** aver salvato in KV e solo dopo, manda una copia
+all'Apps Script del foglio: l'archivio è la verità, il foglio è la copia comoda
+da leggere, quindi un guasto di Google costa una copia mancata e non una
+segnalazione persa. La copia è protetta da una parola d'ordine che lo script
+controlla **prima ancora di aprire il foglio**, e il Worker **legge il corpo
+della risposta, non lo stato**, perché Apps Script risponde 200 anche quando
+rifiuta. L'indirizzo dello script e la parola d'ordine sono segreti del Worker e
+non entrano nel repository.
+
+**La catena è stata collaudata e funziona.** Misurato il 27 agosto sull'archivio
+vero: **due segnalazioni in tutto**, e quella arrivata quel giorno porta
+`foglio: true`. **Una sola resta da travasare**, la segnalazione di prova del 26
+agosto, che nel suo record non ha proprio il campo `foglio`: è **una decisione
+del proprietario**, che non ha voluto né travasarla né cancellarla. Va scritto
+qui, o fra tre mesi quel «1 da travasare» sembrerà un guasto.
+
+`scripts/travasa-segnalazioni.mjs` recupera quello che è rimasto indietro,
+girando dal Mac via `wrangler` — che è già autenticato — e quindi **senza aprire
+nessuna superficie nuova su Internet**. Parte sempre a vuoto e scrive solo con
+`--scrivi`; i due valori che gli servono **li chiede alla tastiera**, con la
+parola d'ordine che non compare a schermo, perché passarli dall'ambiente li
+lascerebbe nella cronologia della shell in chiaro e per sempre, e nella riga di
+comando del processo, che sulla stessa macchina legge chiunque con un `ps`.
+
+Le prove nuove sono undici, dove non ce n'era nessuna:
+`tests/segnalazioni.test.ts` (otto) e `tests/rotteDichiarate.test.ts` (tre).
+Quest'ultimo confronta le rotte che `wrangler.toml` nomina **fra apici inversi**
+con quelle che `worker.ts` serve davvero: rimettendo `/segnalazioni.csv` diventa
+rosso con il difetto originale scritto nel messaggio.
+
+> **È la quinta volta che questo progetto paga la stessa specie di guasto** — il
+> gestore Rust registrato per due piattaforme su quattro, il file fuori dalla
+> lista dei sorgenti, il numero sbagliato dentro un commento, una rotta promessa
+> da un file di configurazione, e una dichiarazione presente in un plist su due.
+> **Nessuna dà errore, perché nessuna è malformata: sono assenze**, e l'assenza
+> non è un errore di sintassi.
+
+---
+
+## Il sito: due gruppi, e una mela
+
+**La scheda iOS non è più spenta.** Fino al 27 agosto portava un «in arrivo», e
+il commento che stava lì spiegava perché: un collegamento all'App Store verso una
+scheda che non esiste porta a una pagina d'errore, e una pagina d'errore dice
+«progetto abbandonato» molto più forte di quanto «in arrivo» dica «non ancora
+pronto». Adesso c'è qualcosa dall'altra parte, quindi si preme — e con la scheda
+spenta se ne sono andate le tre regole CSS che la disegnavano
+(`.pulsante-attesa`, `.scheda-piattaforma.attesa`, `.riga-attesa`), invece di
+restare lì per la prossima volta. _Un foglio di stile che descrive uno stato che
+l'interfaccia non ha più è la stessa bugia di un commento che rimanda a codice
+inesistente: chi legge crede che quello stato esista e va a cercarlo._ `git log`
+se lo ricorda.
+
+**Le quattro piattaforme sono diventate due gruppi**, perché sono due storie:
+«Questo progetto è nato per» (macOS, iOS) e «Ma è stato poi rilasciato anche per»
+(Windows, Android). Prima stavano tutte e quattro in fila e la differenza la
+faceva **la grandezza delle schede** — un'informazione che si legge solo se
+qualcuno la nota. Detta a parole si legge e basta, e chi arriva da Windows sa
+subito che c'è e in che condizioni.
+
+**E macOS e iOS adesso sono grandi uguali.** La principale aveva
+`min-width: 200px` contro i 158 dell'altra, e andava bene quando le schede erano
+quattro in fila e quella larghezza diceva qual era il download principale. Adesso
+sono una coppia — due sistemi della stessa famiglia — e due schede appaiate di
+larghezza diversa si leggono come una gerarchia che qui non c'è.
+`flex: 1 1 158px` divide la riga in parti uguali a qualunque larghezza; la
+differenza di colore resta, e dice qual è il download diretto senza dire che
+l'altro conta meno.
+
+> **Una cosa che il sito NON dice ancora.** Il pulsante per macOS non dichiara da
+> nessuna parte che serve **macOS 12 e un Mac Apple Silicon**. Fino al 27 agosto
+> dichiarava il falso dentro il pacchetto (10.15) e niente sulla pagina; adesso
+> il pacchetto dice la verità e la pagina tace. _Tacere è meglio che mentire, ma
+> per chi ha un Mac Intel il risultato è lo stesso: scarica, installa, e non si
+> apre._ Sta fra i prossimi passi.
+
+### ► IL BADGE UFFICIALE C'È STATO, PER QUALCHE MINUTO ◄
+
+Vale la pena registrarlo come decisione, perché la strada scartata è quella che
+le linee guida di Apple prevedono.
+
+**Quello che Apple consente a un terzo è il badge «Scarica su App Store»**,
+artwork ufficiale delle sue Marketing Resources, da usare per rimandare alla
+propria app. **La mela come icona di sezione non è un uso che Apple consenta**: i
+marchi dei sistemi operativi sono di chi li possiede, e i disegni di quella
+fascia sono nostri e rappresentano apparecchi.
+
+Il badge è stato messo — variante bianca, come previsto sui fondi scuri, e
+localizzato: italiano sulla pagina italiana, inglese su quella inglese — e poi
+**tolto su richiesta del proprietario**, in favore della mela nell'occhiello più
+la riga di testo «Scarica da App Store». **La scelta è stata sua, informato del
+punto qui sopra**, e sta scritta così perché chi la rilegge fra sei mesi deve
+sapere che non è stata una svista.
+
+Due cose della mela che sono decisioni tecniche e non gusto:
+
+- **è un tracciato in linea, non il carattere della mela.** Quel carattere vive
+  nell'area privata di Unicode e lo disegna solo un dispositivo Apple: su Windows
+  e Android — che sono metà del pubblico di questa pagina, e hanno una scheda a
+  due centimetri più giù — sarebbe uscito **un rettangolo vuoto**, cioè il modo
+  più goffo possibile di parlare di Apple;
+- **è in `currentColor`, non nera.** Sul blu scuro di quella fascia una mela nera
+  si intuisce solo girando lo schermo verso la finestra, e un simbolo che si deve
+  cercare non è un simbolo. Così prende il tono dell'occhiello che la ospita, e
+  se un giorno quella fascia diventasse chiara diventerebbe scura da sola. La
+  misura è in `em` e non in pixel, per lo stesso motivo.
+
+### I difetti che si vedevano solo guardando la pagina disegnata
+
+Nessuno si vede leggendo il foglio di stile, ed è la terza volta che succede su
+questo sito.
+
+- **Le schede erano allineate in basso** (`align-items: flex-end`), che era la
+  scelta giusta con quattro schede in fila e la principale più alta di tutte. Da
+  quando sono due gruppi da due, la scheda iOS è diventata la più alta e **la
+  principale risultava mozza in cima**. Adesso `stretch`: due schede appaiate si
+  leggono come una coppia solo se sono alte uguale.
+- **Le ultime righe delle due schede erano sfalsate di dieci pixel.** Rimedio:
+  `margin-top: auto` sulla riga che dice cosa ottieni premendo, così tutte e due
+  si appoggiano al fondo della scheda. Serve **da quando** le schede sono alte
+  uguale — prima ognuna era alta quanto il suo contenuto e il fondo coincideva da
+  sé.
+- **Tre bordi sinistri in trecento pixel.** Tutto comincia a 200 px; la fila dei
+  numeri cominciava a **224** e l'etichetta sopra le marche a **248**. Il primo
+  perché era invisibile — un contenitore annidato in un altro, e i riempimenti si
+  sommavano. Il secondo stava sotto un commento che diceva il contrario:
+  «allineata al contenitore», e si ricalcolava larghezza e padding da capo.
+- **I nomi dei computer non sfumavano, si tagliavano.** La maschera del nastro
+  finiva al 12% della larghezza — 173 px su 1440 — e la colonna del testo
+  comincia a 200: la dissolvenza aveva già finito prima di entrare nella parte di
+  pagina che si guarda, e «Shearwater» compariva come «rwater» a piena opacità.
+- **La griglia che metteva l'avvertimento sopra il suo titolo.** Nella sezione
+  della sicurezza il riquadro giallo finiva **prima** del suo titolo: si leggeva
+  l'avvertimento, e solo dopo si scopriva che era un avvertimento.
+
+I motivi per esteso stanno nei commenti di `sito/stile.css`, accanto alle regole.
+
+> **Due cose che sembravano difetti e non lo erano.** Il profilo dell'immersione
+> che non si disegnava e i numeri fermi erano **artefatti dello screenshot**:
+> `--screenshot` fotografa al primo disegno, quindi le animazioni erano al
+> fotogramma zero. Con `--virtual-time-budget` la curva si disegna e i numeri
+> arrivano dove devono. _Prima di correggere quello che si vede in una foto, si
+> controlla che la foto sia stata scattata al momento giusto._
+
+**Come si fotografa il sito.** Chrome su macOS non apre finestre più strette di
+500 px: per vedere davvero i 390 si mette il contenuto in un contenitore largo
+390 dentro una finestra da 520. E `--screenshot` ignora `window.scrollTo`: per
+inquadrare una fascia si sposta il corpo con `position: relative; top: -Ypx`,
+così il viewport resta quello vero e le `vh` e le media query non cambiano.
+
+**E il sito si ripubblica solo quando è cambiato.** Una versione nuova non basta:
+i pulsanti puntano a `releases/latest/download/...` e seguono la release da soli.
+`npm run sito:versiona` dice quante pagine ha toccato, e se dice zero non c'è
+niente da caricare — sulla 1.7.0 ha detto zero, e il 27 agosto ha avuto qualcosa
+da fare davvero, perché **è il sito** a essere cambiato. _La stessa impronta che
+serve a far scadere la cache risponde gratis alla domanda «cosa c'è
+pubblicato»._
+
+> **Le sei classi CSS che nessuno usa restano dove sono** (27 agosto 2026,
+> decisione del proprietario). Contate: il foglio di stile ne definisce **102**,
+> e sei non compaiono in nessuna delle quattro pagine — `.come-link`,
+> `.nota-impronte`, `.nota-modulo`, `.scarico-altre`, `.scarico-nota` e
+> `table.dati`. **Non c'è nessun difetto visibile**, e questo è il punto: le
+> tabelle della pagina della privacy sono impaginate da `.documento table`,
+> quindi `table.dati` non serve a nessuno e non manca a nessuno. Sono
+> trentacinque righe di foglio di stile morte, non un guasto — e la differenza
+> con `.pulsante-attesa`, che invece è stata tolta, è che quella **descriveva uno
+> stato dell'interfaccia**: chi la leggeva andava a cercare una scheda spenta che
+> non esiste più.
+
+---
+
+## ► IL PIANO DI MIGLIORAMENTO SI TRADUCE: `core/frase.ts` ◄
+
+**Questo chiude un punto che è stato aperto per mesi.** Non era una
+dimenticanza, ed è la parte che vale la pena capire.
+
+In questo progetto la chiave del dizionario è **la frase italiana intera**. Va
+benissimo per le frasi fisse. Non funziona per una frase che contiene un numero:
+la chiave da cercare cambia a ogni immersione, quindi nel dizionario non c'è mai
+stata e **non ci sarebbe potuta entrare**. Le novantuno frasi di `coaching.ts` e
+`nextDive.ts` non erano state saltate: erano intraducibili per costruzione.
+
+La strada che si prova per prima — spezzare la frase in pezzi e ricucirli intorno
+ai numeri — regge per due parole e crolla su un paragrafo, perché l'inglese ha un
+altro ordine e una frase composta a pezzi in ordine italiano esce sgrammaticata.
+
+**La soluzione**: la chiave resta la frase intera, con i numeri sostituiti da
+segnaposti numerati, e **si traduce prima e si riempie dopo**.
+
+```ts
+frase(t, 'Consumo medio {0} L/min su {1} immersioni.', rmv.toFixed(1), n);
+```
+
+Chi traduce vede la frase completa e **può spostare i segnaposti**: in inglese
+`{1} dives at {0} L/min` è legittimo quanto l'ordine italiano. È `printf` ridotto
+all'osso, ed è l'unica forma che permette a una traduzione di riordinare.
+
+| Scelta | Perché |
+| --- | --- |
+| segnaposti **numerati** e non nominati | un nome si legge meglio ma raddoppia il lavoro di chi traduce, e un nome sbagliato lascia un buco muto. Con gli indici il test può controllare che italiano e inglese usino **gli stessi segnaposti** — con i nomi non si potrebbe senza conoscere il significato |
+| un segnaposto senza valore **resta scritto** | `{3}` a schermo è un difetto che si nota e si segnala; uno spazio bianco in mezzo a una frase no |
+| se manca la traduzione, esce l'italiano | `t()` ripiega sulla chiave e i numeri entrano lo stesso: una frase non tradotta resta una frase corretta, mai una frase mutilata |
+
+Convertiti per intero **`coaching.ts`** — le sedici regole, il briefing, il
+debrief: novantanove chiamate a `frase()` — e **`nextDive.ts`**, dieci. Il piano
+adesso **rinasce quando cambia la lingua**: in `state.tsx` serve la `t` del
+render e non quella stabile, o resterebbe scritto nella lingua di quando è stato
+calcolato.
+
+**Un difetto vero trovato per strada**: la regola `deep-recreational` misurava la
+prontezza sul conteggio del **periodo scelto** invece che su tutto lo storico, e
+a chi filtrava l'ultimo mese diceva che non era pronto per il profondo.
+
+### La rete che impedisce al buco di riaprirsi
+
+`tests/dizionario.test.ts` legge **tutti** i file `.ts`/`.tsx` di `src/` e
+`scripts/` — oggi centotrenta, esclusi solo `core/frase.ts` (che contiene
+l'esempio della sua documentazione) e il dizionario stesso — ed estrae ogni frase
+passata a `t()`, pretendendo che abbia la sua voce.
+
+**Ne mancavano sedici**: le tredici etichette del libretto di legge, i tre tipi
+di autorespiratore, un avviso Shearwater. Nessuno se n'era accorto perché il
+ripiego di `t()` è la chiave stessa — _è la proprietà che rende robusto questo
+dizionario ed è la stessa che rende invisibili i suoi buchi. L'unico modo di
+vederli è contarli._
+
+Due controlli in più:
+
+- **nessuna chiave costruita interpolando un valore** — il difetto che ha tenuto
+  novantuno frasi fuori dal dizionario;
+- **nessuna coppia di chiavi che differiscono solo per il tipo di apostrofo.**
+  Ce n'erano due, ed erano due guasti diversi: una **gemella morta** (il sorgente
+  scriveva l'apostrofo tipografico, la voce col dritto non sarebbe stata
+  interrogata mai) e due moduli che scrivevano **la stessa frase in due modi** —
+  `coaching.ts` col dritto, `nextDive.ts` col tipografico. Il difetto non stava
+  nel dizionario, stava nei due moduli. Uniformato il sorgente, l'elenco delle
+  deroghe (`GEMELLE_NOTE`) è **vuoto**.
+
+Il dizionario inglese è passato da **1725 a 1969 voci** — 247 nuove, 3 tolte — e
+107 di quelle voci contengono almeno un segnaposto.
+
+> **E quelle 247 voci sono tradotte, non solo dichiarate.** Misurato il 26 agosto
+> sul dizionario vero, importando `INGLESE` da `src/ui/traduzioni.ts`: su
+> **1969** voci quelle con l'inglese **vuoto sono zero**, e quelle in cui
+> l'inglese è **identico** all'italiano sono **19** — e sono parole che in
+> inglese si scrivono uguale (`File`, `Computer`, `Logbook`, `No`, `Gas`,
+> `Gauge`, `Menu`, `OTU`, `Setpoint`, `Rebreather`, `Volume`, i nomi delle
+> marche…). Sulle **241** frasi del piano estratte da `coaching.ts` e
+> `nextDive.ts`: zero senza voce inglese, zero uguali all'italiano, zero
+> segnaposti fuori posto. Il limite che resta è un altro, ed è scritto fra i
+> **limiti noti**: nessun madrelingua le ha rilette.
+
+---
+
+## I cinque conti sbagliati, e il metro che li misurava
+
+| Dove | Cosa sbagliava |
+| --- | --- |
+| `deco.ts` | CNS e OTU sulla miscela della **prima fase** per tutta l'immersione: con un cambio gas, l'8% dello scenario di prova diventa 49.5% |
+| `gasPlan.ts` | i litri in decompressione usavano la pressione ambiente in **ATA dove serviva in bar**: a duemila metri di quota 159 bar invece di 122 |
+| `metrics.ts` | l'RMV mediava le pressioni **come se ogni tratto durasse uguale**. Ora `avgBar`, media pesata sul tempo |
+| `Planner.tsx` | il **tempo di fondo** passato dove il conto voleva il **runtime**, e una `medianBottomMin` che era una mediana di durate intere. _Il nome era la spia_ |
+| END | non riceveva la **pressione in superficie** e la dava per uno: in quota sbagliava di quanto sbaglia l'atmosfera |
+
+E sotto tutti, il difetto che li rendeva invisibili: **`tests/fixtures.ts`
+generava il consumo delle immersioni sintetiche sugli ATA invece che sui bar
+assoluti.** La fixture chiedeva 18 L/min e l'applicazione ne rileggeva 17.71.
+Nessuna prova è mai diventata rossa, perché quella che rileggeva il consumo
+accettava **da 14.5 a 17.5 su 16 chiesti**. La banda adesso è l'1% — quello che
+resta dopo l'arrotondamento all'intero di `endBar` nel file UDDF — su tre
+combinazioni diverse, e con l'errore di prima è rossa: verificato.
+
+---
+
+## La sincronizzazione fondeva in una direzione sola
+
+`turso.ts` fondeva i riepiloghi **in ingresso e non in uscita**: quello che avevi
+arricchito sul telefono tornava sul portatile, il contrario no. Adesso passano
+tutti e due da `fondiRiepiloghi`, che tiene i profili fuori dalla fusione e **non
+ricalcola le metriche** — quelle le sa già chi le ha calcolate.
+
+> **Il difetto vecchio saltato fuori per strada, ed è il peggiore dei due.** Lo
+> `stripSamples` locale di `turso.ts` **non toglieva `altSamples`**. L'immersione
+> risultava sempre incompleta, e ogni sincronizzazione la riscaricava. Per
+> sempre — traffico a ogni giro, per un'immersione che c'era già.
+
+Aggiunti a `takeIfEmpty` i campi che mancavano — centro, profondità pianificata,
+firma della guida — e `analisi` alla fusione delle bombole. `subacqueo` entra fra
+le impostazioni condivise.
+
+**E il nome che si congelava**: `saveSubacqueo` non scriveva `subacqueo:at`, e la
+fusione delle impostazioni condivise decide con quella data. Con la data vuota il
+confronto cadeva per sempre dalla stessa parte: il nome sul libretto lo
+correggevi sul telefono e la sincronizzazione dopo rimetteva quello vecchio,
+senza dire niente. _Il vecchio commento MOTIVAVA l'omissione — «cambiano una
+volta ogni qualche anno» — che è semmai un'aggravante: chi corregge una volta
+sola non torna a controllare se è rimasto._
+
+Una data Shearwater illeggibile produceva un'immersione con `startTime` non
+valido che si propagava ovunque: `parseShearwaterDate` adesso restituisce
+`undefined` e l'immersione viene scartata con un avviso.
+
+---
+
+## Gli otto difetti d'interfaccia
+
+Tutti trovati **usando l'applicazione**, nessuno da una rilettura.
+
+**Il riquadro della firma si apriva e non si chiudeva.** L'unica uscita era
+firmare. La firma della guida è la lettera o) del libretto, l'unica delle tredici
+che non è un dato ma un gesto: _l'ultima cosa che può avere una sola via d'uscita
+è proprio quella che chiede a qualcuno di impegnarsi._ Il punto delicato non era
+aggiungere un bottone, era **distinguere due uscite che si somigliano**:
+`onAnnulla` non tocca niente, `onCancella` toglie una firma già raccolta e cambia
+il record. Separate nel codice e separate a schermo — «Annulla» accanto alla
+conferma, «Togli la firma» in fondo e da sola, perché su un telefono in barca
+sono un dito storto di distanza.
+
+**«Sincronizza» disabilitato per sempre.** `SyncPage` salvava il token con
+`trim()` e poi confrontava il digitato **senza**. Basta uno spazio in coda — e un
+token incollato ce l'ha quasi sempre — perché i due non coincidano mai, senza una
+riga a schermo che dicesse perché. Stessa cosa sul nome del subacqueo.
+
+> **La regola, adesso scritta una volta sola in `ui/modificato.ts`: normalizzare
+> da un lato solo del confronto è l'errore.** Si fa da tutti e due o da nessuno —
+> e **in una funzione**, perché una simmetria scritta una volta non si può
+> rompere in un punto solo. Cercati tutti gli altri confronti asimmetrici in
+> `src/`: erano quei due.
+
+**Il locale scritto a mano in dieci punti.** Nove chiamate fra `format.ts`,
+`Charts.tsx` e `SyncPage.tsx` imponevano `it-IT`. La decima, peggiore, era in
+`coaching.ts`: quella data finisce **dentro** frasi che passano dal dizionario, e
+usciva una frase inglese con una data italiana in mezzo. Adesso il locale sta in
+`core/locale.ts` e **lo registra chi decide la lingua, non un effetto** — un
+effetto gira dopo il primo disegno, e chi apre l'applicazione in inglese si
+sarebbe tenuto una prima schermata di date italiane. **`en-GB` e non `en-US`**:
+giorno prima del mese e orologio a 24 ore, come li mostra il computer subacqueo
+da cui quelle immersioni arrivano.
+
+**L'eccezione, resa esplicita:** `logbookPrint.ts` e il foglio del piano restano
+in italiano qualunque lingua parli l'interfaccia, perché quel foglio è il
+libretto dell'art. 12 comma 8 della legge 70/2026. Il commento adesso lo dice per
+primo, così nessuno lo «sistema» — e due prove lo difendono, provate applicando
+il rovescio.
+
+**Lo scarico che restava appeso a «Leggo…».** `scarica` non aveva un try/catch, e
+nel Bluetooth qualcosa lancia: la schermata restava lì per sempre, con delle
+immersioni magari già salvate e nessun modo di saperlo. Adesso l'errore dice due
+cose insieme — che si è interrotto **e quante immersioni sono già in archivio**.
+_Un messaggio d'errore che tace su cosa è stato salvato costringe chi legge a
+riscaricare per sapere._ L'azzeramento del controllore è passato in un `finally`
+(prima tutta la scrittura in archivio restava scoperta), e **«Interrompi»
+funziona anche durante lo scarico da libdivecomputer**, che un controllore non lo
+registra mai: per tutta la sua durata quel pulsante era morto.
+
+**Il confine d'errore che prometteva il falso.** `<ErrorBoundary>` senza `key`
+non si rimonta al cambio di scheda: una volta scattato restava scattato, mentre
+il suo testo dice a chi legge che le altre schede funzionano. _Chi ci provava
+scopriva che non era vero, e da lì in poi non si fida più di nessun messaggio
+dell'applicazione._ Nella chiave entra anche l'immersione aperta: senza, da una
+scheda d'immersione rotta non si uscirebbe, perché il pulsante «indietro» sta
+dentro la parte che non c'è più.
+
+**La sigla che cambiava bombola.** La lista delle bombole usava l'indice come
+chiave: togliendone una in mezzo, React riusava lo stato per l'indice sbagliato e
+`notaSigla` passava da una bombola all'altra. **Su un dato che dice che gas c'è
+dentro non è un fastidio d'interfaccia.** Adesso `Cylinder` ha una chiave sua,
+che sopravvive al salvataggio e alla rilettura — o il difetto rientrava dalla
+porta di servizio.
+
+---
+
+## I brevetti: si scelgono, non si scrivono
+
+I brevetti hanno lasciato **Attrezzatura** e sono passati nelle **Impostazioni**,
+subito sotto la carta che compone il libretto — che si chiama **«Dati per il
+LogBook»**. Un brevetto non si revisiona, non scade e non lo porti in acqua: dice
+chi sei, e il posto dove serve è il libretto.
+
+E non si scrive più a mano. **Quattordici didattiche, 192 brevetti** (contati sul
+catalogo, non a occhio): PADI, SSI, CMAS, FIPSAS, SNSI, ESA, **NADD**, NAUI, SDI,
+RAID fra le ricreative — con dentro anche TecRec e XR, che restano brevetti PADI
+e SSI — più TDI, IANTD, GUE, PSAI fra le tecniche, e **«Altro»** con nome e campi
+liberi. Si sceglie la didattica, poi il corso fra i suoi: arriva il nome
+ufficiale e con lui i fatti che quella didattica dichiara.
+
+| File | Cosa contiene |
+| --- | --- |
+| `src/core/analysis/didattiche.ts` | il catalogo, con la fonte di ogni didattica |
+| `src/core/analysis/gear.ts` | il modello: livello, ruolo, profondità, `didatticaId` |
+| `src/ui/components/Brevetti.tsx` | le due tendine e i campi liberi |
+| `tests/catalogoBrevetti.test.ts` | la tenuta del catalogo, i numeri che tutti sbagliano, e che i conti scritti nei commenti dicano il vero |
+
+> ### ► LA REGOLA CHE VALE PIÙ DI TUTTE: NON SI INVENTANO NUMERI ◄
+>
+> La profondità è **vuota per metà dei brevetti** — 96 su 192 la dichiarano — e
+> non è una svista. Un Enriched Air non parla di profondità: il limite lo dà la
+> miscela. Un Rescue non autorizza a scendere più giù di prima. Un Divemaster
+> PADI non ha un limite proprio pubblicato. Metterci 40 perché è il tetto
+> ricreativo vorrebbe dire scrivere, nel logbook di qualcuno,
+> **un'autorizzazione che nessuno gli ha dato**.
+>
+> Con NADD la proporzione è peggiorata apposta: dei suoi quarantaquattro
+> brevetti solo dieci dichiarano metri, e gli altri trentaquattro restano vuoti.
+>
+> **E il conto vale anche quando è scritto in prosa.** Il commento in testa a
+> NADD diceva «dieci su trentacinque» perché era stato scritto quando l'elenco
+> era più corto: adesso un test rilegge quel commento e pretende che i due numeri
+> corrispondano. _Se un numero conta, va in un `expect`; se non vale la pena
+> inchiodarlo, si scrive «alcuni»._
+
+E i numeri che ci sono vengono dagli standard, non dal senso comune. Ognuno ha il
+suo test, con scritto perché:
+
+| Fatto | Cosa circola in rete |
+| --- | --- |
+| **CMAS Two Star = 30 m** | 40 m: è lo standard 2013, sostituito dal BOD 233 del 2024 |
+| **CMAS Three Star = 40 m, e NON è una guida** | 56 m e «entry-level leadership». Il BOD 208 del 2023 scrive che «is not qualified to lead divers» |
+| **FIPSAS ≠ CMAS**: P1 = 18 (CMAS 20), P3 = **42** (CMAS 40) | che siano la stessa cosa perché sono equipollenti |
+| **RAID «Open Water» = 18 m** | «Open Water 20» a 20 m: vecchio nome, resta come alias ma con i metri giusti |
+| **GUE Cave 2 = 30 m, come Cave 1** | che sia più profondo. Aggiunge stage e deco, non metri |
+| **SNSI Advanced Open Water = 39 m** | 40. È la conversione di 130 piedi, e SNSI la scrive così |
+| **NADD Light Deco = 42 m** | 45, che è il titolo di una sezione che copre due corsi. Il corpo del testo dice 42 |
+
+**Tre campi invece di uno, perché sono tre domande.** Il `livello` è il nostro
+scalino e serve a confrontare scuole diverse; `profonditaM` è quello che dichiara
+quella didattica per quel brevetto; il `ruolo` — soccorso, guida, assistente,
+istruttore — non è un gradino di metri. Un istruttore che non ha il Profondo
+resta un istruttore senza il Profondo.
+
+**Il Nitrox è uscito dalla classifica delle profondità**, ed era un difetto vero:
+la classifica era l'ordine in cui i valori stanno scritti nel tipo, e a chi ha
+Nitrox e Profondo — il caso normale — l'app rispondeva «livello più alto
+registrato: Nitrox» a una domanda che chiede fin dove sei addestrato a scendere.
+Con l'EAN32 la profondità operativa è **più bassa** che in aria, non più alta.
+
+Gradino **«Introduttivo»**: i brevetti da 12 m con obbligo di guida esistono in
+**otto didattiche su quattordici** e finivano dentro il primo livello.
+
+**Altre due cose della stessa serata**: sul telefono le tabelle non scorrono più
+di lato — ogni riga diventa una scheda con l'etichetta accanto al valore, stesso
+markup (`.tabella-adattiva`) — e **aprire qualcosa da modificare porta dove si
+scrivono i dati** (`src/ui/scorri.ts`, `usePortaInVista`), perché la scheda si
+apriva due schermate più giù e il pulsante sembrava rotto.
+
+---
+
+## I testi: i nomi della didattica, e mai più «SAC»
+
+**I nomi degli obiettivi.** «Passaggio al tecnico» e «Profondo ricreativo»
+descrivevano bene la cosa, ma non sono come la chiama nessuno. Adesso sono
+**Subacquea Tecnica** e **Avanzato Ricreativo**, i nomi dei percorsi formativi.
+**Gli `id` restano quelli** (`tec`, `deep-recreational`): finiscono nelle
+impostazioni salvate e nei backup, e rinominarli farebbe ripartire da
+«Miglioramento generale» chi aveva scelto altro. _Un'etichetta si cambia, una
+chiave d'archivio no._
+
+**La sigla «SAC» non compare più da nessuna parte.** L'app dice **RMV** quando il
+valore è riportato alla superficie in L/min, e **consumo in bar/min** quando non
+lo è. Aria e miscele si misurano nello stesso modo: la sigla suggeriva di no.
+
+**Via i testi che parlavano solo a noi:** il lago citato per nome, il venerdì in
+piscina, «l'Aladin dal Mac», le sigle mai spiegate (MOD, MODS, END, UDDF), il
+«calcolato da noi» ripetuto tre volte, il numero di iterazioni del volume
+critico, «su finestra di 30 s», «è un bug: segnalalo», «driver scritto a mano».
+
+---
+
+## Windows e Android, e il difetto che ci stava sotto
+
+Nessuna delle due si compila su un Mac, quindi le costruisce GitHub, con un
+workflow separato da «Controlli»: quello è la guardia e deve restare verde,
+questo fa pacchetti per piattaforme che qui nessuno possiede e ogni tanto sarà
+rosso. **Tenerli insieme insegnerebbe a ignorare il rosso.**
+
+_(Per la 1.7.0 è il run `32912619188`: Windows in 5m39s, Android in 6m47s, tutti
+e due verdi.)_
+
+> ### ► IL DIFETTO CHE HANNO FATTO EMERGERE, DUE VOLTE ◄
+>
+> **La prima:** `invoke_handler` era registrato **solo per macOS e iOS**. Su
+> qualunque altra piattaforma il costruttore arrivava a `run()` senza nessun
+> gestore, e ogni chiamata al motore Rust rispondeva «comando sconosciuto».
+> Nessun errore in compilazione, nessuno all'avvio. Si è visto **guardando
+> dentro l'APK**, non facendo girare i controlli.
+>
+> **La seconda, peggiore:** la correzione per Android — il modulo del ritorno
+> dall'accesso e il suo comando nel gestore — è stata **scritta, ha fatto passare
+> `cargo check`, ed è sparita dal file prima di essere committata**. Il pacchetto
+> successivo è uscito senza, e su quell'APK non si poteva entrare. Trovata di
+> nuovo a mano, cercando la stringa «Accesso completato» dentro il `.so`
+> consegnato.
+>
+> **Due volte lo stesso guasto trovato a mano è la definizione di un controllo
+> mancante.** `tests/gestoriPerPiattaforma.test.ts` adesso legge `lib.rs` e conta
+> i comandi registrati per tutte e quattro le piattaforme. Verificato che diventa
+> rosso rimettendo il guasto.
+>
+> **Perché `cargo check` non poteva prenderlo:** tutto quello che manca lì è
+> codice CORRETTO. Un gestore con tre comandi invece di quattro compila
+> benissimo; un modulo escluso da un `cfg` compila benissimo. Non c'è niente di
+> malformato da segnalare — c'è qualcosa di **assente**, e l'assenza non è un
+> errore di sintassi.
+
+| | Windows | Android |
+| --- | --- | --- |
+| Import da file (7 formati) | sì | sì |
+| **Bluetooth, tutto il catalogo** | **sì** | **sì** |
+| **Accesso con Google e Apple** | **sì** | **sì** |
+| Aggiornamento automatico | **sì** | no, e non si può |
+
+**Android ha libdivecomputer con l'NDK.** `build.rs` sapeva incrociare solo verso
+Apple; adesso conosce anche l'NDK. Il compilatore è il wrapper
+`aarch64-linux-android26-clang` e non il clang nudo, perché è il wrapper a
+scegliere la libreria C giusta per quel livello di API — e quella scelta cambia
+da un NDK all'altro. `llvm-ar` e `llvm-ranlib` senza prefisso, che dall'NDK 23
+sono gli unici che esistono. `-fPIC`, perché su Android l'applicazione è una
+libreria condivisa caricata da Java.
+
+**Windows ce l'ha per un'altra strada: senza autotools.** `./configure` è uno
+script di shell che chiama make, sed e grep, e sotto MSVC non c'è niente di tutto
+questo. La via che sembrava obbligata — MSYS2 e gcc — metterebbe un archivio con
+l'ABI di mingw accanto a un binario Rust con quella di MSVC: due runtime C nello
+stesso processo, che si legano, partono e cadono dentro una `malloc`. Ma
+`configure` fa **tre cose sole** che ci servano: sceglie i file (leggendoli da
+`Makefile.am`), scrive `config.h` (le risposte le sappiamo già) e scrive
+`version.h` e `revision.h` (quattro numeri). Quindi `build.rs` compila i 114 file
+con la cassa `cc`, che su Windows usa `cl.exe`: stesso compilatore, stessa ABI,
+stesso runtime del resto del binario.
+
+> **Verificata prima di consegnarla, e non su Windows.** Sul Mac, dove le due
+> librerie — quella di `configure` e quella di `cc` — si possono mettere una
+> accanto all'altra: **stessi 356 descrittori**, e le stesse **85 immersioni vere
+> decodificate campione per campione, 64.706 in tutto, con lo stesso hash**. Su
+> Windows restava un'incognita sola, il compilatore.
+
+**La lista dei file si legge, non si trascrive.** Una lista scritta a mano
+resterebbe indietro al primo aggiornamento del tarball, e mancherebbe un driver
+**senza nessun errore**: la libreria compilerebbe benissimo, solo non
+conoscerebbe più quel computer. `tests/sorgentiLibdivecomputer.test.ts` rilegge
+lo stesso `Makefile.am` con una seconda implementazione della stessa regola.
+
+**L'accesso su Android costava molto meno di quanto sembrasse.** La strada che
+pareva obbligata era quella dell'iPhone — uno schema URL — con un filtro
+d'intenti dentro un manifesto generato, uno script per rimetterlo a ogni build, e
+per Google la registrazione di un client Android che pretende l'impronta del
+certificato di firma (che la nostra chiave usa-e-getta non ha). Il **loopback su
+`127.0.0.1` invece su Android c'è**, ed è lo stesso identico codice del desktop.
+Il modulo era `#[cfg(desktop)]` per inerzia, non per una ragione.
+
+**L'aggiornamento automatico su Windows, con la chiave che resta sul Mac.** La
+condizione diceva `macos` da quando il Mac era l'unico computer su cui girassimo.
+La chiave privata sul runner di GitHub non ci va — sarebbe affidare a un segreto
+di repository la sola cosa che rende sicuri gli aggiornamenti di tutti, Mac
+compresi, e non si potrebbe revocare senza lasciare a piedi ogni installazione
+esistente. Quindi **GitHub costruisce e il Mac firma**: `npm run windows:firma`.
+Il controllo che dice se è successo è `latest.json` della release, che deve
+elencare **due** piattaforme: sulla 1.7.0 `darwin-aarch64` e `windows-x86_64`.
+
+> **E adesso c'è una copia del Mac che l'aggiornatore non ce l'ha per scelta.**
+> Quella del Mac App Store: là aggiorna il negozio, e il plugin è tolto alla
+> compilazione. È l'unica delle cinque consegne in cui `latest.json` non
+> significa niente.
+
+**La firma dell'APK è pubblica, e si dice.** La chiave la genera il workflow con
+una password scritta in chiaro nel file: non è un segreto trapelato, è un segreto
+che non c'è. Il sito lo dichiara — la firma non garantisce da chi viene il file,
+lo garantisce l'**impronta SHA-256** pubblicata accanto. Il giorno che esiste un
+keystore vero sono tre segreti su GitHub e quattro righe in meno.
+
+**E il sito mette i limiti PRIMA del pulsante.** Costa qualche scaricamento in
+meno e risparmia la delusione di scoprirli dopo.
+
+---
+
+## L'analisi con Claude non c'è più
+
+Tolta dall'applicazione con la 1.6.2. Le ragioni, in ordine di peso:
+
+1. **Era l'unica funzione di cui nessuno avesse mai verificato l'uscita.** Il
+   Bühlmann è validato su 38 immersioni contro Shearwater, i decoder contro
+   libdivecomputer campione per campione, i numeri della didattica contro la
+   pagina del manuale. Le risposte del modello no. In un logbook subacqueo un
+   commento non verificato su un profilo decompressivo è una classe di rischio
+   diversa da un difetto d'interfaccia.
+2. **Era l'unica cosa che il revisore Apple non poteva provare**: serve la chiave
+   API dell'utente. Dopo un rifiuto 2.1 «Information Needed», è il genere di
+   funzione che ne genera un altro.
+3. **Era l'unica eccezione a una storia di privacy pulita**: «un solo permesso,
+   il Bluetooth, non si traccia niente» aveva un asterisco, ed era questo.
+4. **Pesava sul primo avvio: 111.5 → 87.6 kB gzip, −21%.** Il codice dell'analisi
+   NON era a caricamento pigro come il pianificatore o le traduzioni: stava nel
+   pezzo che il telefono compila prima di disegnare qualunque cosa, e lo pagava
+   anche chi una chiave API non l'ha mai avuta.
+
+**Cosa resta:** `src/ai/context.ts` e `src/ai/prompts.ts`, che **non entrano più
+nel pacchetto** — servono a `npm run dump:ai`, uno strumento da riga di comando.
+I loro trenta controlli restano tutti: la proprietà che difendono — _un dato che
+l'app non ha non deve comparire nel contesto come numero_ — vale identica adesso
+che il contesto lo si legge a mano. _(Anche lì c'era il tempo di fondo passato
+dove `similarDives` filtra sulla durata totale: corretto.)_
+
+**La chiave rimasta nel portachiavi si cancella da sola** al primo avvio
+(`dimenticaChiaveAi`). Una credenziale che si spende a spese di chi l'ha
+generata, conservata da un'applicazione che non la usa più, è una responsabilità
+senza contropartita.
+
+---
+
+## Il catalogo dei computer, e l'ordine che conta
+
+libdivecomputer 0.9.0 descrive **356 modelli**, di cui **110 parlano BLE** —
+l'unico trasporto praticabile da un telefono — che accorpati per nome commerciale
+diventano **105 voci e 20 marche**.
+
+_(`grep -c DC_TRANSPORT_BLE` ne conta 124, ma quattordici di quelle righe sono
+codice C. Il conto giusto lo fa `scripts/catalogo-computer.mjs`.)_
+
+**► L'ORDINE OVVIO È ESATTAMENTE QUELLO SBAGLIATO. ◄** Ordinando per numero di
+modelli, primo sarebbe **Ratio** — 25 modelli BLE, **l'1.3%** dei subacquei — e
+in fondo **Suunto**, 4 modelli e **il 20.3%**. **Shearwater** ne ha 11 e ce l'ha
+**uno su due** (51.5%). Da qui l'ordinamento per **diffusione**, con la fonte e
+il suo limite dichiarati in `src/core/ble/catalogo.ts`, e un test che lo difende.
+
+**Nessuna scelta finisce nel vuoto.** I driver di casa leggono 22 modelli su 105,
+e ogni voce dice cosa succede premendo:
+
+| Esito | Cosa vuol dire |
+| --- | --- |
+| si scarica | driver scritto in casa, provato con l'apparecchio in mano |
+| **via libdivecomputer, mai provato su questo modello** | la libreria c'è e conosce il protocollo — ma qui, con quel modello, non è mai stata eseguita |
+| non ancora via Bluetooth | la libreria lo saprebbe leggere, questa copia è compilata senza |
+| solo importando il file | Garmin: per sempre |
+
+**Garmin è nel catalogo apposta.** Nell'indagine è il 4.4%, quarta marca, e in
+libdivecomputer non compare: i Descent i dati via BLE non li danno a nessuno.
+Fino al debug quel ramo era **irraggiungibile** — chi cercava «garmin» riceveva
+«nessun modello con questo nome». Ora otto voci `MODELLI_SENZA_BLE` esistono per
+essere trovate e ricevere la risposta vera.
+
+---
+
+## libdivecomputer: adesso è accesa
+
+| Pezzo | Stato |
+| --- | --- |
+| elenco dei modelli, trasporto, scarico, traduzione in Rust, ponte BLE | c'è |
+| traduzione nel modello del logbook (`src/core/ble/esterni.ts`) | c'è, 18 controlli |
+| il punto di contatto (`src/storage/computerEsterni.ts`) | c'è |
+| il selettore che ci porta | c'è, fotografato e misurato |
+| **l'accensione nelle build di rilascio** | **fatta**: `default = ["computer-esterni"]` |
+| l'attribuzione dentro l'app | c'è: scheda «Riconoscimenti» nella pagina di sincronizzazione, con LGPL-2.1 e i collegamenti |
+| **la prova con un computer vero** | **manca, ed è l'unica cosa che manca** |
+
+**Le due cose da difendere**, scritte per esteso nel commento sopra `default` in
+`Cargo.toml`: il sorgente resta pubblico, e **il tarball versionato in
+`src-tauri/vendor/` resta _la_ fonte di compilazione** — non una copia di comodo.
+Finché è così, chiunque abbia il repository ha gli **stessi byte** contro cui è
+stato compilato il binario pubblicato, e può ricostruire la libreria da sé.
+
+**Il segnaposto «mai provato su questo modello» resta finché non c'è la prova su
+un apparecchio terzo.** In un logbook una lettura sbagliata non dà errore: dà un
+profilo plausibile e falso.
+
+### ► LA LGPL, DETTA CON LA PRECISIONE CHE HA E NON DI PIÙ ◄
+
+L'applicazione è MIT; l'unica dipendenza LGPL-2.1 è la libreria vendorizzata.
+
+**Il manutentore di libdivecomputer, interpellato direttamente nell'agosto 2026,
+ha detto di non avere obiezioni e di considerare la posizione di MyDiveLog
+conforme allo _spirito_ della licenza** — per un'applicazione open source ritiene
+accettabile anche il collegamento statico, perché chiunque può ricostruire
+l'intera applicazione, libreria compresa, dal sorgente. **Non ha dichiarato che
+la lettera della licenza sia soddisfatta**: dice esplicitamente il contrario, e
+attribuisce quella parte al lato Apple. **La sola condizione che chiede è che le
+modifiche e i miglioramenti alla libreria tornino a monte.**
+
+Va letta così com'è scritta, senza gonfiarla: non è un'esenzione e non è un
+parere legale. Ed è il motivo per cui il tarball resta versionato dov'è — passare
+a un sottomodulo, o a un download in fase di build, toglierebbe a chi riceve il
+binario proprio i byte da cui ricostruirlo.
+
+**E il debito verso monte è un impegno preso, quindi va scritto.** Quello che
+abbiamo in mano e non abbiamo ancora proposto:
+
+- **l'Aladin Sport Matrix si annuncia via BLE come «Aladin Sport»**, non «Aladin»
+  come lo elenca `descriptor.c`. È il motivo per cui il riconoscimento automatico
+  falliva su un apparecchio che la libreria supporta;
+- **il campo a offset 24 dell'intestazione Uwatec Smart**, che `descriptor.c`
+  marca come sconosciuto, **è la profondità media**: verificato su 85 immersioni
+  contro la media pesata sul tempo dei campioni.
+
+Il testo della LGPL-2.1 e l'elenco delle eccezioni stanno in `LICENSES/`;
+l'attribuzione file per file, con anche quello che dobbiamo restituire, sta nel
+README.
+
+---
+
+## Il debug del 25 agosto: otto difetti a catena verde
+
+**Sei di correttezza, tutti nel percorso libdivecomputer:**
+
+1. **`DECO_NDL` valeva 1, e vale 0.** `parser.h` dice `DC_DECO_NDL = 0`,
+   `DC_DECO_SAFETYSTOP = 1`; il commento sopra la costante dichiarava un ordine
+   inventato. Conseguenze silenziose: l'NDL non arrivava mai, i secondi di una
+   sosta di sicurezza finivano in `ndlS`, e ogni campione in curva riceveva
+   `ceiling: 0` — che in `dedupe.ts` regala due punti a quel profilo e gli
+   permette di **sostituire** il profilo vero di un driver di casa.
+2. **Le pressioni erano indicizzate sulla lista sbagliata**: `pressure.tank` è un
+   indice di BOMBOLE, `cylinders` nasceva dalle MISCELE. Un integrato con un gas
+   e il trasmettitore sulla bombola 2 faceva scrivere «nessuna pressione bombola:
+   consumo non calcolabile» su un'immersione con 130 bar consumati.
+3. Profondità media e temperatura minima arrivavano dal Rust e venivano buttate.
+4. Ogni rebreather entrava a circuito aperto (`mode` era `'oc'` fisso).
+5. Un record senza data diventava il 31 dicembre 1969 ed entrava in archivio.
+6. La durata veniva dall'ultimo campione invece che dal massimo.
+
+**Quattro d'interfaccia:** il catalogo e la risposta «non legge ancora»
+risorgevano da soli alla ricerca successiva (con l'autoFocus, cioè la tastiera
+che sale); il testo mandava «dal Diario», scheda che non esiste; il fuoco cadeva
+su `<body>` chiudendo il pannello; la risposta su Garmin era irraggiungibile.
+
+**E un controllo che non partiva più.** `scripts/screenshot.mjs`, il giro
+completo dell'interfaccia, moriva riempiendo il primo campo di testo che
+trovava: nelle impostazioni i primi due erano nome e brevetto, quindi l'indirizzo
+Turso finiva scritto nel nome del subacqueo e il pulsante restava spento. **Un
+controllo che non parte non è un controllo che passa.** _(Dalla 1.6.5 il secondo
+campo è una tendina, non più un campo di testo.)_
+
+**Il guardiano nuovo:** `tests/costantiLibdivecomputer.test.ts` scompatta il
+tarball versionato e confronta ogni costante con l'intestazione C vera — valori
+di enum, indici dei campi, le cinque modalità, `DC_GASMIX_UNKNOWN`, l'ordine dei
+campi di `dc_tank_t`. Rimettendo `DECO_NDL = 1` diventa rosso: verificato.
+
+**E la sicura in `dedupe.ts`:** un profilo letto da libdivecomputer non
+sostituisce mai un profilo di un driver provato sul campo. Nel caso peggiore si
+vede un'immersione nuova sbagliata — che si nota — invece di una giusta distrutta
+in silenzio.
+
+---
 
 ## Decisioni prese
 
 | Decisione | Scelta | Perché |
-|---|---|---|
+| --- | --- | --- |
 | Piattaforme | desktop macOS → iOS → web | ordine dichiarato dal proprietario |
-| Stack | Tauri 2 + React + TypeScript | un solo codebase per le tre piattaforme; build macOS ~10 MB; Tauri 2 supporta iOS |
+| Stack | Tauri 2 + React 19 + TypeScript | un codebase per tre piattaforme |
 | Logica | tutta in `src/core`, senza dipendenze da piattaforma | evita di riscriverla per iOS e web |
-| Storage | SQLite su desktop/iOS, IndexedDB sul web, dietro un'unica interfaccia | scelta automatica in base a `__TAURI_INTERNALS__` |
-| Schema | colonne indicizzate per ordinare + documento JSON per il resto | il modello evolverà con i computer nuovi, senza una migrazione per campo |
-| Profili | tabella separata, caricata solo aprendo una scheda | 2000 immersioni = ~700k campioni, impraticabili in lista su iPhone |
-| Grafici | SVG a mano, nessuna libreria | il profilo di profondità nessuna libreria lo fa bene; bundle leggero per iOS |
-| Deduplica | euristica di Subsurface (`dive::likely_same`) portata in TypeScript | la finestra temporale variabile gestisce gli orologi sfasati fra computer |
-| Scelta del profilo nel merge | vince chi ha più **canali**, non più campioni | l'Aladin campiona a 4 s ma non sa niente della decompressione; il Peregrine a 10 s registra tetto, TTS, NDL, CNS. I dati deco pesano doppio |
-| Il profilo perdente | conservato in `altSamples` se è più **fitto** | misurato sui dati reali: il profilo a 10 s legge l'oscillazione d'assetto **un terzo più bassa** di quello a 4 s sulla stessa immersione (rapporto mediano 0.66 su 38 coppie). Le velocità si misurano sempre sul profilo più fitto disponibile, così le immersioni restano confrontabili |
-| Provenienza | `Dive.extraSources`, elenco di tutte le fonti | con un campo solo, un'immersione fusa da due computer sembrava venire da uno |
-| Lettura SQLite e gzip | scritti a mano (`sqliteReader.ts`, `inflate.ts`) | evita `sql.js` (~1 MB di WASM) e mantiene sincrona l'interfaccia dei parser |
-| Database condiviso | libSQL/Turso, sincronizzazione **esplicita** | le embedded replicas richiedono binding nativi (niente iOS/web) e legano l'apertura alla rete; il logbook si consulta in barca |
-
-## Cosa è fatto
-
-- **7 parser**: UDDF, Shearwater XML, **Shearwater Cloud `.db`**, Garmin FIT (via
-  `@garmin/fitsdk`), **Scubapro LogTRAK**, Subsurface `.ssrf`, CSV di riepilogo.
-  Rilevamento sul contenuto, non sull'estensione.
-- **Decoder binario Uwatec Smart** (`parsers/uwatecSmart.ts`): il profilo dei
-  computer Scubapro sta in un blob base64 dentro il JSON LogTRAK. Riscritto da
-  `libdivecomputer/src/uwatec_smart_parser.c`; copre Galileo (152 byte di
-  intestazione), G2/G3/Aladin Matrix (84 byte), Smart PRO/COM/TEC.
-- **Decoder del log nativo Shearwater** (`parsers/shearwaterPnf.ts`): dentro il
-  database di Shearwater Cloud ogni immersione porta un blob gzip che è la copia
-  della memoria del computer (formato "sw-pnf", record da 32 byte, blocchi di
-  apertura 0x10-0x19, chiusura 0x20-0x29, campioni 0x01, finale 0xFF). Da lì
-  escono profilo, **tetto deco / TTS / NDL a ogni campione**, CNS, PPO2,
-  **gradient factor impostati**, modello decompressivo, densità dell'acqua
-  impostata, modalità, firmware, seriale, coordinate GPS. Riscritto da
-  `libdivecomputer/src/shearwater_predator_parser.c`.
-- **gzip e DEFLATE scritti a mano** (`parsers/inflate.ts`, RFC 1951/1952),
-  verificati contro `zlib` di Node. `DecompressionStream` è asincrono e
-  l'interfaccia dei parser è sincrona; una dipendenza per un solo `gunzip` stonava
-  con un progetto che legge già SQLite e un bitstream Uwatec a mano.
-- **Lettore SQLite puro TypeScript** (`parsers/sqliteReader.ts`): pagine b-tree,
-  varint, catene di overflow, alias del rowid. Verificato cella per cella contro
-  `sqlite3` su un database reale (2926 celle, 114 blob).
-- **Deduplica** fra fonti diverse, con merge che non sovrascrive i campi compilati
-  a mano, e **inferenza degli sfasamenti di orologio** (più gruppi: l'archivio
-  reale ne ha uno a un'ora e uno a due).
-- **Metriche**: RMV in L/min, oscillazione d'assetto a quota tenuta, velocità di
-  risalita su finestra mobile di 30 s con violazioni distinte sopra/sotto i 10 m,
-  sosta di sicurezza, tempo in deco e violazioni del tetto, riserva gas, PPO2 di
-  picco, END. Ogni metrica dichiara la propria affidabilità e **nessun valore
-  viene stimato** quando il dato non c'è.
-- **Statistiche**: totali, attività mensile su 24 mesi, tendenze di
-  consumo/assetto/risalita con regressione, fasce di profondità, siti, indicatori
-  di disciplina con denominatore esplicito.
-- **Piano di miglioramento**: 10 regole con priorità, evidenze numeriche,
-  obiettivo misurabile ed esercizi; scheda di preparazione verso tecnico /
-  profondo ricreativo / generale; debrief per singola immersione.
-- **Scheda immersione**: profilo con tetto deco sovrapposto e cursore condiviso con
-  i grafici sotto (temperatura, pressione bombola, velocità verticale con i limiti
-  tracciati, TTS, NDL, CNS, PPO2, RBT); una card di impostazioni **per ogni
-  computer** che ha registrato l'immersione; provenienza con tutte le fonti.
-- **Statistiche**: una riga di mediane del periodo — consumo, assetto, velocità di
-  risalita, GF99 all'uscita — ognuna con il numero di immersioni su cui si basa e la
-  direzione della tendenza; oltre a totali e tendenze, correlazioni con grafici a dispersione
-  (consumo/profondità, consumo/temperatura, assetto/consumo, zavorra/assetto),
-  distribuzioni a istogramma, storia delle impostazioni GF nel tempo, stagionalità.
-- **Finestra temporale** (`core/analysis/window.ts`): statistiche e piano si
-  calcolano sugli **ultimi 12 mesi** per difetto, con selettore 6/12/24 mesi e
-  archivio intero. Il logbook non è filtrato. La finestra parte da adesso e non si
-  allunga da sé per riempirsi.
-- **Analisi con Claude** (`src/ai/`): chiave API nelle impostazioni, modello scelto
-  fra quelli che l'API dichiara (nessun nome nel codice), tre analisi — immersione,
-  archivio, piano — con istruzioni che vietano di stimare i dati mancanti e
-  impongono di distinguere ciò che ha calcolato il computer da ciò che ha calcolato
-  l'app. Le analisi si conservano con data, modello e token consumati.
-- **Pianificatore di gas** (`core/analysis/gasPlan.ts`, scheda *Gas*): **piano delle
-  pressioni** — a che minuto devi avere quanti bar, con la curva e la tabella da
-  portare in acqua, la pressione di rientro tradotta in un minuto, e il profilo
-  disegnato sotto; **tempo alla profondità massima** come secondo tratto del fondo,
-  con la profondità del resto imposta dalla media e non ipotizzata; preset delle
-  bombole; esposizione all'ossigeno del piano (CNS %, OTU, minuti sopra 1.4 e 1.6);
-  MOD doppia 1.4/1.6, miscela migliore, narcosi in pressione parziale d'azoto. **Due
-  tempi in ingresso** — tempo di fondo e durata totale — con la distribuzione del profilo che
-  ne discende (barra fondo/risalita/soste, profilo disegnato, velocità di risalita
-  implicita, media dell'intera immersione che il computer scriverà a fine
-  immersione), gas d'emergenza in quattro fasi dichiarate, tempo di
-  fondo consentito dal gas, MOD/PPO2/END, e — la parte che un pianificatore generico
-  non può avere — il **consumo misurato** dall'archivio (75° percentile per
-  pianificare, mediana per sapere come vanno le cose) e il confronto con le pressioni
-  d'uscita reali alle immersioni di profondità simile. Il gas del fondo si calcola
-  sulla profondità **media**, precompilata dal rapporto medio/massima delle sue
-  immersioni; la massima decide emergenza, PPO2 e narcosi. Due scuole entrambe
-  supportate: riserva calcolata (rock bottom) o **riserva fissa in bar**, e regola di
-  rientro a terzi, a metà o nessuna. Con la riserva fissa il gas d'emergenza non
-  viene calcolato affatto. Non calcola la decompressione: le soste già pianificate si
-  sommano come minuti aggiuntivi.
-- **Identità**: marchio e icona sono il profilo di un'immersione — riempimento fra
-  superficie e traccia, punto bianco sulla sosta di sicurezza, le stesse due regole
-  del grafico dentro l'app (`src-tauri/icons/icon.svg`, `ui/components/Mark.tsx`).
-  Rigenerabile con `npx tauri icon`. Il claim: *il meglio dei tuoi computer, in un
-  logbook solo*.
-- **Esposizione all'ossigeno** (`core/analysis/oxygen.ts`): CNS % e OTU calcolati
-  dal profilo con le tabelle NOAA dei manuali TDI, per ogni immersione e accumulati
-  **per giornata** — il CNS col dimezzamento ogni 90 minuti in superficie, le OTU
-  additive perché non recuperano. Il valore che scrive il computer resta separato e
-  affiancato: modello diverso, numero diverso. In più la **velocità sull'ultimo
-  tratto**, dalla sosta alla superficie, misurata punto a punto perché la finestra
-  mobile di 30 s la nasconde — è dove DAN misura una media reale di 60 m/min.
-- **Bühlmann ZH-L16C con gradient factor** (`core/analysis/buhlmann.ts`): sedici
-  compartimenti, azoto ed elio, GF99 e tetto con la formula di Baker, limiti di non
-  decompressione. Serve a **rileggere** un'immersione fatta, non a pianificare la
-  decompressione. **Validato** contro Shearwater: `npm run validate:gf` confronta i
-  nostri GF99 con i suoi su 38 immersioni reali — scarto medio con segno −0.07
-  punti, assoluto 0.79, caso peggiore +2.6. Vedi *Cosa ha trovato la validazione*.
-- **Il Bühlmann collegato all'app** (`core/analysis/tissues.ts`): il modello non
-  gira più a vuoto. La riparazione all'avvio percorre l'archivio in ordine
-  cronologico e incatena i tessuti da un'immersione alla successiva, salvando in
-  `metrics` il GF99 all'uscita, quello massimo, il compartimento che comanda,
-  l'azoto residuo d'ingresso e — la cifra che si legge davvero — **quanto sarebbe
-  uscita la stessa immersione partendo da tessuti puliti**, cioè il prezzo
-  dell'intervallo di superficie. Il ricalcolo è incrementale: la seconda volta non
-  rilegge nessun profilo. Da qui: GF99 su **tutte** le immersioni con un profilo e
-  non solo su quelle Shearwater, il rigioco con altri gradient factor nella scheda
-  immersione, e la curva di sicurezza nel pianificatore.
-- **Pianificatore di decompressione** (`core/analysis/deco.ts`, scheda *Gas* →
-  *Tecnica*): profili multi-livello, più miscele con cambio automatico alla MOD
-  (1.4 al fondo, 1.6 in deco, arrotondata al metro così l'ossigeno serve ai sei),
-  soste arrotondate al passo scelto, gradient factor interpolati fra prima sosta e
-  superficie secondo Baker, ultima sosta e passo configurabili, consumo distinto
-  fondo/deco per singola bombola in litri e in bar, CNS e OTU riga per riga,
-  PPO2/EAD/END su ogni tratto, **controdiffusione isobarica** ai cambi gas con la
-  regola dei quinti, circuito chiuso con setpoint, quota d'inizio desaturazione,
-  tempo prima di poter volare, e le contingenze — più giù, più a lungo, entrambe,
-  e un gas perso alla volta — con la differenza di runtime e di soste. La modalità
-  *Ricreativa* resta quella di prima più la **curva di sicurezza**: a che minuto
-  esattamente il piano esce dalla curva.
-- **Cestino** (`storage/trash.ts`, scheda *Impostazioni*): cancellare mette
-  l'immersione nel cestino con il suo profilo — sparisce dall'archivio, smette di
-  sincronizzarsi, e resta recuperabile trenta giorni. La **lapide** che si propaga
-  agli altri dispositivi nasce solo svuotando il cestino, a mano o alla scadenza.
-  È la correzione di un difetto che avevamo introdotto noi: le lapidi avevano reso
-  la cancellazione immediata e irrevocabile ovunque.
-- **Secondo modello decompressivo: VPM-B** (`core/analysis/vpm.ts`): raggi critici,
-  schiacciamento con ramo permeabile e impermeabile, compensazione di Boyle,
-  algoritmo del volume critico con convergenza dichiarata, **algoritmo ripetitivo**
-  (i nuclei si incatenano da un'immersione all'altra, non solo i tessuti) e
-  **algoritmo di quota**. Nel pianificatore si
-  sceglie fra Bühlmann-GF, VPM-B e **il più lungo dei due sosta per sosta**. Le
-  soste scelte vengono poi *eseguite* dal motore di `deco.ts` (`imposedStops`), così
-  gas, ossigeno, avvisi e contingenze si calcolano sulla tabella che si è scelta e
-  non su un'altra. Riscontro esterno: schedule pubblicate (bwaite/vpmb,
-  thetheoreticaldiver.org) — siamo dal 5 al 10% più corti di V-Planner, dichiarato
-  nell'interfaccia. Misurato accendendo e spegnendo la sola subroutine dei nuclei:
-  l'allungamento di una ripetitiva viene **quasi tutto dai tessuti**, non dai
-  nuclei, che pesano solo sui profili intorno ai 30 metri (+6 minuti su 26). Resta
-  approssimata la salita in quota, trattata come istantanea: per chi si immerge
-  appena arrivato la tabella esce dal 2 al 4% più lunga di V-Planner.
-- **Quota, acqua dolce e ripetitive nel pianificatore**: la quota entra da un punto
-  solo (la pressione di superficie) e scende in ogni fase; l'acclimatazione conta
-  (salire in quota è una decompressione, e chi arriva da poche ore parte carico); e
-  si può ripartire dai tessuti di un'immersione dell'archivio con il suo intervallo
-  di superficie. Quota e salinità restano campi separati — al lago di montagna
-  valgono entrambe, ed è il caso in cui quasi tutti i pianificatori sbagliano.
-- **Circuito chiuso**: setpoint per livello, diluente, consumo metabolico distinto
-  fondo/deco, riempimento del circuito in discesa, bombola dell'ossigeno, e il
-  **bailout** — la risalita a circuito aperto dalla fine del fondo, che è il momento
-  peggiore, con la domanda che conta: il gas che porti basta?
-- **Il foglio da portare in acqua**: il piano in testo semplice, da copiare o
-  scaricare. Non un PDF: questa roba finisce su una lavagnetta.
-- **Il grafico dei sedici compartimenti** in scheda immersione: azoto per
-  compartimento, valore M, limite con i propri gradient factor, e quello che
-  comanda evidenziato. È il grafico che ogni computer mostra sott'acqua e che
-  nessun logbook mostra dopo.
-- **Curva e obbligo minuto per minuto** in scheda immersione (`decoTimeline`):
-  minuti residui in curva, tetto, TTS e GF99 istantaneo ricalcolati da noi lungo
-  tutto il profilo, con il valore del computer **tratteggiato sullo stesso
-  grafico** dove c'è. Esistevano già i grafici di NDL e TTS, ma disegnavano i campi
-  che il computer aveva scritto nei campioni — solo gli Shearwater li scrivono.
-  Adesso la curva c'è su ogni immersione campionata, e dove i due numeri
-  coesistono si vede la distanza fra le due implementazioni. I minuti in curva sono
-  calcolati dal carico che avevi in quel momento, non da tessuti puliti: è la
-  differenza fra un computer e una tabella. Trenta millisecondi su un profilo da
-  quaranta minuti.
-- **Il piano tecnico si salva**, da sé mezzo secondo dopo l'ultima modifica, e con
-  un nome quando lo si vuole ritrovare («il relitto a 45»). Viaggia anche fra
-  dispositivi: un piano tecnico si compila in minuti, non in secondi.
-- **La giornata, non l'immersione**: si pianifica la seconda immersione insieme
-  alla prima, con l'intervallo di superficie, e si vede la seconda cambiare mentre
-  si sposta la pausa. La prima non cambia mai — è la seconda a pagare.
-- **Bailout da una quota qualunque**, non solo dalla fine del fondo: se il gas dal
-  fondo non basta, la domanda diventa «da dove in su ce la faccio». Ogni tratto del
-  piano porta con sé i tessuti con cui finisce, ed è quello che permette di
-  ripartire da metà immersione senza rifare il piano.
-- **Claude rilegge la tabella di decompressione** (`decoPlanContext`,
-  `decoPlanAnalysis`): livelli, miscele, soste, gas, ossigeno e contingenze, con
-  l'istruzione vincolante di **non riscrivere la tabella** — se una sosta non
-  convince deve dire quale controllo la mette in dubbio, non proporne un'altra. Un
-  modello linguistico che riscrive una tabella di decompressione sta inventando
-  numeri.
-- **Il prezzo delle ripetitive**, in statistiche e fra i suggerimenti: quanto costa
-  il carico residuo in punti di GF99, mediana e caso peggiore, misurato rigiocando
-  la stessa immersione da tessuti puliti. È l'unica cosa del progetto che si può
-  dire solo guardando due immersioni insieme, e nessun computer subacqueo la dice.
-  La regola riporta il numero e non prescrive quanto aspettare: la durata di una
-  pausa la decidono la barca, il gruppo e il freddo.
-- **Prima della prossima immersione** (`core/analysis/nextDive.ts`, in cima al
-  *Logbook*): le cose che hanno una scadenza, in ordine di urgenza — pezzi
-  scaduti, azoto e CNS ancora in circolo se scendessi adesso, pausa lunga
-  dall'ultima uscita. Nessun semaforo complessivo: i fatti, e il giudizio a chi lo
-  deve dare.
-- **Export UDDF** (`core/export/uddf.ts`, scheda *Impostazioni*): tutto l'archivio
-  in un file standard, con o senza profili, e l'elenco esplicito di ciò che UDDF non
-  sa rappresentare. Il test che conta è il giro completo: esporta, reimporta,
-  confronta.
-- **Attrezzatura e scadenze** (`core/analysis/gear.ts`, scheda *Attrezzatura*):
-  bombole, erogatori, brevetti, certificato medico. Scadenza da intervallo o
-  esplicita, con l'aritmetica dei mesi che non fa slittare le date di fine mese.
-- **Confronto fra due immersioni** (scheda *Confronta*): due profili sullo stesso
-  asse dei tempi, senza riscalarli, e le stesse misure affiancate con la differenza.
-- **Mappa dei luoghi** (in *Statistiche*): la disposizione reciproca dei siti, senza
-  cartografia sotto e senza dipendenze nuove — e la pagina lo dichiara.
-- **Riparazione dell'archivio all'avvio** (`storage/repair.ts`): ricalcola le
-  metriche incoerenti e ripulisce i computer duplicati, senza chiedere un reimport.
-- **Sincronizzazione con database condiviso** (`src/sync/`, scheda *Sincronizza*):
-  piano senza rete in `plan.ts`, trasporto libSQL in `turso.ts`.
-- **1092 test**, più tre script di verifica: `npm run screenshot` (fotografa ogni
-  vista dalla build, incluso il percorso di errore della sincronizzazione),
-  `npm run validate:logtrak <file>`, `npm run validate:pnf <database.db>`.
-- **Dati dimostrativi**: `npm run demo` genera 6 file, 69 immersioni che diventano
-  48 dopo la deduplica.
-
-  Uno dei sei — `shearwater-peregrine-precedente.xml` — esiste per un motivo
-  solo: porta gradient factor DIVERSI dagli altri, e senza di lui l'archivio non
-  contiene nessun cambio di impostazioni del computer. La carta «Impostazioni
-  del computer nel tempo» si disegna solo in quel caso, quindi non veniva
-  disegnata da nessun controllo automatico — e il suo difetto (cinque colonne
-  senza contenitore che scorre, cioè la pagina che si trascina di lato sul
-  telefono) è stato trovato dall'utente sull'iPhone. **Un pezzo di interfaccia
-  che i dati dimostrativi non attivano è un pezzo che nessuno guarda prima
-  dell'utente**, ed è la stessa ragione per cui i siti dimostrativi hanno
-  coordinate vere.
-
-## Sincronizzazione
-
-Database su Turso, creato il 17 agosto 2026:
-
-- nome `mydivelog`, regione **AWS EU West (Ireland)**, TursoDB (riscrittura Rust)
-  **non** attivata;
-- indirizzo nella forma `libsql://<nome-database>-<utente>.<regione>.turso.io`;
-  quello vero sta nelle impostazioni dell'app e non nel repository, perché un
-  endpoint pubblicato è comunque un bersaglio anche quando serve un token
-- **il token lo genera il proprietario del database** dalla dashboard Turso ("Create Token") e lo
-  incolla nella scheda *Sincronizza*. Non passa da Claude e non entra nel
-  repository: vive nella tabella delle impostazioni dell'archivio locale.
-
-Regole, con la ragione:
-
-- **Riepilogo e profilo si decidono separatamente** — il più recente per l'uno, il
-  più ricco per l'altro. Il caso normale di questo archivio è la stessa immersione
-  arrivata da due fonti: una col profilo, l'altra con le note. Una regola unica
-  per tutto il record perderebbe una delle due.
-- **A parità di data decide il contenuto** (confronto dell'impronta), non "prima
-  il locale": così i due dispositivi nominano lo stesso vincitore e non si
-  riscrivono il record a vicenda per sempre.
-- **Nessuna cancellazione viene propagata.** Servirebbe un registro delle
-  eliminazioni; senza, cancellare è locale e la sincronizzazione successiva
-  riscarica l'immersione. Scelta dichiarata: meglio una di troppo che una perduta.
-- **Sincronizzare due volte di fila non fa niente la seconda volta**: è la
-  proprietà su cui insistono i test (19 test, di cui 9 contro un vero SQLite in
-  memoria al posto del client di rete).
-
-Da fare dopo aver incollato il token: la prima sincronizzazione reale
-(crea le tabelle e carica le 104 immersioni), poi verificare che la seconda non
-faccia niente.
-
-## L'archivio di riferimento
-
-Tutto quello che segue viene da un archivio personale reale, che **non è nel
-repository**: le decisioni di questo progetto sono state prese guardando dati
-veri, e vale la pena scrivere che cosa hanno mostrato anche senza pubblicarli.
-
-Due fonti fuse — un export LogTRAK (app Scubapro) e un database Shearwater Cloud
-dello stesso giorno. **104 immersioni su sei anni**, 76 ore sott'acqua, massima
-45.6 m; 85 hanno il profilo campionato, 19 sono state inserite a mano e restano
-senza. Mare e un lago, in Italia e all'estero: abbastanza varietà da far emergere
-sia il caso dell'acqua dolce sia quello dei fusi orari.
-
-**Due computer**: un Aladin Sport Matrix (Scubapro, `deviceTypeNumber` 0x17) e un
-Peregrine (Shearwater) usato dall'ultimo anno e mezzo. Il file Shearwater non
-aggiunge immersioni (0 nuove) ma **ne arricchisce 38**, che così hanno il profilo
-del Peregrine con tetto deco, TTS, NDL e CNS campione per campione. È il caso
-d'uso che giustifica l'esistenza dell'applicazione, ed è arrivato dai dati prima
-che da un requisito.
-
-Cosa è emerso dai log nativi del Peregrine:
-
-- **ha cambiato i gradient factor**: 45/95 da maggio a settembre 2025, poi 20/85
-  (due immersioni a ottobre 2025, poi stabilmente da marzo 2026). Confrontare il
-  GF99 all'uscita fra periodi diversi senza saperlo porta a conclusioni sbagliate;
-- **3 immersioni con tetto di decompressione reale** (6, 9 e 3 metri di tetto);
-  zero superamenti;
-- **4 immersioni arrivate a NDL 0**; TTS massimo osservato 11 minuti;
-- CNS massimo 8%: l'orologio dell'ossigeno non è mai stato un vincolo;
-- **densità dell'acqua lasciata a 1020 (mare) anche nelle immersioni in lago**:
-  in acqua dolce con l'impostazione mare il computer legge la profondità circa 2%
-  più bassa del vero.
-
-Cosa dice l'analisi sull'insieme:
-
-- consumo medio **20.1 L/min**, in miglioramento (20.7 → 19.4 fra prima e seconda
-  metà dello storico);
-- oscillazione a quota tenuta **2.8 m/min**, stabile (obiettivo sotto 2);
-- **21%** delle immersioni con risalite fuori limite, concentrate sopra i 10 m;
-- sosta di sicurezza completata nel **66%** dei casi;
-- **43%** delle immersioni chiuse sotto i 50 bar;
-- GF99 all'uscita: mediana 61, massimo 78 (ma vedi il cambio di GF sopra).
-
-Nota sulla qualità del dato: le pressioni bombola in LogTRAK sono inserite a mano e
-arrotondate a 10 bar, e una riga (200→5 bar) è quasi certamente un 50 digitato
-male: è il motivo per cui ogni metrica dichiara la propria affidabilità invece di
-fidarsi del dato.
-
-## Bug trovati usando l'app sui dati veri, per memoria
-
-Tutti e quattro sono stati visti prima usando l'app che dai test, e tutti e quattro
-avevano la stessa forma: il codice era corretto in isolamento e sbagliato nel
-contesto in cui gira.
-
-- **Metriche ereditate invece che ricalcolate.** Fondendo due fonti, le metriche
-  arrivavano dalla fonte che vinceva il profilo: la scheda mostrava 240 → 60 bar su
-  12 litri e accanto "consumo non calcolabile". Ora si ricalcolano sull'immersione
-  fusa, e le bombole si uniscono campo per campo.
-- **Hook condizionale.** Un `useMemo` dopo un return anticipato: la scheda fa due
-  render (senza campioni, poi con) e il numero di hook cambiava. Nessuna scheda si
-  apriva più. C'è un test che monta il componente nelle due sequenze.
-- **Misura della larghezza mai rieseguita.** `useRef` più effetto a dipendenze
-  vuote: al primo render il contenitore del grafico non esiste, e quando compariva
-  l'effetto non girava più. Profilo disegnato a 640 px dentro una carta larga il
-  doppio. Risolto con un ref di callback.
-- **Metriche non confrontabili fra computer diversi.** Preferendo il profilo del
-  Peregrine (10 s) per le 38 immersioni recenti, l'oscillazione d'assetto risultava
-  un terzo più bassa che sulle immersioni misurate col profilo Aladin (4 s): la
-  tendenza mostrava un miglioramento che era solo un cambio di strumento. Ora si
-  conservano entrambi i profili e le velocità si misurano sempre sul più fitto. Con
-  la base uniforme la tendenza dell'assetto risulta **piatta** (2.84 → 2.75 m/min),
-  non in miglioramento.
-- **Fusione contro un archivio senza profili.** La lista in memoria non porta i
-  campioni, quindi la versione in archivio valeva zero canali e qualunque cosa in
-  arrivo sembrava migliore: reimportando si perdeva il profilo del Peregrine (con i
-  dati deco) a favore di quello dell'Aladin, e il computer principale finiva
-  duplicato nell'elenco. Ora i profili delle immersioni vicine nel tempo vengono
-  caricati prima di fondere.
-
-#### I manuali didattici, agosto 2026
-
-Letti per intero quattro documenti TDI/PADI e confrontati con l'app: le note stanno
-in `docs/didattica.md`, con le pagine. Ne sono usciti tre gruppi di cose — i numeri
-presi (tabelle NOAA di CNS e OTU, MOD doppia, miscela migliore, narcosi in ata di
-azoto), una correzione netta (l'END considerava narcotico solo l'azoto: la didattica
-dice il contrario, e per il nitrox l'END è la profondità), e soprattutto la lista di
-ciò che l'app fa e che i manuali **non** coprono — regola dei terzi, riserva fissa,
-formula del rock bottom, tabella delle pressioni nel tempo. Quella lista serve a non
-attribuire alla didattica cose che sono nostre.
-
-### L'audit del pianificatore, agosto 2026
-
-Il pianificatore è stato riletto da un revisore avversariale che eseguiva davvero il
-codice invece di leggerlo. Ha trovato otto errori in una pagina che passava tutti i
-test, e il più caro era un **doppio conteggio**: la profondità media veniva
-precompilata col rapporto medio/massima dell'archivio — che è la media dell'*intera*
-immersione, risalita compresa — mentre il calcolo fatturava la risalita a parte. Su un
-profilo quadro a 30 m il piano sottostimava il gas del 12% e prometteva 15 bar in più
-all'uscita, e la carta «il piano contro la realtà» dava la colpa al consumo di un
-errore che era dell'aritmetica.
-
-Da lì è venuta la riscrittura del modello dei tempi. Le altre sette: un tempo di fondo
-consentito che restava positivo quando il gas non bastava; l'input mostrato diverso da
-quello usato nel calcolo; la somma delle durate delle fasi che non faceva il totale;
-un avviso che diceva «basta per 37 minuti, non 37»; la curva della profondità che
-riscalava il piano in un modo e il campo in un altro; un andata-e-ritorno sulla
-profondità che cambiava il piano in silenzio; e una sosta di sicurezza più profonda
-del fondo dell'immersione. Tutte hanno ora un test.
-
-Da qui è nato anche il **timbro di versione implicito** nella riparazione: quando si
-aggiunge una grandezza calcolata, basta aggiungere la sua assenza fra le incoerenze e
-gli archivi vecchi si aggiornano da soli al primo avvio, senza reimportare. Prima la
-riparazione sapeva vedere le incoerenze strutturali, non che il codice era cambiato.
-
-Due lezioni, oltre alle correzioni: **normalizzare gli input una volta sola e
-restituirli** (`plan.input` è ciò con cui si è calcolato, ed è ciò che la pagina
-mostra), e **una funzione sola per una trasformazione usata in due posti** — campo e
-grafico che riscalavano il piano in due modi era un errore che nessun test dei tipi
-poteva vedere.
-
-### Il debug completo, agosto 2026
-
-Una rilettura avversariale di tutto ciò che non era il pianificatore ha trovato otto
-difetti dimostrabili con un input concreto. I tre che corrompevano dati veri:
-
-- **Il CSV metteva le colonne nel campo sbagliato.** La corrispondenza parziale
-  degli alias vinceva per ordine di dichiarazione, non per specificità: "Average
-  Depth (m)" cadeva in `maxDepth` perché quell'alias contiene "depth", e siccome
-  l'ultima colonna vince la profondità massima veniva **sostituita dalla media**.
-  Stessa cosa per "Air Temp" che sovrascriveva la temperatura dell'acqua. Ora vince
-  l'alias più lungo.
-- **La PPO2 dei log Shearwater imperiali veniva convertita da PSI.** `imperialUnits`
-  governa profondità e temperatura, non una pressione parziale: un'immersione a 1.30
-  bar diventava 8.96, e l'app emetteva un allarme critico di ossigeno su
-  un'immersione regolare.
-- **La miscela non entrava nella fusione fra computer.** `mix` non è mai indefinito
-  — i parser che non la conoscono mettono aria — quindi il ciclo che riempie i buchi
-  non la copiava mai: su un'immersione in nitrox registrata da due computer vinceva
-  l'aria di chi non la sapeva, e la PPO2 di picco usciva sottostimata di un terzo.
-
-E il più diffuso: **gli orari erano sbagliati di un'ora per tutto l'anno.**
-`wallClockToIso` fissa deliberatamente l'orologio su UTC, ma la formattazione lo
-rileggeva nel fuso locale, annullando la scelta: un'immersione del 31 dicembre alle
-23:30 finiva contata nell'anno dopo. Nessuno dei 322 test lo vedeva perché il
-container gira in UTC.
-
-Gli altri: il denominatore delle violazioni del tetto era l'intero archivio invece
-delle immersioni in cui la verifica è possibile; il criterio "oltre i 24 m" contava
-quelle oltre i 30; l'istogramma scartava in silenzio i valori sotto il primo
-intervallo; una serie a valore costante veniva disegnata fuori dal riquadro.
-
-## Le due grandi insidie dei formati, per memoria
-
-**Il formato Uwatec non contiene NIENTE sulla decompressione** — né tetto, né NDL,
-né TTS, né tempo in deco. Verificato sull'intero elenco dei tipi di record: ci sono
-solo profondità, temperatura, pressione bombola (col trasmettitore), RBT, frequenza
-cardiaca, bussola e allarmi. Le soste obbligatorie di quelle immersioni si
-riconoscono dalla forma del profilo — oppure, ora, dal log del Peregrine.
-
-**Le colonne leggibili di Shearwater Cloud sono quasi tutte vuote.** Su un archivio
-reale sito, note, zavorra, GF, temperature sono `null`: l'app le riempie solo se
-l'utente le scrive a mano. Tutto il resto sta nel blob compresso. Leggere solo le
-colonne dava l'impressione che il database non contenesse niente.
-
-## Due lingue e testi più corti, 23 agosto 2026
-
-Due lavori fatti insieme perché toccano le stesse righe.
-
-**L'inglese.** Meccanismo in stile gettext: la chiave del dizionario è la frase
-italiana, si avvolge la stringa in `t()` e basta. Una frase non tradotta esce in
-italiano — che è la chiave — quindi il programma resta usabile a dizionario
-incompleto e non compaiono mai sigle al posto del testo. Il prezzo, dichiarato:
-cambiando la frase italiana si perde la sua traduzione.
-
-Tre file nuovi: `ui/lingua.tsx` (contesto, `useLingua()`, il pulsante `IT`/`EN`),
-`ui/traduzioni.ts` (circa millecinquecento voci, raggruppate per scheda),
-`ui/navigazione.tsx` (il «vai a quella scheda» che serviva agli stati vuoti).
-Più `ui/components/Vuoto.tsx`, uno stato vuoto solo per tutte le pagine, **con un
-pulsante**: prima ogni pagina diceva «importa un file per iniziare» e si fermava
-lì, lasciando trovare la scheda giusta — che sul telefono sta dietro il menu.
-
-Il dizionario arriva con un `import()` pigro e solo per chi sceglie l'inglese:
-sono 89 kB, e il test del budget del primo avvio li avrebbe presi (li aveva
-presi, la prima volta).
-
-La scelta si ricorda in `localStorage` e non nell'archivio: è una preferenza di
-*questo* dispositivo, e sincronizzarla vorrebbe dire che cambiando lingua sul
-telefono cambia anche sul Mac.
-
-**I testi.** Erano scritti per chi il programma lo stava scrivendo: perché l'UDDF
-perde il collegamento fra bombole e miscele, come si deduce il volume da
-`tank_summary`, perché React riconcilia per posizione. Sono cose vere e servono —
-ai commenti, dove sono state spostate. A schermo è rimasta una riga per ciascuna.
-
-**Due difetti presi durante il lavoro**, tutti e due dalla harness:
-
-- il cambio lingua in barra portava il documento a 412 px su uno schermo da 390,
-  cioè scorrimento orizzontale su **ogni** pagina, perché la barra c'è sempre.
-  Sotto i 700 px scende dentro il menu, con bersagli da 44 px;
-- lo stato vuoto dei suggerimenti, riscritto con `Vuoto`, cambiava l'elemento
-  radice della pagina da `div.page` a un frammento. React riconcilia per
-  posizione **e per tipo**: la regione live dell'annuncio veniva rimontata e
-  taceva proprio nel momento in cui doveva parlare. Da lì la proprietà `nuda` di
-  `Vuoto`. Il test c'era già e l'ha preso.
-
-E uno preso prima, che vale la pena ricordare come metodo: consegnare al Mac un
-tar dell'**intera** cartella `src/ui` dalla copia nel contenitore stava per
-cancellare codice più recente scritto sul Mac — la paginazione del logbook, fra
-l'altro. Da allora: prima si rilegge dal Mac, poi si modifica, e si consegnano i
-file toccati.
-
-**La harness** (`scripts/screenshot.mjs`) dichiara `locale: 'it-IT'`: senza,
-Chromium diceva `en-US` e lo script cercava pulsanti italiani in un'interfaccia
-inglese, fallendo alla prima attesa. In fondo fa un giro in inglese che fotografa
-quattro schede e verifica che nessuna voce di navigazione sia rimasta italiana.
-
-**Il sito** ha le schermate vere, in italiano su `/` e in inglese su `/en/`,
-prodotte da `scripts/immagini-sito.mjs` dalla stessa build che gira sul Mac.
-
-## CSV e KML, 23 agosto 2026
-
-Tre formati d'uscita invece di uno, perché sono tre domande diverse. L'UDDF
-porta le immersioni in un altro programma del settore; il **CSV** le porta in un
-foglio di calcolo, dove si fa quello che questa app non fa (una pivot, un conto
-per il club, un controllo a occhio su una colonna); il **KML** porta i siti su
-una mappa vera — il grafico nelle statistiche dichiara di non esserlo, e alla
-domanda «dov'è esattamente quel punto» non risponde.
-
-Le insidie pagate una volta per tutte, tutte e tre invisibili a occhio:
-
-- **il separatore del CSV.** Excel in italiano legge il punto e virgola, in
-  inglese la virgola, e chi apre quello sbagliato si ritrova tutto in una
-  colonna. Si scrive `sep=` in cima, che è l'unica dichiarazione che Excel legge
-  davvero, e il separatore segue la lingua dell'interfaccia;
-- **il separatore decimale**, che viaggia con il primo: in un foglio italiano
-  `17.4` entra come TESTO e la colonna non si somma. Nessun errore, e si scopre
-  alla fine;
-- **l'ordine delle coordinate in KML**, che è longitudine prima di latitudine —
-  l'inverso di come si scrivono. Invertite, le immersioni liguri finiscono in
-  Somalia e il file si apre lo stesso.
-
-Il KML raggruppa per **nome** del sito e non per coordinata: il GPS prende il
-punto in superficie e la barca si sposta, quindi due immersioni allo stesso posto
-non hanno mai la stessa coordinata al quinto decimale. Un segnaposto per
-immersione darebbe trentadue bolle sovrapposte sul sito di casa e nasconderebbe
-tutto il resto.
-
-Un difetto preso mentre si collegava all'interfaccia: la conferma diceva «7
-immersioni esportate» dopo il KML, che conta siti. La frase è ora composta da chi
-sa cosa sta contando — participio compreso, perché «7 siti esportate» è
-sbagliato in italiano.
-
-## Anche il nucleo parla inglese, 23 agosto 2026
-
-La passata sull'interfaccia aveva lasciato fuori il testo prodotto da
-`src/core`, `src/storage` e `src/sync`: gli avvisi dei parser nella tabella
-dell'esito («PPO2 Shearwater riscalata di 100…»), le sette righe del registro di
-sincronizzazione, i messaggi d'errore dell'archivio. In un'app impostata su EN
-erano l'unica cosa che restava italiana, e comparivano proprio nel momento in
-cui qualcosa non era andato liscio.
-
-Il tipo `Traduci` è passato in `src/core/traduci.ts` — `src/core` non può
-importare da `src/ui`, ed è il vincolo su cui è costruito tutto il progetto — e
-`src/ui/format.ts` lo riesporta. Ogni funzione che produce testo lo riceve come
-ultimo parametro, con l'identità come valore predefinito: **nessun chiamante si
-è dovuto toccare, test compresi**, e infatti i 1211 test sono passati senza
-correggere una sola aspettativa. È la prova che l'italiano prodotto è rimasto
-identico carattere per carattere.
-
-Due cose imparate:
-
-- le frasi con dentro un numero vanno spezzate col numero FUORI dalla chiave,
-  altrimenti servirebbe una voce di dizionario per ogni numero possibile;
-- gli oggetti che vivono più a lungo di un render (`SqliteStore`,
-  `IndexedDbStore`, `TauriBleTransport`) prendono la traduzione nel costruttore,
-  e passargli la `t` del momento congelerebbe la lingua del primo avvio. Da lì
-  `useTraduciStabile()` in `lingua.tsx`: una funzione fissa che dentro rilegge la
-  lingua corrente.
-
-Restano italiane, e sono dichiarate: le cinque note di `shearwaterPnf.ts` (la
-traduzione andrebbe infilata in tutta la catena del decodificatore a bit) e i
-messaggi che nessuno vede a schermo.
-
-## Prossimi passi, in ordine
-
-I primi due della lista precedente sono fatti e sono stati tolti: lo scarico
-Bluetooth funziona con due driver provati su computer veri (Shearwater Peregrine
-e Scubapro Aladin Sport Matrix, 117 immersioni in un giro solo), e l'app gira su
-un iPhone fisico, firmata con un Apple Developer Program.
-
-1. **Provare il Bluetooth DALL'IPHONE.** I due driver hanno scaricato da computer
-   veri, ma sempre dal Mac. È l'unica cosa che il simulatore non poteva dare, ed
-   è rimasta indietro. Il caso peggiore resta muto: su iOS il permesso Bluetooth
-   negato non produce nessun errore, e la ricerca sembra solo non trovare niente.
-2. **Un aggiornamento automatico per l'app desktop.** Da quando esiste una
-   release pubblica il problema è nato: chi scarica la 0.1.0 non ha nessun modo
-   di sapere che è uscita la 0.2.0. Tauri ha `tauri-plugin-updater`, che vuole
-   una coppia di chiavi e un file `latest.json` pubblicato — le release di GitHub
-   bastano a ospitarlo.
-3. **Tarare le istruzioni delle analisi** su quello che producono davvero
-   sull'archivio reale: le quattro modalità sono scritte al buio. I contesti sono
-   verificati, le RISPOSTE no.
-4. **libdivecomputer su iPhone.** La libreria si compila già per macOS da
-   `build.rs`; mancano la compilazione incrociata per `aarch64-apple-ios`, il
-   collegamento vero di `FlussoBle` a `blec`, la scelta di marca e modello fra i
-   356 supportati, e l'attivazione della funzionalità nelle build di rilascio.
-   È la strada che porta gli altri trecentocinquanta computer, oltre ai due di
-   casa.
-5. **Un riscontro indipendente per VPM-B.** È il debito tecnico più grosso che
-   resta: oggi il confronto è solo con schedule pubblicate, e siamo dal 5 al 10%
-   più corti di V-Planner. Dichiarato nell'interfaccia.
-6. **Compilare muta, zavorra ed erogatori sulle immersioni vecchie** (in blocco
-   dal logbook): le tabelle dell'attrezzatura si riempiono da sole, ma quei dati
-   nessun formato di esportazione li porta.
-7. **Condividere un'immersione in sola lettura**, se serve farla vedere a un
-   compagno o a un istruttore: oggi l'unica strada è dare il token del database,
-   che dà tutto l'archivio e il potere di cancellarlo.
-8. **Apple fra i fornitori di accesso.** `identita.ts` sa già verificarne i
-   token; manca lo scambio, che vuole un segreto che è a sua volta un JWT da
-   rigenerare ogni sei mesi.
-
-## Cosa ha trovato la validazione del Bühlmann
-
-Il confronto con i GF99 di Shearwater su 38 immersioni reali ha trovato due errori
-che nessun test sintetico aveva visto. Vale la pena tenerne il verbale, perché il
-modo in cui sono stati trovati conta quanto la correzione.
-
-**Punto di partenza:** scarto medio con segno −2.76, assoluto 2.78. Le due cifre
-quasi identiche dicono subito che non è rumore ma un errore sistematico in una sola
-direzione — e la direzione era la peggiore possibile, cioè l'app raccontava più
-margine di quello che c'era.
-
-1. **Le ripetitive ripartivano da tessuti puliti.** Raggruppando per giornata:
-   prime immersioni −1.93, ripetitive −4.02. `runProfile` non aveva modo di
-   ricevere il carico residuo. Aggiunta `desaturate()` e incatenate le immersioni
-   in ordine cronologico nel validatore: lo scarto delle ripetitive è sceso a
-   −3.13, cioè il divario è sparito ma il fondo è rimasto.
-
-2. **I coefficienti erano quelli della variante B.** Il file diceva ZH-L16C nel
-   commento e portava i valori della B dal quinto compartimento in giù, più uno
-   della A al tredicesimo. Un `a` più grande è un valore M più alto, cioè un
-   gradiente ammesso più largo, cioè un GF99 più basso. Con la tabella C
-   pubblicata: da −2.83 a −0.07 di scarto medio, assoluto 0.79.
-
-**Cosa è stato provato e scartato:** usare la densità dichiarata dal computer
-(1020 kg/m³, l'impostazione EN13319 del Peregrine) al posto della nostra costante
-di 1030 peggiora — la scansione ha il minimo esattamente a 1030. Probabilmente i
-1020 servono alla profondità a display e non al modello. Anche il vapore acqueo a
-0.0567 bar (valore US Navy) peggiora: 0.0627 (Bühlmann) resta.
-
-**Cosa protegge il risultato:** `tests/buhlmann.test.ts` ora inchioda i trentadue
-coefficienti uno per uno, leggendoli indietro dal comportamento di `gf99`. Serviva,
-perché i controlli sui limiti di non decompressione hanno intervalli larghi
-abbastanza da accogliere sia la B sia la C: il test che c'era prima non poteva
-accorgersene, e infatti non se n'è accorto per mesi.
-
-## Difetti noti, sistemati
-
-- **Cancellazioni che tornavano.** La sincronizzazione non aveva lapidi:
-  cancellare un'immersione su un dispositivo significava vedersela rimandare
-  indietro dall'altro. Ora c'è una tabella `deletions`, le lapidi salgono prima di
-  qualunque altra cosa (se arrivassero dopo, l'immersione verrebbe scaricata e poi
-  buttata, comparendo in elenco nel mezzo), e non scadono mai.
-- **Analisi che sparivano.** `analyses` viaggiava come oggetto unico con «vince la
-  più recente»: le analisi generate su un dispositivo venivano cancellate da
-  quelle dell'altro. Ora si fondono chiave per chiave, e dentro una chiave vince
-  l'analisi generata più tardi — non chi ha sincronizzato per ultimo.
-- **La soglia inventata del dente di sega.** La regola diceva «profili puliti»
-  sotto i 15 m/h di ridiscese, e quel quindici non veniva da nessun manuale. Al
-  suo posto: quante immersioni stanno oltre il doppio del proprio terzo quartile,
-  cioè quante sono anomale per chi le ha fatte.
-- **«Parte profonda per prima» era un booleano.** Due metri di differenza fra le
-  metà e venti davano lo stesso «no». Ora `depthTrendM` è una grandezza con segno,
-  e il booleano si ricava da lei.
-- **Confronto con le immersioni simili solo per profondità.** «A questa quota esci
-  con 70 bar» mescolava una da venti minuti e una da cinquanta. Ora filtra anche
-  sulla durata, con tolleranza di un terzo, e quando l'insieme si svuota torna al
-  criterio largo **dichiarandolo**.
-
-## Il debug generale di agosto 2026
-
-Quattro revisioni avversarie in parallelo — motore, dati e sincronizzazione,
-analisi, interfaccia — con l'obbligo di **eseguire** il codice e portare la
-riproduzione, non l'opinione. Hanno trovato una trentina di difetti; quelli che
-avrebbero prodotto un numero sbagliato in acqua sono questi.
-
-### Motore
-
-- **Il bailout leggeva i tessuti della discesa.** Su un profilo multilivello
-  cercava il segmento d'inizio risalita con l'etichetta invece che col runtime di
-  fondo, e su un'immersione che chiedeva 50 minuti di soste e 140 bar rispondeva
-  «nessun obbligo, 11 bar». Ora parte da `bottomRuntimeMin`.
-- **Il gas perso ricalcolava l'immersione con quello che restava**, senza
-  rimappare gli indici: un'immersione a 60 m veniva ricalcolata sull'ossigeno
-  puro, oppure andava in errore. Ora gli indici si rimappano.
-- **`ndlMin` veniva dai tessuti puliti** anche sulle ripetitive: il pianificatore
-  mostrava 42 minuti di curva dove ne restavano 20. Ora la curva si calcola dai
-  tessuti che hai davvero, `remainingNoDecoMin()`.
-- **VPM con impostazioni degeneri** (passo delle soste a zero) produceva `NaN` e
-  quindi una tabella *senza soste*, che è il modo peggiore di fallire. I valori
-  degeneri ora tornano ai predefiniti.
-- **`tankL === 0` significava «non so»** invece di «vuota», e la verifica del gas
-  non protestava.
-
-### Dati e sincronizzazione
-
-- **Il ripristino dal cestino veniva annullato dalla sincronizzazione
-  successiva**: la lapide restava, e l'immersione tornava nel cestino da sola. Ora
-  un'immersione modificata dopo la lapide cancella la lapide, non se stessa.
-- **`decoPlans` e `gear` viaggiavano con «vince l'ultimo»**: i piani salvati su un
-  dispositivo cancellavano quelli dell'altro. Ora si fondono per chiave.
-- **Le date UDDF impossibili diventavano il 1970.** Ora l'immersione viene scartata
-  con un avviso: una data sbagliata rompe la catena dei tessuti in silenzio.
-
-### Analisi
-
-- **La tabella delle pressioni non descriveva il piano che le stava sopra**: usava
-  il tuo consumo invece di quello della squadra, ignorava la quota e addebitava al
-  gas di fondo le soste pagate con lo stage. Sul caso peggiore l'ultima riga dava
-  106 bar dove il piano prometteva 69, e il minuto di rientro sbagliava di tre.
-  Le fasi ora portano il flag `fromStage` e la tabella legge consumo e persone
-  dalla fase.
-- **Due mediane per la stessa grandezza**: `quartilesOf` prendeva l'elemento
-  centrale, che con un numero pari di valori non è la mediana (5.6 nei quartili,
-  5.4 nelle pagine).
-- **Un consumo mai misurato era «0 L/min»** nei criteri di prontezza, cioè un
-  criterio superato. Ora è indefinito e la pagina scrive «non misurato» — la
-  stessa regola che il prompt di sistema impone alle analisi.
-
-### Interfaccia
-
-- **La tabella delle miscele accettava 40/70**: il resto era azoto negativo e il
-  motore lo calcolava senza protestare. Il vincolo sta ora in `withFraction`
-  (`units.ts`), dove il numero entra.
-- **«era 47» spariva subito**: `usePrevious` aggiornava il riferimento a ogni
-  render, e il salvataggio automatico dell'input ne provocava uno. Ora il
-  confronto è sul contenuto.
-- **Contrasto sotto la soglia AA** su cinque colori: il grigio dei testi
-  secondari a 3.5:1, il rosso degli errori a 3.3:1 sullo scuro, il giallo degli
-  avvisi a 1.8:1 sul chiaro. La tavolozza è stata rifatta per tema, e
-  `tests/contrast.test.ts` legge il foglio di stile e calcola i rapporti: nessuno
-  può più abbassarne uno senza che un test lo dica.
-- **La scelta del periodo faceva scorrere la pagina in orizzontale** a 390 px. Il
-  controllo è ora nel `screenshot.mjs` (`TRABOCCO A 390 px`), su otto pagine.
-- **«Violazioni del tetto deco: 0» col pallino verde su zero immersioni
-  verificabili**: «non verificabile» veniva mostrato come «tutto a posto». Ora la
-  riga mostra un trattino e dichiara il denominatore vuoto.
-- **`40/undefined`** nei gradient factor: parecchi computer scrivono solo il GF
-  basso. L'etichetta la scrive ora `gfOf`, cioè quello che il motore ha usato.
-- Dodici caselle senza nome accessibile nella tabella delle miscele, «1
-  immersioni» in una decina di punti, e due stati vuoti mancanti (archivio vuoto
-  in Confronta, nessun risultato nel Logbook).
+| Storage | SQLite su desktop/iOS, IndexedDB sul web, dietro un'unica interfaccia | scelta automatica da `__TAURI_INTERNALS__` |
+| Profili | tabella separata, caricata solo aprendo una scheda | 2000 immersioni = ~700k campioni |
+| Grafici | SVG a mano, nessuna libreria | il profilo di profondità nessuna libreria lo fa bene |
+| **PDF** | **scritto a mano, uscita ASCII** | su iPhone non esiste una finestra di stampa, e il foglio serve **lì** |
+| Deduplica | euristica di Subsurface + impronta del profilo + veto sull'identificativo interno | tre difetti diversi, tre rimedi diversi |
+| **L'ora di un computer subacqueo** | **si crede all'ORA A PARETE, non all'UTC che dichiara** | un computer sa che ora segnava, non in che fuso si trovava. Vale anche per libdivecomputer |
+| **Il fuso da applicare** | **quello del dispositivo che scarica, alla DATA dell'immersione** | l'ora legale va valutata allora, non oggi |
+| **Una frase con dentro un numero** | **`frase(t, '… {0} …', valore)`, mai un template literal** | la chiave del dizionario è la frase intera: con il numero dentro cambia a ogni chiamata e non ci entra mai |
+| **La traduzione di una frase con segnaposti** | **si controlla che porti GLI STESSI segnaposti dell'italiano** | una che ne perde uno resta grammaticale e fa sparire un numero in silenzio: è il difetto che non si trova rileggendo |
+| **Il locale di date, ore e numeri** | **un registro in `core/locale.ts`, scritto da chi decide la lingua** | non è un dato della chiamata, è una preferenza sola del dispositivo — e passarlo per quaranta firme vuol dire dimenticarlo di nuovo |
+| **`en-GB`, non `en-US`** | giorno prima del mese, orologio a 24 ore | è come scrive le date il computer subacqueo da cui quelle immersioni arrivano |
+| **Il libretto e il foglio del piano** | **restano in italiano in ogni lingua** | sono il documento dell'art. 12 comma 8: tradurli non li renderebbe più internazionali, li renderebbe non conformi |
+| **Un confronto «è cambiato?»** | **si normalizza da tutti e due i lati, in una funzione** | da un lato solo, un token incollato con uno spazio in coda spegne il pulsante per sempre |
+| **La chiave di una riga in una lista** | **una chiave sua, salvata col dato** | con l'indice, togliendo una riga in mezzo lo stato passa al vicino — e su una bombola quello stato dice che gas c'è dentro |
+| **► Un messaggio d'errore mostrato a una persona ◄** | **non porta MAI il nome di una dipendenza; se il dettaglio tecnico non si può ripulire, non si mostra affatto** (28 agosto 2026) | il primo utente esterno ha letto una riga inglese col nome della libreria BLE dentro un'app italiana. Chi legge non impara niente e non sa cosa fare: sembra soltanto che l'app si sia rotta. La macchina per rispondere bene c'era già, col percorso delle impostazioni tradotto per ogni sistema: mancava chi la accendesse |
+| **L'elenco dei nomi da non far uscire a schermo** | **copre i LIVELLI SOTTO L'INTERFACCIA, non le dipendenze di `package.json`** (28 agosto 2026) | la prima versione si è accesa contro di noi su `@garmin/fitsdk` — «garmin» è una marca che nominiamo apposta — e dentro «t**hrust**». Due eccezioni dichiarate col loro motivo: **`libdivecomputer`** (l'attribuzione LGPL resta visibile) e **`SQLite`** (la riga che dice dove stanno i dati) |
+| **L'ordine delle marche nel selettore** | **per diffusione, non per numero di modelli** | Ratio: 25 modelli e l'1.3%. Suunto: 4 e il 20.3% |
+| **Un modello che non si scarica** | **si mostra lo stesso, e dice perché e come fare invece** | un pulsante spento non dice perché è spento |
+| **Driver di casa vs libdivecomputer** | **due esiti distinti, scritti sotto il nome** | in un logbook una lettura sbagliata non dà errore, dà un profilo plausibile e falso |
+| **libdivecomputer nei pacchetti** | **accesa, e si corregge quando qualcuno segnala** | la libreria copre 105 modelli contro i 22 dei driver di casa |
+| **Come si compila quella libreria** | **`configure` dove c'è una shell, la cassa `cc` dove non c'è** | mescolare l'ABI di mingw con quella di MSVC dà un pacchetto che si installa e crolla |
+| **Il ritorno dell'accesso su Android** | **loopback, come sul desktop** | lo schema URL costava un manifesto generato da rattoppare e un certificato stabile che non abbiamo |
+| **L'analisi con un modello** | **fuori dall'applicazione** | è l'unica uscita che nessuno ha verificato, e l'unica cosa che il revisore non può provare |
+| **Le costanti copiate da un'intestazione C** | **confrontate da un test con l'intestazione vera** | una trascrizione sbagliata di un enum non dà errore: dà un numero plausibile |
+| **Un conto scritto dentro un commento** | **inchiodato da un test come qualunque altro numero** | l'elenco cresce, il commento no — e a un commento si crede più che a un dato, perché sembra una spiegazione |
+| **Un percorso nominato in un file di configurazione** | **confrontato da un test con le rotte che il servizio serve davvero** (27 agosto 2026) | `wrangler.toml` rimandava a `/segnalazioni.csv`, che non è mai esistita: la configurazione prometteva una maniglia che non c'era, e il cassetto si è riempito per settimane |
+| **Una dichiarazione che vale per due piattaforme** | **si controlla che sia in TUTTI i plist, e che dica la stessa cosa** (27 agosto 2026) | `ITSAppUsesNonExemptEncryption` era in `Info.ios.plist` e non in `Info.plist`, e la mancanza si è scoperta solo il giorno del primo caricamento sul Mac App Store. Due risposte diverse alla stessa domanda doganale, per la stessa applicazione, sono una contraddizione agli atti |
+| **`minimumSystemVersion` per macOS** | **12.0, e un test non lo lascia scendere finché il binario è solo arm64** (27 agosto 2026) | diceva 10.15 **da sempre**: il `.dmg` del sito prometteva di girare su Mac Intel e su Catalina, dove installa e non si apre. L'ha scoperto Apple rifiutando un caricamento, non un utente e non un test |
+| **Il pacchetto per il Mac App Store** | **sandbox accesa e aggiornatore tolto alla COMPILAZIONE**, non nascosto (27 agosto 2026) | una copia del negozio che si aggiorna da sola è motivo di rifiuto, e un pulsante «cerca aggiornamenti» che non fa niente è peggio di nessun pulsante |
+| **Le segnalazioni dal sito** | **prima l'archivio del Worker, POI la copia nel foglio** | l'archivio è la verità e il foglio è la copia comoda: un guasto di Google costa una copia mancata, non una segnalazione persa |
+| **La risposta di un Apps Script** | **si legge il CORPO, non lo stato** | risponde 200 anche quando rifiuta, perché il rifiuto è testo: fidarsi dello stato è fallire somigliando in tutto al successo |
+| **Rileggere le segnalazioni** | **uno script dal Mac che passa da `wrangler`, non una rotta** | una rotta che restituisce i contatti di chi ha scritto è una superficie nuova su Internet da proteggere; `wrangler` è già autenticato |
+| **Le quattro piattaforme sul sito** | **due gruppi detti a parole, non quattro schede di grandezza diversa** (27 agosto 2026) | la differenza affidata alla dimensione si legge solo se qualcuno la nota; scritta, chi arriva da Windows sa subito che c'è e in che condizioni |
+| **Il marchio Apple sul sito** | **la mela nell'occhiello, non il badge ufficiale** (27 agosto 2026) | **decisione del proprietario, informato che è il contrario di quello che Apple prevede**: il badge «Scarica su App Store» è l'uso consentito a un terzo, la mela come icona di sezione no. È un **tracciato in linea** e non il carattere della mela, che vive nell'area privata di Unicode e su Windows e Android uscirebbe come un rettangolo vuoto |
+| **Le schermate della scheda del negozio** | **restano quelle del proprietario, non si rifanno dal simulatore** (27 agosto 2026) | decisione sua: mostrano un archivio vero |
+| **Le sei classi CSS che nessuno usa** | **non si toccano** (27 agosto 2026) | decisione sua, e non c'è nessun difetto visibile: sono righe morte, non un guasto — al contrario di `.pulsante-attesa`, che descriveva uno stato dell'interfaccia e per questo è stata tolta |
+| **Il sito, a ogni rilascio** | **si ripubblica solo se è cambiato** | i pulsanti puntano a `releases/latest/download/...` e seguono la release da soli |
+| Multiutente | un database per persona, accesso facoltativo | l'isolamento è fisico |
+| **Condividere un'immersione in sola lettura** | **fuori dal perimetro** (26 agosto 2026) | **decisione del proprietario, e il motivo non è stato messo agli atti.** Qui non ce n'è scritta una, perché inventarne una plausibile sarebbe peggio che dichiarare il vuoto. La descrizione di cosa sarebbe servita — leggere senza modificare e senza vedere il resto — resta in `architettura.md`, dove è nata |
+| **Autenticazione** | **Google e Apple, tutti e due** | linea guida 4.8, non negoziabile |
+| **Bersaglio iOS** | **solo iPhone** | togliere l'iPad dopo aver pubblicato sfila l'app dagli iPad di chi l'aveva |
+| **Numerazione** | **1.x dappertutto** | App Store Connect confronta i numeri pezzo per pezzo |
+
+---
+
+## Cosa c'è
+
+**Import.** Sette parser rilevati dal contenuto, non dall'estensione. Decoder
+Uwatec Smart e log nativo Shearwater riscritti da libdivecomputer. gzip/DEFLATE e
+lettore SQLite scritti a mano. Deduplica fra fonti. Inserimento a mano, modifica
+in blocco, unione a mano di due schede.
+
+**Scarico via Bluetooth: due driver verificati sul campo, più libdivecomputer per
+tutti gli altri.** Shearwater (Peregrine) e Scubapro/Uwatec (Aladin Sport Matrix,
+117 immersioni in un giro). Scarico incrementale con segnalibro, ripresa a metà,
+diario tecnico, byte grezzi. Il selettore dice sempre cosa succede, e
+**«Interrompi» funziona per tutta la durata dello scarico**, anche via
+libdivecomputer. **E quando la ricerca non parte, adesso dice perché**: il
+permesso negato ha un messaggio suo, col percorso delle impostazioni giusto per
+il sistema che si sta usando.
+
+**Il libretto dell'art. 12, comma 8 — tutte e tredici le lettere**, con la firma
+della guida raccolta col dito e conservata come tratti, **e un modo di uscire dal
+riquadro senza firmare**. Nome e brevetto stanno nelle Impostazioni, sotto «Dati
+per il LogBook», e il brevetto si sceglie fra quelli registrati lì sotto.
+
+**Il catalogo delle didattiche**: quattordici scuole, 192 brevetti, con la
+profondità che ciascuna dichiara — e il silenzio dove non la dichiara.
+
+**La scheda in PDF, anche dall'iPhone**, generata a mano, uscita ASCII.
+
+**La scheda di un'immersione**, col **gas analizzato** per bombola confrontato
+con la miscela dichiarata.
+
+**Analisi del profilo.** Bühlmann ZH-L16C con GF validato contro Shearwater;
+CNS/OTU per giornata del luogo, **e per la miscela di ogni fase**; i sedici
+compartimenti.
+
+**Statistiche e suggerimenti**, con criteri cumulativi e prove numeriche.
+
+**Pianificazione** gas e decompressione, con quota in tutti i conti — **compresi
+i litri, che adesso li contano in bar e non in ATA**.
+
+**Archivio**: cestino a trenta giorni, sincronizzazione libSQL **in tutte e due
+le direzioni**, backup JSON, riparazione all'avvio.
+
+**Quattro formati d'uscita** più il backup JSON.
+
+**Accesso con Apple e con Google, facoltativo**, con cancellazione dell'account
+dentro l'app.
+
+**Due lingue, italiano e inglese, senza più eccezioni nell'interfaccia** — piano
+di miglioramento compreso, e tradotto davvero: 1969 voci, nessuna vuota. Restano
+volutamente in italiano solo i due fogli stampabili (il libretto di legge e il
+foglio del piano) e le note interne che nessuno vede a schermo.
+
+**Il sito** `mydivelog.site`, IT su `/` e EN su `/en/`, **con la scheda iOS che
+porta al negozio** in tutte e due le lingue.
+
+**Un modulo di segnalazione che arriva a destinazione.** Scrive nell'archivio del
+Worker e da lì una copia finisce nel foglio di Google, con la parola d'ordine che
+protegge lo script e un travaso dal Mac per quello che resta indietro.
+
+**► iOS: pubblicata sull'App Store. ◄** Approvata il 26 agosto 2026 al terzo
+invio; i due rifiuti precedenti — 2.1 (informazioni) e 2.1(a) (crash su iPad
+toccando «Take Photo or Video») — sono chiusi tutti e due. La versione che il
+negozio serve è la **1.6.3**; la scheda è in **italiano soltanto**, e questo si
+misura: la stessa descrizione italiana torna interrogando la vetrina americana.
+
+**► macOS: il pacchetto per il Mac App Store esiste ed è stato consegnato. ◄** 27
+agosto, 21:44, al terzo tentativo. Non è ancora in revisione: manca la risposta
+alla domanda doganale e l'invio.
+
+---
+
+## Prossimi passi
+
+### Tocca a chi pubblica
+
+1. **Il Mac: sciogliere «Conformità mancante» e MANDARE IN REVISIONE.** La build
+   `1.7.0 (1.7.0)` è consegnata e la sua scheda aspetta una risposta alla domanda
+   sull'esportazione della crittografia — che è **no**, nessuna crittografia
+   oltre le esenzioni. Poi si sceglie la build, si caricano schermate e
+   descrizione, e **si invia**. _Se serve rifare il pacchetto, quel numero è
+   consumato: serve una versione nuova._
+2. **La 1.7.0 su App Store Connect per iPhone: guardare a che punto è, e mandarla
+   in revisione se è solo caricata.** Il proprietario dice di averla già
+   caricata — **non è verificato, e non si sa se sia soltanto caricata o già
+   inviata**. Il pacchetto esiste e non serve ricompilare niente. **Il segno che
+   è arrivata a destinazione è pubblico**, e non serve nessun accesso:
+   `itunes.apple.com/lookup?id=6804439480` smetterà di rispondere `1.6.3`.
+3. **La scheda del negozio in inglese**, e adesso vale per **due** negozi. È una
+   localizzazione su App Store Connect, non una build nuova, e non promette più
+   niente che l'app non mantenga: l'interfaccia è tradotta per intero, piano di
+   miglioramento compreso. **Oggi non c'è**: la vetrina americana serve la
+   descrizione italiana, ed è il modo di accorgersi del giorno che cambia.
+
+> _Il 27 agosto da questo elenco sono uscite due voci, e nessuna delle due è
+> stata dimenticata. **«Aspettare l'esito della revisione»** è chiusa: l'esito è
+> arrivato ed è positivo. **«Le schermate dal simulatore»** è una decisione del
+> proprietario, che tiene le sue: sta fra le **decisioni prese**. Un elenco di
+> cose da fare da cui le righe spariscono senza motivo diventa, nel giro di un
+> mese, un elenco di cui nessuno sa più cosa sia stato deciso e cosa
+> dimenticato._
+
+### Tocca al codice
+
+4. **Provare libdivecomputer con un computer che non sia il Peregrine né
+   l'Aladin** — e solo allora togliere il «mai provato su questo modello». Adesso
+   vale anche per Android, dove la libreria è dentro.
+5. **Restituire a monte le due scoperte**: il nome BLE dell'Aladin Sport Matrix e
+   l'offset 24 dell'intestazione Uwatec (profondità media). È la sola condizione
+   che il manutentore della libreria ha chiesto, quindi non è una cortesia.
+6. **Un'impronta del profilo anche per il log PNF Shearwater.**
+7. **Un riscontro indipendente per VPM-B.**
+8. **Dire sul sito che il pacchetto macOS vuole macOS 12 e Apple Silicon.** Il
+   pacchetto ha smesso di dichiarare il falso, ma la pagina non dichiara niente,
+   e per chi ha un Mac Intel il risultato è lo stesso — scarica, installa, non si
+   apre. _È una riga di HTML._
+9. **Scarico via USB/seriale**, TestFlight, iPad, **condivisione di
+   un'immersione in sola lettura**: fuori. _(L'ultima è entrata in questa riga il
+   26 agosto, per decisione del proprietario e senza che il motivo sia stato
+   messo agli atti — vedi le **decisioni prese**. Le altre tre stavano già qui.)_
+
+### Le insidie di iOS, pagate e scritte in README
+
+Tutte hanno la stessa radice: **`gen/apple/` è generata e non versionata**.
+
+- **`tauri ios init` NON riscrive un file che trova già lì**, e dice comunque
+  «Project generated successfully». Gli script `ios:*` cancellano `project.yml`
+  prima di rigenerare, e un test lo impone.
+- **Il manifesto della privacy** va copiato prima dell'init, o arriva ITMS-91053.
+- **`libapp.a` finisce nelle risorse**: 470 MB invece di 6. Lo toglie
+  `scripts/pulisci-progetto-ios.mjs`, che toglie anche **l'iPad**.
+- **CoreBluetooth va dichiarato** in `bundle.iOS.frameworks`.
+- **Le icone vanno quadrate e opache**; **il telefono va registrato a mano** la
+  prima volta.
+- **`npm run ios:telefono` non arriva in fondo, ma il punto in cui si ferma
+  cambia.** Fino alla 1.6.7 si fermava all'esportazione (`Couldn't load
+  -exportOptionsPlist`); sulla 1.7.0 l'`.ipa` è stato esportato regolarmente e il
+  comando è caduto **dopo**, ricompilando per installare sul telefono, con _The
+  developer disk image could not be mounted on this device_ e uscita 70 — perché
+  il telefono era bloccato. **In tutti e due i casi l'`.ipa` firmato esiste già**
+  in `gen/apple/build/arm64/`: si mette in salvo fuori dal repository e si
+  installa a parte con `xcrun devicectl device install app` — che sulla 1.7.0, a
+  schermo sbloccato, è andato al primo colpo. _Non se ne concluda che l'export
+  adesso funziona sempre: non è cambiato niente di nostro fra le due volte. Si
+  guarda il file e la sua data, non l'etichetta._
+- **`npm run ios:negozio` invece arriva in fondo**, e il `.ipa` che produce è
+  quello firmato per App Store Connect: va copiato FUORI da `gen/apple/`, che la
+  build successiva rigenera.
+- **Dopo l'installazione si verifica sul telefono, non nel messaggio.**
+  `xcrun devicectl device info apps` dice quale versione c'è davvero, e
+  `devicectl device process launch` dice se parte: _«App installed» significa che
+  i file sono al loro posto, non che l'app si apra._
+- **La CSP è l'elenco dei servizi raggiungibili.** Oggi sono due: Turso e il
+  servizio di accesso.
+- **Su iOS non c'è la stampa**: al suo posto l'esportazione in PDF.
+- **Il selettore file senza `accept` fa comparire la fotocamera**, e su iPad
+  toccarla ha fatto crashare l'app in revisione.
+
+### Le insidie della pubblicazione su Mac
+
+**Per il `.dmg` del sito:**
+
+- **`bundle_dmg.sh` fallisce se una build precedente ha lasciato un volume
+  montato.** Si smonta `/Volumes/dmg.*`, si cancellano il `rw.*.dmg` e la `.sig`
+  vecchia, e riparte.
+- **L'app non resta aperta dopo l'installazione** se LaunchServices punta a un
+  inode cancellato: `lsregister -f` sulla cartella dell'app.
+- **`notarytool` può scadere lato client mentre Apple ha già accettato.** Non si
+  rimanda: si interroga con `notarytool info <id>`.
+
+**Per il `.pkg` del Mac App Store** — tutte scoperte il 27 agosto, e tutte
+**dopo** una compilazione intera:
+
+- **Togliere l'aggiornatore non basta a spegnerlo**: senza
+  `createUpdaterArtifacts: false` la build muore con _plugins > updater doesn't
+  exist_, perché Tauri cerca la configurazione di un plugin che si è appena
+  tolto.
+- **`com.apple.application-identifier` e `com.apple.developer.team-identifier`
+  mancanti non fanno fallire la firma**: `codesign` scrive quello che gli si dà,
+  e il rifiuto arriva al caricamento. Lo script adesso li confronta col profilo
+  di provisioning prima di consegnare.
+- **La quarantena del browser viaggia dentro il pacchetto.** `xattr -cr` dopo la
+  copia e **prima** della firma.
+- **`minimumSystemVersion` sotto 12.0 con un binario solo arm64 è un rifiuto
+  automatico**, e prima ancora è una bugia detta a chi scarica dal sito.
+
+---
+
+## Limiti noti, misurati e scritti nel codice
+
+- **L'ancora dei gradient factor** è il tetto arrotondato alla griglia.
+- **Il Bühlmann è validato su 38 immersioni di UN computer.**
+- **Il fuso delle immersioni scaricate è quello del telefono**: non è chiudibile,
+  l'informazione nel computer non c'è.
+- **Il permesso Bluetooth negato adesso ha un messaggio suo**, col percorso delle
+  impostazioni giusto per il sistema in uso: l'errore che lo dice esiste, e lo
+  lancia `scan()`. **Restano muti due casi**, e da fuori si somigliano tutti e
+  due a «nessun computer qui intorno»: quando il pannello del permesso non è mai
+  comparso, e quando il computer è spento, lontano o non in modalità
+  collegamento. Fino al 28 agosto qui era scritto che il permesso negato fosse
+  indistinguibile: non era vero, e a smentirlo è stato il primo utente esterno.
+- **Il PDF usa i font base** e la codifica WinAnsi; il testo va a capo contando i
+  caratteri.
+- **libdivecomputer non è verificata con un computer vero**, ed è accesa lo
+  stesso: la scelta è dichiarata sotto ogni modello che la usa.
+- **Il pacchetto macOS gira solo su Apple Silicon e da macOS 12**, e il sito non
+  lo dice. Fino al 27 agosto il pacchetto stesso dichiarava 10.15, che era falso:
+  adesso dice la verità, ma la pagina di scaricamento tace. Sta fra i prossimi
+  passi al numero 8.
+- **Windows e Android non li ha provati nessuno**, e il sito lo scrive prima dei
+  pulsanti. Adesso fanno tutto quello che fa il Mac; l'unica differenza vera è
+  che su Android l'aggiornamento automatico non c'è e non può esserci.
+- **Il catalogo dei brevetti è fermo a una data.** Le didattiche cambiano gli
+  standard — CMAS l'ha fatto nel 2023-24 e i numeri vecchi girano ancora — e ogni
+  voce porta la sua fonte proprio per poterla ricontrollare. Non c'è niente che
+  avvisi quando invecchia.
+- **Una segnalazione resta marcata «da travasare», ed è voluto.** Nell'archivio
+  del Worker ce ne sono due; quella del 26 agosto — una prova — non ha il campo
+  `foglio` e non è stata né copiata né cancellata, **per decisione del
+  proprietario**. _È scritto qui perché un contatore fermo su un numero diverso
+  da zero, senza una riga che dica perché, in tre mesi diventa un guasto da
+  cercare._
+- **► LE TRADUZIONI INGLESI LE HA SCRITTE CHI SCRIVE IL CODICE, E NESSUN
+  MADRELINGUA LE HA RILETTE. ◄** Vale per **tutto** il dizionario — **1969
+  voci** — non solo per le 247 aggiunte con la 1.7.0, e non è un limite di
+  copertura: le voci con l'inglese **vuoto sono zero** e quelle in cui l'inglese
+  è **identico all'italiano sono 19**, tutte parole che in inglese si scrivono
+  uguale. Il testo inglese c'è ed è inglese vero. Quello che manca è **una
+  rilettura da parte di qualcuno che quella lingua la parla da sempre**:
+  registro, naturalezza, le sfumature che un non madrelingua non sente. È un
+  limite reale e senza scadenza, e sta qui e non fra i prossimi passi perché non
+  si chiude scrivendo codice.
+  **La difesa che esiste, e che copre il difetto peggiore di tutti:**
+  `tests/pianoTradotto.test.ts` pretende che italiano e inglese portino **gli
+  stessi segnaposti** — sulle **241** frasi del piano e sulle **107** voci del
+  dizionario che ne contengono almeno uno, oggi le discordanze sono **zero**.
+  _Una traduzione che perde un `{1}` non dà errore e non sembra rotta: la frase
+  resta grammaticalmente sensata e sparisce solo il numero._ «The deepest part
+  does not come first on {0} dives» smette di dire su quante immersioni, e
+  nessuna rilettura se ne accorge — è precisamente il genere di difetto che si
+  trova con una riga di test e non si trova mai leggendo.
+- **VPM-B non ha un riscontro indipendente**: siamo dal 5 al 10% più corti di
+  V-Planner, dichiarato nell'interfaccia. È il debito tecnico più grosso.
+
+---
+
+## Le lezioni
+
+> ### ► LA LEZIONE DEL 28 AGOSTO: CI SONO DIFETTI CHE NESSUN TEST E NESSUNA RILETTURA POSSONO TROVARE, PERCHÉ PER VEDERLI SERVE QUALCUNO CHE NON SA COSA STA PER FARE ◄
+>
+> Il primo utente esterno di questa applicazione ha premuto «Cerca il computer»
+> con il permesso Bluetooth negato, e ha letto una riga in inglese col nome della
+> libreria BLE dentro. In quella riga ci sono due difetti, e nessuno dei due era
+> raggiungibile da qui.
+>
+> **Il primo non si poteva provare.** Per vederlo serve un telefono su cui
+> qualcuno abbia detto di no, e su quelli di casa era stato detto di sì una volta
+> per sempre. Non è una prova che manca per pigrizia: è una condizione che chi
+> sviluppa **non attraversa mai più**, perché quel pannello lo si vede una volta
+> sola nella vita di un'installazione. _Tutte le altre lezioni di questo
+> documento parlano di guardie da scrivere; questa parla del pezzo di mondo che
+> resta fuori da qualunque guardia, e dice che l'unico strumento per arrivarci è
+> una persona che non sappia cosa sta per fare._
+>
+> **Il secondo era una cosa che il codice AFFERMAVA.** Non che quel messaggio
+> fosse brutto: che quell'errore **non potesse esistere**. In due commenti stava
+> scritto che il permesso negato è indistinguibile da «nessun computer qui
+> intorno», e da lì la frase era passata pari pari nei **limiti noti** di questo
+> documento. Era una deduzione: `getAdapterState` non lo dice, `checkPermissions`
+> non lo dice, quindi non lo dice nessuno. Il terzo posto — `scan()` — non era
+> stato interrogato. **E l'affermazione era scritta come se fosse stata
+> misurata**, che è esattamente il difetto già registrato qui due volte: _un
+> numero scritto in un commento è un'affermazione come tutte le altre_, e _chi
+> scrive una frase ha già in testa la ragione per cui la crede vera: rileggendola
+> ritrova la ragione, non il fatto._ Stavolta la prosa non stava in un commento
+> soltanto: era diventata un **limite dichiarato**, cioè una cosa che nessuno
+> avrebbe più provato a smentire, perché era già scritta fra le cose che non si
+> possono fare.
+>
+> **La terza cosa, quella che rende il caso peggiore di com'è già:** la macchina
+> per rispondere bene c'era da sempre. `BleUnavailable` ha `denied` e `off`, e i
+> loro testi erano già tradotti col percorso delle impostazioni giusto per ogni
+> sistema. Il ramo della ricerca fallita metteva `unsupported` fisso e ci
+> appendeva il messaggio della libreria. _Non mancava la capacità di dare la
+> risposta giusta: mancava chi la chiamasse_ — e a nasconderlo era la stessa
+> frase che dichiarava che quella risposta non fosse possibile.
+>
+> Adesso c'è `src/core/ble/causaGuasto.ts` e c'è
+> `tests/permessoBluetooth.test.ts`, nove prove **viste rosse rimettendo il ramo
+> di prima**. Ma la guardia arriva dopo: quello che ha aperto la porta non è
+> stato un test, è stato un estraneo con un telefono.
+
+> ### ► LA LEZIONE DELLA SERA DEL 27 AGOSTO: UNA RIGA CHE VALE PER DUE POSTI, SCRITTA IN UNO SOLO, NON DÀ ERRORE — DÀ UN'ATTESA ◄
+>
+> `ITSAppUsesNonExemptEncryption` era in `Info.ios.plist` da mesi, con un test
+> che la difendeva. Nel plist di macOS non c'era. Non se n'era accorto nessuno
+> per una ragione che sembra una scusa e invece è il punto: **fino a quella sera
+> su macOS non si caricava niente su App Store Connect**, e a un `.dmg` la dogana
+> non chiede niente. La mancanza è diventata visibile nell'unico momento in cui
+> costa — a pacchetto consegnato — e si è manifestata come una build che aspetta,
+> non come un errore.
+>
+> **La lezione gemella, e più cara: un numero scritto a mano che descrive il
+> binario sbagliato è una bugia che non fa rumore.** `minimumSystemVersion`
+> diceva 10.15 mentre il binario era solo arm64, e il sito lo prometteva a
+> chiunque scaricasse. Per settimane. Chi ha un Mac Intel avrebbe visto un
+> pacchetto che si installa e non si apre — che è la forma peggiore di guasto,
+> perché somiglia a un difetto dell'utente. **Non l'ha scoperto un utente, non un
+> test, non una rilettura: l'ha scoperto Apple**, rifiutando un caricamento che
+> col sito non c'entrava niente.
+>
+> Le due insieme dicono la stessa cosa da due lati: _quello che il pacchetto
+> DICHIARA di sé non lo verifica nessuno, finché non arriva a un cancello che
+> legge le dichiarazioni._ Adesso lo verifica `tests/macNegozio.test.ts`, e le
+> sue sei prove sono state **viste rosse una per una**, mutando i file — perché
+> una guardia verde al primo colpo non ha ancora dimostrato niente.
+
+> ### Le quattro lezioni del 26 agosto
+>
+> **La prima: una frase con dentro un numero non è una frase che si è dimenticato
+> di tradurre — è una frase che non si poteva tradurre.** Per mesi «il piano di
+> miglioramento non è tradotto» è stato in tre punti di questo documento come un
+> lavoro da fare. Non era un lavoro da fare: era un pezzo di infrastruttura
+> mancante. Chi lo legge come pigrizia lo rimanda per sempre; chi lo legge come
+> un impedimento tecnico lo chiude in una sera.
+>
+> **La seconda: una banda di tolleranza larga non è prudenza, è cecità
+> comprata.** La prova sul consumo accettava da 14.5 a 17.5 su 16 chiesti. Con
+> quella banda addosso, un errore di unità di misura nelle immersioni di prova è
+> rimasto invisibile per tutta la vita del progetto — e ogni altra prova
+> costruita su quelle immersioni misurava contro un bersaglio spostato. _La banda
+> va stretta a quello che l'aritmetica giustifica, non a quello che fa passare il
+> test._
+>
+> **La terza: una guardia che non può diventare rossa è peggio di nessuna
+> guardia.** Il controllo nuovo sulle chiavi costruite interpolando, la prima
+> volta, non poteva accendersi: l'estrazione non guardava l'apice inverso, cioè
+> esattamente il carattere del difetto che cercava. Se ne è accorto solo chi
+> l'ha provata a rovescio. Nessuna guardia si dichiara buona perché è verde: si
+> dichiara buona dopo che le si è visto il rosso.
+>
+> **La quarta: ► ANCHE UN DOCUMENTO APPENA SCRITTO È UN'AFFERMAZIONE DA
+> VERIFICARE, E CHI LO SCRIVE È NELLA POSIZIONE PEGGIORE PER ACCORGERSENE. ◄** In
+> tre punti era finito scritto che «restano da tradurre in inglese le 247 voci
+> nuove». Nessuno aveva aperto il dizionario: la frase era stata **dedotta** da
+> «il dizionario è passato da 1725 a 1969 voci», che è un'altra cosa. Le
+> traduzioni c'erano tutte, ed erano inglese vero. È la stessa specie di errore
+> che questo progetto ha già pagato due volte — _non si crede a un documento che
+> dice «manca X»_, _un numero scritto in un commento è un'affermazione come tutte
+> le altre_ — commessa stavolta **mentre si scriveva la documentazione**, cioè
+> nell'unico punto della catena dove non c'è né un compilatore, né un test, né
+> qualcuno a valle che la rilegga. Il rimedio è lo stesso di sempre e costa un
+> minuto — **si apre il file e si conta.**
+>
+> _(È successo di nuovo la sera del 27: era stata scritta la frase «la 1.7.0 è
+> sull'App Store dal 27 agosto», dedotta e non verificata. Il `lookup` risponde
+> `1.6.3`. Corretta subito, e registrata qui perché **la stessa lezione, imparata
+> il giorno prima, non ha impedito di rifare l'errore il giorno dopo**: quello
+> che lo ha impedito è stato lanciare il comando.)_
+
+> ### ► «RILASCIATA» E «COMMITTATA» NON SONO LA STESSA COSA, ANCHE QUANDO OGGI COINCIDONO ◄
+>
+> Il numero di versione dentro `package.json` dice soltanto cosa c'è nel
+> repository: non dice che esista una release, né che qualcuno abbia
+> quell'applicazione installata, **né che sia quella che il negozio consegna**.
+> Il 26 agosto le due cose hanno coinciso solo alla fine — per un paio d'ore la
+> 1.7.0 è stata committata, compilata e notarizzata **e ferma lì**, al passo 2 di
+> otto, e chiunque avesse letto «la 1.7.0» in un documento avrebbe dato per
+> scontato che ci fosse qualcosa da scaricare.
+>
+> **Quindi la frase in testa a questo documento non va creduta: va verificata**,
+> oggi come domani, perché questi documenti invecchiano fra una compilazione e
+> l'altra.
+
+---
 
 ## Prova su un archivio che non è il suo
 
-`tests/smoke.test.ts` percorre il giro intero — import da quattro formati con
-sovrapposizioni, deduplica, riparazione, catena dei tessuti, statistiche,
-suggerimenti, debrief, export UDDF e rientro — su un archivio costruito apposta con
-i casi che quello di riferimento non ha: ripetitive nella stessa giornata, lago
-freddo, immersioni decompressive, un'immersione senza sosta di sicurezza, e il
-pianificatore spinto su profili estremi. Non verifica che i numeri siano giusti
-(per quello ci sono i test dei moduli e il riscontro con Shearwater): verifica che
-la catena non si rompa e non produca assurdità quando l'app la userà qualcun altro.
+`tests/smoke.test.ts` percorre il giro intero su un archivio costruito apposta.
 
-`npm run schermate:ble` copre la metà che nessun test poteva vedere: le schermate
-dello scarico Bluetooth esistono solo quando una ricerca trova qualcosa, e nel
-browser il Bluetooth non c'è — è di lì che è passato il difetto arrivato fino
-all'utente, l'elenco dei dispositivi che si trascinava di lato su iPhone. Compila
-con `VITE_FINTO_BLUETOOTH=1` in `dist-ble/` (nella build normale il finto non
-esiste: la bandiera è di compilazione, e lo script lo verifica cercandolo dentro
-`dist/`), e fotografa a 390 e 1280 px elenco dei dispositivi, avanzamento, esito
-riuscito, diario tecnico aperto, riquadro dei segnalibri, scarico interrotto a
-metà, computer che non risponde, ricerca a vuoto dopo i dodici secondi e Bluetooth
-spento. Soprattutto MISURA: per ogni contenitore che può scorrere confronta
-`scrollWidth` con `clientWidth` ed esce con errore se sfora — la misura che
-mancava, perché il documento restava pulito mentre un riquadro dentro la pagina si
-trascinava di lato.
+`tests/oraDeiDueComputer.test.ts` usa i **quattro record veri** del 24 agosto
+2026 e le due ore a parete dichiarate dal proprietario.
 
-## Da verificare con file reali
+`scripts/schermate-bluetooth.mjs` fotografa e misura **32 schermate** a 390 e
+1280 px col Bluetooth finto, controllando il trabocco **contenitore per
+contenitore** — e adesso anche che il catalogo non risorga da solo.
 
-- **`currentTime` di Shearwater XML** non ha unità documentate: il parser ricava la
-  scala dal passo mediano fra campioni.
-- **`averagePPO2` di Shearwater XML** viene riscalato di 100 quando supera i 3 bar,
-  con un avviso. Assunzione non documentata.
-- **Export JSON dell'app Suunto** (dalla 6.0.2): più dati del FIT ma struttura
-  delle chiavi sconosciuta. Serve un file reale.
-- **Offset 24 dell'intestazione Uwatec** = profondità media: libdivecomputer lo
-  marca come sconosciuto, l'inferenza è confermata su 85 immersioni (differenza
-  mediana 1 cm) ma resta un'inferenza.
-- **GF99 campione per campione**: nel log del computer non c'è. Shearwater Cloud lo
-  ricalcola da sé; noi leggiamo solo il valore all'uscita che scrive lui.
-- **Ramo delle temperature negative** del log Shearwater (correzione +102 presa da
-  libdivecomputer): non verificabile su questo archivio.
-- **Byte non interpretati** nel campione Shearwater (10, 16, 17, 24-27, 29-31):
-  libdivecomputer non li documenta e non vengono letti.
+`scripts/screenshot.mjs` apre l'app vera in un browser: si DIGITA, non si
+riempie; si misura a 390 px sul serio; si contano entrambi i lati; la lingua si
+dichiara. **E si sceglie il campo per il suo segnaposto, non per il suo tipo.**
 
-Il CSV di Shearwater non è supportato di proposito: le sue intestazioni non sono
-documentate pubblicamente.
+`scripts/confronto-ldc/` mette tre implementazioni dello stesso formato binario
+una accanto all'altra: zero divergenze su 85 immersioni.
+
+**I test che leggono il sorgente**, perché quello che manca è codice corretto e
+nessun compilatore lo segnala: `gestoriPerPiattaforma` (i comandi Rust per le
+quattro piattaforme), `sorgentiLibdivecomputer` (i file dal `Makefile.am`),
+`costantiLibdivecomputer` (gli enum contro l'intestazione C),
+**`brevettiEschede`** (dove stanno i brevetti, che le tabelle non scorrano, che
+le schede si portino in vista), **`dizionario`** (che ogni frase passata a `t()`
+abbia la sua voce, in tutto `src/` e `scripts/`), **`rotteDichiarate`** (che ogni
+percorso nominato fra apici inversi in `wrangler.toml` sia una rotta che
+`worker.ts` serve davvero), **`macNegozio`** (che i due plist Apple diano la
+stessa risposta alla dogana, che il minimo di sistema regga il binario, che le
+entitlements portino l'identificativo vero) e adesso **`permessoBluetooth`** (che
+la ricerca fallita classifichi la causa vera invece di appendere il messaggio
+della libreria, e che nessuno dei nomi dei livelli sotto l'interfaccia possa
+uscire a schermo). Di tutti è stato verificato che diventano rossi.
+
+**E `pianoTradotto`**, che è l'unico a guardare la traduzione e non la chiave:
+estrae dal sorgente le 241 frasi del piano, pretende che ognuna abbia la sua voce
+inglese, e — la parte che vale di più — che i **segnaposti siano gli stessi**
+nelle due lingue. È l'unica rete che c'è sulla qualità di una traduzione, e copre
+esattamente il difetto che nessun lettore troverebbe.
+
+**E `catalogoBrevetti`**, che fa tre mestieri: controlla la tenuta del catalogo —
+niente doppioni, e **i metri d'accordo col livello**, perché un `base` che
+dichiara 40 m è una riga copiata e non ricorretta che nessun compilatore vede —
+inchioda uno per uno i numeri che il senso comune sbaglia, col motivo scritto
+accanto, e **rilegge i conti scritti nei commenti** (`tests/inLettere.ts` sa
+scrivere i numeri in lettere, con le elisioni: «ventuno», «quarantatré»).
+Mettendo 40 m al CMAS Two Star si accendono **due** controlli.
+
+> **Una guardia che si accende per niente insegna a non fidarsi di lei.** Il
+> controllo sulla carta del libretto ritagliava 4000 caratteri fissi ed è
+> diventato rosso appena alla carta è stato aggiunto un commento. Adesso ritaglia
+> fino alla parentesi che chiude la funzione. Per la stessa ragione `inLettere`
+> conosce le elisioni: una guardia che si accende su una forma che nessuno
+> userebbe insegna a spegnerla. **E il 28 agosto è successo di nuovo, due volte
+> di fila**: la guardia sui nomi da nascondere si è accesa su `@garmin/fitsdk` e
+> dentro «thrust». Aveva ragione il codice, non la guardia — e la regola è
+> diventata più stretta e più vera.
+>
+> **E il gemello: una guardia troppo larga non si accende mai.** La banda di
+> tolleranza sul consumo ne è l'esempio, ed è raccontata più sopra.
+
+### La regola di consegna verso il Mac, pagata cara
+
+**Prima si rilegge `src/` dal Mac**, si verifica con `diff -rq`, poi si modifica,
+e si consegnano **solo i file toccati**.
+
+**E la regola gemella:** prima di aprire un sorgente per capire perché una
+funzione «non c'è», si guarda la data del pacchetto installato — o si smette di
+credere al commento in testa al file.
