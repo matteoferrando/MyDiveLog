@@ -334,18 +334,27 @@ export class TauriBleTransport implements BleTransport {
        * Mac, e lo stato dell'adattatore non aiuta — l'enum del plugin ha solo
        * `Unknown | Off | On`, non esiste un valore «non autorizzato».
        *
-       * La conseguenza, misurata leggendo il plugin: chi tocca «Non consentire»
-       * sul pannello di iOS non riceve nessun errore. Lo stato resta `Unknown`,
-       * che non è `Off`, quindi si arriva qui, si risponde «disponibile», e la
-       * ricerca gira a vuoto per sempre senza trovare niente e senza dire
-       * perché — sulla funzione principale dell'app, su un telefono.
+       * Quindi qui dentro il permesso non si vede: lo stato resta `Unknown`,
+       * che non è `Off`, si risponde «disponibile», e la ricerca parte.
        *
-       * Non potendo distinguere «negato» da «nessun computer acceso qui
-       * intorno» senza scrivere codice CoreBluetooth nostro, la scelta è NON
-       * indovinare qui: la ricerca parte, e se dopo un po' non ha trovato
-       * niente l'interfaccia nomina il permesso fra le cause possibili (vedi
-       * `BleDownload`). È meno preciso di un errore vero, ed è infinitamente
-       * meglio di un silenzio.
+       * ► MA LA CONCLUSIONE CHE STAVA SCRITTA QUI ERA SBAGLIATA, E L'HA
+       * SMENTITA UN UTENTE VERO. ◄ C'era scritto che chi tocca «Non consentire»
+       * **non riceve nessun errore**, e che quel caso fosse indistinguibile da
+       * «nessun computer acceso qui intorno». Il 28 agosto 2026 il primo utente
+       * esterno dell'app ha premuto «Cerca il computer» su un iPhone in cui
+       * aveva detto di no, e sullo schermo è comparso `Permission denied`.
+       *
+       * L'errore c'è: non lo danno `getAdapterState` né `checkPermissions` —
+       * per quelli il ragionamento qui sopra resta vero — lo dà **`scan()`, che
+       * lancia**. Si guardavano i due posti in cui l'informazione non c'era e
+       * non il terzo in cui c'era. Nessun test poteva accorgersene: per vederlo
+       * serve un telefono su cui qualcuno abbia detto di no, e su quelli di casa
+       * era stato detto di sì una volta per sempre.
+       *
+       * Adesso quell'errore viene classificato in `core/ble/causaGuasto.ts` e
+       * `BleDownload` risponde col percorso delle impostazioni giusto per il
+       * sistema. Il ripiego dei dodici secondi resta, ma per il caso che è
+       * davvero muto: il permesso mai chiesto, e il computer spento o lontano.
        *
        * Il controllo resta perché su Android funziona davvero, ed è il posto
        * giusto in cui chiedere: se il pannello comparisse a metà di uno

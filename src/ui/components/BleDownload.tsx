@@ -42,7 +42,8 @@ import {
   type BleUnavailable,
   type DownloadEvent,
 } from '../../core/ble/types';
-import { TauriBleTransport } from '../../storage/ble';
+import { TauriBleTransport, permessoNegato } from '../../storage/ble';
+import { causaDelGuasto, dettaglioLeggibile } from '../../core/ble/causaGuasto';
 import { esporta } from '../esporta';
 import { suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
@@ -314,13 +315,44 @@ export function BleDownload() {
         setTrovati(elenco);
       }, ctl.signal);
     } catch (err) {
-      setStato({
-        fase: 'non-disponibile',
-        motivo: {
-          reason: 'unsupported',
-          detail: `${t('La ricerca non è partita')}: ${err instanceof Error ? err.message : String(err)}`,
-        },
-      });
+      /*
+       * ► QUI SI LEGGEVA «Btleplug error: Permission denied». ◄
+       *
+       * Non in un log: sullo schermo del primo utente esterno dell'app, il 28
+       * agosto 2026, alla prima cosa che ha provato a fare. Il messaggio
+       * appendeva l'errore grezzo, e l'errore grezzo portava il nome di una
+       * libreria — in inglese, dentro un'app italiana, a una persona che voleva
+       * solo scaricare le sue immersioni.
+       *
+       * E c'era di peggio: `reason` era **fisso** su `unsupported`. Il tipo
+       * `BleUnavailable` ha da sempre anche `denied` e `off`, e i loro testi
+       * esistevano già tradotti — solo che questo ramo non li usava mai. La
+       * macchina per rispondere bene c'era: mancava chi la accendesse.
+       *
+       * Adesso l'errore si classifica, e per i due casi che hanno una risposta
+       * si dice ALLA PERSONA COSA FARE, col percorso giusto per il suo sistema.
+       * Per il caso «non lo so» resta il dettaglio tecnico, ma ripulito: se non
+       * si può ripulire non si mostra, perché una frase chiara da sola è meglio
+       * di una frase chiara seguita da una che spaventa.
+       */
+      const causa = causaDelGuasto(err);
+      const dettaglio = dettaglioLeggibile(err);
+      const motivo: BleUnavailable =
+        causa === 'denied'
+          ? { reason: 'denied', detail: permessoNegato(t) }
+          : causa === 'off'
+            ? {
+                reason: 'off',
+                detail: t('Il Bluetooth di questo dispositivo è spento. Accendilo e riprova.'),
+              }
+            : {
+                reason: 'unsupported',
+                detail:
+                  dettaglio === ''
+                    ? t('La ricerca non è partita')
+                    : `${t('La ricerca non è partita')}: ${dettaglio}`,
+              };
+      setStato({ fase: 'non-disponibile', motivo });
     }
   }, [transport, t]);
 
@@ -814,17 +846,24 @@ export function BleDownload() {
       {/*
        * QUANDO LA RICERCA GIRA A VUOTO, DOPO UN PO' SI DICE PERCHÉ POTREBBE.
        *
-       * Il motivo per cui questo riquadro esiste è brutto: su iPhone il
-       * permesso Bluetooth negato NON produce nessun errore. `checkPermissions`
-       * del plugin è implementato solo per Android e altrove risponde sempre di
-       * sì; lo stato dell'adattatore ha solo tre valori e nessuno significa
-       * «non autorizzato». Chi tocca «Non consentire» si ritrova quindi una
-       * ricerca che gira per sempre, senza dispositivi e senza spiegazioni, ed
-       * è irreversibile finché non sa dove guardare.
+       * ► ATTENZIONE: LA PREMESSA DI QUESTO RIQUADRO È CAMBIATA. ◄ Qui c'era
+       * scritto che «su iPhone il permesso Bluetooth negato NON produce nessun
+       * errore». Il 28 agosto 2026 il primo utente esterno dell'app ha
+       * dimostrato il contrario: `scan()` lancia `Permission denied`, e adesso
+       * quel caso ha un messaggio suo, col percorso delle impostazioni (vedi il
+       * `catch` della ricerca, e `core/ble/causaGuasto.ts`).
        *
-       * Non potendo distinguere quel caso da «nessun computer acceso qui
-       * intorno», si elencano ONESTAMENTE le tre cause possibili invece di
-       * indovinarne una. Dodici secondi: abbastanza perché un computer acceso e
+       * Resta vero il pezzo su `checkPermissions`, implementato solo per
+       * Android, e sull'enum dell'adattatore che non ha un valore «non
+       * autorizzato»: nessuno dei due vede il permesso.
+       *
+       * QUINDI PERCHÉ QUESTO RIQUADRO RESTA. Perché copre i casi che sono
+       * ancora muti davvero, e sono i più comuni: il computer spento, lontano o
+       * non in modalità collegamento, e il pannello del permesso mai comparso.
+       * In tutti quei casi la ricerca gira e basta. Si elencano ONESTAMENTE le
+       * cause possibili invece di indovinarne una — e adesso quella del
+       * permesso negato è nell'elenco per prudenza, non più perché non si sa
+       * distinguerla. Dodici secondi: abbastanza perché un computer acceso e
        * vicino sia già comparso, poco perché nessuno si arrenda prima.
        */}
       {stato.fase === 'cerca' && trovati.length === 0 && aLungoSenzaNulla && (
