@@ -104,6 +104,21 @@ android {
     buildTypes {
         getByName("release") {
             signingConfig = signingConfigs.getByName("release")
+
+            // I SIMBOLI DEL CODICE NATIVO. Senza, Play avvisa al caricamento e,
+            // il giorno di un crash dentro Rust o dentro libdivecomputer, in
+            // Android Vitals arrivano indirizzi esadecimali invece dei nomi
+            // delle funzioni: un rapporto che non si può leggere. Non tocca chi
+            // usa l'app, tocca la possibilità di capire cosa le è successo.
+            //
+            // SYMBOL_TABLE e non FULL: dà i nomi delle funzioni senza i numeri
+            // di riga, e pesa una frazione. FULL su 115 file C più tutto Rust
+            // gonfierebbe il caricamento per un dettaglio che serve poche volte
+            // — e i simboli restano su Play, non finiscono sul telefono di
+            // nessuno.
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
         }
     }
 }
@@ -129,7 +144,12 @@ writeFileSync(GRADLE, testo);
 // Si rilegge dal disco e si pretende di ritrovare quello che si è scritto: in
 // questo progetto una scrittura dichiarata non è una scrittura avvenuta.
 const riletto = readFileSync(GRADLE, 'utf8');
-for (const atteso of ['signingConfigs', 'signingConfig = signingConfigs', 'import java.util.Properties']) {
+for (const atteso of [
+  'signingConfigs',
+  'signingConfig = signingConfigs',
+  'debugSymbolLevel',
+  'import java.util.Properties',
+]) {
   if (!riletto.includes(atteso)) {
     console.error(`la modifica non è finita sul disco: manca \`${atteso}\``);
     process.exit(1);

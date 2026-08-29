@@ -139,6 +139,19 @@ describe('il workflow che costruisce per Android', () => {
     );
   });
 
+  it('e chiede a gradle i simboli del codice nativo', () => {
+    // Play avvisa al caricamento se mancano, e il giorno di un crash dentro
+    // Rust o dentro libdivecomputer arrivano indirizzi esadecimali invece dei
+    // nomi delle funzioni: un rapporto che non si può leggere. Sta nello stesso
+    // blocco della firma perché si aggiunge allo stesso file generato, e
+    // sparirebbe insieme a quello senza che nessuno se ne accorga.
+    const script = leggi('scripts/firma-progetto-android.mjs');
+    expect(script).toContain('debugSymbolLevel = "SYMBOL_TABLE"');
+    // E il rilettura dal disco deve pretenderlo, o la modifica potrebbe non
+    // esserci senza che lo script se ne lamenti.
+    expect(script, 'lo script non ricontrolla di averlo scritto').toContain("'debugSymbolLevel'");
+  });
+
   it('guarda dentro il pacchetto per vedere se è firmato', () => {
     expect(wf).toMatch(/name: Il pacchetto è davvero firmato\?/);
     expect(wf, 'deve cercare la firma v2/v3 nel blocco dell’APK').toContain('APK Sig Block 42');
