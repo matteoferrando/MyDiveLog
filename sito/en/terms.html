@@ -18,7 +18,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/terms" />
-    <link rel="stylesheet" href="../stile.css?v=1a59216e" />
+    <link rel="stylesheet" href="../stile.css?v=74792cef" />
     <!--
       Le tre alternative di lingua, su OGNI pagina e non soltanto sulle due
       home. Sono indirizzi ASSOLUTI perché Google scarta gli `hreflang`
@@ -89,6 +89,29 @@
           <a href="privacy.html">Privacy</a>
           <a href="terms.html" aria-current="page">Terms</a>
           <a href="https://github.com/matteoferrando/MyDiveLog">Source</a>
+          <!--
+            «Segnala» qui è un collegamento e non un pulsante, e la differenza
+            non è cosmetica: il modulo delle segnalazioni e il centinaio di
+            righe che lo aprono, lo chiudono e ne mandano il contenuto vivono
+            solo nella home. Copiarli anche qui darebbe sei copie della stessa
+            cosa, destinate a divergere al primo ritocco — si corregge il popup
+            in un posto e negli altri cinque resta com'era.
+
+            Il frammento `#segnala` è il messaggio: la home lo riconosce
+            all'arrivo e apre il popup da sola. Non corrisponde a nessun `id`
+            nella pagina, ed è voluto — chi ha JavaScript spento atterra in cima
+            alla home, che è il peggio che gli possa capitare, invece di saltare
+            su un elemento nascosto.
+          -->
+          <a class="voce-segnala" href="/en/#segnala">Report</a>
+          <a
+            class="voce-caffe"
+            href="https://www.paypal.com/donate/?hosted_button_id=7PQDU6GPHQK34"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span aria-hidden="true">❤︎</span> Buy me a coffee
+          </a>
           <span class="lingua"><a href="/termini.html">Italiano</a></span>
         </nav>
       </header>

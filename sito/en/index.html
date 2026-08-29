@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/" />
-    <link rel="stylesheet" href="../stile.css?v=1a59216e" />
+    <link rel="stylesheet" href="../stile.css?v=74792cef" />
     <!--
       Le tre alternative di lingua, su OGNI pagina e non soltanto sulle due
       home. Sono indirizzi ASSOLUTI perché Google scarta gli `hreflang`
@@ -129,7 +129,25 @@
 
     <div class="contenitore">
       <header class="testata">
-        <a class="marchio" href="/en/"><img src="../logo.svg" alt="" /> MyDiveLog</a>
+        <!--
+          ► SULLA HOME L'UNICA VOCE «CORRENTE» È IL MARCHIO. ◄
+
+          Nel menu la home non compare: ci sono le altre pagine, il codice, la
+          segnalazione, il caffè e il cambio lingua. «Libretto» NON è la home —
+          è la pagina sulla legge 70/2026 — e marcarla stando qui direbbe una
+          cosa falsa. Quindi qui, giustamente, nel menu non si accende niente.
+
+          Il collegamento che punta alla home è questo, il nome del prodotto in
+          alto a sinistra, e stando sulla home punta alla pagina in cui si è
+          già: è esattamente il caso che `aria-current="page"` descrive. Chi
+          legge con la voce sente «MyDiveLog, collegamento, pagina corrente» e
+          sa dov'è. Visivamente non cambia niente, e non serve: il marchio è
+          già l'unica cosa in grassetto della barra, e questa è l'unica pagina
+          con l'apertura, le schermate e i pulsanti di scarico — nessuno che ci
+          arrivi si chiede su quale pagina sia finito. Il segno visivo serve
+          dove le pagine si somigliano, cioè sulle altre sei, ed è lì che c'è.
+        -->
+        <a class="marchio" href="/en/" aria-current="page"><img src="../logo.svg" alt="" /> MyDiveLog</a>
         <nav class="navigazione">
           <a href="dive-logbook-law.html">Logbook law</a>
           <a href="privacy.html">Privacy</a>
@@ -1116,9 +1134,30 @@
         if (!strato) return;
         let apriva = null;
 
+        // Il frammento con cui le altre sei pagine chiedono questo popup.
+        // Scritto una volta sola: se cambia, cambia qui e nei sei collegamenti,
+        // e una stringa ripetuta tre volte in questo file si aggiornerebbe due
+        // volte su tre.
+        const FRAMMENTO = '#segnala';
+
         const apri = (evento) => {
-          evento.preventDefault();
+          // `evento` può mancare: quando ad aprire è il frammento non c'è
+          // nessun clic da fermare.
+          evento?.preventDefault();
+          // Già aperto: si esce. Un `hashchange` a popup alzato rifarebbe
+          // partire tutto e, peggio, riscriverebbe `apriva` con un elemento di
+          // dentro — alla chiusura il fuoco tornerebbe su qualcosa di nascosto.
+          if (!strato.hidden) return;
+          // Dove tornerà il fuoco alla chiusura. Se ad aprire è stato un clic è
+          // il pulsante che l'ha ricevuto. Se è stato il frammento, chi legge
+          // sta arrivando da un'altra pagina e il fuoco è sul corpo del
+          // documento, che non è focalizzabile e non lo riprenderebbe: allora
+          // usiamo la voce «Segnala» della barra, cioè il punto da cui il popup
+          // sarebbe stato aperto se si fosse già stati qui.
           apriva = document.activeElement;
+          if (!apriva || apriva === document.body) {
+            apriva = document.querySelector('.navigazione [data-apri-segnala]');
+          }
           strato.hidden = false;
           // Il corpo si blocca, o scorrendo dentro il popup si trascina la
           // pagina sotto e alla chiusura ci si ritrova da un'altra parte.
@@ -1129,10 +1168,45 @@
         const chiudi = () => {
           strato.hidden = true;
           document.body.style.overflow = '';
+          // Via il frammento, altrimenti un aggiornamento della pagina — o il
+          // ritorno a questo indirizzo dalla cronologia — riaprirebbe il popup
+          // che si è appena chiuso di proposito. `replaceState` e non
+          // `location.hash = ''`, che aggiungerebbe una voce alla cronologia:
+          // «ho chiuso il popup» non è un posto in cui si debba poter tornare
+          // con il pulsante indietro.
+          if (location.hash === FRAMMENTO) {
+            history.replaceState(null, '', location.pathname + location.search);
+          }
           apriva?.focus();
         };
 
         document.querySelectorAll('[data-apri-segnala]').forEach((n) => n.addEventListener('click', apri));
+
+        /*
+          ► CHI ARRIVA DALLE ALTRE SEI PAGINE. ◄
+
+          Su privacy, termini e libretto — e sulle tre gemelle inglesi — questo
+          popup non esiste: il modulo e queste righe stanno solo nella home, e
+          sei copie dello stesso centinaio di righe divergerebbero al primo
+          ritocco. Là «Segnala» è quindi un collegamento a `/#segnala`, e la
+          parte che tocca a noi è riconoscere quel frammento all'arrivo.
+
+          DUE CASI, NON UNO. Al caricamento, per chi arriva da un'altra pagina o
+          incolla l'indirizzo di sana pianta; e su `hashchange`, per chi è GIÀ
+          qui e clicca un rimando a `/#segnala` — lì il browser non ricarica
+          niente, cambia solo la barra dell'indirizzo, e senza il secondo
+          ascoltatore non succederebbe assolutamente nulla.
+
+          NESSUN ELEMENTO HA `id="segnala"`, ed è deliberato: chi ha JavaScript
+          spento atterra in cima alla home invece di essere spedito su un
+          elemento nascosto, e il browser non fa nessun salto di scorrimento
+          prima che il popup si alzi.
+        */
+        const daFrammento = () => {
+          if (location.hash === FRAMMENTO) apri();
+        };
+        daFrammento();
+        window.addEventListener('hashchange', daFrammento);
         strato.querySelector('.strato-chiudi').addEventListener('click', chiudi);
         // Solo il velo, non quello che ci sta dentro: un clic partito dentro il
         // riquadro e finito sul velo — capita selezionando del testo — non deve

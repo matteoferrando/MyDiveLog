@@ -185,6 +185,59 @@ body::before {
   letter-spacing: 0.04em;
 }
 
+/*
+  ► DOVE SONO. ◄
+
+  Il menu è identico su tutte e otto le pagine, e finché nessuna voce si
+  distingue chi atterra su «Privacy» da una ricerca non ha modo di sapere su
+  quale delle pagine di documento sia finito: si somigliano tutte — stessa
+  testata, stesso corpo di testo, cambia soltanto il titolo.
+
+  DUE SEGNI, E UNO SOLO SI VEDE. `aria-current="page"` sta nell'HTML e fa il
+  lavoro per chi legge con la voce: il lettore di schermo annuncia «pagina
+  corrente» e la questione è chiusa. Questa regola è la metà che si vede, e parte
+  proprio da quell'attributo invece che da una classe a parte: due marcatori
+  separati si scollano al primo spostamento di una voce — qualcuno aggiorna la
+  classe e dimentica l'attributo — e il segno visivo finirebbe su una voce mentre
+  il lettore di schermo ne annuncia un'altra. Attaccati all'attributo non possono
+  divergere.
+
+  PERCHÉ NON UNA TERZA PILLOLA. «Segnala» è già una pillola chiara e «Offrimi un
+  caffè» una pillola ambra: sono due inviti a fare qualcosa. Se anche la voce
+  attiva diventasse una pillola, il menu si leggerebbe come tre pulsanti in fila e
+  non si capirebbe più quale sia un'azione e quale una posizione. Qui serve il
+  contrario di un invito: dire dove si è senza chiedere niente. Quindi il testo
+  passa dal grigio al riflesso — la stessa accensione che le altre voci hanno solo
+  sotto il puntatore, resa permanente — e sotto corre un filo di ciano.
+
+  IL FILO È UN `::after` IN POSIZIONE ASSOLUTA e non un `border-bottom`: il bordo
+  aggiungerebbe due pixel all'altezza della voce, e su una barra con
+  `align-items: center` due pixel su una voce sola spostano di uno tutte le altre.
+  Un segno che sposta il menu non è un segno, è un difetto.
+
+  DUE VOCI NON SI MARCANO MAI, e non è una dimenticanza: «Codice» porta su GitHub,
+  cioè fuori di qui, e il cambio lingua è un'azione — porta all'altra versione
+  della stessa pagina, non è un posto in cui si possa «essere». Nessuna delle due
+  riceve l'attributo nell'HTML, quindi questo selettore non le tocca; e resta
+  fuori dalla `.navigazione` anche il marchio, che sulle due home l'attributo ce
+  l'ha ma non deve accendersi (il perché è scritto lì, accanto al marchio).
+*/
+.navigazione a[aria-current='page'] {
+  position: relative;
+  color: var(--riflesso);
+}
+
+.navigazione a[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -7px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ciano);
+}
+
 /* ---------------------------------------------------------------- apertura */
 
 .apertura {
@@ -1024,11 +1077,23 @@ a {
 }
 
 /*
-  La voce nella barra: un pulsante, non un collegamento, perché non porta da
-  nessuna parte — apre qualcosa qui. Si veste da voce di menu ma con un contorno
-  che la stacca dalle altre tre, che invece sono pagine.
+  La voce nella barra. Si veste da voce di menu ma con un contorno che la stacca
+  dalle altre, che invece sono pagine: questa apre qualcosa.
+
+  ► È UN `<button>` SULLE DUE HOME E UN `<a>` SULLE ALTRE SEI, e questa regola
+  deve vestire tutt'e due allo stesso modo. Sulle home il popup è lì e la voce lo
+  alza senza andare da nessuna parte; sulle altre sei il popup non esiste — sta
+  solo nella home, perché sei copie dello stesso modulo divergerebbero al primo
+  ritocco — e la voce diventa un collegamento a `/#segnala` che se lo fa aprire
+  all'arrivo. Chi guarda non deve accorgersi della differenza.
+
+  IL SELETTORE PARTE DA `.navigazione` PER UNA RAGIONE PRECISA, non per abitudine:
+  `.navigazione a` più sopra vale (0,1,1) e la sola classe `.voce-segnala` vale
+  (0,1,0), quindi sul collegamento avrebbe vinto il grigio delle voci normali e
+  la pillola sarebbe uscita spenta. Con la classe del contenitore davanti si
+  arriva a (0,2,0) e le due forme si vedono identiche.
 */
-.voce-segnala {
+.navigazione .voce-segnala {
   font: inherit;
   font-size: inherit;
   cursor: pointer;
@@ -1037,14 +1102,21 @@ a {
   padding: 6px 14px;
   background: var(--vetro);
   color: var(--testo);
+  text-decoration: none;
   transition:
     border-color 0.18s,
     background 0.18s;
 }
 
-.voce-segnala:hover {
+/*
+  Il colore è ripetuto qui apposta: `.navigazione a:hover` vale (0,2,1) e
+  riporterebbe il collegamento al riflesso delle voci normali, mentre il pulsante
+  delle home resterebbe bianco. Due comportamenti diversi per la stessa voce.
+*/
+.navigazione .voce-segnala:hover {
   border-color: rgba(157, 220, 255, 0.4);
   background: rgba(255, 255, 255, 0.08);
+  color: var(--testo);
 }
 
 @media (max-width: 640px) {
@@ -1992,7 +2064,7 @@ a.scheda-piattaforma.minore:hover {
   è la stessa cosa detta due volte, e due colori diversi per la stessa cosa
   farebbero pensare a due cose diverse.
 */
-.voce-caffe {
+.navigazione .voce-caffe {
   border: 1px solid rgba(255, 180, 84, 0.42);
   border-radius: 999px;
   padding: 6px 14px;
@@ -2005,9 +2077,10 @@ a.scheda-piattaforma.minore:hover {
     background 0.18s;
 }
 
-.voce-caffe:hover {
+.navigazione .voce-caffe:hover {
   border-color: rgba(255, 180, 84, 0.75);
   background: rgba(255, 180, 84, 0.17);
+  color: var(--ambra);
 }
 
 /*
@@ -2426,6 +2499,17 @@ section.prosa p {
 /*
   Il fondale. Un alone appena percettibile in fondo alla pagina: senza, l'ultimo
   schermo è nero e sembra che il sito sia finito prima del previsto.
+
+  L'alone sta DENTRO il piede, ancorato al suo bordo inferiore (bottom: 0), e
+  cresce verso l'alto. Questo non è un dettaglio estetico: era «bottom: -30%», e
+  un elemento assoluto che sporge SOTTO allunga l'area scorribile della pagina
+  anche se non disegna niente di visibile. Il piede della home è alto, e il 30%
+  di «alto» faceva 110 px di nero in più a 1280 e 191 px a 390 — il fondo vuoto
+  che si vedeva scorrendo fino in fondo. Sporgere verso l'alto invece non
+  allunga niente: l'overflow sopra il bordo non è scorribile, quello sotto sì.
+  Da qui la regola: in fondo alla pagina nessun offset negativo verso il basso.
+  Se un giorno l'alone va abbassato, si abbassa il centro del gradiente, non la
+  scatola che lo contiene.
 */
 .piede {
   position: relative;
@@ -2435,7 +2519,7 @@ section.prosa p {
   content: '';
   position: absolute;
   left: 50%;
-  bottom: -30%;
+  bottom: 0;
   width: min(90vw, 60rem);
   height: 16rem;
   transform: translateX(-50%);
