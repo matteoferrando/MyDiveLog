@@ -196,7 +196,7 @@ Build.
 
 | Comando | Esito |
 | --- | --- |
-| `npx vitest run` | **1641 test in 91 file, tutti verdi** |
+| `npx vitest run` | **1649 test in 92 file, tutti verdi** |
 | `npx tsc --noEmit` | pulito, nessuna riga in uscita |
 | `npx prettier --check .` | _All matched files use Prettier code style!_ |
 | `npm run lint` | **0 errori, 14 avvisi** preesistenti |
@@ -205,7 +205,8 @@ _(Il 26 agosto erano 1523 test in 82 file; il 27 sera 1540 in 85 — i sei aggiu
 quella sera, e il file in più, erano `tests/macNegozio.test.ts`. I nove aggiunti
 il 28 mattina e il file in più sono `tests/permessoBluetooth.test.ts`; le quattro
 guardie del pomeriggio portano a 1607 in 90. **Il 29 le trentaquattro prove di
-`tests/sitoNavigazione.test.ts` portano a 1641 in 91.** Gli avvisi del lint sono
+`tests/sitoNavigazione.test.ts` portano a 1641 in 91, e le otto di
+`tests/androidNegozio.test.ts` a 1649 in 92.** Gli avvisi del lint sono
 rimasti 14 per tutto il tragitto: se diventano quindici, qualcuno ne ha aggiunto
 uno.)_
 
@@ -564,6 +565,76 @@ l'ha — cioè una guardia verde proprio sul caso che deve prendere.
 La guardia sul fondo è di due pezzi: uno inchioda `.piede::before` a `bottom: 0`,
 l'altro pretende che **nessuna** regola del piede porti un `bottom` negativo,
 perché la prossima decorazione rifarebbe lo stesso buco.
+
+---
+
+## Google Play: il terzo negozio, e la firma che decide tutto
+
+29 agosto 2026. **Il racconto per esteso sta in `play-store.md`**; qui il minimo
+per sapere che esiste e qual è la cosa da non sbagliare.
+
+Il nome del pacchetto è **`it.ferrando.mydivelog`**, letto **dentro l'APK
+pubblicato** e non copiato da `tauri.conf.json`. Su Play non si cambia più, e
+`tests/androidNegozio.test.ts` lo inchioda.
+
+> ### ► LE DUE FIRME, E LE IMMERSIONI DI QUALCUNO ◄
+>
+> L'APK del sito lo firmiamo noi; l'APK che Play consegna lo firma Google, perché
+> Play App Signing è obbligatorio per le app nuove. **Android non aggiorna
+> un'applicazione se il certificato cambia**: chi ha installato MyDiveLog dal
+> sito non potrebbe aggiornarla da Play, e per passare da un canale all'altro
+> dovrebbe **disinstallare** — cioè cancellare l'archivio locale, cioè le sue
+> immersioni.
+>
+> In un logbook non è un fastidio di distribuzione: è la perdita del dato che
+> l'applicazione esiste per custodire, in una persona che non ha fatto niente di
+> sbagliato e che non riceve nessun avviso. Si evita **caricando su Play la
+> nostra chiave** come chiave di firma dell'app, invece di lasciarla generare a
+> Google: allora la firma è la stessa sui due canali e l'aggiornamento passa. **È
+> una decisione che si prende alla prima release**, e dopo si disfa solo con una
+> richiesta a Google.
+
+**La chiave di firma cambiava a ogni build**, generata dal workflow con la
+password in chiaro — e per il solo sito andava bene, perché lì è dichiarato che a
+garantire l'origine è l'impronta SHA-256 e non la firma. Su Play no: *la prima
+consegna registra la chiave di caricamento, e ogni consegna successiva firmata
+con una chiave diversa viene rifiutata* — una chiave nuova a ogni build vuol dire
+una consegna sola in tutta la vita dell'app. Adesso il workflow ha due modi: con
+i tre segreti firma con la chiave del proprietario e costruisce anche l'`.aab`;
+senza, ricade nel modo vecchio e nel solo APK, perché **questo repository è
+pubblico e chi lo clona senza segreti deve poterlo costruire lo stesso**. Un
+passo nuovo **stampa quale dei due è successo**: *una ricaduta silenziosa
+darebbe un pacchetto inservibile con la stessa spunta verde di uno buono.*
+
+**L'`.aab` non entra nella release di GitHub**, ed è la regola già scritta per il
+`.pkg` del Mac App Store: un pacchetto firmato per un negozio, messo dove la
+gente scarica a mano, è un file che non si installa.
+
+> ### ► LA PROVA PIÙ IMPORTANTE DELLE OTTO ERA VERDE PER IL MOTIVO SBAGLIATO ◄
+>
+> Quella che impedisce all'`.aab` di finire nella release cercava
+> `- name: Raccogli` nel workflow intero — e di lavori con un passo che si chiama
+> così ce ne sono **due**. Trovava quello di **Windows**, che sta prima, e girava
+> su un pezzo di YAML che con Android non c'entra niente. L'ha smascherata la
+> mutazione: mettere l'`.aab` fra i file raccolti non la faceva diventare rossa.
+> Adesso si ritaglia prima il lavoro giusto, e una prova apposta controlla che il
+> ritaglio sia quello giusto.
+>
+> *È la terza volta in due giorni che una guardia nuova è verde proprio sul caso
+> che deve prendere, e la terza volta che a scoprirlo è la mutazione e non la
+> rilettura.* Le altre due: il 28 la guardia sui messaggi d'errore, che su
+> `DiveDetail` non si accendeva perché la regola era scritta sull'esempio invece
+> che sulla proprietà; e il 29 due mutazioni sul sito che non avevano agganciato
+> niente, e il cui verde non dimostrava nulla.
+
+**Il livello di API bersaglio, e ci siamo dentro per due giorni.** Dal **31
+agosto 2026** le app nuove devono puntare ad **Android 16 (API 36)**. Quel numero
+lo genera Tauri e non l'aveva mai guardato nessuno: letto il 29 agosto **dentro
+il binario della CLI installata** — `tauri-cli 2.11.4`, la stessa versione che
+`package-lock.json` impone al runner — il modello dichiara `compileSdk = 36` e
+`targetSdk = 36`. Siamo a posto **per la versione della CLI che ci siamo trovati
+addosso**, non per una scelta: e per questo il workflow adesso stampa a ogni
+build cosa dichiara di sé il progetto Android generato.
 
 ---
 

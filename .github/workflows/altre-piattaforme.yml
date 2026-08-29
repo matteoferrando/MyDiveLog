@@ -104,18 +104,42 @@ jobs:
   # dall'agosto 2026, e il wrapper clang dell'NDK è una catena coerente — niente
   # ABI mescolate come su Windows.
   #
-  # LA FIRMA, E PERCHÉ È PUBBLICA. Un APK non firmato non si installa, nemmeno
-  # a mano. La firma seria vuole un keystore con una password che deve stare
-  # nelle mani del proprietario e in nessun altro posto — e oggi quel passaggio
-  # non c'è. Allora la chiave la genera questo workflow, con una password
-  # scritta qui sotto in chiaro: **non è un segreto trapelato, è un segreto che
-  # non c'è.**
+  # ► LA FIRMA HA DUE MODI, E QUALE DEI DUE SI USA LO DECIDONO I SEGRETI. ◄
   #
-  # Va detto a chi scarica, e il sito lo dice: la firma di questo APK NON
-  # garantisce da chi viene, perché chiunque può rifarne una uguale. Quello che
-  # garantisce l'origine è l'impronta SHA-256 pubblicata accanto al file. Il
-  # giorno che esiste un keystore vero, si mettono tre segreti su GitHub e
-  # questo blocco diventa quattro righe più corto.
+  # Fino al 29 agosto 2026 ce n'era uno solo: la chiave la generava questo
+  # workflow a ogni giro, con la password scritta qui in chiaro — non un segreto
+  # trapelato, un segreto che non c'era. Per un APK che si scarica dal sito va
+  # bene, ed è dichiarato: quella firma NON garantisce da chi viene il file,
+  # perché chiunque può rifarne una uguale, e a garantire l'origine è l'impronta
+  # SHA-256 pubblicata accanto.
+  #
+  # Su Google Play quel modo non regge, e non per severità: **la prima consegna
+  # registra la chiave di caricamento, e ogni consegna successiva firmata con
+  # una chiave diversa viene rifiutata.** Una chiave nuova a ogni build vuol
+  # dire una consegna sola in tutta la vita dell'app.
+  #
+  # Quindi: se i tre segreti ci sono, si firma con la chiave del proprietario e
+  # si costruisce ANCHE l'`.aab` per Play; se non ci sono, si ricade nel modo
+  # vecchio e si costruisce il solo APK. La ricaduta non è pigrizia — questo
+  # repository è pubblico, e chi lo clona senza segreti deve poterlo costruire
+  # lo stesso. **Il passo «Come si è firmato» stampa quale dei due è successo**:
+  # un workflow che ricade in silenzio produrrebbe un APK inservibile per Play
+  # con la stessa faccia verde di uno buono.
+  #
+  # I segreti, da creare in Settings → Secrets and variables → Actions:
+  #   ANDROID_KEYSTORE_BASE64    il file .jks passato per `base64`
+  #   ANDROID_KEYSTORE_PASSWORD  la password (store e chiave devono coincidere,
+  #                              vedi sotto)
+  #   ANDROID_KEY_ALIAS          l'alias dentro il keystore
+  #
+  # ► IL KEYSTORE VA GENERATO CON `-storepass` E `-keypass` UGUALI. ◄ Il file
+  # `keystore.properties` che Tauri legge ha UNA sola voce `password`, e la usa
+  # per tutte e due. Con due password diverse la firma fallisce dentro gradle,
+  # e il messaggio non nomina questa causa.
+  #
+  # ► E IL KEYSTORE NON SI PERDE. ◄ Se `ANDROID_KEYSTORE_BASE64` va perso e Play
+  # ha registrato quella chiave come chiave di caricamento, si ricomincia da una
+  # richiesta a Google: non è una cosa che si rigenera come una password.
   android:
     runs-on: ubuntu-latest
     steps:
@@ -155,25 +179,74 @@ jobs:
       - name: Prepara il progetto Android
         run: npx tauri android init --ci
 
-      # La chiave, e le sue credenziali pubbliche. Vedi il commento in testa.
-      - name: Chiave di firma (pubblica, vedi i commenti)
+      # La chiave. Quale dei due modi si usa lo decidono i segreti: vedi il
+      # commento in testa al job.
+      - name: Chiave di firma
+        env:
+          CHIAVE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          CHIAVE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          CHIAVE_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          keytool -genkeypair -v \
-            -keystore "$RUNNER_TEMP/chiave.jks" \
-            -alias mydivelog -keyalg RSA -keysize 4096 -validity 10000 \
-            -storepass mydivelog -keypass mydivelog \
-            -dname "CN=MyDiveLog, O=MyDiveLog, C=IT"
+          set -eu
+          if [ -n "${CHIAVE_BASE64}" ] && [ -n "${CHIAVE_PASSWORD}" ] && [ -n "${CHIAVE_ALIAS}" ]; then
+            printf '%s' "${CHIAVE_BASE64}" | base64 -d > "$RUNNER_TEMP/chiave.jks"
+            ALIAS="${CHIAVE_ALIAS}"
+            PASS="${CHIAVE_PASSWORD}"
+            echo "PER_PLAY=1" >> "$GITHUB_ENV"
+          else
+            # Modo vecchio: chiave usa-e-getta, password in chiaro. Vedi sopra.
+            keytool -genkeypair -v \
+              -keystore "$RUNNER_TEMP/chiave.jks" \
+              -alias mydivelog -keyalg RSA -keysize 4096 -validity 10000 \
+              -storepass mydivelog -keypass mydivelog \
+              -dname "CN=MyDiveLog, O=MyDiveLog, C=IT"
+            ALIAS=mydivelog
+            PASS=mydivelog
+            echo "PER_PLAY=0" >> "$GITHUB_ENV"
+          fi
           cat > src-tauri/gen/android/keystore.properties <<PROPS
           storeFile=$RUNNER_TEMP/chiave.jks
-          keyAlias=mydivelog
-          password=mydivelog
+          keyAlias=$ALIAS
+          password=$PASS
           PROPS
 
+      # Il workflow deve DIRE quale dei due modi ha usato. Una ricaduta
+      # silenziosa nel modo usa-e-getta darebbe un pacchetto che Play rifiuta,
+      # con la stessa spunta verde di uno buono.
+      - name: Come si è firmato
+        run: |
+          if [ "$PER_PLAY" = "1" ]; then
+            echo "::notice::Firmato con la chiave del proprietario. Si costruisce anche l'.aab per Google Play."
+          else
+            echo "::warning::Nessun segreto di firma: chiave usa-e-getta, password in chiaro. Si costruisce il solo APK, e NON è caricabile su Google Play."
+          fi
+
+      # `--apk --aab` in una chiamata sola: la parte cara è compilare Rust e la
+      # libreria C, e si paga una volta per tutte e due i pacchetti.
       - name: Costruisci
-        run: npx tauri android build --apk --target aarch64
+        run: |
+          set -eu
+          if [ "$PER_PLAY" = "1" ]; then
+            npx tauri android build --apk --aab --target aarch64
+          else
+            npx tauri android build --apk --target aarch64
+          fi
+
+      # Cosa dichiara di sé il pacchetto generato, letto e non dedotto. Il
+      # livello di API bersaglio è un cancello di Google Play — lo alzano ogni
+      # anno — e nessuno qui lo ha mai guardato: questo passo lo mette nel log,
+      # così la prossima volta è un fatto e non una supposizione.
+      - name: Cosa dichiara il progetto Android
+        run: |
+          echo '--- build.gradle.kts ---'
+          grep -nE 'minSdk|targetSdk|compileSdk|versionCode|versionName|applicationId|namespace' \
+            src-tauri/gen/android/app/build.gradle.kts || true
+          echo '--- pacchetti prodotti ---'
+          find src-tauri/gen/android -name '*.apk' -o -name '*.aab' | sort
 
       - name: Raccogli
         run: |
+          set -eu
           mkdir consegna
           find src-tauri/gen/android -name '*.apk' -exec cp {} consegna/ \;
           cd consegna
@@ -183,8 +256,32 @@ jobs:
           sha256sum * > SHA256.txt
           cat SHA256.txt
 
+      # L'`.aab` sta in una cartella SUA, e non entra nella release di GitHub.
+      # È la stessa regola del `.pkg` del Mac App Store: un pacchetto firmato
+      # per un negozio, allegato a una release, dà a chi lo scarica un file che
+      # non si installa — un difetto autoinflitto. Il nome porta il numero di
+      # versione perché questo file lo si carica a mano su Play, dove sapere
+      # quale versione si sta consegnando è tutto.
+      - name: Raccogli l'.aab per Google Play
+        if: env.PER_PLAY == '1'
+        run: |
+          set -eu
+          mkdir per-play
+          find src-tauri/gen/android -name '*.aab' -exec cp {} per-play/ \;
+          cd per-play
+          for f in *.aab; do mv "$f" "MyDiveLog-${{ inputs.versione }}-play.aab"; break; done
+          sha256sum * > SHA256.txt
+          cat SHA256.txt
+
       - uses: actions/upload-artifact@v4
         with:
           name: MyDiveLog-${{ inputs.versione }}-Android
           path: consegna/
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: env.PER_PLAY == '1'
+        with:
+          name: MyDiveLog-${{ inputs.versione }}-Android-Play
+          path: per-play/
           if-no-files-found: error
