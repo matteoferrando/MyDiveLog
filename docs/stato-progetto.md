@@ -1031,11 +1031,59 @@ elencare **due** piattaforme: sulla 1.7.0 `darwin-aarch64` e `windows-x86_64`.
 > compilazione. È l'unica delle cinque consegne in cui `latest.json` non
 > significa niente.
 
-**La firma dell'APK è pubblica, e si dice.** La chiave la genera il workflow con
-una password scritta in chiaro nel file: non è un segreto trapelato, è un segreto
-che non c'è. Il sito lo dichiara — la firma non garantisce da chi viene il file,
-lo garantisce l'**impronta SHA-256** pubblicata accanto. Il giorno che esiste un
-keystore vero sono tre segreti su GitHub e quattro righe in meno.
+> ### ► QUI C'ERA SCRITTO CHE L'APK ERA FIRMATO CON UNA CHIAVE PUBBLICA. NON ERA FIRMATO AFFATTO. ◄
+>
+> **29 agosto 2026.** Questa sezione diceva: «la firma dell'APK è pubblica, e si
+> dice — la chiave la genera il workflow con una password scritta in chiaro: non
+> è un segreto trapelato, è un segreto che non c'è». Il ragionamento era giusto e
+> la premessa era falsa. **Misurato sull'APK vero, scaricato dalla release:
+> nessuna firma v1** (niente `META-INF/*.RSA`) **e nessun APK Signing Block
+> v2/v3.** Il pacchetto non era firmato in nessun modo.
+>
+> **Android un APK non firmato si rifiuta di installarlo.** Quindi il pulsante
+> «Scarica per Android» del sito ha consegnato per settimane, a chiunque lo
+> abbia premuto, un file che non si installa.
+>
+> La causa: il workflow generava il keystore e scriveva `keystore.properties`,
+> ma **il `build.gradle.kts` che Tauri genera non contiene nessun
+> `signingConfigs`** — quel file non lo leggeva nessuno. In Tauri 2 la firma su
+> Android si aggiunge a mano al progetto generato, ed è scritto nella loro
+> documentazione e non nel loro template.
+>
+> **È la sesta volta che questo progetto paga la stessa specie di guasto**: il
+> gestore Rust registrato per due piattaforme su quattro, il file fuori dalla
+> lista dei sorgenti, il numero sbagliato dentro un commento, la rotta promessa
+> da un file di configurazione, la dichiarazione doganale presente in un plist
+> su due — e adesso una configurazione di firma che non c'è. *Nessuna dà errore,
+> perché nessuna è malformata: sono assenze.* `tauri android build --apk`
+> finiva con esito zero, il workflow era verde, l'artefatto c'era e pesava dieci
+> megabyte. **Un esito zero dice che il comando non è morto, non che abbia fatto
+> quello che doveva.**
+>
+> E come le altre cinque, l'ha trovata **guardare dentro il file consegnato**, e
+> non i controlli: è saltata fuori mentre si preparava la strada per Google
+> Play, cercando tutt'altro.
+>
+> Adesso: `scripts/firma-progetto-android.mjs` aggiunge la configurazione di
+> firma al progetto generato subito dopo `tauri android init` — e **rompe** se
+> non ci riesce, invece di dichiarare che è andato tutto bene; e un passo del
+> workflow **apre il pacchetto costruito e pretende di trovarci dentro una
+> firma**, che è il controllo che mancava. Tre prove in
+> `tests/androidNegozio.test.ts` difendono le due cose e il loro ordine — un
+> controllo della firma messo prima della build passerebbe sempre, perché non
+> ci sarebbe niente da guardare.
+>
+> **Quello che resta da fare è una release nuova**: la correzione vale per i
+> pacchetti che verranno, non per quello che oggi è su GitHub. Finché non c'è,
+> il pulsante Android del sito continua a consegnare il file rotto.
+
+**La chiave di firma, adesso.** Con i tre segreti (`ANDROID_KEYSTORE_BASE64`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`) il workflow firma con la
+chiave del proprietario e costruisce anche l'`.aab` per Google Play; senza,
+ricade nella chiave usa-e-getta e nel solo APK, perché questo repository è
+pubblico e chi lo clona deve poterlo costruire lo stesso. Il sito continua a
+dichiarare quello che è sempre stato vero e che oggi conta di più: **a garantire
+l'origine del file è l'impronta SHA-256 pubblicata accanto**, non la firma.
 
 **E il sito mette i limiti PRIMA del pulsante.** Costa qualche scaricamento in
 meno e risparmia la delusione di scoprirli dopo.

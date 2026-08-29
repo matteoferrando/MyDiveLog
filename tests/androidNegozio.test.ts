@@ -118,6 +118,43 @@ describe('il workflow che costruisce per Android', () => {
     ).not.toContain('.aab');
   });
 
+  /**
+   * ► LE TRE PROVE CHE NASCONO DAL 29 AGOSTO 2026. ◄
+   *
+   * L'APK pubblicato **non era firmato**: né v1 né v2/v3, misurato sul file
+   * scaricato dalla release. Il workflow scriveva `keystore.properties` e il
+   * `build.gradle.kts` generato da Tauri non lo legge, perché non contiene
+   * nessuna configurazione di firma. Nessun comando è fallito, il workflow era
+   * verde, l'artefatto pesava dieci megabyte — e Android un APK non firmato si
+   * rifiuta di installarlo.
+   *
+   * Servono tutte e tre insieme: che la firma venga configurata, che il
+   * pacchetto venga guardato dentro dopo la build, e che il guardare venga DOPO
+   * il costruire. La terza sembra pedanteria e non lo è: lo stesso controllo
+   * messo prima passerebbe sempre, perché non ci sarebbe niente da guardare.
+   */
+  it('configura la firma nel progetto generato', () => {
+    expect(wf, 'senza questo il pacchetto esce non firmato').toContain(
+      'node scripts/firma-progetto-android.mjs',
+    );
+  });
+
+  it('guarda dentro il pacchetto per vedere se è firmato', () => {
+    expect(wf).toMatch(/name: Il pacchetto è davvero firmato\?/);
+    expect(wf, 'deve cercare la firma v2/v3 nel blocco dell’APK').toContain('APK Sig Block 42');
+    expect(wf, 'e la firma del bundle, che è quella che Play pretende').toMatch(
+      /\.aab.*NON è firmato|NON è firmato: Google Play/,
+    );
+  });
+
+  it('lo guarda DOPO averlo costruito', () => {
+    const costruisce = wf.indexOf('name: Costruisci');
+    const verifica = wf.indexOf('name: Il pacchetto è davvero firmato?');
+    expect(costruisce).toBeGreaterThan(-1);
+    expect(verifica).toBeGreaterThan(-1);
+    expect(verifica, 'un controllo prima della build non guarda niente').toBeGreaterThan(costruisce);
+  });
+
   it("l'.aab esce in una cartella sua, col numero di versione nel nome", () => {
     expect(wf).toMatch(/mkdir per-play/);
     expect(wf).toMatch(/MyDiveLog-\$\{\{ inputs\.versione \}\}-play\.aab/);

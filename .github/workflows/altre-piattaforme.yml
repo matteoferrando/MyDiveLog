@@ -210,6 +210,16 @@ jobs:
           password=$PASS
           PROPS
 
+      # ► SENZA QUESTO PASSO IL PACCHETTO ESCE NON FIRMATO. ◄ Il
+      # `build.gradle.kts` che Tauri genera non contiene nessuna configurazione
+      # di firma: `keystore.properties` esiste e non lo legge nessuno. È così
+      # che gli APK pubblicati fino al 29 agosto 2026 sono usciti **senza
+      # nessuna firma**, senza che un solo comando fallisse — e Android un APK
+      # non firmato si rifiuta di installarlo. Il racconto sta in testa a
+      # `scripts/firma-progetto-android.mjs`.
+      - name: Configura la firma nel progetto generato
+        run: node scripts/firma-progetto-android.mjs
+
       # Il workflow deve DIRE quale dei due modi ha usato. Una ricaduta
       # silenziosa nel modo usa-e-getta darebbe un pacchetto che Play rifiuta,
       # con la stessa spunta verde di uno buono.
@@ -243,6 +253,50 @@ jobs:
             src-tauri/gen/android/app/build.gradle.kts || true
           echo '--- pacchetti prodotti ---'
           find src-tauri/gen/android -name '*.apk' -o -name '*.aab' | sort
+
+      # ► SI GUARDA DENTRO IL PACCHETTO, NON SI CREDE AL COMANDO. ◄ È il
+      # controllo che mancava, ed è il motivo per cui il difetto è durato
+      # settimane: `tauri android build` finiva con esito zero, l'artefatto
+      # c'era e pesava dieci megabyte, e dentro non c'era nessuna firma. Un
+      # esito zero dice che il comando non è morto, non che abbia fatto quello
+      # che doveva.
+      - name: Il pacchetto è davvero firmato?
+        run: |
+          python3 - <<'PY'
+          import glob, sys, zipfile
+
+          guai = []
+
+          for apk in glob.glob('src-tauri/gen/android/**/*.apk', recursive=True):
+              d = open(apk, 'rb').read()
+              # La firma v2/v3 vive in un blocco fra il contenuto e la directory
+              # centrale dello zip, marcato da questa stringa. La v1 invece sta
+              # come voci META-INF/*.RSA dentro lo zip: se ne basta una delle due.
+              v2 = d.rfind(b'APK Sig Block 42') >= 0
+              v1 = any(
+                  n.upper().startswith('META-INF/') and n.upper().endswith(('.RSA', '.DSA', '.EC'))
+                  for n in zipfile.ZipFile(apk).namelist()
+              )
+              print(f'{apk}: v1={v1} v2/v3={v2}')
+              if not (v1 or v2):
+                  guai.append(f'{apk} NON è firmato')
+
+          for aab in glob.glob('src-tauri/gen/android/**/*.aab', recursive=True):
+              # Un .aab è firmato alla maniera dei jar: voci META-INF/*.RSA.
+              nomi = zipfile.ZipFile(aab).namelist()
+              v1 = any(
+                  n.upper().startswith('META-INF/') and n.upper().endswith(('.RSA', '.DSA', '.EC'))
+                  for n in nomi
+              )
+              print(f'{aab}: v1={v1}')
+              if not v1:
+                  guai.append(f'{aab} NON è firmato: Google Play lo rifiuta')
+
+          if guai:
+              print('\n'.join('::error::' + g for g in guai))
+              sys.exit(1)
+          print('tutti i pacchetti portano una firma.')
+          PY
 
       - name: Raccogli
         run: |
