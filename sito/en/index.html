@@ -19,9 +19,97 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/" />
-    <link rel="stylesheet" href="../stile.css?v=db509fd7" />
-    <link rel="alternate" hreflang="it" href="/" />
-    <link rel="alternate" hreflang="en" href="/en/" />
+    <link rel="stylesheet" href="../stile.css?v=1a59216e" />
+    <!--
+      Le tre alternative di lingua, su OGNI pagina e non soltanto sulle due
+      home. Sono indirizzi ASSOLUTI perché Google scarta gli `hreflang`
+      relativi senza dirlo, e sono nella forma corta senza `.html` perché
+      quella lunga risponde con un 308: indicare l'indirizzo che rimanda
+      significa far passare ogni motore da un salto in più per arrivare dove
+      il `canonical` lo mandava già.
+
+      `x-default` è la pagina da mostrare a chi non parla né italiano né
+      inglese, e punta all'italiano. MyDiveLog nasce in italiano: quello è il
+      testo originale, l'inglese è la traduzione — e sulla pagina della legge
+      è anche più corta — e la legge 70/2026 riguarda chi si immerge in Italia.
+      Chi arriva senza una lingua che sappiamo servire è meglio che trovi il
+      testo pieno.
+
+      Ogni pagina punta al SUO gemello vero, non alla home dell'altra lingua:
+      mandare chi legge la privacy inglese sulla home italiana è un rimando
+      rotto travestito da traduzione.
+    -->
+    <link rel="alternate" hreflang="it" href="https://mydivelog.site/" />
+    <link rel="alternate" hreflang="en" href="https://mydivelog.site/en/" />
+    <link rel="alternate" hreflang="x-default" href="https://mydivelog.site/" />
+
+    <!--
+      Open Graph e Twitter card. Senza queste righe un collegamento incollato
+      su LinkedIn, WhatsApp o Slack compare nudo — il nome del dominio e
+      nient'altro — perché quei siti non leggono la pagina: leggono soltanto
+      questi meta, e se non li trovano non inventano niente.
+
+      Titolo e descrizione non sono riscritti qui da capo: sono gli stessi del
+      `<title>` e della `<meta name="description">` di questa pagina. Due testi
+      diversi per la stessa pagina invecchiano male — si corregge l'uno e si
+      dimentica l'altro — e la copia che gira sui social finisce per essere
+      proprio quella dimenticata.
+
+      L'immagine è 1200×630, la misura che LinkedIn e Facebook ritagliano senza
+      tagliare, ed è dichiarata anche in larghezza e altezza: così il riquadro
+      grande compare subito, invece di arrivare dopo che l'immagine è stata
+      scaricata e misurata.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mydivelog.site/en/" />
+    <meta property="og:title" content="MyDiveLog — your dive logbook, on your own device" />
+    <meta
+      property="og:description"
+      content="Free and open-source dive logbook. It merges the dives from all your computers without duplicates, analyses profiles, plans dives and holds every field Italian law 70/2026 asks a dive logbook to record. No account, no ads: your logbook stays on your device."
+    />
+    <meta property="og:image" content="https://mydivelog.site/immagini/anteprima-en.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:locale:alternate" content="it_IT" />
+    <meta property="og:site_name" content="MyDiveLog" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="MyDiveLog — your dive logbook, on your own device" />
+    <meta
+      name="twitter:description"
+      content="Free and open-source dive logbook. It merges the dives from all your computers without duplicates, analyses profiles, plans dives and holds every field Italian law 70/2026 asks a dive logbook to record. No account, no ads: your logbook stays on your device."
+    />
+    <meta name="twitter:image" content="https://mydivelog.site/immagini/anteprima-en.jpg" />
+
+    <!--
+      Dati strutturati: alla macchina diciamo, in modo che possa leggerlo, la
+      stessa cosa che la pagina dice a parole — un'applicazione, gratuita, per
+      quattro sistemi, con il codice pubblico.
+
+      Non c'è `aggregateRating`, e non è una dimenticanza. Un punteggio medio
+      presuppone delle recensioni: MyDiveLog non ne ha, e inventarle sarebbe una
+      bugia scritta in una forma che Google verifica — e che punisce togliendo
+      TUTTI i risultati arricchiti del sito, non solo quello falso. Il giorno in
+      cui le recensioni dell'App Store esistono davvero, si mette il numero
+      vero; fino ad allora l'assenza è l'unica cosa onesta.
+    -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "MyDiveLog",
+        "description": "Free and open-source dive logbook. It merges the dives from all your computers without duplicates, analyses profiles, plans dives and holds every field Italian law 70/2026 asks a dive logbook to record. No account, no ads: your logbook stays on your device.",
+        "url": "https://mydivelog.site/en/",
+        "inLanguage": "en",
+        "applicationCategory": "LifestyleApplication",
+        "operatingSystem": "macOS, iOS, Windows, Android",
+        "image": "https://mydivelog.site/immagini/anteprima-en.jpg",
+        "downloadUrl": "https://apps.apple.com/app/mydivelog/id6804439480",
+        "codeRepository": "https://github.com/matteoferrando/MyDiveLog",
+        "author": { "@type": "Person", "name": "Matteo Ferrando" },
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+      }
+    </script>
   </head>
   <body>
     <!--
@@ -43,6 +131,7 @@
       <header class="testata">
         <a class="marchio" href="/en/"><img src="../logo.svg" alt="" /> MyDiveLog</a>
         <nav class="navigazione">
+          <a href="dive-logbook-law.html">Logbook law</a>
           <a href="privacy.html">Privacy</a>
           <a href="terms.html">Terms</a>
           <a href="https://github.com/matteoferrando/MyDiveLog">Source</a>
@@ -510,6 +599,14 @@
           logbook in. Article 12(8) sits in the article governing dive centres, and whether the duty also
           binds divers going out on their own is not settled by the text.
         </p>
+
+        <!-- Vedi il commento gemello nella pagina italiana. -->
+        <p class="altro-legge">
+          <a href="dive-logbook-law.html"
+            >The thirteen entries, the fines and what the law does not say — the full page on Italy's dive
+            logbook law</a
+          >
+        </p>
       </section>
 
       <section>
@@ -907,6 +1004,7 @@
           <div class="piede-colonna">
             <h3>The app</h3>
             <ul>
+              <li><a href="dive-logbook-law.html">Italy's dive logbook law</a></li>
               <li><a href="privacy.html">Privacy</a></li>
               <li><a href="terms.html">Terms of service</a></li>
               <li><a href="https://github.com/matteoferrando/MyDiveLog/releases/latest">All releases</a></li>

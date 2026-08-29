@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  La mappa del sito: le otto pagine, ciascuna con l'indirizzo CANONICO, cioè
+  quello corto senza `.html`. La forma lunga esiste e funziona, ma Cloudflare
+  Pages la rimanda con un 308: elencarla qui vorrebbe dire consegnare a Google
+  una mappa fatta di otto salti.
+
+  Non ci sono `<priority>` né `<changefreq>`. Google ha detto pubblicamente che
+  li ignora, e su un sito di otto pagine dichiarare che una conta il venti per
+  cento più delle altre non è un'informazione: è rumore da tenere aggiornato.
+
+  `<lastmod>` c'è solo dove la data la sappiamo davvero, perché è la pagina
+  stessa a dichiararla in cima («ultimo aggiornamento 25 agosto 2026»). Le due
+  home non dichiarano niente e cambiano un pezzo per volta, quindi restano
+  senza: una data inventata è peggio di una data assente, perché un `<lastmod>`
+  smentito dai fatti insegna a Google a non fidarsi di NESSUN `<lastmod>` di
+  questo sito — comprese le quattro volte in cui è vero.
+
+  Ogni indirizzo si porta dietro le sue alternative di lingua, che ripetono
+  quelle scritte nel `<head>` della pagina. I due segnali devono coincidere: se
+  si contraddicono, Google li scarta tutti e due.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://mydivelog.site/</loc>
+    <xhtml:link rel="alternate" hreflang="it" href="https://mydivelog.site/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://mydivelog.site/en/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mydivelog.site/" />
+  </url>
+  <url>
+    <loc>https://mydivelog.site/libretto-immersioni</loc>
+    <lastmod>2026-08-29</lastmod>
+    <xhtml:link rel="alternate" hreflang="it" href="https://mydivelog.site/libretto-immersioni" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://mydivelog.site/en/dive-logbook-law" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mydivelog.site/libretto-immersioni" />
+  </url>
+  <url>
+    <loc>https://mydivelog.site/privacy</loc>
+    <lastmod>2026-08-25</lastmod>
+    <xhtml:link rel="alternate" hreflang="it" href="https://mydivelog.site/privacy" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://mydivelog.site/en/privacy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mydivelog.site/privacy" />
+  </url>
+  <url>
+    <loc>https://mydivelog.site/termini</loc>
+    <lastmod>2026-08-25</lastmod>
+    <xhtml:link rel="alternate" hreflang="it" href="https://mydivelog.site/termini" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://mydivelog.site/en/terms" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mydivelog.site/termini" />
+  </url>
+  <url>
+    <loc>https://mydivelog.site/en/</loc>
+    <xhtml:link rel="alternate" hreflang="it" href="https://mydivelog.site/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://mydivelog.site/en/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mydivelog.site/" />
+  </url>
+  <url>
+    <loc>https://mydivelog.site/en/dive-logbook-law</loc>
+    <lastmod>2026-08-29</lastmod>
+    <xhtml:link rel="alternate" hreflang="it" href="https://mydivelog.site/libretto-immersioni" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://mydivelog.site/en/dive-logbook-law" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mydivelog.site/libretto-immersioni" />
+  </url>
+  <url>
+    <loc>https://mydivelog.site/en/privacy</loc>
+    <lastmod>2026-08-25</lastmod>
+    <xhtml:link rel="alternate" hreflang="it" href="https://mydivelog.site/privacy" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://mydivelog.site/en/privacy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mydivelog.site/privacy" />
+  </url>
+  <url>
+    <loc>https://mydivelog.site/en/terms</loc>
+    <lastmod>2026-08-25</lastmod>
+    <xhtml:link rel="alternate" hreflang="it" href="https://mydivelog.site/termini" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://mydivelog.site/en/terms" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mydivelog.site/termini" />
+  </url>
+</urlset>

@@ -2501,6 +2501,35 @@ section.prosa p {
   max-width: 44rem;
 }
 
+/*
+  Il rimando alla pagina lunga sul libretto. Un link di testo dentro un
+  riquadro già pieno di riquadri si perde: qui ha una riga sua, la freccia
+  che si sposta al passaggio e nessuna cornice, perché una cornice in più
+  dentro la sezione della legge la trasformerebbe in un modulo.
+*/
+.altro-legge {
+  margin: 20px 0 0;
+  font-size: 14px;
+}
+
+.altro-legge a {
+  color: var(--ciano);
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(67, 214, 255, 0.35);
+  padding-bottom: 2px;
+}
+
+.altro-legge a::after {
+  content: ' →';
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.altro-legge a:hover::after {
+  transform: translateX(3px);
+}
+
 /* ---------------------------------------------------------------------------
    TABELLE
 

@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Libretto delle immersioni: cosa chiede la legge 70/2026 — MyDiveLog</title>
+    <meta
+      name="description"
+      content="Dal 10 maggio 2026 chi si immerge in Italia deve avere il libretto delle immersioni, e la legge 70/2026 dice che può essere anche digitale. Le tredici voci dell'art. 12, comma 8, le sanzioni, e cosa la legge non dice."
+    />
+    <meta name="theme-color" content="#07203c" />
+    <link rel="icon" href="logo.svg" type="image/svg+xml" />
+    <!--
+      Cloudflare Pages serve queste pagine anche senza `.html`, e su quella
+      forma REINDIRIZZA: `/privacy.html` diventa `/privacy` con un 308. Due
+      indirizzi per una pagina sola sono un doppione per chi indicizza, e
+      l'indirizzo canonico è quello corto — è anche quello da dare a Google
+      e ad Apple. I collegamenti interni restano con `.html` perché così il
+      sito si apre anche con un doppio clic, senza un server.
+    -->
+    <link rel="canonical" href="/libretto-immersioni" />
+    <link rel="stylesheet" href="stile.css?v=1a59216e" />
+    <!--
+      Le tre alternative di lingua, su OGNI pagina e non soltanto sulle due
+      home. Sono indirizzi ASSOLUTI perché Google scarta gli `hreflang`
+      relativi senza dirlo, e sono nella forma corta senza `.html` perché
+      quella lunga risponde con un 308: indicare l'indirizzo che rimanda
+      significa far passare ogni motore da un salto in più per arrivare dove
+      il `canonical` lo mandava già.
+
+      `x-default` è la pagina da mostrare a chi non parla né italiano né
+      inglese, e punta all'italiano. MyDiveLog nasce in italiano: quello è il
+      testo originale, l'inglese è la traduzione — e sulla pagina della legge
+      è anche più corta — e la legge 70/2026 riguarda chi si immerge in Italia.
+      Chi arriva senza una lingua che sappiamo servire è meglio che trovi il
+      testo pieno.
+
+      Ogni pagina punta al SUO gemello vero, non alla home dell'altra lingua:
+      mandare chi legge la privacy inglese sulla home italiana è un rimando
+      rotto travestito da traduzione.
+    -->
+    <link rel="alternate" hreflang="it" href="https://mydivelog.site/libretto-immersioni" />
+    <link rel="alternate" hreflang="en" href="https://mydivelog.site/en/dive-logbook-law" />
+    <link rel="alternate" hreflang="x-default" href="https://mydivelog.site/libretto-immersioni" />
+
+    <!--
+      Open Graph e Twitter card. Senza queste righe un collegamento incollato
+      su LinkedIn, WhatsApp o Slack compare nudo — il nome del dominio e
+      nient'altro — perché quei siti non leggono la pagina: leggono soltanto
+      questi meta, e se non li trovano non inventano niente.
+
+      Titolo e descrizione non sono riscritti qui da capo: sono gli stessi del
+      `<title>` e della `<meta name="description">` di questa pagina. Due testi
+      diversi per la stessa pagina invecchiano male — si corregge l'uno e si
+      dimentica l'altro — e la copia che gira sui social finisce per essere
+      proprio quella dimenticata.
+
+      L'immagine è 1200×630, la misura che LinkedIn e Facebook ritagliano senza
+      tagliare, ed è dichiarata anche in larghezza e altezza: così il riquadro
+      grande compare subito, invece di arrivare dopo che l'immagine è stata
+      scaricata e misurata.
+    -->
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://mydivelog.site/libretto-immersioni" />
+    <meta property="og:title" content="Libretto delle immersioni: cosa chiede la legge 70/2026 — MyDiveLog" />
+    <meta
+      property="og:description"
+      content="Dal 10 maggio 2026 chi si immerge in Italia deve avere il libretto delle immersioni, e la legge 70/2026 dice che può essere anche digitale. Le tredici voci dell'art. 12, comma 8, le sanzioni, e cosa la legge non dice."
+    />
+    <meta property="og:image" content="https://mydivelog.site/immagini/anteprima-it.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="it_IT" />
+    <meta property="og:locale:alternate" content="en_GB" />
+    <meta property="og:site_name" content="MyDiveLog" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Libretto delle immersioni: cosa chiede la legge 70/2026 — MyDiveLog"
+    />
+    <meta
+      name="twitter:description"
+      content="Dal 10 maggio 2026 chi si immerge in Italia deve avere il libretto delle immersioni, e la legge 70/2026 dice che può essere anche digitale. Le tredici voci dell'art. 12, comma 8, le sanzioni, e cosa la legge non dice."
+    />
+    <meta name="twitter:image" content="https://mydivelog.site/immagini/anteprima-it.jpg" />
+
+    <!--
+      Qui il tipo giusto è `Article`, non `FAQPage`, e vale la pena dire perché.
+      `FAQPage` chiede che la pagina sia fatta di domande con la loro risposta,
+      visibili a chi legge. Questa è una lettura continua di un testo di legge:
+      i titoli sono affermazioni — «Le voci sono tredici, non quindici» — non
+      domande, e piegarla a finte domande vorrebbe dire riscrivere una pagina
+      che funziona per compiacere un motore di ricerca. Per giunta dal 2023
+      Google mostra i risultati FAQ quasi solo ai siti istituzionali: si
+      pagherebbe una pagina peggiore in cambio di un vantaggio che non arriva.
+
+      `Article` invece descrive quello che la pagina è davvero: uno scritto
+      firmato, con una data, su un argomento. `datePublished` e `dateModified`
+      sono la data che la pagina dichiara in cima, non una scelta a caso.
+    -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Il libretto delle immersioni: cosa chiede la legge 70/2026",
+        "description": "Dal 10 maggio 2026 chi si immerge in Italia deve avere il libretto delle immersioni, e la legge 70/2026 dice che può essere anche digitale. Le tredici voci dell'art. 12, comma 8, le sanzioni, e cosa la legge non dice.",
+        "inLanguage": "it",
+        "datePublished": "2026-08-29",
+        "dateModified": "2026-08-29",
+        "author": { "@type": "Person", "name": "Matteo Ferrando" },
+        "image": "https://mydivelog.site/immagini/anteprima-it.jpg",
+        "isAccessibleForFree": true,
+        "mainEntityOfPage": { "@type": "WebPage", "@id": "https://mydivelog.site/libretto-immersioni" }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="contenitore">
+      <header class="testata">
+        <a class="marchio" href="/"><img src="logo.svg" alt="" /> MyDiveLog</a>
+        <nav class="navigazione">
+          <a href="libretto-immersioni.html" aria-current="page">Libretto</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="termini.html">Termini</a>
+          <a href="https://github.com/matteoferrando/MyDiveLog">Codice</a>
+          <span class="lingua"><a href="/en/dive-logbook-law.html">English</a></span>
+        </nav>
+      </header>
+
+      <main class="documento">
+        <h1>Il libretto delle immersioni: cosa chiede la legge 70/2026</h1>
+        <p class="data">
+          Legge 7 maggio 2026, n. 70 — in vigore dal 10 maggio 2026 · pagina aggiornata il 29 agosto 2026
+        </p>
+
+        <!--
+          L'avvertenza sta in cima e non in fondo in piccolo. Su un tema dove
+          quasi nessuno ha letto il testo, dire subito «questa non è la voce di
+          un avvocato» è la sola cosa che rende leggibile tutto il resto.
+        -->
+        <div class="evidenza avvertenza">
+          <p>
+            <strong>Questa pagina non è un parere legale.</strong> È una lettura del testo di legge, con i
+            collegamenti alla Gazzetta Ufficiale in fondo perché tu possa leggerlo per intero. Non sostituisce
+            il parere di chi il diritto lo interpreta di mestiere, e per una situazione concreta è a quello
+            che bisogna rivolgersi.
+          </p>
+        </div>
+
+        <div class="evidenza">
+          <p>
+            <strong>In breve.</strong> Dal 10 maggio 2026 il subacqueo deve essere dotato di brevetto e di
+            libretto delle immersioni. Le voci da annotare sono <strong>tredici</strong>, non quindici. Il
+            testo di legge ammette espressamente il formato digitale. Non esiste un modello ufficiale da
+            riprodurre. Chi ne è privo rischia una sanzione da 500 a 1.500 euro.
+          </p>
+        </div>
+
+        <div class="indice">
+          <strong>Indice</strong>
+          <ol>
+            <li><a href="#due-leggi">Le leggi sono due, e una non c'entra</a></li>
+            <li><a href="#obbligo">Cosa chiede l'art. 12, comma 8</a></li>
+            <li><a href="#tredici">Le voci sono tredici, non quindici</a></li>
+            <li><a href="#modello">Non esiste un modello ufficiale</a></li>
+            <li><a href="#firma">La firma è una firma</a></li>
+            <li><a href="#non-dice">Cosa la legge non dice</a></li>
+            <li><a href="#privati">Chi si immerge per conto proprio</a></li>
+            <li><a href="#sanzioni">Le sanzioni, e su chi cadono</a></li>
+            <li><a href="#centro">L'altro registro, quello del centro</a></li>
+            <li><a href="#mydivelog">Tenere il libretto con MyDiveLog</a></li>
+            <li><a href="#fonti">Fonti</a></li>
+          </ol>
+        </div>
+
+        <h2 id="due-leggi">1. Le leggi sono due, e una non c'entra</h2>
+        <p>
+          Nel 2026 il Parlamento ha approvato due leggi che toccano la subacquea, e scambiarle è l'errore più
+          diffuso: molti cercano quella sbagliata.
+        </p>
+        <p>
+          La <strong>legge 26 gennaio 2026, n. 9</strong> — «Disposizioni in materia di sicurezza delle
+          attività subacquee» — istituisce l'Agenzia per la sicurezza delle attività subacquee e disciplina la
+          subacquea <strong>professionale e industriale</strong>. È quella di cui si è parlato di più, ed è
+          quella che a chi si immerge per diporto non si applica: l'art. 1, comma 2 esclude espressamente «le
+          attività turistico-ricreative e quelle svolte per fini sportivi».
+        </p>
+        <p>
+          La legge che riguarda chi si immerge per piacere è la
+          <strong>legge 7 maggio 2026, n. 70</strong>, «Valorizzazione della risorsa mare», pubblicata in
+          Gazzetta Ufficiale n. 106 del 9 maggio 2026 ed <strong>entrata in vigore il 10 maggio 2026</strong>.
+          Il suo Capo III, articoli da 8 a 15, disciplina la subacquea ricreativa.
+        </p>
+        <p>
+          Gli obblighi del Capo III sono <strong>auto-applicativi</strong>: valgono da subito e non aspettano
+          decreti. I tre provvedimenti attuativi che la legge prevede — le linee guida ISPRA, la
+          certificazione delle attrezzature, le zone di interesse turistico subacqueo — riguardano altro, e
+          alla data di questa pagina non risultano emanati.
+        </p>
+
+        <h2 id="obbligo">2. Cosa chiede l'art. 12, comma 8</h2>
+        <div class="evidenza">
+          <p>
+            «Il subacqueo deve essere dotato di brevetto … nonché di
+            <strong>libretto delle immersioni</strong>, nel quale devono essere annotati,
+            <strong>anche in formato digitale</strong>:»
+          </p>
+        </div>
+        <p>
+          Brevetto e libretto stanno nella stessa frase: la norma li chiede insieme. E dice una cosa che vale
+          la pena rileggere — «<strong>anche in formato digitale</strong>» è nel testo di legge. Non è una
+          prassi tollerata, non è l'interpretazione benevola di qualcuno: un'applicazione, un file o una
+          stampa valgono quanto un quaderno, perché è la legge stessa a dirlo.
+        </p>
+
+        <h2 id="tredici">3. Le voci sono tredici, non quindici</h2>
+        <p>
+          In rete si legge spesso «quindici campi». Non sono quindici, e l'errore ha una spiegazione precisa:
+          <strong>l'italiano giuridico salta la j e la k</strong> nelle elencazioni. Le lettere vanno da a) a
+          i), e poi proseguono con l), m), n), o). Chi ne conta quindici ha contato l'alfabeto invece di
+          leggere il testo.
+        </p>
+        <ul class="lettere-legge">
+          <li><span class="sigla">a)</span> generalità del subacqueo</li>
+          <li><span class="sigla">b)</span> tipo di brevetto posseduto</li>
+          <li><span class="sigla">c)</span> data dell'immersione</li>
+          <li><span class="sigla">d)</span> località dell'immersione</li>
+          <li><span class="sigla">e)</span> orario di inizio</li>
+          <li><span class="sigla">f)</span> orario di fine</li>
+          <li><span class="sigla">g)</span> tipo di autorespiratore impiegato</li>
+          <li><span class="sigla">h)</span> miscela respiratoria utilizzata</li>
+          <li><span class="sigla">i)</span> profondità massima programmata</li>
+          <li><span class="sigla">l)</span> profondità massima raggiunta</li>
+          <li><span class="sigla">m)</span> denominazione del centro di immersione</li>
+          <li><span class="sigla">n)</span> generalità dell'istruttore o della guida</li>
+          <li><span class="sigla">o)</span> firma del soggetto di cui alla lettera n)</li>
+        </ul>
+        <p>
+          Messe in fila sono, di fatto, uno <strong>schema di dati imposto per legge</strong>: qualunque sia
+          il supporto, il libretto deve poter mostrare queste tredici cose. Vale la pena notare che due di
+          esse — la i) e la l) — sono profondità diverse: quella <em>programmata</em> e quella
+          <em>raggiunta</em>. Confonderle è comodo e sbagliato.
+        </p>
+
+        <h2 id="modello">4. Non esiste un modello ufficiale</h2>
+        <p>
+          La legge non allega un facsimile del libretto e non ne rinvia uno a un decreto successivo. Le
+          tredici lettere sono l'<strong>unico vincolo di forma</strong>: un libretto che le contiene tutte
+          soddisfa il testo, sia esso un quaderno, un foglio elettronico o un'applicazione. Non c'è nulla da
+          acquistare, nulla da far vidimare, nessun timbro previsto.
+        </p>
+
+        <h2 id="firma">5. La firma è una firma</h2>
+        <p>
+          La lettera o) chiede la «firma del soggetto di cui alla lettera n)», cioè dell'istruttore o della
+          guida. Dice <strong>«firma»</strong>, e si ferma lì: non «firma elettronica qualificata», non «firma
+          digitale». Nella legge non c'è nulla che imponga di più. Un tratto lasciato sullo schermo e
+          conservato insieme al nome di chi lo ha lasciato e alla data soddisfa il testo tanto quanto un segno
+          di penna.
+        </p>
+
+        <h2 id="non-dice">6. Cosa la legge non dice</h2>
+        <p>
+          Su una norma nuova l'elenco di quello che non c'è conta quanto l'elenco di quello che c'è: è nei
+          vuoti che nascono le voci. Nel Capo III della legge 70/2026 non si trova nulla di tutto questo.
+        </p>
+        <ul>
+          <li>
+            <strong>Niente sui computer subacquei, sui programmi e sugli algoritmi di decompressione.</strong>
+            Nessuna omologazione, nessun requisito tecnico. I due soli riferimenti alla tecnologia sono
+            permissivi: «possono essere utilizzati sistemi di comunicazione e monitoraggio subacqueo, anche
+            wireless» (art. 10, comma 5) e il libretto «anche in formato digitale».
+          </li>
+          <li>
+            <strong>Nessun obbligo di trasmettere dati</strong> a capitanerie, registri nazionali o agenzie.
+            Il dovere è passivo: tenere il libretto e mostrarlo se qualcuno lo chiede.
+          </li>
+          <li><strong>Nessun albo o registro nazionale</strong> di subacquei, istruttori o guide.</li>
+          <li><strong>Nessun modello ufficiale di libretto</strong>, come detto sopra.</li>
+          <li>
+            <strong>Nessun limite di profondità stabilito dalla legge</strong>: vale quello del brevetto. E
+            nulla sui minori.
+          </li>
+          <li>
+            <strong>Nessuna certificazione medica richiesta al subacqueo cliente</strong> — quella la legge la
+            chiede a istruttori e guide.
+          </li>
+          <li><strong>Niente sulla forma della firma.</strong></li>
+        </ul>
+
+        <h2 id="privati">7. Chi si immerge per conto proprio</h2>
+        <p>
+          Qui il testo lascia una domanda aperta, e vale la pena dirlo invece di far finta di niente. Il comma
+          8 sta dentro l'<strong>articolo 12, che disciplina i centri di immersione</strong>, e tre delle
+          tredici lettere — m) il centro, n) la guida, o) la sua firma — danno per scontato che un centro e
+          una guida ci siano. L'art. 10, comma 3 assoggetta però al Capo III anche le immersioni dei privati.
+        </p>
+        <p>
+          <strong
+            >Se il libretto sia obbligatorio anche per chi si immerge da solo o fra amici, senza centro e
+            senza guida, il testo non lo chiarisce</strong
+          >, e non risultano prassi consolidate o pronunce che lo abbiano risolto. Chi afferma con sicurezza
+          l'una o l'altra cosa sta interpretando, non citando. Questa pagina si ferma a dichiarare
+          l'ambiguità: risolverla non spetta a un sito.
+        </p>
+
+        <h2 id="sanzioni">8. Le sanzioni, e su chi cadono</h2>
+        <p>
+          L'art. 15 prevede sanzioni amministrative pecuniarie. Quella che riguarda il libretto è una sola.
+        </p>
+        <div class="evidenza">
+          <p>
+            Violazione dell'obbligo di brevetto e libretto delle immersioni (art. 12, comma 8):
+            <strong>da 500 a 1.500 euro</strong>.
+          </p>
+        </div>
+        <p>
+          Cade sul <strong>subacqueo</strong>. Per gli obblighi di registrazione che gravano sul centro (commi
+          3 e 4) la sanzione va da 1.000 a 3.000 euro. L'autorità competente a irrogarla la individua la
+          <strong>Regione</strong>: finché le Regioni non provvedono, l'applicazione pratica resta incerta.
+        </p>
+
+        <h2 id="centro">9. L'altro registro, quello del centro</h2>
+        <p>
+          Il libretto del subacqueo si confonde facilmente con il registro che l'art. 12, commi da 3 a 5 mette
+          in capo al <strong>centro di immersione</strong>. Sono due documenti diversi, tenuti da soggetti
+          diversi.
+        </p>
+        <p>
+          Il centro annota <strong>prima</strong> dell'immersione il brevetto di ciascun partecipante,
+          l'orario di inizio e il nome della guida; <strong>dopo</strong>, l'orario di fine, la profondità
+          massima raggiunta, il tipo di autorespiratore e la miscela. Conserva il tutto per
+          <strong>almeno sei mesi</strong>, a disposizione delle autorità in caso di accertamento. Il
+          libretto, invece, è del subacqueo e lo segue.
+        </p>
+
+        <h2 id="mydivelog">10. Tenere il libretto con MyDiveLog</h2>
+        <p>
+          <a href="/">MyDiveLog</a> è il logbook subacqueo di questo sito: gratuito, a codice aperto, con
+          l'archivio che resta sul dispositivo. Tiene
+          <strong>tutti i dati previsti dall'art. 12, comma 8 della legge 70/2026</strong> — tutte e tredici
+          le lettere, compresa la firma della guida, raccolta col dito sullo schermo — e le esporta in PDF,
+          una pagina per immersione, dal Mac e anche dall'iPhone. Un libretto serve nel momento in cui
+          qualcuno lo chiede, ed è lì che deve poter uscire.
+        </p>
+        <p>
+          Quello che manca resta un trattino: la profondità programmata non diventa mai quella raggiunta e
+          nessun campo si riempie da solo. Su un documento che qualcun altro controfirma, un dato inventato è
+          peggio di un dato mancante. E niente è obbligatorio dentro l'applicazione: un'immersione fra amici
+          non ha un centro né una guida, e nessun campo diventa rosso per questo.
+        </p>
+        <p class="nota-legge">
+          MyDiveLog non si dichiara «conforme» a nulla, e questa pagina non lo fa al posto suo.
+          Un'applicazione può <strong>contenere i campi previsti dalla norma</strong>; la conformità è di chi
+          compila il libretto, non del quaderno. Resta poi aperta la questione del punto 7: se l'obbligo valga
+          anche per chi si immerge per conto proprio, il testo non lo dice.
+        </p>
+
+        <h2 id="fonti">11. Fonti</h2>
+        <ul>
+          <li>
+            <a href="https://www.gazzettaufficiale.it/eli/id/2026/05/09/26G00091/SG"
+              >Legge 7 maggio 2026, n. 70 — Valorizzazione della risorsa mare (GU n. 106 del 9-5-2026)</a
+            >
+          </li>
+          <li>
+            <a href="https://www.gazzettaufficiale.it/eli/id/2026/01/27/26G00024/SG"
+              >Legge 26 gennaio 2026, n. 9 — Sicurezza delle attività subacquee (GU n. 21 del 27-1-2026)</a
+            >
+          </li>
+          <li>
+            <a href="https://temi.camera.it/leg19/provvedimento/valorizzazione-della-risorsa-mare.html"
+              >Camera dei deputati — dossier «Valorizzazione della risorsa mare»</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://www.altalex.com/documents/2026/05/14/valorizzazione-risorsa-mare-l-70-2026-coordinamento-valorizzazione-tutela"
+              >Altalex — commento alla legge 70/2026</a
+            >
+          </li>
+        </ul>
+      </main>
+
+      <footer class="piede">
+        <p>
+          MyDiveLog — <a href="/">Home</a> · <a href="privacy.html">Privacy</a> ·
+          <a href="termini.html">Termini di servizio</a> · <a href="/en/dive-logbook-law.html">English</a>
+        </p>
+        <p>Matteo Ferrando — <a href="mailto:matteozinin@protonmail.com">matteozinin@protonmail.com</a></p>
+      </footer>
+    </div>
+  </body>
+</html>

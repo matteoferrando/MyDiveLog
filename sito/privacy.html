@@ -18,14 +18,74 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/privacy" />
-    <link rel="stylesheet" href="stile.css?v=db509fd7" />
-    <link rel="alternate" hreflang="en" href="/en/privacy.html" />
+    <link rel="stylesheet" href="stile.css?v=1a59216e" />
+    <!--
+      Le tre alternative di lingua, su OGNI pagina e non soltanto sulle due
+      home. Sono indirizzi ASSOLUTI perché Google scarta gli `hreflang`
+      relativi senza dirlo, e sono nella forma corta senza `.html` perché
+      quella lunga risponde con un 308: indicare l'indirizzo che rimanda
+      significa far passare ogni motore da un salto in più per arrivare dove
+      il `canonical` lo mandava già.
+
+      `x-default` è la pagina da mostrare a chi non parla né italiano né
+      inglese, e punta all'italiano. MyDiveLog nasce in italiano: quello è il
+      testo originale, l'inglese è la traduzione — e sulla pagina della legge
+      è anche più corta — e la legge 70/2026 riguarda chi si immerge in Italia.
+      Chi arriva senza una lingua che sappiamo servire è meglio che trovi il
+      testo pieno.
+
+      Ogni pagina punta al SUO gemello vero, non alla home dell'altra lingua:
+      mandare chi legge la privacy inglese sulla home italiana è un rimando
+      rotto travestito da traduzione.
+    -->
+    <link rel="alternate" hreflang="it" href="https://mydivelog.site/privacy" />
+    <link rel="alternate" hreflang="en" href="https://mydivelog.site/en/privacy" />
+    <link rel="alternate" hreflang="x-default" href="https://mydivelog.site/privacy" />
+
+    <!--
+      Open Graph e Twitter card. Senza queste righe un collegamento incollato
+      su LinkedIn, WhatsApp o Slack compare nudo — il nome del dominio e
+      nient'altro — perché quei siti non leggono la pagina: leggono soltanto
+      questi meta, e se non li trovano non inventano niente.
+
+      Titolo e descrizione non sono riscritti qui da capo: sono gli stessi del
+      `<title>` e della `<meta name="description">` di questa pagina. Due testi
+      diversi per la stessa pagina invecchiano male — si corregge l'uno e si
+      dimentica l'altro — e la copia che gira sui social finisce per essere
+      proprio quella dimenticata.
+
+      L'immagine è 1200×630, la misura che LinkedIn e Facebook ritagliano senza
+      tagliare, ed è dichiarata anche in larghezza e altezza: così il riquadro
+      grande compare subito, invece di arrivare dopo che l'immagine è stata
+      scaricata e misurata.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mydivelog.site/privacy" />
+    <meta property="og:title" content="Informativa sulla privacy — MyDiveLog" />
+    <meta
+      property="og:description"
+      content="Come MyDiveLog tratta i dati: archivio locale, accesso facoltativo, nessuna statistica d'uso."
+    />
+    <meta property="og:image" content="https://mydivelog.site/immagini/anteprima-it.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="it_IT" />
+    <meta property="og:locale:alternate" content="en_GB" />
+    <meta property="og:site_name" content="MyDiveLog" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Informativa sulla privacy — MyDiveLog" />
+    <meta
+      name="twitter:description"
+      content="Come MyDiveLog tratta i dati: archivio locale, accesso facoltativo, nessuna statistica d'uso."
+    />
+    <meta name="twitter:image" content="https://mydivelog.site/immagini/anteprima-it.jpg" />
   </head>
   <body>
     <div class="contenitore">
       <header class="testata">
         <a class="marchio" href="/"><img src="logo.svg" alt="" /> MyDiveLog</a>
         <nav class="navigazione">
+          <a href="libretto-immersioni.html">Libretto</a>
           <a href="privacy.html" aria-current="page">Privacy</a>
           <a href="termini.html">Termini</a>
           <a href="https://github.com/matteoferrando/MyDiveLog">Codice</a>

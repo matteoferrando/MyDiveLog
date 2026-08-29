@@ -1,0 +1,13 @@
+# Il sito è fatto di otto pagine pubbliche e non ha niente da nascondere:
+# nessun pannello, nessuna area riservata, nessun indirizzo che sarebbe un
+# guaio ritrovarsi in un risultato di ricerca. Quindi si apre tutto, e l'unica
+# riga che serve davvero è quella della mappa.
+#
+# Niente `Crawl-delay`: Google lo ignora e gli altri lo interpretano ciascuno a
+# modo suo, quindi in pratica rallenterebbe soltanto i motori piccoli. E niente
+# `Disallow` messi per abitudine: una riga di blocco su una cartella che poi
+# serve è il modo più silenzioso che esista di sparire dai risultati.
+User-agent: *
+Allow: /
+
+Sitemap: https://mydivelog.site/sitemap.xml
