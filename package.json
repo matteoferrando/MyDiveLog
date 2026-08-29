@@ -34,7 +34,11 @@
     "ios:build": "rm -f src-tauri/gen/apple/project.yml && mkdir -p src-tauri/gen/apple/mydivelog_iOS && cp src-tauri/PrivacyInfo.xcprivacy src-tauri/gen/apple/mydivelog_iOS/ && tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios build",
     "ios:telefono": "rm -f src-tauri/gen/apple/project.yml && mkdir -p src-tauri/gen/apple/mydivelog_iOS && cp src-tauri/PrivacyInfo.xcprivacy src-tauri/gen/apple/mydivelog_iOS/ && tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios run --release",
     "ios:negozio": "rm -f src-tauri/gen/apple/project.yml && mkdir -p src-tauri/gen/apple/mydivelog_iOS && cp src-tauri/PrivacyInfo.xcprivacy src-tauri/gen/apple/mydivelog_iOS/ && tauri ios init && cp -R src-tauri/icons/ios/. src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/ && node scripts/pulisci-progetto-ios.mjs && tauri ios build --export-method app-store-connect",
-    "sito:versiona": "node scripts/versiona-sito.mjs"
+    "sito:versiona": "node scripts/versiona-sito.mjs",
+    "play:grafica": "node scripts/grafica-play.mjs",
+    "play:immagini": "node scripts/immagini-play.mjs",
+    "play:controlla": "node scripts/controlla-play.mjs",
+    "play": "npm run build && npm run demo && npm run play:grafica && npm run play:immagini && npm run play:controlla"
   },
   "dependencies": {
     "@garmin/fitsdk": "^21.171.0",
