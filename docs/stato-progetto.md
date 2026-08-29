@@ -1,7 +1,20 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **28 agosto 2026** — commit `bd8f86c` su `main`, albero pulito, CI
-verde. Nel repository c'è la **1.7.1**.
+Aggiornato: **29 agosto 2026** — commit `80b7d1c` su `main`, albero pulito, CI
+verde. Nel repository c'è la **1.7.1**; le due giornate del 29 hanno toccato
+soltanto il sito, e sono raccontate in «Il sito, il 29 agosto».
+
+> **E il sito, a differenza dell'applicazione, non si rilascia: si ripubblica.**
+> Finché non parte `npx wrangler pages deploy sito --project-name mydivelog-sito`
+> tutto quello che segue esiste solo sul disco di chi lo ha scritto. L'impronta
+> del foglio di stile lo dice senza chiedere niente a nessuno: sul disco è
+> `74792cef`, e `curl -s https://mydivelog.site/ | grep -o 'stile.css?v=[0-9a-f]*'`
+> dice cosa serve davvero il sito in questo momento. **Se i due numeri sono
+> diversi, quello che c'è scritto qui sotto non è ancora pubblico.** Misurato il
+> 29 agosto: sul disco `74792cef`, servito dal sito `1a59216e` — cioè **il menu
+> e il fondo non sono ancora online**, mentre l'igiene per i motori sì
+> (`/libretto-immersioni`, `/en/dive-logbook-law`, `/sitemap.xml` e
+> `/robots.txt` rispondono tutti `200`).
 
 **Il primo difetto l'ha trovato un estraneo.** Il primo utente esterno dell'app —
 non chi la scrive, non chi la possiede: una persona che l'ha scaricata dall'App
@@ -179,19 +192,28 @@ App Store Connect rifiuta un numero di versione già visto.
 CI «Controlli» a ogni push: Tipi → Formato → Lint → Test → Test fusi orari →
 Build.
 
-**Stato dei controlli, misurato il 28 agosto sul commit `29b51a0`:**
+**Stato dei controlli, misurato il 29 agosto sul commit `80b7d1c`:**
 
 | Comando | Esito |
 | --- | --- |
-| `npx vitest run` | **1549 test in 86 file, tutti verdi** |
+| `npx vitest run` | **1641 test in 91 file, tutti verdi** |
 | `npx tsc --noEmit` | pulito, nessuna riga in uscita |
 | `npx prettier --check .` | _All matched files use Prettier code style!_ |
 | `npm run lint` | **0 errori, 14 avvisi** preesistenti |
 
 _(Il 26 agosto erano 1523 test in 82 file; il 27 sera 1540 in 85 — i sei aggiunti
 quella sera, e il file in più, erano `tests/macNegozio.test.ts`. I nove aggiunti
-il 28 e il file in più sono `tests/permessoBluetooth.test.ts`. Gli avvisi del
-lint sono rimasti 14: se diventano quindici, qualcuno ne ha aggiunto uno.)_
+il 28 mattina e il file in più sono `tests/permessoBluetooth.test.ts`; le quattro
+guardie del pomeriggio portano a 1607 in 90. **Il 29 le trentaquattro prove di
+`tests/sitoNavigazione.test.ts` portano a 1641 in 91.** Gli avvisi del lint sono
+rimasti 14 per tutto il tragitto: se diventano quindici, qualcuno ne ha aggiunto
+uno.)_
+
+> **Attenzione a `npx prettier --check .` sui documenti: passa a vuoto.**
+> `.prettierignore` contiene `*.md` e `docs`, quindi quel verde non dice niente
+> sul markdown — dice solo che i file che prettier guarda sono a posto. _Una
+> verifica che esclude quello che si sta cambiando risponde verde con la stessa
+> faccia di una che lo controlla._
 
 ---
 
@@ -418,6 +440,130 @@ pubblicato»._
 > con `.pulsante-attesa`, che invece è stata tolta, è che quella **descriveva uno
 > stato dell'interfaccia**: chi la leggeva andava a cercare una scheda spenta che
 > non esiste più.
+
+---
+
+## Il sito, il 29 agosto: i motori, il menu, e il buco in fondo
+
+Due giornate di lavoro sul solo `sito/`, commit `4f23d23` e `80b7d1c`. Non
+toccano una riga dell'applicazione, ed è il motivo per cui il numero di versione
+non si muove: *il sito non è l'app, e confondere le due cose vorrebbe dire
+alzare un numero che descrive un binario per un cambiamento che quel binario non
+contiene.*
+
+### Il sito era invisibile ai motori e a chi lo condivide
+
+`4f23d23`. Mancava l'igiene di base, e mancava per intero: nessun `robots.txt`,
+nessuna `sitemap.xml`, nessun `hreflang` fra le due lingue, e **nessuna anteprima
+quando qualcuno incollava l'indirizzo in una chat** — cioè il modo in cui questo
+progetto si diffonde davvero. Adesso ci sono tutti, più due immagini d'anteprima
+(`immagini/anteprima-it.jpg` e `-en.jpg`), i tag Open Graph e Twitter su tutte le
+pagine, `SoftwareApplication` in JSON-LD sulle due home e `Article` sulle due
+pagine di legge, e `hreflang` completo con `x-default`.
+
+**Le pagine sono diventate otto**, perché ne sono nate due: `libretto-immersioni.html`
+e la sua gemella inglese `en/dive-logbook-law.html`, sulla legge 70/2026 e sul
+libretto dell'art. 12 comma 8. Non sono una pagina di prodotto: chi cerca «cosa
+deve contenere il libretto delle immersioni» cerca la legge, non un'applicazione,
+e la pagina risponde a quella domanda.
+
+**Quello che è stato deliberatamente NON fatto**, ed è la parte che vale la pena
+tenere scritta: niente `aggregateRating` e niente `FAQPage`. Il primo dichiarerebbe
+a Google un punteggio medio che nessuno ha dato; il secondo delle domande che
+nessuno ha posto. *Sono dati strutturati, cioè affermazioni fatte a una macchina,
+e valgono la stessa regola di tutte le altre: non si inventano numeri, e non si
+inventa nemmeno il fatto che qualcuno abbia chiesto qualcosa.*
+
+La `sitemap.xml` è stata poi verificata dall'altra parte, su Search Console:
+**«Riuscita», 8 pagine rilevate.**
+
+### Il menu completo c'era solo sulla home
+
+`80b7d1c`, prima metà. Dalle altre sette pagine non si tornava indietro se non
+col tasto del browser, e **nessuna pagina diceva su quale pagina si fosse**. Ora
+le voci sono sette dappertutto.
+
+**«Segnala» è un pulsante sulla home e un collegamento altrove**, e la differenza
+non è cosmetica: il modulo delle segnalazioni e il centinaio di righe che lo
+aprono, lo chiudono e ne mandano il contenuto vivono **solo** sulla home.
+Copiarli anche altrove darebbe sei copie della stessa cosa, destinate a divergere
+al primo ritocco — si corregge il popup in un posto e negli altri cinque resta
+com'era. Il frammento `#segnala` è il messaggio: la home lo riconosce all'arrivo
+(`daFrammento()` al caricamento e su `hashchange`) e apre il modulo da sola, e
+`replaceState` ripulisce l'indirizzo alla chiusura. Non corrisponde a nessun `id`
+nella pagina, ed è voluto: chi ha JavaScript spento atterra in cima alla home,
+che è il peggio che gli possa capitare, invece di saltare su un elemento
+nascosto.
+
+**Il «sei qui» è `aria-current="page"`**, e sta in un posto diverso a seconda
+della pagina: sulle sei pagine interne è la voce corrispondente, con una
+sottolineatura di due pixel — non una terza pillola, che avrebbe fatto sembrare
+la voce corrente un pulsante diverso dagli altri; **sulle due home è il marchio**,
+che è il collegamento alla home. Lì il segno visivo non serve — il marchio è già
+l'unica cosa in grassetto della barra, e quella è l'unica pagina con l'apertura,
+le schermate e i pulsanti di scarico — ma il segno per chi legge con la voce sì:
+sente «MyDiveLog, collegamento, pagina corrente» e sa dov'è. *Il segno visivo
+serve dove le pagine si somigliano, ed è lì che c'è.*
+
+Per la quinta volta su questo foglio di stile è saltata fuori la trappola della
+specificità: `.voce-segnala` e `.voce-caffe` scritte senza `.navigazione` davanti
+perdevano contro le regole generali del menu. Prefissate.
+
+### ► SOTTO IL PIEDE C'ERANO 191 PIXEL DI NERO, E NON ERANO NÉ UN MARGINE NÉ UN PADDING ◄
+
+`80b7d1c`, seconda metà, e nasce da una frase del proprietario: *«sul fondo c'è
+troppo spazio vuoto»*.
+
+Il sospetto ovvio era il `padding: 30px 0 50px` del piede. Non era quello. Era
+**l'alone decorativo**, `.piede::before`, un elemento in `position: absolute`
+messo a `bottom: -30%`.
+
+**Un elemento assoluto che sporge SOTTO allunga l'area scorribile della pagina
+anche se non disegna niente di visibile. Uno che sporge SOPRA no.** L'overflow
+verso l'alto non è scorribile, quello verso il basso sì: è una asimmetria del
+modello di scorrimento del browser che non compare in nessuna regola CSS, perché
+non è scritta da nessuna parte del foglio — è come funziona il documento. E
+poiché il `-30%` si misura sull'altezza del piede, e il piede della home è alto,
+il buco cresceva proprio dove si notava di più.
+
+Misurato con Playwright su otto pagine per due larghezze, prima e dopo:
+
+| | prima | dopo |
+|---|---|---|
+| home, 1280 px | **110 px** di vuoto | 0 |
+| home, 390 px | **191 px** | 0 |
+| pagine interne | 35–59 px | 0 |
+
+Sedici casi su sedici a zero, con `scrollHeight` uguale al fondo del piede.
+*Non si è dedotto dal foglio di stile: si è misurato il documento disegnato* — che
+è la stessa regola già scritta qui per la review del sito, e per la stessa
+ragione: **leggendo il CSS questo difetto non si vede**, perché la regola che lo
+causa non contiene niente di sbagliato.
+
+### Le guardie: `tests/sitoNavigazione.test.ts`
+
+Trentaquattro prove, tutte **viste rosse** prima di crederle: tolta una voce dal
+menu, tolto l'`aria-current`, sdoppiato l'`aria-current`, tolta la voce
+«Segnala», rimesso `bottom: -30%`, aggiunta una decorazione nuova a
+`bottom: -2rem`.
+
+> **Due mutazioni del primo giro non avevano agganciato niente, e la prova era
+> verde per il motivo sbagliato.** Una sostituzione cercava `href="/"` su una
+> pagina dove l'indirizzo è `/en/`, l'altra era un `perl` con le graffe non
+> chiuse: il file non è mai cambiato, e il verde che ne è uscito non dimostrava
+> nulla. Rifatte controllando **prima** che il sorgente fosse davvero diverso, e
+> solo dopo guardando il colore. *Una mutazione che non muta è la forma più
+> economica di autoinganno: costa un comando e restituisce esattamente la
+> risposta che si sperava.*
+
+**I commenti si tolgono prima di contare gli `aria-current`**, e non è pignoleria:
+nel sorgente delle due home c'è un commento che **spiega** l'attributo citandolo
+per esteso. Contarlo avrebbe fatto passare una pagina che l'attributo vero non ce
+l'ha — cioè una guardia verde proprio sul caso che deve prendere.
+
+La guardia sul fondo è di due pezzi: uno inchioda `.piede::before` a `bottom: 0`,
+l'altro pretende che **nessuna** regola del piede porti un `bottom` negativo,
+perché la prossima decorazione rifarebbe lo stesso buco.
 
 ---
 
@@ -1147,7 +1293,14 @@ misurato qui non si scrive.
    nuova._ **Il segno che è arrivata a destinazione è pubblico**, e non serve
    nessun accesso: per iPhone `itunes.apple.com/lookup?id=6804439480` — con
    l'anti-cache — smetterà di rispondere `1.7.0`.
-2. **La scheda del negozio in inglese**, e adesso vale per **due** negozi. È una
+2. **► Ripubblicare il sito. ◄** Il menu su tutte le pagine, il «sei qui» e il
+   fondo senza il buco sono sul disco e **non sono online**: l'impronta servita è
+   `1a59216e`, quella sul disco `74792cef`. Un comando solo,
+   `npx wrangler pages deploy sito --project-name mydivelog-sito`, e si controlla
+   rifacendo il confronto delle due impronte. _Finché i due numeri non
+   coincidono, la sezione «Il sito, il 29 agosto» di questo documento descrive un
+   sito che esiste su una macchina sola._
+3. **La scheda del negozio in inglese**, e adesso vale per **due** negozi. È una
    localizzazione su App Store Connect, non una build nuova, e non promette più
    niente che l'app non mantenga: l'interfaccia è tradotta per intero, piano di
    miglioramento compreso. **Oggi non c'è**: la vetrina americana serve la
@@ -1488,6 +1641,18 @@ entitlements portino l'identificativo vero) e adesso **`permessoBluetooth`** (ch
 la ricerca fallita classifichi la causa vera invece di appendere il messaggio
 della libreria, e che nessuno dei nomi dei livelli sotto l'interfaccia possa
 uscire a schermo). Di tutti è stato verificato che diventano rossi.
+
+**E dal 29 agosto `sitoNavigazione`**, che legge le otto pagine del sito e il
+foglio di stile: che il menu abbia sette voci su tutte, che la voce «Segnala» ci
+sia nella forma giusta per quella pagina, che ci sia lo scambio di lingua, che
+**una sola** cosa porti `aria-current="page"` e che sia quella giusta — la voce
+sulle pagine interne, il marchio sulle due home — e che nessuna regola del piede
+abbia un `bottom` negativo, che è la forma esatta del buco da 191 pixel. Legge il
+sorgente perché lì il difetto **si vede**: una voce che manca, un attributo che
+si sdoppia, un offset che torna negativo sono tutte cose scritte nel file, e una
+guardia che gira in millisecondi a ogni prova vale più di una che deve aprire un
+browser. **Il disegno vero si è misurato a mano**, con Playwright, nel momento in
+cui si è corretto.
 
 **E `pianoTradotto`**, che è l'unico a guardare la traduzione e non la chiave:
 estrae dal sorgente le 241 frasi del piano, pretende che ognuna abbia la sua voce
