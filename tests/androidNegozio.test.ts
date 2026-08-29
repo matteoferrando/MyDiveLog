@@ -191,4 +191,47 @@ describe('il workflow che costruisce per Android', () => {
     expect(wf).toMatch(/mkdir per-play/);
     expect(wf).toMatch(/MyDiveLog-\$\{\{ inputs\.versione \}\}-play\.aab/);
   });
+
+  /**
+   * Stessa larghezza sbagliata del controllo sulla firma, in un altro passo e
+   * scoperta subito dopo: la raccolta pescava da tutto `gen/android` e portava
+   * nell'artefatto per Play anche l'`intermediary-bundle.aab` di gradle —
+   * trenta megabyte non firmati accanto al file giusto. *Due `.aab` in una
+   * cartella che ne deve contenere uno sono un invito a caricare quello
+   * sbagliato*, e il nome dell'intermedio non lo dice.
+   */
+  it('raccoglie i pacchetti solo da build/outputs', () => {
+    for (const tipo of ['apk', 'aab']) {
+      expect(wf, `la raccolta dei ${tipo} pesca anche dagli intermedi`).toContain(
+        `find src-tauri/gen/android/app/build/outputs -name '*.${tipo}'`,
+      );
+    }
+
+    /*
+     * ► IL DIVIETO VALE PER I PASSI CHE RACCOLGONO, NON PER TUTTO IL LAVORO. ◄
+     *
+     * Scritto come «da nessuna parte un `find` largo», questo controllo si è
+     * acceso subito — e aveva torto: il passo diagnostico «Cosa dichiara il
+     * progetto Android» elenca **apposta** tutti i pacchetti prodotti,
+     * intermedi compresi, perché serve a guardare cosa c'è. *Una guardia che si
+     * accende su una cosa giusta insegna a spegnerla*, ed è la terza volta oggi
+     * — dopo l'`intermediary-bundle.aab` nel controllo della firma, e dopo il
+     * ritaglio che pescava il lavoro di Windows.
+     *
+     * Quindi si ritagliano i due passi che copiano, e il divieto vale lì.
+     */
+    const raccolte = [...wf.matchAll(/- name: Raccogli[^\n]*\n([\s\S]*?)(?=\n      - )/g)];
+    expect(raccolte.length, 'i passi che raccolgono non sono più due').toBe(2);
+    for (const r of raccolte) {
+      expect(r[1], 'una raccolta pesca anche dagli intermedi di gradle').not.toContain(
+        'find src-tauri/gen/android -name',
+      );
+    }
+  });
+
+  it('e si ferma se di .aab ne trova più di uno', () => {
+    expect(wf, 'senza questo si carica su Play il primo in ordine alfabetico').toContain(
+      'file .aab invece di uno',
+    );
+  });
 });

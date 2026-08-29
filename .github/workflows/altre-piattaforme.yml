@@ -327,7 +327,9 @@ jobs:
         run: |
           set -eu
           mkdir consegna
-          find src-tauri/gen/android -name '*.apk' -exec cp {} consegna/ \;
+          # Solo `build/outputs`: vedi il passo della firma. Cercando in tutto
+          # `gen/android` si raccoglie anche quello che gradle si tiene per sé.
+          find src-tauri/gen/android/app/build/outputs -name '*.apk' -exec cp {} consegna/ \;
           cd consegna
           # Nome senza numero di versione: vedi il commento gemello nel job
           # Windows. Il collegamento del sito dev'essere sempre lo stesso.
@@ -346,8 +348,20 @@ jobs:
         run: |
           set -eu
           mkdir per-play
-          find src-tauri/gen/android -name '*.aab' -exec cp {} per-play/ \;
+          # ► SOLO `build/outputs`, E POI SI CONTA. ◄ La prima versione cercava
+          # in tutto `gen/android` e si portava dietro anche
+          # `build/intermediates/.../intermediary-bundle.aab`: trenta megabyte di
+          # file di passaggio, non firmato, dentro l'artefatto da caricare su
+          # Play accanto a quello giusto. Due `.aab` in una cartella che ne deve
+          # contenere uno sono un invito a caricare quello sbagliato.
+          find src-tauri/gen/android/app/build/outputs -name '*.aab' -exec cp {} per-play/ \;
           cd per-play
+          quanti=$(ls -1 *.aab | wc -l | tr -d ' ')
+          if [ "$quanti" != "1" ]; then
+            echo "::error::$quanti file .aab invece di uno: non si tira a indovinare quale caricare"
+            ls -la
+            exit 1
+          fi
           for f in *.aab; do mv "$f" "MyDiveLog-${{ inputs.versione }}-play.aab"; break; done
           sha256sum * > SHA256.txt
           cat SHA256.txt
