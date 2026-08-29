@@ -1,7 +1,16 @@
 /**
  * Le schermate per la scheda di Google Play, prese dall'applicazione vera.
  *
- *   npm run build && npm run demo && node scripts/immagini-play.mjs
+ *   npm run play
+ *
+ * che costruisce, rigenera l'archivio dimostrativo, disegna la grafica fissa,
+ * fotografa e alla fine misura tutto contro i vincoli di Play.
+ *
+ * ► `npm run demo` SPORCA `demo/`, ED È NORMALE. ◄ Il generatore data le
+ * immersioni a partire da oggi, quindi tutti e sei i file cambiano a ogni
+ * lancio: dopo aver fatto le fotografie si rimettono com'erano
+ * (`git restore --source=HEAD -- demo/`), o si committerebbero due megabyte di
+ * date spostate che non dicono niente a nessuno.
  *
  * Stessa regola di `immagini-sito.mjs`, e vale il doppio qui: **quello che si
  * mette nella scheda di un negozio è una promessa**. Non sono mockup, non sono
