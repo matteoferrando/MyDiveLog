@@ -267,7 +267,22 @@ jobs:
 
           guai = []
 
-          for apk in glob.glob('src-tauri/gen/android/**/*.apk', recursive=True):
+          # ► SOLO `build/outputs/`. ◄ La prima versione guardava sotto tutto
+          # `gen/android`, e il 29 agosto 2026 si è accesa su
+          # `build/intermediates/.../intermediary-bundle.aab` — un file di
+          # passaggio di gradle, che non è firmato perché non deve esserlo. I due
+          # pacchetti veri erano firmati benissimo. *Una guardia che si accende
+          # su una cosa che va bene insegna a spegnerla*, ed è la stessa lezione
+          # già pagata due volte qui: su `@garmin/fitsdk` e dentro «thrust».
+          #
+          # Restringere una ricerca però ha il rischio gemello: se il percorso
+          # cambia, non trova più niente e **passa a vuoto**. Per questo sotto si
+          # conta quello che si è guardato, e zero è un errore.
+          apk_trovati = 0
+          aab_trovati = 0
+
+          for apk in glob.glob('src-tauri/gen/android/app/build/outputs/**/*.apk', recursive=True):
+              apk_trovati += 1
               d = open(apk, 'rb').read()
               # La firma v2/v3 vive in un blocco fra il contenuto e la directory
               # centrale dello zip, marcato da questa stringa. La v1 invece sta
@@ -281,7 +296,8 @@ jobs:
               if not (v1 or v2):
                   guai.append(f'{apk} NON è firmato')
 
-          for aab in glob.glob('src-tauri/gen/android/**/*.aab', recursive=True):
+          for aab in glob.glob('src-tauri/gen/android/app/build/outputs/**/*.aab', recursive=True):
+              aab_trovati += 1
               # Un .aab è firmato alla maniera dei jar: voci META-INF/*.RSA.
               nomi = zipfile.ZipFile(aab).namelist()
               v1 = any(
@@ -292,10 +308,19 @@ jobs:
               if not v1:
                   guai.append(f'{aab} NON è firmato: Google Play lo rifiuta')
 
+          # Zero file guardati non è «tutto a posto»: è la guardia che non ha
+          # guardato niente, che è il modo in cui una prova diventa verde per il
+          # motivo sbagliato.
+          if apk_trovati == 0:
+              guai.append('nessun .apk sotto build/outputs: il controllo non ha guardato niente')
+          import os
+          if os.environ.get('PER_PLAY') == '1' and aab_trovati == 0:
+              guai.append('nessun .aab sotto build/outputs, ma si stava costruendo per Play')
+
           if guai:
               print('\n'.join('::error::' + g for g in guai))
               sys.exit(1)
-          print('tutti i pacchetti portano una firma.')
+          print(f'firmati: {apk_trovati} apk, {aab_trovati} aab.')
           PY
 
       - name: Raccogli

@@ -147,6 +147,38 @@ describe('il workflow che costruisce per Android', () => {
     );
   });
 
+  /**
+   * ► GUARDA SOLO I PACCHETTI CONSEGNATI, E CONTA QUELLI CHE HA GUARDATO. ◄
+   *
+   * Il primo giro con la chiave vera è fallito, e aveva quasi ragione: i due
+   * pacchetti veri erano firmati (APK v2/v3, `.aab` v1), ma la ricerca guardava
+   * sotto tutto `gen/android` e si è accesa su
+   * `build/intermediates/.../intermediary-bundle.aab` — un file di passaggio di
+   * gradle, che non è firmato perché non deve esserlo. *Una guardia che si
+   * accende su una cosa che va bene insegna a spegnerla.*
+   *
+   * E restringere una ricerca ha il rischio gemello, che è peggiore: se un
+   * giorno il percorso cambia, la ricerca non trova più niente e il controllo
+   * **passa a vuoto**. Le due prove qui sotto stanno insieme apposta — la
+   * seconda esiste solo perché esiste la prima.
+   */
+  it('guarda solo sotto build/outputs, dove stanno i pacchetti consegnati', () => {
+    expect(wf, 'guardare gli intermedi di gradle accende la guardia per niente').toContain(
+      "glob.glob('src-tauri/gen/android/app/build/outputs/**/*.apk'",
+    );
+    expect(wf).toContain("glob.glob('src-tauri/gen/android/app/build/outputs/**/*.aab'");
+    expect(wf, 'nessuna ricerca deve pescare da tutto gen/android').not.toContain(
+      "glob.glob('src-tauri/gen/android/**/",
+    );
+  });
+
+  it('e considera un errore non aver guardato niente', () => {
+    expect(wf, 'zero file guardati non è «tutto a posto»').toContain('il controllo non ha guardato niente');
+    expect(wf, 'e per Play serve che un .aab ci sia stato davvero').toContain(
+      'ma si stava costruendo per Play',
+    );
+  });
+
   it('lo guarda DOPO averlo costruito', () => {
     const costruisce = wf.indexOf('name: Costruisci');
     const verifica = wf.indexOf('name: Il pacchetto è davvero firmato?');
