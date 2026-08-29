@@ -220,7 +220,10 @@ describe('il workflow che costruisce per Android', () => {
      *
      * Quindi si ritagliano i due passi che copiano, e il divieto vale lì.
      */
-    const raccolte = [...wf.matchAll(/- name: Raccogli[^\n]*\n([\s\S]*?)(?=\n      - )/g)];
+    // `\n {6}- ` e non sei spazi scritti a mano: ESLint li vieta, e ha ragione
+    // — sei spazi in fila in una regex non si contano a occhio, e uno in più o
+    // in meno qui vorrebbe dire ritagliare il passo sbagliato.
+    const raccolte = [...wf.matchAll(/- name: Raccogli[^\n]*\n([\s\S]*?)(?=\n {6}- )/g)];
     expect(raccolte.length, 'i passi che raccolgono non sono più due').toBe(2);
     for (const r of raccolte) {
       expect(r[1], 'una raccolta pesca anche dagli intermedi di gradle').not.toContain(
