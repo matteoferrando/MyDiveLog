@@ -10,11 +10,14 @@ soltanto il sito, e sono raccontate in «Il sito, il 29 agosto».
 > del foglio di stile lo dice senza chiedere niente a nessuno: sul disco è
 > `74792cef`, e `curl -s https://mydivelog.site/ | grep -o 'stile.css?v=[0-9a-f]*'`
 > dice cosa serve davvero il sito in questo momento. **Se i due numeri sono
-> diversi, quello che c'è scritto qui sotto non è ancora pubblico.** Misurato il
-> 29 agosto: sul disco `74792cef`, servito dal sito `1a59216e` — cioè **il menu
-> e il fondo non sono ancora online**, mentre l'igiene per i motori sì
-> (`/libretto-immersioni`, `/en/dive-logbook-law`, `/sitemap.xml` e
-> `/robots.txt` rispondono tutti `200`).
+> diversi, quello che c'è scritto qui sotto non è ancora pubblico.** Misurato la
+> sera del 29 agosto, **dopo la pubblicazione**: sul disco `74792cef`, servito
+> dal sito `74792cef` — coincidono, quindi è tutto online. Verificato anche
+> guardando le pagine servite e non solo l'impronta: sette voci di menu e un solo
+> `aria-current` su `/privacy`, `/termini`, `/libretto-immersioni` e
+> `/en/privacy`, e `.piede::before` a `bottom: 0` nel foglio servito.
+> *(Poche ore prima diceva `1a59216e`: la differenza fra le due misure è tutto
+> quello che questo riquadro esiste per rendere visibile.)*
 
 **Il primo difetto l'ha trovato un estraneo.** Il primo utente esterno dell'app —
 non chi la scrive, non chi la possiede: una persona che l'ha scaricata dall'App
@@ -1073,9 +1076,17 @@ elencare **due** piattaforme: sulla 1.7.0 `darwin-aarch64` e `windows-x86_64`.
 > controllo della firma messo prima della build passerebbe sempre, perché non
 > ci sarebbe niente da guardare.
 >
-> **Quello che resta da fare è una release nuova**: la correzione vale per i
-> pacchetti che verranno, non per quello che oggi è su GitHub. Finché non c'è,
-> il pulsante Android del sito continua a consegnare il file rotto.
+> **Chiuso la sera stessa, sostituendo l'allegato della `v1.7.1`.** L'APK servito
+> da `releases/latest/download/` è adesso firmato v2/v3, SHA-256
+> `390c174f87e14fa0ea6c1fc6690912afe2a223fc19d9650e99ffc517a2c5e6e1` —
+> ricalcolata riscaricando dall'indirizzo pubblico, non dal disco. **E le note
+> della release lo dicono**: un file pubblicato non si sostituisce in silenzio,
+> perché l'impronta scritta nelle note serve a chi vuole verificare cosa ha
+> scaricato, e cambiare il file senza cambiare la riga la trasforma in una bugia
+> — chi la controlla conclude di avere in mano un file manomesso. Scelto di
+> sostituire invece di alzare a 1.7.2: il codice è identico, e *un numero di
+> versione nuovo che non cambia niente di percepibile è una bugia di segno
+> opposto.*
 
 **La chiave di firma, adesso.** Con i tre segreti (`ANDROID_KEYSTORE_BASE64`,
 `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`) il workflow firma con la
@@ -1412,14 +1423,9 @@ misurato qui non si scrive.
    nuova._ **Il segno che è arrivata a destinazione è pubblico**, e non serve
    nessun accesso: per iPhone `itunes.apple.com/lookup?id=6804439480` — con
    l'anti-cache — smetterà di rispondere `1.7.0`.
-2. **► Ripubblicare il sito. ◄** Il menu su tutte le pagine, il «sei qui» e il
-   fondo senza il buco sono sul disco e **non sono online**: l'impronta servita è
-   `1a59216e`, quella sul disco `74792cef`. Un comando solo,
-   `npx wrangler pages deploy sito --project-name mydivelog-sito`, e si controlla
-   rifacendo il confronto delle due impronte. _Finché i due numeri non
-   coincidono, la sezione «Il sito, il 29 agosto» di questo documento descrive un
-   sito che esiste su una macchina sola._
-3. **La scheda del negozio in inglese**, e adesso vale per **due** negozi. È una
+2. **~~Ripubblicare il sito.~~ Fatto la sera del 29**, e verificato dalle pagine
+   servite e non solo dall'impronta: le due coincidono su `74792cef`.
+3. **La scheda del negozio in inglese**, e adesso vale per **tre** negozi. È una
    localizzazione su App Store Connect, non una build nuova, e non promette più
    niente che l'app non mantenga: l'interfaccia è tradotta per intero, piano di
    miglioramento compreso. **Oggi non c'è**: la vetrina americana serve la
