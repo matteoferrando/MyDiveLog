@@ -1636,7 +1636,14 @@ a {
 .apertura-griglia {
   display: grid;
   grid-template-columns: 1fr 1.12fr;
-  align-items: center;
+  /*
+    `stretch` e non `center`, ed è quello che permette alla vetrina di seguire
+    la lettura: una cella centrata è alta quanto il suo contenuto, e dentro una
+    cella alta quanto il contenuto un elemento `sticky` non ha nessuno spazio in
+    cui scorrere. Stirata, la cella è alta quanto la riga, e la pila di dentro
+    può viaggiare.
+  */
+  align-items: stretch;
   gap: 44px;
 }
 
@@ -1662,6 +1669,59 @@ a {
 */
 .vetrina-apertura {
   perspective: 1400px;
+}
+
+/*
+  ► LA COLONNA DESTRA ERA VUOTA PER IL SETTANTUNO PER CENTO. ◄
+
+  Misurato, non stimato: la griglia dell'apertura è alta 1236 px e l'immagine
+  359. Facevano 440 px di vuoto sopra e 437 sotto. Non è «aria»: una colonna
+  che sta accanto a un testo lungo e mostra una cosa sola sta dicendo di non
+  averne altre, mentre ne ha. Il vuoto era cresciuto da solo, perché la colonna
+  di sinistra si è allungata quando i gruppi di piattaforme sono diventati tre.
+
+  Due rimedi, e servono tutti e due.
+
+  **La seconda schermata** è la scheda di un'immersione col profilo: l'unica
+  immagine che un subacqueo riconosce senza didascalia. Sfalsata e sovrapposta,
+  perché due rettangoli in fila restano due rettangoli, mentre due sovrapposti
+  sono una pila di cose vere — ed è così che le si guarda su una scrivania.
+
+  **E la pila segue la lettura.** Quello che resta di vuoto smette di essere un
+  buco e diventa la corsa: mentre si scorrono le tre file di piattaforme, la
+  vetrina resta dov'è invece di uscire dallo schermo al primo mezzo giro di
+  rotella.
+*/
+.vetrina-pila {
+  position: sticky;
+  top: 96px;
+}
+
+/*
+  Sfalsata verso destra e tirata su a coprire l'angolo della prima: il taglio
+  cade sulle ultime righe dell'elenco, che sono le meno importanti — coprire
+  l'intestazione avrebbe tolto proprio quello che quella schermata deve dire.
+
+  L'inclinazione è la stessa della prima ma di un grado in meno: due piani
+  paralleli si leggono come una pila, due piani con angoli diversi si leggono
+  come un errore.
+
+  ► IL SELETTORE È LUNGO APPOSTA. ◄ Scritto `.vetrina-secondo` questa regola
+  non faceva quasi niente: qui sotto `.vetrina-apertura img` dà `width: 100%` e
+  una sua `transform`, e una classe più un tipo (0-1-1) batte una classe sola
+  (0-1-0). Restavano in piedi solo `margin` e `z-index`, che quel selettore non
+  tocca — così la seconda schermata era larga quanto la prima e inclinata come
+  la prima, cioè non era affatto una pila: erano due rettangoli uguali in
+  colonna. Si è visto in una schermata, non nel foglio, e la prova qui accanto
+  ora confronta la specificità di OGNI proprietà, non della sola `display` che
+  era stata corretta per prima.
+*/
+.vetrina-apertura .vetrina-secondo {
+  width: 76%;
+  margin: -13% 0 0 auto;
+  transform: perspective(1400px) rotateY(-5deg) rotateX(2deg) scale(1.02);
+  position: relative;
+  z-index: 1;
 }
 
 .vetrina-apertura img {
@@ -1708,6 +1768,28 @@ a {
 
   .vetrina-apertura img {
     transform: none;
+  }
+
+  /*
+    Su una colonna sola la pila non ha senso e la seconda schermata nemmeno:
+    sotto sta già il resto della pagina, e su un telefono la prima cosa che deve
+    entrare nello schermo è il pulsante. Essendo pigra, nascosta non si scarica
+    neanche — la banda la paga chi apre il sito da una barca.
+  */
+  .vetrina-pila {
+    position: static;
+  }
+
+  /*
+    `.vetrina-apertura .vetrina-secondo` e non `.vetrina-secondo` da sola: due
+    classi battono una classe più un tipo, e qui sopra c'è
+    `.vetrina-apertura img { display: block }`. Scritta corta, questa regola
+    perdeva — la seconda schermata restava visibile sul telefono e la media
+    query sembrava non applicarsi affatto, mentre applicava tutto il resto.
+    Misurato a 900 e a 480 px: prima `display: block`, dopo `display: none`.
+  */
+  .vetrina-apertura .vetrina-secondo {
+    display: none;
   }
 }
 

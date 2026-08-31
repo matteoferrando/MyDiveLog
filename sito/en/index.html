@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/" />
-    <link rel="stylesheet" href="../stile.css?v=e9ab34d1" />
+    <link rel="stylesheet" href="../stile.css?v=8204f69b" />
     <!--
       Le tre alternative di lingua, su OGNI pagina e non soltanto sulle due
       home. Sono indirizzi ASSOLUTI perché Google scarta gli `hreflang`
@@ -368,23 +368,43 @@
         </div>
 
         <!--
-        La schermata NON è dentro `.apertura`: è la seconda colonna della
-        griglia. Dentro erediterebbe la larghezza del testo, che è misurata sulla
-        leggibilità — sessanta caratteri — e una vetrina larga come una colonna
-        di testo non è una vetrina.
+        Le schermate NON stanno dentro `.apertura`: sono la seconda colonna
+        della griglia. Dentro erediterebbero la larghezza del testo, che è
+        misurata sulla leggibilità — sessanta caratteri — e una vetrina larga
+        come una colonna di testo non è una vetrina.
 
-        `loading="eager"` e non pigra: è la prima cosa che si vede, e caricarla
-        in ritardo vorrebbe dire mostrare un buco proprio dove si guarda per
-        primo. Le altre schermate, a metà pagina, restano pigre.
+        SONO DUE, E IMPILATE, per un motivo misurato: con una sola, la colonna
+        destra era vuota per il 71 per cento — 440 px sopra e 437 sotto un'unica
+        immagine alta 359. Due rettangoli in fila restano due rettangoli; due
+        sovrapposti e sfalsati sono una pila di cose vere, ed è così che si
+        guardano su una scrivania. La seconda è la scheda di un'immersione col
+        profilo: l'unica immagine che un subacqueo riconosce senza didascalia.
+
+        La prima `eager`, la seconda `lazy`. La prima è quello che si vede
+        aprendo il sito, e caricarla in ritardo vorrebbe dire mostrare un buco
+        proprio dove si guarda per primo; la seconda sta più in basso, e sotto i
+        1000 px sparisce del tutto — essendo pigra, nascosta non si scarica
+        neanche, e la banda la paga chi apre il sito da una barca.
       -->
         <div class="vetrina-apertura">
-          <img
-            src="../immagini/logbook-en.jpg"
-            alt="The MyDiveLog dive list: date, site, max depth, duration, RMV and where each dive came from."
-            loading="eager"
-            width="1600"
-            height="1000"
-          />
+          <div class="vetrina-pila">
+            <img
+              class="vetrina-primo"
+              src="../immagini/logbook-en.jpg"
+              alt="The MyDiveLog dive list: date, site, max depth, duration, RMV and where each dive came from."
+              loading="eager"
+              width="1600"
+              height="1000"
+            />
+            <img
+              class="vetrina-secondo"
+              src="../immagini/immersione-en.jpg"
+              alt="A dive in MyDiveLog: max depth, duration, surface air consumption and the profile traced minute by minute."
+              loading="lazy"
+              width="1600"
+              height="1000"
+            />
+          </div>
         </div>
       </div>
     </div>
