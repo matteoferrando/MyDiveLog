@@ -1938,10 +1938,55 @@ a.scheda-piattaforma.principale:hover {
   l'opacità, non un'etichetta che dica «secondarie» — perché quella etichetta
   suonerebbe come una scusa, e queste due versioni non sono una scusa.
 */
+/*
+  ► LE SCHEDE RIEMPIONO LA RIGA, E NON È SOLO ESTETICA. ◄
+
+  Le due principali (macOS, iOS) hanno sempre riempito la loro riga. Le minori
+  no: restavano larghe quanto il loro contenuto e lasciavano un buco a destra —
+  e con l'arrivo del terzo gruppo, dove Linux sta da solo, quel buco è diventato
+  metà riga. Un buco a destra di una fila di schede si legge come «manca
+  qualcosa», che è precisamente il contrario di quello che quelle righe dicono.
+
+  `flex: 1 1 140px` le fa crescere in parti uguali a qualunque larghezza,
+  esattamente come le principali. Il `140px` resta la base sotto cui si va a
+  capo.
+*/
 .scheda-piattaforma.minore {
+  flex: 1 1 140px;
   min-width: 140px;
   padding: 16px 18px 14px;
   opacity: 0.88;
+}
+
+/*
+  ► LA SCHEDA CHE STA DA SOLA SI GIRA DI LATO. ◄
+
+  Linux è un gruppo di uno. Una scheda quadrata allargata a tutta riga sembra
+  una scheda sbagliata; girata — disegno a sinistra, nome e riga accanto — è una
+  forma sua, e dice «questo è un gruppo di uno» invece di «qui manca il
+  secondo».
+*/
+.scheda-piattaforma.larga {
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+}
+
+.scheda-piattaforma.larga .disegno {
+  margin-bottom: 0;
+  flex: none;
+}
+
+.scheda-piattaforma.larga .testo-scheda {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Qui la riga non si appoggia al fondo: sta sotto il nome, di fianco al segno. */
+.scheda-piattaforma.larga .riga {
+  margin-top: 0;
 }
 
 .scheda-piattaforma.minore .disegno {

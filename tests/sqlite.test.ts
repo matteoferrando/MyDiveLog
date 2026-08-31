@@ -185,7 +185,30 @@ describe('alberi B su più livelli', () => {
       (db) => {
         db.exec('create table dives (n integer, site text, depth real)');
         const st = db.prepare('insert into dives values (?,?,?)');
+        /*
+         * ► LE DUEMILA RIGHE IN UNA TRANSAZIONE SOLA, E NON È UN'OTTIMIZZAZIONE. ◄
+         *
+         * Senza `begin`/`commit` ogni `run()` è una transazione a sé, e con
+         * `journal_mode = DELETE` ogni transazione è una sincronizzazione su
+         * disco: **duemila fsync per costruire una fixture**. Su un SSD sono 333
+         * millisecondi e non si nota; sul disco di un runner GitHub sono decine
+         * di secondi, e il 31 agosto 2026 questa prova è andata **in timeout a
+         * trenta secondi in CI** su un commit che aveva toccato **solo i
+         * documenti**.
+         *
+         * *Una prova che diventa rossa per una ragione che non c'entra col
+         * codice è peggio di una prova lenta: insegna a guardare il rosso e
+         * pensare «sarà il runner».* Il rimedio non è alzare il timeout — quello
+         * nasconde la causa e la lascia crescere — ma togliere le millenovecento
+         * novantanove sincronizzazioni che non servivano a niente.
+         *
+         * Quello che la prova misura non cambia: duemila righe, pagine da 512
+         * byte, quindi un albero B con più di un livello che il lettore deve
+         * attraversare.
+         */
+        db.exec('begin');
         for (let i = 1; i <= 2000; i++) st.run(i, `Sito numero ${i}`, i / 10);
+        db.exec('commit');
       },
       512,
     );
