@@ -341,6 +341,27 @@ body::before {
   overflow: visible;
 }
 
+/*
+  ► LO STATO DI RIPOSO È QUELLO FINALE, E L'ANIMAZIONE LO RIAVVOLGE. ◄
+
+  Questa animazione partiva a 0,35 s dal caricamento, e il profilo sta sotto la
+  piega: chi ci arrivava scorrendo, tre secondi dopo, trovava un disegno fermo.
+  *Un'animazione che nessuno vede non è un'animazione: è banda e batteria spese
+  per niente.*
+
+  Ora parte quando l'elemento entra nello schermo, e la partenza la dà
+  `in-vista`, una classe che mette lo script in fondo alla pagina. Da cui la
+  forma di queste regole, che è l'opposto di quella ovvia: **qui il riposo è il
+  disegno FINITO** — linea tracciata, sfumatura visibile, segno al suo posto — e
+  sono le regole con `in-vista` a riportare tutto al primo fotogramma e a farlo
+  correre.
+
+  Scritta al contrario — riposo = tela bianca, animazione che disegna — bastava
+  che lo script non partisse, o che il browser non avesse
+  `IntersectionObserver`, e il profilo restava vuoto per sempre. *Uno stato
+  iniziale che serve solo all'animazione non deve mai essere quello che vede chi
+  l'animazione non la riceve.*
+*/
 .profilo .linea {
   fill: none;
   stroke: var(--ciano);
@@ -349,14 +370,22 @@ body::before {
   stroke-linejoin: round;
   filter: drop-shadow(0 0 10px rgba(67, 214, 255, 0.55));
   stroke-dasharray: 1500;
+  stroke-dashoffset: 0;
+}
+
+.profilo.in-vista .linea {
   stroke-dashoffset: 1500;
-  animation: traccia 3.2s cubic-bezier(0.4, 0, 0.2, 1) 0.35s forwards;
+  animation: traccia 3.2s cubic-bezier(0.4, 0, 0.2, 1) 0.15s forwards;
 }
 
 .profilo .area {
   fill: url(#sfumaturaProfilo);
+  opacity: 1;
+}
+
+.profilo.in-vista .area {
   opacity: 0;
-  animation: comparire 1.6s ease 2.2s forwards;
+  animation: comparire 1.6s ease 2s forwards;
 }
 
 .profilo .griglia-linea {
@@ -378,8 +407,12 @@ body::before {
 }
 
 .profilo .segno {
+  opacity: 1;
+}
+
+.profilo.in-vista .segno {
   opacity: 0;
-  animation: comparire 0.9s ease 2.6s forwards;
+  animation: comparire 0.9s ease 2.4s forwards;
 }
 
 .profilo .segno circle {
@@ -740,13 +773,23 @@ a {
   }
 }
 
+/*
+  Chi ha chiesto meno movimento vede il disegno finito. Lo script non aggiunge
+  nemmeno `in-vista` in quel caso, ma queste righe ci sono lo stesso: una difesa
+  che esiste solo nel JavaScript smette di esistere quando il JavaScript non
+  parte, ed è il caso in cui serve di più.
+*/
 @media (prefers-reduced-motion: reduce) {
-  .profilo .linea {
+  .profilo .linea,
+  .profilo.in-vista .linea {
     animation: none;
     stroke-dashoffset: 0;
   }
+
   .profilo .area,
-  .profilo .segno {
+  .profilo .segno,
+  .profilo.in-vista .area,
+  .profilo.in-vista .segno {
     animation: none;
     opacity: 1;
   }

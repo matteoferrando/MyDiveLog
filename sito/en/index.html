@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/" />
-    <link rel="stylesheet" href="../stile.css?v=b425e252" />
+    <link rel="stylesheet" href="../stile.css?v=8b2ca48d" />
     <!--
       Le tre alternative di lingua, su OGNI pagina e non soltanto sulle due
       home. Sono indirizzi ASSOLUTI perché Google scarta gli `hreflang`
@@ -435,7 +435,7 @@
         safety stop. It is NOBODY'S dive: real data from real users never ends up
         in a shop window.
       -->
-      <div class="profilo">
+      <div class="profilo" data-in-vista>
         <svg
           viewBox="0 0 1000 320"
           role="img"
@@ -609,7 +609,7 @@
                 <path d="M12 11v5l3 2" />
                 <path d="M23 8a9 9 0 0 1 0 16" />
               </svg>
-              <span>It matches them even with clocks out of step</span>
+              <span>The same dive, even with clocks out of step</span>
             </h3>
             <p>
               The offset is inferred across your whole logbook, and the match is confirmed on the shape of the
@@ -1504,6 +1504,52 @@
           { threshold: 0.4 },
         );
         for (const c of cifre) guardia.observe(c);
+      })();
+    </script>
+    <script>
+      /*
+        ► LE ANIMAZIONE D'INGRESSO PARTONO QUANDO SI ARRIVA, NON AL CARICAMENTO. ◄
+
+        Il profilo che si traccia stava sotto la piega e cominciava a 0,35 s dal
+        caricamento: quando qualcuno ci scorreva sopra, tre secondi dopo, era
+        finito da un pezzo. Un'animazione che nessuno vede non è un'animazione,
+        è banda e batteria spese per niente.
+
+        LA REGOLA DI SICUREZZA, la stessa dei numeri qui sotto: **nel foglio di
+        stile lo stato di riposo è quello FINALE.** Il profilo è disegnato, la
+        sfumatura è visibile, il segno c'è. È la classe `in-vista` — che aggiunge
+        questo script, e solo quando l'elemento entra davvero nello schermo — a
+        riportarlo al primo fotogramma e a farlo partire. Quindi se lo script non
+        gira, se `IntersectionObserver` non c'è, o se qualcuno ha chiesto meno
+        movimento, si vede il disegno finito: non esiste nessun caso in cui resti
+        una tela bianca.
+
+        `data-in-vista` e non un elenco di selettori: il giorno che una sezione
+        nuova vorrà entrare scorrendo, le si mette l'attributo e basta — e
+        `tests/sitoSpecificita.test.ts` pretende che ogni animazione a un colpo
+        solo fuori dall'apertura sia agganciata qui.
+      */
+      (() => {
+        const meno = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const pezzi = document.querySelectorAll('[data-in-vista]');
+        if (meno || !pezzi.length || !('IntersectionObserver' in window)) return;
+
+        const guardia = new IntersectionObserver(
+          (voci) => {
+            for (const v of voci) {
+              if (!v.isIntersecting) continue;
+              v.target.classList.add('in-vista');
+              // Una volta sola: rientrando dall'alto non si ridisegna. Un
+              // elemento che si rianima a ogni passaggio diventa un tic.
+              guardia.unobserve(v.target);
+            }
+          },
+          // Un quarto dell'elemento dentro lo schermo: prima è ancora sul
+          // bordo e l'animazione comincerebbe fuori dalla vista, cioè
+          // esattamente il difetto che si sta correggendo.
+          { threshold: 0.25 },
+        );
+        for (const p of pezzi) guardia.observe(p);
       })();
     </script>
   </body>

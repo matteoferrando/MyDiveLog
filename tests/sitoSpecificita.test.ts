@@ -593,6 +593,75 @@ describe('la vetrina dell’apertura', () => {
   }
 });
 
+describe('le animazioni d’ingresso', () => {
+  /*
+   * ► UN'ANIMAZIONE CHE NESSUNO VEDE NON È UN'ANIMAZIONE. ◄
+   *
+   * Il profilo che si traccia cominciava a 0,35 s dal caricamento e sta sotto la
+   * piega: chi ci arrivava scorrendo, tre secondi dopo, trovava un disegno
+   * fermo. Nessun comando se n'era accorto — l'animazione girava davvero, solo
+   * fuori dallo schermo di chiunque.
+   *
+   * La regola che questo blocco difende: **fuori dall'apertura, un'animazione a
+   * un colpo solo (`forwards`) deve essere agganciata a `in-vista`.** Non
+   * «il profilo sia agganciato»: qualunque animazione, anche quella che qualcuno
+   * aggiungerà fra sei mesi in una sezione che oggi non esiste.
+   *
+   * L'apertura è l'eccezione dichiarata: quella si vede appena la pagina si
+   * apre, e aspettare uno scorrimento vorrebbe dire non mostrarla mai.
+   */
+  const APERTURA = ['.scena', '.scena-poi', '.scena-file', '.scena::after'];
+
+  it('ogni animazione a un colpo solo fuori dall’apertura parte scorrendo', () => {
+    const colpevoli: string[] = [];
+    for (const r of regole(senzaCommenti(CSS))) {
+      if (!/animation:[^;]*\bforwards\b/.test(r.corpo)) continue;
+      if (APERTURA.some((a) => r.selettore.startsWith(a))) continue;
+      if (!r.selettore.includes('in-vista')) colpevoli.push(r.selettore);
+    }
+    expect(colpevoli, 'partono al caricamento, quindi sotto la piega non le vede nessuno').toEqual([]);
+  });
+
+  it('lo stato di riposo è quello FINALE, non il primo fotogramma', () => {
+    // La difesa vera per chi non ha JavaScript. Se il riposo fosse la tela
+    // bianca e la classe non arrivasse mai, il profilo resterebbe vuoto per
+    // sempre — e non lo direbbe nessun errore.
+    const base = regole(soloBase(CSS));
+    const riposo = base.find((r) => r.selettore === '.profilo .linea');
+    expect(riposo, 'non c’è più una regola di riposo per la linea del profilo').toBeDefined();
+    expect(riposo!.corpo, 'a riposo la linea è arrotolata: senza script non si disegna mai').toMatch(
+      /stroke-dashoffset:\s*0\b/,
+    );
+    expect(riposo!.corpo, 'l’animazione è ancora sullo stato di riposo').not.toMatch(/animation:/);
+
+    for (const sel of ['.profilo .area', '.profilo .segno']) {
+      const r = base.find((x) => x.selettore === sel);
+      expect(r, `manca la regola di riposo per \`${sel}\``).toBeDefined();
+      expect(r!.corpo, `\`${sel}\` a riposo è invisibile: senza script non comparirebbe mai`).toMatch(
+        /opacity:\s*1\b/,
+      );
+    }
+  });
+
+  for (const pagina of PAGINE) {
+    it(`${pagina}: chi si anima lo dichiara, e c’è chi lo osserva`, () => {
+      const html = readFileSync(join(SITO, pagina), 'utf8');
+      const senzaMarcatore = html.replace(/<!--[\s\S]*?-->/g, '');
+      expect(
+        /<div class="profilo"[^>]*\bdata-in-vista\b/.test(senzaMarcatore),
+        'il profilo non è marcato `data-in-vista`: la classe non arriverà mai',
+      ).toBe(true);
+      // E qualcuno deve mettere quella classe. Il marcatore senza osservatore è
+      // un attributo che non fa niente — e la pagina resterebbe ferma senza che
+      // niente dia errore.
+      expect(html).toContain('IntersectionObserver');
+      expect(html).toContain("classList.add('in-vista')");
+      // Chi ha chiesto meno movimento non deve nemmeno riceverla.
+      expect(html).toContain('prefers-reduced-motion: reduce');
+    });
+  }
+});
+
 describe('le schede delle piattaforme', () => {
   for (const pagina of PAGINE) {
     describe(pagina, () => {
