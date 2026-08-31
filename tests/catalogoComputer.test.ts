@@ -9,6 +9,7 @@
  * che qualcuno «sistema» rimettendola in ordine alfabetico.
  */
 
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   cercaModelli,
@@ -17,6 +18,52 @@ import {
   MODELLI_BLE,
   RICONOSCIUTE_DA_SOLE,
 } from '../src/core/ble/catalogo';
+
+/**
+ * ► I NUMERI SCRITTI NEI COMMENTI SONO AFFERMAZIONI, E VANNO CONTROLLATE. ◄
+ *
+ * In testa a `catalogo.ts` c'era scritto «restano 110 modelli e 20 marche, un
+ * elenco di 110 voci»: le voci sono 105. Il 110 è vero — sono i descrittori BLE
+ * della libreria — ma un nome commerciale può portare più numeri di modello e
+ * nell'elenco compare una volta sola, quindi le righe sono cinque di meno. Due
+ * cose diverse chiamate con lo stesso numero, e nessuno se n'era accorto per
+ * mesi: **nessun comando legge i commenti.**
+ *
+ * Queste prove li leggono. Non è pignoleria: questo progetto scrive numeri
+ * dappertutto — nei commenti, nel README, sul sito — proprio perché «i numeri
+ * rispondono meglio di quattro aggettivi». Un numero che nessuno verifica è un
+ * aggettivo travestito.
+ */
+function numeriDichiarati(file: string): number[] {
+  const testa = readFileSync(new URL(file, import.meta.url), 'utf8').split('*/')[0];
+  return [...testa.matchAll(/\b(\d{2,4})\b/g)].map((m) => Number(m[1]));
+}
+
+describe('i numeri scritti nei commenti', () => {
+  it('l’intestazione del catalogo generato conta le voci e le marche che ci sono', () => {
+    // Il file è generato, e la sua intestazione dichiara «N modelli, M marche».
+    // Se lo script che lo genera cambiasse filtro senza aggiornare quella riga,
+    // la riga resterebbe lì a dire il falso — ed è la fonte da cui tutto il
+    // resto (commenti, README, sito) copia i propri numeri.
+    const testa = readFileSync(new URL('../src/core/ble/catalogoGenerato.ts', import.meta.url), 'utf8');
+    const riga = /\/\*\* (\d+) modelli, (\d+) marche\. \*\//.exec(testa);
+    expect(riga, 'il catalogo generato non dichiara più quanti modelli e marche contiene').not.toBeNull();
+    expect(Number(riga![1])).toBe(MODELLI_BLE.length);
+    expect(Number(riga![2])).toBe(new Set(MODELLI_BLE.map((m) => m.marca)).size);
+  });
+
+  it('l’intestazione di `catalogo.ts` non confonde i descrittori con le voci', () => {
+    const numeri = numeriDichiarati('../src/core/ble/catalogo.ts');
+    const voci = MODELLI_BLE.length;
+    const marche = new Set(MODELLI_BLE.map((m) => m.marca)).size;
+    expect(numeri, `nell’intestazione non c’è il numero delle voci (${voci})`).toContain(voci);
+    expect(numeri, `nell’intestazione non c’è il numero delle marche (${marche})`).toContain(marche);
+    // E soprattutto: il numero dei descrittori BLE non deve essere usato al
+    // posto di quello delle voci. Erano scritti tutti e due come «110».
+    const descrittori = 110;
+    expect(descrittori).not.toBe(voci);
+  });
+});
 
 describe('il catalogo', () => {
   it('contiene solo modelli che parlano BLE', () => {

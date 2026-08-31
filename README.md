@@ -39,17 +39,18 @@ Le schermate sono prodotte dall'applicazione vera con l'archivio dimostrativo
 **iPhone: [sull'App Store](https://apps.apple.com/app/mydivelog/id6804439480)**,
 gratis, da iOS 15.
 
-**macOS, Windows e Android stanno
+**macOS, Windows, Android e Linux stanno
 [nelle release](https://github.com/matteoferrando/MyDiveLog/releases/latest)**, e
 i pulsanti sono anche su [mydivelog.site](https://mydivelog.site).
 
 | | File | Cosa sapere prima di scaricare |
 |---|---|---|
 | macOS | `MyDiveLog-macOS-arm64.dmg` | firmato Developer ID e **notarizzato**: doppio clic, niente «apri comunque». **Serve un Mac Apple Silicon e macOS 12** — su un Mac Intel installa e non si apre |
-| Windows | `MyDiveLog-Windows-setup.exe`, o la versione portatile | firmato dal Mac, si aggiorna da solo. **Non l'ha provato nessuno su una macchina vera** |
+| Windows | `MyDiveLog-Windows-setup.exe`, oppure `MyDiveLog-Windows-portatile.exe` che non installa niente | firmato dal Mac, si aggiorna da solo. **Non l'ha provato nessuno su una macchina vera** |
 | Android | `MyDiveLog-Android-arm64.apk` | **niente aggiornamento automatico**, e la firma non garantisce da chi viene il file: lo garantisce l'impronta SHA-256 pubblicata nelle note della release. **Non l'ha provato nessuno su un telefono vero** |
+| Linux | `MyDiveLog-Linux-amd64.deb` | **niente aggiornamento automatico**. Vuole **WebKitGTK 4.1**, che c'è da **Ubuntu 24.04** e da **Debian 13** in su: su una distribuzione più vecchia `dpkg` lo rifiuta dicendo che manca `libwebkit2gtk-4.1-0`, e non è un difetto del pacchetto — quella libreria lì non esiste. È l'unica delle tre non-Apple che qualcuno **ha fatto partire davvero** prima di pubblicarla |
 
-Non c'è un pacchetto per Mac Intel né per Linux.
+Non c'è un pacchetto per Mac Intel.
 
 > **Perché i limiti stanno PRIMA del pulsante e non dopo.** Costano qualche
 > scaricamento in meno e risparmiano la delusione di scoprirli a installazione
@@ -193,7 +194,7 @@ Più il **backup completo in JSON**, che è l'unico che riporta indietro tutto:
 immersioni, profili, attrezzatura, brevetti e piani.
 
 **Tiene un solo archivio su più dispositivi.** Facoltativo: si entra con un
-account Google e il servizio crea un database libSQL/Turso tutto tuo — indirizzo
+account **Apple o Google** e il servizio crea un database libSQL/Turso tutto tuo — indirizzo
 e token si possono ancora incollare a mano, sotto «Avanzate», per chi il database
 se l'è fatto da sé. Il database locale resta la fonte di verità e la
 sincronizzazione è un'operazione che lanci tu — l'app si apre e funziona identica
@@ -227,7 +228,7 @@ Nessun token è nel codice né nel repository: vivono nel portachiavi di sistema
 | `npm run dev` | sviluppo nel browser (dati in IndexedDB) |
 | `npm run desktop` | app desktop in sviluppo (dati in SQLite) |
 | `npm run desktop:build` | `.app` + `.dmg` per macOS |
-| `npm test` | 1211 test su unità, parser, formati binari Uwatec e Shearwater, gzip/DEFLATE, lettore SQLite, metriche, deduplica, fusi orari, sincronizzazione, piano, grafici |
+| `npm test` | 1700+ prove su unità, parser, formati binari Uwatec e Shearwater, gzip/DEFLATE, lettore SQLite, metriche, deduplica, fusi orari, sincronizzazione, piano, grafici, e sul sito |
 | `npm run validate:logtrak <file>` | verifica il decoder Uwatec contro un export LogTRAK reale |
 | `npm run validate:pnf <file.db>` | verifica il decoder Shearwater contro un database di Shearwater Cloud reale |
 | `npm run typecheck` | controllo dei tipi |
@@ -402,6 +403,7 @@ src/
     turso.ts                   trasporto libSQL + schema remoto
     account.ts                 sessione lunga, chiave del database corta
     googleAccesso.ts           OAuth con PKCE: prepara il giro, legge il ritorno
+    appleAccesso.ts            «Accedi con Apple»: giro web, `form_post`, nome solo la prima volta
     accessoPiattaforma.ts      il ritorno dal browser: porta locale sul Mac, schema URL su iPhone
     pkce.ts                    verificatore e sfida
   ai/                        ← NON entra nell'applicazione: serve a `npm run dump:ai`
@@ -414,8 +416,9 @@ src/
 src-tauri/                   ← guscio nativo (plugin SQL, Bluetooth, ritorno dall'accesso)
 server/                      ← il servizio di accesso: tre rotte, nessuna dipendenza
   worker.ts                    /accesso, /chiave, /account
-  identita.ts                  verifica del token di Google (JWKS, RS256, iss, aud, exp)
+  identita.ts                  verifica del token di Apple e di Google (JWKS, RS256, iss, aud, exp)
   googleScambio.ts             lo scambio del codice, con il segreto che non sta nell'app
+  appleScambio.ts              lo stesso per Apple, più il rimbalzo della POST di Apple
   sessione.ts                  firma e verifica delle sessioni; l'identità è un'impronta
   turso.ts                     crea il database della persona via Platform API
 tests/                       ← test + generatore di immersioni sintetiche
@@ -648,10 +651,10 @@ npm run build && node scripts/screenshot.mjs   # il giro finale è in inglese
 
 ---
 
-## Accesso con Google, facoltativo
+## Accesso con Apple o Google, facoltativo
 
-Dalla scheda *Sincronizza* si può entrare con un account Google. Serve a una cosa
-sola: **avere un database proprio senza doverselo creare**. L'app chiede al
+Dalla scheda *Sincronizza* si può entrare con un account **Apple** o con un
+account **Google**. Serve a una cosa sola: **avere un database proprio senza doverselo creare**. L'app chiede al
 servizio una chiave, il servizio crea il database al primo accesso e la chiave
 dura due ore. Chi il database se l'è già fatto da sé continua a incollare
 indirizzo e token, in un campo che è ancora lì ma è finito sotto **Avanzate**:
@@ -692,8 +695,33 @@ Come è fatto, e perché così:
   segreti di Cloudflare. Conseguenza: l'app non vede mai un token di Google, e
   iPhone e Mac fanno la stessa identica strada.
 
-Il servizio sta in [`server/`](server/), è un Worker Cloudflare di tre rotte
-senza nessuna dipendenza npm, e nel repository non entra nessuna credenziale.
+### Apple ha una regola in più, e cambia la forma del servizio
+
+Vale tutto quello che sta scritto qui sopra, e in più due cose che riguardano
+solo Apple.
+
+- **Il ritorno di Apple è una POST, non una GET.** Quando le si chiedono nome ed
+  email, Apple rimanda l'utente con un `response_mode=form_post`: una POST
+  `application/x-www-form-urlencoded` che parte dal browser di chi sta
+  accedendo. Un browser non può inoltrare quella POST a `127.0.0.1` né a uno
+  schema URL, quindi la riceve il servizio — `POST /accesso-apple/ritorno` — e
+  la rimbalza dentro l'applicazione con un 303. È la ragione per cui il Worker
+  ha una rotta che Google non usa; il ragionamento per esteso sta in testa a
+  `server/appleScambio.ts`.
+- **Il nome arriva una volta sola, alla prima autorizzazione.** Apple lo manda
+  nel corpo della POST e mai più, nemmeno se si riaccede: se non lo si prende
+  lì, non lo si prende più — l'unico modo di rivederlo è che l'utente revochi
+  l'accesso dalle impostazioni del proprio ID Apple.
+- **Sul Mac e su iPhone il giro è lo stesso**, ed è quello *web* con un Services
+  ID: non serve l'entitlement `com.apple.developer.applesignin` né un profilo
+  di provisioning dedicato. Una strada sola invece di due è una strada sola da
+  provare, e da riparare.
+
+Il servizio sta in [`server/`](server/), è un Worker Cloudflare senza nessuna
+dipendenza npm, e nel repository non entra nessuna credenziale. **Le rotte, i
+segreti e le differenze fra i due fornitori sono documentati per esteso in
+[`server/README.md`](server/README.md)** — che è il posto dove guardare quando
+un accesso non va.
 
 ---
 

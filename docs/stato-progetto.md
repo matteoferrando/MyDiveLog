@@ -1,100 +1,65 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **31 agosto 2026** — commit `a0090d0` su `main`, albero pulito, CI
-verde. Nel repository c'è la **1.7.1**, e **le piattaforme sono cinque**: il 31
-agosto è entrata **Linux**, con un `.deb`. È l'unica delle tre che non si
-costruiscono sul Mac ad essere stata **fatta partire davvero** prima di essere
-pubblicata — vedi «Linux, la quinta piattaforma».
+Aggiornato: **1 settembre 2026** — commit `700328a` su `main`, albero pulito,
+CI verde, **1700+ prove**. Nel repository c'è la **1.7.1**, e **le piattaforme
+sono cinque**: il 31 agosto è entrata **Linux**, con un `.deb`. È l'unica delle
+tre che non si costruiscono sul Mac ad essere stata **fatta partire davvero**
+prima di essere pubblicata — vedi «Linux, la quinta piattaforma».
 
-*(Il 29 agosto le due giornate avevano toccato soltanto il sito, e sono
-raccontate in «Il sito, il 29 agosto».)*
+*(Il 29 e il 31 agosto ci sono state tre giornate sul solo sito, raccontate in
+«Il sito, il 29 agosto» e nei documenti di progetto. L'1 settembre l'apertura è
+diventata una scena animata: due schermate e una tendina, solo su desktop.)*
 
-> **E il sito, a differenza dell'applicazione, non si rilascia: si ripubblica.**
-> Finché non parte `npx wrangler pages deploy sito --project-name mydivelog-sito`
-> tutto quello che segue esiste solo sul disco di chi lo ha scritto. L'impronta
-> del foglio di stile lo dice senza chiedere niente a nessuno: sul disco è
-> `74792cef`, e `curl -s https://mydivelog.site/ | grep -o 'stile.css?v=[0-9a-f]*'`
-> dice cosa serve davvero il sito in questo momento. **Se i due numeri sono
-> diversi, quello che c'è scritto qui sotto non è ancora pubblico.** Misurato la
-> sera del 29 agosto, **dopo la pubblicazione**: sul disco `74792cef`, servito
-> dal sito `74792cef` — coincidono, quindi è tutto online. Verificato anche
-> guardando le pagine servite e non solo l'impronta: sette voci di menu e un solo
-> `aria-current` su `/privacy`, `/termini`, `/libretto-immersioni` e
-> `/en/privacy`, e `.piede::before` a `bottom: 0` nel foglio servito.
-> *(Poche ore prima diceva `1a59216e`: la differenza fra le due misure è tutto
-> quello che questo riquadro esiste per rendere visibile.)*
-
-**Il primo difetto l'ha trovato un estraneo.** Il primo utente esterno dell'app —
-non chi la scrive, non chi la possiede: una persona che l'ha scaricata dall'App
-Store — ha premuto «Cerca il computer» con il permesso Bluetooth negato, e si è
-visto rispondere, in inglese, il nome di una libreria. Il racconto sta qui sotto,
-ed è la prima volta che un difetto di questo progetto non lo trova chi lo scrive.
-
-I negozi Apple sono due. Su **App Store per iPhone** l'app è pubblica
-(`https://apps.apple.com/app/mydivelog/id6804439480`), approvata il 26 agosto
-2026 al terzo invio, e la versione che quel negozio serve — misurata il 28
-agosto — è la **1.7.0**, approvata e pubblicata il **28 agosto 2026 alle
-16:02:32 UTC**. Sul **Mac App Store** il primo pacchetto è stato consegnato la
-sera del 27 alle 21:44, dopo due consegne respinte da controlli automatici, ed è
-pubblica **anche lì la 1.7.0**, dal 28 agosto: i due negozi adesso convergono.
-Su GitHub c'è la release **v1.7.1** con i pacchetti per macOS, Windows e
-Android — già rilasciata, ed è lei la prossima da consegnare ad Apple — e il
-sito [mydivelog.site](https://mydivelog.site) porta al negozio in italiano e in
-inglese.
-
-> ### ► «APPROVATA» NON VUOL DIRE «LA VERSIONE CHE HAI IN MANO» ◄
+> ### ► IL SITO NON SI RILASCIA: SI RIPUBBLICA, E IN QUESTO MOMENTO È INDIETRO ◄
 >
-> Sono affermazioni diverse, e oggi non sono allineate: cosa c'è nel repository
-> (1.7.1), cosa c'è nelle release (1.7.1), **cosa il negozio iOS consegna a un
-> estraneo** (1.7.0, dal 28 agosto) e **cosa è in attesa su App Store Connect**
-> per i due negozi. Il salto fra le prime e le altre è quello che chi scrive
-> dimentica sempre, perché sul suo telefono c'è già l'ultima.
->
-> **La verifica costa un comando e non passa da nessuna credenziale**, perché
-> quello che serve sapere è pubblico:
+> L'impronta del foglio di stile lo dice senza chiedere niente a nessuno. Sul
+> disco è **`b425e252`**; il sito servito da `mydivelog.site` **non ha ancora**
+> la scena dell'apertura — verificato leggendo la pagina pubblicata, che non
+> contiene né `class="scena"` né `vetrina-importa`, mentre contiene già la
+> griglia delle piattaforme del commit precedente.
 >
 > ```
-> curl -s "https://itunes.apple.com/lookup?id=6804439480&country=it&t=$(date +%s)" \
->   | python3 -c "import json,sys;r=json.load(sys.stdin)['results'][0];print(r['version'], r['currentVersionReleaseDate'])"
+> npx wrangler pages deploy sito --project-name mydivelog-sito
+> curl -s "https://mydivelog.site/?t=$(date +%s)" | grep -o 'stile.css?v=[0-9a-f]*'
 > ```
 >
-> **► IL `&t=$(date +%s)` IN CODA NON SI TOGLIE: SENZA, IL COMANDO RISPONDE
-> DALLA CACHE. ◄** La vetrina di Apple serve risposte in cache, e **una risposta
-> in cache può essere vecchia di giorni senza dirlo**: torna un JSON identico,
-> con dentro un numero plausibile e vecchio. Misurato il **28 agosto 2026**, i
-> due comandi uno accanto all'altro — **senza** anti-cache, tre esecuzioni
-> consecutive, tutte e tre `1.6.3  2026-08-27T07:00:00Z`; **con** anti-cache,
-> `1.7.0  2026-08-28T16:02:32Z`, stabile e uguale sia con `country=it` sia con
-> `country=us`. **La versione vera era la 1.7.0**, pubblicata quel pomeriggio.
-> *E quella data in cache non è nemmeno la stessa che lo stesso comando aveva
-> restituito la mattina: di risposte in cache ne girano più d'una.* Chi trova
-> quel `&t=` e lo toglie credendolo rumore rimette in piedi il difetto — e il
-> difetto qui non è rumoroso: **è un comando che risponde con serenità una cosa
-> falsa**, e da una sua risposta in cache era già nata l'istruzione, dannosa, di
-> togliere da App Store Connect una build che era in revisione. La lezione per
-> esteso sta fra **le lezioni** di `stato-progetto.md` nei documenti del
-> progetto.
->
-> Il 27 agosto rispondeva `1.6.3 2026-08-26T15:20:56Z`: l'app era stata
-> **approvata e pubblicata il 26 agosto**, ed era la 1.6.3 quella che scaricava
-> chi arrivava dal sito. **Il 28 agosto lo stesso comando risponde `1.7.0
-> 2026-08-28T16:02:32Z`**: la 1.7.0 è stata approvata e pubblicata quel
-> pomeriggio, ed è lei quella che scarica chi arriva dal sito oggi. Gli altri
-> numeri si controllano come sempre — `gh release list` per le release,
-> `PlistBuddy` e `spctl` per la copia installata sul Mac. **Quello che
-> si misura da fuori è solo il pubblicato**; il resto lo dice App Store Connect,
-> che vuole l'accesso di chi possiede l'app, e finché non lo guarda lui queste
-> righe restano come sono.
->
-> **E per il Mac questo comando non risponde.** La scheda è una sola per iPhone,
-> iPod touch e Mac, e il `version` che torna è quello della versione iOS: che
-> esista una versione macOS pubblicata si misura altrove, dalla voce **Mac** nel
-> blocco «Compatibilità» della scheda — il comando sta più sotto, dove il
-> documento tiene lo stato dei due negozi.
+> **Finché quel comando non risponde `b425e252`, la parte di questo documento che
+> parla dell'apertura descrive una cosa che esiste su una macchina sola.**
 
-Documenti fratelli in questa cartella: [`architettura.md`](architettura.md),
-[`didattica.md`](didattica.md), [`formati-e-insidie.md`](formati-e-insidie.md).
-Il [`README.md`](../README.md) dice come si scarica e cosa sapere prima.
+### Cosa è stato corretto nella documentazione l'1 settembre
+
+Tre cose che questo repository **raccontava male**, tutte trovate cercandole di
+proposito e nessuna delle quali era un difetto del programma:
+
+- Il README diceva «**non c'è un pacchetto per Mac Intel né per Linux**» mentre
+  la CI ne costruiva uno, il sito lo linkava e *questo* documento scriveva che le
+  piattaforme sono cinque. Due file dello stesso repository che si
+  contraddicono, e quello che la gente legge per primo era quello che negava.
+- L'accesso **«Accedi con Apple»** — 155 righe nell'app, 441 nel Worker, 531 di
+  prove — non era nominato **da nessuna parte** nella documentazione principale:
+  la sezione si chiamava «Accesso con Google, facoltativo» e l'albero dei file
+  elencava `googleAccesso.ts` e non `appleAccesso.ts`. Era documentato solo in
+  `server/README.md`, dentro una sottocartella. Chi l'ha cercato non l'ha
+  trovato.
+- Il commento in testa a `src/core/ble/catalogo.ts` diceva «restano **110
+  modelli** e 20 marche, un elenco di **110 voci**»: le voci sono **105**. Il 110
+  è vero — sono i descrittori BLE della libreria — ma un nome commerciale porta
+  più numeri di modello e nell'elenco compare una volta sola. Due cose diverse
+  chiamate con lo stesso numero.
+
+Da qui due file di prove nuovi, perché **nessun comando legge i commenti e
+nessun comando legge il README**:
+
+- `tests/documentazione.test.ts` — per ogni pacchetto che i workflow
+  costruiscono davvero, il README lo nomina; per ogni fornitore d'accesso che il
+  servizio implementa davvero, il **titolo** della sezione lo nomina; nessuna
+  frase nega una piattaforma che esiste. Non chiede «il README dica Linux»:
+  chiede che il racconto combaci coi fatti, e vale anche per la piattaforma che
+  verrà dopo.
+- In `tests/catalogoComputer.test.ts`, i numeri scritti nei commenti vengono
+  confrontati con l'array vero.
+
+*Un numero che nessuno verifica è un aggettivo travestito.*
 
 ---
 

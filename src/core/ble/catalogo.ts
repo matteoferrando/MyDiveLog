@@ -11,8 +11,15 @@
  * anzi: mostrare un modello che il telefono non potrà mai contattare vuol dire
  * far scegliere l'utente e dargli la colpa dopo.
  *
- * Restano 110 modelli e 20 marche. Un elenco di 110 voci su uno schermo da
- * telefono è un elenco che si scorre, non che si legge.
+ * Quei 110 descrittori diventano **105 voci e 20 marche**, perché un nome
+ * commerciale può portare più numeri di modello e nell'elenco compare una volta
+ * sola. Centocinque voci su uno schermo da telefono sono un elenco che si
+ * scorre, non che si legge.
+ *
+ * *(Qui c'era scritto «110 modelli e 110 voci»: confondeva i descrittori della
+ * libreria con le righe dell'elenco, che sono cinque di meno. Nessuno se n'era
+ * accorto perché nessun comando legge i commenti — ora sì:
+ * `tests/catalogoComputer.test.ts` confronta questi numeri con l'array vero.)*
  *
  * ════════════════════════════════════════════════════════════════════════════
  * ► L'ORDINE OVVIO È ESATTAMENTE QUELLO SBAGLIATO. ◄
