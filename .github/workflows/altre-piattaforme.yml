@@ -1,4 +1,4 @@
-# Windows e Android: le due piattaforme che non si costruiscono su un Mac.
+# Windows, Android e Linux: le tre piattaforme che non si costruiscono su un Mac.
 #
 # PERCHÉ UN WORKFLOW SEPARATO DA `ci.yml`. Quello è la guardia: gira a ogni
 # push, dev'essere veloce e dev'essere verde, perché una spunta rossa lì
@@ -7,13 +7,26 @@
 # che ogni tanto sia rosso. Tenerli insieme farebbe esattamente il danno che
 # `ci.yml` evita — abituare a ignorare il rosso.
 #
-# ► QUESTE BUILD NON LE HA PROVATE NESSUNO. ◄ Non c'è un PC e non c'è un
-# telefono Android in questa casa. `src/core` è lo stesso codice che gira sul
-# Mac e sull'iPhone, con millequattrocento test dietro, ma il giro completo —
-# finestra, Bluetooth, archivio, stampa — su quelle due piattaforme non l'ha
-# fatto nessuno. Il sito lo dice, e va continuato a dirlo finché resta vero.
+# ► QUESTE BUILD QUASI NESSUNO LE HA PROVATE, E «QUASI» È NUOVO. ◄ Non c'è un
+# PC e non c'è un telefono Android in questa casa. `src/core` è lo stesso codice
+# che gira sul Mac e sull'iPhone, con milleseicento test dietro, ma il giro
+# completo — finestra, Bluetooth, archivio, stampa — su Windows e Android non
+# l'ha fatto nessuno. Il sito lo dice, e va continuato a dirlo finché resta
+# vero.
+#
+# **E il 29 agosto 2026 quella frase ha dimostrato di avere i denti**: l'APK non
+# era firmato affatto, quindi non si installava, e per settimane il pulsante del
+# sito ha consegnato un file inservibile senza che un solo comando fallisse.
+#
+# **Linux è l'eccezione, ed è il motivo per cui è entrata.** A differenza di
+# Windows e Android, quella build è stata **costruita e fatta partire davvero**
+# prima di essere aggiunta qui: finestra disegnata, navigazione che risponde ai
+# click, archivio SQLite creato con le sue quattro tabelle, libdivecomputer
+# dentro il binario. Quello che resta non provato è **solo il Bluetooth**, che
+# vuole un adattatore. *La differenza fra «dichiarata» e «provata, meno una
+# cosa» è tutta qui, e vale la pena tenerla scritta.*
 
-name: Windows e Android
+name: Windows, Android e Linux
 
 on:
   workflow_dispatch:
@@ -377,4 +390,113 @@ jobs:
         with:
           name: MyDiveLog-${{ inputs.versione }}-Android-Play
           path: per-play/
+          if-no-files-found: error
+
+  # ------------------------------------------------------------------- Linux
+  #
+  # ► PERCHÉ LINUX È IL CASO FACILE, E DOVE INVECE NON LO È. ◄
+  #
+  # libdivecomputer qui si compila per la strada normale: c'è una shell, quindi
+  # `./configure` gira e basta — niente della ginnastica che su Windows è
+  # costata la riscrittura con la cassa `cc` per non mescolare l'ABI di mingw
+  # con quella di MSVC. È la piattaforma su cui quella libreria costa meno.
+  #
+  # Il difficile sta altrove, e non è nostro: **WebKitGTK**. Il pacchetto che
+  # esce da qui dipende da `libwebkit2gtk-4.1-0`, che c'è da Ubuntu 24.04 e
+  # Debian 13 in su; su Ubuntu 22.04 esiste la 4.0 e questo `.deb` non si
+  # installa. Un pacchetto non copre le distribuzioni, e il sito lo deve dire
+  # prima del pulsante — come già fa per il Mac Apple Silicon.
+  #
+  # ► E L'AGGIORNATORE NON C'È, PER SCELTA. ◄ L'aggiornatore di Tauri su Linux
+  # funziona con l'AppImage, non col `.deb`. Lasciarlo acceso darebbe un
+  # pulsante «cerca aggiornamenti» che risponde
+  # «None of the fallback platforms ["linux-x86_64"] were found…» — misurato,
+  # non supposto. **È esattamente il difetto già chiuso per il Mac App Store**:
+  # un pulsante che non fa niente è peggio di nessun pulsante, e un messaggio
+  # grezzo di una libreria dato a una persona è la stessa specie di guasto che
+  # il primo utente esterno ha incontrato col Bluetooth.
+  #
+  # Si spegne con i due interruttori insieme, come là: la feature Rust
+  # `senza-aggiornamenti` toglie il plugin dalla compilazione, e
+  # `createUpdaterArtifacts: false` — in `src-tauri/tauri.linux.conf.json` —
+  # toglie l'artefatto dal confezionamento. Muoverne uno solo non dà un
+  # pacchetto sbagliato: non dà nessun pacchetto.
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      # Le librerie di sistema che Tauri vuole su Linux. `libwebkit2gtk-4.1-dev`
+      # è quella che decide su quali distribuzioni girerà il pacchetto.
+      - name: Librerie di sistema
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev \
+            librsvg2-dev libayatana-appindicator3-dev
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      # I due interruttori dell'aggiornatore, insieme: vedi il commento sopra.
+      # `--bundles deb` e non AppImage: è quello che la gente si aspetta di
+      # scaricare, e l'AppImage senza aggiornatore non porterebbe nessun
+      # vantaggio in cambio del suo peso.
+      - name: Costruisci
+        env:
+          VITE_SENZA_AGGIORNAMENTI: '1'
+        run: npx tauri build --features senza-aggiornamenti --bundles deb
+
+      # Si guarda dentro il pacchetto, come su Android. Qui la domanda non è la
+      # firma — su Linux non se ne firma nessuna — ma **che l'aggiornatore non
+      # ci sia davvero**: se un giorno qualcuno muove uno dei due interruttori e
+      # non l'altro, il pacchetto esce con dentro un aggiornatore che non può
+      # funzionare, e nessun comando lo segnala.
+      - name: L'aggiornatore è davvero fuori?
+        run: |
+          set -eu
+          DEB=$(find src-tauri/target/release/bundle/deb -name '*.deb' | head -1)
+          echo "pacchetto: $DEB"
+          rm -rf /tmp/dentro && mkdir -p /tmp/dentro
+          dpkg-deb -x "$DEB" /tmp/dentro
+          BIN=$(find /tmp/dentro -type f -name 'mydivelog' | head -1)
+          echo "binario: $BIN"
+          if strings "$BIN" | grep -q 'releases/latest/download/latest.json'; then
+            echo "::error::l'indirizzo dell'aggiornatore è dentro il binario: uno dei due interruttori non è stato mosso"
+            exit 1
+          fi
+          echo "nessun indirizzo di aggiornamento nel binario."
+          # E libdivecomputer invece ci deve essere: è metà del catalogo.
+          if ! strings "$BIN" | grep -q 'dc_custom_open'; then
+            echo "::error::libdivecomputer non è nel binario: il catalogo si ridurrebbe ai due driver di casa"
+            exit 1
+          fi
+          echo "libdivecomputer c'è."
+          echo '--- dipendenze dichiarate dal pacchetto ---'
+          dpkg-deb -f "$DEB" Depends Version Architecture Installed-Size
+
+      - name: Raccogli
+        run: |
+          set -eu
+          mkdir consegna
+          # Nome senza numero di versione: vedi il commento gemello nel job
+          # Windows. Il collegamento del sito dev'essere sempre lo stesso.
+          find src-tauri/target/release/bundle/deb -name '*.deb' \
+            -exec cp {} consegna/MyDiveLog-Linux-amd64.deb \;
+          cd consegna
+          sha256sum * > SHA256.txt
+          cat SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MyDiveLog-${{ inputs.versione }}-Linux
+          path: consegna/
           if-no-files-found: error
