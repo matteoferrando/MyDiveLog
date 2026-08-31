@@ -36,6 +36,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+import { lavoro } from './lavoroDelWorkflow';
+
 const RADICE = fileURLToPath(new URL('..', import.meta.url));
 const leggi = (p: string) => readFileSync(RADICE + p, 'utf8');
 
@@ -57,14 +59,12 @@ describe('la configurazione Linux', () => {
 });
 
 describe('il lavoro Linux del workflow', () => {
-  const tutto = leggi('.github/workflows/altre-piattaforme.yml');
-  const inizio = tutto.indexOf('\n  linux:\n');
-  const wf = inizio < 0 ? '' : tutto.slice(inizio);
+  const wf = lavoro(leggi('.github/workflows/altre-piattaforme.yml'), 'linux');
 
   it('esiste, ed è il lavoro Linux e non un altro', () => {
-    expect(inizio, 'il lavoro `linux:` non c’è più nel workflow').toBeGreaterThan(-1);
     expect(wf).toContain('tauri build --features senza-aggiornamenti');
-    expect(wf, 'il ritaglio si è portato dietro un altro lavoro').not.toContain('shell: pwsh');
+    expect(wf, 'il ritaglio si è portato dietro il lavoro Windows').not.toContain('shell: pwsh');
+    expect(wf, 'il ritaglio si è portato dietro il lavoro Android').not.toContain('\n  android:');
   });
 
   it('spegne l’aggiornatore anche dal lato del programma', () => {

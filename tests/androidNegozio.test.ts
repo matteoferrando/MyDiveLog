@@ -34,6 +34,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+import { lavoro } from './lavoroDelWorkflow';
+
 const RADICE = fileURLToPath(new URL('..', import.meta.url));
 
 function leggi(percorso: string): string {
@@ -76,18 +78,22 @@ describe('il nome del pacchetto Android', () => {
  * che esiste solo lì. *Un ritaglio sbagliato non è vuoto: è pieno di un'altra
  * cosa, e una prova che gira sulla cosa sbagliata passa senza fatica.*
  */
-function soloAndroid(wf: string): string {
-  const inizio = wf.indexOf('\n  android:\n');
-  if (inizio < 0) throw new Error('il lavoro `android:` non c’è più nel workflow');
-  return wf.slice(inizio);
-}
 
 describe('il workflow che costruisce per Android', () => {
-  const wf = soloAndroid(leggi('.github/workflows/altre-piattaforme.yml'));
+  const wf = lavoro(leggi('.github/workflows/altre-piattaforme.yml'), 'android');
 
-  it('il ritaglio è davvero il lavoro Android e non quello di Windows', () => {
+  it('il ritaglio è davvero il lavoro Android, e finisce dove finisce', () => {
     expect(wf, 'nel ritaglio non c’è il comando che costruisce Android').toContain('tauri android build');
     expect(wf, 'il ritaglio si è portato dietro il lavoro Windows').not.toContain('shell: pwsh');
+    // ► E NON SI PORTA DIETRO QUELLO DOPO. ◄ Finché Android era l'ultimo lavoro
+    // un ritaglio «fino a fine file» andava bene; il giorno che è entrato
+    // `linux` in coda se l'è portato dentro, la conta dei passi «Raccogli» è
+    // passata da due a tre, e la prova è diventata rossa in CI. *Un ritaglio che
+    // finisce dove finisce il file è giusto per caso, e il caso scade.*
+    // Si guarda la RIGA del lavoro dopo, non una parola che ci compare dentro:
+    // il commento che introduce `linux` sta prima della sua riga, quindi cade in
+    // questo ritaglio e nomina la feature. Vedi `lavoroDelWorkflow.ts`.
+    expect(wf, 'il ritaglio si è portato dietro il lavoro Linux').not.toContain('\n  linux:');
   });
 
   it('prende la chiave dai tre segreti', () => {
