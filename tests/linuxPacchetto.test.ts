@@ -75,10 +75,25 @@ describe('il lavoro Linux del workflow', () => {
 
   it('guarda dentro il pacchetto invece di fidarsi del verde', () => {
     expect(wf).toMatch(/name: L'aggiornatore è davvero fuori\?/);
-    // Le due cose che cerca: che l'indirizzo dell'aggiornatore NON ci sia, e che
-    // libdivecomputer invece ci sia — senza, il catalogo si ridurrebbe ai due
-    // driver di casa e nessuno se ne accorgerebbe dal peso del file.
-    expect(wf).toContain('releases/latest/download/latest.json');
+    /*
+     * ► CERCA IL PLUGIN, NON IL SUO INDIRIZZO. ◄ La prima versione del controllo
+     * cercava `releases/latest/download/latest.json` e ha fermato la build al
+     * primo giro, sbagliando: quella stringa è la CONFIGURAZIONE incorporata nel
+     * binario, e c'è comunque — con o senza aggiornatore compilato dentro.
+     * *Cercare un indirizzo non dice se il codice che lo userebbe c'è.*
+     *
+     * I due marcatori buoni sono stati misurati nei due sensi, compilando lo
+     * stesso progetto due volte: `tauri_plugin_updater` e «None of the fallback
+     * platforms» sono **assenti** con la feature `senza-aggiornamenti` e
+     * **presenti** senza. Una guardia che non si è vista rossa non è una
+     * guardia, e questa si è vista rossa sul binario vero.
+     */
+    expect(wf, 'cercare l’indirizzo non dice se l’aggiornatore c’è').not.toContain(
+      "grep -q 'releases/latest/download/latest.json'",
+    );
+    expect(wf).toContain('tauri_plugin_updater');
+    expect(wf).toContain('None of the fallback platforms');
+    // E libdivecomputer invece ci deve essere.
     expect(wf).toContain('dc_custom_open');
   });
 
@@ -88,5 +103,37 @@ describe('il lavoro Linux del workflow', () => {
     // vecchia senza che nessuno se ne accorga.
     expect(wf).toContain('consegna/MyDiveLog-Linux-amd64.deb');
     expect(wf).toMatch(/name: MyDiveLog-\$\{\{ inputs\.versione \}\}-Linux/);
+  });
+});
+
+describe('Linux sul sito', () => {
+  const pagine = [
+    { file: 'sito/index.html', limite: 'Ubuntu 24.04' },
+    { file: 'sito/en/index.html', limite: 'Ubuntu 24.04' },
+  ];
+
+  it.each(pagine)('$file collega il pacchetto col nome stabile', ({ file }) => {
+    // Col numero di versione dentro l'indirizzo, il pulsante punterebbe alla
+    // versione vecchia il giorno dopo il rilascio successivo — in silenzio.
+    expect(leggi(file)).toContain('releases/latest/download/MyDiveLog-Linux-amd64.deb');
+  });
+
+  it.each(pagine)('$file dice il limite PRIMA del pulsante', ({ file, limite }) => {
+    const html = leggi(file);
+    /*
+     * ► IL LIMITE DEVE STARE PRIMA. ◄ Questo pacchetto non si installa su una
+     * distribuzione più vecchia di Ubuntu 24.04 o Debian 13, perché lì
+     * `libwebkit2gtk-4.1-0` non esiste. È la stessa regola già scritta per il
+     * Mac Apple Silicon, e nasce dallo stesso guasto: per settimane il sito ha
+     * offerto un pacchetto macOS a chi aveva un Mac Intel, dove installa e non
+     * si apre. *Un limite detto dopo il pulsante è un limite che si scopre
+     * scaricando.*
+     */
+    expect(html, 'manca il limite di distribuzione').toContain(limite);
+    expect(html).toContain('WebKitGTK 4.1');
+    const pulsante = html.indexOf('MyDiveLog-Linux-amd64.deb');
+    const nota = html.indexOf('WebKitGTK 4.1', pulsante);
+    expect(pulsante, 'il pulsante Linux non c’è').toBeGreaterThan(-1);
+    expect(nota, 'il limite non compare dopo il pulsante nella stessa scheda').toBeGreaterThan(pulsante);
   });
 });

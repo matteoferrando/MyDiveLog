@@ -102,7 +102,7 @@
         "url": "https://mydivelog.site/en/",
         "inLanguage": "en",
         "applicationCategory": "LifestyleApplication",
-        "operatingSystem": "macOS, iOS, Windows, Android",
+        "operatingSystem": "macOS, iOS, Windows, Android, Linux",
         "image": "https://mydivelog.site/immagini/anteprima-en.jpg",
         "downloadUrl": "https://apps.apple.com/app/mydivelog/id6804439480",
         "codeRepository": "https://github.com/matteoferrando/MyDiveLog",
@@ -318,9 +318,49 @@
               </a>
             </div>
 
+            <!--
+          ► UN TERZO GRUPPO, E NON UNA TERZA SCHEDA IN FILA. ◄
+
+          Windows e Android sono arrivati perché servivano a qualcuno. Linux è
+          arrivato per un'altra ragione, e vale la pena dirla: questo progetto è
+          software libero, gira già su tutto il resto, e su Linux costava meno
+          che altrove — libdivecomputer lì si compila per la strada normale.
+          Metterlo in fila con gli altri due lo farebbe leggere come «un'altra
+          piattaforma minore»; messo da solo, con la sua riga, dice perché c'è.
+
+          E come per gli altri, il limite sta PRIMA del pulsante: questo
+          pacchetto non si installa su una distribuzione vecchia, e chi la usa
+          deve saperlo prima di scaricare, non dopo.
+        -->
+            <p class="occhietto occhietto-poi">And because we like free software, we also made it for</p>
+            <div class="schede-piattaforma">
+              <a
+                class="scheda-piattaforma minore"
+                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Linux-amd64.deb"
+              >
+                <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                  <path
+                    d="M16 3.5c-3.3 0-5.6 2.5-5.6 5.8 0 2-.5 3.2-1.5 4.8-1.3 2.1-2.3 4.1-2.3 6.5 0 4.1 4.2 7.4 9.4 7.4s9.4-3.3 9.4-7.4c0-2.4-1-4.4-2.3-6.5-1-1.6-1.5-2.8-1.5-4.8 0-3.3-2.3-5.8-5.6-5.8Z"
+                  />
+                  <path d="M14 9.6h.01M18 9.6h.01" />
+                  <path d="M14.6 12.4h2.8L16 14.6z" />
+                  <path d="M12.6 27.4 10.6 29.8M19.4 27.4l2 2.4" />
+                </svg>
+                <span class="nome">Linux</span>
+                <span class="riga">.deb package</span>
+              </a>
+            </div>
+            <p class="nota-schede">
+              The Linux package is a <b>.deb</b> for <b>amd64</b>, and it needs <b>WebKitGTK 4.1</b> —
+              available from <b>Ubuntu 24.04</b> and <b>Debian 13</b> onwards. It will not install on anything
+              older. As on Android, you download it again by hand when a new version comes out.
+            </p>
+
             <p class="fiducia">
               <span>Free</span><span>No account</span><span>Open source</span>
-              <a class="fiducia-oltre" href="#altre-piattaforme">Windows and Android: what differs →</a>
+              <a class="fiducia-oltre" href="#altre-piattaforme"
+                >Windows, Android and Linux: what differs →</a
+              >
             </p>
           </div>
         </div>
@@ -822,7 +862,7 @@
       <!-- Vedi il commento gemello nella pagina italiana. -->
       <section id="altre-piattaforme">
         <p class="occhiello-sezione" data-numero="07">Other platforms</p>
-        <h2>Windows and Android: what to know</h2>
+        <h2>Windows, Android and Linux: what to know</h2>
         <p>
           They do everything the Mac version does. Two differences remain, and two questions the system will
           ask you: better to know now than later.
@@ -830,11 +870,13 @@
 
         <div class="griglia">
           <div class="riquadro">
-            <h3>Android re-downloads by hand</h3>
+            <h3>Android and Linux re-download by hand</h3>
             <p>
               Windows tells you when a new version is out, like the Mac. Android does not: an app that
-              installs itself would have to ask for a permission scarier than it is worth. When a new version
-              appears, get the APK again from here.
+              installs itself would have to ask for a permission scarier than it is worth. Linux does not
+              either, for a different reason: automatic updates would only work with a different package
+              format, and the <code>.deb</code> is what people expect. Either way, when a new version appears
+              you get the file again from here.
             </p>
           </div>
           <div class="riquadro">
@@ -842,6 +884,12 @@
             <p>
               Windows: “More info” → “Run anyway”. Android: it will ask permission to install from this
               source, the same question it asks for any app outside the Play Store.
+            </p>
+            <p>
+              <b>Linux:</b> the package is a <code>.deb</code> for amd64 and needs <b>WebKitGTK 4.1</b>,
+              available from Ubuntu 24.04 and Debian 13 onwards. On anything older <code>dpkg</code> refuses
+              it, saying <code>libwebkit2gtk-4.1-0</code> is missing: that is not a fault of the package —
+              that library does not exist there.
             </p>
           </div>
           <div class="riquadro">

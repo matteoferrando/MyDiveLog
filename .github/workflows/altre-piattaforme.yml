@@ -469,11 +469,24 @@ jobs:
           dpkg-deb -x "$DEB" /tmp/dentro
           BIN=$(find /tmp/dentro -type f -name 'mydivelog' | head -1)
           echo "binario: $BIN"
-          if strings "$BIN" | grep -q 'releases/latest/download/latest.json'; then
-            echo "::error::l'indirizzo dell'aggiornatore è dentro il binario: uno dei due interruttori non è stato mosso"
-            exit 1
-          fi
-          echo "nessun indirizzo di aggiornamento nel binario."
+          # ► SI CERCA IL PLUGIN, NON IL SUO INDIRIZZO. ◄ La prima versione di
+          # questo controllo cercava `releases/latest/download/latest.json` e ha
+          # fermato la build subito — sbagliando: quella stringa è la
+          # CONFIGURAZIONE incorporata nel binario, e c'è comunque, che
+          # l'aggiornatore sia compilato dentro o no. *Cercare un indirizzo non
+          # dice se il codice che lo userebbe c'è.*
+          #
+          # I due marcatori qui sotto sono stati misurati nei due sensi, sullo
+          # stesso progetto compilato due volte: assenti con la feature
+          # `senza-aggiornamenti`, presenti senza. È l'unico modo di sapere che
+          # una guardia sa diventare rossa.
+          for AGO in 'tauri_plugin_updater' 'None of the fallback platforms'; do
+            if strings "$BIN" | grep -qF "$AGO"; then
+              echo "::error::l'aggiornatore è dentro il binario (trovato: $AGO): uno dei due interruttori non è stato mosso"
+              exit 1
+            fi
+          done
+          echo "nessuna traccia dell'aggiornatore nel binario." 
           # E libdivecomputer invece ci deve essere: è metà del catalogo.
           if ! strings "$BIN" | grep -q 'dc_custom_open'; then
             echo "::error::libdivecomputer non è nel binario: il catalogo si ridurrebbe ai due driver di casa"
