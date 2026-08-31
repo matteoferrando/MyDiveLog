@@ -1,8 +1,13 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **29 agosto 2026** — commit `80b7d1c` su `main`, albero pulito, CI
-verde. Nel repository c'è la **1.7.1**; le due giornate del 29 hanno toccato
-soltanto il sito, e sono raccontate in «Il sito, il 29 agosto».
+Aggiornato: **31 agosto 2026** — commit `a0090d0` su `main`, albero pulito, CI
+verde. Nel repository c'è la **1.7.1**, e **le piattaforme sono cinque**: il 31
+agosto è entrata **Linux**, con un `.deb`. È l'unica delle tre che non si
+costruiscono sul Mac ad essere stata **fatta partire davvero** prima di essere
+pubblicata — vedi «Linux, la quinta piattaforma».
+
+*(Il 29 agosto le due giornate avevano toccato soltanto il sito, e sono
+raccontate in «Il sito, il 29 agosto».)*
 
 > **E il sito, a differenza dell'applicazione, non si rilascia: si ripubblica.**
 > Finché non parte `npx wrangler pages deploy sito --project-name mydivelog-sito`
@@ -195,11 +200,11 @@ App Store Connect rifiuta un numero di versione già visto.
 CI «Controlli» a ogni push: Tipi → Formato → Lint → Test → Test fusi orari →
 Build.
 
-**Stato dei controlli, misurato il 29 agosto sul commit `80b7d1c`:**
+**Stato dei controlli, misurato il 31 agosto sul commit `a0090d0`:**
 
 | Comando | Esito |
 | --- | --- |
-| `npx vitest run` | **1649 test in 92 file, tutti verdi** |
+| `npx vitest run` | **1667 test in 93 file, tutti verdi** |
 | `npx tsc --noEmit` | pulito, nessuna riga in uscita |
 | `npx prettier --check .` | _All matched files use Prettier code style!_ |
 | `npm run lint` | **0 errori, 14 avvisi** preesistenti |
@@ -638,6 +643,122 @@ il binario della CLI installata** — `tauri-cli 2.11.4`, la stessa versione che
 `targetSdk = 36`. Siamo a posto **per la versione della CLI che ci siamo trovati
 addosso**, non per una scelta: e per questo il workflow adesso stampa a ogni
 build cosa dichiara di sé il progetto Android generato.
+
+---
+
+## Linux, la quinta piattaforma — e l'unica provata prima di pubblicarla
+
+**31 agosto 2026.** Un `.deb` per amd64, allegato alla `v1.7.1`
+(`766d94b6…`), collegato dal sito in un gruppo suo: *«E siccome ci piace il
+software libero, l'abbiamo fatto anche per»*.
+
+**Perché Linux è il caso facile.** libdivecomputer lì si compila per la strada
+normale: c'è una shell, quindi `./configure` gira e basta — niente della
+ginnastica che su Windows è costata la riscrittura con la cassa `cc` per non
+mescolare l'ABI di mingw con quella di MSVC. La build intera dura **7 minuti e
+46 secondi**, il binario pesa **9,2 MB** e porta dentro ventotto simboli `dc_*`,
+`dc_custom_open` compreso.
+
+> ### ► ED È L'UNICA DELLE TRE CHE QUALCUNO HA FATTO PARTIRE ◄
+>
+> Windows e Android sono entrati dichiarati: «fanno tutto quello che fa il Mac»,
+> e nessuno li aveva mai aperti. Il 29 agosto si è scoperto cosa costa — l'APK
+> non era firmato, quindi non si installava, e per settimane il sito ha
+> consegnato un file inservibile.
+>
+> **Linux no.** La build è stata fatta e l'applicazione **fatta partire**, dentro
+> uno schermo finto: finestra disegnata, click sul menu che navigano davvero (un
+> webview che disegna e non risponde è il guasto classico di GTK, e non c'è),
+> **archivio SQLite creato** in `~/.config/it.ferrando.mydivelog/mydivelog.db`
+> con tutte e quattro le tabelle, e l'interfaccia partita in inglese perché il
+> sistema era in inglese.
+>
+> **Quello che resta non provato è uno solo, e delimitato: il Bluetooth.** Non
+> c'era un adattatore. Il codice per BlueZ però è compilato dentro —
+> `dbus-tokio` e `bluez-generated` sono passati nella build. *La differenza fra
+> «dichiarata» e «provata, meno una cosa» è tutta qui, e vale la pena tenerla
+> scritta.*
+
+> ### ► E FACENDOLA GIRARE È SALTATO FUORI UN DIFETTO ◄
+>
+> Premendo «Check» sugli aggiornamenti l'applicazione rispondeva:
+>
+> ```
+> None of the fallback platforms `["linux-x86_64"]` were found in the response `platforms` object
+> ```
+>
+> Sono **due** cose. La prima: l'aggiornatore di Tauri su Linux funziona con
+> l'AppImage, non col `.deb`, quindi quel pulsante non poteva funzionare — ed è
+> **lo stesso caso del Mac App Store**, dove *un pulsante «cerca aggiornamenti»
+> che non fa niente è peggio di nessun pulsante*. La seconda, che vale su tutte
+> le piattaforme: **è il messaggio grezzo di una libreria, in inglese, dato a una
+> persona** — la stessa identica specie di `Btleplug error: Permission denied`
+> che il primo utente esterno ha letto il 28 agosto. Le guardie
+> `nomiInterniSulloSchermo` e `conDettaglio()` non lo prendono perché quel testo
+> esce dal plugin dell'aggiornatore, e oggi non si vede su Mac e Windows solo
+> perché `latest.json` quelle piattaforme le ha.
+>
+> Su Linux è chiuso spegnendo l'aggiornatore con i due interruttori insieme,
+> come per il Mac App Store: la feature Rust `senza-aggiornamenti` e
+> `createUpdaterArtifacts: false` in `tauri.linux.conf.json`. **Il messaggio
+> grezzo resta un debito aperto sulle altre piattaforme.**
+
+**Il limite vero, e non è nostro: WebKitGTK.** Il pacchetto dipende da
+`libwebkit2gtk-4.1-0`, che c'è da **Ubuntu 24.04** e **Debian 13** in su; su
+22.04 esiste la 4.0 e questo `.deb` non si installa. Un pacchetto non copre le
+distribuzioni. Il sito lo dice **prima del pulsante**, come già fa per il Mac
+Apple Silicon — che è la regola nata dal guasto opposto, quando per settimane ha
+offerto un pacchetto macOS a chi aveva un Mac Intel.
+
+### Le guardie, e le tre volte che il ritaglio ha sbagliato
+
+`tests/linuxPacchetto.test.ts`, dieci prove. La più interessante è quella sul
+controllo che il workflow fa **dentro** il pacchetto costruito:
+
+> **► CERCARE UN INDIRIZZO NON DICE SE IL CODICE CHE LO USEREBBE C'È. ◄** La
+> prima versione di quel controllo cercava
+> `releases/latest/download/latest.json` dentro il binario, e ha fermato la
+> prima build Linux — **sbagliando**: quella stringa è la *configurazione*
+> incorporata, e c'è comunque, con o senza aggiornatore compilato dentro.
+>
+> I marcatori buoni sono stati misurati **nei due sensi**, compilando lo stesso
+> progetto due volte: `tauri_plugin_updater` e «None of the fallback platforms»
+> sono **assenti** con la feature `senza-aggiornamenti` e **presenti** senza.
+> *Una guardia che non si è vista rossa non è una guardia* — e questa si è vista
+> rossa sul binario vero, non su un file di testo.
+
+> **► E IL RITAGLIO DI UN LAVORO DEL WORKFLOW HA SBAGLIATO TRE VOLTE IN DUE
+> GIORNI. ◄** Prima cercava il passo nel file intero e trovava quello di
+> **Windows**. Poi ritagliava da `\n  android:\n` **fino a fine file**, il che
+> è andato bene finché Android era l'ultimo lavoro: il giorno che è entrato
+> `linux` in coda, la conta dei passi «Raccogli» è passata da due a tre e la CI
+> è diventata rossa. *Un ritaglio che finisce dove finisce il file è giusto per
+> caso, e il caso scade.* Adesso finisce alla riga del lavoro successivo, e la
+> regola sta in un file solo, `tests/lavoroDelWorkflow.ts`.
+>
+> **E scrivendo la prova si è imparata una cosa sullo YAML**: il commento che
+> introduce un lavoro sta **prima** della sua riga `nome:`, quindi cade nel
+> ritaglio del lavoro *precedente*. La prima asserzione cercava una parola che
+> in quel commento c'è, ed era **lei** sbagliata, non il ritaglio. Per dire «il
+> ritaglio si è fermato dove doveva» si guarda la **riga** del lavoro dopo, che
+> è l'unica cosa che non può contenere.
+
+### Gli allegati della release sono nove
+
+Il `.deb` è il nono, aggiunto alla `v1.7.1` il 31 agosto. Le note lo dicono, con
+un riquadro che spiega che non c'era quando la versione è uscita: *è lo stesso
+codice, compilato per Linux e allegato dopo.* Le quattro impronte pubblicate
+prima restano valide; questa è la quinta.
+
+> **► E QUI IL PASSO 7 HA UN PUNTO CIECO, SCOPERTO OGGI. ◄** Il modo con cui si
+> risponde a «cosa c'è pubblicato sul sito» è confrontare l'impronta del foglio
+> di stile servita con quella sul disco. **Quell'impronta non vede l'HTML.** Il
+> 31 agosto sono cambiate solo le pagine — Linux, in due lingue — e non il CSS:
+> `npm run sito:versiona` ha detto *pagine aggiornate: 0*, e il confronto delle
+> impronte avrebbe risposto «è tutto pubblicato» mentre Linux non c'era ancora.
+> *Un'impronta risponde alla domanda per cui è nata — far scadere la cache — e a
+> nessun'altra.* Quando cambia solo l'HTML, la risposta si ha guardando la
+> pagina servita.
 
 ---
 
