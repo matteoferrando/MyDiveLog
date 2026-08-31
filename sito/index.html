@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/" />
-    <link rel="stylesheet" href="stile.css?v=9e744cf9" />
+    <link rel="stylesheet" href="stile.css?v=b425e252" />
     <!--
       Le tre alternative di lingua, su OGNI pagina e non soltanto sulle due
       home. Sono indirizzi ASSOLUTI perché Google scarta gli `hreflang`
@@ -392,14 +392,55 @@
         1000 px sparisce del tutto — essendo pigra, nascosta non si scarica
         neanche, e la banda la paga chi apre il sito da una barca.
       -->
+        <!--
+        ► LA SCENA: DUE SCHERMATE E QUATTRO SECONDI. ◄
+
+        In cima non c'è una fotografia, c'è una cosa che succede: la schermata di
+        importazione, i formati che entrano da fuori, e il logbook pieno che
+        prende il loro posto. È la frase che sta scritta qui accanto — *i file
+        che hai già diventano il tuo logbook* — detta senza scriverla, e a chi
+        arriva sul sito costa quattro secondi di sguardo invece di un paragrafo.
+
+        DUE `picture`, NON DUE `img`. Sotto i 1000 px la vetrina è
+        `display: none`, e nascondere non è non scaricare: misurato, con delle
+        `img` normali il telefono si prendeva lo stesso i 350 kB delle due
+        fotografie. Con `picture` la `source` vale solo sopra i 1000 px, e sotto
+        resta il `src` — un GIF trasparente di quarantatré byte l'uno.
+
+        L'`alt` VERO STA SOLO SULLA SECONDA. La prima è un fotogramma: chi legge
+        con la voce non deve sentirsi raccontare due schermate quando ne resta
+        una. Le etichette dei formati sono `aria-hidden`: dicono UDDF e Garmin
+        FIT, e quelle parole stanno già scritte, per esteso, nella scheda
+        «Importa da quello che hai già».
+      -->
         <div class="vetrina-apertura">
-          <img
-            src="immagini/vetrina-it.jpg"
-            alt="L'elenco delle immersioni di MyDiveLog: data, sito, profondità massima, durata, consumo e provenienza di ogni immersione."
-            loading="eager"
-            width="1350"
-            height="1750"
-          />
+          <div class="scena">
+            <picture class="scena-quadro">
+              <source media="(min-width: 1001px)" srcset="immagini/vetrina-importa-it.jpg" />
+              <img
+                src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                alt=""
+                width="1350"
+                height="1550"
+              />
+            </picture>
+            <picture class="scena-quadro scena-poi">
+              <source media="(min-width: 1001px)" srcset="immagini/vetrina-it.jpg" />
+              <img
+                src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                alt="L'elenco delle immersioni di MyDiveLog: data, sito, profondità massima, durata, consumo e provenienza di ogni immersione."
+                width="1350"
+                height="1550"
+              />
+            </picture>
+          </div>
+          <div class="scena-file" aria-hidden="true">
+            <span>UDDF</span>
+            <span>Shearwater XML</span>
+            <span>Garmin FIT</span>
+            <span>Subsurface</span>
+            <span>LogTRAK</span>
+          </div>
         </div>
       </div>
 

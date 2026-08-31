@@ -1680,12 +1680,26 @@ a {
   perspective: 1400px;
 }
 
-.vetrina-apertura img {
-  display: block;
-  width: 100%;
-  height: auto;
+/*
+  ► L'INCLINAZIONE STA SULLA SCENA, NON SULLE IMMAGINI. ◄
+
+  Dentro ci sono due fotografie sovrapposte che si dissolvono una nell'altra.
+  Se l'inclinazione la portasse ognuna per conto suo, al passaggio del mouse si
+  raddrizzerebbe solo quella sotto il puntatore e le due si sfaserebbero a metà
+  dissolvenza. Inclinata la scena, restano incollate per costruzione.
+
+  Stessa ragione per il bordo e per l'ombra: uno solo, sul contenitore. Due
+  ombre sovrapposte non fanno un'ombra più bella, fanno un alone doppio.
+
+  Il riflesso ciano sotto non è un'ombra: un'ombra nera su fondo blu scuro non
+  si vede. È luce della stessa tinta dell'acqua, e stacca la scena dal fondo
+  facendola sembrare più vicina.
+*/
+.scena {
+  position: relative;
   border-radius: 16px;
   border: 1px solid rgba(157, 220, 255, 0.24);
+  overflow: hidden;
   transform: perspective(1400px) rotateY(-6deg) rotateX(2deg) scale(1.02);
   box-shadow:
     0 34px 90px rgba(0, 0, 0, 0.55),
@@ -1696,7 +1710,7 @@ a {
     box-shadow 0.5s;
 }
 
-.vetrina-apertura img:hover {
+.vetrina-apertura:hover .scena {
   transform: perspective(1400px) rotateY(0deg) rotateX(0deg) scale(1.04);
   box-shadow:
     0 40px 110px rgba(0, 0, 0, 0.6),
@@ -1704,26 +1718,263 @@ a {
     0 0 0 7px rgba(255, 255, 255, 0.03);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .vetrina-apertura img {
-    transform: none;
-    transition: none;
+.scena-quadro,
+.scena-quadro img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/*
+  La seconda sta esattamente sopra la prima. `inset: 0` e non `top/left`: le due
+  fotografie sono della stessa identica misura — si scattano nello stesso giro,
+  con la stessa finestra — e stirarla sui quattro lati garantisce che restino
+  sovrapposte anche se un giorno cambiassero forma tutte e due insieme.
+*/
+.scena-poi {
+  position: absolute;
+  inset: 0;
+  /*
+    ► UNA TENDINA, NON UNA DISSOLVENZA. ◄
+
+    In dissolvenza queste due schermate si sovrappongono per mezzo secondo, e
+    sono tutte e due tabelle fitte: a metà strada si leggono due griglie di
+    numeri diverse una sopra l'altra: non «una che diventa l'altra», un
+    fantasma. Provato e guardato: illeggibile.
+
+    La tendina invece scende dall'alto e SCOPRE il logbook, che è esattamente il
+    gesto di un elenco che si riempie riga dopo riga. `clip-path` costa quanto
+    l'opacità — il browser non ridisegna niente, ritaglia — e per giunta a metà
+    corsa quello che si vede è sempre una sola schermata, nitida.
+  */
+  clip-path: inset(0 0 100% 0);
+}
+
+/*
+  Il filo di luce sul bordo della tendina. Senza, la tendina è un taglio netto
+  che scende; con, è qualcosa che sta scrivendo. Sta sulla scena e non sulla
+  fotografia perché deve poter uscire dai bordi dell'immagine e finire contro la
+  cornice.
+*/
+.scena::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  top: 0;
+  background: linear-gradient(90deg, transparent, var(--ciano), transparent);
+  box-shadow: 0 0 18px 3px rgba(67, 214, 255, 0.55);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/*
+  ► LE ETICHETTE DEI FORMATI. ◄ Entrano da sinistra, una dopo l'altra, e
+  spariscono dentro la finestra: sono i file che uno trascina dentro. Stanno
+  FUORI dalla scena, che ha `overflow: hidden` — dentro verrebbero tagliate
+  proprio nel tratto in cui arrivano da fuori, che è tutto quello che devono
+  raccontare.
+*/
+.scena-file {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /*
+    Ritagliate alla colonna. Senza, l'etichetta che arriva da fuori scivolava
+    per una trentina di pixel SOPRA il testo della colonna accanto — non «entra
+    da fuori campo», si sovrappone alla frase che qualcuno sta leggendo.
+  */
+  overflow: hidden;
+}
+
+.scena-file span {
+  position: absolute;
+  left: 6%;
+  /*
+    Tutte della stessa larghezza, e non è una scelta estetica: la corsa è una
+    `translate` in percentuale, e la percentuale di una `translate` si misura
+    sull'elemento. Con etichette di larghezza diversa, «UDDF» avrebbe fatto un
+    terzo della strada di «Shearwater XML» — cinque traiettorie diverse per
+    cinque cose che fanno la stessa identica cosa.
+  */
+  min-width: 150px;
+  display: flex;
+  justify-content: center;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(157, 220, 255, 0.34);
+  background: rgba(9, 32, 54, 0.86);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--riflesso);
+  white-space: nowrap;
+  opacity: 0;
+}
+
+.scena-file span:nth-child(1) {
+  top: 16%;
+}
+.scena-file span:nth-child(2) {
+  top: 27%;
+}
+.scena-file span:nth-child(3) {
+  top: 38%;
+}
+.scena-file span:nth-child(4) {
+  top: 49%;
+}
+.scena-file span:nth-child(5) {
+  top: 60%;
+}
+
+/*
+  ► L'ANIMAZIONE GIRA SOLO SOPRA I 1000 px, ED È LA STESSA SOGLIA DELLE
+  `source`. ◄ Sotto, la vetrina è nascosta e le fotografie non si scaricano
+  nemmeno: far correre lì dei fotogrammi vorrebbe dire animare due GIF
+  trasparenti di quarantatré byte, cioè consumare batteria per niente.
+
+  I tempi, e perché sono questi: le cinque etichette entrano a 0,26 s l'una
+  dall'altra e ci mettono 1,5 s ciascuna, quindi l'ultima finisce di entrare
+  poco prima che la dissolvenza cominci. La dissolvenza dura 0,9 s e parte a
+  2,2 s: se partisse prima si vedrebbe il logbook comparire mentre i file stanno
+  ancora entrando, e il racconto andrebbe letto al contrario.
+
+  `forwards` su tutte: la scena RESTA sul logbook. Un'animazione che torna al
+  primo fotogramma lascerebbe sul sito, per sempre, la schermata di
+  importazione — cioè la meno interessante delle due.
+*/
+@media (min-width: 1001px) and (prefers-reduced-motion: no-preference) {
+  .scena-poi {
+    animation: scena-entra 1.1s cubic-bezier(0.4, 0, 0.2, 1) 2.2s forwards;
+  }
+
+  .scena::after {
+    animation: scena-filo 1.1s cubic-bezier(0.4, 0, 0.2, 1) 2.2s forwards;
+  }
+
+  .scena-file span {
+    animation: file-entra 1.5s cubic-bezier(0.22, 0.7, 0.3, 1) forwards;
+  }
+
+  .scena-file span:nth-child(1) {
+    animation-delay: 0.5s;
+  }
+  .scena-file span:nth-child(2) {
+    animation-delay: 0.76s;
+  }
+  .scena-file span:nth-child(3) {
+    animation-delay: 1.02s;
+  }
+  .scena-file span:nth-child(4) {
+    animation-delay: 1.28s;
+  }
+  .scena-file span:nth-child(5) {
+    animation-delay: 1.54s;
+  }
+}
+
+@keyframes scena-entra {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Il filo scende insieme alla tendina e si spegne quando arriva in fondo. */
+@keyframes scena-filo {
+  0% {
+    top: 0;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
   }
 }
 
 /*
-  Sotto i 1000 px torna una colonna sola e la vetrina scende sotto le schede: su
-  un telefono due colonne sono due colonne strette, e la prima cosa che deve
-  entrare nello schermo è il pulsante, non l'immagine.
+  Entra da fuori, arriva sulla finestra e ci sparisce dentro rimpicciolendo: non
+  «scompare», viene assorbita. `translate` e `scale` soltanto — sono le due cose
+  che il browser sposta senza rifare il disegno, e questa animazione gira mentre
+  la pagina sta ancora caricando il resto.
 */
+@keyframes file-entra {
+  0% {
+    opacity: 0;
+    transform: translate(-45%, 16px) scale(0.85);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(0, 6px) scale(1);
+  }
+  65% {
+    opacity: 1;
+    transform: translate(120%, 0) scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(190%, -14px) scale(0.55);
+  }
+}
+
+/*
+  Chi ha chiesto meno movimento vede il risultato e basta: il logbook pieno,
+  senza dissolvenza e senza etichette che volano. Non una versione più povera —
+  la stessa cosa che vedono tutti gli altri dopo quattro secondi.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .scena {
+    transform: none;
+    transition: none;
+  }
+
+  .scena-poi {
+    clip-path: none;
+  }
+
+  .scena::after {
+    display: none;
+  }
+
+  .scena-file {
+    display: none;
+  }
+}
+
 @media (max-width: 1000px) {
   .apertura-griglia {
     grid-template-columns: 1fr;
     gap: 34px;
   }
 
-  .vetrina-apertura img {
-    transform: none;
+  /*
+    ► SU UNA COLONNA SOLA LA VETRINA NON C'È. ◄
+
+    Quando la griglia si chiude a una colonna, la schermata non sta più ACCANTO
+    al testo: gli finisce sotto, fra i pulsanti e il resto della pagina. Lì non
+    è più una vetrina — è un rettangolo alto mille pixel che qualcuno deve
+    scorrere per arrivare a quello che viene dopo, e su un telefono la prima
+    cosa che deve entrare nello schermo è il pulsante.
+
+    `.vetrina-apertura` e non l'immagine dentro: nascondere il contenitore
+    toglie anche il `perspective` e il vuoto della cella, mentre nascondere solo
+    l'`img` lascerebbe un div alto zero che continua a occupare una riga della
+    griglia e il suo `gap`.
+  */
+  .vetrina-apertura {
+    display: none;
   }
 }
 
@@ -2228,6 +2479,21 @@ a.scheda-piattaforma.minore:hover {
   .scheda-piattaforma.minore {
     flex: 0 1 calc(50% - 5px);
     min-width: 0;
+  }
+
+  /*
+    ► IL PROFILO NON SI VEDE SU UN TELEFONO. ◄
+
+    È un disegno largo mille unità e alto trecentoventi: schiacciato in 350 px
+    diventa una striscia in cui le quote — «10 m», «20 m», «sosta 5 m · 3 min» —
+    sono più piccole di quanto si legga, e una didascalia illeggibile non è una
+    didascalia discreta, è rumore. Sotto sta la stessa cosa detta a parole, e su
+    uno schermo stretto quelle parole valgono più del disegno.
+
+    Qui basta nascondere: è un `svg` in linea, non si scarica niente in più.
+  */
+  .profilo {
+    display: none;
   }
 
   .fiducia {

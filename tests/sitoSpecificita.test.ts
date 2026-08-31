@@ -155,22 +155,41 @@ function soloBase(css: string): string {
   return fuori;
 }
 
-/** Il contenuto di una media query, presa per la sua condizione esatta. */
+/**
+ * Il contenuto di TUTTE le media query con questa condizione, una dietro
+ * l'altra.
+ *
+ * «Tutte» e non «la prima», e l'ha insegnato un falso rosso: di
+ * `prefers-reduced-motion: reduce` in questo foglio ce n'è più d'una — una per
+ * il profilo che si traccia, una per la scena — e prendendo solo la prima la
+ * guardia cercava la scena dentro il blocco del profilo e non la trovava. Il
+ * browser le applica tutte; una prova che ne guarda una sola sta misurando un
+ * foglio che non esiste.
+ */
 function dentroMedia(css: string, condizione: string): string {
   const pulito = senzaCommenti(css);
-  const apre = pulito.indexOf(`@media ${condizione} {`);
-  if (apre < 0) throw new Error(`nessuna \`@media ${condizione}\` nel foglio`);
-  let i = pulito.indexOf('{', apre);
-  let profondita = 0;
-  const inizio = i + 1;
-  for (; i < pulito.length; i += 1) {
-    if (pulito[i] === '{') profondita += 1;
-    if (pulito[i] === '}') {
-      profondita -= 1;
-      if (profondita === 0) return pulito.slice(inizio, i);
+  const cerca = `@media ${condizione} {`;
+  let da = 0;
+  let fuori = '';
+  for (;;) {
+    const apre = pulito.indexOf(cerca, da);
+    if (apre < 0) break;
+    let i = pulito.indexOf('{', apre);
+    const inizio = i + 1;
+    let profondita = 0;
+    for (; i < pulito.length; i += 1) {
+      if (pulito[i] === '{') profondita += 1;
+      if (pulito[i] === '}') {
+        profondita -= 1;
+        if (profondita === 0) break;
+      }
     }
+    if (profondita !== 0) throw new Error(`la \`@media ${condizione}\` non si chiude`);
+    fuori += `${pulito.slice(inizio, i)}\n`;
+    da = i;
   }
-  throw new Error(`la \`@media ${condizione}\` non si chiude`);
+  if (!fuori) throw new Error(`nessuna \`@media ${condizione}\` nel foglio`);
+  return fuori;
 }
 
 /** Un elemento come lo vede questa prova: sé stesso e la sua catena di antenati. */
@@ -435,41 +454,140 @@ describe('la vetrina dell’apertura', () => {
     expect(Number(colonne![1])).toBeGreaterThan(1);
   });
 
+  it('la scena resta sul logbook, non torna alla schermata di importazione', () => {
+    // `forwards` su tutte le animazioni della scena. Senza, l'ultimo fotogramma
+    // torna al primo e il sito mostrerebbe PER SEMPRE la schermata di
+    // importazione — cioè la meno interessante delle due, e per giunta quella
+    // che non racconta niente a chi arriva a pagina già caricata.
+    const stretta = regole(
+      dentroMedia(CSS, '(min-width: 1001px) and (prefers-reduced-motion: no-preference)'),
+    );
+    const animate = stretta.filter((r) => /animation:/.test(r.corpo));
+    expect(animate.length, 'nessuna animazione nella scena').toBeGreaterThan(0);
+    for (const r of animate) {
+      expect(r.corpo, `\`${r.selettore}\` non ha \`forwards\`: la scena tornerebbe indietro`).toMatch(
+        /animation:[^;]*\bforwards\b/,
+      );
+    }
+  });
+
+  it('chi ha chiesto meno movimento vede comunque il logbook', () => {
+    // La scena si regge su `clip-path: inset(0 0 100% 0)`, cioè il logbook è
+    // ritagliato a zero finché l'animazione non lo scopre. Se l'animazione non
+    // parte — ed è esattamente quello che chiede `prefers-reduced-motion` — quel
+    // ritaglio va tolto a mano, se no resta una finestra vuota. *Un fotogramma
+    // iniziale che serve solo all'animazione diventa il risultato finale per chi
+    // l'animazione non la vuole.*
+    const quiete = regole(dentroMedia(CSS, '(prefers-reduced-motion: reduce)'));
+    const scoperta = quiete.find((r) => r.selettore === '.scena-poi');
+    expect(scoperta, 'senza animazione il logbook resta ritagliato via').toBeDefined();
+    expect(scoperta!.corpo).toMatch(/clip-path:\s*none/);
+  });
+
   for (const pagina of PAGINE) {
     describe(pagina, () => {
       const html = readFileSync(join(SITO, pagina), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
-      const vetrina = /<div class="vetrina-apertura">([\s\S]*?)<\/div>/.exec(html);
+      const vetrina = /<div class="vetrina-apertura">([\s\S]*?)<div class="scena-file"/.exec(html);
+      const quadri = vetrina
+        ? [...vetrina[1].matchAll(/<picture[^>]*>([\s\S]*?)<\/picture>/g)].map((m) => m[1])
+        : [];
 
-      it('ha una schermata sola', () => {
+      it('ha due schermate: quella da cui si parte e quella a cui si arriva', () => {
         expect(vetrina, 'nessuna `.vetrina-apertura` nella pagina').not.toBeNull();
-        expect((vetrina![1].match(/<img/g) ?? []).length).toBe(1);
+        expect(quadri.length, 'la scena non ha due `picture`').toBe(2);
       });
 
-      it('è alta, se no la colonna resta mezza vuota', () => {
-        // Una 16:10 larga quanto la colonna riempie 381 px di 1128. Nessun CSS
-        // chiude quel vuoto: un'immagine non diventa più alta perché le si dà
-        // più spazio. Serve una fotografia alta, e questa riga difende che lo
-        // resti — reinfilare qui una schermata larga rifà il buco.
-        const l = Number(/width="(\d+)"/.exec(vetrina![1])![1]);
-        const h = Number(/height="(\d+)"/.exec(vetrina![1])![1]);
-        expect(h, `la schermata dell’apertura è larga ${l}×${h}, non alta`).toBeGreaterThan(l);
+      it('l’alt vero sta solo sulla seconda', () => {
+        // Chi legge con la voce non deve sentirsi raccontare due schermate quando
+        // ne resta una: la prima è un fotogramma, la seconda è il risultato.
+        const alt = quadri.map((q) => /alt="([^"]*)"/.exec(q)![1]);
+        expect(alt[0], 'la prima schermata ha un alt: ne verrebbero letti due').toBe('');
+        expect(alt[1].length, 'la seconda schermata non ha un alt che descriva').toBeGreaterThan(40);
       });
 
-      it('si scarica subito, e dichiara le sue misure', () => {
-        expect(vetrina![1]).toMatch(/loading="eager"/);
-        expect(vetrina![1]).toMatch(/width="\d+"/);
-        expect(vetrina![1]).toMatch(/height="\d+"/);
+      it('su una colonna sola non si scaricano nemmeno', () => {
+        // ► NASCONDERE NON È NON SCARICARE. ◄ Con delle `img` normali il telefono
+        // si prendeva lo stesso i 350 kB delle due fotografie, `display: none` o
+        // no: misurato a 390 px, le richieste partivano. `loading="lazy"` lo
+        // evitava ma costava 70 ms sul desktop — questa è l'immagine più grande
+        // sopra la piega — e allora `picture`: sopra i 1000 px la `source` porta
+        // la fotografia, sotto non corrisponde nessuna `source` e resta il `src`,
+        // che è un GIF trasparente di quarantatré byte.
+        //
+        // Rimettere lì una fotografia rifarebbe il difetto **senza cambiare
+        // niente di visibile**: la pagina apparirebbe identica a chiunque la
+        // guardi, e il telefono ricomincerebbe a pagarla.
+        for (const q of quadri) {
+          const src = /<img[\s\S]*?src="([^"]+)"/.exec(q)![1];
+          expect(src.startsWith('data:image/'), `un src della scena è \`${src}\``).toBe(true);
+          expect(src.length).toBeLessThan(200);
+          expect(q).toMatch(/media="\(min-width: 1001px\)"/);
+        }
       });
 
-      it('è nella lingua della pagina, e non è una delle cinque là sotto', () => {
-        const src = /src="([^"]+)"/.exec(vetrina![1])![1];
-        expect(src).toContain(pagina.startsWith('en/') ? '-en.jpg' : '-it.jpg');
-        expect(src, 'in apertura c’è una delle schermate della galleria').toContain('vetrina-');
+      it('le due soglie combaciano: la `source` parte dove il foglio smette di nascondere', () => {
+        // La `source` vale da 1001 px, il foglio nasconde fino a 1000. Se una
+        // delle due si muovesse da sola ci sarebbe una fascia di larghezze in cui
+        // la vetrina si vede vuota — oppure una in cui c'è ma non si scarica.
+        const stretta = regole(dentroMedia(CSS, '(max-width: 1000px)'));
+        const nascosta = stretta.find(
+          (r) => r.selettore === '.vetrina-apertura' && /display:\s*none/.test(r.corpo),
+        );
+        expect(nascosta, 'sotto i 1000 px la vetrina non è nascosta').toBeDefined();
+        const soglie = [...vetrina![1].matchAll(/media="\(min-width: (\d+)px\)"/g)].map((m) => Number(m[1]));
+        expect(soglie.length).toBe(2);
+        expect(new Set(soglie).size, 'le due `source` hanno soglie diverse').toBe(1);
+        expect(soglie[0]).toBe(1001);
       });
 
-      it('ha un alt che descrive, non un’etichetta', () => {
-        const alt = /alt="([^"]+)"/.exec(vetrina![1])![1];
-        expect(alt.length).toBeGreaterThan(40);
+      it('sono della stessa misura, se no la tendina salta', () => {
+        // Si sovrappongono: due fotografie di forma diversa si vedrebbero
+        // «saltare» a metà tendina. Si scattano nello stesso giro, con la stessa
+        // finestra, e qui si controlla che lo dichiarino.
+        const misure = quadri.map((q) =>
+          /width="(\d+)"\s+height="(\d+)"/.exec(q.replace(/\s+/g, ' '))!.slice(1, 3).join('×'),
+        );
+        expect(misure[0], `misure diverse: ${misure.join(' e ')}`).toBe(misure[1]);
+        const [l, h] = misure[0].split('×').map(Number);
+        // Alta e non larga: una 16:10 in una colonna alta lascia mezza colonna
+        // vuota, e non c'è CSS che chiuda quel vuoto.
+        expect(h, `la scena è ${l}×${h}, non è alta`).toBeGreaterThan(l);
+      });
+
+      it('sono nella lingua della pagina, e sono le due giuste', () => {
+        const srcset = [...vetrina![1].matchAll(/srcset="([^"]+)"/g)].map((m) => m[1]);
+        expect(srcset.length).toBe(2);
+        for (const x of srcset) expect(x).toContain(pagina.startsWith('en/') ? '-en.jpg' : '-it.jpg');
+        expect(srcset[0], 'la prima non è la schermata di importazione').toContain('vetrina-importa-');
+        expect(srcset[1], 'la seconda non è il logbook').toMatch(/vetrina-(it|en)\.jpg/);
+      });
+
+      it('le etichette dei formati sono decorazione, e dicono cose vere', () => {
+        const striscia = /<div class="scena-file"([\s\S]*?)<\/div>/.exec(html);
+        expect(striscia, 'la scena non ha le etichette dei formati').not.toBeNull();
+        expect(striscia![1], 'le etichette non sono aria-hidden: verrebbero lette').toContain(
+          'aria-hidden="true"',
+        );
+        const nomi = [...striscia![1].matchAll(/<span>([^<]+)<\/span>/g)].map((m) => m[1]);
+        expect(nomi.length).toBe(5);
+        // Ogni formato che vola deve essere un formato che il programma legge
+        // davvero, e la scheda «Importa da quello che hai già» è dove sta scritto.
+        const scheda = /Importa da quello che hai già|Imports what you already have/.test(html);
+        expect(scheda, 'la scheda dei formati non c’è più: le etichette non hanno più una fonte').toBe(true);
+        // ► SI CERCA NELLA PAGINA SENZA LE ETICHETTE. ◄ Cercare in tutta la
+        // pagina era una prova che non poteva fallire: il nome sta scritto
+        // nell'etichetta da cui l'ho appena preso, quindi `includes` era vero
+        // per costruzione. Visto verde su un'etichetta inventata di sana pianta,
+        // che è il difetto che doveva prendere. *Una guardia circolare non è una
+        // guardia debole: è una riga che non guarda niente.*
+        const restoDellaPagina = html.replace(striscia![0], '');
+        for (const n of nomi) {
+          const radice = n.split(' ')[0];
+          expect(
+            restoDellaPagina.includes(radice),
+            `\`${n}\` vola in apertura ma non è scritto da nessun’altra parte della pagina`,
+          ).toBe(true);
+        }
       });
     });
   }

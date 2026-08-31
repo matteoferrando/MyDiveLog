@@ -135,52 +135,60 @@ async function giro(locale, suffisso) {
   await page.close();
 
   /*
-   * ► LA SCHERMATA ALTA DELL'APERTURA. ◄
+   * ► LE DUE SCHERMATE DELL'APERTURA. ◄
    *
-   * Le cinque qui sopra sono larghe 1600 e alte 1000, che è la forma di una
-   * finestra sul Mac ed è giusta per una griglia di figure. In cima al sito,
-   * però, quella forma va messa in una colonna alta il doppio: misurata, la
-   * griglia dell'apertura è alta 1128 px e un'immagine 16:10 larga quanto la
-   * colonna ne riempie 381. Il resto è vuoto, e non c'è CSS che lo chiuda —
-   * un'immagine non diventa più alta perché le si dà più spazio.
+   * In cima al sito non c'è una fotografia: c'è una scena di due, che il foglio
+   * di stile dissolve una nell'altra — prima la schermata di importazione con i
+   * file che entrano, poi il logbook pieno. Racconta in tre secondi la cosa che
+   * il testo accanto impiega un paragrafo a dire: *i file che hai già diventano
+   * il tuo logbook.*
    *
-   * Quindi si fotografa una finestra ALTA. Non è un ritaglio né uno stiramento
-   * della prima: è la stessa applicazione con la finestra di un'altra forma, e
-   * in una finestra alta il logbook mostra più righe — cioè l'immagine dice
-   * anche qualcosa di più, invece di dire la stessa cosa in grande.
+   * DEVONO ESSERE DELLA STESSA IDENTICA MISURA. Si sovrappongono, e due
+   * fotografie di forma diversa in dissolvenza si vedono «saltare»: è la stessa
+   * ragione per cui si scattano nello stesso giro, con la stessa finestra e con
+   * lo stesso `deviceScaleFactor`, invece che in due passaggi.
    *
-   * 1080 × 1400 a `deviceScaleFactor: 1.25` fa 1350 × 1750: il doppio della
-   * larghezza a cui il sito la mostra, come per tutte le altre.
+   * La finestra è più bassa di quella delle cinque schermate della galleria —
+   * 1080 × 1240 invece di 1280 × 820 — perché in cima sta in una colonna alta e
+   * stretta, e una 16:10 lì lascia mezza colonna vuota. Alta, ma non troppo: a
+   * 1400 px la scena diventava una torre.
    */
-  const alta = await browser.newPage({
-    viewport: { width: 1080, height: 1400 },
+  const scena = await browser.newPage({
+    viewport: { width: 1080, height: 1240 },
     deviceScaleFactor: 1.25,
     locale,
   });
-  await alta.goto('http://localhost:4174/', { waitUntil: 'networkidle' });
-  await alta.waitForTimeout(400);
-  await alta.setInputFiles('input[type=file]', FILE);
-  await alta.waitForSelector('.card h2', { timeout: 60000 });
-  await alta.waitForTimeout(1200);
-  /*
-   * Al logbook, come nel giro qui sopra. Senza questa riga la fotografia usciva
-   * sulla schermata di importazione — che è dove l'applicazione resta dopo aver
-   * caricato i file — mentre l'`alt` sul sito prometteva l'elenco delle
-   * immersioni. Non se n'era accorto nessun comando: il file veniva scritto,
-   * pesava i suoi duecento kilobyte, e mostrava la pagina sbagliata.
-   */
-  await alta.locator(`.nav button:has-text("${NOMI.logbook}")`).first().click();
-  await alta.waitForTimeout(1000);
-  await alta.evaluate(() => {
-    document.querySelector('.main').scrollTop = 0;
-  });
-  await alta.waitForTimeout(200);
-  await alta.screenshot({
-    path: `sito/immagini/vetrina-${suffisso}.jpg`,
-    type: 'jpeg',
-    quality: 82,
-  });
-  await alta.close();
+  await scena.goto('http://localhost:4174/', { waitUntil: 'networkidle' });
+  await scena.waitForTimeout(400);
+  await scena.setInputFiles('input[type=file]', FILE);
+  await scena.waitForSelector('.card h2', { timeout: 60000 });
+  await scena.waitForTimeout(1400);
+
+  const fermaScena = async (nome) => {
+    await scena.evaluate(() => {
+      document.querySelector('.main').scrollTop = 0;
+    });
+    await scena.waitForTimeout(200);
+    await scena.screenshot({
+      path: `sito/immagini/${nome}-${suffisso}.jpg`,
+      type: 'jpeg',
+      quality: 82,
+    });
+  };
+
+  // Dopo il caricamento l'applicazione RESTA sulla schermata di importazione,
+  // con l'esito riga per riga: è il primo fotogramma della scena, e si scatta
+  // prima di andare altrove. La prima versione di questo codice andava dritta
+  // al logbook e la schermata di importazione non l'ha mai fotografata —
+  // salvo poi finire nel sito al posto del logbook, perché il passaggio al
+  // logbook mancava dall'altra parte. Nessun comando se n'era accorto.
+  await fermaScena('vetrina-importa');
+
+  await scena.locator(`.nav button:has-text("${NOMI.logbook}")`).first().click();
+  await scena.waitForTimeout(1000);
+  await fermaScena('vetrina');
+
+  await scena.close();
 }
 
 await giro('it-IT', 'it');
