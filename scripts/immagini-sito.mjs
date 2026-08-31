@@ -133,6 +133,54 @@ async function giro(locale, suffisso) {
    */
 
   await page.close();
+
+  /*
+   * ► LA SCHERMATA ALTA DELL'APERTURA. ◄
+   *
+   * Le cinque qui sopra sono larghe 1600 e alte 1000, che è la forma di una
+   * finestra sul Mac ed è giusta per una griglia di figure. In cima al sito,
+   * però, quella forma va messa in una colonna alta il doppio: misurata, la
+   * griglia dell'apertura è alta 1128 px e un'immagine 16:10 larga quanto la
+   * colonna ne riempie 381. Il resto è vuoto, e non c'è CSS che lo chiuda —
+   * un'immagine non diventa più alta perché le si dà più spazio.
+   *
+   * Quindi si fotografa una finestra ALTA. Non è un ritaglio né uno stiramento
+   * della prima: è la stessa applicazione con la finestra di un'altra forma, e
+   * in una finestra alta il logbook mostra più righe — cioè l'immagine dice
+   * anche qualcosa di più, invece di dire la stessa cosa in grande.
+   *
+   * 1080 × 1400 a `deviceScaleFactor: 1.25` fa 1350 × 1750: il doppio della
+   * larghezza a cui il sito la mostra, come per tutte le altre.
+   */
+  const alta = await browser.newPage({
+    viewport: { width: 1080, height: 1400 },
+    deviceScaleFactor: 1.25,
+    locale,
+  });
+  await alta.goto('http://localhost:4174/', { waitUntil: 'networkidle' });
+  await alta.waitForTimeout(400);
+  await alta.setInputFiles('input[type=file]', FILE);
+  await alta.waitForSelector('.card h2', { timeout: 60000 });
+  await alta.waitForTimeout(1200);
+  /*
+   * Al logbook, come nel giro qui sopra. Senza questa riga la fotografia usciva
+   * sulla schermata di importazione — che è dove l'applicazione resta dopo aver
+   * caricato i file — mentre l'`alt` sul sito prometteva l'elenco delle
+   * immersioni. Non se n'era accorto nessun comando: il file veniva scritto,
+   * pesava i suoi duecento kilobyte, e mostrava la pagina sbagliata.
+   */
+  await alta.locator(`.nav button:has-text("${NOMI.logbook}")`).first().click();
+  await alta.waitForTimeout(1000);
+  await alta.evaluate(() => {
+    document.querySelector('.main').scrollTop = 0;
+  });
+  await alta.waitForTimeout(200);
+  await alta.screenshot({
+    path: `sito/immagini/vetrina-${suffisso}.jpg`,
+    type: 'jpeg',
+    quality: 82,
+  });
+  await alta.close();
 }
 
 await giro('it-IT', 'it');

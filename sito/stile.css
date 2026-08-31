@@ -1635,15 +1635,24 @@ a {
 */
 .apertura-griglia {
   display: grid;
-  grid-template-columns: 1fr 1.12fr;
   /*
-    `stretch` e non `center`, ed è quello che permette alla vetrina di seguire
-    la lettura: una cella centrata è alta quanto il suo contenuto, e dentro una
-    cella alta quanto il contenuto un elemento `sticky` non ha nessuno spazio in
-    cui scorrere. Stirata, la cella è alta quanto la riga, e la pila di dentro
-    può viaggiare.
+    ► LA COLONNA DESTRA HA PIÙ SPAZIO DELLA SINISTRA, ORA. ◄
+
+    Era `1fr 1.12fr` quando a sinistra c'erano tre gruppi di schede. Ne sono
+    rimasti due — Windows, Android e Linux stanno su una riga sola — e quella
+    colonna si è accorciata di parecchio: lasciarle la stessa larghezza vorrebbe
+    dire un testo che finisce a metà altezza e una schermata piccola accanto.
+    Data alla vetrina, la stessa larghezza diventa pixel dell'applicazione.
   */
-  align-items: stretch;
+  grid-template-columns: 1fr 1.25fr;
+  /*
+    `center` e non `stretch`: qui dentro c'è una cosa sola, e una cosa sola in
+    una colonna alta si mette in mezzo. (`stretch` era servito a un esperimento
+    con due schermate impilate e appiccicate allo scorrimento: due rettangoli
+    uno sopra l'altro non si leggevano come una pila, si leggevano come due
+    rettangoli, ed è stato tolto.)
+  */
+  align-items: center;
   gap: 44px;
 }
 
@@ -1669,59 +1678,6 @@ a {
 */
 .vetrina-apertura {
   perspective: 1400px;
-}
-
-/*
-  ► LA COLONNA DESTRA ERA VUOTA PER IL SETTANTUNO PER CENTO. ◄
-
-  Misurato, non stimato: la griglia dell'apertura è alta 1236 px e l'immagine
-  359. Facevano 440 px di vuoto sopra e 437 sotto. Non è «aria»: una colonna
-  che sta accanto a un testo lungo e mostra una cosa sola sta dicendo di non
-  averne altre, mentre ne ha. Il vuoto era cresciuto da solo, perché la colonna
-  di sinistra si è allungata quando i gruppi di piattaforme sono diventati tre.
-
-  Due rimedi, e servono tutti e due.
-
-  **La seconda schermata** è la scheda di un'immersione col profilo: l'unica
-  immagine che un subacqueo riconosce senza didascalia. Sfalsata e sovrapposta,
-  perché due rettangoli in fila restano due rettangoli, mentre due sovrapposti
-  sono una pila di cose vere — ed è così che le si guarda su una scrivania.
-
-  **E la pila segue la lettura.** Quello che resta di vuoto smette di essere un
-  buco e diventa la corsa: mentre si scorrono le tre file di piattaforme, la
-  vetrina resta dov'è invece di uscire dallo schermo al primo mezzo giro di
-  rotella.
-*/
-.vetrina-pila {
-  position: sticky;
-  top: 96px;
-}
-
-/*
-  Sfalsata verso destra e tirata su a coprire l'angolo della prima: il taglio
-  cade sulle ultime righe dell'elenco, che sono le meno importanti — coprire
-  l'intestazione avrebbe tolto proprio quello che quella schermata deve dire.
-
-  L'inclinazione è la stessa della prima ma di un grado in meno: due piani
-  paralleli si leggono come una pila, due piani con angoli diversi si leggono
-  come un errore.
-
-  ► IL SELETTORE È LUNGO APPOSTA. ◄ Scritto `.vetrina-secondo` questa regola
-  non faceva quasi niente: qui sotto `.vetrina-apertura img` dà `width: 100%` e
-  una sua `transform`, e una classe più un tipo (0-1-1) batte una classe sola
-  (0-1-0). Restavano in piedi solo `margin` e `z-index`, che quel selettore non
-  tocca — così la seconda schermata era larga quanto la prima e inclinata come
-  la prima, cioè non era affatto una pila: erano due rettangoli uguali in
-  colonna. Si è visto in una schermata, non nel foglio, e la prova qui accanto
-  ora confronta la specificità di OGNI proprietà, non della sola `display` che
-  era stata corretta per prima.
-*/
-.vetrina-apertura .vetrina-secondo {
-  width: 76%;
-  margin: -13% 0 0 auto;
-  transform: perspective(1400px) rotateY(-5deg) rotateX(2deg) scale(1.02);
-  position: relative;
-  z-index: 1;
 }
 
 .vetrina-apertura img {
@@ -1768,28 +1724,6 @@ a {
 
   .vetrina-apertura img {
     transform: none;
-  }
-
-  /*
-    Su una colonna sola la pila non ha senso e la seconda schermata nemmeno:
-    sotto sta già il resto della pagina, e su un telefono la prima cosa che deve
-    entrare nello schermo è il pulsante. Essendo pigra, nascosta non si scarica
-    neanche — la banda la paga chi apre il sito da una barca.
-  */
-  .vetrina-pila {
-    position: static;
-  }
-
-  /*
-    `.vetrina-apertura .vetrina-secondo` e non `.vetrina-secondo` da sola: due
-    classi battono una classe più un tipo, e qui sopra c'è
-    `.vetrina-apertura img { display: block }`. Scritta corta, questa regola
-    perdeva — la seconda schermata restava visibile sul telefono e la media
-    query sembrava non applicarsi affatto, mentre applicava tutto il resto.
-    Misurato a 900 e a 480 px: prima `display: block`, dopo `display: none`.
-  */
-  .vetrina-apertura .vetrina-secondo {
-    display: none;
   }
 }
 
@@ -2029,46 +1963,25 @@ a.scheda-piattaforma.principale:hover {
   metà riga. Un buco a destra di una fila di schede si legge come «manca
   qualcosa», che è precisamente il contrario di quello che quelle righe dicono.
 
-  `flex: 1 1 140px` le fa crescere in parti uguali a qualunque larghezza,
-  esattamente come le principali. Il `140px` resta la base sotto cui si va a
-  capo.
+  `flex: 1 1 128px` le fa crescere in parti uguali a qualunque larghezza,
+  esattamente come le principali: stessa base e stesso accrescimento vuol dire
+  tre schede della stessa identica misura, che è quello che devono essere —
+  sono tre risposte alla stessa domanda, e una più larga delle altre direbbe
+  che una conta di più.
+
+  ► PERCHÉ 128 E NON 140. ◄ La colonna del testo è larga 425 px. Tre schede da
+  140 con due vuoti da 14 ne vogliono 448: ventitré di troppo, e la terza andava
+  a capo da sola sotto le altre due. Non si vedeva leggendo il foglio — `flex`
+  non dà errore quando manda a capo, è il suo mestiere — e il sintomo era una
+  fila di due più una che sembrava una scelta. Con 128 il conto fa 412 e ci
+  stanno; sotto quella larghezza — cioè su un telefono — vanno a capo davvero, e
+  lì è giusto.
 */
 .scheda-piattaforma.minore {
-  flex: 1 1 140px;
-  min-width: 140px;
+  flex: 1 1 128px;
+  min-width: 128px;
   padding: 16px 18px 14px;
   opacity: 0.88;
-}
-
-/*
-  ► LA SCHEDA CHE STA DA SOLA SI GIRA DI LATO. ◄
-
-  Linux è un gruppo di uno. Una scheda quadrata allargata a tutta riga sembra
-  una scheda sbagliata; girata — disegno a sinistra, nome e riga accanto — è una
-  forma sua, e dice «questo è un gruppo di uno» invece di «qui manca il
-  secondo».
-*/
-.scheda-piattaforma.larga {
-  flex-direction: row;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
-}
-
-.scheda-piattaforma.larga .disegno {
-  margin-bottom: 0;
-  flex: none;
-}
-
-.scheda-piattaforma.larga .testo-scheda {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-/* Qui la riga non si appoggia al fondo: sta sotto il nome, di fianco al segno. */
-.scheda-piattaforma.larga .riga {
-  margin-top: 0;
 }
 
 .scheda-piattaforma.minore .disegno {
@@ -2108,6 +2021,116 @@ a.scheda-piattaforma.minore:hover {
 .nota-schede b {
   color: var(--testo);
   font-weight: 600;
+}
+
+/*
+  ► LE TRE PIATTAFORME A COLPO D'OCCHIO. ◄
+
+  Al posto di tre riquadri di prosa, tre colonne con le stesse tre righe:
+  formato, aggiornamenti, cosa fa il sistema. Il vantaggio non è che sia più
+  corto — è che si legge in orizzontale. Chi arriva da Windows scorre la prima
+  colonna e ha finito; chi vuole confrontare guarda la riga «Aggiornamenti» e
+  vede in un colpo che uno dei tre è automatico e due no.
+
+  `minmax(14rem, 1fr)` invece del `15.5rem` della griglia generale: queste
+  colonne sono più strette di un riquadro di testo — sono etichette e mezze
+  frasi — e a 15.5rem su uno schermo medio andavano a capo in due più una, che è
+  il modo peggiore di disporre tre cose uguali.
+*/
+.griglia-piattaforme {
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+/*
+  ► IL TITOLO DI UN RIQUADRO, COL SUO SEGNO. ◄
+
+  Lo usano le otto schede delle funzioni e le tre delle piattaforme, ed è
+  volutamente lo stesso: sono la stessa cosa — un riquadro con un titolo — e due
+  disegni diversi per la stessa cosa fanno sembrare due sezioni della stessa
+  pagina due pagine diverse.
+
+  Resta un `h3` e non diventa un `p`: il segno è decorazione (`aria-hidden`), il
+  titolo è struttura. Chi naviga per intestazioni deve continuare a trovarle,
+  e un riquadro che perde il titolo per guadagnare un'icona ha fatto un cattivo
+  affare.
+
+  ► PERCHÉ IL SEGNO NON SI ALLINEA IN MEZZO. ◄ `align-items: center` va bene
+  finché il titolo sta su una riga; su due — e su otto titoli succede sempre a
+  qualcuno — il segno finisce a mezz'aria in mezzo alle due righe. `start` più
+  una spinta di un pixel lo mette in riga con la PRIMA riga del titolo, che è
+  dove l'occhio lo cerca.
+*/
+.capo-scheda {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+
+.capo-scheda .disegno {
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  flex: none;
+  fill: none;
+  stroke: var(--riflesso);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/*
+  ► PERCHÉ 16.5rem. ◄ Sono SEI, e sei vuole tre per riga: due file piene. La
+  soglia decide quante colonne entrano, e a `15rem` ne entravano quattro — cioè
+  4 + 2, una fila finale mezza vuota che sembra un errore di composizione. A
+  `16.5rem` ne entrano tre, e il conto torna. (Erano otto e volevano quattro:
+  quando il numero delle schede cambia, questa soglia va rifatta. È il prezzo di
+  una griglia che si dispone da sola.)
+*/
+.griglia-funzioni {
+  grid-template-columns: repeat(auto-fit, minmax(16.5rem, 1fr));
+}
+
+.dati-piattaforma {
+  margin: 0;
+}
+
+/*
+  L'etichetta in maiuscoletto spaziato e la risposta sotto: due livelli, non due
+  colonne. Affiancate, la risposta più lunga — quella di Linux — avrebbe deciso
+  la larghezza dell'etichetta per tutte e tre, e sarebbe andata a capo tre volte
+  in una striscia larga sei centimetri.
+*/
+.dati-piattaforma dt {
+  margin: 14px 0 0;
+  font-size: 0.7rem;
+  font-weight: 640;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--riflesso);
+  opacity: 0.72;
+}
+
+.dati-piattaforma dt:first-child {
+  margin-top: 0;
+}
+
+.dati-piattaforma dd {
+  margin: 4px 0 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--testo-tenue);
+}
+
+.dati-piattaforma dd b {
+  color: var(--testo);
+  font-weight: 600;
+}
+
+/* Le due note sotto la griglia: stessa voce della nota sotto le schede. */
+.nota-piattaforme {
+  margin-top: 18px;
+  max-width: var(--misura);
 }
 
 /*
@@ -2175,9 +2198,35 @@ a.scheda-piattaforma.minore:hover {
     gap: 10px;
   }
 
+  /*
+    ► LE MINORI VANNO NOMINATE, NON EREDITANO. ◄
+
+    `.scheda-piattaforma` da sola qui NON tocca le tre schede piccole: più sopra
+    c'è `.scheda-piattaforma.minore { flex: 1 1 128px }`, due classi contro una,
+    e vince quella a qualunque larghezza. Il sintomo, misurato a 390 px: due
+    schede da 166 px e la terza da 342, cioè larga il doppio delle sue sorelle —
+    che sono la stessa cosa e devono avere la stessa faccia.
+
+    `0 1 calc(50% - 5px)`: `0` di accrescimento perché l'ultima, rimasta sola
+    sulla sua riga, NON deve allargarsi a riempirla. Metà riga meno mezzo vuoto è
+    esattamente la misura delle due di sopra.
+  */
   .scheda-piattaforma,
-  .scheda-piattaforma.principale {
+  .scheda-piattaforma.principale,
+  /*
+    `.appaiate > .scheda-piattaforma` va nominato anche qui, e l'ha trovato la
+    prova, non un occhio: quel selettore vale 0-2-0 e la riga sopra 0-1-0,
+    quindi sulle due schede dentro `.appaiate` — macOS e iOS, cioè le prime che
+    si vedono su un telefono — questa media query non cambiava niente. Nona
+    volta della stessa aritmetica su questo foglio.
+  */
+  .appaiate > .scheda-piattaforma {
     flex: 1 1 44%;
+    min-width: 0;
+  }
+
+  .scheda-piattaforma.minore {
+    flex: 0 1 calc(50% - 5px);
     min-width: 0;
   }
 

@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/" />
-    <link rel="stylesheet" href="stile.css?v=8204f69b" />
+    <link rel="stylesheet" href="stile.css?v=9e744cf9" />
     <!--
       Le tre alternative di lingua, su OGNI pagina e non soltanto sulle due
       home. Sono indirizzi ASSOLUTI perché Google scarta gli `hreflang`
@@ -309,10 +309,17 @@
               provati nessuno su un apparecchio vero — cosa che il sito dice per
               esteso più giù.
 
-              Prima stavano tutti e quattro in una fila sola, e la differenza la
+              Prima stavano tutti e cinque in una fila sola, e la differenza la
               faceva la grandezza delle schede: un'informazione che si legge solo
               se qualcuno la nota. Detta a parole, invece, si legge e basta — e
               chi arriva da Windows sa subito che c'è, e in che condizioni.
+
+              Le tre di questo gruppo — Windows, Android, Linux — stanno sulla
+              stessa riga: rispondono tutte e tre alla stessa domanda, «c'è per il
+              mio sistema?», e tre risposte alla stessa domanda si mettono una
+              accanto all'altra. Il perché di Linux e il limite del suo pacchetto
+              stanno nella sezione «Le altre piattaforme»: qui davanti erano tre
+              righe in più fra chi legge e il pulsante.
             -->
             <p class="occhietto occhietto-poi">Ma è stato poi rilasciato anche per</p>
 
@@ -341,28 +348,9 @@
                 <span class="nome">Android</span>
                 <span class="riga">APK</span>
               </a>
-            </div>
 
-            <!--
-          ► UN TERZO GRUPPO, E NON UNA TERZA SCHEDA IN FILA. ◄
-
-          Windows e Android sono arrivati perché servivano a qualcuno. Linux è
-          arrivato per un'altra ragione, e vale la pena dirla: questo progetto è
-          software libero, gira già su tutto il resto, e su Linux costava meno
-          che altrove — libdivecomputer lì si compila per la strada normale.
-          Metterlo in fila con gli altri due lo farebbe leggere come «un'altra
-          piattaforma minore»; messo da solo, con la sua riga, dice perché c'è.
-
-          E come per gli altri, il limite sta PRIMA del pulsante: questo
-          pacchetto non si installa su una distribuzione vecchia, e chi la usa
-          deve saperlo prima di scaricare, non dopo.
-        -->
-            <p class="occhietto occhietto-poi">
-              E siccome ci piace il software libero, l'abbiamo fatto anche per
-            </p>
-            <div class="schede-piattaforma">
               <a
-                class="scheda-piattaforma minore larga"
+                class="scheda-piattaforma minore"
                 href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Linux-amd64.deb"
               >
                 <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
@@ -373,17 +361,10 @@
                   <path d="M14.6 12.4h2.8L16 14.6z" />
                   <path d="M12.6 27.4 10.6 29.8M19.4 27.4l2 2.4" />
                 </svg>
-                <span class="testo-scheda">
-                  <span class="nome">Linux</span>
-                  <span class="riga">Pacchetto .deb</span>
-                </span>
+                <span class="nome">Linux</span>
+                <span class="riga">Pacchetto .deb</span>
               </a>
             </div>
-            <p class="nota-schede">
-              Il pacchetto Linux è un <b>.deb</b> per <b>amd64</b>, e vuole <b>WebKitGTK 4.1</b> — c'è da
-              <b>Ubuntu 24.04</b> e da <b>Debian 13</b> in su. Su una distribuzione più vecchia non si
-              installa. Come su Android, si riscarica a mano quando esce una versione nuova.
-            </p>
 
             <p class="fiducia">
               <span>Gratis</span><span>Senza account</span><span>Codice aperto</span>
@@ -412,24 +393,13 @@
         neanche, e la banda la paga chi apre il sito da una barca.
       -->
         <div class="vetrina-apertura">
-          <div class="vetrina-pila">
-            <img
-              class="vetrina-primo"
-              src="immagini/logbook-it.jpg"
-              alt="L'elenco delle immersioni di MyDiveLog: data, sito, profondità massima, durata, consumo e provenienza di ogni immersione."
-              loading="eager"
-              width="1600"
-              height="1000"
-            />
-            <img
-              class="vetrina-secondo"
-              src="immagini/immersione-it.jpg"
-              alt="La scheda di un'immersione in MyDiveLog: profondità massima, durata, consumo di superficie e il profilo tracciato minuto per minuto."
-              loading="lazy"
-              width="1600"
-              height="1000"
-            />
-          </div>
+          <img
+            src="immagini/vetrina-it.jpg"
+            alt="L'elenco delle immersioni di MyDiveLog: data, sito, profondità massima, durata, consumo e provenienza di ogni immersione."
+            loading="eager"
+            width="1350"
+            height="1750"
+          />
         </div>
       </div>
 
@@ -657,26 +627,46 @@
         <div class="griglia">
           <div class="riquadro">
             <span class="etichetta">orologi</span>
-            <h3>Li riconosce anche a orologi sfasati</h3>
+            <h3 class="capo-scheda">
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <circle cx="12" cy="16" r="9" />
+                <path d="M12 11v5l3 2" />
+                <path d="M23 8a9 9 0 0 1 0 16" />
+              </svg>
+              <span>Li riconosce anche a orologi sfasati</span>
+            </h3>
             <p>
-              Due computer non segnano mai la stessa ora. Lo scarto viene dedotto dall'insieme delle tue
-              immersioni, e la conferma si fa sull'impronta del profilo — non sulla data.
+              Lo scarto si deduce dalle tue immersioni, e la conferma si fa sull’impronta del profilo — non
+              sulla data.
             </p>
           </div>
           <div class="riquadro">
             <span class="etichetta">canali</span>
-            <h3>Sceglie per canali, non per campioni</h3>
+            <h3 class="capo-scheda">
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <path d="M4 9h8c4 0 4 7 8 7h8" />
+                <path d="M4 23h8c4 0 4-7 8-7" />
+                <path d="M24 12l4 4-4 4" />
+              </svg>
+              <span>Sceglie per canali, non per campioni</span>
+            </h3>
             <p>
-              Fra un profilo più fitto e uno che sa anche di decompressione vince il secondo — e il primo
-              resta lì, perché è su quello che velocità e assetto si misurano bene.
+              Fra un profilo più fitto e uno che sa di decompressione vincono tutti e due, ognuno per quello
+              che sa.
             </p>
           </div>
           <div class="riquadro">
             <span class="etichetta">provenienza</span>
-            <h3>Non nasconde da dove viene</h3>
+            <h3 class="capo-scheda">
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <path d="M17 4H6a2 2 0 0 0-2 2v11l11 11 13-13z" />
+                <path d="M10 10h.01" />
+              </svg>
+              <span>Non nasconde da dove viene</span>
+            </h3>
             <p>
-              Ogni immersione elenca le fonti che l'hanno costruita. Se un dato manca, sai quale computer non
-              lo scriveva — invece di chiederti se l'ha perso il programma.
+              Ogni immersione elenca le fonti che l’hanno costruita. Se un dato manca, sai quale computer non
+              lo scriveva.
             </p>
           </div>
         </div>
@@ -720,15 +710,16 @@
           <div class="riquadro">
             <h3>Quello che manca resta un trattino</h3>
             <p>
-              La profondità programmata non diventa mai quella raggiunta, e nessun campo si riempie da solo.
-              Su un documento che qualcuno controfirma, un dato inventato è peggio di un dato mancante.
+              Nessun campo si riempie da solo, e la profondità che avevi programmato non diventa mai quella
+              che hai raggiunto. Su un documento che qualcuno firma, un dato inventato è peggio di un dato che
+              manca.
             </p>
           </div>
           <div class="riquadro">
             <h3>Si esibisce, non si racconta</h3>
             <p>
               Un libretto serve nel momento in cui qualcuno lo chiede. Ogni immersione esce in PDF con le
-              tredici lettere in chiaro, dal Mac e anche dall'iPhone: lo mandi lì, in barca, cinque minuti
+              tredici voci in chiaro, dal computer o anche dal telefono: lo mandi lì, in barca, cinque minuti
               dopo esser risalito.
             </p>
           </div>
@@ -778,63 +769,80 @@
           Questo legge, unisce, calcola, e ti dice su cosa lavorare la prossima volta.
         </p>
 
-        <div class="griglia">
+        <div class="griglia griglia-funzioni">
           <div class="riquadro">
-            <h3>Importa da quello che hai già</h3>
+            <h3 class="capo-scheda">
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <path d="M5 20v5a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-5" />
+                <path d="M16 4v14" />
+                <path d="M10 12l6 6 6-6" />
+              </svg>
+              <span>Importa da quello che hai già</span>
+            </h3>
             <p>
-              UDDF, Shearwater (XML e archivio nativo), Scubapro LogTRAK, Garmin FIT, Subsurface, CSV. Il
-              formato si riconosce dal contenuto, non dall'estensione.
+              UDDF, Shearwater, Scubapro LogTRAK, Garmin FIT, Subsurface, CSV. Il formato si riconosce dal
+              contenuto, non dall’estensione.
             </p>
           </div>
           <div class="riquadro">
-            <h3>Scarica via Bluetooth</h3>
+            <h3 class="capo-scheda">
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <path d="M11 10.5 21 21l-5 5V6l5 5-10 10.5" />
+              </svg>
+              <span>Scarica via Bluetooth</span>
+            </h3>
             <p>
-              Shearwater e Scubapro/Uwatec, con segnalibro: al secondo collegamento scarica solo le immersioni
-              nuove, non tutta la memoria.
+              La prima volta prende tutta la memoria del computer. Dalla seconda in poi, solo le immersioni
+              nuove.
             </p>
           </div>
           <div class="riquadro">
-            <h3>Analizza il profilo</h3>
+            <h3 class="capo-scheda">
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <path d="M4 9h4l3 14h10l3-9h4" />
+              </svg>
+              <span>Analizza il profilo</span>
+            </h3>
             <p>
-              Bühlmann ZH-L16C con gradient factor, sedici compartimenti, esposizione all'ossigeno per
-              giornata, oscillazione d'assetto e velocità di risalita — con l'affidabilità di ogni numero
-              dichiarata.
+              Bühlmann ZH-L16C, ossigeno, assetto e velocità di risalita — e sotto ogni numero, quanto è
+              affidabile.
             </p>
           </div>
           <div class="riquadro">
-            <h3>Pianifica</h3>
+            <h3 class="capo-scheda">
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <circle cx="16" cy="16" r="6" />
+                <path d="M16 3v6M16 23v6M3 16h6M23 16h6" />
+              </svg>
+              <span>Pianifica</span>
+            </h3>
             <p>
-              Gas e decompressione: multi-livello, cambi automatici alla MOD, CCR con setpoint e diluente,
-              bailout e contingenze. Il consumo lo prende dalle tue immersioni, non da un manuale.
+              Gas e decompressione, CCR, bailout e contingenze. Il consumo lo prende dalle tue immersioni, non
+              da un manuale.
             </p>
           </div>
           <div class="riquadro">
-            <h3>Ti dice come migliorare</h3>
-            <p>
-              Statistiche, tendenze e suggerimenti con la prova numerica sotto: quante risalite fuori limite,
-              quante soste di sicurezza saltate, quanto costano le ripetitive.
-            </p>
+            <h3 class="capo-scheda">
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <polyline points="4,23 12,15 17,20 28,8" />
+                <polyline points="21,8 28,8 28,15" />
+              </svg>
+              <span>Ti dice come migliorare</span>
+            </h3>
+            <p>Statistiche, tendenze e suggerimenti — ognuno con sotto il numero che lo giustifica.</p>
           </div>
           <div class="riquadro">
-            <h3>La scheda in PDF, anche dal telefono</h3>
+            <h3 class="capo-scheda">
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <path d="M9 4h9l6 6v17a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+                <path d="M18 4v6h6" />
+                <path d="M12 19h8M12 23h5" />
+              </svg>
+              <span>La scheda in PDF, anche dal telefono</span>
+            </h3>
             <p>
-              Una pagina per immersione, con i tredici campi di legge, il profilo disegnato e la firma della
-              guida. Esce un file vero, che dal telefono mandi a chi te lo chiede — un centro, un istruttore,
-              un'assicurazione — senza passare da casa.
-            </p>
-          </div>
-          <div class="riquadro">
-            <h3>Si aggiorna da sola</h3>
-            <p>
-              L'app del Mac controlla se c'è una versione nuova e te lo dice. Scaricarla e installarla lo
-              decidi tu: ogni aggiornamento è firmato, e senza firma valida non si installa niente.
-            </p>
-          </div>
-          <div class="riquadro">
-            <h3>Non ti chiude dentro</h3>
-            <p>
-              Backup completo in JSON, esportazione UDDF, CSV e KML, stampa del logbook e del piano.
-              L'archivio locale è un file SQLite che puoi aprire con qualunque strumento.
+              Una pagina per immersione, coi tredici campi di legge e il profilo. Dal telefono la mandi a chi
+              te la chiede.
             </p>
           </div>
         </div>
@@ -844,8 +852,8 @@
         <p class="occhiello-sezione" data-numero="04">Le schermate</p>
         <h2>Com'è fatta</h2>
         <p>
-          Nessun ritocco, nessun mockup: è l'applicazione, così com'è quando la apri. Se lo vedi qui, lo trovi
-          dentro.
+          Cinque schermate, cinque cose che fa: unire, leggere un profilo, tirare fuori i numeri, pianificare
+          i gas, dire su cosa lavorare.
         </p>
         <div class="schermate">
           <figure class="schermata vetrina">
@@ -921,8 +929,8 @@
           che apre la porta non tiene nessun elenco di iscritti e
           <strong>le immersioni non gli passano nemmeno davanti</strong>: verifica che sei tu, consegna un
           lasciapassare che scade da solo dopo due ore, e da lì in poi l'applicazione parla direttamente col
-          tuo database. Cancellando l'account dall'app sparisce anche quello. Per esteso in
-          <a href="privacy.html">Privacy</a>.
+          tuo database. Cancellando l'account dall'app sparisce anche quello.
+          <a href="privacy.html">Scopri i dettagli di Privacy</a>.
         </p>
       </section>
 
@@ -993,45 +1001,105 @@
         <p class="occhiello-sezione" data-numero="07">Le altre piattaforme</p>
         <h2>Windows, Android e Linux: quello che c'è da sapere</h2>
         <p>
-          Fanno tutto quello che fa la versione Mac. Restano due differenze e due domande che il sistema ti
-          farà: meglio saperlo prima che dopo.
+          Fanno tutto quello che fa la versione Mac. Cambia come si aggiornano, e cosa dice il sistema la
+          prima volta che apri il file.
         </p>
 
-        <div class="griglia">
+        <!--
+          ► UNA GRIGLIA, NON TRE PARAGRAFI. ◄
+
+          Qui c'erano tre riquadri di prosa, uno per argomento. Chi voleva sapere
+          una cosa sola del proprio sistema doveva leggerli tutti e tre e tenere
+          a mente quale frase riguardasse lui: tre schermi di testo per una
+          risposta di sei parole. Le stesse informazioni, messe una per
+          piattaforma e una per riga, si TROVANO invece che leggersi — ed è
+          quello che si fa davanti a una pagina che risponde a «c'è per il mio
+          sistema, e cosa cambia».
+
+          Le righe sono le stesse per tutte e tre, nello stesso ordine. Una
+          tabella in cui le colonne non hanno le stesse righe non si legge in
+          orizzontale, e leggerla in orizzontale è tutto il motivo per cui è una
+          tabella.
+
+          I due «perché» — perché Android e Linux non si aggiornano da soli —
+          restano, ma sotto e in due righe: sono la risposta a una domanda che
+          viene DOPO, e chi non se la fa non deve attraversarla per arrivare al
+          resto.
+        -->
+        <div class="griglia griglia-piattaforme">
           <div class="riquadro">
-            <h3>Su Android e su Linux si riscarica a mano</h3>
-            <p>
-              Windows ti avvisa quando esce una versione nuova, come il Mac. Android no: un'applicazione che
-              si installa da sola chiederebbe un permesso che spaventa più di quanto serva. Su Linux nemmeno,
-              per un motivo diverso: l'aggiornamento automatico funzionerebbe solo con un altro formato di
-              pacchetto, e il <code>.deb</code> è quello che la gente si aspetta. In tutti e due i casi,
-              quando esce una versione nuova il file si riprende da qui.
-            </p>
+            <h3 class="capo-scheda">
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <rect x="3" y="6" width="26" height="17" rx="2" />
+                <line x1="12" y1="27" x2="20" y2="27" />
+                <line x1="16" y1="23" x2="16" y2="27" />
+              </svg>
+              <span>Windows</span>
+            </h3>
+            <dl class="dati-piattaforma">
+              <dt>Formato</dt>
+              <dd>Installatore <code>.exe</code></dd>
+              <dt>Aggiornamenti</dt>
+              <dd>Automatici, come sul Mac</dd>
+              <dt>Il sistema</dt>
+              <dd>Dirà che non ci conosce: «Ulteriori informazioni» → «Esegui comunque»</dd>
+            </dl>
           </div>
           <div class="riquadro">
-            <h3>Il sistema dirà che non ci conosce</h3>
-            <p>
-              Windows: «Ulteriori informazioni» → «Esegui comunque». Android: chiederà il permesso di
-              installare da questa origine, la stessa domanda che fa per qualunque app fuori dal Play Store.
-            </p>
-            <p>
-              <b>Linux:</b> il pacchetto è un <code>.deb</code> per amd64 e vuole <b>WebKitGTK 4.1</b>, che
-              c'è da Ubuntu 24.04 e da Debian 13 in su. Su una distribuzione più vecchia <code>dpkg</code> lo
-              rifiuta dicendo che manca <code>libwebkit2gtk-4.1-0</code>: non è un difetto del pacchetto, è
-              che quella libreria lì non esiste.
-            </p>
+            <h3 class="capo-scheda">
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <rect x="9" y="4" width="14" height="24" rx="3" />
+                <circle cx="16" cy="24" r="1.4" />
+              </svg>
+              <span>Android</span>
+            </h3>
+            <dl class="dati-piattaforma">
+              <dt>Formato</dt>
+              <dd>Pacchetto <code>.apk</code></dd>
+              <dt>Aggiornamenti</dt>
+              <dd>A mano: il file si riprende da qui</dd>
+              <dt>Il sistema</dt>
+              <dd>Chiederà il permesso di installare da questa origine</dd>
+            </dl>
           </div>
           <div class="riquadro">
-            <h3>L'impronta dice da dove viene</h3>
-            <p>
-              Il file non è firmato da un'autorità, quindi non racconta la propria origine. Lo fa la sua
-              impronta SHA-256, pubblicata accanto al pacchetto
-              <a href="https://github.com/matteoferrando/MyDiveLog/releases/latest"
-                >nella pagina delle release</a
-              >: se combacia con quella del file che hai scaricato, è il nostro.
-            </p>
+            <h3 class="capo-scheda">
+              <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
+                <path
+                  d="M16 3.5c-3.3 0-5.6 2.5-5.6 5.8 0 2-.5 3.2-1.5 4.8-1.3 2.1-2.3 4.1-2.3 6.5 0 4.1 4.2 7.4 9.4 7.4s9.4-3.3 9.4-7.4c0-2.4-1-4.4-2.3-6.5-1-1.6-1.5-2.8-1.5-4.8 0-3.3-2.3-5.8-5.6-5.8Z"
+                />
+                <path d="M14 9.6h.01M18 9.6h.01" />
+                <path d="M14.6 12.4h2.8L16 14.6z" />
+                <path d="M12.6 27.4 10.6 29.8M19.4 27.4l2 2.4" />
+              </svg>
+              <span>Linux</span>
+            </h3>
+            <dl class="dati-piattaforma">
+              <dt>Formato</dt>
+              <dd>Pacchetto <code>.deb</code>, amd64</dd>
+              <dt>Aggiornamenti</dt>
+              <dd>A mano, come su Android</dd>
+              <dt>Il sistema</dt>
+              <dd>
+                Vuole <b>WebKitGTK 4.1</b>: c’è da <b>Ubuntu 24.04</b> e da <b>Debian 13</b> in su. Su una più
+                vecchia non si installa
+              </dd>
+            </dl>
           </div>
         </div>
+
+        <p class="nota-schede nota-piattaforme">
+          Si riscarica a mano per due motivi diversi. Su Android, un’applicazione che si aggiorna da sola
+          dovrebbe chiedere un permesso che spaventa più di quanto serva; su Linux, l’aggiornamento automatico
+          funzionerebbe solo con un formato di pacchetto diverso dal <code>.deb</code>, che è quello che la
+          gente si aspetta.
+        </p>
+        <p class="nota-schede nota-piattaforme">
+          Nessuno dei tre è firmato da un’autorità, quindi il file non racconta la propria origine. Lo fa la
+          sua impronta SHA-256, pubblicata accanto al pacchetto
+          <a href="https://github.com/matteoferrando/MyDiveLog/releases/latest">nella pagina delle release</a
+          >: se combacia con quella del file che hai scaricato, è il nostro.
+        </p>
       </section>
 
       <section class="prosa">
@@ -1083,6 +1151,11 @@
             class="pulsante"
             href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
             >Android</a
+          >
+          <a
+            class="pulsante"
+            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Linux-amd64.deb"
+            >Linux</a
           >
         </div>
       </section>
@@ -1231,10 +1304,6 @@
               <li><a href="libretto-immersioni.html">Il libretto e la legge 70/2026</a></li>
               <li><a href="privacy.html">Privacy</a></li>
               <li><a href="termini.html">Termini di servizio</a></li>
-              <li>
-                <a href="https://github.com/matteoferrando/MyDiveLog/releases/latest">Tutte le versioni</a>
-              </li>
-              <li><button type="button" data-apri-segnala>Segnala un problema</button></li>
             </ul>
           </div>
           <div class="piede-colonna">
@@ -1242,7 +1311,7 @@
             <ul>
               <li><a href="https://github.com/matteoferrando/MyDiveLog">Codice su GitHub</a></li>
               <li><a href="https://libdivecomputer.org">libdivecomputer</a></li>
-              <li><a href="/en/">English</a></li>
+              <li><button type="button" data-apri-segnala>Segnala un problema</button></li>
             </ul>
           </div>
         </div>
