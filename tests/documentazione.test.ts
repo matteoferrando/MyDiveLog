@@ -59,6 +59,56 @@ describe('la documentazione racconta il programma che c’è', () => {
     }
   });
 
+  it('la stessa azione non compare a due versioni diverse', () => {
+    /*
+     * ► LA DERIVA CHE È SUCCESSA DAVVERO. ◄ I workflow del repository erano già
+     * a `actions/checkout@v5`; quello nel tap, scritto dopo, è nato a `@v4` — e
+     * `@v4` gira su Node 20, che GitHub ha deprecato. Nessuno se n'era accorto
+     * perché l'avviso lo stampa il runner, in fondo a un giro che finisce verde,
+     * dove nessuno guarda.
+     *
+     * Questa prova non sa quale versione sia giusta — non può, la risposta sta
+     * su Internet e cambia da sola. Sa una cosa sola, e basta: **che nel
+     * progetto ce ne sia UNA.** Il giorno che qualcuno aggiorna un file e
+     * dimentica l'altro, diventa rossa.
+     *
+     * ► E ATTENZIONE ALLA VERSIONE CHE SEMBRA GIUSTA. ◄ Per togliere
+     * `upload-artifact` da Node 20 il salto ovvio era `@v4` → `@v5`. Misurato
+     * leggendo `action.yml` di ciascuna: la v5 gira **ancora su Node 20**, la
+     * v6 no. Il salto ovvio avrebbe corretto l'avviso senza correggere niente,
+     * e sarebbe restato tutto verde.
+     */
+    const cartella = join(RADICE, '.github/workflows');
+    const file = [
+      ...readdirSync(cartella).map(
+        (f) => ['.github/workflows/' + f, readFileSync(join(cartella, f), 'utf8')] as const,
+      ),
+      ['homebrew/aggiorna-cask.yml', leggi('homebrew/aggiorna-cask.yml')] as const,
+    ];
+
+    const versioni = new Map<string, Map<string, string[]>>();
+    for (const [dove, testo] of file) {
+      for (const m of testo.matchAll(/uses:\s*([\w.-]+\/[\w.-]+)@([\w.-]+)/g)) {
+        const perAzione = versioni.get(m[1]) ?? new Map<string, string[]>();
+        perAzione.set(m[2], [...(perAzione.get(m[2]) ?? []), dove]);
+        versioni.set(m[1], perAzione);
+      }
+    }
+    expect(versioni.size, 'nessuna azione trovata nei workflow: la prova non misura niente').toBeGreaterThan(
+      3,
+    );
+
+    const discordi = [...versioni.entries()]
+      .filter(([, perVersione]) => perVersione.size > 1)
+      .map(([azione, perVersione]) => {
+        const dettaglio = [...perVersione.entries()]
+          .map(([v, dove]) => `@${v} in ${[...new Set(dove)].join(', ')}`)
+          .join(' — ');
+        return `\`${azione}\`: ${dettaglio}`;
+      });
+    expect(discordi).toEqual([]);
+  });
+
   it('il README non nega una piattaforma che il progetto costruisce', () => {
     // La forma del guasto vero: una frase che dice «non c'è un pacchetto per X»
     // mentre X si costruisce. Si guardano le configurazioni di piattaforma di

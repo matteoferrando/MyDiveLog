@@ -54,6 +54,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SCRIVI = process.argv.includes('--scrivi');
@@ -116,6 +117,57 @@ const wrangler = (...args) =>
     stdio: ['ignore', 'pipe', 'inherit'],
   });
 
+/**
+ * Dice perché un indirizzo NON è chiamabile da qui, o `null` se lo è.
+ *
+ * ► PERCHÉ ESISTE QUESTO CONTROLLO. ◄ Google pubblica ogni Apps Script a due
+ * indirizzi che si somigliano fino all'ultimo pezzo:
+ *
+ *   …/exec   la versione pubblicata. Risponde a chiunque, anche a un `fetch`.
+ *   …/dev    l'ultimo salvataggio. Risponde SOLO al proprietario, e solo dentro
+ *            un browser già collegato a Google.
+ *
+ * Copiare il secondo è facilissimo, perché è quello che l'editor dello script
+ * tiene sotto mano. E il modo in cui fallisce è il peggiore possibile: la
+ * chiamata non dà un errore che parli di permessi, dà **401 con dentro la
+ * pagina «Pagina non trovata»** — un messaggio che manda a cercare il guasto
+ * nel posto sbagliato (l'indirizzo scritto male, lo script cancellato, il
+ * gettone) mentre l'indirizzo è giusto e lo script c'è.
+ *
+ * Fermarsi PRIMA della chiamata costa un confronto di stringhe e risparmia
+ * quella caccia. È il tipo di controllo che si scrive dopo averci perso mezz'ora
+ * una volta: e infatti è stato scritto dopo.
+ */
+export function perchePeggioDiExec(indirizzo) {
+  if (!/^https:\/\//.test(indirizzo)) return 'non comincia per https://';
+  if (/\/dev\/?$/.test(indirizzo)) {
+    return 'finisce per /dev: quello è l’indirizzo di prova, risponde solo a te dentro il browser. Serve quello che finisce per /exec (Apps Script → Distribuisci → Gestisci distribuzioni).';
+  }
+  if (!/\/exec\/?$/.test(indirizzo)) return 'non finisce per /exec';
+  return null;
+}
+
+/**
+ * Riduce a una riga la risposta del foglio, che riga non è.
+ *
+ * Quando Apps Script rifiuta, non risponde con una frase: risponde con una
+ * **pagina HTML intera**, centinaia di righe di `<style>` e `<script>` che
+ * scorrendo cancellano dal terminale tutto quello che c'era prima — compreso
+ * l'elenco delle segnalazioni che stavamo travasando. Il guasto diventa
+ * illeggibile non perché dica poco, ma perché dice troppo.
+ *
+ * Di quella pagina l'unica cosa che informa è il `<title>`. Lo si tira fuori e
+ * si butta il resto; se HTML non è, si taglia e basta.
+ */
+export function accorcia(detto, quanto = 200) {
+  const testo = String(detto).trim();
+  if (/^\s*<(!doctype|html)/i.test(testo)) {
+    const titolo = testo.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim();
+    return titolo ? `pagina HTML: «${titolo}»` : 'pagina HTML senza titolo';
+  }
+  return testo.length > quanto ? `${testo.slice(0, quanto)}… (${testo.length} caratteri)` : testo;
+}
+
 async function main() {
   const ns = identificativoArchivio();
   const chiavi = JSON.parse(wrangler('kv', 'key', 'list', '--namespace-id', ns, '--remote')).map(
@@ -153,6 +205,14 @@ async function main() {
       process.exitCode = 1;
       return;
     }
+    // Si controlla QUI, prima del ciclo: sbagliato l'indirizzo, sbagliano tutte
+    // le chiamate, e ognuna sbaglia in modo da non far capire perché.
+    const male = perchePeggioDiExec(INDIRIZZO);
+    if (male) {
+      console.error(`FERMO: l’indirizzo ${male}`);
+      process.exitCode = 1;
+      return;
+    }
   }
 
   for (const { chiave, dati } of arretrate) {
@@ -176,7 +236,7 @@ async function main() {
      * il foglio vuoto — il modo peggiore di fallire, perché somiglia al successo.
      */
     if (!risposta.ok || detto !== 'ok') {
-      console.log(`  ✗ ${riassunto}  →  ${risposta.status} «${detto}»`);
+      console.log(`  ✗ ${riassunto}  →  ${risposta.status} «${accorcia(detto)}»`);
       continue;
     }
     wrangler(
@@ -195,4 +255,11 @@ async function main() {
   if (!SCRIVI) console.log('\n(prova a vuoto: rilancia con --scrivi per travasarle davvero)');
 }
 
-await main();
+/*
+ * `main()` parte solo se questo file è stato LANCIATO. Importato — come fa la
+ * prova, che di qui prende le due funzioni pure — non deve fare niente:
+ * altrimenti un `npm test` si metterebbe a parlare con Cloudflare.
+ */
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await main();
+}

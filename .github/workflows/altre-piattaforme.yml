@@ -105,7 +105,7 @@ jobs:
             Set-Content -Encoding ascii consegna/SHA256.txt
           Get-Content consegna/SHA256.txt
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: MyDiveLog-${{ inputs.versione }}-Windows
           path: consegna/
@@ -163,7 +163,7 @@ jobs:
           node-version: 22
           cache: npm
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -379,13 +379,13 @@ jobs:
           sha256sum * > SHA256.txt
           cat SHA256.txt
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: MyDiveLog-${{ inputs.versione }}-Android
           path: consegna/
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: env.PER_PLAY == '1'
         with:
           name: MyDiveLog-${{ inputs.versione }}-Android-Play
@@ -508,7 +508,7 @@ jobs:
           sha256sum * > SHA256.txt
           cat SHA256.txt
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: MyDiveLog-${{ inputs.versione }}-Linux
           path: consegna/
