@@ -52,6 +52,20 @@ i pulsanti sono anche su [mydivelog.site](https://mydivelog.site).
 
 Non c'è un pacchetto per Mac Intel.
 
+**Su Mac c'è anche Homebrew**, da un tap nostro:
+
+```
+brew tap matteoferrando/mydivelog
+brew install --cask mydivelog
+```
+
+Non è in `homebrew-cask` ufficiale, e non per pigrizia: Homebrew chiede una prova
+di interesse pubblico che questo progetto oggi non ha — per una cask proposta dal
+proprietario del repository servono **90 fork, 90 watcher o 225 stelle**, e un
+repository più giovane di trenta giorni di norma non è ammissibile. Un tap non ha
+soglie, e la cask è la stessa: il giorno che i numeri ci sono si sposta senza
+riscriverla.
+
 > **Perché i limiti stanno PRIMA del pulsante e non dopo.** Costano qualche
 > scaricamento in meno e risparmiano la delusione di scoprirli a installazione
 > fatta — che è la forma peggiore, perché somiglia a un difetto di chi scarica.
@@ -552,6 +566,48 @@ Due cose vanno create una volta sola, e non le può creare uno script:
 
 Lo script controlla che entrambe ci siano **prima** di compilare, perché
 scoprirlo dopo venti minuti di build è il modo peggiore.
+
+---
+
+## La cask di Homebrew non si scrive a mano
+
+`homebrew/mydivelog.rb` è **generato** da `npm run cask`, e finisce nel tap
+[`matteoferrando/homebrew-mydivelog`](https://github.com/matteoferrando/homebrew-mydivelog).
+
+Una cask dichiara una versione e uno `sha256`. Se il secondo non è l'impronta del
+file che la prima indica, `brew install` si ferma con «checksum mismatch» — e lo
+scopre **chi prova a installare**, non chi ha pubblicato. Aggiornata a mano, prima
+o poi porta la versione nuova e l'impronta della precedente.
+
+**L'impronta viene dall'API di GitHub**, cioè è calcolata sul file che GitHub sta
+davvero servendo — non su quello costruito qui. È una differenza che conta:
+quello che la gente scarica è il primo, e una cask che descrivesse il secondo
+sarebbe giusta rispetto a un file che nessuno riceve. Con `--dmg <file>` si
+calcola anche l'impronta del pacchetto locale e si pretende che combacino: se
+divergono lo script si ferma invece di pubblicare una cask che punta a un file
+diverso da quello provato.
+
+A ogni rilascio, dopo aver pubblicato la release:
+
+```
+npm run cask
+cp homebrew/mydivelog.rb ../homebrew-mydivelog/Casks/mydivelog.rb
+cd ../homebrew-mydivelog && git commit -am "1.7.x" && git push
+brew fetch --cask matteoferrando/mydivelog/mydivelog   # scarica e verifica l'impronta
+brew audit --cask --online matteoferrando/mydivelog/mydivelog
+```
+
+> **`brew` è l'unico giudice che conta, e va interpellato prima di pubblicare.**
+> La prima versione di questa cask passava le nostre prove e brew la leggeva
+> segnalando una forma deprecata a ogni comando: `depends_on macos: ">= :monterey"`
+> invece del simbolo nudo. Nessuna prova di testo sa quali forme Homebrew abbia
+> deprecato la settimana scorsa.
+
+`tests/cask.test.ts` difende quello che si può difendere senza rete: che la
+versione sia quella del progetto, che l'indirizzo punti alla versione e non a
+«latest» — l'impronta è di UN file, e «latest» domani è un altro — che ci sia
+`auto_updates true`, che i limiti dichiarati siano gli stessi che il sito scrive
+prima del pulsante, e che lo `zap` nomini l'identificatore vero.
 
 ---
 

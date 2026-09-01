@@ -26,6 +26,44 @@ diventata una scena animata: due schermate e una tendina, solo su desktop.)*
 > **Finché quel comando non risponde `b425e252`, la parte di questo documento che
 > parla dell'apertura descrive una cosa che esiste su una macchina sola.**
 
+### Su Mac si installa anche con Homebrew, da un tap nostro
+
+```
+brew tap matteoferrando/mydivelog
+brew install --cask mydivelog
+```
+
+**Non è in `homebrew-cask` ufficiale, ed è una scelta obbligata.** La policy di
+Homebrew chiede una prova di interesse pubblico oltre l'autore: **30 fork, 30
+watcher o 75 stelle** se la cask la propone qualcun altro, **90 fork, 90 watcher
+o 225 stelle** se la propone il proprietario del repository. In più, un
+repository più giovane di **trenta giorni** di norma non è ammissibile. Misurato
+l'1 settembre: **0 stelle, 0 fork, 0 watcher**, repository creato il 18 agosto.
+Proporla oggi vuol dire un rifiuto, e un rifiuto resta nella memoria dei
+manutentori. Un tap non ha soglie, e la cask è la stessa: si sposta senza
+riscriverla.
+
+**Quello che era già a posto e conta:** la policy pretende che l'applicazione
+passi Gatekeeper senza disattivare protezioni, e il `.dmg` è firmato Developer ID
+e notarizzato.
+
+**La cask è generata**, da `npm run cask`. L'impronta viene dall'API di GitHub —
+cioè è calcolata sul file che GitHub sta davvero servendo, non su quello
+costruito in locale — e con `--dmg` si pretende che le due combacino. Una cask
+scritta a mano prima o poi porta la versione nuova e l'impronta della precedente,
+e a scoprirlo è chi prova a installare.
+
+> **brew è l'unico giudice che conta, e va interpellato prima di pubblicare.** La
+> prima versione passava le nostre sette prove, e brew alla prima lettura ha
+> segnalato una forma deprecata — `depends_on macos: ">= :monterey"` invece del
+> simbolo nudo — che avrebbe stampato un avviso a ogni comando di chiunque.
+> *Nessuna prova di testo sa quali forme Homebrew abbia deprecato la settimana
+> scorsa.*
+
+Verificato dall'esterno, non dedotto: `brew info` legge versione, `auto_updates`
+e i due requisiti (arm64, macOS ≥ 12); `brew fetch` **scarica il file e conferma
+l'impronta**; `brew audit --cask --online` non trova niente ed esce zero.
+
 ### Cosa è stato corretto nella documentazione l'1 settembre
 
 Tre cose che questo repository **raccontava male**, tutte trovate cercandole di

@@ -39,7 +39,8 @@
     "play:immagini": "node scripts/immagini-play.mjs",
     "play:controlla": "node scripts/controlla-play.mjs",
     "play": "npm run build && npm run demo && npm run play:grafica && npm run play:immagini && npm run play:controlla",
-    "sito:controlla": "node scripts/controlla-sito.mjs"
+    "sito:controlla": "node scripts/controlla-sito.mjs",
+    "cask": "node scripts/genera-cask.mjs"
   },
   "dependencies": {
     "@garmin/fitsdk": "^21.171.0",
