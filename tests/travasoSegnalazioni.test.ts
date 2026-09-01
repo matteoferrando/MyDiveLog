@@ -28,9 +28,26 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-// @ts-expect-error — è uno script .mjs senza tipi, e va bene così: qui si prova
-// il comportamento, non la firma.
-import { accorcia, perchePeggioDiExec } from '../scripts/travasa-segnalazioni.mjs';
+/*
+ * È uno script `.mjs` senza tipi, e va bene così: qui si prova il
+ * comportamento, non la firma.
+ *
+ * ► IL COMMENTO STA SULLA RIGA DEL MODULO, NON SOPRA L'IMPORT. ◄ `tsc` riporta
+ * TS7016 sul percorso, cioè sull'ULTIMA riga di un import spezzato su più
+ * righe. Messo in cima, il soppressore copre la parola `import` e lascia
+ * scoperto il punto che sbaglia — e appena prettier ha spezzato questo import
+ * su più righe (perché i nomi importati sono diventati quattro) `tsc` è passato
+ * da verde a due errori, senza che nessuno avesse toccato né lo script né la
+ * prova. *Una direttiva che vale per la riga dopo è legata alla forma del
+ * codice, e la forma la decide chi formatta.*
+ */
+import {
+  accorcia,
+  perchePeggioDiExec,
+  perchePuoEsserMorto,
+  ultimeRigheUtili,
+  // @ts-expect-error — vedi sopra: la direttiva deve stare qui.
+} from '../scripts/travasa-segnalazioni.mjs';
 
 const SORGENTE = readFileSync(join(process.cwd(), 'scripts/travasa-segnalazioni.mjs'), 'utf8');
 
@@ -118,5 +135,93 @@ describe('► importare lo script non deve parlare con Cloudflare ◄', () => {
     // travaso vero lanciato da `npm test`.
     expect(SORGENTE).toMatch(/if \(process\.argv\[1\][\s\S]{0,200}await main\(\);/);
     expect(SORGENTE).not.toMatch(/^await main\(\);/m);
+  });
+});
+
+/*
+ * ► LA SECONDA VOLTA, LO STESSO GIORNO, NELLO STESSO FILE ◄
+ *
+ * Il comando che doveva verificare la correzione qui sopra — un giro a vuoto,
+ * che non scrive niente — è morto così:
+ *
+ *   ✘ [ERROR] A request to the Cloudflare API … failed.
+ *     Authentication error [code: 10000]
+ *   Error: Command failed: npx --yes wrangler@4 kv key list …
+ *       at genericNodeError (node:internal/errors:999:15)
+ *       … dieci righe di stack …
+ *     status: 1, signal: null,
+ *     output: [ null, '…la tabella dell'account, trenta righe di permessi…', null ],
+ *     stdout: '…le stesse trenta righe, una seconda volta…',
+ *     pid: 86517
+ *
+ * **La frase che spiega tutto sono cinque parole**, e stanno in cima, sopra
+ * ottanta righe che non riguardano il guasto — anzi: rassicurano, perché
+ * dicono che l'accesso c'è e che i permessi ci sono tutti.
+ *
+ * La correzione del mattino aveva sistemato la risposta del foglio di Google e
+ * lasciato intatta quella di `wrangler`, nello stesso file. *Si era corretto
+ * l'esempio, non la proprietà* — che è esattamente l'errore già registrato il
+ * 28 agosto, quando una guardia scritta sulla forma in cui il difetto era stato
+ * visto restava verde sul caso in cui era più nudo.
+ */
+describe('► quando wrangler muore, si legge perché ◄', () => {
+  const USCITA_VERA = [
+    '',
+    'Getting User settings...',
+    '👋 You are logged in with an OAuth Token, associated with the email …',
+    '🔐 Credentials are stored in: …/.wrangler/config/default.toml',
+    '┌────────────────────────────────┬──────────────────────────────────┐',
+    '│ Account Name                   │ Account ID                       │',
+    '└────────────────────────────────┴──────────────────────────────────┘',
+    '🔓 Token Permissions:',
+    ...Array.from({ length: 30 }, (_, i) => `- permesso numero ${i} (write)`),
+    // Righe di rumore che il filtro NON toglie: senza queste, la fixture ha
+    // esattamente sei righe superstiti e il taglio a sei non taglia niente —
+    // cioè la prova resterebbe verde anche togliendo il taglio. È lo stesso
+    // difetto della banda di tolleranza troppo larga: una misura che non può
+    // distinguere il caso buono dal cattivo non è una misura.
+    ...Array.from({ length: 20 }, (_, i) => `🪵 riga di rumore numero ${i}`),
+    'A request to the Cloudflare API failed.',
+    'Authentication error [code: 10000]',
+  ].join('\n');
+
+  it('riconosce il rifiuto delle credenziali, e dice cosa fare', () => {
+    const causa = perchePuoEsserMorto(USCITA_VERA);
+    expect(causa).toBeTruthy();
+    // Non basta che riconosca: deve dire il passo successivo. Un messaggio che
+    // nomina il guasto e non la mossa lascia chi legge esattamente dov'era.
+    expect(causa).toContain('rilancia');
+    expect(causa).toContain('wrangler@4 login');
+  });
+
+  it('non inventa una causa quando non la riconosce', () => {
+    // La regola pagata con la notarizzazione: un messaggio che nomina una causa
+    // che non ha misurato manda a cercare nel posto sbagliato, e più suona
+    // preciso più manda lontano. Meglio «non lo so» e le righe vere.
+    expect(perchePuoEsserMorto('ENOSPC: no space left on device')).toBeNull();
+    expect(perchePuoEsserMorto('')).toBeNull();
+  });
+
+  it('delle ottanta righe ne tiene poche, e butta tabella e permessi', () => {
+    const poche = ultimeRigheUtili(USCITA_VERA);
+    expect(poche.split('\n').length).toBeLessThanOrEqual(6);
+    // La misura che conta è che ci sia rimasta dentro la riga che spiega, e che
+    // il rumore che la nascondeva sia sparito.
+    expect(poche).toContain('Authentication error');
+    expect(poche).not.toContain('┌');
+    expect(poche).not.toContain('permesso numero');
+    // E il taglio deve davvero tagliare: il rumore più vecchio non c'è più.
+    expect(poche).not.toContain('rumore numero 0');
+  });
+
+  it('l’errore di execFileSync non arriva grezzo al terminale', () => {
+    // La prova che è servita davvero: prima, `wrangler` non aveva try/catch e
+    // l'oggetto Error usciva intero — status, pid, e la stessa uscita due volte.
+    const elica = SORGENTE.slice(SORGENTE.indexOf('const wrangler ='));
+    expect(elica).toContain('try {');
+    expect(elica).toContain('perchePuoEsserMorto');
+    expect(elica).toContain('process.exit(1)');
+    // E stderr si cattura, o non ci sarebbe niente da classificare.
+    expect(elica).not.toContain("'inherit'");
   });
 });

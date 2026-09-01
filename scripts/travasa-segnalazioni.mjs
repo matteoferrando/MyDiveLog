@@ -110,12 +110,84 @@ function identificativoArchivio() {
   return id;
 }
 
-const wrangler = (...args) =>
-  execFileSync('npx', ['--yes', 'wrangler@4', ...args], {
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'inherit'],
-  });
+/**
+ * Tiene le ultime righe che dicono qualcosa, e butta il resto.
+ *
+ * `wrangler` quando fallisce non stampa una riga: stampa la tabella
+ * dell'account, l'elenco dei permessi del gettone e il percorso di un file di
+ * log. La riga che spiega il guasto è una sola, e sta in mezzo.
+ */
+export function ultimeRigheUtili(testo, quante = 6) {
+  const righe = String(testo ?? '')
+    .split('\n')
+    .map((r) => r.trimEnd())
+    // Via le cornici della tabella e le righe dell'elenco dei permessi: sono
+    // decine, e non riguardano il comando che è appena morto.
+    .filter((r) => r.trim() && !/^[┌├└│]/.test(r) && !/^\s*-\s/.test(r));
+  return righe.slice(-quante).join('\n');
+}
+
+/**
+ * Dice in una riga perché `wrangler` è morto, o `null` se non lo riconosce.
+ *
+ * ► SI RICONOSCE SOLO QUELLO CHE SI VEDE SCRITTO. ◄ Questo progetto ha già
+ * pagato una diagnosi inventata a priori: la notarizzazione si fermava su
+ * credenziali scadute e il messaggio accusava un profilo mancante, che invece
+ * c'era. *Un messaggio che nomina una causa che non ha misurato manda chi legge
+ * a cercare nel posto sbagliato, e più suona preciso più lo manda lontano.*
+ * Quindi qui si cerca il marcatore esatto, e se non c'è si restituisce `null` e
+ * si mostrano le righe vere invece di indovinare.
+ */
+export function perchePuoEsserMorto(uscita) {
+  const testo = String(uscita ?? '');
+  if (/code:\s*10000/.test(testo) || /Authentication error/i.test(testo)) {
+    return [
+      'Cloudflare ha rifiutato le credenziali (Authentication error, code 10000).',
+      'Succede anche con un accesso valido, al primo comando dopo una pausa:',
+      'il gettone OAuth va rinfrescato e il primo tentativo muore.',
+      '  1. rilancia lo stesso comando — spesso al secondo giro passa;',
+      '  2. se insiste:  npx wrangler@4 login',
+    ].join('\n');
+  }
+  return null;
+}
+
+/**
+ * Lancia `wrangler` e, se muore, lo racconta in poche righe invece di
+ * rovesciare in terminale l'oggetto errore di Node.
+ *
+ * ► PERCHÉ NON BASTA LASCIARLO ESPLODERE. ◄ `execFileSync` che fallisce lancia
+ * un `Error` con dentro `status`, `signal`, `pid`, `output` **e** `stdout` — e
+ * le ultime due sono la stessa cosa stampata due volte. Con una tabella
+ * dell'account e trenta righe di permessi lì dentro, Node stampa un muro in cui
+ * la frase che conta — cinque parole — è tipograficamente identica a tutto il
+ * resto. *È lo stesso guasto della pagina HTML di Google riversata al posto di
+ * un errore, e sta nello stesso file: la prima correzione ha sistemato la
+ * risposta del foglio e ha lasciato intatta quella di `wrangler`.*
+ *
+ * `stderr` si cattura invece di lasciarlo passare (`inherit`) proprio per poterlo
+ * classificare: il prezzo è che i messaggi di `wrangler` non scorrono in diretta,
+ * e per comandi che durano un secondo è un prezzo che vale la pena pagare.
+ */
+const wrangler = (...args) => {
+  try {
+    return execFileSync('npx', ['--yes', 'wrangler@4', ...args], {
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (errore) {
+    // Il comando si ristampa senza gli identificativi: sono lunghi, non si
+    // leggono, e chi guarda vuole sapere QUALE passo è morto, non con quali
+    // argomenti.
+    const passo = args.filter((a) => !a.startsWith('--') && a.length < 40).join(' ');
+    const uscita = `${errore.stdout ?? ''}\n${errore.stderr ?? ''}`;
+    const causa = perchePuoEsserMorto(uscita);
+    console.error(`\nFERMO: «wrangler ${passo}» non è riuscito.\n`);
+    console.error(causa ?? `Non riconosco il motivo. Ultime righe:\n${ultimeRigheUtili(uscita)}`);
+    process.exit(1);
+  }
+};
 
 /**
  * Dice perché un indirizzo NON è chiamabile da qui, o `null` se lo è.

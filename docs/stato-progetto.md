@@ -1843,6 +1843,42 @@ Tutte hanno la stessa radice: **`gen/apple/` è generata e non versionata**.
 > si possa leggere**: portare gli avvisi a zero invece di contarli, spegnere il
 > rumore invece di scorrerlo, riassumere invece di riversare.
 >
+> **E la quarta è arrivata mentre si verificava la terza, nello stesso file.**
+> Il comando lanciato per controllare che il travaso fosse andato a buon fine —
+> un giro a vuoto, che non scrive niente — è morto su un rifiuto di credenziali
+> di Cloudflare, e lo ha raccontato con **ottanta righe**: lo stack di Node, la
+> tabella dell'account, l'elenco dei trenta permessi del gettone, e la stessa
+> uscita stampata **due volte**, perché un `Error` di `execFileSync` porta
+> `output` e `stdout` che sono la stessa cosa. La frase che spiegava tutto erano
+> **cinque parole**, `Authentication error [code: 10000]`, e stavano in cima —
+> sopra ottanta righe che non solo non riguardano il guasto, ma *rassicurano*,
+> perché dicono che l'accesso c'è e che i permessi ci sono tutti.
+>
+> **La correzione del mattino aveva sistemato la risposta del foglio di Google e
+> lasciato intatta quella di `wrangler`, a quaranta righe di distanza.** Si era
+> corretto **l'esempio, non la proprietà** — che è lo stesso errore registrato il
+> 28 agosto, quando una guardia scritta sulla forma in cui il difetto era stato
+> visto restava verde sul caso in cui era più nudo. *Un difetto che si presenta
+> due volte nello stesso file in un giorno non è sfortuna: è il segno che la
+> prima correzione era stata scritta su un caso invece che su una regola.*
+>
+> **E le prove nuove hanno avuto lo stesso difetto delle vecchie, due volte.**
+> Una mutazione non ha mutato — l'àncora compariva in due punti, quindi la prova
+> è rimasta verde su un file mai toccato, che è *la forma più economica di
+> autoinganno*. E una prova era verde togliendo il taglio delle righe, perché la
+> fixture ne aveva **esattamente sei** e il taglio a sei non tagliava niente: la
+> misura non poteva distinguere il caso buono dal cattivo, cioè la stessa cosa
+> della banda di tolleranza troppo larga del 26 agosto. Allargata la fixture,
+> diventa rossa.
+>
+> **E `tsc` ha preso una cosa che nessuno stava cercando:** aggiungendo due nomi
+> all'import, prettier lo ha spezzato su più righe, e il `@ts-expect-error` che
+> stava in cima ha smesso di coprire la riga giusta — TS7016 si riporta sul
+> percorso del modulo, cioè sull'ultima riga. Da verde a due errori **senza che
+> nessuno avesse toccato né lo script né la prova**. *Una direttiva che vale per
+> «la riga dopo» è legata alla forma del codice, e la forma la decide chi
+> formatta.*
+
 > **E c'è un corollario che vale più della lezione.** Tutti e tre questi guasti
 > sono stati trovati **mentre si sistemava l'uscita, non mentre si cercava il
 > guasto**. L'orologio fermo nessuno lo stava cercando: è saltato fuori leggendo
