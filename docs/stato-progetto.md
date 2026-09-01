@@ -365,10 +365,24 @@ non entrano nel repository.
 
 **La catena è stata collaudata e funziona.** Misurato il 27 agosto sull'archivio
 vero: **due segnalazioni in tutto**, e quella arrivata quel giorno porta
-`foglio: true`. **Una sola resta da travasare**, la segnalazione di prova del 26
-agosto, che nel suo record non ha proprio il campo `foglio`: è **una decisione
-del proprietario**, che non ha voluto né travasarla né cancellarla. Va scritto
-qui, o fra tre mesi quel «1 da travasare» sembrerà un guasto.
+`foglio: true`.
+
+**E l'1 settembre è stata travasata anche l'altra**, la prova del 26 agosto, che
+nel suo record non aveva proprio il campo `foglio`. Fino a quel giorno **non
+travasarla era una decisione del proprietario**, ed era scritta qui apposta,
+perché un contatore fermo su un numero diverso da zero senza una riga che dica
+perché, in tre mesi, diventa un guasto da cercare. *La decisione è stata
+ribaltata da chi l'aveva presa, e la riga che la spiegava se ne va con lei* —
+resta qui, in questa forma, perché una riga che sparisce senza traccia lascia chi
+rilegge senza sapere se sia stata chiusa o dimenticata.
+
+Il travaso è **dichiarato dal proprietario, non misurato da qui**. Il controllo
+costa un comando che non tocca niente — senza `--scrivi` non scrive — e da oggi
+deve rispondere `da travasare: 0`:
+
+```
+node scripts/travasa-segnalazioni.mjs
+```
 
 `scripts/travasa-segnalazioni.mjs` recupera quello che è rimasto indietro,
 girando dal Mac via `wrangler` — che è già autenticato — e quindi **senza aprire
@@ -1768,12 +1782,14 @@ Tutte hanno la stessa radice: **`gen/apple/` è generata e non versionata**.
   standard — CMAS l'ha fatto nel 2023-24 e i numeri vecchi girano ancora — e ogni
   voce porta la sua fonte proprio per poterla ricontrollare. Non c'è niente che
   avvisi quando invecchia.
-- **Una segnalazione resta marcata «da travasare», ed è voluto.** Nell'archivio
-  del Worker ce ne sono due; quella del 26 agosto — una prova — non ha il campo
-  `foglio` e non è stata né copiata né cancellata, **per decisione del
-  proprietario**. _È scritto qui perché un contatore fermo su un numero diverso
-  da zero, senza una riga che dica perché, in tre mesi diventa un guasto da
-  cercare._
+- **~~Una segnalazione resta marcata «da travasare».~~ Travasata l'1
+  settembre.** Era la prova del 26 agosto, tenuta indietro **per decisione del
+  proprietario**, e questa riga esisteva perché un contatore fermo su un numero
+  diverso da zero, senza una spiegazione accanto, in tre mesi diventa un guasto
+  da cercare. La decisione è stata ribaltata da chi l'aveva presa. _Da oggi il
+  numero che quel comando deve dire è **zero**: se un giorno torna a dire uno,
+  quella volta è un guasto sul serio — non c'è più nessuna decisione a
+  giustificarlo._
 - **► LE TRADUZIONI INGLESI LE HA SCRITTE CHI SCRIVE IL CODICE, E NESSUN
   MADRELINGUA LE HA RILETTE. ◄** Vale per **tutto** il dizionario — **1969
   voci** — non solo per le 247 aggiunte con la 1.7.0, e non è un limite di
