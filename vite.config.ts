@@ -66,6 +66,11 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    // Una riga sola, che alza `IS_REACT_ACT_ENVIRONMENT`: senza, ogni render
+    // dei test che montano componenti stampava «The current testing environment
+    // is not configured to support act(...)», e una passata ne produceva
+    // centinaia. Il perché per esteso sta in testa a quel file.
+    setupFiles: ['tests/preparazione.ts'],
     // I test che montano componenti React hanno bisogno di un DOM: lo chiedono
     // con `// @vitest-environment jsdom` in testa al file, così gli altri 200
     // test restano in ambiente Node e girano in un secondo.

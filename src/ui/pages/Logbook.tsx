@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { formatDuration, mixName } from '../../core/units';
 import { mixLabel, modeLabel } from '../../core/analysis/aggregate';
 import { nextDiveBriefing, type NextDiveNote } from '../../core/analysis/nextDive';
@@ -490,9 +490,50 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
  * serve a niente. È chiusa per difetto quando non c'è nulla di urgente: una
  * schermata che grida sempre smette di essere letta.
  */
+/**
+ * ► L'ORA CHE SCORRE, INVECE DI QUELLA DEL PRIMO DISEGNO. ◄
+ *
+ * `nextDiveBriefing` prende `now` come parametro proprio per non leggere
+ * l'orologio da sé — sta scritto in testa a quella funzione, ed è ciò che la
+ * rende provabile. Poi qui dentro l'orologio veniva letto **durante il
+ * render**, dentro una `useMemo` che dipende solo dalle immersioni: il tempo si
+ * congelava al primo disegno.
+ *
+ * Cosa faceva davvero: chi apre l'applicazione mezz'ora dopo essere risalito
+ * legge «30 minuti dall'ultima immersione» — e sei ore più tardi, con la
+ * finestra ancora aperta, continua a leggere trenta minuti. Da quel numero
+ * dipendono le ore dall'ultima immersione, **la CNS residua dopo l'intervallo
+ * di superficie** e l'immersione ripetitiva ipotetica. Non è una data in un
+ * angolo: è un conto che parla del presente e che del presente non sapeva
+ * niente.
+ *
+ * Un minuto di passo: sotto non si vedrebbe la differenza e sopra si
+ * accorcerebbe l'attesa per niente. E si aggiorna anche quando la finestra
+ * torna in primo piano, perché è il momento vero in cui qualcuno riguarda —
+ * senza, dopo un pomeriggio in secondo piano si aspetterebbe fino a un minuto
+ * per vedere un numero giusto.
+ */
+export function useOraCorrente(passoMs = 60_000): number {
+  const [ora, setOra] = useState(() => Date.now());
+  useEffect(() => {
+    const aggiorna = () => setOra(Date.now());
+    const battito = setInterval(aggiorna, passoMs);
+    const alRitorno = () => {
+      if (document.visibilityState === 'visible') aggiorna();
+    };
+    document.addEventListener('visibilitychange', alRitorno);
+    return () => {
+      clearInterval(battito);
+      document.removeEventListener('visibilitychange', alRitorno);
+    };
+  }, [passoMs]);
+  return ora;
+}
+
 function NextDive({ dives }: { dives: Dive[] }) {
   const { t } = useLingua();
-  const briefing = useMemo(() => nextDiveBriefing(dives, undefined, Date.now(), t), [dives, t]);
+  const ora = useOraCorrente();
+  const briefing = useMemo(() => nextDiveBriefing(dives, undefined, ora, t), [dives, ora, t]);
   const urgent = briefing.notes.filter((n) => n.level === 'critical' || n.level === 'warning');
   const [open, setOpen] = useState(urgent.length > 0);
 

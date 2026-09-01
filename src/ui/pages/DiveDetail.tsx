@@ -135,6 +135,10 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
   useEffect(() => {
     if (!summary) return;
+    // Si mostra subito il riassunto che c'è già, e i profili arrivano dopo dal database. È
+    // esattamente «sincronizza con un sistema esterno»: senza questa riga la scheda resterebbe
+    // vuota per tutto il tempo della lettura su disco.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDive(summary);
     let cancelled = false;
     void loadProfiles(summary.id).then(({ samples, altSamples }) => {

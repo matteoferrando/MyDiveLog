@@ -331,6 +331,10 @@ export function DecoPlanner({
   /* Dove è finito il foglio: su iPhone non è la cartella Download, e senza
      dirlo il pulsante sembra non aver fatto niente. */
   const [salvataggio, setSalvataggio] = useState<string | null>(null);
+  // «Copiato» riguarda gli appunti del sistema, non il piano: quando il piano cambia, il testo
+  // negli appunti non è più quello mostrato e la scritta diventa falsa. Va spenta quando cambia
+  // il piano, e il piano cambia fuori da qui.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setCopied(false), [tableText]);
 
   // Il piano di un attimo fa, per dire di quanto è cambiato.
@@ -1702,6 +1706,18 @@ function Cell({
  * non cambia davvero, il valore precedente resta quello e la scritta resta
  * leggibile.
  */
+/* eslint-disable react-hooks/refs -- LEGGERE I REF DURANTE IL RENDER È IL
+   MESTIERE DI QUESTO HOOK, non una svista. Serve a sapere quanto valeva il
+   piano PRIMA, per scrivere «era 47» accanto al numero nuovo; farlo in un
+   effetto vuol dire aggiornare il valore precedente DOPO il disegno, e allora
+   «era 47» compare per una frazione di secondo e sparisce — è successo, ed è il
+   motivo per cui questo hook esiste in questa forma.
+
+   Il confronto è sul contenuto e avviene durante il render: finché il piano non
+   cambia davvero, il valore precedente resta quello e la scritta resta
+   leggibile. È il modello che la documentazione di React descrive per il valore
+   precedente, e la regola nuova non lo distingue da un ref letto per sbaglio.
+   L'eccezione è chiusa subito sotto: vale per questo hook e per nient'altro. */
 function usePrevious<T>(value: T): T | undefined {
   const key = JSON.stringify(value);
   const current = useRef<{ key: string; value: T } | undefined>(undefined);
@@ -1713,6 +1729,7 @@ function usePrevious<T>(value: T): T | undefined {
   }
   return previous.current;
 }
+/* eslint-enable react-hooks/refs */
 
 /** «era 47» accanto al numero, e niente quando non è cambiato. */
 function Was({ before, now, digits = 0 }: { before?: number; now: number; digits?: number }) {

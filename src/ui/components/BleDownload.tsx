@@ -258,6 +258,11 @@ export function BleDownload() {
    */
   useEffect(() => {
     if (stato.fase !== 'cerca' || trovati.length > 0) {
+      // L'effetto sincronizza con un sistema esterno vero — la ricerca BLE, che va e viene
+      // senza chiedere niente a React — e questa riga spegne il messaggio «non trovo niente»
+      // nell'istante in cui qualcosa si trova. Non c'è un render da cui derivarla: dipende da
+      // quanto è durata la ricerca.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setALungoSenzaNulla(false);
       return;
     }

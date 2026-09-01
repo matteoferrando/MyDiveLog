@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Help — MyDiveLog</title>
+    <meta
+      name="description"
+      content="Real questions about MyDiveLog: the computer that will not connect, the packages, your data, the numbers."
+    />
+    <link rel="icon" href="../logo.svg" type="image/svg+xml" />
+    <!--
+      Cloudflare Pages serve queste pagine anche senza `.html`, e su quella
+      forma REINDIRIZZA: `/privacy.html` diventa `/privacy` con un 308. Due
+      indirizzi per una pagina sola sono un doppione per chi indicizza, e
+      l'indirizzo canonico è quello corto — è anche quello da dare a Google
+      e ad Apple. I collegamenti interni restano con `.html` perché così il
+      sito si apre anche con un doppio clic, senza un server.
+    -->
+    <link rel="canonical" href="/en/help" />
+    <link rel="stylesheet" href="../stile.css?v=8b2ca48d" />
+    <!--
+      Le tre alternative di lingua, su OGNI pagina e non soltanto sulle due
+      home. Sono indirizzi ASSOLUTI perché Google scarta gli `hreflang`
+      relativi senza dirlo, e sono nella forma corta senza `.html` perché
+      quella lunga risponde con un 308: indicare l'indirizzo che rimanda
+      significa far passare ogni motore da un salto in più per arrivare dove
+      il `canonical` lo mandava già.
+
+      `x-default` è la pagina da mostrare a chi non parla né italiano né
+      inglese, e punta all'italiano. MyDiveLog nasce in italiano: quello è il
+      testo originale, l'inglese è la traduzione — e sulla pagina della legge
+      è anche più corta — e la legge 70/2026 riguarda chi si immerge in Italia.
+      Chi arriva senza una lingua che sappiamo servire è meglio che trovi il
+      testo pieno.
+
+      Ogni pagina punta al SUO gemello vero, non alla home dell'altra lingua:
+      mandare chi legge la privacy inglese sulla home italiana è un rimando
+      rotto travestito da traduzione.
+    -->
+    <link rel="alternate" hreflang="it" href="https://mydivelog.site/aiuto" />
+    <link rel="alternate" hreflang="en" href="https://mydivelog.site/en/help" />
+    <link rel="alternate" hreflang="x-default" href="https://mydivelog.site/aiuto" />
+
+    <!--
+      Open Graph e Twitter card. Senza queste righe un collegamento incollato
+      su LinkedIn, WhatsApp o Slack compare nudo — il nome del dominio e
+      nient'altro — perché quei siti non leggono la pagina: leggono soltanto
+      questi meta, e se non li trovano non inventano niente.
+
+      Titolo e descrizione non sono riscritti qui da capo: sono gli stessi del
+      `<title>` e della `<meta name="description">` di questa pagina. Due testi
+      diversi per la stessa pagina invecchiano male — si corregge l'uno e si
+      dimentica l'altro — e la copia che gira sui social finisce per essere
+      proprio quella dimenticata.
+
+      L'immagine è 1200×630, la misura che LinkedIn e Facebook ritagliano senza
+      tagliare, ed è dichiarata anche in larghezza e altezza: così il riquadro
+      grande compare subito, invece di arrivare dopo che l'immagine è stata
+      scaricata e misurata.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mydivelog.site/en/privacy" />
+    <meta property="og:title" content="Privacy policy — MyDiveLog" />
+    <meta
+      property="og:description"
+      content="How MyDiveLog handles your data: local archive, optional sign-in, no usage tracking."
+    />
+    <meta property="og:image" content="https://mydivelog.site/immagini/anteprima-en.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:locale:alternate" content="it_IT" />
+    <meta property="og:site_name" content="MyDiveLog" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Privacy policy — MyDiveLog" />
+    <meta
+      name="twitter:description"
+      content="How MyDiveLog handles your data: local archive, optional sign-in, no usage tracking."
+    />
+    <meta name="twitter:image" content="https://mydivelog.site/immagini/anteprima-en.jpg" />
+  </head>
+  <body>
+    <div class="contenitore">
+      <header class="testata">
+        <a class="marchio" href="/en/"><img src="../logo.svg" alt="" /> MyDiveLog</a>
+        <nav class="navigazione">
+          <a href="dive-logbook-law.html">Logbook law</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="terms.html">Terms</a>
+          <a href="https://github.com/matteoferrando/MyDiveLog">Source</a>
+          <!--
+            «Segnala» qui è un collegamento e non un pulsante, e la differenza
+            non è cosmetica: il modulo delle segnalazioni e il centinaio di
+            righe che lo aprono, lo chiudono e ne mandano il contenuto vivono
+            solo nella home. Copiarli anche qui darebbe sei copie della stessa
+            cosa, destinate a divergere al primo ritocco — si corregge il popup
+            in un posto e negli altri cinque resta com'era.
+
+            Il frammento `#segnala` è il messaggio: la home lo riconosce
+            all'arrivo e apre il popup da sola. Non corrisponde a nessun `id`
+            nella pagina, ed è voluto — chi ha JavaScript spento atterra in cima
+            alla home, che è il peggio che gli possa capitare, invece di saltare
+            su un elemento nascosto.
+          -->
+          <a href="help.html" aria-current="page">Help</a>
+          <a class="voce-segnala" href="/en/#segnala">Report</a>
+          <a
+            class="voce-caffe"
+            href="https://www.paypal.com/donate/?hosted_button_id=7PQDU6GPHQK34"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span aria-hidden="true">❤︎</span> Buy me a coffee
+          </a>
+          <span class="lingua"><a href="/aiuto.html">Italiano</a></span>
+        </nav>
+      </header>
+
+      <main class="documento">
+        <h1>Help</h1>
+        <p class="data">Real questions, not the ones we would have invented</p>
+
+        <div class="evidenza">
+          <p>
+            <strong>Every question below was asked by someone</strong>, or came out of a defect someone found
+            while using the application. If yours is not here, <a href="/en/#segnala">tell us</a>: it will be
+            next time.
+          </p>
+        </div>
+
+        <section id="scarico">
+          <h2>Before you download</h2>
+          <h3>The Mac package will not open: “the application cannot be opened”.</h3>
+          <p>
+            Almost always an <b>Intel Mac</b>. MyDiveLog is built for Apple Silicon only: the package installs
+            anyway, and then the app will not start. You need an Apple-silicon Mac and <b>macOS 12</b> or
+            later. There is no Intel build, and none is planned.
+          </p>
+          <h3>Windows says it doesn’t know us.</h3>
+          <p>
+            “More info” → “Run anyway”. The file is signed, just not for long enough for Windows to have
+            formed an opinion about us — it happens to anyone who does not pay for EV certification. The
+            <b>SHA-256 fingerprint</b> published next to the package tells you whether the file you have is
+            ours.
+          </p>
+          <h3>Android asks permission to install from this source.</h3>
+          <p>
+            It is the same question it asks for any app from outside the Play Store. The APK cannot vouch for
+            its own origin: the SHA-256 fingerprint in the release notes can.
+          </p>
+          <h3>The Linux package will not install: <code>libwebkit2gtk-4.1-0</code> is missing.</h3>
+          <p>
+            The <code>.deb</code> needs <b>WebKitGTK 4.1</b>, available from <b>Ubuntu 24.04</b> and
+            <b>Debian 13</b> onwards. Older distributions only have 4.0 and this package will not go in — that
+            is not a fault of the package, that library simply is not there. On Ubuntu 22.04 there is no route
+            for now.
+          </p>
+          <h3>Can I install it with Homebrew?</h3>
+          <p>
+            Yes, from our own tap:<br /><code>brew tap matteoferrando/mydivelog</code><br />
+            <code>brew install --cask mydivelog</code>
+          </p>
+        </section>
+
+        <section id="computer">
+          <h2>Your dive computer</h2>
+          <h3>I press “Find my computer” and nothing shows up.</h3>
+          <p>
+            Nine times out of ten it is the <b>Bluetooth permission</b>. It is the first thing that stopped
+            this application’s first outside user, and the error was not clear: the app now says where to
+            grant it. On <b>macOS</b>: System Settings → Privacy &amp; Security → Bluetooth. On <b>iPhone</b>:
+            Settings → MyDiveLog → Bluetooth. Then check the computer is <b>on and in pairing mode</b>: many
+            only make themselves visible for a few minutes after you ask them to.
+          </p>
+          <h3>My computer is not in the list.</h3>
+          <p>
+            From a phone only <b>Bluetooth LE</b> is reachable: serial ports and USB do not exist there, and
+            classic Bluetooth is reserved for system profiles. Of the 356 models libdivecomputer describes,
+            about a hundred speak BLE, and that is the list. If your computer writes a file — UDDF,
+            Shearwater, Subsurface, LogTRAK, Garmin FIT, CSV — you can import it instead, and that road is
+            just as good.
+          </p>
+          <h3>I downloaded twice: will dives be duplicated?</h3>
+          <p>
+            No. From the second connection on it takes only the new dives, and the ones already there are
+            <b>enriched rather than duplicated</b>. The same holds when one dive arrives by two different
+            roads — over Bluetooth and from an exported file.
+          </p>
+          <h3>Two computers show different times. Will dives be split in two?</h3>
+          <p>
+            No: the offset between the two clocks is inferred across your whole logbook, and the match is
+            confirmed <b>on the shape of the profile</b>, not on the timestamp. Every dive lists the sources
+            it was built from, so when a value is missing you know which computer never wrote it.
+          </p>
+        </section>
+
+        <section id="dati">
+          <h2>Your data</h2>
+          <h3>Where are my dives?</h3>
+          <p>
+            On your device, in a <b>SQLite</b> file you can open with anything. On a Mac it lives in
+            <code>~/Library/Application Support/it.ferrando.mydivelog</code>. We keep no copy: if you do not
+            sign in and do not press <em>Sync</em>, nothing leaves the device.
+          </p>
+          <h3>How do I back it up?</h3>
+          <p>
+            Settings → <b>full JSON backup</b>. It is the only one that puts everything back the way it was,
+            gear and certifications included. The UDDF, CSV and KML exports are for taking dives elsewhere,
+            not for rebuilding the archive.
+          </p>
+          <h3>Do I need an account?</h3>
+          <p>
+            No. The logbook opens, imports and analyses without ever seeing an account. Signing in — with
+            <b>Apple or Google</b> — does one thing only: keeps the archive aligned across devices. And even
+            then, syncing starts when you press it.
+          </p>
+          <h3>I want to leave: can I take everything with me?</h3>
+          <p>
+            JSON backup, UDDF, CSV and KML export, logbook printing. And the archive is a SQLite file: worst
+            case you open it with anything and take the tables by hand.
+          </p>
+        </section>
+
+        <section id="numeri">
+          <h2>The numbers</h2>
+          <h3>The calculations do not match my dive computer.</h3>
+          <p>
+            That is normal, and it is right to look at them with suspicion. Every dive computer uses its own
+            implementation, and conservatism settings rarely line up. MyDiveLog uses
+            <b>Bühlmann ZH-L16C with gradient factors</b>, and under every number it states
+            <b>how reliable it is</b> and how many dives it rests on.
+          </p>
+          <h3>The VPM-B plan is shorter than V-Planner’s.</h3>
+          <p>
+            Yes, by <b>5 to 10 per cent</b>, and it is stated inside the application too. This is not a
+            calibration: it is a difference we have not explained yet, and until we do it stays declared
+            rather than hidden.
+          </p>
+          <h3>Can I use it to make decisions in the water?</h3>
+          <p>
+            <b>No.</b> MyDiveLog is not a dive computer. The calculations exist to study the dives you have
+            done and prepare the ones you are going to do: they do not replace your dive computer, your
+            training or your judgement. Scuba diving carries risks, including death.
+          </p>
+        </section>
+
+        <section id="libretto">
+          <h2>The logbook and the law</h2>
+          <h3>How do I get the PDF logbook page?</h3>
+          <p>
+            Open the dive and press <em>Print this dive</em>: out comes a page with the thirteen entries the
+            law asks for, the profile drawn, and the guide’s signature. It works from the phone too, and you
+            send the file to whoever asks without going home first.
+          </p>
+          <h3>Is the app “legally compliant”?</h3>
+          <p>
+            It holds the fields the rule lists. Compliance, though, belongs to whoever fills the logbook in,
+            not to a program — and the law leaves more than one question open. The
+            <a href="dive-logbook-law.html">page on the logbook law</a> writes them all down, including the
+            ones without an answer.
+          </p>
+        </section>
+
+        <section id="aggiornamenti">
+          <h2>Updates and reports</h2>
+          <h3>How does it update?</h3>
+          <p>
+            <b>Mac and Windows</b> tell you when a new version is out; downloading and installing it is your
+            call, and every update is signed. <b>Android and Linux</b> do not: you get the file again from
+            here. If you installed from the App Store or the Mac App Store, Apple delivers it like any other
+            app.
+          </p>
+          <h3>I found something wrong.</h3>
+          <p>
+            <a href="/en/#segnala">Tell us here</a>: two lines are enough. This application’s first outside
+            user found a real defect by pressing a button, and that defect was out of reach of every automated
+            test. <b>Reports are how this project gets better.</b>
+          </p>
+        </section>
+
+        <p class="data">
+          Didn’t find what you were looking for? <a href="/en/#segnala">Tell us</a> — two lines are enough.
+        </p>
+      </main>
+
+      <footer class="piede">
+        <p>
+          MyDiveLog — <a href="/en/">Home</a> · <a href="terms.html">Terms of service</a> ·
+          <a href="/privacy.html">Italiano</a>
+        </p>
+        <p>Matteo Ferrando — <a href="mailto:matteozinin@protonmail.com">matteozinin@protonmail.com</a></p>
+      </footer>
+    </div>
+  </body>
+</html>

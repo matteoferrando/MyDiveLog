@@ -63,6 +63,11 @@ export function InputNumerico({
     // Le dita di chi scrive vincono su qualunque valore arrivi da fuori: è
     // esattamente il conflitto che produceva «38» al posto di «18».
     if (attivo.current) return;
+    // Il sistema esterno qui è LA TASTIERA: `attivo` dice che qualcuno sta scrivendo, e in quel
+    // caso il valore che arriva da fuori non deve toccare il campo. È il conflitto che
+    // produceva «38» al posto di «18», ed è la ragione per cui questo non si può derivare
+    // durante il render — durante il render non si sa se le dita sono sul tasto.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (numeroDaTesto(testo) !== value) setTesto(String(value));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);

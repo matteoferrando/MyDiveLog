@@ -197,6 +197,11 @@ export function App() {
 
   // Al primo avvio con archivio vuoto, la vista utile è l'import.
   useEffect(() => {
+    // Non è uno stato derivato: è una NAVIGAZIONE, e dipende da `ready`, cioè da quando il
+    // database ha finito di aprirsi. Derivarla durante il render vorrebbe dire scegliere la
+    // scheda prima di sapere se l'archivio è vuoto o solo non ancora letto, e mandare
+    // all'import chi ha quattrocento immersioni.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (ready && dives.length === 0) setView('import');
   }, [ready, dives.length]);
 

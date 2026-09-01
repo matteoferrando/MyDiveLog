@@ -36,6 +36,18 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://mydivelog.site/libretto-immersioni" />
   </url>
   <url>
+    <loc>https://mydivelog.site/aiuto</loc>
+    <xhtml:link rel="alternate" hreflang="it" href="https://mydivelog.site/aiuto" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://mydivelog.site/en/help" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mydivelog.site/aiuto" />
+  </url>
+  <url>
+    <loc>https://mydivelog.site/en/help</loc>
+    <xhtml:link rel="alternate" hreflang="it" href="https://mydivelog.site/aiuto" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://mydivelog.site/en/help" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://mydivelog.site/aiuto" />
+  </url>
+  <url>
     <loc>https://mydivelog.site/privacy</loc>
     <lastmod>2026-08-25</lastmod>
     <xhtml:link rel="alternate" hreflang="it" href="https://mydivelog.site/privacy" />

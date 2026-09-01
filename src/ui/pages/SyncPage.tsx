@@ -1589,6 +1589,10 @@ function AggiornamentoCard() {
    * deve dipendere da chi lo monta.
    */
   useEffect(() => {
+    // `cerca` interroga il servizio degli aggiornamenti, cioè la rete: è un sistema esterno, ed
+    // è precisamente il mestiere di un effetto. Lo stato che ne esce non si può derivare dal
+    // render, perché prima della risposta non esiste.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (aggiornamentiQui()) cerca(false);
   }, [cerca]);
 

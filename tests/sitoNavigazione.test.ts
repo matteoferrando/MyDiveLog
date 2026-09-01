@@ -37,10 +37,12 @@ const PAGINE = [
   { file: 'privacy.html', quiE: 'voce' },
   { file: 'termini.html', quiE: 'voce' },
   { file: 'libretto-immersioni.html', quiE: 'voce' },
+  { file: 'aiuto.html', quiE: 'voce' },
   { file: 'en/index.html', quiE: 'marchio' },
   { file: 'en/privacy.html', quiE: 'voce' },
   { file: 'en/terms.html', quiE: 'voce' },
   { file: 'en/dive-logbook-law.html', quiE: 'voce' },
+  { file: 'en/help.html', quiE: 'voce' },
 ] as const;
 
 /**
@@ -64,10 +66,24 @@ function leggi(file: string): string {
 }
 
 describe('il menu del sito', () => {
-  it.each(PAGINE.map((p) => p.file))('%s ha tutte e sette le voci', (file) => {
+  it.each(PAGINE.map((p) => p.file))('%s ha tutte e otto le voci', (file) => {
+    // Erano sette fino al 1° settembre, quando è arrivata «Aiuto». Il numero è
+    // scritto qui e non dedotto da una pagina campione: se domani una pagina
+    // ne perdesse una, dedurlo dalla prima vorrebbe dire non accorgersene.
     const nav = navigazione(leggi(file));
     const voci = [...nav.matchAll(/<(a|button)[\s>]/g)];
-    expect(voci.length, `${file}: voci nel menu`).toBe(7);
+    expect(voci.length, `${file}: voci nel menu`).toBe(8);
+  });
+
+  it.each(PAGINE.map((p) => p.file))('%s manda all’aiuto prima che a «Segnala»', (file) => {
+    // L'ordine di un menu è una risposta alla domanda «in che ordine ci si
+    // prova»: chi sta per segnalare un problema conviene che passi prima di
+    // lì. Invertirle non romperebbe niente, e nessuno se ne accorgerebbe.
+    const nav = navigazione(leggi(file));
+    const aiuto = nav.search(/href="(aiuto|help)\.html"/);
+    const segnala = nav.search(/class="voce-segnala"/);
+    expect(aiuto, `${file}: non c'è la voce dell'aiuto`).toBeGreaterThan(-1);
+    expect(aiuto, `${file}: «Segnala» viene prima dell'aiuto`).toBeLessThan(segnala);
   });
 
   it.each(PAGINE.map((p) => p.file))('%s tiene la voce Segnala', (file) => {

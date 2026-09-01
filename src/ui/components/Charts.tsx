@@ -27,7 +27,6 @@
  */
 
 import {
-  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -1233,11 +1232,14 @@ function truncate(s: string, max: number): string {
 
 /** Hook per la chiusura del tooltip quando il puntatore lascia la finestra. */
 export function useDismissOnLeave(clear: () => void) {
-  const cb = useCallback(clear, [clear]);
+  // `useCallback(clear, [clear])` restituisce `clear`: era un involucro che non
+  // faceva niente, e per giunta la regola lo segnalava perché il primo
+  // argomento non è una funzione scritta lì. Tolto — la dipendenza dell'effetto
+  // è la stessa di prima.
   useEffect(() => {
-    window.addEventListener('blur', cb);
-    return () => window.removeEventListener('blur', cb);
-  }, [cb]);
+    window.addEventListener('blur', clear);
+    return () => window.removeEventListener('blur', clear);
+  }, [clear]);
 }
 
 // ---------------------------------------------------------------------------

@@ -29,10 +29,12 @@ const PAGINE = [
   'privacy.html',
   'termini.html',
   'libretto-immersioni.html',
+  'aiuto.html',
   'en/index.html',
   'en/privacy.html',
   'en/terms.html',
   'en/dive-logbook-law.html',
+  'en/help.html',
 ];
 const guasti = [];
 const nota = (p, m) => guasti.push(`${p}: ${m}`);

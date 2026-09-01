@@ -1,0 +1,140 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# La cask si aggiorna da sola quando esce una release.
+#
+# ► PERCHÉ QUESTO WORKFLOW STA NEL TAP E NON NEL REPOSITORY PRINCIPALE. ◄
+#
+# Perché così non serve nessun segreto. Un'azione che parte da MyDiveLog e
+# scrive qui avrebbe bisogno di un token con permesso di scrittura su un ALTRO
+# repository — cioè di una credenziale da creare, custodire e ruotare. Girando
+# qui dentro, il `GITHUB_TOKEN` che GitHub fornisce da solo basta e avanza: scrive
+# solo su questo repository, dura il tempo del lavoro, e non esiste da nessuna
+# parte prima o dopo.
+#
+# Il prezzo, dichiarato: non parte NELL'ISTANTE in cui esce una release, ma al
+# giro successivo — al massimo sei ore dopo. Per una cask va benissimo: chi
+# installa in quelle sei ore prende la versione precedente, che funziona, e
+# l'applicazione si aggiorna comunque da sola.
+#
+# ► COSA LEGGE. ◄ L'API pubblica delle release, e in particolare il `digest` che
+# GitHub calcola SUL FILE CHE STA SERVENDO. Non si scarica il pacchetto e non si
+# ricalcola niente: l'impronta giusta è per definizione quella del file che la
+# gente riceve.
+#
+# ► QUANDO NON FA NIENTE. ◄ Se la versione dell'ultima release è già quella
+# scritta nella cask, esce senza commit. Un workflow che commette a vuoto ogni
+# sei ore riempie la cronologia di rumore e insegna a non guardarla.
+# ─────────────────────────────────────────────────────────────────────────────
+name: Aggiorna la cask
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  aggiorna:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Leggi l'ultima release di MyDiveLog
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ASSET=MyDiveLog-macOS-arm64.dmg
+          DATI=$(gh api repos/matteoferrando/MyDiveLog/releases/latest)
+
+          TAG=$(printf '%s' "$DATI" | jq -r .tag_name)
+          VERSIONE=${TAG#v}
+          DIGEST=$(printf '%s' "$DATI" | jq -r --arg a "$ASSET" \
+            '.assets[] | select(.name == $a) | .digest')
+
+          # ► SI CONTROLLA CHE CI SIA, invece di scrivere una cask vuota. ◄ Una
+          # release può uscire senza il pacchetto macOS — è successo con Linux,
+          # allegato tre giorni dopo — e in quel caso non c'è niente da
+          # aggiornare: si esce, non si pubblica una cask che punta al nulla.
+          if [ -z "$DIGEST" ] || [ "$DIGEST" = "null" ]; then
+            echo "::notice::la release $TAG non contiene $ASSET: non c'è niente da aggiornare"
+            echo "salta=si" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          SHA=${DIGEST#sha256:}
+          if ! printf '%s' "$SHA" | grep -Eq '^[0-9a-f]{64}$'; then
+            echo "::error::digest inatteso da GitHub: $DIGEST"
+            exit 1
+          fi
+
+          echo "versione=$VERSIONE" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Riscrivi la cask, se serve
+        if: steps.release.outputs.salta != 'si'
+        id: scrivi
+        env:
+          VERSIONE: ${{ steps.release.outputs.versione }}
+          SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          set -euo pipefail
+          ATTUALE=$(sed -n 's/^  version "\(.*\)"$/\1/p' Casks/mydivelog.rb)
+          if [ "$ATTUALE" = "$VERSIONE" ]; then
+            echo "::notice::la cask è già alla $VERSIONE"
+            echo "cambiata=no" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # `|` come separatore: l'impronta è esadecimale e la versione ha dei
+          # punti, ma un giorno qualcuno ci metterà una barra e sed morirebbe
+          # senza spiegare perché.
+          sed -i "s|^  version \".*\"$|  version \"$VERSIONE\"|" Casks/mydivelog.rb
+          sed -i "s|^  sha256 \".*\"$|  sha256 \"$SHA\"|" Casks/mydivelog.rb
+
+          # Si rilegge quello che si è scritto, invece di fidarsi di sed: una
+          # sostituzione che non aggancia niente non dà errore, lascia il file
+          # com'era, e pubblicherebbe la versione nuova con l'impronta vecchia.
+          if ! grep -q "^  version \"$VERSIONE\"$" Casks/mydivelog.rb; then
+            echo "::error::la versione non è stata scritta"; exit 1
+          fi
+          if ! grep -q "^  sha256 \"$SHA\"$" Casks/mydivelog.rb; then
+            echo "::error::l'impronta non è stata scritta"; exit 1
+          fi
+
+          echo "cambiata=si" >> "$GITHUB_OUTPUT"
+          echo "da=$ATTUALE" >> "$GITHUB_OUTPUT"
+
+      - name: Fai leggere la cask a brew
+        if: steps.scrivi.outputs.cambiata == 'si'
+        run: |
+          set -euo pipefail
+          # ► brew È L'UNICO GIUDICE CHE CONTA. ◄ Le nostre prove non sanno quali
+          # forme Homebrew abbia deprecato la settimana scorsa: la prima versione
+          # di questa cask passava tutto e brew segnalava un `depends_on`
+          # deprecato a ogni comando. `--online` scarica il pacchetto e verifica
+          # l'impronta, che è l'unica prova che conta davvero.
+          brew tap-new matteoferrando/prova --no-git 2>/dev/null || true
+          TAP=$(brew --repository)/Library/Taps/matteoferrando/homebrew-prova
+          mkdir -p "$TAP/Casks"
+          cp Casks/mydivelog.rb "$TAP/Casks/mydivelog.rb"
+          brew audit --cask --online matteoferrando/prova/mydivelog
+
+      - name: Commetti
+        if: steps.scrivi.outputs.cambiata == 'si'
+        env:
+          VERSIONE: ${{ steps.release.outputs.versione }}
+          DA: ${{ steps.scrivi.outputs.da }}
+        run: |
+          set -euo pipefail
+          git config user.name 'aggiornamento automatico'
+          git config user.email 'noreply@github.com'
+          git commit -am "$DA → $VERSIONE
+
+          Scritto da \`aggiorna-cask.yml\`. L'impronta viene dal campo \`digest\`
+          dell'API di GitHub, cioè è calcolata sul file che GitHub sta servendo —
+          non su un pacchetto ricostruito qui. \`brew audit --cask --online\` lo
+          ha scaricato e l'ha verificata prima di questo commit."
+          git push
