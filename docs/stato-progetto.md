@@ -1,8 +1,10 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **1 settembre 2026** — commit `700328a` su `main`, albero pulito,
-CI verde, **1700+ prove**. Nel repository c'è la **1.7.1**, e **le piattaforme
-sono cinque**: il 31 agosto è entrata **Linux**, con un `.deb`. È l'unica delle
+Aggiornato: **1 settembre 2026, sera** — commit `2602e11` su `main`, albero
+pulito, **CI verde** (run `33506132662`, 7m51s), **1749 prove in 98 file**, e il
+lint che per la prima volta **non ha niente da dire: 0 errori e 0 avvisi**, dove
+per settimane ne stavano quattordici. Nel repository c'è la **1.7.1**, e **le
+piattaforme sono cinque**: il 31 agosto è entrata **Linux**, con un `.deb`. È l'unica delle
 tre che non si costruiscono sul Mac ad essere stata **fatta partire davvero**
 prima di essere pubblicata — vedi «Linux, la quinta piattaforma».
 
@@ -10,21 +12,35 @@ prima di essere pubblicata — vedi «Linux, la quinta piattaforma».
 «Il sito, il 29 agosto» e nei documenti di progetto. L'1 settembre l'apertura è
 diventata una scena animata: due schermate e una tendina, solo su desktop.)*
 
-> ### ► IL SITO NON SI RILASCIA: SI RIPUBBLICA, E IN QUESTO MOMENTO È INDIETRO ◄
+**► E LA 1.7.1 È SUI DUE NEGOZI APPLE. ◄** Su **App Store per iPhone** dal **28
+agosto alle 21:25:04 UTC** — misurato col `lookup` e con l'anti-cache in coda,
+non dedotto — e sul **Mac App Store**, dichiarato dal proprietario l'1 settembre.
+Quindi la voce «consegnare la 1.7.1 ai due negozi», che stava in testa ai
+prossimi passi, **è chiusa**: per la prima volta da quando esistono, i tre numeri
+che contano — quello nel repository, quello che il negozio iOS consegna a un
+estraneo e quello del Mac App Store — **dicono tutti e tre 1.7.1**.
+
+> ### ► IL SITO NON SI RILASCIA: SI RIPUBBLICA — ED È STATO RIPUBBLICATO ◄
 >
-> L'impronta del foglio di stile lo dice senza chiedere niente a nessuno. Sul
-> disco è **`b425e252`**; il sito servito da `mydivelog.site` **non ha ancora**
-> la scena dell'apertura — verificato leggendo la pagina pubblicata, che non
-> contiene né `class="scena"` né `vetrina-importa`, mentre contiene già la
-> griglia delle piattaforme del commit precedente.
+> Questo riquadro, fino alla sera dell'1 settembre, diceva che il sito era
+> **indietro**: sul disco `b425e252`, e la pagina servita senza la scena
+> dell'apertura. **Adesso non è più vero, e la differenza si misura invece di
+> crederla.** Impronta sul disco e impronta servita coincidono su
+> **`8b2ca48d`**, la pagina pubblicata contiene `class="scena"`, e `/aiuto`
+> risponde `200` — cioè anche le due pagine nuove sono là fuori.
 >
 > ```
 > npx wrangler pages deploy sito --project-name mydivelog-sito
 > curl -s "https://mydivelog.site/?t=$(date +%s)" | grep -o 'stile.css?v=[0-9a-f]*'
+> curl -s -o /dev/null -w "%{http_code}\n" https://mydivelog.site/aiuto
 > ```
 >
-> **Finché quel comando non risponde `b425e252`, la parte di questo documento che
-> parla dell'apertura descrive una cosa che esiste su una macchina sola.**
+> **Il riquadro resta scritto anche adesso che la risposta è quella giusta**, e
+> non è pigrizia: *l'impronta che serve a far scadere la cache è la stessa che
+> risponde gratis alla domanda «cosa c'è pubblicato»*, e un documento che
+> cancella la domanda appena la risposta gli piace lascia chi legge senza il modo
+> di rifarla. Il giorno che quel comando risponde qualcos'altro, il sito è di
+> nuovo indietro.
 
 ### Su Mac si installa anche con Homebrew, da un tap nostro
 
@@ -98,6 +114,53 @@ nessun comando legge il README**:
   confrontati con l'array vero.
 
 *Un numero che nessuno verifica è un aggettivo travestito.*
+
+### La sera dell'1 settembre: le azioni deprecate, e un travaso che non si leggeva
+
+Due cose, e la seconda vale più della prima.
+
+**Le GitHub Actions deprecate salgono di versione**, ed è **`v6` e non `v5`** il
+punto: `actions/upload-artifact@v5` gira **ancora su Node 20**, ed è la v6 la
+prima a passare a node24. *Il salto ovvio — quello che verrebbe da fare leggendo
+«esiste la v5» — non avrebbe tolto l'avviso, e avrebbe lasciato addosso la
+sensazione di averlo tolto.* Con lui `setup-java@v5`, e `checkout@v5` nel flusso
+del tap. Una prova nuova in `documentazione.test.ts` impedisce che rientri dalla
+porta di dietro: **la stessa azione non può comparire a due versioni diverse fra
+i flussi.** Non sa quale sia quella giusta — non può saperlo, la risposta sta su
+GitHub e cambia — ma sa che due versioni della stessa azione sono comunque un
+errore, perché una delle due è vecchia.
+
+**E il travaso delle segnalazioni.** Il comando è partito davvero, ha letto
+l'archivio, ha detto «da travasare: 1», ha chiamato Google e ha risposto:
+
+```
+✗ 2026-08-26T…  →  401 «<!DOCTYPE html>… <title>Pagina non trovata</title>…
+(e altre novecento righe di HTML)
+```
+
+**Due guasti, e nessuno dei due era il travaso.**
+
+Il primo: l'indirizzo finiva per **`/dev`** invece che per **`/exec`**. Sono i
+due indirizzi a cui Google pubblica ogni Apps Script, si somigliano fino
+all'ultimo pezzo, e quello sbagliato è **proprio quello che l'editor tiene sotto
+mano** — risponde solo al proprietario dentro un browser collegato, e da uno
+script non risponde mai. Adesso si controlla **prima** della chiamata, e il
+messaggio nomina `/dev` e nomina `/exec`: *un «indirizzo non valido» avrebbe
+rimandato a cercare nel posto sbagliato esattamente come faceva il 401.*
+
+Il secondo, che è quello costato di più: la riga d'errore **riversava nel
+terminale la pagina HTML intera**, che scorrendo cancellava tutto quello che
+c'era prima — compreso l'elenco delle segnalazioni. Di quella pagina l'unica cosa
+che informava erano quattro parole dentro un `<title>`, ed erano **l'unica cosa
+invisibile**. Adesso di una risposta HTML si tiene il titolo e si butta il resto.
+
+Undici prove nuove in `tests/travasoSegnalazioni.test.ts`, tutte viste rosse su
+una mutazione ciascuna. **Due non guardano il comportamento ma il codice**: che
+il controllo dell'indirizzo stia *prima* del `fetch` e non dopo, e che la riga
+d'errore usi il riassunto e non il corpo grezzo. *Una funzione giusta che nessuno
+chiama è una funzione che non esiste.* E lo script adesso esporta le due funzioni
+pure e lancia `main()` **solo se è stato eseguito**: importato da una prova non
+deve mettersi a parlare con Cloudflare.
 
 ---
 
@@ -203,14 +266,22 @@ App Store Connect rifiuta un numero di versione già visto.
 CI «Controlli» a ogni push: Tipi → Formato → Lint → Test → Test fusi orari →
 Build.
 
-**Stato dei controlli, misurato il 31 agosto sul commit `a0090d0`:**
+**Stato dei controlli, misurato l'1 settembre sul commit `2602e11`:**
 
 | Comando | Esito |
 | --- | --- |
-| `npx vitest run` | **1667 test in 93 file, tutti verdi** |
+| `npx vitest run` | **1749 test in 98 file, tutti verdi** |
 | `npx tsc --noEmit` | pulito, nessuna riga in uscita |
 | `npx prettier --check .` | _All matched files use Prettier code style!_ |
-| `npm run lint` | **0 errori, 14 avvisi** preesistenti |
+| `npm run lint` | **0 errori e 0 avvisi** — erano quattordici |
+
+> **I quattordici avvisi non sono stati messi a tacere: sono stati letti**, ed è
+> il motivo per cui questa riga vale la pena di essere guardata. Dentro quel
+> mucchio, che da settimane si scorreva senza fermarsi perché «sono i soliti
+> quattordici», stava **un orologio fermo**: `Logbook.tsx` calcolava il briefing
+> della prossima immersione con un `Date.now()` congelato al primo disegno, e
+> dopo sei ore di applicazione aperta continuava a dire mezz'ora. _Il numero
+> quattordici era diventato il modo di non leggerli._
 
 _(Il 26 agosto erano 1523 test in 82 file; il 27 sera 1540 in 85 — i sei aggiunti
 quella sera, e il file in più, erano `tests/macNegozio.test.ts`. I nove aggiunti
@@ -1535,20 +1606,19 @@ misurato qui non si scrive.
 
 ### Tocca a chi pubblica
 
-1. **La 1.7.1 ai due negozi.** Le due voci che stavano qui — _sciogliere
-   «Conformità mancante» sul Mac e mandarla in revisione_ e _guardare a che punto
-   è la 1.7.0 su App Store Connect per iPhone_ — **sono chiuse tutte e due**: la
-   1.7.0 è pubblica su App Store per iPhone (misurato il 28 agosto alle 16:02:32
-   UTC) e sul Mac App Store (misurato il 28 agosto dalla voce **Mac** nella
-   compatibilità della scheda, non dal `lookup`). Resta da consegnare la
-   **1.7.1**, già rilasciata su GitHub, **e va consegnata a tutti e due**: il
-   pacchetto esiste e non serve ricompilare niente. _Se per il Mac serve rifare
-   il pacchetto, il numero `1.7.0 (1.7.0)` è consumato: serve una versione
-   nuova._ **Il segno che è arrivata a destinazione è pubblico**, e non serve
-   nessun accesso: per iPhone `itunes.apple.com/lookup?id=6804439480` — con
-   l'anti-cache — smetterà di rispondere `1.7.0`.
-2. **~~Ripubblicare il sito.~~ Fatto la sera del 29**, e verificato dalle pagine
-   servite e non solo dall'impronta: le due coincidono su `74792cef`.
+1. **~~La 1.7.1 ai due negozi.~~ Fatta, tutti e due.** Su **App Store per
+   iPhone** dal **28 agosto alle 21:25:04 UTC**, misurato col `lookup` e
+   l'anti-cache; sul **Mac App Store**, dichiarato dal proprietario l'1
+   settembre. _Questa voce ha attraversato tre stati in cinque giorni —
+   «da sciogliere», «da consegnare», «consegnata» — e nessuno dei tre è stato
+   dedotto dal precedente: ognuno è stato misurato, o dichiarato da chi poteva
+   saperlo._ **Resta vero il criterio, che non scade con la voce**: il numero nel
+   repository, quello che il negozio iOS consegna a un estraneo e quello del Mac
+   App Store sono **tre affermazioni diverse**, e oggi dicono tutte e tre `1.7.1`
+   solo perché sono state guardate una per una.
+2. **~~Ripubblicare il sito.~~ Fatto la sera del 29**, e di nuovo l'1 settembre
+   con la scena dell'apertura e le due pagine di aiuto: impronta sul disco e
+   impronta servita coincidono su `8b2ca48d`, e `/aiuto` risponde `200`.
 3. **La scheda del negozio in inglese**, e adesso vale per **tre** negozi. È una
    localizzazione su App Store Connect, non una build nuova, e non promette più
    niente che l'app non mantenga: l'interfaccia è tradotta per intero, piano di
@@ -1729,6 +1799,91 @@ Tutte hanno la stessa radice: **`gen/apple/` è generata e non versionata**.
 ---
 
 ## Le lezioni
+
+> ### ► LA LEZIONE DELL'1 SETTEMBRE: QUELLO CHE NESSUNO RIESCE A LEGGERE È SPENTO — E IN UNA SETTIMANA È SUCCESSO TRE VOLTE ◄
+>
+> Tre guasti diversi, trovati a giorni di distanza, con la stessa forma. Nessuno
+> dei tre taceva: **tutti e tre parlavano, e nessuno dei tre si poteva leggere.**
+>
+> - **Quattordici avvisi di lint, zero errori.** Il numero era stabile da
+>   settimane, e proprio per questo era diventato un'etichetta invece che un
+>   elenco: «sono i soliti quattordici». Dentro c'era **un orologio fermo** —
+>   `Logbook.tsx` calcolava il briefing con un `Date.now()` congelato al primo
+>   disegno, e dopo sei ore di applicazione aperta continuava a dire mezz'ora.
+>   L'avviso che ci portava era lì da sempre, in mezzo agli altri tredici.
+> - **Centinaia di righe di `act(...)`** in uscita da `npm test`. Non erano
+>   errori: erano avvertimenti di React ripetuti a ogni render di ogni prova, e
+>   sotto ci stavano i messaggi veri. Bastava una riga in `tests/preparazione.ts`
+>   — `IS_REACT_ACT_ENVIRONMENT` — per passare da migliaia di righe a 256.
+> - **Una pagina HTML intera** riversata nel terminale al posto di un messaggio
+>   d'errore. La diagnosi vera erano quattro parole dentro un `<title>`, e sono
+>   state l'unica cosa che non si vedeva.
+>
+> **La lezione non è «leggere con più attenzione».** È il rimedio che verrebbe da
+> prescrivere, ed è quello che non funziona: nessuno legge con attenzione
+> quattordici righe uguali tutti i giorni, e nessuno scorre novecento righe di
+> `<style>` per cercare un titolo. *L'attenzione non è una risorsa che si può
+> chiedere a qualcuno di spendere ogni volta.* Il rimedio è **far sì che l'uscita
+> si possa leggere**: portare gli avvisi a zero invece di contarli, spegnere il
+> rumore invece di scorrerlo, riassumere invece di riversare.
+>
+> **E c'è un corollario che vale più della lezione.** Tutti e tre questi guasti
+> sono stati trovati **mentre si sistemava l'uscita, non mentre si cercava il
+> guasto**. L'orologio fermo nessuno lo stava cercando: è saltato fuori leggendo
+> i quattordici avvisi perché si era deciso di azzerarli. *Rendere leggibile
+> un'uscita non è manutenzione cosmetica da fare quando avanza tempo: è il modo
+> più economico che questo progetto abbia trovato di scoprire difetti che nessuno
+> sospettava.*
+
+> ### ► E LA STESSA SERA, UN'ISTRUZIONE MAL SCRITTA HA COPIATO UN FILE NEL REPOSITORY SBAGLIATO ◄
+>
+> Le istruzioni per aggiornare il tap erano scritte come un blocco da incollare:
+>
+> ```
+> cd /percorso/del/tap          # segnaposto, da sostituire
+> cp …/homebrew/aggiorna-cask.yml .github/workflows/aggiorna-cask.yml
+> git add -A && git commit -m "…" && git push
+> ```
+>
+> Il `cd` è morto sul segnaposto. **Le righe dopo sono partite lo stesso**, perché
+> erano righe indipendenti e non una catena: il `cp` ha copiato il flusso del tap
+> **dentro `.github/workflows/` di MyDiveLog**. Se il `commit` fosse riuscito,
+> GitHub avrebbe cominciato a far girare, ogni sei ore e nel repository sbagliato,
+> l'automazione che aggiorna la cask.
+>
+> **A fermarlo non è stata una guardia: è stato un guasto.** Il `git add` è caduto
+> su un `index.lock` rimasto lì da un comando precedente — lo stesso lock che
+> tutta la giornata era stato solo un fastidio. *Quando la cosa che ti salva è un
+> difetto, non hai una difesa: hai avuto fortuna.*
+>
+> **E la guardia scritta quella stessa sera non lo avrebbe preso**, e va detto
+> perché è il pezzo che insegna: controlla che la stessa azione non compaia a due
+> versioni diverse fra i flussi, e lì tutti i `checkout` erano già `@v5`. Erano
+> **coerenti**. Il difetto non era una versione discorde: era **un file estraneo**
+> — un'altra specie di assenza al contrario, un flusso che c'è dove non dovrebbe
+> esserci nulla.
+>
+> È la seconda volta che questo progetto paga *un'istruzione è un'interfaccia*. La
+> prima, il 27 agosto, era il valore di un segreto scritto accanto al comando, che
+> si legge come se fosse l'argomento — ed è costata una parola d'ordine da
+> rigenerare. Questa è la stessa specie: **la forma del testo suggeriva una cosa
+> che il testo non faceva.** Un blocco a righe indipendenti *sembra* una procedura
+> che si ferma se un passo fallisce, e non lo è. La forma giusta è una catena
+> sola, dove il primo `&&` che fallisce spegne tutto il resto:
+>
+> ```
+> cd /tmp/homebrew-mydivelog && cp … && git add -A && git commit -m "…" && git push
+> ```
+>
+> *(Nella stessa conversazione ne è scappata anche una più piccola e della solita
+> famiglia: «se il tap sparisce te lo ritrovi sparito quando serve pubblicare una
+> versione». Falso, e dedotto invece che verificato — il tap **si aggiorna da
+> solo**, con un workflow che gira dentro di sé, e la copia sul disco serve solo
+> nei casi rari in cui quei due file cambiano forma. Bastava rileggere
+> `homebrew/LEGGIMI.md`, che lo dice. **Un'affermazione che alza la voce su un
+> rischio inesistente non è prudenza: manda a fare un lavoro inutile**, ed è lo
+> stesso difetto delle diagnosi scritte a priori — nomina una causa che non ha
+> misurato.)*
 
 > ### ► LA LEZIONE DEL 28 AGOSTO: CI SONO DIFETTI CHE NESSUN TEST E NESSUNA RILETTURA POSSONO TROVARE, PERCHÉ PER VEDERLI SERVE QUALCUNO CHE NON SA COSA STA PER FARE ◄
 >
