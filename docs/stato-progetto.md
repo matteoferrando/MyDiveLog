@@ -1638,6 +1638,39 @@ misurato qui non si scrive.
    niente che l'app non mantenga: l'interfaccia è tradotta per intero, piano di
    miglioramento compreso. **Oggi non c'è**: la vetrina americana serve la
    descrizione italiana, ed è il modo di accorgersi del giorno che cambia.
+4. **► IL TEST CHIUSO SU GOOGLE PLAY: 25 collaudatori, mancano 11 giorni. ◄**
+   Dichiarato dal proprietario l'1 settembre 2026, quindi la finestra si chiude
+   **attorno al 12 settembre**, ed è solo allora che si può chiedere l'accesso
+   alla produzione. La soglia di Google è **dodici collaudatori iscritti senza
+   interruzione per quattordici giorni**, e i venticinque non sono zelo: sono il
+   margine contro chi si disiscrive: *il conto non si somma, si azzera* — se gli
+   iscritti scendono sotto dodici la finestra riparte, e nessuno lo dice mentre
+   succede. **E il conto parte da quando si iscrivono, non da quando vengono
+   aggiunti.** Finché la traccia è in test chiuso, **sul sito non va messo
+   niente**: non è una vetrina pubblica.
+
+   > **Questa voce era sparita da qui, e la sparizione è più interessante della
+   > voce.** C'era nella versione del 29 agosto, e nella riscrittura del giorno
+   > dopo è uscita **senza essere né chiusa né decisa**: semplicemente non
+   > riscritta. Nessuno se n'è accorto per tre giorni, e non c'era modo di
+   > accorgersene — *una riga che manca non si vede, perché non lascia un
+   > buco: lascia un elenco più corto, che sembra un elenco.* È lo stesso
+   > difetto che questo documento registra da settimane sotto un'altra forma —
+   > *nessuna dà errore, perché nessuna è malformata: sono assenze* — applicato
+   > stavolta all'elenco delle cose da fare, cioè al posto dove fa più danno. Il
+   > riquadro qui sotto esiste apposta per impedirlo, ed è stato scritto in
+   > agosto: **non è bastato, perché è un promemoria e non una guardia.**
+   >
+   > **E una guardia, per questo, non è stata scritta — perché non saprei
+   > scriverne una che funzioni.** Una prova può controllare che i numeri
+   > dell'elenco siano consecutivi, o che un rimando interno punti dove dice: sono
+   > guardie vere e piccole. Ma «questa voce doveva esserci» non è una proprietà
+   > del file: è una proprietà di quello che qualcuno voleva, e nel file non c'è
+   > niente contro cui confrontarla. *Scrivere qui che «una guardia arriverà»
+   > sarebbe la stessa bugia comoda che questo documento colleziona.* Quello che
+   > protegge davvero questo elenco resta una regola di condotta e non un
+   > comando: **una voce esce solo diventando una riga che dice perché è
+   > uscita.**
 
 > _Il 27 agosto da questo elenco sono uscite due voci, e nessuna delle due è
 > stata dimenticata. **«Aspettare l'esito della revisione»** è chiusa: l'esito è
@@ -1656,18 +1689,23 @@ misurato qui non si scrive.
 
 ### Tocca al codice
 
-4. **Provare libdivecomputer con un computer che non sia il Peregrine né
+5. **Provare libdivecomputer con un computer che non sia il Peregrine né
    l'Aladin** — e solo allora togliere il «mai provato su questo modello». Adesso
    vale anche per Android, dove la libreria è dentro.
-5. **Restituire a monte le due scoperte**: il nome BLE dell'Aladin Sport Matrix e
+6. **Restituire a monte le due scoperte**: il nome BLE dell'Aladin Sport Matrix e
    l'offset 24 dell'intestazione Uwatec (profondità media). È la sola condizione
    che il manutentore della libreria ha chiesto, quindi non è una cortesia.
-6. **Un riscontro indipendente per VPM-B.**
-7. **Dire sul sito che il pacchetto macOS vuole macOS 12 e Apple Silicon.** Il
-   pacchetto ha smesso di dichiarare il falso, ma la pagina non dichiara niente,
-   e per chi ha un Mac Intel il risultato è lo stesso — scarica, installa, non si
-   apre. _È una riga di HTML._
-8. **Scarico via USB/seriale**, TestFlight, iPad, **condivisione di
+7. **Un riscontro indipendente per VPM-B.**
+8. **~~Dire sul sito che il pacchetto macOS vuole macOS 12 e Apple Silicon.~~
+   C'è già.** Misurato l'1 settembre **sulla pagina pubblicata**, non sul file
+   locale: dice Apple Silicon, dice macOS 12, e racconta pure che fino al 27
+   agosto il pacchetto dichiarava 10.15 e che chi aveva un Mac Intel scaricava,
+   installava e non si apriva. _Questa voce ha chiesto per giorni un lavoro già
+   fatto, e la stessa cosa falsa era scritta anche fra i limiti noti: **una riga
+   che vale per due posti, sbagliata in tutti e due.** Un elenco di cose da fare
+   che contiene cose fatte non è solo inutile: insegna a non fidarsi di quelle
+   che restano._
+9. **Scarico via USB/seriale**, TestFlight, iPad, **condivisione di
    un'immersione in sola lettura**: fuori. _(L'ultima è entrata in questa riga il
    26 agosto, per decisione del proprietario e senza che il motivo sia stato
    messo agli atti — vedi le **decisioni prese**. Le altre tre stavano già qui.)_
@@ -1771,10 +1809,15 @@ Tutte hanno la stessa radice: **`gen/apple/` è generata e non versionata**.
   caratteri.
 - **libdivecomputer non è verificata con un computer vero**, ed è accesa lo
   stesso: la scelta è dichiarata sotto ogni modello che la usa.
-- **Il pacchetto macOS gira solo su Apple Silicon e da macOS 12**, e il sito non
-  lo dice. Fino al 27 agosto il pacchetto stesso dichiarava 10.15, che era falso:
-  adesso dice la verità, ma la pagina di scaricamento tace. Sta fra i prossimi
-  passi al numero 8.
+- **Il pacchetto macOS gira solo su Apple Silicon e da macOS 12**, ~~e il sito
+  non lo dice~~ — **lo dice**, verificato l'1 settembre sulla pagina pubblicata.
+  Il limite del binario resta e va scritto qui; quello che è chiuso è la parte in
+  cui chi ha un Mac Intel lo scopriva installando. _Il percorso completo di questa
+  riga vale come esempio di come invecchia un documento: prima una bugia
+  dichiarata (il pacchetto diceva 10.15), poi un silenzio (la pagina taceva), poi
+  la cosa vera detta a chi la deve sapere — **e poi tre giorni in cui il
+  documento continuava a chiedere un lavoro già fatto, in due punti diversi, con
+  un rimando interno pure sbagliato** (mandava al numero 8, ed era il 7)._
 - **Windows e Android non li ha provati nessuno**, e il sito lo scrive prima dei
   pulsanti. Adesso fanno tutto quello che fa il Mac; l'unica differenza vera è
   che su Android l'aggiornamento automatico non c'è e non può esserci.

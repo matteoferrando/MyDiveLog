@@ -156,6 +156,54 @@ describe('la documentazione racconta il programma che c’è', () => {
     }
   });
 
+  it('il documento di stato non dichiara muto un sito che invece parla', () => {
+    /*
+     * L'1 settembre `docs/stato-progetto.md` chiedeva, fra i prossimi passi, di
+     * «dire sul sito che il pacchetto macOS vuole macOS 12 e Apple Silicon» —
+     * e la stessa cosa stava, in seconda copia, fra i limiti noti. **Il sito lo
+     * diceva già**, e per esteso, da giorni. Un elenco di cose da fare che
+     * contiene cose fatte non è solo inutile: insegna a non fidarsi delle voci
+     * che restano.
+     *
+     * ► COSA COPRE E COSA NO, DETTO SUBITO. ◄ Questa prova NON sa leggere un
+     * elenco di cose da fare e non sa quali siano vere: sa una cosa sola, e
+     * ristretta — se il sito dichiara i due requisiti del pacchetto macOS,
+     * allora il documento non può contenere una frase che dice il contrario.
+     * È una guardia scritta su un esempio, e lo si scrive qui perché non venga
+     * scambiata per più di quello che è: la proprietà generale — «il documento
+     * non afferma cose false sul sito» — nessuna prova la sa controllare.
+     * *Meglio una guardia piccola e dichiarata che una grande e finta.*
+     */
+    const home = leggi('sito/index.html');
+    const stato = leggi('docs/stato-progetto.md');
+    const sitoLoDice = home.includes('Apple Silicon') && /macOS\s*12/.test(home);
+    if (!sitoLoDice) return;
+
+    // Le forme in cui la falsità era scritta davvero, più quelle vicine. Non si
+    // cerca «il sito non lo dice» in generale — si cercano le frasi che negano
+    // QUESTA dichiarazione, che è l'unica cosa che qui sappiamo misurare.
+    const smentite = [
+      /la pagina non dichiara niente/i,
+      /la pagina di scaricamento tace/i,
+      /il sito non lo dice(?!\*\*)/i,
+      /Dire sul sito che il pacchetto macOS/i,
+    ];
+    for (const forma of smentite) {
+      const trovata = stato.match(forma)?.[0];
+      // Barrata (~~…~~) vuol dire «era vero e adesso è chiuso»: quella passa,
+      // ed è proprio la forma in cui questo documento tiene le voci che escono.
+      if (!trovata) continue;
+      const attorno = stato.slice(
+        Math.max(0, stato.indexOf(trovata) - 4),
+        stato.indexOf(trovata) + trovata.length + 4,
+      );
+      expect(
+        attorno.includes('~~'),
+        `il sito dichiara i requisiti macOS, ma \`docs/stato-progetto.md\` scrive ancora «${trovata}» senza barrarla`,
+      ).toBe(true);
+    }
+  });
+
   it('i due documenti di stato non si contraddicono sul numero di piattaforme', () => {
     // `docs/stato-progetto.md` diceva «le piattaforme sono cinque» mentre il
     // README ne negava una. Qui si controlla solo che il README nomini tutte
