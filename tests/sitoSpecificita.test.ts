@@ -592,6 +592,31 @@ describe('la vetrina dell’apertura', () => {
     expect(contenitore!.corpo, '`.vetrina-apertura` rimette la prospettiva').not.toMatch(/perspective:/);
   });
 
+  it('in tutto il foglio di stile non c’è nessuna trasformazione 3D', () => {
+    /*
+     * La regola è nata sulla scena dell'apertura, dove il difetto è stato
+     * visto. Il 3 settembre è stata allargata a tutto il foglio, e la ragione
+     * non è simmetria: le quattro schermate più in basso avevano la stessa
+     * costruzione — `perspective` sul contenitore, `rotateY`/`rotateX`
+     * sull'immagine — e la stessa taglia per cui il difetto si manifesta
+     * (1022×664 pixel veri a densità doppia). Lì la riga nessuno l'ha
+     * segnalata, e nessuno l'ha nemmeno cercata: *l'assenza di una
+     * segnalazione non è una misura.*
+     *
+     * Due costruzioni diverse per la stessa cosa nello stesso foglio di stile
+     * vogliono dire che prima o poi qualcuno copia quella sbagliata. Questa
+     * prova toglie la scelta.
+     */
+    const funzioni3D =
+      /\b(perspective|rotate3d|rotateX|rotateY|rotateZ|translateZ|translate3d|matrix3d)\s*\(/;
+    for (const r of regole(senzaCommenti(CSS))) {
+      for (const t of [...r.corpo.matchAll(/transform:\s*([^;]*)/g)].map((m) => m[1])) {
+        expect(t, `\`${r.selettore}\` usa una trasformazione 3D`).not.toMatch(funzioni3D);
+      }
+      expect(r.corpo, `\`${r.selettore}\` dichiara \`perspective\``).not.toMatch(/(^|[;\s])perspective:/);
+    }
+  });
+
   it('nemmeno i fotogrammi dell’ingresso tornano in 3D', () => {
     // La regola «niente 3D sulla scena» si aggira scrivendolo nei keyframes
     // invece che nella regola: durante l'ingresso la riga tornerebbe, e chi

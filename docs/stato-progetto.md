@@ -1,9 +1,11 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **1 settembre 2026, sera** — commit `2602e11` su `main`, albero
-pulito, **CI verde** (run `33506132662`, 7m51s), **1749 prove in 98 file**, e il
-lint che per la prima volta **non ha niente da dire: 0 errori e 0 avvisi**, dove
-per settimane ne stavano quattordici. Nel repository c'è la **1.7.1**, e **le
+Aggiornato: **3 settembre 2026, sera** — commit `34865f1` su `main`, albero
+pulito, **1813 prove in 99 file**, e il lint che dall'1 settembre **non ha niente
+da dire: 0 errori e 0 avvisi**, dove per settimane ne stavano quattordici. Il
+sito è **pubblicato e verificato pagina per pagina** (`npm run sito:online`), e
+la pagina di aiuto è finalmente online dopo due giorni in cui c'era solo nel
+repository. Nel repository c'è la **1.7.1**, e **le
 piattaforme sono cinque**: il 31 agosto è entrata **Linux**, con un `.deb`. È l'unica delle
 tre che non si costruiscono sul Mac ad essere stata **fatta partire davvero**
 prima di essere pubblicata — vedi «Linux, la quinta piattaforma».
@@ -20,14 +22,20 @@ prossimi passi, **è chiusa**: per la prima volta da quando esistono, i tre nume
 che contano — quello nel repository, quello che il negozio iOS consegna a un
 estraneo e quello del Mac App Store — **dicono tutti e tre 1.7.1**.
 
-> ### ► IL SITO NON SI RILASCIA: SI RIPUBBLICA — E LA PAGINA DI AIUTO NON LO È MAI STATA ◄
+> ### ► IL SITO NON SI RILASCIA: SI RIPUBBLICA — E LA PAGINA DI AIUTO NON LO ERA MAI STATA ◄
 >
-> **Il 3 settembre il sito è di nuovo indietro, e stavolta lo era anche il 1°,
-> quando questo riquadro diceva il contrario.** Fino a stamattina qui c'era
+> **Adesso lo è.** Misurato la sera del 3 settembre con `npm run sito:online`:
+> impronta sul disco e impronta servita coincidono, e `/aiuto` risponde con il
+> suo titolo — *«Aiuto — MyDiveLog»* — e non più con quello della home. Quello
+> che segue è il racconto di com'era e di come lo si è scoperto, e resta scritto
+> perché la lezione non scade con la correzione.
+>
+> **Il 3 settembre il sito era indietro, e lo era anche il 1°, quando questo
+> riquadro diceva il contrario.** Fino a quella mattina qui c'era
 > scritto, come cosa misurata: *«`/aiuto` risponde `200` — cioè anche le due
 > pagine nuove sono là fuori»*. **Era falso.** Le due pagine di aiuto, nel
-> repository dal commit `8c5af6a`, **non sono mai state pubblicate**: la home
-> servita non ha nemmeno la voce «Aiuto» nel menu. L'ha scoperto il proprietario
+> repository dal commit `8c5af6a`, **non erano mai state pubblicate**: la home
+> servita non aveva nemmeno la voce «Aiuto» nel menu. L'ha scoperto il proprietario
 > aprendo il sito e non trovandola — cioè nel modo in cui questo progetto scopre
 > sempre i guasti di questa specie: **guardando la cosa consegnata, non l'esito
 > di un comando.**
@@ -44,11 +52,12 @@ estraneo e quello del Mac App Store — **dicono tutti e tre 1.7.1**.
 > un comando che risponde con serenità la cosa sbagliata è peggio di nessun
 > comando, perché ci si costruisce sopra.
 >
-> Quello che era vero e resta vero: impronta sul disco e impronta servita
-> coincidono su **`8b2ca48d`**, e la pagina pubblicata contiene `class="scena"`
-> — la scena dell'apertura è online. Il foglio di stile non è cambiato dopo, e
-> per questo l'impronta non ha avvisato di niente: **l'impronta dice se il CSS è
-> quello, non se le pagine ci sono tutte.**
+> Quello che era vero anche allora: impronta sul disco e impronta servita
+> coincidevano su **`8b2ca48d`**, e la pagina pubblicata conteneva
+> `class="scena"`. Il foglio di stile non era cambiato dopo, e per questo
+> l'impronta non aveva avvisato di niente: **l'impronta dice se il CSS è quello,
+> non se le pagine ci sono tutte.** È il motivo per cui il controllo nuovo
+> guarda il titolo di ogni pagina e non solo l'impronta della home.
 >
 > **Il comando nuovo, che confronta il titolo e non il codice:**
 >
@@ -141,6 +150,104 @@ nessun comando legge il README**:
   confrontati con l'array vero.
 
 *Un numero che nessuno verifica è un aggettivo travestito.*
+
+### Il 3 settembre, sera: una riga blu che nessuna prova poteva vedere
+
+**Il proprietario segnala, da Chrome su Manjaro: «l'immagine dell'apertura è
+tagliata in mezzo da una riga blu, sempre — e passandoci sopra col mouse
+sparisce».** Quella seconda metà della frase è tutta la diagnosi, ed è stata lui
+a darla.
+
+Passare il mouse cambiava l'inclinazione della scena, quindi la costringeva a
+ridisegnarsi. **Una riga che sparisce solo perché qualcosa è stato ridisegnato
+non è nel foglio di stile**: è un artefatto di composizione — un pezzo di pagina
+che il browser tiene su un livello separato e che, ruotato in 3D, ricuce
+lasciando una giuntura visibile.
+
+> ### ► NESSUNA PROVA DI QUESTO REPOSITORY POTRÀ MAI VEDERLA ◄
+>
+> È la prima volta che questo progetto incontra un difetto **fuori dalla portata
+> dei suoi strumenti**, e vale la pena registrarlo come categoria. Headless
+> rasterizza via software: da qui, a riposo, l'immagine è sempre stata pulita —
+> provato prima di scrivere qualunque cosa. Non è una copertura che manca, è un
+> pezzo di mondo che sta oltre il vetro.
+>
+> Le altre volte la risposta era stata «costruirsi il modo di mettersi in quello
+> stato apposta» — il permesso Bluetooth finto, del 28 agosto. **Qui non si può**:
+> servirebbe la scheda video di qualcun altro. Quello che resta è ciò che è stato
+> fatto: **isolare il difetto con chi ce l'ha davanti**, una prova alla volta.
+
+**Isolato dalla console, sulla sua macchina, un cambiamento per volta** — e
+l'ordine conta, perché due correzioni insieme non dicono quale delle due sia
+servita:
+
+| Prova | Esito |
+| --- | --- |
+| nascondere il filo di luce | invariato |
+| togliere la seconda schermata | invariato |
+| togliere il ritaglio arrotondato | invariato |
+| togliere `perspective(1400px)` | **migliora «in parte»** |
+| togliere anche `scale(1.02)` | invariato |
+| passare a un `rotate` 2D | **sparita del tutto** |
+
+*E il solo 2D è bastato*: gli angoli arrotondati e `overflow` sono rimasti dov'erano.
+
+**Prima però era stata accusata la cosa sbagliata**, e sta scritto perché è la
+parte istruttiva. Il primo sospetto era il `clip-path` tenuto per sempre da
+`forwards`, che effettivamente lasciava un livello separato: correzione
+plausibile, coerente con la dottrina del sito — *lo stato a riposo è lo stato
+finale* — e **inefficace**. È rimasta lo stesso, perché è giusta per conto suo;
+ma il difetto era un altro. *Una spiegazione che regge in teoria e non toglie il
+sintomo non è la spiegazione: è un'altra cosa vera.*
+
+### E poi il difetto si è rivelato tre difetti
+
+Chiusa la riga, il proprietario ne ha segnalati altri due nella stessa ora, e
+tutti e tre venivano **dalla stessa costruzione**:
+
+1. **la riga blu** — il livello 3D che si ricuce male;
+2. **«così leggermente storto dà fastidio»** — l'inclinazione a riposo, tolta e
+   spostata dentro l'animazione d'ingresso;
+3. **«fa un salto alla fine dell'animazione, tipo cambio di schermata»** — e
+   questo non era un errore di tempi. *Finché un elemento ha una trasformazione
+   il browser lo disegna su un livello suo e ne ricampiona i pixel; quando la
+   trasformazione finisce quel livello sparisce e l'immagine viene ridisegnata
+   alla risoluzione vera.* Il salto è quel cambio di nitidezza: non si aggiusta
+   con una curva diversa, si evita non trasformando niente.
+
+**Le tre segnalazioni si sono chiuse tutte e tre togliendo roba.** Adesso la
+scena non ha nessuna trasformazione — né a riposo, né in animazione, né al
+passaggio del mouse — e resta la sola tendina che scopre il logbook. Verificato
+che posizione e altezza non cambiano di un decimo di pixel in nessuno dei
+quattro momenti.
+
+**E lo stesso 3D è stato tolto anche alle altre quattro schermate**, più in
+basso nella home, che avevano la costruzione identica e la stessa taglia
+(1022×664 pixel veri a densità doppia). Lì la riga nessuno l'ha segnalata, e
+nessuno l'ha nemmeno cercata: *l'assenza di una segnalazione non è una misura*.
+Due costruzioni diverse per la stessa cosa nello stesso foglio di stile vogliono
+dire che prima o poi qualcuno copia quella sbagliata.
+
+### Le guardie, e le tre che erano verdi per il motivo sbagliato
+
+`sitoSpecificita.test.ts` difende adesso **la causa e non il sintomo**: in tutto
+il foglio di stile non entra nessuna funzione 3D, né nelle regole né dentro i
+`@keyframes` — che è il modo naturale di aggirare la prima regola —, nella scena
+nessuna animazione tiene il suo ultimo fotogramma, e non torna nessuna regola
+`:hover` sulla scena. Tutte viste rosse sulle loro mutazioni.
+
+Ma tre, prima, erano verdi per il motivo sbagliato, e tutte e tre lo si è
+scoperto **mutando, non rileggendo**:
+
+- il filtro tagliava il selettore al primo `:` e non vedeva
+  `.vetrina-apertura:hover .scena` — cioè proprio la regola che conta di più;
+- il controllo sul ritaglio a riposo cercava `clip-path: inset` nel CSS **grezzo**
+  e lo trovava **dentro il commento che lo spiega**: verde anche rimettendo il
+  difetto. Riscritto con `soloBase()`, che i commenti li toglie e che in quel
+  file c'era già. *È lo stesso inganno di `aria-current` contato nei commenti,
+  registrato qui il 29 agosto;*
+- e una mutazione **non ha mutato**, perché l'àncora compariva tre volte: il
+  verde non voleva dire niente.
 
 ### La sera dell'1 settembre: le azioni deprecate, e un travaso che non si leggeva
 
@@ -1701,13 +1808,15 @@ misurato qui non si scrive.
    repository, quello che il negozio iOS consegna a un estraneo e quello del Mac
    App Store sono **tre affermazioni diverse**, e oggi dicono tutte e tre `1.7.1`
    solo perché sono state guardate una per una.
-2. **Ripubblicare il sito.** ~~Fatto la sera del 29, e di nuovo l'1
-   settembre~~ — **la scena dell'apertura sì, le due pagine di aiuto no**: qui
-   c'era scritto che `/aiuto` rispondeva `200`, ed era la home servita al posto
-   di una pagina che non c'è. Da fare, con dentro anche la voce per Arch e
-   Manjaro nella scheda Linux e nell'aiuto. **Si verifica con `npm run
-   sito:online`**, che deve dire «il sito pubblicato è quello sul disco», e non
-   con un `curl` che guarda il codice di risposta.
+2. **~~Ripubblicare il sito.~~ Fatto la sera del 3 settembre**, e stavolta
+   verificato con lo strumento giusto: `npm run sito:online` confronta il
+   `<title>` di ognuna delle dieci pagine servite con quello sul disco, e
+   `/aiuto` risponde finalmente con il suo. _Le due pagine di aiuto erano nel
+   repository dal 1° settembre e non erano mai uscite: qui c'era scritto che
+   `/aiuto` rispondeva `200`, ed era la home servita al posto di una pagina che
+   non c'era._ Nel deploy sono usciti anche la voce per Arch e Manjaro, il piede
+   uguale su tutte le pagine, i collegamenti esterni in scheda nuova e
+   l'apertura senza più 3D.
 3. **La scheda del negozio in inglese**, e adesso vale per **tre** negozi. È una
    localizzazione su App Store Connect, non una build nuova, e non promette più
    niente che l'app non mantenga: l'interfaccia è tradotta per intero, piano di
@@ -1935,6 +2044,17 @@ Tutte hanno la stessa radice: **`gen/apple/` è generata e non versionata**.
   does not come first on {0} dives» smette di dire su quante immersioni, e
   nessuna rilettura se ne accorge — è precisamente il genere di difetto che si
   trova con una riga di test e non si trova mai leggendo.
+- **► CI SONO DIFETTI CHE NESSUNO STRUMENTO DI QUESTO REPOSITORY PUÒ VEDERE. ◄**
+  Il 3 settembre 2026 una riga blu tagliava in mezzo l'immagine dell'apertura su
+  Chrome/Linux, e da qui **non si riproduceva**: headless rasterizza via
+  software, e l'artefatto era della scheda video. Non è copertura che manca, è un
+  pezzo di mondo oltre il vetro — e a differenza del permesso Bluetooth negato,
+  che il 28 agosto si era imparato a **simulare**, questo non si simula: servirebbe
+  l'hardware di qualcun altro. *La sola risposta che è funzionata è isolare il
+  difetto con chi ce l'ha davanti, un cambiamento per volta.* La difesa scritta
+  dopo (niente 3D in tutto il foglio di stile) protegge la causa e non il
+  sintomo, e sta scritto anche questo: se un giorno la riga tornasse con quelle
+  prove verdi, non sono le prove ad aver mentito — è la causa a essere un'altra.
 - **VPM-B non ha un riscontro indipendente**: siamo dal 5 al 10% più corti di
   V-Planner, dichiarato nell'interfaccia. È il debito tecnico più grosso.
 
