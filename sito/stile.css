@@ -1781,24 +1781,28 @@ a {
     verificato. La guardia in `sitoSpecificita.test.ts` difende la CAUSA (niente
     trasformazioni 3D sulla scena), non il sintomo.
   */
-  transform: rotate(-1.2deg) scale(1.02);
+  /*
+    ► A RIPOSO È DRITTA. ◄ L'inclinazione vive solo dentro l'animazione
+    d'ingresso, che la posa in piano insieme alla tendina: `scena-posa`, più
+    sotto. Decisione del proprietario, 3 settembre 2026 — *«leggermente storto
+    dà fastidio»* —, e non è solo gusto: senza trasformazione a riposo il
+    browser non ha nessun livello da tenere separato, che è la famiglia di
+    guasti da cui viene la riga blu raccontata qui sopra.
+  */
   box-shadow:
     0 34px 90px rgba(0, 0, 0, 0.55),
     0 0 70px rgba(67, 214, 255, 0.16),
     0 0 0 7px rgba(255, 255, 255, 0.02);
-  transition:
-    transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 0.5s;
 }
 
-.vetrina-apertura:hover .scena {
-  /* Si raddrizza e cresce un filo: stesso gesto di prima, senza il 3D. */
-  transform: rotate(0deg) scale(1.04);
-  box-shadow:
-    0 40px 110px rgba(0, 0, 0, 0.6),
-    0 0 110px rgba(67, 214, 255, 0.26),
-    0 0 0 7px rgba(255, 255, 255, 0.03);
-}
+/*
+  ► NIENTE PIÙ EFFETTO AL PASSAGGIO DEL MOUSE. ◄ Qui c'era una regola che
+  raddrizzava la scena e la ingrandiva di un filo. Tolta su richiesta del
+  proprietario insieme all'inclinazione a riposo: raddrizzare una cosa che è
+  già dritta non è un effetto, è un ingrandimento improvviso — e il gesto che
+  quella regola raccontava («è una cosa vera, guardala») adesso lo fa
+  l'ingresso, una volta sola e senza chiedere niente a chi legge.
+*/
 
 .scena-quadro,
 .scena-quadro img {
@@ -1957,6 +1961,16 @@ a {
     restava applicato per sempre, e con lui il livello di composizione che su
     alcune schede video lascia una riga in mezzo all'immagine.
   */
+  /*
+    Stessa durata, stesso ritardo e stessa curva della tendina: la schermata si
+    scopre e si posa in piano nello stesso gesto. `backwards` perché
+    l'inclinazione si vede durante i 2,2 s di attesa, ed è lì che dice «sta per
+    succedere qualcosa».
+  */
+  .scena {
+    animation: scena-posa 1.1s cubic-bezier(0.4, 0, 0.2, 1) 2.2s backwards;
+  }
+
   .scena-poi {
     animation: scena-entra 1.1s cubic-bezier(0.4, 0, 0.2, 1) 2.2s backwards;
   }
@@ -1984,6 +1998,20 @@ a {
   }
   .scena-file span:nth-child(5) {
     animation-delay: 1.54s;
+  }
+}
+
+/*
+  L'ingresso posa la scena in piano: parte appena inclinata e ingrandita, e
+  arriva dritta. `to` è lo stato a riposo — nessuna trasformazione — quindi
+  l'animazione non deve tenere niente alla fine e il livello si scioglie.
+*/
+@keyframes scena-posa {
+  from {
+    transform: rotate(-1.2deg) scale(1.02);
+  }
+  to {
+    transform: none;
   }
 }
 

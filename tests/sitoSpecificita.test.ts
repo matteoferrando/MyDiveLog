@@ -503,7 +503,13 @@ describe('la vetrina dell’apertura', () => {
      * qualcosa che va bene, e insegna a spegnerla.* La prima versione di questa
      * prova è diventata rossa proprio così, su `.scena-file span`.
      */
-    const dentroLaScatola = animate.filter((r) => /^\.scena(-poi\b|::after)/.test(r.selettore));
+    // `.scena` stessa è entrata in questo elenco il 3 settembre, quando
+    // l'inclinazione è diventata un'animazione d'ingresso invece di uno stato a
+    // riposo: se un giorno tenesse il suo ultimo fotogramma, si riavrebbe una
+    // trasformazione applicata per sempre — cioè di nuovo un livello separato.
+    const dentroLaScatola = animate.filter((r) =>
+      ['.scena', '.scena-poi', '.scena::after'].includes(r.selettore),
+    );
     expect(dentroLaScatola.length, 'nessuna animazione dentro la scena').toBeGreaterThan(0);
     for (const r of dentroLaScatola) {
       expect(
@@ -584,6 +590,32 @@ describe('la vetrina dell’apertura', () => {
     const contenitore = regole(soloBase(CSS)).find((r) => r.selettore === '.vetrina-apertura');
     expect(contenitore, '`.vetrina-apertura` non ha più una regola sua').toBeDefined();
     expect(contenitore!.corpo, '`.vetrina-apertura` rimette la prospettiva').not.toMatch(/perspective:/);
+  });
+
+  it('nemmeno i fotogrammi dell’ingresso tornano in 3D', () => {
+    // La regola «niente 3D sulla scena» si aggira scrivendolo nei keyframes
+    // invece che nella regola: durante l'ingresso la riga tornerebbe, e chi
+    // guarda la vedrebbe proprio nel momento in cui sta guardando. Il parser
+    // delle regole non entra nei `@keyframes`, quindi qui si guarda il testo.
+    const funzioni3D =
+      /\b(perspective|rotate3d|rotateX|rotateY|rotateZ|translateZ|translate3d|matrix3d)\s*\(/;
+    const blocchi = [...senzaCommenti(CSS).matchAll(/@keyframes\s+(scena-[\w-]+)\s*\{([\s\S]*?)\n\}/g)];
+    expect(blocchi.length, 'nessun keyframe della scena').toBeGreaterThan(0);
+    for (const [, nome, corpo] of blocchi) {
+      expect(corpo, `\`@keyframes ${nome}\` usa una trasformazione 3D`).not.toMatch(funzioni3D);
+    }
+  });
+
+  it('al passaggio del mouse la scena non si muove', () => {
+    // Decisione del proprietario, 3 settembre 2026: l'inclinazione a riposo dava
+    // fastidio, quindi la scena resta dritta e l'effetto al passaggio è stato
+    // tolto. Raddrizzare una cosa già dritta non è un effetto: è un
+    // ingrandimento improvviso. Qui si difende che non rientri per inerzia,
+    // insieme a qualche altro ritocco.
+    const conMouse = regole(CSS).filter(
+      (r) => /:hover/.test(r.selettore) && /\.scena(?![\w-])/.test(r.selettore),
+    );
+    expect(conMouse, 'è tornata una regola :hover sulla scena').toEqual([]);
   });
 
   it('chi ha chiesto meno movimento vede comunque il logbook', () => {
