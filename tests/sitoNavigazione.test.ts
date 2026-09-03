@@ -134,3 +134,146 @@ describe('il fondo delle pagine', () => {
     }
   });
 });
+
+/*
+ * ► LE STESSE VOCI, NON SOLO LO STESSO NUMERO ◄
+ *
+ * Il 3 settembre 2026 il proprietario ha chiesto di controllare che tutte le
+ * pagine avessero lo stesso menu e lo stesso piede, con le stesse voci. Il
+ * menu era a posto. **Il piede no**, e in due modi:
+ *
+ *  - la home aveva un piede a tre colonne con otto voci; le otto pagine interne
+ *    ne avevano quattro o cinque, ognuna un po' diverse dalle altre — e nessuna
+ *    con «Aiuto», che nel piede non c'era nemmeno sulla home;
+ *  - `aiuto.html` e `en/help.html`, costruite dalla struttura di `privacy.html`,
+ *    avevano tenuto **il piede della privacy**: il collegamento «English»
+ *    mandava a `/en/privacy.html` e non alla pagina gemella dell'aiuto. Il
+ *    menu era stato corretto, il piede no. *Copiare una pagina per farne
+ *    un'altra copia anche gli errori che quella pagina non aveva ancora.*
+ *  - e sulle pagine inglesi il marchio nel piede portava a `/`, la home
+ *    italiana, mentre lo stesso marchio nel menu portava a `/en/`.
+ *
+ * La guardia che c'era contava le voci del menu — otto — e basta: otto voci
+ * sbagliate passano come otto voci giuste. Queste confrontano ETICHETTA e
+ * DESTINAZIONE di ogni voce con quelle della home della stessa lingua, e
+ * ammettono di differire solo dove DEVONO differire: «Segnala» (pulsante sulla
+ * home, collegamento al frammento altrove) e lo scambio di lingua nel menu, che
+ * punta alla pagina gemella.
+ *
+ * ► I COLLEGAMENTI ESTERNI SI APRONO IN UNA SCHEDA NUOVA ◄ — chiesto lo stesso
+ * giorno. Erano 63, e nessuno aveva `target="_blank"`. Esclusi i download
+ * diretti (`releases/latest/download/…`): un file non porta via dal sito, e una
+ * scheda vuota che si apre e si chiude per scaricare un `.dmg` è un difetto,
+ * non una cortesia. L'esclusione è scritta come regola nella prova, così non
+ * può cambiare in silenzio in nessuna delle due direzioni.
+ */
+
+/** Le voci di un blocco: etichetta → destinazione, in ordine. */
+function vociDi(blocco: string): string[] {
+  // `<\/\1\s*>` e non `<\/\1>`: prettier spezza `</a>` in `</a\n>` quando la
+  // riga è lunga, e un'espressione che non lo sa perde voci in silenzio — è
+  // successo mentre si scriveva questa prova, con un piede da nove voci letto
+  // come otto.
+  return [...senzaCommenti(blocco).matchAll(/<(a|button)\b([^>]*)>([\s\S]*?)<\/\1\s*>/g)].map((m) => {
+    const testo = m[3]
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const href = /href="([^"]*)"/.exec(m[2])?.[1] ?? '(pulsante)';
+    return `${testo} → ${href}`;
+  });
+}
+
+function piede(html: string): string {
+  const dentro = /<footer class="piede">([\s\S]*?)<\/footer>/.exec(senzaCommenti(html));
+  if (!dentro) throw new Error('nessun <footer class="piede"> nella pagina');
+  return dentro[1];
+}
+
+const homeDi = (file: string) => (file.startsWith('en/') ? 'en/index.html' : 'index.html');
+const INTERNE = PAGINE.filter((p) => p.quiE === 'voce').map((p) => p.file);
+
+describe('le stesse voci su tutte le pagine', () => {
+  it.each(INTERNE)('%s ha nel menu le stesse voci della sua home', (file) => {
+    const qui = vociDi(navigazione(leggi(file)));
+    const casa = vociDi(navigazione(leggi(homeDi(file))));
+    expect(qui.length).toBe(casa.length);
+    for (let i = 0; i < casa.length; i++) {
+      const [etichetta, dove] = qui[i].split(' → ');
+      const [etichettaCasa, doveCasa] = casa[i].split(' → ');
+      expect(etichetta, `${file}: voce ${i + 1}`).toBe(etichettaCasa);
+      // Le due voci che devono differire: «Segnala» e lo scambio di lingua.
+      if (doveCasa === '(pulsante)') expect(dove, `${file}: Segnala`).toMatch(/^\/(en\/)?#segnala$/);
+      else if (/^\/(en\/)?$/.test(doveCasa))
+        expect(dove, `${file}: lingua`).toMatch(/^\/(en\/)?[a-z-]+\.html$/);
+      else expect(dove, `${file}: voce ${i + 1} «${etichetta}»`).toBe(doveCasa);
+    }
+  });
+
+  it.each(INTERNE)('%s ha nel piede le stesse voci della sua home', (file) => {
+    const qui = vociDi(piede(leggi(file)));
+    const casa = vociDi(piede(leggi(homeDi(file))));
+    expect(qui.length, `${file}: voci nel piede`).toBe(casa.length);
+    for (let i = 0; i < casa.length; i++) {
+      const [etichetta, dove] = qui[i].split(' → ');
+      const [etichettaCasa, doveCasa] = casa[i].split(' → ');
+      expect(etichetta, `${file}: voce ${i + 1}`).toBe(etichettaCasa);
+      if (doveCasa === '(pulsante)') expect(dove, `${file}: Segnala`).toMatch(/^\/(en\/)?#segnala$/);
+      else expect(dove, `${file}: voce ${i + 1} «${etichetta}»`).toBe(doveCasa);
+    }
+  });
+
+  it.each(PAGINE.map((p) => p.file))('%s: il marchio nel piede porta dove porta quello nel menu', (file) => {
+    const nelMenu = /<a class="marchio" href="([^"]*)"/.exec(senzaCommenti(leggi(file)))?.[1];
+    const nelPiede = /<a class="piede-marchio" href="([^"]*)"/.exec(piede(leggi(file)))?.[1];
+    expect(nelPiede, `${file}: marchio nel piede`).toBe(nelMenu);
+  });
+
+  it.each(PAGINE.map((p) => p.file))('%s: il piede nomina l’aiuto', (file) => {
+    // La pagina è nata dopo il piede, e il piede non l'aveva: la voce che manca
+    // non dà errore, e nessuno la cerca.
+    expect(piede(leggi(file))).toMatch(/href="(aiuto|help)\.html"/);
+  });
+});
+
+describe('i collegamenti esterni', () => {
+  const esterno = (href: string) =>
+    /^https?:\/\//.test(href) && !/^https?:\/\/(www\.)?mydivelog\.site/.test(href);
+  const scaricamento = (href: string) => /\/releases\/latest\/download\//.test(href);
+
+  it.each(PAGINE.map((p) => p.file))(
+    '%s: si aprono in una scheda nuova, e senza consegnare la finestra',
+    (file) => {
+      const html = senzaCommenti(leggi(file));
+      let contati = 0;
+      for (const m of html.matchAll(/<a\b([^>]*)>/g)) {
+        const attributi = m[1];
+        const href = /href="([^"]*)"/.exec(attributi)?.[1] ?? '';
+        if (!esterno(href) || scaricamento(href)) continue;
+        contati++;
+        expect(attributi, `${file}: ${href}`).toMatch(/target="_blank"/);
+        // `rel="noopener"`: senza, la pagina aperta può raggiungere `window.opener`
+        // e cambiare l'indirizzo di questa. I browser recenti lo mettono da soli,
+        // ma «i browser recenti» non è una garanzia che questo sito debba dare.
+        expect(attributi, `${file}: ${href}`).toMatch(/rel="[^"]*noopener/);
+      }
+      expect(
+        contati,
+        `${file}: nessun collegamento esterno trovato — la prova non ha guardato niente`,
+      ).toBeGreaterThan(0);
+    },
+  );
+
+  it.each(['index.html', 'en/index.html'])('%s: i download NON si aprono in una scheda nuova', (file) => {
+    // È una decisione, e sta qui perché non possa cambiare in silenzio.
+    const html = senzaCommenti(leggi(file));
+    let contati = 0;
+    for (const m of html.matchAll(/<a\b([^>]*)>/g)) {
+      const href = /href="([^"]*)"/.exec(m[1])?.[1] ?? '';
+      if (!scaricamento(href)) continue;
+      contati++;
+      expect(m[1], `${file}: ${href}`).not.toMatch(/target="_blank"/);
+    }
+    expect(contati, `${file}: nessun download in pagina`).toBeGreaterThan(0);
+  });
+});
