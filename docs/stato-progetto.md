@@ -20,27 +20,54 @@ prossimi passi, **è chiusa**: per la prima volta da quando esistono, i tre nume
 che contano — quello nel repository, quello che il negozio iOS consegna a un
 estraneo e quello del Mac App Store — **dicono tutti e tre 1.7.1**.
 
-> ### ► IL SITO NON SI RILASCIA: SI RIPUBBLICA — ED È STATO RIPUBBLICATO ◄
+> ### ► IL SITO NON SI RILASCIA: SI RIPUBBLICA — E LA PAGINA DI AIUTO NON LO È MAI STATA ◄
 >
-> Questo riquadro, fino alla sera dell'1 settembre, diceva che il sito era
-> **indietro**: sul disco `b425e252`, e la pagina servita senza la scena
-> dell'apertura. **Adesso non è più vero, e la differenza si misura invece di
-> crederla.** Impronta sul disco e impronta servita coincidono su
-> **`8b2ca48d`**, la pagina pubblicata contiene `class="scena"`, e `/aiuto`
-> risponde `200` — cioè anche le due pagine nuove sono là fuori.
+> **Il 3 settembre il sito è di nuovo indietro, e stavolta lo era anche il 1°,
+> quando questo riquadro diceva il contrario.** Fino a stamattina qui c'era
+> scritto, come cosa misurata: *«`/aiuto` risponde `200` — cioè anche le due
+> pagine nuove sono là fuori»*. **Era falso.** Le due pagine di aiuto, nel
+> repository dal commit `8c5af6a`, **non sono mai state pubblicate**: la home
+> servita non ha nemmeno la voce «Aiuto» nel menu. L'ha scoperto il proprietario
+> aprendo il sito e non trovandola — cioè nel modo in cui questo progetto scopre
+> sempre i guasti di questa specie: **guardando la cosa consegnata, non l'esito
+> di un comando.**
+>
+> **Il comando mentiva, ed è il terzo della serie.** Cloudflare Pages, quando
+> una pagina non esiste, **serve la home con codice 200**: è il comportamento
+> previsto per i siti a pagina singola, e questo sito non ha un `404.html` che
+> lo spenga. Misurato il 3 settembre: `/aiuto`, `/aiuto.html`, `/en/help`
+> rispondono tutti `200` **con il titolo della home** — e la versione inglese
+> mancante viene servita con la home *italiana*. Un 200 lì non dice «la pagina
+> c'è»: dice «il server ha risposto». Dopo il `lookup` di Apple che rispondeva
+> dalla cache e la prova verde sul file mai mutato, è la stessa lezione con un
+> altro vestito: **lo strumento di verifica è un'affermazione da verificare**, e
+> un comando che risponde con serenità la cosa sbagliata è peggio di nessun
+> comando, perché ci si costruisce sopra.
+>
+> Quello che era vero e resta vero: impronta sul disco e impronta servita
+> coincidono su **`8b2ca48d`**, e la pagina pubblicata contiene `class="scena"`
+> — la scena dell'apertura è online. Il foglio di stile non è cambiato dopo, e
+> per questo l'impronta non ha avvisato di niente: **l'impronta dice se il CSS è
+> quello, non se le pagine ci sono tutte.**
+>
+> **Il comando nuovo, che confronta il titolo e non il codice:**
 >
 > ```
-> npx wrangler pages deploy sito --project-name mydivelog-sito
-> curl -s "https://mydivelog.site/?t=$(date +%s)" | grep -o 'stile.css?v=[0-9a-f]*'
-> curl -s -o /dev/null -w "%{http_code}\n" https://mydivelog.site/aiuto
+> npm run sito:online
+> npx wrangler pages deploy sito --project-name mydivelog-sito   # se è rosso
 > ```
 >
-> **Il riquadro resta scritto anche adesso che la risposta è quella giusta**, e
-> non è pigrizia: *l'impronta che serve a far scadere la cache è la stessa che
-> risponde gratis alla domanda «cosa c'è pubblicato»*, e un documento che
-> cancella la domanda appena la risposta gli piace lascia chi legge senza il modo
-> di rifarla. Il giorno che quel comando risponde qualcos'altro, il sito è di
-> nuovo indietro.
+> `scripts/sito-online.mjs` legge le dieci pagine sul disco, scarica le dieci
+> servite con l'anti-cache in coda, e pretende che il `<title>` combaci —
+> più l'impronta del foglio di stile. **Visto rosso sul sito com'era il 3
+> settembre**, esattamente sulle due pagine mancanti, prima di crederlo. Non
+> dice se il *contenuto* è aggiornato: due versioni della stessa pagina con lo
+> stesso titolo passano uguali. È una guardia piccola e dichiarata.
+>
+> **Il riquadro resta scritto anche quando la risposta sarà quella giusta**: un
+> documento che cancella la domanda appena la risposta gli piace lascia chi
+> legge senza il modo di rifarla. E da oggi, prima di scrivere qui che il sito è
+> aggiornato, si lancia quel comando e si incolla l'uscita — non un `curl`.
 
 ### Su Mac si installa anche con Homebrew, da un tap nostro
 
@@ -1674,9 +1701,13 @@ misurato qui non si scrive.
    repository, quello che il negozio iOS consegna a un estraneo e quello del Mac
    App Store sono **tre affermazioni diverse**, e oggi dicono tutte e tre `1.7.1`
    solo perché sono state guardate una per una.
-2. **~~Ripubblicare il sito.~~ Fatto la sera del 29**, e di nuovo l'1 settembre
-   con la scena dell'apertura e le due pagine di aiuto: impronta sul disco e
-   impronta servita coincidono su `8b2ca48d`, e `/aiuto` risponde `200`.
+2. **Ripubblicare il sito.** ~~Fatto la sera del 29, e di nuovo l'1
+   settembre~~ — **la scena dell'apertura sì, le due pagine di aiuto no**: qui
+   c'era scritto che `/aiuto` rispondeva `200`, ed era la home servita al posto
+   di una pagina che non c'è. Da fare, con dentro anche la voce per Arch e
+   Manjaro nella scheda Linux e nell'aiuto. **Si verifica con `npm run
+   sito:online`**, che deve dire «il sito pubblicato è quello sul disco», e non
+   con un `curl` che guarda il codice di risposta.
 3. **La scheda del negozio in inglese**, e adesso vale per **tre** negozi. È una
    localizzazione su App Store Connect, non una build nuova, e non promette più
    niente che l'app non mantenga: l'interfaccia è tradotta per intero, piano di

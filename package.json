@@ -40,6 +40,7 @@
     "play:controlla": "node scripts/controlla-play.mjs",
     "play": "npm run build && npm run demo && npm run play:grafica && npm run play:immagini && npm run play:controlla",
     "sito:controlla": "node scripts/controlla-sito.mjs",
+    "sito:online": "node scripts/sito-online.mjs",
     "cask": "node scripts/genera-cask.mjs"
   },
   "dependencies": {

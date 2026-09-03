@@ -156,6 +156,18 @@
             is not a fault of the package, that library simply is not there. On Ubuntu 22.04 there is no route
             for now.
           </p>
+          <h3 id="arch">I am on Arch or Manjaro: the <code>.deb</code> will not install.</h3>
+          <p>
+            There is no <code>dpkg</code>, but the package can be repackaged for <code>pacman</code> with four
+            commands — nothing to compile, the binary is the same:<br />
+            <code>sudo pacman -S --needed base-devel</code><br />
+            <code>mkdir mydivelog &amp;&amp; cd mydivelog</code><br />
+            <code
+              >curl -LO https://raw.githubusercontent.com/matteoferrando/MyDiveLog/main/linux/PKGBUILD</code
+            ><br />
+            <code>makepkg -si</code><br />
+            <code>makepkg</code> stops if the file’s checksum is not the declared one. Tested on Manjaro.
+          </p>
           <h3>Can I install it with Homebrew?</h3>
           <p>
             Yes, from our own tap:<br /><code>brew tap matteoferrando/mydivelog</code><br />

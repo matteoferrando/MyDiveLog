@@ -155,6 +155,32 @@
             entra: non è un difetto del pacchetto, è che quella libreria lì non c’è. Su Ubuntu 22.04, per ora,
             non c’è una strada.
           </p>
+          <!--
+            ► LA DOMANDA È NATA DA UNA PERSONA VERA, IL 3 SETTEMBRE 2026. ◄
+
+            Chi arriva da Arch o Manjaro legge «pacchetto .deb» nella scheda e
+            conclude che per lui non c'è. Invece c'è, e funziona: lo stesso .deb
+            si impacchetta per pacman con makepkg, senza ricompilare niente. Il
+            PKGBUILD vive nel repository ed è generato insieme alla cask, così
+            l'impronta che dichiara è quella del file che GitHub serve davvero.
+
+            Il comando `yay -S mydivelog-bin` NON è scritto qui apposta: vale
+            solo dopo la pubblicazione su AUR, e scriverlo prima sarebbe la
+            stessa specie del pulsante Android che consegnava un file che non si
+            installava. Quando l'AUR c'è, questa risposta si riduce a una riga.
+          -->
+          <h3 id="arch">Sono su Arch o Manjaro: il <code>.deb</code> non si installa.</h3>
+          <p>
+            Non c’è <code>dpkg</code>, ma il pacchetto si impacchetta per <code>pacman</code> con quattro
+            comandi — niente da ricompilare, il binario è lo stesso:<br />
+            <code>sudo pacman -S --needed base-devel</code><br />
+            <code>mkdir mydivelog &amp;&amp; cd mydivelog</code><br />
+            <code
+              >curl -LO https://raw.githubusercontent.com/matteoferrando/MyDiveLog/main/linux/PKGBUILD</code
+            ><br />
+            <code>makepkg -si</code><br />
+            <code>makepkg</code> si ferma se l’impronta del file non è quella dichiarata. Provato su Manjaro.
+          </p>
           <h3>Su Mac si può installare con Homebrew?</h3>
           <p>
             Sì, da un tap nostro:<br /><code>brew tap matteoferrando/mydivelog</code><br />
