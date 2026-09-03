@@ -1719,8 +1719,14 @@ a {
   si vede. È luce della stessa tinta dell'acqua, e stacca l'immagine dal fondo
   facendola sembrare più vicina.
 */
+/*
+  ► QUI NON C'È PIÙ NESSUNA PROSPETTIVA, ED È UNA RINUNCIA DELIBERATA. ◄
+  Il perché sta sul `transform` di `.scena`, qui sotto. Non rimettere
+  `perspective` senza aver letto quel commento e senza aver riprovato la riga
+  blu su una macchina con la scheda video vera.
+*/
 .vetrina-apertura {
-  perspective: 1400px;
+  position: relative;
 }
 
 /*
@@ -1743,7 +1749,39 @@ a {
   border-radius: 16px;
   border: 1px solid rgba(157, 220, 255, 0.24);
   overflow: hidden;
-  transform: perspective(1400px) rotateY(-6deg) rotateX(2deg) scale(1.02);
+  /*
+    ► L'INCLINAZIONE È IN 2D, E NON PER GUSTO: IN 3D SI SPEZZAVA. ◄
+
+    Qui c'era `perspective(1400px) rotateY(-6deg) rotateX(2deg) scale(1.02)` —
+    per giunta con la prospettiva applicata due volte, perché anche
+    `.vetrina-apertura` aveva la sua. Il risultato, su Chrome/Linux con la
+    scheda video vera, era **una riga blu ferma che tagliava l'immagine in
+    mezzo**, e spariva passandoci sopra col mouse.
+
+    Il perché: un livello ruotato in 3D e più alto di una certa misura, Chrome
+    lo spezza in piastrelle, le disegna e le ricuce ruotate. La giuntura si
+    vede, ed è in mezzo perché è lì che cade. Il mouse la faceva sparire perché
+    raddrizzava la scena, cioè costringeva a ridisegnare tutto da capo.
+
+    Isolato dal proprietario, una prova alla volta dalla console: togliendo
+    solo la prospettiva migliorava «in parte»; passando al 2D è **sparita del
+    tutto**, e il solo 2D è bastato — gli angoli arrotondati e `overflow` sono
+    rimasti dov'erano.
+
+    ► COSA SI PERDE. ◄ `rotateY` con la prospettiva rimpicciolisce il lato
+    destro di circa il 2% e ingrandisce il sinistro altrettanto: è una scatola
+    girata di sbieco. `rotate` la inclina e basta. A questi angoli la differenza
+    è un paio di punti percentuali su un bordo — si vede mettendole una accanto
+    all'altra, non si vede da sola. **È una rinuncia, non un miglioramento**, e
+    sta scritta così perché chi rimettesse il 3D per farla più bella si
+    ricomprerebbe la riga.
+
+    ► E NESSUNA PROVA DI QUESTO REPOSITORY PUÒ VEDERLA. ◄ L'artefatto è della
+    scheda video; headless rasterizza via software e l'immagine resta pulita —
+    verificato. La guardia in `sitoSpecificita.test.ts` difende la CAUSA (niente
+    trasformazioni 3D sulla scena), non il sintomo.
+  */
+  transform: rotate(-1.2deg) scale(1.02);
   box-shadow:
     0 34px 90px rgba(0, 0, 0, 0.55),
     0 0 70px rgba(67, 214, 255, 0.16),
@@ -1754,7 +1792,8 @@ a {
 }
 
 .vetrina-apertura:hover .scena {
-  transform: perspective(1400px) rotateY(0deg) rotateX(0deg) scale(1.04);
+  /* Si raddrizza e cresce un filo: stesso gesto di prima, senza il 3D. */
+  transform: rotate(0deg) scale(1.04);
   box-shadow:
     0 40px 110px rgba(0, 0, 0, 0.6),
     0 0 110px rgba(67, 214, 255, 0.26),

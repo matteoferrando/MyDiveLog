@@ -537,6 +537,55 @@ describe('la vetrina dell’apertura', () => {
     );
   });
 
+  it('la scena non si inclina in 3D: in 3D si spezzava', () => {
+    /*
+     * ► IL DIFETTO CHE QUESTA PROVA DIFENDE, E CHE NON PUÒ VEDERE. ◄
+     *
+     * Il 3 settembre 2026 il proprietario ha segnalato, da Chrome su Linux, una
+     * riga blu ferma che tagliava in mezzo la schermata dell'apertura, e che
+     * spariva passandoci sopra col mouse. La causa non era nel foglio di stile
+     * ma nel modo in cui il browser disegna: un livello ruotato in 3D e più
+     * alto di una certa misura viene spezzato in piastrelle, disegnato e
+     * ricucito ruotato — e la giuntura si vede. Il mouse la faceva sparire
+     * perché raddrizzava la scena, cioè costringeva a ridisegnare.
+     *
+     * Isolato una prova alla volta dalla console, sulla sua macchina: la
+     * prospettiva da sola migliorava «in parte», il passaggio al 2D l'ha fatta
+     * sparire del tutto.
+     *
+     * **Headless non la riproduce**: qui la rasterizzazione è software e
+     * l'immagine è sempre stata pulita — provato prima di scrivere questa
+     * prova. Quindi qui si difende la CAUSA e non il sintomo: sulla scena non
+     * entra nessuna trasformazione 3D. È il tipo di guardia che vale solo
+     * quanto il commento che porta, e per questo il commento c'è.
+     */
+    const funzioni3D =
+      /\b(perspective|rotate3d|rotateX|rotateY|rotateZ|translateZ|translate3d|matrix3d)\s*\(/;
+    /*
+     * `\.scena(?![\w-])` e non `^\.scena`: la regola che conta di più è
+     * `.vetrina-apertura:hover .scena`, dove `.scena` non sta in testa. La prima
+     * versione di questa prova tagliava il selettore al primo `:` e guardava
+     * solo la parte davanti — quindi la regola del mouse over non la vedeva
+     * affatto, ed è rimasta verde rimettendoci il 3D. Trovato mutando, non
+     * rileggendo. Il `(?![\w-])` tiene fuori `.scena-poi`, `.scena-quadro` e
+     * `.scena-file`, che sono altri elementi.
+     */
+    const sceniche = regole(CSS).filter((r) => /\.scena(?![\w-])/.test(r.selettore));
+    expect(sceniche.length, 'nessuna regola per `.scena`').toBeGreaterThan(0);
+    for (const r of sceniche) {
+      const trasformazioni = [...r.corpo.matchAll(/transform:\s*([^;]*)/g)].map((m) => m[1]);
+      for (const t of trasformazioni) {
+        expect(t, `\`${r.selettore}\` torna in 3D: la riga blu torna con lui`).not.toMatch(funzioni3D);
+      }
+    }
+
+    // E la prospettiva non deve rientrare dal contenitore, che è dove stava
+    // anche prima — applicata due volte, sul contenitore e dentro il transform.
+    const contenitore = regole(soloBase(CSS)).find((r) => r.selettore === '.vetrina-apertura');
+    expect(contenitore, '`.vetrina-apertura` non ha più una regola sua').toBeDefined();
+    expect(contenitore!.corpo, '`.vetrina-apertura` rimette la prospettiva').not.toMatch(/perspective:/);
+  });
+
   it('chi ha chiesto meno movimento vede comunque il logbook', () => {
     // La scena si regge su `clip-path: inset(0 0 100% 0)`, cioè il logbook è
     // ritagliato a zero finché l'animazione non lo scopre. Se l'animazione non
