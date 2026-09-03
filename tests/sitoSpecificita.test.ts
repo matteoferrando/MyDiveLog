@@ -456,21 +456,85 @@ describe('la vetrina dell’apertura', () => {
     expect(Number(colonne![1])).toBeGreaterThan(1);
   });
 
-  it('la scena resta sul logbook, non torna alla schermata di importazione', () => {
-    // `forwards` su tutte le animazioni della scena. Senza, l'ultimo fotogramma
-    // torna al primo e il sito mostrerebbe PER SEMPRE la schermata di
-    // importazione — cioè la meno interessante delle due, e per giunta quella
-    // che non racconta niente a chi arriva a pagina già caricata.
+  it('la scena resta sul logbook, e non tiene nessun fotogramma', () => {
+    /*
+     * ► QUESTA PROVA È STATA ROVESCIATA IL 3 SETTEMBRE 2026. ◄
+     *
+     * Prima PRETENDEVA `forwards` su tutte le animazioni della scena, con questa
+     * motivazione: senza, l'ultimo fotogramma torna al primo e il sito mostra
+     * per sempre la schermata di importazione. Il ragionamento era giusto e la
+     * premessa no — la premessa era che lo stato a riposo di `.scena-poi` fosse
+     * quello NASCOSTO. Reggeva l'animazione, e lasciava il `clip-path`
+     * applicato per sempre.
+     *
+     * Il proprietario ha segnalato, da Chrome su Linux, **una riga chiara ferma
+     * in mezzo all'immagine, che spariva passandoci sopra col mouse**. Passare
+     * il mouse cambia la trasformazione della scena, quindi la ridisegna: è la
+     * firma di un artefatto di composizione, e la sua causa è un livello che
+     * resta separato — che è esattamente quello che un `clip-path` vivo dentro
+     * un antenato con trasformazione 3D obbliga il browser a tenere.
+     *
+     * Adesso lo stato a riposo è quello FINALE, come ovunque su questo sito, e
+     * la regola è l'opposto di prima: **nella scena nessuna animazione tiene il
+     * suo ultimo fotogramma.** Chi rimettesse `forwards` qui rimetterebbe il
+     * livello, e con lui la riga.
+     *
+     * ► E QUESTA PROVA NON PUÒ VEDERE LA RIGA. ◄ L'artefatto è della scheda
+     * video; headless rasterizza via software e non lo riproduce — provato. Qui
+     * si difende la CAUSA, non il sintomo, e va detto: se un giorno la riga
+     * tornasse con questa prova verde, non è questa prova ad aver mentito, è la
+     * causa a essere un'altra.
+     */
     const stretta = regole(
       dentroMedia(CSS, '(min-width: 1001px) and (prefers-reduced-motion: no-preference)'),
     );
     const animate = stretta.filter((r) => /animation:/.test(r.corpo));
     expect(animate.length, 'nessuna animazione nella scena').toBeGreaterThan(0);
-    for (const r of animate) {
-      expect(r.corpo, `\`${r.selettore}\` non ha \`forwards\`: la scena tornerebbe indietro`).toMatch(
-        /animation:[^;]*\bforwards\b/,
-      );
+
+    /*
+     * La regola vale per quello che sta DENTRO `.scena` — cioè dentro la
+     * scatola con la trasformazione 3D e `overflow: hidden` — e non per le
+     * etichette dei formati, che sono sorelle della scena e non figlie: lo dice
+     * il commento di `.scena-file` nel foglio di stile, e non è un dettaglio.
+     * Quelle il loro ultimo fotogramma lo devono tenere, o le targhette
+     * riapparirebbero in eterno.
+     *
+     * *Una regola scritta più larga di quello che ha capito si accende su
+     * qualcosa che va bene, e insegna a spegnerla.* La prima versione di questa
+     * prova è diventata rossa proprio così, su `.scena-file span`.
+     */
+    const dentroLaScatola = animate.filter((r) => /^\.scena(-poi\b|::after)/.test(r.selettore));
+    expect(dentroLaScatola.length, 'nessuna animazione dentro la scena').toBeGreaterThan(0);
+    for (const r of dentroLaScatola) {
+      expect(
+        r.corpo,
+        `\`${r.selettore}\` tiene l'ultimo fotogramma: il livello resta separato e su alcune schede video lascia una riga`,
+      ).not.toMatch(/animation:[^;]*\bforwards\b/);
     }
+
+    // E la tendina deve partire nascosta, o durante i 2,2 s di attesa si
+    // vedrebbe già il logbook e l'animazione non racconterebbe più niente.
+    const tendina = animate.find((r) => r.selettore === '.scena-poi');
+    expect(tendina, "la tendina non c'è più").toBeDefined();
+    expect(tendina!.corpo, 'senza `backwards` la tendina parte già scoperta').toMatch(
+      /animation:[^;]*\bbackwards\b/,
+    );
+
+    // Lo stato a riposo è quello finale: NESSUNA regola di `.scena-poi` ritaglia
+    // più con un `inset`. Il fotogramma nascosto vive solo dentro i keyframes,
+    // dove dura il tempo dell'animazione e non un minuto di più.
+    // `soloBase` e non `CSS`: toglie i commenti e le media query, cioè lascia
+    // le regole che valgono sempre. Serve togliere i commenti perché questo
+    // punto del foglio di stile SPIEGA il ritaglio citandolo per esteso, e
+    // cercarlo nel testo grezzo lo troverebbe nella spiegazione — la prima
+    // versione di questa prova faceva così ed era verde anche rimettendo il
+    // difetto. *È lo stesso inganno di `aria-current` contato nei commenti,
+    // due metri più su in questo stesso file.*
+    const riposo = regole(soloBase(CSS)).filter((r) => r.selettore === '.scena-poi');
+    expect(riposo.length, '`.scena-poi` non ha più una regola fuori dalle media query').toBe(1);
+    expect(riposo[0].corpo, '`.scena-poi` ritaglia a riposo: il livello resta separato').not.toMatch(
+      /clip-path:\s*inset/,
+    );
   });
 
   it('chi ha chiesto meno movimento vede comunque il logbook', () => {

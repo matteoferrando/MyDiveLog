@@ -1789,8 +1789,28 @@ a {
     gesto di un elenco che si riempie riga dopo riga. `clip-path` costa quanto
     l'opacità — il browser non ridisegna niente, ritaglia — e per giunta a metà
     corsa quello che si vede è sempre una sola schermata, nitida.
+
+    ► E A RIPOSO IL RITAGLIO NON C'È AFFATTO. ◄ Qui prima c'era
+    `clip-path: inset(0 0 100% 0)` — la schermata nascosta — e l'animazione la
+    scopriva tenendo l'ultimo fotogramma con `forwards`. Funzionava, e lasciava
+    **il ritaglio applicato per sempre**: un `clip-path` vivo su un elemento
+    dentro un antenato con una trasformazione 3D obbliga il browser a tenere
+    quel pezzo su un livello di composizione suo, e su alcune schede video il
+    livello si vede — una riga chiara in mezzo all'immagine, ferma, che sparisce
+    appena qualcosa costringe a ridisegnare. Passare il mouse cambia la
+    trasformazione, quindi ridisegna, quindi la riga sparisce: **è la firma di
+    un artefatto di composizione, non di un errore nel foglio di stile.**
+
+    Segnalato dal proprietario il 3 settembre 2026 su Chrome/Linux. *Headless
+    non lo riproduce* — lì la rasterizzazione è software — e questo va scritto,
+    perché significa che nessuna prova di questo repository può accorgersene.
+
+    Ora il ritaglio vive **solo durante l'animazione**: si parte dal fotogramma
+    nascosto con `backwards` e si finisce senza `clip-path` del tutto, così il
+    livello si può riunire al resto. È anche la regola che questo sito segue
+    già altrove: *lo stato a riposo è lo stato finale*, quello che vede chi non
+    ha le animazioni.
   */
-  clip-path: inset(0 0 100% 0);
 }
 
 /*
@@ -1891,12 +1911,20 @@ a {
   importazione — cioè la meno interessante delle due.
 */
 @media (min-width: 1001px) and (prefers-reduced-motion: no-preference) {
+  /*
+    `backwards` e non `forwards`: il primo fotogramma vale durante i 2,2 s di
+    attesa (la schermata resta nascosta), e alla fine l'elemento torna alla sua
+    regola — che adesso non ha nessun `clip-path`. Con `forwards` il ritaglio
+    restava applicato per sempre, e con lui il livello di composizione che su
+    alcune schede video lascia una riga in mezzo all'immagine.
+  */
   .scena-poi {
-    animation: scena-entra 1.1s cubic-bezier(0.4, 0, 0.2, 1) 2.2s forwards;
+    animation: scena-entra 1.1s cubic-bezier(0.4, 0, 0.2, 1) 2.2s backwards;
   }
 
+  /* Stessa ragione: a riposo il filo ha già `opacity: 0`, non serve tenerlo. */
   .scena::after {
-    animation: scena-filo 1.1s cubic-bezier(0.4, 0, 0.2, 1) 2.2s forwards;
+    animation: scena-filo 1.1s cubic-bezier(0.4, 0, 0.2, 1) 2.2s;
   }
 
   .scena-file span {
@@ -1928,6 +1956,11 @@ a {
     clip-path: inset(0 0 0 0);
   }
 }
+/*
+  L'ultimo fotogramma `inset(0 0 0 0)` non ritaglia niente, ed è lo stesso
+  disegno dello stato a riposo (nessun `clip-path`): il passaggio dall'uno
+  all'altro, alla fine dell'animazione, non si vede.
+*/
 
 /* Il filo scende insieme alla tendina e si spegne quando arriva in fondo. */
 @keyframes scena-filo {
