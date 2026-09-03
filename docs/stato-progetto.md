@@ -761,11 +761,26 @@ mescolare l'ABI di mingw con quella di MSVC. La build intera dura **7 minuti e
 > con tutte e quattro le tabelle, e l'interfaccia partita in inglese perché il
 > sistema era in inglese.
 >
-> **Quello che resta non provato è uno solo, e delimitato: il Bluetooth.** Non
-> c'era un adattatore. Il codice per BlueZ però è compilato dentro —
-> `dbus-tokio` e `bluez-generated` sono passati nella build. *La differenza fra
+> **Quello che restava non provato era uno solo, e delimitato: il Bluetooth.**
+> Non c'era un adattatore. Il codice per BlueZ però era compilato dentro —
+> `dbus-tokio` e `bluez-generated` erano passati nella build. *La differenza fra
 > «dichiarata» e «provata, meno una cosa» è tutta qui, e vale la pena tenerla
 > scritta.*
+>
+> **► E IL 3 SETTEMBRE ANCHE QUELLA È CHIUSA. ◄** Il proprietario ha installato
+> MyDiveLog su **Manjaro** — che `dpkg` non ce l'ha, quindi con un `PKGBUILD`
+> che impacchetta il `.deb` per `pacman` — e riferisce che **funziona tutto**:
+> si apre, importa, e **scarica via Bluetooth** dal suo computer. È la prima
+> volta che l'applicazione gira su Linux con un computer subacqueo davanti.
+> *Dichiarato dal proprietario, non misurato da qui.*
+>
+> **Con una precisazione che non va persa:** i suoi due computer — il Peregrine
+> e l'Aladin — passano dai **driver di casa**, non da libdivecomputer. Quindi
+> quello che è confermato su Linux è il **trasporto** Bluetooth, BlueZ via
+> `btleplug`; **libdivecomputer via Bluetooth su Linux resta non provata**,
+> esattamente come su tutte le altre piattaforme. «Funziona tutto» è vero e
+> dice meno di quanto sembri: è il difetto, già registrato, di una frase che
+> copre più di quello che è stato misurato.
 
 > ### ► E FACENDOLA GIRARE È SALTATO FUORI UN DIFETTO ◄
 >
@@ -797,6 +812,35 @@ mescolare l'ABI di mingw con quella di MSVC. La build intera dura **7 minuti e
 distribuzioni. Il sito lo dice **prima del pulsante**, come già fa per il Mac
 Apple Silicon — che è la regola nata dal guasto opposto, quando per settimane ha
 offerto un pacchetto macOS a chi aveva un Mac Intel.
+
+### Arch e Manjaro: lo stesso `.deb`, impacchettato per `pacman`
+
+**3 settembre 2026.** Su Arch e derivate un `.deb` non si installa — non c'è
+`dpkg` — ma dentro c'è solo un tar con l'albero di `/usr`, e `makepkg` sa
+travasarlo in un pacchetto di `pacman`. `linux/PKGBUILD` fa questo: scarica il
+`.deb` della versione che dichiara, **si ferma se l'impronta non è quella**,
+tira `webkit2gtk-4.1` e `gtk3` e installa. Niente da ricompilare: il binario è
+lo stesso di Debian. Scritto a mano quella mattina, ha funzionato al primo colpo.
+
+**E il giorno stesso è passato nel generatore.** `npm run cask` adesso scrive
+**due** file — la cask e il PKGBUILD — per la stessa ragione per cui esisteva
+per uno: *un file che dichiara una versione e un'impronta non si scrive a
+mano*, perché prima o poi si alza la versione e resta l'impronta di quella
+prima, e se ne accorge chi installa. L'impronta del `.deb` viene dall'API di
+GitHub, ed è stata confermata **su tre fonti** prima di scriverla: il file
+scaricato e ricalcolato, le note della release, e il `digest` dell'API.
+`tests/pkgbuild.test.ts` — otto prove, viste rosse su sette mutazioni — difende
+quello che si difende senza rete: versione uguale a `package.json`, impronta
+vera e non `SKIP`, indirizzo con la versione e non `latest`, `noextract` uguale
+al `source` (se divergono `makepkg` prova a estrarre il `.deb`, fallisce in
+silenzio e `package()` non trova il file), dipendenze coi nomi di Arch, e la
+riga che dice che su Linux l'app **non si aggiorna da sola**.
+
+> **Il passo dopo è l'AUR, e costa niente.** Quel file è già un pacchetto AUR
+> completo: pubblicato lì, su Arch e Manjaro MyDiveLog si installa con
+> `yay -S mydivelog-bin` — **senza nemmeno un workflow da tenere in vita**, al
+> contrario del tap di Homebrew. Non è ancora stato fatto, ed è nei prossimi
+> passi.
 
 ### Le guardie, e le tre volte che il ritaglio ha sbagliato
 
@@ -1672,6 +1716,14 @@ misurato qui non si scrive.
    > comando: **una voce esce solo diventando una riga che dice perché è
    > uscita.**
 
+5. **Pubblicare `linux/PKGBUILD` sull'AUR.** È già un pacchetto completo e ha
+   funzionato su Manjaro al primo colpo; su AUR diventa `yay -S mydivelog-bin`,
+   con gli aggiornamenti dal gestore dei pacchetti e **nessun workflow da
+   tenere in vita**. Serve un account AUR, una chiave SSH registrata lì, e un
+   `git push` verso `aur.archlinux.org` con il `.SRCINFO` generato da
+   `makepkg --printsrcinfo`. _Da fare dal Mac o da Manjaro: non passa per
+   GitHub._
+
 > _Il 27 agosto da questo elenco sono uscite due voci, e nessuna delle due è
 > stata dimenticata. **«Aspettare l'esito della revisione»** è chiusa: l'esito è
 > arrivato ed è positivo. **«Le schermate dal simulatore»** è una decisione del
@@ -1689,14 +1741,14 @@ misurato qui non si scrive.
 
 ### Tocca al codice
 
-5. **Provare libdivecomputer con un computer che non sia il Peregrine né
+6. **Provare libdivecomputer con un computer che non sia il Peregrine né
    l'Aladin** — e solo allora togliere il «mai provato su questo modello». Adesso
    vale anche per Android, dove la libreria è dentro.
-6. **Restituire a monte le due scoperte**: il nome BLE dell'Aladin Sport Matrix e
+7. **Restituire a monte le due scoperte**: il nome BLE dell'Aladin Sport Matrix e
    l'offset 24 dell'intestazione Uwatec (profondità media). È la sola condizione
    che il manutentore della libreria ha chiesto, quindi non è una cortesia.
-7. **Un riscontro indipendente per VPM-B.**
-8. **~~Dire sul sito che il pacchetto macOS vuole macOS 12 e Apple Silicon.~~
+8. **Un riscontro indipendente per VPM-B.**
+9. **~~Dire sul sito che il pacchetto macOS vuole macOS 12 e Apple Silicon.~~
    C'è già.** Misurato l'1 settembre **sulla pagina pubblicata**, non sul file
    locale: dice Apple Silicon, dice macOS 12, e racconta pure che fino al 27
    agosto il pacchetto dichiarava 10.15 e che chi aveva un Mac Intel scaricava,
@@ -1705,7 +1757,7 @@ misurato qui non si scrive.
    che vale per due posti, sbagliata in tutti e due.** Un elenco di cose da fare
    che contiene cose fatte non è solo inutile: insegna a non fidarsi di quelle
    che restano._
-9. **Scarico via USB/seriale**, TestFlight, iPad, **condivisione di
+10. **Scarico via USB/seriale**, TestFlight, iPad, **condivisione di
    un'immersione in sola lettura**: fuori. _(L'ultima è entrata in questa riga il
    26 agosto, per decisione del proprietario e senza che il motivo sia stato
    messo agli atti — vedi le **decisioni prese**. Le altre tre stavano già qui.)_

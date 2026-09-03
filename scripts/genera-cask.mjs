@@ -1,8 +1,18 @@
 /**
- * Rigenera la cask di Homebrew, con l'impronta presa dal file vero.
+ * Rigenera i due pacchetti «di terzi» — la cask di Homebrew per il Mac e il
+ * PKGBUILD per Arch/Manjaro — con l'impronta presa dal file vero.
  *
  *   node scripts/genera-cask.mjs                 # dalla release pubblicata
- *   node scripts/genera-cask.mjs --dmg <file>    # e confrontata col file locale
+ *   node scripts/genera-cask.mjs --dmg <file>    # e confrontata col .dmg locale
+ *   node scripts/genera-cask.mjs --deb <file>    # e/o col .deb locale
+ *
+ * ► PERCHÉ UN GENERATORE SOLO PER DUE FILE. ◄ Sono lo stesso problema due
+ * volte: un file che dichiara una versione e un'impronta, dove le due righe
+ * possono contraddirsi senza che nessun comando lo dica. Il PKGBUILD è nato il
+ * 3 settembre 2026, scritto a mano per installare la 1.7.1 su Manjaro, e ha
+ * funzionato al primo colpo; il giorno stesso è passato qui, perché un file
+ * scritto a mano che dichiara un'impronta è esattamente la cosa che questo
+ * script esiste per non avere.
  *
  * ► PERCHÉ NON SI SCRIVE A MANO. ◄ Una cask dichiara un `sha256`. Se quel numero
  * non è quello del file, `brew install` si ferma con «checksum mismatch» — e la
@@ -24,12 +34,13 @@
 
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const RADICE = fileURLToPath(new URL('..', import.meta.url));
 const REPO = 'matteoferrando/MyDiveLog';
-const ASSET = 'MyDiveLog-macOS-arm64.dmg';
+const DMG = 'MyDiveLog-macOS-arm64.dmg';
+const DEB = 'MyDiveLog-Linux-amd64.deb';
 
 const argomenti = process.argv.slice(2);
 const valore = (nome) => {
@@ -47,32 +58,40 @@ const tag = `v${versione}`;
  * GitHub a dichiarare l'impronta di quello che serve, ed è quella che deve
  * finire nella cask.
  */
-function impropriaDaGitHub() {
+function impropriaDaGitHub(asset) {
   const grezzo = execFileSync(
     'gh',
-    ['api', `repos/${REPO}/releases/tags/${tag}`, '--jq', `.assets[] | select(.name=="${ASSET}") | .digest`],
+    ['api', `repos/${REPO}/releases/tags/${tag}`, '--jq', `.assets[] | select(.name=="${asset}") | .digest`],
     { encoding: 'utf8' },
   ).trim();
-  if (!grezzo) throw new Error(`la release ${tag} non contiene ${ASSET}`);
+  if (!grezzo) throw new Error(`la release ${tag} non contiene ${asset}`);
   const m = /^sha256:([0-9a-f]{64})$/.exec(grezzo);
-  if (!m) throw new Error(`digest inatteso da GitHub: ${grezzo}`);
+  if (!m) throw new Error(`digest inatteso da GitHub per ${asset}: ${grezzo}`);
   return m[1];
 }
 
-const impronta = impropriaDaGitHub();
-
-const dmg = valore('--dmg');
-if (dmg) {
-  const locale = createHash('sha256').update(readFileSync(dmg)).digest('hex');
+/**
+ * Se c'è un file locale, la sua impronta DEVE essere quella pubblicata: se
+ * divergono qualcosa è andato storto nel caricamento, e si pubblicherebbe un
+ * pacchetto che punta a un file diverso da quello provato.
+ */
+function confermaLocale(percorso, impronta, nome) {
+  if (!percorso) return;
+  const locale = createHash('sha256').update(readFileSync(percorso)).digest('hex');
   if (locale !== impronta) {
     throw new Error(
-      `il file locale e quello pubblicato NON sono lo stesso file:\n` +
+      `${nome}: il file locale e quello pubblicato NON sono lo stesso file:\n` +
         `  locale     ${locale}\n  pubblicato ${impronta}\n` +
-        `Non si pubblica una cask che punta a un file diverso da quello provato.`,
+        `Non si pubblica un pacchetto che punta a un file diverso da quello provato.`,
     );
   }
-  console.log(`impronta confermata su due fonti: ${impronta}`);
+  console.log(`${nome}: impronta confermata su due fonti: ${impronta}`);
 }
+
+const impronta = impropriaDaGitHub(DMG);
+confermaLocale(valore('--dmg'), impronta, DMG);
+const improntaDeb = impropriaDaGitHub(DEB);
+confermaLocale(valore('--deb'), improntaDeb, DEB);
 
 const cask = `# ► FILE GENERATO — non modificarlo a mano. ◄
 # Rigeneralo con: npm run cask
@@ -86,7 +105,7 @@ cask "mydivelog" do
   version "${versione}"
   sha256 "${impronta}"
 
-  url "https://github.com/${REPO}/releases/download/v#{version}/${ASSET}",
+  url "https://github.com/${REPO}/releases/download/v#{version}/${DMG}",
       verified: "github.com/${REPO}/"
   name "MyDiveLog"
   desc "Dive logbook that merges the data from several dive computers"
@@ -136,3 +155,72 @@ end
 const destinazione = `${RADICE}homebrew/mydivelog.rb`;
 writeFileSync(destinazione, cask);
 console.log(`scritta ${destinazione}\n  versione ${versione}, impronta ${impronta.slice(0, 12)}…`);
+
+/*
+ * ► IL PKGBUILD PER ARCH E DERIVATE. ◄ Manjaro, EndeavourOS e Arch stessa non
+ * hanno dpkg: un .deb non si installa. Ma dentro un .deb c'è solo un tar con
+ * l'albero di /usr, e makepkg sa travasarlo in un pacchetto di pacman —
+ * installabile e disinstallabile come tutti gli altri. Non si ricompila
+ * niente: il binario è lo stesso che scarica chi usa Debian.
+ *
+ * Provato il 3 settembre 2026 su Manjaro, dal proprietario: si installa, si
+ * apre, importa, e lo scarico Bluetooth funziona. È la prima volta che
+ * MyDiveLog gira su Linux con un computer subacqueo davanti.
+ */
+const pkgbuild = `# ► FILE GENERATO — non modificarlo a mano. ◄
+# Rigeneralo con: npm run cask
+#
+# Maintainer: Matteo Ferrando
+#
+# MyDiveLog per Arch e derivate (Manjaro, EndeavourOS…), impacchettando il .deb
+# ufficiale della release. Non si ricompila niente: il binario è lo stesso che
+# scarica chi usa Debian. L'impronta qui sotto viene dall'API di GitHub, cioè è
+# calcolata sul file che GitHub sta davvero servendo — e makepkg si ferma se il
+# file scaricato non è quello.
+#
+# ► PERCHÉ L'INDIRIZZO PORTA LA VERSIONE E NON «latest». ◄ Con «latest», il
+# giorno che esce una versione nuova questo file scaricherebbe un pacchetto
+# diverso da quello di cui dichiara l'impronta, e makepkg fallirebbe con un
+# messaggio che parla di checksum e non di versioni.
+#
+# Su Linux l'app NON si aggiorna da sola: l'aggiornatore di Tauri funziona con
+# l'AppImage, non col .deb, ed è spento apposta. Per aggiornare: rigenerare
+# questo file e rilanciare makepkg -si.
+
+pkgname=mydivelog-bin
+pkgver=${versione}
+pkgrel=1
+pkgdesc="Il meglio dei tuoi computer, in un logbook solo"
+arch=('x86_64')
+url="https://mydivelog.site"
+license=('MIT')
+
+# libwebkit2gtk-4.1-0 e libgtk-3-0 del .deb, coi nomi di Arch. Sono le stesse
+# librerie che il binario dichiara (objdump -p | grep NEEDED): libwebkit2gtk-4.1,
+# libjavascriptcoregtk-4.1, libsoup-3.0 e le GTK 3.
+depends=('webkit2gtk-4.1' 'gtk3')
+optdepends=('bluez: scarico via Bluetooth dal computer subacqueo (serve anche bluetooth.service acceso)')
+provides=('mydivelog')
+conflicts=('mydivelog')
+options=('!strip')
+
+source=("MyDiveLog-\${pkgver}-Linux-amd64.deb::https://github.com/${REPO}/releases/download/v\${pkgver}/${DEB}")
+# makepkg non sa aprire un .deb da solo (è un archivio ar, non un tar): si
+# dichiara di non estrarlo e lo si apre a mano in package().
+noextract=("MyDiveLog-\${pkgver}-Linux-amd64.deb")
+sha256sums=('${improntaDeb}')
+
+package() {
+  # Dentro un .deb ci sono tre file: debian-binary, control.tar.gz e data.tar.gz.
+  # Il terzo è l'albero che finisce in /usr — usr/bin/mydivelog, il .desktop e
+  # le icone — e si travasa in $pkgdir così com'è. bsdtar c'è su ogni Arch,
+  # perché pacman stesso dipende da libarchive.
+  bsdtar -xf "\${srcdir}/MyDiveLog-\${pkgver}-Linux-amd64.deb" -C "\${srcdir}" data.tar.gz
+  bsdtar -xzf "\${srcdir}/data.tar.gz" -C "\${pkgdir}"
+}
+`;
+
+mkdirSync(`${RADICE}linux`, { recursive: true });
+const destinazioneArch = `${RADICE}linux/PKGBUILD`;
+writeFileSync(destinazioneArch, pkgbuild);
+console.log(`scritto ${destinazioneArch}\n  versione ${versione}, impronta ${improntaDeb.slice(0, 12)}…`);

@@ -1,0 +1,51 @@
+# ► FILE GENERATO — non modificarlo a mano. ◄
+# Rigeneralo con: npm run cask
+#
+# Maintainer: Matteo Ferrando
+#
+# MyDiveLog per Arch e derivate (Manjaro, EndeavourOS…), impacchettando il .deb
+# ufficiale della release. Non si ricompila niente: il binario è lo stesso che
+# scarica chi usa Debian. L'impronta qui sotto viene dall'API di GitHub, cioè è
+# calcolata sul file che GitHub sta davvero servendo — e makepkg si ferma se il
+# file scaricato non è quello.
+#
+# ► PERCHÉ L'INDIRIZZO PORTA LA VERSIONE E NON «latest». ◄ Con «latest», il
+# giorno che esce una versione nuova questo file scaricherebbe un pacchetto
+# diverso da quello di cui dichiara l'impronta, e makepkg fallirebbe con un
+# messaggio che parla di checksum e non di versioni.
+#
+# Su Linux l'app NON si aggiorna da sola: l'aggiornatore di Tauri funziona con
+# l'AppImage, non col .deb, ed è spento apposta. Per aggiornare: rigenerare
+# questo file e rilanciare makepkg -si.
+
+pkgname=mydivelog-bin
+pkgver=1.7.1
+pkgrel=1
+pkgdesc="Il meglio dei tuoi computer, in un logbook solo"
+arch=('x86_64')
+url="https://mydivelog.site"
+license=('MIT')
+
+# libwebkit2gtk-4.1-0 e libgtk-3-0 del .deb, coi nomi di Arch. Sono le stesse
+# librerie che il binario dichiara (objdump -p | grep NEEDED): libwebkit2gtk-4.1,
+# libjavascriptcoregtk-4.1, libsoup-3.0 e le GTK 3.
+depends=('webkit2gtk-4.1' 'gtk3')
+optdepends=('bluez: scarico via Bluetooth dal computer subacqueo (serve anche bluetooth.service acceso)')
+provides=('mydivelog')
+conflicts=('mydivelog')
+options=('!strip')
+
+source=("MyDiveLog-${pkgver}-Linux-amd64.deb::https://github.com/matteoferrando/MyDiveLog/releases/download/v${pkgver}/MyDiveLog-Linux-amd64.deb")
+# makepkg non sa aprire un .deb da solo (è un archivio ar, non un tar): si
+# dichiara di non estrarlo e lo si apre a mano in package().
+noextract=("MyDiveLog-${pkgver}-Linux-amd64.deb")
+sha256sums=('766d94b6ecc0eade6924695d17558ce28ba542933a59d22c03c53941c5a52426')
+
+package() {
+  # Dentro un .deb ci sono tre file: debian-binary, control.tar.gz e data.tar.gz.
+  # Il terzo è l'albero che finisce in /usr — usr/bin/mydivelog, il .desktop e
+  # le icone — e si travasa in $pkgdir così com'è. bsdtar c'è su ogni Arch,
+  # perché pacman stesso dipende da libarchive.
+  bsdtar -xf "${srcdir}/MyDiveLog-${pkgver}-Linux-amd64.deb" -C "${srcdir}" data.tar.gz
+  bsdtar -xzf "${srcdir}/data.tar.gz" -C "${pkgdir}"
+}
