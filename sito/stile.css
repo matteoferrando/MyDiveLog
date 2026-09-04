@@ -3483,3 +3483,148 @@ table.dati tr:last-child td {
     grid-column: 1 / -1;
   }
 }
+
+/* ================================================ il menu a scomparsa, mobile */
+
+/*
+  ► NOVE VOCI SU UN TELEFONO SONO TRE RIGHE DI MENU. ◄
+
+  Il menu è cresciuto da sette voci a nove, e a 390 px andava a capo tre volte
+  prima che cominciasse la pagina: chi arriva scorre un elenco di collegamenti
+  per trovare il titolo. Da qui il pulsante.
+
+  ► COSA SUCCEDE SENZA JAVASCRIPT, CHE È LA PARTE CHE CONTA. ◄ Il pulsante
+  nasce `hidden` nell'HTML e lo accende uno script; queste regole valgono solo
+  quando la testata porta `data-menu="chiuso"` o `"aperto"`, che scrive lo stesso
+  script. Se non gira niente, la testata non ha quell'attributo e il menu resta
+  l'elenco disteso di sempre — che va a capo, ma si vede e si usa.
+
+  *Un pulsante che apre un pannello è inutile se nessuno può chiuderlo*: il
+  contrario — nascondere il menu col CSS e sperare che lo script arrivi — è il
+  modo in cui un sito diventa inutilizzabile per un errore di rete.
+*/
+.apri-menu {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--bordo);
+  border-radius: 10px;
+  color: var(--testo);
+  cursor: pointer;
+}
+
+/*
+  I tre tratti sono UNO SOLO più due ombre: meno elementi da tenere allineati, e
+  la trasformazione in croce si scrive su un pezzo solo.
+*/
+.tratti,
+.tratti::before,
+.tratti::after {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 2px;
+  transition: transform 0.22s ease;
+}
+
+.tratti::before,
+.tratti::after {
+  content: '';
+  position: relative;
+}
+
+.tratti::before {
+  top: -6px;
+}
+
+.tratti::after {
+  top: 4px;
+}
+
+/* Aperto, i tre tratti diventano una croce: il pulsante dice anche che chiude. */
+[data-menu='aperto'] .tratti {
+  transform: rotate(45deg);
+}
+
+[data-menu='aperto'] .tratti::before {
+  transform: translateY(6px) rotate(-90deg);
+}
+
+[data-menu='aperto'] .tratti::after {
+  opacity: 0;
+}
+
+/*
+  Il testo che c'è per chi ascolta e non per chi guarda. `clip-path` e non
+  `display: none`: nascosto con `display` il lettore di schermo non lo legge
+  affatto, e il pulsante resterebbe senza nome.
+*/
+.nascosto-a-vista {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  /*
+    ► `:not([hidden])` NON È PLEONASTICO, ED È UN DIFETTO GIÀ PAGATO. ◄
+    `display: flex` in una regola d'autore SCAVALCA il `display: none` che il
+    browser dà da sé agli elementi con `hidden`. Scritto senza questa clausola,
+    il pulsante si vedeva anche a JavaScript spento — misurato — cioè proprio
+    nel caso in cui non può funzionare: un pulsante che non fa niente, offerto a
+    chi ha meno strumenti di tutti.
+  */
+  .apri-menu:not([hidden]) {
+    display: flex;
+  }
+
+  /*
+    Il pannello: sotto la testata, a tutta larghezza, una voce per riga. Le
+    regole valgono solo con `data-menu`, cioè solo se lo script ha girato.
+  */
+  [data-menu] .navigazione {
+    display: none;
+    order: 3;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    margin: 8px 0 4px;
+    border-top: 1px solid var(--bordo);
+  }
+
+  [data-menu='aperto'] .navigazione {
+    display: flex;
+  }
+
+  /* Righe alte 46 px: un dito su un telefono è largo circa così. */
+  [data-menu] .navigazione > * {
+    padding: 12px 2px;
+    border-bottom: 1px solid var(--bordo);
+    text-align: left;
+  }
+
+  /*
+    Il pulsante «Segnala» e quello del caffè sulla home sono pastiglie: dentro
+    un elenco verticale tornano righe come le altre, o sarebbero due bottoni in
+    mezzo a dei collegamenti.
+  */
+  [data-menu] .navigazione .voce-segnala,
+  [data-menu] .navigazione .voce-caffe,
+  [data-menu] .navigazione .lingua {
+    border-radius: 0;
+    border: 0;
+    border-bottom: 1px solid var(--bordo);
+    padding: 12px 2px;
+    background: transparent;
+    width: 100%;
+  }
+}

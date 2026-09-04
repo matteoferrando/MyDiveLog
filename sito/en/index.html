@@ -19,7 +19,7 @@
       sito si apre anche con un doppio clic, senza un server.
     -->
     <link rel="canonical" href="/en/" />
-    <link rel="stylesheet" href="../stile.css?v=a28ea86b" />
+    <link rel="stylesheet" href="../stile.css?v=3b387641" />
     <!--
       Le tre alternative di lingua, su OGNI pagina e non soltanto sulle due
       home. Sono indirizzi ASSOLUTI perché Google scarta gli `hreflang`
@@ -148,7 +148,18 @@
           dove le pagine si somigliano, cioè sulle altre sei, ed è lì che c'è.
         -->
         <a class="marchio" href="/en/" aria-current="page"><img src="../logo.svg" alt="" /> MyDiveLog</a>
-        <nav class="navigazione">
+        <!--
+          The menu button is `hidden` until a script switches it on: without
+          JavaScript the menu stays the plain wrapped list it has always been.
+          A button that opens a panel is useless if nothing can close it, and
+          closing it is JavaScript — so until the script has run, the panel is
+          never collapsed at all. Resting state is the good state.
+        -->
+        <button class="apri-menu" type="button" aria-expanded="false" aria-controls="menu" hidden>
+          <span class="tratti" aria-hidden="true"></span>
+          <span class="nascosto-a-vista">Menu</span>
+        </button>
+        <nav class="navigazione" id="menu">
           <a href="dive-logbook-law.html">Logbook law</a>
           <a href="privacy.html">Privacy</a>
           <a href="terms.html">Terms</a>
@@ -1575,6 +1586,66 @@
           { threshold: 0.25 },
         );
         for (const p of pezzi) guardia.observe(p);
+      })();
+    </script>
+    <script>
+      /*
+        ► IL MENU A SCOMPARSA, E PERCHÉ IL PULSANTE LO ACCENDE LO SCRIPT. ◄
+
+        Nell'HTML il pulsante nasce `hidden` e la testata non ha `data-menu`:
+        senza JavaScript il menu resta l'elenco disteso, che su un telefono va a
+        capo ma si vede tutto. È qui che si accende, ed è l'unico punto in cui
+        il menu può diventare richiudibile — perché richiuderlo è JavaScript.
+
+        `aria-expanded` non è decorazione: è come un lettore di schermo sa se il
+        pannello è aperto. Va tenuto d'accordo con `data-menu`, e per questo li
+        scrive la stessa funzione.
+      */
+      (function () {
+        const testata = document.querySelector('.testata');
+        const pulsante = testata && testata.querySelector('.apri-menu');
+        const menu = document.getElementById('menu');
+        if (!testata || !pulsante || !menu) return;
+
+        pulsante.hidden = false;
+        const mostra = (aperto) => {
+          testata.dataset.menu = aperto ? 'aperto' : 'chiuso';
+          pulsante.setAttribute('aria-expanded', String(aperto));
+        };
+        mostra(false);
+
+        pulsante.addEventListener('click', () => mostra(testata.dataset.menu !== 'aperto'));
+
+        /*
+          Toccata una voce, il pannello si chiude: su un telefono resterebbe
+          aperto sopra la pagina appena raggiunta, e chi ha premuto crederebbe
+          che non sia successo niente. Vale anche per i frammenti come
+          `#segnala`, che non ricaricano la pagina.
+        */
+        menu.addEventListener('click', (e) => {
+          if (e.target.closest('a, button')) mostra(false);
+        });
+
+        // Esc chiude, e il fuoco torna al pulsante: chi naviga da tastiera non
+        // deve rifare tutto il giro per uscire.
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && testata.dataset.menu === 'aperto') {
+            mostra(false);
+            pulsante.focus();
+          }
+        });
+
+        /*
+          Allargando la finestra oltre la soglia il pannello non serve più, e
+          `data-menu="aperto"` lascerebbe il menu in colonna su un desktop. La
+          soglia è la stessa del foglio di stile, ed è scritta due volte: se un
+          giorno cambia là, va cambiata qui — lo dice questo commento perché
+          nessun comando lo dirà.
+        */
+        const largo = window.matchMedia('(min-width: 861px)');
+        largo.addEventListener('change', (e) => {
+          if (e.matches) mostra(false);
+        });
       })();
     </script>
   </body>

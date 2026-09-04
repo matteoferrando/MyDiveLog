@@ -58,7 +58,11 @@ function senzaCommenti(html: string): string {
 }
 
 function navigazione(html: string): string {
-  const dentro = /<nav class="navigazione">([\s\S]*?)<\/nav>/.exec(senzaCommenti(html));
+  // `[^>]*` e non `>`: dal 3 settembre il menu porta anche `id="menu"`, per
+  // l'`aria-controls` del pulsante a scomparsa. Un'espressione che pretende la
+  // parentesi subito dopo la classe smette di trovare il menu senza dire
+  // perché — ed è successo, con dodici prove rosse su «nessun <nav>».
+  const dentro = /<nav class="navigazione"[^>]*>([\s\S]*?)<\/nav>/.exec(senzaCommenti(html));
   if (!dentro) throw new Error('nessun <nav class="navigazione"> nella pagina');
   return dentro[1];
 }
@@ -68,8 +72,9 @@ function leggi(file: string): string {
 }
 
 describe('il menu del sito', () => {
-  it.each(PAGINE.map((p) => p.file))('%s ha tutte e otto le voci', (file) => {
-    // Erano sette fino al 1° settembre, quando è arrivata «Aiuto». Il numero è
+  it.each(PAGINE.map((p) => p.file))('%s ha tutte e nove le voci', (file) => {
+    // Erano sette fino al 1° settembre, quando è arrivata «Aiuto», e otto fino al
+    // 3, quando è arrivata «Computer». Il numero è
     // scritto qui e non dedotto da una pagina campione: se domani una pagina
     // ne perdesse una, dedurlo dalla prima vorrebbe dire non accorgersene.
     const nav = navigazione(leggi(file));
@@ -277,5 +282,87 @@ describe('i collegamenti esterni', () => {
       expect(m[1], `${file}: ${href}`).not.toMatch(/target="_blank"/);
     }
     expect(contati, `${file}: nessun download in pagina`).toBeGreaterThan(0);
+  });
+});
+
+/*
+ * ► IL MENU A SCOMPARSA SU TELEFONO ◄
+ *
+ * Il menu è cresciuto da sette voci a nove, e a 390 px andava a capo tre volte
+ * prima che cominciasse la pagina. Da qui il pulsante, chiesto dal proprietario
+ * il 3 settembre 2026.
+ *
+ * La parte fragile non è aprirlo: è **cosa si vede se lo script non gira**. Il
+ * pulsante nasce `hidden` nell'HTML e lo accende il codice; le regole del
+ * pannello valgono solo quando la testata porta `data-menu`, che scrive lo
+ * stesso codice. Senza JavaScript non c'è né pulsante né pannello: resta
+ * l'elenco disteso di prima, che va a capo ma si vede tutto.
+ *
+ * *Un pulsante che apre un pannello è inutile se nessuno può chiuderlo*, e
+ * chiuderlo è JavaScript. Nascondere il menu col CSS e sperare che lo script
+ * arrivi è il modo in cui un sito diventa inutilizzabile per un errore di rete.
+ */
+describe('il menu a scomparsa', () => {
+  const CSS = readFileSync(join(SITO, 'stile.css'), 'utf8');
+
+  it.each(PAGINE.map((p) => p.file))('%s ha il pulsante, e nasce spento', (file) => {
+    const html = senzaCommenti(leggi(file));
+    const pulsante = /<button class="apri-menu"([^>]*)>/.exec(html);
+    expect(pulsante, `${file}: manca il pulsante del menu`).not.toBeNull();
+    // `hidden` nell'HTML: senza JavaScript non si vede. È l'unico modo di non
+    // offrire a chi ha meno strumenti un pulsante che non fa niente.
+    expect(pulsante![1], `${file}: il pulsante non nasce \`hidden\``).toMatch(/\bhidden\b/);
+    expect(pulsante![1], `${file}: manca \`aria-expanded\``).toMatch(/aria-expanded="false"/);
+    // `aria-controls` deve puntare a un `id` che esiste, o è una promessa a
+    // vuoto fatta proprio a chi legge con la voce.
+    const controlla = /aria-controls="([^"]*)"/.exec(pulsante![1])?.[1];
+    expect(controlla, `${file}: manca \`aria-controls\``).toBeDefined();
+    expect(html, `${file}: \`aria-controls\` punta a un id che non c'è`).toContain(
+      `<nav class="navigazione" id="${controlla}"`,
+    );
+  });
+
+  it.each(PAGINE.map((p) => p.file))('%s porta lo script che lo accende', (file) => {
+    const html = leggi(file);
+    // Il pulsante lo accende il codice, e solo lì: se questa riga sparisce, il
+    // pulsante resta invisibile per sempre e il menu resta disteso — che è il
+    // guasto meno grave possibile, ed è il motivo per cui è costruito così.
+    // `^\s*` e non la stringa nuda: commentata, la riga c'è ancora e non fa
+    // niente. La prima stesura di questa prova restava verde con
+    // `// pulsante.hidden = false;` — *cercava il testo invece del codice*, che
+    // è lo stesso inganno del `clip-path` trovato dentro il commento che lo
+    // spiega, registrato in `sitoSpecificita.test.ts`.
+    expect(html, `${file}: nessuno accende il pulsante`).toMatch(/^\s*pulsante\.hidden = false;/m);
+    expect(html, `${file}: nessuno scrive \`data-menu\``).toMatch(/^\s*testata\.dataset\.menu =/m);
+  });
+
+  it('il pulsante non scavalca `hidden`', () => {
+    /*
+     * ► IL DIFETTO MISURATO, E POI CORRETTO. ◄ `display: flex` in una regola
+     * d'autore scavalca il `display: none` che il browser dà da sé agli
+     * elementi con `hidden`. Scritto senza `:not([hidden])`, il pulsante si
+     * vedeva anche a JavaScript spento — misurato con un browser vero, non
+     * dedotto — cioè proprio nel caso in cui non può funzionare.
+     */
+    const regola = /\.apri-menu(:not\(\[hidden\]\))?\s*\{[^}]*display:\s*flex/.exec(CSS);
+    expect(regola, 'nessuna regola accende il pulsante su schermo stretto').not.toBeNull();
+    expect(regola![1], '`display: flex` sul pulsante scavalca `hidden`').toBe(':not([hidden])');
+  });
+
+  it('la soglia del foglio di stile e quella dello script coincidono', () => {
+    /*
+     * La larghezza oltre la quale il pannello non serve è scritta in due posti:
+     * nella media query del CSS e nel `matchMedia` dello script, che richiude il
+     * menu quando la finestra si allarga. Se divergono, allargando la finestra
+     * si resta con il menu in colonna su un desktop — e non se ne accorge
+     * nessuno, perché nessuna delle due parti è sbagliata da sola.
+     */
+    const nelCss = /@media \(max-width: (\d+)px\) \{\s*\/\*[\s\S]{0,600}?apri-menu/.exec(CSS);
+    expect(nelCss, 'non trovo la media query del menu').not.toBeNull();
+    const soglia = Number(nelCss![1]);
+    const html = leggi('index.html');
+    const nelloScript = /matchMedia\('\(min-width: (\d+)px\)'\)/.exec(html);
+    expect(nelloScript, 'lo script non guarda la larghezza').not.toBeNull();
+    expect(Number(nelloScript![1]), 'la soglia dello script non è quella del CSS più uno').toBe(soglia + 1);
   });
 });
