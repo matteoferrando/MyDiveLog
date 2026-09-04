@@ -3342,3 +3342,144 @@ table.dati tr:last-child td {
     padding-bottom: 0.35rem;
   }
 }
+
+/* ============================================ i computer supportati, l'elenco */
+
+/*
+  ► LA PAGINA È GENERATA, LO STILE NO. ◄ `scripts/genera-pagina-computer.ts`
+  scrive il markup dal catalogo vero; queste regole lo vestono. Se un giorno
+  cambiano le classi lì, cambiano qui — e le prove del sito se ne accorgono,
+  perché contano gli esiti e le marche.
+*/
+.cerca-computer {
+  margin: 28px 0 34px;
+}
+
+.cerca-computer label {
+  display: block;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--testo-tenue);
+  margin-bottom: 8px;
+}
+
+.cerca-computer input {
+  width: 100%;
+  max-width: 420px;
+  padding: 12px 14px;
+  font: inherit;
+  color: var(--testo);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(157, 220, 255, 0.24);
+  border-radius: 10px;
+}
+
+.cerca-computer input:focus {
+  outline: 2px solid var(--ciano);
+  outline-offset: 2px;
+}
+
+.niente-trovato {
+  margin-top: 14px;
+  color: var(--testo-tenue);
+}
+
+.marca {
+  margin: 26px 0;
+}
+
+.marca h3 {
+  font-size: 20px;
+  margin: 0 0 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+/* Quanti modelli ha quella marca. Numero piccolo e spento: è un'etichetta, non
+   un dato che qualcuno debba confrontare con un altro. */
+.quanti {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--testo-tenue);
+}
+
+.computer-elenco {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+  background: rgba(157, 220, 255, 0.12);
+  border: 1px solid rgba(157, 220, 255, 0.12);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/*
+  Tre colonne su schermo largo — nome, esito, spiegazione — e una sola sul
+  telefono, dove tre colonne su un nome di computer diventano tre parole per
+  riga. È lo stesso rimedio delle tabelle dell'applicazione: la riga diventa
+  una scheda.
+*/
+.computer {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto minmax(0, 1.6fr);
+  gap: 6px 16px;
+  align-items: baseline;
+  padding: 11px 14px;
+  background: var(--venti);
+}
+
+.computer-nome {
+  font-weight: 600;
+}
+
+.computer-nota {
+  color: var(--testo-tenue);
+  font-size: 14px;
+}
+
+/*
+  ► L'ESITO SI LEGGE PRIMA DELLA SPIEGAZIONE, E SI DISTINGUE DA LONTANO. ◄
+  «Si scarica» e «dovrebbe scaricarsi» sono la sola distinzione che questa
+  pagina esiste per fare — in un logbook una lettura sbagliata non dà errore,
+  dà un profilo plausibile e falso — quindi non possono essere due righe di
+  testo dello stesso colore.
+
+  Il colore però non è l'unico segno: le etichette sono parole diverse, non un
+  pallino verde e uno giallo. Chi non distingue i colori legge lo stesso.
+*/
+.esito {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.esito-bluetooth {
+  color: #7ff0c4;
+  background: rgba(60, 220, 160, 0.12);
+  border-color: rgba(60, 220, 160, 0.35);
+}
+
+.esito-dal-file {
+  color: var(--testo-tenue);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(157, 220, 255, 0.2);
+}
+
+@media (max-width: 640px) {
+  .computer {
+    grid-template-columns: 1fr auto;
+  }
+
+  .computer-nota {
+    grid-column: 1 / -1;
+  }
+}

@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Supported dive computers — MyDiveLog</title>
+    <meta
+      name="description"
+      content="The 113 dive computers MyDiveLog downloads over Bluetooth, and what actually happens with each."
+    />
+    <link rel="icon" href="../logo.svg" type="image/svg+xml" />
+    <!--
+      Cloudflare Pages serve queste pagine anche senza `.html`, e su quella
+      forma REINDIRIZZA: `/privacy.html` diventa `/privacy` con un 308. Due
+      indirizzi per una pagina sola sono un doppione per chi indicizza, e
+      l'indirizzo canonico è quello corto — è anche quello da dare a Google
+      e ad Apple. I collegamenti interni restano con `.html` perché così il
+      sito si apre anche con un doppio clic, senza un server.
+    -->
+    <link rel="canonical" href="/en/supported-computers" />
+    <link rel="stylesheet" href="../stile.css?v=a28ea86b" />
+    <!--
+      Le tre alternative di lingua, su OGNI pagina e non soltanto sulle due
+      home. Sono indirizzi ASSOLUTI perché Google scarta gli `hreflang`
+      relativi senza dirlo, e sono nella forma corta senza `.html` perché
+      quella lunga risponde con un 308: indicare l'indirizzo che rimanda
+      significa far passare ogni motore da un salto in più per arrivare dove
+      il `canonical` lo mandava già.
+
+      `x-default` è la pagina da mostrare a chi non parla né italiano né
+      inglese, e punta all'italiano. MyDiveLog nasce in italiano: quello è il
+      testo originale, l'inglese è la traduzione — e sulla pagina della legge
+      è anche più corta — e la legge 70/2026 riguarda chi si immerge in Italia.
+      Chi arriva senza una lingua che sappiamo servire è meglio che trovi il
+      testo pieno.
+
+      Ogni pagina punta al SUO gemello vero, non alla home dell'altra lingua:
+      mandare chi legge la privacy inglese sulla home italiana è un rimando
+      rotto travestito da traduzione.
+    -->
+    <link rel="alternate" hreflang="it" href="https://mydivelog.site/computer-supportati" />
+    <link rel="alternate" hreflang="en" href="https://mydivelog.site/en/supported-computers" />
+    <link rel="alternate" hreflang="x-default" href="https://mydivelog.site/computer-supportati" />
+
+    <!--
+      Open Graph e Twitter card. Senza queste righe un collegamento incollato
+      su LinkedIn, WhatsApp o Slack compare nudo — il nome del dominio e
+      nient'altro — perché quei siti non leggono la pagina: leggono soltanto
+      questi meta, e se non li trovano non inventano niente.
+
+      Titolo e descrizione non sono riscritti qui da capo: sono gli stessi del
+      `<title>` e della `<meta name="description">` di questa pagina. Due testi
+      diversi per la stessa pagina invecchiano male — si corregge l'uno e si
+      dimentica l'altro — e la copia che gira sui social finisce per essere
+      proprio quella dimenticata.
+
+      L'immagine è 1200×630, la misura che LinkedIn e Facebook ritagliano senza
+      tagliare, ed è dichiarata anche in larghezza e altezza: così il riquadro
+      grande compare subito, invece di arrivare dopo che l'immagine è stata
+      scaricata e misurata.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mydivelog.site/en/supported-computers" />
+    <meta property="og:title" content="Supported dive computers — MyDiveLog" />
+    <meta
+      property="og:description"
+      content="The 113 dive computers MyDiveLog downloads over Bluetooth, and what actually happens with each."
+    />
+    <meta property="og:image" content="https://mydivelog.site/immagini/anteprima-en.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:locale:alternate" content="it_IT" />
+    <meta property="og:site_name" content="MyDiveLog" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Supported dive computers — MyDiveLog" />
+    <meta
+      name="twitter:description"
+      content="The 113 dive computers MyDiveLog downloads over Bluetooth, and what actually happens with each."
+    />
+    <meta name="twitter:image" content="https://mydivelog.site/immagini/anteprima-en.jpg" />
+  </head>
+  <body>
+    <div class="contenitore">
+      <header class="testata">
+        <a class="marchio" href="/en/"><img src="../logo.svg" alt="" /> MyDiveLog</a>
+        <nav class="navigazione">
+          <a href="dive-logbook-law.html">Logbook law</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="terms.html">Terms</a>
+          <a href="https://github.com/matteoferrando/MyDiveLog" target="_blank" rel="noopener">Source</a>
+          <!--
+            «Segnala» qui è un collegamento e non un pulsante, e la differenza
+            non è cosmetica: il modulo delle segnalazioni e il centinaio di
+            righe che lo aprono, lo chiudono e ne mandano il contenuto vivono
+            solo nella home. Copiarli anche qui darebbe sei copie della stessa
+            cosa, destinate a divergere al primo ritocco — si corregge il popup
+            in un posto e negli altri cinque resta com'era.
+
+            Il frammento `#segnala` è il messaggio: la home lo riconosce
+            all'arrivo e apre il popup da sola. Non corrisponde a nessun `id`
+            nella pagina, ed è voluto — chi ha JavaScript spento atterra in cima
+            alla home, che è il peggio che gli possa capitare, invece di saltare
+            su un elemento nascosto.
+          -->
+          <a href="supported-computers.html" aria-current="page">Computers</a>
+          <a href="help.html">Help</a>
+          <a class="voce-segnala" href="/en/#segnala">Report</a>
+          <a
+            class="voce-caffe"
+            href="https://www.paypal.com/donate/?hosted_button_id=7PQDU6GPHQK34"
+            target="_blank"
+            rel="noopener"
+          >
+            <span aria-hidden="true">❤︎</span> Buy me a coffee
+          </a>
+          <span class="lingua"><a href="/computer-supportati.html">Italiano</a></span>
+        </nav>
+      </header>
+
+      <main class="documento">
+        <h1>Dive computers that download</h1>
+        <p class="data">113 models, 21 brands — and what actually happens with each</p>
+
+        <div class="evidenza">
+          <p>
+            <strong>This page is generated from the app’s own catalogue</strong>, not written by hand: it says
+            exactly what the app will answer when you search for your model. If it is here, it is there.
+          </p>
+        </div>
+
+        <p>
+          The connection is <b>Bluetooth</b>, from your computer or your phone, without going through the
+          manufacturer’s app. Dives you already have are enriched, not duplicated. And if your computer is not
+          listed, there is almost always <a href="#file">a file route</a>.
+        </p>
+
+        <div class="cerca-computer">
+          <label for="cerca">Search brand or model</label>
+          <input id="cerca" type="search" placeholder="Peregrine, Puck, i330R…" autocomplete="off" />
+          <p class="niente-trovato" hidden>
+            No model by that name. Try the brand on its own — and if that is missing too,
+            <a href="/en/#segnala">tell us</a>: that is how the catalogue grows.
+          </p>
+        </div>
+
+        <section class="marca" data-marca="shearwater">
+          <h3>Shearwater <span class="quanti">11</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="shearwater nerd 2">
+              <span class="computer-nome">Nerd 2</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="shearwater perdix">
+              <span class="computer-nome">Perdix</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="shearwater perdix 2">
+              <span class="computer-nome">Perdix 2</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="shearwater perdix ai">
+              <span class="computer-nome">Perdix AI</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="shearwater peregrine">
+              <span class="computer-nome">Peregrine</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="shearwater peregrine tx">
+              <span class="computer-nome">Peregrine TX</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="shearwater petrel 2">
+              <span class="computer-nome">Petrel 2</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="shearwater petrel 3">
+              <span class="computer-nome">Petrel 3</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="shearwater teric">
+              <span class="computer-nome">Teric</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="shearwater tern">
+              <span class="computer-nome">Tern</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="shearwater tern tx">
+              <span class="computer-nome">Tern TX</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="suunto">
+          <h3>Suunto <span class="quanti">4</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="suunto d5">
+              <span class="computer-nome">D5</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="suunto eon core">
+              <span class="computer-nome">EON Core</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="suunto eon steel">
+              <span class="computer-nome">EON Steel</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="suunto eon steel black">
+              <span class="computer-nome">EON Steel Black</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="scubapro">
+          <h3>Scubapro <span class="quanti">11</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="scubapro aladin a1">
+              <span class="computer-nome">Aladin A1</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="scubapro aladin a2">
+              <span class="computer-nome">Aladin A2</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="scubapro aladin h matrix">
+              <span class="computer-nome">Aladin H Matrix</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="scubapro aladin sport matrix">
+              <span class="computer-nome">Aladin Sport Matrix</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="scubapro g2">
+              <span class="computer-nome">G2</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="scubapro g2 console">
+              <span class="computer-nome">G2 Console</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="scubapro g2 hud">
+              <span class="computer-nome">G2 HUD</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="scubapro g2 tek">
+              <span class="computer-nome">G2 TEK</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="scubapro g3">
+              <span class="computer-nome">G3</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="scubapro luna 2.0">
+              <span class="computer-nome">Luna 2.0</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="scubapro luna 2.0 ai">
+              <span class="computer-nome">Luna 2.0 AI</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="garmin">
+          <h3>Garmin <span class="quanti">8</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="garmin descent mk1">
+              <span class="computer-nome">Descent Mk1</span>
+              <span class="esito esito-dal-file">File only</span>
+              <span class="computer-nota">export from its own software, then import here</span>
+            </li>
+            <li class="computer" data-cerca="garmin descent mk2">
+              <span class="computer-nome">Descent Mk2</span>
+              <span class="esito esito-dal-file">File only</span>
+              <span class="computer-nota">export from its own software, then import here</span>
+            </li>
+            <li class="computer" data-cerca="garmin descent mk2i">
+              <span class="computer-nome">Descent Mk2i</span>
+              <span class="esito esito-dal-file">File only</span>
+              <span class="computer-nota">export from its own software, then import here</span>
+            </li>
+            <li class="computer" data-cerca="garmin descent mk2s">
+              <span class="computer-nome">Descent Mk2S</span>
+              <span class="esito esito-dal-file">File only</span>
+              <span class="computer-nota">export from its own software, then import here</span>
+            </li>
+            <li class="computer" data-cerca="garmin descent mk3">
+              <span class="computer-nome">Descent Mk3</span>
+              <span class="esito esito-dal-file">File only</span>
+              <span class="computer-nota">export from its own software, then import here</span>
+            </li>
+            <li class="computer" data-cerca="garmin descent mk3i">
+              <span class="computer-nome">Descent Mk3i</span>
+              <span class="esito esito-dal-file">File only</span>
+              <span class="computer-nota">export from its own software, then import here</span>
+            </li>
+            <li class="computer" data-cerca="garmin descent g1">
+              <span class="computer-nome">Descent G1</span>
+              <span class="esito esito-dal-file">File only</span>
+              <span class="computer-nota">export from its own software, then import here</span>
+            </li>
+            <li class="computer" data-cerca="garmin descent g2">
+              <span class="computer-nome">Descent G2</span>
+              <span class="esito esito-dal-file">File only</span>
+              <span class="computer-nota">export from its own software, then import here</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="mares">
+          <h3>Mares <span class="quanti">13</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="mares genius">
+              <span class="computer-nome">Genius</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="mares puck 4">
+              <span class="computer-nome">Puck 4</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="mares puck air 2">
+              <span class="computer-nome">Puck Air 2</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="mares puck lite">
+              <span class="computer-nome">Puck Lite</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="mares puck pro">
+              <span class="computer-nome">Puck Pro</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="mares puck pro +">
+              <span class="computer-nome">Puck Pro +</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="mares quad">
+              <span class="computer-nome">Quad</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="mares quad air">
+              <span class="computer-nome">Quad Air</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="mares quad ci">
+              <span class="computer-nome">Quad Ci</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="mares sirius">
+              <span class="computer-nome">Sirius</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="mares smart">
+              <span class="computer-nome">Smart</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="mares smart air">
+              <span class="computer-nome">Smart Air</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="mares smart apnea">
+              <span class="computer-nome">Smart Apnea</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="oceanic">
+          <h3>Oceanic <span class="quanti">5</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="oceanic geo 4.0">
+              <span class="computer-nome">Geo 4.0</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="oceanic geo air">
+              <span class="computer-nome">Geo Air</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="oceanic pro plus 4">
+              <span class="computer-nome">Pro Plus 4</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="oceanic pro plus x">
+              <span class="computer-nome">Pro Plus X</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="oceanic veo 4.0">
+              <span class="computer-nome">Veo 4.0</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="cressi">
+          <h3>Cressi <span class="quanti">7</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="cressi cartesio">
+              <span class="computer-nome">Cartesio</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="cressi donatello">
+              <span class="computer-nome">Donatello</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="cressi goa">
+              <span class="computer-nome">Goa</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="cressi leonardo 2.0">
+              <span class="computer-nome">Leonardo 2.0</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="cressi michelangelo">
+              <span class="computer-nome">Michelangelo</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="cressi neon">
+              <span class="computer-nome">Neon</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="cressi nepto">
+              <span class="computer-nome">Nepto</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="aqualung">
+          <h3>Aqualung <span class="quanti">8</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="aqualung i200c">
+              <span class="computer-nome">i200C</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="aqualung i300c">
+              <span class="computer-nome">i300C</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="aqualung i330r">
+              <span class="computer-nome">i330R</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="aqualung i330r console">
+              <span class="computer-nome">i330R Console</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="aqualung i470tc">
+              <span class="computer-nome">i470TC</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="aqualung i550c">
+              <span class="computer-nome">i550C</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="aqualung i750tc">
+              <span class="computer-nome">i750TC</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="aqualung i770r">
+              <span class="computer-nome">i770R</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="ratio">
+          <h3>Ratio <span class="quanti">25</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="ratio atom">
+              <span class="computer-nome">ATOM</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio idive 2 deep">
+              <span class="computer-nome">iDive 2 Deep</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio idive 2 easy">
+              <span class="computer-nome">iDive 2 Easy</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio idive 2 fancy">
+              <span class="computer-nome">iDive 2 Fancy</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio idive 2 free">
+              <span class="computer-nome">iDive 2 Free</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio idive 2 pro">
+              <span class="computer-nome">iDive 2 Pro</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio idive 2 reb">
+              <span class="computer-nome">iDive 2 Reb</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio idive 2 tech">
+              <span class="computer-nome">iDive 2 Tech</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2 deep">
+              <span class="computer-nome">iX3M 2 Deep</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2 easy">
+              <span class="computer-nome">iX3M 2 Easy</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2 gauge">
+              <span class="computer-nome">iX3M 2 Gauge</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2 gps deep">
+              <span class="computer-nome">iX3M 2 GPS Deep</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2 gps easy">
+              <span class="computer-nome">iX3M 2 GPS Easy</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2 gps gauge">
+              <span class="computer-nome">iX3M 2 GPS Gauge</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2 gps pro">
+              <span class="computer-nome">iX3M 2 GPS Pro</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2 gps reb">
+              <span class="computer-nome">iX3M 2 GPS Reb</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2 gps tech">
+              <span class="computer-nome">iX3M 2 GPS Tech</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2 pro">
+              <span class="computer-nome">iX3M 2 Pro</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2 tech+">
+              <span class="computer-nome">iX3M 2 Tech+</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2021 gps deep">
+              <span class="computer-nome">iX3M 2021 GPS Deep</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2021 gps easy">
+              <span class="computer-nome">iX3M 2021 GPS Easy</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2021 gps fancy">
+              <span class="computer-nome">iX3M 2021 GPS Fancy</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2021 gps pro ">
+              <span class="computer-nome">iX3M 2021 GPS Pro </span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2021 gps reb">
+              <span class="computer-nome">iX3M 2021 GPS Reb</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="ratio ix3m 2021 gps tech+">
+              <span class="computer-nome">iX3M 2021 GPS Tech+</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="divesoft">
+          <h3>Divesoft <span class="quanti">2</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="divesoft freedom">
+              <span class="computer-nome">Freedom</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="divesoft liberty">
+              <span class="computer-nome">Liberty</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="sherwood">
+          <h3>Sherwood <span class="quanti">3</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="sherwood beacon">
+              <span class="computer-nome">Beacon</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="sherwood sage">
+              <span class="computer-nome">Sage</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="sherwood wisdom 4">
+              <span class="computer-nome">Wisdom 4</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="apeks">
+          <h3>Apeks <span class="quanti">1</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="apeks dsx">
+              <span class="computer-nome">DSX</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="crest">
+          <h3>Crest <span class="quanti">1</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="crest cr-4">
+              <span class="computer-nome">CR-4</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="deep six">
+          <h3>Deep Six <span class="quanti">1</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="deep six excursion">
+              <span class="computer-nome">Excursion</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="deepblu">
+          <h3>Deepblu <span class="quanti">1</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="deepblu cosmiq+">
+              <span class="computer-nome">Cosmiq+</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="genesis">
+          <h3>Genesis <span class="quanti">1</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="genesis centauri">
+              <span class="computer-nome">Centauri</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="halcyon">
+          <h3>Halcyon <span class="quanti">2</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="halcyon symbios handset">
+              <span class="computer-nome">Symbios Handset</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="halcyon symbios hud">
+              <span class="computer-nome">Symbios HUD</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="heinrichs weikamp">
+          <h3>Heinrichs Weikamp <span class="quanti">6</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="heinrichs weikamp ostc 2">
+              <span class="computer-nome">OSTC 2</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="heinrichs weikamp ostc 2 tr">
+              <span class="computer-nome">OSTC 2 TR</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="heinrichs weikamp ostc 4">
+              <span class="computer-nome">OSTC 4</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="heinrichs weikamp ostc 5">
+              <span class="computer-nome">OSTC 5</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="heinrichs weikamp ostc plus">
+              <span class="computer-nome">OSTC Plus</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+            <li class="computer" data-cerca="heinrichs weikamp ostc sport">
+              <span class="computer-nome">OSTC Sport</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="mclean">
+          <h3>McLean <span class="quanti">1</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="mclean extreme">
+              <span class="computer-nome">Extreme</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="oceans">
+          <h3>Oceans <span class="quanti">1</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="oceans s1">
+              <span class="computer-nome">S1</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+        <section class="marca" data-marca="scorpena">
+          <h3>Scorpena <span class="quanti">1</span></h3>
+          <ul class="computer-elenco">
+            <li class="computer" data-cerca="scorpena alpha">
+              <span class="computer-nome">Alpha</span>
+              <span class="esito esito-bluetooth">Over Bluetooth</span>
+              <span class="computer-nota">connects and downloads, no file needed</span>
+            </li>
+          </ul>
+        </section>
+
+        <h2>The two answers</h2>
+        <p>
+          <b>Over Bluetooth</b>: put the computer in pairing mode, tap “Search for the computer”, and the
+          dives come in. No cable, no file, no manufacturer software in the way. Dives you already have are
+          enriched, not duplicated.
+        </p>
+        <p>
+          <b>File only</b>: the data does not leave over Bluetooth to anything but the manufacturer’s own app.
+          This is the case for <b>Garmin Descent</b> watches, which send everything to Garmin Connect: export
+          from there and import here, and the result is the same.
+        </p>
+        <p>
+          If something does not work the way this page says, <a href="/en/#segnala">tell us</a>: that is how
+          it gets fixed.
+        </p>
+
+        <h2 id="file">If your computer is not listed: files</h2>
+        <p>
+          MyDiveLog recognises seven formats <b>by content, not by extension</b>, so you do not need to know
+          what that file is: drag it in and that is all.
+        </p>
+        <ul>
+          <li><b>UDDF</b> — the universal logbook exchange format. Almost everything exports it.</li>
+          <li>
+            <b>Subsurface</b> (<code>.ssrf</code>, <code>.xml</code>) — the native file too, no conversion.
+          </li>
+          <li><b>Shearwater Cloud</b> — XML export, and the device’s native log.</li>
+          <li><b>Garmin FIT</b> — what comes out of Garmin Connect.</li>
+          <li><b>Scubapro LogTRAK</b> (<code>.logtrak</code>).</li>
+          <li><b>CSV or TSV</b> — any spreadsheet with one row per dive.</li>
+          <li><b>MyDiveLog JSON backup</b>, to carry everything from one device to another.</li>
+        </ul>
+        <p>
+          <b>Got a Mares, a Suunto or an Oceanic whose software does not export UDDF?</b> Go through
+          <a href="https://subsurface-divelog.org" target="_blank" rel="noopener">Subsurface</a>: it reads
+          almost everything and saves in a format we read natively.
+        </p>
+      </main>
+
+      <footer class="piede">
+        <div class="piede-griglia">
+          <div>
+            <a class="piede-marchio" href="/en/">
+              <img src="../logo.svg" alt="" />
+              MyDiveLog
+            </a>
+            <p>
+              The dive logbook that merges the data from all your computers, analyses it and holds the fields
+              Italian law asks for. Free software, MIT licence.
+            </p>
+          </div>
+          <div class="piede-colonna">
+            <h3>The app</h3>
+            <ul>
+              <li><a href="dive-logbook-law.html">Italy's dive logbook law</a></li>
+              <li><a href="privacy.html">Privacy</a></li>
+              <li><a href="terms.html">Terms of service</a></li>
+              <li><a href="help.html">Help and FAQ</a></li>
+              <li><a href="supported-computers.html">Supported computers</a></li>
+            </ul>
+          </div>
+          <div class="piede-colonna">
+            <h3>The project</h3>
+            <ul>
+              <li>
+                <a href="https://github.com/matteoferrando/MyDiveLog" target="_blank" rel="noopener"
+                  >Code on GitHub</a
+                >
+              </li>
+              <li>
+                <a href="https://libdivecomputer.org" target="_blank" rel="noopener">libdivecomputer</a>
+              </li>
+              <li><a href="/en/#segnala">Report a problem</a></li>
+            </ul>
+          </div>
+        </div>
+        <p>Matteo Ferrando — <a href="mailto:matteozinin@protonmail.com">matteozinin@protonmail.com</a></p>
+      </footer>
+    </div>
+    <script>
+      (function () {
+        const campo = document.getElementById('cerca');
+        if (!campo) return;
+        const marche = [...document.querySelectorAll('.marca')];
+        const niente = document.querySelector('.niente-trovato');
+        campo.addEventListener('input', function () {
+          const q = campo.value.trim().toLowerCase();
+          let visti = 0;
+          for (const sezione of marche) {
+            let quante = 0;
+            for (const voce of sezione.querySelectorAll('.computer')) {
+              const ok = !q || voce.dataset.cerca.includes(q);
+              voce.hidden = !ok;
+              if (ok) quante++;
+            }
+            sezione.hidden = quante === 0;
+            visti += quante;
+          }
+          niente.hidden = visti > 0;
+        });
+      })();
+    </script>
+  </body>
+</html>

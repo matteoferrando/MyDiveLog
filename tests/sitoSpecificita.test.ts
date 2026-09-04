@@ -71,11 +71,13 @@ const TUTTE_LE_PAGINE = [
   'privacy.html',
   'termini.html',
   'libretto-immersioni.html',
+  'computer-supportati.html',
   'aiuto.html',
   'en/index.html',
   'en/privacy.html',
   'en/terms.html',
   'en/dive-logbook-law.html',
+  'en/supported-computers.html',
   'en/help.html',
 ] as const;
 

@@ -33,6 +33,37 @@ function pagine(dir: string, dentro: string[] = []): string[] {
 }
 
 describe('il sito', () => {
+  it('non dice «dal Mac» quando intende «dal computer»', () => {
+    /*
+     * ► LA STESSA CORREZIONE, CHIESTA UNA VOLTA E APPLICATA A METÀ. ◄
+     *
+     * Il 31 agosto 2026 il proprietario aveva chiesto di sostituire «dal Mac e
+     * anche dall'iPhone» con «dal computer o anche dal telefono»: da quando le
+     * piattaforme sono cinque, nominare il Mac dove si intende «un computer
+     * qualunque» taglia fuori Windows e Linux nella frase stessa che dovrebbe
+     * includerli. La correzione è stata fatta sulla home, e **le due pagine
+     * sulla legge sono rimaste indietro** — se n'è accorto lui, il 3 settembre,
+     * rileggendo la pagina dei computer.
+     *
+     * *Una correzione testuale applicata a mano su un sito di dodici pagine è
+     * una correzione applicata dove qualcuno si è ricordato di guardare.*
+     *
+     * Questa prova cerca le forme in cui «Mac» sta per «computer», e non le
+     * altre: «Mac App Store», «Mac Apple Silicon», «Mac Intel» e `macOS`
+     * nominano il Mac perché parlano proprio del Mac, e devono restare.
+     */
+    const sbagliate = [/\bdal Mac (e|o)\b/, /\bfrom the Mac (and|or)\b/, /\bsul Mac (e|o) sul\b/];
+    const guasti: string[] = [];
+    for (const pagina of pagine(SITO)) {
+      const html = readFileSync(pagina, 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+      for (const forma of sbagliate) {
+        const trovata = forma.exec(html);
+        if (trovata) guasti.push(`${pagina}: «${trovata[0]}»`);
+      }
+    }
+    expect(guasti, 'qui «Mac» sta per «computer»: Windows e Linux restano fuori dalla frase').toEqual([]);
+  });
+
   it('ogni pagina chiede il foglio di stile con la sua impronta', () => {
     const impronta = createHash('sha256')
       .update(readFileSync(join(SITO, 'stile.css')))

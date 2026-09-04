@@ -37,11 +37,13 @@ const PAGINE = [
   { file: 'privacy.html', quiE: 'voce' },
   { file: 'termini.html', quiE: 'voce' },
   { file: 'libretto-immersioni.html', quiE: 'voce' },
+  { file: 'computer-supportati.html', quiE: 'voce' },
   { file: 'aiuto.html', quiE: 'voce' },
   { file: 'en/index.html', quiE: 'marchio' },
   { file: 'en/privacy.html', quiE: 'voce' },
   { file: 'en/terms.html', quiE: 'voce' },
   { file: 'en/dive-logbook-law.html', quiE: 'voce' },
+  { file: 'en/supported-computers.html', quiE: 'voce' },
   { file: 'en/help.html', quiE: 'voce' },
 ] as const;
 
@@ -72,7 +74,7 @@ describe('il menu del sito', () => {
     // ne perdesse una, dedurlo dalla prima vorrebbe dire non accorgersene.
     const nav = navigazione(leggi(file));
     const voci = [...nav.matchAll(/<(a|button)[\s>]/g)];
-    expect(voci.length, `${file}: voci nel menu`).toBe(8);
+    expect(voci.length, `${file}: voci nel menu`).toBe(9);
   });
 
   it.each(PAGINE.map((p) => p.file))('%s manda all’aiuto prima che a «Segnala»', (file) => {
