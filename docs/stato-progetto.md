@@ -1,13 +1,30 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **7 settembre 2026, sera tardi** — commit `80d7637` su `main`, **1897
-prove in 102 file** più **63 prove Rust** del ponte, lint a **0 errori e 0
-avvisi**. **La 1.8.0 è USCITA**: release `v1.8.0` con nove allegati, i quattro
-pulsanti del sito rispondono `200`, `latest.json` serve `1.8.0` per Mac e
-Windows. **Sui due negozi Apple non ancora**: l'`.ipa` e il `.pkg` sono
-costruiti e firmati, il caricamento su App Store Connect è il passo che spetta
-al proprietario. Google Play aspetta la fine del test chiuso (attorno al 12
-settembre). Vedi «Il rilascio della 1.8.0».
+Aggiornato: **7 settembre 2026, notte** — commit `1d38cbe` su `main`, **1897 prove
+in 102 file** più **63 prove Rust** del ponte, lint a **0 errori e 0 avvisi**.
+**La versione pubblica è la `1.8.1`**: release `v1.8.1` con nove allegati, i
+quattro pulsanti del sito rispondono `200`, `latest.json` serve `1.8.1` per Mac e
+Windows, e l'impronta del `.dmg` **riscaricato dall'indirizzo pubblico** coincide
+con quella scritta nelle note. **Nel comportamento è identica alla 1.8.0**: il
+numero è salito perché `1.8.0` era già stato consegnato ad App Store Connect, e
+quel campo non restituisce un numero consumato. **Sui due negozi Apple c'è
+ancora la 1.7.1**: l'`.ipa` e il `.pkg` della 1.8.1 sono costruiti e firmati, il
+caricamento spetta al proprietario. Google Play aspetta la fine del test chiuso
+(attorno al 12 settembre). Vedi «Il rilascio della 1.8.0», che racconta la
+giornata, e il riquadro qui sotto per la 1.8.1.
+
+> **► PERCHÉ ESISTE UNA 1.8.1 CHE NON CAMBIA NIENTE. ◄** Il numero consegnato a
+> un negozio è **bruciato anche se il pacchetto non è stato pubblicato**: App
+> Store Connect rifiuta un `CFBundleVersion` già visto e non distingue fra
+> «consegnato» e «pubblicato». Per poter consegnare di nuovo serviva un numero
+> non consumato. *Le note della release lo dicono con queste parole — «stesso
+> programma, è cambiato solo il numero» — perché annunciare una novità che non
+> c'è è la bugia di segno opposto a quella di spedire due binari diversi con lo
+> stesso numero.* **E le impronte SHA-256 sono diverse da quelle della 1.8.0
+> anche a codice identico**, perché il numero di versione sta dentro il
+> pacchetto: un'impronta diversa non vuol dire un programma diverso, e sta
+> scritto anche nelle note.
+
 Quello che porta è il **ponte Bluetooth verso libdivecomputer riscritto senza
 righe per modello**, dopo una segnalazione vera, e — dalla notte dello stesso
 giorno — **il riconoscimento dal nome dei computer senza driver di casa**: un
