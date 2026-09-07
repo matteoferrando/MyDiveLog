@@ -1,14 +1,17 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **3 settembre 2026, sera** — commit `34865f1` su `main`, albero
-pulito, **1813 prove in 99 file**, e il lint che dall'1 settembre **non ha niente
-da dire: 0 errori e 0 avvisi**, dove per settimane ne stavano quattordici. Il
-sito è **pubblicato e verificato pagina per pagina** (`npm run sito:online`), e
-la pagina di aiuto è finalmente online dopo due giorni in cui c'era solo nel
-repository. Nel repository c'è la **1.7.1**, e **le
-piattaforme sono cinque**: il 31 agosto è entrata **Linux**, con un `.deb`. È l'unica delle
-tre che non si costruiscono sul Mac ad essere stata **fatta partire davvero**
-prima di essere pubblicata — vedi «Linux, la quinta piattaforma».
+Aggiornato: **7 settembre 2026** — commit `4ada808` su `main`, **1874 prove in
+100 file** più **49 prove Rust** del ponte, lint a **0 errori e 0 avvisi**. Nel
+repository c'è la **1.8.0**, e **non è ancora rilasciata da nessuna parte**: è
+il caso descritto in `rilascio-e-versioni.md` — committata e compilata nel
+contenitore, ferma lì finché il Mac non costruisce e i negozi non ricevono.
+Quello che porta è il **ponte Bluetooth verso libdivecomputer riscritto senza
+righe per modello**, dopo una segnalazione vera: vedi «Il 7 settembre». Il sito
+è **pubblicato e verificato pagina per pagina** (`npm run sito:online`, sera del
+3 settembre). **Le piattaforme sono cinque**: il 31 agosto è entrata **Linux**,
+con un `.deb`. È l'unica delle tre che non si costruiscono sul Mac ad essere
+stata **fatta partire davvero** prima di essere pubblicata — vedi «Linux, la
+quinta piattaforma».
 
 *(Il 29 e il 31 agosto ci sono state tre giornate sul solo sito, raccontate in
 «Il sito, il 29 agosto» e nei documenti di progetto. L'1 settembre l'apertura è
@@ -297,6 +300,129 @@ pure e lancia `main()` **solo se è stato eseguito**: importato da una prova non
 deve mettersi a parlare con Cloudflare.
 
 ---
+
+## Il 7 settembre: «stato -6» venti volte, e la scelta di non scrivere una riga per modello
+
+**Cosa è arrivato.** Due segnalazioni dal sito, dallo stesso mittente: un centro
+immersioni con un **Mares Quad Ci** e un iPhone 16. *«L'app si collega al
+computer ma non scarica le immersioni, provato 20 volte, siamo un centro sub e
+vorremmo consigliare a tutti i clienti questa app… se funziona siamo +300».* Nel
+diario tecnico incollato: **`stato -6`**, il profilo scelto dal **RIPIEGO**
+(nessun profilo noto), servizio `544e326b-…`, scrittura «senza conferma».
+
+**Cosa dice il diario, e cosa non dice.** `-6` è `DC_STATUS_IO`: una delle due
+callback del trasporto ha restituito un errore — non un silenzio, che sarebbe
+`-7`. Ma *quale* — la scrittura rifiutata dal plugin, il collegamento caduto, la
+lettura su un canale chiuso — il diario non lo diceva, perché le callback
+buttavano via il motivo e tenevano il numero. **Venti tentativi, venti volte lo
+stesso numero, e nessuna informazione in più dal primo al ventesimo.** È la
+forma esatta di «l'assenza di una segnalazione non è una misura», applicata a
+una segnalazione che c'era.
+
+**La prima risposta, e perché è stata scartata.** Il servizio `544e326b-…` è il
+«Mares BlueLink Pro» nell'elenco di Subsurface: bastava una riga nella tabella
+dei profili con la modalità di scrittura «giusta». Il proprietario ha chiesto se
+fossi sicuro, e non lo ero: **una riga per marca, ognuna da verificare da uno
+sconosciuto con l'apparecchio in mano, e ogni marca mancante un altro `-6` che
+non insegna niente.** Subsurface scarica da tutte queste marche senza una
+tabella per modello. Ha tre meccanismi generali, e adesso li ha anche il ponte
+(`src-tauri/src/ponte_blec.rs`, `trasporto_ldc.rs`; commit `ac08fa8`, `c7a8bfd`).
+
+### I tre meccanismi, e uno scoperto per strada
+
+1. **La modalità di scrittura si legge dalle proprietà GATT e si negozia.** Il
+   primo tentativo è quello che la caratteristica dichiara (senza conferma se
+   lo permette, com'è in `BLEObject::write` di Subsurface). Se il plugin
+   **rifiuta** — Android e BlueZ lo fanno — e la caratteristica dichiara anche
+   l'altra modalità, si cambia una volta e si riprova lo stesso pezzo. Se la
+   scrittura passa ma **il primo scambio resta muto**, si rimanda l'ultimo
+   comando nell'altra modalità e si aspetta ancora una volta — una sola, e solo
+   prima della prima notifica, perché il primo scambio è un'identificazione in
+   tutti i protocolli e ripetere un comando dopo non lo sarebbe. **Su Apple il
+   secondo caso è l'unico possibile**: btleplug converte una modalità non
+   dichiarata invece di rifiutarla (`corebluetooth/peripheral.rs`, `write`),
+   quindi su iPhone e Mac una modalità sbagliata non dà mai un errore, dà un
+   silenzio.
+2. **Il Terminal I/O a crediti di Heinrichs Weikamp**, come protocollo e non
+   come ipotesi: iscrizione ai crediti in arrivo e ai dati, 254 crediti con
+   conferma prima del primo comando, 222 in più quando ne restano 32 — i numeri
+   di `setupHwTerminalIo` in `qt-ble.cpp`. Senza, **tutta la famiglia OSTC** (Telit
+   `0000fefb-…` e u-blox `2456e1b9-…`) falliva a prescindere dalla modalità,
+   perché il computer non manda un byte finché non ha crediti. Sono le uniche
+   due righe di tabella nuove, e ci stanno perché **le proprietà non bastano**:
+   due caratteristiche scrivibili, e un protocollo prima di leggere.
+3. **Il diario registra lo scambio**: i servizi annunciati, le prime sei
+   scritture con byte e modalità, la prima notifica e quanti millisecondi dopo
+   la prima scrittura, ogni rifiuto e ogni rinvio, la caduta del collegamento
+   con il conto delle notifiche arrivate prima, e **un riassunto che finisce
+   anche nel messaggio d'errore**: *«scarico non riuscito (stato -6, errore di
+   trasmissione: scrittura di 2 byte: il collegamento Bluetooth si è chiuso) —
+   scambio: 1 scritture (2 byte, senza conferma), 0 notifiche, nessuna
+   notifica ricevuta; il collegamento è caduto da sé»*. La ventunesima prova
+   del centro sub dirà dove si rompe.
+
+**E il quarto, che nessuna segnalazione aveva chiesto.** Rileggendo `custom.c`
+per rispondere alla domanda «cosa fa una `ioctl` nulla»: **restituisce
+successo senza toccare il buffer**, non «non supportato». `oceanic_atom2.c`
+chiede il nome Bluetooth per ricavarne il numero di serie, lo trovava vuoto e
+moriva con *«Bluetooth device name too short»* — **stato -6**. Cioè tutta la
+famiglia Oceanic/Aqualung/Pelagic su BLE (i770R, i200C, Pro Plus X, Geo 4.0)
+falliva con lo stesso numero di un collegamento caduto, e il commento accanto a
+`configure: None` diceva pure la cosa sbagliata («non supportato»). Adesso
+`cb_ioctl` risponde al nome e alla lettura di una caratteristica (che serve al
+Cressi Goa), e «non supportato» al resto — che è la risposta che i backend sanno
+gestire. *Una domanda fatta per un altro motivo ha trovato un difetto che
+nessuna segnalazione avrebbe descritto: chi ha un i770R avrebbe visto «-6» e
+basta.*
+
+**Intorno, dall'elenco di Subsurface:** i servizi riconosciuti (Mares BlueLink
+Pro, Suunto, Pelagic, Perdix 3, Divesoft, Cressi, Nordic, Halcyon, Seac) che
+sciolgono le ambiguità del ripiego e **mettono il nome nel diario**; i servizi
+standard del SIG ignorati in blocco invece che da un elenco a mano di otto; le
+caratteristiche da evitare di McLean e Halcyon. E una cosa che c'era da prima:
+**quando l'apertura del ponte falliva, il collegamento restava in piedi** — il
+computer sveglio, e su alcuni firmware la porta occupata al tentativo dopo.
+
+### Cosa è verificato, e cosa no — detto con la precisione che ha
+
+Verificato: **49 prove Rust** contro un'antenna finta (17 nuove), ognuna vista
+rossa per mutazione — compresa la soglia dei crediti sbagliata di uno, che
+**passava per la corsa** finché la prova non ha aspettato il compito asincrono
+prima di contare; e la guardia sui servizi di sistema, che aveva un'eccezione
+per i due standard riconosciuti **che nessuna prova poteva far diventare
+rossa**, perché quei due vengono presi prima e lì non arrivano mai: tolta.
+
+Non verificato: **tutto su hardware.** Nessun Mares, nessun OSTC, nessun
+Oceanic è stato collegato a questo codice. Quello che si può dire è che i
+meccanismi sono quelli con cui Subsurface scarica da queste marche, che si
+verificano una volta per meccanismo invece di una per modello, e che **dove non
+funzionano il diario dice perché**. Il centro sub con trecento clienti è il
+banco di prova migliore che si potesse desiderare, e la risposta da mandargli è
+qui sotto.
+
+### La risposta al centro sub
+
+> Grazie, e grazie per i venti tentativi: sono serviti. Oggi le immersioni del
+> Quad Ci entrano lo stesso passando dal file: se dall'app Mares esportate il
+> logbook in uno dei formati che importiamo (UDDF o CSV, fra gli altri),
+> MyDiveLog lo legge da «Importa». La prossima
+> versione, la 1.8.0, cambia il modo in cui l'app parla via Bluetooth con i
+> computer che non ha mai visto — e soprattutto **scrive nel diario tecnico
+> dove si ferma**: se con la 1.8.0 non scarica ancora, il diario che ci
+> incollate dirà esattamente cosa non ha risposto, e a quel punto la correzione
+> è mirata. Se vi va di essere i primi a provarla, scriveteci dallo stesso
+> modulo.
+
+**Fonti**, tutte pubbliche e lette per intero: `core/qt-ble.cpp` e `qt-ble.h`
+di Subsurface (`BLEObject::write`, `setupHwTerminalIo`, `setHwCredit`,
+`serial_service_uuids`, `skip_characteristics`); `src/custom.c`, `src/packet.c`,
+`src/mares_iconhd.c`, `src/oceanic_atom2.c`, `src/cressi_goa.c`,
+`src/pelagic_i330r.c` e `include/libdivecomputer/{ioctl,ble}.h` del tarball
+0.9.0 vendorizzato; `corebluetooth/{peripheral,internal}.rs` di btleplug 0.12
+e `handler.rs` di tauri-plugin-blec 0.12, dalla cache di cargo. *La storia di
+libdivecomputer dopo la 0.9.0 (86 commit) non tocca il trasporto BLE di Mares:
+aggiornare il tarball non avrebbe cambiato niente per questa segnalazione, e
+avrebbe rimesso in gioco la compilazione per iOS, Android e Windows.*
 
 ## Il 28 agosto: il primo utente esterno, e le due cose che ha trovato in una riga
 
@@ -1798,6 +1924,17 @@ misurato qui non si scrive.
 
 ### Tocca a chi pubblica
 
+0. **► RILASCIARE LA 1.8.0, SU TUTTE E CINQUE LE PIATTAFORME E SUI DUE NEGOZI
+   APPLE. ◄** Il repository è pronto (`4ada808`); i passi sono gli otto di
+   `rilascio-e-versioni.md` più il 9 (Mac App Store) e — quando la finestra di
+   Play si chiude — il 10. **Dal contenitore si fa solo quello che non tocca
+   una credenziale**: commit, push, il workflow di GitHub. `mac:pubblica`,
+   `ios:negozio`, `pubblica-mac-negozio.sh`, la release, Transporter e App
+   Store Connect sono del proprietario. _Dopo la release: `npm run cask`, che
+   riallinea la cask di Homebrew e il PKGBUILD alla 1.8.0 — le due guardie
+   adesso tollerano che restino indietro, non che restino indietro per
+   sempre._ **E la risposta al centro sub va mandata prima**, perché la via del
+   file funziona già oggi.
 1. **~~La 1.7.1 ai due negozi.~~ Fatta, tutti e due.** Su **App Store per
    iPhone** dal **28 agosto alle 21:25:04 UTC**, misurato col `lookup` e
    l'anti-cache; sul **Mac App Store**, dichiarato dal proprietario l'1
@@ -1883,7 +2020,10 @@ misurato qui non si scrive.
 
 6. **Provare libdivecomputer con un computer che non sia il Peregrine né
    l'Aladin** — e solo allora togliere il «mai provato su questo modello». Adesso
-   vale anche per Android, dove la libreria è dentro.
+   vale anche per Android, dove la libreria è dentro. _Dal 7 settembre il
+   candidato c'è: il centro sub con il Mares Quad Ci, e la 1.8.0 che gli dirà
+   nel diario dove si ferma. La prima cosa da leggere in quel diario è la riga
+   «scambio: …» in fondo._
 7. **Restituire a monte le due scoperte**: il nome BLE dell'Aladin Sport Matrix e
    l'offset 24 dell'intestazione Uwatec (profondità media). È la sola condizione
    che il manutentore della libreria ha chiesto, quindi non è una cortesia.
