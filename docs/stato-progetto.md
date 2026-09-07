@@ -1,12 +1,16 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **7 settembre 2026, sera** — commit `55fa1f5` su `main`, **1874 prove in
-100 file** più **59 prove Rust** del ponte, lint a **0 errori e 0 avvisi**. Nel
+Aggiornato: **7 settembre 2026, notte** — commit `46e84b8` su `main`, **1897 prove
+in 102 file** più **63 prove Rust** del ponte, lint a **0 errori e 0 avvisi**. Nel
 repository c'è la **1.8.0**, e **non è ancora rilasciata da nessuna parte**: è
 il caso descritto in `rilascio-e-versioni.md` — committata e compilata nel
 contenitore, ferma lì finché il Mac non costruisce e i negozi non ricevono.
 Quello che porta è il **ponte Bluetooth verso libdivecomputer riscritto senza
-righe per modello**, dopo una segnalazione vera: vedi «Il 7 settembre». Il sito
+righe per modello**, dopo una segnalazione vera, e — dalla notte dello stesso
+giorno — **il riconoscimento dal nome dei computer senza driver di casa**: un
+«Quad Ci» non dice più «non riconosciuto come computer subacqueo», dice «Mares
+Quad Ci» e ha «Scarica». Vedi «Il 7 settembre» e «La sera: riconoscere dal
+nome». Il sito
 è **pubblicato e verificato pagina per pagina** (`npm run sito:online`, sera del
 3 settembre). **Le piattaforme sono cinque**: il 31 agosto è entrata **Linux**,
 con un `.deb`. È l'unica delle tre che non si costruiscono sul Mac ad essere
@@ -475,15 +479,76 @@ funzionano il diario dice perché**. Il centro sub con trecento clienti è il
 banco di prova migliore che si potesse desiderare, e la risposta da mandargli è
 qui sotto.
 
+### La sera: riconoscere dal nome, e non chiedere più «che computer è?» a un Mares
+
+Il proprietario ha chiesto la cosa ovvia: *«ma dei computer non di casa non
+esce il nome?»* Usciva il nome **annunciato** — «Quad Ci» — e sotto c'era
+scritto «non riconosciuto come computer subacqueo», con un solo pulsante, «Che
+computer è?», e dietro un elenco di centocinque modelli. Il centro sub ha fatto
+quel giro venti volte. Il nome lo diceva già; l'app non lo sapeva leggere perché
+i due driver di casa conoscono solo i propri nomi (Peregrine, Aladin…).
+
+**libdivecomputer i nomi li conosce.** `dc_descriptor_filter` è la funzione
+con cui Subsurface propone il modello: per ogni costruttore c'è un filtro sul
+nome BLE — Mares con i prefissi «Quad Ci», «Genius», «Sirius», «Puck4», «Puck
+Lite», «Mares bluelink pro»; Heinrichs Weikamp con «OSTC» e «FROG»; Suunto con
+«EON Steel», «EON Core», «Suunto D5»; Oceanic/Aqualung con **due lettere che
+sono il numero di modello in ASCII** («FQ» = 0x4651 = i770R); Cressi con il
+numero in esadecimale e un trattino basso. È stato verificato, con una prova
+che lo afferma (`ogni_modello_bluetooth_ha_un_filtro_che_distingue`), che
+**nessun descrittore BLE della 0.9.0 ha un filtro nullo**: un filtro nullo
+risponde «sì» a qualunque nome, e avrebbe fatto di un auricolare un computer.
+Quella prova ha **sostituito** una guardia che stava nel codice e che nessuna
+prova poteva far diventare rossa — la regola di sempre: una guardia mai vista
+rossa non è una guardia, è una premessa, e le premesse si affermano.
+
+Da lì tre pezzi, ognuno provato da solo:
+
+- **il guscio** (`computer_esterni::riconosci_computer_esterno`) interroga i
+  filtri e restituisce i **candidati**: per «Quad Ci» tutti i Mares con il
+  Bluetooth, perché i filtri sono per costruttore. Sette prove Rust, registrato
+  su tutte e quattro le piattaforme — e `gestoriPerPiattaforma.test.ts` lo
+  conta, perché un comando assente qui **non dà errore**: l'interfaccia tratta
+  il comando mancante come «nessun candidato», di proposito, e quindi quella è
+  l'unica guardia;
+- **`core/ble/riconosci.ts`** stringe i candidati a un modello, sul catalogo e
+  senza guscio: un candidato solo è lui; se il nome **contiene** il nome del
+  modello si tiene il più lungo («Quad Ci» batte «Quad»); per Oceanic e Cressi
+  si rifanno le regole di `dc_match_oceanic` e `dc_match_cressi` sui `numeri`
+  del catalogo; altrimenti si sa la famiglia e non il modello («Mares bluelink
+  pro» è un **adattatore** che si attacca a mezza gamma) e si propone la scelta
+  **ristretta ai candidati**;
+- **la schermata** chiede il riconoscimento **una volta per nome** — non per
+  giro di scansione, che riscrive l'elenco ogni secondo — e la riga dice
+  quello che sa: «Mares Quad Ci — via libdivecomputer» con «Scarica» diretto e
+  accanto «Non è questo?»; «Mares — scegli il modello» con il selettore che
+  mette i candidati in cima e l'elenco intero sotto; «non riconosciuto come
+  computer subacqueo» **solo** per un nome che nessun filtro reclama. Sette
+  prove sul DOM (`tests/riconosciutoDalNome.test.tsx`), sei mutazioni viste
+  rosse — compresa quella che toglieva la memoria per nome, che **passava**
+  finché la prova non ha fatto arrivare la risposta del guscio *dopo* tre giri
+  di scansione invece che prima.
+
+Quello che il proprietario ha detto di **non** fare, e non è stato fatto: un
+interruttore «prova via libdivecomputer» per i computer di casa. La strada
+resta una — un elenco, un pulsante, e l'app decide da sola da dove passare.
+
+**Non verificato, come tutto il resto del 7 settembre: su hardware.** Il
+riconoscimento è provato contro i filtri veri di libdivecomputer, con i nomi
+che quei filtri dichiarano; se un Quad Ci vero annunciasse un nome diverso da
+«Quad Ci», la riga tornerebbe a «non riconosciuto» e «Che computer è?» sarebbe
+ancora lì.
+
 ### La risposta al centro sub
 
 > Grazie, e grazie per i venti tentativi: sono serviti. Oggi le immersioni del
 > Quad Ci entrano lo stesso passando dal file: se dall'app Mares esportate il
 > logbook in uno dei formati che importiamo (UDDF o CSV, fra gli altri),
 > MyDiveLog lo legge da «Importa». La prossima
-> versione, la 1.8.0, cambia il modo in cui l'app parla via Bluetooth con i
-> computer che non ha mai visto — e soprattutto **scrive nel diario tecnico
-> dove si ferma**: se con la 1.8.0 non scarica ancora, il diario che ci
+> versione, la 1.8.0, riconosce il Quad Ci dal nome — niente più elenco da
+> scorrere, la riga dice «Mares Quad Ci» e ha «Scarica» — e cambia il modo in
+> cui l'app parla via Bluetooth con i computer che non ha mai visto; soprattutto
+> **scrive nel diario tecnico dove si ferma**: se con la 1.8.0 non scarica ancora, il diario che ci
 > incollate dirà esattamente cosa non ha risposto, e a quel punto la correzione
 > è mirata. Se vi va di essere i primi a provarla, scriveteci dallo stesso
 > modulo.
