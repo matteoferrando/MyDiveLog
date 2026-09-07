@@ -808,6 +808,7 @@ export function BleDownload() {
       try {
         dives = await scaricaDaComputerEsterno({
           dispositivo: device.id,
+          nome: device.name,
           marca,
           modello,
           emit: onEvent,

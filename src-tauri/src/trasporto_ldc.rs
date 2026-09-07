@@ -77,6 +77,15 @@ pub trait FlussoByte: Send {
         None
     }
 
+    /// Butta via quello che è arrivato e non è ancora stato letto.
+    ///
+    /// libdivecomputer lo chiede (`dc_iostream_purge`) all'apertura e quando
+    /// riprova dopo un pacchetto scaduto o corrotto: Mares dorme un secondo,
+    /// svuota, e rimanda il comando. Se lo svuotamento non svuotasse, ogni
+    /// tentativo rileggerebbe la stessa spazzatura e la ripresa da un errore
+    /// — che è il motivo per cui i backend ritentano — non riuscirebbe mai.
+    fn svuota(&mut self) {}
+
     /// Legge una caratteristica GATT per UUID, fuori dal flusso di byte.
     ///
     /// Serve al Cressi Goa (e a chiunque imiti il suo modo di presentarsi),
@@ -106,10 +115,24 @@ pub struct FlussoBle {
     /// caratteristica. Vedi `AccessoriBle`.
     accessori: Option<Box<dyn AccessoriBle>>,
     /// Cosa fare quando il PRIMO scambio resta muto — vedi `leggi`.
-    su_silenzio: Option<Box<dyn FnMut() -> bool + Send>>,
+    su_silenzio: Option<Box<dyn FnMut() -> Ripiego + Send>>,
     /// Se una notifica è mai stata consegnata: dopo la prima, il ripiego sul
     /// silenzio non ha più senso, perché il canale ha dimostrato di funzionare.
     ricevuto_qualcosa: bool,
+}
+
+/// Cosa ha fatto il ripiego sul silenzio, quando è stato chiamato.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Ripiego {
+    /// Non c'era niente da rimandare (nessuna scrittura ancora): il ripiego
+    /// resta disponibile per il primo scambio vero.
+    NienteDaFare,
+    /// Ha rimandato l'ultimo comando nell'altra modalità: vale una seconda
+    /// attesa, e non si richiama più.
+    Rimandato,
+    /// Non può fare niente (una modalità sola, o già provata): non si
+    /// richiama più.
+    Esaurito,
 }
 
 /// Le due domande che libdivecomputer fa al Bluetooth oltre ai byte.
@@ -141,15 +164,16 @@ impl FlussoBle {
 
     /// Lo stesso flusso, con gli accessori e il ripiego sul silenzio.
     ///
-    /// `su_silenzio` viene chiamata UNA volta sola, quando una lettura scade
-    /// senza che sia mai arrivata una notifica in tutta la sessione. Se
-    /// restituisce `true` ha fatto qualcosa che merita una seconda attesa —
-    /// tipicamente ha rimandato l'ultimo comando nell'altra modalità di
-    /// scrittura — e la lettura aspetta un'altra volta lo stesso tempo.
+    /// `su_silenzio` viene chiamata quando una lettura scade senza che sia
+    /// mai arrivata una notifica in tutta la sessione. Se ha rimandato
+    /// l'ultimo comando nell'altra modalità, la lettura aspetta un'altra
+    /// volta lo stesso tempo e il ripiego non viene più chiamato; se non
+    /// aveva niente da rimandare resta a disposizione per il primo scambio
+    /// vero; se non può fare niente, non viene più chiamato.
     pub fn con_accessori(
         mut self,
         accessori: Box<dyn AccessoriBle>,
-        su_silenzio: Box<dyn FnMut() -> bool + Send>,
+        su_silenzio: Box<dyn FnMut() -> Ripiego + Send>,
     ) -> Self {
         self.accessori = Some(accessori);
         self.su_silenzio = Some(su_silenzio);
@@ -229,8 +253,12 @@ impl FlussoByte for FlussoBle {
              */
             if self.arrivate.is_empty() && !self.ricevuto_qualcosa {
                 if let Some(mut ripiego) = self.su_silenzio.take() {
-                    if ripiego() {
-                        self.aspetta(attesa)?;
+                    match ripiego() {
+                        Ripiego::Rimandato => self.aspetta(attesa)?,
+                        // Niente da rimandare ancora: il ripiego torna al
+                        // suo posto, per la prima lettura DOPO una scrittura.
+                        Ripiego::NienteDaFare => self.su_silenzio = Some(ripiego),
+                        Ripiego::Esaurito => {}
                     }
                 }
             }
@@ -244,6 +272,12 @@ impl FlussoByte for FlussoBle {
         }
         let quanti = quanti.min(self.avanzo.len());
         Ok(self.avanzo.drain(..quanti).collect())
+    }
+
+    fn svuota(&mut self) {
+        self.raccogli_subito();
+        self.arrivate.clear();
+        self.avanzo.clear();
     }
 
     fn nome(&mut self) -> Option<String> {
@@ -279,6 +313,7 @@ const DC_STATUS_SUCCESS: c_int = 0;
 const DC_STATUS_UNSUPPORTED: c_int = -1;
 const DC_STATUS_IO: c_int = -6;
 const DC_STATUS_TIMEOUT: c_int = -7;
+const DC_STATUS_DATAFORMAT: c_int = -9;
 const DC_TRANSPORT_BLE: c_uint = 1 << 5;
 
 /// Il nome di uno stato, per i messaggi.
@@ -395,6 +430,7 @@ extern "C" {
         actual: *mut usize,
     ) -> c_int;
     fn dc_iostream_set_timeout(iostream: *mut DcIostream, timeout: c_int) -> c_int;
+    fn dc_iostream_purge(iostream: *mut DcIostream, direction: c_int) -> c_int;
     fn dc_iostream_ioctl(
         iostream: *mut DcIostream,
         request: c_uint,
@@ -510,6 +546,13 @@ extern "C" fn cb_read(
     actual: *mut usize,
 ) -> c_int {
     let s = unsafe { stato(userdata) };
+    // Zero byte chiesti: niente da fare, e niente da toccare — `data` può
+    // essere nullo, e anche una copia di lunghezza zero da un puntatore nullo
+    // è fuori dal contratto di Rust.
+    if size == 0 {
+        unsafe { *actual = 0 };
+        return DC_STATUS_SUCCESS;
+    }
     match s.flusso.leggi(size, s.attesa) {
         Ok(letti) => {
             // SICUREZZA: `data` punta a un buffer di almeno `size` byte, e non
@@ -543,6 +586,10 @@ extern "C" fn cb_write(
     actual: *mut usize,
 ) -> c_int {
     let s = unsafe { stato(userdata) };
+    if size == 0 {
+        unsafe { *actual = 0 };
+        return DC_STATUS_SUCCESS;
+    }
     // SICUREZZA: `data` punta a `size` byte validi per la durata della chiamata.
     let dati = unsafe { std::slice::from_raw_parts(data as *const u8, size) };
     match s.flusso.scrivi(dati) {
@@ -569,7 +616,8 @@ extern "C" fn cb_write(
 /// «lette» piene di zeri. Rispondere davvero, e dire «non supportato» a
 /// quello che non sappiamo fare, è ciò che libdivecomputer si aspetta: chi
 /// chiede il nome tollera l'assenza (lo dichiara), chi chiede il codice PIN
-/// del Pelagic i330R si ferma con un errore che dice cosa manca.
+/// del Pelagic i330R si ferma con il SUO errore («Failed to get the PIN
+/// code»), che arriva come stato e non come annotazione nostra.
 extern "C" fn cb_ioctl(
     userdata: *mut c_void,
     request: c_uint,
@@ -579,8 +627,11 @@ extern "C" fn cb_ioctl(
     let s = unsafe { stato(userdata) };
     match request {
         DC_IOCTL_BLE_GET_NAME => {
+            // Senza nome NON si annota un guasto: i backend che lo chiedono
+            // tollerano l'assenza (Oceanic prosegue con un avviso), e
+            // un'annotazione qui finirebbe accodata a un errore successivo
+            // che non c'entra niente.
             let Some(nome) = s.flusso.nome() else {
-                annota(&s.guasto, "il nome Bluetooth del dispositivo non è disponibile".into());
                 return DC_STATUS_UNSUPPORTED;
             };
             if size == 0 {
@@ -609,19 +660,24 @@ extern "C" fn cb_ioctl(
             uuid.copy_from_slice(&buffer[..16]);
             match s.flusso.leggi_caratteristica(uuid) {
                 Ok(valore) => {
+                    // Più lungo del posto: si tronca, chi chiede N byte vuole
+                    // i primi N e un riempimento fino a venti non deve far
+                    // fallire niente. Più CORTO: no — gli zeri lasciati nel
+                    // buffer diventerebbero una versione o un numero di serie
+                    // inventati, e Subsurface lì risponde «formato dati».
                     let posto = &mut buffer[16..];
-                    if valore.len() > posto.len() {
+                    if valore.len() < posto.len() {
                         annota(
                             &s.guasto,
                             format!(
-                                "la caratteristica ha risposto {} byte, ne stavano {}",
+                                "la caratteristica ha risposto {} byte, ne servivano {}",
                                 valore.len(),
                                 posto.len()
                             ),
                         );
-                        return DC_STATUS_IO;
+                        return DC_STATUS_DATAFORMAT;
                     }
-                    posto[..valore.len()].copy_from_slice(&valore);
+                    posto.copy_from_slice(&valore[..posto.len()]);
                     DC_STATUS_SUCCESS
                 }
                 Err(motivo) => {
@@ -632,6 +688,19 @@ extern "C" fn cb_ioctl(
         }
         _ => DC_STATUS_UNSUPPORTED,
     }
+}
+
+/// `purge`: svuotare l'ingresso. `direction` è una maschera: bit 1 ingresso,
+/// bit 2 uscita. L'uscita non ha una coda da svuotare — le scritture partono
+/// subito — quindi conta solo il primo bit. Nulla non andava bene: `custom.c`
+/// risponde «successo» senza svuotare, e i ritentativi di Mares e Oceanic
+/// rileggerebbero la stessa spazzatura.
+extern "C" fn cb_purge(userdata: *mut c_void, direction: c_int) -> c_int {
+    let s = unsafe { stato(userdata) };
+    if direction & 1 != 0 {
+        s.flusso.svuota();
+    }
+    DC_STATUS_SUCCESS
 }
 
 extern "C" fn cb_sleep(_userdata: *mut c_void, millisecondi: c_uint) -> c_int {
@@ -718,7 +787,9 @@ impl CollegamentoLdc {
             // Qui invece il nullo NON va bene: vedi il commento di `cb_ioctl`.
             ioctl: Some(cb_ioctl),
             flush: None,
-            purge: None,
+            // Anche qui il nullo sarebbe «successo senza fare niente»: vedi
+            // `cb_purge`.
+            purge: Some(cb_purge),
             sleep: Some(cb_sleep),
             close: Some(cb_close),
         };
@@ -799,6 +870,12 @@ impl CollegamentoLdc {
                 buffer.len(),
             )
         }
+    }
+
+    /// Svuota attraverso libdivecomputer. Come sopra: serve ai test.
+    #[allow(dead_code)]
+    pub fn svuota(&self) -> c_int {
+        unsafe { dc_iostream_purge(self.flusso, 1) }
     }
 
     /// Legge attraverso libdivecomputer. Come sopra: serve ai test.
@@ -923,12 +1000,18 @@ impl CollegamentoLdc {
                 &mut raccolte as *mut Vec<ImmersioneGrezza> as *mut c_void,
             )
         };
+        // La causa si legge PRIMA di chiudere: per i backend il cui `close`
+        // scrive sul flusso (l'OSTC manda EXIT, Shearwater chiude la
+        // sessione), una chiusura su un collegamento già caduto annota un
+        // secondo guasto che sovrascriverebbe quello dello scarico — e il
+        // messaggio parlerebbe della chiusura invece che di cosa si è rotto.
+        let spiegazione = if esito != DC_STATUS_SUCCESS { Some(self.spiega(esito)) } else { None };
         // Il dispositivo si chiude comunque, anche quando lo scarico è fallito:
         // lasciarlo aperto significherebbe un computer che resta occupato.
         unsafe { dc_device_close(dispositivo) };
 
-        if esito != DC_STATUS_SUCCESS {
-            return Err(format!("scarico non riuscito ({})", self.spiega(esito)));
+        if let Some(spiegazione) = spiegazione {
+            return Err(format!("scarico non riuscito ({spiegazione})"));
         }
         Ok(raccolte)
     }
@@ -1944,16 +2027,54 @@ mod prove {
         assert_eq!(&buffer[16..], &[1, 2, 3, 4, 5]);
         assert_eq!(chiesto.lock().unwrap().unwrap()[..4], [0x6E, 0x40, 0x00, 0x03]);
 
-        // Un valore che non ci sta è un errore, non un troncamento silenzioso.
+        // Un valore più lungo del posto si tronca ai primi byte: un
+        // dispositivo che riempie la caratteristica fino a venti byte non
+        // deve far fallire lo scarico per il riempimento.
         let (collegamento, _) = con_accessori(None, Ok(vec![1, 2, 3, 4, 5, 6]));
         let mut buffer = [0u8; 16 + 5];
-        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_CHARACTERISTIC_READ, &mut buffer), DC_STATUS_IO);
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_CHARACTERISTIC_READ, &mut buffer), DC_STATUS_SUCCESS);
+        assert_eq!(&buffer[16..], &[1, 2, 3, 4, 5]);
 
         // E una lettura fallita torna come errore, con la causa annotata.
         let (collegamento, _) = con_accessori(None, Err("la caratteristica non si legge".into()));
         let mut buffer = [0u8; 16 + 5];
         assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_CHARACTERISTIC_READ, &mut buffer), DC_STATUS_IO);
         assert!(collegamento.spiega(DC_STATUS_IO).contains("non si legge"), "{}", collegamento.spiega(DC_STATUS_IO));
+    }
+
+    #[test]
+    fn lo_svuotamento_chiesto_da_libdivecomputer_butta_via_davvero_quello_che_aspetta() {
+        /*
+         * Mares, dopo un pacchetto scaduto, dorme un secondo, svuota
+         * l'ingresso e rimanda il comando. Con `purge: None` libdivecomputer
+         * rispondeva «successo» senza svuotare, e il ritentativo rileggeva la
+         * spazzatura del tentativo prima. La strada vera: `dc_iostream_purge`
+         * → `custom.c` → `cb_purge` → `FlussoBle::svuota`.
+         */
+        let (manda, ricevi) = channel();
+        let flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())));
+        let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+        manda.send(vec![0xaa, 0xbb]).unwrap();
+        manda.send(vec![0xcc]).unwrap();
+        collegamento.imposta_attesa(50);
+
+        assert_eq!(collegamento.svuota(), DC_STATUS_SUCCESS);
+        assert!(collegamento.leggi(10).is_err(), "dopo lo svuotamento non c'è più niente");
+
+        // E svuota anche l'avanzo di una notifica letta a metà.
+        manda.send(vec![1, 2, 3, 4]).unwrap();
+        assert_eq!(collegamento.leggi(2).unwrap(), vec![1, 2]);
+        collegamento.svuota();
+        manda.send(vec![9]).unwrap();
+        assert_eq!(collegamento.leggi(10).unwrap(), vec![9], "l'avanzo [3, 4] deve essere sparito");
+    }
+
+    #[test]
+    fn una_caratteristica_che_risponde_meno_byte_del_richiesto_e_formato_dati_non_zeri() {
+        let (collegamento, _) = con_accessori(None, Ok(vec![1, 2]));
+        let mut buffer = [0u8; 16 + 5];
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_CHARACTERISTIC_READ, &mut buffer), DC_STATUS_DATAFORMAT);
+        assert!(collegamento.spiega(DC_STATUS_DATAFORMAT).contains("ne servivano 5"));
     }
 
     #[test]

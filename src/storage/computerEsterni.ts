@@ -55,6 +55,13 @@ const EVENTO = 'scarico-esterno';
 export interface ScaricoEsterno {
   /** L'identificativo di sistema del dispositivo, da `BleFoundDevice.id`. */
   dispositivo: string;
+  /**
+   * Il nome visto in scansione, da `BleFoundDevice.name`. Non è decorativo:
+   * la famiglia Oceanic/Aqualung ci legge dentro il numero di serie per la
+   * stretta di mano, e vuole quello pubblicitario — il guscio Rust lo
+   * preferisce a quello che il plugin ha in cache. Vuoto è ammesso.
+   */
+  nome?: string;
   /** Marca e modello come li scrive libdivecomputer, dal catalogo. */
   marca: string;
   modello: string;
@@ -70,6 +77,7 @@ export interface ScaricoEsterno {
  */
 export async function scaricaDaComputerEsterno({
   dispositivo,
+  nome,
   marca,
   modello,
   emit,
@@ -90,6 +98,7 @@ export async function scaricaDaComputerEsterno({
   try {
     const grezze = await invoke<ImmersioneLdc[]>('scarica_da_computer_esterno', {
       dispositivo,
+      nome: nome && nome.trim() !== '' ? nome : null,
       marca,
       prodotto: modello,
     });

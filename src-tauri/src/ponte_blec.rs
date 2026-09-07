@@ -79,7 +79,7 @@ mod dentro {
 
     use crate::trasporto_ldc::{
         traduci, trova_descrittore, AccessoriBle, CollegamentoLdc, Contesto, FlussoBle,
-        ImmersioneLdc,
+        ImmersioneLdc, Ripiego,
     };
 
     // --------------------------------------------------- quel che il GATT dice
@@ -389,11 +389,27 @@ mod dentro {
     /// Quando la tabella nomina gli UUID si usano quelli, e se non ci sono o non
     /// hanno le proprietà giuste è un errore: una voce sbagliata va corretta
     /// nella tabella, non aggirata in silenzio scegliendone un'altra.
+    /// Cosa fare quando, dentro un servizio, le candidate restano più d'una.
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum Ambiguita {
+        /// Un servizio che nessuno conosce: meglio un messaggio che un comando
+        /// scritto alla caratteristica sbagliata.
+        Rifiuta,
+        /// Un servizio dell'elenco di Subsurface, dove la regola «la prima
+        /// scrivibile, la prima che notifica» (`BLEObject::write`,
+        /// `is_notify_characteristic`) è quella con cui Subsurface scarica
+        /// davvero da quei computer. Rifiutare lì significherebbe negare un
+        /// dispositivo che funziona altrove per una prudenza che non abbiamo
+        /// pagato con niente.
+        PrimaDichiarata,
+    }
+
     fn scegli(
         servizio: &ServizioVisto,
         scrittura: Option<&str>,
         notifica: Option<&str>,
         preferenza: Preferenza,
+        ambiguita: Ambiguita,
     ) -> Result<(CaratteristicaVista, CaratteristicaVista, ModoScrittura, Option<ModoScrittura>), String>
     {
         let elenco = |c: &[CaratteristicaVista]| {
@@ -463,6 +479,7 @@ mod dentro {
                     servizio.uuid
                 ))
             }
+            [prima, ..] if ambiguita == Ambiguita::PrimaDichiarata => prima.clone(),
             molte => {
                 return Err(format!(
                     "nel servizio {} ci sono {} caratteristiche scrivibili ({}): \
@@ -482,6 +499,7 @@ il computer non avrebbe modo di rispondere",
                     servizio.uuid
                 ))
             }
+            [prima, ..] if ambiguita == Ambiguita::PrimaDichiarata => prima.clone(),
             molte => {
                 return Err(format!(
                     "nel servizio {} ci sono {} caratteristiche che notificano ({}): \
@@ -492,6 +510,22 @@ va scelta a mano nella tabella dei profili, invece di indovinare",
                 ))
             }
         };
+        // Una caratteristica NOMINATA dalla tabella deve avere le proprietà
+        // che la tabella le attribuisce: una voce che punta a una
+        // caratteristica su cui non si può scrivere è una voce sbagliata, e
+        // va detto adesso, non dopo tre secondi di silenzio.
+        if !da_scrivere.scrivibile && !da_scrivere.scrivibile_senza_risposta {
+            return Err(format!(
+                "la caratteristica {} indicata dalla tabella per scrivere non accetta scritture",
+                da_scrivere.uuid
+            ));
+        }
+        if !da_ascoltare.notifica {
+            return Err(format!(
+                "la caratteristica {} indicata dalla tabella per le risposte non notifica",
+                da_ascoltare.uuid
+            ));
+        }
 
         let modo = match preferenza {
             Preferenza::ConRisposta => {
@@ -584,7 +618,7 @@ ma il profilo le chiede",
                 continue;
             };
             let (scrittura, notifica, modo, alternativa) =
-                scegli(servizio, voce.scrittura, voce.notifica, voce.preferenza)?;
+                scegli(servizio, voce.scrittura, voce.notifica, voce.preferenza, Ambiguita::Rifiuta)?;
             let crediti = match voce.crediti {
                 Some((concessione, ascolto)) => {
                     let presente = |u: &str| servizio.caratteristiche.iter().any(|c| uguale(&c.uuid, u));
@@ -625,9 +659,10 @@ MAI VERIFICATO SU NESSUN COMPUTER"
                 continue;
             };
             let (scrittura, notifica, modo, alternativa) =
-                scegli(servizio, None, None, Preferenza::Automatica)?;
+                scegli(servizio, None, None, Preferenza::Automatica, Ambiguita::PrimaDichiarata)?;
             let provenienza = format!(
-                "servizio riconosciuto dall'elenco di Subsurface («{nome}»), caratteristiche dalle proprietà"
+                "servizio riconosciuto dall'elenco di Subsurface («{nome}»), caratteristiche dalle proprietà \
+(se più d'una, la prima come fa Subsurface)"
             );
             return Ok(ProfiloRisolto {
                 descrizione: descrivi(&provenienza, &servizio.uuid, &scrittura, modo, alternativa, &notifica),
@@ -658,7 +693,7 @@ MAI VERIFICATO SU NESSUN COMPUTER"
         match candidati.as_slice() {
             [uno] => {
                 let (scrittura, notifica, modo, alternativa) =
-                    scegli(uno, None, None, Preferenza::Automatica)?;
+                    scegli(uno, None, None, Preferenza::Automatica, Ambiguita::Rifiuta)?;
                 Ok(ProfiloRisolto {
                     descrizione: descrivi(
                         "RIPIEGO (euristica, nessun profilo noto): unico servizio con una \
@@ -756,25 +791,40 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
 
     // --------------------------------------------------------------- il ponte
 
-    /// Quanti byte per scrittura.
-    ///
-    /// Venti è il pavimento: l'MTU minimo di ATT è 23 byte, meno tre di
-    /// intestazione. Un collegamento vero ne negozia quasi sempre di più, ma un
-    /// MTU più grande rende il trasferimento più veloce, mai più corretto —
-    /// mentre scrivere più di quanto il collegamento regge fallisce, e fallisce
-    /// alla prima scrittura. Spezzare qui è sicuro per i protocolli che
-    /// conosciamo: i comandi Uwatec stanno in otto byte e non vengono mai
-    /// spezzati, i pacchetti SLIP di Shearwater portano i propri confini
-    /// dentro i byte, e per Mares libdivecomputer spezza già da sé a venti
-    /// (`dc_packet_open(…, 244, 20)`), quindi qui non cambia niente.
-    const BYTE_PER_SCRITTURA: usize = 20;
+    /*
+     * ► LE SCRITTURE NON SI SPEZZANO, ed è una scelta cambiata il 7 settembre. ◄
+     *
+     * Prima ogni scrittura veniva tagliata a venti byte — «il pavimento
+     * dell'MTU» — con l'idea che spezzare fosse sempre sicuro. Non lo è: il
+     * Pelagic i330R manda la richiesta d'accesso in UN pacchetto da 21 byte
+     * (`pelagic_i330r.c`, `CMD_ACCESS_REQUEST` + 16 di codice), e il firmware
+     * valida ogni scrittura ATT come un pacchetto intero; spezzata in 20+1
+     * diventa due pacchetti malformati, e la famiglia i330R/DSX fallisce IN
+     * SILENZIO, per costruzione. Il Divesoft (`MSG_CONNECT`, 27 byte con la
+     * cornice HDLC) e in rari casi lo Shearwater (un pacchetto SLIP con tre
+     * byte di escape) sono nella stessa situazione.
+     *
+     * Subsurface non spezza (`BLEObject::write` in `qt-ble.cpp`): consegna il
+     * buffer intero e si affida all'MTU che il sistema ha negoziato — che su
+     * Apple è automatico, su Android il plugin lo chiede a 517, su BlueZ e
+     * Windows lo negozia lo stack. Dove libdivecomputer vuole pacchetti da
+     * venti li fa lei (`dc_packet_open(…, 244, 20)` per Mares e OSTC, l'HDLC a
+     * 20 per Suunto), e non c'è niente da aggiungere sotto. Se un sistema
+     * rifiutasse una scrittura troppo lunga, il rifiuto arriva come errore
+     * leggibile nel diario — meglio di un pacchetto spezzato che il computer
+     * scarta senza dire niente.
+     */
 
     /// Quanto si aspetta la conferma di UNA scrittura.
     ///
     /// Non è il timeout del protocollo — quello lo gestisce libdivecomputer — è
     /// solo la garanzia che il thread dello scarico non resti appeso per sempre
     /// se il compito asincrono muore senza dirlo.
-    const ATTESA_CONFERMA: Duration = Duration::from_secs(10);
+    // Nelle prove è corta, perché una prova che aspetta dieci secondi per
+    // vedere una conferma che non arriva insegna a non lanciare le prove. Il
+    // valore non è la logica sotto esame: lo è cosa succede quando scade.
+    const ATTESA_CONFERMA: Duration =
+        if cfg!(test) { Duration::from_millis(300) } else { Duration::from_secs(10) };
 
     /// Quante scritture si raccontano una per una nel diario, prima di passare
     /// al riassunto. Le prime sono quelle che contano — il comando di
@@ -836,9 +886,14 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         cambiata_per_errore: bool,
         scritture: usize,
         byte_scritti: usize,
-        /// L'ultima chiamata di scrittura per intero, prima di spezzarla: è
+        /// Tutte le scritture fatte PRIMA della prima risposta, in ordine: è
         /// quello che il ripiego sul silenzio rimanda nell'altra modalità.
-        ultimo_comando: Vec<u8>,
+        /// Tutte e non l'ultima, perché il primo comando di alcuni protocolli
+        /// è più chiamate di scrittura (Mares: intestazione di due byte e poi
+        /// il resto; Suunto: l'HDLC spezza a venti), e rimandare solo l'ultima
+        /// sarebbe rimandare un frammento. Si smette di accumulare alla prima
+        /// notifica, che è anche il momento in cui il rinvio non è più lecito.
+        prima_della_risposta: Vec<Vec<u8>>,
         prima_scrittura: Option<Instant>,
         /// Quante volte l'ultimo comando è stato rimandato dal ripiego sul
         /// silenzio: non sono scritture di libdivecomputer, e nel riassunto
@@ -855,8 +910,33 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         comandi: tauri::async_runtime::Sender<Comando>,
     }
 
+    /// Perché una scrittura non è andata. La distinzione conta per la
+    /// negoziazione: solo un RIFIUTO del plugin dice qualcosa sulla modalità.
+    /// Una conferma che non arriva in dieci secondi non dice niente sul GATT —
+    /// la scrittura potrebbe essere ancora in corso — e cambiare modalità lì
+    /// sopra farebbe arrivare al computer lo stesso comando due volte, in due
+    /// modalità, se poi la prima riuscisse.
+    enum Guasto {
+        Rifiutata(String),
+        Scaduta(String),
+        Chiusa(String),
+    }
+
+    impl Guasto {
+        fn testo(&self) -> &str {
+            match self {
+                Guasto::Rifiutata(t) | Guasto::Scaduta(t) | Guasto::Chiusa(t) => t,
+            }
+        }
+        fn in_stringa(self) -> String {
+            match self {
+                Guasto::Rifiutata(t) | Guasto::Scaduta(t) | Guasto::Chiusa(t) => t,
+            }
+        }
+    }
+
     impl Postino {
-        fn scrivi(&self, caratteristica: &str, dati: &[u8], modo: ModoScrittura) -> Result<(), String> {
+        fn scrivi(&self, caratteristica: &str, dati: &[u8], modo: ModoScrittura) -> Result<(), Guasto> {
             let (rispondi, risposta) = std::sync::mpsc::sync_channel(1);
             self.comandi
                 .blocking_send(Comando::Scrivi {
@@ -865,15 +945,16 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                     modo,
                     conferma: rispondi,
                 })
-                .map_err(|_| "il Bluetooth non accetta più scritture".to_string())?;
+                .map_err(|_| Guasto::Chiusa("il Bluetooth non accetta più scritture".into()))?;
             match risposta.recv_timeout(ATTESA_CONFERMA) {
-                Ok(esito) => esito,
-                Err(RecvTimeoutError::Timeout) => {
-                    Err("la scrittura sul Bluetooth non è stata confermata entro dieci secondi".into())
-                }
-                Err(RecvTimeoutError::Disconnected) => {
-                    Err("il collegamento Bluetooth si è chiuso durante una scrittura".into())
-                }
+                Ok(Ok(())) => Ok(()),
+                Ok(Err(motivo)) => Err(Guasto::Rifiutata(motivo)),
+                Err(RecvTimeoutError::Timeout) => Err(Guasto::Scaduta(
+                    "la scrittura sul Bluetooth non è stata confermata entro dieci secondi".into(),
+                )),
+                Err(RecvTimeoutError::Disconnected) => Err(Guasto::Chiusa(
+                    "il collegamento Bluetooth si è chiuso durante una scrittura".into(),
+                )),
             }
         }
 
@@ -908,8 +989,16 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         prima_notifica_ms: AtomicU64,
         /// I crediti che il computer ha ancora, se il profilo li usa.
         crediti_rimasti: AtomicUsize,
+        /// Se una ricarica di crediti non è riuscita: il computer resta senza,
+        /// e il «tempo scaduto» che segue ha questa causa.
+        ricarica_fallita: AtomicBool,
         /// Se il collegamento è caduto da sé.
         caduto: AtomicBool,
+        /// Se siamo NOI a scollegarci, alla fine: la callback di caduta scatta
+        /// anche allora, e senza questa bandierina scriverebbe nel diario
+        /// «caduto da sé» per uno scollegamento voluto. È un `Arc` a parte
+        /// perché la alza `scarica()`, che del ponte non ha più niente in mano.
+        scollegamento_voluto: Arc<AtomicBool>,
     }
 
     /// Gli accessori del ponte, visti da `FlussoBle`.
@@ -937,13 +1026,16 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         /// Gli accessori (nome, lettura di caratteristiche) e il ripiego sul
         /// silenzio. Vanno dati a `FlussoBle::con_accessori`.
         pub accessori: Box<dyn AccessoriBle>,
-        pub su_silenzio: Box<dyn FnMut() -> bool + Send>,
+        pub su_silenzio: Box<dyn FnMut() -> Ripiego + Send>,
         /// Come è stato scelto il profilo: riga di diario tecnico.
         pub descrizione: String,
         /// Quanti byte sono arrivati finora, per l'avanzamento.
         pub ricevuti: Arc<AtomicUsize>,
         /// Il riassunto dello scambio, da leggere alla fine, comunque sia andata.
         pub riassunto: Box<dyn Fn() -> String + Send + Sync>,
+        /// Da alzare PRIMA di scollegarsi di proposito, così la callback di
+        /// caduta non racconta come «caduto da sé» uno scollegamento nostro.
+        pub scollegamento_voluto: Arc<AtomicBool>,
     }
 
     /// Apre il ponte: collega, sceglie il profilo, si iscrive, avvia lo scrittore.
@@ -953,6 +1045,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
     pub async fn apri_ponte<A: AntennaBle>(
         antenna: A,
         dispositivo: &str,
+        nome_visto: Option<&str>,
         cronista: Cronista,
     ) -> Result<PonteBle, String> {
         /*
@@ -976,12 +1069,15 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
             Arc::new(Mutex::new(Some(verso_flusso)));
 
         let ricevuti = Arc::new(AtomicUsize::new(0));
+        let scollegamento_voluto = Arc::new(AtomicBool::new(false));
         let contatori = Arc::new(Contatori {
             notifiche: AtomicUsize::new(0),
             ricevuti: ricevuti.clone(),
             prima_notifica_ms: AtomicU64::new(u64::MAX),
             crediti_rimasti: AtomicUsize::new(0),
+            ricarica_fallita: AtomicBool::new(false),
             caduto: AtomicBool::new(false),
+            scollegamento_voluto: scollegamento_voluto.clone(),
         });
 
         let alla_caduta = mittente.clone();
@@ -991,11 +1087,13 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
             .collega(
                 dispositivo.to_string(),
                 Box::new(move || {
-                    contatori_caduta.caduto.store(true, Ordering::SeqCst);
-                    cronista_caduta(format!(
-                        "il collegamento è caduto da sé, dopo {} notifiche",
-                        contatori_caduta.notifiche.load(Ordering::Relaxed)
-                    ));
+                    if !contatori_caduta.scollegamento_voluto.load(Ordering::SeqCst) {
+                        contatori_caduta.caduto.store(true, Ordering::SeqCst);
+                        cronista_caduta(format!(
+                            "il collegamento è caduto da sé, dopo {} notifiche",
+                            contatori_caduta.notifiche.load(Ordering::Relaxed)
+                        ));
+                    }
                     if let Ok(mut posto) = alla_caduta.lock() {
                         *posto = None;
                     }
@@ -1016,18 +1114,25 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
 
         // Il nome si chiede subito e si tiene: quando libdivecomputer lo
         // vorrà, sarà sul thread dello scarico, dove non si può aspettare il
-        // plugin. Se non c'è non è un errore — lo diventa solo per i backend
-        // che ne hanno bisogno, e allora lo dicono loro.
-        let nome = match antenna.nome(dispositivo.to_string()).await {
-            Ok(n) if !n.trim().is_empty() => Some(n),
-            Ok(_) => {
-                cronista("il dispositivo non annuncia un nome".into());
-                None
-            }
-            Err(motivo) => {
-                cronista(format!("il nome del dispositivo non si legge: {motivo}"));
-                None
-            }
+        // plugin. PRIMA quello visto in scansione, che è il nome
+        // pubblicitario — l'unico che Oceanic accetta, otto caratteri esatti
+        // — e solo se manca quello che il plugin ha in mano, che su alcuni
+        // sistemi è il nome GAP messo in cache. Se non c'è nessuno dei due
+        // non è un errore: lo diventa solo per i backend che ne hanno
+        // bisogno, e allora lo dicono loro.
+        let nome = match nome_visto.map(str::trim).filter(|n| !n.is_empty()) {
+            Some(n) => Some(n.to_string()),
+            None => match antenna.nome(dispositivo.to_string()).await {
+                Ok(n) if !n.trim().is_empty() => Some(n),
+                Ok(_) => {
+                    cronista("il dispositivo non annuncia un nome".into());
+                    None
+                }
+                Err(motivo) => {
+                    cronista(format!("il nome del dispositivo non si legge: {motivo}"));
+                    None
+                }
+            },
         };
 
         let scambio = Arc::new(Mutex::new(Scambio {
@@ -1036,7 +1141,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
             cambiata_per_errore: false,
             scritture: 0,
             byte_scritti: 0,
-            ultimo_comando: Vec::new(),
+            prima_della_risposta: Vec::new(),
             prima_scrittura: None,
             rinvii: 0,
         }));
@@ -1154,20 +1259,41 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                         // concedono altri. Lo `spawn` è lecito qui — non
                         // aspetta — ed è l'unico modo di scrivere dal runtime
                         // senza bloccarlo.
-                        let prima = contatori_notifica.crediti_rimasti.fetch_sub(1, Ordering::SeqCst);
+                        // Decremento SATURANTE: un firmware che manda una
+                        // notifica in più di quelle coperte porterebbe un
+                        // `fetch_sub` sotto zero a `usize::MAX`, e da lì la
+                        // soglia non si raggiungerebbe mai più.
+                        let prima = contatori_notifica
+                            .crediti_rimasti
+                            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |c| Some(c.saturating_sub(1)))
+                            .unwrap_or(0);
                         if prima.saturating_sub(1) == CREDITI_MINIMI {
                             let quanti = CREDITI_INIZIALI - CREDITI_MINIMI;
-                            contatori_notifica.crediti_rimasti.fetch_add(quanti, Ordering::SeqCst);
                             let antenna = antenna.clone();
                             let servizio = servizio.clone();
                             let concessione = concessione.clone();
                             let cronista = cronista_notifica.clone();
+                            let contatori = contatori_notifica.clone();
                             tauri::async_runtime::spawn(async move {
-                                if let Err(motivo) = antenna
+                                // I crediti si contano SOLO dopo che la
+                                // scrittura è riuscita: contarli prima
+                                // direbbe 254 mentre il computer ne ha zero,
+                                // e il «tempo scaduto» che seguirebbe non
+                                // avrebbe una causa nel diario.
+                                match antenna
                                     .scrivi(servizio, concessione, vec![quanti as u8], ModoScrittura::ConRisposta)
                                     .await
                                 {
-                                    cronista(format!("la ricarica di {quanti} crediti non è riuscita: {motivo}"));
+                                    Ok(()) => {
+                                        contatori.crediti_rimasti.fetch_add(quanti, Ordering::SeqCst);
+                                    }
+                                    Err(motivo) => {
+                                        contatori.ricarica_fallita.store(true, Ordering::SeqCst);
+                                        cronista(format!(
+                                            "la ricarica di {quanti} crediti non è riuscita: {motivo}; \
+il computer resta senza crediti e smetterà di mandare dati"
+                                        ));
+                                    }
                                 }
                             });
                         }
@@ -1206,7 +1332,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
          * rifiuta — cosa che su Android e Linux succede quando si scrive
          * «senza conferma» a una caratteristica che vuole la conferma — e la
          * caratteristica dichiara anche l'altra, si cambia UNA volta e si
-         * riprova lo stesso pezzo. Se fallisce anche così, o se la modalità
+         * riprova la stessa scrittura. Se fallisce anche così, o se la modalità
          * era già stata cambiata, si fallisce e il diario dice tutte e due le
          * cose. Il caso opposto — scrittura accettata ma computer muto — lo
          * gestisce `su_silenzio`, qui sotto, con lo stesso registro.
@@ -1221,23 +1347,33 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                 let mut s = scambio_scrittura.lock().map_err(|_| "registro dello scambio guasto")?;
                 s.scritture += 1;
                 s.byte_scritti += dati.len();
-                s.ultimo_comando = dati.to_vec();
+                if contatori_scrittura.notifiche.load(Ordering::Relaxed) == 0 {
+                    s.prima_della_risposta.push(dati.to_vec());
+                } else if !s.prima_della_risposta.is_empty() {
+                    // Dopo la prima risposta non servono più: liberarli è
+                    // anche il modo di non tenere in memoria uno scarico intero.
+                    s.prima_della_risposta = Vec::new();
+                }
                 if s.prima_scrittura.is_none() {
                     s.prima_scrittura = Some(Instant::now());
                 }
                 s.scritture
             };
-            for pezzo in dati.chunks(BYTE_PER_SCRITTURA) {
+            {
+                let pezzo = dati;
                 let modo = scambio_scrittura.lock().map_err(|_| "registro dello scambio guasto")?.modo;
-                if let Err(motivo) = postino_scrittura.scrivi(&caratteristica_scrittura, pezzo, modo) {
+                if let Err(guasto) = postino_scrittura.scrivi(&caratteristica_scrittura, pezzo, modo) {
                     let altro = {
                         let mut s = scambio_scrittura.lock().map_err(|_| "registro dello scambio guasto")?;
-                        // Si cambia solo se non è ancora arrivato niente:
-                        // dopo la prima risposta la modalità ha dimostrato di
-                        // funzionare, e un errore a quel punto è un'altra
-                        // cosa (il collegamento caduto, quasi sempre).
+                        // Si cambia solo se il plugin ha RIFIUTATO (non se la
+                        // conferma è scaduta o il collegamento è caduto: lì
+                        // la modalità non c'entra), e solo se non è ancora
+                        // arrivato niente: dopo la prima risposta la modalità
+                        // ha dimostrato di funzionare, e un errore a quel
+                        // punto è un'altra cosa.
                         let mai_risposto = contatori_scrittura.notifiche.load(Ordering::Relaxed) == 0;
-                        if s.cambiata_per_errore || !mai_risposto {
+                        let rifiutata = matches!(guasto, Guasto::Rifiutata(_));
+                        if s.cambiata_per_errore || !mai_risposto || !rifiutata {
                             None
                         } else {
                             s.alternativa.take().inspect(|a| {
@@ -1246,6 +1382,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                             })
                         }
                     };
+                    let motivo = guasto.in_stringa();
                     let Some(altro) = altro else {
                         cronista_scrittura(format!(
                             "scrittura n. {numero} ({} byte [{}], {}) fallita: {motivo}",
@@ -1263,6 +1400,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                         nome_modo(altro)
                     ));
                     postino_scrittura.scrivi(&caratteristica_scrittura, pezzo, altro).map_err(|seconda| {
+                        let seconda = seconda.in_stringa();
                         cronista_scrittura(format!(
                             "scrittura n. {numero} fallita anche {}: {seconda}",
                             nome_modo(altro)
@@ -1301,43 +1439,71 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         let contatori_silenzio = contatori.clone();
         let cronista_silenzio = cronista.clone();
         let caratteristica_silenzio = profilo.scrittura.clone();
-        let su_silenzio = Box::new(move || -> bool {
+        let su_silenzio = Box::new(move || -> Ripiego {
             if contatori_silenzio.notifiche.load(Ordering::Relaxed) > 0
                 || contatori_silenzio.caduto.load(Ordering::Relaxed)
             {
-                return false;
+                return Ripiego::Esaurito;
             }
             let (comando, da, a, numero, trascorso) = {
-                let Ok(mut s) = scambio_silenzio.lock() else { return false };
+                let Ok(mut s) = scambio_silenzio.lock() else { return Ripiego::Esaurito };
                 let trascorso = s.prima_scrittura.map(|i| i.elapsed().as_millis()).unwrap_or(0);
+                // Senza una scrittura da rimandare non c'è niente da
+                // negoziare: una lettura scaduta prima di qualunque comando
+                // è un protocollo che aspetta un saluto spontaneo, non una
+                // modalità sbagliata. Toccare lo stato qui brucerebbe
+                // l'alternativa senza averla provata.
+                if s.prima_della_risposta.is_empty() {
+                    cronista_silenzio(format!(
+                        "prima lettura scaduta ({trascorso} ms) senza che sia stato scritto niente: \
+niente da rimandare"
+                    ));
+                    return Ripiego::NienteDaFare;
+                }
                 let Some(a) = s.alternativa.take() else {
+                    let perche = if s.cambiata_per_errore {
+                        "l'altra modalità è già stata provata ed è stata rifiutata".to_string()
+                    } else {
+                        format!("la caratteristica accetta solo la modalità {}", nome_modo(s.modo))
+                    };
                     cronista_silenzio(format!(
                         "primo scambio muto: nessuna notifica {trascorso} ms dopo la prima scrittura, \
-e la caratteristica accetta solo la modalità {}: niente da ritentare",
-                        nome_modo(s.modo)
+e {perche}: niente da ritentare"
                     ));
-                    return false;
+                    return Ripiego::Esaurito;
                 };
                 let da = s.modo;
                 s.modo = a;
                 s.rinvii += 1;
-                (s.ultimo_comando.clone(), da, a, s.scritture, trascorso)
+                (s.prima_della_risposta.clone(), da, a, s.scritture, trascorso)
             };
+            let byte_totali: usize = comando.iter().map(Vec::len).sum();
             cronista_silenzio(format!(
                 "primo scambio muto: nessuna notifica {trascorso} ms dopo la prima scrittura; \
-rimando la scrittura n. {numero} ({} byte [{}]) {} invece che {}",
+rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la prima [{}]) {} invece che {}",
                 comando.len(),
-                anteprima(&comando),
+                anteprima(comando.first().map(Vec::as_slice).unwrap_or(&[])),
                 nome_modo(a),
                 nome_modo(da)
             ));
-            for pezzo in comando.chunks(BYTE_PER_SCRITTURA) {
-                if let Err(motivo) = postino_silenzio.scrivi(&caratteristica_silenzio, pezzo, a) {
-                    cronista_silenzio(format!("il rinvio {} non è riuscito: {motivo}", nome_modo(a)));
-                    return false;
+            for pezzo in &comando {
+                if let Err(guasto) = postino_silenzio.scrivi(&caratteristica_silenzio, pezzo, a) {
+                    cronista_silenzio(format!(
+                        "il rinvio {} non è riuscito: {}; si resta {}",
+                        nome_modo(a),
+                        guasto.testo(),
+                        nome_modo(da)
+                    ));
+                    // La modalità nuova è stata rifiutata: si torna a quella
+                    // di prima, che almeno le scritture le accettava, e
+                    // l'alternativa resta consumata perché è stata provata.
+                    if let Ok(mut s) = scambio_silenzio.lock() {
+                        s.modo = da;
+                    }
+                    return Ripiego::Esaurito;
                 }
             }
-            true
+            Ripiego::Rimandato
         });
 
         let riassunto = {
@@ -1356,8 +1522,15 @@ rimando la scrittura n. {numero} ({} byte [{}]) {} invece che {}",
                 let notifiche = contatori.notifiche.load(Ordering::Relaxed);
                 let ricevuti = contatori.ricevuti.load(Ordering::Relaxed);
                 let prima = contatori.prima_notifica_ms.load(Ordering::Relaxed);
-                let prima = if prima == u64::MAX {
+                // Si decide sul CONTO delle notifiche, non sul ritardo: il
+                // ritardo può mancare (il `try_lock` della callback può non
+                // riuscire) anche quando le notifiche ci sono state, e un
+                // riassunto che dice «3 notifiche, nessuna notifica ricevuta»
+                // è la riga di diagnostica che si contraddice da sola.
+                let prima = if notifiche == 0 {
                     "nessuna notifica ricevuta".to_string()
+                } else if prima == u64::MAX {
+                    "ritardo della prima notifica non misurato".to_string()
                 } else {
                     format!("prima notifica dopo {prima} ms")
                 };
@@ -1366,9 +1539,14 @@ rimando la scrittura n. {numero} ({} byte [{}]) {} invece che {}",
                 } else {
                     ""
                 };
+                let crediti = if contatori.ricarica_fallita.load(Ordering::Relaxed) {
+                    "; una ricarica di crediti non è riuscita"
+                } else {
+                    ""
+                };
                 format!(
                     "scambio: {scritture} scritture ({byte_scritti} byte, {modo}{rinvii}), \
-{notifiche} notifiche ({ricevuti} byte), {prima}{caduto}"
+{notifiche} notifiche ({ricevuti} byte), {prima}{caduto}{crediti}"
                 )
             })
         };
@@ -1381,6 +1559,7 @@ rimando la scrittura n. {numero} ({} byte [{}]) {} invece che {}",
             descrizione: profilo.descrizione.clone(),
             ricevuti,
             riassunto,
+            scollegamento_voluto,
         })
     }
 
@@ -1690,14 +1869,35 @@ rimando la scrittura n. {numero} ({} byte [{}]) {} invece che {}",
         Ok(immersioni)
     }
 
+    /// Se uno scarico è in corso. Il plugin ha UN dispositivo collegato e
+    /// UNA lista di ascoltatori: due scarichi insieme si iscriverebbero alla
+    /// stessa caratteristica e si scollegherebbero a vicenda. Un doppio tocco
+    /// sul pulsante deve trovare un «no» qui, non un ponte a metà.
+    static SCARICO_IN_CORSO: AtomicBool = AtomicBool::new(false);
+
+    /// Abbassa la bandierina quando lo scarico finisce, comunque finisca —
+    /// anche per un `?` a metà strada.
+    struct FineScarico;
+    impl Drop for FineScarico {
+        fn drop(&mut self) {
+            SCARICO_IN_CORSO.store(false, Ordering::SeqCst);
+        }
+    }
+
     /// Il giro completo, come lo vede il comando.
     pub async fn scarica(
         app: tauri::AppHandle,
         dispositivo: String,
+        nome: Option<String>,
         marca: String,
         prodotto: String,
     ) -> Result<Vec<ImmersioneLdc>, String> {
         use tauri::Emitter;
+
+        if SCARICO_IN_CORSO.swap(true, Ordering::SeqCst) {
+            return Err("uno scarico è già in corso: aspetta che finisca prima di avviarne un altro".into());
+        }
+        let _fine = FineScarico;
 
         let manda = {
             let app = app.clone();
@@ -1714,7 +1914,7 @@ rimando la scrittura n. {numero} ({} byte [{}]) {} invece che {}",
             let manda = manda.clone();
             Arc::new(move |riga: String| manda(EventoScarico::Trace { line: riga }))
         };
-        let ponte = match apri_ponte(antenna, &dispositivo, cronista).await {
+        let ponte = match apri_ponte(antenna, &dispositivo, nome.as_deref(), cronista).await {
             Ok(ponte) => ponte,
             Err(motivo) => {
                 /*
@@ -1745,6 +1945,7 @@ rimando la scrittura n. {numero} ({} byte [{}]) {} invece che {}",
          * che è la verità.
          */
         let ricevuti = ponte.ricevuti.clone();
+        let scollegamento_voluto = ponte.scollegamento_voluto.clone();
         let finito = Arc::new(AtomicBool::new(false));
         {
             let finito = finito.clone();
@@ -1803,8 +2004,11 @@ rimando la scrittura n. {numero} ({} byte [{}]) {} invece che {}",
         /*
          * Ci si scollega SEMPRE, anche quando è andata male. Un collegamento
          * dimenticato tiene il computer subacqueo sveglio finché ha batteria, e
-         * su alcuni firmware impedisce il tentativo successivo.
+         * su alcuni firmware impedisce il tentativo successivo. La bandierina
+         * si alza PRIMA: la callback di caduta scatta anche per uno
+         * scollegamento nostro, e non deve raccontarlo come una caduta.
          */
+        scollegamento_voluto.store(true, Ordering::SeqCst);
         if let Err(motivo) = antenna.scollega().await {
             manda(EventoScarico::Trace { line: format!("scollegamento: {motivo}") });
         }
@@ -1833,9 +2037,10 @@ rimando la scrittura n. {numero} ({} byte [{}]) {} invece che {}",
 ///
 /// `dispositivo` è l'identificativo del sistema operativo — su Apple un UUID che
 /// vale solo per questa macchina e questa installazione, vedi `BleFoundDevice.id`
-/// — mentre `marca` e `prodotto` sono quelli scelti dall'elenco di
-/// `elenca_computer_supportati`, cioè le stesse due stringhe che libdivecomputer
-/// usa per i suoi descrittori.
+/// — `nome` è quello visto in scansione (serve a libdivecomputer per gli
+/// Oceanic, che ci leggono dentro il numero di serie), mentre `marca` e
+/// `prodotto` sono quelli scelti dall'elenco di `elenca_computer_supportati`,
+/// cioè le stesse due stringhe che libdivecomputer usa per i suoi descrittori.
 ///
 /// L'avanzamento arriva dall'evento `scarico-esterno`, con le parole di
 /// `DownloadEvent`.
@@ -1844,10 +2049,11 @@ rimando la scrittura n. {numero} ({} byte [{}]) {} invece che {}",
 pub async fn scarica_da_computer_esterno(
     app: tauri::AppHandle,
     dispositivo: String,
+    nome: Option<String>,
     marca: String,
     prodotto: String,
 ) -> Result<Vec<crate::trasporto_ldc::ImmersioneLdc>, String> {
-    dentro::scarica(app, dispositivo, marca, prodotto).await
+    dentro::scarica(app, dispositivo, nome, marca, prodotto).await
 }
 
 /// Lo stesso comando in una copia compilata senza `computer-esterni`.
@@ -1858,6 +2064,7 @@ pub async fn scarica_da_computer_esterno(
 #[tauri::command]
 pub async fn scarica_da_computer_esterno(
     _dispositivo: String,
+    _nome: Option<String>,
     _marca: String,
     _prodotto: String,
 ) -> Result<Vec<serde_json::Value>, String> {
@@ -1886,7 +2093,7 @@ sa parlare solo con i computer dei driver scritti in casa"
 #[cfg(all(test, feature = "computer-esterni"))]
 mod prove {
     use super::dentro::*;
-    use crate::trasporto_ldc::{FlussoBle, FlussoByte};
+    use crate::trasporto_ldc::{FlussoBle, FlussoByte, Ripiego};
     use std::collections::HashMap;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
@@ -1968,7 +2175,7 @@ mod prove {
     struct Interno {
         servizi: Vec<ServizioVisto>,
         nome: String,
-        /// Tutto quello che è stato scritto, in ordine e già spezzato come lo
+        /// Tutto quello che è stato scritto, in ordine, una voce per scrittura come lo
         /// riceverebbe il dispositivo.
         scritte: Mutex<Vec<Scritta>>,
         /// Dove versare le notifiche, per caratteristica, appena qualcuno si iscrive.
@@ -1982,6 +2189,9 @@ mod prove {
         scrittura_guasta: AtomicBool,
         /// La modalità che il dispositivo rifiuta, come farebbe Android o BlueZ.
         rifiuta: Mutex<Option<ModoScrittura>>,
+        /// Se acceso, la prossima scrittura non risponde mai: è il plugin che
+        /// si impianta, e la conferma che non arriva.
+        muta: AtomicBool,
         /// I valori delle caratteristiche leggibili.
         valori: Mutex<HashMap<String, Vec<u8>>>,
     }
@@ -2001,6 +2211,7 @@ mod prove {
                 scollegata: AtomicBool::new(false),
                 scrittura_guasta: AtomicBool::new(false),
                 rifiuta: Mutex::new(None),
+                muta: AtomicBool::new(false),
                 valori: Mutex::new(HashMap::new()),
             }))
         }
@@ -2095,6 +2306,12 @@ mod prove {
             if *self.0.rifiuta.lock().unwrap() == Some(modo) {
                 return Err(format!("il dispositivo rifiuta le scritture {:?}", modo));
             }
+            if self.0.muta.swap(false, Ordering::SeqCst) {
+                // Una scrittura che non torna mai: si aspetta più della
+                // pazienza del postino, poi si registra comunque, perché nel
+                // mondo vero il plugin la consegna in ritardo.
+                std::thread::sleep(Duration::from_millis(600));
+            }
             self.0.scritte.lock().unwrap().push(Scritta { caratteristica, modo, dati });
             Ok(())
         }
@@ -2147,7 +2364,7 @@ mod prove {
     /// in panico, ed è esattamente la disciplina che il codice vero rispetta.
     fn apri(antenna: &FintaAntenna) -> (PonteBle, Diario) {
         let diario = Diario::default();
-        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", diario.cronista()))
+        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", None, diario.cronista()))
             .expect("il ponte deve aprirsi");
         (ponte, diario)
     }
@@ -2172,12 +2389,13 @@ mod prove {
     }
 
     #[test]
-    fn una_scrittura_lunga_si_spezza_ma_non_si_perde() {
+    fn una_scrittura_lunga_arriva_intera_in_una_scrittura_sola() {
         /*
-         * Venti byte per notifica sono il pavimento dell'MTU. Un comando più
-         * lungo va spezzato, e la prova che conta è che i pezzi arrivino tutti e
-         * nell'ordine: un byte perso in mezzo a un comando dà un dispositivo che
-         * tace, che è il sintomo illeggibile per eccellenza.
+         * Il Pelagic i330R manda la richiesta d'accesso in UN pacchetto da 21
+         * byte e il firmware valida ogni scrittura ATT come pacchetto intero:
+         * spezzata in 20+1 sono due pacchetti malformati, scartati in
+         * silenzio. Come Subsurface, il ponte consegna il buffer intero e si
+         * affida all'MTU negoziato dal sistema.
          */
         let antenna = FintaAntenna::con(vec![seriale("fdcdeaaa-295d-470e-bf15-04217b7aa0a0")]);
         let (mut ponte, _) = apri(&antenna);
@@ -2186,8 +2404,8 @@ mod prove {
         (ponte.scrittura)(&lungo).unwrap();
 
         let scritti = antenna.scritti();
-        assert_eq!(scritti.len(), 3, "cinquanta byte in pezzi da venti");
-        assert_eq!(scritti.concat(), lungo);
+        assert_eq!(scritti.len(), 1, "una scrittura sola, non pezzi: {scritti:?}");
+        assert_eq!(scritti[0], lungo);
     }
 
     #[test]
@@ -2408,11 +2626,11 @@ mod prove {
     }
 
     #[test]
-    fn un_servizio_con_due_caratteristiche_scrivibili_non_si_indovina() {
-        // Dentro il servizio giusto, ma con due candidate identiche: la tabella
-        // deve nominarne una, e finché non lo fa è meglio un errore.
+    fn un_servizio_sconosciuto_con_due_caratteristiche_scrivibili_non_si_indovina() {
+        // Un servizio che nessuno conosce, con due candidate identiche: meglio
+        // un errore che un comando scritto alla caratteristica sbagliata.
         let servizi = vec![ServizioVisto {
-            uuid: "6e400001-b5a3-f393-e0a9-e50e24dcca9e".into(),
+            uuid: "12345678-0000-4000-8000-00805f9b34fb".into(),
             caratteristiche: vec![
                 car(SCRIVI, true, true, false),
                 car("33333333-0000-1000-8000-00805f9b34fb", true, true, false),
@@ -2421,6 +2639,47 @@ mod prove {
         }];
         let errore = risolvi_profilo(&servizi).expect_err("due scrivibili: si rifiuta");
         assert!(errore.contains("scrivibili"), "{errore}");
+    }
+
+    #[test]
+    fn un_servizio_riconosciuto_con_due_candidate_prende_la_prima_come_subsurface_e_lo_dice() {
+        /*
+         * Lo stesso servizio, ma nell'elenco di Subsurface: là la regola «la
+         * prima scrivibile, la prima che notifica» è quella con cui Subsurface
+         * scarica davvero da quei computer. Rifiutare negherebbe un
+         * dispositivo che funziona altrove; scegliere la prima E scriverlo nel
+         * diario è quello che fa Subsurface, con in più la riga che lo dice.
+         */
+        let servizi = vec![ServizioVisto {
+            uuid: "6e400001-b5a3-f393-e0a9-e50e24dcca9e".into(),
+            caratteristiche: vec![
+                car(SCRIVI, true, true, false),
+                car("33333333-0000-1000-8000-00805f9b34fb", true, true, false),
+                car(ASCOLTA, false, false, true),
+                car("44444444-0000-1000-8000-00805f9b34fb", false, false, true),
+            ],
+        }];
+        let profilo = risolvi_profilo(&servizi).expect("riconosciuto: si prende la prima");
+        assert_eq!(profilo.scrittura, SCRIVI);
+        assert_eq!(profilo.notifica, ASCOLTA);
+        assert!(profilo.descrizione.contains("la prima come fa Subsurface"), "{}", profilo.descrizione);
+    }
+
+    #[test]
+    fn una_caratteristica_nominata_dalla_tabella_deve_avere_le_proprieta_che_la_tabella_le_attribuisce() {
+        // Il Terminal I/O con DATA_RX che non si scrive: la voce di tabella
+        // punta a una caratteristica sbagliata, e va detto adesso.
+        let servizi = vec![ServizioVisto {
+            uuid: TELIT.into(),
+            caratteristiche: vec![
+                car(TELIT_DATI_RX, false, false, false),
+                car(TELIT_DATI_TX, false, false, true),
+                car(TELIT_CREDITI_RX, true, false, false),
+                car(TELIT_CREDITI_TX, false, false, true),
+            ],
+        }];
+        let errore = risolvi_profilo(&servizi).expect_err("una nominata senza proprietà è un errore");
+        assert!(errore.contains("non accetta scritture"), "{errore}");
     }
 
     #[test]
@@ -2510,6 +2769,31 @@ mod prove {
     }
 
     #[test]
+    fn una_conferma_che_non_arriva_non_cambia_modalita() {
+        /*
+         * La conferma scaduta non dice niente sul GATT: la scrittura può
+         * essere ancora in corso. Se qui si cambiasse modalità e si
+         * riscrivesse, il computer riceverebbe lo stesso comando due volte,
+         * in due modalità, quando la prima poi arriva. Si fallisce e basta,
+         * e la modalità resta quella.
+         */
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")]);
+        let (mut ponte, diario) = apri(&antenna);
+        antenna.0.muta.store(true, Ordering::SeqCst);
+
+        let errore = (ponte.scrittura)(&[0xc2, 0x8d]).expect_err("la conferma scade");
+        assert!(errore.contains("non è stata confermata"), "{errore}");
+        assert!(!diario.contiene("riprovo"), "{}", diario.testo());
+        // La scrittura in ritardo arriva, una sola, nella modalità di partenza.
+        std::thread::sleep(Duration::from_millis(500));
+        let scritte = antenna.scritte();
+        assert_eq!(scritte.len(), 1, "{scritte:?}");
+        assert_eq!(scritte[0].modo, ModoScrittura::SenzaRisposta);
+        (ponte.scrittura)(&[0x01]).unwrap();
+        assert_eq!(antenna.scritte().last().unwrap().modo, ModoScrittura::SenzaRisposta);
+    }
+
+    #[test]
     fn se_la_caratteristica_accetta_una_modalita_sola_non_ce_niente_da_negoziare() {
         let antenna = FintaAntenna::con(vec![seriale_rigida("544e326b-5b72-c6b0-1c46-41c1bc448118", true)])
             .che_rifiuta(ModoScrittura::SenzaRisposta);
@@ -2568,7 +2852,7 @@ mod prove {
         assert_eq!(scritte[1].modo, ModoScrittura::ConRisposta);
         assert_eq!(scritte[1].dati, vec![0xc2, 0x8d]);
         assert!(diario.contiene("primo scambio muto"), "{}", diario.testo());
-        assert!(diario.contiene("rimando la scrittura n. 1"), "{}", diario.testo());
+        assert!(diario.contiene("rimando le 1 scritture fatte finora (n. 1–1"), "{}", diario.testo());
 
         // Un terzo silenzio non rimanda più niente, e le scritture successive
         // usano la modalità nuova.
@@ -2578,6 +2862,28 @@ mod prove {
         assert_eq!(antenna.scritte().len(), 2);
         flusso.scrivi(&[0x01]).unwrap();
         assert_eq!(antenna.scritte().last().unwrap().modo, ModoScrittura::ConRisposta);
+    }
+
+    #[test]
+    fn il_rinvio_sul_silenzio_rimanda_tutte_le_scritture_fatte_prima_nellordine() {
+        /*
+         * Il primo comando di Mares è due scritture (intestazione, poi il
+         * resto), quello di Suunto viene spezzato a venti dall'HDLC:
+         * rimandare solo l'ultima sarebbe rimandare un frammento, e la
+         * negoziazione non proverebbe davvero l'altra modalità.
+         */
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")]);
+        let (mut flusso, diario, _) = apri_flusso(&antenna);
+        flusso.scrivi(&[0xc2, 0x8d]).unwrap();
+        flusso.scrivi(&[0x01, 0x02, 0x03]).unwrap();
+        assert!(flusso.leggi(20, Duration::from_millis(80)).unwrap().is_empty());
+
+        let scritte = antenna.scritte();
+        assert_eq!(scritte.len(), 4, "{scritte:?}");
+        assert_eq!(scritte[2].modo, ModoScrittura::ConRisposta);
+        assert_eq!(scritte[2].dati, vec![0xc2, 0x8d]);
+        assert_eq!(scritte[3].dati, vec![0x01, 0x02, 0x03]);
+        assert!(diario.contiene("rimando le 2 scritture fatte finora (n. 1–2, 5 byte"), "{}", diario.testo());
     }
 
     #[test]
@@ -2641,15 +2947,74 @@ mod prove {
         let (mut ponte, _) = apri(&antenna);
         (ponte.scrittura)(&[0xc2, 0x8d]).unwrap();
         antenna.notifica(&[0xaa]);
-        assert!(!(ponte.su_silenzio)(), "dopo una notifica non si rimanda");
+        assert_eq!((ponte.su_silenzio)(), Ripiego::Esaurito, "dopo una notifica non si rimanda");
         assert_eq!(antenna.scritte().len(), 1);
 
         let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")]);
         let (mut ponte, diario) = apri(&antenna);
         (ponte.scrittura)(&[0xc2, 0x8d]).unwrap();
         antenna.fai_cadere();
-        assert!(!(ponte.su_silenzio)(), "su un collegamento caduto non si rimanda");
+        assert_eq!((ponte.su_silenzio)(), Ripiego::Esaurito, "su un collegamento caduto non si rimanda");
         assert!(!diario.contiene("rimando"), "{}", diario.testo());
+    }
+
+    #[test]
+    fn un_silenzio_prima_di_qualunque_scrittura_non_brucia_la_negoziazione() {
+        /*
+         * Un protocollo che aspetta un saluto spontaneo legge prima di
+         * scrivere. Se quella lettura scade, non c'è niente da rimandare, e
+         * soprattutto l'alternativa NON va consumata: deve restare
+         * disponibile per il primo scambio vero.
+         */
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")]);
+        let (mut flusso, diario, _) = apri_flusso(&antenna);
+
+        assert!(flusso.leggi(20, Duration::from_millis(80)).unwrap().is_empty());
+        assert!(diario.contiene("niente da rimandare"), "{}", diario.testo());
+        assert!(antenna.scritte().is_empty());
+
+        flusso.scrivi(&[0xc2, 0x8d]).unwrap();
+        assert!(flusso.leggi(20, Duration::from_millis(80)).unwrap().is_empty());
+        let scritte = antenna.scritte();
+        assert_eq!(scritte.len(), 2, "il rinvio deve ancora poter succedere: {scritte:?}");
+        assert_eq!(scritte[1].modo, ModoScrittura::ConRisposta);
+    }
+
+    #[test]
+    fn se_il_rinvio_viene_rifiutato_si_torna_alla_modalita_di_prima() {
+        // Il rinvio nell'altra modalità viene rifiutato dal plugin: la
+        // modalità torna quella che le scritture le accettava, altrimenti
+        // ogni scrittura successiva di libdivecomputer fallirebbe.
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")])
+            .che_rifiuta(ModoScrittura::ConRisposta);
+        let (mut flusso, diario, _) = apri_flusso(&antenna);
+        flusso.scrivi(&[0xc2, 0x8d]).unwrap();
+        assert!(flusso.leggi(20, Duration::from_millis(80)).unwrap().is_empty());
+        assert!(diario.contiene("si resta senza conferma"), "{}", diario.testo());
+
+        flusso.scrivi(&[0x01]).expect("la modalità di prima accetta ancora");
+        assert_eq!(antenna.scritte().last().unwrap().modo, ModoScrittura::SenzaRisposta);
+    }
+
+    #[test]
+    fn dopo_un_cambio_per_errore_il_silenzio_dice_che_laltra_e_gia_stata_provata() {
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")])
+            .che_rifiuta(ModoScrittura::SenzaRisposta);
+        let (mut flusso, diario, _) = apri_flusso(&antenna);
+        flusso.scrivi(&[0xc2, 0x8d]).unwrap();
+        assert!(flusso.leggi(20, Duration::from_millis(80)).unwrap().is_empty());
+        assert!(diario.contiene("già stata provata"), "{}", diario.testo());
+        assert!(!diario.contiene("accetta solo la modalità"), "{}", diario.testo());
+    }
+
+    #[test]
+    fn lo_scollegamento_voluto_non_si_racconta_come_una_caduta() {
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")]);
+        let (ponte, diario) = apri(&antenna);
+        ponte.scollegamento_voluto.store(true, Ordering::SeqCst);
+        antenna.fai_cadere();
+        assert!(!diario.contiene("caduto da sé"), "{}", diario.testo());
+        assert!(!(ponte.riassunto)().contains("caduto"), "{}", (ponte.riassunto)());
     }
 
     #[test]
@@ -2714,11 +3079,23 @@ mod prove {
         assert_eq!(ricarica.dati, vec![222]);
         assert_eq!(antenna.scritte().len(), 3, "una ricarica sola, non una per notifica");
 
+        // Una ricarica che fallisce si vede nel riassunto, e i crediti NON
+        // vengono contati: il computer resta senza, e la causa deve essere
+        // scritta dove poi si legge il «tempo scaduto».
+        *antenna.0.rifiuta.lock().unwrap() = Some(ModoScrittura::ConRisposta);
+        for _ in 0..222 {
+            antenna.notifica_da(TELIT_DATI_TX, &[0x00; 20]);
+        }
+        std::thread::sleep(Duration::from_millis(150));
+        assert!(diario.contiene("ricarica di 222 crediti non è riuscita"), "{}", diario.testo());
+        assert!((ponte.riassunto)().contains("ricarica di crediti non è riuscita"), "{}", (ponte.riassunto)());
+        *antenna.0.rifiuta.lock().unwrap() = None;
+
         // I crediti in arrivo dal computer si raccontano la prima volta e basta.
         antenna.notifica_da(TELIT_CREDITI_TX, &[0x10]);
         antenna.notifica_da(TELIT_CREDITI_TX, &[0x10]);
         assert_eq!(diario.righe().iter().filter(|r| r.contains("ci concede crediti")).count(), 1);
-        assert_eq!(ponte.ricevuti.load(Ordering::Relaxed), 222 * 20, "i crediti non sono dati");
+        assert_eq!(ponte.ricevuti.load(Ordering::Relaxed), 444 * 20, "i crediti non sono dati");
     }
 
     #[test]
@@ -2735,7 +3112,7 @@ mod prove {
     fn se_la_concessione_dei_crediti_fallisce_il_ponte_non_si_apre() {
         let antenna = FintaAntenna::con(vec![telit()]).che_rifiuta(ModoScrittura::ConRisposta);
         let diario = Diario::default();
-        let errore = tauri::async_runtime::block_on(apri_ponte(antenna, "finto-01", diario.cronista()))
+        let errore = tauri::async_runtime::block_on(apri_ponte(antenna, "finto-01", None, diario.cronista()))
             .err()
             .expect("senza crediti non si parte");
         assert!(errore.contains("254 crediti"), "{errore}");
@@ -2751,6 +3128,18 @@ mod prove {
             .con_valore("6e400003-b5a3-f393-e0a9-e50e24dc10b8", &[1, 2, 3, 4, 5]);
         let (mut flusso, _, _) = apri_flusso(&antenna);
 
+        assert_eq!(flusso.nome(), Some("FQ001124".to_string()));
+
+        // Il nome visto in scansione batte quello del plugin, perché è quello
+        // pubblicitario; uno vuoto non lo batte.
+        let diario = Diario::default();
+        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", Some("FQ009999"), diario.cronista())).unwrap();
+        let PonteBle { entrata, scrittura, accessori, su_silenzio, .. } = ponte;
+        let mut flusso = FlussoBle::nuovo(entrata, scrittura).con_accessori(accessori, su_silenzio);
+        assert_eq!(flusso.nome(), Some("FQ009999".to_string()));
+        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", Some("  "), diario.cronista())).unwrap();
+        let PonteBle { entrata, scrittura, accessori, su_silenzio, .. } = ponte;
+        let mut flusso = FlussoBle::nuovo(entrata, scrittura).con_accessori(accessori, su_silenzio);
         assert_eq!(flusso.nome(), Some("FQ001124".to_string()));
         let uuid = uuid::Uuid::parse_str("6e400003-b5a3-f393-e0a9-e50e24dc10b8").unwrap();
         assert_eq!(flusso.leggi_caratteristica(*uuid.as_bytes()).unwrap(), vec![1, 2, 3, 4, 5]);
