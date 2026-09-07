@@ -1,7 +1,7 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **7 settembre 2026** — commit `4ada808` su `main`, **1874 prove in
-100 file** più **49 prove Rust** del ponte, lint a **0 errori e 0 avvisi**. Nel
+Aggiornato: **7 settembre 2026, sera** — commit `55fa1f5` su `main`, **1874 prove in
+100 file** più **59 prove Rust** del ponte, lint a **0 errori e 0 avvisi**. Nel
 repository c'è la **1.8.0**, e **non è ancora rilasciata da nessuna parte**: è
 il caso descritto in `rilascio-e-versioni.md` — committata e compilata nel
 contenitore, ferma lì finché il Mac non costruisce e i negozi non ricevono.
@@ -383,9 +383,84 @@ caratteristiche da evitare di McLean e Halcyon. E una cosa che c'era da prima:
 **quando l'apertura del ponte falliva, il collegamento restava in piedi** — il
 computer sveglio, e su alcuni firmware la porta occupata al tentativo dopo.
 
+### Il debug a occhi nuovi, lo stesso pomeriggio: tredici rilievi, otto correzioni
+
+Prima di consegnare, il ponte è stato riletto da due revisori indipendenti che
+non l'avevano scritto — uno sulla concorrenza, uno sui protocolli con
+libdivecomputer 0.9.0, Subsurface, btleplug e il plugin aperti accanto. **Un
+codice scritto in un giorno e provato solo contro un finto ha bisogno di
+qualcuno che non sappia cosa ci si aspettava di trovare.** Quello che è uscito,
+in ordine di gravità:
+
+1. **Le scritture spezzate a venti byte rompevano il Pelagic i330R per
+   costruzione.** La richiesta d'accesso è UN pacchetto da 21 byte
+   (`pelagic_i330r.c`), e il firmware valida ogni scrittura ATT come pacchetto
+   intero: 20+1 sono due pacchetti malformati, scartati in silenzio. Il
+   Divesoft (27 byte con la cornice HDLC) e in rari casi lo Shearwater sono
+   nella stessa situazione. **Ora non si spezza**, come Subsurface: il buffer
+   va intero e l'MTU lo negozia il sistema (Apple da sé, Android a 517 per
+   mano del plugin, BlueZ e Windows lo stack). Dove libdivecomputer vuole
+   pacchetti da venti li fa lei.
+2. **`purge` nullo era «successo senza svuotare».** Mares, dopo un pacchetto
+   scaduto, dorme un secondo, svuota l'ingresso e rimanda il comando: senza
+   svuotamento ogni tentativo rileggeva la spazzatura del precedente, e la
+   ripresa da un errore — il motivo per cui i backend ritentano — non poteva
+   riuscire. Ora `cb_purge` svuota davvero, e una prova lo percorre dalla
+   strada vera.
+3. **Una conferma scaduta non cambia più modalità.** Dopo dieci secondi senza
+   conferma la scrittura può essere ancora in corso: cambiare modalità e
+   riscrivere farebbe arrivare al computer lo stesso comando due volte. Il
+   guasto ora è tipizzato — rifiutata, scaduta, chiusa — e solo il rifiuto
+   negozia.
+4. **Il rinvio sul silenzio rimanda TUTTE le scritture fatte prima della prima
+   risposta**, non l'ultima: il primo comando di Mares sono due scritture,
+   quello di Suunto lo spezza l'HDLC, e rimandare un frammento non prova
+   niente. E un silenzio prima di qualunque scrittura non brucia più
+   l'alternativa.
+5. **Il contatore dei crediti Telit era avvolgente**: una notifica in più di
+   quelle coperte lo portava a `usize::MAX`, e da lì nessuna ricarica sarebbe
+   più partita. Ora satura, i crediti si contano solo dopo che la scrittura è
+   riuscita, e una ricarica fallita finisce nel riassunto.
+6. **`dc_device_close` sovrascriveva la causa dello scarico**: per i backend
+   il cui `close` scrive (OSTC manda EXIT), su un collegamento caduto la
+   chiusura annotava un secondo guasto e il messaggio parlava di quello. La
+   causa si legge prima di chiudere.
+7. **Lo scollegamento voluto si raccontava come «caduto da sé»**, perché la
+   callback di caduta del plugin scatta anche quando siamo noi a scollegarci.
+   Una bandierina, alzata prima di scollegarsi.
+8. **Due scarichi insieme** — un doppio tocco — si sarebbero iscritti alla
+   stessa caratteristica e scollegati a vicenda: ora il secondo trova un «no».
+
+E i minori: il riassunto che poteva dire «3 notifiche, nessuna notifica
+ricevuta»; il messaggio «accetta solo una modalità» dopo un cambio per errore;
+un valore di caratteristica più corto del richiesto che lasciava zeri (ora
+«formato dati», come Subsurface); il nome del dispositivo preso dalla
+scansione — il nome pubblicitario che Oceanic pretende — invece che dalla
+cache del plugin; le caratteristiche nominate dalla tabella che devono avere
+le proprietà che la tabella attribuisce loro; e, sui servizi dell'elenco di
+Subsurface, quando le candidate restano due si prende la prima **e lo si
+scrive nel diario**, invece di rifiutare un computer che con Subsurface
+scarica.
+
+**Quello che i revisori hanno confermato giusto**, e vale scriverlo perché è la
+metà che di solito non si racconta: nessun mutex tenuto attraverso una
+chiamata bloccante; i canali che si chiudono nell'ordine giusto; le costanti
+`ioctl` e il contratto del buffer; le callback nulle di `custom.c` che
+restano nulle a ragione (configure, DTR, RTS, break, flush); i confini di
+pacchetto in lettura, che non rompono nessun backend della 0.9.0; gli UUID, i
+valori e l'ordine dei crediti Terminal I/O, identici a Subsurface.
+
+**Quello che resta fuori, dichiarato**: il Pelagic i330R/DSX chiede il codice
+PIN via `ioctl` e noi rispondiamo «non supportato» — come Subsurface, che non
+lo implementa; il Perdix 3 è nell'elenco dei servizi ma la 0.9.0 non ha il
+suo descrittore, quindi non si scarica comunque.
+
+Prove Rust: **59**, tutte le nuove viste rosse per mutazione. Catena JS intera
+verde, fusi estremi compresi, build e sito controllati.
+
 ### Cosa è verificato, e cosa no — detto con la precisione che ha
 
-Verificato: **49 prove Rust** contro un'antenna finta (17 nuove), ognuna vista
+Verificato: **59 prove Rust** contro un'antenna finta (27 nuove), ognuna vista
 rossa per mutazione — compresa la soglia dei crediti sbagliata di uno, che
 **passava per la corsa** finché la prova non ha aspettato il compito asincrono
 prima di contare; e la guardia sui servizi di sistema, che aveva un'eccezione
