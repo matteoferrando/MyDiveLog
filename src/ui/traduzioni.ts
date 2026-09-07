@@ -1882,6 +1882,12 @@ export const INGLESE: Record<string, string> = {
   'Niente di nuovo: il computer non ha immersioni più recenti di quelle che hai già.':
     'Nothing new: the computer has no dives newer than the ones you already have.',
   'non riconosciuto come computer subacqueo': 'not recognised as a dive computer',
+  // --- il riconoscimento dal nome, per le marche senza driver di casa ---
+  'via libdivecomputer': 'via libdivecomputer',
+  'scegli il modello': 'choose the model',
+  'Non è questo?': 'Not this one?',
+  'Dal nome, probabilmente uno di questi:': 'Going by the name, probably one of these:',
+  'Oppure cerca fra tutti:': 'Or search among all of them:',
   // --- il catalogo dei computer: marca, modello, e cosa succede davvero ---
   'Che computer è?': 'Which computer is it?',
   'Cerca la marca o il modello': 'Search by brand or model',

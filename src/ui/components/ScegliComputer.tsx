@@ -45,6 +45,7 @@ export function ScegliComputer({
   onScegli,
   onAnnulla,
   conLibdivecomputer = false,
+  proposte = [],
 }: {
   /**
    * Il modello scelto, con l'esito già calcolato da chi lo riceve.
@@ -65,6 +66,17 @@ export function ScegliComputer({
    * indovina, e il difetto è **spento**, che è la risposta prudente.
    */
   conLibdivecomputer?: boolean;
+  /**
+   * I modelli che il nome annunciato fa pensare, quando sono più d'uno.
+   *
+   * Arrivano da `proponi` in `core/ble/riconosci.ts`: per «Mares bluelink pro»
+   * — il nome di un adattatore che si attacca a mezza gamma — libdivecomputer
+   * sa che è un Mares ma non quale. Si mostrano IN CIMA, prima dell'elenco
+   * delle marche, così chi ha un Mares sceglie fra otto voci invece di
+   * centocinque; l'elenco intero resta sotto, perché una proposta è una
+   * proposta e il nome può ingannare. Vuoto: il selettore è quello di sempre.
+   */
+  proposte?: readonly VoceCatalogo[];
 }) {
   const { t } = useLingua();
   const [testo, setTesto] = useState('');
@@ -149,40 +161,53 @@ export function ScegliComputer({
           <ElencoModelli modelli={trovati} onScegli={onScegli} conLdc={conLibdivecomputer} />
         )
       ) : (
-        <ul className="marche">
-          {marche.map(({ marca, modelli, automatica }) => (
-            <li key={marca}>
-              <button
-                className="btn secondary"
-                aria-expanded={marcaAperta === marca}
-                aria-controls={`${base}-${marca.replace(/\W+/g, '')}`}
-                onClick={() => setMarcaAperta(marcaAperta === marca ? null : marca)}
-              >
-                <span>{marca}</span>
-                {/*
-                 * «riconosciuto da solo» accanto alle due marche che l'app
-                 * riconosce senza chiedere niente. Non è vanteria: chi ha uno
-                 * Shearwater e sta guardando questo elenco ha un problema
-                 * DIVERSO — il nome annunciato — e sapere che di norma non
-                 * serviva sceglierlo gli dice dove cercare.
-                 */}
-                {automatica && (
-                  <span className="muted" style={{ fontSize: 11 }}>
-                    {t('di solito riconosciuto da solo')}
-                  </span>
+        <>
+          {proposte.length > 0 && (
+            <div className="proposte-dal-nome">
+              <p className="muted" style={{ fontSize: 12, margin: '8px 0 4px' }}>
+                {t('Dal nome, probabilmente uno di questi:')}
+              </p>
+              <ElencoModelli modelli={proposte} onScegli={onScegli} conLdc={conLibdivecomputer} />
+              <p className="muted" style={{ fontSize: 12, margin: '8px 0 4px' }}>
+                {t('Oppure cerca fra tutti:')}
+              </p>
+            </div>
+          )}
+          <ul className="marche">
+            {marche.map(({ marca, modelli, automatica }) => (
+              <li key={marca}>
+                <button
+                  className="btn secondary"
+                  aria-expanded={marcaAperta === marca}
+                  aria-controls={`${base}-${marca.replace(/\W+/g, '')}`}
+                  onClick={() => setMarcaAperta(marcaAperta === marca ? null : marca)}
+                >
+                  <span>{marca}</span>
+                  {/*
+                   * «riconosciuto da solo» accanto alle due marche che l'app
+                   * riconosce senza chiedere niente. Non è vanteria: chi ha uno
+                   * Shearwater e sta guardando questo elenco ha un problema
+                   * DIVERSO — il nome annunciato — e sapere che di norma non
+                   * serviva sceglierlo gli dice dove cercare.
+                   */}
+                  {automatica && (
+                    <span className="muted" style={{ fontSize: 11 }}>
+                      {t('di solito riconosciuto da solo')}
+                    </span>
+                  )}
+                </button>
+                {marcaAperta === marca && (
+                  <ElencoModelli
+                    id={`${base}-${marca.replace(/\W+/g, '')}`}
+                    modelli={modelli}
+                    onScegli={onScegli}
+                    conLdc={conLibdivecomputer}
+                  />
                 )}
-              </button>
-              {marcaAperta === marca && (
-                <ElencoModelli
-                  id={`${base}-${marca.replace(/\W+/g, '')}`}
-                  modelli={modelli}
-                  onScegli={onScegli}
-                  conLdc={conLibdivecomputer}
-                />
-              )}
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );

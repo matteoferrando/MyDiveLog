@@ -32,8 +32,9 @@ import { frase } from '../../core/frase';
 import { DRIVERS, recognise, type RecognisedDevice } from '../../core/ble/registry';
 import type { VoceCatalogo } from '../../core/ble/catalogo';
 import { esitoPer } from '../../core/ble/scelta';
+import { proponi, type CandidatoRiconosciuto, type Proposta } from '../../core/ble/riconosci';
 import { ScegliComputer } from './ScegliComputer';
-import { scaricaDaComputerEsterno } from '../../storage/computerEsterni';
+import { riconosciComputerEsterno, scaricaDaComputerEsterno } from '../../storage/computerEsterni';
 import type { Dive } from '../../core/model';
 import {
   markerKey,
@@ -165,6 +166,50 @@ export function BleDownload() {
    * frase che dice come fare invece.
    */
   const [spiegazione, setSpiegazione] = useState<VoceCatalogo | null>(null);
+  /*
+   * ► CHE COMPUTER È, DETTO DAL NOME, PER LE MARCHE SENZA DRIVER DI CASA. ◄
+   *
+   * Un centro immersioni ha visto venti volte «Quad Ci — non riconosciuto come
+   * computer subacqueo», e venti volte ha dovuto cercare Mares in un elenco di
+   * centocinque. Il nome lo diceva già: libdivecomputer ha, per ogni
+   * costruttore, il filtro con cui Subsurface propone il modello, e il guscio
+   * Rust lo interroga (`riconosci_computer_esterno`). Qui si chiede una volta
+   * per NOME — non per giro di scansione, che riscrive l'elenco ogni secondo —
+   * e si tiene la proposta per dispositivo, così la riga mostra «Mares Quad
+   * Ci» e un «Scarica» diretto.
+   *
+   * La memoria è per nome e non per identificativo perché è il nome che il
+   * filtro guarda: due Quad Ci sulla stessa barca hanno due identificativi e
+   * una risposta sola. E la risposta di un nome non cambia mai nel corso di una
+   * ricerca — cambia con la versione della libreria, cioè con l'applicazione.
+   *
+   * Una proposta è una proposta: accanto c'è sempre «Non è questo?», che apre
+   * il selettore di sempre. Il costo di una proposta sbagliata è un tentativo
+   * che il computer non capisce e un errore leggibile, non un'immersione
+   * inventata in archivio.
+   */
+  const [proposte, setProposte] = useState<Record<string, Proposta>>({});
+  const riconoscimenti = useRef(new Map<string, Promise<CandidatoRiconosciuto[]>>());
+  useEffect(() => {
+    let vivo = true;
+    for (const { device, driver } of trovati) {
+      const nome = device.name?.trim() ?? '';
+      if (driver || nome === '' || proposte[device.id]) continue;
+      let candidati = riconoscimenti.current.get(nome);
+      if (!candidati) {
+        candidati = riconosciComputerEsterno(nome);
+        riconoscimenti.current.set(nome, candidati);
+      }
+      void candidati.then((elenco) => {
+        if (!vivo) return;
+        const proposta = proponi(nome, elenco);
+        setProposte((p) => (p[device.id] ? p : { ...p, [device.id]: proposta }));
+      });
+    }
+    return () => {
+      vivo = false;
+    };
+  }, [trovati, proposte]);
   /*
    * ► QUESTA COPIA DELL'APPLICAZIONE HA DENTRO LIBDIVECOMPUTER? ◄
    *
@@ -1061,93 +1106,165 @@ export function BleDownload() {
              * quello che si vedeva — e due colonne in meno da far stare in 312 px.
              */
             <ul className="dispositivi">
-              {trovati.map(({ device, driver }) => (
-                <li key={device.id}>
-                  <div className="dispositivo-nome">
-                    <b>{device.name || t('senza nome')}</b>
-                    <span>{driver ? t(driver.label) : t('non riconosciuto come computer subacqueo')}</span>
-                  </div>
-                  <div className="dispositivo-azione">
-                    <span className="muted tabular" style={{ fontSize: 12 }}>
-                      {device.rssi !== undefined ? `${device.rssi} dBm` : '—'}
-                    </span>
-                    {driver ? (
-                      <button className="btn" onClick={() => void scarica({ device, driver })}>
-                        {t('Scarica')}
-                      </button>
-                    ) : (
-                      /*
-                       * LA VIA D'USCITA QUANDO IL NOME NON È QUELLO PREVISTO.
-                       *
-                       * Il riconoscimento si fa sul nome annunciato, e i nomi
-                       * cambiano: l'Aladin Sport Matrix si annuncia «Aladin
-                       * Sport» e non «Aladin», che è il nome con cui lo elenca
-                       * libdivecomputer. Il risultato è stato una schermata che
-                       * diceva «non riconosciuto come computer subacqueo»
-                       * davanti a un computer subacqueo, senza niente da
-                       * premere — e la sola cosa da fare era aspettare una
-                       * versione nuova dell'applicazione.
-                       *
-                       * Con questa tendina, chi SA che computer ha lo prova.
-                       * Il rischio è mandare comandi a un dispositivo che non
-                       * è quello: lo si accetta perché la scelta è esplicita e
-                       * la fa una persona che ha il computer in mano, non un
-                       * riconoscimento automatico che si sbaglia da solo. Il
-                       * protocollo comunque non trova il suo servizio e si
-                       * ferma con un errore leggibile, senza scrivere niente.
-                       */
-                      <button
-                        className="btn secondary"
-                        style={{ fontSize: 12 }}
-                        data-scegli={device.id}
-                        onClick={() => {
-                          setSpiegazione(null);
-                          setScegliPer(scegliPer === device.id ? null : device.id);
-                        }}
-                      >
-                        {t('Che computer è?')}
-                      </button>
-                    )}
-                  </div>
-                  {/*
-                   * IL SELETTORE SI APRE SOTTO LA RIGA DEL DISPOSITIVO, non
-                   * altrove. Sono 105 modelli: aperti in un'altra schermata si
-                   * perde di vista A QUALE dei dispositivi trovati si sta
-                   * dando un nome, e in una barca con tre computer accesi non è
-                   * un dettaglio.
-                   */}
-                  {scegliPer === device.id && (
-                    <ScegliComputer
-                      onAnnulla={() => {
-                        setScegliPer(null);
-                        tornaAlPulsante(device.id);
-                      }}
-                      conLibdivecomputer={conLibdivecomputer}
-                      onScegli={(modello) => {
-                        const esito = esitoPer(modello, conLibdivecomputer);
-                        setScegliPer(null);
-                        // Il fuoco torna al pulsante solo quando si RESTA qui:
-                        // se parte uno scarico la schermata cambia del tutto, e
-                        // rimettere il fuoco su un pulsante che sta per sparire
-                        // sposterebbe la pagina per niente.
-                        if (esito.tipo !== 'si-scarica' && esito.tipo !== 'si-scarica-ldc') {
+              {trovati.map(({ device, driver }) => {
+                /*
+                 * LA RIGA DICE QUELLO CHE SI SA, E SOLO QUELLO.
+                 *
+                 * Con un driver di casa: l'etichetta del driver. Senza, ma con
+                 * un modello riconosciuto dal nome: marca e modello, e da
+                 * dove passa lo scarico. Senza, con una famiglia ma non il
+                 * modello: la marca, e «scegli il modello». Senza niente: la
+                 * frase di sempre. Quattro righe diverse per quattro
+                 * situazioni diverse, perché «non riconosciuto» davanti a un
+                 * Mares era una bugia che costava venti tocchi.
+                 */
+                const proposta = driver ? undefined : proposte[device.id];
+                const riconosciuto = proposta?.tipo === 'modello' ? proposta.voce : null;
+                const esitoRiconosciuto = riconosciuto ? esitoPer(riconosciuto, conLibdivecomputer) : null;
+                const scaricabile =
+                  esitoRiconosciuto?.tipo === 'si-scarica' || esitoRiconosciuto?.tipo === 'si-scarica-ldc';
+                const marcheProposte =
+                  proposta?.tipo === 'scelta'
+                    ? [...new Set(proposta.voci.map((v) => v.marca))].join(' / ')
+                    : '';
+                const didascalia = driver
+                  ? t(driver.label)
+                  : riconosciuto
+                    ? `${riconosciuto.marca} ${riconosciuto.modello}${
+                        esitoRiconosciuto?.tipo === 'si-scarica-ldc' ? ` — ${t('via libdivecomputer')}` : ''
+                      }`
+                    : marcheProposte
+                      ? `${marcheProposte} — ${t('scegli il modello')}`
+                      : t('non riconosciuto come computer subacqueo');
+                const avviaRiconosciuto = () => {
+                  if (!riconosciuto || !esitoRiconosciuto) return;
+                  if (esitoRiconosciuto.tipo === 'si-scarica') {
+                    const scelto = DRIVERS.find((d) => d.id === esitoRiconosciuto.driverId);
+                    if (scelto) void scarica({ device, driver: scelto });
+                    return;
+                  }
+                  if (esitoRiconosciuto.tipo === 'si-scarica-ldc') {
+                    void scaricaEsterno(device, riconosciuto.marca, riconosciuto.modello);
+                  }
+                };
+                return (
+                  <li key={device.id}>
+                    <div className="dispositivo-nome">
+                      <b>{device.name || t('senza nome')}</b>
+                      <span>{didascalia}</span>
+                    </div>
+                    <div className="dispositivo-azione">
+                      <span className="muted tabular" style={{ fontSize: 12 }}>
+                        {device.rssi !== undefined ? `${device.rssi} dBm` : '—'}
+                      </span>
+                      {driver ? (
+                        <button className="btn" onClick={() => void scarica({ device, driver })}>
+                          {t('Scarica')}
+                        </button>
+                      ) : scaricabile ? (
+                        /*
+                         * RICONOSCIUTO DAL NOME: «Scarica» diretto, e accanto
+                         * la via d'uscita. Il pulsante di ripiego tiene
+                         * `data-scegli`, perché è lui che riprende il fuoco
+                         * quando il selettore si chiude senza scaricare.
+                         */
+                        <>
+                          <button
+                            className="btn secondary"
+                            style={{ fontSize: 12 }}
+                            data-scegli={device.id}
+                            onClick={() => {
+                              setSpiegazione(null);
+                              setScegliPer(scegliPer === device.id ? null : device.id);
+                            }}
+                          >
+                            {t('Non è questo?')}
+                          </button>
+                          <button className="btn" onClick={avviaRiconosciuto}>
+                            {t('Scarica')}
+                          </button>
+                        </>
+                      ) : (
+                        /*
+                         * LA VIA D'USCITA QUANDO IL NOME NON È QUELLO PREVISTO.
+                         *
+                         * Il riconoscimento si fa sul nome annunciato, e i nomi
+                         * cambiano: l'Aladin Sport Matrix si annuncia «Aladin
+                         * Sport» e non «Aladin», che è il nome con cui lo elenca
+                         * libdivecomputer. Il risultato è stato una schermata che
+                         * diceva «non riconosciuto come computer subacqueo»
+                         * davanti a un computer subacqueo, senza niente da
+                         * premere — e la sola cosa da fare era aspettare una
+                         * versione nuova dell'applicazione.
+                         *
+                         * Con questa tendina, chi SA che computer ha lo prova.
+                         * Il rischio è mandare comandi a un dispositivo che non
+                         * è quello: lo si accetta perché la scelta è esplicita e
+                         * la fa una persona che ha il computer in mano, non un
+                         * riconoscimento automatico che si sbaglia da solo. Il
+                         * protocollo comunque non trova il suo servizio e si
+                         * ferma con un errore leggibile, senza scrivere niente.
+                         */
+                        <button
+                          className="btn secondary"
+                          style={{ fontSize: 12 }}
+                          data-scegli={device.id}
+                          onClick={() => {
+                            setSpiegazione(null);
+                            setScegliPer(scegliPer === device.id ? null : device.id);
+                          }}
+                        >
+                          {t('Che computer è?')}
+                        </button>
+                      )}
+                    </div>
+                    {/*
+                     * IL SELETTORE SI APRE SOTTO LA RIGA DEL DISPOSITIVO, non
+                     * altrove. Sono 105 modelli: aperti in un'altra schermata si
+                     * perde di vista A QUALE dei dispositivi trovati si sta
+                     * dando un nome, e in una barca con tre computer accesi non è
+                     * un dettaglio.
+                     */}
+                    {scegliPer === device.id && (
+                      <ScegliComputer
+                        onAnnulla={() => {
+                          setScegliPer(null);
                           tornaAlPulsante(device.id);
-                        }
-                        if (esito.tipo === 'si-scarica') {
-                          const scelto = DRIVERS.find((d) => d.id === esito.driverId);
-                          if (scelto) void scarica({ device, driver: scelto });
-                          return;
-                        }
-                        if (esito.tipo === 'si-scarica-ldc') {
-                          void scaricaEsterno(device, modello.marca, modello.modello);
-                          return;
-                        }
-                        setSpiegazione(modello);
-                      }}
-                    />
-                  )}
-                </li>
-              ))}
+                        }}
+                        conLibdivecomputer={conLibdivecomputer}
+                        /*
+                         * Le proposte entrano nel selettore solo quando il nome
+                         * ha dato la famiglia e non il modello. Dopo «Non è
+                         * questo?» la proposta è già stata rifiutata: riproporla
+                         * in cima sarebbe insistere.
+                         */
+                        proposte={proposta?.tipo === 'scelta' ? proposta.voci : []}
+                        onScegli={(modello) => {
+                          const esito = esitoPer(modello, conLibdivecomputer);
+                          setScegliPer(null);
+                          // Il fuoco torna al pulsante solo quando si RESTA qui:
+                          // se parte uno scarico la schermata cambia del tutto, e
+                          // rimettere il fuoco su un pulsante che sta per sparire
+                          // sposterebbe la pagina per niente.
+                          if (esito.tipo !== 'si-scarica' && esito.tipo !== 'si-scarica-ldc') {
+                            tornaAlPulsante(device.id);
+                          }
+                          if (esito.tipo === 'si-scarica') {
+                            const scelto = DRIVERS.find((d) => d.id === esito.driverId);
+                            if (scelto) void scarica({ device, driver: scelto });
+                            return;
+                          }
+                          if (esito.tipo === 'si-scarica-ldc') {
+                            void scaricaEsterno(device, modello.marca, modello.modello);
+                            return;
+                          }
+                          setSpiegazione(modello);
+                        }}
+                      />
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
 

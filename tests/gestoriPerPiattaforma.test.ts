@@ -82,6 +82,16 @@ describe('i comandi Rust registrati, piattaforma per piattaforma', () => {
   });
 
   /*
+   * Il riconoscimento dal nome annunciato. Senza, la riga di un Mares torna a
+   * dire «non riconosciuto come computer subacqueo» — non con un errore, con
+   * un elenco vuoto: `riconosciComputerEsterno` tratta il comando assente
+   * come «nessun candidato», di proposito, e quindi QUESTA è l'unica guardia.
+   */
+  it.each(PIATTAFORME)('$nome sa riconoscere un computer dal nome', ({ cfg }) => {
+    expect(comandiPer(cfg)).toContain('computer_esterni::riconosci_computer_esterno');
+  });
+
+  /*
    * Il ritorno dall'accesso, che è il comando la cui assenza è già costata due
    * pacchetti. Vale ovunque tranne iPhone, dove il ritorno arriva da uno schema
    * URL e una porta locale non si può aprire.

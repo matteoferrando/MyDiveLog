@@ -73,10 +73,16 @@ mod ponte {
         fn dc_descriptor_get_vendor(descriptor: *mut DcDescriptor) -> *const c_char;
         fn dc_descriptor_get_product(descriptor: *mut DcDescriptor) -> *const c_char;
         fn dc_descriptor_get_transports(descriptor: *mut DcDescriptor) -> c_uint;
+        fn dc_descriptor_filter(
+            descriptor: *mut DcDescriptor,
+            transport: c_uint,
+            userdata: *const std::ffi::c_void,
+        ) -> c_int;
         fn dc_descriptor_free(descriptor: *mut DcDescriptor) -> c_int;
     }
 
     const DC_STATUS_SUCCESS: c_int = 0;
+    const DC_TRANSPORT_BLE: c_uint = 1 << 5;
 
     /// I bit del trasporto, nell'ordine in cui `common.h` li dichiara.
     const TRASPORTI: [(c_uint, &str); 6] = [
@@ -137,6 +143,76 @@ mod ponte {
         unsafe { dc_iterator_free(iteratore) };
         Ok(trovati)
     }
+
+    /// I modelli che libdivecomputer associa a un nome Bluetooth.
+    ///
+    /// ► SONO I FILTRI DI LIBDIVECOMPUTER, NON UNA TABELLA NOSTRA. ◄
+    /// `dc_descriptor_filter` sa che «Quad Ci» e «Mares bluelink pro» sono
+    /// Mares, «OSTC» un Heinrichs Weikamp, «EON Steel» un Suunto, «FQ001124» un
+    /// Oceanic/Aqualung — sono gli stessi filtri con cui Subsurface propone il
+    /// modello da sé. Sono per COSTRUTTORE: per «Quad Ci» tornano tutti i Mares
+    /// con il Bluetooth, e a stringere sul modello ci pensa chi chiama, che
+    /// conosce il catalogo.
+    ///
+    /// LA TRAPPOLA, E DOVE STA LA GUARDIA. Un descrittore SENZA filtro risponde
+    /// «sì» a qualunque nome (`descriptor.c`: `if (descriptor->filter == NULL)
+    /// return 1`): preso alla lettera, un paio di cuffie verrebbe riconosciuto
+    /// come ognuno dei modelli senza filtro. Nella 0.9.0 nessun descrittore con
+    /// il Bluetooth è senza filtro, quindi qui non c'è un controllo — sarebbe
+    /// una guardia che nessuna prova può far diventare rossa. La guardia sta
+    /// nella prova `ogni_modello_bluetooth_ha_un_filtro_che_distingue`, che
+    /// diventa rossa il giorno in cui un aggiornamento della libreria porta un
+    /// descrittore senza filtro: quel giorno il controllo va scritto qui.
+    pub fn riconosci(nome: &str) -> Result<Vec<ComputerSupportato>, String> {
+        let nome = nome.trim();
+        if nome.is_empty() {
+            return Ok(Vec::new());
+        }
+        let vero = std::ffi::CString::new(nome).map_err(|_| "nome con un byte nullo dentro")?;
+
+        let mut iteratore: *mut DcIterator = std::ptr::null_mut();
+        if unsafe { dc_descriptor_iterator(&mut iteratore) } != DC_STATUS_SUCCESS {
+            return Err("libdivecomputer non ha restituito l’elenco dei modelli".into());
+        }
+        let mut trovati = Vec::new();
+        loop {
+            let mut descrittore: *mut DcDescriptor = std::ptr::null_mut();
+            if unsafe { dc_iterator_next(iteratore, &mut descrittore) } != DC_STATUS_SUCCESS {
+                break;
+            }
+            let ble = unsafe { dc_descriptor_get_transports(descrittore) } & DC_TRANSPORT_BLE != 0;
+            let dice_si = unsafe {
+                dc_descriptor_filter(descrittore, DC_TRANSPORT_BLE, vero.as_ptr() as *const _) != 0
+            };
+            if ble && dice_si {
+                trovati.push(ComputerSupportato {
+                    marca: testo(unsafe { dc_descriptor_get_vendor(descrittore) }),
+                    modello: testo(unsafe { dc_descriptor_get_product(descrittore) }),
+                    trasporti: vec!["ble".to_string()],
+                });
+            }
+            unsafe { dc_descriptor_free(descrittore) };
+        }
+        unsafe { dc_iterator_free(iteratore) };
+        Ok(trovati)
+    }
+}
+
+/// I modelli che libdivecomputer riconosce da un nome Bluetooth: vedi
+/// `ponte::riconosci`. Vuoto quando non riconosce niente, e vuoto in una copia
+/// compilata senza la libreria — che è la verità: quella copia non riconosce
+/// nessun computer in più rispetto ai driver di casa.
+#[tauri::command]
+pub fn riconosci_computer_esterno(nome: String) -> Result<Vec<ComputerSupportato>, String> {
+    #[cfg(feature = "computer-esterni")]
+    {
+        ponte::riconosci(&nome)
+    }
+    #[cfg(not(feature = "computer-esterni"))]
+    {
+        let _ = nome;
+        Ok(Vec::new())
+    }
 }
 
 /// L'elenco dei computer riconosciuti, o un elenco vuoto.
@@ -182,6 +258,58 @@ mod prove {
             .filter(|c| c.trasporti.iter().any(|t| t == "ble"))
             .count();
         assert!(quanti > 50, "modelli BLE: {quanti}");
+    }
+
+    #[test]
+    fn il_nome_bluetooth_di_un_mares_porta_ai_mares_e_solo_a_loro() {
+        // «Quad Ci» è uno dei prefissi del filtro Mares: tornano tutti i Mares
+        // con il Bluetooth (a stringere sul modello ci pensa chi chiama), e
+        // nessun'altra marca.
+        let trovati = riconosci_computer_esterno("Quad Ci".into()).unwrap();
+        assert!(trovati.iter().any(|c| c.modello == "Quad Ci"), "{trovati:?}");
+        assert!(trovati.len() > 5, "{trovati:?}");
+        assert!(trovati.iter().all(|c| c.marca == "Mares"), "{trovati:?}");
+        // Il prefisso vale anche con il numero di serie in coda e le maiuscole
+        // diverse.
+        let trovati = riconosci_computer_esterno("quad ci 1234".into()).unwrap();
+        assert!(trovati.iter().any(|c| c.modello == "Quad Ci"), "{trovati:?}");
+    }
+
+    #[test]
+    fn un_nome_che_non_e_un_computer_subacqueo_non_porta_a_nessun_modello() {
+        for nome in ["Cuffie JBL", "iPhone di Matteo", "", "   "] {
+            let trovati = riconosci_computer_esterno(nome.into()).unwrap();
+            assert!(trovati.is_empty(), "«{nome}» → {trovati:?}");
+        }
+    }
+
+    #[test]
+    fn ogni_modello_bluetooth_ha_un_filtro_che_distingue() {
+        /*
+         * La premessa su cui `riconosci` si regge: nessun descrittore con il
+         * Bluetooth risponde «sì» a un nome che nessun apparecchio può avere.
+         * In `descriptor.c` un filtro nullo risponde sì a tutto, e allora un
+         * paio di cuffie verrebbe riconosciuto come quel modello. Se questa
+         * prova diventa rossa dopo un aggiornamento della libreria, in
+         * `riconosci` va aggiunto il secondo passaggio con il nome
+         * impossibile — non prima, perché sarebbe una guardia mai vista rossa.
+         */
+        let trovati = ponte::riconosci("\u{1}nessun-apparecchio\u{2}").unwrap();
+        assert!(trovati.is_empty(), "descrittori senza filtro: {trovati:?}");
+    }
+
+    #[test]
+    fn i_nomi_delle_altre_famiglie_arrivano_alla_famiglia_giusta() {
+        // OSTC → Heinrichs Weikamp, EON Steel → Suunto, FQ001124 → la
+        // famiglia Oceanic/Aqualung (che nel nome porta il modello come due
+        // lettere: FQ = i770R).
+        let hw = riconosci_computer_esterno("OSTC+ 12345".into()).unwrap();
+        assert!(!hw.is_empty() && hw.iter().all(|c| c.marca == "Heinrichs Weikamp"), "{hw:?}");
+        let suunto = riconosci_computer_esterno("EON Steel".into()).unwrap();
+        assert!(suunto.iter().any(|c| c.marca == "Suunto" && c.modello == "EON Steel"), "{suunto:?}");
+        let oceanic = riconosci_computer_esterno("FQ001124".into()).unwrap();
+        assert!(oceanic.iter().any(|c| c.modello == "i770R"), "{oceanic:?}");
+        assert!(oceanic.iter().all(|c| c.trasporti == vec!["ble".to_string()]), "{oceanic:?}");
     }
 
     #[test]

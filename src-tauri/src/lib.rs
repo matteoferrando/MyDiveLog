@@ -361,6 +361,7 @@ pub fn run() {
         segreti::segreto_cancella,
         ritorno_accesso::apri_ritorno_accesso,
         computer_esterni::elenca_computer_supportati,
+        computer_esterni::riconosci_computer_esterno,
         ponte_blec::scarica_da_computer_esterno
     ]);
 
@@ -374,6 +375,7 @@ pub fn run() {
         segreti::segreto_cancella,
         esporta_nei_documenti,
         computer_esterni::elenca_computer_supportati,
+        computer_esterni::riconosci_computer_esterno,
         ponte_blec::scarica_da_computer_esterno
     ]);
 
@@ -404,6 +406,7 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         ritorno_accesso::apri_ritorno_accesso,
         computer_esterni::elenca_computer_supportati,
+        computer_esterni::riconosci_computer_esterno,
         ponte_blec::scarica_da_computer_esterno
     ]);
 
@@ -411,6 +414,7 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         ritorno_accesso::apri_ritorno_accesso,
         computer_esterni::elenca_computer_supportati,
+        computer_esterni::riconosci_computer_esterno,
         ponte_blec::scarica_da_computer_esterno
     ]);
 

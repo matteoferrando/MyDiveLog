@@ -44,6 +44,7 @@
  */
 
 import { immersioniDaLdc, type ImmersioneLdc } from '../core/ble/esterni';
+import type { CandidatoRiconosciuto } from '../core/ble/riconosci';
 import { fusoDelDispositivo } from '../core/oraAParete';
 import type { Dive } from '../core/model';
 import type { DownloadEvent } from '../core/ble/types';
@@ -66,6 +67,34 @@ export interface ScaricoEsterno {
   marca: string;
   modello: string;
   emit: (e: DownloadEvent) => void;
+}
+
+/**
+ * I modelli che libdivecomputer riconosce da questo nome annunciato.
+ *
+ * È la domanda «di chi è questo nome?» fatta ai filtri di `descriptor.c`, gli
+ * stessi con cui Subsurface propone il modello. La risposta è per costruttore
+ * — per «Quad Ci» tornano tutti i Mares con il Bluetooth — e stringere sul
+ * modello è compito di `proponi` in `core/ble/riconosci.ts`, che conosce il
+ * catalogo e si prova senza guscio.
+ *
+ * ► VUOTO NON È UN ERRORE. ◄ Vuoto vuol dire: nel browser; oppure la copia è
+ * compilata senza `computer-esterni` (il comando c'è e risponde con un elenco
+ * vuoto); oppure un nome che nessun filtro reclama, che è il caso di un
+ * auricolare. In tutti e tre i casi la schermata fa quello che faceva prima:
+ * mostra il nome e chiede «Che computer è?». Per questo un guasto della
+ * chiamata si tratta come un elenco vuoto e non si mostra: un riconoscimento
+ * mancato costa un tocco in più, un riquadro rosso a ogni auricolare costa
+ * la fiducia.
+ */
+export async function riconosciComputerEsterno(nome: string): Promise<CandidatoRiconosciuto[]> {
+  if (!isTauri() || nome.trim() === '') return [];
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return await invoke<CandidatoRiconosciuto[]>('riconosci_computer_esterno', { nome });
+  } catch {
+    return [];
+  }
 }
 
 /**
