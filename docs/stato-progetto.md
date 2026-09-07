@@ -2088,14 +2088,23 @@ protegge lo script e un travaso dal Mac per quello che resta indietro.
 
 **► iOS: pubblicata sull'App Store. ◄** Approvata il 26 agosto 2026 al terzo
 invio; i due rifiuti precedenti — 2.1 (informazioni) e 2.1(a) (crash su iPad
-toccando «Take Photo or Video») — sono chiusi tutti e due. La versione che il
-negozio serve è la **1.7.0**, approvata e pubblicata il 28 agosto 2026 alle
-16:02:32 UTC; la scheda è in **italiano soltanto**, e questo si misura: la
-stessa descrizione italiana torna interrogando la vetrina americana.
+toccando «Take Photo or Video») — sono chiusi tutti e due. **La versione che il
+negozio serve è la `1.7.1`**, pubblicata il **28 agosto 2026 alle 21:25:04 UTC**
+— misurata col `lookup` e l'anti-cache il 7 settembre, non dedotta. La scheda è
+in **italiano soltanto**, e anche questo si misura: la stessa descrizione
+italiana torna interrogando la vetrina americana.
 
 **► macOS: pubblicata sul Mac App Store. ◄** Il pacchetto era stato consegnato il
 27 agosto alle 21:44, al terzo tentativo; sciolta la «Conformità mancante» e
-mandata in revisione, la **1.7.0** è pubblica anche sul Mac — il 28 agosto.
+mandata in revisione, la 1.7.0 è uscita il 28 agosto, e **la `1.7.1` l'ha
+seguita l'1 settembre** (dichiarato dal proprietario).
+
+> **► E I NEGOZI SONO INDIETRO DI UNA VERSIONE RISPETTO AL SITO. ◄** Dal 7
+> settembre il sito e GitHub servono la **1.8.0**, i due negozi Apple ancora la
+> **1.7.1**: fra il pacchetto pronto e la versione pubblicata ci sono un
+> caricamento a mano e una revisione. *Quando arriva una segnalazione, «ho
+> l'ultima versione» vuol dire due programmi diversi a seconda di dove è stata
+> presa l'app — ed è la prima cosa da chiedere.*
 
 **Come si misura, perché il `lookup` qui non risponde.** La scheda dell'App Store
 è **una sola** per iPhone, iPod touch e Mac (`6804439480`), e il campo `version`
@@ -2120,17 +2129,21 @@ misurato qui non si scrive.
 
 ### Tocca a chi pubblica
 
-0. **► RILASCIARE LA 1.8.0, SU TUTTE E CINQUE LE PIATTAFORME E SUI DUE NEGOZI
-   APPLE. ◄** Il repository è pronto (`4ada808`); i passi sono gli otto di
-   `rilascio-e-versioni.md` più il 9 (Mac App Store) e — quando la finestra di
-   Play si chiude — il 10. **Dal contenitore si fa solo quello che non tocca
-   una credenziale**: commit, push, il workflow di GitHub. `mac:pubblica`,
-   `ios:negozio`, `pubblica-mac-negozio.sh`, la release, Transporter e App
-   Store Connect sono del proprietario. _Dopo la release: `npm run cask`, che
-   riallinea la cask di Homebrew e il PKGBUILD alla 1.8.0 — le due guardie
-   adesso tollerano che restino indietro, non che restino indietro per
-   sempre._ **E la risposta al centro sub va mandata prima**, perché la via del
-   file funziona già oggi.
+0. **► CONSEGNARE LA 1.8.0 AI DUE NEGOZI APPLE. ◄** *La release pubblica è
+   **fatta**: `v1.8.0` con nove allegati, i quattro pulsanti del sito a `200`,
+   `latest.json` che serve 1.8.0 a Mac e Windows, cask e PKGBUILD riallineati
+   dopo. Restano i passi 9 e 10 di `rilascio-e-versioni.md`, cioè i due negozi.*
+   I pacchetti sono **costruiti, firmati e verificati** in
+   `da-caricare-su-app-store/`: `MyDiveLog-1.8.0-app-store.ipa` e
+   `MyDiveLog-1.8.0-mac-app-store.pkg`. Quello che resta al proprietario:
+   Transporter per tutti e due, App Store Connect sulle **due schede separate**,
+   novità da `consegna-1.8.0/novita-negozi-1.8.0.md`, e **inviare in revisione**
+   — *una build caricata e non inviata resta ferma per sempre senza che nessuno
+   dica niente.* **Google Play** aspetta la fine del test chiuso, attorno al 12
+   settembre: l'`.aab` firmato è in `da-caricare-su-play/`. **E la mail al
+   centro sub va mandata dopo l'approvazione, non prima**: sta in
+   `consegna-1.8.0/mail-centro-sub-1.8.0.md`, e se arriva mentre il negozio
+   serve ancora la 1.7.1, chi la legge cerca un aggiornamento che non c'è.
 1. **~~La 1.7.1 ai due negozi.~~ Fatta, tutti e due.** Su **App Store per
    iPhone** dal **28 agosto alle 21:25:04 UTC**, misurato col `lookup` e
    l'anti-cache; sul **Mac App Store**, dichiarato dal proprietario l'1
