@@ -1,6 +1,6 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **7 settembre 2026, notte** — commit `1d38cbe` su `main`, **1897 prove
+Aggiornato: **7 settembre 2026, notte** — commit `ee36880` su `main`, **1897 prove
 in 102 file** più **63 prove Rust** del ponte, lint a **0 errori e 0 avvisi**.
 **La versione pubblica è la `1.8.1`**: release `v1.8.1` con nove allegati, i
 quattro pulsanti del sito rispondono `200`, `latest.json` serve `1.8.1` per Mac e
