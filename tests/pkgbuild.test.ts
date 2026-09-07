@@ -22,6 +22,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+import { nonPiuAvanti } from './versioni';
+
 const RADICE = fileURLToPath(new URL('..', import.meta.url));
 const PKGBUILD = readFileSync(`${RADICE}linux/PKGBUILD`, 'utf8');
 const PACCHETTO = JSON.parse(readFileSync(`${RADICE}package.json`, 'utf8'));
@@ -30,8 +32,11 @@ const WORKFLOW = readFileSync(`${RADICE}.github/workflows/altre-piattaforme.yml`
 const variabile = (nome: string) => new RegExp(`^${nome}=(.+)$`, 'm').exec(PKGBUILD)?.[1];
 
 describe('il PKGBUILD per Arch', () => {
-  it('dichiara la versione del progetto', () => {
-    expect(variabile('pkgver')).toBe(PACCHETTO.version);
+  it('non dichiara una versione più avanti del progetto', () => {
+    // Stessa ragione della cask, in `cask.test.ts`: descrive l'ultima release
+    // pubblicata, e fra un rialzo di versione e la sua release resta indietro
+    // per forza. Più avanti del progetto, mai.
+    expect(nonPiuAvanti(variabile('pkgver'), PACCHETTO.version)).toBe(true);
   });
 
   it('l’impronta è un vero sha256, e non un segnaposto', () => {

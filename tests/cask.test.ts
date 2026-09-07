@@ -25,18 +25,43 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+import { nonPiuAvanti } from './versioni';
+
 const RADICE = fileURLToPath(new URL('..', import.meta.url));
 const CASK = readFileSync(`${RADICE}homebrew/mydivelog.rb`, 'utf8');
+
 const PACCHETTO = JSON.parse(readFileSync(`${RADICE}package.json`, 'utf8'));
 const SITO = readFileSync(`${RADICE}sito/index.html`, 'utf8');
 
 const stanza = (nome: string) => new RegExp(`^\\s*${nome}\\s+"([^"]+)"`, 'm').exec(CASK)?.[1];
 
 describe('la cask di Homebrew', () => {
-  it('dichiara la versione del progetto', () => {
-    // Il difetto classico: si alza la versione e si dimentica l'impronta, o
-    // viceversa. Qui si inchioda almeno il primo dei due alla fonte vera.
-    expect(stanza('version')).toBe(PACCHETTO.version);
+  it('non dichiara una versione più avanti del progetto', () => {
+    /*
+     * La cask descrive L'ULTIMA RELEASE PUBBLICATA, non il repository: la sua
+     * impronta è quella di un file che GitHub serve, e quel file esiste solo
+     * dopo la release. Fra il momento in cui `package.json` sale (il 7
+     * settembre, a 1.8.0) e quello in cui la release esiste, la cask DEVE
+     * restare indietro — una cask 1.8.0 scritta prima del `.dmg` 1.8.0 sarebbe
+     * una promessa su un file che non c'è. Quello che non può succedere mai è
+     * il contrario: una cask più avanti del progetto punta a una release che
+     * non può esistere. Il riallineamento lo fa `npm run cask` dopo la
+     * release, ed è un passo della checklist, non una speranza.
+     */
+    expect(nonPiuAvanti(stanza('version'), PACCHETTO.version)).toBe(true);
+  });
+
+  it('il confronto fra versioni conta i numeri, non le lettere', () => {
+    // «1.9.0» viene prima di «1.10.0» come numero e DOPO come testo: un
+    // confronto testuale direbbe che la cask 1.9.0 è più avanti del progetto
+    // 1.10.0, e bloccherebbe il rialzo sbagliato.
+    expect(nonPiuAvanti('1.9.0', '1.10.0')).toBe(true);
+    expect(nonPiuAvanti('1.7.1', '1.8.0')).toBe(true);
+    expect(nonPiuAvanti('1.8.0', '1.8.0')).toBe(true);
+    expect(nonPiuAvanti('1.8.1', '1.8.0')).toBe(false);
+    expect(nonPiuAvanti('2.0.0', '1.99.99')).toBe(false);
+    expect(nonPiuAvanti(undefined, '1.8.0')).toBe(false);
+    expect(nonPiuAvanti('1.8', '1.8.0')).toBe(false);
   });
 
   it('l’impronta è un vero sha256, e non un segnaposto', () => {
