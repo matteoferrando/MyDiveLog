@@ -2126,19 +2126,42 @@ seguita l'1 settembre** (dichiarato dal proprietario).
 **Come si misura, perché il `lookup` qui non risponde.** La scheda dell'App Store
 è **una sola** per iPhone, iPod touch e Mac (`6804439480`), e il campo `version`
 che il `lookup` restituisce è quello della versione **iOS**: da lì la
-pubblicazione macOS non si vede, né oggi né fra un mese. Quello che si misura è
-la voce **Mac** nel blocco «Compatibilità» della scheda, che l'App Store mostra
-**solo se esiste una versione macOS pubblicata**:
+pubblicazione macOS non si vede, né oggi né fra un mese.
 
-```
-curl -s "https://apps.apple.com/it/app/mydivelog/id6804439480" \
-  | grep -o "Richiede macOS[^\"]*"
-```
+> ### ► E DAL 7 SETTEMBRE NON SI MISURA PIÙ AFFATTO, DA FUORI ◄
+>
+> Fino a qui c'era scritto di cercare la voce **Mac** nel blocco «Compatibilità»
+> della scheda pubblica, che l'App Store mostra solo se esiste una build macOS
+> pubblicata:
+>
+> ```
+> curl -s "https://apps.apple.com/it/app/mydivelog/id6804439480" \
+>   | grep -o "Richiede macOS[^\"]*"
+> ```
+>
+> Il 28 agosto rispondeva «Richiede macOS 12.0 o versioni successive e un Mac con
+> chip Apple M1 o versioni successive». **Il 7 settembre non risponde più
+> niente**, e non perché la build sia sparita: la pagina arriva (269 KB), ma
+> dentro non ci sono più né `macOS` né `Apple M1` — quel blocco adesso lo compone
+> il JavaScript, e `curl` vede il guscio. *E l'API non copre il buco:
+> `entity=macSoftware` restituisce **la stessa riga iOS** di `entity=software` —
+> `kind=software`, versione 1.7.1, minimo iOS 15.0 — quindi non distingue le due
+> build.*
+>
+> **► IL PERICOLO NON È PERDERE UNA MISURA: È IL FALSO NEGATIVO. ◄** Quel comando
+> non fallisce, non dà errore, non stampa niente — ed è esattamente quello che
+> stamperebbe se la build macOS **non fosse pubblicata**. Chi lo lancia domani, e
+> ha in mente la frase «la voce compare solo se esiste una versione pubblicata»,
+> conclude che il Mac non è uscito. *Una verifica rotta che tace è peggio di una
+> verifica assente, perché la sua risposta vuota ha un significato già scritto
+> accanto.*
+>
+> **Quindi oggi, per il Mac, non c'è una misura pubblica**: lo stato lo dice App
+> Store Connect, cioè il proprietario. E quando lo dice lui, si scrive
+> «dichiarato», non «misurato» — come per la 1.7.1 dell'1 settembre.
 
-Il 28 agosto risponde «Richiede macOS 12.0 o versioni successive e un Mac con
-chip Apple M1 o versioni successive». **L'ora della pubblicazione sul Mac non è
-stata misurata**: si sa il giorno, non il momento — e quel che non è stato
-misurato qui non si scrive.
+**L'ora della pubblicazione sul Mac non è mai stata misurata**: si sa il giorno,
+non il momento — e quel che non è stato misurato qui non si scrive.
 
 ---
 
