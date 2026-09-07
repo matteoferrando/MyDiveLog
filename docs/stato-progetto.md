@@ -1,10 +1,13 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **7 settembre 2026, notte** — commit `46e84b8` su `main`, **1897 prove
-in 102 file** più **63 prove Rust** del ponte, lint a **0 errori e 0 avvisi**. Nel
-repository c'è la **1.8.0**, e **non è ancora rilasciata da nessuna parte**: è
-il caso descritto in `rilascio-e-versioni.md` — committata e compilata nel
-contenitore, ferma lì finché il Mac non costruisce e i negozi non ricevono.
+Aggiornato: **7 settembre 2026, sera tardi** — commit `4be9211` su `main`, **1897
+prove in 102 file** più **63 prove Rust** del ponte, lint a **0 errori e 0
+avvisi**. **La 1.8.0 è USCITA**: release `v1.8.0` con nove allegati, i quattro
+pulsanti del sito rispondono `200`, `latest.json` serve `1.8.0` per Mac e
+Windows. **Sui due negozi Apple non ancora**: l'`.ipa` e il `.pkg` sono
+costruiti e firmati, il caricamento su App Store Connect è il passo che spetta
+al proprietario. Google Play aspetta la fine del test chiuso (attorno al 12
+settembre). Vedi «Il rilascio della 1.8.0».
 Quello che porta è il **ponte Bluetooth verso libdivecomputer riscritto senza
 righe per modello**, dopo una segnalazione vera, e — dalla notte dello stesso
 giorno — **il riconoscimento dal nome dei computer senza driver di casa**: un
@@ -304,6 +307,59 @@ pure e lancia `main()` **solo se è stato eseguito**: importato da una prova non
 deve mettersi a parlare con Cloudflare.
 
 ---
+
+## Il rilascio della 1.8.0, e il quarto d'ora buttato
+
+*7 settembre, sera. Il racconto sta qui perché la lezione non è tecnica.*
+
+**Il primo tentativo ha compilato la versione sbagliata.** `npm ci && npm run
+mac:pubblica` è stato lanciato senza la riga che lo precedeva — `git pull
+--ff-only` — e ha prodotto, firmato e **notarizzato** un pacchetto **1.7.1**:
+venti minuti di macchina e un `latest.json` che diceva `"version": "1.7.1"` con
+l'indirizzo di `releases/download/v1.7.1/`. Se quel file fosse finito dentro una
+release `v1.8.0`, ogni Mac installato avrebbe continuato a vedersi offrire la
+1.7.1 **senza che nulla desse errore**: l'aggiornamento automatico non fallisce,
+si limita a non proporre niente.
+
+Da lì, tre cose imparate:
+
+- **Il numero di versione si guarda PRIMA di compilare, non dopo.** La sequenza
+  giusta mette `grep -m1 '"version"' package.json` fra il `pull` e la build: due
+  secondi che valgono venti minuti. È entrata nel LEGGIMI della consegna.
+- **Il repository era bloccato da tre giorni e nessuno lo sapeva.** Il `pull`
+  falliva su `.git/index.lock`, `.git/HEAD.lock`, `.git/ORIG_HEAD.lock`,
+  `.git/objects/maintenance.lock` e una `rebase-apply/` — i resti di un `git am`
+  interrotto il 4 settembre alle 16:30. Nessun processo git era vivo. Finché non
+  si è cercato l'errore *completo* (il primo messaggio era troncato e nominava
+  solo il primo lock), si è tolto un lock alla volta e il pull ricadeva sul
+  successivo.
+- **Un permesso di macOS si applica al processo, non all'applicazione.** Il
+  confezionamento del DMG passa da AppleScript verso il Finder; la sessione
+  automatica riceveva `-1743` benché l'interruttore fosse acceso nelle
+  impostazioni, **perché il processo era partito sedici ore prima che venisse
+  acceso**. Riavviata l'applicazione, il DMG si è confezionato al primo colpo.
+  L'alternativa — `bundle_dmg.sh --skip-jenkins`, che salta la parte estetica —
+  è stata scartata: avrebbe cambiato l'aspetto del file che scaricano le
+  persone, e per una release destinata ai negozi non è un prezzo da pagare per
+  risparmiare un riavvio.
+
+**Cosa è uscito, verificato dopo la pubblicazione e non prima:** i quattro
+pulsanti del sito (`macOS`, `Windows`, `Android`, `Linux`) rispondono `200` da
+`releases/latest/download`; `latest.json` dichiara `1.8.0` e porta
+`darwin-aarch64` e `windows-x86_64`, **entrambi verso `v1.8.0`**; il `.dmg` passa
+`spctl -a -t open` come *Notarized Developer ID*; dentro il binario spedito c'è
+`riconosci_computer_esterno`, cioè il codice nuovo è nel pacchetto e non solo
+nel repository. Cask e PKGBUILD riallineati **dopo** la release, come vuole il
+loro ordine.
+
+**Il sito era indietro di una riga, e il controllo non poteva vederlo.**
+`npm run sito:online` confronta i titoli delle pagine: la correzione al modulo
+di segnalazione — l'esempio diceva «versione 1.6.4», tre versioni fa — non
+cambia nessun titolo, quindi il controllo diceva «il sito pubblicato è quello
+sul disco» mentre online c'era ancora il numero vecchio. Si è vista solo
+chiedendo al sito quella stringa. È la stessa forma del difetto del 3 settembre,
+in scala ridotta: **una verifica che guarda un riassunto non vede il
+dettaglio.**
 
 ## Il 7 settembre: «stato -6» venti volte, e la scelta di non scrivere una riga per modello
 
