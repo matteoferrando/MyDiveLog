@@ -63,6 +63,29 @@ pub trait FlussoByte: Send {
     fn leggi(&mut self, quanti: usize, attesa: Duration) -> Result<Vec<u8>, String>;
     /// Quanti byte sono già arrivati e aspettano di essere letti.
     fn disponibili(&mut self) -> usize;
+
+    /// Il nome che il dispositivo annuncia, se il trasporto lo conosce.
+    ///
+    /// NON è un dettaglio decorativo: la famiglia Oceanic/Aqualung/Pelagic su
+    /// BLE (i770R, i200C, Pro Plus X, Geo 4.0…) ricava il numero di serie dal
+    /// nome Bluetooth e lo usa nella stretta di mano iniziale. Senza nome,
+    /// `oceanic_atom2.c` risponde «Bluetooth device name too short» e lo
+    /// scarico muore con stato -6 — lo stesso -6 di un collegamento caduto,
+    /// che è il modo peggiore di non funzionare. `None` è la risposta onesta
+    /// dei trasporti che non sono Bluetooth, e diventa «non supportato».
+    fn nome(&mut self) -> Option<String> {
+        None
+    }
+
+    /// Legge una caratteristica GATT per UUID, fuori dal flusso di byte.
+    ///
+    /// Serve al Cressi Goa (e a chiunque imiti il suo modo di presentarsi),
+    /// che su BLE non chiede la versione con un comando ma legge tre
+    /// caratteristiche una per una. I sedici byte sono quelli di
+    /// `dc_ble_uuid_t`: l'UUID nell'ordine in cui si scrive.
+    fn leggi_caratteristica(&mut self, _uuid: [u8; 16]) -> Result<Vec<u8>, String> {
+        Err("questo trasporto non sa leggere una caratteristica a parte".into())
+    }
 }
 
 // --------------------------------------------------------------- il flusso BLE
@@ -79,6 +102,25 @@ pub struct FlussoBle {
     /// Quel che resta della notifica consegnata a metà.
     avanzo: VecDeque<u8>,
     scrittura: Box<dyn FnMut(&[u8]) -> Result<(), String> + Send>,
+    /// Gli accessori del Bluetooth che non sono byte: nome e lettura di una
+    /// caratteristica. Vedi `AccessoriBle`.
+    accessori: Option<Box<dyn AccessoriBle>>,
+    /// Cosa fare quando il PRIMO scambio resta muto — vedi `leggi`.
+    su_silenzio: Option<Box<dyn FnMut() -> bool + Send>>,
+    /// Se una notifica è mai stata consegnata: dopo la prima, il ripiego sul
+    /// silenzio non ha più senso, perché il canale ha dimostrato di funzionare.
+    ricevuto_qualcosa: bool,
+}
+
+/// Le due domande che libdivecomputer fa al Bluetooth oltre ai byte.
+///
+/// Stanno in un tratto a parte, e non dentro la chiusura di scrittura, perché
+/// sono l'unica parte del trasporto che ha bisogno di tornare nel runtime
+/// asincrono (leggere una caratteristica è una chiamata al plugin): chi
+/// costruisce il `FlussoBle` sa come farlo, `FlussoBle` no, e non deve.
+pub trait AccessoriBle: Send {
+    fn nome(&mut self) -> Option<String>;
+    fn leggi_caratteristica(&mut self, uuid: [u8; 16]) -> Result<Vec<u8>, String>;
 }
 
 impl FlussoBle {
@@ -86,7 +128,32 @@ impl FlussoBle {
         entrata: Receiver<Vec<u8>>,
         scrittura: Box<dyn FnMut(&[u8]) -> Result<(), String> + Send>,
     ) -> Self {
-        Self { entrata, arrivate: VecDeque::new(), avanzo: VecDeque::new(), scrittura }
+        Self {
+            entrata,
+            arrivate: VecDeque::new(),
+            avanzo: VecDeque::new(),
+            scrittura,
+            accessori: None,
+            su_silenzio: None,
+            ricevuto_qualcosa: false,
+        }
+    }
+
+    /// Lo stesso flusso, con gli accessori e il ripiego sul silenzio.
+    ///
+    /// `su_silenzio` viene chiamata UNA volta sola, quando una lettura scade
+    /// senza che sia mai arrivata una notifica in tutta la sessione. Se
+    /// restituisce `true` ha fatto qualcosa che merita una seconda attesa —
+    /// tipicamente ha rimandato l'ultimo comando nell'altra modalità di
+    /// scrittura — e la lettura aspetta un'altra volta lo stesso tempo.
+    pub fn con_accessori(
+        mut self,
+        accessori: Box<dyn AccessoriBle>,
+        su_silenzio: Box<dyn FnMut() -> bool + Send>,
+    ) -> Self {
+        self.accessori = Some(accessori);
+        self.su_silenzio = Some(su_silenzio);
+        self
     }
 
     /// Svuota il canale senza aspettare. Serve a `disponibili` e prima di leggere.
@@ -94,6 +161,29 @@ impl FlussoBle {
         while let Ok(pezzo) = self.entrata.try_recv() {
             self.arrivate.push_back(pezzo);
         }
+    }
+
+    /// Aspetta al massimo `attesa` che arrivi almeno una notifica.
+    ///
+    /// Scadere non è un errore (si torna con la coda vuota); il canale chiuso
+    /// sì, perché vuol dire che il Bluetooth se n'è andato, e va distinto da
+    /// «non è ancora arrivato niente».
+    fn aspetta(&mut self, attesa: Duration) -> Result<(), String> {
+        let scadenza = std::time::Instant::now() + attesa;
+        while self.arrivate.is_empty() {
+            let rimasto = scadenza.saturating_duration_since(std::time::Instant::now());
+            if rimasto.is_zero() {
+                break;
+            }
+            match self.entrata.recv_timeout(rimasto) {
+                Ok(pezzo) => self.arrivate.push_back(pezzo),
+                Err(RecvTimeoutError::Timeout) => break,
+                Err(RecvTimeoutError::Disconnected) => {
+                    return Err("il collegamento Bluetooth si è chiuso".into())
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -126,30 +216,45 @@ impl FlussoByte for FlussoBle {
     fn leggi(&mut self, quanti: usize, attesa: Duration) -> Result<Vec<u8>, String> {
         if self.avanzo.is_empty() {
             self.raccogli_subito();
-            let scadenza = std::time::Instant::now() + attesa;
-            while self.arrivate.is_empty() {
-                let rimasto = scadenza.saturating_duration_since(std::time::Instant::now());
-                if rimasto.is_zero() {
-                    break;
-                }
-                match self.entrata.recv_timeout(rimasto) {
-                    Ok(pezzo) => self.arrivate.push_back(pezzo),
-                    Err(RecvTimeoutError::Timeout) => break,
-                    // Il canale chiuso vuol dire che il Bluetooth se n'è andato:
-                    // è un errore, e va distinto da «non è ancora arrivato
-                    // niente».
-                    Err(RecvTimeoutError::Disconnected) => {
-                        return Err("il collegamento Bluetooth si è chiuso".into())
+            self.aspetta(attesa)?;
+            /*
+             * IL RIPIEGO SUL SILENZIO. Se non è mai arrivato niente in tutta la
+             * sessione e la prima attesa è scaduta, il primo scambio è muto:
+             * o il computer non ascolta questa caratteristica, o non gradisce
+             * la modalità di scrittura. Sulla seconda si può fare qualcosa —
+             * chi ha costruito il flusso sa rimandare l'ultimo comando
+             * nell'altra modalità — e se lo fa, si aspetta ancora una volta.
+             * Una volta sola: se tace anche così, è un silenzio vero, e
+             * ripeterlo all'infinito lo nasconderebbe.
+             */
+            if self.arrivate.is_empty() && !self.ricevuto_qualcosa {
+                if let Some(mut ripiego) = self.su_silenzio.take() {
+                    if ripiego() {
+                        self.aspetta(attesa)?;
                     }
                 }
             }
             match self.arrivate.pop_front() {
-                Some(notifica) => self.avanzo.extend(notifica),
+                Some(notifica) => {
+                    self.ricevuto_qualcosa = true;
+                    self.avanzo.extend(notifica)
+                }
                 None => return Ok(Vec::new()),
             }
         }
         let quanti = quanti.min(self.avanzo.len());
         Ok(self.avanzo.drain(..quanti).collect())
+    }
+
+    fn nome(&mut self) -> Option<String> {
+        self.accessori.as_mut().and_then(|a| a.nome())
+    }
+
+    fn leggi_caratteristica(&mut self, uuid: [u8; 16]) -> Result<Vec<u8>, String> {
+        match self.accessori.as_mut() {
+            Some(a) => a.leggi_caratteristica(uuid),
+            None => Err("questo flusso non ha accesso alle caratteristiche".into()),
+        }
     }
 
     fn disponibili(&mut self) -> usize {
@@ -171,9 +276,49 @@ pub struct DcIostream {
 
 /// Gli stati di libdivecomputer che ci servono. Il resto sono errori e basta.
 const DC_STATUS_SUCCESS: c_int = 0;
+const DC_STATUS_UNSUPPORTED: c_int = -1;
 const DC_STATUS_IO: c_int = -6;
 const DC_STATUS_TIMEOUT: c_int = -7;
 const DC_TRANSPORT_BLE: c_uint = 1 << 5;
+
+/// Il nome di uno stato, per i messaggi.
+///
+/// Un numero negativo in un messaggio d'errore è un indovinello: «stato -6»
+/// ha mandato una segnalazione vera a cercare il guasto dalla parte sbagliata.
+/// I nomi sono quelli di `dc_status_t` in `common.h`, tradotti.
+pub fn nome_stato(stato: c_int) -> &'static str {
+    match stato {
+        0 => "riuscito",
+        1 => "finito",
+        -1 => "non supportato",
+        -2 => "argomenti non validi",
+        -3 => "memoria esaurita",
+        -4 => "nessun dispositivo",
+        -5 => "accesso negato",
+        -6 => "errore di trasmissione",
+        -7 => "tempo scaduto",
+        -8 => "errore di protocollo",
+        -9 => "dati in un formato inatteso",
+        -10 => "annullato",
+        _ => "stato sconosciuto",
+    }
+}
+
+/*
+ * Le richieste `ioctl` che libdivecomputer fa a un trasporto BLE.
+ *
+ * Sono i valori di `DC_IOCTL_BLE_*` in `ble.h`, calcolati con la macro
+ * `DC_IOCTL_BASE(dir, type, nr, size)` di `ioctl.h`:
+ * `(dir << 30) | (size << 16) | ('b' << 8) | nr`, con `size` = 0 (variabile).
+ * Sono numeri e non `bindgen` per la stessa ragione di tutto il resto del
+ * file: la tabella delle callback è già scritta a mano, e un generatore per
+ * sei costanti sarebbe una dipendenza in più da spiegare.
+ */
+/// Il nome Bluetooth del dispositivo, come stringa terminata da zero.
+const DC_IOCTL_BLE_GET_NAME: c_uint = 0x4000_6200;
+/// Leggere una caratteristica: nel buffer i primi 16 byte sono l'UUID, il
+/// resto riceve il valore.
+const DC_IOCTL_BLE_CHARACTERISTIC_READ: c_uint = 0x4000_6203;
 
 /// **L'ORDINE DEI CAMPI È QUELLO DI `custom.h` E NON PUÒ CAMBIARE.**
 ///
@@ -250,6 +395,12 @@ extern "C" {
         actual: *mut usize,
     ) -> c_int;
     fn dc_iostream_set_timeout(iostream: *mut DcIostream, timeout: c_int) -> c_int;
+    fn dc_iostream_ioctl(
+        iostream: *mut DcIostream,
+        request: c_uint,
+        data: *mut c_void,
+        size: usize,
+    ) -> c_int;
     fn dc_iostream_close(iostream: *mut DcIostream) -> c_int;
 
     fn dc_descriptor_iterator_new(iterator: *mut *mut DcIterator, context: *mut DcContext) -> c_int;
@@ -282,6 +433,25 @@ struct Stato {
     /// che qui diventa un minuto: aspettare davvero per sempre significa
     /// un'applicazione che non si chiude più.
     attesa: Duration,
+    /// L'ultima cosa andata male nel trasporto, con parole nostre.
+    ///
+    /// libdivecomputer riduce ogni guasto a un numero (`DC_STATUS_IO`) e lo
+    /// fa risalire fino a `dc_device_foreach`; il messaggio della chiusura —
+    /// «il collegamento si è chiuso», «scrittura non riuscita: …» — resterebbe
+    /// nel `Result` che la callback ha buttato via. Si tiene qui, condiviso
+    /// con `CollegamentoLdc`, e finisce nel messaggio finale accanto al
+    /// numero. È la differenza fra «stato -6» e «il collegamento Bluetooth si
+    /// è chiuso durante la scrittura n. 1».
+    guasto: Guasto,
+}
+
+/// Il posto dove il trasporto lascia scritto perché ha fallito.
+type Guasto = std::sync::Arc<std::sync::Mutex<Option<String>>>;
+
+fn annota(guasto: &Guasto, cosa: String) {
+    if let Ok(mut posto) = guasto.lock() {
+        *posto = Some(cosa);
+    }
 }
 
 /// Riprende lo stato dal puntatore opaco.
@@ -358,8 +528,9 @@ extern "C" fn cb_read(
                 DC_STATUS_SUCCESS
             }
         }
-        Err(_) => {
+        Err(motivo) => {
             unsafe { *actual = 0 };
+            annota(&s.guasto, format!("lettura di {size} byte: {motivo}"));
             DC_STATUS_IO
         }
     }
@@ -379,10 +550,87 @@ extern "C" fn cb_write(
             unsafe { *actual = size };
             DC_STATUS_SUCCESS
         }
-        Err(_) => {
+        Err(motivo) => {
             unsafe { *actual = 0 };
+            annota(&s.guasto, format!("scrittura di {size} byte: {motivo}"));
             DC_STATUS_IO
         }
+    }
+}
+
+/// Le domande che libdivecomputer fa al trasporto oltre ai byte.
+///
+/// ► PERCHÉ NON PUÒ RESTARE `None`, che è come era. ◄ In `custom.c`, una
+/// `ioctl` nulla NON restituisce «non supportato»: restituisce **successo
+/// senza toccare il buffer**. Per `oceanic_atom2.c` questo vuol dire un nome
+/// vuoto → «Bluetooth device name too short» → stato -6, cioè tutta la
+/// famiglia Oceanic/Aqualung/Pelagic su BLE moriva con lo stesso numero di un
+/// collegamento caduto. Per `cressi_goa.c` vuol dire tre caratteristiche
+/// «lette» piene di zeri. Rispondere davvero, e dire «non supportato» a
+/// quello che non sappiamo fare, è ciò che libdivecomputer si aspetta: chi
+/// chiede il nome tollera l'assenza (lo dichiara), chi chiede il codice PIN
+/// del Pelagic i330R si ferma con un errore che dice cosa manca.
+extern "C" fn cb_ioctl(
+    userdata: *mut c_void,
+    request: c_uint,
+    data: *mut c_void,
+    size: usize,
+) -> c_int {
+    let s = unsafe { stato(userdata) };
+    match request {
+        DC_IOCTL_BLE_GET_NAME => {
+            let Some(nome) = s.flusso.nome() else {
+                annota(&s.guasto, "il nome Bluetooth del dispositivo non è disponibile".into());
+                return DC_STATUS_UNSUPPORTED;
+            };
+            if size == 0 {
+                return DC_STATUS_UNSUPPORTED;
+            }
+            // Una stringa C: al più `size - 1` byte più lo zero finale. Il
+            // troncamento è quello che farebbe `strncpy`, e il chiamante
+            // forza comunque lo zero all'ultimo posto.
+            let byte = nome.as_bytes();
+            let quanti = byte.len().min(size - 1);
+            // SICUREZZA: `data` punta a `size` byte scrivibili per la durata
+            // della chiamata, e non se ne scrivono più di `quanti + 1 <= size`.
+            unsafe {
+                std::ptr::copy_nonoverlapping(byte.as_ptr(), data as *mut u8, quanti);
+                *(data as *mut u8).add(quanti) = 0;
+            }
+            DC_STATUS_SUCCESS
+        }
+        DC_IOCTL_BLE_CHARACTERISTIC_READ => {
+            if size < 16 {
+                return DC_STATUS_UNSUPPORTED;
+            }
+            // SICUREZZA: come sopra, `data` copre `size >= 16` byte.
+            let buffer = unsafe { std::slice::from_raw_parts_mut(data as *mut u8, size) };
+            let mut uuid = [0u8; 16];
+            uuid.copy_from_slice(&buffer[..16]);
+            match s.flusso.leggi_caratteristica(uuid) {
+                Ok(valore) => {
+                    let posto = &mut buffer[16..];
+                    if valore.len() > posto.len() {
+                        annota(
+                            &s.guasto,
+                            format!(
+                                "la caratteristica ha risposto {} byte, ne stavano {}",
+                                valore.len(),
+                                posto.len()
+                            ),
+                        );
+                        return DC_STATUS_IO;
+                    }
+                    posto[..valore.len()].copy_from_slice(&valore);
+                    DC_STATUS_SUCCESS
+                }
+                Err(motivo) => {
+                    annota(&s.guasto, format!("lettura di una caratteristica: {motivo}"));
+                    DC_STATUS_IO
+                }
+            }
+        }
+        _ => DC_STATUS_UNSUPPORTED,
     }
 }
 
@@ -411,6 +659,8 @@ extern "C" fn cb_close(userdata: *mut c_void) -> c_int {
 pub struct CollegamentoLdc {
     contesto: Contesto,
     flusso: *mut DcIostream,
+    /// La copia nostra del posto in cui il trasporto annota il guasto.
+    guasto: Guasto,
 }
 
 /// Il contesto di libdivecomputer, che si libera da solo.
@@ -442,9 +692,11 @@ impl CollegamentoLdc {
     pub fn apri(trasporto: Box<dyn FlussoByte>) -> Result<Self, String> {
         let contesto = Contesto::nuovo()?;
 
+        let guasto: Guasto = std::sync::Arc::new(std::sync::Mutex::new(None));
         let stato = Box::into_raw(Box::new(Stato {
             flusso: trasporto,
             attesa: Duration::from_secs(5),
+            guasto: guasto.clone(),
         }));
 
         let callbacks = DcCustomCbs {
@@ -455,13 +707,16 @@ impl CollegamentoLdc {
             get_lines: None,
             get_available: Some(cb_get_available),
             // `configure` è la velocità della porta seriale: su BLE non
-            // significa niente, e lasciarla nulla fa restituire a
-            // libdivecomputer «non supportato», che è la verità.
+            // significa niente. Lasciarla nulla fa restituire a
+            // libdivecomputer **successo** (non «non supportato»: vedi
+            // `dc_custom_configure` in `custom.c`), ed è quello che serve —
+            // ogni backend la chiama all'apertura e si ferma se fallisce.
             configure: None,
             poll: Some(cb_poll),
             read: Some(cb_read),
             write: Some(cb_write),
-            ioctl: None,
+            // Qui invece il nullo NON va bene: vedi il commento di `cb_ioctl`.
+            ioctl: Some(cb_ioctl),
             flush: None,
             purge: None,
             sleep: Some(cb_sleep),
@@ -484,7 +739,17 @@ impl CollegamentoLdc {
             drop(unsafe { Box::from_raw(stato) });
             return Err(format!("libdivecomputer non ha aperto il trasporto (stato {esito})"));
         }
-        Ok(Self { contesto, flusso })
+        Ok(Self { contesto, flusso, guasto })
+    }
+
+    /// Il numero di libdivecomputer con il suo nome e, se il trasporto ha
+    /// annotato qualcosa, la causa con parole nostre.
+    fn spiega(&self, esito: c_int) -> String {
+        let causa = self.guasto.lock().ok().and_then(|p| p.clone());
+        match causa {
+            Some(causa) => format!("stato {esito}, {}: {causa}", nome_stato(esito)),
+            None => format!("stato {esito}, {}", nome_stato(esito)),
+        }
     }
 
     /*
@@ -518,6 +783,21 @@ impl CollegamentoLdc {
             Ok(scritti)
         } else {
             Err(format!("scrittura fallita (stato {esito})"))
+        }
+    }
+
+    /// Una `ioctl` attraverso libdivecomputer. Come sopra: serve ai test, che
+    /// così percorrono la strada vera — `dc_iostream_ioctl` → `custom.c` →
+    /// `cb_ioctl` — invece di chiamare la callback a mano.
+    #[allow(dead_code)]
+    pub fn ioctl(&self, richiesta: c_uint, buffer: &mut [u8]) -> c_int {
+        unsafe {
+            dc_iostream_ioctl(
+                self.flusso,
+                richiesta,
+                buffer.as_mut_ptr() as *mut c_void,
+                buffer.len(),
+            )
         }
     }
 
@@ -632,7 +912,7 @@ impl CollegamentoLdc {
             dc_device_open(&mut dispositivo, self.contesto.0, descrittore.0, self.flusso)
         };
         if esito != DC_STATUS_SUCCESS {
-            return Err(format!("il computer non si è aperto (stato {esito})"));
+            return Err(format!("il computer non si è aperto ({})", self.spiega(esito)));
         }
 
         let mut raccolte: Vec<ImmersioneGrezza> = Vec::new();
@@ -648,7 +928,7 @@ impl CollegamentoLdc {
         unsafe { dc_device_close(dispositivo) };
 
         if esito != DC_STATUS_SUCCESS {
-            return Err(format!("scarico non riuscito (stato {esito})"));
+            return Err(format!("scarico non riuscito ({})", self.spiega(esito)));
         }
         Ok(raccolte)
     }
@@ -1575,5 +1855,129 @@ mod prove {
         );
         flusso.scrivi(&[0xAA, 0xBB]).unwrap();
         assert_eq!(*visti.lock().unwrap(), vec![0xAA, 0xBB]);
+    }
+
+    // ------------------------------------------------------- le ioctl e i guasti
+
+    /// Un flusso che risponde alle domande accessorie, e basta.
+    struct ConAccessori {
+        nome: Option<String>,
+        valore: Result<Vec<u8>, String>,
+        /// L'UUID che gli è stato chiesto, per controllare che arrivi intero.
+        chiesto: Arc<Mutex<Option<[u8; 16]>>>,
+    }
+
+    impl FlussoByte for ConAccessori {
+        fn scrivi(&mut self, _dati: &[u8]) -> Result<(), String> {
+            Err("questo flusso non scrive: è qui per le ioctl".into())
+        }
+        fn leggi(&mut self, _quanti: usize, _attesa: Duration) -> Result<Vec<u8>, String> {
+            Err("il collegamento Bluetooth si è chiuso".into())
+        }
+        fn disponibili(&mut self) -> usize {
+            0
+        }
+        fn nome(&mut self) -> Option<String> {
+            self.nome.clone()
+        }
+        fn leggi_caratteristica(&mut self, uuid: [u8; 16]) -> Result<Vec<u8>, String> {
+            *self.chiesto.lock().unwrap() = Some(uuid);
+            self.valore.clone()
+        }
+    }
+
+    fn con_accessori(nome: Option<&str>, valore: Result<Vec<u8>, String>) -> (CollegamentoLdc, Arc<Mutex<Option<[u8; 16]>>>) {
+        let chiesto = Arc::new(Mutex::new(None));
+        let flusso = ConAccessori { nome: nome.map(String::from), valore, chiesto: chiesto.clone() };
+        (CollegamentoLdc::apri(Box::new(flusso)).unwrap(), chiesto)
+    }
+
+    #[test]
+    fn il_nome_bluetooth_arriva_a_libdivecomputer_come_stringa_c() {
+        /*
+         * La strada vera: `dc_iostream_ioctl` → `custom.c` → `cb_ioctl`. È
+         * quella che `oceanic_atom2.c` percorre per ricavare il numero di
+         * serie dal nome — e senza questa risposta la sua stretta di mano
+         * muore con «name too short», stato -6.
+         */
+        let (collegamento, _) = con_accessori(Some("FQ001124"), Ok(vec![]));
+        let mut buffer = [0xffu8; 9];
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_GET_NAME, &mut buffer), DC_STATUS_SUCCESS);
+        assert_eq!(&buffer[..8], b"FQ001124");
+        assert_eq!(buffer[8], 0, "terminata da zero, come una stringa C");
+
+        // Un nome più lungo del posto si tronca, e resta terminato.
+        let mut corto = [0xffu8; 4];
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_GET_NAME, &mut corto), DC_STATUS_SUCCESS);
+        assert_eq!(&corto, b"FQ0\0");
+    }
+
+    #[test]
+    fn senza_nome_e_per_le_richieste_sconosciute_si_risponde_non_supportato_non_successo() {
+        /*
+         * Il difetto che c'era: con `ioctl: None`, `custom.c` risponde
+         * SUCCESSO senza toccare il buffer. Chi chiede il nome lo trova
+         * vuoto e fallisce in modo illeggibile; chi chiede il codice PIN
+         * del Pelagic crede di averlo. «Non supportato» (-1) è la risposta
+         * che i backend sanno gestire: `oceanic_atom2.c` la tollera con un
+         * avviso, `pelagic_i330r.c` si ferma dicendo cosa manca.
+         */
+        let (collegamento, _) = con_accessori(None, Ok(vec![]));
+        let mut buffer = [0xffu8; 9];
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_GET_NAME, &mut buffer), DC_STATUS_UNSUPPORTED);
+        assert_eq!(buffer, [0xff; 9], "il buffer non va toccato");
+        // Il PIN del Pelagic (IOR 'b' 1): non lo sappiamo, e lo diciamo.
+        assert_eq!(collegamento.ioctl(0x4000_6201, &mut buffer), DC_STATUS_UNSUPPORTED);
+    }
+
+    #[test]
+    fn la_lettura_di_una_caratteristica_passa_uuid_e_riporta_il_valore_dopo_luuid() {
+        // Il formato di `DC_IOCTL_BLE_CHARACTERISTIC_READ`: sedici byte di
+        // UUID in testa, il valore nel resto. È quello che `cressi_goa.c` si
+        // aspetta quando legge le tre caratteristiche della versione.
+        let (collegamento, chiesto) = con_accessori(None, Ok(vec![1, 2, 3, 4, 5]));
+        let mut buffer = [0u8; 16 + 5];
+        buffer[..16].copy_from_slice(&[
+            0x6E, 0x40, 0x00, 0x03, 0xB5, 0xA3, 0xF3, 0x93, 0xE0, 0xA9, 0xE5, 0x0E, 0x24, 0xDC, 0x10, 0xB8,
+        ]);
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_CHARACTERISTIC_READ, &mut buffer), DC_STATUS_SUCCESS);
+        assert_eq!(&buffer[16..], &[1, 2, 3, 4, 5]);
+        assert_eq!(chiesto.lock().unwrap().unwrap()[..4], [0x6E, 0x40, 0x00, 0x03]);
+
+        // Un valore che non ci sta è un errore, non un troncamento silenzioso.
+        let (collegamento, _) = con_accessori(None, Ok(vec![1, 2, 3, 4, 5, 6]));
+        let mut buffer = [0u8; 16 + 5];
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_CHARACTERISTIC_READ, &mut buffer), DC_STATUS_IO);
+
+        // E una lettura fallita torna come errore, con la causa annotata.
+        let (collegamento, _) = con_accessori(None, Err("la caratteristica non si legge".into()));
+        let mut buffer = [0u8; 16 + 5];
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_CHARACTERISTIC_READ, &mut buffer), DC_STATUS_IO);
+        assert!(collegamento.spiega(DC_STATUS_IO).contains("non si legge"), "{}", collegamento.spiega(DC_STATUS_IO));
+    }
+
+    #[test]
+    fn il_numero_di_libdivecomputer_arriva_con_il_nome_e_con_la_causa() {
+        /*
+         * «stato -6» da solo ha mandato una segnalazione vera a cercare il
+         * guasto dalla parte sbagliata. Il messaggio deve dire il nome dello
+         * stato E quello che il trasporto ha annotato: qui la scrittura che
+         * il flusso rifiuta.
+         */
+        let Some(descrittore) = trova_descrittore("Scubapro", "Aladin Sport Matrix") else {
+            panic!("il descrittore dell’Aladin Sport Matrix deve esistere");
+        };
+        let (collegamento, _) = con_accessori(None, Ok(vec![]));
+        let errore = match collegamento.scarica(&descrittore) {
+            Ok(_) => panic!("il flusso rifiuta di scrivere: lo scarico non può riuscire"),
+            Err(errore) => errore,
+        };
+        assert!(errore.contains("stato -6, errore di trasmissione"), "{errore}");
+        assert!(errore.contains("scrittura di"), "{errore}");
+        assert!(errore.contains("è qui per le ioctl"), "{errore}");
+
+        assert_eq!(nome_stato(-7), "tempo scaduto");
+        assert_eq!(nome_stato(-8), "errore di protocollo");
+        assert_eq!(nome_stato(-1), "non supportato");
     }
 }
