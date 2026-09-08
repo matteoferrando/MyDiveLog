@@ -325,6 +325,52 @@ deve mettersi a parlare con Cloudflare.
 
 ---
 
+## Il tap di Homebrew: tre difetti in fila, in un workflow verde da una settimana
+
+*8 settembre 2026. Vale come storia esemplare del guasto che questo progetto
+colleziona: **un passo che nessuno ha mai visto girare non è verificato, è solo
+mai stato interrogato.***
+
+Il workflow `aggiorna-cask.yml` nel tap (`matteoferrando/homebrew-mydivelog`)
+legge l'ultima release, riscrive la cask e la fa validare a `brew`. Gira ogni sei
+ore dal 1° settembre. **Ha chiuso verde per una settimana e non ha mai aggiornato
+niente**: la cask è rimasta ferma alla 1.7.1, e nella storia del repository non
+c'era **nessun** commit da «aggiornamento automatico».
+
+Non era rotto per caso: **finché release e cask portavano lo stesso numero, il
+passo che fa il lavoro veniva saltato** da un `if: cambiata == 'si'`. Il verde
+non diceva «funziona», diceva «non ho fatto niente». Uscita la 1.8.0, quel passo
+è stato eseguito per la prima volta, e sotto c'erano tre difetti impilati — ognuno
+nascosto dal precedente:
+
+1. **`brew: command not found`, uscita 127.** Il lavoro girava su
+   `ubuntu-latest`, dove Homebrew non c'è. *Le cask sono di macOS e `brew audit
+   --cask --online` è una verifica che solo un Mac può fare davvero.* → il lavoro
+   passa a `macos-latest`.
+2. **`sed: invalid command code C`.** Spostandolo su macOS, `sed -i` è diventato
+   un altro programma: quello di BSD pretende un argomento per il file di riserva.
+   *Il messaggio non nomina la causa*, come il `401` del portachiavi e l'«immagine
+   di sviluppo» del telefono bloccato. → le due sostituzioni le fa **Python**, che
+   è lo stesso interprete sui due runner e non ha dialetti; provate su un Mac
+   prima di spingerle.
+3. **`API rate limit exceeded`.** `brew audit --online` interroga l'API di GitHub
+   e senza credenziali il conto è di **60 richieste all'ora per indirizzo IP**,
+   condiviso fra i runner: era già esaurito da qualcun altro. *Un fallimento che
+   non dipende dalla cask e che si ripresenta a caso.* → si passa a `brew` il
+   `GITHUB_TOKEN` che il lavoro ha già (`HOMEBREW_GITHUB_API_TOKEN`), che porta il
+   limite a 5000. Nessuna credenziale nuova.
+
+Al quarto giro: **verde, e il primo commit automatico della storia del tap** —
+`1.7.1 → 1.8.1`, con l'impronta `aad7ae58…`, la stessa del pacchetto pubblicato.
+
+> **La lezione, che è nuova solo nella forma.** Il progetto conosce già «una
+> guardia mai vista rossa non è una guardia». Questa è la stessa frase dal lato
+> dell'automazione: **un ramo condizionale che non è mai stato preso non è codice
+> funzionante, è codice non ancora eseguito** — e il verde che gli sta accanto
+> misura l'altro ramo. *Quando si scrive un passo dietro un `if`, il momento in
+> cui varrà la pena guardarlo è la prima volta che la condizione diventa vera, e
+> quel giorno di solito è anche il giorno in cui serve.*
+
 ## Il rilascio della 1.8.0, e il quarto d'ora buttato
 
 *7 settembre, sera. Il racconto sta qui perché la lezione non è tecnica.*
