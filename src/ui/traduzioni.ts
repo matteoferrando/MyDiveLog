@@ -1949,7 +1949,7 @@ export const INGLESE: Record<string, string> = {
     'The list fills up with the certifications you add below.',
   'nessun brevetto registrato': 'no certification on file',
   '— scegli —': '— pick one —',
-  'Nome e brevetto finiscono sulla stampa del libretto, che è l’unico posto dove servono. Non sono obbligatori.':
+  'Nome e brevetto finiscono sul PDF del libretto, che è l’unico posto dove servono. Non sono obbligatori.':
     'Your name and certification appear on the printed logbook, which is the only place they are needed. Neither is required.',
   'Nome e cognome': 'Full name',
   'Servono alle lettere a) e b) del libretto delle immersioni previsto dall’art. 12, comma 8 della legge 70/2026, che ammette espressamente il formato digitale.':

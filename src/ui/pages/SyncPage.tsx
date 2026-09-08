@@ -1798,7 +1798,7 @@ function LibrettoCard() {
       <h2>{t('Dati per il LogBook')}</h2>
       <p className="card-sub">
         {t(
-          'Nome e brevetto finiscono sulla stampa del libretto, che è l’unico posto dove servono. Non sono obbligatori.',
+          'Nome e brevetto finiscono sul PDF del libretto, che è l’unico posto dove servono. Non sono obbligatori.',
         )}
       </p>
       <div className="grid grid-2" style={{ marginBottom: 12 }}>

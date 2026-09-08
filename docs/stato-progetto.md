@@ -357,6 +357,58 @@ deve mettersi a parlare con Cloudflare.
 
 ---
 
+## La 1.8.3, e il numero che non si riusa
+
+*8 settembre 2026, sera tardi. La versione più piccola di tutte, e nasce da una
+domanda del proprietario: «ma credo serva una nuova build di tutto dopo le ultime
+modifiche, no?». Sì — e serviva anche un numero nuovo.*
+
+**Il fatto, verificato senza guardare gli orologi.** I pacchetti e la release
+pubblica della 1.8.2 sono stati costruiti quando il Mac era a `bce297a`. Il
+commit che toglie la stampa da tutta l'applicazione è un **discendente** di
+quello: una compilazione fatta a `bce297a` non può contenere una modifica
+introdotta dopo. *Non serve confrontare le ore — che fra due macchine con due
+fusi si confrontano male — basta l'ordine dei commit.* Il diff fra il tag
+`v1.8.2` e `main` lo conferma: tre file di codice, 237 righe tolte.
+
+> **► E PERCHÉ NON SI RIFÀ UNA 1.8.2. ◄** Quel numero è **già consumato in
+> pubblico**: c'è il tag `v1.8.2`, `latest.json` lo serve a Mac e Windows, i
+> quattro pulsanti del sito ci puntano e la cask di Homebrew porta la sua
+> impronta. Ricostruire con codice diverso tenendo lo stesso numero significa
+> **due binari diversi con lo stesso numero** — la trappola scritta in
+> `app-store.md` dal giorno della 1.6.3, che si paga sei mesi dopo, quando serve
+> capire quale build ha un difetto. *La regola vale anche quando il numero è
+> stato bruciato da noi il pomeriggio prima.*
+>
+> **Conseguenza buona:** i pacchetti 1.8.2 per i negozi non si caricano più.
+> Manderebbero un'interfaccia già superata e costerebbero un secondo giro di
+> revisione. Un giro solo, con il codice di adesso.
+
+**Cosa contiene.** Via la stampa da tutta l'applicazione — restano
+«Esporta PDF» sulla scheda e sul piano — e nel pianificatore l'esportazione esce
+dalla riga di «Ricreativa / Tecnica», dove non c'entrava niente: quella riga
+sceglie che immersione stai pianificando e cambia i numeri sotto, l'esportazione
+porta fuori il piano che hai già.
+
+> **La guardia non si cancella, si rovescia.** `iosGuardie.test.ts` pretendeva
+> che ogni pulsante di stampa stesse dietro a un controllo sulla piattaforma —
+> perché su iPhone non poteva funzionare. Adesso pretende che **nessuna delle due
+> pagine riapra una finestra di stampa**, che è il modo in cui il difetto
+> rientrerebbe: qualcuno che «riaggiunge la stampa, che è comoda». E insieme che
+> l'esportazione ci sia davvero, o «nessuna stampa» sarebbe soddisfatto da una
+> pagina che non porta fuori niente.
+
+**► E LE PAGINE DI AIUTO DEL SITO DICEVANO DI PREMERE UN PULSANTE CHE NON C'È
+PIÙ. ◄** *«Apri l'immersione e premi Stampa questa immersione»*, in italiano e in
+inglese, più «stampa del logbook» nell'elenco di cosa si porta via chi se ne va.
+Trovate cercando la parola in tutto il progetto **prima** di costruire, non dopo:
+una modifica all'interfaccia non finisce dove finisce il codice: continua nel
+sito, nell'aiuto e in una stringa dentro l'app che parlava della «stampa del
+libretto». *Il codice si aggiorna da solo quando lo cambi; le frasi che lo
+descrivono no, e restano lì a dire il falso con l'aria di essere documentazione.*
+
+---
+
 ## La 1.8.2: quattro misure sbagliate, e l'archivio che si ricalcola da solo
 
 *8 settembre 2026, sera. La versione che non aggiunge niente e corregge quattro
