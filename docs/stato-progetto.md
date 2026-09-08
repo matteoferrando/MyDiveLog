@@ -18,17 +18,31 @@ e con quella che la cask di Homebrew si è scritta da sola.
 > chiedendosi «questo file contiene quello che credo?», che è la stessa domanda
 > del 7 settembre applicata a un JSON invece che a un pacchetto.*
 
-**Sul Mac App Store la 1.8.1 è approvata** — dichiarato dal proprietario l'8 settembre — **mentre su App
-Store per iPhone c'è ancora la 1.7.1**, misurato col `lookup` e l'anti-cache in
-coda alle 08:55 UTC dell'8 settembre: `1.7.1`, data di pubblicazione ancora
-quella del 28 agosto. I due pacchetti erano stati consegnati insieme la sera del
-7: **Apple verifica un negozio alla volta, e lo scarto fra i due non è un guasto,
-è la coda.** **I due pacchetti 1.8.2 sono costruiti, verificati e in
-`da-caricare-su-app-store/`; il caricamento spetta al proprietario** — e su
-iPhone c'è una decisione prima: *App Store Connect non accetta una versione
-nuova mentre un'altra è in revisione, quindi la 1.8.2 si manda solo ritirando la
-1.8.1 e ripartendo in coda, oppure aspettando che passi.* Google Play aspetta la
-fine del test chiuso (attorno al 12 settembre): l'`.aab` 1.8.2 è in
+**La 1.8.1 è pubblicata su tutti e due i negozi Apple.** Mac App Store la
+mattina dell'8 settembre (dichiarato dal proprietario); **App Store per iPhone
+alle 18:20 dell'8**, misurato col `lookup` e l'anti-cache in coda: `1.8.1`,
+pubblicata il `2026-09-08T17:12:09Z`. *I due pacchetti erano stati consegnati
+insieme la sera del 7, e fra le due approvazioni sono passate nove ore: **Apple
+verifica un negozio alla volta, e lo scarto fra i due non è un guasto, è la
+coda.** Per una giornata intera il negozio iPhone ha risposto `1.7.1`, e in
+quella giornata non è successo niente di anomalo — è successa l'attesa.*
+
+> **► E LA MAIL AL CENTRO SUB È PARTITA. ◄** *8 settembre, sera.* Era l'unica
+> cosa ferma da stamattina, e il vincolo era esattamente questo: **loro scaricano
+> da un telefono**, quindi l'approvazione macOS non bastava. Ha aspettato il
+> numero giusto sulla vetrina giusta. Chiede tre cose — il diario tecnico dallo
+> scarico, uno screenshot, il modello esatto — e dice anche cosa fare **se il
+> computer non compare nemmeno nell'elenco**, che è l'unico guasto che non lascia
+> nessun diario. *Da qui in avanti la palla è loro, e quello che torna indietro è
+> la prima misura su hardware vero che questo progetto avrà mai avuto per le
+> marche che non sono le due di casa.*
+
+**I due pacchetti 1.8.2 sono costruiti, verificati e in
+`da-caricare-su-app-store/`; il caricamento spetta al proprietario** — e adesso
+**la decisione che c'era su iPhone è decaduta da sola**: App Store Connect non
+accetta una versione nuova mentre un'altra è in revisione, ma la 1.8.1 è uscita,
+quindi la coda è libera e la 1.8.2 si manda senza ritirare niente. Google Play
+aspetta la fine del test chiuso (attorno al 12 settembre): l'`.aab` 1.8.2 è in
 `da-caricare-su-play/`.
 
 > **► PERCHÉ ESISTE UNA 1.8.1 CHE NON CAMBIA NIENTE. ◄** Il numero consegnato a
@@ -2412,22 +2426,27 @@ non il momento — e quel che non è stato misurato qui non si scrive.
 
 ### Tocca a chi pubblica
 
-0. **► LA 1.8.1 È SUI DUE NEGOZI, MA UNO SOLO L'HA APPROVATA — E LA MAIL
-   ASPETTA L'ALTRO. ◄** *Consegnati insieme la sera del 7 settembre; il **Mac
-   App Store** ha approvato l'8 (dichiarato dal proprietario), **App Store per
-   iPhone è ancora in verifica**: alle 08:55 UTC dell'8 il `lookup` risponde
-   `1.7.1` con la data del 28 agosto.* **Apple verifica un negozio alla volta:
-   l'approvazione di uno non dice niente dell'altro**, e dedurla è esattamente
-   l'errore che questo documento raccoglie da settimane. **La mail al centro sub
-   va mandata dopo l'approvazione iOS, non dopo quella macOS**: sta in
-   `consegna-1.8.1/mail-centro-sub-1.8.1.md`, il centro sub scarica da un
-   telefono, e se arriva mentre il negozio serve ancora la 1.7.1 chi la legge
-   cerca un aggiornamento che non c'è — e la mail si brucia. *Il comando per
-   sapere quando è il momento, senza chiederlo a nessuno:*
+0. **~~La 1.8.1 ai due negozi, e la mail al centro sub.~~ Chiuse tutte e due,
+   l'8 settembre.** Consegnate insieme la sera del 7; **Mac App Store approvato
+   la mattina**, **App Store per iPhone alle 17:12:09 UTC** — misurato col
+   `lookup` e l'anti-cache. *Nove ore fra le due, e per tutta la giornata il
+   negozio iPhone ha risposto `1.7.1`: **Apple verifica un negozio alla volta, e
+   l'approvazione di uno non dice niente dell'altro**. Dedurla è l'errore che
+   questo documento raccoglie da settimane, e stavolta non è stato commesso —
+   si è aspettata la misura.* **La mail al centro sub è partita la sera stessa**,
+   dopo l'approvazione iOS e non dopo quella macOS: loro scaricano da un
+   telefono. *Il comando che ha detto quando era il momento, e che serve identico
+   alla prossima versione:*
    `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
-   *— quando quel campo `version` dice `1.8.1`, si manda.* **Google Play**
-   aspetta la fine del test chiuso, attorno al 12 settembre: l'`.aab` firmato è
-   in `da-caricare-su-play/`.
+1. **► CARICARE LA 1.8.2 SUI DUE NEGOZI. ◄** I pacchetti sono costruiti e
+   verificati in `da-caricare-su-app-store/` — `inSafetyStop` trovato dentro il
+   binario spedito, `1.8.2` nel plist, nessuna occorrenza di `api.anthropic.com`.
+   Transporter per tutti e due, **due schede separate**, novità da
+   `consegna-1.8.2/novita-negozi-1.8.2.md` (italiano e inglese, già entro i
+   limiti), e **inviare in revisione** — il passo che si dà per fatto perché il
+   caricamento è la parte lunga. *La coda è libera: la 1.8.1 è uscita, quindi non
+   c'è più niente da ritirare.* **Google Play** aspetta la fine del test chiuso,
+   attorno al 12 settembre: l'`.aab` firmato è in `da-caricare-su-play/`.
 1. **~~La 1.7.1 ai due negozi.~~ Fatta, tutti e due.** Su **App Store per
    iPhone** dal **28 agosto alle 21:25:04 UTC**, misurato col `lookup` e
    l'anti-cache; sul **Mac App Store**, dichiarato dal proprietario l'1
