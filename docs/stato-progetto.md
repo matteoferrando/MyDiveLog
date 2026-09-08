@@ -357,6 +357,65 @@ deve mettersi a parlare con Cloudflare.
 
 ---
 
+## La prima verifica su dati veri, e le correzioni di oggi hanno retto
+
+*8 settembre 2026, sera. Fino a stasera tutto quello che si era corretto sulle
+soste era misurato su **profili sintetici** — costruiti da noi, con
+l'oscillazione dichiarata. Poi è arrivato il backup di un utente esterno: **45
+immersioni vere, tutte da un Peregrine**, e con dentro l'immersione contestata.
+È la prima volta che queste misure toccano un archivio che non è quello di casa.*
+
+**La domanda era: «dice 13 minuti di deco ma non ho preso deco».** Il profilo ha
+risposto senza margini di interpretazione:
+
+```
+t= 760s  prof=33.0m   NDL=0s               ← la curva finisce
+t= 830s  prof=30.7m   tetto=3m  inDeco=sì  ← 78 campioni, 780 secondi
+t=1610s  prof=11.2m   tetto=—   NDL=4680s  ← si scioglie da solo
+```
+
+**I 13:00 erano giusti, ed erano il conteggio dei campioni del suo computer.** Ma
+la ragione per cui lui non se n'era accorto è la parte che vale: **il tetto è
+sempre stato a 3 metri**, e in quei tredici minuti lui è passato da 30,7 a 11,2 m
+— sempre venti metri più sotto del limite. *Non ha mai dovuto fermarsi: l'obbligo
+si è sciolto durante la risalita lenta, prima di poter diventare una sosta.* È
+uscito dalla curva senza fare nessuna tappa, ed è esattamente quello che la
+risalita lenta serve a ottenere.
+
+> **La lezione sull'etichetta, non sul calcolo.** «Tempo in deco 13:00» è vero e
+> non aiuta: la domanda che si fa un subacqueo è *«ho dovuto fermarmi?»*, e la
+> risposta era no. Il numero giusto messo accanto alla domanda sbagliata produce
+> lo stesso smarrimento di un numero sbagliato.
+
+**E le due righe accanto erano sbagliate davvero.** Ricalcolando quella stessa
+immersione con il codice di stasera:
+
+| | prima | adesso |
+|---|---|---|
+| Tempo in deco | 13:00 | **13:00** — era giusto |
+| Sosta profonda | 9:10 a 18,8 m | **1:00 a 15 m** |
+| Sosta di sicurezza | 1:00, **non fatta** | **3:10 a 6,1 m, fatta** |
+
+I nove minuti di «sosta profonda» erano il tempo sotto il tetto. E la sosta di
+sicurezza era stata fatta, tenuta a **6,1 metri**: sul bordo della vecchia fascia
+`[3, 6]`, il punto in cui la misura sui profili sintetici dava «riconosciuta
+nell'1% dei casi».
+
+> **► IL NUMERO CHE VALE PER TUTTO IL RESTO. ◄** Su **42 immersioni valutabili**
+> di quell'archivio, il tasso di soste di sicurezza completate passa da **52% a
+> 88%**. Quindici immersioni cambiano verdetto, **tutte da «non fatta» a
+> «fatta»**, e le quote a cui erano tenute sono 4,5 · 5,0 · 5,2 · 5,3 · 5,4 ·
+> 5,6 · 5,7 · 5,8 · 6,1 · 6,2 metri.
+>
+> *Cioè: un subacqueo che tiene la sosta esattamente dove la si insegna, e a cui
+> l'applicazione diceva di no una volta su due.* La stima fatta sui profili
+> sintetici prevedeva questo, e l'archivio vero l'ha confermata — ma la conferma
+> è arrivata da fuori, da qualcuno che si è lamentato, non da una nostra prova.
+> **Nessuna delle 1962 prove verdi avrebbe potuto dirci quanto fosse grosso il
+> difetto: potevano dirci solo che c'era.**
+
+---
+
 ## «Ti conviene fermarti» non è «devi fermarti», e lo appiattivamo in quattro punti
 
 *8 settembre 2026, sera tardi. Comincia con uno screenshot: **«Tempo in deco
