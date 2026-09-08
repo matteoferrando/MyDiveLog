@@ -672,6 +672,36 @@ la cosa che dicono di guardare.
 
 ---
 
+### Tre guardie che dicevano il falso, e non se ne accorgeva nessuno
+
+*Non difetti del programma: difetti degli strumenti con cui si guarda il
+programma. Tutti e tre trovati **facendo** il rilascio, non pensandoci.*
+
+**1. `sito:online` diceva «il sito pubblicato è quello sul disco» mentre non lo
+era.** Alle pagine di aiuto è stata aggiunta la voce sul codice di sei cifre. Il
+titolo non è cambiato — e il titolo era l'unica cosa che quel controllo
+guardava — quindi ha risposto verde su una pagina che online era vecchia. *Una
+guardia che risponde «tutto a posto» su una cosa che non guarda è peggio di una
+guardia che non c'è: la prima si legge come una misura.* Adesso confronta anche
+i testi di tutte le intestazioni, e quando trova una differenza la **nomina**:
+«online manca "Il computer mi chiede un codice di sei cifre"». Lanciato subito
+dopo era rosso su due pagine, che era la risposta giusta.
+
+**2. Le prove del PIN erano verdi solo sulla macchina dove erano state
+scritte.** Stesso vitest, stesso jsdom, stesso `@vitest-environment jsdom`,
+`document` presente e l'indirizzo giusto — e `localStorage` non definito, per
+via della versione di Node. Undici prove rosse alla prima altra macchina.
+Adesso l'archivio se lo portano loro: quello che devono verificare è il nostro
+codice, non se jsdom espone un archivio. *Una prova che passa solo dove è stata
+scritta non è una prova: è un'abitudine.*
+
+**3. `format:check` non era stato lanciato.** È uno degli otto controlli della
+CI, e la CI è diventata rossa su tre file impaginati a mano. Nessuna riga
+cambiava significato — a capo e virgole finali — ma *una CI rossa per il formato
+insegna a non guardarla*, che è il modo in cui una CI smette di servire.
+
+---
+
 ### Quello che questa notte non dimostra
 
 *Sta qui perché la parte più facile da scrivere sarebbe «risolto».*
