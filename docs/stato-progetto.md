@@ -357,6 +357,70 @@ deve mettersi a parlare con Cloudflare.
 
 ---
 
+## «Ti conviene fermarti» non è «devi fermarti», e lo appiattivamo in quattro punti
+
+*8 settembre 2026, sera tardi. Comincia con uno screenshot: **«Tempo in deco
+13:00»** su un'immersione di un subacqueo che in deco non c'era andato. E finisce
+con la stessa forma trovata in quattro posti diversi, ognuno nel momento in cui il
+dato entra.*
+
+**La distinzione.** Un computer subacqueo conosce tre soste: quella di
+**sicurezza**, la **profonda** e la **tappa di decompressione**. Le prime due
+sono consigli, la terza è un obbligo — ed è la distinzione su cui è costruito
+tutto il resto dell'applicazione, dalle statistiche al libretto: una si può
+saltare, l'altra no.
+
+**I quattro punti in cui spariva:**
+
+1. **`trasporto_ldc.rs`** (corretto in mattinata): `DC_DECO_SAFETYSTOP`,
+   `DECOSTOP` e `DEEPSTOP` finivano tutti nello stesso `else`, con un tetto e
+   `in_deco = true`.
+2. **`parsers/uddf.ts`**: `inDeco: kind === 'mandatory' || stopDepth > 0`. UDDF
+   marca ogni sosta con `kind`, e i valori che contano sono `mandatory` e
+   **`safety`**. *La seconda metà della condizione cancella la prima*, perché
+   una sosta di sicurezza una profondità ce l'ha. Il campo che risolve la
+   domanda veniva letto, e poi buttato dallo `||` che lo seguiva.
+3. **`parsers/shearwater.ts`**: Shearwater esporta `decoCeiling` e
+   `firstStopDepth` **separati**, perché sono cose separate — il primo è
+   l'obbligo, il secondo è la sosta che il computer propone, e la propone anche
+   per la sosta di sicurezza. Il parser prendeva il tetto dal campo giusto e
+   `inDeco` dall'altro.
+4. **`analysis/metrics.ts`**: `const ceiling = s.ceiling ?? s.stopDepth` — un
+   ripiego che **promuoveva una sosta proposta a tetto imposto**. Sembra
+   prudente e non lo è: non aggiungeva un caso, raddoppiava lo stesso caso anche
+   quando era falso. *Toglierlo non perde niente: ogni parser che scrive
+   `stopDepth` scrive anche `inDeco`.*
+
+**E la conseguenza più subdola stava sull'altra riga della stessa scheda.** La
+sosta profonda si cercava nella fascia `0,4–0,6 × massima` **senza guardare se in
+quel momento c'era un tetto**: su un'immersione a 36 metri con i gradient factor
+a 20/85, la prima tappa a 19 metri ci cadeva dentro in pieno, e la scheda diceva
+**«sosta profonda 9:10 a 19 m»**. Nove minuti non sono una sosta profonda — ne
+durano uno o due.
+
+> **► NON È UN'ETICHETTA SBAGLIATA: È UN OBBLIGO TRAVESTITO DA SCELTA. ◄** Una
+> sosta profonda è una pausa **volontaria** in una risalita che non ha obblighi;
+> il tempo sotto un tetto è l'opposto. Le due righe della stessa scheda si
+> contraddicevano — «13 minuti in deco» e «9 minuti di sosta profonda» — e quella
+> che il subacqueo era portato a credere era la seconda, perché è quella che
+> conferma l'impressione che di decompressione non ce ne fosse.
+
+**Cosa NON è stato cambiato, e perché.** Il caso in cui `kind` manca — e in
+parecchi UDDF manca — resta com'era: una sosta con una quota vale obbligo. *Nel
+dubbio si resta prudenti, ma il dubbio non si estende ai file che la risposta ce
+l'hanno scritta dentro.* E il parser Garmin espone solo `nextStopDepth`, senza un
+campo che distingua: là non c'è niente da leggere meglio, e resta com'è.
+
+`VERSIONE_METRICHE` sale a **3**: `decoS` e `deepStopS` cambiano sull'archivio
+esistente, che si ricalcola da solo al primo avvio.
+
+**Quattro mutazioni provate, tutte morte** — l'`||` che cancella `kind`, il
+ripiego su `stopDepth`, la sosta profonda senza il controllo del tetto, e
+`inDeco` che torna a `firstStopDepth`. *Quest'ultima è sopravvissuta alla prima
+passata: nessuna prova copriva quel parser, e si è vista solo mutandolo.*
+
+---
+
 ## La 1.8.3, e il numero che non si riusa
 
 *8 settembre 2026, sera tardi. La versione più piccola di tutte, e nasce da una

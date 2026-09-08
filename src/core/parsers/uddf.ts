@@ -215,7 +215,25 @@ function readDive(
       ttsS: num(child(wp, 'remainingbottomtime')),
       stopDepth,
       stopTimeS: stopTime,
-      inDeco: kind === 'mandatory' || (stopDepth !== undefined && stopDepth > 0),
+      /*
+       * ► `kind` DISTINGUE LE DUE COSE, E L'OR LO ANNULLAVA. ◄
+       *
+       * UDDF marca ogni sosta con `kind`, e i due valori che contano sono
+       * `mandatory` e **`safety`**. La riga di prima diceva
+       * `kind === 'mandatory' || stopDepth > 0`: la seconda metà **cancella la
+       * prima**, perché una sosta di sicurezza una profondità ce l'ha, eccome.
+       * Il campo che risolve la domanda veniva letto e poi buttato.
+       *
+       * *È la terza volta che questo progetto trova la stessa forma: il computer
+       * distingue fra «ti conviene fermarti» e «devi fermarti», e noi
+       * appiattiamo le due cose nel punto in cui le riceviamo.*
+       *
+       * Quando `kind` manca — e in parecchi file manca — non si può sapere, e si
+       * tiene il comportamento di prima: una sosta con una quota vale obbligo.
+       * *Nel dubbio si resta prudenti, ma il dubbio non si estende ai file che
+       * la risposta ce l'hanno scritta dentro.*
+       */
+      inDeco: kind === 'safety' ? false : kind === 'mandatory' || (stopDepth !== undefined && stopDepth > 0),
       cns: mapDefined(num(child(wp, 'cns')), (v) => (v <= 1 ? v * 100 : v)),
       ppo2: mapDefined(num(child(wp, 'measuredpo2')) ?? num(child(wp, 'calculatedpo2')), pascalToBar),
       setpoint: mapDefined(num(child(wp, 'setpo2')), pascalToBar),

@@ -58,8 +58,9 @@ import { exposureOfProfile } from './oxygen';
  * |---|---|
  * | 1 | tutto quello che c'era prima che questo numero esistesse |
  * | 2 | sosta di sicurezza (fascia 2,5-7,5 m e tolleranza), sosta profonda (tolleranza), quota della sosta, flag `inSafetyStop` del computer |
+ * | 3 | il tempo in deco non conta più le soste soltanto proposte, e la sosta profonda non conta più il tempo sotto un tetto |
  */
-export const VERSIONE_METRICHE = 2;
+export const VERSIONE_METRICHE = 3;
 
 /** Ampiezza della finestra mobile per le velocità verticali, secondi. */
 export const RATE_WINDOW_S = 30;
@@ -603,9 +604,27 @@ function analyseStops(
    * 0% a 2 s, 26% a 10 s). Stessa forma, stessa medicina.
    */
   let fuoriProfonda = 0;
+  /*
+   * ► UNA TAPPA DI DECOMPRESSIONE NON È UNA SOSTA PROFONDA. ◄
+   *
+   * Trovato su un'immersione vera: la scheda diceva **«sosta profonda 9:10 a
+   * 19 m»** e, tre righe sopra, **«tempo in deco 13:00»**. Nove minuti non sono
+   * una sosta profonda — ne durano uno o due — erano la **prima tappa**, tenuta
+   * a diciannove metri su un'immersione a trentasei con i gradient factor a
+   * 20/85. La fascia della sosta profonda è `0,4–0,6 × massima`, cioè 15–23 m:
+   * la tappa ci cadeva dentro in pieno.
+   *
+   * **La differenza non è di parole.** Una sosta profonda è una pausa
+   * *volontaria* in una risalita che non ha obblighi; il tempo sotto un tetto è
+   * l'opposto, ed è imposto. Chiamarlo sosta profonda gonfia le statistiche
+   * proprio sulle immersioni in cui di volontario non c'era niente — e alla
+   * persona che legge la scheda **traveste una tappa obbligatoria da scelta**,
+   * confermandogli che di decompressione non ce n'era.
+   */
+  const sottoIlTetto = (s: Sample) => s.inDeco === true || (s.ceiling ?? 0) > 0;
   for (let i = 1; i < samples.length; i++) {
     const s = samples[i];
-    if (s.t < phases.ascentStartS || s.depth < bandLo || s.depth > bandHi) {
+    if (s.t < phases.ascentStartS || s.depth < bandLo || s.depth > bandHi || sottoIlTetto(s)) {
       if (s.t >= phases.ascentStartS) fuoriProfonda += s.t - samples[i - 1].t;
       if (fuoriProfonda > LIMITS.safetyStopToleranceS) {
         run = 0;
@@ -736,7 +755,27 @@ function analyseDeco(samples: Sample[]) {
   for (let i = 1; i < samples.length; i++) {
     const s = samples[i];
     const dt = s.t - samples[i - 1].t;
-    const ceiling = s.ceiling ?? (s.stopDepth && s.stopDepth > 0 ? s.stopDepth : undefined);
+    /*
+     * ► IL TETTO È IL TETTO. UNA SOSTA PROPOSTA NON LO È. ◄
+     *
+     * Qui c'era un ripiego: `s.ceiling ?? s.stopDepth`, cioè «se non conosco il
+     * tetto uso la quota della prossima sosta». Sembra prudente e non lo è:
+     * `stopDepth` vale anche per una **sosta di sicurezza** o per una **sosta
+     * profonda**, che soste sono ma obblighi non sono. Quel ripiego prometteva
+     * una decompressione ogni volta che il computer proponeva di fermarsi.
+     *
+     * Non si perde niente togliendolo: **ogni parser che scrive `stopDepth`
+     * scrive anche `inDeco`** — UDDF, Shearwater in tutte e due le strade,
+     * Subsurface, Garmin — e quello resta la fonte per chi il tetto non lo
+     * espone. Il ripiego non aggiungeva un caso: raddoppiava lo stesso, e lo
+     * raddoppiava anche quando era falso.
+     *
+     * `hasCeiling` segue la stessa regola, ed è importante: è il campo che in
+     * `dedupe.ts` vale due punti nel confronto fra due profili della stessa
+     * immersione. Contando una sosta di sicurezza come «dati decompressivi», un
+     * profilo poteva **battere e sostituire** quello vero.
+     */
+    const ceiling = s.ceiling;
     if (ceiling !== undefined) hasCeiling = true;
 
     const obliged = s.inDeco === true || (ceiling !== undefined && ceiling > 0);

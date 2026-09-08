@@ -162,7 +162,20 @@ function readLog(
       stopDepth,
       stopTimeS: minutesToSeconds(num(child(r, 'firstStopTime'))),
       ceiling: ceiling && ceiling > 0 ? ceiling : undefined,
-      inDeco: (stopDepth ?? 0) > 0,
+      /*
+       * ► DUE CAMPI SEPARATI, E SI LEGGEVA QUELLO SBAGLIATO. ◄
+       *
+       * Shearwater esporta `decoCeiling` e `firstStopDepth` distinti perché
+       * sono cose distinte: il primo è **l'obbligo**, il secondo è **la prima
+       * sosta che il computer propone** — e quella la propone anche quando
+       * obbligo non ce n'è, per la sosta di sicurezza e per la sosta profonda,
+       * se è attivata. Il tetto qui sopra lo prende già da `decoCeiling`; era
+       * `inDeco` a prendersi l'altro.
+       *
+       * La conseguenza si vedeva nella scheda: **«Tempo in deco»** contava
+       * minuti in cui il computer non aveva imposto niente.
+       */
+      inDeco: (ceiling ?? 0) > 0,
       cns: num(child(r, 'CNSPercent')),
       ppo2: roundOrUndef(ppo2, 2),
       gasIndex,
