@@ -45,6 +45,7 @@ import type { Dive, Sample } from '../model';
 import { libretto, type Subacqueo } from '../libretto';
 import { firmaVuota, type FirmaGuida } from '../firma';
 import { formatDuration } from '../units';
+import type { FoglioPiano } from './planPrint';
 
 /** A4 in punti tipografici, arrotondato: il PDF misura tutto in questa unità. */
 const LARGHEZZA = 595;
@@ -104,6 +105,193 @@ const WINANSI: Record<string, number> = {
 };
 
 /**
+ * Le larghezze di Helvetica, in millesimi di corpo.
+ *
+ * ► SONO ARRIVATE DOPO, E IL COMMENTO IN TESTA DICEVA CHE NON C'ERANO. ◄ La
+ * nota sopra dichiarava il prezzo dei font non incorporati: «senza le tabelle
+ * delle larghezze non si può misurare il testo, quindi il testo lungo si TRONCA
+ * a un numero di caratteri prudente». Per la scheda di un'immersione — etichetta
+ * a sinistra, valore a destra — bastava. **Per il foglio del piano no**: lì ci
+ * sono tabelle di numeri, e una colonna di bar allineata a sinistra si legge
+ * male esattamente nel momento in cui la si legge male, cioè in barca con le
+ * mani bagnate e il foglio piegato in quattro.
+ *
+ * Sono le metriche pubblicate del font, quelle dei file AFM che Adobe distribuisce
+ * dal 1985: non misure nostre, e non cambiano. Quello che manca dalla tabella
+ * prende la larghezza della `n` — sbagliare di poco un carattere raro sposta un
+ * millimetro, non conoscere nessuna larghezza costa la colonna intera.
+ *
+ * *La scheda dell'immersione continua a troncare per caratteri: cambiare anche
+ * quella vorrebbe dire rifare un'impaginazione che funziona, in una versione in
+ * cui il lavoro è un altro. Adesso però è un residuo, non un limite.*
+ */
+const LARGHEZZE: Record<string, number> = {
+  ' ': 278,
+  '!': 278,
+  '"': 355,
+  '#': 556,
+  $: 556,
+  '%': 889,
+  '&': 667,
+  "'": 191,
+  '(': 333,
+  ')': 333,
+  '*': 389,
+  '+': 584,
+  ',': 278,
+  '-': 333,
+  '.': 278,
+  '/': 278,
+  '0': 556,
+  '1': 556,
+  '2': 556,
+  '3': 556,
+  '4': 556,
+  '5': 556,
+  '6': 556,
+  '7': 556,
+  '8': 556,
+  '9': 556,
+  ':': 278,
+  ';': 278,
+  '<': 584,
+  '=': 584,
+  '>': 584,
+  '?': 556,
+  '@': 1015,
+  A: 667,
+  B: 667,
+  C: 722,
+  D: 722,
+  E: 667,
+  F: 611,
+  G: 778,
+  H: 722,
+  I: 278,
+  J: 500,
+  K: 667,
+  L: 556,
+  M: 833,
+  N: 722,
+  O: 778,
+  P: 667,
+  Q: 778,
+  R: 722,
+  S: 667,
+  T: 611,
+  U: 722,
+  V: 667,
+  W: 944,
+  X: 667,
+  Y: 667,
+  Z: 611,
+  '[': 278,
+  '\\': 278,
+  ']': 278,
+  '^': 469,
+  _: 556,
+  '`': 333,
+  a: 556,
+  b: 556,
+  c: 500,
+  d: 556,
+  e: 556,
+  f: 278,
+  g: 556,
+  h: 556,
+  i: 222,
+  j: 222,
+  k: 500,
+  l: 222,
+  m: 833,
+  n: 556,
+  o: 556,
+  p: 556,
+  q: 556,
+  r: 333,
+  s: 500,
+  t: 278,
+  u: 556,
+  v: 500,
+  w: 722,
+  x: 500,
+  y: 500,
+  z: 500,
+  '{': 334,
+  '|': 260,
+  '}': 334,
+  '~': 584,
+  // Gli accenti hanno la larghezza della lettera di base: è come il font li
+  // disegna davvero, non un'approssimazione.
+  à: 556,
+  á: 556,
+  â: 556,
+  ä: 556,
+  è: 556,
+  é: 556,
+  ê: 556,
+  ë: 556,
+  ì: 278,
+  í: 278,
+  î: 278,
+  ï: 278,
+  ò: 556,
+  ó: 556,
+  ô: 556,
+  ö: 556,
+  ù: 556,
+  ú: 556,
+  û: 556,
+  ü: 556,
+  ç: 500,
+  ñ: 556,
+  À: 667,
+  È: 667,
+  É: 667,
+  Ì: 278,
+  Ò: 778,
+  Ù: 722,
+  '«': 556,
+  '»': 556,
+  '’': 222,
+  '‘': 222,
+  '“': 333,
+  '”': 333,
+  '—': 1000,
+  '–': 556,
+  '…': 1000,
+  '°': 400,
+  '·': 278,
+  '€': 556,
+};
+
+/** Larghezza di un testo in punti tipografici, al corpo dato. */
+export function larghezzaTesto(valore: string, corpo: number): number {
+  let mille = 0;
+  for (const carattere of valore) mille += LARGHEZZE[carattere] ?? LARGHEZZE.n;
+  return (mille / 1000) * corpo;
+}
+
+/** Manda a capo misurando davvero, invece di contare i caratteri. */
+function aCapoMisurato(valore: string, corpo: number, larghezza: number): string[] {
+  const righe: string[] = [];
+  for (const paragrafo of valore.split(/\n+/)) {
+    let corrente = '';
+    for (const parola of paragrafo.split(/\s+/).filter(Boolean)) {
+      const prova = corrente ? `${corrente} ${parola}` : parola;
+      if (corrente && larghezzaTesto(prova, corpo) > larghezza) {
+        righe.push(corrente);
+        corrente = parola;
+      } else {
+        corrente = prova;
+      }
+    }
+    if (corrente) righe.push(corrente);
+  }
+  return righe;
+}
+
+/**
  * Una stringa PDF: parentesi, barre e accenti messi in salvo.
  *
  * Le parentesi delimitano le stringhe nel formato: una non chiusa dentro il
@@ -148,6 +336,18 @@ function scrivi(c: Comandi, x: number, y: number, testo: string, corpo = 9, gras
     `(${testoPdf(testo)}) Tj`,
     'ET',
   );
+}
+
+/**
+ * Come `scrivi`, ma ancorato a DESTRA: `x` è dove finisce il testo.
+ *
+ * Serve alle colonne numeriche del piano. È una funzione a parte e non un
+ * parametro in più su `scrivi` perché quella firma la usano trenta chiamate
+ * della scheda immersione, e un parametro opzionale in mezzo è il posto dove
+ * un giorno qualcuno passa il corpo al posto dell'allineamento.
+ */
+function scriviADestra(c: Comandi, x: number, y: number, testo: string, corpo = 9, grassetto = false): void {
+  scrivi(c, x - larghezzaTesto(testo, corpo), y, testo, corpo, grassetto);
 }
 
 function riga(c: Comandi, x1: number, y1: number, x2: number, y2: number, spessore = 0.5): void {
@@ -423,6 +623,246 @@ function contenutoPagina(dive: Dive, samples: Sample[], opts: PdfOptions): strin
   grigio(c, 0);
 
   return c.join('\n');
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════
+ * IL FOGLIO DEL PIANO, e perché sta in questo file e non in uno nuovo.
+ *
+ * Perché il PDF è **uno solo**: il generatore, la tabella degli offset, la
+ * codifica degli accenti, il modo di scrivere una riga. Un secondo file
+ * avrebbe voluto dire una seconda `assembla`, e la `xref` è la parte del
+ * formato che non perdona — averne due copie significa che un giorno una delle
+ * due si corregge e l'altra no.
+ *
+ * ► COSA RENDE, e cosa NON ridecide. ◄ Rende `FoglioPiano`, la stessa struttura
+ * a sezioni che `planPrint.ts` trasforma in HTML: *quali* sezioni, in che
+ * ordine e con che numeri lo decide `foglioDelPiano` nel pianificatore, una
+ * volta sola per tutti e due i formati. Qui si decide solo come stanno sulla
+ * carta. È la ragione per cui quella struttura era stata fatta generica, ed è
+ * la prova che serviva a qualcosa.
+ *
+ * ► PERCHÉ SERVE, VISTO CHE LA STAMPA C'ERA. ◄ Perché la stampa c'era **solo
+ * sui computer**. Su iPhone il pulsante non c'era del tutto; su Android c'era e
+ * non funzionava. E il foglio del piano serve in barca, dove il computer di
+ * casa non è: è la lavagnetta della didattica tecnica, e finora si poteva fare
+ * solo nel posto in cui non serve.
+ */
+export function pianoPdf(f: FoglioPiano, opts: PdfOptions = {}): string {
+  const pagine: Comandi[] = [];
+  let c: Comandi = [];
+  let y = 0;
+
+  /*
+   * L'IMPAGINAZIONE È IL PEZZO CHE LA STAMPA DI SISTEMA FACEVA GRATIS.
+   *
+   * Il browser sa dove finisce una pagina; qui bisogna saperlo noi. `spazio`
+   * chiede se ci stanno ancora N punti e, se non ci stanno, chiude la pagina e
+   * ne apre una nuova con la sua intestazione — perché una tabella di soste che
+   * continua sul retro senza dire di che piano parla, in barca, è un foglio
+   * anonimo.
+   */
+  const nuovaPagina = (continua: boolean) => {
+    if (c.length) pagine.push(c);
+    c = [];
+    y = ALTEZZA - MARGINE;
+    scrivi(c, MARGINE, y, accorcia(f.titolo, 52), continua ? 12 : 17, true);
+    if (continua) {
+      grigio(c, 0.45);
+      scriviADestra(c, LARGHEZZA - MARGINE, y, 'segue', 9);
+      grigio(c, 0);
+    }
+    y -= continua ? 12 : 18;
+    if (!continua && f.sottotitolo) {
+      grigio(c, 0.4);
+      scrivi(c, MARGINE, y, accorcia(f.sottotitolo, 90), 10);
+      grigio(c, 0);
+      y -= 10;
+    }
+    riga(c, MARGINE, y, LARGHEZZA - MARGINE, y, 0.8);
+    y -= 20;
+  };
+
+  /** Vero se ci stanno ancora `quanto` punti; altrimenti apre una pagina nuova. */
+  const spazio = (quanto: number) => {
+    if (y - quanto >= MARGINE + 70) return;
+    nuovaPagina(true);
+  };
+
+  nuovaPagina(false);
+
+  for (const s of f.sezioni) {
+    if (!s.righe.length) continue;
+    // Il titolo di una sezione non resta mai da solo in fondo alla pagina: si
+    // chiede spazio per lui E per la prima riga.
+    spazio(34);
+    scrivi(c, MARGINE, y, s.titolo, 11, true);
+    y -= s.descrizione ? 11 : 14;
+    if (s.descrizione) {
+      grigio(c, 0.45);
+      for (const linea of aCapoMisurato(s.descrizione, 8, LARGHEZZA - 2 * MARGINE)) {
+        scrivi(c, MARGINE, y, linea, 8);
+        y -= 9;
+      }
+      grigio(c, 0);
+      y -= 5;
+    }
+
+    const destra = new Set(s.numeriche ?? []);
+    const forti = new Set(s.forti ?? []);
+    const quante = Math.max(s.colonne?.length ?? 0, ...s.righe.map((r) => r.length));
+    /*
+     * LE COLONNE SI MISURANO SUL CONTENUTO, non si dividono in parti uguali.
+     *
+     * Una tabella con «Sosta» e «Profondità» larghe uguali spreca metà foglio
+     * sulla prima e manda a capo la seconda. Si prende la voce più larga di
+     * ogni colonna, intestazione compresa, e si distribuisce quello che avanza:
+     * il risultato è la stessa impaginazione che fa il browser, calcolata a
+     * mano perché qui il browser non c'è.
+     */
+    const larghezze = Array.from({ length: quante }, (_, i) =>
+      Math.max(
+        larghezzaTesto(s.colonne?.[i] ?? '', 8.5),
+        ...s.righe.map((r) => larghezzaTesto(r[i] ?? '', 9)),
+      ),
+    );
+    const disponibile = LARGHEZZA - 2 * MARGINE;
+    const somma = larghezze.reduce((a, b) => a + b, 0) || 1;
+    const spaziatura = 10;
+    const utile = disponibile - spaziatura * (quante - 1);
+    /*
+     * ► LE COLONNE NON SI DISTENDONO SU TUTTA LA RIGA, ED È UNA SCELTA GUARDATA. ◄
+     *
+     * La prima versione le allargava fino al margine, come fa una tabella HTML
+     * con `width: 100%`. Il foglio reso e guardato diceva un'altra cosa: la
+     * colonna «Minuti» finiva in mezzo alla pagina, lontanissima dalla sua
+     * intestazione e dai metri a cui si riferisce, e per leggere una riga
+     * l'occhio doveva attraversare cinque centimetri di bianco. *Su un foglio
+     * piegato in quattro, tenuto con una mano, quel viaggio è esattamente dove
+     * si sbaglia riga.*
+     *
+     * Le colonne restano larghe quanto il loro contenuto e il bianco resta a
+     * destra, dove non disturba. Si riducono solo se sforano: un testo che esce
+     * dal margine è sempre peggio di un testo stretto.
+     */
+    const scala = Math.min(1, utile / somma);
+    const finali = larghezze.map((l) => l * scala);
+    const x = (i: number) => MARGINE + finali.slice(0, i).reduce((a, b) => a + b, 0) + spaziatura * i;
+
+    if (s.colonne?.length) {
+      grigio(c, 0.45);
+      for (let i = 0; i < quante; i++) {
+        const testo = s.colonne[i] ?? '';
+        if (destra.has(i)) scriviADestra(c, x(i) + finali[i], y, testo, 8.5);
+        else scrivi(c, x(i), y, testo, 8.5);
+      }
+      grigio(c, 0);
+      y -= 4;
+      riga(c, MARGINE, y, LARGHEZZA - MARGINE, y, 0.4);
+      y -= 11;
+    }
+
+    for (const [indice, r] of s.righe.entries()) {
+      spazio(16);
+      const forte = forti.has(indice);
+      if (forte) {
+        // Una sosta obbligatoria non è una riga come le altre, e su carta
+        // bagnata il grassetto da solo non basta: la fascia si vede da lontano.
+        grigio(c, 0.92);
+        c.push(`${MARGINE - 4} ${y - 3.5} ${disponibile + 8} 13 re`, 'f');
+        grigio(c, 0);
+      }
+      for (let i = 0; i < quante; i++) {
+        const testo = r[i] ?? '';
+        if (destra.has(i)) scriviADestra(c, x(i) + finali[i], y, testo, 9, forte);
+        else scrivi(c, x(i), y, accorcia(testo, 60), 9, forte);
+      }
+      y -= 13;
+    }
+    y -= 10;
+  }
+
+  for (const a of f.avvisi ?? []) {
+    spazio(30);
+    /*
+     * GLI AVVISI SI VEDONO ANCHE IN BIANCO E NERO. Un foglio stampato in barca
+     * esce da una stampante che il colore non ce l'ha, e comunque il PDF qui
+     * dentro è tutto in scala di grigi: il livello lo dice la PAROLA, non la
+     * tinta. «Attenzione» e «Critico» si leggono anche fotocopiati.
+     */
+    const etichetta = a.livello === 'critical' ? 'CRITICO' : a.livello === 'warning' ? 'ATTENZIONE' : 'NOTA';
+    const righe = aCapoMisurato(a.testo, 9, disponibileAvviso());
+    grigio(c, 0.9);
+    c.push(
+      `${MARGINE - 4} ${y - 4 - (righe.length - 1) * 11} ${LARGHEZZA - 2 * MARGINE + 8} ${righe.length * 11 + 6} re`,
+      'f',
+    );
+    grigio(c, 0);
+    scrivi(c, MARGINE, y, etichetta, 8, true);
+    for (const [i, linea] of righe.entries()) {
+      scrivi(c, MARGINE + 62, y - i * 11, linea, 9);
+    }
+    y -= righe.length * 11 + 8;
+  }
+
+  if (f.note) {
+    spazio(30);
+    scrivi(c, MARGINE, y, 'Note', 11, true);
+    y -= 14;
+    for (const linea of aCapoMisurato(f.note, 9, LARGHEZZA - 2 * MARGINE)) {
+      spazio(12);
+      scrivi(c, MARGINE, y, linea, 9);
+      y -= 11;
+    }
+    y -= 8;
+  }
+
+  /*
+   * ► LE FIRME E L'AVVERTENZA STANNO SULL'ULTIMA PAGINA, IN FONDO. ◄
+   *
+   * Le firme perché un piano di decompressione si controlla in due prima di
+   * entrare: è la procedura, non una gentilezza, e su carta la traccia si fa
+   * con la penna. L'avvertenza perché **il foglio gira senza lo schermo che lo
+   * ha prodotto**: chi lo raccoglie in barca deve leggere lì sopra che un piano
+   * non sostituisce il computer, non doverselo ricordare.
+   */
+  const yFirme = MARGINE + 58;
+  const terzo = (LARGHEZZA - 2 * MARGINE - 24) / 3;
+  const etichette = ['Pianificato da', 'Controllato da', 'Data e ora d’ingresso'];
+  for (const [i, etichetta] of etichette.entries()) {
+    const x0 = MARGINE + i * (terzo + 12);
+    riga(c, x0, yFirme, x0 + terzo, yFirme, 0.6);
+    grigio(c, 0.45);
+    scrivi(c, x0, yFirme - 11, etichetta, 8);
+    grigio(c, 0);
+  }
+  grigio(c, 0.5);
+  const avvertenza =
+    'Calcolato da MyDiveLog. Un piano non sostituisce il computer subacqueo, e le soste ' +
+    'qui sopra valgono per il profilo scritto: se in acqua vai più giù o resti di più, ' +
+    'il piano che conta è quello che il computer ricalcola sul momento.';
+  let yAvv = MARGINE + 26;
+  for (const linea of aCapoMisurato(avvertenza, 7.5, LARGHEZZA - 2 * MARGINE)) {
+    scrivi(c, MARGINE, yAvv, linea, 7.5);
+    yAvv -= 9;
+  }
+  const quando = opts.now ?? f.now;
+  scrivi(
+    c,
+    MARGINE,
+    MARGINE - 14,
+    `MyDiveLog — mydivelog.site${quando ? ` — ${quando.slice(0, 16).replace('T', ' ')}` : ''}`,
+    7,
+  );
+  grigio(c, 0);
+
+  pagine.push(c);
+  return assembla(pagine.map((p) => p.join('\n')));
+}
+
+/** La larghezza utile per il testo di un avviso, che rientra dopo l'etichetta. */
+function disponibileAvviso(): number {
+  return LARGHEZZA - 2 * MARGINE - 62;
 }
 
 /**

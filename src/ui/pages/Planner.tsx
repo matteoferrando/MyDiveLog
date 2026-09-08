@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { suIOS } from '../../piattaforma';
+import { suAndroid, suIOS } from '../../piattaforma';
 import {
   ascentGeometry,
   atDepth,
@@ -45,6 +45,9 @@ import { DecoPlanner, type DecoPlanState } from '../components/DecoPlan';
 import { curveOfPlan, type PlanCurve as PlanCurveResult } from '../../core/analysis/tissues';
 import { barometric, planDeco, type DecoResult } from '../../core/analysis/deco';
 import { pianoHtml, type FoglioPiano } from '../../core/export/planPrint';
+import { pianoPdf } from '../../core/export/pdf';
+import { conDettaglio } from '../../core/ble/causaGuasto';
+import { esporta } from '../esporta';
 import { foglioDelPiano } from '../../core/export/planSheet';
 import { useDiveLog } from '../state';
 import { InputNumerico } from '../components/InputNumerico';
@@ -260,6 +263,51 @@ export function Planner() {
   ]);
 
   const [stampaBloccata, setStampaBloccata] = useState(false);
+  const [esitoPdf, setEsitoPdf] = useState<string | null>(null);
+
+  /*
+   * ► L'ESPORTAZIONE DICE DOV'È FINITO IL FILE, e non è una cortesia. ◄
+   *
+   * Su iPhone il PDF non finisce nei Download — quelli non ci sono — ma nella
+   * cartella dell'app dentro File, e senza quella frase l'utente cerca dove
+   * cercherebbe su un computer, non trova niente e conclude che non ha
+   * funzionato. `esporta()` restituisce la frase giusta per la piattaforma su
+   * cui sta girando: qui si mostra e basta.
+   *
+   * E se fallisce, si dice che è fallito. Prima di `esporta()` questo genere di
+   * funzione non poteva fallire — creava un link e lo cliccava — quindi
+   * scriveva sempre «fatto», anche quando non era successo niente.
+   */
+  const esportaPdfPiano = async () => {
+    setEsitoPdf(null);
+    try {
+      const foglio = foglioDelPiano({
+        plan,
+        schedule,
+        curve,
+        soste,
+        contingenze: plans,
+        mode,
+        turnAt,
+        gf: GF_RICREATIVI,
+      });
+      const giorno = new Date().toISOString().slice(0, 10);
+      const esito = await esporta(
+        `MyDiveLog-piano-${giorno}-${Math.round(plan.input.depthM)}m.pdf`,
+        pianoPdf(foglio),
+        'application/pdf',
+      );
+      setEsitoPdf(`${t('PDF salvato')} ${esito.dove}.`);
+    } catch (err) {
+      setEsitoPdf(
+        conDettaglio(
+          `${t('Il PDF non è stato salvato: il piano non è cambiato.')} ` +
+            t('Controlla lo spazio libero sul dispositivo e riprova.'),
+          err,
+        ),
+      );
+    }
+  };
 
   /*
    * NIENTE IN ARCHIVIO = NIENTE DI SUO IN QUESTA PAGINA.
@@ -352,7 +400,20 @@ export function Planner() {
              * distanza — una qualsiasi immersione, anche scritta a mano dal
              * Logbook, e la stampa si riaccende con dei numeri che sono tuoi.
              */}
-            {!suIOS() && (
+            {/*
+             * ► IL PDF C'È DOVE LA STAMPA NON C'È, E ANCHE DOVE C'È. ◄
+             *
+             * La stampa di sistema resta il modo migliore di STAMPARE: margini
+             * veri, formato carta, anteprima. Ma il file è un'altra cosa dalla
+             * stampa — si manda al compagno, si mette nel telefono del diving,
+             * si tiene — e su iPhone e Android era **l'unico modo possibile**,
+             * visto che lì la finestra di stampa non esiste. Due pulsanti
+             * diversi per due gesti diversi, e il secondo funziona ovunque.
+             */}
+            <button className="btn" disabled={senzaArchivio} onClick={() => void esportaPdfPiano()}>
+              {t('Esporta PDF')}
+            </button>
+            {!suTelefono() && (
               <button
                 className="btn"
                 disabled={senzaArchivio}
@@ -373,12 +434,17 @@ export function Planner() {
                   )
                 }
               >
-                {t('Stampa il piano (PDF)')}
+                {t('Stampa il piano')}
               </button>
             )}
           </div>
         </div>
-        {!suIOS() && senzaArchivio && (
+        {esitoPdf && (
+          <p className="notice" role="status" style={{ marginTop: 10 }}>
+            {esitoPdf}
+          </p>
+        )}
+        {!suTelefono() && senzaArchivio && (
           <p className="muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
             {t(
               "La stampa si accende con la prima immersione in archivio: un foglio portato in barca non si porta dietro l'avviso qui sopra.",
@@ -390,18 +456,15 @@ export function Planner() {
        * DUE MOTIVI DIVERSI PER CUI LA STAMPA NON PARTE, e all'utente ne diciamo
        * solo il rimedio.
        *
-       * Su iOS il foglio si apre in una finestra separata e la stampa la fa il
-       * sistema: dentro la WKWebView non esiste né l'una né l'altra, quindi il
-       * rimedio è il Mac (stessi dati, sincronizzati) e non un'impostazione.
-       * Altrove l'unico modo in cui `window.open` fallisce è il blocco dei
-       * popup, e lì il rimedio è consentirli. Spiegare la WKWebView a chi vuole
-       * un foglio in barca non serve a niente.
+       * Sui telefoni il pulsante della stampa non c'è più del tutto — c'è
+       * l'esportazione in PDF, che è quello che serviva davvero — quindi qui
+       * resta un caso solo: il browser che blocca la finestra. *Prima questo
+       * messaggio aveva due rami, e quello per iPhone diceva «dal Mac sì»: una
+       * risposta giusta e inutile a chi è in barca con il telefono in mano.*
        */}
       {stampaBloccata && (
         <div className="notice">
-          {suIOS()
-            ? t('Su iPhone e iPad non si stampa: dal Mac sì, e i dati sono gli stessi.')
-            : t('Il browser ha bloccato la finestra di stampa. Consentila per questo sito e riprova.')}
+          {t('Il browser ha bloccato la finestra di stampa. Consentila per questo sito e riprova.')}
         </div>
       )}
 
@@ -1498,6 +1561,21 @@ export function Planner() {
  * in cui questa operazione può fallire, e chi chiama lo dice invece di lasciare
  * un pulsante che non fa niente.
  */
+/**
+ * Vero su iPhone e su Android, cioè dove la finestra di stampa non esiste.
+ *
+ * ► ANDROID MANCAVA, E IL PULSANTE MENTIVA. ◄ La condizione era `!suIOS()`:
+ * su Android il pulsante si vedeva, `window.open` non apriva niente e l'app
+ * rispondeva «il browser ha bloccato la finestra di stampa, consentila» —
+ * mandando a cercare un'impostazione per un problema che non era quello. **È
+ * lo stesso difetto già corretto per iPhone, lasciato in piedi sull'altro
+ * lato**, e `suAndroid()` esisteva già in `piattaforma.ts` senza che nessuno la
+ * usasse. *Una funzione scritta e mai chiamata è un difetto che aspetta.*
+ */
+function suTelefono(): boolean {
+  return suIOS() || suAndroid();
+}
+
 function apriStampaPiano(foglio: FoglioPiano): boolean {
   const finestra = window.open('', '_blank');
   if (!finestra) return false;

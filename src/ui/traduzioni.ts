@@ -990,6 +990,8 @@ export const INGLESE: Record<string, string> = {
   'sotto i': 'below',
   'Sposta l’intervallo di superficie e guarda cosa cambia: la prima immersione resta uguale, paga la seconda.':
     'Move the surface interval and watch: the first dive never changes, the second pays.',
+  'Stampa il piano': 'Print the plan',
+  'Il PDF non è stato salvato: il piano non è cambiato.': 'The PDF was not saved: your plan is unchanged.',
   'Stampa il piano (PDF)': 'Print the plan (PDF)',
   'Stessa attrezzatura e stesse miscele. Se cambi anche quelle, meglio due piani separati.':
     'Same gear, same mixes. If those change too, make two separate plans.',
