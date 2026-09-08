@@ -93,6 +93,38 @@ vi.mock('../src/ui/state', () => ({
 const { BleDownload } = await import('../src/ui/components/BleDownload');
 const { codiceAccoppiamento, salvaCodiceAccoppiamento } = await import('../src/core/accoppiamento');
 
+/*
+ * ► UN `localStorage` NOSTRO, E NON QUELLO DELL'AMBIENTE DI PROVA. ◄
+ *
+ * Questo file è girato verde per ore su una macchina e rosso undici volte sulla
+ * prima altra macchina su cui è stato lanciato: stesso vitest 3.2.7, stesso
+ * jsdom 30.0.1, stesso `// @vitest-environment jsdom` in testa, `document`
+ * presente e `location.href` giusto — e `localStorage` **non definito**. La
+ * differenza era la versione di Node, che di suo dichiara un `localStorage`
+ * globale, e quel che jsdom mette a disposizione non arriva più fino a qui.
+ *
+ * Inseguire quella differenza sarebbe stato tempo speso su un dettaglio
+ * dell'ambiente. Quello che queste prove devono verificare è **il nostro
+ * codice**, non se jsdom espone un archivio: quindi l'archivio lo portiamo noi,
+ * ed è lo stesso su qualunque macchina. `core/accoppiamento.ts` legge il
+ * globale al momento della chiamata, apposta, e trova questo.
+ */
+const memoria = new Map<string, string>();
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  writable: true,
+  value: {
+    get length() {
+      return memoria.size;
+    },
+    clear: () => memoria.clear(),
+    getItem: (k: string) => (memoria.has(k) ? memoria.get(k)! : null),
+    key: (i: number) => [...memoria.keys()][i] ?? null,
+    removeItem: (k: string) => void memoria.delete(k),
+    setItem: (k: string, v: string) => void memoria.set(k, String(v)),
+  } satisfies Storage,
+});
+
 function premi(host: HTMLElement, etichetta: string) {
   const b = [...host.querySelectorAll('button')].find((x) => (x.textContent ?? '').includes(etichetta));
   if (!b) throw new Error(`nessun pulsante con «${etichetta}»`);
