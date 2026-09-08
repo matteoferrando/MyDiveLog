@@ -28,6 +28,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { planDeco, switchDepthOf } from '../src/core/analysis/deco';
+import { DEFAULT_PLAN, planGas } from '../src/core/analysis/gasPlan';
 import type { PlanGas } from '../src/core/analysis/deco';
 
 const IMPOSTAZIONI = {
@@ -88,5 +89,33 @@ describe('la MOD arrotondata e l’avviso sulla PPO2', () => {
     [0.21, 60],
   ])('una miscela al %s pianificata a %s m, oltre la sua MOD, avvisa', (o2, quotaM) => {
     expect(avvisiPpo2Lavoro(o2, quotaM)).toHaveLength(1);
+  });
+});
+
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * LO STESSO GUASTO NEL PIANIFICATORE DEL GAS, che è un file diverso e una
+ * frase diversa ma la stessa forma: **il confronto usava la MOD piena, la
+ * frase mostrava quella arrotondata.** Con l'EAN32 a 1,4 bar la MOD è 33,28 m,
+ * la scheda scrive 33,3 — e chi pianificava a 33,3 leggeva «A 33.3 m superi il
+ * limite: la profondità massima operativa è 33.3 m».
+ */
+describe('la MOD mostrata e l’avviso del pianificatore del gas', () => {
+  const base = {
+    ...DEFAULT_PLAN,
+    depthM: 33.3,
+    mix: { o2: 0.32, he: 0 },
+    rmvLpm: 18,
+  };
+
+  it('pianificare alla MOD mostrata non fa scattare l’avviso che la nomina', () => {
+    const piano = planGas(base as never);
+    expect(piano.modM).toBe(33.3);
+    expect(piano.warnings.filter((w) => w.text.includes('profondità massima operativa'))).toEqual([]);
+  });
+
+  it('ma un metro più giù sì', () => {
+    const piano = planGas({ ...base, depthM: 34.3 } as never);
+    expect(piano.warnings.filter((w) => w.text.includes('profondità massima operativa'))).toHaveLength(1);
   });
 });

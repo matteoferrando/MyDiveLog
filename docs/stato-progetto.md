@@ -329,6 +329,128 @@ deve mettersi a parlare con Cloudflare.
 
 ---
 
+## La sosta di sicurezza non si contava a chi la fa
+
+*8 settembre 2026. È nata da una frase di un utente — «un mio amico fa sempre
+tre minuti a cinque metri e l'app gliene conta la metà» — ed è finita in quattro
+difetti, tre dei quali non c'entravano niente con la sosta.*
+
+**Come si contava.** La permanenza **contigua** più lunga dentro la fascia
+`[3, 6]` m, che doveva arrivare a 180 s, **azzerando il conteggio al primo
+campione fuori fascia**. Scritta così sembra ragionevole. Misurata, non lo era.
+
+| quota tenuta | riconosciuta |
+|---|---|
+| 3 m | **0%** |
+| 4 m | 86% |
+| 5 m | 84% |
+| 6 m | **0%** |
+
+*(oscillazione ±1 m, passo 10 s, quattrocento profili per riga.)* **Gli estremi
+dichiarati erano inutilizzabili**: su un confine inclusivo il rumore del sensore
+fa cadere metà campioni dall'altra parte, e la fascia che funzionava davvero era
+4-5. E sei metri è dove il contatore dei computer fa partire il conto.
+
+**Tre conseguenze, ognuna peggiore della precedente:**
+
+1. **Allungare la sosta non serviva a niente.** 180, 200 o 240 secondi davano lo
+   stesso esito: il guasto era un azzeramento, non un tempo che mancava. *Chi
+   fa quattro minuti e si sente dire «non fatta» ha ragione a non capire.*
+2. **L'esito dipendeva da come è impostato il computer.** La stessa sosta a 5 m
+   con ±1 m: **84% a 10 s di campionamento, 30% a 2 s** — più campioni, più
+   probabilità che uno cada fuori. *Una misura che cambia con la registrazione
+   invece che con l'immersione non misura l'immersione*, e fra due compagni
+   quello col computer più preciso usciva peggio.
+3. **Nessuno poteva accorgersene.** Un campione fuori fascia non lascia traccia:
+   il subacqueo aveva fatto la sosta, e l'app diceva di no.
+
+**La correzione**, dopo che il proprietario ha dettato la specifica vera — *«tre
+minuti a fine immersione fra 6,5 e 3,5 metri, e deve contare»*: fascia
+`2,5-7,5 m` — **un metro più larga da tutte e due le parti di quello che si
+insegna**, perché il bordo di una fascia usata così è un posto in cui non si può
+stare — e **tolleranza di 20 s fuori fascia**, con il tempo fuori **non**
+conteggiato. Il contatore dei computer si mette in pausa e riprende: adesso fa
+lo stesso. Tutte le quote da 3,5 a 6,5, a ogni passo di campionamento provato,
+con oscillazione fino a ±0,8 m: **100%**. E il saliscendi che la vecchia regola
+difendeva — 30 → 4 m per 100 s → 12 m → 4 m per 100 s — **resta «non fatta»**:
+la ridiscesa dura sei volte la tolleranza.
+
+> **Il prezzo, dichiarato invece che scoperto dopo.** Con la fascia larga anche
+> l'avvicinamento e la risalita finale stanno dentro la finestra: **una
+> quarantina di secondi** alle velocità raccomandate. Tradotto: per arrivare a
+> tre minuti in finestra bastano **circa due e venti** fermi. *È una scelta:
+> per non dire mai di no a chi la sosta l'ha fatta si accetta di dire sì a chi
+> la fa un po' corta e risale piano. Fra i due errori possibili si è scelto
+> quello che non toglie fiducia a chi si comporta bene.* Una prova in
+> `metrics.test.ts` lo mette nero su bianco, così il giorno che desse fastidio
+> si sa dove cambiare idea.
+
+### Cercando gli altri della stessa famiglia
+
+*Il difetto ha una forma — **un bordo di fascia usato come se fosse il centro**,
+e **un azzeramento senza tolleranza** — e una forma si può cercare.* Tre trovati,
+tutti confermati riproducendoli:
+
+**La sosta profonda aveva lo stesso guasto, più nascosto.** La sua fascia è
+proporzionale (da 0,4 a 0,6 volte la massima) e su un'immersione a 40 m è larga
+otto metri, quindi l'oscillazione non la attraversa mai — ma i bordi restano
+bordi: una sosta a **0,6 volte** la massima, quota che si sceglie di proposito,
+era riconosciuta **dallo 0 al 58%** a seconda della profondità e del passo.
+Stessa medicina, la sola tolleranza: **100% ovunque**. *La fascia NON è stata
+allargata, ed è una scelta: 0,35 × 20 m fa 7 metri, cioè dentro la fascia della
+sosta di sicurezza, e tornerebbe il doppio conteggio che portava le statistiche
+al 114%.*
+
+**► L'AVVISO CHE CONTRADDICEVA IL PIANIFICATORE, ED È IL PIÙ GRAVE DEI QUATTRO.
+◄** `switchDepthOf` arrotonda la MOD **al metro anche in su**, di proposito e
+con il suo perché scritto — l'ossigeno puro ha la MOD a 5,8 m e troncando in giù
+la sosta dei sei metri resterebbe senza il gas che tutti ci respirano. L'avviso
+sulla PPO2 in fase di lavoro concedeva però **0,001 bar**: cinquanta volte meno
+dell'arrotondamento che avrebbe dovuto assorbire. Riprodotto chiamando
+`planDeco`:
+
+| piano | MOD vera | quota di cambio decisa dall'app | cosa diceva |
+|---|---|---|---|
+| **EAN35 a 30 m** | 29,57 m | **30 m** | «a questa quota **non hai una miscela respirabile**» |
+| EAN40 a 25 m | 24,62 m | **25 m** | idem |
+
+*Il piano nitrox più banale che esista: l'app sceglie da sola l'EAN35 per i
+trenta metri e nella stessa schermata avvisa che a trenta metri quel gas non si
+respira.* Il ramo della decompressione, tre righe sopra, la tolleranza di 0,05
+ce l'aveva già, con un commento che dice esattamente perché: *«gridare al limite
+superato proprio lì insegnerebbe a ignorare l'avviso».* Era applicato al ramo
+sbagliato. **E la stessa forma nel pianificatore del gas**, con la frase che si
+contraddiceva dentro se stessa: *«A 33.3 m superi il limite: la profondità
+massima operativa è 33.3 m»* — il confronto usava la MOD piena, la frase
+mostrava quella arrotondata. *Un avviso di sicurezza falso su un piano corrente
+è peggio di nessun avviso: insegna a saltarli tutti, compresi quelli veri.* Le
+prove nuove sono due per ciascuno, e **la seconda è quella che impedisce di
+«risolvere» un falso positivo spegnendo l'avviso**: due metri oltre la MOD
+devono continuare ad avvisare.
+
+**Il denominatore che non sapeva quello che sapeva la riga sotto.** Le soste di
+sicurezza si valutano solo sulle immersioni in curva, e l'ammissibilità chiedeva
+l'obbligo deco **al solo profilo**. Quaranta righe più in basso, nella stessa
+funzione, `decoDives` lo chiede a **due** vie — profilo **oppure** dichiarazione
+del computer — con il commento che spiega perché: *il formato Uwatec non porta
+dati di decompressione, quindi su un'immersione importata da LogTRAK `decoS`
+vale 0 per assenza di dato, non per assenza di obbligo.* Quelle immersioni
+entravano nel denominatore delle soste, mentre la scheda scriveva «valutate solo
+le immersioni in curva». **Due domande identiche nello stesso file con due
+risposte diverse: la seconda era quella giusta.**
+
+> **La lezione, e non è quella che sembra.** Non è «le fasce vanno larghe». È
+> che **una soglia va misurata sul comportamento che le persone producono
+> davvero, non su quello che la definizione descrive.** «Tre minuti a cinque
+> metri» descrive un'intenzione; quello che arriva nel file è una quota che si
+> muove di un metro, letta da un sensore con un decimo di rumore, campionata a
+> un passo che decide il computer. *Ogni volta che il valore tipico cade sul
+> confine di un confronto, il confronto è scritto per un mondo che non esiste* —
+> e i quattro difetti di questa giornata sono tutti la stessa frase: il subacqueo
+> centra il numero, e proprio per questo lo sbaglia.
+
+---
+
 ## Il tap di Homebrew: tre difetti in fila, in un workflow verde da una settimana
 
 *8 settembre 2026. Vale come storia esemplare del guasto che questo progetto

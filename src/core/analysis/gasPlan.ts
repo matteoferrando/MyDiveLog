@@ -833,10 +833,26 @@ export function planGas(raw: GasPlanInput): GasPlan {
           : `Il piano consuma tutto il gas utilizzabile senza lasciare margine: ${plannedL} L pianificati su ${Math.round(usableL)} L disponibili oltre la riserva.`,
     });
   }
-  if (depthM > modAtLimit) {
+  /*
+   * ► IL CONFRONTO SI FA CON LA MOD ARROTONDATA, CIOÈ CON QUELLA MOSTRATA. ◄
+   *
+   * `modM` esce da `round1`, che arrotonda **anche in su**: l'EAN32 a 1,4 bar
+   * ha la MOD a 33,28 m e la scheda scrive 33,3. Confrontando con il valore
+   * pieno, chi pianifica a 33,3 — la quota che l'app gli ha appena scritto —
+   * riceveva un avviso **critico** che come limite superato nominava lo stesso
+   * numero: *«A 33.3 m superi il limite: la profondità massima operativa è 33.3
+   * m.»* Un avviso che si contraddice dentro la propria frase non insegna
+   * niente, e insegna a saltare quelli veri.
+   *
+   * Un decimo di metro di margine, cioè esattamente il passo con cui la MOD è
+   * scritta. *È lo stesso genere di guasto dell'avviso sulla PPO2 in `deco.ts`,
+   * e la stessa medicina: la tolleranza del confronto si accorda con
+   * l'arrotondamento della cosa mostrata.*
+   */
+  if (depthM > round1(modAtLimit) + 1e-9) {
     warnings.push({
       level: 'critical',
-      text: `A ${depthM} m questa miscela supera il limite di PPO2 di ${maxPpo2} bar che hai impostato sul computer: la profondità massima operativa è ${modAtLimit.toFixed(1)} m.`,
+      text: `A ${depthM} m questa miscela supera il limite di PPO2 di ${maxPpo2} bar che hai impostato sul computer: la profondità massima operativa è ${round1(modAtLimit).toFixed(1)} m.`,
     });
   }
   // La narcosi, nell'unità in cui la didattica la esprime davvero: «the generally
