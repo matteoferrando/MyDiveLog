@@ -1,10 +1,11 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **8 settembre 2026, notte fonda** — **2001 prove in 111 file** più
-**88 prove Rust** del ponte, lint a **0 errori e 0 avvisi**. **La versione pubblica è la `1.8.2`**: release `v1.8.2` con nove
+Aggiornato: **9 settembre 2026, notte** — commit `6828dc4` su `main`, **2001
+prove in 111 file** più **88 prove Rust** del ponte, lint a **0 errori e 0
+avvisi**. **La versione pubblica è la `1.8.3`**: release `v1.8.3` con nove
 allegati, i quattro pulsanti del sito rispondono `200`, `latest.json` serve
-`1.8.2` **per Mac e per Windows**, e l'impronta del `.dmg` **riscaricato
-dall'indirizzo pubblico** — `b2f21d01…` — coincide con quella costruita sul Mac
+`1.8.3` **per Mac e per Windows**, e l'impronta del `.dmg` **riscaricato
+dall'indirizzo pubblico** — `5c4067bc…` — coincide con quella costruita sul Mac
 e con quella che la cask di Homebrew si è scritta da sola.
 
 > **► LA RIGA DI WINDOWS IN `latest.json` NON LA SCRIVE LA BUILD DEL MAC. ◄** Il
@@ -16,6 +17,22 @@ e con quella che la cask di Homebrew si è scritta da sola.
 > *Il genere di guasto che nessun comando fallito segnala: si vede solo
 > chiedendosi «questo file contiene quello che credo?», che è la stessa domanda
 > del 7 settembre applicata a un JSON invece che a un pacchetto.*
+
+> **► IL TAG STA SU `42c5e5e` E NON SULLA PUNTA DI `main`, ED È GIUSTO COSÌ. ◄**
+> I cinque pacchetti sono stati costruiti da lì. I due commit successivi toccano
+> le pagine di aiuto del sito e la cask — cose che nel binario non entrano — e
+> spostare il tag per farlo sembrare più ordinato vorrebbe dire far dire al tag
+> una cosa falsa: *un tag di versione non dice «ecco dov'era il progetto», dice
+> «ecco da cosa è stato compilato quello che hai scaricato».*
+
+**► I CINQUE PACCHETTI 1.8.3 SONO COSTRUITI E VERIFICATI UNO PER UNO. ◄** Non
+per deduzione: cercando dentro **ogni binario spedito** le stringhe che ci
+devono essere e quelle che non ci devono essere — `rispondi_codice_pin`,
+`pinRequired`, `accessCode`, `codiceAccesso`, e **zero** occorrenze di
+`api.anthropic.com`. Su macOS, iPhone, Windows, Android e Linux. Il pacchetto
+del Mac App Store in più non contiene l'indirizzo dell'aggiornatore, che in un
+pacchetto del negozio non ci va.
+
 
 **La 1.8.1 è pubblicata su tutti e due i negozi Apple.** Mac App Store la
 mattina dell'8 settembre (dichiarato dal proprietario); **App Store per iPhone
@@ -2802,15 +2819,33 @@ non il momento — e quel che non è stato misurato qui non si scrive.
    telefono. *Il comando che ha detto quando era il momento, e che serve identico
    alla prossima versione:*
    `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
-1. **► CARICARE LA 1.8.2 SUI DUE NEGOZI. ◄** I pacchetti sono costruiti e
-   verificati in `da-caricare-su-app-store/` — `inSafetyStop` trovato dentro il
-   binario spedito, `1.8.2` nel plist, nessuna occorrenza di `api.anthropic.com`.
-   Transporter per tutti e due, **due schede separate**, novità da
-   `consegna-1.8.2/novita-negozi-1.8.2.md` (italiano e inglese, già entro i
+1. **► CARICARE LA 1.8.3 SUI DUE NEGOZI APPLE. ◄** I pacchetti sono costruiti
+   e verificati in `da-caricare-su-app-store/` — `MyDiveLog-1.8.3-app-store.ipa`
+   e `MyDiveLog-1.8.3-mac-app-store.pkg`, tutti e due con `1.8.3` nei due campi
+   del plist, con dentro `rispondi_codice_pin`, `pinRequired`, `accessCode` e
+   `codiceAccesso`, e **zero** occorrenze di `api.anthropic.com`. Transporter
+   per tutti e due, **due schede separate**, novità da
+   `consegna-1.8.3/novita-negozi-1.8.3.md` (italiano e inglese, già entro i
    limiti), e **inviare in revisione** — il passo che si dà per fatto perché il
-   caricamento è la parte lunga. *La coda è libera: la 1.8.1 è uscita, quindi non
-   c'è più niente da ritirare.* **Google Play** aspetta la fine del test chiuso,
-   attorno al 12 settembre: l'`.aab` firmato è in `da-caricare-su-play/`.
+   caricamento è la parte lunga. *La coda è libera: la 1.8.1 è uscita da tutte e
+   due le parti.*
+
+   > **I pacchetti 1.8.2 non si caricano più**, e sono stati spostati in
+   > `superate/`. Non erano difettosi: sono stati superati prima di partire, e
+   > lasciarli accanto a quelli buoni è il modo in cui una notte di lavoro
+   > finisce caricata due volte. *Un file che non va più usato e resta dov'era
+   > non è archiviato: è una trappola con la data sbagliata.*
+
+   **Google Play** aspetta la fine del test chiuso, attorno al 12 settembre:
+   l'`.aab` firmato è in `da-caricare-su-play/MyDiveLog-1.8.3-play.aab`.
+
+2. **► RIPUBBLICARE IL SITO. ◄** Le pagine di aiuto — italiano e inglese —
+   hanno una voce nuova sul codice di sei cifre dell'i330R, e finché il sito non
+   viene ripubblicato quella voce esiste solo nel repository. *È esattamente il
+   caso già successo il 1° settembre: due pagine di aiuto ferme nel repository
+   per due giorni, con qui scritto che rispondevano.* Si fa con
+   `wrangler pages deploy`, e si verifica con `npm run sito:online`.
+
 1. **~~La 1.7.1 ai due negozi.~~ Fatta, tutti e due.** Su **App Store per
    iPhone** dal **28 agosto alle 21:25:04 UTC**, misurato col `lookup` e
    l'anti-cache; sul **Mac App Store**, dichiarato dal proprietario l'1
@@ -2821,7 +2856,9 @@ non il momento — e quel che non è stato misurato qui non si scrive.
    repository, quello che il negozio iOS consegna a un estraneo e quello del Mac
    App Store sono **tre affermazioni diverse**, e oggi dicono tutte e tre `1.7.1`
    solo perché sono state guardate una per una.
-2. **~~Ripubblicare il sito.~~ Fatto la sera del 3 settembre**, e stavolta
+2. **~~Ripubblicare il sito.~~ Fatto la sera del 3 settembre** — *quello di
+   allora: la voce nuova sull'aiuto del 9 settembre è la voce 2 qui sopra, ed è
+   aperta* — e stavolta
    verificato con lo strumento giusto: `npm run sito:online` confronta il
    `<title>` di ognuna delle dieci pagine servite con quello sul disco, e
    `/aiuto` risponde finalmente con il suo. _Le due pagine di aiuto erano nel
