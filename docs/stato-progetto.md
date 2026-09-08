@@ -1,21 +1,35 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **8 settembre 2026, sera** — commit `e84c294` su `main`, **1897 prove
-in 102 file** più **63 prove Rust** del ponte, lint a **0 errori e 0 avvisi**.
-**La versione pubblica è la `1.8.1`**: release `v1.8.1` con nove allegati, i
-quattro pulsanti del sito rispondono `200`, `latest.json` serve `1.8.1` per Mac e
-Windows, e l'impronta del `.dmg` **riscaricato dall'indirizzo pubblico** coincide
-con quella scritta nelle note. **Nel comportamento è identica alla 1.8.0**: il
-numero è salito perché `1.8.0` era già stato consegnato ad App Store Connect, e
-quel campo non restituisce un numero consumato. **Sul Mac App Store la 1.8.1
-è approvata** — dichiarato dal proprietario l'8 settembre — **mentre su App
+Aggiornato: **8 settembre 2026, notte** — commit `fc47af8` su `main`, **1946
+prove in 105 file** più **63 prove Rust** del ponte, lint a **0 errori e 0
+avvisi**. **La versione pubblica è la `1.8.2`**: release `v1.8.2` con nove
+allegati, i quattro pulsanti del sito rispondono `200`, `latest.json` serve
+`1.8.2` **per Mac e per Windows**, e l'impronta del `.dmg` **riscaricato
+dall'indirizzo pubblico** — `b2f21d01…` — coincide con quella costruita sul Mac
+e con quella che la cask di Homebrew si è scritta da sola.
+
+> **► LA RIGA DI WINDOWS IN `latest.json` NON LA SCRIVE LA BUILD DEL MAC. ◄** Il
+> file che esce da `mac:pubblica` contiene **solo** `darwin-aarch64`: la voce di
+> Windows la aggiunge `scripts/firma-windows.mjs`, **dal Mac**, perché la chiave
+> privata dell'aggiornatore su un runner di GitHub non ci va. Pubblicandolo così
+> com'era, **ogni PC installato avrebbe smesso di aggiornarsi in silenzio** — e
+> il file sarebbe stato valido, servito con `200`, con dentro il numero giusto.
+> *Il genere di guasto che nessun comando fallito segnala: si vede solo
+> chiedendosi «questo file contiene quello che credo?», che è la stessa domanda
+> del 7 settembre applicata a un JSON invece che a un pacchetto.*
+
+**Sul Mac App Store la 1.8.1 è approvata** — dichiarato dal proprietario l'8 settembre — **mentre su App
 Store per iPhone c'è ancora la 1.7.1**, misurato col `lookup` e l'anti-cache in
 coda alle 08:55 UTC dell'8 settembre: `1.7.1`, data di pubblicazione ancora
 quella del 28 agosto. I due pacchetti erano stati consegnati insieme la sera del
 7: **Apple verifica un negozio alla volta, e lo scarto fra i due non è un guasto,
-è la coda.** Google Play aspetta la fine del test chiuso
-(attorno al 12 settembre). Vedi «Il rilascio della 1.8.0», che racconta la
-giornata, e il riquadro qui sotto per la 1.8.1.
+è la coda.** **I due pacchetti 1.8.2 sono costruiti, verificati e in
+`da-caricare-su-app-store/`; il caricamento spetta al proprietario** — e su
+iPhone c'è una decisione prima: *App Store Connect non accetta una versione
+nuova mentre un'altra è in revisione, quindi la 1.8.2 si manda solo ritirando la
+1.8.1 e ripartendo in coda, oppure aspettando che passi.* Google Play aspetta la
+fine del test chiuso (attorno al 12 settembre): l'`.aab` 1.8.2 è in
+`da-caricare-su-play/`.
 
 > **► PERCHÉ ESISTE UNA 1.8.1 CHE NON CAMBIA NIENTE. ◄** Il numero consegnato a
 > un negozio è **bruciato anche se il pacchetto non è stato pubblicato**: App
