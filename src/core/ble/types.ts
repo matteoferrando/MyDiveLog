@@ -247,7 +247,34 @@ export type DownloadEvent =
    * minuti e sistemarlo in tre giri è avere scritto QUALE comando è partito e
    * COSA è tornato.
    */
-  | { kind: 'trace'; line: string };
+  | { kind: 'trace'; line: string }
+  /**
+   * Il computer mostra un PIN sul proprio schermo e aspetta che gli venga
+   * ripetuto.
+   *
+   * ► È L'UNICO EVENTO A CUI BISOGNA RISPONDERE. ◄ Tutti gli altri raccontano;
+   * questo domanda, e finché non arriva una risposta **lo scarico è fermo** —
+   * il guscio Rust è dentro una chiamata di libdivecomputer e non può fare
+   * altro che aspettare. Chi lo riceve deve chiamare `rispondiCodicePin`
+   * SEMPRE: con le sei cifre, oppure con `null` se la persona rinuncia. Una
+   * finestra chiusa senza rispondere lascia lo scarico appeso fino alla
+   * scadenza, che è lunga tre minuti apposta — il numero va letto su uno
+   * schermo piccolo, spesso al buio.
+   *
+   * Lo usa la famiglia Pelagic (Aqualung i330R, Apeks DSX): il PIN compare
+   * DOPO il primo comando, quindi non si può chiedere prima di collegarsi.
+   */
+  | { kind: 'pinRequired' }
+  /**
+   * Il codice di accoppiamento che il computer ha rilasciato in cambio del PIN.
+   *
+   * Va conservato accanto al dispositivo e restituito allo scarico successivo:
+   * è ciò che evita di richiedere il PIN ogni volta. Non è un segreto della
+   * persona — è una chiave fra questa installazione e quel computer, come un
+   * legame Bluetooth — ma per la stessa ragione non si mostra e non finisce
+   * nel diario tecnico, che si allega alle segnalazioni.
+   */
+  | { kind: 'accessCode'; hex: string };
 
 /**
  * Il protocollo di un computer.

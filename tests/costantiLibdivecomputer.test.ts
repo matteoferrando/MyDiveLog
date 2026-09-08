@@ -40,14 +40,18 @@ const RUST = 'src-tauri/src/trasporto_ldc.rs';
 
 let intestazione = '';
 let rust = '';
+let scompattato = '';
+
+/** Un'intestazione qualunque della libreria, dal tarball versionato. */
+function leggiIntestazione(nome: string): string {
+  return readFileSync(join(scompattato, `include/libdivecomputer/${nome}`), 'utf8');
+}
 
 beforeAll(() => {
   const tmp = mkdtempSync(join(tmpdir(), 'ldc-costanti-'));
   execSync(`tar xzf ${TARBALL} -C ${tmp}`);
-  intestazione = readFileSync(
-    join(tmp, `libdivecomputer-${VERSIONE}/include/libdivecomputer/parser.h`),
-    'utf8',
-  );
+  scompattato = join(tmp, `libdivecomputer-${VERSIONE}`);
+  intestazione = leggiIntestazione('parser.h');
   rust = readFileSync(RUST, 'utf8');
 });
 
@@ -142,6 +146,74 @@ describe('le costanti del ponte combaciano con parser.h', () => {
     // quattro miliardi.
     expect(intestazione).toMatch(/#define\s+DC_GASMIX_UNKNOWN\s+0xFFFFFFFF/);
     expect(rust).toMatch(/const GASMIX_SCONOSCIUTA: c_uint = 0xFFFF_FFFF;/);
+  });
+
+  /*
+   * ► LE SEI `ioctl` DEL BLUETOOTH, RICALCOLATE DALLE MACRO VERE. ◄
+   *
+   * `0x4000_6201` non è un numero: è il risultato di
+   * `DC_IOCTL_BASE(dir, type, nr, size)` applicato a `('b', 1, variabile)` in
+   * direzione lettura. Scritto a mano è una trascrizione come le altre, e
+   * sbagliarne una **non dà nessun errore**: dà una richiesta che il nostro
+   * `match` non riconosce, quindi «non supportato», quindi — per il PIN —
+   * uno scarico che si ferma dicendo che il PIN non si sa chiedere, con il
+   * codice del PIN scritto e funzionante due righe più in là.
+   *
+   * Sbagliare il BIT DI DIREZIONE è ancora peggio: `GET_ACCESSCODE` e
+   * `SET_ACCESSCODE` hanno lo stesso `nr` e differiscono **solo** per quel
+   * bit, e scambiarli significa leggere un buffer che andava scritto.
+   */
+  describe('le sei ioctl del Bluetooth', () => {
+    /** `DC_IOCTL_BASE`: `(dir << 30) | (size << 16) | (type << 8) | nr`. */
+    function base(dir: number, tipo: string, nr: number, size: number): number {
+      // `>>> 0` perché in JavaScript lo scorrimento a sinistra dà un numero con
+      // segno: `1 << 30` sta ancora dentro, ma `2 << 30` diventa negativo.
+      return ((dir << 30) | (size << 16) | (tipo.charCodeAt(0) << 8) | nr) >>> 0;
+    }
+
+    it('le macro sono ancora quelle che crediamo', () => {
+      // Se un domani cambiasse la formula, il conto qui sotto sarebbe una
+      // finzione che si conferma da sola.
+      const ioctl = leggiIntestazione('ioctl.h');
+      expect(ioctl).toContain('#define DC_IOCTL_DIR_READ  1u');
+      expect(ioctl).toContain('#define DC_IOCTL_DIR_WRITE 2u');
+      expect(ioctl.replace(/\s+/g, ' ')).toContain(
+        '#define DC_IOCTL_BASE(dir,type,nr,size) \\ (((dir) << 30) | \\ ((size) << 16) | \\ ((type) << 8) | \\ ((nr) << 0))',
+      );
+    });
+
+    it.each([
+      ['DC_IOCTL_BLE_GET_NAME', 1, 0],
+      ['DC_IOCTL_BLE_GET_PINCODE', 1, 1],
+      ['DC_IOCTL_BLE_GET_ACCESSCODE', 1, 2],
+      ['DC_IOCTL_BLE_SET_ACCESSCODE', 2, 2],
+      ['DC_IOCTL_BLE_CHARACTERISTIC_READ', 1, 3],
+    ])('%s vale quello che dice ble.h', (nome, dir, nr) => {
+      // Prima si controlla che `ble.h` lo definisca ancora con quel numero e
+      // quella direzione: il conto vale solo se i due argomenti sono giusti.
+      const ble = leggiIntestazione('ble.h');
+      const macro = dir === 1 ? 'DC_IOCTL_IOR' : 'DC_IOCTL_IOW';
+      expect(ble.replace(/\s+/g, ' ')).toContain(
+        `#define ${nome} ${macro}('b', ${nr}, DC_IOCTL_SIZE_VARIABLE)`,
+      );
+      const atteso = base(dir, 'b', nr, 0);
+      // E adesso il Rust: scritto come `0x4000_6201`, con il trattino basso.
+      const esadecimale = atteso.toString(16).padStart(8, '0');
+      const conTrattino = `0x${esadecimale.slice(0, 4)}_${esadecimale.slice(4)}`;
+      expect(
+        rust.includes(`const ${nome}: c_uint = ${conTrattino};`),
+        `${nome} deve valere ${conTrattino}`,
+      ).toBe(true);
+    });
+
+    it('la scrittura di una caratteristica resta fuori, e si dice perché', () => {
+      // È la sesta, e non la implementiamo: nessuno dei backend che ci
+      // interessano la usa. Sta scritto nel commento della callback, e questa
+      // riga esiste perché quel commento resti vero — se un giorno la si
+      // implementasse, questa prova diventa rossa e obbliga a riscriverlo.
+      expect(rust).not.toContain('DC_IOCTL_BLE_CHARACTERISTIC_WRITE');
+      expect(rust).toContain('Resta fuori');
+    });
   });
 
   it('dc_tank_t ha ancora i campi nell’ordine in cui li leggiamo', () => {

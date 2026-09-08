@@ -66,7 +66,41 @@ export interface ScaricoEsterno {
   /** Marca e modello come li scrive libdivecomputer, dal catalogo. */
   marca: string;
   modello: string;
+  /**
+   * Il codice di accoppiamento conservato per QUESTO dispositivo, in
+   * esadecimale, se ce n'è uno.
+   *
+   * Vale per la famiglia Pelagic (Aqualung i330R, Apeks DSX) e per nessun
+   * altro: senza, il computer chiede il PIN a ogni scarico. Illeggibile non è
+   * un errore da mostrare — il guscio riparte dal PIN e lo scrive nel diario —
+   * perché fermare uno scarico per una preferenza storta bloccherebbe una
+   * persona su un dato che può cancellare solo disinstallando.
+   */
+  codiceAccesso?: string;
   emit: (e: DownloadEvent) => void;
+}
+
+/**
+ * La risposta alla richiesta del PIN. Vedi `DownloadEvent.pinRequired`.
+ *
+ * **Va chiamata sempre**, anche quando la persona rinuncia — allora con
+ * `null`. Senza, lo scarico resta fermo dentro la libreria per tre minuti, e
+ * un'applicazione che non risponde per tre minuti è un'applicazione rotta,
+ * qualunque cosa stia facendo davvero.
+ *
+ * Non fallisce mai e non torna niente: una risposta che arriva quando nessuno
+ * aspetta più — la finestra chiusa un istante dopo la scadenza — non è un
+ * errore da mostrare a nessuno. Un guasto della chiamata si ignora per lo
+ * stesso motivo: a quel punto lo scarico è già finito male per conto suo.
+ */
+export async function rispondiCodicePin(pin: string | null): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('rispondi_codice_pin', { pin });
+  } catch {
+    // Vedi sopra: qui non c'è niente da dire a nessuno.
+  }
 }
 
 /**
@@ -109,6 +143,7 @@ export async function scaricaDaComputerEsterno({
   nome,
   marca,
   modello,
+  codiceAccesso,
   emit,
 }: ScaricoEsterno): Promise<Dive[]> {
   if (!isTauri()) {
@@ -130,6 +165,7 @@ export async function scaricaDaComputerEsterno({
       nome: nome && nome.trim() !== '' ? nome : null,
       marca,
       prodotto: modello,
+      codiceAccesso: codiceAccesso && codiceAccesso.trim() !== '' ? codiceAccesso : null,
     });
     /*
      * IL FUSO SI CHIEDE QUI, non nel guscio Rust.

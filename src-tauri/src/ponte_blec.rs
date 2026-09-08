@@ -71,15 +71,16 @@
 
 #[cfg(feature = "computer-esterni")]
 mod dentro {
+    use std::collections::VecDeque;
     use std::future::Future;
     use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-    use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
+    use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, SyncSender};
     use std::sync::{Arc, Mutex};
     use std::time::{Duration, Instant};
 
     use crate::trasporto_ldc::{
         traduci, trova_descrittore, AccessoriBle, CollegamentoLdc, Contesto, FlussoBle,
-        ImmersioneLdc, Ripiego,
+        ImmersioneLdc, Riassemblaggio, Ripiego,
     };
 
     // --------------------------------------------------- quel che il GATT dice
@@ -826,11 +827,27 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
     const ATTESA_CONFERMA: Duration =
         if cfg!(test) { Duration::from_millis(300) } else { Duration::from_secs(10) };
 
-    /// Quante scritture si raccontano una per una nel diario, prima di passare
-    /// al riassunto. Le prime sono quelle che contano — il comando di
+    /// Quante scritture si raccontano una per una nel diario, MENTRE
+    /// succedono. Le prime sono quelle che contano — il comando di
     /// identificazione, la stretta di mano — e le altre migliaia direbbero
     /// tutte la stessa cosa.
     const SCRITTURE_RACCONTATE: usize = 6;
+
+    /// Quante scritture si conservano per raccontarle ALLA FINE.
+    ///
+    /// ► PERCHÉ LA TESTA DA SOLA NON BASTA, E LO SAPPIAMO DA UN CASO VERO. ◄
+    /// Il 7 settembre 2026 un Mares Quad Ci del centro sub ha scaricato 349 KB
+    /// e poi si è fermato con «errore di protocollo» dopo quattro tentativi.
+    /// Del diario è arrivata solo la testa: le prime sei scritture, cioè
+    /// esattamente la parte che aveva funzionato. Di che comando fosse la
+    /// risposta rifiutata — l'unica domanda che conta — non c'era traccia,
+    /// perché era la scrittura numero 1503.
+    ///
+    /// Le ultime non si possono raccontare mentre succedono: mentre
+    /// succedono non si sa che sono le ultime. Quindi si tengono da parte,
+    /// in una coda che scorre, e si scrivono nel riassunto — che esce
+    /// **comunque vada**, anche quando lo scarico muore.
+    const SCRITTURE_IN_CODA: usize = 8;
 
     /// Il cronista: chi riceve le righe del diario mentre succedono.
     pub type Cronista = Arc<dyn Fn(String) + Send + Sync>;
@@ -899,6 +916,10 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         /// silenzio: non sono scritture di libdivecomputer, e nel riassunto
         /// vanno contate a parte.
         rinvii: usize,
+        /// Le ultime `SCRITTURE_IN_CODA` scritture, già in forma di riga di
+        /// diario. Una coda che scorre: entra l'ultima, esce la più vecchia.
+        /// Vedi `SCRITTURE_IN_CODA` per il perché.
+        ultime: VecDeque<String>,
     }
 
     /// Il canale verso il runtime, con le due operazioni bloccanti sopra.
@@ -984,6 +1005,17 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         /// altro segno di vita da mostrare. È un `Arc` a parte perché il
         /// cronista dell'avanzamento vive più a lungo del ponte.
         ricevuti: Arc<AtomicUsize>,
+        /// La notifica più grande e la più piccola viste, in byte.
+        ///
+        /// La più grande è la stima dell'MTU meno tre, cioè di quanto ci sta
+        /// in un messaggio: è il numero che dice se il pacchetto di un Mares
+        /// del ramo variabile arriva intero o spezzato. La più piccola dice se
+        /// qualcosa è arrivato a pezzi, perché su BLE i frammenti di uno
+        /// stesso messaggio sono tutti pieni tranne l'ultimo.
+        notifica_piu_grande: AtomicUsize,
+        /// Parte da `usize::MAX` e scende: senza notifiche resta lì, e il
+        /// riassunto non ne parla.
+        notifica_piu_piccola: AtomicUsize,
         /// Millisecondi fra la prima scrittura e la prima notifica;
         /// `u64::MAX` finché la prima notifica non arriva.
         prima_notifica_ms: AtomicU64,
@@ -1017,6 +1049,68 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         }
     }
 
+    /// Gli stessi accessori, più le tre cose che riguardano l'accoppiamento.
+    ///
+    /// ► PERCHÉ UN INVOLUCRO E NON TRE METODI IN PIÙ SU `AccessoriDelPonte`. ◄
+    /// Perché `apri_ponte` non sa niente né dell'interfaccia né dell'archivio,
+    /// e va tenuto così: apre un collegamento Bluetooth e sceglie un profilo.
+    /// Chiedere sei cifre a una persona e conservare una chiave sono decisioni
+    /// del comando, che ha in mano la finestra e il chiamante. Qui in mezzo
+    /// c'è solo la traduzione, e si prova da sola — con un finto che dice di
+    /// sì, uno che dice di no e uno che non risponde affatto.
+    pub struct AccessoriConSegreti {
+        dentro: Box<dyn AccessoriBle>,
+        /// Chiede le sei cifre e ASPETTA. `None` = rinuncia.
+        chiedi_pin: Box<dyn FnMut() -> Option<String> + Send>,
+        /// Il codice conservato da uno scarico precedente, se c'è.
+        codice: Option<Vec<u8>>,
+        /// Dove va il codice appena rilasciato dal computer.
+        conserva: Box<dyn FnMut(&[u8]) + Send>,
+    }
+
+    impl AccessoriConSegreti {
+        pub fn nuovo(
+            dentro: Box<dyn AccessoriBle>,
+            chiedi_pin: Box<dyn FnMut() -> Option<String> + Send>,
+            codice: Option<Vec<u8>>,
+            conserva: Box<dyn FnMut(&[u8]) + Send>,
+        ) -> Self {
+            Self { dentro, chiedi_pin, codice, conserva }
+        }
+    }
+
+    impl AccessoriBle for AccessoriConSegreti {
+        fn nome(&mut self) -> Option<String> {
+            self.dentro.nome()
+        }
+
+        fn leggi_caratteristica(&mut self, uuid: [u8; 16]) -> Result<Vec<u8>, String> {
+            self.dentro.leggi_caratteristica(uuid)
+        }
+
+        fn codice_pin(&mut self) -> Option<String> {
+            // Gli spazi si tolgono qui e non nell'interfaccia: chi digita sei
+            // cifre su un telefono ne aggiunge uno alla fine più spesso di
+            // quanto si creda, e `pelagic_i330r_init_passcode` rifiuta
+            // qualunque carattere che non sia una cifra. Toglierli è la
+            // riparazione onesta; toglierne altro sarebbe indovinare.
+            (self.chiedi_pin)().map(|p| p.trim().to_string())
+        }
+
+        fn codice_accesso(&mut self) -> Option<Vec<u8>> {
+            self.codice.clone()
+        }
+
+        fn salva_codice_accesso(&mut self, codice: &[u8]) {
+            // Si conserva ANCHE in memoria, non solo fuori: dentro lo stesso
+            // scarico libdivecomputer può richiedere il codice dopo averlo
+            // scritto, e rispondere «non ce l'ho» a un codice appena ricevuto
+            // rimanderebbe la persona al PIN per niente.
+            self.codice = Some(codice.to_vec());
+            (self.conserva)(codice);
+        }
+    }
+
     /// Tutto quello che serve a costruire un `FlussoBle`, più il contorno.
     pub struct PonteBle {
         /// Le notifiche, una per messaggio. Va dato a `FlussoBle::nuovo`.
@@ -1036,6 +1130,70 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         /// Da alzare PRIMA di scollegarsi di proposito, così la callback di
         /// caduta non racconta come «caduto da sé» uno scollegamento nostro.
         pub scollegamento_voluto: Arc<AtomicBool>,
+    }
+
+    impl PonteBle {
+        /// Lo stesso ponte, che sa anche farsi dare un PIN e conservare una chiave.
+        ///
+        /// È un passo a parte e non un argomento di `apri_ponte` perché
+        /// `apri_ponte` si prova contro un'antenna finta e non deve sapere né
+        /// che esiste una finestra né che esiste un archivio. Qui si smonta e
+        /// si rimonta: gli otto campi si scrivono per nome apposta, così il
+        /// giorno che ne nasce un nono il compilatore obbliga a decidere da
+        /// che parte va, invece di lasciarlo cadere.
+        pub fn con_segreti(
+            self,
+            chiedi_pin: Box<dyn FnMut() -> Option<String> + Send>,
+            codice: Option<Vec<u8>>,
+            conserva: Box<dyn FnMut(&[u8]) + Send>,
+        ) -> Self {
+            let PonteBle {
+                entrata,
+                scrittura,
+                accessori,
+                su_silenzio,
+                descrizione,
+                ricevuti,
+                riassunto,
+                scollegamento_voluto,
+            } = self;
+            PonteBle {
+                entrata,
+                scrittura,
+                accessori: Box::new(AccessoriConSegreti::nuovo(accessori, chiedi_pin, codice, conserva)),
+                su_silenzio,
+                descrizione,
+                ricevuti,
+                riassunto,
+                scollegamento_voluto,
+            }
+        }
+    }
+
+    /// Da esadecimale a byte, per il codice di accesso conservato.
+    ///
+    /// Rifiuta tutto quello che non è una coppia di cifre esadecimali: un
+    /// codice mezzo decodificato è peggio di nessun codice, perché il computer
+    /// lo rifiuterebbe senza dire perché — mentre «non ce l'ho» fa ripartire
+    /// dal PIN, che funziona sempre.
+    pub fn da_esadecimale(testo: &str) -> Option<Vec<u8>> {
+        let pulito: String = testo.chars().filter(|c| !c.is_whitespace()).collect();
+        if pulito.is_empty() || pulito.len() % 2 != 0 {
+            return None;
+        }
+        let mut byte = Vec::with_capacity(pulito.len() / 2);
+        let cifre: Vec<char> = pulito.chars().collect();
+        for coppia in cifre.chunks(2) {
+            let alto = coppia[0].to_digit(16)?;
+            let basso = coppia[1].to_digit(16)?;
+            byte.push((alto * 16 + basso) as u8);
+        }
+        Some(byte)
+    }
+
+    /// Da byte a esadecimale compatto, minuscolo, senza separatori.
+    pub fn in_esadecimale(byte: &[u8]) -> String {
+        byte.iter().map(|v| format!("{v:02x}")).collect()
     }
 
     /// Apre il ponte: collega, sceglie il profilo, si iscrive, avvia lo scrittore.
@@ -1072,6 +1230,8 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         let scollegamento_voluto = Arc::new(AtomicBool::new(false));
         let contatori = Arc::new(Contatori {
             notifiche: AtomicUsize::new(0),
+            notifica_piu_grande: AtomicUsize::new(0),
+            notifica_piu_piccola: AtomicUsize::new(usize::MAX),
             ricevuti: ricevuti.clone(),
             prima_notifica_ms: AtomicU64::new(u64::MAX),
             crediti_rimasti: AtomicUsize::new(0),
@@ -1144,6 +1304,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
             prima_della_risposta: Vec::new(),
             prima_scrittura: None,
             rinvii: 0,
+            ultime: VecDeque::new(),
         }));
 
         /*
@@ -1229,6 +1390,22 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                 Box::new(move |dati: Vec<u8>| {
                     let quante = contatori_notifica.notifiche.fetch_add(1, Ordering::Relaxed) + 1;
                     contatori_notifica.ricevuti.fetch_add(dati.len(), Ordering::Relaxed);
+                    /*
+                     * ► LA MISURA CHE MANCAVA. ◄ La dimensione delle notifiche
+                     * è l'MTU negoziato meno tre, e non c'è modo portabile di
+                     * chiederlo al plugin — ma non serve chiederlo: basta
+                     * guardare quanto arriva. È il numero che decide se il
+                     * pacchetto di un Mares del ramo variabile ci sta o si
+                     * spezza, ed è il numero che il 7 settembre 2026 nessuno
+                     * aveva sotto gli occhi mentre cercava di capire perché un
+                     * Quad Ci si fermasse.
+                     */
+                    contatori_notifica
+                        .notifica_piu_grande
+                        .fetch_max(dati.len(), Ordering::Relaxed);
+                    contatori_notifica
+                        .notifica_piu_piccola
+                        .fetch_min(dati.len(), Ordering::Relaxed);
                     if quante == 1 {
                         // Da quando è partita la prima scrittura: `try_lock`
                         // e non `lock`, perché questa callback non ha il
@@ -1413,14 +1590,34 @@ il computer resta senza crediti e smetterà di mandare dati"
                     })?;
                 }
             }
-            if numero <= SCRITTURE_RACCONTATE {
-                let modo = scambio_scrittura.lock().map_err(|_| "registro dello scambio guasto")?.modo;
-                cronista_scrittura(format!(
+            /*
+             * La riga si compone SEMPRE, e poi si decide dove va: in diretta
+             * se è fra le prime, e comunque in fondo alla coda che il
+             * riassunto leggerà. Comporla sempre costa una stringa corta per
+             * scrittura — su un trasferimento da millecinquecento è niente —
+             * e comprarla dà la coda, che è la metà del diario che finora
+             * mancava.
+             */
+            {
+                let mut registro = scambio_scrittura.lock().map_err(|_| "registro dello scambio guasto")?;
+                let riga = format!(
                     "scrittura n. {numero}: {} byte [{}], {}",
                     dati.len(),
                     anteprima(dati),
-                    nome_modo(modo)
-                ));
+                    nome_modo(registro.modo)
+                );
+                if registro.ultime.len() == SCRITTURE_IN_CODA {
+                    registro.ultime.pop_front();
+                }
+                registro.ultime.push_back(riga.clone());
+                // Il lucchetto si molla PRIMA di chiamare il cronista: quello
+                // emette un evento verso l'interfaccia, e tenere un mutex
+                // mentre si attraversa un confine è il modo in cui nascono i
+                // blocchi che nessuno sa più spiegare.
+                drop(registro);
+                if numero <= SCRITTURE_RACCONTATE {
+                    cronista_scrittura(riga);
+                }
             }
             Ok(())
         });
@@ -1510,9 +1707,15 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             let scambio = scambio.clone();
             let contatori = contatori.clone();
             Box::new(move || -> String {
-                let (scritture, byte_scritti, modo, rinvii) = match scambio.lock() {
-                    Ok(s) => (s.scritture, s.byte_scritti, nome_modo(s.modo), s.rinvii),
-                    Err(_) => (0, 0, "sconosciuto", 0),
+                let (scritture, byte_scritti, modo, rinvii, ultime) = match scambio.lock() {
+                    Ok(s) => (
+                        s.scritture,
+                        s.byte_scritti,
+                        nome_modo(s.modo),
+                        s.rinvii,
+                        s.ultime.iter().cloned().collect::<Vec<_>>(),
+                    ),
+                    Err(_) => (0, 0, "sconosciuto", 0, Vec::new()),
                 };
                 let rinvii = match rinvii {
                     0 => String::new(),
@@ -1544,9 +1747,37 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
                 } else {
                     ""
                 };
+                /*
+                 * La dimensione delle notifiche, che è l'MTU meno tre visto da
+                 * dove conta: da quello che è arrivato davvero. Se la più
+                 * piccola è più corta della più grande, qualcosa è arrivato a
+                 * pezzi — su BLE i frammenti di uno stesso messaggio sono
+                 * tutti pieni tranne l'ultimo — e per i Mares del ramo
+                 * variabile è la differenza fra scaricare e non scaricare.
+                 */
+                let grande = contatori.notifica_piu_grande.load(Ordering::Relaxed);
+                let piccola = contatori.notifica_piu_piccola.load(Ordering::Relaxed);
+                let misure = if notifiche == 0 {
+                    String::new()
+                } else if grande == piccola {
+                    format!(", notifiche da {grande} byte")
+                } else {
+                    format!(", notifiche da {piccola} a {grande} byte")
+                };
+                /*
+                 * ► LA CODA ESCE SOLO SE NON È GIÀ USCITA IN DIRETTA. ◄
+                 * Con quattro scritture in tutto, testa e coda sono la stessa
+                 * cosa, e ripeterle raddoppierebbe il diario dei casi più
+                 * piccoli — che sono anche quelli in cui si legge meglio.
+                 */
+                let coda = if scritture > SCRITTURE_RACCONTATE && !ultime.is_empty() {
+                    format!("\nultime scritture prima della fine:\n{}", ultime.join("\n"))
+                } else {
+                    String::new()
+                };
                 format!(
                     "scambio: {scritture} scritture ({byte_scritti} byte, {modo}{rinvii}), \
-{notifiche} notifiche ({ricevuti} byte), {prima}{caduto}{crediti}"
+{notifiche} notifiche ({ricevuti} byte{misure}), {prima}{caduto}{crediti}{coda}"
                 )
             })
         };
@@ -1768,6 +1999,38 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         Trace {
             line: String,
         },
+        /*
+         * ► IL COMPUTER STA MOSTRANDO UN NUMERO, E ASPETTA. ◄
+         *
+         * L'Aqualung i330R (e il DSX, stessa famiglia) non si fa leggere da
+         * un telefono che non conosce: al primo comando accende sul proprio
+         * schermo un PIN di sei cifre e vuole che gli venga ripetuto. Questo
+         * evento è il momento esatto in cui quel numero è comparso — non
+         * prima, perché prima non c'è — e da qui il thread dello scarico
+         * **è fermo** finché non arriva `rispondi_codice_pin`.
+         *
+         * Chi ascolta ha due doveri e non uno: mostrare la richiesta, e
+         * rispondere SEMPRE, anche quando la persona rinuncia. Una finestra
+         * chiusa senza risposta lascia lo scarico appeso fino alla scadenza,
+         * e la scadenza è lunga apposta perché il numero va letto su uno
+         * schermo piccolo, spesso al buio, spesso bagnato.
+         */
+        PinRequired,
+        /*
+         * Il codice di accesso che il computer ha rilasciato in cambio del PIN.
+         *
+         * Va conservato accanto al dispositivo: allo scarico successivo si
+         * restituisce a libdivecomputer e il PIN non viene più chiesto. Non è
+         * un segreto della persona — è una chiave di accoppiamento fra questa
+         * installazione e quel computer, come un legame Bluetooth — ma non
+         * finisce nel diario tecnico per la stessa ragione per cui non ci
+         * finiscono i numeri di serie altrui: il diario si allega alle
+         * segnalazioni.
+         */
+        AccessCode {
+            /// I byte in esadecimale minuscolo, senza separatori.
+            hex: String,
+        },
     }
 
     /// Il nome dell'evento Tauri. Come `accesso-ritorno`: minuscolo, con trattino.
@@ -1806,7 +2069,17 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         // `Contesto` in `trasporto_ldc.rs`.
         let contesto = Contesto::nuovo()?;
 
-        let flusso = FlussoBle::nuovo(entrata, scrittura).con_accessori(accessori, su_silenzio);
+        let come = riassemblaggio_per(marca, prodotto);
+        if come == Riassemblaggio::PacchettoIntero {
+            emetti(EventoScarico::Trace {
+                line: "le notifiche si rimettono insieme: questo modello legge il pacchetto intero \
+in una volta sola"
+                    .into(),
+            });
+        }
+        let flusso = FlussoBle::nuovo(entrata, scrittura)
+            .con_accessori(accessori, su_silenzio)
+            .con_riassemblaggio(come);
         let collegamento = CollegamentoLdc::apri(Box::new(flusso))?;
         emetti(EventoScarico::Progress {
             done: 0,
@@ -1869,11 +2142,125 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         Ok(immersioni)
     }
 
+    /// I Mares che leggono il pacchetto intero con una `dc_iostream_read` sola.
+    ///
+    /// ════════════════════════════════════════════════════════════════════════
+    /// ► PERCHÉ UN ELENCO DI CINQUE NOMI E NON UNA REGOLA. ◄
+    ///
+    /// Perché la regola sta in `mares_iconhd.c` e si chiama `ISSIRIUS`, ed è
+    /// un elenco anche là: quattro numeri di modello, che nei descrittori di
+    /// libdivecomputer diventano cinque nomi — il Puck 4 e il Puck Lite sono
+    /// lo stesso apparecchio con due etichette. Riscriverla come «i modelli
+    /// dopo il tale anno» sarebbe indovinare.
+    ///
+    /// Per questi cinque, e solo per questi, libdivecomputer NON apre il
+    /// livello che rimette insieme i pacchetti (`dc_packet_open`): legge con
+    /// una `dc_iostream_read` e si aspetta il pacchetto intero, dal `AA` al
+    /// `EA`. Se l'MTU del telefono non lo fa stare in una notifica, il
+    /// pacchetto arriva spezzato e viene rifiutato — quattro volte, poi si
+    /// arrende. È misurato in
+    /// `il_pacchetto_del_mares_deve_stare_in_una_notifica_sola`.
+    ///
+    /// Per tutti gli altri computer resta il comportamento di sempre, che per
+    /// gli Uwatec non è un dettaglio ma un obbligo: unire due notifiche lì
+    /// infilerebbe un byte di sequenza dentro i dati, in silenzio.
+    ///
+    /// `mares_ramoVariabile.test.ts` legge i sorgenti della libreria e
+    /// controlla che questo elenco sia ancora quello giusto: se un domani
+    /// libdivecomputer aggiungesse un modello a `ISSIRIUS`, quella prova
+    /// diventa rossa prima che qualcuno se ne accorga con un computer in mano.
+    const MARES_PACCHETTO_INTERO: [&str; 5] =
+        ["Puck Air 2", "Sirius", "Quad Ci", "Puck 4", "Puck Lite"];
+
+    /// Come vanno rimesse insieme le notifiche per questo computer.
+    pub fn riassemblaggio_per(marca: &str, prodotto: &str) -> Riassemblaggio {
+        if marca.eq_ignore_ascii_case("Mares")
+            && MARES_PACCHETTO_INTERO.iter().any(|m| m.eq_ignore_ascii_case(prodotto))
+        {
+            Riassemblaggio::PacchettoIntero
+        } else {
+            Riassemblaggio::UnaNotifica
+        }
+    }
+
     /// Se uno scarico è in corso. Il plugin ha UN dispositivo collegato e
     /// UNA lista di ascoltatori: due scarichi insieme si iscriverebbero alla
     /// stessa caratteristica e si scollegherebbero a vicenda. Un doppio tocco
     /// sul pulsante deve trovare un «no» qui, non un ponte a metà.
     static SCARICO_IN_CORSO: AtomicBool = AtomicBool::new(false);
+
+    /// Dove il thread dello scarico aspetta le sei cifre.
+    ///
+    /// ► PERCHÉ UNA VARIABILE GLOBALE, CHE È QUASI SEMPRE SBAGLIATA. ◄
+    /// Perché la risposta non torna da dove è partita la domanda: la domanda
+    /// esce come evento verso la finestra, la risposta rientra come comando
+    /// Tauri, e fra i due non c'è nessun oggetto in comune da cui passare. La
+    /// globale è lecita qui e solo qui perché **c'è al massimo uno scarico
+    /// alla volta** — lo garantisce `SCARICO_IN_CORSO`, poche righe più su —
+    /// quindi c'è al massimo una domanda in attesa.
+    ///
+    /// Fuori dall'attesa vale `None`, e un `rispondi_codice_pin` che arriva
+    /// quando nessuno sta aspettando non fa niente: non è un errore, è una
+    /// finestra chiusa un istante dopo la scadenza.
+    pub static ATTESA_PIN: Mutex<Option<SyncSender<Option<String>>>> = Mutex::new(None);
+
+    /// Quanto si aspetta che qualcuno legga sei cifre su uno schermo piccolo.
+    ///
+    /// Tre minuti, e non è generosità: il computer subacqueo mostra il PIN
+    /// **dopo** essersi collegato, spesso in mano a chi lo ha appena tolto
+    /// dal polso bagnato, e chi lo legge di solito non si aspettava che gli
+    /// venisse chiesto niente. Il costo di un'attesa lunga è un'attesa lunga;
+    /// il costo di una corta è ricominciare tutto il collegamento.
+    ///
+    /// Nelle prove è cortissima, perché una prova che aspetta tre minuti per
+    /// vedere una scadenza insegna a non lanciare le prove.
+    pub const ATTESA_PIN_MAX: Duration =
+        if cfg!(test) { Duration::from_millis(200) } else { Duration::from_secs(180) };
+
+    /// Chiede il PIN a chi guarda lo schermo, e blocca finché non risponde.
+    ///
+    /// **Gira sul thread dello scarico**, dentro la `ioctl` di
+    /// libdivecomputer: qui il protocollo è fermo a metà di una stretta di
+    /// mano, e resta fermo. Non c'è modo di fare altrimenti — il backend
+    /// chiama `dc_iostream_ioctl` e vuole una risposta — ed è anche il
+    /// momento giusto, perché è ora che il numero è sullo schermo.
+    pub fn chiedi_pin_allinterfaccia(manda: &dyn Fn(EventoScarico)) -> Option<String> {
+        let (rispondi, risposta) = std::sync::mpsc::sync_channel(1);
+        match ATTESA_PIN.lock() {
+            Ok(mut posto) => *posto = Some(rispondi),
+            // Un lucchetto avvelenato qui vuol dire che un panico è passato
+            // di là mentre qualcuno aspettava. Non si insiste: si rinuncia al
+            // PIN, e lo scarico fallisce dicendolo, invece di aspettare tre
+            // minuti una risposta che nessuno può più mandare.
+            Err(_) => return None,
+        }
+        manda(EventoScarico::PinRequired);
+        let esito = risposta.recv_timeout(ATTESA_PIN_MAX).unwrap_or(None);
+        // La busta si toglie SEMPRE, anche dopo una scadenza: lasciarla lì
+        // farebbe recapitare la risposta di stasera alla domanda di domani.
+        if let Ok(mut posto) = ATTESA_PIN.lock() {
+            *posto = None;
+        }
+        esito
+    }
+
+    /// La risposta dall'interfaccia. Vedi `ATTESA_PIN`.
+    ///
+    /// `None` è una rinuncia esplicita, ed è una risposta a tutti gli effetti:
+    /// fa fallire lo scarico **subito**, invece di lasciarlo appeso fino alla
+    /// scadenza. Per questo l'interfaccia deve chiamarla anche quando l'utente
+    /// chiude la finestra.
+    pub fn rispondi_pin(pin: Option<String>) {
+        let busta = match ATTESA_PIN.lock() {
+            Ok(mut posto) => posto.take(),
+            Err(_) => None,
+        };
+        if let Some(busta) = busta {
+            // Se il ricevente non c'è più — scadenza appena scattata — il
+            // `send` fallisce, e va bene così: la risposta è arrivata tardi.
+            let _ = busta.try_send(pin);
+        }
+    }
 
     /// Abbassa la bandierina quando lo scarico finisce, comunque finisca —
     /// anche per un `?` a metà strada.
@@ -1891,6 +2278,7 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         nome: Option<String>,
         marca: String,
         prodotto: String,
+        codice_accesso: Option<String>,
     ) -> Result<Vec<ImmersioneLdc>, String> {
         use tauri::Emitter;
 
@@ -1930,6 +2318,39 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
                 }
                 return Err(motivo);
             }
+        };
+
+        /*
+         * ► L'ACCOPPIAMENTO: il PIN da chiedere e la chiave da conservare. ◄
+         *
+         * Un codice illeggibile NON è un errore da mostrare: si riparte dal
+         * PIN, che funziona sempre, e la riga nel diario dice che è successo.
+         * L'alternativa — fermare lo scarico perché una preferenza è storta —
+         * bloccherebbe una persona su un dato che può cancellare solo
+         * disinstallando.
+         */
+        let codice = match codice_accesso.as_deref() {
+            None => None,
+            Some(testo) => match da_esadecimale(testo) {
+                Some(byte) => Some(byte),
+                None => {
+                    manda(EventoScarico::Trace {
+                        line: "il codice di accesso conservato non si legge: si riparte dal PIN".into(),
+                    });
+                    None
+                }
+            },
+        };
+        let ponte = {
+            let per_pin = manda.clone();
+            let per_codice = manda.clone();
+            ponte.con_segreti(
+                Box::new(move || chiedi_pin_allinterfaccia(&per_pin)),
+                codice,
+                Box::new(move |codice: &[u8]| {
+                    per_codice(EventoScarico::AccessCode { hex: in_esadecimale(codice) })
+                }),
+            )
         };
 
         /*
@@ -2052,9 +2473,35 @@ pub async fn scarica_da_computer_esterno(
     nome: Option<String>,
     marca: String,
     prodotto: String,
+    codice_accesso: Option<String>,
 ) -> Result<Vec<crate::trasporto_ldc::ImmersioneLdc>, String> {
-    dentro::scarica(app, dispositivo, nome, marca, prodotto).await
+    dentro::scarica(app, dispositivo, nome, marca, prodotto, codice_accesso).await
 }
+
+/// La risposta alla richiesta del PIN, dall'interfaccia.
+///
+/// Va chiamata **anche quando la persona rinuncia**, con `null`: senza, lo
+/// scarico resta fermo dentro la `ioctl` fino alla scadenza di tre minuti, e
+/// un'applicazione che non risponde per tre minuti è un'applicazione rotta,
+/// qualunque cosa stia facendo davvero.
+///
+/// Non restituisce niente e non fallisce mai: una risposta che arriva quando
+/// nessuno aspetta più — la finestra chiusa un istante dopo la scadenza — non
+/// è un errore da mostrare a nessuno.
+#[cfg(feature = "computer-esterni")]
+#[tauri::command]
+pub fn rispondi_codice_pin(pin: Option<String>) {
+    dentro::rispondi_pin(pin);
+}
+
+/// Lo stesso comando in una copia compilata senza `computer-esterni`.
+///
+/// Non c'è nessuno scarico che possa aspettare un PIN, quindi non fa niente —
+/// e non fa niente in silenzio, perché il comando non viene mai chiamato se
+/// l'evento che lo provoca non è mai stato emesso.
+#[cfg(not(feature = "computer-esterni"))]
+#[tauri::command]
+pub fn rispondi_codice_pin(_pin: Option<String>) {}
 
 /// Lo stesso comando in una copia compilata senza `computer-esterni`.
 ///
@@ -2067,6 +2514,7 @@ pub async fn scarica_da_computer_esterno(
     _nome: Option<String>,
     _marca: String,
     _prodotto: String,
+    _codice_accesso: Option<String>,
 ) -> Result<Vec<serde_json::Value>, String> {
     Err("questa copia dell’applicazione è stata compilata senza libdivecomputer: \
 sa parlare solo con i computer dei driver scritti in casa"
@@ -2093,11 +2541,11 @@ sa parlare solo con i computer dei driver scritti in casa"
 #[cfg(all(test, feature = "computer-esterni"))]
 mod prove {
     use super::dentro::*;
-    use crate::trasporto_ldc::{FlussoBle, FlussoByte, Ripiego};
+    use crate::trasporto_ldc::{AccessoriBle, FlussoBle, FlussoByte, Riassemblaggio, Ripiego};
     use std::collections::HashMap;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
 
     /// Una caratteristica finta, in una riga.
     fn car(uuid: &str, scrivibile: bool, senza_risposta: bool, notifica: bool) -> CaratteristicaVista {
@@ -2377,6 +2825,279 @@ mod prove {
     }
 
     // -------------------------------------------------------------- il ponte
+
+    // ----------------------------------------------- il diario: testa e coda
+
+    #[test]
+    fn il_diario_racconta_la_testa_in_diretta_e_la_coda_alla_fine() {
+        /*
+         * ► IL CASO VERO CHE HA PAGATO QUESTA PROVA. ◄ Il 7 settembre 2026 un
+         * Mares Quad Ci si è fermato alla scrittura numero 1503 dopo 349 KB
+         * scaricati, e del diario è arrivata solo la testa: le prime sei
+         * scritture, cioè esattamente la parte che aveva funzionato. Di che
+         * comando fosse la risposta rifiutata non c'era traccia.
+         *
+         * Qui si scrive dieci volte e si controllano tutte e due le metà: in
+         * diretta le prime sei e non la settima, nel riassunto le ultime otto
+         * e non le prime due.
+         */
+        let antenna = FintaAntenna::con(vec![informativo(), seriale("fe25c237-0ece-443c-b0aa-e02033e7029d")]);
+        let (mut ponte, diario) = apri(&antenna);
+        for n in 1u8..=10 {
+            (ponte.scrittura)(&[n, 0xee]).expect("la scrittura deve riuscire");
+        }
+
+        let righe = diario.righe();
+        let in_diretta: Vec<&String> = righe.iter().filter(|r| r.starts_with("scrittura n.")).collect();
+        assert_eq!(in_diretta.len(), 6, "in diretta solo le prime sei: {in_diretta:?}");
+        assert!(in_diretta[0].contains("scrittura n. 1:"), "{in_diretta:?}");
+        assert!(in_diretta[5].contains("scrittura n. 6:"), "{in_diretta:?}");
+
+        let fine = (ponte.riassunto)();
+        assert!(fine.contains("ultime scritture prima della fine"), "{fine}");
+        // Le ultime otto: dalla terza alla decima.
+        for n in 3..=10 {
+            assert!(fine.contains(&format!("scrittura n. {n}:")), "manca la n. {n} in:\n{fine}");
+        }
+        // E non le due che sono uscite dalla coda: se ci fossero, la coda non
+        // scorrerebbe e su millecinquecento scritture il riassunto sarebbe il
+        // diario intero.
+        for n in 1..=2 {
+            assert!(!fine.contains(&format!("scrittura n. {n}:")), "la n. {n} doveva uscire:\n{fine}");
+        }
+        // I byte veri, non solo i numeri: la coda serve a sapere COSA è stato
+        // mandato per ultimo, non quante volte.
+        assert!(fine.contains("0a ee"), "l'ultima scrittura, in esadecimale:\n{fine}");
+    }
+
+    #[test]
+    fn con_poche_scritture_la_coda_non_ripete_quello_che_e_gia_uscito_in_diretta() {
+        /*
+         * Con quattro scritture, testa e coda sono la stessa cosa: ripeterle
+         * raddoppierebbe il diario dei casi più piccoli, che sono anche
+         * quelli in cui si legge meglio. La soglia è la stessa
+         * `SCRITTURE_RACCONTATE`, e questa prova la inchioda dai due lati.
+         */
+        let antenna = FintaAntenna::con(vec![informativo(), seriale("fe25c237-0ece-443c-b0aa-e02033e7029d")]);
+        let (mut ponte, _) = apri(&antenna);
+        for n in 1u8..=6 {
+            (ponte.scrittura)(&[n]).expect("la scrittura deve riuscire");
+        }
+        let fine = (ponte.riassunto)();
+        assert!(!fine.contains("ultime scritture"), "sei scritture sono già tutte in diretta:\n{fine}");
+
+        // Sette invece sì: la settima non è mai uscita in diretta.
+        (ponte.scrittura)(&[7]).expect("la scrittura deve riuscire");
+        let fine = (ponte.riassunto)();
+        assert!(fine.contains("ultime scritture"), "{fine}");
+        assert!(fine.contains("scrittura n. 7:"), "{fine}");
+    }
+
+    // ------------------------------------------- l'accoppiamento: PIN e chiave
+
+    #[test]
+    fn linvolucro_dei_segreti_chiede_il_pin_e_ne_toglie_gli_spazi() {
+        /*
+         * Sei cifre digitate su un telefono arrivano spesso con uno spazio in
+         * coda, e `pelagic_i330r_init_passcode` rifiuta qualunque carattere
+         * che non sia una cifra: il rifiuto sarebbe «codice errato» a chi ha
+         * digitato quello giusto. Toglierli è la riparazione onesta.
+         */
+        struct Nudi;
+        impl AccessoriBle for Nudi {
+            fn nome(&mut self) -> Option<String> {
+                Some("i330R".into())
+            }
+            fn leggi_caratteristica(&mut self, _uuid: [u8; 16]) -> Result<Vec<u8>, String> {
+                Err("niente".into())
+            }
+        }
+        let mut segreti = AccessoriConSegreti::nuovo(
+            Box::new(Nudi),
+            Box::new(|| Some("  482915 ".to_string())),
+            None,
+            Box::new(|_| {}),
+        );
+        assert_eq!(segreti.codice_pin().as_deref(), Some("482915"));
+        // E quello che sta dentro continua a rispondere: l'involucro non deve
+        // rubare il nome, che è quello da cui gli Oceanic ricavano il seriale.
+        assert_eq!(segreti.nome().as_deref(), Some("i330R"));
+
+        // Una rinuncia resta una rinuncia, e non diventa una stringa vuota —
+        // che sarebbe un PIN di zero cifre, cioè una domanda diversa.
+        let mut rinuncia =
+            AccessoriConSegreti::nuovo(Box::new(Nudi), Box::new(|| None), None, Box::new(|_| {}));
+        assert_eq!(rinuncia.codice_pin(), None);
+    }
+
+    #[test]
+    fn il_codice_appena_ricevuto_vale_subito_anche_dentro_lo_stesso_scarico() {
+        /*
+         * ► IL PUNTO CHE SI DIMENTICA. ◄ `pelagic_i330r_init` scrive il codice
+         * con `SET_ACCESSCODE` e poi lo usa; e se in mezzo qualcuno lo
+         * richiedesse, rispondere «non ce l'ho» rimanderebbe al PIN un
+         * computer che ce l'ha appena dato. Conservarlo FUORI non basta: il
+         * fuori è l'archivio dell'interfaccia, che questo scarico non
+         * rilegge.
+         */
+        struct Nudi;
+        impl AccessoriBle for Nudi {
+            fn nome(&mut self) -> Option<String> {
+                None
+            }
+            fn leggi_caratteristica(&mut self, _uuid: [u8; 16]) -> Result<Vec<u8>, String> {
+                Err("niente".into())
+            }
+        }
+        let fuori = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
+        let dentro_fuori = fuori.clone();
+        let mut segreti = AccessoriConSegreti::nuovo(
+            Box::new(Nudi),
+            Box::new(|| None),
+            None,
+            Box::new(move |c: &[u8]| dentro_fuori.lock().unwrap().push(c.to_vec())),
+        );
+        assert_eq!(segreti.codice_accesso(), None, "la prima volta non c'è niente");
+        segreti.salva_codice_accesso(&[1, 2, 3, 4]);
+        assert_eq!(segreti.codice_accesso(), Some(vec![1, 2, 3, 4]), "e adesso c'è");
+        assert_eq!(fuori.lock().unwrap().as_slice(), &[vec![1, 2, 3, 4]], "ed è uscito anche di fuori");
+    }
+
+    #[test]
+    fn lesadecimale_del_codice_va_e_torna_e_rifiuta_quello_che_non_e_esadecimale() {
+        assert_eq!(in_esadecimale(&[0x0a, 0xff, 0x00]), "0aff00");
+        assert_eq!(da_esadecimale("0aff00"), Some(vec![0x0a, 0xff, 0x00]));
+        // Le maiuscole e gli spazi si tollerano: un codice copiato a mano da
+        // un diario è la forma in cui arriverà, il giorno che servirà.
+        assert_eq!(da_esadecimale(" 0A FF 00 "), Some(vec![0x0a, 0xff, 0x00]));
+        // Tutto il resto no. Mezzo codice è peggio di nessun codice: il
+        // computer lo rifiuterebbe senza dire perché, mentre «non ce l'ho» fa
+        // ripartire dal PIN.
+        assert_eq!(da_esadecimale("0aff0"), None, "un numero dispari di cifre");
+        assert_eq!(da_esadecimale("0agf"), None, "una lettera che non è esadecimale");
+        assert_eq!(da_esadecimale(""), None);
+        assert_eq!(da_esadecimale("   "), None);
+    }
+
+    /// Le prove del PIN toccano l'unica variabile globale del file, e cargo
+    /// lancia le prove in parallelo: senza questo lucchetto due prove del PIN
+    /// si ruberebbero la busta a vicenda e fallirebbero a giorni alterni, che
+    /// è il modo migliore per insegnare a non fidarsi delle prove. La globale
+    /// nel programma vero è protetta da `SCARICO_IN_CORSO`; qui no, perché
+    /// qui non c'è nessuno scarico.
+    static UNA_PROVA_DEL_PIN_ALLA_VOLTA: Mutex<()> = Mutex::new(());
+
+    fn in_fila() -> std::sync::MutexGuard<'static, ()> {
+        // Un lucchetto avvelenato da una prova già fallita non deve far
+        // fallire anche le altre per un motivo diverso da quello vero.
+        UNA_PROVA_DEL_PIN_ALLA_VOLTA.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    #[test]
+    fn una_domanda_ha_una_risposta_sola_e_la_busta_si_consuma() {
+        /*
+         * ► PERCHÉ LA BUSTA SI TOGLIE E NON SI COPIA. ◄ Chi tocca due volte
+         * «Conferma» manda due risposte. La prima è quella buona; la seconda,
+         * se la busta fosse ancora lì, resterebbe nel canale — e il canale ha
+         * posto per una. Non farebbe danni oggi, ma è la forma esatta della
+         * risposta di ieri consegnata alla domanda di oggi, che è il difetto
+         * che questo file ha già pagato altrove.
+         */
+        let _fila = in_fila();
+        let (busta, risposta) = std::sync::mpsc::sync_channel(1);
+        *ATTESA_PIN.lock().unwrap() = Some(busta);
+
+        rispondi_pin(Some("482915".into()));
+        assert!(ATTESA_PIN.lock().unwrap().is_none(), "la busta si consuma con la risposta");
+        assert_eq!(risposta.recv().unwrap().as_deref(), Some("482915"));
+
+        rispondi_pin(Some("000000".into()));
+        assert!(risposta.try_recv().is_err(), "la seconda risposta non deve entrare in canna");
+    }
+
+    #[test]
+    fn la_risposta_al_pin_arriva_al_thread_che_aspetta_e_una_rinuncia_non_lo_lascia_appeso() {
+        let _fila = in_fila();
+        /*
+         * La domanda esce come evento e la risposta rientra come comando: fra
+         * i due non c'è nessun oggetto in comune, e questa prova percorre
+         * proprio quel giro — un thread che aspetta, un altro che risponde.
+         */
+        let visti = Arc::new(Mutex::new(Vec::<String>::new()));
+        let per_manda = visti.clone();
+        let manda = move |e: EventoScarico| {
+            if let EventoScarico::PinRequired = e {
+                per_manda.lock().unwrap().push("chiesto".into());
+            }
+        };
+
+        let atteso = std::thread::spawn(move || chiedi_pin_allinterfaccia(&manda));
+        // Si aspetta che la busta sia stata messa: senza, la risposta
+        // arriverebbe prima della domanda e il finto proverebbe una cosa che
+        // nella realtà non succede.
+        let mut giri = 0;
+        while ATTESA_PIN.lock().map(|p| p.is_none()).unwrap_or(true) && giri < 200 {
+            std::thread::sleep(Duration::from_millis(1));
+            giri += 1;
+        }
+        rispondi_pin(Some("482915".into()));
+        assert_eq!(atteso.join().unwrap().as_deref(), Some("482915"));
+        assert_eq!(visti.lock().unwrap().len(), 1, "l'evento esce una volta sola");
+
+        // La rinuncia: `None` è una risposta, e deve tornare SUBITO — non
+        // dopo la scadenza. Con la scadenza di prova a 200 ms, un giro che
+        // aspettasse quella si vedrebbe nel tempo.
+        let inizio = Instant::now();
+        let atteso = std::thread::spawn(|| chiedi_pin_allinterfaccia(&|_| {}));
+        let mut giri = 0;
+        while ATTESA_PIN.lock().map(|p| p.is_none()).unwrap_or(true) && giri < 200 {
+            std::thread::sleep(Duration::from_millis(1));
+            giri += 1;
+        }
+        rispondi_pin(None);
+        assert_eq!(atteso.join().unwrap(), None);
+        assert!(inizio.elapsed() < ATTESA_PIN_MAX, "la rinuncia non aspetta la scadenza");
+    }
+
+    #[test]
+    fn se_nessuno_risponde_si_rinuncia_invece_di_aspettare_per_sempre() {
+        /*
+         * ► LA GUARDIA CHE PROTEGGE DALL'APPLICAZIONE BLOCCATA. ◄ Qui il
+         * thread dello scarico è dentro una `ioctl` di libdivecomputer, che
+         * non ha nessuna scadenza propria: se questa attesa non ne avesse una,
+         * una finestra chiusa senza rispondere lascerebbe lo scarico appeso
+         * **per sempre**, con il computer subacqueo collegato e sveglio finché
+         * ha batteria. Non c'è nessun altro che possa accorgersene.
+         *
+         * L'attesa si misura da fuori con un canale e non con `join`, perché
+         * un `join` su un thread che non finisce mai non fallisce: appende la
+         * prova, e una prova appesa non è una prova rossa.
+         */
+        let _fila = in_fila();
+        let (finito, esito) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = finito.send(chiedi_pin_allinterfaccia(&|_| {}));
+        });
+        let risposta = esito
+            .recv_timeout(ATTESA_PIN_MAX * 20)
+            .expect("l'attesa del PIN deve scadere da sola");
+        assert_eq!(risposta, None, "chi non risponde vale una rinuncia");
+        assert!(
+            ATTESA_PIN.lock().unwrap().is_none(),
+            "e la busta si toglie anche dopo una scadenza: lasciarla lì farebbe \
+             recapitare la risposta di stasera alla domanda di domani"
+        );
+    }
+
+    #[test]
+    fn una_risposta_che_arriva_quando_nessuno_aspetta_non_fa_niente() {
+        // La finestra chiusa un istante dopo la scadenza. Non è un errore, e
+        // soprattutto non deve restare in una busta per lo scarico di domani.
+        let _fila = in_fila();
+        rispondi_pin(Some("000000".into()));
+        assert!(ATTESA_PIN.lock().unwrap().is_none());
+        rispondi_pin(None);
+    }
 
     #[test]
     fn quello_che_si_scrive_arriva_al_dispositivo() {
@@ -3168,9 +3889,62 @@ mod prove {
         flusso.leggi(20, Duration::from_millis(100)).unwrap();
         let r = riassunto();
         assert!(r.contains("10 scritture (20 byte, senza conferma)"), "{r}");
-        assert!(r.contains("1 notifiche (20 byte)"), "{r}");
+        assert!(r.contains("1 notifiche (20 byte"), "{r}");
         assert!(r.contains("prima notifica dopo"), "{r}");
+        // ► LA MISURA CHE IL 7 SETTEMBRE MANCAVA. ◄ Quanto sta in una
+        // notifica è l'MTU meno tre, ed è il numero che decide se il
+        // pacchetto di un Mares del ramo variabile arriva intero o spezzato.
+        assert!(r.contains("notifiche da 20 byte"), "la dimensione va scritta: {r}");
         assert!(diario.contiene("ms dopo la prima scrittura"), "{}", diario.testo());
+    }
+
+    #[test]
+    fn il_riassunto_dice_se_le_notifiche_sono_arrivate_di_dimensioni_diverse() {
+        /*
+         * ► È LA RIGA CHE AVREBBE RISPOSTO ALLA DOMANDA DEL 7 SETTEMBRE. ◄
+         *
+         * Su BLE i frammenti di uno stesso messaggio sono tutti pieni tranne
+         * l'ultimo. Quindi due dimensioni diverse nello stesso scarico dicono
+         * che qualcosa è arrivato a pezzi — e per i Mares del ramo variabile,
+         * che leggono il pacchetto con una lettura sola, è la differenza fra
+         * scaricare e non scaricare. Una dimensione sola dice il contrario, ed
+         * è altrettanto utile: esclude l'ipotesi.
+         */
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")]);
+        let (mut flusso, _, riassunto) = apri_flusso(&antenna);
+        antenna.notifica(&[0xaa; 100]);
+        antenna.notifica(&[0xbb; 42]);
+        flusso.leggi(200, Duration::from_millis(100)).unwrap();
+        flusso.leggi(200, Duration::from_millis(100)).unwrap();
+        let r = riassunto();
+        assert!(r.contains("notifiche da 42 a 100 byte"), "{r}");
+    }
+
+    #[test]
+    fn il_riassemblaggio_si_accende_per_i_mares_del_ramo_variabile_e_per_nessun_altro() {
+        /*
+         * L'elenco vero — cinque nomi — è controllato contro i sorgenti della
+         * libreria da `maresRamoVariabile.test.ts`, che sa leggere `ISSIRIUS`.
+         * Qui si prova la funzione: che guardi la marca oltre al modello, e
+         * che non si faccia ingannare dalle maiuscole, perché i nomi arrivano
+         * da un catalogo generato e da una scelta fatta a schermo.
+         */
+        assert_eq!(riassemblaggio_per("Mares", "Quad Ci"), Riassemblaggio::PacchettoIntero);
+        assert_eq!(riassemblaggio_per("mares", "QUAD CI"), Riassemblaggio::PacchettoIntero);
+        assert_eq!(riassemblaggio_per("Mares", "Sirius"), Riassemblaggio::PacchettoIntero);
+
+        // Gli altri Mares no: per loro libdivecomputer apre `dc_packet_open`,
+        // che i pezzi li rimette insieme da sé.
+        assert_eq!(riassemblaggio_per("Mares", "Genius"), Riassemblaggio::UnaNotifica);
+        assert_eq!(riassemblaggio_per("Mares", "Puck Pro"), Riassemblaggio::UnaNotifica);
+
+        // E soprattutto NON gli Uwatec: unire due notifiche lì infilerebbe un
+        // byte di sequenza dentro i dati, in silenzio.
+        assert_eq!(riassemblaggio_per("Scubapro", "Aladin Sport Matrix"), Riassemblaggio::UnaNotifica);
+        assert_eq!(riassemblaggio_per("Shearwater", "Peregrine"), Riassemblaggio::UnaNotifica);
+        // Un'altra marca con lo stesso nome di modello non conta: la marca fa
+        // parte della domanda.
+        assert_eq!(riassemblaggio_per("Cressi", "Sirius"), Riassemblaggio::UnaNotifica);
     }
 
     #[test]

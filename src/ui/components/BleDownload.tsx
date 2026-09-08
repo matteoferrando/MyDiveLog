@@ -34,7 +34,12 @@ import type { VoceCatalogo } from '../../core/ble/catalogo';
 import { esitoPer } from '../../core/ble/scelta';
 import { proponi, type CandidatoRiconosciuto, type Proposta } from '../../core/ble/riconosci';
 import { ScegliComputer } from './ScegliComputer';
-import { riconosciComputerEsterno, scaricaDaComputerEsterno } from '../../storage/computerEsterni';
+import {
+  riconosciComputerEsterno,
+  rispondiCodicePin,
+  scaricaDaComputerEsterno,
+} from '../../storage/computerEsterni';
+import { codiceAccoppiamento, salvaCodiceAccoppiamento } from '../../core/accoppiamento';
 import type { Dive } from '../../core/model';
 import {
   markerKey,
@@ -143,6 +148,24 @@ export function BleDownload() {
   }, []);
   const transport = finto ?? vero;
   const [stato, setStato] = useState<Stato>({ fase: 'iniziale' });
+  /*
+   * ► IL COMPUTER CHIEDE UN NUMERO, E LO SCARICO È FERMO FINCHÉ NON GLI SI
+   * RISPONDE. ◄
+   *
+   * La famiglia Pelagic (Aqualung i330R, Apeks DSX) accende sul proprio
+   * schermo un PIN di sei cifre al primo comando e non va avanti senza. Il
+   * guscio Rust, in quel momento, è dentro una chiamata di libdivecomputer:
+   * non può fare altro che aspettare, e aspetta al massimo tre minuti.
+   *
+   * Quindi da qui bisogna rispondere SEMPRE — con le cifre o con una rinuncia
+   * — e per questo la rinuncia è un pulsante e non una crocetta: chiudere e
+   * basta è esattamente il gesto che lascerebbe l'applicazione ferma.
+   *
+   * Non è una finestra modale, come niente in questa applicazione: nella
+   * WKWebView di macOS i pannelli di sistema non compaiono, e questa è la
+   * stessa lezione che ha prodotto `BottoneConferma`.
+   */
+  const [pin, setPin] = useState<{ nome: string; cifre: string } | null>(null);
   const [trovati, setTrovati] = useState<RecognisedDevice[]>([]);
   const [copiato, setCopiato] = useState(false);
   /** L'ordine in cui i dispositivi stanno adesso. Vedi `recognise`. */
@@ -794,6 +817,20 @@ export function BleDownload() {
    * invece è avvenuta. La deduplica fa il resto, come per i file, ed è la
    * stessa strada che percorrono le immersioni importate da un `.uddf`.
    */
+  /**
+   * La risposta alla richiesta del PIN: le cifre, oppure una rinuncia.
+   *
+   * Il riquadro si chiude PRIMA di mandare la risposta, e non dopo: la
+   * risposta attraversa il guscio Rust e può metterci un istante, e un
+   * riquadro che resta lì mentre lo scarico è già ripartito invita a premere
+   * «Conferma» una seconda volta — cioè a mandare una risposta a una domanda
+   * che non c'è più.
+   */
+  const rispondiAlPin = useCallback((cifre: string | null) => {
+    setPin(null);
+    void rispondiCodicePin(cifre);
+  }, []);
+
   const scaricaEsterno = useCallback(
     async (device: BleFoundDevice, marca: string, modello: string) => {
       fermaRicerca();
@@ -806,6 +843,29 @@ export function BleDownload() {
         // mostrato, sarebbero un aggiornamento di React per ogni notifica.
         if (e.kind === 'trace') {
           diario.push(e.line);
+          return;
+        }
+        /*
+         * La richiesta del PIN. Da qui in poi lo scarico è FERMO: il guscio
+         * Rust aspetta dentro la libreria, e riprende solo quando
+         * `rispondiCodicePin` gli manda una risposta — le cifre o la rinuncia.
+         */
+        if (e.kind === 'pinRequired') {
+          setPin({ nome, cifre: '' });
+          return;
+        }
+        /*
+         * La chiave di accoppiamento, in cambio del PIN. Si conserva subito e
+         * non alla fine: se lo scarico si interrompe DOPO questo punto, il
+         * codice resta valido lo stesso e il prossimo tentativo non chiederà
+         * più niente. Conservarla alla fine vorrebbe dire perderla proprio nel
+         * caso in cui riprovare è più probabile.
+         *
+         * Non entra nel diario: il diario si allega alle segnalazioni.
+         */
+        if (e.kind === 'accessCode') {
+          salvaCodiceAccoppiamento(device.id, e.hex);
+          diario.push('il computer ha rilasciato un codice di accoppiamento, conservato');
           return;
         }
         setStato((p) =>
@@ -856,11 +916,23 @@ export function BleDownload() {
           nome: device.name,
           marca,
           modello,
+          codiceAccesso: codiceAccoppiamento(device.id),
           emit: onEvent,
         });
       } catch (e) {
         guasto = e;
         grezzo = e instanceof Error ? e.message : String(e);
+      } finally {
+        /*
+         * La richiesta del PIN si chiude COMUNQUE vada.
+         *
+         * Se lo scarico è finito — bene o male — nessuno sta più aspettando
+         * quelle cifre, e un riquadro che le chiede sotto il risultato è una
+         * domanda a cui rispondere non serve più a niente. Succede davvero:
+         * il collegamento può cadere mentre la persona sta ancora leggendo il
+         * numero sullo schermo del computer.
+         */
+        setPin(null);
       }
 
       let testo: string;
@@ -1304,6 +1376,74 @@ export function BleDownload() {
             </div>
           )}
         </>
+      )}
+
+      {/*
+       * ► LA RICHIESTA DEL PIN. ◄ Sta sopra l'avanzamento perché mentre è
+       * aperta l'avanzamento non avanza: lo scarico è fermo qui.
+       *
+       * `aria-live="assertive"` e non `polite`: è l'unica cosa in tutta
+       * l'applicazione che interrompe una persona perché un apparecchio la
+       * sta aspettando, e chi usa un lettore di schermo deve saperlo adesso e
+       * non alla fine della frase che stava ascoltando.
+       */}
+      {pin && (
+        <div className="notice" role="group" aria-live="assertive" style={{ marginBottom: 10 }}>
+          <b>{t('Il computer chiede un codice')}</b>
+          <p style={{ margin: '6px 0' }}>
+            {t(
+              'Sullo schermo del computer subacqueo è comparso un numero di sei cifre. Scrivilo qui sotto.',
+            )}{' '}
+            <span className="muted">
+              {t('Serve solo la prima volta: dopo, il collegamento è diretto.')}
+            </span>
+          </p>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              /*
+               * `inputMode="numeric"` apre la tastiera dei numeri sul
+               * telefono, che è dove questo succede quasi sempre: un computer
+               * subacqueo si scarica in barca, non alla scrivania. Il tipo
+               * resta `text` di proposito — `type="number"` aggiunge le
+               * frecce, accetta il segno meno e la notazione esponenziale, e
+               * qui non è un numero: è una sequenza di sei cifre.
+               */
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              autoFocus
+              maxLength={6}
+              aria-label={t('Le sei cifre mostrate dal computer')}
+              value={pin.cifre}
+              onChange={(e) =>
+                // Si filtra scrivendo e non al momento di confermare: chi
+                // digita una lettera per sbaglio la vede sparire subito,
+                // invece di scoprire alla fine che il codice non va bene.
+                setPin((p) => (p ? { ...p, cifre: e.target.value.replace(/\D/g, '').slice(0, 6) } : p))
+              }
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && pin.cifre.length > 0) rispondiAlPin(pin.cifre);
+              }}
+              style={{ width: '7em', letterSpacing: '0.25em', fontSize: 18 }}
+            />
+            <button
+              className="btn"
+              disabled={pin.cifre.length === 0}
+              onClick={() => rispondiAlPin(pin.cifre)}
+            >
+              {t('Conferma')}
+            </button>
+            {/*
+             * La rinuncia è un PULSANTE, e non una crocetta in un angolo.
+             * Chiudere senza rispondere lascerebbe lo scarico fermo fino alla
+             * scadenza — tre minuti in cui l'applicazione non fa niente e non
+             * dice niente. Qui la rinuncia è una risposta, e arriva subito.
+             */}
+            <button className="btn secondary" onClick={() => rispondiAlPin(null)}>
+              {t('Annulla lo scarico')}
+            </button>
+          </div>
+        </div>
       )}
 
       {stato.fase === 'scarica' && (

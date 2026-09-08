@@ -86,6 +86,45 @@ pub trait FlussoByte: Send {
     /// — che è il motivo per cui i backend ritentano — non riuscirebbe mai.
     fn svuota(&mut self) {}
 
+    /// Il codice PIN che il computer mostra sul suo schermo, sei cifre.
+    ///
+    /// ► QUESTA È L'UNICA `ioctl` CHE NON SI PUÒ NON SAPER FARE. ◄
+    /// `pelagic_i330r_init` tollera l'assenza del codice di accesso e la
+    /// tollera in scrittura, ma su questa si ferma e basta: `GET_PINCODE` che
+    /// risponde «non supportato» è «Failed to get the PIN code», ed è dove si
+    /// fermava l'Aqualung i330R del centro sub il 7 settembre 2026.
+    ///
+    /// **Il momento conta quanto la risposta.** Il PIN compare sul display del
+    /// computer solo DOPO che il backend ha mandato `CMD_ACCESS_REQUEST`, cioè
+    /// esattamente quando questa funzione viene chiamata: chiederlo prima
+    /// vorrebbe dire chiedere un numero che non c'è ancora. Quindi qui si
+    /// **aspetta una persona**, e chi implementa questo metodo blocca il
+    /// thread finché non ha una risposta o rinuncia.
+    ///
+    /// `None` significa «non lo so chiedere» — un trasporto che non è
+    /// un'interfaccia — e diventa «non supportato».
+    fn codice_pin(&mut self) -> Option<String> {
+        None
+    }
+
+    /// Il codice di accesso di sedici byte già ottenuto in passato, se c'è.
+    ///
+    /// È il gemello del PIN e serve a non chiederlo mai più: con un codice
+    /// valido `pelagic_i330r_init` salta tutto il ramo del PIN. `None` è la
+    /// risposta onesta la prima volta, ed è tollerata dal backend.
+    fn codice_accesso(&mut self) -> Option<Vec<u8>> {
+        None
+    }
+
+    /// Il codice di accesso appena ottenuto dal computer, da conservare.
+    ///
+    /// Non è un segreto dell'utente: è una chiave di accoppiamento fra questa
+    /// installazione e quel computer, dello stesso genere di un legame
+    /// Bluetooth. Va conservata dove sta il resto di ciò che l'app sa di quel
+    /// dispositivo, e non nel diario tecnico — che si allega alle
+    /// segnalazioni.
+    fn salva_codice_accesso(&mut self, _codice: &[u8]) {}
+
     /// Legge una caratteristica GATT per UUID, fuori dal flusso di byte.
     ///
     /// Serve al Cressi Goa (e a chiunque imiti il suo modo di presentarsi),
@@ -119,7 +158,81 @@ pub struct FlussoBle {
     /// Se una notifica è mai stata consegnata: dopo la prima, il ripiego sul
     /// silenzio non ha più senso, perché il canale ha dimostrato di funzionare.
     ricevuto_qualcosa: bool,
+    /// Come si rimettono insieme le notifiche. Vedi `Riassemblaggio`.
+    riassemblaggio: Riassemblaggio,
+    /// La notifica più grande vista finora: è la stima della dimensione
+    /// «piena», cioè dell'MTU meno tre. Non si può chiedere al plugin in modo
+    /// portabile, e comunque quello che conta è quanto arriva davvero.
+    notifica_piena: usize,
+    /// Se vale ancora la pena aspettare un frammento. Vedi
+    /// `GRAZIE_PRIMA_DI_ARRENDERSI`.
+    aspetta_frammenti: bool,
+    /// Quante attese di frammento sono andate a vuoto di fila.
+    grazie_a_vuoto: usize,
 }
+
+/// Come si rimettono insieme le notifiche dentro una lettura.
+///
+/// ════════════════════════════════════════════════════════════════════════════
+/// ► DUE PROTOCOLLI CHIEDONO A QUESTO TRASPORTO DUE COSE OPPOSTE. ◄
+///
+/// **Uwatec** (Aladin, G2, Luna) mette in testa a ogni notifica un byte che
+/// non è dato — libdivecomputer lo scarta calcolando `len = ricevuti - 1`, e
+/// c'è un commento di venti righe in `uwatec_smart.c` che ammette di non
+/// sapere bene cosa sia. Unire due notifiche in una lettura sola infilerebbe
+/// quel byte **dentro i dati**, e il sintomo sarebbe il peggiore possibile:
+/// nessun errore, un trasferimento «riuscito», e una memoria disallineata in
+/// cui i marcatori delle immersioni non si trovano più.
+///
+/// **Mares**, sul ramo a lunghezza variabile — Sirius, Puck 4, Puck Air 2 e
+/// **Quad Ci** — fa l'opposto: legge il pacchetto con UNA `dc_iostream_read` e
+/// si aspetta di trovarcelo tutto, dal `AA` iniziale al `EA` finale. Per gli
+/// altri modelli Mares libdivecomputer apre `dc_packet_open(…, 244, 20)`, che
+/// i pezzi li rimette insieme da sé; per questi no. Se il pacchetto non sta in
+/// una notifica, il primo byte c'è ma l'ultimo no, e la risposta viene
+/// rifiutata — quattro volte, che è il numero di `MAXRETRIES`.
+///
+/// Non è un'ipotesi: `il_pacchetto_del_mares_deve_stare_in_una_notifica_sola`
+/// lo misura contro libdivecomputer vera, e il confine cade **esattamente a
+/// 142 byte** per il pacchetto della versione.
+///
+/// Quindi la politica non può essere una sola, e non può nemmeno essere
+/// indovinata: la sceglie chi apre il collegamento, perché è l'unico che sa
+/// con quale computer sta per parlare.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Riassemblaggio {
+    /// Una notifica per lettura, mai due unite. È il comportamento per
+    /// difetto, ed è quello che serve a Uwatec.
+    UnaNotifica,
+    /// Le notifiche si rimettono insieme fino a riempire la lettura.
+    ///
+    /// Si uniscono solo finché ognuna arriva **piena**: su BLE un messaggio
+    /// più lungo dell'MTU viene spezzato in frammenti tutti della stessa
+    /// dimensione tranne l'ultimo, quindi una notifica più corta delle altre è
+    /// la fine del messaggio. È una regola del trasporto e non del protocollo,
+    /// ed è per questo che si può applicare senza sapere cosa c'è dentro.
+    PacchettoIntero,
+}
+
+/// Quanto si aspetta il pezzo successivo di un messaggio spezzato.
+///
+/// I frammenti di uno stesso messaggio arrivano a distanza di un intervallo di
+/// connessione — da 7,5 a 30 millisecondi sui parametri consueti — quindi
+/// quaranta è largo abbastanza per prenderli e corto abbastanza da non pesare.
+/// Nelle prove è cortissimo: una prova che aspetta per vedere un'attesa
+/// insegna a non lanciare le prove.
+const ATTESA_FRAMMENTO: Duration =
+    if cfg!(test) { Duration::from_millis(5) } else { Duration::from_millis(40) };
+
+/// Dopo quante attese a vuoto si smette di aspettare frammenti.
+///
+/// ► LA RAGIONE È IL COSTO. ◄ Un computer che manda ogni risposta in una
+/// notifica sola non spezza mai niente, e su millecinquecento letture
+/// quaranta millisecondi a testa sarebbero un minuto di attesa regalato. Tre
+/// attese a vuoto di fila dicono che questo apparecchio, con questo MTU, non
+/// spezza: da lì in poi si uniscono solo le notifiche già arrivate, senza
+/// aspettarne. Se poi un frammento arriva davvero, il conto riparte.
+const GRAZIE_PRIMA_DI_ARRENDERSI: usize = 3;
 
 /// Cosa ha fatto il ripiego sul silenzio, quando è stato chiamato.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -144,6 +257,17 @@ pub enum Ripiego {
 pub trait AccessoriBle: Send {
     fn nome(&mut self) -> Option<String>;
     fn leggi_caratteristica(&mut self, uuid: [u8; 16]) -> Result<Vec<u8>, String>;
+    /// Chiede le sei cifre a chi guarda lo schermo, e ASPETTA. Vedi
+    /// `FlussoByte::codice_pin`.
+    fn codice_pin(&mut self) -> Option<String> {
+        None
+    }
+    /// Il codice di accesso conservato da uno scarico precedente.
+    fn codice_accesso(&mut self) -> Option<Vec<u8>> {
+        None
+    }
+    /// Il codice di accesso appena emesso dal computer, da conservare.
+    fn salva_codice_accesso(&mut self, _codice: &[u8]) {}
 }
 
 impl FlussoBle {
@@ -159,7 +283,20 @@ impl FlussoBle {
             accessori: None,
             su_silenzio: None,
             ricevuto_qualcosa: false,
+            riassemblaggio: Riassemblaggio::UnaNotifica,
+            notifica_piena: 0,
+            aspetta_frammenti: true,
+            grazie_a_vuoto: 0,
         }
+    }
+
+    /// Lo stesso flusso, con la politica di riassemblaggio detta.
+    ///
+    /// La sceglie chi apre il collegamento, che è l'unico a sapere con quale
+    /// computer si sta per parlare. Vedi `Riassemblaggio`.
+    pub fn con_riassemblaggio(mut self, come: Riassemblaggio) -> Self {
+        self.riassemblaggio = come;
+        self
     }
 
     /// Lo stesso flusso, con gli accessori e il ripiego sul silenzio.
@@ -265,7 +402,46 @@ impl FlussoByte for FlussoBle {
             match self.arrivate.pop_front() {
                 Some(notifica) => {
                     self.ricevuto_qualcosa = true;
-                    self.avanzo.extend(notifica)
+                    let dimensione = notifica.len();
+                    self.notifica_piena = self.notifica_piena.max(dimensione);
+                    self.avanzo.extend(notifica);
+                    /*
+                     * ► IL MESSAGGIO SPEZZATO, RIMESSO INSIEME. ◄ Solo se la
+                     * politica lo chiede: vedi `Riassemblaggio` per il perché
+                     * non può valere per tutti.
+                     *
+                     * Si continua finché ogni notifica arriva PIENA, perché su
+                     * BLE i frammenti di uno stesso messaggio sono tutti della
+                     * dimensione massima tranne l'ultimo: una più corta è la
+                     * fine, e fermarsi lì costa zero attese.
+                     */
+                    if self.riassemblaggio == Riassemblaggio::PacchettoIntero {
+                        let mut ultima = dimensione;
+                        while self.avanzo.len() < quanti && ultima == self.notifica_piena {
+                            self.raccogli_subito();
+                            if self.arrivate.is_empty() {
+                                if !self.aspetta_frammenti {
+                                    break;
+                                }
+                                self.aspetta(ATTESA_FRAMMENTO)?;
+                                if self.arrivate.is_empty() {
+                                    self.grazie_a_vuoto += 1;
+                                    if self.grazie_a_vuoto >= GRAZIE_PRIMA_DI_ARRENDERSI {
+                                        self.aspetta_frammenti = false;
+                                    }
+                                    break;
+                                }
+                                // Un frammento è arrivato davvero: questo
+                                // apparecchio spezza, e il conto delle attese
+                                // a vuoto riparte da zero.
+                                self.grazie_a_vuoto = 0;
+                            }
+                            let Some(pezzo) = self.arrivate.pop_front() else { break };
+                            ultima = pezzo.len();
+                            self.notifica_piena = self.notifica_piena.max(ultima);
+                            self.avanzo.extend(pezzo);
+                        }
+                    }
                 }
                 None => return Ok(Vec::new()),
             }
@@ -291,6 +467,20 @@ impl FlussoByte for FlussoBle {
         }
     }
 
+    fn codice_pin(&mut self) -> Option<String> {
+        self.accessori.as_mut().and_then(|a| a.codice_pin())
+    }
+
+    fn codice_accesso(&mut self) -> Option<Vec<u8>> {
+        self.accessori.as_mut().and_then(|a| a.codice_accesso())
+    }
+
+    fn salva_codice_accesso(&mut self, codice: &[u8]) {
+        if let Some(a) = self.accessori.as_mut() {
+            a.salva_codice_accesso(codice);
+        }
+    }
+
     fn disponibili(&mut self) -> usize {
         self.raccogli_subito();
         self.avanzo.len() + self.arrivate.iter().map(Vec::len).sum::<usize>()
@@ -311,6 +501,7 @@ pub struct DcIostream {
 /// Gli stati di libdivecomputer che ci servono. Il resto sono errori e basta.
 const DC_STATUS_SUCCESS: c_int = 0;
 const DC_STATUS_UNSUPPORTED: c_int = -1;
+const DC_STATUS_INVALIDARGS: c_int = -2;
 const DC_STATUS_IO: c_int = -6;
 const DC_STATUS_TIMEOUT: c_int = -7;
 const DC_STATUS_DATAFORMAT: c_int = -9;
@@ -351,6 +542,15 @@ pub fn nome_stato(stato: c_int) -> &'static str {
  */
 /// Il nome Bluetooth del dispositivo, come stringa terminata da zero.
 const DC_IOCTL_BLE_GET_NAME: c_uint = 0x4000_6200;
+/// Il codice PIN d'accoppiamento, come stringa terminata da zero. Il buffer
+/// che `pelagic_i330r.c` passa è di sette byte: sei cifre più lo zero.
+const DC_IOCTL_BLE_GET_PINCODE: c_uint = 0x4000_6201;
+/// Il codice di accesso conservato, un array di byte di lunghezza variabile —
+/// sedici, per il Pelagic. Direzione lettura: lo chiede a noi.
+const DC_IOCTL_BLE_GET_ACCESSCODE: c_uint = 0x4000_6202;
+/// Lo stesso codice, appena ottenuto dal computer: qui la direzione è
+/// SCRITTURA, il bit più alto cambia, e il buffer va letto e non riempito.
+const DC_IOCTL_BLE_SET_ACCESSCODE: c_uint = 0x8000_6202;
 /// Leggere una caratteristica: nel buffer i primi 16 byte sono l'UUID, il
 /// resto riceve il valore.
 const DC_IOCTL_BLE_CHARACTERISTIC_READ: c_uint = 0x4000_6203;
@@ -618,6 +818,15 @@ extern "C" fn cb_write(
 /// chiede il nome tollera l'assenza (lo dichiara), chi chiede il codice PIN
 /// del Pelagic i330R si ferma con il SUO errore («Failed to get the PIN
 /// code»), che arriva come stato e non come annotazione nostra.
+///
+/// ► DAL 8 SETTEMBRE 2026 IL PIN SI SA CHIEDERE. ◄ Quel «Failed to get the
+/// PIN code» è arrivato per davvero, dal log di un Aqualung i330R provato al
+/// centro sub, ed era l'unico punto in cui `pelagic_i330r_init` non tollera
+/// un «non supportato». Adesso questa funzione risponde a **cinque** delle
+/// sei richieste di `ble.h`: il nome, il PIN, il codice di accesso in
+/// lettura e in scrittura, e la lettura di una caratteristica. Resta fuori
+/// la scrittura di una caratteristica, che nessun backend che ci interessa
+/// usa — e resta fuori dichiarandolo, non tacendo.
 extern "C" fn cb_ioctl(
     userdata: *mut c_void,
     request: c_uint,
@@ -648,6 +857,119 @@ extern "C" fn cb_ioctl(
                 std::ptr::copy_nonoverlapping(byte.as_ptr(), data as *mut u8, quanti);
                 *(data as *mut u8).add(quanti) = 0;
             }
+            DC_STATUS_SUCCESS
+        }
+        /*
+         * ► IL PIN DELL'AQUALUNG i330R, E IL MOTIVO PER CUI SI TRONCA MAI. ◄
+         *
+         * `pelagic_i330r.c` passa `char pincode[6 + 1]` e poi forza lo zero
+         * all'ultimo posto. Se il codice fosse più lungo del buffer e lo
+         * troncassimo, il backend manderebbe al computer un PIN sbagliato
+         * *senza che nessuno se ne accorga*: il computer rifiuterebbe, e il
+         * sintomo sarebbe «codice errato» con l'utente che ha digitato quello
+         * giusto. Un numero troncato è peggio di un errore, e qui si sceglie
+         * l'errore.
+         *
+         * `None` NON si annota: chi ha rinunciato lo sa già — è
+         * l'interfaccia che ha chiesto le cifre e non le ha avute — e sa
+         * dirlo meglio di quanto sappia farlo un trasporto.
+         */
+        DC_IOCTL_BLE_GET_PINCODE => {
+            let Some(pin) = s.flusso.codice_pin() else {
+                return DC_STATUS_UNSUPPORTED;
+            };
+            if size == 0 {
+                return DC_STATUS_UNSUPPORTED;
+            }
+            let byte = pin.as_bytes();
+            if byte.len() > size - 1 {
+                annota(
+                    &s.guasto,
+                    format!(
+                        "il codice PIN è di {} cifre e ce ne stanno {}",
+                        byte.len(),
+                        size - 1
+                    ),
+                );
+                return DC_STATUS_INVALIDARGS;
+            }
+            if !byte.iter().all(|c| c.is_ascii_digit()) {
+                // Lo controlla anche `pelagic_i330r_init_passcode`, e lì
+                // diventa «Invalid pincode character». Dirlo qui costa una
+                // riga e fa arrivare la causa nel diario nostro, dove chi
+                // legge la segnalazione la trova.
+                annota(&s.guasto, "il codice PIN contiene qualcosa che non è una cifra".into());
+                return DC_STATUS_INVALIDARGS;
+            }
+            // SICUREZZA: `data` copre `size` byte scrivibili, e se ne
+            // scrivono `byte.len() + 1 <= size`.
+            unsafe {
+                std::ptr::copy_nonoverlapping(byte.as_ptr(), data as *mut u8, byte.len());
+                *(data as *mut u8).add(byte.len()) = 0;
+            }
+            DC_STATUS_SUCCESS
+        }
+        /*
+         * Il codice di accesso conservato da uno scarico precedente.
+         *
+         * ► «NON SUPPORTATO» QUI NON È UN GUASTO, È LA PRIMA VOLTA. ◄
+         * `pelagic_i330r_init` tollera questa risposta apposta: se non c'è un
+         * codice, il buffer resta a zeri e il backend prende il ramo del PIN.
+         * Per questo, quando qualcosa non torna, si risponde «non supportato»
+         * **senza toccare il buffer**: si ricomincia dal PIN, che funziona
+         * sempre. Riempire il buffer a metà darebbe un codice inventato, e il
+         * computer chiuderebbe il collegamento senza dire perché.
+         */
+        DC_IOCTL_BLE_GET_ACCESSCODE => {
+            let Some(codice) = s.flusso.codice_accesso() else {
+                return DC_STATUS_UNSUPPORTED;
+            };
+            if codice.len() != size {
+                annota(
+                    &s.guasto,
+                    format!(
+                        "il codice di accesso conservato è di {} byte, ne servono {}: si riparte dal PIN",
+                        codice.len(),
+                        size
+                    ),
+                );
+                return DC_STATUS_UNSUPPORTED;
+            }
+            if codice.iter().all(|b| *b == 0) {
+                // Tutti zeri è esattamente ciò che il backend interpreta come
+                // «non c'è»: restituirlo come se fosse un codice vero non
+                // cambierebbe niente, e nasconderebbe una conservazione
+                // andata storta dietro un comportamento normale.
+                annota(&s.guasto, "il codice di accesso conservato è tutto zeri: si riparte dal PIN".into());
+                return DC_STATUS_UNSUPPORTED;
+            }
+            // SICUREZZA: `data` copre `size` byte scrivibili, e `codice` ne ha
+            // esattamente `size`.
+            unsafe {
+                std::ptr::copy_nonoverlapping(codice.as_ptr(), data as *mut u8, size);
+            }
+            DC_STATUS_SUCCESS
+        }
+        /*
+         * Il codice appena emesso dal computer, in risposta al PIN.
+         *
+         * Qui la direzione è SCRITTURA — il bit più alto della richiesta
+         * cambia — e il buffer va LETTO, non riempito. È l'unica `ioctl` di
+         * questo trasporto in cui i byte vanno nel verso opposto, ed è anche
+         * l'unica il cui esito il backend non guarda davvero:
+         * `pelagic_i330r_init` tollera «non supportato» anche qui. Rispondere
+         * «riuscito» senza conservare niente sarebbe però una bugia che si
+         * paga allo scarico dopo, quando il PIN verrebbe richiesto di nuovo
+         * senza che nessuno sappia perché.
+         */
+        DC_IOCTL_BLE_SET_ACCESSCODE => {
+            if size == 0 {
+                return DC_STATUS_UNSUPPORTED;
+            }
+            // SICUREZZA: `data` punta a `size` byte leggibili per la durata
+            // della chiamata.
+            let codice = unsafe { std::slice::from_raw_parts(data as *const u8, size) };
+            s.flusso.salva_codice_accesso(codice);
             DC_STATUS_SUCCESS
         }
         DC_IOCTL_BLE_CHARACTERISTIC_READ => {
@@ -2003,6 +2325,393 @@ mod prove {
         assert_eq!(*visti.lock().unwrap(), vec![0xAA, 0xBB]);
     }
 
+    // ------------------------------------------------- il finto Mares Quad Ci
+
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► LA DOMANDA CHE QUESTO FINTO ESISTE PER RISPONDERE. ◄
+     *
+     * Il 7 settembre 2026 un Mares Quad Ci prestato da un centro sub ha
+     * scaricato per un pezzo e poi si è fermato con «errore di protocollo»,
+     * ritentato quattro volte, con una risposta che arrivava a ogni
+     * tentativo. Una risposta che arriva ed è **persistentemente rifiutata**
+     * lascia solo tre possibilità, e sono scritte in
+     * `mares_iconhd_packet_variable`: primo byte diverso da `AA`, ultimo
+     * diverso da `EA`, oppure una lunghezza che non torna.
+     *
+     * La terza è quella che dipende da NOI, ed è misurabile qui: quel ramo del
+     * protocollo — quello dei Sirius, Puck 4, Puck Air 2 e **Quad Ci** — legge
+     * il pacchetto con UNA sola `dc_iostream_read` e si aspetta di trovarcelo
+     * tutto. Non c'è nessun livello che rimetta insieme i pezzi: per gli altri
+     * modelli Mares libdivecomputer apre `dc_packet_open(…, 244, 20)`, per
+     * questi no. E il nostro trasporto, per una ragione altrettanto solida —
+     * il numero di sequenza in testa a ogni notifica degli Uwatec — consegna
+     * **al massimo una notifica per lettura**.
+     *
+     * Quindi: se la risposta del computer non sta in una notifica sola, questo
+     * protocollo non può funzionare. Il pacchetto della versione è di 142 byte
+     * (`AA` + 140 + `EA`), i segmenti arrivano a 244. Il finto qui sotto
+     * risponde davvero come il computer vero, e la dimensione della notifica è
+     * il PARAMETRO: si misura dove passa il confine, invece di dedurlo.
+     */
+
+    /// Il Mares Quad Ci, per quel tanto che serve a far parlare
+    /// `mares_iconhd.c` sul suo ramo BLE a lunghezza variabile.
+    ///
+    /// Il protocollo: si scrivono due byte `[cmd, cmd ^ 0xA5]`, si legge
+    /// `AA <corpo> EA`. Il finto risponde solo al comando della versione — è
+    /// il primo, ed è già abbastanza per rispondere alla domanda: se non passa
+    /// quello, non passa niente.
+    struct FintoQuadCi {
+        /// Quanti byte al massimo in una notifica. È il numero sotto esame:
+        /// su BLE vale l'MTU negoziato meno tre.
+        notifica: usize,
+        risposta: VecDeque<Vec<u8>>,
+        ricevuto: Vec<u8>,
+        /// Quante volte è stato chiesto il pacchetto della versione: serve a
+        /// vedere i ritentativi di `mares_iconhd_transfer`.
+        versioni_chieste: Arc<Mutex<usize>>,
+    }
+
+    impl FintoQuadCi {
+        const XOR: u8 = 0xA5;
+        const ACK: u8 = 0xAA;
+        const END: u8 = 0xEA;
+        const CMD_VERSION: u8 = 0xC2;
+
+        fn nuovo(notifica: usize, versioni_chieste: Arc<Mutex<usize>>) -> Self {
+            Self { notifica, risposta: VecDeque::new(), ricevuto: Vec::new(), versioni_chieste }
+        }
+
+        /// Il pacchetto della versione: 140 byte, con il nome del prodotto a
+        /// 0x46 — è lì che `mares_iconhd_get_model` va a cercarlo, e senza il
+        /// nome giusto il modello resta zero.
+        fn pacchetto_versione() -> Vec<u8> {
+            let mut corpo = vec![0u8; 140];
+            corpo[0x46..0x46 + 7].copy_from_slice(b"Quad Ci");
+            corpo
+        }
+
+        /// Impacchetta come il computer vero: `AA` in testa, `EA` in coda, e
+        /// poi taglia in notifiche della dimensione dichiarata.
+        fn accoda(&mut self, corpo: &[u8]) {
+            let mut pacchetto = Vec::with_capacity(corpo.len() + 2);
+            pacchetto.push(Self::ACK);
+            pacchetto.extend_from_slice(corpo);
+            pacchetto.push(Self::END);
+            for pezzo in pacchetto.chunks(self.notifica) {
+                self.risposta.push_back(pezzo.to_vec());
+            }
+        }
+    }
+
+    impl FlussoByte for FintoQuadCi {
+        fn scrivi(&mut self, dati: &[u8]) -> Result<(), String> {
+            self.ricevuto.extend_from_slice(dati);
+            while self.ricevuto.len() >= 2 {
+                let comando = self.ricevuto[0];
+                let controllo = self.ricevuto[1];
+                self.ricevuto.drain(..2);
+                // Il secondo byte è il primo XOR 0xA5: un comando che non
+                // torna non è un comando, e il computer vero non risponde.
+                if controllo != comando ^ Self::XOR {
+                    continue;
+                }
+                if comando == Self::CMD_VERSION {
+                    *self.versioni_chieste.lock().unwrap() += 1;
+                    let versione = Self::pacchetto_versione();
+                    self.accoda(&versione);
+                }
+                // A tutti gli altri comandi non si risponde: dopo la versione
+                // la prova non ha più niente da misurare, e il silenzio
+                // diventa «tempo scaduto», che è distinguibile da «errore di
+                // protocollo» — ed è esattamente la distinzione che serve.
+            }
+            Ok(())
+        }
+        fn leggi(&mut self, quanti: usize, _attesa: Duration) -> Result<Vec<u8>, String> {
+            match self.risposta.pop_front() {
+                Some(notifica) if notifica.len() <= quanti => Ok(notifica),
+                Some(mut notifica) => {
+                    let resto = notifica.split_off(quanti);
+                    self.risposta.push_front(resto);
+                    Ok(notifica)
+                }
+                None => Ok(Vec::new()),
+            }
+        }
+        fn disponibili(&mut self) -> usize {
+            self.risposta.iter().map(Vec::len).sum()
+        }
+    }
+
+    /// Apre il Quad Ci con notifiche di quella dimensione, e dice com'è andata.
+    fn quadci_con_notifiche(dimensione: usize) -> (String, usize) {
+        let descrittore =
+            trova_descrittore("Mares", "Quad Ci").expect("il descrittore del Quad Ci deve esistere");
+        let chieste = Arc::new(Mutex::new(0));
+        let finto = FintoQuadCi::nuovo(dimensione, chieste.clone());
+        let collegamento = CollegamentoLdc::apri(Box::new(finto)).unwrap();
+        let esito = match collegamento.scarica(&descrittore) {
+            Ok(_) => "riuscito".to_string(),
+            Err(errore) => errore,
+        };
+        let n = *chieste.lock().unwrap();
+        (esito, n)
+    }
+
+    #[test]
+    fn il_pacchetto_del_mares_deve_stare_in_una_notifica_sola() {
+        /*
+         * ► IL CONFINE, MISURATO. ◄ Il pacchetto della versione è di 142 byte:
+         * `AA`, centoquaranta di corpo, `EA`. Con notifiche capaci di
+         * contenerlo, libdivecomputer lo accetta e va avanti — e si ferma più
+         * in là per «tempo scaduto», perché questo finto non risponde ad
+         * altro. Con notifiche più corte lo stesso identico pacchetto diventa
+         * «errore di protocollo», e viene ritentato quattro volte prima di
+         * arrendersi: è la firma esatta di quello che ha fatto il Quad Ci del
+         * centro sub.
+         *
+         * Questa prova non dice che il difetto del 7 settembre sia questo:
+         * dice che questo difetto **esiste**, che ha esattamente quella
+         * firma, e che dipende da un numero — la dimensione della notifica —
+         * che nessuno stava misurando. Per quello adesso il riassunto dello
+         * scambio la scrive.
+         */
+        let (largo, chieste_largo) = quadci_con_notifiche(244);
+        assert!(
+            largo.contains("stato -7") || largo.contains("tempo scaduto"),
+            "con una notifica capiente la versione passa, e ci si ferma dopo: {largo}"
+        );
+        assert_eq!(chieste_largo, 1, "e la versione si chiede una volta sola");
+
+        let (stretto, chieste_stretto) = quadci_con_notifiche(100);
+        assert!(
+            stretto.contains("stato -8") || stretto.contains("protocollo"),
+            "con una notifica corta lo stesso pacchetto è un errore di protocollo: {stretto}"
+        );
+        assert_eq!(
+            chieste_stretto, 5,
+            "e viene ritentato quattro volte, come dice MAXRETRIES in mares_iconhd.c"
+        );
+    }
+
+    /// Lo stesso finto Quad Ci, ma dietro un `FlussoBle` vero — cioè con il
+    /// canale delle notifiche in mezzo, che è dov'è il riassemblaggio.
+    fn quadci_dietro_il_flusso(dimensione: usize, come: Riassemblaggio) -> (String, usize) {
+        let descrittore =
+            trova_descrittore("Mares", "Quad Ci").expect("il descrittore del Quad Ci deve esistere");
+        let chieste = Arc::new(Mutex::new(0usize));
+        let (manda, ricevi) = channel();
+        let per_chiusura = chieste.clone();
+        let mut ricevuto: Vec<u8> = Vec::new();
+        let scrittura = move |dati: &[u8]| -> Result<(), String> {
+            ricevuto.extend_from_slice(dati);
+            while ricevuto.len() >= 2 {
+                let comando = ricevuto[0];
+                let controllo = ricevuto[1];
+                ricevuto.drain(..2);
+                if controllo != comando ^ FintoQuadCi::XOR || comando != FintoQuadCi::CMD_VERSION {
+                    continue;
+                }
+                *per_chiusura.lock().unwrap() += 1;
+                let corpo = FintoQuadCi::pacchetto_versione();
+                let mut pacchetto = Vec::with_capacity(corpo.len() + 2);
+                pacchetto.push(FintoQuadCi::ACK);
+                pacchetto.extend_from_slice(&corpo);
+                pacchetto.push(FintoQuadCi::END);
+                // Una notifica per pezzo, come il Bluetooth vero quando il
+                // messaggio non sta nell'MTU.
+                for pezzo in pacchetto.chunks(dimensione) {
+                    let _ = manda.send(pezzo.to_vec());
+                }
+            }
+            Ok(())
+        };
+        let flusso = FlussoBle::nuovo(ricevi, Box::new(scrittura)).con_riassemblaggio(come);
+        let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+        let esito = match collegamento.scarica(&descrittore) {
+            Ok(_) => "riuscito".to_string(),
+            Err(errore) => errore,
+        };
+        let n = *chieste.lock().unwrap();
+        (esito, n)
+    }
+
+    #[test]
+    fn il_riassemblaggio_rimette_insieme_il_pacchetto_spezzato_del_mares() {
+        /*
+         * ► LA CORREZIONE, MISURATA CONTRO LO STESSO FINTO CHE HA MOSTRATO IL
+         * DIFETTO. ◄
+         *
+         * Notifiche da cento byte, pacchetto da centoquarantadue: spezzato in
+         * due. Con la politica di prima — una notifica per lettura — è «errore
+         * di protocollo» ritentato quattro volte. Con il riassemblaggio è lo
+         * stesso pacchetto, intero, e si passa oltre: l'errore che resta è
+         * «tempo scaduto», perché questo finto dopo la versione non risponde
+         * più a niente.
+         *
+         * Le due righe qui sotto sono la stessa situazione con l'unica
+         * differenza che conta.
+         */
+        let (senza, chieste_senza) = quadci_dietro_il_flusso(100, Riassemblaggio::UnaNotifica);
+        assert!(senza.contains("stato -8"), "senza riassemblaggio: protocollo. {senza}");
+        assert_eq!(chieste_senza, 5, "e quattro ritentativi");
+
+        let (con, chieste_con) = quadci_dietro_il_flusso(100, Riassemblaggio::PacchettoIntero);
+        assert!(con.contains("stato -7"), "con il riassemblaggio la versione passa: {con}");
+        assert_eq!(chieste_con, 1, "e non c'è niente da ritentare");
+    }
+
+    #[test]
+    fn il_riassemblaggio_non_cambia_niente_quando_il_pacchetto_gia_ci_stava() {
+        // La stessa politica su un apparecchio che non spezza: deve
+        // comportarsi come prima, e non aspettare frammenti che non ci sono.
+        let (con, chieste) = quadci_dietro_il_flusso(244, Riassemblaggio::PacchettoIntero);
+        assert!(con.contains("stato -7"), "{con}");
+        assert_eq!(chieste, 1);
+    }
+
+    #[test]
+    fn unire_le_notifiche_e_una_scelta_e_non_il_comportamento_per_difetto() {
+        /*
+         * ► LA GUARDIA CHE PROTEGGE GLI UWATEC. ◄ Se il riassemblaggio
+         * diventasse il comportamento per difetto, gli Aladin scaricherebbero
+         * una memoria disallineata **senza nessun errore**: il byte di
+         * sequenza in testa a ogni notifica finirebbe dentro i dati. Il
+         * sintomo sarebbe «zero immersioni» dopo un trasferimento riuscito.
+         *
+         * Qui si prova la cosa a monte di tutte: un flusso appena costruito
+         * consegna una notifica per volta, e due notifiche non si uniscono mai
+         * da sole.
+         */
+        let (manda, ricevi) = channel();
+        let mut flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())));
+        manda.send(vec![0xf7, 1, 2, 3]).unwrap();
+        manda.send(vec![0x14, 4, 5, 6]).unwrap();
+        let primo = flusso.leggi(100, Duration::from_millis(50)).unwrap();
+        assert_eq!(primo, vec![0xf7, 1, 2, 3], "una notifica, non due unite");
+        let secondo = flusso.leggi(100, Duration::from_millis(50)).unwrap();
+        assert_eq!(secondo, vec![0x14, 4, 5, 6]);
+
+        // E con il riassemblaggio acceso, le stesse due si uniscono: è la
+        // differenza che rende la scelta una scelta.
+        let (manda, ricevi) = channel();
+        let mut unito = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())))
+            .con_riassemblaggio(Riassemblaggio::PacchettoIntero);
+        manda.send(vec![0xf7, 1, 2, 3]).unwrap();
+        manda.send(vec![0x14, 4, 5, 6]).unwrap();
+        assert_eq!(
+            unito.leggi(100, Duration::from_millis(50)).unwrap(),
+            vec![0xf7, 1, 2, 3, 0x14, 4, 5, 6]
+        );
+    }
+
+    #[test]
+    fn una_notifica_piu_corta_delle_altre_chiude_il_messaggio_senza_aspettare() {
+        /*
+         * La regola che rende il riassemblaggio gratuito: su BLE i frammenti
+         * di uno stesso messaggio sono tutti della dimensione massima tranne
+         * l'ultimo. Quindi una notifica più corta è la fine, e non si aspetta
+         * niente — se si aspettasse, si rischierebbe di risucchiare dentro
+         * questa lettura la risposta al comando successivo.
+         */
+        let (manda, ricevi) = channel();
+        let mut flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())))
+            .con_riassemblaggio(Riassemblaggio::PacchettoIntero);
+        manda.send(vec![1, 2, 3, 4]).unwrap();
+        manda.send(vec![5, 6]).unwrap();
+        manda.send(vec![7, 8, 9, 0]).unwrap();
+        // Le prime due si uniscono (la seconda è più corta: fine del
+        // messaggio), la terza resta per la lettura dopo.
+        assert_eq!(flusso.leggi(100, Duration::from_millis(50)).unwrap(), vec![1, 2, 3, 4, 5, 6]);
+        assert_eq!(flusso.leggi(100, Duration::from_millis(50)).unwrap(), vec![7, 8, 9, 0]);
+    }
+
+    #[test]
+    fn un_frammento_che_arriva_dopo_si_aspetta_e_non_si_perde() {
+        /*
+         * ► LA PROVA CHE DISTINGUE «UNIRE» DA «ASPETTARE». ◄
+         *
+         * Tutte le altre prove del riassemblaggio mettono i pezzi nel canale
+         * PRIMA di leggere, e allora unirli non costa niente. Ma il Bluetooth
+         * vero non funziona così: i frammenti di uno stesso messaggio arrivano
+         * a distanza di un intervallo di connessione, e quando la lettura
+         * comincia il secondo pezzo **non c'è ancora**. Senza l'attesa, quella
+         * lettura consegnerebbe mezzo pacchetto — che è esattamente il difetto
+         * da cui è nato tutto questo.
+         *
+         * Qui il secondo pezzo arriva da un altro thread, in ritardo, e la
+         * lettura deve trovarlo lo stesso.
+         */
+        let (manda, ricevi) = channel();
+        let mut flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())))
+            .con_riassemblaggio(Riassemblaggio::PacchettoIntero);
+        manda.send(vec![0xaa; 8]).unwrap();
+        std::thread::spawn(move || {
+            // Meno dell'attesa dei frammenti, che nelle prove è di cinque
+            // millisecondi: il pezzo arriva in ritardo ma dentro la finestra.
+            std::thread::sleep(Duration::from_millis(1));
+            let _ = manda.send(vec![0xea; 3]);
+        });
+        let letto = flusso.leggi(100, Duration::from_millis(200)).unwrap();
+        assert_eq!(letto.len(), 11, "il pezzo in ritardo va aspettato, non perso");
+        assert_eq!(letto[10], 0xea);
+    }
+
+    #[test]
+    fn dopo_tre_attese_a_vuoto_si_smette_di_aspettare_frammenti() {
+        /*
+         * ► IL COSTO, E PERCHÉ SI PAGA UNA VOLTA SOLA. ◄ Un computer che manda
+         * ogni risposta in una notifica sola non spezza mai niente. Aspettare
+         * un frammento a ogni lettura, su millecinquecento letture, sarebbe un
+         * minuto regalato. Tre attese a vuoto bastano a dire che questo
+         * apparecchio, con questo MTU, non spezza.
+         *
+         * Si misura nel tempo, che è l'unica cosa che conta: le prime letture
+         * pagano l'attesa, le successive no.
+         */
+        let (manda, ricevi) = channel();
+        let mut flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())))
+            .con_riassemblaggio(Riassemblaggio::PacchettoIntero);
+        /*
+         * Una notifica alla volta, e la lettura subito dopo: è così che vanno
+         * le cose con un computer vero, che risponde a un comando per volta.
+         * Mandarne dodici tutte insieme proverebbe un'altra cosa — che quelle
+         * già arrivate si uniscono, ed è la prova qui sopra.
+         *
+         * Sono tutte della stessa dimensione, quindi ognuna sembra «piena» e
+         * il riassemblaggio proverebbe sempre ad aspettarne un'altra.
+         */
+        let mut attese = Vec::new();
+        for _ in 0..12 {
+            manda.send(vec![1, 2, 3, 4]).unwrap();
+            let inizio = std::time::Instant::now();
+            assert_eq!(flusso.leggi(100, Duration::from_millis(50)).unwrap().len(), 4);
+            attese.push(inizio.elapsed());
+        }
+        // Le prime tre hanno aspettato; dalla quarta in poi no. Il confronto è
+        // fra le due metà e non su un numero assoluto: una prova che inchioda
+        // i millisecondi diventa rossa sulla macchina di qualcun altro.
+        let prime: Duration = attese[..3].iter().sum();
+        let ultime: Duration = attese[9..].iter().sum();
+        assert!(
+            prime > ultime * 3,
+            "le prime tre letture aspettano, le ultime tre no: {prime:?} contro {ultime:?}"
+        );
+    }
+
+    #[test]
+    fn il_confine_del_mares_sta_esattamente_a_centoquarantadue_byte() {
+        // Centoquaranta di corpo più `AA` ed `EA`. Un byte meno e si spezza:
+        // il numero non è arrotondato, ed è quello che rende questa prova utile
+        // il giorno che qualcuno cambierà la dimensione delle notifiche.
+        let (giusto, _) = quadci_con_notifiche(142);
+        assert!(giusto.contains("stato -7"), "142 byte bastano: {giusto}");
+        let (uno_in_meno, _) = quadci_con_notifiche(141);
+        assert!(uno_in_meno.contains("stato -8"), "141 no: {uno_in_meno}");
+    }
+
     // ------------------------------------------------------- le ioctl e i guasti
 
     /// Un flusso che risponde alle domande accessorie, e basta.
@@ -2130,6 +2839,168 @@ mod prove {
         collegamento.svuota();
         manda.send(vec![9]).unwrap();
         assert_eq!(collegamento.leggi(10).unwrap(), vec![9], "l'avanzo [3, 4] deve essere sparito");
+    }
+
+    /// Un flusso che sa le tre cose dell'accoppiamento, e registra cosa gli è
+    /// stato chiesto e cosa gli è stato dato da conservare.
+    struct ConSegreti {
+        pin: Option<String>,
+        codice: Option<Vec<u8>>,
+        conservato: Arc<Mutex<Option<Vec<u8>>>>,
+        chieste: Arc<Mutex<usize>>,
+    }
+
+    impl FlussoByte for ConSegreti {
+        fn scrivi(&mut self, _dati: &[u8]) -> Result<(), String> {
+            Err("questo flusso non scrive: è qui per le ioctl".into())
+        }
+        fn leggi(&mut self, _quanti: usize, _attesa: Duration) -> Result<Vec<u8>, String> {
+            Err("il collegamento Bluetooth si è chiuso".into())
+        }
+        fn disponibili(&mut self) -> usize {
+            0
+        }
+        fn codice_pin(&mut self) -> Option<String> {
+            *self.chieste.lock().unwrap() += 1;
+            self.pin.clone()
+        }
+        fn codice_accesso(&mut self) -> Option<Vec<u8>> {
+            self.codice.clone()
+        }
+        fn salva_codice_accesso(&mut self, codice: &[u8]) {
+            *self.conservato.lock().unwrap() = Some(codice.to_vec());
+        }
+    }
+
+    #[allow(clippy::type_complexity)]
+    fn con_segreti(
+        pin: Option<&str>,
+        codice: Option<Vec<u8>>,
+    ) -> (CollegamentoLdc, Arc<Mutex<Option<Vec<u8>>>>, Arc<Mutex<usize>>) {
+        let conservato = Arc::new(Mutex::new(None));
+        let chieste = Arc::new(Mutex::new(0));
+        let flusso = ConSegreti {
+            pin: pin.map(String::from),
+            codice,
+            conservato: conservato.clone(),
+            chieste: chieste.clone(),
+        };
+        (CollegamentoLdc::apri(Box::new(flusso)).unwrap(), conservato, chieste)
+    }
+
+    #[test]
+    fn il_pin_arriva_come_stringa_c_nel_buffer_da_sette_byte_del_pelagic() {
+        /*
+         * La strada vera: `dc_iostream_ioctl` → `custom.c` → `cb_ioctl`. È
+         * quella che `pelagic_i330r_init` percorre dopo aver acceso il PIN
+         * sullo schermo del computer, e l'unica in cui un «non supportato»
+         * non è tollerato: è dove si fermava l'i330R del centro sub.
+         *
+         * Sette byte non è un numero scelto da noi: è `char pincode[6 + 1]`
+         * in `pelagic_i330r.c`.
+         */
+        let (collegamento, _, chieste) = con_segreti(Some("482915"), None);
+        let mut buffer = [0xffu8; 7];
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_GET_PINCODE, &mut buffer), DC_STATUS_SUCCESS);
+        assert_eq!(&buffer[..6], b"482915");
+        assert_eq!(buffer[6], 0, "terminata da zero, come una stringa C");
+        assert_eq!(*chieste.lock().unwrap(), 1, "si chiede una volta sola");
+    }
+
+    #[test]
+    fn un_pin_piu_lungo_del_posto_e_un_errore_e_non_un_troncamento() {
+        /*
+         * ► IL CUORE DI QUESTA `ioctl`. ◄ Troncare darebbe al computer un PIN
+         * **diverso** da quello digitato, e il computer lo rifiuterebbe: il
+         * sintomo sarebbe «codice errato» a chi ha digitato quello giusto, che
+         * è il modo peggiore di sbagliare. Un errore qui è leggibile; un
+         * numero troncato no.
+         */
+        let (collegamento, _, _) = con_segreti(Some("4829150"), None);
+        let mut buffer = [0xffu8; 7];
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_GET_PINCODE, &mut buffer), DC_STATUS_INVALIDARGS);
+        assert_eq!(buffer, [0xff; 7], "il buffer non va toccato");
+        assert!(
+            collegamento.spiega(DC_STATUS_INVALIDARGS).contains("7 cifre e ce ne stanno 6"),
+            "{}",
+            collegamento.spiega(DC_STATUS_INVALIDARGS)
+        );
+
+        // E quello che cifra non è: `pelagic_i330r_init_passcode` lo
+        // rifiuterebbe comunque, ma con la causa dalla sua parte e non dalla
+        // nostra — e il diario che si allega a una segnalazione è il nostro.
+        let (collegamento, _, _) = con_segreti(Some("48291a"), None);
+        let mut buffer = [0xffu8; 7];
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_GET_PINCODE, &mut buffer), DC_STATUS_INVALIDARGS);
+        assert!(collegamento.spiega(DC_STATUS_INVALIDARGS).contains("non è una cifra"));
+    }
+
+    #[test]
+    fn senza_pin_si_dice_non_supportato_e_il_backend_si_ferma_dicendo_cosa_manca() {
+        // Chi rinuncia lo sa già: qui non si annota niente, e si risponde la
+        // sola cosa vera — «non lo so».
+        let (collegamento, _, chieste) = con_segreti(None, None);
+        let mut buffer = [0xffu8; 7];
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_GET_PINCODE, &mut buffer), DC_STATUS_UNSUPPORTED);
+        assert_eq!(buffer, [0xff; 7]);
+        assert_eq!(*chieste.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn il_codice_di_accesso_conservato_si_restituisce_solo_se_e_intero() {
+        // Sedici byte, che è quanto `pelagic_i330r_device_t` tiene da parte.
+        let buono: Vec<u8> = (1u8..=16).collect();
+        let (collegamento, _, _) = con_segreti(None, Some(buono.clone()));
+        let mut buffer = [0u8; 16];
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_GET_ACCESSCODE, &mut buffer), DC_STATUS_SUCCESS);
+        assert_eq!(&buffer[..], &buono[..]);
+
+        /*
+         * ► LA LUNGHEZZA SBAGLIATA NON RIEMPIE MEZZO BUFFER. ◄ Riempirlo a
+         * metà darebbe un codice inventato, e il computer chiuderebbe il
+         * collegamento senza dire perché. «Non supportato» invece è la
+         * risposta che `pelagic_i330r_init` tollera apposta: riparte dal PIN,
+         * che funziona sempre.
+         */
+        let (collegamento, _, _) = con_segreti(None, Some(vec![1, 2, 3]));
+        let mut buffer = [0xffu8; 16];
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_GET_ACCESSCODE, &mut buffer), DC_STATUS_UNSUPPORTED);
+        assert_eq!(buffer, [0xff; 16], "il buffer non va toccato");
+        assert!(collegamento.spiega(DC_STATUS_UNSUPPORTED).contains("si riparte dal PIN"));
+
+        // E tutti zeri è esattamente ciò che il backend legge come «non c'è»:
+        // restituirlo come se fosse un codice nasconderebbe una conservazione
+        // andata storta dietro un comportamento normale.
+        let (collegamento, _, _) = con_segreti(None, Some(vec![0; 16]));
+        let mut buffer = [0xffu8; 16];
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_GET_ACCESSCODE, &mut buffer), DC_STATUS_UNSUPPORTED);
+        assert!(collegamento.spiega(DC_STATUS_UNSUPPORTED).contains("tutto zeri"));
+
+        // Senza niente da parte: la prima volta, ed è normale.
+        let (collegamento, _, _) = con_segreti(None, None);
+        let mut buffer = [0xffu8; 16];
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_GET_ACCESSCODE, &mut buffer), DC_STATUS_UNSUPPORTED);
+        assert_eq!(buffer, [0xff; 16]);
+    }
+
+    #[test]
+    fn il_codice_di_accesso_nuovo_si_conserva_e_i_byte_vanno_nel_verso_opposto() {
+        /*
+         * L'unica `ioctl` di questo trasporto in cui i byte si LEGGONO dal
+         * buffer invece di scriverli: la direzione sta nel bit più alto della
+         * richiesta, `0x8000_6202` contro `0x4000_6202`. Confonderle darebbe
+         * un codice di zeri conservato al posto di quello vero, e il PIN
+         * richiesto a ogni scarico senza che nessuno capisca perché.
+         */
+        let (collegamento, conservato, _) = con_segreti(None, None);
+        let mut codice: Vec<u8> = (0xa0u8..0xb0).collect();
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_SET_ACCESSCODE, &mut codice), DC_STATUS_SUCCESS);
+        assert_eq!(conservato.lock().unwrap().as_deref(), Some(&codice[..]));
+
+        // Zero byte non è un codice: non si conserva niente e si dice.
+        let (collegamento, conservato, _) = con_segreti(None, None);
+        assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_SET_ACCESSCODE, &mut []), DC_STATUS_UNSUPPORTED);
+        assert!(conservato.lock().unwrap().is_none());
     }
 
     #[test]

@@ -362,7 +362,8 @@ pub fn run() {
         ritorno_accesso::apri_ritorno_accesso,
         computer_esterni::elenca_computer_supportati,
         computer_esterni::riconosci_computer_esterno,
-        ponte_blec::scarica_da_computer_esterno
+        ponte_blec::scarica_da_computer_esterno,
+        ponte_blec::rispondi_codice_pin
     ]);
 
     // Su iOS due differenze: l'esportazione di un file, che qui non può passare
@@ -376,7 +377,8 @@ pub fn run() {
         esporta_nei_documenti,
         computer_esterni::elenca_computer_supportati,
         computer_esterni::riconosci_computer_esterno,
-        ponte_blec::scarica_da_computer_esterno
+        ponte_blec::scarica_da_computer_esterno,
+        ponte_blec::rispondi_codice_pin
     ]);
 
     /*
@@ -407,7 +409,8 @@ pub fn run() {
         ritorno_accesso::apri_ritorno_accesso,
         computer_esterni::elenca_computer_supportati,
         computer_esterni::riconosci_computer_esterno,
-        ponte_blec::scarica_da_computer_esterno
+        ponte_blec::scarica_da_computer_esterno,
+        ponte_blec::rispondi_codice_pin
     ]);
 
     #[cfg(target_os = "android")]
@@ -415,7 +418,8 @@ pub fn run() {
         ritorno_accesso::apri_ritorno_accesso,
         computer_esterni::elenca_computer_supportati,
         computer_esterni::riconosci_computer_esterno,
-        ponte_blec::scarica_da_computer_esterno
+        ponte_blec::scarica_da_computer_esterno,
+        ponte_blec::rispondi_codice_pin
     ]);
 
     builder

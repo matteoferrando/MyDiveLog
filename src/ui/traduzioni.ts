@@ -2466,6 +2466,14 @@ export const INGLESE: Record<string, string> = {
 
   // --- lo scarico dal computer subacqueo ---
   'Collegamento in corso…': 'Connecting…',
+  'Il computer chiede un codice': 'The computer is asking for a code',
+  'Sullo schermo del computer subacqueo è comparso un numero di sei cifre. Scrivilo qui sotto.':
+    'A six-digit number has appeared on your dive computer’s screen. Type it below.',
+  'Serve solo la prima volta: dopo, il collegamento è diretto.':
+    'Only needed the first time: after that, it connects straight away.',
+  'Le sei cifre mostrate dal computer': 'The six digits shown by the computer',
+  Conferma: 'Confirm',
+  'Annulla lo scarico': 'Cancel the download',
   'Conteggio delle immersioni…': 'Counting dives…',
   'Lo scarico si è interrotto. Non è stata salvata nessuna immersione.':
     'The download was interrupted. No dive was saved.',
