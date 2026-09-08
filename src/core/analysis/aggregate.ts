@@ -11,6 +11,7 @@
 import { oxygenLoad, type OxygenLoad } from './oxygen';
 import { LIMITS, type Dive } from '../model';
 import { DEEP_STOP_MIN_DEPTH_M } from './metrics';
+import { temperaturaMinimaC } from '../temperatura';
 
 export interface Bucket {
   label: string;
@@ -291,7 +292,10 @@ export function aggregate(dives: Dive[], now: number = Date.now()): Aggregates {
       (d) => (d.metrics?.decoS ?? 0) >= 60 || (d.reported?.maxDecoObligationS ?? 0) >= 60,
     ).length,
     ccrDives: sorted.filter((d) => d.mode === 'ccr').length,
-    coldDives: sorted.filter((d) => (d.minTempC ?? 99) <= 14).length,
+    // La temperatura si prende da dove c'è: con il solo campo dichiarato,
+    // un'immersione fredda importata da un formato che non lo scrive non veniva
+    // **mai** contata fredda, pur avendo il freddo scritto su ogni campione.
+    coldDives: sorted.filter((d) => (temperaturaMinimaC(d) ?? 99) <= 14).length,
 
     gf99,
     avgGf99: mean(gf99.map((p) => p.value)),
@@ -769,8 +773,8 @@ export function tempByMonth(dives: Dive[]): Bucket[] {
   const MONTHS = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
   return MONTHS.map((label, i) => {
     const temps = dives
-      .filter((d) => localeDi(d).getUTCMonth() === i && d.minTempC !== undefined)
-      .map((d) => d.minTempC as number);
+      .filter((d) => localeDi(d).getUTCMonth() === i && temperaturaMinimaC(d) !== undefined)
+      .map((d) => temperaturaMinimaC(d) as number);
     return { label, key: String(i).padStart(2, '0'), value: temps.length ? round(mean(temps) ?? 0, 1) : 0 };
   });
 }

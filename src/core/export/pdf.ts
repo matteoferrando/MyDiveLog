@@ -45,6 +45,7 @@ import type { Dive, Sample } from '../model';
 import { libretto, type Subacqueo } from '../libretto';
 import { firmaVuota, type FirmaGuida } from '../firma';
 import { formatDuration } from '../units';
+import { temperaturaMinimaC } from '../temperatura';
 import type { FoglioPiano } from './planPrint';
 
 /** A4 in punti tipografici, arrotondato: il PDF misura tutto in questa unità. */
@@ -502,7 +503,10 @@ function contenutoPagina(dive: Dive, samples: Sample[], opts: PdfOptions): strin
     ['Profondità massima', `${dive.maxDepth.toFixed(1)} m`],
     ['Durata', formatDuration(dive.durationS)],
     ['Profondità media', dive.avgDepth === undefined ? '—' : `${dive.avgDepth.toFixed(1)} m`],
-    ['Temperatura minima', dive.minTempC === undefined ? '—' : `${dive.minTempC.toFixed(1)} °C`],
+    [
+      'Temperatura minima',
+      temperaturaMinimaC(dive) === undefined ? '—' : `${temperaturaMinimaC(dive)!.toFixed(1)} °C`,
+    ],
   ];
   const passo = (LARGHEZZA - MARGINE * 2) / numeri.length;
   numeri.forEach(([etichetta, valore], i) => {

@@ -35,6 +35,7 @@ import {
 import { perMeteo, perStatoDelMare, perVisibilita, quanteConCondizioni } from '../../core/conditions';
 import { Vuoto } from '../components/Vuoto';
 import { useLingua } from '../lingua';
+import { temperaturaMinimaC } from '../../core/temperatura';
 
 type Series = 'rmv' | 'trim' | 'ascent' | 'gf99';
 
@@ -714,7 +715,7 @@ function Correlations({
       hint: 'Il freddo alza il consumo: qui vedi di quanto.',
       points: pairsOf(
         dives,
-        (d) => d.minTempC,
+        (d) => temperaturaMinimaC(d),
         (d) => d.metrics?.rmvLpm,
       ),
       xLabel: 'temperatura minima (°C)',

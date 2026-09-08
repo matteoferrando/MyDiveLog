@@ -25,6 +25,7 @@
 
 import type { Dive } from '../model';
 import { normalizzaNome, piastraDellImmersione, zavorraTotaleKg, type Equipment } from './gear';
+import { temperaturaMinimaC } from '../temperatura';
 
 // ---------------------------------------------------------------------------
 // Attrezzi di cui si parla
@@ -172,7 +173,7 @@ export function mutaPerTemperatura(dives: Dive[], minDives = 3): RigaMutaTempera
   const out: RigaMutaTemperatura[] = [];
   for (const g of per.values()) {
     if (g.dives.length < minDives) continue;
-    const temp = numeri(g.dives, (d) => d.minTempC);
+    const temp = numeri(g.dives, (d) => temperaturaMinimaC(d));
     out.push({
       suit: g.nome,
       dives: g.dives.length,

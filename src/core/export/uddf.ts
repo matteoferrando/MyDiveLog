@@ -22,6 +22,7 @@
 
 import type { Dive, GasMix, Sample } from '../model';
 import { barToPascal, cToKelvin, mixName } from '../units';
+import { temperaturaMinimaC } from '../temperatura';
 
 export interface UddfExportOptions {
   /** Nome del generatore scritto nel file. */
@@ -208,8 +209,16 @@ export function exportUddf(dives: Dive[], options: UddfExportOptions = {}): Uddf
     if (dive.avgDepth !== undefined)
       out.push(`          <averagedepth>${n(dive.avgDepth, 2)}</averagedepth>`);
     out.push(`          <diveduration>${n(dive.durationS, 0)}</diveduration>`);
-    if (dive.minTempC !== undefined) {
-      out.push(`          <lowesttemperature>${n(cToKelvin(dive.minTempC), 2)}</lowesttemperature>`);
+    /*
+     * La temperatura si prende da dove c'è: dichiarata o misurata sul profilo.
+     * Leggendo solo il campo dichiarato, riesportare un'immersione importata da
+     * un formato che non lo scrive **perdeva** un dato che era in archivio — e
+     * il file usciva senza `<lowesttemperature>` come se la temperatura non
+     * fosse mai stata registrata.
+     */
+    const tMin = temperaturaMinimaC(dive);
+    if (tMin !== undefined) {
+      out.push(`          <lowesttemperature>${n(cToKelvin(tMin), 2)}</lowesttemperature>`);
     }
     if (dive.notes) out.push(`          <notes><para>${esc(dive.notes)}</para></notes>`);
     out.push('        </informationafterdive>');

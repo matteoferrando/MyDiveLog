@@ -7,6 +7,7 @@ import { modeLabel, positionAgainst, quartilesOf } from '../../core/analysis/agg
 import { debriefDive } from '../../core/analysis/coaching';
 import { schedePdf } from '../../core/export/pdf';
 import { conNumeri } from '../../core/numerazione';
+import { temperaturaMinimaC } from '../../core/temperatura';
 import { esporta } from '../esporta';
 import { conDettaglio } from '../../core/ble/causaGuasto';
 import { descriviFirma, firmaPath, firmaVuota } from '../../core/firma';
@@ -324,7 +325,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
         />
         <StatTile
           label={t('Temperatura minima')}
-          value={dive.minTempC !== undefined ? `${dive.minTempC.toFixed(1)} °C` : '—'}
+          value={temperaturaMinimaC(dive) !== undefined ? `${temperaturaMinimaC(dive)!.toFixed(1)} °C` : '—'}
           note={dive.airTempC !== undefined ? `${t('aria')} ${dive.airTempC.toFixed(0)} °C` : undefined}
         />
       </div>

@@ -38,6 +38,7 @@ import {
 import { formatDuration } from '../core/units';
 import { conditionsOf, condizioniTesto, visibilitaTesto } from '../core/conditions';
 import { piastraDellImmersione, zavorraTotaleKg, type Equipment } from '../core/analysis/gear';
+import { temperaturaMinimaC } from '../core/temperatura';
 
 /** Quanti punti del profilo entrano nel contesto di una singola immersione. */
 const PROFILE_POINTS = 48;
@@ -284,7 +285,7 @@ export function diveContext(
       durataS: dive.durationS,
       acqua: tradotto(ACQUA, dive.salinity),
       modalita: tradotto(MODALITA, dive.mode),
-      temperaturaMinimaC: n1(dive.minTempC),
+      temperaturaMinimaC: n1(temperaturaMinimaC(dive)),
       temperaturaAriaC: n1(dive.airTempC),
       /*
        * LA ZAVORRA È IL TOTALE, piastra compresa — e la scomposizione si dà a
@@ -545,7 +546,7 @@ export function archiveContext(
       d.metrics?.endPressureBar ?? null,
       d.metrics?.gf99Pct ?? null,
       gfString(d.computer),
-      n1(d.minTempC),
+      n1(temperaturaMinimaC(d)),
       d.cylinders[0]?.mix
         ? `${Math.round(d.cylinders[0].mix.o2 * 100)}/${Math.round(d.cylinders[0].mix.he * 100)}`
         : null,

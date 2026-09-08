@@ -35,6 +35,7 @@
 import type { Dive } from '../model';
 import { conditionsOf, WAVES_LABEL, WEATHER_LABEL } from '../conditions';
 import { mixName } from '../units';
+import { temperaturaMinimaC } from '../temperatura';
 
 export interface OpzioniCsv {
   /**
@@ -82,7 +83,7 @@ const COLONNE: Colonna[] = [
     en: 'Avg depth (m)',
     valore: (d) => arrotonda(d.metrics?.avgDepth ?? d.avgDepth, 1),
   },
-  { it: 'T minima (°C)', en: 'Min temp (°C)', valore: (d) => arrotonda(d.minTempC, 1) },
+  { it: 'T minima (°C)', en: 'Min temp (°C)', valore: (d) => arrotonda(temperaturaMinimaC(d), 1) },
   { it: 'T aria (°C)', en: 'Air temp (°C)', valore: (d) => arrotonda(d.airTempC, 1) },
   {
     it: 'Consumo (L/min)',

@@ -18,6 +18,7 @@
  */
 
 import type { Dive, DiveConditions, Waves, Weather } from './model';
+import { temperaturaMinimaC } from './temperatura';
 
 export const WEATHER_LABEL: Record<Weather, string> = {
   sunny: 'sole',
@@ -195,7 +196,7 @@ export function raggruppaPerCondizione(
     const trim = g
       .map((d) => d.metrics?.bottomVerticalTravelMpm)
       .filter((v): v is number => v !== undefined && Number.isFinite(v));
-    const temp = g.map((d) => d.minTempC).filter((v): v is number => v !== undefined);
+    const temp = g.map((d) => temperaturaMinimaC(d)).filter((v): v is number => v !== undefined);
     out.push({
       chiave: k,
       etichetta: etichetta(k),

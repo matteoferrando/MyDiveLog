@@ -21,6 +21,7 @@ import { dateShort } from '../format';
 import { useDiveLog } from '../state';
 import { Vuoto } from '../components/Vuoto';
 import { useLingua } from '../lingua';
+import { temperaturaMinimaC } from '../../core/temperatura';
 
 export function Compare({ onOpen }: { onOpen: (id: string) => void }) {
   const { dives, loadSamples } = useDiveLog();
@@ -285,7 +286,13 @@ function ComparisonTable({ left, right, onOpen }: { left: Dive; right: Dive; onO
       },
       { label: 'CNS calcolato', unit: '%', a: l?.cnsPct, b: r?.cnsPct, lower: true },
       { label: 'OTU', unit: '', a: l?.otu, b: r?.otu, lower: true },
-      { label: 'Temperatura minima', unit: '°C', a: left.minTempC, b: right.minTempC, lower: null },
+      {
+        label: 'Temperatura minima',
+        unit: '°C',
+        a: temperaturaMinimaC(left),
+        b: temperaturaMinimaC(right),
+        lower: null,
+      },
     ];
   }, [left, right]);
 
