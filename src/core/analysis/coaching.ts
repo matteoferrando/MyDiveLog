@@ -474,7 +474,7 @@ const ruleSafetyStop: Rule = (agg, _dives, t) => {
     detail:
       frase(
         t,
-        'Consideriamo completata una sosta di almeno {0} minuti fra 3 e 6 m.',
+        'Consideriamo completata una sosta di almeno {0} minuti a fine immersione, fra 2,5 e 7,5 m: la fascia è larga di proposito, perché in sosta la quota si muove.',
         Math.round(LIMITS.safetyStopMinS / 60),
       ) +
       ' ' +
@@ -902,7 +902,9 @@ const ruleGf99: Rule = (agg, dives, t) => {
     ),
   ];
 
-  // Il ramo "buono" chiede sia una mediana bassa sia nessun caso oltre il 75%.
+  // Il ramo "buono" chiede sia una mediana bassa sia nessun caso oltre l'85% del
+  // GF alto impostato — l'85 di `high` qui sopra, non il 75 che questo commento
+  // diceva prima di essere corretto insieme al conteggio.
   // Quando la mediana è bassa ma un singolo caso sfora, il titolo che segue
   // attribuiva alla MEDIANA un giudizio prodotto da quel caso: qui si dice quello
   // che è successo davvero.
@@ -960,7 +962,7 @@ const ruleGf99: Rule = (agg, dives, t) => {
     evidence,
     target: t('Abbassare il GF99 mediano allungando la sosta negli ultimi metri, a impostazioni invariate.'),
     drills: [
-      t('Allunga la sosta fra 3 e 6 m: è la leva che abbassa il GF99 senza toccare le impostazioni.'),
+      t('Allunga la sosta negli ultimi metri: è la leva che abbassa il GF99 senza toccare le impostazioni.'),
       t("Risali gli ultimi 6 metri in almeno un minuto: è il tratto dove l'espansione conta di più."),
       t('Guarda il GF99 sul computer appena riemergi e annotalo: diventa un numero su cui lavorare.'),
       t(
@@ -1740,8 +1742,8 @@ export function debriefDive(dive: Dive, t: Traduci = comeSta): Observation[] {
             severity: 'warning',
             text:
               m.safetyStopS > 0
-                ? frase(t, 'Sosta di sicurezza breve: {0} fra 3 e 6 m.', formatDuration(m.safetyStopS))
-                : t('Nessuna sosta di sicurezza fra 3 e 6 m.'),
+                ? frase(t, 'Sosta di sicurezza breve: {0} negli ultimi metri.', formatDuration(m.safetyStopS))
+                : t('Nessuna sosta di sicurezza a fine immersione.'),
           },
     );
   }

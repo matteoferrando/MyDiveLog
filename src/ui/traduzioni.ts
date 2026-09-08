@@ -2071,8 +2071,8 @@ export const INGLESE: Record<string, string> = {
   'Completata nel {0} delle {1} immersioni in curva sopra i 10 m.':
     'Completed on {0} of the {1} no-deco dives past 10 m.',
   'Sosta di sicurezza completata nel {0} delle immersioni': 'Safety stop completed on {0} of your dives',
-  'Consideriamo completata una sosta di almeno {0} minuti fra 3 e 6 m.':
-    'We count a stop as complete from {0} minutes between 3 and 6 m.',
+  'Consideriamo completata una sosta di almeno {0} minuti a fine immersione, fra 2,5 e 7,5 m: la fascia è larga di proposito, perché in sosta la quota si muove.':
+    'We count a stop as complete from {0} minutes at the end of the dive, between 2.5 and 7.5 m: the band is deliberately wide, because depth moves during a stop.',
   'Al di là del beneficio decompressivo, è il momento in cui si allena il controllo di quota a bassa profondità: la stessa abilità che serve per una sosta di deco.':
     'Beyond the decompression benefit, it is where you train depth control in shallow water: the same skill a deco stop needs.',
   '{0} soste complete su {1} immersioni valutabili.': '{0} complete stops out of {1} dives we can judge.',
@@ -2204,8 +2204,8 @@ export const INGLESE: Record<string, string> = {
     'You surface with a supersaturation close to what your computer allows. It is not a breach — the computer lets you — but it means using nearly all the margin, and on repetitive dives or consecutive days margin is what adds up. How acceptable that is depends on the gradient factors you set: check what they are and talk to your instructor before you change anything.',
   'Abbassare il GF99 mediano allungando la sosta negli ultimi metri, a impostazioni invariate.':
     'Lower the median GF99 by stretching the stop in the last metres, settings unchanged.',
-  'Allunga la sosta fra 3 e 6 m: è la leva che abbassa il GF99 senza toccare le impostazioni.':
-    'Stretch the stop between 3 and 6 m: it is the lever that lowers GF99 without touching the settings.',
+  'Allunga la sosta negli ultimi metri: è la leva che abbassa il GF99 senza toccare le impostazioni.':
+    'Stretch the stop in the final metres: it is the lever that lowers GF99 without touching the settings.',
   "Risali gli ultimi 6 metri in almeno un minuto: è il tratto dove l'espansione conta di più.":
     'Take at least a minute over the last 6 metres: that is where expansion counts most.',
   'Guarda il GF99 sul computer appena riemergi e annotalo: diventa un numero su cui lavorare.':
@@ -2328,8 +2328,8 @@ export const INGLESE: Record<string, string> = {
   '{0} m/min di oscillazione a quota tenuta (obiettivo sotto {1}).':
     '{0} m/min of drift while holding depth (target under {1}).',
   'Sosta di sicurezza di {0}.': 'Safety stop of {0}.',
-  'Sosta di sicurezza breve: {0} fra 3 e 6 m.': 'Short safety stop: {0} between 3 and 6 m.',
-  'Nessuna sosta di sicurezza fra 3 e 6 m.': 'No safety stop between 3 and 6 m.',
+  'Sosta di sicurezza breve: {0} negli ultimi metri.': 'Short safety stop: {0} in the final metres.',
+  'Nessuna sosta di sicurezza a fine immersione.': 'No safety stop at the end of the dive.',
   'Uscita a {0} bar, sotto la riserva di {1} bar.': 'Out at {0} bar, below the {1} bar reserve.',
   'Uscita a {0} bar.': 'Out at {0} bar.',
   'Consumo di superficie {0} L/min a {1} m di media.': 'RMV {0} L/min at {1} m average depth.',

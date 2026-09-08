@@ -222,10 +222,27 @@ export function aggregate(dives: Dive[], now: number = Date.now()): Aggregates {
   const trim = series(sorted, (d) => d.metrics?.bottomVerticalTravelMpm);
   const ascent = series(sorted, (d) => d.metrics?.maxAscentRateMpm);
 
-  // Sosta di sicurezza: valutabile solo su immersioni senza obbligo deco,
-  // oltre i 10 m e con un profilo campionato.
+  /*
+   * Sosta di sicurezza: valutabile solo su immersioni senza obbligo deco, oltre
+   * i 10 m e con un profilo campionato.
+   *
+   * ► E «SENZA OBBLIGO DECO» SI CHIEDE ALLE DUE VIE, NON A UNA. ◄ Quaranta
+   * righe più sotto `decoDives` conta un'immersione come decompressiva se lo
+   * dice il profilo **oppure** se lo ha dichiarato il computer, e il commento lì
+   * spiega perché: il formato Uwatec non porta dati di decompressione, quindi su
+   * un'immersione importata da LogTRAK `decoS` vale 0 **per assenza di dato**,
+   * non per assenza di obbligo. Chiedendolo solo al profilo, quelle immersioni
+   * entravano nel denominatore delle soste di sicurezza — e alzavano o
+   * abbassavano un tasso da cui sono per definizione escluse, mentre la scheda
+   * scriveva «valutate solo le immersioni in curva». *Due domande identiche
+   * nello stesso file con due risposte diverse: la seconda era quella giusta.*
+   */
   const safetyEligible = withProfile.filter(
-    (d) => d.maxDepth >= 10 && (d.metrics?.decoS ?? 0) < 60 && d.mode !== 'freedive',
+    (d) =>
+      d.maxDepth >= 10 &&
+      (d.metrics?.decoS ?? 0) < 60 &&
+      (d.reported?.maxDecoObligationS ?? 0) < 60 &&
+      d.mode !== 'freedive',
   );
   const reserveEligible = sorted.filter((d) => d.metrics?.endPressureBar !== undefined);
 

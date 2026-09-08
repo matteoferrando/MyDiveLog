@@ -1168,7 +1168,30 @@ export function planDeco(
       text: `PPO2 fino a ${worstDeco.toFixed(2)} bar in decompressione, oltre il limite di ${s.maxPpo2Deco.toFixed(1)} che hai impostato.`,
     });
   }
-  if (worstWork > s.maxPpo2Work + 0.001) {
+  /*
+   * ► E LA STESSA TOLLERANZA VALE PER IL GAS DI LAVORO, O L'APP SI CONTRADDICE. ◄
+   *
+   * Qui c'erano 0.001 bar, cioè cinquanta volte meno del ramo qui sopra — e il
+   * problema è che `switchDepthOf`, ottocento righe più su, **arrotonda la MOD
+   * al metro anche in su**, di proposito e col suo perché scritto. Le due
+   * decisioni non si parlavano, e il risultato era questo:
+   *
+   * | piano | MOD vera | quota di cambio decisa dall'app | cosa diceva |
+   * |---|---|---|---|
+   * | EAN35 a 30 m | 29,57 m | **30 m** | «a questa quota non hai una miscela respirabile» |
+   * | EAN40 a 25 m | 24,62 m | **25 m** | idem |
+   *
+   * *Riprodotto l'8 settembre 2026 chiamando `planDeco`: l'app sceglie da sola
+   * l'EAN35 come gas per i 30 metri e nella stessa schermata avvisa che a 30
+   * metri quel gas non si respira.* È esattamente ciò che il commento del ramo
+   * deco dice di voler evitare — «gridare al limite superato proprio lì insegna
+   * a ignorare l'avviso» — applicato al ramo sbagliato.
+   *
+   * Cinque centesimi coprono l'arrotondamento con margine: mezzo metro vale
+   * `0.5 × 0.1013 × fO2` bar, cioè due centesimi scarsi anche con EAN40. E un
+   * piano fatto DAVVERO oltre la MOD sfora di molto più di così.
+   */
+  if (worstWork > s.maxPpo2Work + 0.05) {
     warnings.push({
       level: worstWork > s.maxPpo2Deco + 0.05 ? 'critical' : 'warning',
       text: `PPO2 fino a ${worstWork.toFixed(2)} bar in fase di lavoro, oltre ${s.maxPpo2Work.toFixed(1)}: a questa quota non hai una miscela respirabile.`,

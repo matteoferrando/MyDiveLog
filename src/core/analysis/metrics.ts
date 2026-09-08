@@ -420,19 +420,63 @@ function analyseStops(
    * stessa funzione, il tratto contiguo lo cerca già — e il commento lì spiega
    * proprio che passarci in transito due volte non è una sosta.
    *
+   * ══════════════════════════════════════════════════════════════════════════
+   * ► MA «CONTIGUA» NON VUOL DIRE «SENZA UN CAMPIONE FUORI». ◄
+   *
+   * Difendendosi dal saliscendi si era costruito l'errore opposto: **una sosta
+   * con un'oscillazione non è una non-sosta.** Il conteggio si azzerava al
+   * primo campione fuori fascia, e con l'assetto che si ha a fine immersione —
+   * bombola quasi vuota, tre minuti fermi — bastava un respiro per buttare via
+   * due minuti già fatti. Il subacqueo non aveva modo di saperlo: aveva fatto
+   * la sosta, e l'app diceva di no.
+   *
+   * **I numeri, misurati l'8 settembre 2026** su profili con oscillazione
+   * sinusoidale e rumore del sensore, quattrocento prove per caso:
+   *
+   * | quota tenuta | prima | adesso |
+   * |---|---|---|
+   * | 3 m  | 0%   | 100% |
+   * | 4 m  | 86%  | 100% |
+   * | 5 m  | 84%  | 100% |
+   * | 6 m  | 0%   | 100% |
+   *
+   * *(oscillazione ±1 m, passo 10 s. Gli zeri a 3 e a 6 metri non sono un
+   * arrotondamento: sui bordi della fascia vecchia una sosta non veniva contata
+   * quasi mai, e i bordi sono esattamente dove la gente sta.)*
+   *
+   * E il verdetto **non dipende più da quanto fitto campiona il computer**:
+   * a 2 s di passo la stessa sosta a 5 m passava dall'84% al 30%, perché più
+   * campioni vuol dire più probabilità che uno cada fuori. *Una misura che
+   * cambia con la registrazione invece che con l'immersione non misura
+   * l'immersione.*
+   *
+   * Le due difese restano tutte e due, e non si contraddicono: **il saliscendi
+   * è ancora «non fatta»** — centoventi secondi a dodici metri sono sei volte
+   * la tolleranza — e la sosta con l'oscillazione adesso è «fatta».
    */
   const [lo, hi] = LIMITS.safetyStopBandM;
   let corrente = 0;
   let piuLunga = 0;
+  // Secondi consecutivi passati FUORI fascia: finché stanno sotto la tolleranza
+  // il conteggio è in pausa, come fa il contatore del computer; oltre, la sosta
+  // è finita e si riparte da zero.
+  let fuori = 0;
   for (let i = 1; i < samples.length; i++) {
     const s = samples[i];
     if (s.t < phases.ascentStartS) continue;
     const dt = s.t - samples[i - 1].t;
     if (s.depth >= lo && s.depth <= hi) {
+      // `fuori` NON si somma: il tempo passato fuori fascia non è sosta. Si
+      // azzera e basta, così l'escursione costa la sua durata e non di più.
+      fuori = 0;
       corrente += dt;
       if (corrente > piuLunga) piuLunga = corrente;
     } else {
-      corrente = 0;
+      fuori += dt;
+      if (fuori > LIMITS.safetyStopToleranceS) {
+        corrente = 0;
+        fuori = 0;
+      }
     }
   }
 
@@ -461,14 +505,32 @@ function analyseStops(
   let run = 0;
   let runDepthSum = 0;
   let runSamples = 0;
+  /*
+   * ► LA STESSA TOLLERANZA DELLA SOSTA DI SICUREZZA, E PER LA STESSA RAGIONE. ◄
+   *
+   * Qui l'azzeramento al primo campione fuori è sopravvissuto più a lungo
+   * perché la fascia è larga — su un'immersione a 40 m va da 16 a 24 metri — e
+   * un'oscillazione d'assetto non la attraversa quasi mai. **Ma i bordi sono
+   * bordi anche qui**: misurato l'8 settembre 2026, una sosta tenuta a **0,6
+   * volte** la profondità massima — cioè il fondo della fascia, e una quota che
+   * qualcuno sceglie di proposito — veniva riconosciuta nello **0-58% dei
+   * casi** a seconda della profondità e del passo di campionamento (0,6 × 24 m:
+   * 0% a 2 s, 26% a 10 s). Stessa forma, stessa medicina.
+   */
+  let fuoriProfonda = 0;
   for (let i = 1; i < samples.length; i++) {
     const s = samples[i];
     if (s.t < phases.ascentStartS || s.depth < bandLo || s.depth > bandHi) {
-      run = 0;
-      runDepthSum = 0;
-      runSamples = 0;
+      if (s.t >= phases.ascentStartS) fuoriProfonda += s.t - samples[i - 1].t;
+      if (fuoriProfonda > LIMITS.safetyStopToleranceS) {
+        run = 0;
+        runDepthSum = 0;
+        runSamples = 0;
+        fuoriProfonda = 0;
+      }
       continue;
     }
+    fuoriProfonda = 0;
     run += s.t - samples[i - 1].t;
     runDepthSum += s.depth;
     runSamples++;

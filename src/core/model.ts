@@ -863,7 +863,53 @@ export const LIMITS = {
   danFinalAscentMpm: 60,
   /** Oltre questa frazione di ossigeno serve attrezzatura pulita per l'ossigeno (p. 55). */
   o2CleanThreshold: 0.4,
-  safetyStopBandM: [3, 6] as [number, number],
+  /**
+   * ► LA FASCIA DELLA SOSTA DI SICUREZZA, E PERCHÉ NON È QUELLA CHE SI INSEGNA. ◄
+   *
+   * Si insegna «tre minuti a cinque metri», e in acqua vuol dire **fra 6,5 e
+   * 3,5 m**: il computer fa partire il suo contatore già a sei metri, il
+   * subacqueo si stabilizza dove riesce, e nei tre minuti la quota si muove.
+   * Questa fascia NON è la quota della sosta: è la finestra dentro cui una
+   * sosta vera è ancora riconoscibile, e sta **un metro più larga da tutte e
+   * due le parti** di quello che si insegna, perché il confine di una fascia
+   * usata così è un posto in cui non si può stare.
+   *
+   * **Misurato, il 8 settembre 2026, ed è il motivo per cui la fascia è
+   * cambiata.** Con `[3, 6]` una sosta tenuta *a* 6 m — o *a* 3 m — risultava
+   * fatta nell'**1% dei casi**, con assetto perfetto: basta il rumore del
+   * sensore a far cadere metà campioni dall'altra parte del confine, e ogni
+   * campione fuori azzerava il conteggio. Gli estremi dichiarati erano
+   * inutilizzabili e la fascia che funzionava davvero era 4–5.
+   *
+   * **E il tetto a 7,5 non riapre la confusione con la sosta profonda**: quella
+   * si cerca solo sopra i 20 m (`DEEP_STOP_MIN_DEPTH_M`), dove la sua fascia
+   * parte da 8. I due intervalli non si toccano, e il doppio conteggio che
+   * portava le statistiche al 114% resta chiuso.
+   */
+  safetyStopBandM: [2.5, 7.5] as [number, number],
+  /**
+   * Quanto si può stare FUORI fascia senza perdere la sosta, secondi.
+   *
+   * Il contatore dei computer subacquei si **mette in pausa** quando esci dalla
+   * finestra e riprende quando rientri; questo conteggio invece azzerava al
+   * primo campione fuori, e con l'assetto che si ha a fine immersione bastava
+   * un respiro per buttare via due minuti già fatti. *Il sintomo lo diceva:
+   * allungare la sosta non serviva a niente — 180, 200 o 240 secondi davano lo
+   * stesso esito — perché il guasto non era un tempo che mancava, era un
+   * conteggio che ripartiva.*
+   *
+   * **Peggio: il verdetto dipendeva da quanto fitto campiona il computer.** La
+   * stessa sosta, a 10 s di passo risultava fatta nell'84% dei casi e a 2 s nel
+   * 30% — più campioni, più probabile che uno cada fuori. Una misura che
+   * descrive la registrazione invece dell'immersione.
+   *
+   * Venti secondi: abbastanza per un'escursione d'assetto, troppo poco per il
+   * saliscendi che questa funzione deve continuare a rifiutare — 30 → 4 m per
+   * 100 s → 12 m → 4 m per 100 s non è una sosta, e resta «non fatta».
+   * **Il tempo passato fuori non si conta**: la pausa è una pausa, non un
+   * regalo.
+   */
+  safetyStopToleranceS: 20,
   /** Riserva minima a fine immersione, bar. */
   minReserveBar: 50,
   /** Soglia di buon assetto: metri verticali per minuto a quota tenuta. */

@@ -356,8 +356,60 @@ describe('soste profonde e forma del profilo', () => {
     expect(m.didSafetyStop).toBe(true);
   });
 
-  it('una sosta di due minuti e mezzo non conta più come completa', () => {
-    // Tre minuti è la soglia del manuale: 150 secondi erano più permissivi.
+  /*
+   * ► LA SOGLIA DEI TRE MINUTI, E COSA È CAMBIATO SOTTO DI LEI. ◄
+   *
+   * Tre minuti è la soglia del manuale: 150 secondi erano più permissivi, e
+   * questa prova nasce per difenderla. **Difende ancora quella, ma il profilo è
+   * cambiato, e la ragione va scritta perché è una scelta e non un
+   * aggiustamento.**
+   *
+   * L'8 settembre 2026 la fascia della sosta è passata da `[3, 6]` a
+   * `[2.5, 7.5]` — sui bordi della vecchia una sosta tenuta *a* 6 metri
+   * risultava fatta nell'1% dei casi. Con la fascia larga, il profilo che stava
+   * qui — due minuti fermi a 5 m, con avvicinamento e uscita lenti — misura
+   * **esattamente 180 secondi dentro la finestra**, perché anche i due tratti
+   * di risalita ci passano dentro. Non è un errore di conteggio: quel subacqueo
+   * è stato davvero negli ultimi metri per tre minuti.
+   *
+   * *È il prezzo dichiarato della fascia larga: la finestra misura il tempo
+   * passato in bassa profondità a fine immersione, non il tempo passato
+   * immobili a una quota.* E il prezzo si può quantificare, invece di lasciarlo
+   * vago: **con le velocità raccomandate, avvicinamento e uscita valgono una
+   * quarantina di secondi** — sedici scendendo dentro la finestra a 9 m/min,
+   * venticinque uscendone a 6 m/min. Tradotto: per arrivare a tre minuti in
+   * finestra bastano **circa due minuti e venti** fermi a cinque metri.
+   *
+   * *Questa è una scelta, non un effetto collaterale, ed è quella che il
+   * proprietario ha chiesto: «tre minuti fra 6,5 e 3,5 metri devono contare».
+   * Per non dire mai di no a chi la sosta l'ha fatta si accetta di dire sì a
+   * chi la fa un po' corta e risale piano. L'errore che si è scelto di
+   * commettere è quello che non toglie fiducia a chi si comporta bene.*
+   */
+  it('una sosta di due minuti non conta come completa', () => {
+    const out: Sample[] = [];
+    let t = 0;
+    for (; t <= 60; t += 10) out.push({ t, depth: (t / 60) * 20 });
+    for (; t <= 600; t += 10) out.push({ t, depth: 20 });
+    // Risalita da 20 a 5 m a 9 m/min, che è la velocità raccomandata sotto i
+    // dieci metri, non i 7,5 m/min lenti del profilo qui sotto.
+    for (; t <= 700; t += 10) out.push({ t, depth: 20 - ((t - 600) / 100) * 15 });
+    for (; t <= 820; t += 10) out.push({ t, depth: 5 });
+    for (; t <= 870; t += 10) out.push({ t, depth: Math.max(0, 5 - ((t - 820) / 50) * 5) });
+    const m = computeMetrics(makeDive(out));
+    expect(m.safetyStopS).toBeGreaterThanOrEqual(150);
+    expect(m.safetyStopS).toBeLessThan(180);
+    expect(m.didSafetyStop).toBe(false);
+  });
+
+  /*
+   * E LA CONSEGUENZA DELLA FASCIA LARGA, SCRITTA COME PROVA invece che lasciata
+   * a farsi scoprire: chi tiene due minuti a cinque metri **e poi risale piano**
+   * la sosta ce l'ha. Se un giorno questa riga desse fastidio, il posto dove
+   * cambiare idea è la fascia in `LIMITS`, e questa prova dirà subito che l'idea
+   * è cambiata.
+   */
+  it('due minuti fermi più una risalita lenta fanno tre minuti negli ultimi metri', () => {
     const out: Sample[] = [];
     let t = 0;
     for (; t <= 60; t += 10) out.push({ t, depth: (t / 60) * 20 });
@@ -366,9 +418,8 @@ describe('soste profonde e forma del profilo', () => {
     for (; t <= 840; t += 10) out.push({ t, depth: 5 });
     for (; t <= 900; t += 10) out.push({ t, depth: Math.max(0, 5 - ((t - 840) / 60) * 5) });
     const m = computeMetrics(makeDive(out));
-    expect(m.safetyStopS).toBeGreaterThanOrEqual(140);
-    expect(m.safetyStopS).toBeLessThan(180);
-    expect(m.didSafetyStop).toBe(false);
+    expect(m.safetyStopS).toBeGreaterThanOrEqual(180);
+    expect(m.didSafetyStop).toBe(true);
   });
 
   it('misura il dente di sega e dice se la parte profonda viene prima', () => {
