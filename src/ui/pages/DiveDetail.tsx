@@ -6,6 +6,7 @@ import { descriviAnalisi, descriviScarto, scartiDiAnalisi } from '../../core/ana
 import { modeLabel, positionAgainst, quartilesOf } from '../../core/analysis/aggregate';
 import { debriefDive } from '../../core/analysis/coaching';
 import { schedePdf } from '../../core/export/pdf';
+import { frase } from '../../core/frase';
 import { conNumeri } from '../../core/numerazione';
 import { temperaturaMinimaC } from '../../core/temperatura';
 import { esporta } from '../esporta';
@@ -575,9 +576,31 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                 label={t('Sosta di sicurezza')}
                 value={m ? (m.safetyStopS > 0 ? formatDuration(m.safetyStopS) : t('nessuna')) : '—'}
               />
+              {/*
+               * ► IL TEMPO IN DECO DA SOLO RISPONDE ALLA DOMANDA SBAGLIATA. ◄
+               *
+               * Un subacqueo non chiede «per quanti minuti ho avuto un
+               * obbligo»: chiede **«ho dovuto fermarmi?»**. Su un'immersione
+               * vera le due risposte divergevano del tutto — tetto a 3 metri
+               * per tredici minuti mentre risaliva da 30 a 11, quindi sempre
+               * almeno otto metri più sotto del limite e mai bloccato — e la
+               * scheda diceva «Tempo in deco 13:00» a uno che, con ragione,
+               * rispondeva di non aver preso nessuna deco.
+               *
+               * Il margine sta accanto al numero e non al posto suo: il tempo
+               * fuori curva è vero e va detto, ma da solo si legge come
+               * un'accusa. *Un metro e mezzo è la distanza sotto cui si sta
+               * davvero rispettando una tappa: più in là si è passati di lì.*
+               */}
               <Row
                 label={t('Tempo in deco')}
-                value={m && m.decoS > 0 ? formatDuration(m.decoS) : t('nessuno')}
+                value={
+                  m && m.decoS > 0
+                    ? m.ceilingMarginM !== undefined && m.ceilingMarginM >= 1.5
+                      ? `${formatDuration(m.decoS)} — ${frase(t, 'mai bloccante, sempre {0} m sotto il tetto', m.ceilingMarginM.toFixed(1))}`
+                      : formatDuration(m.decoS)
+                    : t('nessuno')
+                }
               />
               <Row
                 label={t('PPO2 di picco')}

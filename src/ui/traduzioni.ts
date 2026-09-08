@@ -691,6 +691,7 @@ export const INGLESE: Record<string, string> = {
   'i conti fatti finora erano prudenti.': 'the figures so far were on the safe side.',
   'L’esportazione si accende con la prima immersione in archivio: un foglio portato in barca non si porta dietro l’avviso qui sopra.':
     'Exporting turns on with your first dive in the logbook: a sheet taken on the boat does not carry the warning above.',
+  'mai bloccante, sempre {0} m sotto il tetto': 'never binding, always {0} m below the ceiling',
   'Esporta PDF': 'Export PDF',
   'Esposizione all’ossigeno': 'Oxygen exposure',
   fase: 'phase',

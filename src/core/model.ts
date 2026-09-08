@@ -665,6 +665,26 @@ export interface DiveMetrics {
   safetyStopS: number;
   didSafetyStop: boolean;
   /**
+   * Quanti metri più in basso del tetto è stato il subacqueo, al minimo.
+   *
+   * ► LA DOMANDA CHE «TEMPO IN DECO» NON RISPONDE. ◄ Un subacqueo non chiede
+   * «per quanti minuti ho avuto un obbligo»: chiede **«ho dovuto fermarmi?»**.
+   * Sono due cose diverse, e su un'immersione vera divergevano del tutto: il
+   * computer ha imposto un tetto di 3 metri per tredici minuti mentre lui
+   * risaliva da 30 a 11 — sempre almeno otto metri più sotto del limite, quindi
+   * **mai bloccato**, con l'obbligo che si è sciolto durante la risalita prima
+   * di poter diventare una sosta. La scheda diceva «Tempo in deco 13:00» e lui
+   * rispondeva, con ragione, di non aver preso nessuna deco.
+   *
+   * *Il numero giusto messo accanto alla domanda sbagliata produce lo stesso
+   * smarrimento di un numero sbagliato.* Questo campo è la distanza minima fra
+   * la profondità e il tetto nei momenti in cui il tetto c'era: grande vuol
+   * dire che l'obbligo non ha mai vincolato niente, vicina a zero vuol dire che
+   * la sosta è stata fatta davvero. `undefined` quando obbligo non ce n'è
+   * stato.
+   */
+  ceilingMarginM?: number;
+  /**
    * La quota media del tratto contato come sosta, metri.
    *
    * Serve a rendere la misura **controllabile da chi c'era**: «sosta di 3:10 a
@@ -886,6 +906,26 @@ export const LIMITS = {
    */
   deepStopBandFraction: [0.4, 0.6] as [number, number],
   deepStopMinS: 60,
+  /**
+   * ► E UNA DURATA MASSIMA, PERCHÉ OLTRE NON È UNA SOSTA: È UN LIVELLO. ◄
+   *
+   * La regola pratica parla di **uno o due minuti** (TDI Advanced Nitrox, pp.
+   * 75-76; Pyle arriva a tre). Il rilevatore aveva solo un minimo, e senza un
+   * massimo trovava «soste profonde» ovunque: **misurato su un archivio vero di
+   * 45 immersioni, ne segnalava 36** — con durate di 27, 22, 19, 16, 13
+   * minuti. *Ventisette minuti a 13,7 m su un'immersione a 29,4 non sono una
+   * sosta profonda: sono metà dell'immersione.* Erano profili multilivello, e
+   * la parte poco profonda cadeva nella fascia `0,4-0,6 × massima`.
+   *
+   * Con il tetto a cinque minuti ne restano **dieci su quarantacinque**, che è
+   * il numero plausibile per chi ogni tanto si ferma a metà risalita.
+   *
+   * **Il costo, dichiarato:** chi tiene davvero una sosta profonda per sei
+   * minuti non se la vede più contata. È la direzione giusta — l'alternativa è
+   * chiamare «sosta profonda» un'immersione multilivello intera — e resta
+   * misurabile: se un domani i numeri dicessero altro, si cambia questo.
+   */
+  deepStopMaxS: 300,
   /**
    * Sotto questa PPO2 la miscela è pericolosa, sopra i 0.12 ata è potenzialmente
    * fatale (TDI Advanced Nitrox p. 30). Riguarda i rebreather e le miscele

@@ -59,8 +59,9 @@ import { exposureOfProfile } from './oxygen';
  * | 1 | tutto quello che c'era prima che questo numero esistesse |
  * | 2 | sosta di sicurezza (fascia 2,5-7,5 m e tolleranza), sosta profonda (tolleranza), quota della sosta, flag `inSafetyStop` del computer |
  * | 3 | il tempo in deco non conta più le soste soltanto proposte, e la sosta profonda non conta più il tempo sotto un tetto |
+ * | 4 | la sosta profonda ha una durata massima (oltre è un livello, non una sosta), e nasce `ceilingMarginM` |
  */
-export const VERSIONE_METRICHE = 3;
+export const VERSIONE_METRICHE = 4;
 
 /** Ampiezza della finestra mobile per le velocità verticali, secondi. */
 export const RATE_WINDOW_S = 30;
@@ -247,6 +248,7 @@ export function computeMetrics(dive: Dive): DiveMetrics {
     decoS: deco.decoS,
     ceilingViolationS: deco.ceilingViolationS,
     maxCeilingM: deco.maxCeilingM,
+    ceilingMarginM: deco.ceilingMarginM,
     cnsEndPct: deco.cnsEndPct,
     minTempC: dive.minTempC ?? minOf(samples.map((s) => s.tempC)),
     maxPpo2: oxygen.maxPpo2,
@@ -651,8 +653,21 @@ function analyseStops(
     safetyStopS: Math.round(piuLunga),
     didSafetyStop: piuLunga >= LIMITS.safetyStopMinS,
     safetyStopDepthM: sosta.quotaMedia,
-    deepStopS: best >= LIMITS.deepStopMinS ? Math.round(best) : 0,
-    deepStopDepthM: best >= LIMITS.deepStopMinS && bestDepth !== undefined ? round(bestDepth, 1) : undefined,
+    /*
+     * ► FRA UN MINIMO E UN MASSIMO, e il massimo è quello che mancava. ◄
+     *
+     * Senza un tetto di durata questo rilevatore trovava una «sosta profonda»
+     * su **36 immersioni su 45** di un archivio vero, con durate fino a 27
+     * minuti: erano profili multilivello, e la parte poco profonda cade nella
+     * fascia `0,4-0,6 × massima`. *Ventisette minuti a metà profondità non sono
+     * una sosta: sono dove hai fatto l'immersione.* Il perché del numero, e il
+     * costo che si accetta, stanno su `deepStopMaxS`.
+     */
+    deepStopS: best >= LIMITS.deepStopMinS && best <= LIMITS.deepStopMaxS ? Math.round(best) : 0,
+    deepStopDepthM:
+      best >= LIMITS.deepStopMinS && best <= LIMITS.deepStopMaxS && bestDepth !== undefined
+        ? round(bestDepth, 1)
+        : undefined,
   };
 }
 
@@ -751,6 +766,9 @@ function analyseDeco(samples: Sample[]) {
   let ceilingViolationS = 0;
   let maxCeilingM: number | undefined;
   let hasCeiling = false;
+  // Vedi `ceilingMarginM` nel modello: è la risposta a «ho dovuto fermarmi?»,
+  // che «tempo in deco» non dà.
+  let margine: number | undefined;
 
   for (let i = 1; i < samples.length; i++) {
     const s = samples[i];
@@ -781,6 +799,8 @@ function analyseDeco(samples: Sample[]) {
     const obliged = s.inDeco === true || (ceiling !== undefined && ceiling > 0);
     if (obliged) decoS += dt;
     if (ceiling !== undefined && ceiling > 0) {
+      const distanza = s.depth - ceiling;
+      if (margine === undefined || distanza < margine) margine = distanza;
       if (maxCeilingM === undefined || ceiling > maxCeilingM) maxCeilingM = ceiling;
       // Violazione: il subacqueo è PIÙ ALTO del tetto imposto.
       if (s.depth < ceiling - 0.3) ceilingViolationS += dt;
@@ -791,6 +811,7 @@ function analyseDeco(samples: Sample[]) {
     decoS: Math.round(decoS),
     ceilingViolationS: Math.round(ceilingViolationS),
     maxCeilingM,
+    ceilingMarginM: margine === undefined ? undefined : round(margine, 1),
     cnsEndPct: cns,
     hasCeiling,
   };
