@@ -9,6 +9,7 @@
  * ha già prodotto un difetto vero in qualche altro punto del progetto.
  */
 
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { immersioneDaLdc, immersioniDaLdc, type ImmersioneLdc } from '../src/core/ble/esterni';
 import { mergeDive } from '../src/core/dedupe';
@@ -426,5 +427,61 @@ describe('un profilo di libdivecomputer non scalza uno verificato', () => {
     const inArchivio = immersione('libdivecomputer', profilo(200, false));
     const arrivo = immersione('shearwater-ble', profilo(200, true));
     expect(mergeDive(inArchivio, arrivo).samples![0].ndlS).toBe(600);
+  });
+});
+
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► IL TIPO DI SOSTA, LETTO DALLA COSTANTE GIUSTA. ◄
+ *
+ * `dc_deco_type_t` ha quattro valori e il ponte Rust ne trattava tre come uno
+ * solo: sosta di sicurezza, tappa di decompressione e sosta profonda finivano
+ * tutte in un `else` che scriveva un tetto e `inDeco = true`. Il computer
+ * diceva «sto contando la sosta di sicurezza» e l'archivio registrava
+ * «decompressione».
+ *
+ * Questa prova legge il sorgente Rust, come fa `gestoriPerPiattaforma.test.ts`
+ * con i comandi: **non c'è modo di eseguire quel codice da qui**, e un difetto
+ * in una costante C copiata a occhio non dà nessun errore — dà un numero. È
+ * successo già una volta, con `DECO_NDL` che valeva 1 invece di 0.
+ */
+describe('il tipo di sosta nel ponte Rust', () => {
+  const RUST = readFileSync('src-tauri/src/trasporto_ldc.rs', 'utf8');
+
+  it.each([
+    ['DECO_NDL', 0],
+    ['DECO_SOSTA_SICUREZZA', 1],
+    ['DECO_SOSTA_DECO', 2],
+    ['DECO_SOSTA_PROFONDA', 3],
+  ])('%s vale %i, come in parser.h', (nome, valore) => {
+    expect(RUST).toContain(`const ${nome}: c_uint = ${valore};`);
+  });
+
+  it('la sosta di sicurezza non scrive né tetto né inDeco', () => {
+    const ramo = RUST.slice(
+      RUST.indexOf('DECO_SOSTA_SICUREZZA => {'),
+      RUST.indexOf('DECO_SOSTA_PROFONDA => {'),
+    );
+    expect(ramo).toContain('in_safety_stop = Some(true)');
+    expect(ramo).not.toContain('ceiling');
+    expect(ramo).toContain('in_deco = Some(false)');
+  });
+
+  it('solo la tappa di decompressione scrive il tetto', () => {
+    const ramo = RUST.slice(RUST.indexOf('DECO_SOSTA_DECO => {'), RUST.indexOf('_ => {}'));
+    expect(ramo).toContain('ceiling = Some(d.profondita)');
+  });
+
+  /*
+   * E UN TIPO SCONOSCIUTO NON DIVENTA UN OBBLIGO. Se libdivecomputer ne
+   * aggiungesse un quinto, trattarlo come una tappa sarebbe l'errore appena
+   * corretto, rifatto da capo.
+   */
+  it('un tipo non riconosciuto non scrive niente', () => {
+    const coda = RUST.slice(RUST.indexOf('DECO_SOSTA_DECO => {'));
+    expect(coda).toContain('_ => {}');
+    // E fra la tappa e il ramo ignoto non ci sono altri rami che scrivono:
+    // il `match` finisce lì, e il caso non riconosciuto è vuoto.
+    expect(coda.slice(0, coda.indexOf('_ => {}'))).not.toContain('in_deco = Some(true)');
   });
 });

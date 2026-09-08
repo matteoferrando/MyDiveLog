@@ -877,6 +877,31 @@ const ruleGf99: Rule = (agg, dives, t) => {
   const high = agg.gf99.filter((p) => p.value / gfHighOf(p.diveId) >= 0.85).length;
   const conGfNoto = agg.gf99.filter((p) => gfHighDi(p.diveId) !== undefined).length;
 
+  /*
+   * ► E IL CANCELLO CHE SCEGLIE LA SCHEDA VA MISURATO ALLO STESSO MODO. ◄
+   *
+   * Qui c'era `median <= 65`: una soglia **assoluta**, dentro la regola che nel
+   * commento venti righe più su spiega per esteso perché una soglia assoluta è
+   * sbagliata. Il conteggio `high` era già stato corretto; il cancello no, ed è
+   * quello che decide quale delle tre schede esce.
+   *
+   * **Il GF99 in assoluto non vuol dire niente**: è la posizione rispetto alla
+   * linea degli M-value, e quanto sei stato prudente dipende da dove hai messo
+   * il tuo tetto.
+   *
+   * | computer | GF99 all'uscita | quanto del proprio limite | com'era giudicato |
+   * |---|---|---|---|
+   * | 20/85 | 66 | **78%** — prudente | «margine ridotto» |
+   * | 70/70 | 64 | **91%** — quasi tutto | «esci con margine» |
+   *
+   * *Il numero più alto è la condotta più conservativa, e la scheda diceva il
+   * contrario.* Adesso il cancello guarda la stessa frazione di `high`: la
+   * mediana rapportata al GF alto di quelle immersioni. Tre quarti del proprio
+   * limite è «margine»; oltre, non lo è.
+   */
+  const gfAltoMediano = medianOf(agg.gf99.map((p) => gfHighOf(p.diveId))) ?? GF_ALTO_ASSUNTO;
+  const conMargine = median / gfAltoMediano <= 0.75;
+
   const evidence = [
     frase(
       t,
@@ -902,13 +927,21 @@ const ruleGf99: Rule = (agg, dives, t) => {
     ),
   ];
 
-  // Il ramo "buono" chiede sia una mediana bassa sia nessun caso oltre l'85% del
-  // GF alto impostato — l'85 di `high` qui sopra, non il 75 che questo commento
-  // diceva prima di essere corretto insieme al conteggio.
-  // Quando la mediana è bassa ma un singolo caso sfora, il titolo che segue
-  // attribuiva alla MEDIANA un giudizio prodotto da quel caso: qui si dice quello
-  // che è successo davvero.
-  if (median <= 65 && high > 0) {
+  /*
+   * Il ramo "buono" chiede sia un margine mediano sia nessun caso oltre l'85%
+   * del GF alto impostato. Quando il margine c'è ma un singolo caso sfora, il
+   * titolo attribuiva alla MEDIANA un giudizio prodotto da quel caso: qui si
+   * dice quello che è successo davvero.
+   *
+   * ► E `high < n` NON È UNA RIDONDANZA. ◄ Senza, un subacqueo con TUTTE le
+   * immersioni vicine al limite ma la mediana sotto la soglia — succede con un
+   * computer impostato conservativo, dove il proprio tetto è basso — si sentiva
+   * dire «**di solito** esci con margine, ma 12 immersioni sono vicine al tuo
+   * limite» su dodici immersioni su dodici. *«Di solito» e «tutte» non possono
+   * stare nella stessa frase: quello non è un caso isolato, è l'abitudine, e
+   * cade nel ramo generico che la descrive per quello che è.*
+   */
+  if (conMargine && high > 0 && high < n) {
     return {
       id: 'gf99-outlier',
       area: 'deco',
@@ -935,7 +968,7 @@ const ruleGf99: Rule = (agg, dives, t) => {
       basis: n,
     };
   }
-  if (median <= 65 && high === 0) {
+  if (conMargine && high === 0) {
     return {
       id: 'gf99-good',
       area: 'deco',
@@ -987,7 +1020,11 @@ const ruleFinalAscent: Rule = (agg, _dives, t) => {
   if (n < BENCHMARK.minBasis) return null;
   const median = medianOf(agg.finalAscent.map((p) => p.value))!;
   const fast = agg.fastFinalAscents;
-  const overLimit = agg.finalAscent.filter((p) => p.value > LIMITS.ascentRateShallowMpm).length;
+  // Col margine: il perché sta su `finalAscentToleranceMpm`, ed è che l'esercizio
+  // prescritto due schede più sotto — «da 5 metri almeno 50 secondi» — vale
+  // esattamente 6,0 m/min, cioè il limite stesso.
+  const sopraIlLimite = LIMITS.ascentRateShallowMpm + LIMITS.finalAscentToleranceMpm;
+  const overLimit = agg.finalAscent.filter((p) => p.value > sopraIlLimite).length;
 
   const evidence = [
     frase(t, "Velocità mediana sull'ultimo tratto {0} m/min, su {1} immersioni.", median.toFixed(0), n),
@@ -1003,7 +1040,7 @@ const ruleFinalAscent: Rule = (agg, _dives, t) => {
     ),
   ];
 
-  if (median <= LIMITS.ascentRateShallowMpm && fast === 0) {
+  if (median <= sopraIlLimite && fast === 0) {
     return {
       id: 'final-ascent-good',
       area: 'ascent',
@@ -1737,7 +1774,28 @@ export function debriefDive(dive: Dive, t: Traduci = comeSta): Observation[] {
   if (dive.maxDepth >= 10 && m.decoS < 60 && m.quality.hasProfile && dive.mode !== 'freedive') {
     out.push(
       m.didSafetyStop
-        ? { severity: 'good', text: frase(t, 'Sosta di sicurezza di {0}.', formatDuration(m.safetyStopS)) }
+        ? {
+            severity: 'good',
+            /*
+             * ► LA QUOTA NELLA FRASE, e non è un dettaglio decorativo. ◄
+             *
+             * «Sosta di sicurezza di 3:10» non si può controllare: o ci credi o
+             * no. «Sosta di sicurezza di 3:10 a 5,2 m» la controlla chi c'era, a
+             * colpo d'occhio, ed è la prima cosa da guardare quando qualcuno
+             * dice che la sua sosta non viene contata — nove volte su dieci la
+             * risposta è che la teneva dove non credeva. *Una misura che non si
+             * può verificare dall'esterno è un'opinione con un numero davanti.*
+             */
+            text:
+              m.safetyStopDepthM !== undefined
+                ? frase(
+                    t,
+                    'Sosta di sicurezza di {0} a {1} m.',
+                    formatDuration(m.safetyStopS),
+                    m.safetyStopDepthM.toFixed(1),
+                  )
+                : frase(t, 'Sosta di sicurezza di {0}.', formatDuration(m.safetyStopS)),
+          }
         : {
             severity: 'warning',
             text:

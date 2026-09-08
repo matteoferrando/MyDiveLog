@@ -2327,6 +2327,7 @@ export const INGLESE: Record<string, string> = {
   'Quota tenuta bene: {0} m/min di oscillazione.': 'Depth well held: {0} m/min of drift.',
   '{0} m/min di oscillazione a quota tenuta (obiettivo sotto {1}).':
     '{0} m/min of drift while holding depth (target under {1}).',
+  'Sosta di sicurezza di {0} a {1} m.': 'Safety stop of {0} at {1} m.',
   'Sosta di sicurezza di {0}.': 'Safety stop of {0}.',
   'Sosta di sicurezza breve: {0} negli ultimi metri.': 'Short safety stop: {0} in the final metres.',
   'Nessuna sosta di sicurezza a fine immersione.': 'No safety stop at the end of the dive.',

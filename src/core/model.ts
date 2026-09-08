@@ -229,6 +229,27 @@ export interface Sample {
   /** Tetto di decompressione calcolato dal computer, metri. */
   ceiling?: number;
   inDeco?: boolean;
+  /**
+   * Il computer sta contando la SOSTA DI SICUREZZA, e lo dice lui.
+   *
+   * ► PERCHÉ ESISTE, invece di dedurre la sosta dal profilo. ◄ Perché il
+   * contatore ce l'ha il computer, ed è quello che il subacqueo guarda al polso:
+   * parte da solo negli ultimi metri, si mette in pausa se esci dalla finestra,
+   * riprende quando rientri. Dedurla dalla profondità è ricostruire una
+   * decisione che qualcuno ha già preso e registrato — e ricostruirla male è
+   * costato la statistica di chi la sosta la fa sempre.
+   *
+   * **Arriva solo da libdivecomputer**, e solo dai modelli che la dichiarano: i
+   * driver di casa non ce l'hanno, perché Shearwater durante la sosta di
+   * sicurezza tiene il tetto a zero e non dice altro. Dove manca, la sosta si
+   * misura ancora dal profilo — vedi `analyseStops`.
+   *
+   * NON è `inDeco`, ed è tutto il punto: una sosta di sicurezza si può saltare,
+   * una tappa di decompressione no.
+   */
+  inSafetyStop?: boolean;
+  /** Come sopra per la sosta profonda: proposta dal computer, non obbligatoria. */
+  inDeepStop?: boolean;
   /** Percentuale CNS, 0..100+. */
   cns?: number;
   /** PPO2 in bar (misurata o media celle). */
@@ -643,6 +664,15 @@ export interface DiveMetrics {
   /** Secondi nella finestra 3-6 m durante la risalita finale. */
   safetyStopS: number;
   didSafetyStop: boolean;
+  /**
+   * La quota media del tratto contato come sosta, metri.
+   *
+   * Serve a rendere la misura **controllabile da chi c'era**: «sosta di 3:10 a
+   * 5,2 m» si verifica a colpo d'occhio, «sosta di 3:10» no. È anche la prima
+   * cosa da guardare quando qualcuno dice che la sua sosta non viene contata —
+   * nove volte su dieci la risposta è che la teneva dove non credeva.
+   */
+  safetyStopDepthM?: number;
   /** Secondi con obbligo deco attivo. */
   decoS: number;
   /** Secondi in cui la profondità era inferiore al tetto (violazione). */
@@ -772,6 +802,15 @@ export interface DiveMetrics {
 }
 
 export interface MetricQuality {
+  /**
+   * La versione delle formule con cui queste metriche sono state calcolate.
+   *
+   * Facoltativa perché i record scritti prima che esistesse non ce l'hanno — e
+   * la sua assenza è essa stessa l'informazione: vuol dire «versione 1, da
+   * ricalcolare». Il perché per esteso sta su `VERSIONE_METRICHE`, in
+   * `analysis/metrics.ts`.
+   */
+  formulaV?: number;
   /** Numero di campioni usati. */
   sampleCount: number;
   /** Intervallo medio fra campioni, secondi. Sopra 20 s le velocità sono grossolane. */
@@ -805,6 +844,27 @@ export const LIMITS = {
   ascentRateDeepMpm: 10,
   /** Velocità di risalita massima raccomandata sopra i 10 m, m/min. */
   ascentRateShallowMpm: 6,
+  /**
+   * ► IL MARGINE SUL LIMITE DELLA RISALITA FINALE, e perché ce ne vuole uno. ◄
+   *
+   * L'esercizio che l'app prescrive dice **«da 5 metri alla superficie devono
+   * passare almeno 50 secondi»**: cinquanta secondi per cinque metri fanno
+   * esattamente 6,0 m/min, cioè il limite. Chi fa l'esercizio col cronometro
+   * centra il numero — ed è il punto dell'esercizio.
+   *
+   * Poi quel valore viene misurato su un profilo campionato ogni 10 o 20
+   * secondi, con la partenza a 5,2 m invece che a 5,0 e il denominatore che
+   * arriva al primo campione già emerso, e arrotondato al decimo. Confrontarlo
+   * con `> 6` significa contare come violazione **metà delle risalite fatte
+   * esattamente come l'app le insegna**, e su due computer con passo diverso
+   * dare numeri diversi per la stessa risalita.
+   *
+   * Mezzo metro al minuto di margine copre la granularità della misura senza
+   * coprire niente altro: una risalita davvero veloce sta a 9 o 12 m/min, non a
+   * 6,4. *Il limite resta 6 e resta quello che si insegna: cambia solo la
+   * soglia oltre cui si accusa qualcuno di averlo superato.*
+   */
+  finalAscentToleranceMpm: 0.5,
   /** Velocità di discesa oltre cui si parla di discesa "in caduta", m/min. */
   descentRateMpm: 20,
   /**

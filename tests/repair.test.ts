@@ -24,7 +24,7 @@ import {
 } from '../src/storage/repair';
 import { filterDeleted } from '../src/storage/trash';
 import { mergeImports } from '../src/core/dedupe';
-import { computeMetrics } from '../src/core/analysis/metrics';
+import { computeMetrics, VERSIONE_METRICHE } from '../src/core/analysis/metrics';
 import type { Dive, Sample } from '../src/core/model';
 import type { DiveStore } from '../src/storage';
 
@@ -127,6 +127,69 @@ describe('rilevamento delle incoerenze', () => {
     const d = dive({ cylinders: [{ mix: { o2: 0.21, he: 0 } }], avgDepth: undefined });
     const withMetrics = { ...d, metrics: computeMetrics(d) };
     expect(inconsistencies(withMetrics, 0)).toEqual([]);
+  });
+});
+
+describe('la versione delle formule', () => {
+  /*
+   * ► IL CASO CHE NESSUN CONTROLLO DI FORMA POTEVA VEDERE. ◄
+   *
+   * L'8 settembre 2026 la formula della sosta di sicurezza è cambiata: la fascia
+   * si è allargata e il conteggio ha smesso di azzerarsi al primo campione
+   * fuori. `safetyStopS` **c'era già** in ogni immersione dell'archivio, con un
+   * numero plausibile e sbagliato — e le guardie di `inconsistencies` sanno
+   * riconoscere una grandezza che *manca*, non una che è *cambiata*.
+   *
+   * Senza questa prova, chi non reimporta l'archivio si tiene le statistiche
+   * vecchie per sempre, e non ha modo di accorgersene.
+   */
+  it('ricalcola un’immersione le cui metriche portano una versione più vecchia', async () => {
+    const samples = profile(300);
+    const d = dive({ id: 'd1', samples });
+    const buone = computeMetrics(d);
+    // La stessa immersione come l'avrebbe scritta una versione precedente: le
+    // metriche sono quelle giuste, ma il timbro dice che vengono da prima.
+    const vecchia: Dive = {
+      ...d,
+      samples: undefined,
+      metrics: { ...buone, quality: { ...buone.quality, formulaV: VERSIONE_METRICHE - 1 } },
+    } as Dive;
+
+    expect(inconsistencies(vecchia, samples.length)).toContain(
+      `metriche calcolate con la versione ${VERSIONE_METRICHE - 1} delle formule invece della ${VERSIONE_METRICHE}`,
+    );
+
+    const { store } = memoryStore([vecchia], { d1: samples });
+    const { dives } = await repairArchive(store, [vecchia]);
+    expect(dives[0].metrics?.quality.formulaV).toBe(VERSIONE_METRICHE);
+  });
+
+  /*
+   * E L'ASSENZA DEL CAMPO VALE «VERSIONE 1», che è il caso vero di ogni
+   * immersione scaricata prima che questo numero esistesse.
+   */
+  it('tratta le metriche senza versione come le più vecchie di tutte', () => {
+    const samples = profile(300);
+    const d = dive({ id: 'd1', samples });
+    const m = computeMetrics(d);
+    const senzaVersione = { ...m, quality: { ...m.quality } };
+    delete (senzaVersione.quality as { formulaV?: number }).formulaV;
+    const vecchia = { ...d, samples: undefined, metrics: senzaVersione } as Dive;
+    expect(inconsistencies(vecchia, samples.length).join(' ')).toContain('delle formule');
+  });
+
+  /*
+   * ► E NON SI RISCRIVE QUELLO CHE È GIÀ GIUSTO. ◄ Un timbro alzato senza
+   * ragione farebbe ripassare l'intero archivio a ogni avvio e, con la
+   * sincronizzazione accesa, rimanderebbe tutte le immersioni al database
+   * remoto. La riparazione deve tacere su un'immersione già alla versione
+   * corrente.
+   */
+  it('tace su un’immersione già calcolata con la versione corrente', () => {
+    const samples = profile(300);
+    const d = dive({ id: 'd1', samples });
+    const aggiornata = { ...d, samples: undefined, metrics: computeMetrics(d) } as Dive;
+    expect(inconsistencies(aggiornata, samples.length)).toEqual([]);
   });
 });
 

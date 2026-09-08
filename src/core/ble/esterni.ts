@@ -106,6 +106,10 @@ export interface CampioneLdc {
   ttsS?: number;
   ceiling?: number;
   inDeco?: boolean;
+  /** Il computer sta contando la sosta di sicurezza: consiglio, non obbligo. */
+  inSafetyStop?: boolean;
+  /** Il computer sta proponendo una sosta profonda: consiglio, non obbligo. */
+  inDeepStop?: boolean;
   cns?: number;
   ppo2?: number;
   setpoint?: number;
@@ -361,6 +365,8 @@ function campioni(imm: ImmersioneLdc, quanteBombole: number): Sample[] {
     if (c.ttsS !== undefined) s.ttsS = c.ttsS;
     if (c.ceiling !== undefined) s.ceiling = c.ceiling;
     if (c.inDeco !== undefined) s.inDeco = c.inDeco;
+    if (c.inSafetyStop !== undefined) s.inSafetyStop = c.inSafetyStop;
+    if (c.inDeepStop !== undefined) s.inDeepStop = c.inDeepStop;
     if (c.cns !== undefined) s.cns = c.cns;
     if (c.ppo2 !== undefined) s.ppo2 = c.ppo2;
     if (c.setpoint !== undefined) s.setpoint = c.setpoint;

@@ -24,7 +24,7 @@
  */
 
 import type { Dive } from '../core/model';
-import { computeMetrics } from '../core/analysis/metrics';
+import { computeMetrics, VERSIONE_METRICHE } from '../core/analysis/metrics';
 import { chainArchive } from '../core/analysis/tissues';
 import { dedupeComputers, fondiComputer, sameComputer } from '../core/dedupe';
 import type { DiveStore } from './types';
@@ -210,6 +210,26 @@ export function inconsistencies(dive: Dive, sampleCount: number, altCount = 0): 
   }
   if (sampleCount > 2 && m.deepStopS === undefined) {
     reasons.push('soste profonde e forma del profilo non ancora analizzate');
+  }
+  /*
+   * ► E LA RIGA CHE RENDE INUTILI QUELLE QUI SOPRA. ◄
+   *
+   * Le due righe precedenti riconoscono una grandezza **aggiunta**: se manca,
+   * si ricalcola. Non riconoscono una grandezza **cambiata** — e quello è il
+   * caso più frequente, oltre che quello che è appena costato la statistica
+   * delle soste di sicurezza a chiunque non avesse voglia di reimportare tutto.
+   * `safetyStopS` c'era già, in ogni immersione dell'archivio, e c'era
+   * sbagliato: nessun controllo di forma poteva accorgersene.
+   *
+   * `formulaV` risolve la categoria invece del caso: si alza quando una formula
+   * cambia i numeri, e qui si ricalcola tutto ciò che porta una versione più
+   * bassa. **L'assenza del campo vale «versione 1»**, perché i record scritti
+   * prima che questo numero esistesse sono esattamente quelli da rifare.
+   */
+  if (sampleCount > 2 && (m.quality.formulaV ?? 1) < VERSIONE_METRICHE) {
+    reasons.push(
+      `metriche calcolate con la versione ${m.quality.formulaV ?? 1} delle formule invece della ${VERSIONE_METRICHE}`,
+    );
   }
   return reasons;
 }

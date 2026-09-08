@@ -1,6 +1,6 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **8 settembre 2026** — commit `a4231d0` su `main`, **1897 prove
+Aggiornato: **8 settembre 2026, sera** — commit `e84c294` su `main`, **1897 prove
 in 102 file** più **63 prove Rust** del ponte, lint a **0 errori e 0 avvisi**.
 **La versione pubblica è la `1.8.1`**: release `v1.8.1` con nove allegati, i
 quattro pulsanti del sito rispondono `200`, `latest.json` serve `1.8.1` per Mac e
@@ -326,6 +326,63 @@ d'errore usi il riassunto e non il corpo grezzo. *Una funzione giusta che nessun
 chiama è una funzione che non esiste.* E lo script adesso esporta le due funzioni
 pure e lancia `main()` **solo se è stato eseguito**: importato da una prova non
 deve mettersi a parlare con Cloudflare.
+
+---
+
+## La 1.8.2: quattro misure sbagliate, e l'archivio che si ricalcola da solo
+
+*8 settembre 2026, sera. La versione che non aggiunge niente e corregge quattro
+cose che erano sbagliate da sempre.* Il racconto di come sono state trovate sta
+nella sezione qui sotto; questa dice cosa è uscito.
+
+**Le correzioni**, in ordine di quanto pesano su chi usa l'app:
+
+1. **La sosta di sicurezza** contata come si fa in acqua — fascia 2,5-7,5 m e
+   conteggio che si mette in pausa invece di azzerarsi.
+2. **Il tipo di sosta letto da libdivecomputer.** `DC_DECO_SAFETYSTOP`,
+   `DECOSTOP` e `DEEPSTOP` finivano tutti nello stesso ramo: *il computer diceva
+   «sto contando la sosta di sicurezza» e l'archivio registrava «sei in
+   decompressione»*. Adesso sono quattro rami, e le due soste consigliate hanno
+   il loro campo — `inSafetyStop`, `inDeepStop` — senza tetto e senza `inDeco`.
+   **E quando il computer la dichiara, `didSafetyStop` crede a lui**, prendendo
+   il più lungo fra il suo conteggio e quello del profilo: due testimoni dello
+   stesso fatto, si crede a quello che ha visto di più.
+3. **La sosta profonda**, stesso guasto sui bordi, stessa tolleranza.
+4. **Gli avvisi che si contraddicevano** — l'EAN35 a 30 m — in `deco.ts` e in
+   `gasPlan.ts`.
+5. **Il GF99 misurato sul proprio gradient factor**, non su un 65 fisso; e il
+   titolo «di solito esci con margine» che non compare più quando i casi vicini
+   al limite sono *tutti*.
+6. **Mezzo metro al minuto di margine sulla risalita finale**, perché
+   l'esercizio che l'app prescrive vale esattamente il limite.
+7. **La quota della sosta nella scheda**: «Sosta di sicurezza di 3:10 a 5,2 m».
+   *Una misura che non si può verificare dall'esterno è un'opinione con un
+   numero davanti.*
+
+> **► E L'ARCHIVIO SI RICALCOLA DA SOLO, che è la parte che mancava da sempre.
+> ◄** Le metriche sono **salvate** con l'immersione, non ricalcolate a ogni
+> apertura — è la scelta che rende istantaneo un archivio da migliaia di
+> immersioni. Il prezzo: quando una formula cambia, l'archivio resta indietro. La
+> riparazione se ne accorgeva solo grazie a una riga scritta a mano per ogni
+> grandezza **aggiunta** («l'esposizione all'ossigeno non c'è ancora»), e non
+> vedeva nessuna grandezza **cambiata**. *`safetyStopS` c'era già in ogni
+> immersione dell'archivio, con un numero plausibile e sbagliato, e nessun
+> controllo di forma poteva accorgersene.*
+>
+> Adesso ogni record porta `formulaV`, e `repairArchive` ricalcola tutto ciò che
+> ha un numero più basso di `VERSIONE_METRICHE`. **L'assenza del campo vale
+> «versione 1»**, che è esattamente ciò che serve per i record scritti prima. Chi
+> aggiorna si ritrova le statistiche giuste al primo avvio, senza reimportare.
+> *Il limite dichiarato: un'immersione le cui velocità venivano dal secondo
+> profilo non si ricalcola su un dispositivo che quel profilo non ha —
+> ricalcolarla su meno dati la peggiorerebbe — e si aggiorna su quello che ce
+> l'ha.*
+
+**Undici mutazioni provate**, tutte morte: fascia stretta, tolleranza a zero,
+tolleranza infinita, tempo fuori regalato, soglia abbassata, tetto alzato,
+tolleranza della sosta profonda tolta, avviso PPO2 con la vecchia soglia, avviso
+PPO2 spento, versione delle formule non alzata, assenza della versione trattata
+come corrente. *Una guardia mai vista rossa non è una guardia.*
 
 ---
 

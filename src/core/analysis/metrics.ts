@@ -33,6 +33,34 @@ import {
 import { ambientAta, ambientBar, end as endDepth, mod } from '../units';
 import { exposureOfProfile } from './oxygen';
 
+/**
+ * ► LA VERSIONE DELLE FORMULE, E PERCHÉ UN NUMERO BATTE VENTI CONTROLLI. ◄
+ *
+ * Le metriche sono **salvate** con l'immersione, non ricalcolate a ogni
+ * apertura: è la scelta che rende istantaneo un archivio da migliaia di
+ * immersioni. Il prezzo è che quando una formula cambia, l'archivio resta
+ * indietro — e per anni la riparazione se ne accorgeva solo grazie a una riga
+ * scritta a mano per ogni grandezza nuova («l'esposizione all'ossigeno non c'è
+ * ancora», «le soste profonde non ci sono ancora»). Quel meccanismo vede le
+ * grandezze **aggiunte**; non vede quelle **cambiate**, che è esattamente il
+ * caso dell'8 settembre 2026: `safetyStopS` c'era già, e c'era sbagliato.
+ *
+ * Questo numero si alza **ogni volta che una formula cambia il risultato su
+ * un'immersione già in archivio**, e la riparazione ricalcola tutto ciò che
+ * porta un numero più basso. Chi apre l'app dopo un aggiornamento si ritrova
+ * l'archivio ricalcolato al primo avvio, senza reimportare niente.
+ *
+ * *Alzarlo per una modifica che non cambia i numeri costa una passata inutile
+ * su tutto l'archivio. Non alzarlo per una che li cambia costa molto di più:
+ * statistiche che restano sbagliate per sempre su chi non reimporta.*
+ *
+ * | versione | cosa è cambiato |
+ * |---|---|
+ * | 1 | tutto quello che c'era prima che questo numero esistesse |
+ * | 2 | sosta di sicurezza (fascia 2,5-7,5 m e tolleranza), sosta profonda (tolleranza), quota della sosta, flag `inSafetyStop` del computer |
+ */
+export const VERSIONE_METRICHE = 2;
+
 /** Ampiezza della finestra mobile per le velocità verticali, secondi. */
 export const RATE_WINDOW_S = 30;
 
@@ -178,6 +206,7 @@ export function computeMetrics(dive: Dive): DiveMetrics {
   const finalAscent = analyseFinalAscent(ratesSamples);
 
   const quality: MetricQuality = {
+    formulaV: VERSIONE_METRICHE,
     sampleCount: samples.length,
     sampleIntervalS: Math.round(intervalS * 10) / 10,
     hasProfile,
@@ -207,6 +236,7 @@ export function computeMetrics(dive: Dive): DiveMetrics {
     holdingS: rates.holdingS,
     safetyStopS: stops.safetyStopS,
     didSafetyStop: stops.didSafetyStop,
+    safetyStopDepthM: stops.safetyStopDepthM,
     deepStopS: stops.deepStopS,
     deepStopDepthM: stops.deepStopDepthM,
     sawtoothMPerHour: shape.sawtoothMPerHour,
@@ -404,11 +434,67 @@ function analyseVerticalRates(samples: Sample[], phases: DivePhases): RateResult
 // Sosta di sicurezza
 // ---------------------------------------------------------------------------
 
+/**
+ * Il tratto contiguo più lungo in cui vale `dentro`, con la tolleranza di uscita.
+ *
+ * Estratta perché ora serve due volte sulla stessa sosta — una sulla fascia di
+ * profondità e una sul flag del computer — e due copie della stessa aritmetica
+ * sono due posti in cui sbagliarla.
+ *
+ * ► LA TOLLERANZA È IL CUORE, e la ragione sta per esteso in `analyseStops`. ◄
+ * Il tempo passato fuori **non si somma**: la pausa è una pausa, non uno sconto.
+ */
+function trattoPiuLungo(
+  samples: Sample[],
+  daS: number,
+  dentro: (s: Sample) => boolean,
+): { durata: number; quotaMedia?: number } {
+  let corrente = 0;
+  let piuLunga = 0;
+  let fuori = 0;
+  let sommaQuote = 0;
+  let quanti = 0;
+  let quotaMedia: number | undefined;
+  for (let i = 1; i < samples.length; i++) {
+    const s = samples[i];
+    if (s.t < daS) continue;
+    const dt = s.t - samples[i - 1].t;
+    if (dentro(s)) {
+      fuori = 0;
+      corrente += dt;
+      sommaQuote += s.depth;
+      quanti++;
+      if (corrente > piuLunga) {
+        piuLunga = corrente;
+        // La quota del tratto che sta vincendo: è il numero che rende la misura
+        // verificabile da chi c'era. «Sosta di 3:10 a 5,2 m» si controlla al
+        // volo; «sosta di 3:10» non si controlla affatto.
+        quotaMedia = round(sommaQuote / quanti, 1);
+      }
+    } else {
+      fuori += dt;
+      if (fuori > LIMITS.safetyStopToleranceS) {
+        corrente = 0;
+        fuori = 0;
+        sommaQuote = 0;
+        quanti = 0;
+      }
+    }
+  }
+  return { durata: piuLunga, quotaMedia };
+}
+
 function analyseStops(
   samples: Sample[],
   phases: DivePhases,
   maxDepth: number,
-): { safetyStopS: number; didSafetyStop: boolean; deepStopS: number; deepStopDepthM?: number } {
+): {
+  safetyStopS: number;
+  didSafetyStop: boolean;
+  safetyStopDepthM?: number;
+  deepStopS: number;
+  deepStopDepthM?: number;
+} {
   /*
    * LA PERMANENZA CONTIGUA PIÙ LUNGA, non la somma dei passaggi.
    *
@@ -455,30 +541,28 @@ function analyseStops(
    * la tolleranza — e la sosta con l'oscillazione adesso è «fatta».
    */
   const [lo, hi] = LIMITS.safetyStopBandM;
-  let corrente = 0;
-  let piuLunga = 0;
-  // Secondi consecutivi passati FUORI fascia: finché stanno sotto la tolleranza
-  // il conteggio è in pausa, come fa il contatore del computer; oltre, la sosta
-  // è finita e si riparte da zero.
-  let fuori = 0;
-  for (let i = 1; i < samples.length; i++) {
-    const s = samples[i];
-    if (s.t < phases.ascentStartS) continue;
-    const dt = s.t - samples[i - 1].t;
-    if (s.depth >= lo && s.depth <= hi) {
-      // `fuori` NON si somma: il tempo passato fuori fascia non è sosta. Si
-      // azzera e basta, così l'escursione costa la sua durata e non di più.
-      fuori = 0;
-      corrente += dt;
-      if (corrente > piuLunga) piuLunga = corrente;
-    } else {
-      fuori += dt;
-      if (fuori > LIMITS.safetyStopToleranceS) {
-        corrente = 0;
-        fuori = 0;
-      }
-    }
-  }
+  const inFascia = (s: Sample) => s.depth >= lo && s.depth <= hi;
+  const dalProfilo = trattoPiuLungo(samples, phases.ascentStartS, inFascia);
+
+  /*
+   * ► E SE IL COMPUTER LO DICE LUI, SI ASCOLTA LUI. ◄
+   *
+   * `inSafetyStop` arriva da libdivecomputer (`DC_DECO_SAFETYSTOP`) ed è il
+   * contatore che il subacqueo guarda al polso: parte da solo, si mette in pausa
+   * se esci dalla finestra, riprende quando rientri. Dedurre dal profilo una
+   * decisione che l'apparecchio ha già preso e registrato è ricostruzione, e la
+   * ricostruzione sbagliata è quella che ha tolto la sosta a chi la faceva.
+   *
+   * **Si prende il più lungo dei due, non il flag da solo.** Il flag può
+   * mancare per intero — i driver di casa non ce l'hanno, e Shearwater durante
+   * la sosta tiene il tetto a zero senza dire altro — e può coprire solo una
+   * parte della sosta su un firmware che lo alza tardi. *Nessuna delle due
+   * misure deve poter cancellare l'altra: sono due testimoni dello stesso
+   * fatto, e si crede a quello che ha visto di più.*
+   */
+  const dalComputer = trattoPiuLungo(samples, phases.ascentStartS, (s) => s.inSafetyStop === true);
+  const sosta = dalComputer.durata > dalProfilo.durata ? dalComputer : dalProfilo;
+  const piuLunga = sosta.durata;
 
   // La sosta profonda: una permanenza attorno a metà della profondità massima
   // durante la risalita. Si cerca il tratto contiguo più lungo dentro la fascia,
@@ -495,6 +579,7 @@ function analyseStops(
     return {
       safetyStopS: Math.round(piuLunga),
       didSafetyStop: piuLunga >= LIMITS.safetyStopMinS,
+      safetyStopDepthM: sosta.quotaMedia,
       deepStopS: 0,
     };
   }
@@ -546,6 +631,7 @@ function analyseStops(
     // completate conta. Il tempo totale in fascia non è una sosta.
     safetyStopS: Math.round(piuLunga),
     didSafetyStop: piuLunga >= LIMITS.safetyStopMinS,
+    safetyStopDepthM: sosta.quotaMedia,
     deepStopS: best >= LIMITS.deepStopMinS ? Math.round(best) : 0,
     deepStopDepthM: best >= LIMITS.deepStopMinS && bestDepth !== undefined ? round(bestDepth, 1) : undefined,
   };

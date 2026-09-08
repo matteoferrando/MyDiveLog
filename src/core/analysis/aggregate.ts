@@ -361,8 +361,13 @@ export function aggregate(dives: Dive[], now: number = Date.now()): Aggregates {
      * qui sopra risponde a una domanda diversa — «rispetto agli altri» invece di
      * «rispetto a come si dovrebbe» — e le due vanno tenute distinte.
      */
+    // Col margine di `finalAscentToleranceMpm`: senza, chi esegue l'esercizio
+    // prescritto — cinquanta secondi da cinque metri, cioè 6,0 m/min esatti —
+    // finisce in questo conteggio circa una volta su due, per come cade la
+    // griglia di campionamento.
     finalAscentsOverAppLimit: sorted.filter(
-      (d) => (d.metrics?.finalAscentRateMpm ?? 0) > LIMITS.ascentRateShallowMpm,
+      (d) =>
+        (d.metrics?.finalAscentRateMpm ?? 0) > LIMITS.ascentRateShallowMpm + LIMITS.finalAscentToleranceMpm,
     ).length,
     // La sosta profonda ha senso solo dove c'è profondità da dimezzare: sotto i
     // 20 m il punto medio cade dentro la sosta di sicurezza.

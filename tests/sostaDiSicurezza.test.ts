@@ -359,6 +359,108 @@ describe('la sosta di sicurezza come si fa davvero', () => {
   );
 
   /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► QUANDO IL COMPUTER LO DICE LUI, SI ASCOLTA LUI. ◄
+   *
+   * `inSafetyStop` arriva da `DC_DECO_SAFETYSTOP` ed è il contatore che il
+   * subacqueo guarda al polso. Prima quel valore veniva **scartato** — anzi
+   * peggio: finiva nel ramo delle tappe di decompressione, e tre minuti di
+   * sosta diventavano tre minuti di obbligo decompressivo.
+   */
+  it('una sosta dichiarata dal computer conta anche fuori dalla fascia di profondità', () => {
+    for (const passoS of PASSI) {
+      const s: Sample[] = [];
+      let t = 0;
+      const push = (d: number, flag?: boolean) => {
+        s.push({ t, depth: d, ...(flag ? { inSafetyStop: true } : {}) });
+        t += passoS;
+      };
+      for (let i = 0; i * passoS < 600; i++) push(25);
+      // Una sosta tenuta a NOVE metri — fuori dalla fascia, quindi il profilo da
+      // solo direbbe di no — ma il computer dichiara che sta contando.
+      for (let i = 0; i * passoS < 200; i++) push(9, true);
+      for (let i = 0; i * passoS < 60; i++) push(0);
+      const m = computeMetrics({
+        id: 'x',
+        startTime: '2026-01-01T10:00:00Z',
+        durationS: t,
+        maxDepth: 25,
+        mode: 'oc',
+        cylinders: [],
+        samples: s,
+      } as unknown as Dive);
+      expect(m.didSafetyStop, `passo ${passoS} s`).toBe(true);
+      expect(m.safetyStopDepthM).toBeCloseTo(9, 1);
+    }
+  });
+
+  /*
+   * MA IL FLAG NON PUÒ CANCELLARE IL PROFILO. Se il firmware alza il contatore
+   * tardi e lo tiene su per un minuto solo, la sosta vera — misurata sul
+   * profilo — resta quella che vale. *Due testimoni dello stesso fatto: si crede
+   * a quello che ha visto di più, mai a quello che ha visto di meno.*
+   */
+  it('un flag corto non cancella una sosta lunga vista dal profilo', () => {
+    for (const passoS of [2, 10]) {
+      const s: Sample[] = [];
+      let t = 0;
+      const push = (d: number, flag?: boolean) => {
+        s.push({ t, depth: d, ...(flag ? { inSafetyStop: true } : {}) });
+        t += passoS;
+      };
+      for (let i = 0; i * passoS < 600; i++) push(25);
+      for (let i = 0; i * passoS < 60; i++) push(5, true);
+      for (let i = 0; i * passoS < 160; i++) push(5);
+      for (let i = 0; i * passoS < 60; i++) push(0);
+      const m = computeMetrics({
+        id: 'x',
+        startTime: '2026-01-01T10:00:00Z',
+        durationS: t,
+        maxDepth: 25,
+        mode: 'oc',
+        cylinders: [],
+        samples: s,
+      } as unknown as Dive);
+      expect(m.didSafetyStop, `passo ${passoS} s`).toBe(true);
+      expect(m.safetyStopS, `passo ${passoS} s`).toBeGreaterThanOrEqual(210);
+    }
+  });
+
+  /*
+   * ► E UNA SOSTA DI SICUREZZA NON È DECOMPRESSIONE. ◄ È la conseguenza che
+   * costava di più: con il tetto valorizzato, `decoS` contava quei minuti come
+   * obbligo, l'immersione diventava «con decompressione» e usciva dal
+   * denominatore delle statistiche sulle soste. Il flag non deve produrre
+   * niente di tutto questo.
+   */
+  it('non produce obbligo decompressivo né violazioni del tetto', () => {
+    const s: Sample[] = [];
+    let t = 0;
+    const push = (d: number, flag?: boolean) => {
+      s.push({ t, depth: d, ...(flag ? { inSafetyStop: true } : {}) });
+      t += 10;
+    };
+    for (let i = 0; i < 60; i++) push(25);
+    // Tre minuti e mezzo con la quota che oscilla, come una sosta vera.
+    for (let i = 0; i < 21; i++) push(5 + (i % 2 === 0 ? 0.4 : -0.4), true);
+    for (let i = 0; i < 6; i++) push(0);
+    const m = computeMetrics({
+      id: 'x',
+      startTime: '2026-01-01T10:00:00Z',
+      durationS: t,
+      maxDepth: 25,
+      mode: 'oc',
+      cylinders: [],
+      samples: s,
+    } as unknown as Dive);
+    expect(m.didSafetyStop).toBe(true);
+    expect(m.decoS).toBe(0);
+    expect(m.ceilingViolationS).toBe(0);
+    expect(m.maxCeilingM).toBeUndefined();
+    expect(m.quality.hasCeiling).toBe(false);
+  });
+
+  /*
    * LA FASCIA E LA SOSTA PROFONDA NON SI TOCCANO, e questa prova è qui perché
    * il doppio conteggio è già successo una volta: le statistiche arrivavano al
    * 114% di immersioni con sosta profonda perché la stessa permanenza veniva

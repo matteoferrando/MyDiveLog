@@ -1052,6 +1052,16 @@ pub struct CampioneLdc {
     pub setpoint: Option<f64>,
     #[serde(rename = "rbtMin", skip_serializing_if = "Option::is_none")]
     pub rbt_min: Option<u32>,
+    /// Il computer sta contando la SOSTA DI SICUREZZA, e lo dice lui.
+    ///
+    /// Non è un tetto e non è un obbligo: è il contatore che parte da solo negli
+    /// ultimi metri. Tenerlo separato è tutta la ragione di questi due campi —
+    /// vedi il commento sul tipo di sosta, sopra.
+    #[serde(rename = "inSafetyStop", skip_serializing_if = "Option::is_none")]
+    pub in_safety_stop: Option<bool>,
+    /// Il computer sta proponendo una SOSTA PROFONDA. Consiglio, non obbligo.
+    #[serde(rename = "inDeepStop", skip_serializing_if = "Option::is_none")]
+    pub in_deep_stop: Option<bool>,
 }
 
 /// Un'immersione tradotta, pronta per il lato TypeScript.
@@ -1163,6 +1173,9 @@ struct Accumulatore {
  * copiata a occhio da un'intestazione C va confrontata con l'intestazione.
  */
 const DECO_NDL: c_uint = 0;
+const DECO_SOSTA_SICUREZZA: c_uint = 1;
+const DECO_SOSTA_DECO: c_uint = 2;
+const DECO_SOSTA_PROFONDA: c_uint = 3;
 
 extern "C" fn campione(tipo: c_uint, valore: *const ValoreCampione, userdata: *mut c_void) {
     // SICUREZZA: entrambi i puntatori arrivano da libdivecomputer e valgono per
@@ -1205,12 +1218,62 @@ extern "C" fn campione(tipo: c_uint, valore: *const ValoreCampione, userdata: *m
         11 => acc.corrente.cns = Some(unsafe { v.cns } * 100.0),
         12 => {
             let d = unsafe { v.deco };
-            if d.tipo == DECO_NDL {
-                acc.corrente.ndl_s = Some(d.tempo);
-                acc.corrente.in_deco = Some(false);
-            } else {
-                acc.corrente.ceiling = Some(d.profondita);
-                acc.corrente.in_deco = Some(d.profondita > 0.0);
+            /*
+             * ► QUATTRO TIPI, TRE SIGNIFICATI, E PRIMA ERANO DUE RAMI. ◄
+             *
+             * `dc_deco_type_t` distingue la curva, la **sosta di sicurezza**, la
+             * **tappa di decompressione** e la **sosta profonda**. Qui i tre tipi
+             * diversi da `NDL` finivano tutti nello stesso `else`, con un tetto
+             * valorizzato e `in_deco = true`. Cioè: **il computer diceva «sto
+             * contando la sosta di sicurezza» e noi lo scrivevamo come «sei in
+             * decompressione».**
+             *
+             * Non è una sfumatura statistica. Una sosta di sicurezza si può
+             * saltare, una tappa no: è la distinzione su cui è costruito tutto il
+             * resto dell'applicazione, ed era appiattita esattamente nel punto in
+             * cui il computer la stava dichiarando. Le conseguenze, seguite nel
+             * codice TypeScript:
+             *
+             *  1. `decoS` contava quei tre minuti come obbligo → l'immersione
+             *     diventava «con decompressione», e quel conteggio alimenta i
+             *     prerequisiti di prontezza per i corsi;
+             *  2. essendo «con deco», usciva dal denominatore delle soste di
+             *     sicurezza: la statistica di chi la sosta la fa sempre veniva
+             *     calcolata su meno immersioni;
+             *  3. con il tetto a cinque metri, il subacqueo che durante la sosta
+             *     galleggia a 4,5 m finiva in `ceilingViolationS`. **Una sosta di
+             *     sicurezza normale poteva risultare una violazione del tetto di
+             *     decompressione**, che è il messaggio che fa ignorare anche gli
+             *     avvisi veri.
+             *
+             * Adesso: la curva è curva, la tappa è un obbligo con il suo tetto, e
+             * le due soste consigliate hanno il loro campo e **non** scrivono né
+             * `ceiling` né `in_deco`.
+             */
+            match d.tipo {
+                DECO_NDL => {
+                    acc.corrente.ndl_s = Some(d.tempo);
+                    acc.corrente.in_deco = Some(false);
+                }
+                DECO_SOSTA_SICUREZZA => {
+                    acc.corrente.in_safety_stop = Some(true);
+                    acc.corrente.in_deco = Some(false);
+                }
+                DECO_SOSTA_PROFONDA => {
+                    acc.corrente.in_deep_stop = Some(true);
+                    acc.corrente.in_deco = Some(false);
+                }
+                DECO_SOSTA_DECO => {
+                    acc.corrente.ceiling = Some(d.profondita);
+                    acc.corrente.in_deco = Some(d.profondita > 0.0);
+                }
+                /*
+                 * Un tipo che non conosciamo NON si tratta come una tappa. Se un
+                 * giorno libdivecomputer ne aggiungesse uno, scriverlo come
+                 * obbligo decompressivo sarebbe l'errore che questo blocco è
+                 * appena finito di correggere: nel dubbio non si dichiara niente.
+                 */
+                _ => {}
             }
             if d.tts > 0 {
                 acc.corrente.tts_s = Some(d.tts);
