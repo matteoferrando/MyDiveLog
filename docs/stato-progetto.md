@@ -7,9 +7,13 @@ quattro pulsanti del sito rispondono `200`, `latest.json` serve `1.8.1` per Mac 
 Windows, e l'impronta del `.dmg` **riscaricato dall'indirizzo pubblico** coincide
 con quella scritta nelle note. **Nel comportamento è identica alla 1.8.0**: il
 numero è salito perché `1.8.0` era già stato consegnato ad App Store Connect, e
-quel campo non restituisce un numero consumato. **Sui due negozi Apple c'è
-ancora la 1.7.1**: l'`.ipa` e il `.pkg` della 1.8.1 sono costruiti e firmati, il
-caricamento spetta al proprietario. Google Play aspetta la fine del test chiuso
+quel campo non restituisce un numero consumato. **Sul Mac App Store la 1.8.1
+è approvata** — dichiarato dal proprietario l'8 settembre — **mentre su App
+Store per iPhone c'è ancora la 1.7.1**, misurato col `lookup` e l'anti-cache in
+coda alle 08:55 UTC dell'8 settembre: `1.7.1`, data di pubblicazione ancora
+quella del 28 agosto. I due pacchetti erano stati consegnati insieme la sera del
+7: **Apple verifica un negozio alla volta, e lo scarto fra i due non è un guasto,
+è la coda.** Google Play aspetta la fine del test chiuso
 (attorno al 12 settembre). Vedi «Il rilascio della 1.8.0», che racconta la
 giornata, e il riquadro qui sotto per la 1.8.1.
 
@@ -2215,21 +2219,22 @@ non il momento — e quel che non è stato misurato qui non si scrive.
 
 ### Tocca a chi pubblica
 
-0. **► CONSEGNARE LA 1.8.0 AI DUE NEGOZI APPLE. ◄** *La release pubblica è
-   **fatta**: `v1.8.0` con nove allegati, i quattro pulsanti del sito a `200`,
-   `latest.json` che serve 1.8.0 a Mac e Windows, cask e PKGBUILD riallineati
-   dopo. Restano i passi 9 e 10 di `rilascio-e-versioni.md`, cioè i due negozi.*
-   I pacchetti sono **costruiti, firmati e verificati** in
-   `da-caricare-su-app-store/`: `MyDiveLog-1.8.0-app-store.ipa` e
-   `MyDiveLog-1.8.0-mac-app-store.pkg`. Quello che resta al proprietario:
-   Transporter per tutti e due, App Store Connect sulle **due schede separate**,
-   novità da `consegna-1.8.0/novita-negozi-1.8.0.md`, e **inviare in revisione**
-   — *una build caricata e non inviata resta ferma per sempre senza che nessuno
-   dica niente.* **Google Play** aspetta la fine del test chiuso, attorno al 12
-   settembre: l'`.aab` firmato è in `da-caricare-su-play/`. **E la mail al
-   centro sub va mandata dopo l'approvazione, non prima**: sta in
-   `consegna-1.8.0/mail-centro-sub-1.8.0.md`, e se arriva mentre il negozio
-   serve ancora la 1.7.1, chi la legge cerca un aggiornamento che non c'è.
+0. **► LA 1.8.1 È SUI DUE NEGOZI, MA UNO SOLO L'HA APPROVATA — E LA MAIL
+   ASPETTA L'ALTRO. ◄** *Consegnati insieme la sera del 7 settembre; il **Mac
+   App Store** ha approvato l'8 (dichiarato dal proprietario), **App Store per
+   iPhone è ancora in verifica**: alle 08:55 UTC dell'8 il `lookup` risponde
+   `1.7.1` con la data del 28 agosto.* **Apple verifica un negozio alla volta:
+   l'approvazione di uno non dice niente dell'altro**, e dedurla è esattamente
+   l'errore che questo documento raccoglie da settimane. **La mail al centro sub
+   va mandata dopo l'approvazione iOS, non dopo quella macOS**: sta in
+   `consegna-1.8.1/mail-centro-sub-1.8.1.md`, il centro sub scarica da un
+   telefono, e se arriva mentre il negozio serve ancora la 1.7.1 chi la legge
+   cerca un aggiornamento che non c'è — e la mail si brucia. *Il comando per
+   sapere quando è il momento, senza chiederlo a nessuno:*
+   `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
+   *— quando quel campo `version` dice `1.8.1`, si manda.* **Google Play**
+   aspetta la fine del test chiuso, attorno al 12 settembre: l'`.aab` firmato è
+   in `da-caricare-su-play/`.
 1. **~~La 1.7.1 ai due negozi.~~ Fatta, tutti e due.** Su **App Store per
    iPhone** dal **28 agosto alle 21:25:04 UTC**, misurato col `lookup` e
    l'anti-cache; sul **Mac App Store**, dichiarato dal proprietario l'1
