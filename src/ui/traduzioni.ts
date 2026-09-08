@@ -190,8 +190,6 @@ export const INGLESE: Record<string, string> = {
   'Forma del profilo': 'Profile shape',
   'Gradient factor impostati': 'Gradient factors set',
   'I minuti in curva partono': 'No-deco minutes start',
-  'Il browser ha bloccato la finestra di stampa. Consentila per questo sito e riprova.':
-    'The browser blocked the print window. Allow it for this site and try again.',
   'Il TTS suppone risalita a 9 m/min, soste di un minuto e': 'TTS assumes 9 m/min up, one-minute stops and',
   'il tuo computer': 'your computer',
   'Immersione non trovata': 'Dive not found',
@@ -250,7 +248,6 @@ export const INGLESE: Record<string, string> = {
   'Sosta profonda': 'Deep stop',
   'sotto i 10 m': 'below 10 m',
   'Sovrasaturazione istantanea (GF99)': 'Instant supersaturation (GF99)',
-  'Stampa questa immersione': 'Print this dive',
   'Sì, butta via le modifiche': 'Yes, discard my changes',
   'Tempo di fondo residuo (RBT)': 'Remaining bottom time (RBT)',
   'Tempo di risalita (TTS) del computer': 'Time to surface (TTS) from the computer',
@@ -692,6 +689,8 @@ export const INGLESE: Record<string, string> = {
   'il limite mostrato finora era più profondo di quello vero.':
     'the limit shown until now was deeper than the real one.',
   'i conti fatti finora erano prudenti.': 'the figures so far were on the safe side.',
+  'L’esportazione si accende con la prima immersione in archivio: un foglio portato in barca non si porta dietro l’avviso qui sopra.':
+    'Exporting turns on with your first dive in the logbook: a sheet taken on the boat does not carry the warning above.',
   'Esporta PDF': 'Export PDF',
   'Esposizione all’ossigeno': 'Oxygen exposure',
   fase: 'phase',
@@ -990,9 +989,7 @@ export const INGLESE: Record<string, string> = {
   'sotto i': 'below',
   'Sposta l’intervallo di superficie e guarda cosa cambia: la prima immersione resta uguale, paga la seconda.':
     'Move the surface interval and watch: the first dive never changes, the second pays.',
-  'Stampa il piano': 'Print the plan',
   'Il PDF non è stato salvato: il piano non è cambiato.': 'The PDF was not saved: your plan is unchanged.',
-  'Stampa il piano (PDF)': 'Print the plan (PDF)',
   'Stessa attrezzatura e stesse miscele. Se cambi anche quelle, meglio due piani separati.':
     'Same gear, same mixes. If those change too, make two separate plans.',
   'Stessi gradient factor della curva qui sopra': 'Same gradient factors as the no-deco limit above',
@@ -2511,10 +2508,6 @@ export const INGLESE: Record<string, string> = {
   'non usare questa tabella, passa a Bühlmann.': 'do not use this table, switch to Bühlmann.',
   "Questi sono valori di esempio, non i tuoi. Cambiali con l'immersione che stai pianificando: il piano vale quanto i numeri che gli dai.":
     'These are sample values, not yours. Replace them with the dive you are planning: the plan is worth as much as the numbers you give it.',
-  "La stampa si accende con la prima immersione in archivio: un foglio portato in barca non si porta dietro l'avviso qui sopra.":
-    'Printing turns on with your first dive in the logbook: a sheet taken on the boat does not carry the warning above with it.',
-  'Su iPhone e iPad non si stampa: dal Mac sì, e i dati sono gli stessi.':
-    'No printing on iPhone or iPad: from the Mac yes, and the data is the same.',
 
   // --- il logbook, la scheda dell’immersione e l’attrezzatura ---
   "Se hai un libretto di carta o un computer che non si collega, l'immersione la scrivi tu: data, durata, profondità, e il resto quando vuoi.":

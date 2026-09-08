@@ -106,30 +106,48 @@ describe('eventi del puntatore invece che del mouse', () => {
   });
 });
 
-describe('la stampa non si offre dove non può funzionare', () => {
+describe('la stampa non esiste più, e non deve tornare di nascosto', () => {
   /*
-   * IL DIFETTO. Stampare apre una finestra nuova col foglio impaginato e passa
-   * la parola alla finestra di stampa del sistema. Dentro la WKWebView di iOS
-   * non esiste né l'una né l'altra: `window.open` restituisce null e
-   * `window.print()` non fa niente. I due pulsanti restavano lì, identici a
-   * tutti gli altri, e premendoli compariva un avviso che dava la colpa al
-   * blocco dei popup — cioè mandava a cercare un'impostazione che su iPhone non
-   * esiste, per un problema che non era quello.
+   * ► COM'È FINITA, E PERCHÉ LA GUARDIA RESTA. ◄
    *
-   * Un pulsante che non può funzionare è peggio della sua assenza: promette una
-   * funzione e poi mente sul perché non c'è.
+   * Questa prova nasce da un difetto: stampare apre una finestra nuova e passa
+   * la parola alla finestra di stampa del sistema, e dentro la WKWebView di iOS
+   * non esiste né l'una né l'altra — `window.open` restituisce null e
+   * `window.print()` non fa niente. I due pulsanti restavano lì, identici agli
+   * altri, e premendoli l'app dava la colpa al blocco dei popup: mandava a
+   * cercare un'impostazione che su iPhone non esiste. La prima versione di
+   * questa guardia pretendeva quindi che ogni pulsante di stampa stesse dietro
+   * a un controllo sulla piattaforma.
+   *
+   * **Poi la stampa è stata tolta del tutto**, e con lei il problema: resta
+   * solo «Esporta PDF», che il PDF lo scrive da sé e funziona ovunque — e da
+   * un PDF si stampa comunque, con i margini veri del lettore. *Una strada che
+   * contiene l'altra non è una scelta da offrire.*
+   *
+   * La guardia non si cancella, si rovescia: **nessuna delle due pagine deve
+   * tornare ad aprire una finestra di stampa.** È il modo in cui questo difetto
+   * potrebbe rientrare — qualcuno che «riaggiunge la stampa, che è comoda» —
+   * e da lì tornerebbero il pulsante che mente su iPhone e il messaggio sul
+   * blocco dei popup.
    */
-  it('ogni pulsante di stampa sta dietro a un controllo sulla piattaforma', () => {
-    for (const rel of ['ui/pages/DiveDetail.tsx', 'ui/pages/Planner.tsx']) {
+  it.each(['ui/pages/DiveDetail.tsx', 'ui/pages/Planner.tsx'])(
+    '%s non apre nessuna finestra di stampa',
+    (rel) => {
       const f = FILE.find((x) => x.rel === rel);
       expect(f, `${rel} non c’è più`).toBeDefined();
-      // Il file apre davvero una finestra: se questa riga sparisce il test va
-      // riscritto, non cancellato.
-      expect(f!.testo, `${rel} non stampa più: rivedere questa guardia`).toContain(
-        "window.open('', '_blank')",
-      );
-      expect(f!.testo, `${rel}: la stampa non è nascosta su iOS`).toContain('!suIOS()');
-    }
+      expect(f!.testo, `${rel}: è tornata una finestra di stampa`).not.toContain('window.open(');
+      expect(f!.testo, `${rel}: è tornata una chiamata a print()`).not.toContain('.print()');
+    },
+  );
+
+  /*
+   * E L'ESPORTAZIONE C'È DAVVERO, su tutte e due. Senza questa metà, togliere
+   * anche il PDF farebbe passare la prova qui sopra: «nessuna stampa» sarebbe
+   * soddisfatto da una pagina che non porta fuori niente.
+   */
+  it.each(['ui/pages/DiveDetail.tsx', 'ui/pages/Planner.tsx'])('%s esporta in PDF', (rel) => {
+    const f = FILE.find((x) => x.rel === rel);
+    expect(f!.testo, `${rel}: manca l’esportazione in PDF`).toContain("t('Esporta PDF')");
   });
 });
 

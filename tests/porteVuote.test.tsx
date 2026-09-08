@@ -234,24 +234,33 @@ describe('pianificatore con l’archivio vuoto', () => {
     };
   };
 
-  it('dice che i numeri non sono di chi legge, e spegne la stampa', () => {
+  /*
+   * ► IL PULSANTE ERA «STAMPA IL PIANO», ADESSO È «ESPORTA PDF». ◄ La stampa è
+   * stata tolta da tutta l'applicazione: restava un secondo modo di fare la
+   * stessa cosa, assente su metà delle piattaforme, e da un PDF si stampa
+   * comunque. *Quello che questa prova difende non è cambiato di una virgola:
+   * il foglio esce dall'applicazione, e l'avviso che sta a schermo non lo
+   * segue.*
+   */
+  it('dice che i numeri non sono di chi legge, e spegne l’esportazione', () => {
     archivioFinto([]);
     const vista = monta(<Planner />);
 
     expect(vista.host.textContent).toContain('Questi sono valori di esempio, non i tuoi');
-    // Il foglio esce dall’applicazione e l’avviso non lo segue: finché non c’è
-    // un’immersione vera, il pulsante è spento e dice perché.
-    expect(bottone(vista.host, 'Stampa il piano').disabled).toBe(true);
-    expect(vista.host.textContent).toContain('La stampa si accende con la prima immersione');
+    // Finché non c'è un'immersione vera il pulsante è spento, e dice perché: un
+    // piano di esempio esportato è indistinguibile da uno vero, e finisce in
+    // mano a chi questa pagina non l'ha vista.
+    expect(bottone(vista.host, 'Esporta PDF').disabled).toBe(true);
+    expect(vista.host.textContent).toContain('L’esportazione si accende con la prima immersione');
     vista.smonta();
   });
 
-  it('con l’archivio pieno l’avviso sparisce e la stampa torna attiva', () => {
+  it('con l’archivio pieno l’avviso sparisce e l’esportazione torna attiva', () => {
     archivioFinto(archivio(6));
     const vista = monta(<Planner />);
 
     expect(vista.host.textContent).not.toContain('valori di esempio');
-    expect(bottone(vista.host, 'Stampa il piano').disabled).toBe(false);
+    expect(bottone(vista.host, 'Esporta PDF').disabled).toBe(false);
     vista.smonta();
   });
 });

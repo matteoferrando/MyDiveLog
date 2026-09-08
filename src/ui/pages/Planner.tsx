@@ -9,7 +9,6 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { suAndroid, suIOS } from '../../piattaforma';
 import {
   ascentGeometry,
   atDepth,
@@ -44,7 +43,6 @@ import { PeriodPicker } from '../components/PeriodPicker';
 import { DecoPlanner, type DecoPlanState } from '../components/DecoPlan';
 import { curveOfPlan, type PlanCurve as PlanCurveResult } from '../../core/analysis/tissues';
 import { barometric, planDeco, type DecoResult } from '../../core/analysis/deco';
-import { pianoHtml, type FoglioPiano } from '../../core/export/planPrint';
 import { pianoPdf } from '../../core/export/pdf';
 import { conDettaglio } from '../../core/ble/causaGuasto';
 import { esporta } from '../esporta';
@@ -262,7 +260,6 @@ export function Planner() {
     plan.planningRmvLpm,
   ]);
 
-  const [stampaBloccata, setStampaBloccata] = useState(false);
   const [esitoPdf, setEsitoPdf] = useState<string | null>(null);
 
   /*
@@ -363,6 +360,19 @@ export function Planner() {
                 : t('Tecnica: la deco è prevista, con la tabella delle soste e i gas che porti.')}
             </p>
           </div>
+          {/*
+           * ► DUE COMANDI CHE NON C'ENTRANO NIENTE, E STAVANO SULLA STESSA RIGA. ◄
+           *
+           * «Ricreativa / Tecnica» sceglie **che immersione stai pianificando**:
+           * cambia il piano sotto, ed è una domanda a cui rispondi prima di
+           * guardare i numeri. «Esporta PDF» porta fuori il piano che hai già:
+           * è l'ultima cosa che fai, e non cambia niente di quello che vedi.
+           * Messi in fila nella stessa riga sembravano tre opzioni della stessa
+           * scelta — e la terza, premuta per curiosità, scriveva un file.
+           *
+           * Adesso la riga in alto ha solo la modalità, e l'esportazione sta in
+           * fondo alla scheda, dove sta il piano che esporta.
+           */}
           <div className="row" style={{ gap: 6 }}>
             <button className={mode === 'rec' ? 'btn btn-primary' : 'btn'} onClick={() => setMode('rec')}>
               {t('Ricreativa')}
@@ -370,103 +380,48 @@ export function Planner() {
             <button className={mode === 'tec' ? 'btn btn-primary' : 'btn'} onClick={() => setMode('tec')}>
               {t('Tecnica')}
             </button>
-            {/*
-             * La stampa esiste perché in barca il telefono non c'è: sta nel
-             * sacco, o è scarico, o è nel gommone mentre tu sei in acqua. Il
-             * foglio è la lavagnetta della didattica tecnica, con gli stessi
-             * numeri di quelli appena calcolati e senza il passaggio in cui si
-             * ricopia a mano una cifra sbagliata.
-             *
-             * E proprio per questo su iPhone il pulsante non c'è: dentro la
-             * WKWebView `window.open` restituisce null e `window.print()` non
-             * fa niente, quindi il foglio non si può produrre. Restava un
-             * pulsante che, premuto, dava la colpa al blocco dei popup — cioè
-             * mandava a cercare un'impostazione inesistente per un problema che
-             * non era quello. Il piano si stampa dal Mac, o si copia negli
-             * appunti col pulsante qui accanto.
-             */}
-            {/*
-             * E CON L'ARCHIVIO VUOTO IL PULSANTE È SPENTO, non solo avvisato.
-             *
-             * L'avviso qui sopra difende lo schermo, ma il foglio serve proprio
-             * a lasciare lo schermo: in barca resta il foglio, e sul foglio
-             * l'avviso non c'è. Un piano di esempio stampato è indistinguibile
-             * da un piano vero — stessa tabella, stessi bar — e finisce in mano
-             * a qualcuno che non ha visto questa pagina.
-             *
-             * Spento e non nascosto, con il motivo scritto sotto: un pulsante
-             * che sparisce fa cercare un'impostazione, uno spento con la sua
-             * ragione dice cosa fare. E cosa fare adesso è a un minuto di
-             * distanza — una qualsiasi immersione, anche scritta a mano dal
-             * Logbook, e la stampa si riaccende con dei numeri che sono tuoi.
-             */}
-            {/*
-             * ► IL PDF C'È DOVE LA STAMPA NON C'È, E ANCHE DOVE C'È. ◄
-             *
-             * La stampa di sistema resta il modo migliore di STAMPARE: margini
-             * veri, formato carta, anteprima. Ma il file è un'altra cosa dalla
-             * stampa — si manda al compagno, si mette nel telefono del diving,
-             * si tiene — e su iPhone e Android era **l'unico modo possibile**,
-             * visto che lì la finestra di stampa non esiste. Due pulsanti
-             * diversi per due gesti diversi, e il secondo funziona ovunque.
-             */}
-            <button className="btn" disabled={senzaArchivio} onClick={() => void esportaPdfPiano()}>
-              {t('Esporta PDF')}
-            </button>
-            {!suTelefono() && (
-              <button
-                className="btn"
-                disabled={senzaArchivio}
-                onClick={() =>
-                  setStampaBloccata(
-                    !apriStampaPiano(
-                      foglioDelPiano({
-                        plan,
-                        schedule,
-                        curve,
-                        soste,
-                        contingenze: plans,
-                        mode,
-                        turnAt,
-                        gf: GF_RICREATIVI,
-                      }),
-                    ),
-                  )
-                }
-              >
-                {t('Stampa il piano')}
-              </button>
-            )}
           </div>
+        </div>
+        {/*
+         * ► E LA STAMPA NON C'È PIÙ, DA NESSUNA PARTE. ◄
+         *
+         * C'erano due pulsanti per due gesti che l'utente non distingue: uno
+         * apriva la finestra di stampa del sistema, l'altro scriveva un file.
+         * Il secondo fa anche il primo — da un PDF si stampa — mentre il primo
+         * non fa il secondo su metà delle piattaforme, perché sui telefoni la
+         * finestra di stampa non esiste. *Due strade di cui una è un
+         * sottoinsieme dell'altra non sono una scelta: sono un bivio inutile
+         * messo davanti a chi voleva solo il suo foglio.*
+         *
+         * Con la stampa se ne vanno anche il messaggio sul blocco dei popup e
+         * quello che spiegava perché su iPhone il pulsante non c'era: erano
+         * risposte a domande che adesso non si pongono più.
+         *
+         * ► IL PULSANTE È SPENTO CON L'ARCHIVIO VUOTO, non nascosto. ◄ Il piano
+         * di esempio a schermo porta il suo avviso; il foglio esportato no, e
+         * finisce in mano a qualcuno che quell'avviso non l'ha mai visto. Un
+         * pulsante che sparisce fa cercare un'impostazione; uno spento con la
+         * sua ragione scritta sotto dice cosa fare — e cosa fare è a un minuto
+         * di distanza, una qualsiasi immersione in archivio.
+         */}
+        <div className="row" style={{ gap: 6, marginTop: 12, justifyContent: 'flex-end' }}>
+          <button className="btn" disabled={senzaArchivio} onClick={() => void esportaPdfPiano()}>
+            {t('Esporta PDF')}
+          </button>
         </div>
         {esitoPdf && (
           <p className="notice" role="status" style={{ marginTop: 10 }}>
             {esitoPdf}
           </p>
         )}
-        {!suTelefono() && senzaArchivio && (
+        {senzaArchivio && (
           <p className="muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
             {t(
-              "La stampa si accende con la prima immersione in archivio: un foglio portato in barca non si porta dietro l'avviso qui sopra.",
+              'L’esportazione si accende con la prima immersione in archivio: un foglio portato in barca non si porta dietro l’avviso qui sopra.',
             )}
           </p>
         )}
       </div>
-      {/*
-       * DUE MOTIVI DIVERSI PER CUI LA STAMPA NON PARTE, e all'utente ne diciamo
-       * solo il rimedio.
-       *
-       * Sui telefoni il pulsante della stampa non c'è più del tutto — c'è
-       * l'esportazione in PDF, che è quello che serviva davvero — quindi qui
-       * resta un caso solo: il browser che blocca la finestra. *Prima questo
-       * messaggio aveva due rami, e quello per iPhone diceva «dal Mac sì»: una
-       * risposta giusta e inutile a chi è in barca con il telefono in mano.*
-       */}
-      {stampaBloccata && (
-        <div className="notice">
-          {t('Il browser ha bloccato la finestra di stampa. Consentila per questo sito e riprova.')}
-        </div>
-      )}
 
       <div className="card">
         <h2>{t('Il tuo consumo')}</h2>
@@ -1552,45 +1507,6 @@ export function Planner() {
       </div>
     </div>
   );
-}
-
-/**
- * Apre la finestra di stampa del piano.
- *
- * Restituisce `false` quando il blocco dei popup l'ha rifiutata: è l'unico modo
- * in cui questa operazione può fallire, e chi chiama lo dice invece di lasciare
- * un pulsante che non fa niente.
- */
-/**
- * Vero su iPhone e su Android, cioè dove la finestra di stampa non esiste.
- *
- * ► ANDROID MANCAVA, E IL PULSANTE MENTIVA. ◄ La condizione era `!suIOS()`:
- * su Android il pulsante si vedeva, `window.open` non apriva niente e l'app
- * rispondeva «il browser ha bloccato la finestra di stampa, consentila» —
- * mandando a cercare un'impostazione per un problema che non era quello. **È
- * lo stesso difetto già corretto per iPhone, lasciato in piedi sull'altro
- * lato**, e `suAndroid()` esisteva già in `piattaforma.ts` senza che nessuno la
- * usasse. *Una funzione scritta e mai chiamata è un difetto che aspetta.*
- */
-function suTelefono(): boolean {
-  return suIOS() || suAndroid();
-}
-
-function apriStampaPiano(foglio: FoglioPiano): boolean {
-  const finestra = window.open('', '_blank');
-  if (!finestra) return false;
-  finestra.document.open();
-  finestra.document.write(pianoHtml(foglio));
-  finestra.document.close();
-  // Chiedere la stampa di un documento non ancora impaginato produce un foglio
-  // vuoto: si aspetta che sia pronto, gestendo entrambi i casi.
-  const stampa = () => {
-    finestra.focus();
-    finestra.print();
-  };
-  if (finestra.document.readyState === 'complete') stampa();
-  else finestra.addEventListener('load', stampa, { once: true });
-  return true;
 }
 
 // ---------------------------------------------------------------------------

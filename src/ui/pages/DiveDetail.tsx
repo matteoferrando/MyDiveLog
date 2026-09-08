@@ -1,17 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { suIOS } from '../../piattaforma';
 import { BottoneConferma } from '../components/Conferma';
 import { LIMITS, type ComputerInfo, type Dive, type Sample } from '../../core/model';
 import { formatDuration, mixName } from '../../core/units';
 import { descriviAnalisi, descriviScarto, scartiDiAnalisi } from '../../core/analisiGas';
 import { modeLabel, positionAgainst, quartilesOf } from '../../core/analysis/aggregate';
 import { debriefDive } from '../../core/analysis/coaching';
-import { logbookHtml } from '../../core/export/logbookPrint';
 import { schedePdf } from '../../core/export/pdf';
 import { conNumeri } from '../../core/numerazione';
 import { esporta } from '../esporta';
 import { conDettaglio } from '../../core/ble/causaGuasto';
-import type { Subacqueo } from '../../core/libretto';
 import { descriviFirma, firmaPath, firmaVuota } from '../../core/firma';
 import { RiquadroFirma } from '../components/FirmaGuida';
 import { DepthProfile, MiniSeries } from '../components/DepthProfile';
@@ -22,7 +19,7 @@ import { SaturationCard } from '../components/Saturation';
 import { decoTimeline, entryStateFor, gfOf, type DecoPoint } from '../../core/analysis/tissues';
 import { ModificaImmersione } from '../components/ModificaImmersione';
 import { condizioniTesto, visibilitaTesto } from '../../core/conditions';
-import { piastraDellImmersione, zavorraTotaleKg, type Equipment } from '../../core/analysis/gear';
+import { piastraDellImmersione, zavorraTotaleKg } from '../../core/analysis/gear';
 import {
   capitalise,
   dateLong,
@@ -55,7 +52,6 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
   // Vero solo quando `window.open` è stato rifiutato dal blocco dei popup. Un
   // bottone che non fa niente e non dice perché è peggio di un bottone assente:
   // qui la ragione è sempre la stessa, e si può spiegare in una riga.
-  const [stampaBloccata, setStampaBloccata] = useState(false);
   const [esitoPdf, setEsitoPdf] = useState<string | null>(null);
 
   /*
@@ -251,39 +247,19 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
             ← {t('Logbook')}
           </button>
           {/*
-           * SU IPHONE IL PULSANTE NON C'È, e non è una rinuncia.
+           * ► UN SOLO MODO DI PORTARE FUORI LA SCHEDA, E FUNZIONA OVUNQUE. ◄
            *
-           * La stampa apre una finestra nuova con il foglio impaginato e passa
-           * la parola alla finestra di stampa del sistema. Dentro la WKWebView
-           * di iOS non esiste né l'una né l'altra: `window.open` restituisce
-           * null e `window.print()` non fa niente. Il pulsante restava lì,
-           * identico agli altri, e premendolo compariva un avviso che dava la
-           * colpa al blocco dei popup — mandava cioè a cercare un'impostazione
-           * che non esiste, per un problema che non era quello.
+           * Qui accanto c'era «Stampa questa immersione», che apriva una
+           * finestra e passava la parola alla stampa di sistema — e che su
+           * iPhone non poteva esistere, perché dentro la WKWebView quella
+           * finestra non c'è. Due pulsanti per due gesti che chi li guarda non
+           * distingue, di cui uno assente su metà delle piattaforme.
            *
-           * Un pulsante che non può funzionare è peggio della sua assenza:
-           * promette una funzione e poi mente sul perché non c'è. Il foglio si
-           * stampa dal Mac, dove l'archivio è lo stesso.
-           */}
-          {!suIOS() && (
-            <button
-              className="btn"
-              onClick={() => setStampaBloccata(!apriStampa(dive, gear.equipment, subacqueo, numeri))}
-            >
-              {t('Stampa questa immersione')}
-            </button>
-          )}
-          {/*
-           * ► IL PDF C'È DOVE LA STAMPA NON C'È, ed è il punto. ◄
-           *
-           * Su iPhone non esiste una finestra di stampa da cui «esportare come
-           * PDF»: il foglio da mandare a chi lo chiede — un centro, un
-           * istruttore, un'assicurazione — si poteva fare solo dal computer di
-           * casa, cioè nel momento sbagliato. Quello giusto è in barca, cinque
-           * minuti dopo l'immersione.
-           *
-           * Il pulsante c'è anche sul Mac perché lì fa una cosa diversa e utile
-           * lo stesso: un file, subito, senza passare dalla finestra di stampa.
+           * **Il PDF fa entrambe le cose**: è il file da mandare a chi lo
+           * chiede — un centro, un istruttore, un'assicurazione — ed è anche
+           * quello che si stampa, dal lettore di PDF, con i margini veri. *Una
+           * strada che contiene l'altra non è una scelta da offrire: è la
+           * strada.*
            */}
           <button className="btn" onClick={() => void esportaPdf()}>
             {t('Esporta PDF')}
@@ -300,20 +276,6 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
           {controlloModifica()}
         </div>
       </div>
-
-      {/*
-       * PERCHÉ I DUE TESTI SONO DIVERSI. Dentro la WKWebView di iOS `window.open`
-       * torna null e `window.print()` non fa niente: non è il blocco dei popup,
-       * ed è inutile mandare a cercare un'impostazione che lì non esiste. Nel
-       * browser invece la causa è sempre e solo il blocco dei popup.
-       */}
-      {stampaBloccata && (
-        <div className="notice">
-          {suIOS()
-            ? t('Su iPhone e iPad non si stampa: dal Mac sì, e i dati sono gli stessi.')
-            : t('Il browser ha bloccato la finestra di stampa. Consentila per questo sito e riprova.')}
-        </div>
-      )}
 
       {/*
        * L'esito dell'esportazione si dice sempre, e nello stesso posto.
@@ -843,58 +805,6 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
       )}
     </div>
   );
-}
-
-/**
- * Apre il foglio da stampare in una finestra nuova e chiede la stampa al sistema.
- *
- * PERCHÉ UNA FINESTRA E NON UN FILE SCARICATO. Perché stampare deve poter essere
- * un ripensamento: si guarda l'anteprima, si decide che non serve, si chiude. Un
- * download lascia invece un file nella cartella dell'utente che nessuno gli ha
- * chiesto se voleva, e che poi tocca a lui cancellare. Questo bottone non tocca
- * l'archivio, non scrive su disco e non fa niente di irreversibile: apre una
- * copia del foglio e passa la parola alla finestra di stampa del sistema, dove
- * su macOS c'è anche «Esporta come PDF» per chi il file lo vuole davvero.
- *
- * La chiamata a `print()` è la UI che chiede al sistema, non il documento che si
- * stampa da solo: `logbookHtml` resta un documento HTML e basta, senza script
- * dentro, ed è anche ciò che lo rende verificabile con test puri.
- *
- * Restituisce `false` quando il blocco dei popup ha rifiutato la finestra: è
- * l'unico modo in cui questa operazione può fallire, e chi chiama lo dice.
- */
-function apriStampa(
-  dive: Dive,
-  inventario: Equipment[],
-  subacqueo: Subacqueo,
-  numeri: Map<string, number>,
-): boolean {
-  const html = logbookHtml(conNumeri([dive], numeri), new Map([[dive.id, dive.samples ?? []]]), {
-    title: 'Logbook',
-    // Nome e brevetto: le lettere a) e b) del libretto. Vengono dalle
-    // impostazioni, non dall'immersione, e senza restano due trattini.
-    subacqueo,
-    // Senza l'inventario il foglio da firmare dichiara la sola zavorra e non la
-    // piastra, sulle immersioni che il peso della piastra non ce l'hanno scritto
-    // sopra. Vedi `piastraDellImmersione`.
-    inventario,
-  });
-  const finestra = window.open('', '_blank');
-  if (!finestra) return false;
-  finestra.document.open();
-  finestra.document.write(html);
-  finestra.document.close();
-  // Con `document.write` il documento è quasi sempre già completo quando `close()`
-  // ritorna, ma «quasi sempre» non basta: chiedere la stampa di un documento non
-  // ancora impaginato produce un foglio vuoto. Si stampa quando è pronto, e si
-  // gestiscono entrambi i casi invece di sperare in uno dei due.
-  const stampa = () => {
-    finestra.focus();
-    finestra.print();
-  };
-  if (finestra.document.readyState === 'complete') stampa();
-  else finestra.addEventListener('load', stampa, { once: true });
-  return true;
 }
 
 /**
