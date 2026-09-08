@@ -39,7 +39,11 @@ import {
   rispondiCodicePin,
   scaricaDaComputerEsterno,
 } from '../../storage/computerEsterni';
-import { codiceAccoppiamento, salvaCodiceAccoppiamento } from '../../core/accoppiamento';
+import {
+  codiceAccoppiamento,
+  dimenticaAccoppiamento,
+  salvaCodiceAccoppiamento,
+} from '../../core/accoppiamento';
 import type { Dive } from '../../core/model';
 import {
   markerKey,
@@ -166,6 +170,29 @@ export function BleDownload() {
    * stessa lezione che ha prodotto `BottoneConferma`.
    */
   const [pin, setPin] = useState<{ nome: string; cifre: string } | null>(null);
+  /*
+   * ► SE QUESTA SCHEDA SPARISCE MENTRE IL COMPUTER ASPETTA. ◄
+   *
+   * Basta toccare «Immersioni» mentre si legge il numero sul polso: React
+   * smonta il componente, il riquadro sparisce, e **nessuno risponde più**. Il
+   * thread dello scarico resta fermo dentro la `ioctl` per i tre minuti pieni,
+   * e in quei tre minuti ogni nuovo tentativo trova «uno scarico è già in
+   * corso». È lo stesso guasto che la rinuncia esiste per evitare, raggiunto
+   * da un'altra porta.
+   *
+   * Il riferimento serve perché la pulizia gira una volta sola, allo
+   * smontaggio, e leggerebbe il valore che c'era al primo disegno.
+   */
+  const pinAperto = useRef(false);
+  useEffect(() => {
+    pinAperto.current = pin !== null;
+  }, [pin]);
+  useEffect(
+    () => () => {
+      if (pinAperto.current) void rispondiCodicePin(null);
+    },
+    [],
+  );
   const [trovati, setTrovati] = useState<RecognisedDevice[]>([]);
   const [copiato, setCopiato] = useState(false);
   /** L'ordine in cui i dispositivi stanno adesso. Vedi `recognise`. */
@@ -910,18 +937,39 @@ export function BleDownload() {
        */
       let guasto: unknown;
       let grezzo: string | undefined;
+      const conservato = codiceAccoppiamento(device.id);
       try {
         dives = await scaricaDaComputerEsterno({
           dispositivo: device.id,
           nome: device.name,
           marca,
           modello,
-          codiceAccesso: codiceAccoppiamento(device.id),
+          codiceAccesso: conservato,
           emit: onEvent,
         });
       } catch (e) {
         guasto = e;
         grezzo = e instanceof Error ? e.message : String(e);
+        /*
+         * ► UNA CHIAVE CHE NON VALE PIÙ SI DIMENTICA, O NON SI ESCE PIÙ. ◄
+         *
+         * Il computer viene azzerato, o accoppiato con il telefono di
+         * qualcun altro, e la chiave conservata smette di valere. Ma con una
+         * chiave in mano `pelagic_i330r_init` **salta del tutto il ramo del
+         * PIN** e fallisce subito: lo scarico muore identico a ogni
+         * tentativo, per sempre, e l'unica uscita sarebbe disinstallare
+         * l'applicazione.
+         *
+         * Quindi al primo scarico fallito la chiave si butta. Il costo, se il
+         * guasto era un altro, è digitare sei cifre una volta in più; il
+         * costo di tenerla è un computer che non si scarica mai più.
+         */
+        if (conservato) {
+          dimenticaAccoppiamento(device.id);
+          diario.push(
+            'lo scarico è fallito con una chiave conservata: chiave dimenticata, la prossima volta si riparte dal PIN',
+          );
+        }
       } finally {
         /*
          * La richiesta del PIN si chiude COMUNQUE vada.
@@ -1426,6 +1474,15 @@ export function BleDownload() {
               }}
               style={{ width: '7em', letterSpacing: '0.25em', fontSize: 18 }}
             />
+            {/*
+             * Si conferma da UNA cifra in su, e non da sei, anche se il testo
+             * qui sopra dice sei e il campo non ne accetta di più.
+             * `pelagic_i330r_init_passcode` ne accetta da una a sei e le
+             * allinea a destra: se un domani un modello ne mostrasse quattro,
+             * pretenderne sei bloccherebbe quella persona per sempre, mentre
+             * confermare presto per sbaglio costa un tentativo. Fra un
+             * fastidio e un muro si sceglie il fastidio.
+             */}
             <button
               className="btn"
               disabled={pin.cifre.length === 0}

@@ -916,10 +916,11 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         /// silenzio: non sono scritture di libdivecomputer, e nel riassunto
         /// vanno contate a parte.
         rinvii: usize,
-        /// Le ultime `SCRITTURE_IN_CODA` scritture, già in forma di riga di
-        /// diario. Una coda che scorre: entra l'ultima, esce la più vecchia.
-        /// Vedi `SCRITTURE_IN_CODA` per il perché.
-        ultime: VecDeque<String>,
+        /// Le ultime `SCRITTURE_IN_CODA` scritture, col loro numero e già in
+        /// forma di riga di diario. Una coda che scorre: entra l'ultima, esce
+        /// la più vecchia. Il numero serve al riassunto per non ripetere
+        /// quelle che erano già uscite in diretta. Vedi `SCRITTURE_IN_CODA`.
+        ultime: VecDeque<(usize, String)>,
     }
 
     /// Il canale verso il runtime, con le due operazioni bloccanti sopra.
@@ -1177,12 +1178,17 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
     /// lo rifiuterebbe senza dire perché — mentre «non ce l'ho» fa ripartire
     /// dal PIN, che funziona sempre.
     pub fn da_esadecimale(testo: &str) -> Option<Vec<u8>> {
-        let pulito: String = testo.chars().filter(|c| !c.is_whitespace()).collect();
-        if pulito.is_empty() || pulito.len() % 2 != 0 {
+        // Si conta in CARATTERI dall'inizio alla fine, e non in byte: `len()`
+        // su una `String` dà i byte, e su un testo con dentro qualunque cosa
+        // che non sia ASCII i due numeri divergono. Oggi `to_digit(16)`
+        // rifiuterebbe comunque quel carattere, ma un conto giusto per caso è
+        // il genere di cosa che il primo riordino trasforma in un indice fuori
+        // dai limiti.
+        let cifre: Vec<char> = testo.chars().filter(|c| !c.is_whitespace()).collect();
+        if cifre.is_empty() || cifre.len() % 2 != 0 {
             return None;
         }
-        let mut byte = Vec::with_capacity(pulito.len() / 2);
-        let cifre: Vec<char> = pulito.chars().collect();
+        let mut byte = Vec::with_capacity(cifre.len() / 2);
         for coppia in cifre.chunks(2) {
             let alto = coppia[0].to_digit(16)?;
             let basso = coppia[1].to_digit(16)?;
@@ -1536,9 +1542,13 @@ il computer resta senza crediti e smetterà di mandare dati"
                 }
                 s.scritture
             };
+            // La modalità si legge UNA volta e si tiene: la riga di diario più
+            // sotto deve raccontare quella con cui la scrittura è partita, non
+            // quella che il registro ha adesso — che il ripiego può avere già
+            // cambiato. Un rinvio nell'altra modalità ha una riga sua.
+            let modo = scambio_scrittura.lock().map_err(|_| "registro dello scambio guasto")?.modo;
             {
                 let pezzo = dati;
-                let modo = scambio_scrittura.lock().map_err(|_| "registro dello scambio guasto")?.modo;
                 if let Err(guasto) = postino_scrittura.scrivi(&caratteristica_scrittura, pezzo, modo) {
                     let altro = {
                         let mut s = scambio_scrittura.lock().map_err(|_| "registro dello scambio guasto")?;
@@ -1604,12 +1614,12 @@ il computer resta senza crediti e smetterà di mandare dati"
                     "scrittura n. {numero}: {} byte [{}], {}",
                     dati.len(),
                     anteprima(dati),
-                    nome_modo(registro.modo)
+                    nome_modo(modo)
                 );
                 if registro.ultime.len() == SCRITTURE_IN_CODA {
                     registro.ultime.pop_front();
                 }
-                registro.ultime.push_back(riga.clone());
+                registro.ultime.push_back((numero, riga.clone()));
                 // Il lucchetto si molla PRIMA di chiamare il cronista: quello
                 // emette un evento verso l'interfaccia, e tenere un mutex
                 // mentre si attraversa un confine è il modo in cui nascono i
@@ -1713,7 +1723,15 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
                         s.byte_scritti,
                         nome_modo(s.modo),
                         s.rinvii,
-                        s.ultime.iter().cloned().collect::<Vec<_>>(),
+                        // Solo quelle che NON sono già uscite in diretta: con
+                        // dieci scritture in tutto, testa e coda si
+                        // sovrappongono, e ripetere le stesse righe raddoppia
+                        // il diario dei casi in cui si legge meglio.
+                        s.ultime
+                            .iter()
+                            .filter(|(n, _)| *n > SCRITTURE_RACCONTATE)
+                            .map(|(_, r)| r.clone())
+                            .collect::<Vec<_>>(),
                     ),
                     Err(_) => (0, 0, "sconosciuto", 0, Vec::new()),
                 };
@@ -1770,7 +1788,7 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
                  * cosa, e ripeterle raddoppierebbe il diario dei casi più
                  * piccoli — che sono anche quelli in cui si legge meglio.
                  */
-                let coda = if scritture > SCRITTURE_RACCONTATE && !ultime.is_empty() {
+                let coda = if !ultime.is_empty() {
                     format!("\nultime scritture prima della fine:\n{}", ultime.join("\n"))
                 } else {
                     String::new()
@@ -2215,7 +2233,11 @@ in una volta sola"
     /// Nelle prove è cortissima, perché una prova che aspetta tre minuti per
     /// vedere una scadenza insegna a non lanciare le prove.
     pub const ATTESA_PIN_MAX: Duration =
-        if cfg!(test) { Duration::from_millis(200) } else { Duration::from_secs(180) };
+        // Nelle prove è più lunga del giro d'attesa che le prove stesse fanno
+        // per vedere la busta: se fossero uguali, su una macchina carica la
+        // scadenza scatterebbe prima della risposta e la prova diventerebbe
+        // rossa per un motivo che non è quello sotto esame.
+        if cfg!(test) { Duration::from_millis(800) } else { Duration::from_secs(180) };
 
     /// Chiede il PIN a chi guarda lo schermo, e blocca finché non risponde.
     ///
@@ -2855,15 +2877,18 @@ mod prove {
 
         let fine = (ponte.riassunto)();
         assert!(fine.contains("ultime scritture prima della fine"), "{fine}");
-        // Le ultime otto: dalla terza alla decima.
-        for n in 3..=10 {
+        // La coda tiene le ultime otto — dalla terza alla decima — ma ne
+        // RACCONTA solo quelle che non erano già uscite in diretta: dalla
+        // settima in poi. Ripetere le prime sei raddoppierebbe il diario dei
+        // casi piccoli, che sono quelli in cui si legge meglio.
+        for n in 7..=10 {
             assert!(fine.contains(&format!("scrittura n. {n}:")), "manca la n. {n} in:\n{fine}");
         }
-        // E non le due che sono uscite dalla coda: se ci fossero, la coda non
-        // scorrerebbe e su millecinquecento scritture il riassunto sarebbe il
-        // diario intero.
-        for n in 1..=2 {
-            assert!(!fine.contains(&format!("scrittura n. {n}:")), "la n. {n} doveva uscire:\n{fine}");
+        for n in 1..=6 {
+            assert!(
+                !fine.contains(&format!("scrittura n. {n}:")),
+                "la n. {n} era già uscita in diretta:\n{fine}"
+            );
         }
         // I byte veri, non solo i numeri: la coda serve a sapere COSA è stato
         // mandato per ultimo, non quante volte.

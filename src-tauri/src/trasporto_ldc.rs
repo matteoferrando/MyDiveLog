@@ -164,11 +164,6 @@ pub struct FlussoBle {
     /// «piena», cioè dell'MTU meno tre. Non si può chiedere al plugin in modo
     /// portabile, e comunque quello che conta è quanto arriva davvero.
     notifica_piena: usize,
-    /// Se vale ancora la pena aspettare un frammento. Vedi
-    /// `GRAZIE_PRIMA_DI_ARRENDERSI`.
-    aspetta_frammenti: bool,
-    /// Quante attese di frammento sono andate a vuoto di fila.
-    grazie_a_vuoto: usize,
 }
 
 /// Come si rimettono insieme le notifiche dentro una lettura.
@@ -224,15 +219,27 @@ pub enum Riassemblaggio {
 const ATTESA_FRAMMENTO: Duration =
     if cfg!(test) { Duration::from_millis(5) } else { Duration::from_millis(40) };
 
-/// Dopo quante attese a vuoto si smette di aspettare frammenti.
-///
-/// ► LA RAGIONE È IL COSTO. ◄ Un computer che manda ogni risposta in una
-/// notifica sola non spezza mai niente, e su millecinquecento letture
-/// quaranta millisecondi a testa sarebbero un minuto di attesa regalato. Tre
-/// attese a vuoto di fila dicono che questo apparecchio, con questo MTU, non
-/// spezza: da lì in poi si uniscono solo le notifiche già arrivate, senza
-/// aspettarne. Se poi un frammento arriva davvero, il conto riparte.
-const GRAZIE_PRIMA_DI_ARRENDERSI: usize = 3;
+/*
+ * ► QUI C'ERA UN'ECONOMIA, ED ERA UNA TRAPPOLA. ◄
+ *
+ * La prima versione smetteva di aspettare frammenti dopo tre attese a vuoto,
+ * per non regalare quaranta millisecondi a lettura su un apparecchio che non
+ * spezza mai niente. Sembrava prudente e non lo era, per una ragione che si
+ * vede solo guardando il protocollo: **le risposte non sono tutte della stessa
+ * lunghezza**. La prima è il pacchetto della versione, 142 byte; i segmenti
+ * dello scarico arrivano a 244. Su un telefono con l'MTU in mezzo — e sono
+ * tanti — le prime letture non spezzano niente, il fermo scattava, e poi il
+ * primo segmento grosso arrivava a pezzi con l'attesa già spenta: mezzo
+ * pacchetto consegnato, «errore di protocollo», quattro ritentativi. Cioè
+ * esattamente il guasto che tutto questo esiste per riparare, ricreato
+ * dall'ottimizzazione che doveva renderlo più veloce.
+ *
+ * Il costo vero, adesso che l'attesa non si spegne mai: un'attesa per lettura
+ * SOLO quando la notifica è arrivata piena e la lettura chiedeva di più. Su uno
+ * scarico da millecinquecento letture sono meno di un minuto su tre o quattro,
+ * e si pagano solo per i cinque Mares che ne hanno bisogno. Un minuto in più
+ * vale uno scarico che riesce.
+ */
 
 /// Cosa ha fatto il ripiego sul silenzio, quando è stato chiamato.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -285,8 +292,6 @@ impl FlussoBle {
             ricevuto_qualcosa: false,
             riassemblaggio: Riassemblaggio::UnaNotifica,
             notifica_piena: 0,
-            aspetta_frammenti: true,
-            grazie_a_vuoto: 0,
         }
     }
 
@@ -420,21 +425,19 @@ impl FlussoByte for FlussoBle {
                         while self.avanzo.len() < quanti && ultima == self.notifica_piena {
                             self.raccogli_subito();
                             if self.arrivate.is_empty() {
-                                if !self.aspetta_frammenti {
-                                    break;
+                                // Il collegamento caduto qui è un errore, e i
+                                // byte a metà NON restano in cassa: consegnarli
+                                // alla lettura dopo li farebbe passare per un
+                                // pacchetto riuscito, e la prima diagnosi che
+                                // libdivecomputer vedrebbe sarebbe quella
+                                // sbagliata.
+                                if let Err(motivo) = self.aspetta(ATTESA_FRAMMENTO) {
+                                    self.avanzo.clear();
+                                    return Err(motivo);
                                 }
-                                self.aspetta(ATTESA_FRAMMENTO)?;
                                 if self.arrivate.is_empty() {
-                                    self.grazie_a_vuoto += 1;
-                                    if self.grazie_a_vuoto >= GRAZIE_PRIMA_DI_ARRENDERSI {
-                                        self.aspetta_frammenti = false;
-                                    }
                                     break;
                                 }
-                                // Un frammento è arrivato davvero: questo
-                                // apparecchio spezza, e il conto delle attese
-                                // a vuoto riparte da zero.
-                                self.grazie_a_vuoto = 0;
                             }
                             let Some(pezzo) = self.arrivate.pop_front() else { break };
                             ultima = pezzo.len();
@@ -875,13 +878,28 @@ extern "C" fn cb_ioctl(
          * dirlo meglio di quanto sappia farlo un trasporto.
          */
         DC_IOCTL_BLE_GET_PINCODE => {
-            let Some(pin) = s.flusso.codice_pin() else {
-                return DC_STATUS_UNSUPPORTED;
-            };
+            // Il posto si guarda PRIMA di chiedere: tenere ferma una persona
+            // fino a tre minuti per poi buttare via la risposta sarebbe il
+            // modo peggiore di scoprire che il buffer era di zero byte.
             if size == 0 {
                 return DC_STATUS_UNSUPPORTED;
             }
+            let Some(pin) = s.flusso.codice_pin() else {
+                return DC_STATUS_UNSUPPORTED;
+            };
             let byte = pin.as_bytes();
+            /*
+             * ► IL VUOTO PASSEREBBE DA SOLO, ED È IL CASO PIÙ INSIDIOSO. ◄
+             * Zero cifre non è «più lungo del posto», e `all(is_ascii_digit)`
+             * su un elenco vuoto è VERO per definizione: senza questa riga si
+             * scriverebbe una stringa C vuota e si risponderebbe «riuscito».
+             * `pelagic_i330r_init_passcode` allinea a destra e ne farebbe un
+             * codice di sei zeri — che il computer rifiuta senza spiegare.
+             */
+            if byte.is_empty() {
+                annota(&s.guasto, "il codice PIN è arrivato vuoto".into());
+                return DC_STATUS_INVALIDARGS;
+            }
             if byte.len() > size - 1 {
                 annota(
                     &s.guasto,
@@ -2660,45 +2678,74 @@ mod prove {
     }
 
     #[test]
-    fn dopo_tre_attese_a_vuoto_si_smette_di_aspettare_frammenti() {
+    fn ogni_lettura_aspetta_al_massimo_un_frammento_e_non_di_piu() {
         /*
-         * ► IL COSTO, E PERCHÉ SI PAGA UNA VOLTA SOLA. ◄ Un computer che manda
-         * ogni risposta in una notifica sola non spezza mai niente. Aspettare
-         * un frammento a ogni lettura, su millecinquecento letture, sarebbe un
-         * minuto regalato. Tre attese a vuoto bastano a dire che questo
-         * apparecchio, con questo MTU, non spezza.
+         * ► IL COSTO DEL RIASSEMBLAGGIO, INCHIODATO. ◄
          *
-         * Si misura nel tempo, che è l'unica cosa che conta: le prime letture
-         * pagano l'attesa, le successive no.
+         * Su un apparecchio che non spezza mai niente, ogni lettura paga
+         * un'attesa a vuoto: è il prezzo della correttezza, e va bene. Quello
+         * che NON deve succedere è pagarne due o tre per lettura — un ciclo che
+         * riprova finché non si stanca trasformerebbe uno scarico da tre
+         * minuti in uno da dieci, e nessuno capirebbe perché.
+         *
+         * Qui la scadenza delle prove è di cinque millisecondi: una lettura
+         * deve costare più o meno quella, non un multiplo.
+         *
+         * ► E PERCHÉ NON C'È PIÙ IL FERMO DOPO TRE ATTESE A VUOTO. ◄ C'era, e
+         * spegneva l'attesa per il resto della sessione. Sembrava prudente:
+         * era la stessa trappola di prima con un vestito nuovo, perché le
+         * risposte di questo protocollo non sono tutte lunghe uguali — la
+         * versione è 142 byte, i segmenti 244 — e il fermo scattava sulle
+         * prime per poi far arrivare a pezzi le seconde.
          */
         let (manda, ricevi) = channel();
         let mut flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())))
             .con_riassemblaggio(Riassemblaggio::PacchettoIntero);
-        /*
-         * Una notifica alla volta, e la lettura subito dopo: è così che vanno
-         * le cose con un computer vero, che risponde a un comando per volta.
-         * Mandarne dodici tutte insieme proverebbe un'altra cosa — che quelle
-         * già arrivate si uniscono, ed è la prova qui sopra.
-         *
-         * Sono tutte della stessa dimensione, quindi ognuna sembra «piena» e
-         * il riassemblaggio proverebbe sempre ad aspettarne un'altra.
-         */
         let mut attese = Vec::new();
-        for _ in 0..12 {
+        for _ in 0..6 {
             manda.send(vec![1, 2, 3, 4]).unwrap();
             let inizio = std::time::Instant::now();
-            assert_eq!(flusso.leggi(100, Duration::from_millis(50)).unwrap().len(), 4);
+            assert_eq!(flusso.leggi(100, Duration::from_millis(200)).unwrap().len(), 4);
             attese.push(inizio.elapsed());
         }
-        // Le prime tre hanno aspettato; dalla quarta in poi no. Il confronto è
-        // fra le due metà e non su un numero assoluto: una prova che inchioda
-        // i millisecondi diventa rossa sulla macchina di qualcun altro.
-        let prime: Duration = attese[..3].iter().sum();
-        let ultime: Duration = attese[9..].iter().sum();
-        assert!(
-            prime > ultime * 3,
-            "le prime tre letture aspettano, le ultime tre no: {prime:?} contro {ultime:?}"
-        );
+        for (n, quanto) in attese.iter().enumerate() {
+            assert!(
+                *quanto < ATTESA_FRAMMENTO * 3,
+                "la lettura n. {n} ha aspettato {quanto:?}, cioè più di un frammento"
+            );
+        }
+    }
+
+    #[test]
+    fn il_riassemblaggio_non_si_spegne_mai_da_solo() {
+        /*
+         * ► LA PROVA CHE È NATA DA UN DIFETTO VERO, TROVATO RILEGGENDO. ◄
+         *
+         * La prima versione smetteva di aspettare frammenti dopo tre attese a
+         * vuoto. Con questo protocollo è una condanna: le prime risposte sono
+         * corte e non spezzano niente — tre attese a vuoto garantite — e i
+         * segmenti grossi arrivano dopo, quando l'attesa è già spenta.
+         *
+         * Qui si fanno quattro letture che non spezzano, e poi una che spezza
+         * con il secondo pezzo IN RITARDO. Se l'attesa si fosse spenta, quella
+         * lettura consegnerebbe mezzo pacchetto — che è il difetto del 7
+         * settembre, ricreato dall'ottimizzazione.
+         */
+        let (manda, ricevi) = channel();
+        let mut flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())))
+            .con_riassemblaggio(Riassemblaggio::PacchettoIntero);
+        for _ in 0..4 {
+            manda.send(vec![0xaa; 8]).unwrap();
+            assert_eq!(flusso.leggi(100, Duration::from_millis(200)).unwrap().len(), 8);
+        }
+        // E adesso quella che spezza, con il pezzo in ritardo.
+        manda.send(vec![0xaa; 8]).unwrap();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(1));
+            let _ = manda.send(vec![0xea; 3]);
+        });
+        let letto = flusso.leggi(100, Duration::from_millis(200)).unwrap();
+        assert_eq!(letto.len(), 11, "dopo quattro letture intere l'attesa deve esserci ancora");
     }
 
     #[test]

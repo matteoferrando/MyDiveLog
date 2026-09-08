@@ -177,6 +177,10 @@ describe('le costanti del ponte combaciano con parser.h', () => {
       const ioctl = leggiIntestazione('ioctl.h');
       expect(ioctl).toContain('#define DC_IOCTL_DIR_READ  1u');
       expect(ioctl).toContain('#define DC_IOCTL_DIR_WRITE 2u');
+      // La dimensione «variabile» vale zero, ed è il terzo argomento con cui
+      // le cinque costanti sono calcolate: darlo per scontato vorrebbe dire
+      // che il conto qui sotto si conferma da solo.
+      expect(ioctl).toContain('#define DC_IOCTL_SIZE_VARIABLE 0');
       expect(ioctl.replace(/\s+/g, ' ')).toContain(
         '#define DC_IOCTL_BASE(dir,type,nr,size) \\ (((dir) << 30) | \\ ((size) << 16) | \\ ((type) << 8) | \\ ((nr) << 0))',
       );
@@ -212,7 +216,9 @@ describe('le costanti del ponte combaciano con parser.h', () => {
       // riga esiste perché quel commento resti vero — se un giorno la si
       // implementasse, questa prova diventa rossa e obbliga a riscriverlo.
       expect(rust).not.toContain('DC_IOCTL_BLE_CHARACTERISTIC_WRITE');
-      expect(rust).toContain('Resta fuori');
+      // La frase intera, non una parola qualunque: «Resta fuori» da solo
+      // passerebbe per qualsiasi occorrenza in duemila righe di commenti.
+      expect(rust).toContain('Resta fuori\n/// la scrittura di una caratteristica');
     });
   });
 

@@ -38,6 +38,8 @@ const finto = vi.hoisted(() => ({
   risposte: [] as (string | null)[],
   /** Come finisce lo scarico. La prova la sostituisce quando serve. */
   finisci: null as ((v: unknown) => void) | null,
+  /** E come fallisce, che è l'altro modo in cui finisce. */
+  fallisci: null as ((e: unknown) => void) | null,
 }));
 
 vi.mock('../src/storage/computerEsterni', () => ({
@@ -49,8 +51,9 @@ vi.mock('../src/storage/computerEsterni', () => ({
   scaricaDaComputerEsterno: (opzioni: Record<string, unknown>) => {
     finto.chiamata = opzioni;
     finto.emit = opzioni.emit as (e: DownloadEvent) => void;
-    return new Promise((risolvi) => {
+    return new Promise((risolvi, rifiuta) => {
       finto.finisci = risolvi;
+      finto.fallisci = rifiuta;
     });
   },
 }));
@@ -137,6 +140,7 @@ beforeEach(() => {
   finto.emit = null;
   finto.risposte = [];
   finto.finisci = null;
+  finto.fallisci = null;
   localStorage.clear();
 });
 
@@ -219,6 +223,34 @@ describe('il PIN che il computer mostra sul proprio schermo', () => {
     }
   });
 
+  it('cambiare pagina mentre il computer aspetta è una rinuncia, non un silenzio', async () => {
+    /*
+     * ► LA PORTA DI SERVIZIO DELLO STESSO GUASTO. ◄ Basta toccare
+     * «Immersioni» mentre si legge il numero sul polso: React smonta questa
+     * scheda e il riquadro sparisce. Se nessuno rispondesse, il guscio Rust
+     * resterebbe fermo dentro la `ioctl` per i tre minuti pieni, e in quei tre
+     * minuti ogni nuovo tentativo troverebbe «uno scarico è già in corso» —
+     * senza che nulla a schermo spieghi perché.
+     */
+    const { host, smonta } = await apri();
+    await avvia(host);
+    await act(async () => finto.emit!({ kind: 'pinRequired' }));
+    expect(host.querySelector('input[inputmode="numeric"]')).not.toBeNull();
+
+    smonta();
+    expect(finto.risposte).toEqual([null]);
+  });
+
+  it('smontare senza nessuna domanda aperta non risponde niente', async () => {
+    // Il gemello: una risposta mandata quando nessuno chiede resterebbe in
+    // una busta per lo scarico dopo, ed è il difetto che il guscio Rust
+    // evita togliendo la busta. Meglio non mandarla affatto.
+    const { host, smonta } = await apri();
+    await avvia(host);
+    smonta();
+    expect(finto.risposte).toEqual([]);
+  });
+
   it('la domanda non resta aperta quando lo scarico finisce comunque', async () => {
     /*
      * Il collegamento può cadere mentre la persona sta ancora leggendo il
@@ -279,11 +311,55 @@ describe('il codice di accoppiamento', () => {
     }
   });
 
+  it('una chiave che non funziona più si dimentica, invece di bloccare per sempre', async () => {
+    /*
+     * ► IL VICOLO CIECO CHE QUESTA PROVA CHIUDE. ◄ Con una chiave in mano
+     * `pelagic_i330r_init` **salta del tutto il ramo del PIN**: se quella
+     * chiave non vale più — computer azzerato, oppure accoppiato con il
+     * telefono di qualcun altro — lo scarico fallisce e continuerà a fallire
+     * identico a ogni tentativo. Senza dimenticarla, l'unica uscita sarebbe
+     * disinstallare l'applicazione.
+     */
+    salvaCodiceAccoppiamento('dev-i330r', '0a1b2c3d4e5f60718293a4b5c6d7e8f9');
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      expect(finto.chiamata?.codiceAccesso).toBe('0a1b2c3d4e5f60718293a4b5c6d7e8f9');
+      await act(async () => finto.fallisci!(new Error('il computer ha chiuso il collegamento')));
+      expect(codiceAccoppiamento('dev-i330r')).toBeUndefined();
+    } finally {
+      smonta();
+    }
+  });
+
+  it('uno scarico riuscito NON dimentica la chiave', async () => {
+    // Il gemello della prova sopra: dimenticarla sempre vorrebbe dire
+    // richiedere il PIN a ogni scarico, cioè non averla conservata affatto.
+    salvaCodiceAccoppiamento('dev-i330r', '0a1b2c3d4e5f60718293a4b5c6d7e8f9');
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await act(async () => finto.finisci!([]));
+      expect(codiceAccoppiamento('dev-i330r')).toBe('0a1b2c3d4e5f60718293a4b5c6d7e8f9');
+    } finally {
+      smonta();
+    }
+  });
+
   it('un codice conservato illeggibile vale come assente', async () => {
-    // Riempirlo a metà darebbe al computer una chiave inventata, e il computer
-    // chiuderebbe il collegamento senza dire perché. «Non ce l'ho» invece fa
-    // ripartire dal PIN, che funziona sempre.
-    salvaCodiceAccoppiamento('dev-i330r', 'non-esadecimale');
+    /*
+     * Riempirlo a metà darebbe al computer una chiave inventata, e il computer
+     * chiuderebbe il collegamento senza dire perché. «Non ce l'ho» invece fa
+     * ripartire dal PIN, che funziona sempre.
+     *
+     * ► SI SCRIVE DIRITTO NELL'ARCHIVIO, SCAVALCANDO CHI SALVA. ◄ Passando da
+     * `salvaCodiceAccoppiamento` la porcheria verrebbe rifiutata in scrittura,
+     * e questa prova diventerebbe verde perché la chiave non esiste — non
+     * perché la LETTURA abbia controllato qualcosa. Sarebbe una guardia che
+     * resta verde anche cancellando tutta la validazione che dice di
+     * sorvegliare.
+     */
+    localStorage.setItem('mydivelog.accoppiamento.dev-i330r', 'non-esadecimale');
     expect(codiceAccoppiamento('dev-i330r')).toBeUndefined();
 
     const { host, smonta } = await apri();

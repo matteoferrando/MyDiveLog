@@ -16,6 +16,7 @@
  * una convenzione, cioè la specie di cosa che si dimentica.
  */
 
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 const finto = vi.hoisted(() => ({
@@ -41,6 +42,37 @@ const { rispondiCodicePin, scaricaDaComputerEsterno } = await import('../src/sto
 beforeEach(() => {
   finto.chiamate = [];
   finto.risposta = () => Promise.resolve([]);
+});
+
+/*
+ * ► E L'ALTRA META DEL CONFINE, CHE È QUELLA CHE SI DIMENTICA. ◄
+ *
+ * Le prove qui sotto guardano solo il lato JavaScript: che l'argomento parta
+ * con il nome giusto. Ma un confine ha due lati, e se domani qualcuno
+ * rinominasse il parametro Rust queste prove resterebbero verdi mentre il
+ * codice di accoppiamento sparisce in silenzio — cioè esattamente il difetto
+ * che questo file dichiara di sorvegliare. Tauri converte `camelCase` in
+ * `snake_case`: `codiceAccesso` di qua è `codice_accesso` di là, e la
+ * conversione non avvisa nessuno quando non trova niente da convertire.
+ */
+describe('i due lati del confine dicono lo stesso nome', () => {
+  const PONTE = readFileSync('src-tauri/src/ponte_blec.rs', 'utf8');
+
+  it('il comando dello scarico accetta il codice di accoppiamento', () => {
+    // La firma del comando vero, quella con `#[tauri::command]` sopra.
+    expect(PONTE).toContain('pub async fn scarica_da_computer_esterno(');
+    expect(PONTE).toContain('codice_accesso: Option<String>,');
+    // E la copia compilata senza libdivecomputer deve avere lo stesso
+    // parametro, o su quella build la chiamata fallirebbe con «argomenti non
+    // validi» invece che con il «no» che sa spiegarsi.
+    expect(PONTE).toContain('_codice_accesso: Option<String>,');
+  });
+
+  it('il comando della risposta al PIN si chiama così e accetta un nullo', () => {
+    expect(PONTE).toContain('pub fn rispondi_codice_pin(pin: Option<String>)');
+    // `Option` e non `String`: la rinuncia è `null`, ed è una risposta.
+    expect(PONTE).toContain('pub fn rispondi_codice_pin(_pin: Option<String>) {}');
+  });
 });
 
 describe('gli argomenti che attraversano il confine', () => {

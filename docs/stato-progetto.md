@@ -1,8 +1,7 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **8 settembre 2026, notte fonda** — commit `8b5d322` su `main`,
-**1995 prove in 111 file** più **87 prove Rust** del ponte, lint a **0 errori e
-0 avvisi**. **La versione pubblica è la `1.8.2`**: release `v1.8.2` con nove
+Aggiornato: **8 settembre 2026, notte fonda** — **2001 prove in 111 file** più
+**88 prove Rust** del ponte, lint a **0 errori e 0 avvisi**. **La versione pubblica è la `1.8.2`**: release `v1.8.2` con nove
 allegati, i quattro pulsanti del sito rispondono `200`, `latest.json` serve
 `1.8.2` **per Mac e per Windows**, e l'impronta del `.dmg` **riscaricato
 dall'indirizzo pubblico** — `b2f21d01…` — coincide con quella costruita sul Mac
@@ -600,6 +599,61 @@ succedono — mentre succedono non si sa che sono le ultime — quindi si tengon
 parte in una coda che scorre e si scrivono nel riassunto, che esce **comunque
 vada**. Con meno di sette scritture la coda non esce: sarebbe la testa,
 ripetuta.
+
+### La rilettura a occhi nuovi, e le cinque cose che ha trovato
+
+*Scritto tutto, verde tutto, e poi riletto da capo come se l'avesse scritto
+qualcun altro. Cinque difetti veri, e il primo era **l'ottimizzazione**.*
+
+**1. Il riassemblaggio si spegneva per sempre.** C'era un fermo: dopo tre attese
+a vuoto si smetteva di aspettare frammenti, per non regalare quaranta
+millisecondi a lettura a un apparecchio che non spezza mai niente. Sembrava
+prudente. Era la stessa trappola di prima con un vestito nuovo, perché **le
+risposte di questo protocollo non sono tutte lunghe uguali**: la versione è 142
+byte, i segmenti 244. Su un telefono con l'MTU in mezzo le prime letture non
+spezzano niente — tre attese a vuoto garantite — e il fermo scattava *prima* che
+arrivasse il primo segmento grosso, che poi arrivava a pezzi con l'attesa già
+spenta. *L'ottimizzazione ricreava esattamente il guasto che il codice intorno
+esisteva per riparare.* Il fermo non c'è più: si paga un'attesa per lettura, meno
+di un minuto su uno scarico da tre, e solo per i cinque Mares che ne hanno
+bisogno.
+
+> **E la prova che c'era inchiodava il comportamento sbagliato.** Mandava dodici
+> notifiche e verificava che dalla quarta in poi non si aspettasse più: era
+> scritta per confermare l'ottimizzazione, non per sorvegliarla. *Una prova che
+> descrive quello che il codice fa, invece di quello che deve fare, è la forma
+> più difficile da riconoscere di guardia che non guarda niente.*
+
+**2. Una chiave di accoppiamento sbagliata non si poteva più togliere.** Con una
+chiave in mano `pelagic_i330r_init` **salta del tutto il ramo del PIN**: se il
+computer viene azzerato, o accoppiato con il telefono di qualcun altro, quella
+chiave non vale più e lo scarico fallisce — identico a ogni tentativo, per
+sempre, senza nessuna strada che riporti al PIN. L'unica uscita sarebbe stata
+disinstallare l'applicazione, che è precisamente la cosa che un commento del
+codice dichiarava di voler evitare. Adesso al primo scarico fallito con una
+chiave in mano, la chiave si butta e il diario lo dice.
+
+**3. Cambiare pagina lasciava il computer ad aspettare.** La rinuncia era un
+pulsante apposta, per non lasciare lo scarico fermo tre minuti. Ma bastava
+toccare «Immersioni»: React smontava la scheda, il riquadro spariva, e nessuno
+rispondeva più. *Lo stesso guasto, dalla porta di servizio.* Adesso lo
+smontaggio risponde «rinuncio», e solo se una domanda era davvero aperta.
+
+**4. Un PIN vuoto passava per buono.** Zero cifre non è «più lungo del posto», e
+«sono tutte cifre» su un elenco vuoto è vero per definizione: si sarebbe scritta
+una stringa vuota e risposto «riuscito», e il computer avrebbe rifiutato sei
+zeri senza spiegare. *Due controlli giusti che, messi insieme, lasciano passare
+il caso in mezzo.*
+
+**5. Tre prove sembravano guardie e non lo erano.** Una verificava che un codice
+illeggibile venisse rifiutato — ma lo scriveva passando dalla funzione che lo
+rifiuta *in scrittura*, quindi restava verde anche cancellando tutta la
+validazione in lettura. Una dichiarava di sorvegliare i nomi degli argomenti fra
+JavaScript e Rust e guardava solo il lato JavaScript. Una cercava la parola
+«Resta fuori» in duemila righe di commenti. Tutte e tre riscritte per guardare
+la cosa che dicono di guardare.
+
+---
 
 ### Quello che questa notte non dimostra
 
