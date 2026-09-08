@@ -1,8 +1,8 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **9 settembre 2026, notte** — commit `6828dc4` su `main`, **2001
+Aggiornato: **9 settembre 2026, notte** — commit `af6a5d5` su `main`, **2001
 prove in 111 file** più **88 prove Rust** del ponte, lint a **0 errori e 0
-avvisi**. **La versione pubblica è la `1.8.3`**: release `v1.8.3` con nove
+avvisi**, **sito ripubblicato e verificato**. **La versione pubblica è la `1.8.3`**: release `v1.8.3` con nove
 allegati, i quattro pulsanti del sito rispondono `200`, `latest.json` serve
 `1.8.3` **per Mac e per Windows**, e l'impronta del `.dmg` **riscaricato
 dall'indirizzo pubblico** — `5c4067bc…` — coincide con quella costruita sul Mac
@@ -2869,12 +2869,14 @@ non il momento — e quel che non è stato misurato qui non si scrive.
    **Google Play** aspetta la fine del test chiuso, attorno al 12 settembre:
    l'`.aab` firmato è in `da-caricare-su-play/MyDiveLog-1.8.3-play.aab`.
 
-2. **► RIPUBBLICARE IL SITO. ◄** Le pagine di aiuto — italiano e inglese —
-   hanno una voce nuova sul codice di sei cifre dell'i330R, e finché il sito non
-   viene ripubblicato quella voce esiste solo nel repository. *È esattamente il
-   caso già successo il 1° settembre: due pagine di aiuto ferme nel repository
-   per due giorni, con qui scritto che rispondevano.* Si fa con
-   `wrangler pages deploy`, e si verifica con `npm run sito:online`.
+2. **~~Ripubblicare il sito.~~ Fatto la notte del 9 settembre**, con la voce
+   nuova sul codice di sei cifre dell'i330R in italiano e in inglese. *Stava per
+   ripetersi il caso del 1° settembre — due pagine di aiuto ferme nel repository
+   per due giorni, con qui scritto che rispondevano — e stavolta l'ha impedito
+   una guardia migliorata apposta: `sito:online` adesso confronta anche le
+   intestazioni, non solo il titolo, e prima del deploy era rosso su quelle due
+   pagine con il nome della voce che mancava.* Verificato dopo: dodici pagine su
+   dodici, titoli, foglio di stile e intestazioni.
 
 1. **~~La 1.7.1 ai due negozi.~~ Fatta, tutti e due.** Su **App Store per
    iPhone** dal **28 agosto alle 21:25:04 UTC**, misurato col `lookup` e
