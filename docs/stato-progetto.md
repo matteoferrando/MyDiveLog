@@ -1,8 +1,8 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **8 settembre 2026, notte** — commit `fc47af8` su `main`, **1946
-prove in 105 file** più **63 prove Rust** del ponte, lint a **0 errori e 0
-avvisi**. **La versione pubblica è la `1.8.2`**: release `v1.8.2` con nove
+Aggiornato: **8 settembre 2026, notte fonda** — commit `8b5d322` su `main`,
+**1995 prove in 111 file** più **87 prove Rust** del ponte, lint a **0 errori e
+0 avvisi**. **La versione pubblica è la `1.8.2`**: release `v1.8.2` con nove
 allegati, i quattro pulsanti del sito rispondono `200`, `latest.json` serve
 `1.8.2` **per Mac e per Windows**, e l'impronta del `.dmg` **riscaricato
 dall'indirizzo pubblico** — `b2f21d01…` — coincide con quella costruita sul Mac
@@ -477,6 +477,141 @@ esistente, che si ricalcola da solo al primo avvio.
 ripiego su `stopDepth`, la sosta profonda senza il controllo del tetto, e
 `inDeco` che torna a `firstStopDepth`. *Quest'ultima è sopravvissuta alla prima
 passata: nessuna prova copriva quel parser, e si è vista solo mutandolo.*
+
+---
+
+## La notte del PIN e del pacchetto spezzato
+
+*8 settembre 2026, notte. Il centro sub ha risposto alla mail con due diari
+tecnici: un **Aqualung i330R** e un **Mares Quad Ci**, tutti e due falliti. Sono
+le prime due misure su hardware vero che questo progetto abbia mai avuto per
+marche che non siano le due di casa, e valgono più di qualunque cosa si potesse
+dedurre da qui.*
+
+### L'Aqualung: il numero che compare sullo schermo
+
+**Il fatto.** `pelagic_i330r_init` si ferma su «Failed to get the PIN code». La
+famiglia Pelagic — i330R, i330R Console, Apeks DSX — non si fa leggere da un
+apparecchio che non conosce: al primo comando accende **sul proprio schermo** un
+numero di sei cifre e vuole che gli venga ripetuto. In cambio rilascia un codice
+di accesso di sedici byte, che vale da lì in avanti.
+
+**Perché era l'unica che non si poteva ignorare.** Delle sei `DC_IOCTL_BLE_*` di
+`ble.h` ne rispondevamo due — il nome e la lettura di una caratteristica — e a
+tutto il resto dicevamo «non supportato». Per quasi tutte va benissimo:
+`pelagic_i330r_init` tollera un «non supportato» sul codice di accesso in
+lettura **e** in scrittura. Su `GET_PINCODE` no: lì si ferma e basta. *Una
+tolleranza che vale per cinque richieste su sei insegna a credere che valga
+sempre.*
+
+**Cosa c'è adesso.** Rispondiamo a **cinque** delle sei. Il PIN si chiede a chi
+guarda lo schermo, con un riquadro che compare **nel momento esatto in cui il
+numero compare sul computer** — non prima, perché prima non c'è — e il thread
+dello scarico resta fermo dentro la `ioctl` finché non arriva una risposta.
+
+> **► CHIUDERE LA FINESTRA NON È UNA RISPOSTA, E QUESTA È LA PARTE CHE COSTA. ◄**
+> Mentre il riquadro è aperto libdivecomputer è dentro una chiamata nostra e non
+> può fare altro che aspettare. Se «Annulla» chiudesse soltanto il riquadro,
+> l'applicazione resterebbe ferma **tre minuti** — la scadenza — senza dire
+> niente. Quindi la rinuncia è un pulsante, manda `null`, e lo scarico fallisce
+> subito dicendolo. La scadenza è lunga apposta: quel numero va letto su uno
+> schermo piccolo, spesso al buio, in mano a chi non si aspettava che gli
+> venisse chiesto niente.
+
+Il codice di accesso si conserva accanto al dispositivo e si ripresenta allo
+scarico dopo: **il PIN si digita una volta sola**. Non è un segreto della
+persona — è una chiave di accoppiamento fra questa installazione e quel
+computer, come un legame Bluetooth — e per questo non si mostra e **non entra
+nel diario tecnico**, che si allega alle segnalazioni. Un codice illeggibile o
+tutto zeri vale come assente: si riparte dal PIN, che funziona sempre. *Mezzo
+codice sarebbe peggio di nessun codice: il computer chiuderebbe il collegamento
+senza dire perché, e il sintomo sarebbe indistinguibile da un guasto radio.*
+
+> **E NON PROMETTIAMO CHE ADESSO FUNZIONI.** Il log dimostra dove si ferma
+> *oggi*. Dopo il PIN restano cinque passi che nessuno ha mai visto girare —
+> `init_passcode`, la conservazione, `init_accesscode`, il wakeup che legge
+> l'ID, l'autenticazione — e poi il download vero. Il precedente è il Mares
+> qui sotto, che ha superato l'aggancio e si è rotto **349 KB più in là**. Il
+> PIN toglie *un* blocco certo; non promette il resto.
+
+### Il Mares: un pacchetto che non ci sta in una notifica
+
+**La domanda era: perché una risposta che arriva viene rifiutata quattro volte
+di fila?** Le uniche tre risposte possibili stanno in
+`mares_iconhd_packet_variable`: primo byte diverso da `AA`, ultimo diverso da
+`EA`, o una lunghezza che non torna.
+
+**La terza dipende da noi, ed è stata misurata.** Per i modelli dentro la macro
+`ISSIRIUS` — Puck Air 2, Sirius, **Quad Ci**, Puck 4, Puck Lite — libdivecomputer
+**non apre** `dc_packet_open`, cioè il livello che rimette insieme i pezzi di un
+messaggio BLE: legge con **una** `dc_iostream_read` e si aspetta di trovarci il
+pacchetto intero. Per tutti gli altri Mares quel livello lo apre. E il nostro
+trasporto consegna **una notifica per lettura** — che per gli Uwatec non è una
+scelta ma un obbligo: unire due notifiche lì infilerebbe il byte di sequenza
+**dentro i dati**, e il sintomo sarebbe un trasferimento «riuscito» con la
+memoria disallineata e zero immersioni trovate.
+
+> **Due protocolli chiedono allo stesso trasporto due cose opposte.** Non è
+> un'ipotesi elegante: è scritto in `uwatec_smart.c` (`len = ricevuti - 1`, con
+> venti righe di commento che ammettono di non sapere bene cosa sia quel byte)
+> e in `mares_iconhd.c` (`packet[length - 1] != END` → errore di protocollo).
+
+**Il confine è stato misurato, non dedotto.** `FintoQuadCi` parla il protocollo
+vero contro libdivecomputer vera, e la dimensione della notifica è il parametro:
+
+| notifica | esito |
+|---|---|
+| 142 byte o più | il pacchetto della versione passa; si prosegue |
+| 141 byte o meno | «errore di protocollo», **ritentato quattro volte** |
+
+Centoquarantadue è `AA` + 140 di corpo + `EA`. *Quattro ritentativi è
+`MAXRETRIES` di `mares_iconhd.c`: è la firma esatta di quello che ha fatto il
+Quad Ci del centro sub.* I segmenti dello scarico vero arrivano a 244 byte, che
+è il massimo che sta in un MTU di 247 — cioè il massimo pratico del BLE. **Su un
+telefono che negozia meno, quel pacchetto si spezza.**
+
+**La correzione, e perché è una scelta e non un comportamento.** `Riassemblaggio`
+è una politica del trasporto: `UnaNotifica` per difetto, `PacchettoIntero` per i
+cinque Mares dell'elenco. Le notifiche si uniscono **solo finché arrivano
+piene**, perché su BLE i frammenti di uno stesso messaggio sono tutti della
+dimensione massima tranne l'ultimo: una più corta è la fine, e fermarsi lì costa
+zero attese. Quando un pezzo manca ancora, si aspettano quaranta millisecondi —
+un intervallo di connessione — e **dopo tre attese a vuoto di fila si smette di
+aspettare**: un apparecchio che non spezza mai non deve pagare un minuto di
+attese su millecinquecento letture.
+
+> **L'elenco dei cinque nomi non è scritto a memoria.**
+> `maresRamoVariabile.test.ts` legge `ISSIRIUS` dal sorgente della libreria,
+> risolve i numeri di modello dai `#define`, li cerca nei descrittori e
+> confronta i nomi con quelli del ponte Rust. Se un domani libdivecomputer
+> aggiungesse un modello, la prova diventa rossa **prima** che qualcuno se ne
+> accorga con un computer in mano.
+
+**E la misura che mancava.** Il riassunto dello scambio adesso scrive **quanto
+grandi erano le notifiche** — la più piccola e la più grande. È l'MTU meno tre,
+guardato da dove conta: da quello che è arrivato davvero, senza chiederlo a un
+plugin che non lo dice in modo portabile. *Il 7 settembre quel numero non era
+sotto gli occhi di nessuno, ed era il numero che decideva tutto.*
+
+**E il diario adesso ha anche la coda.** Raccontava le prime sei scritture e poi
+taceva: del Quad Ci, fermatosi alla scrittura numero 1503, è arrivata solo la
+parte che aveva funzionato. Le ultime otto non si possono raccontare mentre
+succedono — mentre succedono non si sa che sono le ultime — quindi si tengono da
+parte in una coda che scorre e si scrivono nel riassunto, che esce **comunque
+vada**. Con meno di sette scritture la coda non esce: sarebbe la testa,
+ripetuta.
+
+### Quello che questa notte non dimostra
+
+*Sta qui perché la parte più facile da scrivere sarebbe «risolto».*
+
+Il difetto del pacchetto spezzato **esiste** e ha esattamente la firma osservata:
+questo è misurato. Che sia *quello* che ha fermato il Quad Ci del centro sub
+**non è dimostrato**, perché il log grezzo non è più a portata di mano e la
+dimensione delle notifiche di quella sera nessuno l'ha registrata — è
+esattamente il motivo per cui adesso la registriamo. La prova la darà il
+prossimo diario: se dirà «notifiche da 232 byte» e i segmenti sono da 244, la
+risposta è scritta lì dentro.
 
 ---
 
