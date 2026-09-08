@@ -71,7 +71,9 @@ function numeroDiModello(nome: string): number {
 
 /** I prodotti Mares con quel numero di modello, dai descrittori. */
 function prodottiConNumero(numero: number): string[] {
-  const righe = [...descrittori.matchAll(/\{"Mares",\s*"([^"]+)",\s*DC_FAMILY_MARES_ICONHD\s*,\s*(0x[0-9A-Fa-f]+)/g)];
+  const righe = [
+    ...descrittori.matchAll(/\{"Mares",\s*"([^"]+)",\s*DC_FAMILY_MARES_ICONHD\s*,\s*(0x[0-9A-Fa-f]+)/g),
+  ];
   return righe.filter((r) => Number(r[2]) === numero).map((r) => r[1]);
 }
 

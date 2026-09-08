@@ -1439,12 +1439,8 @@ export function BleDownload() {
         <div className="notice" role="group" aria-live="assertive" style={{ marginBottom: 10 }}>
           <b>{t('Il computer chiede un codice')}</b>
           <p style={{ margin: '6px 0' }}>
-            {t(
-              'Sullo schermo del computer subacqueo è comparso un numero di sei cifre. Scrivilo qui sotto.',
-            )}{' '}
-            <span className="muted">
-              {t('Serve solo la prima volta: dopo, il collegamento è diretto.')}
-            </span>
+            {t('Sullo schermo del computer subacqueo è comparso un numero di sei cifre. Scrivilo qui sotto.')}{' '}
+            <span className="muted">{t('Serve solo la prima volta: dopo, il collegamento è diretto.')}</span>
           </p>
           <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <input

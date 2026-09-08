@@ -83,7 +83,8 @@ vi.mock('../src/storage/ble', () => ({
 
 vi.mock('../src/ui/state', () => ({
   useDiveLog: () => ({
-    importDives: () => Promise.resolve({ ok: true, found: 0, added: 0, merged: 0, duplicates: 0, warnings: [] }),
+    importDives: () =>
+      Promise.resolve({ ok: true, found: 0, added: 0, merged: 0, duplicates: 0, warnings: [] }),
     bleMarkers: {},
     saveBleMarker: () => Promise.resolve(),
     forgetBleMarker: () => Promise.resolve(),
