@@ -21,7 +21,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 const finto = vi.hoisted(() => ({
   chiamate: [] as { comando: string; argomenti: Record<string, unknown> }[],
-  risposta: (): Promise<unknown> => Promise.resolve([]),
+  risposta: (): Promise<unknown> => Promise.resolve({ immersioni: [] }),
 }));
 
 vi.mock('@tauri-apps/api/core', () => ({
@@ -41,7 +41,7 @@ const { rispondiCodicePin, scaricaDaComputerEsterno } = await import('../src/sto
 
 beforeEach(() => {
   finto.chiamate = [];
-  finto.risposta = () => Promise.resolve([]);
+  finto.risposta = () => Promise.resolve({ immersioni: [] });
 });
 
 /*

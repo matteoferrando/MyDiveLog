@@ -965,6 +965,15 @@ export function BleDownload() {
       let metodoInCorso: { indice: number; totale: number; nome: string; chiave: string } | undefined;
       /** L'ultimo `exchange` arrivato: quanti byte ha davvero detto il computer. */
       let scambio: { writes: number; notifications: number; bytes: number } | undefined;
+      /*
+       * L'impronta della PIÙ RECENTE, cioè del primo record che arriva: i
+       * backend di libdivecomputer leggono dalla più recente alla più vecchia,
+       * e quella è la sola che serve a dire «da qui in giù ce l'ho già».
+       * Prendere l'ultima invece della prima farebbe fermare il prossimo
+       * scarico all'immersione più VECCHIA — cioè non lo fermerebbe mai, e il
+       * segnalibro non servirebbe a niente senza dare nessun segno di sé.
+       */
+      let piuRecente: string | undefined;
       const onEvent = (e: DownloadEvent) => {
         // Come nell'altra strada: le righe di diario non toccano lo stato
         // mostrato, sarebbero un aggiornamento di React per ogni notifica.
@@ -1020,6 +1029,9 @@ export function BleDownload() {
           }
           return;
         }
+        if (e.kind === 'record' && piuRecente === undefined && !e.record.key.startsWith('posizione-')) {
+          piuRecente = e.record.key;
+        }
         setStato((p) =>
           p.fase !== 'scarica'
             ? p
@@ -1067,8 +1079,25 @@ export function BleDownload() {
       // preme «riprova con un altro metodo» sta dicendo proprio che quello
       // conservato non va.
       const metodoSalvato = tentativo === undefined ? metodoConservato(device.id) : undefined;
+      /*
+       * ► IL SEGNALIBRO, CIOÈ LA COSA CHE ACCORCIA IL TRASFERIMENTO. ◄
+       *
+       * libdivecomputer si ferma appena ritrova l'immersione che gli diciamo di
+       * conoscere già: senza, ogni scarico rilegge tutta la memoria del
+       * computer, comprese le quaranta immersioni che sono già in archivio.
+       * Su un collegamento che perde colpi è la leva più forte che abbiamo,
+       * perché i byte che non attraversi sono gli unici che non possono
+       * rompersi — ma vale **dal secondo scarico in poi**, e il primo resta
+       * lungo quanto è sempre stato.
+       *
+       * `tuttoDaCapo` lo salta, perché è esattamente quello che chiede chi lo
+       * accende.
+       */
+      const chiaveSegnalibro = markerKey(`ldc-${marca}-${modello}`, undefined, device.id);
+      const segnalibro = tuttoDaCapo ? undefined : bleMarkers[chiaveSegnalibro]?.fingerprint;
+      if (segnalibro) diario.push('si riparte dal segnalibro: solo le immersioni nuove');
       try {
-        dives = await scaricaDaComputerEsterno({
+        const esito = await scaricaDaComputerEsterno({
           dispositivo: device.id,
           nome: device.name,
           marca,
@@ -1076,8 +1105,22 @@ export function BleDownload() {
           codiceAccesso: conservato,
           tentativo,
           metodo: metodoSalvato,
+          segnalibro,
           emit: onEvent,
         });
+        dives = esito.dives;
+        /*
+         * ► UNO SCARICO ROTTO A METÀ NON È UNO SCARICO RIUSCITO, NEMMENO SE HA
+         * PORTATO QUALCOSA. ◄ Le immersioni arrivate si tengono — sono buone,
+         * sono le più recenti — ma il guasto va raccontato lo stesso, perché è
+         * lui a decidere due cose che le immersioni non possono decidere: che
+         * il segnalibro **non** si conserva (le più vecchie non sono state
+         * lette) e che vale la pena riprovare.
+         */
+        if (esito.guasto) {
+          grezzo = esito.guasto;
+          guasto = new Error(esito.guasto);
+        }
       } catch (e) {
         guasto = e;
         grezzo = e instanceof Error ? e.message : String(e);
@@ -1186,6 +1229,39 @@ export function BleDownload() {
 
       /*
        * ════════════════════════════════════════════════════════════════════
+       * ► IL SEGNALIBRO SI SALVA SOLO DOPO UNO SCARICO FINITO BENE. ◄
+       *
+       * E qui la condizione è **`!grezzo`**, non `riuscito`: dev'essere finito
+       * senza errori, non «aver portato qualcosa».
+       *
+       * Perché le immersioni si leggono dalla più recente alla più vecchia. Uno
+       * scarico interrotto a metà ha in mano le prime — le più nuove — e non ha
+       * ancora visto le più vecchie. Salvare lì l'impronta della più recente
+       * direbbe al prossimo scarico «da qui in giù ce l'ho già», e le vecchie
+       * **non arriverebbero mai più**, in silenzio, senza un errore da nessuna
+       * parte.
+       *
+       * *In un logbook è il difetto peggiore che esista: non perde dati che
+       * hai, perde dati che non sai di non avere.* Con l'insistenza automatica
+       * — che gli scarichi interrotti li produce apposta, cinque per giro — non
+       * è un caso di scuola: sarebbe il caso normale.
+       *
+       * E dopo `importDives`, mai prima: se il salvataggio in archivio
+       * fallisse, il segnalibro salterebbe proprio le immersioni che non sono
+       * entrate.
+       */
+      if (!grezzo && riuscito && piuRecente) {
+        await saveBleMarker(chiaveSegnalibro, {
+          fingerprint: piuRecente,
+          at: new Date().toISOString(),
+          dives: dives.length,
+          model: `${marca} ${modello}`,
+        });
+        diario.push('segnalibro conservato: il prossimo scarico leggerà solo le immersioni nuove');
+      }
+
+      /*
+       * ════════════════════════════════════════════════════════════════════
        * ► IL DIARIO SI ACCUMULA FRA I TENTATIVI, E NON È UN DETTAGLIO. ◄
        *
        * Da qui in avanti l'applicazione riprova da sola, anche tre o quattro
@@ -1268,7 +1344,7 @@ export function BleDownload() {
         diario: diarioIntero,
       });
     },
-    [fermaRicerca, importDives, t],
+    [fermaRicerca, importDives, t, bleMarkers, saveBleMarker, tuttoDaCapo],
   );
   /*
    * Il `ref` si riempie dopo ogni disegno, così il tentativo automatico che

@@ -750,6 +750,11 @@ extern "C" {
         descriptor: *mut DcDescriptor,
         iostream: *mut DcIostream,
     ) -> c_int;
+    fn dc_device_set_fingerprint(
+        device: *mut DcDevice,
+        data: *const u8,
+        size: c_uint,
+    ) -> c_int;
     fn dc_device_foreach(
         device: *mut DcDevice,
         callback: DcDiveCallback,
@@ -1608,7 +1613,7 @@ impl CollegamentoLdc {
     /// Come `scarica_tutto`, ma butta via quello che è arrivato se poi si è
     /// rotto qualcosa. La usano le prove, dove non c'è niente da salvare.
     pub fn scarica(&self, descrittore: &Descrittore) -> Result<Vec<ImmersioneGrezza>, String> {
-        self.scarica_tutto(descrittore).in_risultato()
+        self.scarica_tutto(descrittore, &[]).in_risultato()
     }
 
     /// Scarica, e restituisce **quello che è arrivato anche se poi si è rotto**.
@@ -1630,7 +1635,7 @@ impl CollegamentoLdc {
     ///
     /// Chi legge deve fare due cose distinte: prendersi le immersioni **e**
     /// raccontare il guasto. Non sono in alternativa, ed è tutto il punto.
-    pub fn scarica_tutto(&self, descrittore: &Descrittore) -> EsitoScarico {
+    pub fn scarica_tutto(&self, descrittore: &Descrittore, impronta: &[u8]) -> EsitoScarico {
         let mut dispositivo: *mut DcDevice = std::ptr::null_mut();
         let esito = unsafe {
             dc_device_open(&mut dispositivo, self.contesto.0, descrittore.0, self.flusso)
@@ -1640,6 +1645,58 @@ impl CollegamentoLdc {
                 immersioni: Vec::new(),
                 guasto: Some(format!("il computer non si è aperto ({})", self.spiega(esito))),
             };
+        }
+
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► IL SEGNALIBRO: SI SCARICA SOLO QUELLO CHE NON C'È GIÀ. ◄
+         *
+         * `dc_device_set_fingerprint` dice a libdivecomputer qual è l'ultima
+         * immersione che abbiamo già. I backend leggono dalla più recente alla
+         * più vecchia e si fermano appena la ritrovano — nei Mares è
+         * letteralmente `Stopping due to detecting a matching fingerprint`, e
+         * la fermata avviene dopo aver letto la sola INTESTAZIONE, prima dei
+         * dati veri.
+         *
+         * Non chiamandola mai, ogni scarico rileggeva **tutta** la memoria del
+         * computer: per chi ha quarantacinque immersioni in archivio, ogni
+         * volta, comprese le quarantaquattro che ha già. Trecento kilobyte
+         * invece di dieci — e su un collegamento che perde colpi, i byte che
+         * non attraversi sono l'unica cosa che non può rompersi.
+         *
+         * ► COSA SUCCEDE SE L'IMPRONTA È SBAGLIATA, E PERCHÉ NON FA DANNI. ◄
+         * Un'impronta che non corrisponde a nessuna immersione **non combacia
+         * mai**, quindi non ferma niente e si legge tutto: costa un po' di
+         * inutilità, non un dato perso. Il caso che fa danno è un altro e va
+         * evitato da chi la conserva, non da qui: un'impronta che combacia con
+         * un'immersione che NON è più in archivio farebbe saltare per sempre
+         * tutte quelle più vecchie. Per questo chi la salva lo fa solo dopo uno
+         * scarico **finito bene**, mai dopo uno interrotto a metà — dove le più
+         * vecchie non sono ancora state lette.
+         */
+        if !impronta.is_empty() {
+            let esito = unsafe {
+                dc_device_set_fingerprint(
+                    dispositivo,
+                    impronta.as_ptr(),
+                    impronta.len() as c_uint,
+                )
+            };
+            if esito != DC_STATUS_SUCCESS {
+                // Non è un motivo per fermarsi: senza segnalibro si scarica
+                // tutto, che è quello che si faceva fino a ieri. Ma va detto,
+                // perché uno scarico lungo dove ci si aspettava un lampo è
+                // esattamente il genere di cosa che fa sospettare il guasto
+                // sbagliato.
+                annota(
+                    &self.guasto,
+                    format!(
+                        "il computer non ha accettato il segnalibro di {} byte ({}): si scarica tutto",
+                        impronta.len(),
+                        self.spiega(esito)
+                    ),
+                );
+            }
         }
 
         let mut raccolte: Vec<ImmersioneGrezza> = Vec::new();
@@ -2560,7 +2617,7 @@ mod prove {
         drop(mittente);
         let flusso = FlussoBle::nuovo(ricevente, Box::new(|_| Ok(())));
         let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
-        let esito = collegamento.scarica_tutto(&descrittore);
+        let esito = collegamento.scarica_tutto(&descrittore, &[]);
         assert!(esito.guasto.is_some(), "un computer muto non è uno scarico riuscito");
         assert!(esito.immersioni.is_empty(), "{} immersioni dal nulla", esito.immersioni.len());
     }
@@ -2602,6 +2659,102 @@ mod prove {
         let descrittore = trova_descrittore("Scubapro", "Aladin Sport Matrix").unwrap();
         let collegamento = CollegamentoLdc::apri(Box::new(FintoAladin::nuovo(Vec::new()))).unwrap();
         assert_eq!(collegamento.scarica(&descrittore).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn un_segnalibro_non_rompe_mai_uno_scarico_nemmeno_quando_e_sbagliato() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► QUELLO CHE SI PUÒ MISURARE DEL SEGNALIBRO, E QUELLO CHE NO. ◄
+         *
+         * `dc_device_set_fingerprint` dice a libdivecomputer qual è l'ultima
+         * immersione che abbiamo già, e serve ad accorciare il trasferimento:
+         * senza, ogni scarico rilegge tutta la memoria del computer, comprese
+         * le quaranta immersioni che sono già in archivio. Su un collegamento
+         * che perde colpi è la leva più forte che esista, perché i byte che non
+         * attraversi sono gli unici che non possono rompersi.
+         *
+         * **Che si fermi prima, qui, non si può dimostrare**, e vale la pena
+         * scrivere perché invece di far finta. Per gli Uwatec il filtro non lo
+         * fa la libreria: il timestamp viene mandato **al computer**, dentro i
+         * parametri di `CMD_SIZE`, ed è il computer a rispondere con le sole
+         * immersioni più recenti (`uwatec_smart.c`, `params[0..4]`). Il nostro
+         * finto quel parametro lo ignora e restituisce sempre tutta la memoria.
+         * Per i Mares invece il confronto è dentro la libreria
+         * (`Stopping due to detecting a matching fingerprint`), ma il finto
+         * Quad Ci non arriva a servire oggetti di immersione. *Quindi la
+         * fermata è verificata leggendo i due sorgenti, non provandola: sta
+         * scritto qui perché la prossima persona non creda il contrario.*
+         *
+         * Quello che invece si misura, ed è la promessa che conta per chi
+         * scarica, è che **un segnalibro non possa fare danni**: né quello
+         * giusto, né uno di lunghezza sbagliata, né uno che non corrisponde a
+         * niente. Un miglioramento che, sbagliando, rompe quello che prima
+         * funzionava non è un miglioramento.
+         */
+        let descrittore = trova_descrittore("Scubapro", "Aladin Sport Matrix").unwrap();
+
+        let tutte = {
+            let finto = FintoAladin::nuovo(memoria_con(50, 400));
+            let collegamento = CollegamentoLdc::apri(Box::new(finto)).unwrap();
+            collegamento.scarica(&descrittore).unwrap()
+        };
+        assert_eq!(tutte.len(), 50);
+        let piu_recente = tutte[0].impronta.clone();
+        assert_eq!(piu_recente.len(), 4, "l'Aladin dà impronte da quattro byte");
+
+        // 1. Il segnalibro giusto: lo scarico va, come senza.
+        let finto = FintoAladin::nuovo(memoria_con(50, 400));
+        let collegamento = CollegamentoLdc::apri(Box::new(finto)).unwrap();
+        let esito = collegamento.scarica_tutto(&descrittore, &piu_recente);
+        assert!(esito.guasto.is_none(), "{:?}", esito.guasto);
+        assert_eq!(esito.immersioni.len(), 50);
+        // E il segnalibro buono NON lascia la nota: se la lasciasse sempre,
+        // la riga non distinguerebbe più niente e il diario mentirebbe.
+        let nota = collegamento.guasto.lock().unwrap().clone();
+        assert!(
+            !nota.as_deref().unwrap_or("").contains("segnalibro"),
+            "un segnalibro accettato non si lamenta: {nota:?}"
+        );
+
+        /*
+         * 2. ► IL CASO CHE FA PAURA: UN SEGNALIBRO DELLA LUNGHEZZA SBAGLIATA. ◄
+         *
+         * `uwatec_smart_device_set_fingerprint` rifiuta qualunque cosa che non
+         * sia quattro byte, e i Mares vogliono la loro misura: un segnalibro
+         * conservato per un computer e riproposto a un altro arriva storto.
+         * Deve costare **niente** — si scarica tutto, com'era prima che il
+         * segnalibro esistesse — e non far fallire lo scarico.
+         */
+        let finto = FintoAladin::nuovo(memoria_con(50, 400));
+        let collegamento = CollegamentoLdc::apri(Box::new(finto)).unwrap();
+        let esito = collegamento.scarica_tutto(&descrittore, &[0x01, 0x02, 0x03]);
+        assert!(esito.guasto.is_none(), "un segnalibro storto non è un guasto: {:?}", esito.guasto);
+        assert_eq!(esito.immersioni.len(), 50, "e non deve costare nemmeno un'immersione");
+        /*
+         * ► MA DEVE LASCIARE UNA TRACCIA, E QUESTA RIGA È L'UNICA COSA CHE
+         * INCHIODA LA CHIAMATA ALLA LIBRERIA. ◄ Senza, togliere del tutto
+         * `dc_device_set_fingerprint` lascerebbe tutte le prove verdi — cioè il
+         * segnalibro potrebbe non essere mai passato a nessuno e nessuno se ne
+         * accorgerebbe. *Un miglioramento invisibile è indistinguibile da un
+         * miglioramento assente.*
+         *
+         * E serve anche a chi ripara: uno scarico lungo dove ci si aspettava un
+         * lampo, senza questa riga nel diario, manda a cercare il guasto
+         * dalla parte sbagliata.
+         */
+        let nota = collegamento.guasto.lock().unwrap().clone();
+        assert!(
+            nota.as_deref().is_some_and(|n| n.contains("non ha accettato il segnalibro")),
+            "il rifiuto del segnalibro va annotato: {nota:?}"
+        );
+
+        // 3. E uno che non corrisponde a niente: non combacia mai, quindi non
+        //    ferma niente. Costa inutilità, non dati.
+        let finto = FintoAladin::nuovo(memoria_con(50, 400));
+        let collegamento = CollegamentoLdc::apri(Box::new(finto)).unwrap();
+        let esito = collegamento.scarica_tutto(&descrittore, &[0xde, 0xad, 0xbe, 0xef]);
+        assert_eq!(esito.immersioni.len(), 50);
     }
 
     #[test]

@@ -40,6 +40,8 @@ const finto = vi.hoisted(() => ({
   finisci: null as ((v: unknown) => void) | null,
   /** E come fallisce, che è l'altro modo in cui finisce. */
   fallisci: null as ((e: unknown) => void) | null,
+  /** Finisce con delle immersioni in mano E un guasto: lo scarico rotto a metà. */
+  aMeta: null as ((v: unknown, guasto: string) => void) | null,
   /** Quante volte lo scarico è stato chiesto: da quando l'app riprova da sola, conta. */
   quante: 0,
 }));
@@ -55,7 +57,12 @@ vi.mock('../src/storage/computerEsterni', () => ({
     finto.quante += 1;
     finto.emit = opzioni.emit as (e: DownloadEvent) => void;
     return new Promise((risolvi, rifiuta) => {
-      finto.finisci = risolvi;
+      // `finisci` resta com'era per chi la usa — un elenco di immersioni — e
+      // qui sotto diventa la forma nuova: quello che è arrivato PIÙ com'è
+      // andata. `aMeta` è il caso che prima non si poteva nemmeno esprimere:
+      // immersioni buone e un guasto, insieme.
+      finto.finisci = (v: unknown) => risolvi({ dives: v });
+      finto.aMeta = (v: unknown, guasto: string) => risolvi({ dives: v, guasto });
       finto.fallisci = rifiuta;
     });
   },
@@ -177,6 +184,7 @@ beforeEach(() => {
   finto.risposte = [];
   finto.finisci = null;
   finto.fallisci = null;
+  finto.aMeta = null;
   finto.quante = 0;
   localStorage.clear();
 });

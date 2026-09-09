@@ -94,6 +94,22 @@ export interface ScaricoEsterno {
    * diario, invece di fermarsi.
    */
   metodo?: string;
+  /**
+   * L'impronta dell'immersione più recente che abbiamo già da QUESTO computer.
+   *
+   * libdivecomputer legge dalla più recente alla più vecchia e **si ferma**
+   * appena la ritrova: passandogliela si scaricano solo le immersioni nuove,
+   * invece di rileggere ogni volta tutta la memoria del computer. Su un
+   * collegamento che perde colpi conta più di qualunque ritentativo, perché i
+   * byte che non attraversi sono gli unici che non possono rompersi.
+   *
+   * ► VA CONSERVATA SOLO DOPO UNO SCARICO FINITO BENE. ◄ Dopo uno interrotto a
+   * metà, le immersioni più vecchie non sono ancora state lette: fermarsi lì la
+   * volta dopo le salterebbe **per sempre**, in silenzio. Un'impronta che non
+   * corrisponde a niente invece non fa danni — non combacia mai, quindi non
+   * ferma niente e si scarica tutto.
+   */
+  segnalibro?: string;
   emit: (e: DownloadEvent) => void;
 }
 
@@ -148,12 +164,37 @@ export async function riconosciComputerEsterno(nome: string): Promise<CandidatoR
   }
 }
 
+/** Com'è finito uno scarico: quello che è arrivato **e** come è andata. */
+export interface EsitoScaricoEsterno {
+  /** Dalla più recente alla più vecchia. Può non essere vuoto anche se `guasto` c'è. */
+  dives: Dive[];
+  /** Assente se è filato tutto liscio. */
+  guasto?: string;
+}
+
 /**
- * Scarica, e restituisce le immersioni pronte per l'archivio.
+ * Scarica, e restituisce le immersioni pronte per l'archivio **e** com'è finita.
  *
  * L'ordine è dalla più recente alla più vecchia, come per i driver scritti in
  * casa: il primo elemento diventa il segnalibro da cui ripartirà il prossimo
  * scarico, e un ordine diverso lo sposterebbe sull'immersione sbagliata.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► PERCHÉ NON LANCIA PIÙ, QUANDO HA QUALCOSA IN MANO. ◄
+ *
+ * I backend consegnano le immersioni una alla volta, dalla più recente: uno
+ * scarico che si rompe a metà ne ha in mano un pezzo buono. Finché questa
+ * funzione **lanciava**, quel pezzo veniva buttato al confine fra il guscio
+ * Rust e qui — la promessa veniva rifiutata e il valore andava perso.
+ *
+ * *Il guasto era doppio, e la seconda metà era peggiore: il diario diceva «N
+ * immersioni erano già arrivate e si tengono», e non era vero.* Una riga di
+ * diario che afferma una cosa che non succede è peggio di nessuna riga, perché
+ * chi ripara ci costruisce sopra.
+ *
+ * Un guasto **prima** dello scarico — nessun Bluetooth, computer non trovato,
+ * ponte non aperto — lancia ancora: lì non c'è niente da tenere, e un esito
+ * vuoto con un motivo dentro sarebbe più difficile da leggere di un errore.
  */
 export async function scaricaDaComputerEsterno({
   dispositivo,
@@ -163,8 +204,9 @@ export async function scaricaDaComputerEsterno({
   codiceAccesso,
   tentativo,
   metodo,
+  segnalibro,
   emit,
-}: ScaricoEsterno): Promise<Dive[]> {
+}: ScaricoEsterno): Promise<EsitoScaricoEsterno> {
   if (!isTauri()) {
     /*
      * Nel browser non c'è né il guscio Rust né il Bluetooth. Dirlo qui, con
@@ -179,19 +221,23 @@ export async function scaricaDaComputerEsterno({
 
   const spegni = await listen<DownloadEvent>(EVENTO, (evento) => emit(evento.payload));
   try {
-    const grezze = await invoke<ImmersioneLdc[]>('scarica_da_computer_esterno', {
-      dispositivo,
-      nome: nome && nome.trim() !== '' ? nome : null,
-      marca,
-      prodotto: modello,
-      codiceAccesso: codiceAccesso && codiceAccesso.trim() !== '' ? codiceAccesso : null,
-      // `null` e non `undefined`: un argomento indefinito sparisce dalla
-      // serializzazione di Tauri, e il guscio non distingue «non me l'hai
-      // passato» da «non ce l'ho» — che qui vogliono dire la stessa cosa, ma
-      // per ragioni diverse e con messaggi di diario diversi.
-      tentativo: tentativo ?? null,
-      metodo: metodo && metodo.trim() !== '' ? metodo : null,
-    });
+    const esito = await invoke<{ immersioni: ImmersioneLdc[]; guasto?: string }>(
+      'scarica_da_computer_esterno',
+      {
+        dispositivo,
+        nome: nome && nome.trim() !== '' ? nome : null,
+        marca,
+        prodotto: modello,
+        codiceAccesso: codiceAccesso && codiceAccesso.trim() !== '' ? codiceAccesso : null,
+        // `null` e non `undefined`: un argomento indefinito sparisce dalla
+        // serializzazione di Tauri, e il guscio non distingue «non me l'hai
+        // passato» da «non ce l'ho» — che qui vogliono dire la stessa cosa, ma
+        // per ragioni diverse e con messaggi di diario diversi.
+        tentativo: tentativo ?? null,
+        metodo: metodo && metodo.trim() !== '' ? metodo : null,
+        segnalibro: segnalibro && segnalibro.trim() !== '' ? segnalibro : null,
+      },
+    );
     /*
      * IL FUSO SI CHIEDE QUI, non nel guscio Rust.
      *
@@ -202,13 +248,16 @@ export async function scaricaDaComputerEsterno({
      * ripetere su altri cento modelli il difetto che il 24 agosto 2026 ha
      * fatto entrare due immersioni in archivio quattro volte.
      */
-    return immersioniDaLdc(grezze, {
-      marca,
-      modello,
-      dispositivo,
-      fuso: fusoDelDispositivo,
-      importedAt: new Date().toISOString(),
-    });
+    return {
+      dives: immersioniDaLdc(esito.immersioni, {
+        marca,
+        modello,
+        dispositivo,
+        fuso: fusoDelDispositivo,
+        importedAt: new Date().toISOString(),
+      }),
+      guasto: esito.guasto,
+    };
   } finally {
     // Si spegne SEMPRE, anche quando lo scarico fallisce: un ascoltatore
     // dimenticato riceve gli eventi del tentativo successivo e li manda a una

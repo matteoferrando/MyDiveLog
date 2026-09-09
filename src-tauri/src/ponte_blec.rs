@@ -2743,6 +2743,36 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         let _ = tauri::async_runtime::spawn_blocking(move || std::thread::sleep(quanto)).await;
     }
 
+    /// Com'è finito uno scarico: quello che è arrivato **e** come è andata.
+    ///
+    /// ════════════════════════════════════════════════════════════════════════
+    /// ► PERCHÉ NON BASTA UN `Result`. ◄
+    ///
+    /// Un `Result` costringe a scegliere: o le immersioni o l'errore. Per uno
+    /// scarico via Bluetooth quella scelta è falsa, e la falsità costa dati: i
+    /// backend consegnano le immersioni **una alla volta, dalla più recente
+    /// alla più vecchia**, quindi uno scarico che si rompe a metà ne ha in mano
+    /// un pezzo buono.
+    ///
+    /// *Con il `Result`, il guscio Rust le raccoglieva e il lato TypeScript le
+    /// buttava, perché la promessa veniva rifiutata: il diario diceva «N
+    /// immersioni erano già arrivate e si tengono» e non era vero.* Una riga di
+    /// diario che afferma una cosa che non succede è peggio di nessuna riga,
+    /// perché chi ripara ci costruisce sopra.
+    ///
+    /// Chi riceve deve fare **due** cose distinte, e non in alternativa:
+    /// prendersi le immersioni, e sapere che non è finita bene — perché da
+    /// quella seconda dipende se conservare il segnalibro (mai, dopo
+    /// un'interruzione) e se riprovare.
+    #[derive(serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct EsitoEsterno {
+        pub immersioni: Vec<ImmersioneLdc>,
+        /// Assente se è filato tutto liscio.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub guasto: Option<String>,
+    }
+
     /// Il nome dell'evento Tauri. Come `accesso-ritorno`: minuscolo, con trattino.
     pub const EVENTO: &str = "scarico-esterno";
 
@@ -2762,7 +2792,8 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         ponte: PonteBle,
         marca: &str,
         prodotto: &str,
-    ) -> Result<Vec<ImmersioneLdc>, String> {
+        segnalibro: &[u8],
+    ) -> Result<EsitoEsterno, String> {
         let PonteBle {
             entrata,
             scrittura,
@@ -2854,7 +2885,15 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
          * il bottino viaggiano insieme, e il guasto si racconta **dopo** aver
          * consegnato il bottino.
          */
-        let esito_scarico = collegamento.scarica_tutto(&descrittore);
+        if !segnalibro.is_empty() {
+            emetti(EventoScarico::Trace {
+                line: format!(
+                    "segnalibro: si leggono solo le immersioni più recenti di quella già in archivio ({} byte)",
+                    segnalibro.len()
+                ),
+            });
+        }
+        let esito_scarico = collegamento.scarica_tutto(&descrittore, segnalibro);
         let guasto_dello_scarico = esito_scarico.guasto;
         let grezze = esito_scarico.immersioni;
         let coda_del_guasto = match &guasto_dello_scarico {
@@ -2940,10 +2979,7 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
          * dire che un errore all'ultimo record buttava via anche i
          * precedenti.
          */
-        match coda_del_guasto {
-            Some(motivo) => Err(motivo),
-            None => Ok(immersioni),
-        }
+        Ok(EsitoEsterno { immersioni, guasto: coda_del_guasto })
     }
 
     /// I Mares che leggono il pacchetto intero con una `dc_iostream_read` sola.
@@ -3089,7 +3125,8 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         codice_accesso: Option<String>,
         tentativo: Option<usize>,
         metodo: Option<String>,
-    ) -> Result<Vec<ImmersioneLdc>, String> {
+        segnalibro: Option<String>,
+    ) -> Result<EsitoEsterno, String> {
         use tauri::Emitter;
 
         if SCARICO_IN_CORSO.swap(true, Ordering::SeqCst) {
@@ -3154,6 +3191,25 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
                         line: "il codice di accesso conservato non si legge: si riparte dal PIN".into(),
                     });
                     None
+                }
+            },
+        };
+        /*
+         * Il segnalibro arriva in esadecimale come il codice d'accesso, e come
+         * quello un testo illeggibile **non ferma niente**: si scarica tutto,
+         * che è quello che si faceva prima che il segnalibro esistesse. *Un
+         * dato di comodo che diventa un errore bloccante trasforma un
+         * miglioramento in una regressione.*
+         */
+        let segnalibro_byte = match segnalibro.as_deref() {
+            None => Vec::new(),
+            Some(testo) => match da_esadecimale(testo) {
+                Some(byte) => byte,
+                None => {
+                    manda(EventoScarico::Trace {
+                        line: "il segnalibro conservato non si legge: si scarica tutto".into(),
+                    });
+                    Vec::new()
                 }
             },
         };
@@ -3231,10 +3287,10 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
          * lo esaurisce. Un thread nostro nasce, blocca quanto vuole e muore.
          */
         let (esito_va, mut esito_viene) =
-            tauri::async_runtime::channel::<Result<Vec<ImmersioneLdc>, String>>(1);
+            tauri::async_runtime::channel::<Result<EsitoEsterno, String>>(1);
         let manda_dal_thread = manda.clone();
         std::thread::spawn(move || {
-            let esito = scarica_bloccante(&manda_dal_thread, ponte, &marca, &prodotto);
+            let esito = scarica_bloccante(&manda_dal_thread, ponte, &marca, &prodotto, &segnalibro_byte);
             let _ = esito_va.blocking_send(esito);
         });
 
@@ -3299,8 +3355,12 @@ pub async fn scarica_da_computer_esterno(
     codice_accesso: Option<String>,
     tentativo: Option<usize>,
     metodo: Option<String>,
-) -> Result<Vec<crate::trasporto_ldc::ImmersioneLdc>, String> {
-    dentro::scarica(app, dispositivo, nome, marca, prodotto, codice_accesso, tentativo, metodo).await
+    segnalibro: Option<String>,
+) -> Result<dentro::EsitoEsterno, String> {
+    dentro::scarica(
+        app, dispositivo, nome, marca, prodotto, codice_accesso, tentativo, metodo, segnalibro,
+    )
+    .await
 }
 
 /// La risposta alla richiesta del PIN, dall'interfaccia.
@@ -3342,6 +3402,7 @@ pub async fn scarica_da_computer_esterno(
     _codice_accesso: Option<String>,
     _tentativo: Option<usize>,
     _metodo: Option<String>,
+    _segnalibro: Option<String>,
 ) -> Result<Vec<serde_json::Value>, String> {
     Err("questa copia dell’applicazione è stata compilata senza libdivecomputer: \
 sa parlare solo con i computer dei driver scritti in casa"

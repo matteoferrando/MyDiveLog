@@ -3274,6 +3274,91 @@ mutarla in «qualunque risposta ferma tutto» lasciava le prove **verdi**: nessu
 copriva il caso di chi il codice lo dà. *Una regola troppo larga non si vede
 rileggendo — si vede solo provando a romperla dalla parte che non fa male.*
 
+---
+
+## Il segnalibro, e la riga di diario che diceva il falso
+
+*10 settembre 2026, notte fonda.* Due cose trovate cercandone una terza, e la
+seconda è un difetto che avevo spedito io poche ore prima.
+
+### Non passavamo mai un segnalibro a libdivecomputer
+
+`dc_device_set_fingerprint` dice alla libreria qual è l'ultima immersione che
+abbiamo già. I backend leggono **dalla più recente alla più vecchia** e si
+fermano appena la ritrovano — nei Mares è letteralmente
+`Stopping due to detecting a matching fingerprint`, e la fermata avviene dopo
+aver letto la sola *intestazione*, prima dei dati veri; negli Uwatec il
+timestamp viene mandato **al computer**, che risponde con le sole immersioni
+nuove.
+
+Non chiamandola mai, **ogni scarico rileggeva tutta la memoria del computer**:
+per chi ha quarantacinque immersioni in archivio, ogni volta, comprese le
+quarantaquattro che ha già.
+
+> **► SU UN COLLEGAMENTO CHE PERDE COLPI, I BYTE CHE NON ATTRAVERSI SONO GLI
+> UNICI CHE NON POSSONO ROMPERSI. ◄** È una leva più forte di qualunque
+> ritentativo — ma **vale dal secondo scarico in poi**, e questo va detto senza
+> girarci intorno: il primo resta lungo quanto è sempre stato. *Per chi ha il
+> Puck che non scarica non cambia niente oggi; cambia tutto il giorno dopo che
+> uno scarico è riuscito una volta.*
+
+**Il pericolo, e chi lo evita.** Un segnalibro sbagliato non fa danni: non
+combacia con niente, quindi non ferma niente e si scarica tutto. Quello che fa
+danno è un segnalibro **giusto salvato al momento sbagliato** — dopo uno
+scarico interrotto, quando le più vecchie non sono ancora state lette. Lì il
+prossimo scarico si fermerebbe subito e quelle immersioni **non arriverebbero
+mai più**, in silenzio, senza un errore da nessuna parte. *In un logbook è il
+difetto peggiore che esista: non perde i dati che hai, perde quelli che non sai
+di non avere.* Quindi si salva **solo dopo uno scarico finito bene** — e con
+l'insistenza automatica, che gli scarichi interrotti li produce apposta, non è
+un caso di scuola: sarebbe il caso normale.
+
+### E la riga di diario che diceva il falso
+
+Poche ore prima avevo aggiunto il salvataggio delle immersioni arrivate prima
+di un guasto, con tanto di riga nel diario: *«lo scarico si è rotto, ma N
+immersioni erano già arrivate e si tengono»*.
+
+**Non era vero.** Il guscio Rust le raccoglieva davvero, ma il comando
+restituiva un `Result`, la promessa veniva **rifiutata**, e al confine con
+TypeScript quelle immersioni sparivano. Il diario affermava una cosa che non
+succedeva.
+
+> **► UNA RIGA DI DIARIO CHE AFFERMA UNA COSA CHE NON SUCCEDE È PEGGIO DI
+> NESSUNA RIGA. ◄** Chi ripara ci costruisce sopra: cerca perché quelle
+> immersioni non si vedono in archivio, e cerca nel posto sbagliato — perché il
+> diario gli ha detto che ci sono.
+
+La causa è nel tipo: `Result` costringe a scegliere **o** le immersioni **o**
+l'errore, e per uno scarico via Bluetooth quella scelta è falsa. Adesso il
+comando restituisce tutte e due — `EsitoEsterno { immersioni, guasto }` — e chi
+riceve fa due cose distinte: si prende le immersioni, e sa che non è finita
+bene. Dalla seconda dipendono le due decisioni che le immersioni non possono
+prendere: che il segnalibro **non** si conserva, e che vale la pena riprovare.
+
+*E l'ha trovata una mutazione sopravvissuta*: la guardia «uno scarico
+interrotto non salva il segnalibro» restava verde anche togliendo la
+condizione, perché nel finto uno scarico interrotto non aveva **mai**
+immersioni in mano — il caso che doveva sorvegliare non si poteva nemmeno
+esprimere. Chiuso il buco nel tipo, la stessa mutazione è rossa.
+
+### Quello che si è potuto misurare, e quello che no
+
+**Non si è potuto:** che il segnalibro fermi davvero lo scarico. Per gli Uwatec
+il filtro lo fa il computer, e il nostro finto quel parametro lo ignora; per i
+Mares il confronto è dentro la libreria, ma il finto Quad Ci non arriva a
+servire oggetti di immersione. *La fermata è verificata leggendo i due sorgenti,
+non provandola, e sta scritto nel test perché la prossima persona non creda il
+contrario.*
+
+**Si è misurato** quello che conta per chi scarica: che un segnalibro **non
+possa fare danni** — né quello giusto, né uno di lunghezza sbagliata (che
+`uwatec_smart.c` rifiuta), né uno che non corrisponde a niente. Un
+miglioramento che, sbagliando, rompe quello che prima funzionava non è un
+miglioramento. E che la chiamata alla libreria **avvenga**: senza quella
+asserzione, toglierla del tutto lasciava tutto verde — *un miglioramento
+invisibile è indistinguibile da un miglioramento assente*.
+
 ### Quello che questo NON è
 
 **Non è la correzione del difetto che fa cadere quel collegamento.** Nessuno sa

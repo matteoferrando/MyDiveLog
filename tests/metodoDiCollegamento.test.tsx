@@ -35,6 +35,12 @@ const finto = vi.hoisted(() => ({
   emit: null as ((e: DownloadEvent) => void) | null,
   finisci: null as ((v: unknown) => void) | null,
   fallisci: null as ((e: unknown) => void) | null,
+  /** Finisce con delle immersioni in mano E un guasto: lo scarico rotto a metà. */
+  aMeta: null as ((v: unknown, guasto: string) => void) | null,
+  /** I segnalibri già in archivio, come li vedrebbe l'applicazione. */
+  segnalibri: {} as Record<string, { fingerprint: string; at: string; dives: number }>,
+  /** Quelli che l'applicazione ha chiesto di salvare, in ordine. */
+  salvati: [] as { chiave: string; m: unknown }[],
 }));
 
 vi.mock('../src/storage/computerEsterni', () => ({
@@ -44,7 +50,12 @@ vi.mock('../src/storage/computerEsterni', () => ({
     finto.chiamate.push(opzioni);
     finto.emit = opzioni.emit as (e: DownloadEvent) => void;
     return new Promise((risolvi, rifiuta) => {
-      finto.finisci = risolvi;
+      // `finisci` resta com'era per chi la usa — un elenco di immersioni — e
+      // qui sotto diventa la forma nuova: quello che è arrivato PIÙ com'è
+      // andata. `aMeta` è il caso che prima non si poteva nemmeno esprimere:
+      // immersioni buone e un guasto, insieme.
+      finto.finisci = (v: unknown) => risolvi({ dives: v });
+      finto.aMeta = (v: unknown, guasto: string) => risolvi({ dives: v, guasto });
       finto.fallisci = rifiuta;
     });
   },
@@ -75,8 +86,11 @@ vi.mock('../src/ui/state', () => ({
   useDiveLog: () => ({
     importDives: () =>
       Promise.resolve({ ok: true, found: 1, added: 1, merged: 0, duplicates: 0, warnings: [] }),
-    bleMarkers: {},
-    saveBleMarker: () => Promise.resolve(),
+    bleMarkers: finto.segnalibri,
+    saveBleMarker: (chiave: string, m: unknown) => {
+      finto.salvati.push({ chiave, m });
+      return Promise.resolve();
+    },
     forgetBleMarker: () => Promise.resolve(),
   }),
 }));
@@ -182,10 +196,13 @@ async function lasciaProvare(
 }
 
 beforeEach(() => {
+  finto.segnalibri = {};
+  finto.salvati = [];
   finto.chiamate = [];
   finto.emit = null;
   finto.finisci = null;
   finto.fallisci = null;
+  finto.aMeta = null;
   localStorage.clear();
 });
 
@@ -440,6 +457,128 @@ describe('il giro dei modi di collegarsi', () => {
       // chiamata.
       expect(finto.chiamate[1].tentativo).toBe(1);
       expect(finto.chiamate[1].metodo).toBeUndefined();
+    } finally {
+      smonta();
+    }
+  });
+
+  it('► uno scarico interrotto NON salva il segnalibro ◄', async () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * LA PROVA PIÙ IMPORTANTE DI TUTTO IL SEGNALIBRO, E LA PIÙ FACILE DA NON
+     * SCRIVERE.
+     *
+     * Le immersioni si leggono dalla più recente alla più vecchia. Uno scarico
+     * interrotto ha in mano le prime — le più nuove — e non ha ancora visto le
+     * più vecchie. Salvare lì l'impronta della più recente direbbe al prossimo
+     * scarico «da qui in giù ce l'ho già», e le vecchie **non arriverebbero
+     * mai più**: in silenzio, senza un errore da nessuna parte, per sempre.
+     *
+     * *In un logbook è il difetto peggiore che esista: non perde i dati che
+     * hai, perde quelli che non sai di non avere.* E con l'insistenza
+     * automatica, che gli scarichi interrotti li produce apposta, non sarebbe
+     * un caso di scuola: sarebbe il caso normale.
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await metodo(1, 1);
+      // Due immersioni arrivano davvero...
+      await act(async () =>
+        finto.emit!({ kind: 'record', done: 1, record: { key: 'aa11', bytes: new Uint8Array([1]) } }),
+      );
+      await act(async () =>
+        finto.emit!({ kind: 'record', done: 2, record: { key: 'bb22', bytes: new Uint8Array([2]) } }),
+      );
+      await scambio(9);
+      /*
+       * ...e poi lo scarico si rompe **tenendosele**. È il caso che prima non
+       * si poteva nemmeno esprimere: il guscio restituiva o le immersioni o
+       * l'errore, e le immersioni di uno scarico rotto sparivano al confine.
+       * Adesso arrivano tutte e due, ed è proprio qui che il segnalibro
+       * sarebbe una trappola.
+       */
+      await act(async () => finto.aMeta!([immersione(), immersione()], 'il collegamento è caduto'));
+
+      expect(finto.salvati, 'un segnalibro qui salterebbe le più vecchie per sempre').toEqual([]);
+    } finally {
+      smonta();
+    }
+  });
+
+  it('le immersioni di uno scarico rotto a metà entrano lo stesso in archivio', async () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► IL PEZZO CHE MANCAVA, E CHE RENDEVA FALSA UNA RIGA DEL DIARIO. ◄
+     *
+     * Il guscio Rust raccoglieva le immersioni arrivate prima del guasto e il
+     * diario scriveva «N immersioni erano già arrivate e si tengono» — ma il
+     * confine con TypeScript rifiutava la promessa, e quelle immersioni non
+     * arrivavano da nessuna parte. *Una riga di diario che afferma una cosa
+     * che non succede è peggio di nessuna riga: chi ripara ci costruisce
+     * sopra.*
+     *
+     * Conta soprattutto adesso, che l'applicazione riprova da sola: ogni giro
+     * che arriva un po' più in là aggiunge quello che ha preso, invece di
+     * ripartire ogni volta da zero.
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await metodo(1, 1);
+      await act(async () =>
+        finto.emit!({ kind: 'record', done: 1, record: { key: 'aa11', bytes: new Uint8Array([1]) } }),
+      );
+      await scambio(9);
+      await act(async () => finto.aMeta!([immersione()], 'il collegamento è caduto'));
+
+      // Il testo a schermo parla delle immersioni entrate, non solo del guasto.
+      expect(host.textContent).toContain('lette dal computer');
+      // E il guasto non sparisce: il diario lo porta.
+      expect(host.textContent).toContain('il collegamento è caduto');
+    } finally {
+      smonta();
+    }
+  });
+
+  it('uno scarico finito bene salva l’impronta della PIÙ RECENTE', async () => {
+    /*
+     * La più recente è il **primo** record che arriva. Prendere l'ultimo
+     * farebbe fermare il prossimo scarico all'immersione più vecchia — cioè non
+     * lo fermerebbe mai, e il segnalibro non servirebbe a niente senza dare
+     * nessun segno di sé: un difetto che non si vede, si misura soltanto.
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await metodo(1, 1);
+      await act(async () =>
+        finto.emit!({ kind: 'record', done: 1, record: { key: 'aa11', bytes: new Uint8Array([1]) } }),
+      );
+      await act(async () =>
+        finto.emit!({ kind: 'record', done: 2, record: { key: 'bb22', bytes: new Uint8Array([2]) } }),
+      );
+      await act(async () => finto.finisci!([immersione(), immersione()]));
+
+      expect(finto.salvati).toHaveLength(1);
+      expect((finto.salvati[0].m as { fingerprint: string }).fingerprint).toBe('aa11');
+    } finally {
+      smonta();
+    }
+  });
+
+  it('il segnalibro conservato viene passato allo scarico dopo', async () => {
+    finto.segnalibri = {
+      'ldc-Mares-Quad Ci:dispositivo-dev-mares': {
+        fingerprint: 'cc33',
+        at: '2026-09-09T00:00:00Z',
+        dives: 3,
+      },
+    };
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      expect(finto.chiamate[0].segnalibro).toBe('cc33');
     } finally {
       smonta();
     }
