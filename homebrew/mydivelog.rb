@@ -7,8 +7,8 @@
 # a installare.
 
 cask "mydivelog" do
-  version "1.8.4"
-  sha256 "c5bd68abc6936a5576ebf0c2c2634e3d0f12ac3e46fb00efacbc8920cf4f888f"
+  version "1.8.5"
+  sha256 "a7864f4c17a1eb1d41f6155c4ce08c3c76126b7fae5c8fabe90674792fe69095"
 
   url "https://github.com/matteoferrando/MyDiveLog/releases/download/v#{version}/MyDiveLog-macOS-arm64.dmg",
       verified: "github.com/matteoferrando/MyDiveLog/"
