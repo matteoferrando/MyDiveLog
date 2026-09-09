@@ -3241,6 +3241,34 @@ ritentativo mai fatto, «ha risposto» sempre falso, il diario buttato, un
 tentativo di collegamento solo, il ritentativo senza scollegare, l'elenco vuoto
 accettato, e il caso normale che paga comunque un giro.
 
+### Il difetto che l'insistenza si è portata dietro, e la 1.8.7
+
+*Trovato un'ora dopo aver pubblicato la 1.8.6, guardando come le parti nuove si
+incastrano con quelle vecchie.*
+
+L'Aqualung i330R chiede un PIN, e la persona può **rinunciare**. Fino a stanotte
+la rinuncia chiudeva il discorso: lo scarico falliva e finiva lì. Da quando
+l'applicazione riprova da sola, quel fallimento — **ai numeri** — è il caso
+buono: il computer aveva risposto eccome, prima di chiedere il codice. Quindi
+«il modo funziona, riprova uguale». E riprovare uguale vuol dire **richiedere il
+PIN**, a chi ha appena detto di no. Due volte.
+
+> **► UN'INSISTENZA CHE NON DISTINGUE «NON HA FUNZIONATO» DA «NON HO VOLUTO» NON
+> È TENACIA: È NON ASCOLTARE. ◄** Ed è un difetto che non esisteva in nessuna
+> delle due parti: la richiesta del PIN era giusta, l'insistenza era giusta, e
+> il difetto è nato dove si toccano. *Le parti nuove vanno guardate anche
+> contro quelle vecchie, e non solo contro le prove che le accompagnano.*
+
+Adesso una rinuncia spegne l'insistenza, come «Interrompi». **Le cifre no**, ed
+è l'altra metà della regola: fermare i tentativi su *qualunque* risposta al PIN
+sarebbe stato più semplice da scrivere e avrebbe tolto il ritentativo proprio a
+chi ha fatto tutto quello che gli era stato chiesto.
+
+**E la seconda metà è nata da una mutazione sopravvissuta.** Messa la regola,
+mutarla in «qualunque risposta ferma tutto» lasciava le prove **verdi**: nessuna
+copriva il caso di chi il codice lo dà. *Una regola troppo larga non si vede
+rileggendo — si vede solo provando a romperla dalla parte che non fa male.*
+
 ### Quello che questo NON è
 
 **Non è la correzione del difetto che fa cadere quel collegamento.** Nessuno sa

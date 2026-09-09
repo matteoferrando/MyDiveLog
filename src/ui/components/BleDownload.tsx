@@ -904,6 +904,21 @@ export function BleDownload() {
    */
   const rispondiAlPin = useCallback((cifre: string | null) => {
     setPin(null);
+    /*
+     * ► UNA RINUNCIA È UN «NO», E UN «NO» VALE ANCHE PER I TENTATIVI DOPO. ◄
+     *
+     * Da stanotte l'applicazione riprova da sola, e il computer che chiede il
+     * PIN — l'i330R, il DSX — risponde eccome prima di chiederlo: quindi un
+     * fallimento dopo la rinuncia sembra, ai numeri, il caso «il modo funziona,
+     * riprova uguale». E riprovare uguale vuol dire **richiedere il PIN**, a
+     * una persona che ha appena detto di no. Due volte.
+     *
+     * *Un'insistenza che non sa distinguere «non ha funzionato» da «non ho
+     * voluto» non è tenacia: è non ascoltare.* Le cifre invece lasciano correre
+     * tutto: lì la persona ha detto di sì, e se poi si rompe qualcosa il
+     * ritentativo è esattamente quello che si aspetta.
+     */
+    if (cifre === null) smettiDiInsistere.current = true;
     void rispondiCodicePin(cifre);
   }, []);
 

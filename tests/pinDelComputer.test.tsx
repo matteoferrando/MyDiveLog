@@ -40,6 +40,8 @@ const finto = vi.hoisted(() => ({
   finisci: null as ((v: unknown) => void) | null,
   /** E come fallisce, che è l'altro modo in cui finisce. */
   fallisci: null as ((e: unknown) => void) | null,
+  /** Quante volte lo scarico è stato chiesto: da quando l'app riprova da sola, conta. */
+  quante: 0,
 }));
 
 vi.mock('../src/storage/computerEsterni', () => ({
@@ -50,6 +52,7 @@ vi.mock('../src/storage/computerEsterni', () => ({
   },
   scaricaDaComputerEsterno: (opzioni: Record<string, unknown>) => {
     finto.chiamata = opzioni;
+    finto.quante += 1;
     finto.emit = opzioni.emit as (e: DownloadEvent) => void;
     return new Promise((risolvi, rifiuta) => {
       finto.finisci = risolvi;
@@ -174,6 +177,7 @@ beforeEach(() => {
   finto.risposte = [];
   finto.finisci = null;
   finto.fallisci = null;
+  finto.quante = 0;
   localStorage.clear();
 });
 
@@ -409,6 +413,76 @@ describe('il codice di accoppiamento', () => {
     try {
       await avvia(host);
       expect(finto.chiamata?.codiceAccesso).toBeUndefined();
+    } finally {
+      smonta();
+    }
+  });
+});
+
+describe('la rinuncia al PIN ferma anche i tentativi automatici', () => {
+  it('chi dice di no non se lo sente richiedere due volte', async () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► UN DIFETTO NATO LA NOTTE STESSA IN CUI È NATA L'INSISTENZA. ◄
+     *
+     * Da quando l'applicazione riprova da sola, un fallimento dopo la rinuncia
+     * al PIN sembra — ai numeri — il caso buono: il computer aveva risposto
+     * (l'ha fatto, prima di chiedere il codice), quindi «il modo funziona,
+     * riprova uguale». E riprovare uguale vuol dire **richiedere il PIN** a chi
+     * ha appena detto di no.
+     *
+     * Un'insistenza che non distingue «non ha funzionato» da «non ho voluto»
+     * non è tenacia: è non ascoltare.
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await act(async () =>
+        finto.emit!({ kind: 'method', index: 1, total: 8, name: 'senza conferma', key: 'k' }),
+      );
+      await act(async () => finto.emit!({ kind: 'pinRequired' }));
+      expect(host.textContent).toContain('Il computer chiede un codice');
+
+      // La persona rinuncia.
+      await act(async () => {
+        premi(host, 'Annulla lo scarico').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      // Il computer aveva risposto: senza la regola, questo sarebbe il caso
+      // «riprova allo stesso modo».
+      await act(async () => finto.emit!({ kind: 'exchange', writes: 4, notifications: 3, bytes: 300 }));
+      await act(async () => finto.fallisci!(new Error('PIN non fornito')));
+
+      expect(finto.quante, 'dopo una rinuncia non si riprova da soli').toBe(1);
+    } finally {
+      smonta();
+    }
+  });
+
+  it('ma chi il codice lo dà, i tentativi automatici se li tiene', async () => {
+    /*
+     * L'altra metà della regola, e serve tanto quanto la prima: fermare
+     * l'insistenza su QUALUNQUE risposta al PIN sarebbe stato più semplice da
+     * scrivere e avrebbe tolto il ritentativo proprio a chi ha fatto tutto
+     * quello che gli era stato chiesto. *Una regola che si applica anche dove
+     * non serve non è prudenza: è una funzione in meno, nascosta dentro una
+     * riga che sembra ragionevole.*
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await act(async () =>
+        finto.emit!({ kind: 'method', index: 1, total: 8, name: 'senza conferma', key: 'k' }),
+      );
+      await act(async () => finto.emit!({ kind: 'pinRequired' }));
+      await digita(campoPin(host), '123456');
+      await act(async () => {
+        premi(host, 'Conferma').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      expect(finto.risposte).toEqual(['123456']);
+
+      await act(async () => finto.emit!({ kind: 'exchange', writes: 4, notifications: 3, bytes: 300 }));
+      await act(async () => finto.fallisci!(new Error('il collegamento è caduto')));
+      expect(finto.quante, 'il computer aveva risposto: si riprova').toBe(2);
     } finally {
       smonta();
     }
