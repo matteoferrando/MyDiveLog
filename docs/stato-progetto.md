@@ -2933,28 +2933,35 @@ non il momento — e quel che non è stato misurato qui non si scrive.
    telefono. *Il comando che ha detto quando era il momento, e che serve identico
    alla prossima versione:*
    `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
-1. **► CARICARE LA 1.8.4 SUI DUE NEGOZI APPLE. ◄** I pacchetti sono costruiti
-   e verificati in `da-caricare-su-app-store/` — `MyDiveLog-1.8.4-app-store.ipa`
-   e `MyDiveLog-1.8.4-mac-app-store.pkg`, tutti e due con `1.8.4` nei due campi
-   del plist, con dentro le stringhe del giro dei modi (`IPOTESI: servizio n.`,
-   `stesso profilo, altra combinazione`) e del PIN (`rispondi_codice_pin`,
-   `pinRequired`), e **zero** occorrenze di `api.anthropic.com`. Transporter per
-   tutti e due, **due schede separate**, novità da
-   `consegna-1.8.4/novita-negozi-1.8.4.md` (italiano e inglese, già entro i
-   limiti), e **inviare in revisione** — il passo che si dà per fatto perché il
-   caricamento è la parte lunga. *La coda è libera: la 1.8.1 è uscita da tutte e
-   due le parti.*
+1. **► LA 1.8.4 È IN REVISIONE SU TUTTI E DUE I NEGOZI APPLE. ◄** *Consegnata
+   dal proprietario la notte del 9 settembre, iPhone e Mac App Store insieme.*
+   I due pacchetti erano stati costruiti e verificati aprendoli uno per uno:
+   `1.8.4` nei due campi del plist, dentro le stringhe del giro dei modi
+   (`IPOTESI: servizio n.`, `stesso profilo, altra combinazione`) e del PIN
+   (`rispondi_codice_pin`, `pinRequired`), **zero** occorrenze di
+   `api.anthropic.com`, e nel pacchetto del negozio nessun indirizzo
+   dell'aggiornatore. Novità dai testi di `consegna-1.8.4/`.
 
-   > **I pacchetti 1.8.2 e 1.8.3 non si caricano più**, e sono in `superate/`.
-   > Non erano difettosi: sono stati superati prima di partire — la 1.8.3 di
-   > sei ore — e lasciarli accanto a quelli buoni è il modo in cui una notte di
-   > lavoro finisce caricata due volte. *Un file che non va più usato e resta
-   > dov'era non è archiviato: è una trappola con la data sbagliata.*
-   >
-   > **E la 1.8.3 resta pubblica su GitHub e sul sito**, con il suo tag e i suoi
-   > allegati: una versione consegnata a chi scarica non si ritira perché ne è
-   > uscita un'altra sei ore dopo. Il sito serve la 1.8.4 perché
-   > `releases/latest` punta lì da sé.
+   **Adesso resta solo l'attesa, e l'attesa non è un guasto.** Sulla 1.8.1 fra
+   le due approvazioni sono passate **nove ore**, e per tutta la giornata il
+   negozio iPhone ha risposto con la versione vecchia: *Apple verifica un
+   negozio alla volta, e l'approvazione di uno non dice niente dell'altro.*
+   Dedurlo è l'errore che questo documento raccoglie da settimane.
+
+   **Come si misura quando è uscita**, perché il numero nel repository e quello
+   che il negozio serve a un estraneo sono due affermazioni diverse:
+   `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
+   L'anti-cache in coda non è pedanteria: senza, la risposta può venire da una
+   cache e dire una cosa vecchia di ore con la faccia di una misura. **Per il
+   Mac App Store quel `lookup` non serve** — la scheda è una sola e il campo
+   `version` è quello di iOS — quindi là l'esito lo dichiara il proprietario.
+
+   > **► E LA MAIL AL CENTRO SUB PARTE QUANDO È PUBBLICATA, NON ADESSO. ◄** Loro
+   > scaricano da un telefono: finché l'App Store per iPhone serve la 1.8.1,
+   > quello che installerebbero non ha né il PIN dell'i330R né il pulsante
+   > «Riprova con un altro modo», cioè esattamente le due cose che gli
+   > chiediamo di provare. *È lo stesso vincolo che ha fatto aspettare la mail
+   > dell'8 settembre fino alle 18:20, e per la stessa ragione.*
 
    **Google Play** aspetta la fine del test chiuso, attorno al 12 settembre:
    l'`.aab` firmato è in `da-caricare-su-play/MyDiveLog-1.8.4-play.aab`.
