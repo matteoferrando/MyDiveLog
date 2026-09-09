@@ -2602,12 +2602,33 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
          * riassunto accanto — «1 scrittura, 0 notifiche, il collegamento è
          * caduto» — la seconda segnalazione dice dove si è rotto.
          */
+        /*
+         * ► E QUELLO CHE HA DETTO LIBDIVECOMPUTER VA NEL DIARIO PRIMA DI TUTTO
+         * IL RESTO. ◄ Il riassunto racconta il **nostro** lato dello scambio —
+         * quante scritture, quante notifiche, quanto grandi — ed è servito a
+         * smentire un'ipotesi sbagliata. Ma il numero di stato da solo non dice
+         * QUALE controllo della libreria è fallito, e su `-8` la differenza
+         * decide tutto: dal pacchetto (`mares_iconhd_transfer` ritenta quattro
+         * volte) o dal toggle dei segmenti (non si ritenta affatto, lo scarico
+         * muore alla prima). Vedi `Contesto` in `trasporto_ldc.rs`.
+         *
+         * Escono **comunque vada**, come il riassunto: su uno scarico riuscito
+         * gli avvisi dicono cosa ha perdonato, e sapere cosa ha perdonato è il
+         * modo di vedere arrivare il guasto prima che chiuda una segnalazione.
+         */
+        let voce_della_libreria = || {
+            for riga in collegamento.righe_della_libreria() {
+                emetti(EventoScarico::Trace { line: riga });
+            }
+        };
         let grezze = match collegamento.scarica(&descrittore) {
             Ok(grezze) => {
+                voce_della_libreria();
                 emetti(EventoScarico::Trace { line: riassunto() });
                 grezze
             }
             Err(motivo) => {
+                voce_della_libreria();
                 let scambio = riassunto();
                 emetti(EventoScarico::Trace { line: scambio.clone() });
                 return Err(format!("{motivo} — {scambio}"));

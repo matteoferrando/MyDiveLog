@@ -3037,13 +3037,104 @@ finto che inciampa alla scrittura n. N** contro la vera `libdivecomputer`, e
 misura che **dopo il ritentativo lo scarico va avanti** — non che i dati siano
 raccolti, che vada avanti.
 
+---
+
+## Il secondo diario, e la riga che la libreria diceva e noi buttavamo via
+
+*9 settembre 2026, sera tardi.* Un secondo diario, e **non è lo stesso guasto**:
+è un **Mares Puck 4**, e muore con `stato -8` — errore di **protocollo** — dopo
+25 775 byte, non con la conferma scaduta della sera prima. Prima ancora c'era
+stato un tentativo caduto sul collegamento: *«Timeout during execution of
+Connect»*, zero immersioni.
+
+**Quello che si legge nel diario, e che non basta.** 123 scritture, 122
+notifiche, notifiche da 1 a 244 byte, prima risposta dopo 60 ms — quindi il
+collegamento andava. Le sette richieste d'oggetto (`bf 1a` più sedici byte)
+sono partite tutte. E in coda:
+
+```
+n. 121: [ac 09]   n. 122: [fe 5b]   n. 123: [fe 5b]
+```
+
+**Due `fe 5b` di fila**, cioè lo stesso comando mandato due volte: un
+ritentativo. `mares_iconhd_transfer` ne fa **quattro**, e qui ce n'è **uno**.
+
+### Perché quell'«uno invece di quattro» è la domanda giusta
+
+Leggendo `mares_iconhd.c`, `DC_STATUS_PROTOCOL` esce da **sei** posti, e due
+chiedono rimedi opposti:
+
+| da dove | che cosa controlla | si ritenta? |
+|---|---|---|
+| `mares_iconhd_packet_variable` | intestazione `AA`, coda `EA`, lunghezza | **sì, quattro volte** |
+| `mares_iconhd_read_object` | il *toggle*: `(rsp[0] & 0xF0) >> 4 != toggle` | **no: torna subito** |
+
+Il secondo non passa da `mares_iconhd_transfer`: torna dritto al chiamante e lo
+scarico muore alla prima. *Un solo ritentativo nel diario è esattamente la firma
+di un pacchetto accettato dal controllo di forma e rifiutato da quello del
+toggle* — ma è una **somiglianza**, non una misura, e questo documento ha una
+regola su cosa vale una somiglianza.
+
+### ► LA LIBRERIA LO DICEVA, E NOI NON L'ASCOLTAVAMO ◄
+
+Ogni `return DC_STATUS_PROTOCOL` di libdivecomputer è preceduto da una `ERROR()`
+che nomina il controllo fallito, il byte, il file e la riga:
+
+```
+libdivecomputer, errore: Unexpected packet trailer byte (00). [mares_iconhd.c:365]
+libdivecomputer, errore: Unexpected packet length (1). [mares_iconhd.c:353]
+```
+
+**Non chiamavamo `dc_context_set_logfunc`**, quindi quelle righe andavano su
+`stderr` — che su un telefono non esiste. Al diario arrivava solo `-8`.
+
+*Due diari veri di fila, e tutte e due le volte ho ricostruito la causa contando
+i byte scritti: la prima volta ci sono arrivato, la seconda no. La libreria
+stava rispondendo a voce alta alla domanda che mi stavo facendo.* **Una libreria
+che spiega il guasto e un'applicazione che stampa solo il codice numerico sono,
+insieme, peggio della libreria da sola**: il numero ha l'aria di una diagnosi e
+non lo è.
+
+Adesso il contesto dello scarico ha la sua `logfunc`, e le righe finiscono nel
+diario **comunque vada** — anche a scarico riuscito, perché sapere che cosa la
+libreria ha perdonato è il modo di vedere arrivare un guasto prima che chiuda
+una segnalazione.
+
+Due scelte, e sono la stessa lezione di sempre:
+
+- **ci si ferma a WARNING.** Da `INFO` in giù libdivecomputer stampa *ogni
+  pacchetto* in esadecimale: decine di migliaia di righe che seppellirebbero le
+  tre che contano. *Un'uscita che non si può leggere è spenta* — i quattordici
+  avvisi di lint, le novecento righe di HTML, e adesso questo.
+- **si tengono le ultime quattordici righe, con la conta di quelle scartate.**
+  L'errore che chiude lo scarico è l'ultimo che la libreria stampa; ma chi legge
+  deve sapere che ce n'erano altre, o crederà di avere tutta la storia.
+
+Del percorso del file resta **solo il nome**: `/Users/…/out/libdivecomputer-0.9.0/src/`
+è la macchina che ha costruito il pacchetto e non dice niente a chi legge.
+
+**Quattro mutazioni verificate rosse**: la callback non registrata, il livello
+sceso a `NONE`, il file tolto dalla riga, e la coda tenuta al posto della testa.
+
+### Quello che questo NON è
+
+**Non è una correzione del Puck 4.** È lo strumento per sapere che cosa
+correggere. L'ipotesi del toggle è coerente con tutto quello che si vede e
+**non è misurata**; l'altra metà del diario — il primo tentativo caduto su
+«Timeout during execution of Connect» — non è nemmeno stata affrontata. *Il
+prossimo diario da quel Puck 4 conterrà la riga che dice quale dei sei controlli
+è fallito, e a quel punto la correzione è mirata invece che plausibile.*
+
+---
+
 ### Quel che resta da chiedergli
 
-Sopra il diario, nello schermo mandato, c'è una frase che non è spiegata da
-niente di tutto questo: **«Sì ma non mi chiede nessuna conferma nessun codice»**.
-Non si sa a quale computer si riferisca né a che punto. *Se fosse l'i330R,
-vorrebbe dire che la richiesta del PIN non arriva mai — che è un guasto diverso e
-tutto suo.* Va chiesto, non indovinato.
+Sopra il diario, nello schermo mandato, c'era una frase: **«Sì ma non mi chiede
+nessuna conferma nessun codice»**. **Risposta arrivata la sera stessa: era il
+Mares Puck 4**, e per i Mares è il comportamento giusto — il codice di sei cifre
+lo chiede la famiglia Pelagic (i330R, Apeks DSX), non Mares. *Non era un guasto:
+era una domanda a cui mancava il nome del computer, e sono bastate due righe di
+diario per chiuderla.*
 
 ---
 

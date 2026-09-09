@@ -692,6 +692,22 @@ type DcDiveCallback = extern "C" fn(
 extern "C" {
     fn dc_context_new(context: *mut *mut DcContext) -> c_int;
     fn dc_context_free(context: *mut DcContext) -> c_int;
+    fn dc_context_set_loglevel(context: *mut DcContext, loglevel: c_int) -> c_int;
+    fn dc_context_set_logfunc(
+        context: *mut DcContext,
+        logfunc: Option<
+            extern "C" fn(
+                *mut DcContext,
+                c_int,
+                *const std::ffi::c_char,
+                c_uint,
+                *const std::ffi::c_char,
+                *const std::ffi::c_char,
+                *mut c_void,
+            ),
+        >,
+        userdata: *mut c_void,
+    ) -> c_int;
     fn dc_custom_open(
         iostream: *mut *mut DcIostream,
         context: *mut DcContext,
@@ -1166,7 +1182,56 @@ pub struct CollegamentoLdc {
 /// un computer: tradurre i byte di un'immersione già scaricata vuole un
 /// contesto e nient'altro, e pretendere un Bluetooth aperto per farlo sarebbe
 /// una dipendenza inventata.
-pub struct Contesto(*mut DcContext);
+/// Livelli di `dc_loglevel_t`. Ci fermiamo a WARNING di proposito: vedi
+/// `Contesto::nuovo_con_diario`.
+const DC_LOGLEVEL_WARNING: c_int = 2;
+
+/// Quante righe di libdivecomputer finiscono nel diario, al massimo.
+///
+/// Il diario lo copia e lo incolla una persona: mille righe non le incolla
+/// nessuno, e quelle che contano sono **le ultime** — l'errore che ha chiuso lo
+/// scarico è l'ultimo che la libreria stampa prima di arrendersi.
+const RIGHE_DI_LIBDIVECOMPUTER: usize = 14;
+
+/// Il posto dove la voce di libdivecomputer viene raccolta mentre parla.
+///
+/// È un `Mutex` e non un canale perché la libreria chiama la callback dal
+/// thread dello scarico, dentro la nostra stessa pila: non c'è niente da
+/// sincronizzare fra thread, serve solo un posto dove mettere le righe finché
+/// qualcuno non le chiede.
+struct DiarioDellaLibreria {
+    righe: std::sync::Mutex<(VecDeque<String>, usize)>,
+}
+
+/// ════════════════════════════════════════════════════════════════════════════
+/// ► LA LIBRERIA DICEVA PERCHÉ, E NOI LO BUTTAVAMO VIA. ◄
+///
+/// Ogni `return DC_STATUS_PROTOCOL` di libdivecomputer è preceduto da una
+/// `ERROR(...)` che dice **quale** controllo è fallito, con file e riga:
+///
+/// ```text
+/// ERROR: Unexpected packet header (00). [in mares_iconhd.c:1030 (mares_iconhd_read_object)]
+/// ```
+///
+/// Senza `dc_context_set_logfunc` quella riga va su `stderr`, e su un telefono
+/// `stderr` non esiste. Quindi al diario arrivava soltanto il numero: `-8`.
+///
+/// **E `-8` non è una diagnosi, è una famiglia.** Nel solo ramo VARIABILE dei
+/// Mares, `DC_STATUS_PROTOCOL` esce da sei posti diversi, e due di essi
+/// chiedono rimedi opposti:
+///
+/// - da `mares_iconhd_packet_variable` (intestazione, coda, lunghezza) — e lì
+///   `mares_iconhd_transfer` **ritenta quattro volte**, quindi è un guasto del
+///   nostro riassemblaggio che il backend sa perdonare;
+/// - da `mares_iconhd_read_object`, sul controllo del *toggle*
+///   (`(rsp[0] & 0xF0) >> 4 != toggle`) — e lì **non si ritenta affatto**: la
+///   funzione torna subito e lo scarico muore.
+///
+/// Distinguere i due casi guardando i byte scritti è quello che ho dovuto fare
+/// due volte di fila su due diari veri, e la seconda volta non ci sono
+/// arrivato. *Una libreria che spiega il guasto e un'applicazione che stampa
+/// solo il codice numerico sono, insieme, peggio della libreria da sola.*
+pub struct Contesto(*mut DcContext, Option<Box<DiarioDellaLibreria>>);
 
 impl Contesto {
     pub fn nuovo() -> Result<Self, String> {
@@ -1174,12 +1239,109 @@ impl Contesto {
         if unsafe { dc_context_new(&mut contesto) } != DC_STATUS_SUCCESS {
             return Err("libdivecomputer non ha creato il contesto".into());
         }
-        Ok(Self(contesto))
+        Ok(Self(contesto, None))
+    }
+
+    /// Come `nuovo`, ma la libreria parla e noi la ascoltiamo.
+    ///
+    /// **Ci si ferma a WARNING**, e non è pigrizia: da `INFO` in giù
+    /// libdivecomputer stampa *ogni pacchetto* in esadecimale — su uno scarico
+    /// da millecinquecento scambi sono decine di migliaia di righe, che
+    /// seppellirebbero le tre che contano. È la stessa lezione dei quattordici
+    /// avvisi di lint e delle novecento righe di HTML: **un'uscita che non si
+    /// può leggere è spenta**, e l'unico modo di tenerla accesa è non
+    /// riversarci dentro tutto quello che si potrebbe.
+    pub fn nuovo_con_diario() -> Result<Self, String> {
+        let mut contesto: *mut DcContext = std::ptr::null_mut();
+        if unsafe { dc_context_new(&mut contesto) } != DC_STATUS_SUCCESS {
+            return Err("libdivecomputer non ha creato il contesto".into());
+        }
+        let diario = Box::new(DiarioDellaLibreria {
+            righe: std::sync::Mutex::new((VecDeque::new(), 0)),
+        });
+        // Il puntatore resta valido finché resta vivo il `Box`, e il `Box` vive
+        // dentro questo `Contesto`: la callback non può sopravvivere al posto
+        // in cui scrive, perché `dc_context_free` avviene in `drop` prima che
+        // il `Box` venga liberato (l'ordine dei campi lo garantisce).
+        let userdata = &*diario as *const DiarioDellaLibreria as *mut c_void;
+        unsafe {
+            dc_context_set_loglevel(contesto, DC_LOGLEVEL_WARNING);
+            dc_context_set_logfunc(contesto, Some(cb_log), userdata);
+        }
+        Ok(Self(contesto, Some(diario)))
+    }
+
+    /// Le righe raccolte, dalla più vecchia alla più recente, con davanti la
+    /// conta di quelle che non ci stavano.
+    pub fn righe_della_libreria(&self) -> Vec<String> {
+        let Some(diario) = self.1.as_ref() else {
+            return Vec::new();
+        };
+        let Ok(dentro) = diario.righe.lock() else {
+            return Vec::new();
+        };
+        let (righe, scartate) = &*dentro;
+        let mut fuori = Vec::with_capacity(righe.len() + 1);
+        if *scartate > 0 {
+            fuori.push(format!("(altre {scartate} righe prima di queste)"));
+        }
+        fuori.extend(righe.iter().cloned());
+        fuori
+    }
+}
+
+/// Quel che libdivecomputer ha da dire, ridotto a una riga leggibile.
+///
+/// Si tiene **il file e la riga** perché sono l'unica cosa che distingue due
+/// messaggi identici che escono da posti diversi — ed è esattamente il caso
+/// che ci serve: «Unexpected packet header» compare sia nel controllo del
+/// pacchetto sia in quello del toggle, e i due chiedono rimedi opposti.
+extern "C" fn cb_log(
+    _contesto: *mut DcContext,
+    livello: c_int,
+    file: *const std::ffi::c_char,
+    riga: c_uint,
+    _funzione: *const std::ffi::c_char,
+    messaggio: *const std::ffi::c_char,
+    userdata: *mut c_void,
+) {
+    if userdata.is_null() {
+        return;
+    }
+    let diario = unsafe { &*(userdata as *const DiarioDellaLibreria) };
+    let testo = |p: *const std::ffi::c_char| -> String {
+        if p.is_null() {
+            return String::new();
+        }
+        unsafe { std::ffi::CStr::from_ptr(p) }.to_string_lossy().into_owned()
+    };
+    let etichetta = if livello <= 1 { "errore" } else { "avviso" };
+    let dove = {
+        let f = testo(file);
+        // Solo il nome del file: il percorso di compilazione è quello della
+        // macchina che ha costruito il pacchetto e non dice niente a nessuno.
+        let corto = f.rsplit('/').next().unwrap_or(&f).to_string();
+        if corto.is_empty() { String::new() } else { format!(" [{corto}:{riga}]") }
+    };
+    let riga = format!("libdivecomputer, {etichetta}: {}{dove}", testo(messaggio));
+    if let Ok(mut dentro) = diario.righe.lock() {
+        let (righe, scartate) = &mut *dentro;
+        righe.push_back(riga);
+        while righe.len() > RIGHE_DI_LIBDIVECOMPUTER {
+            righe.pop_front();
+            *scartate += 1;
+        }
     }
 }
 
 impl Drop for Contesto {
     fn drop(&mut self) {
+        // PRIMA si stacca la callback, POI si libera il contesto: se libera
+        // il contesto scatenasse un'ultima riga di log, quella riga cercherebbe
+        // un `Box` che sta per sparire.
+        if self.1.is_some() {
+            unsafe { dc_context_set_logfunc(self.0, None, std::ptr::null_mut()) };
+        }
         unsafe { dc_context_free(self.0) };
     }
 }
@@ -1187,7 +1349,13 @@ impl Drop for Contesto {
 impl CollegamentoLdc {
     /// Apre un flusso di libdivecomputer sopra il nostro trasporto.
     pub fn apri(trasporto: Box<dyn FlussoByte>) -> Result<Self, String> {
-        let contesto = Contesto::nuovo()?;
+        // ► IL CONTESTO CHE ASCOLTA. ◄ È questo il contesto su cui gira lo
+        // scarico (`dc_device_open` più sotto prende `self.contesto`), quindi è
+        // qui che le `ERROR(...)` della libreria vanno raccolte. Vedi
+        // `Contesto`: senza, al diario arriva solo il numero di stato, e `-8`
+        // da solo non dice quale dei sei controlli è fallito né se il backend
+        // avesse il diritto di ritentare.
+        let contesto = Contesto::nuovo_con_diario()?;
 
         let guasto: Guasto = std::sync::Arc::new(std::sync::Mutex::new(None));
         let stato = Box::into_raw(Box::new(Stato {
@@ -1411,6 +1579,12 @@ impl CollegamentoLdc {
     /// **Questa chiamata BLOCCA per minuti.** Va invocata sul thread dedicato,
     /// mai dentro il runtime asincrono: è tutto il motivo per cui questo file
     /// esiste.
+    /// Quel che libdivecomputer ha detto mentre lavorava: al massimo le ultime
+    /// `RIGHE_DI_LIBDIVECOMPUTER`, con la conta di quelle scartate.
+    pub fn righe_della_libreria(&self) -> Vec<String> {
+        self.contesto.righe_della_libreria()
+    }
+
     pub fn scarica(&self, descrittore: &Descrittore) -> Result<Vec<ImmersioneGrezza>, String> {
         let mut dispositivo: *mut DcDevice = std::ptr::null_mut();
         let esito = unsafe {
@@ -2564,6 +2738,81 @@ mod prove {
         };
         let n = *chieste.lock().unwrap();
         (esito, n)
+    }
+
+    #[test]
+    fn la_voce_di_libdivecomputer_arriva_al_diario_e_dice_quale_controllo_e_fallito() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► IL NUMERO DI STATO NON È UNA DIAGNOSI: `-8` SONO SEI GUASTI. ◄
+         *
+         * Il 9 settembre 2026 sono arrivati due diari veri, e tutte e due le
+         * volte ho dovuto risalire alla causa contando i byte scritti — la
+         * prima volta ci sono arrivato, la seconda no. Eppure libdivecomputer
+         * la causa la **dice**, riga per riga, prima di ogni `return`: dice
+         * quale controllo è fallito, con che byte, in che file e a che riga.
+         * Finiva su `stderr`, e su un telefono `stderr` non esiste.
+         *
+         * Questa prova mette il Quad Ci finto — protocollo vero contro la vera
+         * `mares_iconhd.c` — in una condizione che fallisce, e pretende che
+         * quello che la libreria ha detto sia **recuperabile**, non perso.
+         * Non inchioda il testo del messaggio, che è di un'altra squadra e può
+         * cambiare col tarball: inchioda che ci sia, che nomini il file da cui
+         * viene, e che quel file sia quello del guasto.
+         */
+        let descrittore =
+            trova_descrittore("Mares", "Quad Ci").expect("il descrittore del Quad Ci deve esistere");
+        let chieste = Arc::new(Mutex::new(0));
+        // 141 byte: uno meno del pacchetto della versione, cioè la condizione
+        // già misurata in cui il ramo VARIABILE rifiuta e ritenta.
+        let finto = FintoQuadCi::nuovo(141, chieste.clone());
+        let collegamento = CollegamentoLdc::apri(Box::new(finto)).unwrap();
+        let esito = collegamento.scarica(&descrittore);
+        assert!(esito.is_err(), "con notifiche da 141 byte lo scarico deve fallire");
+
+        let righe = collegamento.righe_della_libreria();
+        assert!(
+            !righe.is_empty(),
+            "libdivecomputer ha parlato e non l'abbiamo raccolta: il diario resta col solo numero"
+        );
+        assert!(
+            righe.iter().any(|r| r.contains("mares_iconhd.c:")),
+            "una riga deve dire da QUALE file e riga viene, perché lo stesso messaggio esce da posti \
+             diversi che chiedono rimedi opposti: {righe:?}"
+        );
+        assert!(
+            righe.iter().any(|r| r.contains("libdivecomputer, errore")),
+            "gli errori vanno etichettati come tali: {righe:?}"
+        );
+    }
+
+    #[test]
+    fn il_diario_della_libreria_tiene_le_ultime_righe_e_conta_quelle_scartate() {
+        /*
+         * Le righe che contano sono **le ultime**: l'errore che chiude lo
+         * scarico è l'ultimo che la libreria stampa prima di arrendersi. Ma
+         * chi legge deve sapere che ce n'erano altre prima, o crederà di avere
+         * tutta la storia. *È lo stesso motivo per cui il riassunto dello
+         * scambio dice «altre N» invece di tacere.*
+         */
+        let contesto = Contesto::nuovo_con_diario().unwrap();
+        let diario = contesto.1.as_ref().expect("il contesto col diario ha il diario");
+        let userdata = &**diario as *const DiarioDellaLibreria as *mut c_void;
+        let file = std::ffi::CString::new("/percorso/lungo/di/chi/ha/compilato/mares_iconhd.c").unwrap();
+        for n in 0..(RIGHE_DI_LIBDIVECOMPUTER + 3) {
+            let messaggio = std::ffi::CString::new(format!("guasto numero {n}")).unwrap();
+            cb_log(std::ptr::null_mut(), 1, file.as_ptr(), 42, std::ptr::null(), messaggio.as_ptr(), userdata);
+        }
+        let righe = contesto.righe_della_libreria();
+        assert_eq!(righe.len(), RIGHE_DI_LIBDIVECOMPUTER + 1, "{righe:?}");
+        assert!(righe[0].contains("altre 3 righe prima"), "{righe:?}");
+        assert!(righe.last().unwrap().contains("guasto numero 16"), "{righe:?}");
+        assert!(
+            !righe.last().unwrap().contains("/percorso/lungo/"),
+            "il percorso di compilazione è della macchina che ha costruito il pacchetto, \
+             non dice niente a chi legge: {righe:?}"
+        );
+        assert!(righe.last().unwrap().contains("mares_iconhd.c:42"), "{righe:?}");
     }
 
     /// Un Quad Ci che, alla scrittura numero `inciampa`, lascia scadere la
