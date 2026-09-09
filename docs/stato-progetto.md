@@ -2,7 +2,9 @@
 
 Aggiornato: **9 settembre 2026, notte fonda** — commit `8e5ed0a` su `main`,
 **2017 prove in 113 file** più **99 prove Rust** del ponte, lint e formato a **0
-errori**. **La versione pubblica è la `1.8.4`**: release `v1.8.4` con nove
+errori**. **La versione pubblica è la `1.8.4` ovunque, negozio iPhone
+compreso** — pubblicata il `2026-09-09T16:53:17Z`, misurata col `lookup` e
+l'anti-cache: release `v1.8.4` con nove
 allegati, i quattro pulsanti del sito rispondono `200`, `latest.json` serve
 `1.8.4` **per Mac e per Windows**, e l'impronta del `.dmg` **riscaricato
 dall'indirizzo pubblico** — `c5bd68ab…` — coincide con quella costruita sul Mac
@@ -2933,40 +2935,40 @@ non il momento — e quel che non è stato misurato qui non si scrive.
    telefono. *Il comando che ha detto quando era il momento, e che serve identico
    alla prossima versione:*
    `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
-1. **► LA 1.8.4 È IN REVISIONE SU TUTTI E DUE I NEGOZI APPLE. ◄** *Consegnata
-   dal proprietario la notte del 9 settembre, iPhone e Mac App Store insieme.*
-   I due pacchetti erano stati costruiti e verificati aprendoli uno per uno:
-   `1.8.4` nei due campi del plist, dentro le stringhe del giro dei modi
-   (`IPOTESI: servizio n.`, `stesso profilo, altra combinazione`) e del PIN
-   (`rispondi_codice_pin`, `pinRequired`), **zero** occorrenze di
-   `api.anthropic.com`, e nel pacchetto del negozio nessun indirizzo
-   dell'aggiornatore. Novità dai testi di `consegna-1.8.4/`.
+1. **► LA 1.8.4 È PUBBLICATA SU APP STORE PER IPHONE. ◄** *9 settembre 2026,
+   `16:53:17Z`* — **misurata**, non dedotta dall'approvazione: il `lookup` con
+   l'anti-cache in coda risponde `1.8.4`. Il proprietario aveva detto
+   «approvata», e questo documento ha una regola per quella parola: *«approvata»
+   non è «pubblicata», e fra le due c'è una distribuzione che può metterci
+   ore.* Stavolta erano già la stessa cosa, e si sa perché è stato guardato.
 
-   **Adesso resta solo l'attesa, e l'attesa non è un guasto.** Sulla 1.8.1 fra
-   le due approvazioni sono passate **nove ore**, e per tutta la giornata il
-   negozio iPhone ha risposto con la versione vecchia: *Apple verifica un
-   negozio alla volta, e l'approvazione di uno non dice niente dell'altro.*
-   Dedurlo è l'errore che questo documento raccoglie da settimane.
+   ```
+   curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"
+   ```
 
-   **Come si misura quando è uscita**, perché il numero nel repository e quello
-   che il negozio serve a un estraneo sono due affermazioni diverse:
-   `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
-   L'anti-cache in coda non è pedanteria: senza, la risposta può venire da una
-   cache e dire una cosa vecchia di ore con la faccia di una misura. **Per il
-   Mac App Store quel `lookup` non serve** — la scheda è una sola e il campo
-   `version` è quello di iOS — quindi là l'esito lo dichiara il proprietario.
-
-   > **► E LA MAIL AL CENTRO SUB PARTE QUANDO È PUBBLICATA, NON ADESSO. ◄** Loro
-   > scaricano da un telefono: finché l'App Store per iPhone serve la 1.8.1,
-   > quello che installerebbero non ha né il PIN dell'i330R né il pulsante
-   > «Riprova con un altro modo», cioè esattamente le due cose che gli
-   > chiediamo di provare. *È lo stesso vincolo che ha fatto aspettare la mail
-   > dell'8 settembre fino alle 18:20, e per la stessa ragione.*
+   **Sul Mac App Store l'esito non si sa ancora**, e non si può nemmeno
+   chiedere a quel comando: la scheda è **una sola** per iPhone e Mac
+   (`6804439480`), e il campo `version` che torna è quello di iOS. Da lì la
+   pubblicazione macOS non si vede né oggi né fra un mese: la dichiara il
+   proprietario da App Store Connect. *Sulla 1.8.1 fra le due approvazioni sono
+   passate nove ore.*
 
    **Google Play** aspetta la fine del test chiuso, attorno al 12 settembre:
    l'`.aab` firmato è in `da-caricare-su-play/MyDiveLog-1.8.4-play.aab`.
 
-2. **~~Ripubblicare il sito.~~ Fatto la notte del 9 settembre**, con la voce
+2. **► LA MAIL AL CENTRO SUB PUÒ PARTIRE. ◄** Era legata a questo momento e a
+   nessun altro: **loro scaricano da un telefono**, e finché il negozio serviva
+   la 1.8.1 quello che avrebbero installato non aveva né il PIN dell'i330R né il
+   pulsante «Riprova con un altro modo» — cioè esattamente le due cose che gli
+   chiediamo di provare. *È lo stesso vincolo dell'8 settembre, e per la stessa
+   ragione ha aspettato la misura invece dell'annuncio.*
+
+   Chiede due prove diverse e un diario in tutti e due i casi, **anche a
+   scarico riuscito**: se il Quad Ci funziona, il diario dice **quale** dei modi
+   ha vinto e quanto erano grandi le notifiche — che è la misura mancante da cui
+   dipende tutta l'ipotesi del pacchetto spezzato.
+
+3. **~~Ripubblicare il sito.~~ Fatto la notte del 9 settembre**, con la voce
    nuova sul codice di sei cifre dell'i330R in italiano e in inglese. *Stava per
    ripetersi il caso del 1° settembre — due pagine di aiuto ferme nel repository
    per due giorni, con qui scritto che rispondevano — e stavolta l'ha impedito
