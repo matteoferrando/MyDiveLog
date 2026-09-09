@@ -1,11 +1,39 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **9 settembre 2026, notte** — **2030 prove in 114 file** più **107
-prove Rust** del ponte, lint e formato a **0 errori**. **In lavorazione la
-`1.8.6`**: l'applicazione adesso **insiste da sola** quando un computer non si
-collega o uno scarico si rompe — e insiste nel modo giusto, che non è quello che
-faceva prima (vedi «L'applicazione adesso insiste»). Con lei, la voce di
-libdivecomputer nel diario.
+Aggiornato: **9 settembre 2026, notte** — commit `7b781c5` su `main`, **2030
+prove in 114 file** più **109 prove Rust** del ponte, lint e formato a **0
+errori**.
+
+**La `1.8.6` è pubblicata: release `v1.8.6` con nove allegati**, tag su
+`3aae330`. I quattro pulsanti del sito rispondono `200`; `latest.json` serve
+`1.8.6` **per Mac e per Windows**; l'impronta del `.dmg` **riscaricato
+dall'indirizzo pubblico** — `d73a9f69…` — coincide con quella del file costruito
+sul Mac e con quella che la cask di Homebrew si è scritta da sola. Sito già
+allineato, non toccato.
+
+Quello che porta: **l'applicazione insiste da sola** quando un computer non si
+collega o uno scarico si rompe — e insiste **nel modo giusto**, che non è quello
+che faceva prima (vedi «L'applicazione adesso insiste»). Con lei, la voce di
+libdivecomputer nel diario, e le immersioni già arrivate che non si buttano più.
+
+> **► LA 1.8.5 NON ANDRÀ MAI SUI NEGOZI, ED È VOLUTO. ◄** È pubblica su GitHub e
+> sul sito, ma nelle ore dopo è arrivato un secondo diario vero e da lì è nata la
+> 1.8.6. *Spendere un giro di revisione Apple per una versione che sappiamo già
+> superata sarebbe pagare due volte per arrivare più tardi.* I pacchetti
+> `1.8.6` per i due negozi Apple sono in `da-caricare-su-app-store/`, l'`.aab`
+> per Play in `da-caricare-su-play/`.
+
+> **► E UNA COSA CHE FINORA NON ERA STATA NOTATA, SULLE VERIFICHE STESSE. ◄**
+> Cercare le stringhe dentro i pacchetti spediti copre **il lato Rust e basta**:
+> il frontend è **compresso** dentro il binario, e infatti cercando
+> `Riprova con un altro modo` — una stringa dell'interfaccia che c'è dalla
+> 1.8.4 — si trovano **zero** occorrenze in un pacchetto che quel pulsante ce
+> l'ha di sicuro. *Quindi le verifiche «dentro il binario» scritte nei documenti
+> delle versioni precedenti dimostravano meno di quanto sembrasse.* Quello che
+> dimostrano è che il guscio Rust spedito è quello giusto; l'interfaccia la
+> coprono le prove, non l'ispezione del pacchetto. **Una verifica che si crede
+> più ampia di quello che è, è esattamente il genere di guardia che questo
+> documento raccoglie da settimane** — e stavolta è stata la nostra.
 
 **La `1.8.5` è pubblicata: release `v1.8.5` con nove allegati**, tag su
 `bb38924` — il commit da cui i pacchetti sono stati costruiti, non la punta di
@@ -3261,7 +3289,9 @@ diario per chiuderla.*
    telefono. *Il comando che ha detto quando era il momento, e che serve identico
    alla prossima versione:*
    `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
-1. **► LA 1.8.6 VA CARICATA SUI DUE NEGOZI APPLE, E SALTA LA 1.8.5. ◄** La
+1. **► LA 1.8.6 VA CARICATA SUI DUE NEGOZI APPLE, E SALTA LA 1.8.5. ◄**
+   *Pronta e verificata: `da-caricare-su-app-store/` con il `LEGGIMI.md`
+   rifatto.* La
    1.8.5 è pubblica su GitHub e sul sito ma **non è mai stata consegnata ai
    negozi**: nelle ore dopo è arrivato un secondo diario vero, e da lì sono
    nate due cose che valgono più di quella — l'insistenza automatica e la voce
