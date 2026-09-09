@@ -1,19 +1,31 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **9 settembre 2026, sera** — **2018 prove in 113 file** più **101
-prove Rust** del ponte, lint e formato a **0 errori**. **In lavorazione la
-`1.8.5`**, che nasce da un diario di guasto vero della 1.8.4 (vedi «Il diario
-del Quad Ci», più sotto): è la versione che rimette in piedi uno scarico Mares
-fermato a 276 KB da una conferma di scrittura in ritardo.
+Aggiornato: **9 settembre 2026, sera** — commit `e92ef0d` su `main`, **2017
+prove in 113 file** più **101 prove Rust** del ponte, lint e formato a **0
+errori**.
 
-**La versione pubblica è la `1.8.4` ovunque, negozio iPhone compreso** —
-pubblicata il `2026-09-09T16:53:17Z`, misurata col `lookup` e l'anti-cache:
-release `v1.8.4` con nove allegati, i quattro pulsanti del sito rispondono
-`200`, `latest.json` serve `1.8.4` **per Mac e per Windows**, e l'impronta del
-`.dmg` **riscaricato dall'indirizzo pubblico** — `c5bd68ab…` — coincide con
-quella costruita sul Mac e con quella che la cask di Homebrew si è scritta da
-sola. **Sito ripubblicato e verificato** con la guardia nuova, che adesso
-guarda anche le intestazioni.
+**La `1.8.5` è pubblicata: release `v1.8.5` con nove allegati**, tag su
+`bb38924` — il commit da cui i pacchetti sono stati costruiti, non la punta di
+`main`. I quattro pulsanti del sito rispondono `200`; `latest.json` serve
+`1.8.5` **per Mac e per Windows**; l'impronta del `.dmg` **riscaricato
+dall'indirizzo pubblico** — `a7864f4c…` — coincide con quella del file
+costruito sul Mac e con quella che la cask di Homebrew si è scritta da sola.
+**Il sito era già allineato** e non è stato toccato: la guardia `sito:online`,
+che adesso confronta anche le intestazioni, dice che il pubblicato è quello sul
+disco.
+
+**► TUTTI E SETTE I PACCHETTI SPEDITI SONO STATI GUARDATI DENTRO. ◄** Non
+dedotti da una compilazione riuscita: cercando in ognuno la stringa `; si può
+ritentare`, che **esiste solo nella 1.8.5** — macOS, iPhone, Windows portatile,
+**il payload estratto dall'installatore di Windows**, Linux, l'`.apk`, l'`.aab`
+e il `.pkg` del Mac App Store. In tutti: **zero** `api.anthropic.com`; e nel
+pacchetto del negozio, **zero** riferimenti all'aggiornatore.
+
+**Sui negozi Apple la versione pubblica è ancora la `1.8.4`** — sull'App Store
+per iPhone dal `2026-09-09T16:53:17Z`, misurata col `lookup` e l'anti-cache; sul
+Mac App Store l'esito lo dichiara il proprietario. I pacchetti `1.8.5` per tutti
+e due sono pronti in `da-caricare-su-app-store/`, e l'`.aab` per Play in
+`da-caricare-su-play/MyDiveLog-1.8.5-play.aab`.
 
 > **► LA RIGA DI WINDOWS IN `latest.json` NON LA SCRIVE LA BUILD DEL MAC. ◄** Il
 > file che esce da `mac:pubblica` contiene **solo** `darwin-aarch64`: la voce di
@@ -3056,8 +3068,10 @@ tutto suo.* Va chiesto, non indovinato.
    (vedi «Il diario del Quad Ci»). *Vale la pena caricarla anche se la 1.8.4 è
    appena uscita: sul telefono dove il guasto è stato misurato, la 1.8.4 non
    scarica — e l'amico che ha mandato il diario aspetta proprio quello.* Il
-   pacchetto `.aab` per Google Play va rifatto sulla 1.8.5 e sostituisce
-   `da-caricare-su-play/MyDiveLog-1.8.4-play.aab`.
+   pacchetto per iPhone e quello per il Mac App Store sono in
+   `da-caricare-su-app-store/`, con il `LEGGIMI.md` rifatto: impronte, misure e
+   che cosa è stato guardato dentro. Per Google Play c'è
+   `da-caricare-su-play/MyDiveLog-1.8.5-play.aab`.
 
 1. **► LA 1.8.4 È PUBBLICATA SU APP STORE PER IPHONE. ◄** *9 settembre 2026,
    `16:53:17Z`* — **misurata**, non dedotta dall'approvazione: il `lookup` con
