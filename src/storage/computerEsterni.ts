@@ -77,6 +77,23 @@ export interface ScaricoEsterno {
    * persona su un dato che può cancellare solo disinstallando.
    */
   codiceAccesso?: string;
+  /**
+   * «Prova il metodo numero N», contando da zero.
+   *
+   * Lo passa il pulsante «Riprova con un altro metodo» dopo un fallimento, ed
+   * è l'unica cosa che distingue un secondo tentativo da una seconda identica
+   * scommessa. Vince sul metodo conservato: chi lo preme sta dicendo proprio
+   * che quello conservato non va.
+   */
+  tentativo?: number;
+  /**
+   * Il metodo che ha funzionato l'ultima volta con QUESTO computer.
+   *
+   * Vedi `core/metodo.ts`. Se non è più fra quelli possibili — il firmware
+   * annuncia altri servizi — il guscio riparte dal primo e lo scrive nel
+   * diario, invece di fermarsi.
+   */
+  metodo?: string;
   emit: (e: DownloadEvent) => void;
 }
 
@@ -144,6 +161,8 @@ export async function scaricaDaComputerEsterno({
   marca,
   modello,
   codiceAccesso,
+  tentativo,
+  metodo,
   emit,
 }: ScaricoEsterno): Promise<Dive[]> {
   if (!isTauri()) {
@@ -166,6 +185,12 @@ export async function scaricaDaComputerEsterno({
       marca,
       prodotto: modello,
       codiceAccesso: codiceAccesso && codiceAccesso.trim() !== '' ? codiceAccesso : null,
+      // `null` e non `undefined`: un argomento indefinito sparisce dalla
+      // serializzazione di Tauri, e il guscio non distingue «non me l'hai
+      // passato» da «non ce l'ho» — che qui vogliono dire la stessa cosa, ma
+      // per ragioni diverse e con messaggi di diario diversi.
+      tentativo: tentativo ?? null,
+      metodo: metodo && metodo.trim() !== '' ? metodo : null,
     });
     /*
      * IL FUSO SI CHIEDE QUI, non nel guscio Rust.

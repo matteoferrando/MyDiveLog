@@ -1,6 +1,6 @@
 [package]
 name = "mydivelog"
-version = "1.8.3"
+version = "1.8.4"
 description = "Logbook subacqueo multi-computer"
 authors = ["Matteo Ferrando"]
 edition = "2021"

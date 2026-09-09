@@ -306,7 +306,7 @@ mod dentro {
     /// concediamo altri 222. La caratteristica di ascolto va sottoscritta
     /// (indica i crediti che LUI concede a NOI) ma il suo contenuto non serve
     /// a niente, e Subsurface infatti lo ignora.
-    #[derive(Clone, Debug)]
+    #[derive(PartialEq, Eq, Clone, Debug)]
     pub struct CreditiRisolti {
         pub concessione: String,
         pub ascolto: String,
@@ -594,6 +594,374 @@ ma il profilo le chiede",
             nome_modo(modo),
             notifica.uuid
         )
+    }
+
+    // ------------------------------------------------- il giro dei tentativi
+
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► PERCHÉ ESISTE UN GIRO DI TENTATIVI, E PERCHÉ SOLO SU QUESTI CINQUE ASSI.
+     *
+     * Fino al 9 settembre 2026, quando uno scarico non riusciva l'applicazione
+     * sapeva dire soltanto «non è riuscito». Eppure le scelte fatte per
+     * arrivare a quel punto sono cinque, ognuna presa una volta sola e senza
+     * appello: quale servizio, quale caratteristica si scrive, quale ascolta,
+     * con o senza conferma, e se le notifiche vanno unite. Su un computer mai
+     * visto, indovinarle tutte e cinque al primo colpo è fortuna.
+     *
+     * ► LA REGOLA CHE DECIDE COSA PUÒ ENTRARE NEL GIRO. ◄ **Solo le scelte che
+     * cambiano SE i byte arrivano, mai quelle che cambiano COME vengono
+     * letti.** Le cinque qui sopra sono tutte del primo tipo: sbagliarle
+     * produce silenzio o un errore di protocollo, mai un'immersione con dentro
+     * numeri sbagliati. Il MODELLO scelto dall'elenco è del secondo tipo — è
+     * lui a decidere il parser — e per questo **non entra nel giro e resta una
+     * scelta della persona**: uno scarico «riuscito» con il parser sbagliato è
+     * il difetto peggiore che un logbook possa avere, e sarebbe silenzioso.
+     *
+     * ► L'ORDINE. ◄ Prima quello che non costa una riconnessione — la modalità
+     * di scrittura e il riassemblaggio — poi quello che la costa: le altre
+     * caratteristiche dentro lo stesso servizio, e infine gli altri servizi
+     * plausibili. Non è un ordine di eleganza: è il costo per chi ha il
+     * computer in mano e la batteria che cala.
+     */
+
+    /// Una combinazione completa di scelte con cui provare a parlare.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct Tentativo {
+        pub servizio: String,
+        pub scrittura: String,
+        pub notifica: String,
+        pub modo: ModoScrittura,
+        /// L'altra modalità, per il ripiego sul silenzio.
+        ///
+        /// ► C'È SOLO NEL PRIMO TENTATIVO, ED È VOLUTO. ◄ Il ripiego rimanda
+        /// il primo comando nell'altra modalità quando non è mai arrivato
+        /// niente: è comodo, e nel primo tentativo fa risparmiare un giro. Dal
+        /// secondo in poi la modalità è una **scelta dichiarata** — è il giro
+        /// stesso a variarla — e lasciare che il ripiego la ribalti da sé
+        /// renderebbe impossibile dire quale combinazione ha vinto. E sapere
+        /// quale ha vinto è metà del valore di tutto questo.
+        pub alternativa: Option<ModoScrittura>,
+        pub riassemblaggio: Riassemblaggio,
+        pub crediti: Option<CreditiRisolti>,
+        /// Come si chiama a schermo: «senza conferma, notifiche unite».
+        pub nome: String,
+        /// La riga per il diario: da dove viene questa combinazione.
+        pub descrizione: String,
+    }
+
+    impl Tentativo {
+        /// La forma con cui si conserva, per ritrovarla allo scarico dopo.
+        ///
+        /// Si conserva il CONTENUTO e non il numero d'ordine: l'elenco dei
+        /// tentativi dipende da quali servizi il computer annuncia, e quelli
+        /// possono cambiare con un aggiornamento del firmware. Un numero
+        /// salvato ieri punterebbe a una combinazione diversa oggi, e nessuno
+        /// se ne accorgerebbe.
+        pub fn chiave(&self) -> String {
+            format!(
+                "{}|{}|{}|{}|{}",
+                self.servizio.to_lowercase(),
+                self.scrittura.to_lowercase(),
+                self.notifica.to_lowercase(),
+                match self.modo {
+                    ModoScrittura::ConRisposta => "con",
+                    ModoScrittura::SenzaRisposta => "senza",
+                },
+                match self.riassemblaggio {
+                    Riassemblaggio::UnaNotifica => "singole",
+                    Riassemblaggio::PacchettoIntero => "unite",
+                }
+            )
+        }
+    }
+
+    /// Quale tentativo usare, e da dove viene la richiesta.
+    ///
+    /// Tre risposte possibili, in ordine di precedenza: il numero chiesto dal
+    /// pulsante «riprova con un altro metodo»; la combinazione che ha
+    /// funzionato l'ultima volta con QUESTO computer; il primo dell'elenco.
+    #[derive(Clone, Debug, Default)]
+    pub struct SceltaMetodo {
+        pub marca: String,
+        pub prodotto: String,
+        /// «Prova il numero N», contando da zero.
+        pub indice: Option<usize>,
+        /// La chiave conservata dall'ultimo scarico riuscito.
+        pub chiave: Option<String>,
+    }
+
+    /// Quale tentativo, e la riga di diario che dice perché quello.
+    ///
+    /// ► LA RIGA NON È DECORATIVA. ◄ Fra «l'ho scelto io perché ha funzionato
+    /// il mese scorso» e «è il primo dell'elenco» c'è tutta la differenza
+    /// quando si legge un diario tre settimane dopo. E un numero fuori
+    /// dall'elenco — o una chiave conservata che non esiste più perché il
+    /// firmware annuncia altri servizi — non è un errore da mostrare: si
+    /// riparte dal primo, e si dice che è successo.
+    pub fn scegli_tentativo(tentativi: &[Tentativo], scelta: &SceltaMetodo) -> (usize, String) {
+        if let Some(n) = scelta.indice {
+            if n < tentativi.len() {
+                return (n, format!("metodo n. {} chiesto da chi riprova", n + 1));
+            }
+            return (
+                0,
+                format!(
+                    "chiesto il metodo n. {} ma i metodi sono {}: si riparte dal primo",
+                    n + 1,
+                    tentativi.len()
+                ),
+            );
+        }
+        if let Some(chiave) = scelta.chiave.as_deref().map(str::trim).filter(|c| !c.is_empty()) {
+            match tentativi.iter().position(|t| t.chiave() == chiave) {
+                Some(n) => {
+                    return (n, format!("metodo n. {} conservato dall'ultimo scarico riuscito", n + 1))
+                }
+                None => {
+                    return (
+                        0,
+                        "il metodo conservato non è più fra quelli possibili: si riparte dal primo"
+                            .to_string(),
+                    )
+                }
+            }
+        }
+        (0, "primo metodo dell'elenco".to_string())
+    }
+
+    /// Quanti tentativi si elencano al massimo.
+    ///
+    /// Oltre una certa lunghezza un elenco non è più un ragionamento: è una
+    /// persona che preme un pulsante finché non succede qualcosa. Otto sono
+    /// abbastanza da coprire tutte le combinazioni delle due scelte che non
+    /// costano niente, più le prime alternative di caratteristica e di
+    /// servizio; e sono pochi abbastanza da restare leggibili nel diario.
+    const MAX_TENTATIVI: usize = 8;
+
+    fn nome_riassemblaggio(r: Riassemblaggio) -> &'static str {
+        match r {
+            Riassemblaggio::UnaNotifica => "notifiche una per volta",
+            Riassemblaggio::PacchettoIntero => "notifiche unite",
+        }
+    }
+
+    /// Le caratteristiche candidate dentro un servizio, scoperte dalle proprietà.
+    ///
+    /// Sono gli stessi filtri di `scegli` nel ramo in cui la tabella non nomina
+    /// niente — quelle da evitare escluse, e la stessa distinzione fra chi
+    /// scrive e chi notifica quando serve a restringere. Qui però non si sceglie:
+    /// si ELENCA, perché la seconda candidata è precisamente quello che il giro
+    /// dei tentativi ha da offrire.
+    fn candidate(servizio: &ServizioVisto) -> (Vec<CaratteristicaVista>, Vec<CaratteristicaVista>) {
+        let scrivibili: Vec<CaratteristicaVista> = servizio
+            .caratteristiche
+            .iter()
+            .filter(|c| (c.scrivibile || c.scrivibile_senza_risposta) && !da_evitare(&c.uuid, true))
+            .cloned()
+            .collect();
+        let notificanti: Vec<CaratteristicaVista> = servizio
+            .caratteristiche
+            .iter()
+            .filter(|c| c.notifica && !da_evitare(&c.uuid, false))
+            .cloned()
+            .collect();
+        (scrivibili, notificanti)
+    }
+
+    /// I modi di scrittura che questa caratteristica accetta davvero, a
+    /// partire da quello preferito.
+    ///
+    /// Provare una modalità che il GATT non dichiara non è un tentativo: è una
+    /// scrittura rifiutata dal plugin prima ancora di partire, cioè un giro
+    /// buttato e una riga di diario che manda a cercare dalla parte sbagliata.
+    fn modi_possibili(c: &CaratteristicaVista, preferito: ModoScrittura) -> Vec<ModoScrittura> {
+        let accetta = |m: ModoScrittura| match m {
+            ModoScrittura::ConRisposta => c.scrivibile,
+            ModoScrittura::SenzaRisposta => c.scrivibile_senza_risposta,
+        };
+        [preferito, preferito.altro()].into_iter().filter(|m| accetta(*m)).collect()
+    }
+
+    /// L'elenco dei tentativi, dal più probabile in giù.
+    ///
+    /// Il primo è **esattamente** quello che l'applicazione faceva prima che
+    /// questo giro esistesse: stesso profilo, stessa modalità, stesso
+    /// riassemblaggio scelto per quel modello. Il giro non cambia il primo
+    /// colpo — aggiunge quelli dopo.
+    pub fn elenca_tentativi(
+        servizi: &[ServizioVisto],
+        marca: &str,
+        prodotto: &str,
+    ) -> Result<Vec<Tentativo>, String> {
+        let riassemblaggio_noto = riassemblaggio_per(marca, prodotto);
+        let mut fuori: Vec<Tentativo> = Vec::new();
+
+        /*
+         * Un servizio alla volta, e per ognuno tutte le combinazioni delle
+         * scelte che non costano una riconnessione. `visto` impedisce i
+         * doppioni: la coppia scelta dal profilo compare anche fra le
+         * candidate scoperte, e proporla due volte vorrebbe dire far premere
+         * due volte lo stesso pulsante per lo stesso tentativo.
+         */
+        let mut visto: Vec<String> = Vec::new();
+        let mut aggiungi = |t: Tentativo, fuori: &mut Vec<Tentativo>| {
+            let chiave = t.chiave();
+            if !visto.contains(&chiave) {
+                visto.push(chiave);
+                fuori.push(t);
+            }
+        };
+
+        // Il profilo noto, se c'è: è il primo tentativo, e resta il primo.
+        let base = risolvi_profilo(servizi).ok();
+        if let Some(p) = &base {
+            aggiungi(
+                Tentativo {
+                    servizio: p.servizio.clone(),
+                    scrittura: p.scrittura.clone(),
+                    notifica: p.notifica.clone(),
+                    modo: p.modo,
+                    alternativa: p.alternativa,
+                    riassemblaggio: riassemblaggio_noto,
+                    crediti: p.crediti.clone(),
+                    nome: format!("{}, {}", nome_modo(p.modo), nome_riassemblaggio(riassemblaggio_noto)),
+                    descrizione: p.descrizione.clone(),
+                },
+                &mut fuori,
+            );
+        }
+
+        /*
+         * I servizi su cui vale la pena insistere, in ordine: quello del
+         * profilo per primo, poi gli altri che hanno la forma di una seriale
+         * su BLE. Gli altri sono un'ipotesi dichiarata, e stanno in fondo
+         * apposta: scriverci sopra un comando che non conoscono non fa niente
+         * — nessun comando riconosciuto, nessun effetto — ma è comunque un
+         * giro speso, e va speso per ultimo.
+         */
+        let plausibili: Vec<&ServizioVisto> = servizi
+            .iter()
+            .filter(|s| !di_sistema(&s.uuid))
+            .filter(|s| {
+                s.caratteristiche.iter().any(|c| c.scrivibile || c.scrivibile_senza_risposta)
+                    && s.caratteristiche.iter().any(|c| c.notifica)
+            })
+            .collect();
+        /*
+         * ► CONOSCIUTI PRIMA, IPOTESI DOPO. ◄ Un servizio che sta nella
+         * tabella dei profili o nell'elenco di Subsurface è quello giusto
+         * anche quando `risolvi_profilo` si è rifiutato di scegliere — e si
+         * rifiuta ogni volta che dentro trova più di una candidata, che è
+         * proprio il caso che questo giro esiste per sciogliere. Metterlo in
+         * fondo insieme agli sconosciuti vorrebbe dire far provare prima le
+         * ipotesi e poi la risposta.
+         */
+        let conosciuto = |uuid: &str| {
+            PROFILI.iter().any(|v| uguale(v.servizio, uuid))
+                || SERVIZI_RICONOSCIUTI.iter().any(|(u, _)| uguale(u, uuid))
+        };
+        let mut ordinati: Vec<&ServizioVisto> = Vec::new();
+        if let Some(p) = &base {
+            if let Some(s) = plausibili.iter().find(|s| uguale(&s.uuid, &p.servizio)) {
+                ordinati.push(s);
+            }
+        }
+        for s in plausibili.iter().filter(|s| conosciuto(&s.uuid)) {
+            if !ordinati.iter().any(|g| uguale(&g.uuid, &s.uuid)) {
+                ordinati.push(s);
+            }
+        }
+        for s in &plausibili {
+            if !ordinati.iter().any(|g| uguale(&g.uuid, &s.uuid)) {
+                ordinati.push(s);
+            }
+        }
+
+        for (indice_servizio, servizio) in ordinati.iter().enumerate() {
+            let del_profilo = base.as_ref().is_some_and(|p| uguale(&p.servizio, &servizio.uuid));
+            let (scrivibili, notificanti) = candidate(servizio);
+            for (i, s) in scrivibili.iter().enumerate() {
+                for (j, n) in notificanti.iter().enumerate() {
+                    let preferito = match &base {
+                        Some(p) if del_profilo => p.modo,
+                        // Fuori dal profilo non c'è niente da preferire: si
+                        // parte da «senza conferma», che è quello che usano
+                        // quasi tutti i moduli seriali su BLE.
+                        _ => ModoScrittura::SenzaRisposta,
+                    };
+                    for modo in modi_possibili(s, preferito) {
+                        for riassemblaggio in
+                            [riassemblaggio_noto, riassemblaggio_noto.altro()]
+                        {
+                            /*
+                             * Tre provenienze diverse, e la differenza conta
+                             * per chi legge il diario: «ho cambiato una
+                             * manopola dentro il profilo giusto» non è la
+                             * stessa cosa di «sto tirando a indovinare su un
+                             * servizio che nessuno conosce».
+                             */
+                            let provenienza = if del_profilo && i == 0 && j == 0 {
+                                "stesso profilo, altra combinazione".to_string()
+                            } else if del_profilo || conosciuto(&servizio.uuid) {
+                                format!(
+                                    "servizio noto con più di una candidata: caratteristiche n. {} e n. {}",
+                                    i + 1,
+                                    j + 1
+                                )
+                            } else {
+                                format!(
+                                    "IPOTESI: servizio n. {} fra quelli plausibili, nessun profilo lo conosce",
+                                    indice_servizio + 1
+                                )
+                            };
+                            aggiungi(
+                                Tentativo {
+                                    servizio: servizio.uuid.clone(),
+                                    scrittura: s.uuid.clone(),
+                                    notifica: n.uuid.clone(),
+                                    modo,
+                                    // Vedi il commento del campo: dal secondo
+                                    // tentativo in poi la modalità è dichiarata.
+                                    alternativa: None,
+                                    riassemblaggio,
+                                    crediti: if del_profilo {
+                                        base.as_ref().and_then(|p| p.crediti.clone())
+                                    } else {
+                                        None
+                                    },
+                                    nome: format!(
+                                        "{}, {}",
+                                        nome_modo(modo),
+                                        nome_riassemblaggio(riassemblaggio)
+                                    ),
+                                    descrizione: descrivi(
+                                        &provenienza,
+                                        &servizio.uuid,
+                                        s,
+                                        modo,
+                                        None,
+                                        n,
+                                    ),
+                                },
+                                &mut fuori,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        fuori.truncate(MAX_TENTATIVI);
+        if fuori.is_empty() {
+            // Nessun servizio con la forma giusta: qui il messaggio di
+            // `risolvi_profilo` è più utile di qualunque cosa possa dire il
+            // giro, perché elenca quello che il dispositivo annuncia davvero.
+            return Err(risolvi_profilo(servizi).err().unwrap_or_else(|| {
+                "questo dispositivo non espone nessun servizio con cui parlare".to_string()
+            }));
+        }
+        Ok(fuori)
     }
 
     /// A quale servizio parlare: la tabella, poi l'elenco, poi il ripiego.
@@ -1131,6 +1499,14 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         /// Da alzare PRIMA di scollegarsi di proposito, così la callback di
         /// caduta non racconta come «caduto da sé» uno scollegamento nostro.
         pub scollegamento_voluto: Arc<AtomicBool>,
+        /// La combinazione con cui si sta provando, e quante ce ne sono.
+        ///
+        /// Serve a due cose che non si possono ricavare dopo: dire
+        /// all'interfaccia **quale** metodo sta girando (e se ce n'è un altro
+        /// da provare), e conservare la chiave del metodo che ha vinto.
+        pub metodo: Tentativo,
+        pub metodo_indice: usize,
+        pub metodi_totali: usize,
     }
 
     impl PonteBle {
@@ -1157,6 +1533,9 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                 ricevuti,
                 riassunto,
                 scollegamento_voluto,
+                metodo,
+                metodo_indice,
+                metodi_totali,
             } = self;
             PonteBle {
                 entrata,
@@ -1167,6 +1546,9 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                 ricevuti,
                 riassunto,
                 scollegamento_voluto,
+                metodo,
+                metodo_indice,
+                metodi_totali,
             }
         }
     }
@@ -1211,6 +1593,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         dispositivo: &str,
         nome_visto: Option<&str>,
         cronista: Cronista,
+        scelta: &SceltaMetodo,
     ) -> Result<PonteBle, String> {
         /*
          * IL MITTENTE STA DENTRO UN `Option` CONDIVISO, e non è un giro
@@ -1276,7 +1659,32 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                 .collect::<Vec<_>>()
                 .join(", ")
         ));
-        let profilo = risolvi_profilo(&servizi)?;
+        /*
+         * ► IL GIRO DEI TENTATIVI. ◄ Il primo dell'elenco è esattamente quello
+         * che l'applicazione faceva prima che il giro esistesse; gli altri
+         * sono le combinazioni che prima non venivano provate affatto. Vedi
+         * `elenca_tentativi` per quali scelte possono entrarci e quali no.
+         */
+        let tentativi = elenca_tentativi(&servizi, &scelta.marca, &scelta.prodotto)?;
+        let (indice, perche) = scegli_tentativo(&tentativi, scelta);
+        let scelto = tentativi[indice].clone();
+        cronista(format!(
+            "metodo {} di {} ({}): {} — {}",
+            indice + 1,
+            tentativi.len(),
+            perche,
+            scelto.nome,
+            scelto.descrizione
+        ));
+        let profilo = ProfiloRisolto {
+            servizio: scelto.servizio.clone(),
+            scrittura: scelto.scrittura.clone(),
+            notifica: scelto.notifica.clone(),
+            modo: scelto.modo,
+            alternativa: scelto.alternativa,
+            crediti: scelto.crediti.clone(),
+            descrizione: scelto.descrizione.clone(),
+        };
 
         // Il nome si chiede subito e si tiene: quando libdivecomputer lo
         // vorrà, sarà sul thread dello scarico, dove non si può aspettare il
@@ -1809,6 +2217,9 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             ricevuti,
             riassunto,
             scollegamento_voluto,
+            metodo: scelto,
+            metodo_indice: indice,
+            metodi_totali: tentativi.len(),
         })
     }
 
@@ -2049,6 +2460,29 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             /// I byte in esadecimale minuscolo, senza separatori.
             hex: String,
         },
+        /*
+         * ► CON QUALE METODO SI STA PROVANDO, E QUANTI CE NE SONO. ◄
+         *
+         * Esce subito dopo il collegamento, prima che parta il primo comando.
+         * Serve a tre cose, e tutte e tre contano:
+         *
+         *  - dire a chi guarda **cosa** si sta provando, con parole sue
+         *    («senza conferma, notifiche unite») e non con un UUID;
+         *  - dire se **ce n'è un altro** da provare, che è la sola cosa che
+         *    permette all'interfaccia di offrire «riprova con un altro metodo»
+         *    invece di un vicolo cieco;
+         *  - consegnare la **chiave** da conservare se questo scarico riesce,
+         *    così la volta dopo si parte da quello che ha funzionato.
+         */
+        Method {
+            /// Contando da uno, per chi legge.
+            index: usize,
+            total: usize,
+            /// «senza conferma, notifiche unite».
+            name: String,
+            /// La forma con cui si conserva. Vedi `Tentativo::chiave`.
+            key: String,
+        },
     }
 
     /// Il nome dell'evento Tauri. Come `accesso-ritorno`: minuscolo, con trattino.
@@ -2071,8 +2505,16 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         marca: &str,
         prodotto: &str,
     ) -> Result<Vec<ImmersioneLdc>, String> {
-        let PonteBle { entrata, scrittura, accessori, su_silenzio, descrizione, riassunto, .. } =
-            ponte;
+        let PonteBle {
+            entrata,
+            scrittura,
+            accessori,
+            su_silenzio,
+            descrizione,
+            riassunto,
+            metodo,
+            ..
+        } = ponte;
 
         emetti(EventoScarico::Trace {
             line: format!("modello scelto: {marca} {prodotto}"),
@@ -2087,11 +2529,13 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         // `Contesto` in `trasporto_ldc.rs`.
         let contesto = Contesto::nuovo()?;
 
-        let come = riassemblaggio_per(marca, prodotto);
+        // ► LA POLITICA VIENE DAL TENTATIVO, NON PIÙ DEDOTTA QUI. ◄ Il primo
+        // tentativo porta quella scelta per il modello; dal secondo in poi è
+        // il giro a variarla, e dedurla un'altra volta qui la ribalterebbe.
+        let come = metodo.riassemblaggio;
         if come == Riassemblaggio::PacchettoIntero {
             emetti(EventoScarico::Trace {
-                line: "le notifiche si rimettono insieme: questo modello legge il pacchetto intero \
-in una volta sola"
+                line: "le notifiche si rimettono insieme: il pacchetto si legge intero in una volta sola"
                     .into(),
             });
         }
@@ -2301,6 +2745,8 @@ in una volta sola"
         marca: String,
         prodotto: String,
         codice_accesso: Option<String>,
+        tentativo: Option<usize>,
+        metodo: Option<String>,
     ) -> Result<Vec<ImmersioneLdc>, String> {
         use tauri::Emitter;
 
@@ -2324,7 +2770,13 @@ in una volta sola"
             let manda = manda.clone();
             Arc::new(move |riga: String| manda(EventoScarico::Trace { line: riga }))
         };
-        let ponte = match apri_ponte(antenna, &dispositivo, nome.as_deref(), cronista).await {
+        let scelta = SceltaMetodo {
+            marca: marca.clone(),
+            prodotto: prodotto.clone(),
+            indice: tentativo,
+            chiave: metodo,
+        };
+        let ponte = match apri_ponte(antenna, &dispositivo, nome.as_deref(), cronista, &scelta).await {
             Ok(ponte) => ponte,
             Err(motivo) => {
                 /*
@@ -2387,6 +2839,13 @@ in una volta sola"
          * tagliando la memoria sui marcatori — quindi `total` resta assente,
          * che è la verità.
          */
+        manda(EventoScarico::Method {
+            index: ponte.metodo_indice + 1,
+            total: ponte.metodi_totali,
+            name: ponte.metodo.nome.clone(),
+            key: ponte.metodo.chiave(),
+        });
+
         let ricevuti = ponte.ricevuti.clone();
         let scollegamento_voluto = ponte.scollegamento_voluto.clone();
         let finito = Arc::new(AtomicBool::new(false));
@@ -2496,8 +2955,10 @@ pub async fn scarica_da_computer_esterno(
     marca: String,
     prodotto: String,
     codice_accesso: Option<String>,
+    tentativo: Option<usize>,
+    metodo: Option<String>,
 ) -> Result<Vec<crate::trasporto_ldc::ImmersioneLdc>, String> {
-    dentro::scarica(app, dispositivo, nome, marca, prodotto, codice_accesso).await
+    dentro::scarica(app, dispositivo, nome, marca, prodotto, codice_accesso, tentativo, metodo).await
 }
 
 /// La risposta alla richiesta del PIN, dall'interfaccia.
@@ -2537,6 +2998,8 @@ pub async fn scarica_da_computer_esterno(
     _marca: String,
     _prodotto: String,
     _codice_accesso: Option<String>,
+    _tentativo: Option<usize>,
+    _metodo: Option<String>,
 ) -> Result<Vec<serde_json::Value>, String> {
     Err("questa copia dell’applicazione è stata compilata senza libdivecomputer: \
 sa parlare solo con i computer dei driver scritti in casa"
@@ -2834,7 +3297,7 @@ mod prove {
     /// in panico, ed è esattamente la disciplina che il codice vero rispetta.
     fn apri(antenna: &FintaAntenna) -> (PonteBle, Diario) {
         let diario = Diario::default();
-        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", None, diario.cronista()))
+        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", None, diario.cronista(), &SceltaMetodo::default()))
             .expect("il ponte deve aprirsi");
         (ponte, diario)
     }
@@ -2847,6 +3310,348 @@ mod prove {
     }
 
     // -------------------------------------------------------------- il ponte
+
+    // ------------------------------------------------- il giro dei tentativi
+
+    /// I nomi dei tentativi, che è quello che vede chi preme il pulsante.
+    fn nomi(tentativi: &[Tentativo]) -> Vec<String> {
+        tentativi.iter().map(|t| t.nome.clone()).collect()
+    }
+
+    #[test]
+    fn il_primo_tentativo_e_esattamente_quello_che_si_faceva_prima() {
+        /*
+         * ► LA PROVA CHE PROTEGGE DAL PEGGIO CHE QUESTO GIRO POSSA FARE. ◄
+         *
+         * Il giro esiste per aggiungere tentativi DOPO il primo. Se cambiasse
+         * anche il primo, ogni computer che oggi funziona — il Peregrine, gli
+         * Aladin, i Mares che scaricano — comincerebbe da una combinazione
+         * diversa da quella con cui è stato provato con l'apparecchio in mano.
+         * Sarebbe una regressione silenziosa su tutto quello che va, pagata
+         * per far funzionare quello che non va.
+         */
+        let servizi = vec![informativo(), seriale("fe25c237-0ece-443c-b0aa-e02033e7029d")];
+        let profilo = risolvi_profilo(&servizi).unwrap();
+        let tentativi = elenca_tentativi(&servizi, "Shearwater", "Peregrine").unwrap();
+
+        assert_eq!(tentativi[0].servizio, profilo.servizio);
+        assert_eq!(tentativi[0].scrittura, profilo.scrittura);
+        assert_eq!(tentativi[0].notifica, profilo.notifica);
+        assert_eq!(tentativi[0].modo, profilo.modo);
+        assert_eq!(tentativi[0].descrizione, profilo.descrizione);
+        // E il riassemblaggio è quello deciso per il modello, non un altro.
+        assert_eq!(
+            tentativi[0].riassemblaggio,
+            riassemblaggio_per("Shearwater", "Peregrine")
+        );
+        // Il ripiego sul silenzio resta acceso SOLO nel primo: dal secondo in
+        // poi la modalità è dichiarata, e lasciarla ribaltare renderebbe
+        // impossibile dire quale combinazione ha vinto.
+        assert_eq!(tentativi[0].alternativa, profilo.alternativa);
+        assert!(tentativi[1..].iter().all(|t| t.alternativa.is_none()));
+    }
+
+    #[test]
+    fn i_tentativi_variano_prima_quello_che_non_costa_una_riconnessione() {
+        /*
+         * L'ordine non è di eleganza: è il costo per chi ha il computer in
+         * mano e la batteria che cala. Modalità di scrittura e riassemblaggio
+         * si cambiano senza riconnettere; una caratteristica diversa no.
+         */
+        let servizi = vec![informativo(), seriale("fe25c237-0ece-443c-b0aa-e02033e7029d")];
+        let tentativi = elenca_tentativi(&servizi, "Shearwater", "Peregrine").unwrap();
+        assert_eq!(
+            nomi(&tentativi),
+            vec![
+                "senza conferma, notifiche una per volta",
+                "senza conferma, notifiche unite",
+                "con conferma, notifiche una per volta",
+                "con conferma, notifiche unite",
+            ],
+            "quattro combinazioni, e nessuna ripetuta"
+        );
+        // Tutte sullo stesso servizio e sulle stesse caratteristiche: il
+        // servizio è uno solo, non c'è altro da variare.
+        assert!(tentativi.iter().all(|t| t.servizio == "fe25c237-0ece-443c-b0aa-e02033e7029d"));
+    }
+
+    #[test]
+    fn una_caratteristica_che_accetta_una_modalita_sola_non_genera_laltra() {
+        /*
+         * Provare una modalità che il GATT non dichiara non è un tentativo: è
+         * una scrittura che il plugin rifiuta prima di partire. Sarebbe un
+         * pulsante premuto per niente, e una riga di diario che manda a
+         * cercare dalla parte sbagliata.
+         */
+        let servizi = vec![informativo(), seriale_rigida("fe25c237-0ece-443c-b0aa-e02033e7029d", true)];
+        let tentativi = elenca_tentativi(&servizi, "Shearwater", "Peregrine").unwrap();
+        assert_eq!(
+            nomi(&tentativi),
+            vec!["senza conferma, notifiche una per volta", "senza conferma, notifiche unite"],
+        );
+    }
+
+    #[test]
+    fn per_il_mares_il_primo_tentativo_ha_le_notifiche_unite_e_il_secondo_no() {
+        /*
+         * ► IL CASO PER CUI TUTTO QUESTO È NATO. ◄ Il Quad Ci del centro sub.
+         * Il primo tentativo porta la scelta fatta leggendo `mares_iconhd.c`
+         * — notifiche unite — e il secondo prova esattamente il contrario,
+         * perché quella scelta è un'ipotesi mia su un computer che non ho mai
+         * avuto in mano, e un'ipotesi sbagliata deve avere una via d'uscita.
+         */
+        let servizi = vec![informativo(), seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")];
+        let tentativi = elenca_tentativi(&servizi, "Mares", "Quad Ci").unwrap();
+        assert_eq!(tentativi[0].riassemblaggio, Riassemblaggio::PacchettoIntero);
+        assert_eq!(tentativi[1].riassemblaggio, Riassemblaggio::UnaNotifica);
+        assert_eq!(tentativi[0].modo, tentativi[1].modo, "prima si cambia una cosa sola");
+
+        // E su un computer che NON è di quei cinque, il primo tentativo tiene
+        // le notifiche separate: unirle è l'eccezione, non il contrario.
+        let altri = vec![informativo(), seriale("fdcdeaaa-295d-470e-bf15-04217b7aa0a0")];
+        let tentativi = elenca_tentativi(&altri, "Scubapro", "Aladin Sport Matrix").unwrap();
+        assert_eq!(tentativi[0].riassemblaggio, Riassemblaggio::UnaNotifica);
+    }
+
+    #[test]
+    fn le_altre_caratteristiche_arrivano_dopo_e_gli_altri_servizi_per_ultimi() {
+        /*
+         * Un servizio noto con DUE caratteristiche scrivibili, più un secondo
+         * servizio che ha la forma di una seriale e che nessun profilo
+         * conosce. L'ordine deve essere: tutte le combinazioni del servizio
+         * noto, poi l'ipotesi sull'altro.
+         */
+        let noto = ServizioVisto {
+            uuid: "fe25c237-0ece-443c-b0aa-e02033e7029d".to_string(),
+            caratteristiche: vec![
+                car(SCRIVI, true, true, false),
+                car("33333333-0000-1000-8000-00805f9b34fb", true, true, false),
+                car(ASCOLTA, false, false, true),
+            ],
+        };
+        let servizi = vec![informativo(), noto, seriale("0000abcd-0000-1000-8000-00805f9b34fb")];
+        let tentativi = elenca_tentativi(&servizi, "Shearwater", "Peregrine").unwrap();
+
+        // Le prime quattro sono la prima caratteristica; poi la seconda.
+        assert!(tentativi[..4].iter().all(|t| t.scrittura == SCRIVI), "{:?}", nomi(&tentativi));
+        assert_eq!(tentativi[4].scrittura, "33333333-0000-1000-8000-00805f9b34fb");
+        assert!(
+            tentativi[4].descrizione.contains("servizio noto con più di una candidata"),
+            "{}",
+            tentativi[4].descrizione
+        );
+
+        // E il servizio sconosciuto, se ci arriva, si dichiara per quello che
+        // è: un'ipotesi. Mai in mezzo alle combinazioni di quello noto.
+        let primo_ipotesi = tentativi.iter().position(|t| t.descrizione.contains("IPOTESI"));
+        if let Some(i) = primo_ipotesi {
+            assert!(
+                tentativi[..i].iter().all(|t| t.servizio == "fe25c237-0ece-443c-b0aa-e02033e7029d"),
+                "le ipotesi vanno in fondo"
+            );
+        }
+    }
+
+    #[test]
+    fn dove_prima_ci_si_rifiutava_adesso_si_prova() {
+        /*
+         * ► IL GUADAGNO PIÙ GRANDE DI TUTTO IL GIRO, ED È FACILE NON VEDERLO. ◄
+         *
+         * `risolvi_profilo` si RIFIUTA quando dentro un servizio ci sono due
+         * caratteristiche scrivibili: «va scelta a mano nella tabella dei
+         * profili, invece di indovinare». Era la scelta giusta finché
+         * indovinare voleva dire scommettere una volta sola e in silenzio.
+         *
+         * Con un giro di tentativi non è più una scommessa: si provano una per
+         * una, ognuna dichiarata nel diario, e chi ha il computer in mano
+         * scopre in due tocchi quale funziona. Il rifiuto diventava un vicolo
+         * cieco — «aggiungi il servizio giusto alla tabella» non è una cosa
+         * che possa fare chi sta su una barca.
+         */
+        /*
+         * Il servizio è quello della famiglia Peregrine, che sta nella TABELLA
+         * dei profili: è lì che il rifiuto scatta. Per i servizi dell'elenco
+         * di Subsurface la regola è un'altra — «la prima, come fa Subsurface»
+         * — e infatti quelli non si rifiutano mai.
+         */
+        let ambiguo = ServizioVisto {
+            uuid: "fe25c237-0ece-443c-b0aa-e02033e7029d".to_string(),
+            caratteristiche: vec![
+                car(SCRIVI, true, true, false),
+                car("33333333-0000-1000-8000-00805f9b34fb", true, true, false),
+                car(ASCOLTA, false, false, true),
+            ],
+        };
+        let servizi = vec![informativo(), ambiguo];
+
+        let rifiuto = risolvi_profilo(&servizi).unwrap_err();
+        assert!(rifiuto.contains("caratteristiche scrivibili"), "{rifiuto}");
+
+        let tentativi = elenca_tentativi(&servizi, "Shearwater", "Peregrine").unwrap();
+        assert_eq!(tentativi.len(), 8, "quattro combinazioni per ognuna delle due candidate");
+        // Il servizio la tabella lo conosce: si dichiara noto, e non come
+        // un'ipotesi tirata a caso su un servizio qualunque.
+        assert!(tentativi.iter().all(|t| !t.descrizione.contains("IPOTESI")), "{:?}", nomi(&tentativi));
+        assert!(tentativi.iter().any(|t| t.scrittura == SCRIVI));
+        assert!(tentativi.iter().any(|t| t.scrittura == "33333333-0000-1000-8000-00805f9b34fb"));
+    }
+
+    #[test]
+    fn un_servizio_conosciuto_si_prova_prima_di_uno_sconosciuto() {
+        /*
+         * ► L'ORDINE FRA I SERVIZI, E PERCHÉ NON È QUELLO IN CUI ARRIVANO. ◄
+         *
+         * Un dispositivo annuncia i servizi nell'ordine che decide il suo
+         * firmware, e non ha niente a che vedere con quale sia quello giusto.
+         * Se il giro li provasse in quell'ordine, su un computer che annuncia
+         * prima un servizio qualunque si comincerebbe **tirando a indovinare**
+         * e si arriverebbe alla risposta conosciuta al terzo o quarto tocco —
+         * cioè, in pratica, mai: chi preme un pulsante due volte senza esito
+         * smette.
+         *
+         * Qui il servizio noto è annunciato per SECONDO, ed è ambiguo dentro
+         * (due caratteristiche scrivibili) — quindi `risolvi_profilo` si
+         * rifiuta e non c'è nessun profilo a mettere in testa. Deve andare
+         * comunque per primo.
+         */
+        // Un UUID che NON è del SIG: quelli in `0000xxxx-0000-1000-8000-…`
+        // sono standard e vengono esclusi come servizi di sistema, quindi non
+        // arriverebbero nemmeno all'ordinamento — e la prova non proverebbe
+        // niente.
+        let sconosciuto = seriale("7b1e4a90-3c2f-4d18-9a55-0c1de2f3a4b6");
+        let noto = ServizioVisto {
+            uuid: "fe25c237-0ece-443c-b0aa-e02033e7029d".to_string(),
+            caratteristiche: vec![
+                car(SCRIVI, true, true, false),
+                car("33333333-0000-1000-8000-00805f9b34fb", true, true, false),
+                car(ASCOLTA, false, false, true),
+            ],
+        };
+        let servizi = vec![informativo(), sconosciuto, noto];
+        assert!(risolvi_profilo(&servizi).is_err(), "il servizio noto è ambiguo: ci si rifiuta");
+
+        let tentativi = elenca_tentativi(&servizi, "Shearwater", "Peregrine").unwrap();
+        assert_eq!(
+            tentativi[0].servizio, "fe25c237-0ece-443c-b0aa-e02033e7029d",
+            "il servizio che la tabella conosce va provato per primo, non nell'ordine in cui il \
+             firmware lo annuncia"
+        );
+        assert!(!tentativi[0].descrizione.contains("IPOTESI"), "{}", tentativi[0].descrizione);
+    }
+
+    #[test]
+    fn i_tentativi_non_sono_mai_piu_di_otto() {
+        /*
+         * Oltre una certa lunghezza un elenco non è più un ragionamento: è una
+         * persona che preme un pulsante finché non succede qualcosa. Qui un
+         * dispositivo con tre scrivibili e tre che notificano darebbe
+         * trentasei combinazioni.
+         */
+        let molte = ServizioVisto {
+            uuid: "fe25c237-0ece-443c-b0aa-e02033e7029d".to_string(),
+            caratteristiche: vec![
+                car(SCRIVI, true, true, false),
+                car("33333333-0000-1000-8000-00805f9b34fb", true, true, false),
+                car("44444444-0000-1000-8000-00805f9b34fb", true, true, false),
+                car(ASCOLTA, false, false, true),
+                car("55555555-0000-1000-8000-00805f9b34fb", false, false, true),
+                car("66666666-0000-1000-8000-00805f9b34fb", false, false, true),
+            ],
+        };
+        let tentativi = elenca_tentativi(&[informativo(), molte], "Shearwater", "Peregrine").unwrap();
+        assert_eq!(tentativi.len(), 8);
+        // E sono tutti diversi: un elenco con dentro due volte la stessa cosa
+        // farebbe premere due volte lo stesso pulsante per lo stesso tentativo.
+        let mut chiavi: Vec<String> = tentativi.iter().map(|t| t.chiave()).collect();
+        chiavi.sort();
+        chiavi.dedup();
+        assert_eq!(chiavi.len(), 8);
+    }
+
+    #[test]
+    fn un_dispositivo_senza_niente_con_cui_parlare_da_lerrore_che_elenca_i_servizi() {
+        // Qui il messaggio di `risolvi_profilo` è più utile di qualunque cosa
+        // possa dire il giro: elenca quello che il dispositivo annuncia
+        // davvero, che è la sola cosa da cui ripartire.
+        let errore = elenca_tentativi(&[informativo()], "Mares", "Quad Ci").unwrap_err();
+        assert!(errore.contains("0000180a"), "{errore}");
+    }
+
+    #[test]
+    fn la_chiave_del_metodo_va_e_torna_e_una_che_non_esiste_piu_riparte_dal_primo() {
+        let servizi = vec![informativo(), seriale("fe25c237-0ece-443c-b0aa-e02033e7029d")];
+        let tentativi = elenca_tentativi(&servizi, "Shearwater", "Peregrine").unwrap();
+
+        // La chiave conservata ritrova il suo tentativo, e la riga di diario
+        // dice che è così — fra «l'ho scelto perché ha funzionato» e «è il
+        // primo dell'elenco» c'è tutta la differenza, tre settimane dopo.
+        let terza = tentativi[2].chiave();
+        let (n, perche) = scegli_tentativo(
+            &tentativi,
+            &SceltaMetodo { chiave: Some(terza), ..Default::default() },
+        );
+        assert_eq!(n, 2);
+        assert!(perche.contains("conservato"), "{perche}");
+
+        /*
+         * ► UNA CHIAVE CHE NON ESISTE PIÙ NON È UN ERRORE. ◄ L'elenco dipende
+         * da quali servizi il computer annuncia, e un aggiornamento del
+         * firmware può cambiarli. Si riparte dal primo e si dice che è
+         * successo: fermare uno scarico perché una preferenza è vecchia
+         * bloccherebbe una persona su un dato che non sa nemmeno di avere.
+         */
+        let (n, perche) = scegli_tentativo(
+            &tentativi,
+            &SceltaMetodo { chiave: Some("roba|che|non|esiste|piu".into()), ..Default::default() },
+        );
+        assert_eq!(n, 0);
+        assert!(perche.contains("non è più"), "{perche}");
+
+        // Il numero chiesto dal pulsante vince sulla chiave conservata: chi
+        // preme «riprova con un altro metodo» sta dicendo proprio che quello
+        // conservato non va.
+        let (n, _) = scegli_tentativo(
+            &tentativi,
+            &SceltaMetodo {
+                indice: Some(3),
+                chiave: Some(tentativi[1].chiave()),
+                ..Default::default()
+            },
+        );
+        assert_eq!(n, 3);
+
+        // E un numero fuori dall'elenco riparte dal primo, dicendolo.
+        let (n, perche) = scegli_tentativo(
+            &tentativi,
+            &SceltaMetodo { indice: Some(99), ..Default::default() },
+        );
+        assert_eq!(n, 0);
+        assert!(perche.contains("i metodi sono 4"), "{perche}");
+    }
+
+    #[test]
+    fn la_chiave_distingue_tutto_quello_che_distingue_un_tentativo() {
+        // Se due combinazioni diverse avessero la stessa chiave, conservarne
+        // una vorrebbe dire ripescare l'altra: il giro dopo si ripartirebbe
+        // dalla combinazione sbagliata senza che nessuno se ne accorga.
+        let servizi = vec![informativo(), seriale("fe25c237-0ece-443c-b0aa-e02033e7029d")];
+        let tentativi = elenca_tentativi(&servizi, "Shearwater", "Peregrine").unwrap();
+        for t in &tentativi {
+            let chiave = t.chiave();
+            let pezzi: Vec<&str> = chiave.split('|').collect();
+            assert_eq!(pezzi.len(), 5, "servizio, scrittura, notifica, modalità, riassemblaggio");
+        }
+        // Le maiuscole non contano: CoreBluetooth dà gli UUID in maiuscolo e
+        // btleplug in minuscolo, e la stessa combinazione non deve sembrare
+        // due cose diverse a seconda del sistema.
+        let maiuscolo = Tentativo {
+            servizio: tentativi[0].servizio.to_uppercase(),
+            scrittura: tentativi[0].scrittura.to_uppercase(),
+            notifica: tentativi[0].notifica.to_uppercase(),
+            ..tentativi[0].clone()
+        };
+        assert_eq!(maiuscolo.chiave(), tentativi[0].chiave());
+    }
 
     // ----------------------------------------------- il diario: testa e coda
 
@@ -3858,7 +4663,7 @@ mod prove {
     fn se_la_concessione_dei_crediti_fallisce_il_ponte_non_si_apre() {
         let antenna = FintaAntenna::con(vec![telit()]).che_rifiuta(ModoScrittura::ConRisposta);
         let diario = Diario::default();
-        let errore = tauri::async_runtime::block_on(apri_ponte(antenna, "finto-01", None, diario.cronista()))
+        let errore = tauri::async_runtime::block_on(apri_ponte(antenna, "finto-01", None, diario.cronista(), &SceltaMetodo::default()))
             .err()
             .expect("senza crediti non si parte");
         assert!(errore.contains("254 crediti"), "{errore}");
@@ -3879,11 +4684,11 @@ mod prove {
         // Il nome visto in scansione batte quello del plugin, perché è quello
         // pubblicitario; uno vuoto non lo batte.
         let diario = Diario::default();
-        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", Some("FQ009999"), diario.cronista())).unwrap();
+        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", Some("FQ009999"), diario.cronista(), &SceltaMetodo::default())).unwrap();
         let PonteBle { entrata, scrittura, accessori, su_silenzio, .. } = ponte;
         let mut flusso = FlussoBle::nuovo(entrata, scrittura).con_accessori(accessori, su_silenzio);
         assert_eq!(flusso.nome(), Some("FQ009999".to_string()));
-        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", Some("  "), diario.cronista())).unwrap();
+        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", Some("  "), diario.cronista(), &SceltaMetodo::default())).unwrap();
         let PonteBle { entrata, scrittura, accessori, su_silenzio, .. } = ponte;
         let mut flusso = FlussoBle::nuovo(entrata, scrittura).con_accessori(accessori, su_silenzio);
         assert_eq!(flusso.nome(), Some("FQ001124".to_string()));

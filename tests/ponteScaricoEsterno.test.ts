@@ -62,6 +62,10 @@ describe('i due lati del confine dicono lo stesso nome', () => {
     // La firma del comando vero, quella con `#[tauri::command]` sopra.
     expect(PONTE).toContain('pub async fn scarica_da_computer_esterno(');
     expect(PONTE).toContain('codice_accesso: Option<String>,');
+    // E i due del giro dei tentativi, con i nomi che Tauri converte da
+    // `tentativo` e `metodo`.
+    expect(PONTE).toContain('tentativo: Option<usize>,');
+    expect(PONTE).toContain('metodo: Option<String>,');
     // E la copia compilata senza libdivecomputer deve avere lo stesso
     // parametro, o su quella build la chiamata fallirebbe con «argomenti non
     // validi» invece che con il «no» che sa spiegarsi.
@@ -90,6 +94,54 @@ describe('gli argomenti che attraversano il confine', () => {
     expect(chiamata!.argomenti.codiceAccesso).toBe('0a1b2c3d');
     expect(chiamata!.argomenti.prodotto).toBe('i330R');
     expect(chiamata!.argomenti.dispositivo).toBe('dev-1');
+  });
+
+  it('il numero del tentativo e il metodo conservato arrivano al comando', async () => {
+    /*
+     * Sono i due argomenti del giro dei tentativi, e senza di loro il giro non
+     * gira: il numero è quello che il pulsante «riprova con un altro modo»
+     * chiede, la chiave è quella che fa ripartire da ciò che ha funzionato
+     * l'ultima volta. Un nome sbagliato non dà nessun errore — arriva come
+     * `None` — e il sintomo sarebbe «riprovo e succede sempre la stessa cosa».
+     */
+    await scaricaDaComputerEsterno({
+      dispositivo: 'dev-1',
+      marca: 'Mares',
+      modello: 'Quad Ci',
+      tentativo: 2,
+      metodo: 'a|b|c|senza|unite',
+      emit: () => {},
+    });
+    const chiamata = finto.chiamate.find((c) => c.comando === 'scarica_da_computer_esterno')!;
+    expect(chiamata.argomenti.tentativo).toBe(2);
+    expect(chiamata.argomenti.metodo).toBe('a|b|c|senza|unite');
+  });
+
+  it('senza numero e senza metodo si manda `null`, non `undefined`', async () => {
+    // Un argomento indefinito sparisce dalla serializzazione di Tauri: il
+    // guscio non lo vedrebbe affatto, e «non me l'hai passato» e «non ce l'ho»
+    // finirebbero nella stessa riga di diario pur essendo due cose diverse.
+    await scaricaDaComputerEsterno({
+      dispositivo: 'dev-1',
+      marca: 'Mares',
+      modello: 'Quad Ci',
+      emit: () => {},
+    });
+    const chiamata = finto.chiamate.find((c) => c.comando === 'scarica_da_computer_esterno')!;
+    expect(chiamata.argomenti.tentativo).toBeNull();
+    expect(chiamata.argomenti.metodo).toBeNull();
+    // E il numero zero è un numero: `?? null` lo lascia passare, `|| null` no.
+    finto.chiamate = [];
+    await scaricaDaComputerEsterno({
+      dispositivo: 'dev-1',
+      marca: 'Mares',
+      modello: 'Quad Ci',
+      tentativo: 0,
+      emit: () => {},
+    });
+    expect(finto.chiamate.find((c) => c.comando === 'scarica_da_computer_esterno')!.argomenti.tentativo).toBe(
+      0,
+    );
   });
 
   it('senza codice si manda `null`, non una stringa vuota', async () => {

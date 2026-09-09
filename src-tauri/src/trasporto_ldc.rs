@@ -209,6 +209,17 @@ pub enum Riassemblaggio {
     PacchettoIntero,
 }
 
+impl Riassemblaggio {
+    /// L'altra politica. Serve al giro dei tentativi: quando la scelta fatta
+    /// per un modello non funziona, l'unica altra cosa da provare è questa.
+    pub fn altro(self) -> Self {
+        match self {
+            Self::UnaNotifica => Self::PacchettoIntero,
+            Self::PacchettoIntero => Self::UnaNotifica,
+        }
+    }
+}
+
 /// Quanto si aspetta il pezzo successivo di un messaggio spezzato.
 ///
 /// I frammenti di uno stesso messaggio arrivano a distanza di un intervallo di

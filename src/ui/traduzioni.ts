@@ -2473,6 +2473,12 @@ export const INGLESE: Record<string, string> = {
     'Only needed the first time: after that, it connects straight away.',
   'Le sei cifre mostrate dal computer': 'The six digits shown by the computer',
   Conferma: 'Confirm',
+  'C’è un altro modo da provare.': 'There is another way to try.',
+  'Ogni computer si collega in un modo suo, e non sempre si indovina al primo colpo. Riprova: cambia il modo di parlargli, non il computer.':
+    'Every computer connects in its own way, and the first guess is not always right. Try again: it changes how the app talks to it, not the computer.',
+  'Riprova con un altro modo': 'Try another way',
+  'Modo {0} di {1}.': 'Way {0} of {1}.',
+  Metodo: 'Way',
   'Annulla lo scarico': 'Cancel the download',
   'Conteggio delle immersioni…': 'Counting dives…',
   'Lo scarico si è interrotto. Non è stata salvata nessuna immersione.':

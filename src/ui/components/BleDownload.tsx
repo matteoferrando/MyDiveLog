@@ -44,6 +44,7 @@ import {
   dimenticaAccoppiamento,
   salvaCodiceAccoppiamento,
 } from '../../core/accoppiamento';
+import { dimenticaMetodo, metodoConservato, salvaMetodo } from '../../core/metodo';
 import type { Dive } from '../../core/model';
 import {
   markerKey,
@@ -87,6 +88,24 @@ type Stato =
         serial?: string;
         firmware?: string;
         records: { key: string; base64: string }[];
+      };
+      /**
+       * Come riprovare con un altro metodo, quando ce n'è ancora uno.
+       *
+       * ► PERCHÉ STA NELLO STATO E NON IN UNA VARIABILE A PARTE. ◄ Perché la
+       * schermata di esito è l'unico posto da cui si può ripartire, e quello
+       * che serve per ripartire — quale computer, quale modello, quale
+       * numero — è esattamente quello che si sa lì e in nessun altro momento.
+       * Tenerlo altrove vorrebbe dire ricostruirlo, e ricostruirlo vuol dire
+       * sbagliarlo il giorno che qualcuno tocca la ricerca.
+       */
+      altroMetodo?: {
+        device: BleFoundDevice;
+        marca: string;
+        modello: string;
+        /** Il prossimo da provare, contando da zero. */
+        prossimo: number;
+        totale: number;
       };
     };
 
@@ -859,12 +878,21 @@ export function BleDownload() {
   }, []);
 
   const scaricaEsterno = useCallback(
-    async (device: BleFoundDevice, marca: string, modello: string) => {
+    async (device: BleFoundDevice, marca: string, modello: string, tentativo?: number) => {
       fermaRicerca();
       const nome = `${marca} ${modello}`;
       setStato({ fase: 'scarica', nome, fatte: 0, passo: t('Collegamento in corso…') });
 
       const diario: string[] = [];
+      /*
+       * Il metodo con cui si sta provando, riempito dall'evento `method` che
+       * arriva subito dopo il collegamento. Serve dopo, a scarico finito: per
+       * conservare quello che ha vinto, e per sapere se ce n'è un altro da
+       * offrire. È una variabile e non uno stato di React perché nessuno la
+       * guarda mentre lo scarico è in corso — a schermo c'è l'avanzamento — e
+       * uno stato in più vorrebbe dire un ridisegno in più per niente.
+       */
+      let metodoInCorso: { indice: number; totale: number; nome: string; chiave: string } | undefined;
       const onEvent = (e: DownloadEvent) => {
         // Come nell'altra strada: le righe di diario non toccano lo stato
         // mostrato, sarebbero un aggiornamento di React per ogni notifica.
@@ -893,6 +921,22 @@ export function BleDownload() {
         if (e.kind === 'accessCode') {
           salvaCodiceAccoppiamento(device.id, e.hex);
           diario.push('il computer ha rilasciato un codice di accoppiamento, conservato');
+          return;
+        }
+        /*
+         * Quale dei modi possibili di parlare con questo computer si sta
+         * provando. Finisce nel diario perché è la prima cosa da sapere
+         * quando qualcosa non funziona, e nel passo a schermo quando ce n'è
+         * più d'uno: chi ha premuto «riprova» deve vedere che sta succedendo
+         * qualcosa di diverso, o premerà di nuovo.
+         */
+        if (e.kind === 'method') {
+          metodoInCorso = { indice: e.index - 1, totale: e.total, nome: e.name, chiave: e.key };
+          diario.push(`metodo ${e.index} di ${e.total}: ${e.name}`);
+          if (e.total > 1) {
+            const etichetta = `${t('Metodo')} ${e.index}/${e.total}: ${e.name}`;
+            setStato((p) => (p.fase === 'scarica' ? { ...p, passo: etichetta } : p));
+          }
           return;
         }
         setStato((p) =>
@@ -938,6 +982,10 @@ export function BleDownload() {
       let guasto: unknown;
       let grezzo: string | undefined;
       const conservato = codiceAccoppiamento(device.id);
+      // Il metodo conservato vale solo quando NON si sta già riprovando: chi
+      // preme «riprova con un altro metodo» sta dicendo proprio che quello
+      // conservato non va.
+      const metodoSalvato = tentativo === undefined ? metodoConservato(device.id) : undefined;
       try {
         dives = await scaricaDaComputerEsterno({
           dispositivo: device.id,
@@ -945,6 +993,8 @@ export function BleDownload() {
           marca,
           modello,
           codiceAccesso: conservato,
+          tentativo,
+          metodo: metodoSalvato,
           emit: onEvent,
         });
       } catch (e) {
@@ -969,6 +1019,18 @@ export function BleDownload() {
           diario.push(
             'lo scarico è fallito con una chiave conservata: chiave dimenticata, la prossima volta si riparte dal PIN',
           );
+        }
+        /*
+         * ► E LO STESSO PER IL METODO. ◄ Un metodo conservato ha funzionato
+         * una volta; se adesso fallisce, riproporlo domani vorrebbe dire
+         * ripetere all'infinito la cosa che ha appena fallito. Si dimentica e
+         * il giro riparte dal primo. Il costo, se il guasto era un altro, è un
+         * tocco in più; il costo di tenerlo è un computer che non si scarica
+         * mai più.
+         */
+        if (metodoSalvato) {
+          dimenticaMetodo(device.id);
+          diario.push('lo scarico è fallito con il metodo conservato: metodo dimenticato');
         }
       } finally {
         /*
@@ -1020,11 +1082,43 @@ export function BleDownload() {
         if (dettaglio) avvisi.push(dettaglio);
       }
 
+      /*
+       * ► IL METODO CHE HA VINTO SI CONSERVA, QUELLO CHE HA PERSO SI OFFRE DI
+       * CAMBIARE. ◄
+       *
+       * Riuscito vuol dire che quelle cinque scelte erano giuste per QUESTO
+       * computer: dal prossimo scarico si riparte da lì, e l'attesa di due
+       * tocchi diventa nessuna. Fallito vuol dire che ce n'è un altro da
+       * provare — se c'è — e allora la schermata di esito non è un vicolo
+       * cieco ma un pulsante.
+       *
+       * «Riuscito» qui è **almeno un'immersione arrivata**, non l'assenza di
+       * eccezioni: un collegamento che si apre, non dice niente e si chiude
+       * senza errori non ha dimostrato niente sul metodo, e conservarlo
+       * vorrebbe dire inchiodare quel computer a una combinazione muta.
+       */
+      const riuscito = dives.length > 0;
+      if (riuscito && metodoInCorso) {
+        salvaMetodo(device.id, metodoInCorso.chiave);
+        diario.push(`metodo conservato per la prossima volta: ${metodoInCorso.nome}`);
+      }
+      const altroMetodo =
+        !riuscito && metodoInCorso && metodoInCorso.indice + 1 < metodoInCorso.totale
+          ? {
+              device,
+              marca,
+              modello,
+              prossimo: metodoInCorso.indice + 1,
+              totale: metodoInCorso.totale,
+            }
+          : undefined;
+
       setStato({
         fase: 'finito',
         testo,
         avvisi,
         parziale: false,
+        altroMetodo,
         diario: [
           `MyDiveLog — diario dello scarico (libdivecomputer)`,
           `dispositivo: ${device.name || 'senza nome'}`,
@@ -1559,6 +1653,47 @@ export function BleDownload() {
           <div className={stato.parziale ? 'notice notice-error' : 'notice'} role="status">
             {stato.testo}
           </div>
+          {/*
+           * ► «NON HA FUNZIONATO» NON È UNA RISPOSTA, SE C'È ANCORA QUALCOSA DA
+           * PROVARE. ◄
+           *
+           * Per parlare con un computer via Bluetooth ci sono cinque scelte da
+           * fare, e su un modello mai visto indovinarle tutte al primo colpo è
+           * fortuna. Finché il guscio ha un'altra combinazione in elenco,
+           * questa schermata deve offrirla — e deve dire **quante** ne restano,
+           * perché premere un pulsante senza sapere se è l'ultimo è il modo
+           * migliore per smettere al secondo tentativo.
+           *
+           * Sta sopra il diario tecnico di proposito: il diario serve a chi
+           * ripara, questo pulsante a chi ha il computer in mano adesso.
+           */}
+          {stato.altroMetodo && (
+            <div className="notice" style={{ marginTop: 10 }}>
+              <b>{t('C’è un altro modo da provare.')}</b>{' '}
+              {t(
+                'Ogni computer si collega in un modo suo, e non sempre si indovina al primo colpo. Riprova: cambia il modo di parlargli, non il computer.',
+              )}
+              <div className="row" style={{ gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    const a = stato.altroMetodo;
+                    if (a) void scaricaEsterno(a.device, a.marca, a.modello, a.prossimo);
+                  }}
+                >
+                  {t('Riprova con un altro modo')}
+                </button>
+                <span className="muted" style={{ fontSize: 12, alignSelf: 'center' }}>
+                  {frase(
+                    t,
+                    'Modo {0} di {1}.',
+                    String(stato.altroMetodo.prossimo + 1),
+                    String(stato.altroMetodo.totale),
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
           {/*
            * IL DIARIO TECNICO, e perché è un pulsante e non un riquadro aperto.
            *

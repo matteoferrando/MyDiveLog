@@ -274,7 +274,29 @@ export type DownloadEvent =
    * legame Bluetooth — ma per la stessa ragione non si mostra e non finisce
    * nel diario tecnico, che si allega alle segnalazioni.
    */
-  | { kind: 'accessCode'; hex: string };
+  | { kind: 'accessCode'; hex: string }
+  /**
+   * Con quale **metodo** si sta provando, e quanti ce ne sono.
+   *
+   * Arriva subito dopo il collegamento, prima del primo comando. Per parlare
+   * con un computer via Bluetooth ci sono cinque scelte da fare — quale
+   * servizio, quale caratteristica si scrive, quale ascolta, con o senza
+   * conferma, notifiche unite o separate — e su un modello mai visto
+   * indovinarle tutte al primo colpo è fortuna. Il guscio le elenca in ordine
+   * di probabilità e ne prova una per volta.
+   *
+   * Serve a tre cose: dire cosa si sta provando con parole («senza conferma,
+   * notifiche unite») invece che con un UUID; dire se **ce n'è un altro** da
+   * provare, che è l'unica cosa che permette di offrire «riprova con un altro
+   * metodo» invece di un vicolo cieco; e consegnare la `key` da conservare se
+   * lo scarico riesce, così la volta dopo si riparte da quello che ha
+   * funzionato.
+   *
+   * ► NESSUNA DI QUELLE CINQUE SCELTE CAMBIA COME I DATI VENGONO LETTI. ◄
+   * Cambiano se i byte arrivano, non cosa significano. Il modello scelto
+   * dall'elenco — quello sì che decide il parser — non entra nel giro.
+   */
+  | { kind: 'method'; index: number; total: number; name: string; key: string };
 
 /**
  * Il protocollo di un computer.

@@ -1,8 +1,9 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **9 settembre 2026, notte** — commit `af6a5d5` su `main`, **2001
-prove in 111 file** più **88 prove Rust** del ponte, lint a **0 errori e 0
-avvisi**, **sito ripubblicato e verificato**. **La versione pubblica è la `1.8.3`**: release `v1.8.3` con nove
+Aggiornato: **9 settembre 2026, notte fonda** — **2017 prove in 113 file** più
+**99 prove Rust** del ponte, lint e formato a **0 errori**. **La versione
+pubblica è la `1.8.3`**; in preparazione la **1.8.4**, che porta il giro dei
+modi di collegamento. **La versione pubblica è la `1.8.3`**: release `v1.8.3` con nove
 allegati, i quattro pulsanti del sito rispondono `200`, `latest.json` serve
 `1.8.3` **per Mac e per Windows**, e l'impronta del `.dmg` **riscaricato
 dall'indirizzo pubblico** — `5c4067bc…` — coincide con quella costruita sul Mac
@@ -493,6 +494,85 @@ esistente, che si ricalcola da solo al primo avvio.
 ripiego su `stopDepth`, la sosta profonda senza il controllo del tetto, e
 `inDeco` che torna a `firstStopDepth`. *Quest'ultima è sopravvissuta alla prima
 passata: nessuna prova copriva quel parser, e si è vista solo mutandolo.*
+
+---
+
+## Il giro dei modi, e la fine dei vicoli ciechi
+
+*9 settembre 2026, notte. Nasce da una domanda del proprietario, ed è una di
+quelle che spostano il problema di posto: «se per il Mares abbiamo diverse
+possibilità da provare, perché quando fallisce non mettiamo un pulsante
+"riprova" che ne prova un'altra, e poi salviamo quella che ha funzionato?».*
+
+**Aveva ragione, e il conto delle alternative lo dimostra.** Per parlare con un
+computer subacqueo via Bluetooth l'applicazione fa **cinque** scelte: a quale
+servizio parlare, su quale caratteristica scrivere, quale ascoltare, con o senza
+conferma, e se le notifiche vanno rimesse insieme. Fino a stanotte le faceva
+**una volta sola e senza appello**, e su un modello mai visto indovinarle tutte
+e cinque al primo colpo è fortuna.
+
+> **► LA REGOLA CHE DECIDE COSA PUÒ ENTRARE NEL GIRO, E CHE VALE PIÙ DEL GIRO. ◄**
+> Solo le scelte che cambiano **se** i byte arrivano, mai quelle che cambiano
+> **come** vengono letti. Le cinque sono tutte del primo tipo: sbagliarle
+> produce silenzio o un errore di protocollo, mai un'immersione con dentro
+> numeri sbagliati. Il **modello** scelto dall'elenco è del secondo tipo — è lui
+> a decidere il parser — e per questo **non entra nel giro e resta una scelta
+> della persona**. *Uno scarico «riuscito» con il parser sbagliato è il difetto
+> peggiore che un logbook possa avere, e sarebbe silenzioso: nessuno lo
+> scoprirebbe mai guardando lo schermo.*
+
+**L'ordine non è di eleganza, è di costo.** Prima quello che non richiede una
+riconnessione — la modalità di scrittura e il riassemblaggio — poi le altre
+caratteristiche dentro lo stesso servizio, e infine gli altri servizi
+plausibili. Chi ha il computer in mano ha la batteria che cala.
+
+**Il primo tentativo è identico a quello di prima, ed è una guardia.** Se il
+giro cambiasse anche il primo colpo, ogni computer che oggi funziona —
+Peregrine, Aladin — comincerebbe da una combinazione diversa da quella provata
+con l'apparecchio in mano: una regressione silenziosa su tutto quello che va,
+pagata per far funzionare quello che non va. C'è una prova che lo inchioda.
+
+### Dove prima ci si rifiutava, adesso si prova
+
+`risolvi_profilo` **si rifiutava** quando dentro un servizio noto trovava due
+caratteristiche scrivibili: *«va scelta a mano nella tabella dei profili, invece
+di indovinare»*. Era la scelta giusta finché indovinare voleva dire scommettere
+una volta sola e in silenzio. Con un giro di tentativi non è più una scommessa:
+si provano una per una, ognuna dichiarata nel diario, e chi ha il computer in
+mano scopre in due tocchi quale funziona. *«Aggiungi il servizio giusto alla
+tabella» non è una cosa che possa fare chi sta su una barca.*
+
+### Quello che si conserva, e quello che si butta
+
+Il modo che ha portato immersioni si conserva **per quel computer**: dallo
+scarico dopo si riparte da lì, e i due tocchi diventano nessuno. Con tre
+precisazioni che sono tutte state pagate altrove:
+
+- **«Riuscito» vuol dire almeno un'immersione arrivata**, non l'assenza di
+  eccezioni. Un collegamento che si apre, non dice niente e si chiude senza
+  errori non ha dimostrato niente: conservarlo inchioderebbe quel computer a una
+  combinazione muta, cioè il giro avrebbe creato il vicolo cieco da cui esiste
+  per uscire.
+- **Un modo conservato che fallisce si dimentica.** Ha funzionato una volta e
+  adesso no: riproporlo domani sarebbe ripetere all'infinito la cosa che ha
+  appena fallito. È la stessa regola della chiave dell'i330R, e per la stessa
+  ragione.
+- **Si conserva il contenuto, non il numero d'ordine.** L'elenco dipende da
+  quali servizi il computer annuncia, e un aggiornamento del firmware può
+  cambiarli: un numero salvato ieri punterebbe a una combinazione diversa oggi,
+  e nessuno se ne accorgerebbe.
+
+### Sul Mares, in concreto
+
+Il primo tentativo porta il riassemblaggio deciso leggendo `mares_iconhd.c`
+— notifiche unite — e **il secondo prova esattamente il contrario**. Quella
+scelta è un'ipotesi su un computer che non ho mai avuto in mano, e un'ipotesi
+sbagliata deve avere una via d'uscita che non richieda una versione nuova.
+
+> **Onestà su cosa questo non è.** Sull'i330R un giro di tentativi non avrebbe
+> aiutato: lì mancava una funzione — il PIN — non una variante di trasporto. Il
+> giro serve quando ci si collega e il dialogo non funziona. E alza la
+> probabilità, non la porta a uno.
 
 ---
 
