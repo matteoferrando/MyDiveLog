@@ -1,27 +1,32 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **9 settembre 2026, notte** — commit `7b781c5` su `main`, **2030
-prove in 114 file** più **109 prove Rust** del ponte, lint e formato a **0
-errori**.
+Aggiornato: **10 settembre 2026, notte fonda** — **2032 prove in 114 file** più
+**109 prove Rust** del ponte, lint e formato a **0 errori**.
 
-**La `1.8.6` è pubblicata: release `v1.8.6` con nove allegati**, tag su
-`3aae330`. I quattro pulsanti del sito rispondono `200`; `latest.json` serve
-`1.8.6` **per Mac e per Windows**; l'impronta del `.dmg` **riscaricato
-dall'indirizzo pubblico** — `d73a9f69…` — coincide con quella del file costruito
+**La `1.8.7` è pubblicata: release `v1.8.7` con nove allegati**, tag su
+`3941018`. I quattro pulsanti del sito rispondono `200`; `latest.json` serve
+`1.8.7` **per Mac e per Windows**; l'impronta del `.dmg` **riscaricato
+dall'indirizzo pubblico** — `3bf4bcf6…` — coincide con quella del file costruito
 sul Mac e con quella che la cask di Homebrew si è scritta da sola. Sito già
-allineato, non toccato.
+allineato, non toccato. **Tutti e sette i pacchetti guardati dentro** uno per
+uno, `scollego e riprovo` — la stringa che esiste solo da questa serie — e zero
+`api.anthropic.com`; nel pacchetto del negozio, zero aggiornatore.
+
+*La 1.8.6 è vissuta un'ora: il tempo di accorgersi che l'insistenza nuova, su un
+computer che chiede il PIN, richiedeva il codice a chi aveva appena rinunciato.*
 
 Quello che porta: **l'applicazione insiste da sola** quando un computer non si
 collega o uno scarico si rompe — e insiste **nel modo giusto**, che non è quello
 che faceva prima (vedi «L'applicazione adesso insiste»). Con lei, la voce di
 libdivecomputer nel diario, e le immersioni già arrivate che non si buttano più.
 
-> **► LA 1.8.5 NON ANDRÀ MAI SUI NEGOZI, ED È VOLUTO. ◄** È pubblica su GitHub e
-> sul sito, ma nelle ore dopo è arrivato un secondo diario vero e da lì è nata la
-> 1.8.6. *Spendere un giro di revisione Apple per una versione che sappiamo già
-> superata sarebbe pagare due volte per arrivare più tardi.* I pacchetti
-> `1.8.6` per i due negozi Apple sono in `da-caricare-su-app-store/`, l'`.aab`
-> per Play in `da-caricare-su-play/`.
+> **► LA 1.8.5 E LA 1.8.6 NON ANDRANNO MAI SUI NEGOZI, ED È VOLUTO. ◄** Sono
+> pubbliche su GitHub e sul sito, ma dopo la 1.8.5 è arrivato il secondo diario
+> vero, e un'ora dopo la 1.8.6 è saltato fuori il difetto del PIN. *Ogni
+> consegna a un negozio costa un giro di revisione: spenderlo per una versione
+> già superata è pagare due volte per arrivare più tardi.* I pacchetti `1.8.7`
+> per i due negozi Apple sono in `da-caricare-su-app-store/`, l'`.aab` per Play
+> in `da-caricare-su-play/`.
 
 > **► E UNA COSA CHE FINORA NON ERA STATA NOTATA, SULLE VERIFICHE STESSE. ◄**
 > Cercare le stringhe dentro i pacchetti spediti copre **il lato Rust e basta**:
