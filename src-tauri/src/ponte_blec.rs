@@ -80,7 +80,7 @@ mod dentro {
 
     use crate::trasporto_ldc::{
         traduci, trova_descrittore, AccessoriBle, CollegamentoLdc, Contesto, FlussoBle,
-        ImmersioneLdc, Riassemblaggio, Ripiego,
+        GuastoScrittura, ImmersioneLdc, Riassemblaggio, Ripiego,
     };
 
     // --------------------------------------------------- quel che il GATT dice
@@ -1238,7 +1238,8 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
     ///
     /// Ha un nome suo solo per leggibilità: è la stessa forma che
     /// `FlussoBle::nuovo` si aspetta, e cambiarla qui vorrebbe dire cambiarla lì.
-    pub type ChiusuraScrittura = Box<dyn FnMut(&[u8]) -> Result<(), String> + Send>;
+    pub type ChiusuraScrittura =
+        Box<dyn FnMut(&[u8]) -> Result<(), crate::trasporto_ldc::GuastoScrittura> + Send>;
 
     /// Byte in esadecimale, per la chiave dell'immersione e per il diario.
     fn esadecimale(b: &[u8]) -> String {
@@ -1933,7 +1934,7 @@ il computer resta senza crediti e smetterà di mandare dati"
         let contatori_scrittura = contatori.clone();
         let cronista_scrittura = cronista.clone();
         let caratteristica_scrittura = profilo.scrittura.clone();
-        let scrittura = Box::new(move |dati: &[u8]| -> Result<(), String> {
+        let scrittura = Box::new(move |dati: &[u8]| -> Result<(), GuastoScrittura> {
             let numero = {
                 let mut s = scambio_scrittura.lock().map_err(|_| "registro dello scambio guasto")?;
                 s.scritture += 1;
@@ -1977,6 +1978,23 @@ il computer resta senza crediti e smetterà di mandare dati"
                             })
                         }
                     };
+                    // ► LA QUALIFICA SI PORTA FINO IN FONDO. ◄ Se qui si
+                    // perdesse — se restasse una stringa come tutte le altre —
+                    // `cb_write` non potrebbe distinguere «il Bluetooth ha
+                    // detto di no» da «la conferma non è arrivata», e
+                    // risponderebbe a libdivecomputer «errore di
+                    // trasmissione» su tutti e due. Vedi `GuastoScrittura`:
+                    // sul secondo caso quella risposta costa l'intero
+                    // scarico, perché toglie al backend il diritto di
+                    // riprovare.
+                    let scaduta = matches!(guasto, Guasto::Scaduta(_));
+                    let qualifica = |m: String| {
+                        if scaduta {
+                            GuastoScrittura::Scaduta(m)
+                        } else {
+                            GuastoScrittura::Rifiutata(m)
+                        }
+                    };
                     let motivo = guasto.in_stringa();
                     let Some(altro) = altro else {
                         cronista_scrittura(format!(
@@ -1985,7 +2003,10 @@ il computer resta senza crediti e smetterà di mandare dati"
                             anteprima(dati),
                             nome_modo(modo)
                         ));
-                        return Err(format!("scrittura n. {numero} ({}): {motivo}", nome_modo(modo)));
+                        return Err(qualifica(format!(
+                            "scrittura n. {numero} ({}): {motivo}",
+                            nome_modo(modo)
+                        )));
                     };
                     cronista_scrittura(format!(
                         "scrittura n. {numero} ({} byte [{}], {}) rifiutata: {motivo}; riprovo {}",
@@ -1995,16 +2016,29 @@ il computer resta senza crediti e smetterà di mandare dati"
                         nome_modo(altro)
                     ));
                     postino_scrittura.scrivi(&caratteristica_scrittura, pezzo, altro).map_err(|seconda| {
+                        // La qualifica che conta è quella del SECONDO guasto,
+                        // non del primo: il primo è per forza un rifiuto — lo
+                        // decide `altro` qui sopra — ma il rinvio nell'altra
+                        // modalità può benissimo scadere, e se qui lo
+                        // chiamassimo «rifiuto» rifaremmo, in piccolo, l'errore
+                        // che tutto questo serve a togliere. Vedi
+                        // `GuastoScrittura`.
+                        let seconda_scaduta = matches!(seconda, Guasto::Scaduta(_));
                         let seconda = seconda.in_stringa();
                         cronista_scrittura(format!(
                             "scrittura n. {numero} fallita anche {}: {seconda}",
                             nome_modo(altro)
                         ));
-                        format!(
+                        let racconto = format!(
                             "scrittura n. {numero}: rifiutata {} ({motivo}) e anche {} ({seconda})",
                             nome_modo(modo),
                             nome_modo(altro)
-                        )
+                        );
+                        if seconda_scaduta {
+                            GuastoScrittura::Scaduta(racconto)
+                        } else {
+                            GuastoScrittura::Rifiutata(racconto)
+                        }
                     })?;
                 }
             }
@@ -3026,7 +3060,9 @@ sa parlare solo con i computer dei driver scritti in casa"
 #[cfg(all(test, feature = "computer-esterni"))]
 mod prove {
     use super::dentro::*;
-    use crate::trasporto_ldc::{AccessoriBle, FlussoBle, FlussoByte, Riassemblaggio, Ripiego};
+    use crate::trasporto_ldc::{
+        AccessoriBle, FlussoBle, FlussoByte, GuastoScrittura, Riassemblaggio, Ripiego,
+    };
     use std::collections::HashMap;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
@@ -4019,8 +4055,9 @@ mod prove {
             .scrivi(&[0x01])
             .expect_err("una scrittura su un collegamento caduto deve fallire");
         assert!(
-            errore.contains("raggiungibile") || errore.contains("chiuso"),
-            "messaggio poco chiaro: {errore}"
+            errore.motivo().contains("raggiungibile") || errore.motivo().contains("chiuso"),
+            "messaggio poco chiaro: {}",
+            errore.motivo()
         );
         // E il diario lo dice, con il conto delle notifiche arrivate prima.
         assert!(diario.contiene("caduto da sé, dopo 1 notifiche"), "{}", diario.testo());
@@ -4333,7 +4370,15 @@ mod prove {
         antenna.0.muta.store(true, Ordering::SeqCst);
 
         let errore = (ponte.scrittura)(&[0xc2, 0x8d]).expect_err("la conferma scade");
-        assert!(errore.contains("non è stata confermata"), "{errore}");
+        assert!(errore.motivo().contains("non è stata confermata"), "{}", errore.motivo());
+        // ► E soprattutto: deve uscire QUALIFICATA come scaduta. È l'unica
+        // differenza che `cb_write` guarda, ed è quella che decide se
+        // libdivecomputer può ritentare o deve arrendersi. Il messaggio è
+        // per l'uomo; questa riga è per il backend.
+        assert!(
+            matches!(errore, GuastoScrittura::Scaduta(_)),
+            "una conferma non arrivata non è un rifiuto: {errore:?}"
+        );
         assert!(!diario.contiene("riprovo"), "{}", diario.testo());
         // La scrittura in ritardo arriva, una sola, nella modalità di partenza.
         std::thread::sleep(Duration::from_millis(500));
@@ -4345,14 +4390,57 @@ mod prove {
     }
 
     #[test]
+    fn se_anche_il_rinvio_scade_lo_scarico_puo_ancora_ritentare() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► LO STESSO ERRORE, IN PICCOLO, NEL RAMO CHE NESSUNO GUARDA. ◄
+         *
+         * Il rinvio nell'altra modalità parte solo dopo un RIFIUTO, e per
+         * questo la tentazione è di dire che il guasto finale è un rifiuto e
+         * chiuderla lì. Ma il rinvio è una scrittura come tutte le altre: può
+         * benissimo restare senza conferma. Se in quel caso uscisse
+         * qualificato «rifiutata», `cb_write` risponderebbe «errore di
+         * trasmissione» e `mares_iconhd_transfer` si arrenderebbe — cioè
+         * rifaremmo qui, su un ramo più stretto, esattamente il guasto del
+         * 9 settembre 2026 che tutto questo serve a togliere.
+         *
+         * L'antenna rifiuta la modalità di partenza (il primo tentativo
+         * fallisce ed è un rifiuto vero, quindi si cambia) e resta muta su
+         * quella dopo: il rinvio parte e non torna in tempo.
+         */
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")])
+            .che_rifiuta(ModoScrittura::SenzaRisposta);
+        antenna.0.muta.store(true, Ordering::SeqCst);
+        let (mut ponte, diario) = apri(&antenna);
+
+        let errore = (ponte.scrittura)(&[0xc2, 0x8d]).expect_err("il rinvio non viene confermato");
+        // Il racconto dice tutte e due le cose, perché per capire il diario
+        // servono tutte e due.
+        assert!(errore.motivo().contains("rifiutata"), "{}", errore.motivo());
+        assert!(errore.motivo().contains("e anche"), "{}", errore.motivo());
+        assert!(
+            matches!(errore, GuastoScrittura::Scaduta(_)),
+            "la qualifica è quella del SECONDO guasto, non del primo: {errore:?}"
+        );
+        assert!(diario.contiene("riprovo con conferma"), "{}", diario.testo());
+        // La scrittura in ritardo arriva comunque: si aspetta, per non
+        // lasciarla cadere dentro la prova dopo.
+        std::thread::sleep(Duration::from_millis(500));
+    }
+
+    #[test]
     fn se_la_caratteristica_accetta_una_modalita_sola_non_ce_niente_da_negoziare() {
         let antenna = FintaAntenna::con(vec![seriale_rigida("544e326b-5b72-c6b0-1c46-41c1bc448118", true)])
             .che_rifiuta(ModoScrittura::SenzaRisposta);
         let (mut ponte, diario) = apri(&antenna);
 
         let errore = (ponte.scrittura)(&[0xc2, 0x8d]).expect_err("senza alternativa si fallisce");
-        assert!(errore.contains("scrittura n. 1"), "{errore}");
-        assert!(errore.contains("senza conferma"), "{errore}");
+        assert!(errore.motivo().contains("scrittura n. 1"), "{}", errore.motivo());
+        assert!(errore.motivo().contains("senza conferma"), "{}", errore.motivo());
+        assert!(
+            matches!(errore, GuastoScrittura::Rifiutata(_)),
+            "un rifiuto del plugin resta un rifiuto: {errore:?}"
+        );
         assert!(antenna.scritte().is_empty());
         assert!(diario.contiene("fallita"), "{}", diario.testo());
         assert!(!diario.contiene("riprovo"), "{}", diario.testo());
@@ -4373,7 +4461,7 @@ mod prove {
         *antenna.0.rifiuta.lock().unwrap() = Some(ModoScrittura::SenzaRisposta);
 
         let errore = (ponte.scrittura)(&[0xe7, 0x18]).expect_err("si fallisce senza cambiare");
-        assert!(errore.contains("scrittura n. 2"), "{errore}");
+        assert!(errore.motivo().contains("scrittura n. 2"), "{}", errore.motivo());
         assert!(!diario.contiene("riprovo"), "{}", diario.testo());
     }
 

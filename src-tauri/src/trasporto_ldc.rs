@@ -53,8 +53,76 @@ use std::time::Duration;
 /// notifica. libdivecomputer vuole byte, e tutto ciò che sta sopra i byte —
 /// riassemblare le notifiche, buttare il byte di sequenza dell'Aladin — è
 /// responsabilità di chi implementa questo tratto, non sua.
+/// Perché una scrittura non è andata, dal punto di vista di chi deve decidere
+/// se ha senso ritentare.
+///
+/// ════════════════════════════════════════════════════════════════════════════
+/// ► «SCADUTA» NON È «FALLITA», E QUESTA DISTINZIONE È COSTATA UNO SCARICO. ◄
+///
+/// Il 9 settembre 2026 un Mares Quad Ci ha scaricato **276 KB** — millecentro e
+/// passa scambi perfetti — e poi si è fermato così: la scrittura n. 1226, due
+/// byte, non è stata confermata dal Bluetooth entro dieci secondi. Il trasporto
+/// ha risposto «errore di trasmissione» (`DC_STATUS_IO`), e per
+/// `mares_iconhd_transfer` quello è un errore **definitivo**: ritenta solo su
+/// `PROTOCOL` e `TIMEOUT`, su tutto il resto si arrende subito.
+///
+/// Ma una conferma che non arriva non dice che la scrittura sia fallita: dice
+/// che **non si sa**. Il pacchetto può essere partito, può essere in coda, il
+/// collegamento può essere solo lento. Chiamarlo «errore di trasmissione»
+/// significa affermare una cosa che non abbiamo misurato — e affermarla nel
+/// punto esatto in cui costa l'intero scarico, perché toglie al backend
+/// l'unica cosa che sa fare in questi casi: dormire un secondo, svuotare
+/// l'ingresso e rimandare il comando.
+///
+/// Un RIFIUTO è un'altra cosa: il plugin dice di no subito, la modalità è
+/// sbagliata o la caratteristica non accetta scritture, e ritentare la stessa
+/// identica cosa darebbe lo stesso identico esito. Quello resta `IO`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GuastoScrittura {
+    /// Il Bluetooth ha detto di no. Ritentare non serve.
+    Rifiutata(String),
+    /// La conferma non è arrivata in tempo. Non si sa se sia andata.
+    Scaduta(String),
+}
+
+impl std::fmt::Display for GuastoScrittura {
+    /// Si stampa come il suo motivo e basta: la qualifica serve a decidere, non
+    /// a essere letta. Chi legge il diario vuole sapere cosa è successo, e «la
+    /// scrittura non è stata confermata entro dieci secondi» lo dice già.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.motivo())
+    }
+}
+
+impl GuastoScrittura {
+    pub fn motivo(&self) -> &str {
+        match self {
+            Self::Rifiutata(m) | Self::Scaduta(m) => m,
+        }
+    }
+}
+
+/// Un guasto senza altra qualifica è un RIFIUTO.
+///
+/// È il valore per difetto giusto: «scaduta» è un'affermazione precisa — so che
+/// ho aspettato e non è arrivato niente — e va fatta da chi quel tempo l'ha
+/// misurato davvero. Chi non lo sa non deve poterla fare per distrazione,
+/// perché il costo di dire «riprova» a vuoto è un giro di ritentativi inutili
+/// su un collegamento che non c'è più.
+impl From<String> for GuastoScrittura {
+    fn from(motivo: String) -> Self {
+        Self::Rifiutata(motivo)
+    }
+}
+
+impl From<&str> for GuastoScrittura {
+    fn from(motivo: &str) -> Self {
+        Self::Rifiutata(motivo.to_string())
+    }
+}
+
 pub trait FlussoByte: Send {
-    fn scrivi(&mut self, dati: &[u8]) -> Result<(), String>;
+    fn scrivi(&mut self, dati: &[u8]) -> Result<(), GuastoScrittura>;
     /// Fino a `quanti` byte, aspettando al massimo `attesa`.
     ///
     /// Restituire MENO byte del richiesto è legittimo e normale: libdivecomputer
@@ -149,7 +217,7 @@ pub struct FlussoBle {
     arrivate: VecDeque<Vec<u8>>,
     /// Quel che resta della notifica consegnata a metà.
     avanzo: VecDeque<u8>,
-    scrittura: Box<dyn FnMut(&[u8]) -> Result<(), String> + Send>,
+    scrittura: Box<dyn FnMut(&[u8]) -> Result<(), GuastoScrittura> + Send>,
     /// Gli accessori del Bluetooth che non sono byte: nome e lettura di una
     /// caratteristica. Vedi `AccessoriBle`.
     accessori: Option<Box<dyn AccessoriBle>>,
@@ -291,7 +359,7 @@ pub trait AccessoriBle: Send {
 impl FlussoBle {
     pub fn nuovo(
         entrata: Receiver<Vec<u8>>,
-        scrittura: Box<dyn FnMut(&[u8]) -> Result<(), String> + Send>,
+        scrittura: Box<dyn FnMut(&[u8]) -> Result<(), GuastoScrittura> + Send>,
     ) -> Self {
         Self {
             entrata,
@@ -365,7 +433,7 @@ impl FlussoBle {
 }
 
 impl FlussoByte for FlussoBle {
-    fn scrivi(&mut self, dati: &[u8]) -> Result<(), String> {
+    fn scrivi(&mut self, dati: &[u8]) -> Result<(), GuastoScrittura> {
         (self.scrittura)(dati)
     }
 
@@ -811,10 +879,19 @@ extern "C" fn cb_write(
             unsafe { *actual = size };
             DC_STATUS_SUCCESS
         }
-        Err(motivo) => {
+        Err(guasto) => {
             unsafe { *actual = 0 };
-            annota(&s.guasto, format!("scrittura di {size} byte: {motivo}"));
-            DC_STATUS_IO
+            annota(&s.guasto, format!("scrittura di {size} byte: {}", guasto.motivo()));
+            /*
+             * ► LA RIGA CHE DECIDE SE LO SCARICO MUORE O RIPARTE. ◄ Vedi
+             * `GuastoScrittura`: «tempo scaduto» è l'unica risposta che dà al
+             * backend il permesso di riprovare, e su una conferma che non
+             * arriva è anche l'unica vera.
+             */
+            match guasto {
+                GuastoScrittura::Scaduta(_) => DC_STATUS_TIMEOUT,
+                GuastoScrittura::Rifiutata(_) => DC_STATUS_IO,
+            }
         }
     }
 }
@@ -1979,7 +2056,7 @@ mod prove {
     }
 
     impl FlussoByte for Eco {
-        fn scrivi(&mut self, dati: &[u8]) -> Result<(), String> {
+        fn scrivi(&mut self, dati: &[u8]) -> Result<(), GuastoScrittura> {
             self.scritti.lock().unwrap().extend_from_slice(dati);
             self.coda.lock().unwrap().extend(dati);
             Ok(())
@@ -2170,7 +2247,7 @@ mod prove {
     }
 
     impl FlussoByte for FintoAladin {
-        fn scrivi(&mut self, dati: &[u8]) -> Result<(), String> {
+        fn scrivi(&mut self, dati: &[u8]) -> Result<(), GuastoScrittura> {
             self.ricevuto.extend_from_slice(dati);
             // `[lunghezza+1, comando, ...]`: il primo byte dice quanto manca.
             while self.ricevuto.len() >= 2 {
@@ -2435,7 +2512,7 @@ mod prove {
     }
 
     impl FlussoByte for FintoQuadCi {
-        fn scrivi(&mut self, dati: &[u8]) -> Result<(), String> {
+        fn scrivi(&mut self, dati: &[u8]) -> Result<(), GuastoScrittura> {
             self.ricevuto.extend_from_slice(dati);
             while self.ricevuto.len() >= 2 {
                 let comando = self.ricevuto[0];
@@ -2489,6 +2566,113 @@ mod prove {
         (esito, n)
     }
 
+    /// Un Quad Ci che, alla scrittura numero `inciampa`, lascia scadere la
+    /// conferma invece di rispondere. È il guasto vero del 9 settembre 2026.
+    struct QuadCiCheInciampa {
+        dentro: FintoQuadCi,
+        scritture: usize,
+        inciampa: usize,
+        /// Se il guasto è una conferma scaduta o un rifiuto: è l'unica
+        /// differenza sotto esame.
+        scaduta: bool,
+    }
+
+    impl FlussoByte for QuadCiCheInciampa {
+        fn scrivi(&mut self, dati: &[u8]) -> Result<(), GuastoScrittura> {
+            self.scritture += 1;
+            if self.scritture == self.inciampa {
+                let motivo = "la scrittura sul Bluetooth non è stata confermata entro dieci secondi";
+                return Err(if self.scaduta {
+                    GuastoScrittura::Scaduta(motivo.into())
+                } else {
+                    GuastoScrittura::Rifiutata("il Bluetooth ha rifiutato la scrittura".into())
+                });
+            }
+            self.dentro.scrivi(dati)
+        }
+        fn leggi(&mut self, quanti: usize, attesa: Duration) -> Result<Vec<u8>, String> {
+            self.dentro.leggi(quanti, attesa)
+        }
+        fn disponibili(&mut self) -> usize {
+            self.dentro.disponibili()
+        }
+    }
+
+    #[test]
+    fn una_conferma_scaduta_lascia_ritentare_e_lo_scarico_va_avanti() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► IL GUASTO VERO, RIPRODOTTO. ◄
+         *
+         * 9 settembre 2026, Mares Quad Ci di un amico del proprietario: **276
+         * KB scaricati**, 1224 scambi perfetti, e poi la scrittura n. 1226 —
+         * due byte — non viene confermata dal Bluetooth entro dieci secondi.
+         * Lo scarico muore lì, e non salva niente.
+         *
+         * Il difetto non era la scrittura mancata: era la RISPOSTA che il
+         * trasporto dava a libdivecomputer. «Errore di trasmissione» è un
+         * verdetto definitivo, e `mares_iconhd_transfer` ritenta solo su
+         * `PROTOCOL` e `TIMEOUT`: su tutto il resto si arrende subito. Una
+         * conferma che non arriva però **non dice che la scrittura sia
+         * fallita**: dice che non si sa. E «non si sa» è esattamente il caso
+         * in cui il backend sa cosa fare — dormire un secondo, svuotare,
+         * rimandare il comando — se solo glielo si lascia fare.
+         *
+         * Qui la stessa identica situazione, con l'unica differenza che
+         * conta: come viene chiamato il guasto.
+         */
+        let descrittore = trova_descrittore("Mares", "Quad Ci").unwrap();
+
+        // Scaduta: il primo comando inciampa, `mares_iconhd_transfer` ritenta,
+        // e la versione passa lo stesso. Lo scarico prosegue e si ferma più in
+        // là — per «tempo scaduto», perché questo finto dopo la versione non
+        // risponde ad altro.
+        let chieste = Arc::new(Mutex::new(0usize));
+        let inciampa = QuadCiCheInciampa {
+            dentro: FintoQuadCi::nuovo(244, chieste.clone()),
+            scritture: 0,
+            inciampa: 1,
+            scaduta: true,
+        };
+        let collegamento = CollegamentoLdc::apri(Box::new(inciampa)).unwrap();
+        let esito = match collegamento.scarica(&descrittore) {
+            Ok(_) => panic!("questo finto non arriva mai a consegnare immersioni"),
+            Err(e) => e,
+        };
+        assert!(
+            esito.contains("stato -7"),
+            "dopo il ritentativo la versione passa, e ci si ferma dove si fermerebbe comunque: {esito}"
+        );
+        assert!(
+            *chieste.lock().unwrap() >= 1,
+            "la versione è stata chiesta davvero, dopo l'inciampo"
+        );
+
+        /*
+         * ► E IL GEMELLO, CHE È QUELLO CHE DÀ SENSO AL PRIMO. ◄ Un RIFIUTO —
+         * il plugin che dice di no subito — resta definitivo: ritentare la
+         * stessa identica scrittura darebbe lo stesso identico esito, e un
+         * giro di ritentativi su un collegamento che non c'è più è solo tempo
+         * tolto a chi aspetta. Se anche questo caso diventasse «tempo
+         * scaduto», la correzione qui sopra non sarebbe una distinzione:
+         * sarebbe una resa.
+         */
+        let chieste = Arc::new(Mutex::new(0usize));
+        let rifiutato = QuadCiCheInciampa {
+            dentro: FintoQuadCi::nuovo(244, chieste.clone()),
+            scritture: 0,
+            inciampa: 1,
+            scaduta: false,
+        };
+        let collegamento = CollegamentoLdc::apri(Box::new(rifiutato)).unwrap();
+        let esito = match collegamento.scarica(&descrittore) {
+            Ok(_) => panic!("una scrittura rifiutata non può portare a uno scarico riuscito"),
+            Err(e) => e,
+        };
+        assert!(esito.contains("stato -6"), "un rifiuto resta un errore di trasmissione: {esito}");
+        assert_eq!(*chieste.lock().unwrap(), 0, "e non si ritenta niente");
+    }
+
     #[test]
     fn il_pacchetto_del_mares_deve_stare_in_una_notifica_sola() {
         /*
@@ -2534,7 +2718,7 @@ mod prove {
         let (manda, ricevi) = channel();
         let per_chiusura = chieste.clone();
         let mut ricevuto: Vec<u8> = Vec::new();
-        let scrittura = move |dati: &[u8]| -> Result<(), String> {
+        let scrittura = move |dati: &[u8]| -> Result<(), GuastoScrittura> {
             ricevuto.extend_from_slice(dati);
             while ricevuto.len() >= 2 {
                 let comando = ricevuto[0];
@@ -2781,7 +2965,7 @@ mod prove {
     }
 
     impl FlussoByte for ConAccessori {
-        fn scrivi(&mut self, _dati: &[u8]) -> Result<(), String> {
+        fn scrivi(&mut self, _dati: &[u8]) -> Result<(), GuastoScrittura> {
             Err("questo flusso non scrive: è qui per le ioctl".into())
         }
         fn leggi(&mut self, _quanti: usize, _attesa: Duration) -> Result<Vec<u8>, String> {
@@ -2909,7 +3093,7 @@ mod prove {
     }
 
     impl FlussoByte for ConSegreti {
-        fn scrivi(&mut self, _dati: &[u8]) -> Result<(), String> {
+        fn scrivi(&mut self, _dati: &[u8]) -> Result<(), GuastoScrittura> {
             Err("questo flusso non scrive: è qui per le ioctl".into())
         }
         fn leggi(&mut self, _quanti: usize, _attesa: Duration) -> Result<Vec<u8>, String> {
