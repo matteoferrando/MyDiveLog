@@ -1,9 +1,13 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **9 settembre 2026, notte fonda** — **2017 prove in 113 file** più
-**99 prove Rust** del ponte, lint e formato a **0 errori**. **La versione
-pubblica è la `1.8.3`**; in preparazione la **1.8.4**, che porta il giro dei
-modi di collegamento. **La versione pubblica è la `1.8.3`**: release `v1.8.3` con nove
+Aggiornato: **9 settembre 2026, notte fonda** — commit `8e5ed0a` su `main`,
+**2017 prove in 113 file** più **99 prove Rust** del ponte, lint e formato a **0
+errori**. **La versione pubblica è la `1.8.4`**: release `v1.8.4` con nove
+allegati, i quattro pulsanti del sito rispondono `200`, `latest.json` serve
+`1.8.4` **per Mac e per Windows**, e l'impronta del `.dmg` **riscaricato
+dall'indirizzo pubblico** — `c5bd68ab…` — coincide con quella costruita sul Mac
+e con quella che la cask di Homebrew si è scritta da sola. **Sito ripubblicato e
+verificato** con la guardia nuova, che adesso guarda anche le intestazioni. **La versione pubblica è la `1.8.3`**: release `v1.8.3` con nove
 allegati, i quattro pulsanti del sito rispondono `200`, `latest.json` serve
 `1.8.3` **per Mac e per Windows**, e l'impronta del `.dmg` **riscaricato
 dall'indirizzo pubblico** — `5c4067bc…` — coincide con quella costruita sul Mac
@@ -2929,25 +2933,31 @@ non il momento — e quel che non è stato misurato qui non si scrive.
    telefono. *Il comando che ha detto quando era il momento, e che serve identico
    alla prossima versione:*
    `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
-1. **► CARICARE LA 1.8.3 SUI DUE NEGOZI APPLE. ◄** I pacchetti sono costruiti
-   e verificati in `da-caricare-su-app-store/` — `MyDiveLog-1.8.3-app-store.ipa`
-   e `MyDiveLog-1.8.3-mac-app-store.pkg`, tutti e due con `1.8.3` nei due campi
-   del plist, con dentro `rispondi_codice_pin`, `pinRequired`, `accessCode` e
-   `codiceAccesso`, e **zero** occorrenze di `api.anthropic.com`. Transporter
-   per tutti e due, **due schede separate**, novità da
-   `consegna-1.8.3/novita-negozi-1.8.3.md` (italiano e inglese, già entro i
+1. **► CARICARE LA 1.8.4 SUI DUE NEGOZI APPLE. ◄** I pacchetti sono costruiti
+   e verificati in `da-caricare-su-app-store/` — `MyDiveLog-1.8.4-app-store.ipa`
+   e `MyDiveLog-1.8.4-mac-app-store.pkg`, tutti e due con `1.8.4` nei due campi
+   del plist, con dentro le stringhe del giro dei modi (`IPOTESI: servizio n.`,
+   `stesso profilo, altra combinazione`) e del PIN (`rispondi_codice_pin`,
+   `pinRequired`), e **zero** occorrenze di `api.anthropic.com`. Transporter per
+   tutti e due, **due schede separate**, novità da
+   `consegna-1.8.4/novita-negozi-1.8.4.md` (italiano e inglese, già entro i
    limiti), e **inviare in revisione** — il passo che si dà per fatto perché il
    caricamento è la parte lunga. *La coda è libera: la 1.8.1 è uscita da tutte e
    due le parti.*
 
-   > **I pacchetti 1.8.2 non si caricano più**, e sono stati spostati in
-   > `superate/`. Non erano difettosi: sono stati superati prima di partire, e
-   > lasciarli accanto a quelli buoni è il modo in cui una notte di lavoro
-   > finisce caricata due volte. *Un file che non va più usato e resta dov'era
-   > non è archiviato: è una trappola con la data sbagliata.*
+   > **I pacchetti 1.8.2 e 1.8.3 non si caricano più**, e sono in `superate/`.
+   > Non erano difettosi: sono stati superati prima di partire — la 1.8.3 di
+   > sei ore — e lasciarli accanto a quelli buoni è il modo in cui una notte di
+   > lavoro finisce caricata due volte. *Un file che non va più usato e resta
+   > dov'era non è archiviato: è una trappola con la data sbagliata.*
+   >
+   > **E la 1.8.3 resta pubblica su GitHub e sul sito**, con il suo tag e i suoi
+   > allegati: una versione consegnata a chi scarica non si ritira perché ne è
+   > uscita un'altra sei ore dopo. Il sito serve la 1.8.4 perché
+   > `releases/latest` punta lì da sé.
 
    **Google Play** aspetta la fine del test chiuso, attorno al 12 settembre:
-   l'`.aab` firmato è in `da-caricare-su-play/MyDiveLog-1.8.3-play.aab`.
+   l'`.aab` firmato è in `da-caricare-su-play/MyDiveLog-1.8.4-play.aab`.
 
 2. **~~Ripubblicare il sito.~~ Fatto la notte del 9 settembre**, con la voce
    nuova sul codice di sei cifre dell'i330R in italiano e in inglese. *Stava per
