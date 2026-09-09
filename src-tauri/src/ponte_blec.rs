@@ -1997,11 +1997,22 @@ il computer resta senza crediti e smetterà di mandare dati"
                     };
                     let motivo = guasto.in_stringa();
                     let Some(altro) = altro else {
+                        // ► LA CODA DELLA RIGA È PER IL DIARIO DELLA PROSSIMA
+                        // VOLTA. ◄ Da qui in avanti una conferma scaduta lascia
+                        // ritentare, e chi legge il diario deve poter vedere la
+                        // differenza fra «si è fermato qui» e «qui ha inciampato
+                        // e ha ripreso»: se dopo questa riga lo scarico prosegue,
+                        // il ritentativo ha funzionato; se il diario finisce
+                        // qui, il computer non c'era più davvero. Senza questa
+                        // coda le due cose sarebbero indistinguibili, ed è
+                        // esattamente la domanda che il diario del 9 settembre
+                        // 2026 ci ha lasciato senza risposta.
                         cronista_scrittura(format!(
-                            "scrittura n. {numero} ({} byte [{}], {}) fallita: {motivo}",
+                            "scrittura n. {numero} ({} byte [{}], {}) fallita: {motivo}{}",
                             dati.len(),
                             anteprima(dati),
-                            nome_modo(modo)
+                            nome_modo(modo),
+                            if scaduta { "; si può ritentare" } else { "" }
                         ));
                         return Err(qualifica(format!(
                             "scrittura n. {numero} ({}): {motivo}",
@@ -4380,6 +4391,9 @@ mod prove {
             "una conferma non arrivata non è un rifiuto: {errore:?}"
         );
         assert!(!diario.contiene("riprovo"), "{}", diario.testo());
+        // E il diario lo dice a chi lo leggerà: se le righe continuano dopo
+        // questa, il ritentativo di libdivecomputer ha funzionato.
+        assert!(diario.contiene("si può ritentare"), "{}", diario.testo());
         // La scrittura in ritardo arriva, una sola, nella modalità di partenza.
         std::thread::sleep(Duration::from_millis(500));
         let scritte = antenna.scritte();
@@ -4444,6 +4458,10 @@ mod prove {
         assert!(antenna.scritte().is_empty());
         assert!(diario.contiene("fallita"), "{}", diario.testo());
         assert!(!diario.contiene("riprovo"), "{}", diario.testo());
+        // Un RIFIUTO non si ritenta, e il diario non deve dire il contrario:
+        // una riga che promette un ritentativo che non ci sarà manda chi
+        // ripara a cercare nel posto sbagliato.
+        assert!(!diario.contiene("si può ritentare"), "{}", diario.testo());
     }
 
     #[test]

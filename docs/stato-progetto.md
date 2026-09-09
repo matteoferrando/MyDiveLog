@@ -3007,12 +3007,20 @@ Tre scelte dentro questo, che sono la parte che conta:
    rifatto lo stesso identico guasto su un ramo più stretto, dove nessuno lo
    sarebbe andato a cercare.
 3. **Il diario resta leggibile**: `GuastoScrittura` si stampa come il suo motivo
-   e basta. La qualifica serve a decidere, non a essere letta.
+   e basta. La qualifica serve a decidere, non a essere letta. **In coda alla
+   riga di guasto, però, quando la conferma è scaduta compare `; si può
+   ritentare`** — ed è per il diario della prossima volta: se dopo quella riga
+   lo scarico prosegue, il ritentativo ha funzionato; se il diario finisce lì,
+   il computer non c'era più davvero. *Senza quella coda le due cose sarebbero
+   indistinguibili — che è esattamente il buco lasciato dal diario del 9
+   settembre.*
 
-**Quattro mutazioni verificate rosse** (una guardia mai vista rossa non è una
+**Sei mutazioni verificate rosse** (una guardia mai vista rossa non è una
 guardia): la conferma scaduta che torna «errore di trasmissione»; il rifiuto che
 diventa «tempo scaduto»; il guasto senza qualifica che diventa «scaduto» per
-difetto; il rinvio scaduto che esce «rifiutato». La prova nuova è un **Quad Ci
+difetto; il rinvio scaduto che esce «rifiutato»; la coda «si può ritentare» che
+sparisce dal diario; e la stessa coda messa **anche** su un rifiuto, che manderebbe
+chi ripara a cercare un ritentativo che non c'è stato. La prova nuova è un **Quad Ci
 finto che inciampa alla scrittura n. N** contro la vera `libdivecomputer`, e
 misura che **dopo il ritentativo lo scarico va avanti** — non che i dati siano
 raccolti, che vada avanti.
