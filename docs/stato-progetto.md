@@ -1,19 +1,19 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **9 settembre 2026, notte fonda** — commit `8e5ed0a` su `main`,
-**2017 prove in 113 file** più **99 prove Rust** del ponte, lint e formato a **0
-errori**. **La versione pubblica è la `1.8.4` ovunque, negozio iPhone
-compreso** — pubblicata il `2026-09-09T16:53:17Z`, misurata col `lookup` e
-l'anti-cache: release `v1.8.4` con nove
-allegati, i quattro pulsanti del sito rispondono `200`, `latest.json` serve
-`1.8.4` **per Mac e per Windows**, e l'impronta del `.dmg` **riscaricato
-dall'indirizzo pubblico** — `c5bd68ab…` — coincide con quella costruita sul Mac
-e con quella che la cask di Homebrew si è scritta da sola. **Sito ripubblicato e
-verificato** con la guardia nuova, che adesso guarda anche le intestazioni. **La versione pubblica è la `1.8.3`**: release `v1.8.3` con nove
-allegati, i quattro pulsanti del sito rispondono `200`, `latest.json` serve
-`1.8.3` **per Mac e per Windows**, e l'impronta del `.dmg` **riscaricato
-dall'indirizzo pubblico** — `5c4067bc…` — coincide con quella costruita sul Mac
-e con quella che la cask di Homebrew si è scritta da sola.
+Aggiornato: **9 settembre 2026, sera** — **2018 prove in 113 file** più **101
+prove Rust** del ponte, lint e formato a **0 errori**. **In lavorazione la
+`1.8.5`**, che nasce da un diario di guasto vero della 1.8.4 (vedi «Il diario
+del Quad Ci», più sotto): è la versione che rimette in piedi uno scarico Mares
+fermato a 276 KB da una conferma di scrittura in ritardo.
+
+**La versione pubblica è la `1.8.4` ovunque, negozio iPhone compreso** —
+pubblicata il `2026-09-09T16:53:17Z`, misurata col `lookup` e l'anti-cache:
+release `v1.8.4` con nove allegati, i quattro pulsanti del sito rispondono
+`200`, `latest.json` serve `1.8.4` **per Mac e per Windows**, e l'impronta del
+`.dmg` **riscaricato dall'indirizzo pubblico** — `c5bd68ab…` — coincide con
+quella costruita sul Mac e con quella che la cask di Homebrew si è scritta da
+sola. **Sito ripubblicato e verificato** con la guardia nuova, che adesso
+guarda anche le intestazioni.
 
 > **► LA RIGA DI WINDOWS IN `latest.json` NON LA SCRIVE LA BUILD DEL MAC. ◄** Il
 > file che esce da `mac:pubblica` contiene **solo** `darwin-aarch64`: la voce di
@@ -2919,6 +2919,114 @@ non il momento — e quel che non è stato misurato qui non si scrive.
 
 ---
 
+## Il diario del Quad Ci, o: la riga che ha smentito chi l'ha scritta
+
+*9 settembre 2026, sera.* Un amico ha installato la 1.8.4 dall'App Store, ha
+provato con il suo **Mares Quad Ci**, e ha mandato lo schermo del diario. È il
+primo guasto vero misurato invece che immaginato, e vale più di tutta la notte
+prima, perché dice **due cose: una che smentisce l'ipotesi, e una nuova**.
+
+### Quella che smentisce
+
+Il diario dice, testuale, **«notifiche da 1 a 244 byte»**.
+
+La notte prima avevo passato ore su un'ipotesi: che il pacchetto di versione da
+**142 byte** del ramo VARIABILE dei Mares arrivasse **spezzato** in due
+notifiche, e che libdivecomputer — che legge una notifica alla volta — lo
+buttasse come malformato. L'ipotesi era misurata bene (un Quad Ci finto contro
+la vera `mares_iconhd.c`: a 142 byte passa, a 141 fallisce con `PROTOCOL`
+ritentato quattro volte), e il riassemblaggio che ne è uscito resta giusto e
+resta dentro.
+
+**Ma su quel telefono i pacchetti non erano spezzati affatto.** 244 byte è la
+notifica intera. Quindi lì la causa era un'altra, e l'ipotesi — per quel caso —
+è **smentita**.
+
+> **► CHI L'HA SMENTITA È LA DIAGNOSTICA CHE AVEVO AGGIUNTO PER CONFERMARLA. ◄**
+> La riga «notifiche da X a Y byte» l'ho messa nel diario della 1.8.4 aspettandomi
+> che dicesse «da 1 a 20». Ha detto 244, e ha demolito la mia spiegazione in
+> mezza riga. *È l'unico motivo per cui misurare qualcosa che credi già di sapere
+> ha senso: una misura che può solo confermarti non è una misura, è una
+> cerimonia.*
+
+### Quella nuova, e vera
+
+Il resto del diario, letto per intero, non descrive affatto un computer che non
+parla. Descrive **uno scarico riuscito quasi fino in fondo**:
+
+- **1226 scritture**, **1224 notifiche**, **282 312 byte** — cioè **276 KB** di
+  memoria del computer già portati a casa;
+- prima notifica dopo **60 ms**: il collegamento era immediato;
+- le scritture di coda che si alternano `[ac 09]` e `[fe 5b]` — `CMD_OBJ_EVEN` e
+  `CMD_OBJ_ODD`, cioè **il protocollo Mares che funziona esattamente come deve**,
+  pagina pari, pagina dispari, avanti così per più di mille giri;
+- e poi: **la scrittura n. 1226, due byte, non confermata dal Bluetooth entro
+  dieci secondi.** Fine. `stato -6`.
+
+**`-6` è `DC_STATUS_IO`.** E per `mares_iconhd_transfer` `IO` è **definitivo**:
+quella funzione ritenta `MAXRETRIES` volte, ma **solo** su `PROTOCOL` e su
+`TIMEOUT`; su qualsiasi altro stato si arrende alla prima. Quindi 276 KB e
+millecentro scambi perfetti buttati via **per una conferma arrivata in ritardo**.
+
+### Perché era sbagliato chiamarlo «errore»
+
+Il trasporto rispondeva `DC_STATUS_IO` a *qualunque* scrittura non andata a buon
+fine, senza distinguere due situazioni che non si somigliano per niente:
+
+- **il plugin Bluetooth ha detto di no** — modalità sbagliata, caratteristica che
+  non accetta scritture: ritentare la stessa identica cosa darebbe lo stesso
+  identico esito;
+- **la conferma non è arrivata in tempo** — e qui non sappiamo niente. Il
+  pacchetto può essere partito, può essere in coda, il collegamento può essere
+  solo lento.
+
+**«Scaduto» non è «fallito».** Chiamare `IO` una conferma in ritardo significa
+affermare una cosa che non abbiamo misurato, e affermarla nel punto esatto in cui
+costa di più: toglie al backend l'unica cosa che in questi casi sa fare da solo,
+cioè **dormire un secondo, svuotare l'ingresso e rimandare il comando**.
+
+### Il rimedio, nella 1.8.5
+
+`GuastoScrittura`, con due casi e non uno:
+
+| caso | quando | cosa arriva a libdivecomputer | cosa succede |
+|---|---|---|---|
+| `Rifiutata` | il plugin ha detto di no | `DC_STATUS_IO` | si smette, e va bene così |
+| `Scaduta` | la conferma non è arrivata | `DC_STATUS_TIMEOUT` | **si ritenta**, fino a quattro volte |
+
+Tre scelte dentro questo, che sono la parte che conta:
+
+1. **Un guasto senza qualifica è un rifiuto**, non uno scaduto. «Scaduta» è
+   un'affermazione precisa — *ho aspettato, e non è arrivato niente* — e la deve
+   poter fare solo chi quel tempo l'ha misurato davvero. Il valore per difetto
+   non deve poterla fare per distrazione.
+2. **La qualifica si porta fino in fondo**, anche nel rinvio nell'altra modalità
+   di scrittura. Quel rinvio parte solo dopo un rifiuto, ed era comodissimo
+   dedurne che il guasto finale è un rifiuto — ma il rinvio è una scrittura come
+   tutte le altre e **può scadere a sua volta**. Chiamarlo «rifiuto» avrebbe
+   rifatto lo stesso identico guasto su un ramo più stretto, dove nessuno lo
+   sarebbe andato a cercare.
+3. **Il diario resta leggibile**: `GuastoScrittura` si stampa come il suo motivo
+   e basta. La qualifica serve a decidere, non a essere letta.
+
+**Quattro mutazioni verificate rosse** (una guardia mai vista rossa non è una
+guardia): la conferma scaduta che torna «errore di trasmissione»; il rifiuto che
+diventa «tempo scaduto»; il guasto senza qualifica che diventa «scaduto» per
+difetto; il rinvio scaduto che esce «rifiutato». La prova nuova è un **Quad Ci
+finto che inciampa alla scrittura n. N** contro la vera `libdivecomputer`, e
+misura che **dopo il ritentativo lo scarico va avanti** — non che i dati siano
+raccolti, che vada avanti.
+
+### Quel che resta da chiedergli
+
+Sopra il diario, nello schermo mandato, c'è una frase che non è spiegata da
+niente di tutto questo: **«Sì ma non mi chiede nessuna conferma nessun codice»**.
+Non si sa a quale computer si riferisca né a che punto. *Se fosse l'i330R,
+vorrebbe dire che la richiesta del PIN non arriva mai — che è un guasto diverso e
+tutto suo.* Va chiesto, non indovinato.
+
+---
+
 ## Prossimi passi
 
 ### Tocca a chi pubblica
@@ -2935,6 +3043,14 @@ non il momento — e quel che non è stato misurato qui non si scrive.
    telefono. *Il comando che ha detto quando era il momento, e che serve identico
    alla prossima versione:*
    `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
+1. **► LA 1.8.5 VA CARICATA SUI DUE NEGOZI APPLE. ◄** È la versione che rimette
+   in piedi lo scarico Mares fermato dalla conferma di scrittura in ritardo
+   (vedi «Il diario del Quad Ci»). *Vale la pena caricarla anche se la 1.8.4 è
+   appena uscita: sul telefono dove il guasto è stato misurato, la 1.8.4 non
+   scarica — e l'amico che ha mandato il diario aspetta proprio quello.* Il
+   pacchetto `.aab` per Google Play va rifatto sulla 1.8.5 e sostituisce
+   `da-caricare-su-play/MyDiveLog-1.8.4-play.aab`.
+
 1. **► LA 1.8.4 È PUBBLICATA SU APP STORE PER IPHONE. ◄** *9 settembre 2026,
    `16:53:17Z`* — **misurata**, non dedotta dall'approvazione: il `lookup` con
    l'anti-cache in coda risponde `1.8.4`. Il proprietario aveva detto
