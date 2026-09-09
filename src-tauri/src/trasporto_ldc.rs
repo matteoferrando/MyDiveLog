@@ -1346,6 +1346,26 @@ impl Drop for Contesto {
     }
 }
 
+/// Quello che uno scarico ha portato a casa, e come è finito.
+///
+/// Le due cose non sono in alternativa: uno scarico può finire male **e** aver
+/// consegnato quaranta immersioni buone. Vedi `CollegamentoLdc::scarica_tutto`.
+pub struct EsitoScarico {
+    pub immersioni: Vec<ImmersioneGrezza>,
+    /// Il guasto, se c'è stato. Non toglie validità alle immersioni sopra.
+    pub guasto: Option<String>,
+}
+
+impl EsitoScarico {
+    /// Per chi non ha niente da salvare a metà: o tutto, o l'errore.
+    pub fn in_risultato(self) -> Result<Vec<ImmersioneGrezza>, String> {
+        match self.guasto {
+            Some(motivo) => Err(motivo),
+            None => Ok(self.immersioni),
+        }
+    }
+}
+
 impl CollegamentoLdc {
     /// Apre un flusso di libdivecomputer sopra il nostro trasporto.
     pub fn apri(trasporto: Box<dyn FlussoByte>) -> Result<Self, String> {
@@ -1585,13 +1605,41 @@ impl CollegamentoLdc {
         self.contesto.righe_della_libreria()
     }
 
+    /// Come `scarica_tutto`, ma butta via quello che è arrivato se poi si è
+    /// rotto qualcosa. La usano le prove, dove non c'è niente da salvare.
     pub fn scarica(&self, descrittore: &Descrittore) -> Result<Vec<ImmersioneGrezza>, String> {
+        self.scarica_tutto(descrittore).in_risultato()
+    }
+
+    /// Scarica, e restituisce **quello che è arrivato anche se poi si è rotto**.
+    ///
+    /// ════════════════════════════════════════════════════════════════════════
+    /// ► UN'IMMERSIONE ARRIVATA È ARRIVATA, ANCHE SE LA VENTUNESIMA NO. ◄
+    ///
+    /// Fino a stanotte questa funzione, davanti a un errore, restituiva
+    /// `Err(...)` e lasciava cadere le immersioni già decodificate. Su un
+    /// backend che le consegna una per volta — Shearwater, Suunto, Oceanic —
+    /// vuol dire che uno scarico rotto al novantesimo per cento **non portava a
+    /// casa niente**, e il tentativo dopo ricominciava da zero.
+    ///
+    /// È un difetto che si vede solo adesso, perché adesso l'applicazione
+    /// riprova da sola: prima ogni fallimento era definitivo e la differenza
+    /// fra «niente» e «quasi tutto» non aveva a chi importare. *Un pezzo di
+    /// codice diventa sbagliato anche quando cambia il codice che gli sta
+    /// intorno, senza che nessuno lo tocchi.*
+    ///
+    /// Chi legge deve fare due cose distinte: prendersi le immersioni **e**
+    /// raccontare il guasto. Non sono in alternativa, ed è tutto il punto.
+    pub fn scarica_tutto(&self, descrittore: &Descrittore) -> EsitoScarico {
         let mut dispositivo: *mut DcDevice = std::ptr::null_mut();
         let esito = unsafe {
             dc_device_open(&mut dispositivo, self.contesto.0, descrittore.0, self.flusso)
         };
         if esito != DC_STATUS_SUCCESS {
-            return Err(format!("il computer non si è aperto ({})", self.spiega(esito)));
+            return EsitoScarico {
+                immersioni: Vec::new(),
+                guasto: Some(format!("il computer non si è aperto ({})", self.spiega(esito))),
+            };
         }
 
         let mut raccolte: Vec<ImmersioneGrezza> = Vec::new();
@@ -1612,10 +1660,10 @@ impl CollegamentoLdc {
         // lasciarlo aperto significherebbe un computer che resta occupato.
         unsafe { dc_device_close(dispositivo) };
 
-        if let Some(spiegazione) = spiegazione {
-            return Err(format!("scarico non riuscito ({spiegazione})"));
+        EsitoScarico {
+            immersioni: raccolte,
+            guasto: spiegazione.map(|s| format!("scarico non riuscito ({s})")),
         }
-        Ok(raccolte)
     }
 }
 
@@ -2467,6 +2515,54 @@ mod prove {
             memoria.resize(memoria.len() + lunghezza as usize - 12, 0);
         }
         memoria
+    }
+
+    #[test]
+    fn un_esito_puo_portare_immersioni_e_un_guasto_insieme() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► LE DUE COSE NON SONO IN ALTERNATIVA, ED È TUTTO IL PUNTO. ◄
+         *
+         * `Result` costringe a scegliere: o le immersioni o l'errore. Per uno
+         * scarico via Bluetooth quella scelta è falsa — un backend che
+         * consegna le immersioni una per volta può averne date quaranta buone
+         * e poi perdere il collegamento — e finché è stata imposta dal tipo,
+         * quelle quaranta le buttavamo senza che nessuno lo notasse.
+         *
+         * Questa prova inchioda la forma, non un comportamento: che si possa
+         * dire «è andata male» e «ecco cosa è arrivato» nella stessa frase.
+         */
+        let esito = EsitoScarico {
+            immersioni: vec![ImmersioneGrezza { dati: vec![1, 2, 3], impronta: vec![9] }],
+            guasto: Some("il collegamento è caduto".into()),
+        };
+        assert_eq!(esito.immersioni.len(), 1);
+        assert!(esito.guasto.is_some());
+
+        // E `in_risultato` butta via il bottino di proposito: la usano le
+        // prove e chi non ha niente da salvare a metà. Se un giorno qualcuno
+        // la usasse nello scarico vero, questa riga dice cosa costa.
+        let perso = EsitoScarico {
+            immersioni: vec![ImmersioneGrezza { dati: vec![1], impronta: vec![] }],
+            guasto: Some("rotto".into()),
+        };
+        assert!(perso.in_risultato().is_err(), "in_risultato sceglie l'errore e perde le immersioni");
+    }
+
+    #[test]
+    fn un_computer_che_non_si_apre_non_inventa_immersioni() {
+        // L'altra metà della forma: quando non è arrivato niente, l'esito deve
+        // dirlo con una lista vuota e non con una lista finta.
+        let Some(descrittore) = trova_descrittore("Scubapro", "Aladin Sport Matrix") else {
+            panic!("il descrittore dell’Aladin Sport Matrix deve esistere");
+        };
+        let (mittente, ricevente) = std::sync::mpsc::channel::<Vec<u8>>();
+        drop(mittente);
+        let flusso = FlussoBle::nuovo(ricevente, Box::new(|_| Ok(())));
+        let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+        let esito = collegamento.scarica_tutto(&descrittore);
+        assert!(esito.guasto.is_some(), "un computer muto non è uno scarico riuscito");
+        assert!(esito.immersioni.is_empty(), "{} immersioni dal nulla", esito.immersioni.len());
     }
 
     #[test]

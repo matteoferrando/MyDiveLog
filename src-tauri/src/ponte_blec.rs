@@ -2846,14 +2846,25 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
                 bytes: m.byte_ricevuti,
             });
         };
-        let grezze = match collegamento.scarica(&descrittore) {
-            Ok(grezze) => {
+        /*
+         * ► SI PRENDE QUELLO CHE È ARRIVATO ANCHE QUANDO SI È ROTTO. ◄ Vedi
+         * `CollegamentoLdc::scarica_tutto`: un backend che consegna le
+         * immersioni una per volta può averne consegnate quaranta prima di
+         * inciampare, e fino a stanotte le buttavamo tutte. Adesso il guasto e
+         * il bottino viaggiano insieme, e il guasto si racconta **dopo** aver
+         * consegnato il bottino.
+         */
+        let esito_scarico = collegamento.scarica_tutto(&descrittore);
+        let guasto_dello_scarico = esito_scarico.guasto;
+        let grezze = esito_scarico.immersioni;
+        let coda_del_guasto = match &guasto_dello_scarico {
+            None => {
                 dire_le_misure();
                 voce_della_libreria();
                 emetti(EventoScarico::Trace { line: riassunto() });
-                grezze
+                None
             }
-            Err(motivo) => {
+            Some(motivo) => {
                 let m = misure();
                 dire_le_misure();
                 voce_della_libreria();
@@ -2874,9 +2885,20 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
                         "il computer non ha risposto: questo modo non ha dimostrato niente".to_string()
                     },
                 });
+                if !grezze.is_empty() {
+                    // Chi legge il diario deve sapere che non è finita a mani
+                    // vuote: «non riuscito» accanto a quaranta immersioni
+                    // entrate è una frase che si contraddice da sola.
+                    emetti(EventoScarico::Trace {
+                        line: format!(
+                            "lo scarico si è rotto, ma {} immersioni erano già arrivate e si tengono",
+                            grezze.len()
+                        ),
+                    });
+                }
                 let scambio = riassunto();
                 emetti(EventoScarico::Trace { line: scambio.clone() });
-                return Err(format!("{motivo} — {scambio}"));
+                Some(format!("{motivo} — {scambio}"))
             }
         };
         let quante = grezze.len();
@@ -2912,7 +2934,16 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
                 Err(motivo) => emetti(EventoScarico::Skipped { key: chiave, reason: motivo }),
             }
         }
-        Ok(immersioni)
+        /*
+         * Il guasto si racconta ALLA FINE, dopo che ogni immersione salvabile è
+         * stata consegnata a chi ascolta. Restituirlo prima — com'era — voleva
+         * dire che un errore all'ultimo record buttava via anche i
+         * precedenti.
+         */
+        match coda_del_guasto {
+            Some(motivo) => Err(motivo),
+            None => Ok(immersioni),
+        }
     }
 
     /// I Mares che leggono il pacchetto intero con una `dc_iostream_read` sola.
