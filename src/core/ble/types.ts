@@ -296,7 +296,29 @@ export type DownloadEvent =
    * Cambiano se i byte arrivano, non cosa significano. Il modello scelto
    * dall'elenco — quello sì che decide il parser — non entra nel giro.
    */
-  | { kind: 'method'; index: number; total: number; name: string; key: string };
+  | { kind: 'method'; index: number; total: number; name: string; key: string }
+  /**
+   * Quanto è successo davvero sul filo, in numeri.
+   *
+   * Arriva alla fine di ogni tentativo, riuscito o no. **Non è per essere
+   * mostrato**: è quello che permette di decidere come insistere dopo un
+   * fallimento, e la decisione ha due esiti opposti.
+   *
+   * ► `notifications > 0` VUOL DIRE CHE IL METODO FUNZIONA. ◄ Il computer ha
+   * risposto: la caratteristica su cui scriviamo è quella giusta, quella che
+   * ascoltiamo pure, la modalità di scrittura è gradita. Se poi lo scarico si
+   * rompe, si è rotto il **collegamento**, non la configurazione — e la cosa
+   * da fare è riprovare **allo stesso modo**. Cambiare metodo qui è il danno:
+   * si butta via l'unica combinazione che si sa funzionare.
+   *
+   * Con `notifications === 0` invece il metodo non ha dimostrato niente, e
+   * conviene passare al prossimo.
+   *
+   * *I due diari veri del 9 settembre 2026 sono tutti e due il primo caso —
+   * 25 775 byte ricevuti prima di un errore di protocollo, 276 KB prima di una
+   * conferma scaduta — dallo stesso telefono e dallo stesso Mares.*
+   */
+  | { kind: 'exchange'; writes: number; notifications: number; bytes: number };
 
 /**
  * Il protocollo di un computer.

@@ -2466,6 +2466,7 @@ export const INGLESE: Record<string, string> = {
 
   // --- lo scarico dal computer subacqueo ---
   'Collegamento in corso…': 'Connecting…',
+  'Nuovo tentativo ({0}º)…': 'Trying again ({0} attempt)…',
   'Il computer chiede un codice': 'The computer is asking for a code',
   'Sullo schermo del computer subacqueo è comparso un numero di sei cifre. Scrivilo qui sotto.':
     'A six-digit number has appeared on your dive computer’s screen. Type it below.',

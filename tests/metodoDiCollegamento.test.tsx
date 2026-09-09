@@ -100,6 +100,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 });
 
 const { BleDownload } = await import('../src/ui/components/BleDownload');
+const { TENTATIVI_AUTOMATICI } = await import('../src/core/insistenza');
 const { metodoConservato, salvaMetodo } = await import('../src/core/metodo');
 
 const CHIAVE = 'fe25c237|11111111|22222222|senza|unite';
@@ -152,6 +153,34 @@ async function metodo(index: number, total: number, chiave = CHIAVE) {
   );
 }
 
+/** Il guscio dice quanto è arrivato davvero sul filo. */
+async function scambio(notifiche: number, byte = notifiche * 100) {
+  await act(async () => finto.emit!({ kind: 'exchange', writes: 10, notifications: notifiche, bytes: byte }));
+}
+
+/**
+ * Lascia che l'applicazione provi da sola finché non smette.
+ *
+ * A ogni giro annuncia il metodo che `metodoDi` indica, dice quanto è
+ * arrivato, e fa fallire il tentativo. Si ferma quando l'app non ne apre un
+ * altro — e se non smette mai, fallisce dicendolo, perché un'insistenza senza
+ * fine è il difetto peggiore che questo codice possa avere.
+ */
+async function lasciaProvare(
+  metodoDi: (giro: number) => [number, number] | null,
+  notificheDi: (giro: number) => number = () => 0,
+) {
+  for (let giro = 0; giro < 12; giro += 1) {
+    const prima = finto.chiamate.length;
+    const m = metodoDi(giro);
+    if (m) await metodo(m[0], m[1]);
+    await scambio(notificheDi(giro));
+    await act(async () => finto.fallisci!(new Error('niente')));
+    if (finto.chiamate.length === prima) return giro + 1;
+  }
+  throw new Error('l’applicazione non ha mai smesso di riprovare');
+}
+
 beforeEach(() => {
   finto.chiamate = [];
   finto.emit = null;
@@ -166,48 +195,139 @@ afterEach(() => {
 });
 
 describe('il giro dei modi di collegarsi', () => {
-  it('quando fallisce e ce n’è un altro, lo offre dicendo quanti ne restano', async () => {
+  it('prova da sola, e solo quando ha finito la pazienza offre il pulsante', async () => {
+    /*
+     * ► IL PULSANTE NON È PIÙ LA PRIMA PROPOSTA: È L'ULTIMA. ◄ Prima bastava
+     * un fallimento perché l'applicazione si fermasse e chiedesse a chi ha il
+     * computer in mano di premere qualcosa. Adesso i modi li prova da sola, e
+     * il pulsante compare solo dopo che ha esaurito i tentativi automatici —
+     * con dentro scritto quale sarebbe il prossimo, così chi preme sa cosa sta
+     * chiedendo.
+     */
     const { host, smonta } = await apri();
     try {
       await avvia(host);
-      await metodo(1, 4);
-      await act(async () => finto.fallisci!(new Error('il computer non risponde')));
+      // Il primo giro lo chiede la persona; i `TENTATIVI_AUTOMATICI` dopo li
+      // fa l'applicazione da sola. Da lì in poi tocca di nuovo a chi guarda.
+      const giri = await lasciaProvare((g) => [g + 1, 8]);
+      expect(giri, 'i tentativi automatici hanno un tetto').toBe(TENTATIVI_AUTOMATICI + 1);
+      expect(finto.chiamate).toHaveLength(TENTATIVI_AUTOMATICI + 1);
 
       expect(host.textContent).toContain('C’è un altro modo da provare');
-      expect(host.textContent).toContain('Modo 2 di 4');
+      expect(host.textContent).toContain('Modo 7 di 8');
       expect(ce(host, 'Riprova con un altro modo')).toBe(true);
     } finally {
       smonta();
     }
   });
 
-  it('riprovando chiede quello DOPO, e non ripete lo stesso', async () => {
+  it('► se il computer HA RISPOSTO, riprova allo stesso modo invece di cambiarlo ◄', async () => {
     /*
-     * È tutta la differenza fra un giro di tentativi e un pulsante «riprova»:
-     * ripetere la stessa combinazione darebbe lo stesso esito, e insegnerebbe
-     * a non premere più.
+     * ════════════════════════════════════════════════════════════════════════
+     * È LA PROVA PIÙ IMPORTANTE DI QUESTO FILE, ED È NATA DA DUE DIARI VERI.
+     *
+     * Il 9 settembre 2026 lo stesso iPhone con lo stesso Mares ha mandato due
+     * scarichi falliti: uno dopo **276 KB**, l'altro dopo **25 775 byte**. In
+     * tutti e due i casi il metodo aveva funzionato — le notifiche erano
+     * arrivate — e a rompersi era stato il collegamento.
+     *
+     * L'applicazione, in tutti e due i casi, offriva «prova un altro modo»:
+     * cioè consigliava di buttare via l'unica combinazione che si sapeva buona
+     * per provarne una mai vista. E se quella, per caso, avesse portato a casa
+     * un'immersione sola, se la sarebbe pure conservata per le volte dopo.
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      // Il primo tentativo riceve roba vera e poi fallisce.
+      const giri = await lasciaProvare(
+        (g) => (g === 0 ? [1, 8] : null),
+        () => 120,
+      );
+      // Due riprove uguali, poi si cambia: al terzo giro il metodo non è più
+      // stato annunciato, quindi il giro finisce senza altri metodi da provare.
+      expect(finto.chiamate[1].tentativo, 'la prima riprova è sullo STESSO metodo').toBe(0);
+      expect(finto.chiamate[2].tentativo, 'la seconda pure').toBe(0);
+      expect(giri).toBeGreaterThan(2);
+    } finally {
+      smonta();
+    }
+  });
+
+  it('se non è arrivato niente, il metodo lo cambia da sola', async () => {
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await lasciaProvare((g) => [g + 1, 8]);
+      expect(finto.chiamate[1].tentativo).toBe(1);
+      expect(finto.chiamate[2].tentativo).toBe(2);
+      expect(finto.chiamate[3].tentativo).toBe(3);
+    } finally {
+      smonta();
+    }
+  });
+
+  it('il diario tiene TUTTI i tentativi, non solo l’ultimo', async () => {
+    /*
+     * Chi ci manda una segnalazione copia quello che vede. Se ogni tentativo
+     * cancellasse il diario del precedente, riceveremmo l'ultimo — cioè quello
+     * fatto nelle condizioni peggiori, dopo che il computer è stato scollegato
+     * e ricollegato più volte — e non il primo, che racconta come è cominciata.
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await lasciaProvare((g) => [g + 1, 8]);
+      const testo = host.textContent ?? '';
+      expect(testo).toContain('── tentativo n. 2 ──');
+      expect(testo).toContain('── tentativo n. 5 ──');
+      expect(testo).toContain('nessuna risposta con questo modo: provo il prossimo');
+    } finally {
+      smonta();
+    }
+  });
+
+  it('«Interrompi» ferma anche i tentativi automatici', async () => {
+    /*
+     * Il trasferimento in corso non si può fermare — il guscio Rust è dentro
+     * la libreria — ma il tentativo DOPO sì, e deve. Un pulsante che non ferma
+     * niente si legge come un'applicazione bloccata, e chi lo preme due volte
+     * a vuoto chiude l'app.
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await metodo(1, 8);
+      await scambio(0);
+      await act(async () => {
+        premi(host, 'Interrompi').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      await act(async () => finto.fallisci!(new Error('niente')));
+      expect(finto.chiamate, 'dopo «Interrompi» non parte nessun altro tentativo').toHaveLength(1);
+    } finally {
+      smonta();
+    }
+  });
+
+  it('il pulsante, quando resta, chiede quello DOPO e non ripete lo stesso', async () => {
+    /*
+     * La strada a mano esiste ancora, per dopo che l'applicazione ha finito la
+     * sua pazienza: chi ha il computer in mano sa cose che noi non sappiamo, e
+     * un'ultima spiaggia va lasciata. Ma deve chiedere il modo SUCCESSIVO —
+     * ripetere lo stesso insegnerebbe a non premere più.
      */
     const { host, smonta } = await apri();
     try {
       await avvia(host);
       expect(finto.chiamate[0].tentativo).toBeUndefined();
-      await metodo(1, 4);
-      await act(async () => finto.fallisci!(new Error('niente')));
+      await lasciaProvare((g) => [g + 1, 8]);
+      const quanti = finto.chiamate.length;
 
       await act(async () => {
         premi(host, 'Riprova con un altro modo').dispatchEvent(new MouseEvent('click', { bubbles: true }));
       });
-      expect(finto.chiamate).toHaveLength(2);
-      expect(finto.chiamate[1].tentativo).toBe(1);
-
-      // E ancora, dal secondo al terzo.
-      await metodo(2, 4);
-      await act(async () => finto.fallisci!(new Error('niente')));
-      expect(host.textContent).toContain('Modo 3 di 4');
-      await act(async () => {
-        premi(host, 'Riprova con un altro modo').dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      });
-      expect(finto.chiamate[2].tentativo).toBe(2);
+      expect(finto.chiamate).toHaveLength(quanti + 1);
+      expect(finto.chiamate[quanti].tentativo).toBe(TENTATIVI_AUTOMATICI + 1);
     } finally {
       smonta();
     }
@@ -220,8 +340,7 @@ describe('il giro dei modi di collegarsi', () => {
     const { host, smonta } = await apri();
     try {
       await avvia(host);
-      await metodo(4, 4);
-      await act(async () => finto.fallisci!(new Error('niente')));
+      await lasciaProvare(() => [4, 4]);
       expect(host.textContent).not.toContain('C’è un altro modo');
       expect(ce(host, 'Riprova con un altro modo')).toBe(false);
     } finally {
@@ -265,11 +384,13 @@ describe('il giro dei modi di collegarsi', () => {
     const { host, smonta } = await apri();
     try {
       await avvia(host);
-      await metodo(1, 4);
+      await metodo(1, 8);
+      await scambio(0);
       await act(async () => finto.finisci!([]));
       expect(metodoConservato('dev-mares')).toBeUndefined();
-      // E siccome non ha funzionato, l'altro modo va offerto.
-      expect(ce(host, 'Riprova con un altro modo')).toBe(true);
+      // E siccome non ha funzionato, l'applicazione passa da sola al modo dopo.
+      expect(finto.chiamate).toHaveLength(2);
+      expect(finto.chiamate[1].tentativo).toBe(1);
     } finally {
       smonta();
     }
@@ -284,6 +405,7 @@ describe('il giro dei modi di collegarsi', () => {
       await avvia(host);
       expect(finto.chiamate[0].metodo).toBe(CHIAVE);
       await metodo(2, 4);
+      await scambio(0);
       await act(async () => finto.fallisci!(new Error('niente')));
       expect(metodoConservato('dev-mares')).toBeUndefined();
     } finally {
@@ -308,13 +430,14 @@ describe('il giro dei modi di collegarsi', () => {
     const { host, smonta } = await apri();
     try {
       await avvia(host);
-      await metodo(1, 4);
+      await metodo(1, 8);
+      await scambio(0);
       await act(async () => finto.finisci!([]));
       expect(metodoConservato('dev-mares'), 'un collegamento muto non lo dimentica').toBe(CHIAVE);
 
-      await act(async () => {
-        premi(host, 'Riprova con un altro modo').dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      });
+      // Il tentativo che parte da solo è già «riprova»: non deve rimandare giù
+      // il modo conservato, o chiederebbe due cose opposte nella stessa
+      // chiamata.
       expect(finto.chiamate[1].tentativo).toBe(1);
       expect(finto.chiamate[1].metodo).toBeUndefined();
     } finally {
@@ -333,8 +456,10 @@ describe('il giro dei modi di collegarsi', () => {
       await avvia(host);
       await metodo(1, 1);
       expect(host.textContent).not.toContain('Metodo 1/1');
+      await scambio(0);
       await act(async () => finto.fallisci!(new Error('niente')));
       expect(ce(host, 'Riprova con un altro modo')).toBe(false);
+      expect(finto.chiamate, 'con un modo solo non c’è niente da ruotare').toHaveLength(1);
     } finally {
       smonta();
     }

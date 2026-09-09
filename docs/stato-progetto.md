@@ -1,8 +1,11 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **9 settembre 2026, sera** — commit `e92ef0d` su `main`, **2017
-prove in 113 file** più **101 prove Rust** del ponte, lint e formato a **0
-errori**.
+Aggiornato: **9 settembre 2026, notte** — **2030 prove in 114 file** più **107
+prove Rust** del ponte, lint e formato a **0 errori**. **In lavorazione la
+`1.8.6`**: l'applicazione adesso **insiste da sola** quando un computer non si
+collega o uno scarico si rompe — e insiste nel modo giusto, che non è quello che
+faceva prima (vedi «L'applicazione adesso insiste»). Con lei, la voce di
+libdivecomputer nel diario.
 
 **La `1.8.5` è pubblicata: release `v1.8.5` con nove allegati**, tag su
 `bb38924` — il commit da cui i pacchetti sono stati costruiti, non la punta di
@@ -3116,14 +3119,118 @@ Del percorso del file resta **solo il nome**: `/Users/…/out/libdivecomputer-0.
 **Quattro mutazioni verificate rosse**: la callback non registrata, il livello
 sceso a `NONE`, il file tolto dalla riga, e la coda tenuta al posto della testa.
 
+---
+
+## L'applicazione adesso insiste, e insiste nel modo giusto
+
+*9 settembre 2026, notte.* Nasce da una richiesta del proprietario dopo il
+secondo diario — *«fai che l'app faccia tentativi multipli di ogni genere quando
+prova a connettersi a un computer e non ci riesce… magari anche cambiando
+metodo… insomma proviamole tutte»* — e da una correzione sua che cambia la
+diagnosi: **i due diari sono la stessa persona, lo stesso iPhone e lo stesso
+Mares**. Non due difetti diversi: **un collegamento che perde colpi**, che
+inciampa in due controlli diversi.
+
+### ► «RIPROVA» NON È UNA COSA SOLA: SONO DUE, E SONO OPPOSTE ◄
+
+Fino a ieri, davanti a uno scarico fallito, l'applicazione offriva un pulsante —
+«Riprova con un altro modo» — e cambiava combinazione. Sembra la cosa generosa
+da fare, ed è **esattamente quella sbagliata in metà dei casi**.
+
+Perché uno scarico fallito vuol dire due cose che non si somigliano:
+
+| cosa è successo | che cosa vuol dire | cosa va fatto |
+|---|---|---|
+| **non è arrivato niente** | il metodo è sbagliato: scriviamo dove nessuno ascolta | **cambiare metodo** |
+| **è arrivato tanto, e poi si è rotto** | il metodo è *giusto*, l'ha appena dimostrato | **riprovare uguale** |
+
+**I due diari veri sono tutti e due il secondo caso**: 276 KB ricevuti prima che
+una conferma di scrittura scadesse, 25 775 byte prima di un errore di
+protocollo. In tutte e due le occasioni l'applicazione ha offerto «prova un
+altro modo» — cioè ha consigliato di **buttare via l'unica combinazione che si
+sapeva funzionare**. E se quella nuova avesse portato a casa un'immersione sola,
+se la sarebbe pure conservata per le volte dopo.
+
+La domanda che separa i due casi è una e si misura: **il computer ha risposto?**
+Da lì scende tutto. `EventoScarico::Exchange` porta all'interfaccia i tre numeri
+che servono a rispondere — scritture, notifiche, byte — e
+`src/core/insistenza.ts` è la funzione **pura** che decide. Pura apposta: la
+differenza fra «uguale» e «un altro» è la cosa più importante di questa
+schermata, e va potuta provare senza un Bluetooth davanti.
+
+### Che cosa fa adesso, in concreto
+
+**Sul collegamento** (il guscio Rust, `apri_ponte`):
+
+- il `connect` si prova **tre volte**, e fra un tentativo e l'altro **si
+  scollega davvero**. È quella riga a rendere il secondo tentativo diverso dal
+  primo: su BLE un `connect` scaduto lascia un collegamento a metà, e il
+  tentativo dopo trova la porta presa. *Senza lo scollegamento in mezzo,
+  insistere sarebbe soltanto sbagliare più volte — e il proprietario aveva
+  chiesto l'opposto: «al prossimo tentativo deve avere una probabilità maggiore
+  di funzionare, non solo raccogliere dati».*
+- anche **l'elenco dei servizi** si richiede fino a tre volte se torna vuoto: su
+  iOS la scoperta può non essere finita, e un elenco vuoto lì non vuol dire
+  «questo apparecchio non ha servizi», vuol dire «non li ho ancora».
+- le pause crescono (400 ms, 1200 ms), e l'attesa non blocca il runtime — o si
+  smetterebbe di ascoltare il computer proprio mentre lo si aspetta.
+
+**Sullo scarico** (l'interfaccia):
+
+- se il computer **ha risposto**, si riprova **con lo stesso metodo**, fino a
+  due volte di fila;
+- se **non è arrivato niente**, si passa al metodo successivo;
+- se il ponte non si è nemmeno aperto, si riparte da capo **una volta sola** —
+  il guscio ha già insistito tre volte sul solo `connect`;
+- tetto di **cinque** tentativi automatici in tutto, e **«Interrompi» li ferma**:
+  il trasferimento in corso non si può interrompere, ma quello dopo sì, e deve —
+  un pulsante che non ferma niente si legge come un'applicazione bloccata.
+
+Il pulsante «Riprova con un altro modo» **resta**, ma adesso è l'ultima spiaggia
+e non la prima proposta: ci si arriva solo dopo che l'applicazione ha provato da
+sola tutto quello che sapeva provare. *Toglierlo sarebbe stato più pulito e meno
+onesto: chi ha il computer in mano sa cose che noi non sappiamo.*
+
+### Il diario tiene tutti i tentativi, e non è un dettaglio
+
+Con l'applicazione che riprova da sola tre o quattro volte, un diario che
+conservasse solo l'ultimo giro ci farebbe arrivare, nelle segnalazioni, **il
+tentativo fatto nelle condizioni peggiori** — dopo che il computer è stato
+scollegato e ricollegato più volte — e non il primo, che racconta come è
+cominciata. Adesso i giri si accumulano, separati da `── tentativo n. N ──`, con
+in fondo la riga che dice perché si è riprovato così e non in un altro modo.
+
+E su ogni fallimento il diario scrive quale dei due guasti è stato: *«il computer
+aveva risposto: questo modo funziona, si è rotto il collegamento»* oppure *«il
+computer non ha risposto: questo modo non ha dimostrato niente»*. **È il conto
+che il 9 settembre ho sbagliato leggendo il secondo diario**, e non deve doverlo
+rifare nessuno.
+
+**Tredici mutazioni verificate rosse** fra la decisione pura (5), l'interfaccia
+(4) e il collegamento (4): le due regole invertite, il tetto tolto, «Interrompi»
+ignorato, il conto che non si azzera, l'insistenza infinita senza ponte, il
+ritentativo mai fatto, «ha risposto» sempre falso, il diario buttato, un
+tentativo di collegamento solo, il ritentativo senza scollegare, l'elenco vuoto
+accettato, e il caso normale che paga comunque un giro.
+
 ### Quello che questo NON è
 
-**Non è una correzione del Puck 4.** È lo strumento per sapere che cosa
-correggere. L'ipotesi del toggle è coerente con tutto quello che si vede e
-**non è misurata**; l'altra metà del diario — il primo tentativo caduto su
-«Timeout during execution of Connect» — non è nemmeno stata affrontata. *Il
-prossimo diario da quel Puck 4 conterrà la riga che dice quale dei sei controlli
-è fallito, e a quel punto la correzione è mirata invece che plausibile.*
+**Non è la correzione del difetto che fa cadere quel collegamento.** Nessuno sa
+ancora perché quell'iPhone e quel Mares si perdano per strada, e l'ipotesi del
+toggle resta coerente con tutto e **non misurata**. Quello che c'è è un'altra
+cosa, e vale la pena chiamarla col suo nome: **l'applicazione adesso sopravvive
+a un collegamento che perde colpi**, invece di arrendersi al primo. Se il guasto
+è passeggero — e due scarichi che muoiono in due punti diversi dopo aver portato
+a casa 276 KB e 25 KB dicono che lo è — questo basta a far entrare le immersioni.
+Se è stabile, non basterà, e allora il diario della 1.8.6 dirà **quale** dei sei
+controlli è fallito e **quante volte** ci si è provati: a quel punto la
+correzione è mirata invece che plausibile.
+
+*Vale la pena scrivere anche la parte scomoda: questo rimedio l'ho costruito
+senza sapere qual è la causa. È difendibile solo perché non è un rimedio per una
+causa — è una politica di insistenza la cui correttezza non dipende da quale dei
+tre guasti sia. Se dipendesse, sarebbe la stessa scommessa che ho già perso una
+volta questa settimana.*
 
 ---
 
@@ -3154,15 +3261,15 @@ diario per chiuderla.*
    telefono. *Il comando che ha detto quando era il momento, e che serve identico
    alla prossima versione:*
    `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
-1. **► LA 1.8.5 VA CARICATA SUI DUE NEGOZI APPLE. ◄** È la versione che rimette
-   in piedi lo scarico Mares fermato dalla conferma di scrittura in ritardo
-   (vedi «Il diario del Quad Ci»). *Vale la pena caricarla anche se la 1.8.4 è
-   appena uscita: sul telefono dove il guasto è stato misurato, la 1.8.4 non
-   scarica — e l'amico che ha mandato il diario aspetta proprio quello.* Il
-   pacchetto per iPhone e quello per il Mac App Store sono in
-   `da-caricare-su-app-store/`, con il `LEGGIMI.md` rifatto: impronte, misure e
-   che cosa è stato guardato dentro. Per Google Play c'è
-   `da-caricare-su-play/MyDiveLog-1.8.5-play.aab`.
+1. **► LA 1.8.6 VA CARICATA SUI DUE NEGOZI APPLE, E SALTA LA 1.8.5. ◄** La
+   1.8.5 è pubblica su GitHub e sul sito ma **non è mai stata consegnata ai
+   negozi**: nelle ore dopo è arrivato un secondo diario vero, e da lì sono
+   nate due cose che valgono più di quella — l'insistenza automatica e la voce
+   di libdivecomputer nel diario. *Caricare la 1.8.5 adesso vorrebbe dire
+   spendere un giro di revisione per una versione che sappiamo già superata.*
+   I pacchetti sono in `da-caricare-su-app-store/`, con il `LEGGIMI.md` che dice
+   impronte, misure e che cosa è stato guardato dentro; per Google Play c'è
+   l'`.aab` in `da-caricare-su-play/`.
 
 1. **► LA 1.8.4 È PUBBLICATA SU APP STORE PER IPHONE. ◄** *9 settembre 2026,
    `16:53:17Z`* — **misurata**, non dedotta dall'approvazione: il `lookup` con

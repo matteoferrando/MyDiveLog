@@ -44,6 +44,7 @@ import {
   dimenticaAccoppiamento,
   salvaCodiceAccoppiamento,
 } from '../../core/accoppiamento';
+import { decidiComeInsistere } from '../../core/insistenza';
 import { dimenticaMetodo, metodoConservato, salvaMetodo } from '../../core/metodo';
 import type { Dive } from '../../core/model';
 import {
@@ -348,6 +349,31 @@ export function BleDownload() {
   const segnalibri = Object.entries(bleMarkers).filter(([, m]) => m.fingerprint);
   const ricerca = useRef<AbortController | null>(null);
   const scarico = useRef<AbortController | null>(null);
+  /*
+   * ► IL «BASTA» DELLA PERSONA, CHE NESSUNA REGOLA PUÒ SCAVALCARE. ◄ Lo
+   * scarico che passa da libdivecomputer non ha un controllore da abortire —
+   * il guscio Rust è dentro la libreria e non si può interrompere a metà — ma
+   * i tentativi automatici sì: quelli li decide questa schermata, e devono
+   * smettere appena qualcuno lo chiede. È un `ref` e non uno stato perché lo
+   * legge una funzione che sta già girando, e uno stato le arriverebbe vecchio.
+   */
+  const smettiDiInsistere = useRef(false);
+  /*
+   * Lo scarico esterno chiama sé stesso per riprovare. Passare dal `ref`
+   * invece che dal nome evita di doverlo mettere fra le proprie dipendenze —
+   * che è un ciclo — e garantisce che il tentativo dopo usi la versione
+   * corrente della funzione e non quella catturata al primo giro.
+   */
+  const scaricaEsternoRef = useRef<
+    | ((
+        device: BleFoundDevice,
+        marca: string,
+        modello: string,
+        tentativo?: number,
+        insiste?: { fatti: number; stesso: number; diario: string[] },
+      ) => Promise<void>)
+    | null
+  >(null);
 
   /*
    * La ricerca si ferma smontando il componente.
@@ -534,6 +560,10 @@ export function BleDownload() {
    * visto che quello che è già entrato in archivio ci resta comunque.
    */
   const interrompi = useCallback(() => {
+    // Prima di tutto: si smette di insistere. Anche se il trasferimento in
+    // corso non si può fermare, il tentativo DOPO non deve partire — o il
+    // pulsante mentirebbe.
+    smettiDiInsistere.current = true;
     if (scarico.current) {
       scarico.current.abort();
       return;
@@ -878,10 +908,35 @@ export function BleDownload() {
   }, []);
 
   const scaricaEsterno = useCallback(
-    async (device: BleFoundDevice, marca: string, modello: string, tentativo?: number) => {
+    async (
+      device: BleFoundDevice,
+      marca: string,
+      modello: string,
+      tentativo?: number,
+      insiste?: { fatti: number; stesso: number; diario: string[] },
+    ) => {
       fermaRicerca();
       const nome = `${marca} ${modello}`;
-      setStato({ fase: 'scarica', nome, fatte: 0, passo: t('Collegamento in corso…') });
+      /*
+       * ► CHI PARTE A MANO AZZERA LA RESA. ◄ `insiste` c'è solo quando questo
+       * giro è stato deciso dal giro prima. Quando invece è una persona a
+       * premere, si riparte con la pazienza intera — e soprattutto si toglie
+       * l'eventuale «basta» di un «Interrompi» precedente, o il primo
+       * fallimento del nuovo tentativo si arrenderebbe subito per una
+       * decisione presa in un'altra occasione.
+       */
+      if (!insiste) smettiDiInsistere.current = false;
+      const fatti = insiste?.fatti ?? 0;
+      const stesso = insiste?.stesso ?? 0;
+      setStato({
+        fase: 'scarica',
+        nome,
+        fatte: 0,
+        passo:
+          fatti > 0
+            ? t('Nuovo tentativo ({0}º)…').replace('{0}', String(fatti + 1))
+            : t('Collegamento in corso…'),
+      });
 
       const diario: string[] = [];
       /*
@@ -893,6 +948,8 @@ export function BleDownload() {
        * uno stato in più vorrebbe dire un ridisegno in più per niente.
        */
       let metodoInCorso: { indice: number; totale: number; nome: string; chiave: string } | undefined;
+      /** L'ultimo `exchange` arrivato: quanti byte ha davvero detto il computer. */
+      let scambio: { writes: number; notifications: number; bytes: number } | undefined;
       const onEvent = (e: DownloadEvent) => {
         // Come nell'altra strada: le righe di diario non toccano lo stato
         // mostrato, sarebbero un aggiornamento di React per ogni notifica.
@@ -918,6 +975,15 @@ export function BleDownload() {
          *
          * Non entra nel diario: il diario si allega alle segnalazioni.
          */
+        /*
+         * I numeri dello scambio. Non si mostrano e non entrano nel diario —
+         * il riassunto in prosa dice le stesse cose meglio — ma sono quelli
+         * che decidono il tentativo dopo: vedi `decidiComeInsistere`.
+         */
+        if (e.kind === 'exchange') {
+          scambio = e;
+          return;
+        }
         if (e.kind === 'accessCode') {
           salvaCodiceAccoppiamento(device.id, e.hex);
           diario.push('il computer ha rilasciato un codice di accoppiamento, conservato');
@@ -1102,6 +1168,71 @@ export function BleDownload() {
         salvaMetodo(device.id, metodoInCorso.chiave);
         diario.push(`metodo conservato per la prossima volta: ${metodoInCorso.nome}`);
       }
+
+      /*
+       * ════════════════════════════════════════════════════════════════════
+       * ► IL DIARIO SI ACCUMULA FRA I TENTATIVI, E NON È UN DETTAGLIO. ◄
+       *
+       * Da qui in avanti l'applicazione riprova da sola, anche tre o quattro
+       * volte. Se ogni giro cancellasse il diario del precedente, chi ci manda
+       * una segnalazione ci manderebbe **l'ultimo** tentativo — cioè quello
+       * fatto nelle condizioni peggiori, dopo che il computer è stato
+       * scollegato e ricollegato più volte — e non il primo, che è quello che
+       * racconta come è cominciata.
+       *
+       * *È lo stesso motivo per cui il riassunto tiene la coda delle scritture
+       * invece della sola testa: quello che serve a capire non è la parte che
+       * arriva per prima.*
+       */
+      const righeDiQuestoGiro = [
+        ...(insiste && insiste.diario.length > 0 ? ['', `── tentativo n. ${fatti + 1} ──`] : []),
+        `MyDiveLog — diario dello scarico (libdivecomputer)`,
+        `dispositivo: ${device.name || 'senza nome'}`,
+        `modello scelto: ${marca} ${modello}`,
+        `esito: ${grezzo ? `errore — ${grezzo}` : 'completato'}`,
+        `immersioni: ${dives.length}`,
+        '',
+        ...diario,
+      ];
+      const diarioIntero = [...(insiste?.diario ?? []), ...righeDiQuestoGiro];
+
+      /*
+       * ► E QUI SI DECIDE SE RIPROVARE, E COME. ◄ La regola sta tutta in
+       * `core/insistenza.ts`, che è una funzione pura apposta: la differenza
+       * fra «riprova uguale» e «prova un altro modo» è la cosa più importante
+       * di questa schermata, e va potuta provare senza un Bluetooth davanti.
+       */
+      const scelta = decidiComeInsistere({
+        riuscito,
+        haRisposto: (scambio?.notifications ?? 0) > 0,
+        metodo: metodoInCorso ? { indice: metodoInCorso.indice, totale: metodoInCorso.totale } : undefined,
+        partitoDa: tentativo,
+        fatti,
+        stesso,
+        fermato: smettiDiInsistere.current,
+      });
+
+      if (scelta.cosa !== 'smetti') {
+        const comeSiChiama =
+          scelta.cosa === 'stesso-metodo'
+            ? 'il computer aveva risposto: riprovo allo stesso modo'
+            : 'nessuna risposta con questo modo: provo il prossimo';
+        diarioIntero.push('', `→ ${comeSiChiama}`);
+        await scaricaEsternoRef.current?.(device, marca, modello, scelta.tentativo, {
+          fatti: scelta.fatti,
+          stesso: scelta.stesso,
+          diario: diarioIntero,
+        });
+        return;
+      }
+
+      /*
+       * Si è smesso. Il pulsante «Riprova con un altro modo» resta, ma adesso
+       * è davvero l'ultima spiaggia e non la prima proposta: ci si arriva solo
+       * dopo che l'applicazione ha provato da sola tutto quello che sapeva
+       * provare. *Toglierlo del tutto sarebbe stato più pulito e meno onesto:
+       * chi ha il computer in mano sa cose che noi non sappiamo.*
+       */
       const altroMetodo =
         !riuscito && metodoInCorso && metodoInCorso.indice + 1 < metodoInCorso.totale
           ? {
@@ -1119,19 +1250,22 @@ export function BleDownload() {
         avvisi,
         parziale: false,
         altroMetodo,
-        diario: [
-          `MyDiveLog — diario dello scarico (libdivecomputer)`,
-          `dispositivo: ${device.name || 'senza nome'}`,
-          `modello scelto: ${marca} ${modello}`,
-          `esito: ${grezzo ? `errore — ${grezzo}` : 'completato'}`,
-          `immersioni: ${dives.length}`,
-          '',
-          ...diario,
-        ],
+        diario: diarioIntero,
       });
     },
     [fermaRicerca, importDives, t],
   );
+  /*
+   * Il `ref` si riempie dopo ogni disegno, così il tentativo automatico che
+   * parte fra dieci secondi usa la funzione di adesso e non quella di allora.
+   * Va in un effetto e non nel corpo: scrivere un `ref` durante il disegno è
+   * il genere di cosa che funziona finché React non decide di disegnare due
+   * volte, e allora smette di funzionare in un modo che non somiglia alla
+   * causa.
+   */
+  useEffect(() => {
+    scaricaEsternoRef.current = scaricaEsterno;
+  });
 
   return (
     <div className="card">

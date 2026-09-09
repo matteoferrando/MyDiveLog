@@ -1482,6 +1482,43 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
     }
 
     /// Tutto quello che serve a costruire un `FlussoBle`, più il contorno.
+    /// Quanto è successo davvero sul filo, in numeri.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct Misure {
+        pub scritture: usize,
+        pub notifiche: usize,
+        pub byte_ricevuti: usize,
+    }
+
+    impl Misure {
+        /// Se il computer ha dato un segno di vita.
+        ///
+        /// ════════════════════════════════════════════════════════════════════
+        /// ► È LA DOMANDA CHE SEPARA DUE RIMEDI OPPOSTI. ◄
+        ///
+        /// Uno scarico fallito può voler dire due cose che non si somigliano
+        /// per niente:
+        ///
+        /// - **niente è arrivato.** Il metodo è sbagliato: stiamo scrivendo
+        ///   sulla caratteristica che non ascolta, o in una modalità che quel
+        ///   GATT non gradisce. Insistere è inutile; va cambiato metodo.
+        /// - **qualcosa è arrivato e poi si è rotto.** Il metodo è **giusto** —
+        ///   l'ha dimostrato — e il collegamento ha perso colpi. Qui cambiare
+        ///   metodo è il danno: si abbandona l'unica combinazione che si sa
+        ///   funzionare per provarne una che non ha mai funzionato, e la volta
+        ///   dopo si riparte da capo con quella sbagliata.
+        ///
+        /// Il diario del 9 settembre 2026 è il secondo caso in tutte e due le
+        /// sue forme: **25 775 byte** ricevuti prima di un errore di
+        /// protocollo, e **276 KB** prima di una conferma scaduta, dallo stesso
+        /// telefono e dallo stesso Mares. *Un'interfaccia che avesse offerto
+        /// «prova un altro modo» in quelle due occasioni avrebbe consigliato
+        /// esattamente la cosa sbagliata.*
+        pub fn qualcosa_e_arrivato(&self) -> bool {
+            self.notifiche > 0
+        }
+    }
+
     pub struct PonteBle {
         /// Le notifiche, una per messaggio. Va dato a `FlussoBle::nuovo`.
         pub entrata: Receiver<Vec<u8>>,
@@ -1497,6 +1534,15 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         pub ricevuti: Arc<AtomicUsize>,
         /// Il riassunto dello scambio, da leggere alla fine, comunque sia andata.
         pub riassunto: Box<dyn Fn() -> String + Send + Sync>,
+        /// Le stesse cose del riassunto, ma in numeri invece che in prosa.
+        ///
+        /// ► SERVONO A DECIDERE, NON A RACCONTARE. ◄ Il riassunto lo legge una
+        /// persona; questi tre numeri li legge l'interfaccia per rispondere a
+        /// **una** domanda dopo un fallimento: *il computer ha risposto, sì o
+        /// no?* Da quella risposta dipende se ha senso riprovare allo stesso
+        /// modo o cambiare metodo, e sono due rimedi opposti. Vedi
+        /// `Misure::qualcosa_e_arrivato`.
+        pub misure: Box<dyn Fn() -> Misure + Send + Sync>,
         /// Da alzare PRIMA di scollegarsi di proposito, così la callback di
         /// caduta non racconta come «caduto da sé» uno scollegamento nostro.
         pub scollegamento_voluto: Arc<AtomicBool>,
@@ -1533,6 +1579,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                 descrizione,
                 ricevuti,
                 riassunto,
+                misure,
                 scollegamento_voluto,
                 metodo,
                 metodo_indice,
@@ -1546,6 +1593,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                 descrizione,
                 ricevuti,
                 riassunto,
+                misure,
                 scollegamento_voluto,
                 metodo,
                 metodo_indice,
@@ -1630,28 +1678,123 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
             scollegamento_voluto: scollegamento_voluto.clone(),
         });
 
-        let alla_caduta = mittente.clone();
-        let contatori_caduta = contatori.clone();
-        let cronista_caduta = cronista.clone();
-        antenna
-            .collega(
-                dispositivo.to_string(),
-                Box::new(move || {
-                    if !contatori_caduta.scollegamento_voluto.load(Ordering::SeqCst) {
-                        contatori_caduta.caduto.store(true, Ordering::SeqCst);
-                        cronista_caduta(format!(
-                            "il collegamento è caduto da sé, dopo {} notifiche",
-                            contatori_caduta.notifiche.load(Ordering::Relaxed)
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► IL COLLEGAMENTO SI PROVA PIÙ DI UNA VOLTA, E FRA UNA E L'ALTRA SI
+         *   SCOLLEGA DAVVERO. ◄
+         *
+         * Il 9 settembre 2026 un diario vero comincia così: *«collegamento non
+         * riuscito: Timeout during execution of Connect»*, zero immersioni — e
+         * il tentativo dopo, dalla stessa persona con lo stesso apparecchio, si
+         * è collegato in 60 millisecondi. Cioè: **non era rotto niente**, era
+         * andata male una volta. E l'applicazione si arrendeva alla prima.
+         *
+         * Su BLE un `connect` che scade lascia quasi sempre un collegamento a
+         * metà: il sistema lo considera in corso, il computer si considera
+         * occupato, e il tentativo successivo trova la porta presa. Per questo
+         * il ritentativo non è solo «riprova»: **prima scollega**. È quella
+         * riga a rendere il secondo tentativo diverso dal primo, e senza di lei
+         * insistere sarebbe soltanto sbagliare più volte.
+         *
+         * `scollegamento_voluto` va alzata attorno a quella pulizia, o la
+         * callback di caduta racconterebbe come «caduto da sé» un
+         * scollegamento nostro — e il diario direbbe una cosa falsa proprio nel
+         * momento in cui serve leggerlo.
+         */
+        let mut ultimo_guasto = String::new();
+        let mut collegato = false;
+        for numero in 0..TENTATIVI_COLLEGAMENTO {
+            let alla_caduta = mittente.clone();
+            let contatori_caduta = contatori.clone();
+            let cronista_caduta = cronista.clone();
+            let caduta = Box::new(move || {
+                if !contatori_caduta.scollegamento_voluto.load(Ordering::SeqCst) {
+                    contatori_caduta.caduto.store(true, Ordering::SeqCst);
+                    cronista_caduta(format!(
+                        "il collegamento è caduto da sé, dopo {} notifiche",
+                        contatori_caduta.notifiche.load(Ordering::Relaxed)
+                    ));
+                }
+                if let Ok(mut posto) = alla_caduta.lock() {
+                    *posto = None;
+                }
+            });
+            match antenna.collega(dispositivo.to_string(), caduta).await {
+                Ok(()) => {
+                    if numero > 0 {
+                        cronista(format!(
+                            "collegamento riuscito al tentativo n. {} (i primi {numero} no)",
+                            numero + 1
                         ));
                     }
-                    if let Ok(mut posto) = alla_caduta.lock() {
-                        *posto = None;
+                    collegato = true;
+                    break;
+                }
+                Err(motivo) => {
+                    ultimo_guasto = motivo;
+                    if numero + 1 >= TENTATIVI_COLLEGAMENTO {
+                        break;
                     }
-                }),
-            )
-            .await?;
+                    let attesa = ATTESA_FRA_COLLEGAMENTI
+                        .get(numero)
+                        .copied()
+                        .unwrap_or(Duration::from_millis(1500));
+                    cronista(format!(
+                        "collegamento non riuscito al tentativo n. {}: {ultimo_guasto}; \
+                         scollego e riprovo fra {} ms",
+                        numero + 1,
+                        attesa.as_millis()
+                    ));
+                    // La pulizia può benissimo fallire («No device connected»):
+                    // è il caso normale quando il `connect` non è mai arrivato
+                    // in fondo, e non è un guasto da raccontare.
+                    contatori.scollegamento_voluto.store(true, Ordering::SeqCst);
+                    let _ = antenna.scollega().await;
+                    contatori.scollegamento_voluto.store(false, Ordering::SeqCst);
+                    aspetta(attesa).await;
+                }
+            }
+        }
+        if !collegato {
+            return Err(format!(
+                "collegamento non riuscito dopo {TENTATIVI_COLLEGAMENTO} tentativi: {ultimo_guasto}"
+            ));
+        }
 
-        let servizi = antenna.servizi(dispositivo.to_string()).await?;
+        /*
+         * ► ANCHE L'ELENCO DEI SERVIZI SI RICHIEDE. ◄ Su iOS la scoperta dei
+         * servizi può tornare vuota o fallire nei primi istanti dopo il
+         * collegamento, perché il sistema la sta ancora facendo. Un elenco
+         * vuoto qui non è «questo apparecchio non ha servizi»: è «non li ho
+         * ancora». E `risolvi_profilo` su un elenco vuoto si rifiuta, con un
+         * messaggio che manda a cercare il guasto dalla parte sbagliata.
+         */
+        let mut servizi = Vec::new();
+        for numero in 0..TENTATIVI_SERVIZI {
+            match antenna.servizi(dispositivo.to_string()).await {
+                Ok(visti) if !visti.is_empty() => {
+                    if numero > 0 {
+                        cronista(format!("i servizi sono comparsi alla richiesta n. {}", numero + 1));
+                    }
+                    servizi = visti;
+                    break;
+                }
+                Ok(_) => {
+                    if numero + 1 >= TENTATIVI_SERVIZI {
+                        break;
+                    }
+                    cronista("nessun servizio annunciato: richiedo l'elenco".to_string());
+                    aspetta(ATTESA_FRA_SERVIZI).await;
+                }
+                Err(motivo) => {
+                    if numero + 1 >= TENTATIVI_SERVIZI {
+                        return Err(motivo);
+                    }
+                    cronista(format!("elenco dei servizi non riuscito: {motivo}; richiedo"));
+                    aspetta(ATTESA_FRA_SERVIZI).await;
+                }
+            }
+        }
         cronista(format!(
             "servizi annunciati: {}",
             servizi
@@ -2253,6 +2396,18 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             })
         };
 
+        let misure = {
+            let scambio = scambio.clone();
+            let contatori = contatori.clone();
+            Box::new(move || -> Misure {
+                Misure {
+                    scritture: scambio.lock().map(|s| s.scritture).unwrap_or(0),
+                    notifiche: contatori.notifiche.load(Ordering::Relaxed),
+                    byte_ricevuti: contatori.ricevuti.load(Ordering::Relaxed),
+                }
+            })
+        };
+
         Ok(PonteBle {
             entrata,
             scrittura,
@@ -2261,6 +2416,7 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             descrizione: profilo.descrizione.clone(),
             ricevuti,
             riassunto,
+            misure,
             scollegamento_voluto,
             metodo: scelto,
             metodo_indice: indice,
@@ -2528,6 +2684,63 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             /// La forma con cui si conserva. Vedi `Tentativo::chiave`.
             key: String,
         },
+        /*
+         * ► QUANTO È SUCCESSO DAVVERO SUL FILO, IN NUMERI. ◄
+         *
+         * Esce alla fine di ogni tentativo, riuscito o no, e serve a chi
+         * ascolta per decidere **come** insistere — non per raccontare, che è
+         * il mestiere del riassunto.
+         *
+         * La domanda a cui risponde è una sola: *il computer ha risposto?* Se
+         * sì, il metodo ha dimostrato di funzionare e un fallimento successivo
+         * è del collegamento: si riprova **allo stesso modo**. Se no, il metodo
+         * non ha dimostrato niente: si passa al prossimo. Vedi
+         * `Misure::qualcosa_e_arrivato`, dove sta il perché per esteso.
+         */
+        Exchange {
+            writes: usize,
+            notifications: usize,
+            bytes: usize,
+        },
+    }
+
+    /// Quante volte si prova ad aprire il collegamento prima di arrendersi.
+    ///
+    /// Tre, e non di più: chi ha il computer in mano ha la batteria che cala e
+    /// il dito sul pulsante. Un'insistenza che dura mezzo minuto senza dire
+    /// niente somiglia a un blocco, e a quel punto la persona chiude l'app —
+    /// che è il modo peggiore di finire un tentativo, perché non lascia
+    /// nemmeno il diario.
+    const TENTATIVI_COLLEGAMENTO: usize = 3;
+
+    /// Le pause fra un tentativo di collegamento e il successivo.
+    ///
+    /// Crescono, perché le due cause tipiche hanno tempi diversi: un
+    /// `connect` andato male si ripulisce in poche centinaia di millisecondi,
+    /// mentre un computer che si è appena spento in stand-by ha bisogno di
+    /// più tempo per tornare a farsi vedere.
+    #[cfg(not(test))]
+    const ATTESA_FRA_COLLEGAMENTI: [Duration; 2] =
+        [Duration::from_millis(400), Duration::from_millis(1200)];
+    #[cfg(test)]
+    const ATTESA_FRA_COLLEGAMENTI: [Duration; 2] =
+        [Duration::from_millis(5), Duration::from_millis(5)];
+
+    /// Quante volte si richiede l'elenco dei servizi se torna vuoto.
+    const TENTATIVI_SERVIZI: usize = 3;
+
+    #[cfg(not(test))]
+    const ATTESA_FRA_SERVIZI: Duration = Duration::from_millis(500);
+    #[cfg(test)]
+    const ATTESA_FRA_SERVIZI: Duration = Duration::from_millis(5);
+
+    /// Un'attesa che non blocca il runtime.
+    ///
+    /// `std::thread::sleep` dentro un `async` fermerebbe il thread del runtime
+    /// su cui girano anche le callback delle notifiche: dormire lì vorrebbe
+    /// dire smettere di ascoltare il computer proprio mentre lo si aspetta.
+    async fn aspetta(quanto: Duration) {
+        let _ = tauri::async_runtime::spawn_blocking(move || std::thread::sleep(quanto)).await;
     }
 
     /// Il nome dell'evento Tauri. Come `accesso-ritorno`: minuscolo, con trattino.
@@ -2557,6 +2770,7 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             su_silenzio,
             descrizione,
             riassunto,
+            misure,
             metodo,
             ..
         } = ponte;
@@ -2621,14 +2835,45 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
                 emetti(EventoScarico::Trace { line: riga });
             }
         };
+        // I numeri escono PRIMA della prosa, e comunque vada: sono quelli che
+        // decidono il tentativo dopo, e devono arrivare a chi ascolta anche se
+        // il messaggio d'errore che segue lo fa smettere di leggere.
+        let dire_le_misure = || {
+            let m = misure();
+            emetti(EventoScarico::Exchange {
+                writes: m.scritture,
+                notifications: m.notifiche,
+                bytes: m.byte_ricevuti,
+            });
+        };
         let grezze = match collegamento.scarica(&descrittore) {
             Ok(grezze) => {
+                dire_le_misure();
                 voce_della_libreria();
                 emetti(EventoScarico::Trace { line: riassunto() });
                 grezze
             }
             Err(motivo) => {
+                let m = misure();
+                dire_le_misure();
                 voce_della_libreria();
+                /*
+                 * ► LA RIGA CHE DICE A CHI LEGGE QUALE DEI DUE GUASTI È. ◄ Il
+                 * riassunto dà i numeri; questa dice cosa vogliono dire, ed è
+                 * la stessa domanda su cui l'interfaccia decide se riprovare
+                 * uguale o cambiare metodo. Scriverla qui serve a chi riceve
+                 * il diario incollato in una segnalazione: senza, deve
+                 * ricavarla contando, ed è esattamente il conto che il 9
+                 * settembre 2026 ho sbagliato.
+                 */
+                emetti(EventoScarico::Trace {
+                    line: if m.qualcosa_e_arrivato() {
+                        "il computer aveva risposto: questo modo funziona, si è rotto il collegamento"
+                            .to_string()
+                    } else {
+                        "il computer non ha risposto: questo modo non ha dimostrato niente".to_string()
+                    },
+                });
                 let scambio = riassunto();
                 emetti(EventoScarico::Trace { line: scambio.clone() });
                 return Err(format!("{motivo} — {scambio}"));
@@ -3096,7 +3341,7 @@ mod prove {
         AccessoriBle, FlussoBle, FlussoByte, GuastoScrittura, Riassemblaggio, Ripiego,
     };
     use std::collections::HashMap;
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::sync::{Arc, Mutex};
     use std::time::{Duration, Instant};
 
@@ -3195,6 +3440,19 @@ mod prove {
         muta: AtomicBool,
         /// I valori delle caratteristiche leggibili.
         valori: Mutex<HashMap<String, Vec<u8>>>,
+        /// Quanti `collega` devono fallire prima che uno riesca.
+        ///
+        /// È il guasto vero del 9 settembre 2026: *«Timeout during execution of
+        /// Connect»*, e il tentativo dopo — stessa persona, stesso
+        /// apparecchio — si collega in sessanta millisecondi.
+        collegamenti_da_fallire: AtomicUsize,
+        /// Quante volte `collega` è stato chiamato, riuscito o no.
+        collegamenti_chiesti: AtomicUsize,
+        /// Quante volte è stato chiesto di scollegarsi.
+        scollegamenti: AtomicUsize,
+        /// Quante volte l'elenco dei servizi deve tornare VUOTO prima di
+        /// riempirsi: su iOS la scoperta può non essere ancora finita.
+        servizi_vuoti_allinizio: AtomicUsize,
     }
 
     #[derive(Clone)]
@@ -3214,7 +3472,23 @@ mod prove {
                 rifiuta: Mutex::new(None),
                 muta: AtomicBool::new(false),
                 valori: Mutex::new(HashMap::new()),
+                collegamenti_da_fallire: AtomicUsize::new(0),
+                collegamenti_chiesti: AtomicUsize::new(0),
+                scollegamenti: AtomicUsize::new(0),
+                servizi_vuoti_allinizio: AtomicUsize::new(0),
             }))
+        }
+
+        /// Fallisce i primi `quanti` collegamenti, poi si comporta bene.
+        fn che_non_si_collega(self, quanti: usize) -> Self {
+            self.0.collegamenti_da_fallire.store(quanti, Ordering::SeqCst);
+            self
+        }
+
+        /// Le prime `quante` richieste di servizi tornano vuote.
+        fn coi_servizi_in_ritardo(self, quante: usize) -> Self {
+            self.0.servizi_vuoti_allinizio.store(quante, Ordering::SeqCst);
+            self
         }
 
         fn che_rifiuta(self, modo: ModoScrittura) -> Self {
@@ -3269,11 +3543,28 @@ mod prove {
             _dispositivo: String,
             caduta: Box<dyn FnOnce() + Send>,
         ) -> Result<(), String> {
+            self.0.collegamenti_chiesti.fetch_add(1, Ordering::SeqCst);
+            if self
+                .0
+                .collegamenti_da_fallire
+                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |q| q.checked_sub(1))
+                .is_ok()
+            {
+                return Err("Timeout during execution of Connect".into());
+            }
             *self.0.caduta.lock().unwrap() = Some(caduta);
             Ok(())
         }
 
         async fn servizi(&self, _dispositivo: String) -> Result<Vec<ServizioVisto>, String> {
+            if self
+                .0
+                .servizi_vuoti_allinizio
+                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |q| q.checked_sub(1))
+                .is_ok()
+            {
+                return Ok(Vec::new());
+            }
             Ok(self.0.servizi.clone())
         }
 
@@ -3328,6 +3619,7 @@ mod prove {
         }
 
         async fn scollega(&self) -> Result<(), String> {
+            self.0.scollegamenti.fetch_add(1, Ordering::SeqCst);
             self.0.scollegata.store(true, Ordering::SeqCst);
             Ok(())
         }
@@ -3368,6 +3660,101 @@ mod prove {
         let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", None, diario.cronista(), &SceltaMetodo::default()))
             .expect("il ponte deve aprirsi");
         (ponte, diario)
+    }
+
+    /// Prova ad aprire il ponte e restituisce l'esito, senza pretendere che vada.
+    fn prova_ad_aprire(antenna: &FintaAntenna) -> (Result<PonteBle, String>, Diario) {
+        let diario = Diario::default();
+        let esito = tauri::async_runtime::block_on(apri_ponte(
+            antenna.clone(),
+            "finto-01",
+            None,
+            diario.cronista(),
+            &SceltaMetodo::default(),
+        ));
+        (esito, diario)
+    }
+
+    #[test]
+    fn un_collegamento_che_scade_si_riprova_dopo_aver_scollegato() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► IL PRIMO GUASTO DEL DIARIO DEL 9 SETTEMBRE 2026. ◄
+         *
+         * «collegamento non riuscito: Timeout during execution of Connect»,
+         * zero immersioni — e il tentativo dopo, stessa persona con lo stesso
+         * apparecchio, si è collegato in sessanta millisecondi. Non era rotto
+         * niente: era andata male una volta, e l'applicazione si arrendeva.
+         *
+         * ► E LA RIGA CHE CONTA NON È «RIPROVA»: È «SCOLLEGA PRIMA». ◄ Su BLE
+         * un `connect` che scade lascia quasi sempre un collegamento a metà, e
+         * il tentativo dopo trova la porta presa. Senza lo scollegamento in
+         * mezzo, insistere sarebbe soltanto sbagliare più volte — che è quello
+         * che il proprietario ha chiesto di NON fare quando ha detto che il
+         * tentativo dopo deve avere più probabilità di funzionare, non solo
+         * raccogliere altri dati.
+         */
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")])
+            .che_non_si_collega(2);
+        let (esito, diario) = prova_ad_aprire(&antenna);
+        assert!(esito.is_ok(), "al terzo tentativo il ponte deve aprirsi");
+        assert_eq!(antenna.0.collegamenti_chiesti.load(Ordering::SeqCst), 3);
+        assert_eq!(
+            antenna.0.scollegamenti.load(Ordering::SeqCst),
+            2,
+            "fra un tentativo e l'altro si scollega davvero, o si ritenta sulla porta occupata"
+        );
+        assert!(diario.contiene("collegamento riuscito al tentativo n. 3"), "{}", diario.testo());
+        assert!(diario.contiene("scollego e riprovo"), "{}", diario.testo());
+    }
+
+    #[test]
+    fn dopo_tutti_i_tentativi_il_collegamento_si_arrende_dicendo_quanti_ne_ha_fatti() {
+        // Un computer spento non si accende a furia di insistere, e chi legge
+        // deve poter distinguere «ci ho provato una volta» da «ci ho provato
+        // tre volte»: senza il numero, la stessa riga descrive due mondi.
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")])
+            .che_non_si_collega(99);
+        let (esito, _diario) = prova_ad_aprire(&antenna);
+        let Err(errore) = esito else {
+            panic!("con il computer spento non si apre niente");
+        };
+        assert!(errore.contains("dopo 3 tentativi"), "{errore}");
+        assert!(errore.contains("Timeout during execution of Connect"), "{errore}");
+        assert_eq!(antenna.0.collegamenti_chiesti.load(Ordering::SeqCst), 3);
+    }
+
+    #[test]
+    fn un_elenco_di_servizi_vuoto_si_richiede_invece_di_arrendersi() {
+        /*
+         * Su iOS la scoperta dei servizi può non essere finita nei primi
+         * istanti dopo il collegamento. Un elenco vuoto lì non vuol dire
+         * «questo apparecchio non ha servizi»: vuol dire «non li ho ancora».
+         *
+         * La differenza pesa perché `risolvi_profilo` su un elenco vuoto si
+         * rifiuta, con un messaggio che manda chi ripara a cercare il guasto
+         * dalla parte sbagliata — «nessun candidato» su un computer che i
+         * servizi ce li ha eccome.
+         */
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")])
+            .coi_servizi_in_ritardo(2);
+        let (esito, diario) = prova_ad_aprire(&antenna);
+        assert!(esito.is_ok(), "i servizi arrivano al terzo giro");
+        assert!(diario.contiene("i servizi sono comparsi alla richiesta n. 3"), "{}", diario.testo());
+    }
+
+    #[test]
+    fn un_collegamento_riuscito_al_primo_colpo_non_racconta_niente() {
+        // Il caso normale è la stragrande maggioranza degli scarichi, e non
+        // deve pagare niente: né un'attesa, né una riga di diario che
+        // suggerisce un problema che non c'è stato.
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")]);
+        let (esito, diario) = prova_ad_aprire(&antenna);
+        assert!(esito.is_ok());
+        assert_eq!(antenna.0.collegamenti_chiesti.load(Ordering::SeqCst), 1);
+        assert_eq!(antenna.0.scollegamenti.load(Ordering::SeqCst), 0);
+        assert!(!diario.contiene("tentativo n."), "{}", diario.testo());
+        assert!(!diario.contiene("i servizi sono comparsi"), "{}", diario.testo());
     }
 
     /// Il ponte già dentro un `FlussoBle` completo, come nello scarico vero.

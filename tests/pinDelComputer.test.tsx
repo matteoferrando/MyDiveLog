@@ -317,6 +317,16 @@ describe('il codice di accoppiamento', () => {
       await act(async () => finto.emit!({ kind: 'accessCode', hex: '0a1b2c3d4e5f60718293a4b5c6d7e8f9' }));
       expect(codiceAccoppiamento('dev-i330r')).toBe('0a1b2c3d4e5f60718293a4b5c6d7e8f9');
 
+      /*
+       * Il guscio dice con quale modo stava provando. Serve perché adesso,
+       * quando uno scarico finisce male, l'applicazione riprova **da sola**:
+       * senza questa riga non saprebbe nemmeno che il ponte si era aperto, lo
+       * leggerebbe come un collegamento caduto e ripartirebbe da capo — che è
+       * il comportamento giusto per quel caso e non per questo.
+       */
+      await act(async () =>
+        finto.emit!({ kind: 'method', index: 1, total: 1, name: 'senza conferma', key: 'k' }),
+      );
       // E adesso il giro dopo: si riparte dall'elenco e si riscarica.
       await act(async () => finto.finisci!([]));
       await act(async () => {
