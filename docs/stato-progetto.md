@@ -2847,6 +2847,7 @@ in silenzio.
 | Multiutente | un database per persona, accesso facoltativo | l'isolamento è fisico |
 | **Condividere un'immersione in sola lettura** | **fuori dal perimetro** (26 agosto 2026) | **decisione del proprietario, e il motivo non è stato messo agli atti.** Qui non ce n'è scritta una, perché inventarne una plausibile sarebbe peggio che dichiarare il vuoto. La descrizione di cosa sarebbe servita — leggere senza modificare e senza vedere il resto — resta in `architettura.md`, dove è nata |
 | **Autenticazione** | **Google e Apple, tutti e due** | linea guida 4.8, non negoziabile |
+| **TestFlight** | **resta fuori** (10 settembre 2026) | **Decisione del proprietario**, presa sapendo il costo: su iOS un `.ipa` non si installa a mano, quindi ogni correzione che deve arrivare a chi prova passa da **un giro di revisione** dell'App Store, mentre con TestFlight costerebbe un caricamento. *Nella notte del 9-10 settembre le correzioni sono state tre in cinque ore.* Il prezzo è dichiarato qui perché il giorno che l'attesa desse fastidio si sappia dove cambiare idea, e che non è un lavoro grosso: la stessa `.ipa` già caricata serve per tutti e due |
 | **Bersaglio iOS** | **solo iPhone** | togliere l'iPad dopo aver pubblicato sfila l'app dagli iPad di chi l'aveva |
 | **Numerazione** | **1.x dappertutto** | App Store Connect confronta i numeri pezzo per pezzo |
 
@@ -3515,7 +3516,18 @@ diario per chiuderla.*
    telefono. *Il comando che ha detto quando era il momento, e che serve identico
    alla prossima versione:*
    `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
-1. **► LA 1.8.6 VA CARICATA SUI DUE NEGOZI APPLE, E SALTA LA 1.8.5. ◄**
+1. **► LA 1.8.8 È STATA CARICATA. ◄** *Dichiarato dal proprietario la mattina
+   del 10 settembre.* Adesso resta l'attesa, e l'attesa non è un guasto: sulla
+   1.8.1 fra le due approvazioni Apple sono passate nove ore. **Quando il
+   negozio iPhone serve la 1.8.8, l'amico col Mares aggiorna e riprova** — ed è
+   il primo diario che potrà dire *quale* dei sei controlli è fallito e quante
+   volte ci ha provato. *Va chiesto di mandarlo **anche se funziona**: un
+   diario riuscito dice quale metodo ha vinto e quanto erano grandi le
+   notifiche, che è la misura da cui dipende tutto il resto.* Come si misura
+   quando è pubblica:
+   `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
+
+1. **► ~~LA 1.8.6 VA CARICATA SUI DUE NEGOZI APPLE, E SALTA LA 1.8.5.~~ Superata: è stata caricata la 1.8.8. ◄**
    *Pronta e verificata: `da-caricare-su-app-store/` con il `LEGGIMI.md`
    rifatto.* La
    1.8.5 è pubblica su GitHub e sul sito ma **non è mai stata consegnata ai
