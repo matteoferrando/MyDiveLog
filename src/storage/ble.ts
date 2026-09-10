@@ -209,6 +209,8 @@ class TauriBleLink implements BleLink {
 
   constructor(
     readonly mtu: number,
+    /** Se `mtu` viene dal sistema o è il minimo garantito preso di ripiego. */
+    readonly mtuMisurato: boolean,
     private canali: Canali,
     writeType: BleServiceProfile['writeType'],
     private api: Plugin,
@@ -496,7 +498,19 @@ export class TauriBleTransport implements BleTransport {
      * richiesta fallisce si usa il minimo garantito invece di indovinare —
      * pacchetti troppo lunghi non danno errore, danno silenzio.
      */
-    const mtu = await api.getMtu().catch(() => MTU_PRUDENTE);
+    /*
+     * ► E SI TIENE DA PARTE SE È UNA MISURA O UN RIPIEGO. ◄ Senza, il diario
+     * scrive `MTU 20` nei due casi, e venti byte «perché il collegamento
+     * regge solo quello» e venti byte «perché non sono riuscito a chiederlo»
+     * portano a conclusioni opposte: nel primo i pacchetti lunghi si spezzano
+     * davvero, nel secondo stiamo scrivendo a pezzetti per prudenza e ogni
+     * scarico è più lento del necessario senza che nessuno lo sappia.
+     */
+    let mtuMisurato = true;
+    const mtu = await api.getMtu().catch(() => {
+      mtuMisurato = false;
+      return MTU_PRUDENTE;
+    });
 
     /*
      * Le caratteristiche si scoprono DOPO la connessione.
@@ -520,7 +534,7 @@ export class TauriBleTransport implements BleTransport {
       throw new Error(canali.error);
     }
 
-    link = new TauriBleLink(Math.max(1, Math.min(mtu, 512)), canali, profile.writeType, api);
+    link = new TauriBleLink(Math.max(1, Math.min(mtu, 512)), mtuMisurato, canali, profile.writeType, api);
     await api.subscribe(canali.notify, canali.service, (data) => link?.feed(data));
     return link;
   }

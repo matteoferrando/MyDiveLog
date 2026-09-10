@@ -28,6 +28,14 @@ import type { BleFoundDevice, BleLink, BleServiceProfile, BleTransport, BleUnava
 export interface FakeQuirks {
   /** Byte per notifica. 20 è il valore reale di un collegamento non negoziato. */
   mtu?: number;
+  /**
+   * Se l'MTU qui sopra è una misura o il minimo garantito preso di ripiego.
+   *
+   * Serve a provare che il diario dica quale dei due: `MTU 20` da solo può
+   * voler dire «regge venti» oppure «non sono riuscito a chiederlo», e le due
+   * cose portano a conclusioni opposte.
+   */
+  mtuMisurato?: boolean;
   /** Non risponde a nulla: serve a provare le scadenze. */
   mute?: boolean;
   /** Si disconnette dopo aver risposto a questo numero di comandi. */
@@ -64,6 +72,8 @@ export type FakeResponder = (command: Uint8Array, index: number) => Uint8Array |
 
 export class FakeBleLink implements BleLink {
   readonly mtu: number;
+  /** Nel finto lo decide la prova: per difetto è una misura. */
+  readonly mtuMisurato: boolean;
   private stream = new ByteStream();
   private comandi = 0;
   private chiusoDaNoi = false;
@@ -80,6 +90,7 @@ export class FakeBleLink implements BleLink {
     private quirks: FakeQuirks = {},
   ) {
     this.mtu = quirks.mtu ?? 20;
+    this.mtuMisurato = quirks.mtuMisurato ?? true;
     if (quirks.garbageOnOpen?.length) this.stream.push(quirks.garbageOnOpen);
   }
 

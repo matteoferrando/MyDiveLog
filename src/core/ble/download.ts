@@ -240,7 +240,11 @@ export async function downloadFromComputer(
       await pausa(2000, ctl.signal);
       if (ctl.signal.aborted) throw new Error('annullato');
       link = await transport.open(device.id, driver.profile, ctl.signal);
-      trace(`riaperto: MTU ${link.mtu}`);
+      trace(
+        `riaperto: MTU ${link.mtu}${
+          link.mtuMisurato ? '' : ' (il sistema non l’ha detto: minimo garantito)'
+        }`,
+      );
       if (link.describe) trace(link.describe());
       return link;
     };
@@ -254,7 +258,11 @@ export async function downloadFromComputer(
      * Il valore restituito serve ai driver che leggono la memoria in un colpo
      * solo, e viene usato solo per quello che non era già passato dagli eventi.
      */
-    trace(`aperto: ${device.name || 'senza nome'} (${device.id}), MTU ${link.mtu}`);
+    trace(
+      `aperto: ${device.name || 'senza nome'} (${device.id}), MTU ${link.mtu}${
+        link.mtuMisurato ? '' : ' (il sistema non l’ha detto: minimo garantito)'
+      }`,
+    );
     if (link.describe) trace(link.describe());
     ordinati = await driver.download(link, {
       emit,

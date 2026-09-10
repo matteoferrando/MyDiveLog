@@ -210,15 +210,56 @@ const MEMORIA = [VECCHIA, MEDIA, NUOVA];
 
 const dispositivo = fakeDevice({ id: 'aladin-1', name: 'Aladin' });
 
-function trasporto(memoria = MEMORIA, quirk: Quirk = {}) {
+function trasporto(memoria = MEMORIA, quirk: Quirk = {}, mtuMisurato = true) {
   const traccia: Traccia = { comandi: [] };
   const t = new FakeTransport([
-    { device: dispositivo, responder: fintoAladin(memoria, traccia, quirk), quirks: { mtu: 20 } },
+    {
+      device: dispositivo,
+      responder: fintoAladin(memoria, traccia, quirk),
+      quirks: { mtu: 20, mtuMisurato },
+    },
   ]);
   return { t, traccia };
 }
 
 // ------------------------------------------------------------------- i pezzi
+
+describe('► l’MTU nel diario: una misura o un ripiego, e si deve capire quale ◄', () => {
+  /*
+   * ══════════════════════════════════════════════════════════════════════════
+   * NASCE DA UN DIARIO VERO, IL 10 SETTEMBRE 2026.
+   *
+   * Uno scarico riuscito dall'Aladin del proprietario diceva `MTU 20`. Venti è
+   * il minimo garantito dallo standard (ventitré meno tre di intestazione ATT)
+   * ed è **anche** il valore che prendiamo di ripiego quando il sistema l'MTU
+   * non lo dice. Quindi quella riga poteva voler dire due cose opposte:
+   *
+   *  - «questo collegamento regge davvero venti byte» — e allora i pacchetti
+   *    lunghi si spezzano sul serio, e il riassemblaggio serve;
+   *  - «non sono riuscito a chiederlo» — e allora stiamo scrivendo a pezzetti
+   *    per prudenza, e ogni scarico è più lento del necessario senza che
+   *    nessuno lo sappia.
+   *
+   * *È la stessa forma del guasto della notte prima: un numero che ha l'aria
+   * di una misura e potrebbe essere un valore per difetto.* Un diario che non
+   * distingue i due casi manda chi ripara a cercare dalla parte sbagliata —
+   * e a differenza di una prova mancante, non lascia nemmeno un buco visibile.
+   */
+  it('quando il sistema lo dichiara, il numero sta da solo', async () => {
+    const { t } = trasporto();
+    const esito = await downloadFromComputer(t, dispositivo, uwatecDriver);
+    const riga = esito.trace.find((r) => r.includes('MTU'));
+    expect(riga).toBeDefined();
+    expect(riga).not.toContain('minimo garantito');
+  });
+
+  it('quando NON lo dichiara, il diario dice che venti è un ripiego', async () => {
+    const { t } = trasporto(MEMORIA, {}, false);
+    const esito = await downloadFromComputer(t, dispositivo, uwatecDriver);
+    const riga = esito.trace.find((r) => r.includes('MTU'));
+    expect(riga).toContain('minimo garantito');
+  });
+});
 
 describe('inquadramento Uwatec', () => {
   it('la lunghezza conta il comando e non se stessa', () => {

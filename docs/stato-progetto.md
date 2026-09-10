@@ -3281,6 +3281,71 @@ rileggendo — si vede solo provando a romperla dalla parte che non fa male.*
 
 ---
 
+## La prima prova su apparecchio vero della 1.8.8, e il numero ambiguo che ha lasciato
+
+*10 settembre 2026, mattina.* Il proprietario installa la 1.8.8 sul Mac e fa uno
+scarico vero con il suo **Aladin Sport Matrix**. È la verifica che nessuna delle
+2038 prove poteva dare, e serviva a una domanda sola: **le parti condivise hanno
+retto?**
+
+```
+esito: complete
+immersioni: 0 su 0
+segnalibro per 63034502: riparto da 17:63034502:643d7886
+da scaricare dopo l'impronta 0x643d7886: 0 byte
+```
+
+**Sì.** Scarico completo, nessun errore, e la schermata dice la cosa giusta:
+*«Niente di nuovo: il computer non ha immersioni più recenti di quelle che hai
+già»*. La notte aveva toccato l'interfaccia di scarico, il pulsante
+«Interrompi» e la strada dell'importazione — cose che i driver di casa usano
+quanto libdivecomputer — e non si è rotto niente.
+
+> **► E IN PIÙ HA CONFERMATO SU HARDWARE VERO QUELLO CHE AVEVO SOLO LETTO. ◄**
+> Nel commento del segnalibro sta scritto che per gli Uwatec il filtro non lo fa
+> la libreria: il timestamp viene mandato **al computer**, che risponde con le
+> sole immersioni più recenti. Quella riga era verificata **leggendo**
+> `uwatec_smart.c`, non provandola — e il documento lo dichiarava. Adesso c'è la
+> misura: `da scaricare dopo l'impronta 0x643d7886: **0 byte**`. È il computer
+> ad aver detto zero. *Il meccanismo su cui si regge tutto il segnalibro è
+> confermato da un apparecchio vero, anche se per la strada dei driver di casa e
+> non per quella di libdivecomputer.*
+
+### Ma il diario ha lasciato un numero che vuol dire due cose
+
+```
+aperto: Aladin Sport (…), MTU 20
+```
+
+**Venti è il minimo garantito dallo standard** — ventitré meno tre di
+intestazione ATT — **ed è anche il valore che prendiamo di ripiego quando il
+sistema l'MTU non lo dice.** Il diario scriveva lo stesso numero nei due casi.
+
+Le due letture portano a conclusioni opposte:
+
+| se `MTU 20` vuol dire… | allora… |
+|---|---|
+| «questo collegamento regge venti byte» | i pacchetti lunghi si spezzano davvero, e il riassemblaggio dei Mares serve eccome |
+| «non sono riuscito a chiederlo» | stiamo scrivendo a pezzetti per prudenza, e **ogni scarico è più lento del necessario** senza che nessuno lo sappia |
+
+*È la stessa forma del guasto della notte prima — un numero che ha l'aria di una
+misura e potrebbe essere un valore per difetto — e stavolta stava in casa
+nostra.* Da adesso il diario dice quale dei due: quando il sistema non lo
+dichiara, la riga porta **«(il sistema non l'ha detto: minimo garantito)»**.
+
+**Tre mutazioni verificate rosse**: il diario che non distingue mai, quello che
+dice sempre «minimo garantito», e il finto che ignora la differenza.
+
+> **E il confronto che nasce da qui vale la pena tenerlo scritto.** Sull'iPhone
+> dell'amico il diario dice **«notifiche da 1 a 244 byte»**; sul Mac del
+> proprietario dice **20**. Se quel venti è una misura, lo stesso codice deve
+> funzionare in due mondi lontanissimi — dove un pacchetto Mares da 142 byte
+> arriva intero, e dove si spezza in otto pezzi. *Il prossimo diario dal Mac
+> dirà se venti è il collegamento o la nostra prudenza, e da lì si capisce
+> quale dei due mondi stiamo davvero guardando.*
+
+---
+
 ## Il segnalibro, e la riga di diario che diceva il falso
 
 *10 settembre 2026, notte fonda.* Due cose trovate cercandone una terza, e la

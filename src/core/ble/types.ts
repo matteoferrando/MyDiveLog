@@ -107,6 +107,27 @@ export type BleUnavailable =
 export interface BleLink {
   /** Byte per scrittura che il collegamento regge. Il driver spezza di conseguenza. */
   readonly mtu: number;
+  /**
+   * Se quell'`mtu` è una **misura** o il minimo garantito preso di ripiego.
+   *
+   * ════════════════════════════════════════════════════════════════════════
+   * ► VENTI PUÒ VOLER DIRE DUE COSE OPPOSTE, E IL NUMERO DA SOLO NON LO DICE. ◄
+   *
+   * `MTU_PRUDENTE` vale 20 — ventitré meno tre di intestazione ATT, il minimo
+   * che lo standard garantisce — ed è anche quello che si scrive nel diario
+   * quando il sistema l'MTU **non lo dice**. Quindi `MTU 20` può essere «questo
+   * collegamento regge davvero venti byte» oppure «non sono riuscito a
+   * chiederlo e mi sono tenuto basso», e le due cose portano a conclusioni
+   * diverse: nella prima i pacchetti lunghi si spezzano davvero e il
+   * riassemblaggio serve; nella seconda stiamo scrivendo a pezzetti per
+   * prudenza, e ogni scarico è più lento di quanto dovrebbe senza che nessuno
+   * lo sappia.
+   *
+   * *È la stessa forma del guasto della notte del 9 settembre: un numero che
+   * ha l'aria di una misura e potrebbe essere un valore per difetto.* Il
+   * diario, da qui in avanti, dice quale dei due.
+   */
+  readonly mtuMisurato: boolean;
   /** Scrive, spezzando da sé se serve. Per i protocolli che vedono un flusso. */
   write(data: Uint8Array): Promise<void>;
   /**
