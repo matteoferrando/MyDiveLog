@@ -3336,13 +3336,51 @@ dichiara, la riga porta **«(il sistema non l'ha detto: minimo garantito)»**.
 **Tre mutazioni verificate rosse**: il diario che non distingue mai, quello che
 dice sempre «minimo garantito», e il finto che ignora la differenza.
 
+### E poi il proprietario ha chiesto «a cosa serve?», e la risposta ha smontato la correzione
+
+*La domanda è arrivata prima che quella riga fosse spedita, e ha risparmiato una
+versione.* Seguendo la catena fino a btleplug, backend CoreBluetooth — cioè Mac
+**e** iPhone:
+
+```rust
+mtu: AtomicU16::new(crate::api::DEFAULT_MTU_SIZE),  // 23
+fn mtu(&self) -> u16 { self.shared.mtu.load(...) }
+```
+
+**Nessuno scrive mai su quel valore.** Non c'è una sola riga, nel backend Apple,
+che lo aggiorni dopo la connessione — mentre nel backend Windows c'è
+(`shared.mtu.store(mtu, …)`). Quindi su Apple quel numero **non è mai una
+negoziazione**: è una costante restituita con la faccia di una misura.
+
+> **► I CASI SONO TRE, NON DUE. ◄** «Chiesto e ottenuto», «non chiesto», e —
+> quello che mancava — **«chiesto, riuscito, e senza significato»**. La
+> correzione distingueva i primi due, e sul terzo avrebbe scritto `MTU 23` senza
+> nessun caveat: cioè avrebbe dato **più** fiducia a un numero che non ne merita
+> nessuna. *Mettere un'etichetta su un'ambiguità che non si è capita fino in
+> fondo può peggiorarla, perché l'etichetta si legge come una diagnosi.*
+
+E un dettaglio conferma la lettura: il diario dice `MTU 20`, non 23. Ventitré è
+la costante del plugin, venti è il **nostro** ripiego — quindi su quel Mac la
+chiamata è **fallita**, e la riga nuova avrebbe scritto la cosa giusta per
+fortuna, non per ragionamento.
+
+**In pratica non cambia niente, oggi**: i driver di casa mandano comandi di
+pochi byte, e la strada di libdivecomputer le scritture non le spezza affatto —
+spezzarle a venti rompeva l'i330R, ed è la correzione del 7 settembre. Quindi
+quel venti non sta rallentando né rompendo niente. *La riga resta, perché la
+distinzione che fa è vera e costa zero; ma **non vale una versione**, e quello
+che vale davvero è il commento che adesso dice perché.* Il giorno che servisse
+sapere quanto regge un collegamento su Apple, la risposta non è quel campo: è
+`maximumWriteValueLength` di CoreBluetooth, che btleplug non espone.
+
 > **E il confronto che nasce da qui vale la pena tenerlo scritto.** Sull'iPhone
 > dell'amico il diario dice **«notifiche da 1 a 244 byte»**; sul Mac del
-> proprietario dice **20**. Se quel venti è una misura, lo stesso codice deve
-> funzionare in due mondi lontanissimi — dove un pacchetto Mares da 142 byte
-> arriva intero, e dove si spezza in otto pezzi. *Il prossimo diario dal Mac
-> dirà se venti è il collegamento o la nostra prudenza, e da lì si capisce
-> quale dei due mondi stiamo davvero guardando.*
+> proprietario dice **20** — che però adesso sappiamo essere il **nostro
+> ripiego**, non il collegamento. *La misura vera di cosa passa su un
+> collegamento non è l'MTU dichiarato: è quanto sono grandi le notifiche che
+> arrivano davvero, e quella la strada di libdivecomputer la scrive già.* È il
+> motivo per cui «notifiche da 1 a 244 byte» ha smentito un'ipotesi in mezza
+> riga, e «MTU 20» non ha risposto a niente.
 
 ---
 

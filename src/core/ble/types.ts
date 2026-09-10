@@ -126,6 +126,33 @@ export interface BleLink {
    * *È la stessa forma del guasto della notte del 9 settembre: un numero che
    * ha l'aria di una misura e potrebbe essere un valore per difetto.* Il
    * diario, da qui in avanti, dice quale dei due.
+   *
+   * ► MA SU APPLE I CASI SONO TRE, NON DUE, E IL TERZO NON SI VEDE DA QUI. ◄
+   * Seguendo la catena fino a btleplug (`corebluetooth/peripheral.rs`):
+   *
+   * ```rust
+   * mtu: AtomicU16::new(crate::api::DEFAULT_MTU_SIZE),  // 23
+   * fn mtu(&self) -> u16 { self.shared.mtu.load(...) }
+   * ```
+   *
+   * **Nessuno scrive mai su quel valore** nel backend CoreBluetooth — mentre
+   * su Windows sì (`shared.mtu.store(mtu, …)`). Quindi su Mac e su iPhone la
+   * richiesta può benissimo **riuscire** e restituire una costante: non è una
+   * negoziazione, è un numero fisso con la faccia di una misura, e
+   * `mtuMisurato` in quel caso direbbe `true` dicendo poco.
+   *
+   * *Quindi questo campo distingue «chiesto» da «non chiesto», non «vero» da
+   * «finto».* Non è stato tolto perché la distinzione che fa è comunque utile
+   * e vera; ma chi legge `MTU 23` su un Apple non deve credere che il
+   * collegamento regga ventitré byte: deve credere che nessuno gliel'abbia
+   * detto.
+   *
+   * **Non cambia niente in pratica, oggi**: i driver di casa mandano comandi
+   * di pochi byte, e la strada di libdivecomputer le scritture non le spezza
+   * affatto — spezzarle a venti rompeva l'i330R, ed è la correzione del 7
+   * settembre 2026. Il giorno che servisse davvero sapere quanto regge un
+   * collegamento su Apple, la risposta non è questo campo: è
+   * `maximumWriteValueLength` di CoreBluetooth, che btleplug non espone.
    */
   readonly mtuMisurato: boolean;
   /** Scrive, spezzando da sé se serve. Per i protocolli che vedono un flusso. */
