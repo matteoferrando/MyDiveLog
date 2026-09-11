@@ -1,7 +1,55 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **10 settembre 2026, notte fonda** — **2036 prove in 114 file** più
-**110 prove Rust** del ponte, lint e formato a **0 errori**.
+Aggiornato: **11 settembre 2026, sera** — **2 073 prove in 116 file** più
+**120 prove Rust** del ponte, lint e formato a **0 errori**.
+
+**► I TRE NUMERI NON COINCIDONO PIÙ, E STAVOLTA È VOLUTO. ◄** Nel repository
+c'è la **`1.8.17`**; su GitHub e sul sito la versione pubblica è la **`1.8.11`**;
+sui due negozi Apple c'è ancora la **`1.8.8`**. Il 10 settembre coincidevano
+tutti e tre, ed era una notizia; oggi non coincidono per una ragione scritta, che
+sta per intero nella prima voce dei **prossimi passi**: *domani il proprietario
+vede il Puck 4, e un giro di revisione speso stasera consegnerebbe ai negozi uno
+strumento di diagnosi invece del rimedio che da quella giornata potrebbe uscire.*
+
+**La `1.8.11` è pubblicata: release `v1.8.11` con nove allegati**, tag su
+`0c862e8`. L'impronta del
+`.dmg` che GitHub sta servendo — `85cfa20c…` — è quella che la cask di Homebrew
+si è scritta da sola dall'API, non a mano. Sito allineato e verificato con
+`sito:online`. Pacchetti dei negozi pronti in `da-caricare-su-app-store/` e
+`da-caricare-su-play/`, **e fermi lì apposta**.
+
+Dalla **1.8.12** alla **1.8.17** esistono **solo come `.dmg` per Mac**, e non è
+una dimenticanza: servivano a una persona sola, la sera dell'11, su un
+apparecchio che aveva in casa.
+
+Quello che portano, in due famiglie che non vanno confuse:
+
+- **1.8.9, 1.8.10, 1.8.11 — i rimedi.** Uno scarico rotto che consegnava
+  immersioni non conta più come riuscito, quindi l'insistenza parte davvero; il
+  blocco dello schermo è nativo (`UIApplication.setIdleTimerDisabled:` sul thread
+  principale) e il diario dice per quale delle due strade ci è riuscito; una
+  lettura non è dichiarata scaduta solo perché il tempo è passato, e la riga
+  porta il numero che può condannare quella scelta.
+- **1.8.12 → 1.8.17 — lo strumento.** Il **banco di prova**: una spunta che
+  registra **ogni byte in ogni direzione con il suo tempo**, nello stesso formato
+  sulle due strade — quella di libdivecomputer e quella dei driver di casa — col
+  diario tecnico in testa al file, che sopravvive ai tentativi falliti e si
+  accumula fra un tentativo e l'altro. *Provato su apparecchio vero due volte, e
+  la decodifica verificata contro l'orologio dell'apparecchio: 22,67 minuti letti
+  contro 22,65 trascorsi.*
+
+> **► E QUATTRO DIFETTI LI HA TROVATI UNA PERSONA IN DUE ORE, NON LE DUEMILA
+> PROVE. ◄** Il banco è uscito con 2 073 prove verdi e cinque mutazioni uccise, e
+> la prima volta che qualcuno l'ha acceso su un apparecchio vero ha trovato: il
+> registratore assente sulla strada dei driver di casa, un pulsante che non
+> compariva, la registrazione buona che spariva quando il tentativo dopo
+> falliva, e un file con le scritture e senza le letture. *Nessuno dei quattro
+> era visibile da dentro, perché nessuno dei quattro è un errore: sono assenze.*
+> Il racconto per intero sta in «La sera delle quattro prove a mano».
+
+*Quello che segue è la cronaca delle versioni precedenti, in ordine dal più
+recente. Non è stata tolta nessuna riga: quando un numero smette di essere
+quello corrente, resta scritto qui sotto con la sua data.*
 
 **La `1.8.8` è pubblicata: release `v1.8.8` con nove allegati**, tag su
 `5c212f8`. I quattro pulsanti del sito rispondono `200`; `latest.json` serve
@@ -30,8 +78,9 @@ libdivecomputer nel diario, e le immersioni già arrivate che non si buttano pi�
 > la 1.8.7, la riga di diario che diceva il falso. *Ogni
 > consegna a un negozio costa un giro di revisione: spenderlo per una versione
 > già superata è pagare due volte per arrivare più tardi.* I pacchetti `1.8.8`
-> per i due negozi Apple sono in `da-caricare-su-app-store/`, l'`.aab` per Play
-> in `da-caricare-su-play/`.
+> per i due negozi Apple erano in `da-caricare-su-app-store/`, l'`.aab` per Play
+> in `da-caricare-su-play/` — *e ci sono rimasti finché non sono stati caricati:
+> oggi in quelle cartelle c'è la 1.8.11, e la 1.8.8 sta in `superate/`.*
 
 > **► E UNA COSA CHE FINORA NON ERA STATA NOTATA, SULLE VERIFICHE STESSE. ◄**
 > Cercare le stringhe dentro i pacchetti spediti copre **il lato Rust e basta**:
@@ -76,7 +125,11 @@ App Store dicono tutti e tre `1.8.8`. *In mezzo ce ne sono tre — 1.8.5, 1.8.6,
 costa una compilazione, su App Store Connect costa un giro di revisione.*
 
 **Google Play** aspetta la fine del test chiuso, attorno al 12 settembre:
-l'`.aab` firmato è in `da-caricare-su-play/MyDiveLog-1.8.8-play.aab`.
+l'`.aab` firmato era in `da-caricare-su-play/MyDiveLog-1.8.8-play.aab`.
+*Quel file oggi non è più lì: al suo posto c'è quello della 1.8.11, e il
+precedente è stato spostato in `da-caricare-su-play/superate/` insieme a tutti
+gli altri. La finestra del test chiuso, invece, non è ancora scaduta: la
+scadenza resta attorno al 12 settembre, cioè domani.*
 
 > **► LA RIGA DI WINDOWS IN `latest.json` NON LA SCRIVE LA BUILD DEL MAC. ◄** Il
 > file che esce da `mac:pubblica` contiene **solo** `darwin-aarch64`: la voce di
@@ -1556,14 +1609,17 @@ App Store Connect rifiuta un numero di versione già visto.
 CI «Controlli» a ogni push: Tipi → Formato → Lint → Test → Test fusi orari →
 Build.
 
-**Stato dei controlli, misurato l'1 settembre sul commit `2602e11`:**
+**Stato dei controlli, misurato l'11 settembre sul commit `be7f686`:**
 
 | Comando | Esito |
 | --- | --- |
-| `npx vitest run` | **1749 test in 98 file, tutti verdi** |
+| `npx vitest run` | **2 073 test in 116 file, tutti verdi** |
+| `#[test]` in `src-tauri/src/` | **120**, il ponte e il trasporto |
 | `npx tsc --noEmit` | pulito, nessuna riga in uscita |
 | `npx prettier --check .` | _All matched files use Prettier code style!_ |
 | `npm run lint` | **0 errori e 0 avvisi** — erano quattordici |
+
+_(L'1 settembre, sul commit `2602e11`, erano **1749 test in 98 file**.)_
 
 > **I quattordici avvisi non sono stati messi a tacere: sono stati letti**, ed è
 > il motivo per cui questa riga vale la pena di essere guardata. Dentro quel
@@ -2854,6 +2910,9 @@ in silenzio.
 | **Le schermate della scheda del negozio** | **restano quelle del proprietario, non si rifanno dal simulatore** (27 agosto 2026) | decisione sua: mostrano un archivio vero |
 | **Le sei classi CSS che nessuno usa** | **non si toccano** (27 agosto 2026) | decisione sua, e non c'è nessun difetto visibile: sono righe morte, non un guasto — al contrario di `.pulsante-attesa`, che descriveva uno stato dell'interfaccia e per questo è stata tolta |
 | **Il sito, a ogni rilascio** | **si ripubblica solo se è cambiato** | i pulsanti puntano a `releases/latest/download/...` e seguono la release da soli |
+| **Il banco di prova per i computer subacquei** | **dentro l'applicazione, dietro una spunta spenta — non un'app a parte** (11 settembre 2026) | un'app a parte avrebbe il suo ciclo di rilascio, il suo permesso Bluetooth, la sua revisione Apple e **un'altra implementazione del collegamento**: registrerebbe lo scambio di se stessa, non quello dell'applicazione che si guasta. La cosa da misurare è esattamente il codice che sbaglia |
+| **La registrazione dello scambio** | **un solo formato per le due strade**, libdivecomputer e driver di casa (11 settembre 2026) | due formati per la stessa cosa vuol dire due analizzatori, e il secondo non si scrive mai. Nel file sta scritto anche **da quale altezza** è presa la registrazione, perché chi la rilegge fra sei mesi ne trarrebbe conclusioni sbagliate sui tempi |
+| **Dalla 1.8.12 alla 1.8.17 ai negozi** | **non si consegnano prima della giornata col Puck** (11 settembre 2026) | non sono rimedi, sono lo strumento per capire quale rimedio serva. Un giro di revisione speso adesso consegnerebbe una diagnosi a chi non deve diagnosticare, e occuperebbe la coda al rimedio che da quella giornata può uscire |
 | Multiutente | un database per persona, accesso facoltativo | l'isolamento è fisico |
 | **Condividere un'immersione in sola lettura** | **fuori dal perimetro** (26 agosto 2026) | **decisione del proprietario, e il motivo non è stato messo agli atti.** Qui non ce n'è scritta una, perché inventarne una plausibile sarebbe peggio che dichiarare il vuoto. La descrizione di cosa sarebbe servita — leggere senza modificare e senza vedere il resto — resta in `architettura.md`, dove è nata |
 | **Autenticazione** | **Google e Apple, tutti e due** | linea guida 4.8, non negoziabile |
@@ -2878,6 +2937,19 @@ diario tecnico, byte grezzi. Il selettore dice sempre cosa succede, e
 libdivecomputer. **E quando la ricerca non parte, adesso dice perché**: il
 permesso negato ha un messaggio suo, col percorso delle impostazioni giusto per
 il sistema che si sta usando.
+
+**L'applicazione insiste da sola** quando un collegamento non si apre o uno
+scarico si rompe, e le immersioni già arrivate non si buttano: il segnalibro
+riparte da dove si era fermato. **Sull'iPhone tiene acceso lo schermo** con un
+comando nativo, e se non ci riesce lo dice **mentre** si scarica, non dopo.
+
+**E c'è il banco di prova**: una spunta «registra lo scambio», spenta di suo, che
+scrive in un file **ogni byte scambiato col computer subacqueo, in tutte e due le
+direzioni, con il suo tempo** — identica sulla strada di libdivecomputer e su
+quella dei driver di casa, col diario tecnico in testa al file e la
+registrazione che sopravvive ai tentativi falliti. Serve a capire un guasto che
+succede a casa di qualcun altro, ed è l'unico strumento qui dentro nato per
+essere letto da un essere umano mesi dopo.
 
 **Il libretto dell'art. 12, comma 8 — tutte e tredici le lettere**, con la firma
 della guida raccolta col dito e conservata come tratti, **e un modo di uscire dal
@@ -2924,20 +2996,25 @@ protegge lo script e un travaso dal Mac per quello che resta indietro.
 **► iOS: pubblicata sull'App Store. ◄** Approvata il 26 agosto 2026 al terzo
 invio; i due rifiuti precedenti — 2.1 (informazioni) e 2.1(a) (crash su iPad
 toccando «Take Photo or Video») — sono chiusi tutti e due. **La versione che il
-negozio serve è la `1.7.1`**, pubblicata il **28 agosto 2026 alle 21:25:04 UTC**
-— misurata col `lookup` e l'anti-cache il 7 settembre, non dedotta. La scheda è
+negozio serve è la `1.8.8`**, pubblicata il **10 settembre 2026 alle 17:44:11 UTC**
+— misurata col `lookup` e l'anti-cache, non dedotta. *E resta la `1.8.8` anche
+adesso che il repository è alla `1.8.17`: vedi la prima voce dei prossimi passi.* La scheda è
 in **italiano soltanto**, e anche questo si misura: la stessa descrizione
 italiana torna interrogando la vetrina americana.
 
 **► macOS: pubblicata sul Mac App Store. ◄** Il pacchetto era stato consegnato il
 27 agosto alle 21:44, al terzo tentativo; sciolta la «Conformità mancante» e
-mandata in revisione, la 1.7.0 è uscita il 28 agosto, e **la `1.7.1` l'ha
-seguita l'1 settembre** (dichiarato dal proprietario).
+mandata in revisione, la 1.7.0 è uscita il 28 agosto, e la `1.7.1` l'ha
+seguita l'1 settembre. **Oggi il Mac App Store è alla `1.8.8`**, approvata l'11
+settembre — e qui è sempre **dichiarato dal proprietario**, mai misurato, per la
+ragione spiegata due riquadri più sotto.
 
-> **► E I NEGOZI SONO INDIETRO DI UNA VERSIONE RISPETTO AL SITO. ◄** Dal 7
-> settembre il sito e GitHub servono la **1.8.0**, i due negozi Apple ancora la
-> **1.7.1**: fra il pacchetto pronto e la versione pubblicata ci sono un
-> caricamento a mano e una revisione. *Quando arriva una segnalazione, «ho
+> **► E I NEGOZI SONO QUASI SEMPRE INDIETRO RISPETTO AL SITO. ◄** Il 7
+> settembre il sito e GitHub servivano la **1.8.0** e i due negozi Apple la
+> **1.7.1**; l'11 settembre il sito serve la **1.8.11**, i negozi la **1.8.8**, e
+> il repository è alla **1.8.17**. Fra il pacchetto pronto e la versione
+> pubblicata ci sono un caricamento a mano e una revisione, e a volte — come
+> adesso — una decisione di aspettare. *Quando arriva una segnalazione, «ho
 > l'ultima versione» vuol dire due programmi diversi a seconda di dove è stata
 > presa l'app — ed è la prima cosa da chiedere.*
 
@@ -3890,6 +3967,16 @@ spiega anche perché: l'implementazione appoggia su
 `UIApplication.idleTimerDisabled`, e dove non c'è una `UIApplication` vera non
 funziona.
 
+> **► E QUESTO PARAGRAFO È STATO SMENTITO LA SERA STESSA, PER METÀ. ◄** Su
+> **macOS** `navigator.wakeLock` **funziona** dentro la WKWebView: il diario di
+> uno scarico vero dice `schermo tenuto acceso per la strada del web`. Su iPhone
+> non lo sappiamo ancora, e il nativo resta la strada giusta — ma la fonte su cui
+> mi ero appoggiato per riscrivere un pezzo di codice sbagliava su una delle due
+> piattaforme che ci interessano. *Il paragrafo qui sopra resta scritto com'era,
+> perché è il ragionamento che ha prodotto la 1.8.11 e cancellarlo nasconderebbe
+> come è stata presa quella decisione. Ma non va letto come vero.* Vedi «Le due
+> misure della serata».
+
 *Quindi il rimedio principale della 1.8.10, sul telefono dell'amico, quasi
 certamente non fa niente.* La strada vera è nativa: `isIdleTimerDisabled` dal
 guscio iOS.
@@ -3961,9 +4048,11 @@ caso che funziona, chiederselo è la prima mossa, non l'ultima.*
 ### Cosa è cambiato
 
 **1. Il blocco dello schermo, per la strada nativa.** La 1.8.10 lo chiedeva con
-`navigator.wakeLock`, che dentro una WKWebView non esiste: era inerte. Adesso
-c'è un comando Rust che chiama `UIApplication.setIdleTimerDisabled:` **sul
-thread principale** — UIKit da un altro thread non è «meno affidabile», è
+`navigator.wakeLock`, che dentro una WKWebView su iPhone non risulta esistere
+(*e su Mac invece sì — misurato la sera dell'11, vedi «Le due misure della
+serata»*): era inerte lì dove serviva. Adesso
+c'è un comando Rust — `src-tauri/src/schermo.rs` — che chiama
+`UIApplication.setIdleTimerDisabled:` **sul thread principale** — UIKit da un altro thread non è «meno affidabile», è
 comportamento indefinito — e la strada del web resta come ripiego. Il diario
 scrive **per quale delle due** ci è riuscito: «il rimedio c'è» e «il rimedio c'è
 sulla carta» non devono più somigliarsi in un diario di guasto.
@@ -4013,43 +4102,6 @@ fare qualcosa, cioè mettere il blocco automatico su «Mai» e restare lì.
 
 *Tre guardie che sembravano guardie. Nessuna delle tre si sarebbe mai vista
 senza mutare il codice apposta.*
-
----
-
-## Cosa resta aperto dopo la 1.8.11
-
-In ordine di quanto è probabile che sia lui.
-
-| | Cosa | Perché è ancora in piedi | Cosa lo chiuderebbe |
-|---|---|---|---|
-| 1 | **L'applicazione va in secondo piano** (chiamata in arrivo, cambio app, notifica toccata) | Il blocco nativo impedisce lo spegnimento automatico, **non** il passaggio in secondo piano. Apple: da sospesa l'app non è «aware of any Bluetooth-related events» | Il permesso `bluetooth-central`, che va motivato in revisione Apple. Non è scritto |
-| 2 | **libdivecomputer non rispetta i tempi che l'app ufficiale rispetta** | È il sospettato numero uno adesso che l'app Mares funziona. Chi mantiene la libreria lo dice: il firmware ha requisiti di tempo sottili e non documentati | Un driver Mares scritto in casa, che parli il protocollo a oggetti direttamente. Grosso, e impossibile da provare senza un Puck |
-| 3 | **La desincronizzazione ha una causa che non misuriamo** | Il byte `80` potrebbe arrivare da un pacchetto in più mandato dal computer, non da un nostro ritardo. Del contenuto dei pacchetti il diario non dice niente | Registrare nel diario il primo byte di ogni risposta e il toggle atteso. Piccolo, e non ancora fatto |
-| 4 | **Il modo in cui scriviamo i comandi** | Del lato scrittura misuriamo il numero, non il ritmo né la dimensione. L'app ufficiale potrebbe spezzare i comandi diversamente | Misurare anche le scritture. Non fatto |
-| 5 | **I parametri di connessione** | iOS li decide lui e può cambiarli; l'app Mares potrebbe chiederne di più svelti | Fuori dalla nostra portata con Tauri e btleplug |
-| 6 | **Android non tiene acceso lo schermo** | Servirebbe `FLAG_KEEP_SCREEN_ON`, cioè codice Kotlin nel guscio, e non c'è nessun apparecchio su cui provarlo | Un Android su cui provare |
-| 7 | **macOS non tiene sveglia la macchina** | Lo schermo che si spegne non sospende un'app su macOS, ma la macchina che va in sospensione sì | `IOPMAssertion`. Rischio basso, non fatto |
-| 8 | **Se le seconde finestre servano a qualcosa** | Le abbiamo appena aggiunte e non le ha ancora usate nessuno | Il prossimo diario: «seconde finestre concesse: N, di cui utili M» |
-
-### E una cosa scomoda, che va scritta
-
-Il suo amico è fermo alla **1.8.8**. Fra quella e oggi ci sono **tre versioni**
-di rimedi che nessun apparecchio vero ha mai provato — e una di quelle, la
-1.8.10, si è già rivelata inerte. *Se il prossimo scarico fallisce ancora, non
-sapremo quale dei tre cambiamenti ha fatto cosa*, perché li abbiamo impilati
-senza una misura in mezzo.
-
-È il prezzo di lavorare senza l'apparecchio, e si paga volentieri solo finché le
-righe di diario sono abbastanza precise da separarli dopo. Tre righe, e quel
-diario si smonta:
-
-- `schermo tenuto acceso per la strada nativa` — c'è o non c'è;
-- `l'applicazione è sparita dallo schermo N volte` — con lo schermo tenuto
-  acceso, se è ancora maggiore di zero è il secondo piano, non il blocco
-  automatico;
-- `seconde finestre concesse: N, di cui utili M` — se M è alto, il tempo era il
-  problema; se M è zero e lo scarico si rompe uguale, il problema è dentro il
-  protocollo e la strada è il driver di casa.
 
 ---
 
@@ -4148,9 +4200,326 @@ da non sbagliare: tutto il resto si recupera, quella no.
 
 ---
 
+## La sera delle quattro prove a mano: dalla 1.8.13 alla 1.8.17
+
+Il banco di prova era scritto e provato: duemila prove automatiche verdi, cinque
+mutazioni rosse, tutto quello che questo progetto sa fare da solo. Gli avevo
+chiesto una cosa sola: *provalo stasera su un computer che hai in casa, cinque
+minuti, prima di vedere il Puck domani.*
+
+**Quelle prove a mano hanno trovato quattro difetti in due ore.** Nessuno dei
+quattro era visibile dalle prove automatiche, e tre dei quattro avrebbero
+mandato in fumo la giornata con l'apparecchio.
+
+---
+
+### 1. Il banco non c'era dove è stato provato — la 1.8.13
+
+La registrazione completa era stata scritta nel guscio Rust, dove passa
+libdivecomputer. Il suo Aladin non passa di lì: passa dai **driver scritti in
+casa**, che vivono in TypeScript e quel guscio non lo toccano. *La spunta c'era,
+il pulsante no.*
+
+Da qui `core/ble/registratore.ts`: un involucro attorno al collegamento, che
+registra scritture e letture con i tempi **nello stesso identico formato** del
+guscio Rust — perché gli strumenti che leggeranno quei file (il rigioco, il
+confronto con la traccia dell'app ufficiale) devono poterne leggere uno solo.
+*Due formati per la stessa cosa vuol dire due analizzatori, e il secondo non si
+scrive mai.*
+
+Nel commento del file sta scritto **da quale altezza** è presa la registrazione:
+quella dei driver di casa vede la conversazione come la vede il driver, non i
+confini delle notifiche. Chi la leggerà fra sei mesi deve saperlo, o ne ricaverà
+conclusioni sbagliate sui tempi.
+
+> **La regola che ne discende: una funzione che vive su due strade va provata su
+> tutte e due, perché quella dimenticata è sempre quella che qualcuno userà per
+> prima.**
+
+### 2. Una riga di diario che diceva il falso sul Mac — la 1.8.13
+
+Sotto uno scarico **riuscito**, su un Mac: *«il sistema non sa tenere acceso lo
+schermo: se si spegne, lo scarico si ferma»*. La prima metà era vera e inutile,
+**la seconda era falsa** — su macOS lo schermo che si spegne non sospende
+l'applicazione: il processo continua e il Bluetooth continua a consegnare.
+
+Adesso la piattaforma fa parte della domanda: dove uno schermo spento non ferma
+niente, non si avvisa e non si scrive. *È la stessa lezione della 1.8.7,
+ripetuta a quattro giorni di distanza su un'altra riga.*
+
+### 3. La prima registrazione vera non diceva di chi fosse — la 1.8.14
+
+Il primo file prodotto su un apparecchio vero si decodificava **per intero**:
+
+```
+0.003 > 01 10                          chiedo il modello
+0.062 < 01 17                          0x17 = Aladin Sport Matrix
+0.182 > 01 14                          chiedo il seriale
+0.242 < 04 86 d4 c1 03                 63034502, come dice il diario
+0.302 > 09 c6 86 78 3d 64 10 27 00 00  dammi le immersioni dopo 0x643d7886
+0.481 < 04 00 00 00 00                 nessuna
+```
+
+E c'era una verifica incrociata più forte di qualunque prova automatica: due
+registrazioni a ventidue minuti di distanza, e **l'orologio letto
+dall'apparecchio era avanzato esattamente di ventidue minuti** (1 360 s contro
+1 359 s di tempo reale). La decodifica non era solo coerente con se stessa: era
+giusta.
+
+| | 1ª registrazione (16:02:40) | 2ª (16:25:19) |
+|---|---|---|
+| orologio letto | 17:05:02 | 17:27:42 |
+| differenza | | **22,67 min** |
+| tempo davvero trascorso | | **22,65 min** |
+
+**E i tempi di andata e ritorno: 59, 58, 60, 60, 60 ms.** È l'intervallo di
+connessione, misurato per la prima volta — e il numero serve: a sessanta
+millisecondi per comando, i **6 400 comandi** che servono a svuotare il Puck
+fanno **sei minuti e mezzo** di trasferimento ininterrotto. *Il blocco
+automatico dello schermo scatta di sicuro: non è più una deduzione.*
+
+Ma il file **non diceva di chi fosse**. Nessun modello, nessuna versione,
+nessuna data dentro. Con dieci registrazioni di apparecchi diversi in una
+cartella, fra sei mesi, sarebbe stato indistinguibile dagli altri. *Un file
+destinato a sopravvivere all'apparecchio deve dire da dove viene, e il posto per
+dirlo è dentro di sé, non nel nome.*
+
+Adesso il diario intero va in testa, marcato `!` — che nel formato vuol dire
+«evento» ed è già quello che chi analizza salta — preceduto dal nome del
+programma con la sua versione e dalla data. Non si inventa niente: il diario sa
+già modello, seriale, firmware, MTU, metodo e durata.
+
+### 4. Il pulsante che non esisteva — la 1.8.15
+
+Per collaudare il registratore della strada di libdivecomputer gli avevo chiesto
+di forzarla sull'Aladin: «Non è questo?» → cerca fra tutti → Mares Puck 4.
+Risposta: **«Non è questo?» non compare».**
+
+Non compariva perché un dispositivo riconosciuto da un driver **di casa** aveva
+un pulsante solo. Sembra ragionevole — se il nome combacia con un driver nostro,
+quello è il meglio che abbiamo — e nasconde esattamente il difetto che il ramo
+accanto documenta da settembre: *il riconoscimento si fa sul nome, e i nomi
+cambiano.* L'Aladin Sport Matrix si annuncia «Aladin Sport»; un apparecchio di
+un'altra marca con un nome somigliante finiva su un protocollo sbagliato **senza
+appello**, e l'unica uscita era aspettare una versione nuova.
+
+*Il difetto non era nel codice che stavo guardando: era nell'unica strada che
+non avevo mai percorso.*
+
+### 5. Il file che non c'era — la 1.8.16
+
+Con il pulsante al suo posto, la prova generale è partita: Aladin, protocollo
+Mares, registrazione accesa. Esito: **«il file non c'era».**
+
+Il primo tentativo aveva scambiato cinque comandi e li aveva registrati tutti;
+il secondo non è riuscito nemmeno a collegarsi e ha **gettato** — e siccome la
+registrazione teneva solo l'ultimo giro, **quella buona spariva**. Nessun
+pulsante, nessun file.
+
+Il diario si accumulava fra i tentativi dal 10 settembre, per il ragionamento
+identico: tenere l'ultimo tentativo vuol dire tenere quello fatto nelle
+condizioni peggiori. **La stessa correzione, sullo stesso motivo, su un oggetto
+diverso — e me l'ero dimenticata.**
+
+*Costo evitato: il giorno dopo, davanti all'unico Puck 4 disponibile, sei
+tentativi e l'ultimo che non si collega. Il file sarebbe stato vuoto alla fine
+della giornata.*
+
+### 6. E una riga che dichiarava una risposta mai arrivata — la 1.8.16
+
+Nello stesso diario, fra due tentativi in cui il collegamento non era **mai**
+riuscito: *«il computer aveva risposto: riprovo allo stesso modo»*. Quattro
+righe sopra, nello stesso file, c'era scritto `0 notifiche`.
+
+La causa: `stesso-metodo` esce da **due porte diverse** della regola — «ha
+risposto, la combinazione è buona» e «il ponte non si è aperto, si riparte da
+dove si era partiti» — e l'etichetta ne raccontava una sola. Adesso il motivo lo
+distingue se un metodo era aperto.
+
+### 7. C'erano le scritture e non le letture — la 1.8.17
+
+Il file finalmente uscito conteneva cinque scritture e **nessuna lettura**. Non
+era un difetto del registratore: le letture erano tornate tutte vuote, e una
+lettura vuota non produce nessuna notifica da registrare.
+
+Dal file si capiva lo stesso — le cinque scritture distavano **4 144, 4 107,
+4 109 e 4 081 ms** l'una dall'altra, cioè i tre secondi di attesa che
+`mares_iconhd.c` imposta più il secondo di sonno del suo ritentativo — *ma solo
+sapendo già il protocollo.*
+
+> **Un file che si legge solo se sai già la risposta non è una registrazione: è
+> un promemoria.** E questo file nasce per essere riaperto fra mesi da chi quella
+> cadenza non la ricorda.
+
+Adesso una lettura andata a vuoto lascia la sua riga, con quanto si era chiesto
+e quanto si è aspettato. Una riuscita no: quella la racconta già la notifica
+arrivata, e scriverla due volte gonfierebbe un file che sul Puck avrà migliaia
+di righe. Serviva un filo nuovo, perché **il trasporto vede le letture e il
+ponte no**: `FlussoBle` ha un registratore opzionale, `PonteBle` espone la penna
+per scriverci.
+
+---
+
+### Le due misure della serata, che valgono per domani
+
+**1. Su macOS `navigator.wakeLock` FUNZIONA dentro la WKWebView.** Il diario
+dice `schermo tenuto acceso per la strada del web`. È il contrario di quanto
+dichiara il registro di compatibilità delle WebView del W3C, su cui mi ero
+basato per riscrivere il blocco dello schermo in nativo. *La strada nativa
+resta quella giusta — su iPhone non sappiamo ancora — ma il ripiego ha più
+probabilità di quante gliene davo, e la fonte su cui mi ero appoggiato va
+trattata come indicativa e non come verità.*
+
+**2. Dopo il primo tentativo l'Aladin non si ricollega più.** «Timeout during
+execution of Connect», tre volte per giro, **53 secondi a vuoto per tentativo**;
+una volta perfino «There is no peripheral with id …». Non è un difetto nostro:
+è un apparecchio che smette di farsi trovare dopo una sessione.
+
+*Se vale anche per il Puck, i tentativi automatici dal secondo in poi sono
+minuti spesi per niente* — e la mossa giusta davanti all'apparecchio non è
+aspettare che l'applicazione ci riprovi da sola, ma **risvegliarlo e ripartire a
+mano**. È una cosa che nessun conto avrebbe potuto dire e che nessuna prova
+automatica poteva scoprire.
+
+---
+
+## Cosa resta aperto dopo la 1.8.17
+
+In ordine di quanto è probabile che sia lui. Rispetto alla lista di ieri **una
+riga è nuova** — la terza, che nessun ragionamento avrebbe potuto produrre — e
+**quattro hanno smesso di essere congetture**: la serata delle prove a mano le ha
+misurate. Nessuna è chiusa, e non è la stessa cosa: *una misura sposta una riga
+di posto anche quando non la cancella.*
+
+| | Cosa | Perché è ancora in piedi | Cosa lo chiuderebbe |
+|---|---|---|---|
+| 1 | **L'applicazione va in secondo piano** (chiamata in arrivo, cambio app, notifica toccata) | Il blocco nativo impedisce lo spegnimento automatico, **non** il passaggio in secondo piano. Apple: da sospesa l'app non è «aware of any Bluetooth-related events» | Il permesso `bluetooth-central`, che va motivato in revisione Apple. Non è scritto |
+| 2 | **libdivecomputer non rispetta i tempi che l'app ufficiale rispetta** | È il sospettato numero uno da quando sappiamo che l'app Mares scarica tutto. Chi mantiene la libreria lo dice: il firmware ha requisiti di tempo sottili e non documentati | Un driver Mares scritto in casa, che parli il protocollo a oggetti direttamente. Adesso il banco di prova può dare la traccia da cui copiarlo |
+| 3 | **Dopo il primo tentativo l'apparecchio non si ricollega** — misurato sull'Aladin, 53 s a vuoto per tentativo | Non è un difetto nostro: è il computer che smette di farsi trovare dopo una sessione. Se vale anche per il Puck, i tentativi automatici dal secondo in poi sono minuti spesi per niente | Niente, dal lato nostro. Cambia però **cosa si fa davanti all'apparecchio**: risvegliarlo e ripartire a mano invece di aspettare l'insistenza |
+| 4 | **La desincronizzazione ha una causa che non misuriamo** | Il byte `80` potrebbe arrivare da un pacchetto in più mandato dal computer, non da un nostro ritardo | **Lo strumento adesso c'è**: il banco registra ogni byte in ogni direzione con i tempi. Manca solo di puntarlo su un Puck che fallisce |
+| 5 | **Il modo in cui scriviamo i comandi** | L'app ufficiale potrebbe spezzare i comandi diversamente, o scriverli con un altro ritmo | Anche questo lo dà il banco. Della prima registrazione vera sapevamo già dire che le scritture distavano 4,1 s, cioè timeout più sonno del ritentativo |
+| 6 | **I parametri di connessione** | iOS li decide lui e può cambiarli; l'app Mares potrebbe chiederne di più svelti. **Misurati per la prima volta: 59-60 ms di andata e ritorno** | Fuori dalla nostra portata con Tauri e btleplug. Ma il numero non è più ignoto, e da lì escono i sei minuti e mezzo del Puck |
+| 7 | **Android non tiene acceso lo schermo** | Servirebbe `FLAG_KEEP_SCREEN_ON`, cioè codice Kotlin nel guscio, e non c'è nessun apparecchio su cui provarlo | Un Android su cui provare |
+| 8 | **macOS non tiene sveglia la macchina** | Lo schermo che si spegne su macOS non ferma niente — **adesso è misurato, non dedotto** — ma la macchina che va in sospensione sì | `IOPMAssertion`. Rischio basso, non fatto |
+| 9 | **Se le seconde finestre servano a qualcosa** | Il primo diario vero dice `seconde finestre concesse: 0`, e non vuol dire niente: quell'apparecchio non stava rispondendo affatto, e non c'era niente da prorogare | Un diario dove l'apparecchio risponde e poi si ferma a metà. Cioè il Puck |
+
+### Una riga che si è sgonfiata, e va detto
+
+Il blocco dello schermo della 1.8.11 l'ho riscritto in nativo perché una ricerca
+diceva che `navigator.wakeLock` non esiste dentro una WKWebView. **Su macOS
+esiste e funziona**: il diario della serata lo dice con le sue parole, `schermo
+tenuto acceso per la strada del web`.
+
+La strada nativa resta quella giusta — su iPhone non lo sappiamo ancora, e il
+nativo copre comunque il caso peggiore. Ma il ripiego vale più di quanto gli
+davo, e soprattutto: *la fonte su cui mi ero appoggiato per riscrivere un pezzo
+di codice era sbagliata su una delle due piattaforme che ci interessano.* Va
+trattata come indicativa, non come verità — e la stessa diffidenza vale per
+tutte le tabelle di compatibilità citate in questo documento.
+
+### E una cosa scomoda, che va scritta
+
+Il suo amico è fermo alla **1.8.8**. Fra quella e oggi ci sono **nove
+versioni**, e non sono tutte della stessa specie:
+
+- la **1.8.9**, la **1.8.10** e la **1.8.11** sono rimedi al difetto del Puck,
+  impilati uno sull'altro senza un apparecchio in mezzo a dire quale servisse —
+  e uno dei tre, il blocco dello schermo della 1.8.10, si è già rivelato inerte
+  su iPhone;
+- dalla **1.8.12** alla **1.8.17** non c'è nessun rimedio: c'è lo **strumento**
+  che serve a capire quale rimedio serva, più i quattro difetti che la serata di
+  prove a mano gli ha trovato addosso.
+
+La differenza conta, perché cambia cosa succede se domani va male di nuovo.
+Prima non l'avremmo saputo separare. Adesso, se lo scarico si rompe, il file
+della registrazione contiene **ogni byte scambiato in ogni direzione con il suo
+tempo**, e il diario in testa dice modello, seriale, firmware, MTU, metodo e
+durata. Tre righe lo smontano ancora:
+
+- `schermo tenuto acceso per la strada nativa` — c'è o non c'è;
+- `l'applicazione è sparita dallo schermo N volte` — con lo schermo tenuto
+  acceso, se è ancora maggiore di zero è il secondo piano, non il blocco
+  automatico;
+- `seconde finestre concesse: N, di cui utili M` — se M è alto, il tempo era il
+  problema; se M è zero e lo scarico si rompe uguale, il problema è dentro il
+  protocollo e la strada è il driver di casa.
+
+Ma la quarta riga è quella nuova, ed è la sola che possa chiudere la faccenda:
+**il byte esatto che è arrivato quando ne aspettavamo un altro.**
+
+---
+
 ## Prossimi passi
 
 ### Tocca a chi pubblica
+
+0. **► DOMANI, COL PUCK 4: È L'UNICA VOCE CHE CONTA. ◄** È la prima volta in
+   tutta questa storia che l'apparecchio che non funziona sarà a portata di
+   mano, e tutto quello che è stato costruito dalla 1.8.12 alla 1.8.17 serve a
+   quella mezza giornata. La lista completa sta in `domani-col-puck.md`, e il suo
+   ordine non è l'ordine di importanza del nostro codice:
+
+   1. **La cattura BLE dell'app ufficiale Mares che scarica tutto.** È la cosa
+      più preziosa della giornata e **non esiste pubblicamente**: né nelle
+      segnalazioni di Subsurface, né nella lista di libdivecomputer. Serve il
+      profilo *iOS Bluetooth Logging* di Apple sul telefono dell'amico e
+      **PacketLogger** sul Mac, e con un account sviluppatore è tutto già a
+      disposizione. *Se da domani torna solo questo, la giornata è riuscita:*
+      dentro ci sono ogni comando, ogni risposta e **il ritmo con cui l'app che
+      funziona parla al Puck** — cioè il sospettato numero uno, misurato.
+   2. **Lo scarico con MyDiveLog dal Mac**, non dal telefono. Il Puck si collega
+      al Mac come al telefono, e sul Mac la versione con il banco di prova c'è
+      già senza aspettare nessuna revisione. Con PacketLogger acceso anche di
+      qua si hanno **due tracce dello stesso apparecchio, una che funziona e una
+      che si rompe**: è quello che rende un confronto un confronto.
+   3. **Quante immersioni ci sono davvero nella memoria del Puck.** Tutti i conti
+      di probabilità di questo documento poggiano su una stima di quel numero.
+
+   E tre cose da ricordare mentre si fa, che vengono dalla serata dell'11:
+
+   - **la spunta «registra lo scambio» accesa sempre**, anche al tentativo che si
+     pensa andrà bene: quella sera il tentativo buono è proprio quello che si era
+     perso;
+   - **non aspettare l'insistenza automatica.** Sull'Aladin, dopo il primo
+     tentativo l'apparecchio non si è più fatto trovare: 53 secondi a vuoto per
+     giro, tre giri. Se il Puck fa lo stesso, i tentativi dal secondo in poi sono
+     minuti buttati: si **risveglia l'apparecchio a mano** e si riparte;
+   - **il file si salva anche — soprattutto — quando fallisce.** Il pulsante sta
+     sotto il diario, e la registrazione sopravvive ai tentativi andati male.
+
+   *Quello che quel file può dire e nessun conto ha potuto: il byte esatto
+   arrivato quando ne aspettavamo un altro, e il tempo in cui è arrivato.*
+
+1. **► I NEGOZI SONO ALLA 1.8.8, E CI RESTANO FINO A DOPO IL PUCK. ◄** Sui due
+   negozi Apple c'è la **1.8.8**; nel repository c'è la **1.8.17**. Nove
+   versioni di distanza, e la decisione è di **non** consegnarne nessuna prima
+   della giornata col Puck.
+
+   Il motivo non è pigrizia, è aritmetica dei giri di revisione. I pacchetti
+   pronti in `da-caricare-su-app-store/` sono della **1.8.11**, quindi già
+   superati da sei versioni; e delle sei che li superano nessuna è un rimedio
+   allo scarico: sono il banco di prova e i quattro difetti che gli sono stati
+   trovati addosso a mano. *Un giro di revisione speso adesso consegnerebbe uno
+   strumento di diagnosi a chi non deve diagnosticare niente — e se dal Puck
+   esce un rimedio vero, quel rimedio troverebbe la coda occupata.* È la stessa
+   regola per cui la 1.8.5 non è mai stata caricata, scritta più sotto.
+
+   Dalla **1.8.12** alla **1.8.17** esistono solo come `.dmg` per Mac, ed è
+   voluto: servivano a lui, stasera, su un apparecchio in casa. **Sul sito e su
+   GitHub la versione pubblica resta la 1.8.11.**
+
+   Quando si riparte, si riparte da qui: rigenerare i pacchetti dei negozi dalla
+   versione che esce dal Puck (`bash scripts/pubblica-mac-negozio.sh`,
+   `npm run ios:negozio`), e misurare la pubblicazione invece di dedurla —
+   `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`.
+
+   > **E la bozza del messaggio per l'amico col Puck è già scaduta.** È stata
+   > scritta oggi pomeriggio — `messaggio-per-l-amico.md`, non ancora mandata,
+   > da non confondere col messaggio sulla 1.8.8 partito il 10 — e gli chiede di
+   > aggiornare dal negozio alla **1.8.11**: sul negozio quella versione non c'è e
+   > non ci arriverà. *Una riga che chiede una cosa
+   > impossibile è peggio di una riga assente, perché sembra un piano.* Va
+   > riscritto dopo il Puck, sulla versione che ci sarà davvero.
 
 0. **~~La 1.8.1 ai due negozi, e la mail al centro sub.~~ Chiuse tutte e due,
    l'8 settembre.** Consegnate insieme la sera del 7; **Mac App Store approvato
@@ -4277,10 +4646,12 @@ da non sbagliare: tutto il resto si recupera, quella no.
    niente che l'app non mantenga: l'interfaccia è tradotta per intero, piano di
    miglioramento compreso. **Oggi non c'è**: la vetrina americana serve la
    descrizione italiana, ed è il modo di accorgersi del giorno che cambia.
-4. **► IL TEST CHIUSO SU GOOGLE PLAY: 25 collaudatori, mancano 11 giorni. ◄**
+4. **► IL TEST CHIUSO SU GOOGLE PLAY: 25 COLLAUDATORI, E LA FINESTRA SCADE DOMANI. ◄**
    Dichiarato dal proprietario l'1 settembre 2026, quindi la finestra si chiude
    **attorno al 12 settembre**, ed è solo allora che si può chiedere l'accesso
-   alla produzione. La soglia di Google è **dodici collaudatori iscritti senza
+   alla produzione. *Il titolo di questa voce ha detto «mancano 11 giorni» per
+   dieci giorni di fila, perché un numero di giorni scritto a mano invecchia da
+   solo mentre nessuno lo guarda. Adesso c'è la data, che non invecchia.* La soglia di Google è **dodici collaudatori iscritti senza
    interruzione per quattordici giorni**, e i venticinque non sono zelo: sono il
    margine contro chi si disiscrive: *il conto non si somma, si azzera* — se gli
    iscritti scendono sotto dodici la finestra riparte, e nessuno lo dice mentre
@@ -4457,8 +4828,30 @@ Tutte hanno la stessa radice: **`gen/apple/` è generata e non versionata**.
   indistinguibile: non era vero, e a smentirlo è stato il primo utente esterno.
 - **Il PDF usa i font base** e la codifica WinAnsi; il testo va a capo contando i
   caratteri.
-- **libdivecomputer non è verificata con un computer vero**, ed è accesa lo
-  stesso: la scelta è dichiarata sotto ogni modello che la usa.
+- **► LIBDIVECOMPUTER HA INCONTRATO TRE APPARECCHI VERI E NON HA MAI PORTATO A
+  CASA UN'IMMERSIONE. ◄** La riga di prima diceva «non è verificata con un
+  computer vero», ed è invecchiata nel modo peggiore: adesso è stata provata, e
+  l'esito è negativo tre volte su tre. Mares Quad Ci: si ferma. Mares Puck 4:
+  consegna una parte dell'archivio e si rompe. Aladin Sport Matrix forzato sul
+  driver Mares l'11 settembre: nessuna risposta, cinque comandi a vuoto. *Che
+  l'ultimo caso fosse destinato a fallire — è un apparecchio Uwatec a cui si
+  parlava Mares — non toglie niente ai primi due.* Resta accesa lo stesso,
+  perché l'alternativa è nessun supporto per quelle marche, e la scelta è
+  dichiarata sotto ogni modello che la usa. **Quello che è cambiato non è il
+  limite: è che adesso ha un numero.**
+- **Il banco di prova non ha mai registrato il guasto che deve spiegare.** Le due
+  registrazioni vere esistenti vengono da un apparecchio che non rispondeva
+  affatto e da uno scarico riuscito su un protocollo di casa. Quella che serve —
+  un computer che risponde, va avanti per decine di migliaia di byte e poi si
+  desincronizza — non c'è ancora. *Lo strumento è provato; l'uso per cui è nato,
+  no.*
+- **Il blocco dello schermo nativo non è mai stato visto funzionare su un
+  iPhone.** È dentro l'`.ipa` spedito (`setIdleTimerDisabled` e
+  `tieni_acceso_lo_schermo`, cercati nel binario), e questo dimostra che il
+  codice c'è, non che il sistema gli dia retta. L'unica misura sul campo viene da
+  **macOS**, e riguarda il ripiego del web. *«Verificato dentro il pacchetto» e
+  «visto funzionare» sono due affermazioni diverse, e questo documento le tiene
+  separate anche quando è scomodo.*
 - **Il pacchetto macOS gira solo su Apple Silicon e da macOS 12**, ~~e il sito
   non lo dice~~ — **lo dice**, verificato l'1 settembre sulla pagina pubblicata.
   Il limite del binario resta e va scritto qui; quello che è chiuso è la parte in
@@ -4519,6 +4912,43 @@ Tutte hanno la stessa radice: **`gen/apple/` è generata e non versionata**.
 ---
 
 ## Le lezioni
+
+> ### ► LA LEZIONE DELLA PROVA GENERALE: DUE ORE A MANO CONTRO DUEMILA PROVE VERDI ◄
+>
+> Il banco di prova è uscito con **2 073 prove automatiche verdi, 116 file di
+> prova, 120 prove Rust** e cinque mutazioni uccise apposta. Poi il proprietario
+> l'ha acceso su un apparecchio che aveva in casa, per due ore. **Quattro
+> difetti**, e tre dei quattro avrebbero mandato in fumo la giornata col Puck:
+>
+> 1. il registratore non c'era sulla strada dei driver di casa — *la spunta
+>    c'era, il pulsante no*;
+> 2. il pulsante per forzare un altro driver non compariva proprio sui
+>    dispositivi riconosciuti in casa — l'unica strada che non avevo mai
+>    percorso;
+> 3. la registrazione buona spariva, perché un tentativo fallito dopo teneva
+>    l'ultimo giro e non tutti;
+> 4. il file conteneva le scritture e non le letture, perché una lettura a vuoto
+>    non lascia traccia.
+>
+> **Nessuno dei quattro era visibile da dentro.** Non sono casi limite: sono
+> *assenze*. Una funzione che non viene chiamata su una strada non fa fallire
+> nessuna prova di quella funzione; un pulsante che non compare non rompe
+> nessuna asserzione su quello che compare; un file che non viene scritto non
+> produce un file sbagliato da confrontare. **Le prove automatiche verificano
+> quello che si è pensato di verificare, e il difetto abita sistematicamente
+> nella cosa a cui non si è pensato.**
+>
+> Da qui due regole, e la seconda è più scomoda della prima:
+>
+> - **una funzione che vive su due strade va provata su tutte e due, perché
+>   quella dimenticata è sempre quella che qualcuno userà per prima**;
+> - **uno strumento nuovo non è pronto quando le prove sono verdi: è pronto
+>   quando una persona l'ha usato su un apparecchio vero.** Fra i due stati, qui,
+>   ci sono state quattro versioni.
+>
+> *Gli avevo chiesto cinque minuti «se hai voglia». Ne sono serviti centoventi, e
+> hanno salvato la giornata dopo. La prova generale non è una cortesia al
+> collaudatore: è l'unica prova che può trovare quello che non c'è.*
 
 > ### ► LA LEZIONE DELL'11 SETTEMBRE, SERA: QUANDO ESISTE UN CASO CHE FUNZIONA, CHIEDERSELO È LA PRIMA MOSSA ◄
 >
