@@ -3668,6 +3668,38 @@ pretende che tutti e due i segni esistano. *Una guardia che, quando perde
 l'orientamento, restituisce il vuoto invece di gridare, è una guardia che un
 giorno non si accorgerà di niente.*
 
+### Le verifiche sui binari davvero spediti, e un difetto del metodo di verifica
+
+La 1.8.9 è stata cercata **dentro** ogni pacchetto pubblicato, non dichiarata:
+il DMG scaricato da GitHub (impronta identica a quella locale e a quella nella
+cask: `7deb3da83084`), il portatile Windows, il `.deb`, la libreria dentro
+l'APK, il `.pkg` del Mac App Store e l'`.ipa`. In tutti c'è la riga nuova, in
+nessuno c'è `api.anthropic.com`, e il pacchetto del Mac App Store **non**
+contiene l'aggiornatore — né il plugin né l'indirizzo da cui si aggiorna,
+mentre il DMG pubblico ce l'ha. Solo la tabella dei permessi, che è un elenco di
+nomi compilato sempre, e dove le quattro voci dell'aggiornatore sono `deny-`.
+
+► **E qui il metodo di verifica ha mostrato un buco.** La prima ricerca —
+`strings … | grep "pausa più lunga fra due frammenti"` — ha risposto **zero**,
+su un binario che quella riga ce l'aveva. Non è il binario: è `strings`, che
+stampa solo sequenze di caratteri ASCII stampabili e **spezza la stringa
+sull'accento**. «pausa più lunga» in UTF-8 contiene `C3 B9`, e lì la sequenza
+finisce.
+
+*Per un anno la verifica «cerca una stringa unica di questa versione dentro ogni
+pacchetto» ha funzionato per caso: le stringhe scelte erano senza accenti.* La
+prima con una `ù` dentro avrebbe risposto «non c'è» su un pacchetto giusto — e
+se un giorno il pacchetto fosse davvero sbagliato, la stessa risposta non
+distinguerebbe i due casi. Da adesso la stringa di prova si sceglie **senza
+lettere accentate**: qui è `ms (si aspetta al massimo`, che è ASCII per intero.
+
+Una cosa non torna ed è segnata qui perché non venga dimenticata: l'`.ipa` per
+iPhone **contiene** l'indirizzo dell'aggiornatore, che il `.pkg` per il Mac non
+ha. Non è una novità della 1.8.9 — la 1.8.8 ce l'ha uguale, ed è passata due
+volte dalla revisione Apple — e su iOS l'aggiornatore di Tauri non installa
+niente. Ma è una differenza fra due pacchetti che dovrebbero essere fatti con lo
+stesso criterio, e va guardata con calma, non nel mezzo di una consegna.
+
 ### Cosa questa versione NON fa
 
 Non ripara il disallineamento del toggle. Quello è dentro la libreria e non ha
@@ -4053,6 +4085,20 @@ Tutte hanno la stessa radice: **`gen/apple/` è generata e non versionata**.
 ---
 
 ## Le lezioni
+
+> ### ► LA LEZIONE DELL'11 SETTEMBRE: UNA VERIFICA CHE FUNZIONAVA PER CASO ◄
+>
+> «Cerca una stringa unica di questa versione dentro ogni pacchetto spedito» è
+> la verifica su cui questo progetto appoggia ogni consegna. L'11 settembre ha
+> risposto **zero** su un pacchetto che quella stringa ce l'aveva: `strings`
+> stampa solo sequenze ASCII e spezza la riga sull'accento di «più».
+>
+> Ha funzionato finora perché le stringhe scelte, per caso, non avevano accenti.
+> *Uno strumento che dice «non c'è» sia quando non c'è sia quando non sa
+> leggerlo non è una verifica: è un rumore con due significati.* La regola
+> nuova — la stringa di prova si sceglie senza lettere accentate — costa niente,
+> e senza di essa la prima consegna davvero sbagliata avrebbe avuto la stessa
+> faccia di tutte le altre.
 
 > ### ► LA LEZIONE DEL 10 SETTEMBRE: DUE RIMEDI GIUSTI POSSONO SPEGNERSI A VICENDA ◄
 >
