@@ -4053,6 +4053,101 @@ diario si smonta:
 
 ---
 
+## Il banco di prova, e perché non è un'applicazione a parte
+
+Domani il proprietario vede il Puck 4. È la prima volta in tutta questa storia
+che l'apparecchio che non funziona sarà a portata di mano, e la domanda che ha
+fatto — *«cosa ci serve per scrivere un driver Mares in casa?»* — ha una
+risposta che comincia con una cosa da fare **domani** e non dopo.
+
+### La risposta corta: registrazioni, non conoscenza
+
+Il protocollo a oggetti dei Mares non è un mistero: sta in `mares_iconhd.c`,
+comandi e costanti comprese. Quello che **non** esiste da nessuna parte — l'ho
+cercato nei bug report di Subsurface, nella mailing list di libdivecomputer e
+nelle issue aperte sul Puck 4 — è **una sola cattura grezza del traffico**. Le
+segnalazioni ci sono; i log del protocollo no. Quando Jef Driesen ha lavorato
+sul Sirius ha chiesto agli utenti i file esportati e i log della libreria, non
+le tracce.
+
+E c'è una ragione che non è tecnica. **Scrivere un driver leggendo
+`mares_iconhd.c` produrrebbe un'opera derivata da una libreria LGPL** — è la
+stessa conclusione dell'audit di agosto su `uwatecSmart.ts`, dove le quattro
+tabelle coincidevano riga per riga e il file lo dichiarava pure. Ricavarlo dal
+**traffico osservato** più i fatti pubblici del formato è tutta un'altra
+posizione: i fatti di un formato non sono coperti da copyright, la forma in cui
+qualcuno li ha organizzati sì. *La registrazione non è solo comoda: è la strada
+pulita.*
+
+### Perché sta dentro MyDiveLog
+
+La tentazione era un programma a parte. Ma MyDiveLog **è già** un'applicazione
+per Mac e per iPhone, con il Bluetooth che funziona, i permessi concessi e il
+trasporto provato: un banco costruito a fianco proverebbe un'altra cosa che gli
+somiglia, e costerebbe una seconda firma, un secondo provisioning e un secondo
+impacchettamento. *Quello che si registra qui è esattamente quello che succede
+davvero, sullo stesso trasporto e sullo stesso apparecchio.*
+
+E siccome è la stessa base di codice, il banco di prova **è già anche l'app iOS
+da portarsi in giro**: la stessa spunta, sullo stesso telefono, senza un secondo
+progetto.
+
+### Cosa fa
+
+Una spunta in fondo alla schermata dello scarico — **in chiaro, spenta, con
+scritto che non serve a chi scarica le immersioni**. Non dietro un gesto
+segreto: un interruttore nascosto va ricordato, e chi lo userà fra un anno non
+se lo ricorda; e una funzione nascosta dentro un'app di un negozio è una
+funzione che nessuno ha dichiarato.
+
+Accesa, registra **ogni** scrittura e **ogni** notifica, per esteso e con i
+tempi:
+
+```
+   0.000 > n.1 4 byte [c2 a5 00 00] senza conferma
+   0.067 < n.1 226 byte [aa 42 00 ...]
+   1.204 > n.2 5 byte [bf a5 00 20 08] senza conferma
+```
+
+`>` è quello che scriviamo, `<` quello che arriva, e in testa i secondi dal
+primo comando. Si legge a occhio e si analizza con tre righe di script: è quello
+che serve a un file destinato a sopravvivere per mesi a un apparecchio visto una
+volta sola. Alla fine si salva su file — **non si copia negli appunti**: su un
+archivio pieno sono migliaia di righe, e un'incollata tagliata a metà se ne
+accorge solo chi la usa.
+
+### Le due cose che il diario non poteva fare
+
+Il diario tecnico tiene **sei** scritture in testa e **otto** in coda, e fa
+bene: lo copia e lo incolla una persona dentro una segnalazione. Ma per scrivere
+un driver servono tutte, e con i byte per esteso — *un'anteprima dentro un file
+che dovrà servire per mesi è la rovina del file, e si scopre il giorno in cui
+l'apparecchio non c'è più.* Sono due letture dello stesso scambio, non due
+strumenti in concorrenza, e per questo vivono nello stesso posto.
+
+Cinque mutazioni rosse, fra cui le due che contano: **che la registrazione non
+tronchi** (mutandola per farle usare l'anteprima del diario) e **che da spenta
+non registri niente** — perché accumulare migliaia di righe in memoria a ogni
+scarico sarebbe far pagare a tutti il lavoro di uno.
+
+### E una guardia vecchia che ha preso chi la scriveva
+
+Il pulsante che salva il file, nella prima stesura, metteva a schermo l'errore
+crudo. `nomiInterniAValle` — la guardia nata il 28 agosto perché la parola
+`btleplug` era finita sullo schermo di una persona — l'ha presa in venti
+secondi, indicando riga e colonna. *Una guardia che prende chi l'ha scritta è
+una guardia che funziona.*
+
+### Cosa manca, e si può fare senza l'apparecchio
+
+Il rigioco di una registrazione contro un driver in scrittura, e il confronto
+fra due registrazioni — la nostra e quella dell'app ufficiale. Sono strumenti
+che leggono file: si scrivono in qualunque momento, **anche fra sei mesi, anche
+senza il Puck**. È proprio questo che rende la registrazione di domani la cosa
+da non sbagliare: tutto il resto si recupera, quella no.
+
+---
+
 ## Prossimi passi
 
 ### Tocca a chi pubblica

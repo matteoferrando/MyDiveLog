@@ -1877,6 +1877,10 @@ export const INGLESE: Record<string, string> = {
     'The computer has no dives in memory to download.',
   'Tieni acceso lo schermo e resta su questa schermata: se il telefono si blocca o cambi applicazione, lo scarico si ferma.':
     'Keep the screen on and stay on this page: if the phone locks or you switch apps, the download stops.',
+  'Registra tutto lo scambio col computer': 'Record the whole exchange with the computer',
+  'per chi ripara: alla fine si può salvare su file. Non serve a scaricare le immersioni.':
+    'for maintainers: it can be saved to a file at the end. Not needed to download dives.',
+  'Salva lo scambio ({0} righe)': 'Save the exchange ({0} lines)',
   'Il computer ha più immersioni di quante ne siano arrivate.':
     'The computer holds more dives than the ones that made it across.',
   'Lo scarico si è interrotto dopo {0}. Su una memoria piena, riprovare spesso non basta: il trasferimento si rompe sempre prima della fine, e ogni tentativo riparte da capo.':

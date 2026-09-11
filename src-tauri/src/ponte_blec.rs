@@ -1290,6 +1290,53 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         /// la più vecchia. Il numero serve al riassunto per non ripetere
         /// quelle che erano già uscite in diretta. Vedi `SCRITTURE_IN_CODA`.
         ultime: VecDeque<(usize, String)>,
+        /// La registrazione completa, quando qualcuno l'ha chiesta.
+        ///
+        /// ════════════════════════════════════════════════════════════════════
+        /// ► IL BANCO DI PROVA, E PERCHÉ NON È UN'APPLICAZIONE A PARTE. ◄
+        ///
+        /// Il diario tiene la testa e la coda dello scambio — sei scritture e
+        /// otto — perché è fatto per essere copiato e incollato in una
+        /// segnalazione da una persona, e millecinquecento righe non le incolla
+        /// nessuno. Per **scrivere un driver**, invece, servono tutte: la
+        /// sequenza intera, con i byte e con i tempi.
+        ///
+        /// Le due cose non sono in conflitto, sono due letture dello stesso
+        /// scambio, e per questo stanno nello stesso posto invece che in un
+        /// programma separato: *quello che si registra qui è esattamente quello
+        /// che succede davvero, sullo stesso trasporto, con lo stesso
+        /// Bluetooth e sullo stesso apparecchio.* Un banco di prova costruito
+        /// a parte proverebbe un'altra cosa che gli somiglia.
+        ///
+        /// E c'è una ragione che non è tecnica. Scrivere un driver Mares
+        /// **leggendo** `mares_iconhd.c` produrrebbe un'opera derivata da una
+        /// libreria LGPL — è la stessa conclusione dell'audit di agosto su
+        /// `uwatecSmart.ts`, dove le tabelle coincidevano riga per riga.
+        /// Ricavarlo dal **traffico osservato** più i fatti pubblici del
+        /// formato è tutta un'altra posizione. *La registrazione non è solo
+        /// comoda: è la strada pulita.*
+        registrazione: Option<Vec<String>>,
+    }
+
+    impl Scambio {
+        /// Aggiunge una riga alla registrazione, se è accesa.
+        ///
+        /// Formato: `<secondi> <segno> <corpo>`, con `>` per quello che
+        /// scriviamo, `<` per quello che arriva, `!` per tutto il resto. Si
+        /// legge a occhio e si analizza con tre righe di script — che è
+        /// esattamente quello che serve a un formato che dovrà sopravvivere a
+        /// mesi di lavoro fatto senza l'apparecchio davanti.
+        fn incidi(&mut self, da: Option<Instant>, segno: char, corpo: String) {
+            let Some(righe) = self.registrazione.as_mut() else { return };
+            let quando = da.map(|i| i.elapsed().as_secs_f64()).unwrap_or(0.0);
+            righe.push(format!("{quando:8.3} {segno} {corpo}"));
+        }
+    }
+
+    /// Byte in esadecimale, separati, per la registrazione. **Tutti**, non
+    /// un'anteprima: qui il troncamento sarebbe la rovina di tutto il file.
+    fn tutti_i_byte(dati: &[u8]) -> String {
+        dati.iter().map(|b| format!("{b:02x}")).collect::<Vec<_>>().join(" ")
     }
 
     /// Il canale verso il runtime, con le due operazioni bloccanti sopra.
@@ -1543,6 +1590,12 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         /// modo o cambiare metodo, e sono due rimedi opposti. Vedi
         /// `Misure::qualcosa_e_arrivato`.
         pub misure: Box<dyn Fn() -> Misure + Send + Sync>,
+        /// La registrazione completa dello scambio, se era stata chiesta.
+        ///
+        /// Vuota quando il banco di prova è spento, che è il caso normale.
+        /// Vedi `Scambio::registrazione` per il perché sta qui dentro e non in
+        /// un programma a parte.
+        pub registrazione: Box<dyn Fn() -> Vec<String> + Send + Sync>,
         /// Da alzare PRIMA di scollegarsi di proposito, così la callback di
         /// caduta non racconta come «caduto da sé» uno scollegamento nostro.
         pub scollegamento_voluto: Arc<AtomicBool>,
@@ -1580,6 +1633,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                 ricevuti,
                 riassunto,
                 misure,
+                registrazione,
                 scollegamento_voluto,
                 metodo,
                 metodo_indice,
@@ -1594,6 +1648,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                 ricevuti,
                 riassunto,
                 misure,
+                registrazione,
                 scollegamento_voluto,
                 metodo,
                 metodo_indice,
@@ -1643,6 +1698,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         nome_visto: Option<&str>,
         cronista: Cronista,
         scelta: &SceltaMetodo,
+        registra: bool,
     ) -> Result<PonteBle, String> {
         /*
          * IL MITTENTE STA DENTRO UN `Option` CONDIVISO, e non è un giro
@@ -1863,6 +1919,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
             prima_scrittura: None,
             rinvii: 0,
             ultime: VecDeque::new(),
+            registrazione: if registra { Some(Vec::new()) } else { None },
         }));
 
         /*
@@ -1964,6 +2021,24 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                     contatori_notifica
                         .notifica_piu_piccola
                         .fetch_min(dati.len(), Ordering::Relaxed);
+                    /*
+                     * ► LA REGISTRAZIONE PRENDE LE NOTIFICHE QUI, E CON
+                     * `try_lock`. ◄ Questa callback gira nel runtime e non ha
+                     * il diritto di aspettare nessuno: se il thread dello
+                     * scarico ha il registro in mano proprio adesso, la riga si
+                     * perde. *Una riga persa ogni tanto è il prezzo, e va
+                     * scritto qui perché chi analizzerà il file deve saperlo:
+                     * il conto delle notifiche nel riassunto è quello vero, la
+                     * registrazione può averne una di meno.*
+                     */
+                    if let Ok(mut registro) = scambio_notifica.try_lock() {
+                        let da = registro.prima_scrittura;
+                        registro.incidi(
+                            da,
+                            '<',
+                            format!("n.{quante} {} byte [{}]", dati.len(), tutti_i_byte(&dati)),
+                        );
+                    }
                     if quante == 1 {
                         // Da quando è partita la prima scrittura: `try_lock`
                         // e non `lock`, perché questa callback non ha il
@@ -2215,6 +2290,17 @@ il computer resta senza crediti e smetterà di mandare dati"
                 if registro.ultime.len() == SCRITTURE_IN_CODA {
                     registro.ultime.pop_front();
                 }
+                // ► E LA REGISTRAZIONE PRENDE TUTTO, SENZA ANTEPRIME. ◄ Il
+                // diario tiene testa e coda perché lo incolla una persona;
+                // questa serve a scrivere un driver, e un driver si scrive
+                // sulla sequenza intera. Vedi `Scambio::registrazione`.
+                let da = registro.prima_scrittura;
+                let modo_scritto = nome_modo(modo);
+                registro.incidi(
+                    da,
+                    '>',
+                    format!("n.{numero} {} byte [{}] {modo_scritto}", dati.len(), tutti_i_byte(dati)),
+                );
                 registro.ultime.push_back((numero, riga.clone()));
                 // Il lucchetto si molla PRIMA di chiamare il cronista: quello
                 // emette un evento verso l'interfaccia, e tenere un mutex
@@ -2408,9 +2494,17 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             })
         };
 
+        let registrazione = {
+            let scambio = scambio.clone();
+            Box::new(move || -> Vec<String> {
+                scambio.lock().ok().and_then(|s| s.registrazione.clone()).unwrap_or_default()
+            })
+        };
+
         Ok(PonteBle {
             entrata,
             scrittura,
+            registrazione,
             accessori: Box::new(AccessoriDelPonte { nome, postino: postino.clone() }),
             su_silenzio,
             descrizione: profilo.descrizione.clone(),
@@ -2771,6 +2865,14 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         /// Assente se è filato tutto liscio.
         #[serde(skip_serializing_if = "Option::is_none")]
         pub guasto: Option<String>,
+        /// La registrazione completa dello scambio, riga per riga.
+        ///
+        /// Assente quando il banco di prova è spento, che è il caso normale: è
+        /// una lista che su un archivio pieno arriva a **migliaia** di righe, e
+        /// mandarla all'interfaccia a ogni scarico sarebbe far pagare a tutti
+        /// una cosa che serve a chi scrive driver.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub registrazione: Option<Vec<String>>,
     }
 
     /// Il nome dell'evento Tauri. Come `accesso-ritorno`: minuscolo, con trattino.
@@ -2802,6 +2904,7 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             descrizione,
             riassunto,
             misure,
+            registrazione,
             metodo,
             ..
         } = ponte;
@@ -2992,7 +3095,16 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
          * dire che un errore all'ultimo record buttava via anche i
          * precedenti.
          */
-        Ok(EsitoEsterno { immersioni, guasto: coda_del_guasto })
+        /*
+         * ► LA REGISTRAZIONE ESCE PER ULTIMA, E COMUNQUE SIA ANDATA. ◄ Vale di
+         * più quando lo scarico si è rotto — è per quello che esiste — quindi
+         * non può stare su una strada che un errore salta.
+         */
+        let registrazione = {
+            let righe = registrazione();
+            if righe.is_empty() { None } else { Some(righe) }
+        };
+        Ok(EsitoEsterno { immersioni, guasto: coda_del_guasto, registrazione })
     }
 
     /// I Mares che leggono il pacchetto intero con una `dc_iostream_read` sola.
@@ -3139,6 +3251,7 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         tentativo: Option<usize>,
         metodo: Option<String>,
         segnalibro: Option<String>,
+        registra: bool,
     ) -> Result<EsitoEsterno, String> {
         use tauri::Emitter;
 
@@ -3168,7 +3281,8 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             indice: tentativo,
             chiave: metodo,
         };
-        let ponte = match apri_ponte(antenna, &dispositivo, nome.as_deref(), cronista, &scelta).await {
+        let ponte =
+            match apri_ponte(antenna, &dispositivo, nome.as_deref(), cronista, &scelta, registra).await {
             Ok(ponte) => ponte,
             Err(motivo) => {
                 /*
@@ -3369,9 +3483,23 @@ pub async fn scarica_da_computer_esterno(
     tentativo: Option<usize>,
     metodo: Option<String>,
     segnalibro: Option<String>,
+    registra: Option<bool>,
 ) -> Result<dentro::EsitoEsterno, String> {
     dentro::scarica(
-        app, dispositivo, nome, marca, prodotto, codice_accesso, tentativo, metodo, segnalibro,
+        app,
+        dispositivo,
+        nome,
+        marca,
+        prodotto,
+        codice_accesso,
+        tentativo,
+        metodo,
+        segnalibro,
+        // ► ASSENTE VUOL DIRE SPENTO. ◄ Il banco di prova è per chi scrive
+        // driver: farlo pagare a ogni scarico — migliaia di righe accumulate in
+        // memoria — per una cosa che serve una volta ogni tanto sarebbe far
+        // pagare a tutti il lavoro di uno.
+        registra.unwrap_or(false),
     )
     .await
 }
@@ -3762,8 +3890,23 @@ mod prove {
     /// in panico, ed è esattamente la disciplina che il codice vero rispetta.
     fn apri(antenna: &FintaAntenna) -> (PonteBle, Diario) {
         let diario = Diario::default();
-        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", None, diario.cronista(), &SceltaMetodo::default()))
+        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", None, diario.cronista(), &SceltaMetodo::default(), false))
             .expect("il ponte deve aprirsi");
+        (ponte, diario)
+    }
+
+    /// Lo stesso, con il banco di prova acceso.
+    fn apri_registrando(antenna: &FintaAntenna) -> (PonteBle, Diario) {
+        let diario = Diario::default();
+        let ponte = tauri::async_runtime::block_on(apri_ponte(
+            antenna.clone(),
+            "finto-01",
+            None,
+            diario.cronista(),
+            &SceltaMetodo::default(),
+            true,
+        ))
+        .expect("il ponte deve aprirsi");
         (ponte, diario)
     }
 
@@ -3776,6 +3919,7 @@ mod prove {
             None,
             diario.cronista(),
             &SceltaMetodo::default(),
+            false,
         ));
         (esito, diario)
     }
@@ -5282,7 +5426,7 @@ mod prove {
     fn se_la_concessione_dei_crediti_fallisce_il_ponte_non_si_apre() {
         let antenna = FintaAntenna::con(vec![telit()]).che_rifiuta(ModoScrittura::ConRisposta);
         let diario = Diario::default();
-        let errore = tauri::async_runtime::block_on(apri_ponte(antenna, "finto-01", None, diario.cronista(), &SceltaMetodo::default()))
+        let errore = tauri::async_runtime::block_on(apri_ponte(antenna, "finto-01", None, diario.cronista(), &SceltaMetodo::default(), false))
             .err()
             .expect("senza crediti non si parte");
         assert!(errore.contains("254 crediti"), "{errore}");
@@ -5303,11 +5447,11 @@ mod prove {
         // Il nome visto in scansione batte quello del plugin, perché è quello
         // pubblicitario; uno vuoto non lo batte.
         let diario = Diario::default();
-        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", Some("FQ009999"), diario.cronista(), &SceltaMetodo::default())).unwrap();
+        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", Some("FQ009999"), diario.cronista(), &SceltaMetodo::default(), false)).unwrap();
         let PonteBle { entrata, scrittura, accessori, su_silenzio, .. } = ponte;
         let mut flusso = FlussoBle::nuovo(entrata, scrittura).con_accessori(accessori, su_silenzio);
         assert_eq!(flusso.nome(), Some("FQ009999".to_string()));
-        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", Some("  "), diario.cronista(), &SceltaMetodo::default())).unwrap();
+        let ponte = tauri::async_runtime::block_on(apri_ponte(antenna.clone(), "finto-01", Some("  "), diario.cronista(), &SceltaMetodo::default(), false)).unwrap();
         let PonteBle { entrata, scrittura, accessori, su_silenzio, .. } = ponte;
         let mut flusso = FlussoBle::nuovo(entrata, scrittura).con_accessori(accessori, su_silenzio);
         assert_eq!(flusso.nome(), Some("FQ001124".to_string()));
@@ -5345,6 +5489,80 @@ mod prove {
         // pacchetto di un Mares del ramo variabile arriva intero o spezzato.
         assert!(r.contains("notifiche da 20 byte"), "la dimensione va scritta: {r}");
         assert!(diario.contiene("ms dopo la prima scrittura"), "{}", diario.testo());
+    }
+
+    #[test]
+    fn il_banco_di_prova_registra_TUTTO_lo_scambio_con_i_tempi() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► IL BANCO DI PROVA, E PERCHÉ NON BASTAVA IL DIARIO. ◄
+         *
+         * Il diario tiene la testa e la coda dello scambio — sei scritture e
+         * otto — perché lo copia e lo incolla una persona, e millecinquecento
+         * righe non le incolla nessuno. Per **scrivere un driver** servono
+         * tutte: la sequenza intera, con i byte per esteso e con i tempi.
+         *
+         * Qui si prova la cosa che fa la differenza fra una registrazione e un
+         * riassunto: che **non tronchi niente**. Un'anteprima dentro un file
+         * che dovrà servire per mesi di lavoro senza l'apparecchio davanti
+         * sarebbe la rovina del file, e si scoprirebbe il giorno in cui
+         * l'apparecchio non c'è più.
+         */
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")]);
+        let (ponte, _diario) = apri_registrando(&antenna);
+        let PonteBle { entrata, scrittura, accessori, su_silenzio, registrazione, .. } = ponte;
+        let mut flusso =
+            FlussoBle::nuovo(entrata, scrittura).con_accessori(accessori, su_silenzio);
+
+        // Un comando lungo, che un'anteprima taglierebbe.
+        let comando: Vec<u8> = (0u8..40).collect();
+        flusso.scrivi(&comando).unwrap();
+        antenna.notifica(&[0xaa, 0xbb, 0xcc]);
+        flusso.leggi(10, Duration::from_millis(100)).unwrap();
+
+        let righe = registrazione();
+        assert_eq!(righe.len(), 2, "una riga per scrittura e una per notifica: {righe:?}");
+
+        let scritta = &righe[0];
+        assert!(scritta.contains(" > "), "il segno dice il verso: {scritta}");
+        assert!(scritta.contains("40 byte"), "{scritta}");
+        // ► LA RIGA CHE VALE LA PROVA. ◄ Tutti e quaranta i byte, primo e
+        // ultimo compresi: se qui comparisse un'anteprima, il file sarebbe
+        // inutile e nessuno se ne accorgerebbe finché non serve.
+        assert!(scritta.contains("00 01 02"), "i primi byte: {scritta}");
+        assert!(scritta.contains("25 26 27"), "e anche gli ULTIMI: {scritta}");
+
+        let arrivata = &righe[1];
+        assert!(arrivata.contains(" < "), "il segno dice il verso: {arrivata}");
+        assert!(arrivata.contains("aa bb cc"), "{arrivata}");
+
+        // E i tempi ci sono: è metà del valore della registrazione, perché il
+        // sospettato numero uno è il ritmo con cui si parla al computer.
+        assert!(
+            righe.iter().all(|r| r.trim_start().starts_with(|c: char| c.is_ascii_digit())),
+            "ogni riga comincia con il tempo: {righe:?}"
+        );
+    }
+
+    #[test]
+    fn senza_banco_di_prova_non_si_registra_niente_e_non_si_paga_niente() {
+        /*
+         * ► IL ROVESCIO, ED È QUELLO CHE TIENE ONESTO IL CASO NORMALE. ◄ La
+         * registrazione su un archivio pieno sono migliaia di righe tenute in
+         * memoria e poi spedite all'interfaccia. Farlo a ogni scarico vorrebbe
+         * dire far pagare a tutti una cosa che serve a chi scrive driver, e
+         * sarebbe il tipo di costo che non si vede finché qualcuno non scarica
+         * quarantacinque immersioni su un telefono.
+         */
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")]);
+        let (ponte, _diario) = apri(&antenna);
+        let PonteBle { entrata, scrittura, accessori, su_silenzio, registrazione, .. } = ponte;
+        let mut flusso =
+            FlussoBle::nuovo(entrata, scrittura).con_accessori(accessori, su_silenzio);
+        flusso.scrivi(&[1, 2, 3]).unwrap();
+        antenna.notifica(&[9]);
+        flusso.leggi(10, Duration::from_millis(100)).unwrap();
+        assert!(registrazione().is_empty(), "spento vuol dire spento");
     }
 
     #[test]

@@ -147,6 +147,8 @@ type Stato =
        * silenzio le più vecchie — sparisce nel momento in cui smette di essere
        * silenzioso.
        */
+      /** Lo scambio intero, quando il banco di prova era acceso. */
+      registrazione?: string[];
       ripartiDaQui?: {
         chiave: string;
         impronta: string;
@@ -400,6 +402,13 @@ export function BleDownload() {
    * un'impostazione a mano.
    */
   const [tuttoDaCapo, setTuttoDaCapo] = useState(false);
+  /**
+   * Il banco di prova: registra tutto lo scambio invece della sola testa e
+   * coda. Vedi `ScaricoEsterno.registra`. Spento per difetto, e non si
+   * conserva fra un avvio e l'altro: è una cosa che si accende per una sera
+   * con un apparecchio davanti, non una preferenza.
+   */
+  const [registra, setRegistra] = useState(false);
   /*
    * I segnalibri SVUOTATI non si mostrano.
    *
@@ -1157,6 +1166,8 @@ export function BleDownload() {
        */
       let guasto: unknown;
       let grezzo: string | undefined;
+      /** Lo scambio intero, quando il banco di prova è acceso. */
+      let registrazione: string[] | undefined;
       const conservato = codiceAccoppiamento(device.id);
       // Il metodo conservato vale solo quando NON si sta già riprovando: chi
       // preme «riprova con un altro metodo» sta dicendo proprio che quello
@@ -1213,9 +1224,11 @@ export function BleDownload() {
           tentativo,
           metodo: metodoSalvato,
           segnalibro,
+          registra,
           emit: onEvent,
         });
         dives = esito.dives;
+        registrazione = esito.registrazione;
         /*
          * ► UNO SCARICO ROTTO A METÀ NON È UNO SCARICO RIUSCITO, NEMMENO SE HA
          * PORTATO QUALCOSA. ◄ Le immersioni arrivate si tengono — sono buone,
@@ -1542,10 +1555,11 @@ export function BleDownload() {
         parziale: false,
         altroMetodo,
         ripartiDaQui,
+        registrazione,
         diario: diarioIntero,
       });
     },
-    [fermaRicerca, importDives, t, bleMarkers, saveBleMarker, tuttoDaCapo],
+    [fermaRicerca, importDives, t, bleMarkers, saveBleMarker, tuttoDaCapo, registra],
   );
   /*
    * Il `ref` si riempie dopo ogni disegno, così il tentativo automatico che
@@ -1702,6 +1716,35 @@ export function BleDownload() {
               <span className="muted">
                 {' — '}
                 {t('serve se hai cancellato qualcosa e la rivuoi indietro')}
+              </span>
+            </span>
+          </label>
+          {/*
+           * ► IL BANCO DI PROVA STA QUI, IN CHIARO, E NON DIETRO UN GESTO
+           * SEGRETO. ◄
+           *
+           * La tentazione era nasconderlo: è roba da manutentori, e una riga in
+           * più su una schermata che deve restare semplice si paga. Ma un
+           * interruttore nascosto ha due difetti che pesano di più. Il primo è
+           * che va ricordato — e chi lo ha scritto se lo ricorda per un mese,
+           * chi lo userà fra un anno no. Il secondo è che *una funzione
+           * nascosta in un'app di un negozio è una funzione che nessuno ha
+           * dichiarato*, e questo progetto non ne ha.
+           *
+           * Sta in fondo, spento, con scritto a cosa serve e che non serve a
+           * chi scarica le immersioni. Chi non ne ha bisogno lo legge una volta
+           * e non lo tocca più.
+           */}
+          <label
+            className="planner-check"
+            style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}
+          >
+            <input type="checkbox" checked={registra} onChange={(e) => setRegistra(e.target.checked)} />
+            <span>
+              {t('Registra tutto lo scambio col computer')}
+              <span className="muted">
+                {' — '}
+                {t('per chi ripara: alla fine si può salvare su file. Non serve a scaricare le immersioni.')}
               </span>
             </span>
           </label>
@@ -2231,6 +2274,47 @@ export function BleDownload() {
               >
                 {t(copiato ? 'Copiato' : 'Copia il diario')}
               </button>
+              {/*
+               * ► LA REGISTRAZIONE SI SALVA SU FILE, NON SI COPIA NEGLI
+               * APPUNTI. ◄ Su un archivio pieno sono migliaia di righe: gli
+               * appunti le prendono e poi si scopre che l'incollata è tagliata,
+               * o che l'applicazione dove si incolla non regge. *Un file si
+               * apre fra un anno; una cosa incollata da qualche parte no.*
+               */}
+              {stato.registrazione && stato.registrazione.length > 0 && (
+                <button
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        const righe = stato.registrazione ?? [];
+                        const dove = await esporta(
+                          `mydivelog-scambio-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.txt`,
+                          righe.join('\n'),
+                          'text/plain;charset=utf-8',
+                        );
+                        setSalvataggio(`${t('Salvato')} ${dove.dove}.`);
+                      } catch (err) {
+                        // `conDettaglio` e non l'errore crudo: la prima
+                        // versione di questa riga metteva a schermo il
+                        // messaggio così com'era, e `nomiInterniAValle` l'ha
+                        // presa in venti secondi. *Una guardia che prende chi
+                        // l'ha scritta è una guardia che funziona.*
+                        setSalvataggio(
+                          conDettaglio(
+                            `${t('Non si è potuto salvare')}. ` +
+                              t(
+                                'Controlla lo spazio libero sul dispositivo e riprova: il file non è stato scritto.',
+                              ),
+                            err,
+                          ),
+                        );
+                      }
+                    })();
+                  }}
+                >
+                  {frase(t, 'Salva lo scambio ({0} righe)', String(stato.registrazione.length))}
+                </button>
+              )}
               {/*
                * I BYTE GREZZI SI POSSONO PORTARE VIA, e non è una funzione da
                * sviluppatori.

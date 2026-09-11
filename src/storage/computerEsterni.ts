@@ -110,6 +110,15 @@ export interface ScaricoEsterno {
    * ferma niente e si scarica tutto.
    */
   segnalibro?: string;
+  /**
+   * Il banco di prova: registra **tutto** lo scambio, byte per byte e con i
+   * tempi, invece della sola testa e coda che finiscono nel diario.
+   *
+   * Spento per difetto. Serve a chi scrive un driver, non a chi scarica le
+   * immersioni: su un archivio pieno sono migliaia di righe, e farle pagare a
+   * ogni scarico sarebbe far pagare a tutti il lavoro di uno.
+   */
+  registra?: boolean;
   emit: (e: DownloadEvent) => void;
 }
 
@@ -170,6 +179,15 @@ export interface EsitoScaricoEsterno {
   dives: Dive[];
   /** Assente se è filato tutto liscio. */
   guasto?: string;
+  /**
+   * Lo scambio intero, riga per riga, quando il banco di prova era acceso.
+   *
+   * Formato: `<secondi> <segno> <corpo>`, con `>` per quello che abbiamo
+   * scritto, `<` per quello che è arrivato. Si legge a occhio e si analizza
+   * con tre righe di script — che è quello che serve a un file destinato a
+   * sopravvivere per mesi a un apparecchio visto una volta sola.
+   */
+  registrazione?: string[];
 }
 
 /**
@@ -205,6 +223,7 @@ export async function scaricaDaComputerEsterno({
   tentativo,
   metodo,
   segnalibro,
+  registra,
   emit,
 }: ScaricoEsterno): Promise<EsitoScaricoEsterno> {
   if (!isTauri()) {
@@ -221,23 +240,25 @@ export async function scaricaDaComputerEsterno({
 
   const spegni = await listen<DownloadEvent>(EVENTO, (evento) => emit(evento.payload));
   try {
-    const esito = await invoke<{ immersioni: ImmersioneLdc[]; guasto?: string }>(
-      'scarica_da_computer_esterno',
-      {
-        dispositivo,
-        nome: nome && nome.trim() !== '' ? nome : null,
-        marca,
-        prodotto: modello,
-        codiceAccesso: codiceAccesso && codiceAccesso.trim() !== '' ? codiceAccesso : null,
-        // `null` e non `undefined`: un argomento indefinito sparisce dalla
-        // serializzazione di Tauri, e il guscio non distingue «non me l'hai
-        // passato» da «non ce l'ho» — che qui vogliono dire la stessa cosa, ma
-        // per ragioni diverse e con messaggi di diario diversi.
-        tentativo: tentativo ?? null,
-        metodo: metodo && metodo.trim() !== '' ? metodo : null,
-        segnalibro: segnalibro && segnalibro.trim() !== '' ? segnalibro : null,
-      },
-    );
+    const esito = await invoke<{
+      immersioni: ImmersioneLdc[];
+      guasto?: string;
+      registrazione?: string[];
+    }>('scarica_da_computer_esterno', {
+      dispositivo,
+      nome: nome && nome.trim() !== '' ? nome : null,
+      marca,
+      prodotto: modello,
+      codiceAccesso: codiceAccesso && codiceAccesso.trim() !== '' ? codiceAccesso : null,
+      // `null` e non `undefined`: un argomento indefinito sparisce dalla
+      // serializzazione di Tauri, e il guscio non distingue «non me l'hai
+      // passato» da «non ce l'ho» — che qui vogliono dire la stessa cosa, ma
+      // per ragioni diverse e con messaggi di diario diversi.
+      tentativo: tentativo ?? null,
+      metodo: metodo && metodo.trim() !== '' ? metodo : null,
+      segnalibro: segnalibro && segnalibro.trim() !== '' ? segnalibro : null,
+      registra: registra === true,
+    });
     /*
      * IL FUSO SI CHIEDE QUI, non nel guscio Rust.
      *
@@ -257,6 +278,7 @@ export async function scaricaDaComputerEsterno({
         importedAt: new Date().toISOString(),
       }),
       guasto: esito.guasto,
+      registrazione: esito.registrazione,
     };
   } finally {
     // Si spegne SEMPRE, anche quando lo scarico fallisce: un ascoltatore
