@@ -3646,6 +3646,28 @@ decorazione, non una misura. Cinque mutazioni, tutte rosse, più una mutazione d
 controllo che non muta niente e resta verde, che è il modo di sapere che il verde
 vuol dire qualcosa.
 
+### E una guardia che si è rotta da lontano, per fortuna
+
+Aggiungere il conto delle letture ha fatto diventare rossa una prova che non
+c'entrava niente: `esterniLdc.test.ts`, che ritaglia un pezzo di
+`trasporto_ldc.rs` fra due segni per controllare che **solo** la tappa di
+decompressione scriva il tetto. La fine del ritaglio la cercava con
+`RUST.indexOf('_ => {}')` — dall'inizio del file. La `match` nuova dentro
+`cb_read` contiene un `_ => {}` trecento righe più su, si è presa il primo
+posto, e il pezzo esaminato è diventato la stringa vuota.
+
+È diventata rossa **per fortuna, non per costruzione**: una stringa vuota non
+contiene `ceiling = Some(...)`, e il `toContain` è fallito. Ma la prova gemella,
+due righe sopra, controlla con un `not.toContain` — *e una stringa vuota non
+contiene nemmeno quello*. Lo stesso identico scivolone, in quell'altra, sarebbe
+rimasto verde per sempre, su una prova che esiste per sorvegliare una costante C
+copiata a mano.
+
+Adesso il ritaglio è una funzione sola che cerca la fine **dopo** l'inizio e
+pretende che tutti e due i segni esistano. *Una guardia che, quando perde
+l'orientamento, restituisce il vuoto invece di gridare, è una guardia che un
+giorno non si accorgerà di niente.*
+
 ### Cosa questa versione NON fa
 
 Non ripara il disallineamento del toggle. Quello è dentro la libreria e non ha
