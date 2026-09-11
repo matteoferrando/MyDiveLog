@@ -3942,6 +3942,117 @@ che si è preso la libreria.
 
 ---
 
+## La 1.8.11, e la frase che ha riscritto la lista
+
+*«Lui normalmente sull'app di Mares scarica tutto.»* Stesso telefono, stesso
+Puck, stessa stanza — e l'applicazione ufficiale porta a casa l'archivio intero.
+
+È l'informazione più forte arrivata in quattro giorni, e vale più di qualunque
+misura presa da noi, perché **è un controllo**. Tutto quello che colpirebbe
+anche l'app ufficiale esce dalla lista in un colpo: interferenza a 2,4 GHz,
+batteria del computer, pause della memoria flash, stalli del Bluetooth di iOS,
+rinegoziazione dei parametri di connessione. Restano in piedi soltanto due
+famiglie: **quello che è nostro** e **quello che è di libdivecomputer**.
+
+*Da ricordare, perché è metodo e non fortuna: quattro giorni di misure hanno
+ristretto il campo meno di una frase su cosa funziona altrove. Quando esiste un
+caso che funziona, chiederselo è la prima mossa, non l'ultima.*
+
+### Cosa è cambiato
+
+**1. Il blocco dello schermo, per la strada nativa.** La 1.8.10 lo chiedeva con
+`navigator.wakeLock`, che dentro una WKWebView non esiste: era inerte. Adesso
+c'è un comando Rust che chiama `UIApplication.setIdleTimerDisabled:` **sul
+thread principale** — UIKit da un altro thread non è «meno affidabile», è
+comportamento indefinito — e la strada del web resta come ripiego. Il diario
+scrive **per quale delle due** ci è riuscito: «il rimedio c'è» e «il rimedio c'è
+sulla carta» non devono più somigliarsi in un diario di guasto.
+
+Verificato dentro l'`.ipa` spedito: `setIdleTimerDisabled` e
+`tieni_acceso_lo_schermo` ci sono tutti e due.
+
+**2. Una lettura non è scaduta solo perché il tempo è passato.** È la correzione
+che non dipende da quale delle dieci cause sia quella vera, ed è per questo che
+vale più delle altre. Dichiarare scaduta una lettura **non è la reazione al
+guasto: è il guasto**, perché fa partire il ritentativo del backend Mares —
+dormi un secondo, svuota, rimanda — su un protocollo che, per ammissione di chi
+lo mantiene, «doesn't use checksums or sequence numbers, so we can't detect
+this». Quindi:
+
+- a chi **ha già risposto** si concede **una** seconda finestra. Non a chi non ha
+  mai parlato: lì il metodo è sbagliato e il giro dei metodi deve restare
+  veloce, o su otto combinazioni da provare si passa da due minuti a quattro;
+- a **chiunque** si concede un ultimo istante di quaranta millisecondi, perché
+  su una *prima* risposta un soffio di ritardo non costa un pacchetto: costa il
+  metodo intero, che il giro scarta come muto;
+- un'attesa che **sfora la propria scadenza** di mezzo secondo rivela che i
+  thread erano fermi mentre l'orologio andava avanti — cioè l'applicazione
+  sospesa — e si conta a parte invece di essere scambiata per un computer che
+  tace.
+
+**E la riga porta il numero che la può condannare**: quante seconde finestre
+sono state concesse, e quante sono servite davvero. Se saranno sempre zero,
+questa è solo un'attesa raddoppiata e va tolta. *Una correzione che arriva col
+numero che la smentisce è l'unico tipo che non diventa superstizione.*
+
+**3. Quando lo schermo non si può tenere acceso, lo si dice mentre si scarica.**
+Non nel diario alla fine: chi guarda deve saperlo nell'unico momento in cui può
+fare qualcosa, cioè mettere il blocco automatico su «Mai» e restare lì.
+
+### Tre mutazioni verdi, e cosa hanno pagato
+
+- **la spazzata finale** era un `raccogli_subito()` che nessuna prova poteva
+  sorvegliare: il caso da riprodurre era un millisecondo esatto fra due righe.
+  Rifatta come attesa di quaranta millisecondi, che è la stessa idea in una
+  forma che si può inchiodare;
+- **la ripresa del blocco nativo** era provata con il ripiego del web, che la
+  nascondeva: serviva una prova col nativo acceso;
+- **l'avviso a schermo** compariva sempre, perché nelle prove il blocco non si
+  otteneva mai: serviva il rovescio, cioè una prova in cui il blocco c'è e
+  l'avviso non deve comparire.
+
+*Tre guardie che sembravano guardie. Nessuna delle tre si sarebbe mai vista
+senza mutare il codice apposta.*
+
+---
+
+## Cosa resta aperto dopo la 1.8.11
+
+In ordine di quanto è probabile che sia lui.
+
+| | Cosa | Perché è ancora in piedi | Cosa lo chiuderebbe |
+|---|---|---|---|
+| 1 | **L'applicazione va in secondo piano** (chiamata in arrivo, cambio app, notifica toccata) | Il blocco nativo impedisce lo spegnimento automatico, **non** il passaggio in secondo piano. Apple: da sospesa l'app non è «aware of any Bluetooth-related events» | Il permesso `bluetooth-central`, che va motivato in revisione Apple. Non è scritto |
+| 2 | **libdivecomputer non rispetta i tempi che l'app ufficiale rispetta** | È il sospettato numero uno adesso che l'app Mares funziona. Chi mantiene la libreria lo dice: il firmware ha requisiti di tempo sottili e non documentati | Un driver Mares scritto in casa, che parli il protocollo a oggetti direttamente. Grosso, e impossibile da provare senza un Puck |
+| 3 | **La desincronizzazione ha una causa che non misuriamo** | Il byte `80` potrebbe arrivare da un pacchetto in più mandato dal computer, non da un nostro ritardo. Del contenuto dei pacchetti il diario non dice niente | Registrare nel diario il primo byte di ogni risposta e il toggle atteso. Piccolo, e non ancora fatto |
+| 4 | **Il modo in cui scriviamo i comandi** | Del lato scrittura misuriamo il numero, non il ritmo né la dimensione. L'app ufficiale potrebbe spezzare i comandi diversamente | Misurare anche le scritture. Non fatto |
+| 5 | **I parametri di connessione** | iOS li decide lui e può cambiarli; l'app Mares potrebbe chiederne di più svelti | Fuori dalla nostra portata con Tauri e btleplug |
+| 6 | **Android non tiene acceso lo schermo** | Servirebbe `FLAG_KEEP_SCREEN_ON`, cioè codice Kotlin nel guscio, e non c'è nessun apparecchio su cui provarlo | Un Android su cui provare |
+| 7 | **macOS non tiene sveglia la macchina** | Lo schermo che si spegne non sospende un'app su macOS, ma la macchina che va in sospensione sì | `IOPMAssertion`. Rischio basso, non fatto |
+| 8 | **Se le seconde finestre servano a qualcosa** | Le abbiamo appena aggiunte e non le ha ancora usate nessuno | Il prossimo diario: «seconde finestre concesse: N, di cui utili M» |
+
+### E una cosa scomoda, che va scritta
+
+Il suo amico è fermo alla **1.8.8**. Fra quella e oggi ci sono **tre versioni**
+di rimedi che nessun apparecchio vero ha mai provato — e una di quelle, la
+1.8.10, si è già rivelata inerte. *Se il prossimo scarico fallisce ancora, non
+sapremo quale dei tre cambiamenti ha fatto cosa*, perché li abbiamo impilati
+senza una misura in mezzo.
+
+È il prezzo di lavorare senza l'apparecchio, e si paga volentieri solo finché le
+righe di diario sono abbastanza precise da separarli dopo. Tre righe, e quel
+diario si smonta:
+
+- `schermo tenuto acceso per la strada nativa` — c'è o non c'è;
+- `l'applicazione è sparita dallo schermo N volte` — con lo schermo tenuto
+  acceso, se è ancora maggiore di zero è il secondo piano, non il blocco
+  automatico;
+- `seconde finestre concesse: N, di cui utili M` — se M è alto, il tempo era il
+  problema; se M è zero e lo scarico si rompe uguale, il problema è dentro il
+  protocollo e la strada è il driver di casa.
+
+---
+
 ## Prossimi passi
 
 ### Tocca a chi pubblica
@@ -4313,6 +4424,24 @@ Tutte hanno la stessa radice: **`gen/apple/` è generata e non versionata**.
 ---
 
 ## Le lezioni
+
+> ### ► LA LEZIONE DELL'11 SETTEMBRE, SERA: QUANDO ESISTE UN CASO CHE FUNZIONA, CHIEDERSELO È LA PRIMA MOSSA ◄
+>
+> Quattro giorni di diari, tre versioni, dieci cause verificate una per una. Poi
+> una frase del proprietario: *«lui normalmente sull'app di Mares scarica
+> tutto»*. Stesso telefono, stesso computer, stessa stanza.
+>
+> Quella frase ha eliminato in un colpo interferenza, batteria, pause della
+> memoria, stalli del Bluetooth di iOS e rinegoziazione dei parametri — tutto
+> ciò che colpirebbe anche l'app ufficiale — e ha lasciato in piedi solo quello
+> che è nostro o di libdivecomputer. *Ha ristretto il campo più di quattro
+> giorni di misure.*
+>
+> Non era nascosta: era a disposizione dal primo minuto, e non l'ho chiesta. Un
+> **controllo** — un caso che funziona, con tutto il resto uguale — vale più di
+> qualunque misura presa su un caso che fallisce, perché non richiede di avere
+> ragione su come funziona il mondo. La domanda «e con qualcos'altro funziona?»
+> costa una riga di conversazione, e va fatta prima di aprire il codice.
 
 > ### ► LA LEZIONE DEI NUMERI: UN CONTO FATTO PRIMA VALE PIÙ DI DUE NOTTI DI CODICE ◄
 >
