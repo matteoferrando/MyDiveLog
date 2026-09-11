@@ -3872,6 +3872,76 @@ volta.* Sta qui scritto come prossimo passo, non come rimedio di oggi.
 
 ---
 
+## Le dieci cause di un silenzio, verificate una per una
+
+L'11 settembre, dopo la 1.8.10, la domanda giusta: *«per qualche secondo non è
+arrivato niente» ha almeno cinque cause possibili — verifica che siano tutte.*
+Sono dieci, e la verifica ha demolito due cose che avevo dato per buone: il
+rimedio spedito quella mattina e una delle mie cause preferite.
+
+### ► LA VERIFICA CHE COSTA UNA VERSIONE: IL BLOCCO DELLO SCHERMO CHE HO SCRITTO NON FUNZIONA SU iPHONE ◄
+
+`navigator.wakeLock` **non è supportato dentro una WKWebView**, che è esattamente
+dove gira MyDiveLog su iOS e su macOS. È in Safari dal 16.4, ma il registro del
+WebView Community Group del W3C — costruito sui dati di compatibilità di MDN —
+dà la funzione come non disponibile in WKWebView (iOS e macOS), Android WebView
+e WebView2. Il [bug WebKit 254545](https://bugs.webkit.org/show_bug.cgi?id=254545)
+spiega anche perché: l'implementazione appoggia su
+`UIApplication.idleTimerDisabled`, e dove non c'è una `UIApplication` vera non
+funziona.
+
+*Quindi il rimedio principale della 1.8.10, sul telefono dell'amico, quasi
+certamente non fa niente.* La strada vera è nativa: `isIdleTimerDisabled` dal
+guscio iOS.
+
+**E c'è una sola ragione per cui questo non è un disastro: l'avevo misurato.**
+La riga «il sistema non sa tenere acceso lo schermo» esiste proprio per dirlo, e
+il prossimo diario la conterrà. *Un rimedio che non funziona e lo dichiara costa
+una versione; un rimedio che non funziona in silenzio costa la fiducia in tutte
+le misure che gli stanno intorno.* È la stessa lezione della riga sull'MTU del
+10 settembre, imparata di nuovo a otto giorni di distanza.
+
+Va aggiunto un secondo limite, documentato nella specifica stessa: **il blocco
+viene rilasciato quando la pagina diventa nascosta**. Protegge dallo spegnimento
+automatico, non dal passaggio in secondo piano — che è proprio il caso peggiore.
+
+### La tabella
+
+| # | Causa | Verificata? | Come si riconosce nel diario | Cosa possiamo farci |
+|---|---|---|---|---|
+| 1 | **iOS congela l'applicazione** a schermo bloccato o al cambio app | **Confermata da Apple**: senza il permesso di lavorare in secondo piano l'app «is unable to perform Bluetooth-related tasks, nor is it aware of any Bluetooth-related events»; gli eventi restano in coda fino al ritorno in primo piano | «l'applicazione è sparita dallo schermo N volte» | **Molto.** Blocco dello schermo **nativo** (`isIdleTimerDisabled`), e non dichiarare scaduta una lettura quando il tempo è passato mentre eravamo congelati |
+| 2 | **Il nostro tempo di attesa è più corto della tolleranza del BLE** | **Confermata**: `mares_iconhd.c` imposta 3 000 ms; le linee guida Apple citate dal supporto sviluppatori danno un supervision timeout di **6–18 s**. Un silenzio di 4 s è dentro il comportamento normale del collegamento | silenzio massimo ≈ 3 000 ms, nessuna sparizione dello schermo | **Sì**: raccogliere la notifica arrivata in ritardo invece di dichiarare il silenzio. Il tempo lo impone la libreria, ma chi decide se è «scaduto» siamo noi |
+| 3 | **Il computer Mares tace davvero** per più di 3 s | **Sintomo confermato su altri**: nei log di un Puck Pro EZ «Failed to receive the packet data» si ripete ogni ~3 s con il collegamento vivo. La **causa** (lettura della memoria?) non è documentata da nessuna parte | silenzio ≈ 3 000 ms ripetuto, schermo sempre presente | Poco: il ritentativo della libreria c'è già. Conta non peggiorarlo (vedi #2) |
+| 4 | **Il protocollo Mares si desincronizza e non può accorgersene** | **Confermata dalle parole di chi mantiene libdivecomputer**: «the Mares protocol doesn't use checksums or sequence numbers, so we can't detect this». **Ed è il nostro errore esatto**: `Unexpected packet header (80)` a `mares_iconhd.c:521` è segnalato su un Mares Sirius nel giugno 2025, con la risposta «This is an error I haven't seen before». **Irrisolto** | la riga della libreria nel diario | **Niente, dentro libdivecomputer.** O si evita il timeout che la innesca (#1, #2), o si scrive un driver in casa |
+| 5 | **Interferenza 2.4 GHz** | **Ridimensionata.** Nessuna fonte con numeri sostiene pause di *secondi*: le misure che ho trovato parlano di pacchetti che passano da 15 a **200 ms**. Il salto adattivo di canale esiste apposta | silenzi di poche centinaia di ms | Consigli d'uso: telefono vicino, modalità aereo col solo Bluetooth |
+| 6 | **Batteria bassa del computer** | **NON documentata.** Cercata su forum Subsurface, mailing list, manuale del Puck 4: **zero** segnalazioni per il Bluetooth. L'unica cosa vicina riguarda l'interfaccia cablata, ed è un'ipotesi di un manutentore, per giunta smentita dai fatti (batteria cambiata, guasto rimasto) | — | **Da non inseguire** finché non c'è un esperimento vero. Era una mia supposizione, non un fatto |
+| 7 | **iOS rinegozia i parametri del collegamento** | **Confermata**: il supporto sviluppatori Apple scrive che «you may see the same parameters accepted once, and rejected later», perché un telefono non è un apparecchio dedicato | silenzi sotto il secondo, ricorrenti | Fuori dal nostro controllo |
+| 8 | **Uno stallo del Bluetooth di iOS** | **Documentata ma di ordine di grandezza sbagliato**: ~250 ms ogni 10 s su un iPhone 12 Pro, con lo sniffer che conferma i pacchetti in onda. Segnalata ad Apple, nessuna risposta | buchi regolari di ~250 ms | Niente, e comunque troppo corto per spiegare il nostro caso |
+| 9 | **Il timeout di transazione ATT a 30 s** sulle scritture **con conferma** | **Documentata**, e ci riguarda: abbiamo un modo di scrivere «con conferma». Una scrittura senza risposta fa disconnettere lo stack a 30 s esatti | disconnessione a ~30 s tondi | Già mitigata: la scelta `Automatica` preferisce «senza conferma» dove la caratteristica lo permette |
+| 10 | **Il JavaScript della WKWebView congelato in secondo piano** | **Riportata** ripetutamente (Cordova, Capacitor), non documentata da Apple. Ci riguarda perché **l'insistenza automatica vive in TypeScript**: è un secondo punto di congelamento, indipendente dal primo | i tentativi automatici che non ripartono | Stessa di #1 |
+
+### Una nota sulla misura del silenzio
+
+Il ritentativo di `mares_iconhd_transfer` contiene un `dc_iostream_sleep(1000)`
+deliberato. Quel secondo **non** entra nel nostro `silenzio_massimo_ms`, perché
+il cronometro parte dentro `leggi` e la libreria dorme fuori — ma vale la pena
+saperlo prima di leggere il prossimo diario e attribuire al computer un secondo
+che si è preso la libreria.
+
+### Cosa ne esce, in ordine di valore
+
+1. **Il blocco dello schermo va rifatto nativo.** Quello che c'è adesso, su
+   iPhone, quasi certamente non fa niente — e lo dirà da solo.
+2. **Una lettura non è «scaduta» solo perché il tempo è passato.** Se il tempo è
+   passato mentre eravamo congelati, o se la notifica è lì un istante dopo la
+   scadenza, dichiarare il silenzio è quello che innesca la
+   desincronizzazione del punto 4. *Questa è la correzione che non dipende da
+   quale delle dieci cause sia quella vera*, e per questo è la migliore delle tre.
+3. **La batteria esce dall'elenco dei sospettati**, e la 2.4 GHz scende di
+   parecchio. Erano due mie supposizioni presentate con la stessa voce dei fatti.
+
+---
+
 ## Prossimi passi
 
 ### Tocca a chi pubblica
