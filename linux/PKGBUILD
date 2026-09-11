@@ -19,7 +19,7 @@
 # questo file e rilanciare makepkg -si.
 
 pkgname=mydivelog-bin
-pkgver=1.8.9
+pkgver=1.8.10
 pkgrel=1
 pkgdesc="Il meglio dei tuoi computer, in un logbook solo"
 arch=('x86_64')
@@ -39,7 +39,7 @@ source=("MyDiveLog-${pkgver}-Linux-amd64.deb::https://github.com/matteoferrando/
 # makepkg non sa aprire un .deb da solo (è un archivio ar, non un tar): si
 # dichiara di non estrarlo e lo si apre a mano in package().
 noextract=("MyDiveLog-${pkgver}-Linux-amd64.deb")
-sha256sums=('f8315ffc07500c660e3208f4dd16a9cebd2345822a44e586b891f5752c72d29c')
+sha256sums=('dc57c1fec0e62c6279e22c50ce2a3b1d8232f9f1699d2ac9efd2aebe63fa4e7e')
 
 package() {
   # Dentro un .deb ci sono tre file: debian-binary, control.tar.gz e data.tar.gz.
