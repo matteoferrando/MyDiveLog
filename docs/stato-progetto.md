@@ -62,11 +62,21 @@ ritentare`, che **esiste solo nella 1.8.5** — macOS, iPhone, Windows portatile
 e il `.pkg` del Mac App Store. In tutti: **zero** `api.anthropic.com`; e nel
 pacchetto del negozio, **zero** riferimenti all'aggiornatore.
 
-**Sui negozi Apple la versione pubblica è ancora la `1.8.4`** — sull'App Store
-per iPhone dal `2026-09-09T16:53:17Z`, misurata col `lookup` e l'anti-cache; sul
-Mac App Store l'esito lo dichiara il proprietario. I pacchetti `1.8.5` per tutti
-e due sono pronti in `da-caricare-su-app-store/`, e l'`.aab` per Play in
-`da-caricare-su-play/MyDiveLog-1.8.5-play.aab`.
+**► E LA `1.8.8` È SUI DUE NEGOZI APPLE. ◄** App Store per iPhone dal
+`2026-09-10T17:44:11Z`, **misurato** col `lookup` e l'anti-cache; Mac App Store
+approvato l'**11 settembre**, **dichiarato** dal proprietario — e la differenza
+fra le due parole è quella di sempre: la scheda è una sola per iPhone e Mac, e il
+campo `version` che il `lookup` restituisce è quello di iOS, quindi la
+pubblicazione macOS da fuori non si vede.
+
+**Per la prima volta da settimane i tre numeri coincidono**: quello nel
+repository, quello che il negozio iPhone consegna a un estraneo e quello del Mac
+App Store dicono tutti e tre `1.8.8`. *In mezzo ce ne sono tre — 1.8.5, 1.8.6,
+1.8.7 — che ai negozi non arriveranno mai, ed è stato voluto: su GitHub un numero
+costa una compilazione, su App Store Connect costa un giro di revisione.*
+
+**Google Play** aspetta la fine del test chiuso, attorno al 12 settembre:
+l'`.aab` firmato è in `da-caricare-su-play/MyDiveLog-1.8.8-play.aab`.
 
 > **► LA RIGA DI WINDOWS IN `latest.json` NON LA SCRIVE LA BUILD DEL MAC. ◄** Il
 > file che esce da `mac:pubblica` contiene **solo** `darwin-aarch64`: la voce di
@@ -3516,16 +3526,38 @@ diario per chiuderla.*
    telefono. *Il comando che ha detto quando era il momento, e che serve identico
    alla prossima versione:*
    `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
-1. **► LA 1.8.8 È STATA CARICATA. ◄** *Dichiarato dal proprietario la mattina
-   del 10 settembre.* Adesso resta l'attesa, e l'attesa non è un guasto: sulla
-   1.8.1 fra le due approvazioni Apple sono passate nove ore. **Quando il
-   negozio iPhone serve la 1.8.8, l'amico col Mares aggiorna e riprova** — ed è
-   il primo diario che potrà dire *quale* dei sei controlli è fallito e quante
-   volte ci ha provato. *Va chiesto di mandarlo **anche se funziona**: un
+1. **► ~~LA 1.8.8 È STATA CARICATA.~~ CHIUSA: È SUI DUE NEGOZI APPLE. ◄**
+   **App Store per iPhone: `1.8.8` dal `2026-09-10T17:44:11Z`** — misurato col
+   `lookup` e l'anti-cache, non dedotto dall'approvazione. **Mac App Store:
+   approvata l'11 settembre, dichiarato dal proprietario** — e qui «dichiarato»
+   e non «misurato» è la parola esatta: la scheda è una sola per iPhone e Mac, e
+   il campo `version` che il `lookup` restituisce è quello di iOS, quindi da
+   fuori la pubblicazione macOS non si vede né oggi né fra un mese.
+
+   > **► E PER LA PRIMA VOLTA DA SETTIMANE I TRE NUMERI COINCIDONO. ◄** Quello
+   > nel repository, quello che il negozio iPhone consegna a un estraneo e
+   > quello del Mac App Store dicono tutti e tre **1.8.8** — e non per
+   > deduzione: due misurati, uno dichiarato da chi poteva saperlo. *Fra la
+   > 1.8.5 e la 1.8.7 ce ne sono tre che non ci arriveranno mai, ed è stato
+   > voluto.*
+
+   **Il messaggio per l'amico col Puck è partito** (scritto il 10 settembre): gli
+   chiede di aggiornare, lo avvisa che l'applicazione adesso **riprova da sola**
+   e che può metterci di più, e gli chiede il diario **anche se funziona** — un
    diario riuscito dice quale metodo ha vinto e quanto erano grandi le
-   notifiche, che è la misura da cui dipende tutto il resto.* Come si misura
-   quando è pubblica:
+   notifiche, che è la misura da cui dipende tutto il resto e che finora non
+   abbiamo mai avuto.
+
+   Come si misura, e serve identico alla prossima versione:
    `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
+
+1. **► IL CENTRO SUB, ADESSO, PUÒ ESSERE RICHIAMATO. ◄** Hanno un **Mares Quad
+   Ci** e un **Aqualung i330R**, e l'ultima volta gli era stata mandata la
+   1.8.4. Da allora sono cambiate le cose che riguardano proprio loro:
+   l'insistenza automatica, il salvataggio di quello che arriva, il segnalibro,
+   e — per l'i330R — il fatto che una rinuncia al PIN adesso non fa richiedere
+   il codice altre due volte. *Vale la stessa regola dell'8 e del 9 settembre:
+   si scrive quando c'è una versione che possono installare, e adesso c'è.*
 
 1. **► ~~LA 1.8.6 VA CARICATA SUI DUE NEGOZI APPLE, E SALTA LA 1.8.5.~~ Superata: è stata caricata la 1.8.8. ◄**
    *Pronta e verificata: `da-caricare-su-app-store/` con il `LEGGIMI.md`
