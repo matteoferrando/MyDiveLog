@@ -585,10 +585,7 @@ describe('il giro dei modi di collegarsi', () => {
       await scambio(284, 64236);
       await act(async () => finto.aMeta!([immersione(), immersione()], 'scarico non riuscito (stato -8)'));
 
-      expect(
-        finto.chiamate,
-        'due immersioni su quarantacinque non sono un lavoro finito',
-      ).toHaveLength(2);
+      expect(finto.chiamate, 'due immersioni su quarantacinque non sono un lavoro finito').toHaveLength(2);
       expect(
         finto.chiamate[1].tentativo,
         'e si riprova con lo STESSO modo, che ha appena dimostrato di funzionare',
