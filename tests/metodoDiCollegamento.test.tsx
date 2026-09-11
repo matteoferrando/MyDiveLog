@@ -38,7 +38,7 @@ const finto = vi.hoisted(() => ({
   /** Finisce con delle immersioni in mano E un guasto: lo scarico rotto a metà. */
   aMeta: null as ((v: unknown, guasto: string) => void) | null,
   /** Finisce portandosi dietro la registrazione del banco di prova. */
-  conRegistrazione: null as ((v: unknown, registrazione: string[]) => void) | null,
+  conRegistrazione: null as ((v: unknown, registrazione: string[], guasto?: string) => void) | null,
   /** I segnalibri già in archivio, come li vedrebbe l'applicazione. */
   segnalibri: {} as Record<string, { fingerprint: string; at: string; dives: number }>,
   /** Quelli che l'applicazione ha chiesto di salvare, in ordine. */
@@ -70,7 +70,8 @@ vi.mock('../src/storage/computerEsterni', () => ({
       // andata. `aMeta` è il caso che prima non si poteva nemmeno esprimere:
       // immersioni buone e un guasto, insieme.
       finto.finisci = (v: unknown) => risolvi({ dives: v });
-      finto.conRegistrazione = (v: unknown, registrazione: string[]) => risolvi({ dives: v, registrazione });
+      finto.conRegistrazione = (v: unknown, registrazione: string[], guasto?: string) =>
+        risolvi({ dives: v, registrazione, guasto });
       finto.aMeta = (v: unknown, guasto: string) => risolvi({ dives: v, guasto });
       finto.fallisci = rifiuta;
     });
@@ -932,6 +933,84 @@ describe('il giro dei modi di collegarsi', () => {
       // E lo scambio vero, dopo.
       expect(testo).toContain('0.003 > n.1 2 byte [01 10]');
       expect(salvato!.nome, 'il nome dice che è uno scambio').toContain('scambio');
+    } finally {
+      smonta();
+    }
+  });
+
+  it('► la registrazione del PRIMO tentativo non si perde se il secondo non si collega ◄', async () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * IL DIFETTO CHE HA TROVATO LA PROVA GENERALE, LA SERA DELL'11 SETTEMBRE.
+     *
+     * Prova vera, su un Aladin a cui si parlava in mareseo apposta: il primo
+     * tentativo ha scambiato cinque comandi e li ha registrati tutti; il
+     * secondo non è nemmeno riuscito a collegarsi («There is no peripheral with
+     * id …») e ha **gettato**. Risultato a schermo: nessun pulsante, nessun
+     * file. *La registrazione del tentativo che aveva parlato era stata
+     * sostituita da quella del tentativo che non era partito.*
+     *
+     * Il diario si accumulava da giorni; la registrazione no, e teneva solo
+     * l'ultimo giro — cioè quello fatto nelle condizioni peggiori. È esattamente
+     * il ragionamento con cui il 10 settembre si era sistemato il diario: **la
+     * stessa correzione, sullo stesso motivo, su un oggetto diverso,
+     * dimenticata.**
+     *
+     * E vale la pena scrivere cosa sarebbe costato: il giorno dopo, davanti
+     * all'unico Puck 4 disponibile, l'applicazione riprova fino a sei volte e
+     * l'ultima quasi certamente non si collega. Il file sarebbe stato vuoto.
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await metodo(1, 2);
+      await scambio(0);
+      // Primo tentativo: ha parlato e ha registrato, poi si è rotto.
+      await act(async () =>
+        finto.conRegistrazione!([], ['   0.004 > n.1 2 byte [c2 67]'], 'stato -7, tempo scaduto'),
+      );
+      // Secondo tentativo: non si collega nemmeno, e GETTA.
+      await act(async () => finto.fallisci!(new Error('There is no peripheral with id')));
+      await lasciaProvare(() => null);
+
+      await act(async () => {
+        premi(host, 'Salva lo scambio').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      const testo = finto.esportato?.contenuto ?? '';
+      expect(testo, 'lo scambio del primo tentativo deve esserci ancora').toContain('c2 67');
+    } finally {
+      smonta();
+    }
+  });
+
+  it('► un collegamento mai aperto non si racconta come «il computer aveva risposto» ◄', async () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * L'ALTRA COSA CHE HA TROVATO LA PROVA GENERALE.
+     *
+     * Nel diario vero dell'11 settembre, due tentativi di fila non sono
+     * riusciti nemmeno a collegarsi — «Timeout during execution of Connect»,
+     * tre volte ciascuno — e fra l'uno e l'altro il diario scriveva: **«il
+     * computer aveva risposto: riprovo allo stesso modo»**. Quattro righe sopra,
+     * nello stesso file, c'era scritto `0 notifiche`.
+     *
+     * La causa è che `stesso-metodo` esce da due porte diverse della regola:
+     * «ha risposto, la combinazione è buona» e «il ponte non si è aperto, si
+     * riparte da dove si era partiti». L'etichetta ne raccontava una sola.
+     *
+     * *Chi ripara legge quella riga e cerca dalla parte sbagliata* — ed è
+     * esattamente quello che sarebbe successo domani, leggendo il diario di un
+     * Puck che non si ricollega.
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      // Nessun metodo annunciato: il ponte non si è mai aperto.
+      await act(async () => finto.fallisci!(new Error('Timeout during execution of Connect')));
+      await lasciaProvare(() => null);
+      const testo = host.textContent ?? '';
+      expect(testo, 'il motivo vero').toContain('il collegamento non si è aperto: riprovo da capo');
+      expect(testo, 'e non quello falso').not.toContain('il computer aveva risposto');
     } finally {
       smonta();
     }

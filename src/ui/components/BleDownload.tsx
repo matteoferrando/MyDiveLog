@@ -442,7 +442,13 @@ export function BleDownload() {
         marca: string,
         modello: string,
         tentativo?: number,
-        insiste?: { fatti: number; stesso: number; diario: string[]; raccolto?: PuntoRaggiunto },
+        insiste?: {
+          fatti: number;
+          stesso: number;
+          diario: string[];
+          registrazione?: string[];
+          raccolto?: PuntoRaggiunto;
+        },
       ) => Promise<void>)
     | null
   >(null);
@@ -1036,7 +1042,13 @@ export function BleDownload() {
       marca: string,
       modello: string,
       tentativo?: number,
-      insiste?: { fatti: number; stesso: number; diario: string[]; raccolto?: PuntoRaggiunto },
+      insiste?: {
+        fatti: number;
+        stesso: number;
+        diario: string[];
+        registrazione?: string[];
+        raccolto?: PuntoRaggiunto;
+      },
     ) => {
       fermaRicerca();
       const nome = `${marca} ${modello}`;
@@ -1455,6 +1467,33 @@ export function BleDownload() {
       const diarioIntero = [...(insiste?.diario ?? []), ...righeDiQuestoGiro];
 
       /*
+       * ════════════════════════════════════════════════════════════════════
+       * ► ANCHE LA REGISTRAZIONE SI ACCUMULA FRA I TENTATIVI. ◄
+       *
+       * Il diario lo faceva già; questa no, e per il caso che conta era un
+       * difetto grave. Sul Puck l'applicazione riprova fino a **sei** volte:
+       * tenendo solo l'ultima registrazione, chi apre il file troverebbe il
+       * tentativo fatto nelle condizioni peggiori — dopo cinque scollegamenti
+       * — e non il primo, che è quello che racconta com'è cominciata e che
+       * quasi sempre arriva più lontano.
+       *
+       * *È la stessa correzione fatta al diario il 10 settembre, sullo stesso
+       * ragionamento, su un oggetto diverso.* L'ho trovata rileggendo il filo
+       * che nessun apparecchio aveva mai percorso, la sera prima di percorrerlo.
+       *
+       * Il segno `!` davanti al separatore non è decorazione: nel formato vuol
+       * dire «evento», ed è quello che chi analizza il file salta senza doverlo
+       * distinguere dai byte.
+       */
+      const registrazioneIntera = registrazione
+        ? [
+            ...(insiste?.registrazione ?? []),
+            ...(insiste?.registrazione?.length ? ['', `! ── tentativo n. ${fatti + 1} ──`] : []),
+            ...registrazione,
+          ]
+        : insiste?.registrazione;
+
+      /*
        * Il punto più avanti raggiunto, che si porta avanti come il diario.
        * Vedi `PuntoRaggiunto`: sta **prima** del blocco che riprova perché
        * deve scendere nel tentativo successivo, e non solo finire nel riquadro.
@@ -1515,15 +1554,34 @@ export function BleDownload() {
       });
 
       if (scelta.cosa !== 'smetti') {
+        /*
+         * ► LA RIGA DEVE DIRE IL MOTIVO VERO, E PER UN GIORNO NE HA DETTO UNO
+         * FALSO. ◄
+         *
+         * `stesso-metodo` esce da due porte diverse di `decidiComeInsistere`:
+         * «il computer ha risposto, quindi la combinazione è buona» e «il ponte
+         * non si è nemmeno aperto, quindi si riparte da dove si era partiti».
+         * Scrivere per tutte e due «il computer aveva risposto» è **falso**
+         * nella seconda, e la prova generale dell'11 settembre 2026 l'ha messo
+         * nero su bianco: due tentativi di fila in cui il collegamento non era
+         * mai riuscito, e il diario che dichiarava una risposta mai arrivata —
+         * con `0 notifiche` scritto quattro righe sopra, nello stesso file.
+         *
+         * *Chi ripara legge quella riga e cerca dalla parte sbagliata.* Il
+         * motivo lo distingue una cosa sola: se un metodo era aperto.
+         */
         const comeSiChiama =
-          scelta.cosa === 'stesso-metodo'
-            ? 'il computer aveva risposto: riprovo allo stesso modo'
-            : 'nessuna risposta con questo modo: provo il prossimo';
+          scelta.cosa === 'altro-metodo'
+            ? 'nessuna risposta con questo modo: provo il prossimo'
+            : metodoInCorso
+              ? 'il computer aveva risposto: riprovo allo stesso modo'
+              : 'il collegamento non si è aperto: riprovo da capo';
         diarioIntero.push('', `→ ${comeSiChiama}`);
         await scaricaEsternoRef.current?.(device, marca, modello, scelta.tentativo, {
           fatti: scelta.fatti,
           stesso: scelta.stesso,
           diario: diarioIntero,
+          registrazione: registrazioneIntera,
           raccolto,
         });
         return;
@@ -1575,7 +1633,7 @@ export function BleDownload() {
         parziale: false,
         altroMetodo,
         ripartiDaQui,
-        registrazione,
+        registrazione: registrazioneIntera,
         diario: diarioIntero,
       });
     },
