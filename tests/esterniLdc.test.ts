@@ -457,18 +457,40 @@ describe('il tipo di sosta nel ponte Rust', () => {
     expect(RUST).toContain(`const ${nome}: c_uint = ${valore};`);
   });
 
+  /**
+   * Il pezzo di sorgente fra due segni, con la garanzia che i segni ci siano.
+   *
+   * ► LA SECONDA `indexOf` PARTE DA DOVE FINISCE LA PRIMA, E NON DALL'INIZIO. ◄
+   * L'11 settembre 2026 questa prova è diventata rossa senza che nessuno
+   * toccasse il codice che sorveglia: cercava la fine del ramo con
+   * `RUST.indexOf('_ => {}')`, e una `match` nuova **trecento righe più su** —
+   * il conto delle letture, in `cb_read` — ha aggiunto un `_ => {}` che si è
+   * preso il primo posto. Il pezzo esaminato è diventato la stringa vuota.
+   *
+   * È stata fortuna che sia diventata rossa: una stringa vuota non contiene
+   * niente, quindi il `toContain` è fallito. Ma la prova gemella qui sotto usa
+   * un `not.toContain`, e una stringa vuota **non contiene** nemmeno quello:
+   * *lo stesso scivolone, in quell'altra, sarebbe rimasto verde per sempre.*
+   * Da qui l'`expect` sui segni: un ritaglio che non ha trovato i suoi
+   * estremi deve gridare, non restituire il vuoto.
+   */
+  function ramoFra(inizio: string, fine: string) {
+    const da = RUST.indexOf(inizio);
+    expect(da, `«${inizio}» non c’è più nel sorgente Rust`).toBeGreaterThanOrEqual(0);
+    const a = RUST.indexOf(fine, da + inizio.length);
+    expect(a, `«${fine}» non c’è dopo «${inizio}»`).toBeGreaterThan(da);
+    return RUST.slice(da, a);
+  }
+
   it('la sosta di sicurezza non scrive né tetto né inDeco', () => {
-    const ramo = RUST.slice(
-      RUST.indexOf('DECO_SOSTA_SICUREZZA => {'),
-      RUST.indexOf('DECO_SOSTA_PROFONDA => {'),
-    );
+    const ramo = ramoFra('DECO_SOSTA_SICUREZZA => {', 'DECO_SOSTA_PROFONDA => {');
     expect(ramo).toContain('in_safety_stop = Some(true)');
     expect(ramo).not.toContain('ceiling');
     expect(ramo).toContain('in_deco = Some(false)');
   });
 
   it('solo la tappa di decompressione scrive il tetto', () => {
-    const ramo = RUST.slice(RUST.indexOf('DECO_SOSTA_DECO => {'), RUST.indexOf('_ => {}'));
+    const ramo = ramoFra('DECO_SOSTA_DECO => {', '_ => {}');
     expect(ramo).toContain('ceiling = Some(d.profondita)');
   });
 
