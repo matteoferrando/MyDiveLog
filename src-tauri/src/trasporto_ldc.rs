@@ -214,6 +214,12 @@ pub trait FlussoByte: Send {
     fn misure_frammenti(&self) -> (usize, u64) {
         (0, 0)
     }
+
+    /// Il silenzio più lungo fra un comando e la sua risposta, in millisecondi.
+    /// Vedi `MisureLettura`. Zero è la risposta onesta di chi non aspetta mai.
+    fn silenzio_massimo_ms(&self) -> u64 {
+        0
+    }
 }
 
 // --------------------------------------------------------------- il flusso BLE
@@ -248,6 +254,8 @@ pub struct FlussoBle {
     frammenti_mancati: usize,
     /// La pausa più lunga davvero aspettata fra due frammenti. Vedi `MisureLettura`.
     pausa_massima: Duration,
+    /// Il silenzio più lungo fra un comando e la sua risposta. Vedi `MisureLettura`.
+    silenzio_massimo: Duration,
 }
 
 /// Come si rimettono insieme le notifiche dentro una lettura.
@@ -389,6 +397,7 @@ impl FlussoBle {
             notifica_piena: 0,
             frammenti_mancati: 0,
             pausa_massima: Duration::ZERO,
+            silenzio_massimo: Duration::ZERO,
         }
     }
 
@@ -479,7 +488,23 @@ impl FlussoByte for FlussoBle {
     fn leggi(&mut self, quanti: usize, attesa: Duration) -> Result<Vec<u8>, String> {
         if self.avanzo.is_empty() {
             self.raccogli_subito();
-            self.aspetta(attesa)?;
+            /*
+             * ► SI CRONOMETRA SEMPRE, E NON SERVE NESSUNA GUARDIA. ◄ La prima
+             * versione aveva un `if` che misurava solo quando la coda era
+             * vuota, con un commento che diceva «altrimenti si annacqua il
+             * massimo». Era sbagliato, e una mutazione lo ha dimostrato
+             * restando verde: *un massimo non si annacqua*. Una lettura che
+             * trova la risposta già arrivata contribuisce zero, e zero non
+             * sposta un massimo — sposterebbe una media, che qui non c'è.
+             *
+             * Vale la pena tenerlo scritto: quel guardiano non sorvegliava
+             * niente, e senza la mutazione sarebbe rimasto lì per sempre a
+             * sembrare prudenza.
+             */
+            let inizio_silenzio = std::time::Instant::now();
+            let esito_attesa = self.aspetta(attesa);
+            self.silenzio_massimo = self.silenzio_massimo.max(inizio_silenzio.elapsed());
+            esito_attesa?;
             /*
              * IL RIPIEGO SUL SILENZIO. Se non è mai arrivato niente in tutta la
              * sessione e la prima attesa è scaduta, il primo scambio è muto:
@@ -580,6 +605,10 @@ impl FlussoByte for FlussoBle {
     /// qualcosa era andato storto.
     fn misure_frammenti(&self) -> (usize, u64) {
         (self.frammenti_mancati, self.pausa_massima.as_millis() as u64)
+    }
+
+    fn silenzio_massimo_ms(&self) -> u64 {
+        self.silenzio_massimo.as_millis() as u64
     }
 
     fn nome(&mut self) -> Option<String> {
@@ -879,6 +908,22 @@ pub struct MisureLettura {
     /// La pausa più lunga davvero aspettata fra due frammenti dello stesso
     /// pacchetto, in millisecondi. È il numero che decide.
     pub pausa_massima_ms: u64,
+    /// Il silenzio più lungo fra un comando e la sua risposta, in millisecondi.
+    ///
+    /// ► È IL NUMERO CHE DISTINGUE DUE CAUSE CHE SI SOMIGLIANO. ◄ Una lettura
+    /// che scade può voler dire due cose molto diverse: il computer ha smesso
+    /// di parlare (batteria, distanza, un pacchetto perso sul filo), **oppure
+    /// siamo stati noi a smettere di ascoltare** — su iOS un'applicazione
+    /// sospesa perché lo schermo si è spento non riceve più le notifiche, e il
+    /// tempo passa lo stesso.
+    ///
+    /// Da solo non basta a separarle, e apposta non ci prova: il pezzo che
+    /// manca lo mette l'interfaccia, che conta quante volte la pagina è sparita
+    /// (vedi `schermoSveglio.ts`). Silenzio lungo **e** pagina sparita: era lo
+    /// schermo. Silenzio lungo e pagina sempre presente: era il computer. *Due
+    /// misure indipendenti che insieme rispondono, e nessuna delle due che
+    /// risponde da sola.*
+    pub silenzio_massimo_ms: u64,
 }
 
 /// Il posto condiviso dove il trasporto tiene il conto. Come `Guasto`: una
@@ -973,6 +1018,7 @@ extern "C" fn cb_read(
         let (mancati, pausa) = s.flusso.misure_frammenti();
         conti.frammenti_mancati = mancati;
         conti.pausa_massima_ms = conti.pausa_massima_ms.max(pausa);
+        conti.silenzio_massimo_ms = conti.silenzio_massimo_ms.max(s.flusso.silenzio_massimo_ms());
     }
     match esito {
         Ok(letti) => {
@@ -1756,13 +1802,14 @@ impl CollegamentoLdc {
             return None;
         }
         Some(format!(
-            "letture: {}, di cui {} corte e {} vuote; pacchetti lasciati a metà: {};              pausa più lunga fra due frammenti: {} ms (si aspetta al massimo {} ms)",
+            "letture: {}, di cui {} corte e {} vuote; pacchetti lasciati a metà: {}; pausa più lunga fra due frammenti: {} ms (si aspetta al massimo {} ms); silenzio più lungo fra un comando e la risposta: {} ms",
             m.letture,
             m.letture_corte,
             m.letture_vuote,
             m.frammenti_mancati,
             m.pausa_massima_ms,
             ATTESA_FRAMMENTO.as_millis(),
+            m.silenzio_massimo_ms,
         ))
     }
 
@@ -3766,7 +3813,17 @@ mod prove {
         let m = collegamento.misure_lettura();
         assert_eq!((m.letture, m.letture_corte, m.letture_vuote), (2, 1, 1));
 
+        // E il silenzio: qui la seconda lettura ha aspettato tutto il tempo
+        // concesso senza ricevere niente, ed è il numero che — accanto alla
+        // conta delle sparizioni dello schermo — dice se a tacere è stato il
+        // computer o siamo stati noi a smettere di ascoltare.
+        assert!(
+            m.silenzio_massimo_ms > 0,
+            "una lettura ha aspettato a vuoto e non è stata cronometrata: {m:?}"
+        );
+
         let riga = collegamento.riga_delle_letture().unwrap();
+        assert!(riga.contains("silenzio più lungo"), "{riga}");
         assert!(riga.contains("letture: 2"), "{riga}");
         assert!(riga.contains("1 corte"), "{riga}");
         assert!(riga.contains("1 vuote"), "{riga}");
@@ -3802,6 +3859,10 @@ mod prove {
         let m = collegamento.misure_lettura();
         assert_eq!(m.frammenti_mancati, 0);
         assert_eq!(m.pausa_massima_ms, 0, "nessuna attesa: il pacchetto c'era già tutto");
+        // E il silenzio resta zero perché la risposta era già lì: non per una
+        // guardia nel codice, ma perché non si è aspettato. È la stessa cosa
+        // vista da fuori, ed è quella giusta da provare.
+        assert_eq!(m.silenzio_massimo_ms, 0, "la risposta era già arrivata: nessun silenzio");
     }
 
     #[test]

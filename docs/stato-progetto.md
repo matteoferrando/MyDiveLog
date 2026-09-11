@@ -3714,6 +3714,164 @@ farne nascere una nuova.*
 
 ---
 
+## «Riprovare» non bastava, e il conto lo dice: la 1.8.10
+
+Domanda del proprietario, l'11 settembre: *«cosa possiamo fare per arrivare più
+vicino a scaricarle tutte?»*. La prima cosa da fare è stata rifare un conto che
+non avevo fatto, e che cambia la risposta data un'ora prima.
+
+### Il conto, dal diario del Puck
+
+| dal diario | |
+|---|---|
+| byte | 64 236 |
+| notifiche | 284 |
+| comandi | 285 |
+| immersioni | 2 |
+
+Da lì discende tutto:
+
+- **226 byte a notifica.** Una risposta per comando, nessun pacchetto spezzato:
+  il riassemblaggio — e quindi il tetto dei quaranta millisecondi fra frammenti
+  — su questo apparecchio **non entra in gioco**. Un'ipotesi morta prima di
+  costare una riga di codice.
+- **142 comandi e 32 KB per immersione.** Quindi un archivio di quarantacinque
+  immersioni sono **circa 6 400 comandi e 1,4 MB**: non «poco più» di quello che
+  è passato, ma **ventidue volte** la strada già fatta. A un giro di andata e
+  ritorno per comando, parecchi minuti di trasferimento ininterrotto.
+- I due guasti veri sono caduti dopo **25 775** e **64 236** byte, cioè in media
+  ogni ~45 KB. Se quel tasso è costante, la probabilità che un tentativo arrivi
+  in fondo è **e⁻³²**, uno su cento mila miliardi. **Con cinque tentativi è lo
+  stesso numero.**
+
+*L'insistenza automatica — la cosa su cui erano andate due notti — non porterà
+mai a casa quell'archivio, e non perché sia scritta male: perché ogni tentativo
+rifà la stessa strada e inciampa alla stessa distanza media.* La stima «1 su 4»
+data al proprietario un'ora prima era il conto giusto su una lunghezza
+sbagliata, ed è stata corretta subito, prima di scrivere qualunque codice.
+
+Restano due strade vere, e la 1.8.10 le imbocca tutte e due.
+
+---
+
+### Strada uno: abbassare il tasso di guasto — lo schermo
+
+Parecchi minuti di trasferimento, su un telefono, con una sola schermata che
+mostra una barra che avanza e **nessun dito che tocca lo schermo**. È esattamente
+la situazione che il blocco automatico dello schermo esiste per interrompere, e
+il valore predefinito su iPhone si misura in decine di secondi.
+
+E quando lo schermo si spegne, su iOS l'applicazione **viene sospesa**: i thread
+si fermano, le notifiche Bluetooth non vengono più consegnate. Dal punto di vista
+di libdivecomputer è un computer che ha smesso di rispondere — cioè una lettura
+scaduta, cioè il primo anello esatto della catena che il 10 settembre ha ucciso
+lo scarico.
+
+Quindi `src/core/schermoSveglio.ts`: si chiede al sistema di non spegnere lo
+schermo, su tutte e due le strade (libdivecomputer e driver di casa). Due
+dettagli che valgono il file:
+
+- **il blocco si riprende quando la pagina torna.** La specifica dice che il
+  sistema lo revoca appena la pagina smette di essere visibile, e non lo
+  restituisce da solo: senza quella riga, la prima notifica che copre
+  l'applicazione per un istante spegnerebbe la protezione per tutto il resto
+  dello scarico.
+- **non rompe niente dove non c'è.** Firefox, Safari prima della 16.4, una
+  pagina senza permesso: la richiesta torna nulla o getta, e si va avanti
+  uguale. Uno scarico non si ferma per una comodità.
+
+► **Ma è un'ipotesi**, e le ipotesi in questa storia hanno già perso una volta.
+Per questo il rimedio arriva con la sua misura.
+
+### Strada uno-bis: la misura che dice se l'ipotesi era giusta
+
+Il diario adesso porta tre numeri nuovi:
+
+- **quanto è durato il tentativo**, in secondi;
+- **quante volte l'applicazione è sparita dallo schermo** durante lo scarico, e
+  per quanto tempo in tutto — un'osservazione diretta, non un ragionamento;
+- **il silenzio più lungo fra un comando e la sua risposta**, misurato nel
+  trasporto Rust.
+
+Gli ultimi due insieme separano due cause che da sole si somigliano: *silenzio
+lungo **e** pagina sparita → era lo schermo; silenzio lungo e pagina sempre
+presente → era il computer.* Nessuna delle due misure risponde da sola, ed è
+scritto nel codice che è così.
+
+E una lezione dentro la lezione: la prima versione del cronometro aveva una
+guardia (`if` la coda era vuota) con un commento che diceva «altrimenti si
+annacqua il massimo». **Una mutazione è rimasta verde e ha dimostrato che quella
+guardia non sorvegliava niente**: un massimo non si annacqua — una lettura che
+non aspetta contribuisce zero, e zero non sposta un massimo. Sarebbe rimasta lì
+per sempre a sembrare prudenza.
+
+---
+
+### Strada due: rendere cumulativo il progresso — il punto di ripartenza
+
+Quasi nessuno ha davvero bisogno di *tutte*: le più vecchie sono già nel
+libretto, arrivate da un backup, da un'altra applicazione o scritte a mano.
+Quello che serve è **smettere di riattraversarle**. Il segnalibro lo sa fare da
+sempre — solo che si posa da solo unicamente dopo uno scarico finito bene, che
+qui è proprio la cosa che non succede mai.
+
+Quindi adesso, dopo uno scarico rotto che ha portato qualcosa, la schermata di
+esito **offre** di posarlo:
+
+> **Il computer ha più immersioni di quante ne siano arrivate.** Lo scarico si è
+> interrotto dopo 2 immersioni. Su una memoria piena, riprovare spesso non
+> basta: il trasferimento si rompe sempre prima della fine, e ogni tentativo
+> riparte da capo.
+>
+> Se le immersioni più vecchie ce le hai già — da un backup, da un'altra
+> applicazione, o sul libretto — puoi dire a MyDiveLog di ripartire da qui:
+> dalla prossima volta scaricherà soltanto quelle nuove, in pochi secondi.
+>
+> *Quelle più vecchie di così non verranno più scaricate da questo computer.*
+
+**La differenza con il salvataggio automatico è tutta qui: lo decide una persona
+informata.** Il pericolo del segnalibro posato su uno scarico rotto — perdere in
+silenzio le più vecchie, che è il difetto peggiore che un logbook possa avere —
+sparisce nel momento in cui smette di essere silenzioso. E la via d'uscita resta
+scritta accanto al pulsante: togliere il segnalibro, o spuntare «Scarica tutto
+da capo».
+
+Due dettagli che le prove inchiodano:
+
+- **si offre, non si prende.** Finché nessuno preme, nessun segnalibro viene
+  salvato.
+- **si guarda tutto il giro, non l'ultimo tentativo.** Quello che c'è da offrire
+  lo ha prodotto quasi sempre il *primo* tentativo, e l'ultimo può benissimo
+  essere finito a zero immersioni con un collegamento caduto subito: guardare
+  solo l'ultimo vorrebbe dire non offrire niente proprio nei giri andati meglio.
+  Per questo il punto raggiunto si porta da un tentativo all'altro, come il
+  diario.
+
+E l'offerta **non** compare dopo uno scarico riuscito, né quando non è arrivata
+nessuna immersione: un'offerta che si può accettare per sbaglio quando non serve
+è peggio di nessuna offerta, perché accettarla vuol dire smettere di cercare
+delle immersioni.
+
+---
+
+### Cosa resta fuori, e va detto
+
+Il progresso **dentro** un singolo archivio non è ancora cumulativo: se uno vuole
+davvero tutte e quarantacinque le immersioni dal computer, oggi non c'è modo. Il
+segnalibro di libdivecomputer è un filtro «più recenti di», non un «ricomincia
+da»: si può dire alla libreria dove **fermarsi**, non da dove **partire**.
+
+L'unica uscita vera sarebbe un driver Mares scritto in casa, che il protocollo a
+oggetti lo parla direttamente — nel diario si vedono i comandi `ac 09`, cioè
+oggetti indirizzati per numero — e che quindi potrebbe chiedere **una immersione
+alla volta** e ritentare quella, invece di ricominciare tutto. Il progetto ha già
+driver di casa per altre marche. Ma scriverne uno alla cieca, senza un Puck 4 in
+mano, produrrebbe immersioni sbagliate invece che nessuna immersione: *è
+esattamente il genere di scommessa che questa settimana è già stata persa una
+volta.* Sta qui scritto come prossimo passo, non come rimedio di oggi.
+
+---
+
 ## Prossimi passi
 
 ### Tocca a chi pubblica
@@ -4085,6 +4243,27 @@ Tutte hanno la stessa radice: **`gen/apple/` è generata e non versionata**.
 ---
 
 ## Le lezioni
+
+> ### ► LA LEZIONE DEI NUMERI: UN CONTO FATTO PRIMA VALE PIÙ DI DUE NOTTI DI CODICE ◄
+>
+> L'insistenza automatica è costata due notti. Poi un conto di tre righe sul
+> diario — 226 byte a notifica, 142 comandi per immersione, 1,4 MB per
+> l'archivio intero, guasti ogni ~45 KB — ha detto che quell'insistenza **non
+> porterà mai a casa quell'archivio**: la probabilità che un tentativo arrivi in
+> fondo è e⁻³², e cinque tentativi non la cambiano.
+>
+> Il conto si poteva fare il primo giorno. I dati c'erano tutti nel primo
+> diario. *Non è che la stima fosse azzardata: è che non era una stima, era
+> un'impressione con dei numeri intorno.* E lo stesso conto ha ucciso in tre
+> righe un'altra ipotesi — il tetto fra i frammenti — prima che costasse una
+> riga di codice: 226 byte a notifica vuol dire che su quel computer i pacchetti
+> non si spezzano mai.
+>
+> La regola che ne esce: **prima di costruire un rimedio, calcolare quanto deve
+> essere grande.** Un rimedio che risolve l'1% di un problema e uno che lo
+> risolve tutto si scrivono nello stesso modo e costano lo stesso; a
+> distinguerli è solo l'aritmetica, e l'aritmetica è la parte più economica di
+> tutta la faccenda.
 
 > ### ► LA LEZIONE DELL'11 SETTEMBRE: UNA VERIFICA CHE FUNZIONAVA PER CASO ◄
 >

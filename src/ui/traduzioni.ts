@@ -1875,6 +1875,17 @@ export const INGLESE: Record<string, string> = {
   'già in archivio': 'already in the logbook',
   'Il computer non ha immersioni in memoria da scaricare.':
     'The computer has no dives in memory to download.',
+  'Il computer ha più immersioni di quante ne siano arrivate.':
+    'The computer holds more dives than the ones that made it across.',
+  'Lo scarico si è interrotto dopo {0}. Su una memoria piena, riprovare spesso non basta: il trasferimento si rompe sempre prima della fine, e ogni tentativo riparte da capo.':
+    'The download stopped after {0}. On a full memory, retrying often is not enough: the transfer always breaks before the end, and every attempt starts over from scratch.',
+  'Se le immersioni più vecchie ce le hai già — da un backup, da un’altra applicazione, o sul libretto — puoi dire a MyDiveLog di ripartire da qui: dalla prossima volta scaricherà soltanto quelle nuove, in pochi secondi.':
+    'If you already have the older dives — from a backup, from another app, or in your paper logbook — you can tell MyDiveLog to start from here: from next time it will download only the new ones, in seconds.',
+  'Quelle più vecchie di così non verranno più scaricate da questo computer. Per ripensarci: togli il segnalibro qui sopra, oppure spunta «Scarica tutto da capo».':
+    'Anything older than this will no longer be downloaded from this computer. To change your mind: remove the bookmark above, or tick “Download everything from scratch”.',
+  'Considera già prese le più vecchie': 'Treat the older ones as already taken',
+  'Segnalibro messo: dalla prossima volta arrivano solo le immersioni nuove.':
+    'Bookmark set: from next time only new dives will come across.',
   'Il trasferimento si è interrotto prima della fine': 'The transfer stopped before the end',
   'La ricerca non è partita': 'The scan did not start',
   'lette dal computer': 'read from the computer',

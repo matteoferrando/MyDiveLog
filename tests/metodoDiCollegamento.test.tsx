@@ -635,6 +635,128 @@ describe('il giro dei modi di collegarsi', () => {
     }
   });
 
+  it('► dopo uno scarico rotto si OFFRE il punto di ripartenza, e non lo si prende ◄', async () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * LA PROVA CHE NASCE DA UN CONTO, NON DA UN GUASTO.
+     *
+     * Il diario del Puck dell'11 settembre: 32 KB e 142 comandi per
+     * immersione. Un archivio di quarantacinque immersioni è 1,4 MB e 6 400
+     * comandi, e i due guasti veri sono caduti dopo 25 775 e 64 236 byte —
+     * in media ogni 45 KB. Se il tasso è costante, la probabilità che un
+     * tentativo arrivi in fondo è e^-32. *Con cinque tentativi è lo stesso
+     * numero: riprovare non basta e non basterà mai*, perché ogni tentativo
+     * rifà la stessa strada e inciampa alla stessa distanza media.
+     *
+     * L'unica uscita che non richiede di riscrivere un driver è smettere di
+     * riattraversare le vecchie — che quasi sempre sono già nel libretto. Il
+     * segnalibro lo sa fare; solo che si posa da solo unicamente dopo uno
+     * scarico finito bene, cioè mai, in questo caso.
+     *
+     * Quindi lo si OFFRE. E le due metà di questa prova sono ugualmente
+     * importanti: che l'offerta compaia, e che **nessun segnalibro venga
+     * salvato finché nessuno l'ha accettata**.
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await metodo(1, 1);
+      await act(async () =>
+        finto.emit!({ kind: 'record', done: 1, record: { key: 'aa11', bytes: new Uint8Array([1]) } }),
+      );
+      await scambio(284, 64236);
+      await act(async () => finto.aMeta!([immersione(), immersione()], 'scarico non riuscito (stato -8)'));
+      // Si lascia finire il giro dei tentativi: l'offerta è per DOPO, quando
+      // l'applicazione ha smesso di provare da sola.
+      await lasciaProvare(() => null);
+
+      expect(host.textContent).toContain('Il computer ha più immersioni');
+      expect(finto.salvati, 'offerta non vuol dire presa').toEqual([]);
+
+      // E si accetta: solo adesso il segnalibro si posa, con l'impronta della
+      // più recente arrivata.
+      await act(async () => {
+        premi(host, 'Considera già prese le più vecchie').dispatchEvent(
+          new MouseEvent('click', { bubbles: true }),
+        );
+      });
+      expect(finto.salvati).toHaveLength(1);
+      expect((finto.salvati[0].m as { fingerprint: string }).fingerprint).toBe('aa11');
+      // L'offerta sparisce: un pulsante che resta premibile dopo aver fatto il
+      // suo mestiere fa premere due volte, e la seconda non si sa cosa fa.
+      expect(ce(host, 'Considera già prese le più vecchie')).toBe(false);
+    } finally {
+      smonta();
+    }
+  });
+
+  it('dopo uno scarico finito BENE non si offre nessun punto di ripartenza', async () => {
+    /*
+     * Il rovescio, e serve quanto l'altro: uno scarico riuscito il segnalibro
+     * se lo prende da solo, e offrire di «considerare prese le più vecchie»
+     * sarebbe proporre di rinunciare a delle immersioni a chi non ha nessun
+     * problema. *Un'offerta che si può accettare per sbaglio quando non serve
+     * è peggio di nessuna offerta.*
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await metodo(1, 1);
+      await act(async () =>
+        finto.emit!({ kind: 'record', done: 1, record: { key: 'aa11', bytes: new Uint8Array([1]) } }),
+      );
+      await act(async () => finto.finisci!([immersione()]));
+      expect(ce(host, 'Considera già prese le più vecchie')).toBe(false);
+      expect(host.textContent).not.toContain('Il computer ha più immersioni');
+    } finally {
+      smonta();
+    }
+  });
+
+  it('senza immersioni arrivate non c’è nessun punto da cui ripartire', async () => {
+    // Uno scarico che si rompe senza portare niente non ha un'impronta da
+    // salvare: l'offerta qui sarebbe un pulsante che non può funzionare.
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await metodo(1, 1);
+      await scambio(3);
+      await act(async () => finto.fallisci!(new Error('niente')));
+      await lasciaProvare(() => null);
+      expect(ce(host, 'Considera già prese le più vecchie')).toBe(false);
+    } finally {
+      smonta();
+    }
+  });
+
+  it('il diario dice quanto è durato e se lo schermo si è spento', async () => {
+    /*
+     * Il conto di cui sopra dice che un archivio intero sono parecchi minuti
+     * di trasferimento senza che nessuno tocchi lo schermo — cioè esattamente
+     * la situazione che il blocco automatico esiste per interrompere, e su iOS
+     * un'applicazione sospesa smette di ricevere le notifiche Bluetooth.
+     *
+     * L'applicazione adesso chiede di tenere acceso lo schermo, **e misura se
+     * ci è riuscita**: qui dentro (jsdom, senza `navigator.wakeLock`) non ci
+     * riesce, e deve dirlo. Senza questa riga un diario di guasto non
+     * distinguerebbe «lo schermo è rimasto acceso e si è rotto lo stesso» da
+     * «lo schermo si è spento a metà», che chiedono due rimedi diversi.
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await metodo(1, 1);
+      await scambio(3);
+      await act(async () => finto.fallisci!(new Error('niente')));
+      await lasciaProvare(() => null);
+      const testo = host.textContent ?? '';
+      expect(testo).toContain('durata del tentativo:');
+      expect(testo).toContain('non sa tenere acceso lo schermo');
+    } finally {
+      smonta();
+    }
+  });
+
   it('uno scarico finito bene salva l’impronta della PIÙ RECENTE', async () => {
     /*
      * La più recente è il **primo** record che arriva. Prendere l'ultimo

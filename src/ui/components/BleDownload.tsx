@@ -45,6 +45,7 @@ import {
   salvaCodiceAccoppiamento,
 } from '../../core/accoppiamento';
 import { decidiComeInsistere } from '../../core/insistenza';
+import { righeDelloSchermo, tieniSvegliaLoSchermo } from '../../core/schermoSveglio';
 import { dimenticaMetodo, metodoConservato, salvaMetodo } from '../../core/metodo';
 import type { Dive } from '../../core/model';
 import {
@@ -108,7 +109,58 @@ type Stato =
         prossimo: number;
         totale: number;
       };
+      /**
+       * Il punto da cui ripartire la prossima volta, offerto a chi guarda
+       * DOPO uno scarico rotto che qualcosa ha portato.
+       *
+       * ════════════════════════════════════════════════════════════════════
+       * ► PERCHÉ QUESTA OFFERTA ESISTE, ED È IL CONTO DELL'11 SETTEMBRE. ◄
+       *
+       * Il diario del Puck 4 dice 32 KB e 142 comandi per immersione. Un
+       * archivio di quarantacinque immersioni è quindi 1,4 MB e 6 400 comandi,
+       * e i due guasti veri sono caduti dopo 25 775 e 64 236 byte, cioè in
+       * media ogni 45 KB. *Se quel tasso è costante, la probabilità che un
+       * tentativo arrivi in fondo è e^-32: uno su cento mila miliardi.* Con
+       * cinque tentativi è lo stesso numero. **Riprovare non basta e non
+       * basterà mai**, perché ogni tentativo rifà la stessa strada e inciampa
+       * alla stessa distanza media.
+       *
+       * Ma quasi nessuno ha davvero bisogno di tutte: le vecchie sono già nel
+       * libretto, arrivate da un backup, da un'altra applicazione, o scritte a
+       * mano. Quello che serve è **smettere di riattraversarle**. Il segnalibro
+       * lo sa fare da sempre — solo che si posa da solo unicamente dopo uno
+       * scarico finito bene, che qui è proprio la cosa che non succede.
+       *
+       * Quindi lo si offre a mano, e la differenza con il salvataggio
+       * automatico è tutta qui: **lo decide una persona informata**. Il
+       * pericolo del segnalibro messo su uno scarico rotto — perdere in
+       * silenzio le più vecchie — sparisce nel momento in cui smette di essere
+       * silenzioso.
+       */
+      ripartiDaQui?: {
+        chiave: string;
+        impronta: string;
+        /** Quante ne sono arrivate in questo scarico rotto. */
+        quante: number;
+        modello: string;
+      };
     };
+
+/**
+ * Il punto più avanti raggiunto in TUTTO il giro dei tentativi.
+ *
+ * ► PERCHÉ SI PORTA DA UN TENTATIVO ALL'ALTRO, COME IL DIARIO. ◄ L'offerta di
+ * ripartire da qui si fa alla fine, quando l'applicazione ha smesso di provare
+ * — ma quello che c'è da offrire lo ha prodotto, quasi sempre, il **primo**
+ * tentativo, e l'ultimo può benissimo essere finito a zero immersioni con un
+ * collegamento caduto subito. Guardare solo l'ultimo vorrebbe dire non offrire
+ * niente proprio nei giri in cui è andata meglio.
+ *
+ * L'impronta è la stessa in tutti i tentativi — è l'immersione più recente del
+ * computer, che non cambia mentre si scarica — quindi si tiene la prima vista;
+ * `quante` invece cresce, e racconta quanto lontano si è arrivati.
+ */
+type PuntoRaggiunto = { impronta: string; quante: number };
 
 /** Byte → base64, senza dipendenze e senza far esplodere lo stack sui blocchi grandi. */
 function byteInBase64(b: Uint8Array): string {
@@ -370,7 +422,7 @@ export function BleDownload() {
         marca: string,
         modello: string,
         tentativo?: number,
-        insiste?: { fatti: number; stesso: number; diario: string[] },
+        insiste?: { fatti: number; stesso: number; diario: string[]; raccolto?: PuntoRaggiunto },
       ) => Promise<void>)
     | null
   >(null);
@@ -637,6 +689,14 @@ export function BleDownload() {
       let esito: DownloadOutcome | undefined;
       /** Quante immersioni sono già in archivio, se poi qualcosa va storto. */
       let inArchivio = 0;
+      /*
+       * Lo schermo resta acceso anche qui. I driver di casa leggono cento e
+       * passa immersioni a testa: è lo stesso identico rischio della strada di
+       * libdivecomputer, ed è l'unico posto del programma in cui una persona
+       * guarda per minuti senza toccare niente. Vedi `schermoSveglio.ts`.
+       */
+      const schermo = await tieniSvegliaLoSchermo();
+      const inizio = Date.now();
       try {
         /*
          * Il segnalibro si cerca col SERIALE, quando il computer si è presentato.
@@ -871,6 +931,19 @@ export function BleDownload() {
          * restava `null` per sempre.
          */
         scarico.current = null;
+        /*
+         * ► LE RIGHE DELLO SCHERMO SI ATTACCANO IN CODA AL DIARIO GIÀ SCRITTO. ◄
+         * Qui il diario è stato composto dentro il `try`, prima che si sapesse
+         * com'era andata con lo schermo: l'unico modo di non perdere quella
+         * misura — che è la più interessante di tutte, quando c'è — è
+         * aggiungerla dopo, a schermata già fatta.
+         */
+        const comeSta = await schermo.lascia();
+        const righe = [
+          `durata dello scarico: ${Math.round((Date.now() - inizio) / 1000)} s`,
+          ...righeDelloSchermo(comeSta),
+        ];
+        setStato((p) => (p.fase === 'finito' ? { ...p, diario: [...p.diario, ...righe] } : p));
       }
     },
     [importDives, fermaRicerca, bleMarkers, saveBleMarker, forgetBleMarker, tuttoDaCapo, transport, t],
@@ -928,7 +1001,7 @@ export function BleDownload() {
       marca: string,
       modello: string,
       tentativo?: number,
-      insiste?: { fatti: number; stesso: number; diario: string[] },
+      insiste?: { fatti: number; stesso: number; diario: string[]; raccolto?: PuntoRaggiunto },
     ) => {
       fermaRicerca();
       const nome = `${marca} ${modello}`;
@@ -1096,6 +1169,27 @@ export function BleDownload() {
       const chiaveSegnalibro = markerKey(`ldc-${marca}-${modello}`, undefined, device.id);
       const segnalibro = tuttoDaCapo ? undefined : bleMarkers[chiaveSegnalibro]?.fingerprint;
       if (segnalibro) diario.push('si riparte dal segnalibro: solo le immersioni nuove');
+
+      /*
+       * ════════════════════════════════════════════════════════════════════
+       * ► LO SCHERMO RESTA ACCESO, E SE SI SPEGNE LO SI SCRIVE. ◄
+       *
+       * Il conto del diario del Puck: 142 comandi e 32 KB per immersione, cioè
+       * **migliaia** di comandi e parecchi minuti per un archivio intero. Minuti
+       * in cui nessuno tocca lo schermo, perché c'è solo una barra che avanza —
+       * e su iPhone il blocco automatico arriva dopo decine di secondi. Quando
+       * lo schermo si spegne l'applicazione viene sospesa, le notifiche
+       * Bluetooth smettono di arrivare, e per libdivecomputer è un computer che
+       * ha smesso di rispondere: la lettura scade, il backend ritenta, e da lì
+       * nasce la catena che il 10 settembre ha ucciso lo scarico.
+       *
+       * *Questa è un'ipotesi.* Per questo il blocco viene con la sua misura:
+       * `righeDelloSchermo` scrive nel diario se il blocco non c'era e se la
+       * pagina è sparita comunque. Il prossimo diario conferma o uccide
+       * l'ipotesi con un'osservazione, non con un ragionamento.
+       */
+      const schermo = await tieniSvegliaLoSchermo();
+      const inizio = Date.now();
       try {
         const esito = await scaricaDaComputerEsterno({
           dispositivo: device.id,
@@ -1167,6 +1261,15 @@ export function BleDownload() {
          * numero sullo schermo del computer.
          */
         setPin(null);
+        /*
+         * ► E LO SCHERMO SI LASCIA ANDARE COMUNQUE VADA. ◄ Un blocco preso e
+         * mai rilasciato tiene il telefono acceso finché l'applicazione non si
+         * chiude: una comodità che diventa una batteria vuota è peggio della
+         * scomodità che toglieva.
+         */
+        const comeSta = await schermo.lascia();
+        diario.push(`durata del tentativo: ${Math.round((Date.now() - inizio) / 1000)} s`);
+        diario.push(...righeDelloSchermo(comeSta));
       }
 
       let testo: string;
@@ -1306,6 +1409,18 @@ export function BleDownload() {
       const diarioIntero = [...(insiste?.diario ?? []), ...righeDiQuestoGiro];
 
       /*
+       * Il punto più avanti raggiunto, che si porta avanti come il diario.
+       * Vedi `PuntoRaggiunto`: sta **prima** del blocco che riprova perché
+       * deve scendere nel tentativo successivo, e non solo finire nel riquadro.
+       */
+      const raccolto: PuntoRaggiunto | undefined = piuRecente
+        ? {
+            impronta: insiste?.raccolto?.impronta ?? piuRecente,
+            quante: Math.max(dives.length, insiste?.raccolto?.quante ?? 0),
+          }
+        : insiste?.raccolto;
+
+      /*
        * ► E QUI SI DECIDE SE RIPROVARE, E COME. ◄ La regola sta tutta in
        * `core/insistenza.ts`, che è una funzione pura apposta: la differenza
        * fra «riprova uguale» e «prova un altro modo» è la cosa più importante
@@ -1363,6 +1478,7 @@ export function BleDownload() {
           fatti: scelta.fatti,
           stesso: scelta.stesso,
           diario: diarioIntero,
+          raccolto,
         });
         return;
       }
@@ -1385,12 +1501,34 @@ export function BleDownload() {
             }
           : undefined;
 
+      /*
+       * ► L'OFFERTA SI FA SOLO QUANDO SERVE DAVVERO, E CIOÈ QUASI MAI. ◄
+       *
+       * Due condizioni insieme: c'è stato un **guasto** (uno scarico finito
+       * bene il segnalibro se lo prende da solo) e in qualche tentativo era
+       * arrivata almeno un'immersione, cioè esiste un punto da cui ripartire.
+       * Fuori da questo incrocio il riquadro non compare, perché un'offerta
+       * che si può accettare per sbaglio quando non serve è peggio di nessuna
+       * offerta: qui accettarla vuol dire smettere di cercare delle
+       * immersioni.
+       */
+      const ripartiDaQui =
+        grezzo && raccolto
+          ? {
+              chiave: chiaveSegnalibro,
+              impronta: raccolto.impronta,
+              quante: raccolto.quante,
+              modello: `${marca} ${modello}`,
+            }
+          : undefined;
+
       setStato({
         fase: 'finito',
         testo,
         avvisi,
         parziale: false,
         altroMetodo,
+        ripartiDaQui,
         diario: diarioIntero,
       });
     },
@@ -1966,6 +2104,72 @@ export function BleDownload() {
                     String(stato.altroMetodo.totale),
                   )}
                 </span>
+              </div>
+            </div>
+          )}
+          {/*
+           * ► IL PUNTO DI RIPARTENZA, OFFERTO E NON PRESO. ◄
+           *
+           * Sta **sotto** «prova un altro modo» e **sopra** il diario, e
+           * l'ordine è la scala di quanto è reversibile quello che si propone:
+           * prima riprovare (non costa niente), poi questo (costa delle
+           * immersioni che non si andranno più a prendere), poi il diario (che
+           * è per chi ripara).
+           *
+           * Il pulsante dice cosa fa, non «ok»: chi lo preme sta rinunciando a
+           * qualcosa, e deve leggerlo nel pulsante e non solo nel paragrafo
+           * sopra — i paragrafi sopra i pulsanti non li legge nessuno.
+           */}
+          {stato.ripartiDaQui && (
+            <div className="notice" style={{ marginTop: 10 }}>
+              <b>{t('Il computer ha più immersioni di quante ne siano arrivate.')}</b>{' '}
+              {frase(
+                t,
+                'Lo scarico si è interrotto dopo {0}. Su una memoria piena, riprovare spesso non basta: il trasferimento si rompe sempre prima della fine, e ogni tentativo riparte da capo.',
+                imm(stato.ripartiDaQui.quante, t),
+              )}
+              <p style={{ margin: '8px 0 0' }}>
+                {t(
+                  'Se le immersioni più vecchie ce le hai già — da un backup, da un’altra applicazione, o sul libretto — puoi dire a MyDiveLog di ripartire da qui: dalla prossima volta scaricherà soltanto quelle nuove, in pochi secondi.',
+                )}
+              </p>
+              <p className="muted" style={{ margin: '8px 0 0', fontSize: 12 }}>
+                {t(
+                  'Quelle più vecchie di così non verranno più scaricate da questo computer. Per ripensarci: togli il segnalibro qui sopra, oppure spunta «Scarica tutto da capo».',
+                )}
+              </p>
+              <div className="row" style={{ gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    const r = stato.ripartiDaQui;
+                    if (!r) return;
+                    void saveBleMarker(r.chiave, {
+                      fingerprint: r.impronta,
+                      at: new Date().toISOString(),
+                      dives: r.quante,
+                      model: r.modello,
+                    });
+                    // L'offerta sparisce appena è stata accettata: un pulsante
+                    // che resta premibile dopo aver fatto il suo mestiere fa
+                    // premere due volte, e la seconda volta non si sa cosa
+                    // succede.
+                    setStato((p) =>
+                      p.fase === 'finito'
+                        ? {
+                            ...p,
+                            ripartiDaQui: undefined,
+                            avvisi: [
+                              ...p.avvisi,
+                              t('Segnalibro messo: dalla prossima volta arrivano solo le immersioni nuove.'),
+                            ],
+                          }
+                        : p,
+                    );
+                  }}
+                >
+                  {t('Considera già prese le più vecchie')}
+                </button>
               </div>
             </div>
           )}
