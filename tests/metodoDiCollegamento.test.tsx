@@ -41,6 +41,8 @@ const finto = vi.hoisted(() => ({
   segnalibri: {} as Record<string, { fingerprint: string; at: string; dives: number }>,
   /** Quelli che l'applicazione ha chiesto di salvare, in ordine. */
   salvati: [] as { chiave: string; m: unknown }[],
+  /** Quante immersioni sono state mandate in archivio, un numero per chiamata. */
+  importate: [] as number[],
 }));
 
 vi.mock('../src/storage/computerEsterni', () => ({
@@ -84,8 +86,10 @@ vi.mock('../src/storage/ble', () => ({
 
 vi.mock('../src/ui/state', () => ({
   useDiveLog: () => ({
-    importDives: () =>
-      Promise.resolve({ ok: true, found: 1, added: 1, merged: 0, duplicates: 0, warnings: [] }),
+    importDives: (d: Dive[]) => {
+      finto.importate.push(d.length);
+      return Promise.resolve({ ok: true, found: 1, added: 1, merged: 0, duplicates: 0, warnings: [] });
+    },
     bleMarkers: finto.segnalibri,
     saveBleMarker: (chiave: string, m: unknown) => {
       finto.salvati.push({ chiave, m });
@@ -198,6 +202,7 @@ async function lasciaProvare(
 beforeEach(() => {
   finto.segnalibri = {};
   finto.salvati = [];
+  finto.importate = [];
   finto.chiamate = [];
   finto.emit = null;
   finto.finisci = null;
@@ -532,10 +537,102 @@ describe('il giro dei modi di collegarsi', () => {
       await scambio(9);
       await act(async () => finto.aMeta!([immersione()], 'il collegamento è caduto'));
 
-      // Il testo a schermo parla delle immersioni entrate, non solo del guasto.
-      expect(host.textContent).toContain('lette dal computer');
-      // E il guasto non sparisce: il diario lo porta.
+      /*
+       * ► LA PROVA GUARDA L'ARCHIVIO, NON LO SCHERMO. ◄ Perché adesso, subito
+       * dopo, l'applicazione riparte da sola (vedi la prova qui sotto) e lo
+       * schermo torna a dire «nuovo tentativo». Quello che conta è che
+       * l'immersione arrivata non aspetti la fine del giro per essere salvata:
+       * se un tentativo dopo l'altro fallisse e alla fine l'app si arrendesse,
+       * quella immersione sarebbe comunque a casa.
+       */
+      expect(finto.importate, 'l’immersione entra subito, senza aspettare la fine del giro').toEqual([1]);
+
+      // E il guasto non sparisce: quando il giro finisce, il diario lo porta.
+      await lasciaProvare(() => null);
       expect(host.textContent).toContain('il collegamento è caduto');
+    } finally {
+      smonta();
+    }
+  });
+
+  it('► uno scarico rotto a metà NON è un lavoro finito: si riprova ◄', async () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * LA PROVA CHE COSTA UNA VERSIONE INTERA, E CHE NON C'ERA.
+     *
+     * Il 10 settembre 2026, un Puck 4 su un iPhone: 64 236 byte ricevuti, un
+     * errore di protocollo, **due** immersioni salvate su un archivio che ne
+     * conta quarantacinque. Il recupero parziale — scritto la notte prima —
+     * aveva funzionato per la prima volta su un apparecchio vero. E
+     * l'applicazione si è fermata lì: nessun secondo tentativo, per le altre
+     * quarantatré.
+     *
+     * Perché i due rimedi erano scritti la stessa notte e si sono spenti a
+     * vicenda: «riuscito» voleva dire `dives.length > 0`, il recupero parziale
+     * ha reso quel numero maggiore di zero anche negli scarichi rotti, e il
+     * giro dei cinque tentativi non è mai partito. *Un rimedio che si
+     * disattiva nell'istante in cui l'altro comincia a funzionare è il tipo di
+     * difetto che nessuna delle due prove, da sola, può vedere.*
+     *
+     * Qui le due condizioni ci sono tutte e due insieme, ed è l'unico modo di
+     * inchiodarlo: immersioni in mano **e** un guasto.
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await metodo(1, 4);
+      // Il computer ha risposto davvero: byte veri sul filo, come nel diario.
+      await scambio(284, 64236);
+      await act(async () => finto.aMeta!([immersione(), immersione()], 'scarico non riuscito (stato -8)'));
+
+      expect(
+        finto.chiamate,
+        'due immersioni su quarantacinque non sono un lavoro finito',
+      ).toHaveLength(2);
+      expect(
+        finto.chiamate[1].tentativo,
+        'e si riprova con lo STESSO modo, che ha appena dimostrato di funzionare',
+      ).toBe(0);
+      // E quel modo si conserva: le due immersioni sono passate da lì. È
+      // l'altra metà della separazione — «il modo ha funzionato» resta
+      // attaccato alle immersioni arrivate, «non c'è altro da fare» no.
+      expect(metodoConservato('dev-mares'), 'il modo ha portato roba: si conserva').toBe(CHIAVE);
+    } finally {
+      smonta();
+    }
+  });
+
+  it('con un segnalibro, «niente di nuovo» non fa partire cinque tentativi', async () => {
+    /*
+     * Il rovescio della prova qui sopra, e serve a tenerla onesta.
+     *
+     * Zero immersioni **con un segnalibro in archivio** non è un fallimento: è
+     * la risposta «non ho niente di più recente di quello che hai già». Se
+     * l'insistenza partisse anche qui, il caso più normale che esista — uno
+     * scarico fatto due volte di seguito — costerebbe cinque collegamenti e
+     * altrettanta batteria, per farsi ripetere cinque volte la stessa cosa. Ed
+     * è esattamente quello che succedeva prima di oggi, quando «riuscito» era
+     * `dives.length > 0`: zero immersioni, nessun errore, e via col giro.
+     */
+    finto.segnalibri = {
+      'ldc-Mares-Quad Ci:dispositivo-dev-mares': {
+        fingerprint: 'cc33',
+        at: '2026-09-10T00:00:00Z',
+        dives: 45,
+      },
+    };
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await metodo(1, 8);
+      await scambio(3);
+      await act(async () => finto.finisci!([]));
+
+      expect(finto.chiamate, 'niente di nuovo non è un guasto da riprovare').toHaveLength(1);
+      // E lo si dice per quello che è: un computer vuoto e un computer senza
+      // niente di nuovo mandano a fare due cose diverse.
+      expect(host.textContent).toContain('Niente di nuovo');
+      expect(host.textContent).not.toContain('non ha immersioni in memoria');
     } finally {
       smonta();
     }

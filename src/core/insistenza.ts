@@ -48,8 +48,25 @@ export const RIPROVE_STESSO_METODO = 2;
 
 /** Com'è andato il tentativo appena finito. */
 export type EsitoTentativo = {
-  /** Almeno un'immersione è entrata in archivio. */
-  riuscito: boolean;
+  /**
+   * **Non è rimasto niente da chiedere a quel computer.**
+   *
+   * ► SI CHIAMAVA `riuscito`, E IL NOME COSTAVA UN DIFETTO. ◄ «Riuscito»
+   * voleva dire «almeno un'immersione è entrata in archivio», e per un giorno
+   * intero è stata la stessa cosa. Poi il recupero parziale ha cominciato a
+   * funzionare — uno scarico che si rompe tiene quello che ha già preso — e le
+   * due frasi si sono separate: il 10 settembre 2026 un Puck 4 ha consegnato
+   * **due** immersioni su quarantacinque e poi si è rotto, «almeno una» era
+   * vero, e l'insistenza automatica non è mai partita. *Il rimedio si è
+   * spento da solo nell'istante in cui ha cominciato a servire.*
+   *
+   * Quindi qui non si dichiara un successo, si dichiara che **non c'è altro da
+   * fare**: lo scarico è finito senza errori, e o ha portato qualcosa o
+   * c'era un segnalibro (con un segnalibro, zero immersioni è la risposta
+   * «niente di nuovo», non un fallimento). Chi chiama questa funzione ha il
+   * compito di distinguere le due cose: vedi `BleDownload.tsx`.
+   */
+  nienteAltroDaFare: boolean;
   /**
    * Il computer ha risposto qualcosa: **il metodo funziona**.
    *
@@ -96,9 +113,10 @@ export type Insistenza =
  * senza un computer subacqueo e senza un browser.
  */
 export function decidiComeInsistere(esito: EsitoTentativo): Insistenza {
-  // Un'immersione arrivata chiude la partita: da qui in poi si conserva il
-  // metodo e non si tocca più niente.
-  if (esito.riuscito) return { cosa: 'smetti', perche: 'riuscito' };
+  // Non c'è più niente da chiedere: da qui in poi si conserva il metodo e non
+  // si tocca più niente. Attenzione a cosa NON è questa riga: non è «sono
+  // arrivate delle immersioni». Vedi il commento sul campo.
+  if (esito.nienteAltroDaFare) return { cosa: 'smetti', perche: 'niente da fare' };
 
   // ► LA VOLONTÀ DELLA PERSONA BATTE QUALUNQUE REGOLA. ◄ Se ha premuto
   // «Interrompi», insistere da soli è il modo più sicuro di far chiudere

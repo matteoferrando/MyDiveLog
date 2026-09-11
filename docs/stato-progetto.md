@@ -3510,6 +3510,127 @@ diario per chiuderla.*
 
 ---
 
+## Il diario del Puck, e i due rimedi che si sono spenti a vicenda
+
+Il 10 settembre è arrivato il diario per cui era stata costruita tutta la notte
+precedente: **1.8.8, iPhone, Mares Puck 4**, lo stesso apparecchio e la stessa
+persona dei due diari del 9. Questa volta il diario non contiene un numero: ne
+contiene abbastanza per chiudere la diagnosi e per aprire un difetto nuovo.
+
+### Cosa ha misurato
+
+| | 1.8.4 (9 settembre) | 1.8.8 (10 settembre) |
+|---|---|---|
+| byte ricevuti | 25 775 | **64 236** |
+| scritture / notifiche | — | 285 / 284 |
+| immersioni salvate | 0 | **2** |
+| voce della libreria nel diario | assente | **tre righe, coi nomi dei controlli** |
+
+Le tre righe della libreria sono la differenza fra un numero e una diagnosi:
+
+- **`mares_iconhd.c:329`** — «Failed to receive the packet header»: la prima
+  lettura dentro `mares_iconhd_packet_variable`. Questa strada **è** ritentata,
+  quattro volte, da `mares_iconhd_transfer`, che fra un tentativo e l'altro
+  dorme un secondo e svuota il buffer. E infatti nella coda del diario si
+  vedono due scritture identiche di fila, la n. 284 e la n. 285, tutte e due
+  `ac 09`: è il ritentativo interno che si vede da fuori.
+- **`mares_iconhd.c:521`** — `Unexpected packet header (80)`. È il controllo
+  del *toggle* dentro `mares_iconhd_read_object`: il primo mezzo byte della
+  risposta deve valere 0 o 1, alternandosi; è arrivato `0x80`, cioè 8. **Questo
+  controllo non è ritentato da nessuno**: restituisce `DC_STATUS_PROTOCOL` al
+  chiamante e lo scarico finisce lì.
+- **`mares_iconhd.c:1127`** — «Failed to read the dive data»: il chiamante che
+  riceve quel `-8` ed esce dal giro delle immersioni.
+
+Quindi la sequenza è: pacchetto perso → ritentativo interno → **risposta
+disallineata** → fine. Delle tre origini di `-8` che il 9 settembre non si
+potevano distinguere, questo diario dice quale: la terza, quella che la
+libreria non ritenta da sola.
+
+### Cosa ha funzionato
+
+**Il recupero parziale ha funzionato per la prima volta su un apparecchio
+vero.** `immersioni: 2`, e lo schermo del proprietario lo conferma: «2
+immersioni lette dal computer: 0 nuove, 2 arricchite». Fino al giorno prima
+quelle due sarebbero sparite al confine fra Rust e TypeScript, e il diario
+avrebbe detto che erano state tenute — la riga che diceva il falso, corretta
+nella 1.8.8 e adesso verificata sul campo.
+
+E il segnalibro **non** è stato salvato, che è la cosa giusta: uno scarico rotto
+ha in mano le più recenti e non ha visto le vecchie.
+
+### Cosa NON ha funzionato, ed è il pezzo che conta
+
+L'applicazione, dopo quelle due immersioni, **si è fermata**. Nessun secondo
+tentativo. Su un archivio di quarantacinque immersioni ne ha portate a casa due
+e ha smesso, con i cinque tentativi automatici pronti e mai partiti.
+
+Il motivo sta in una riga sola di `BleDownload.tsx`:
+
+```ts
+const riuscito = dives.length > 0;
+```
+
+Quel `riuscito` faceva due mestieri: decideva se **conservare il metodo** e
+decideva se **c'era ancora qualcosa da fare**. Per un giorno intero le due
+domande hanno avuto la stessa risposta, perché uno scarico rotto consegnava
+zero immersioni. Poi il recupero parziale ha cominciato a funzionare, uno
+scarico rotto ha consegnato due immersioni, «almeno una» è diventato vero — e
+l'insistenza si è spenta.
+
+*Due rimedi scritti la stessa notte, tutti e due giusti, che si sono disattivati
+a vicenda: il primo ha fatto sembrare riuscito esattamente il caso che il
+secondo esisteva per riprovare.* Nessuna delle due prove, da sola, poteva
+vederlo: quella del recupero parziale non guarda l'insistenza, quella
+dell'insistenza non aveva mai avuto immersioni e un guasto insieme. Il caso che
+lo inchioda è l'unico che li contiene tutti e due, e adesso è scritto.
+
+### La 1.8.9
+
+Le due domande si separano, e prendono due nomi diversi:
+
+- **`metodoHaFunzionato`** = `dives.length > 0`. Conserva il metodo e decide il
+  segnalibro. Uno scarico rotto che ha consegnato due immersioni il metodo lo
+  ha dimostrato eccome — quelle due sono passate di lì.
+- **`nienteAltroDaFare`** = `!grezzo && (dives.length > 0 || segnalibro)`. È
+  quello che ferma il giro dei tentativi. Un errore vuol dire, per definizione,
+  che il computer aveva ancora qualcosa da dire e non è riuscito a dirlo.
+
+Il secondo pezzo della condizione — `|| segnalibro` — è il rovescio, e serve
+tanto quanto il resto: con un segnalibro in archivio, **zero immersioni non è un
+fallimento**, è la risposta «non ho niente di più recente di quello che hai
+già». Senza quella riga il caso più normale che esista, uno scarico fatto due
+volte di seguito, costerebbe cinque collegamenti e altrettanta batteria per
+farsi ripetere cinque volte la stessa cosa. E nello stesso punto è stato tolto
+un messaggio che diceva il falso: con un segnalibro adesso si legge «Niente di
+nuovo», non «Il computer non ha immersioni in memoria da scaricare» — la strada
+dei driver di casa questa distinzione la faceva già dal principio, quella di
+libdivecomputer no.
+
+Il campo di `insistenza.ts` è stato rinominato di conseguenza: si chiamava
+`riuscito`, adesso si chiama `nienteAltroDaFare`, perché *un nome che dice una
+cosa più forte di quella che è costa un difetto ogni volta che il mondo
+cambia sotto*.
+
+Tre prove nuove, e tutte e cinque le mutazioni provate sono andate rosse:
+rimettere il vecchio `riuscito`, togliere il segnalibro dalla condizione,
+attaccare il salvataggio del metodo a `!grezzo`, rimettere il messaggio
+bugiardo, e togliere del tutto la riga che fa smettere.
+
+### Cosa questa versione NON fa
+
+Non ripara il disallineamento del toggle. Quello è dentro la libreria e non ha
+ritentativo; la 1.8.9 fa un'altra cosa, che è ricominciare da capo lo scarico
+fino a cinque volte quando quel guasto arriva — e siccome ogni giro riparte da
+zero e tiene quello che prende, **la domanda vera è se il guasto sia sempre allo
+stesso punto o no**. Se è sempre allo stesso oggetto, cinque giri porteranno a
+casa sempre le stesse due immersioni e il prossimo diario lo dirà; se è
+casuale, i giri andranno via via più in là. *È la prima volta in tutta questa
+faccenda che il prossimo diario risponde a una domanda posta prima, invece di
+farne nascere una nuova.*
+
+---
+
 ## Prossimi passi
 
 ### Tocca a chi pubblica
@@ -3881,6 +4002,25 @@ Tutte hanno la stessa radice: **`gen/apple/` è generata e non versionata**.
 ---
 
 ## Le lezioni
+
+> ### ► LA LEZIONE DEL 10 SETTEMBRE: DUE RIMEDI GIUSTI POSSONO SPEGNERSI A VICENDA ◄
+>
+> Il recupero parziale e l'insistenza automatica sono stati scritti la stessa
+> notte, per lo stesso apparecchio, e sono tutti e due corretti. Messi insieme si
+> sono disattivati: il primo ha fatto consegnare due immersioni a uno scarico
+> rotto, `riuscito` era `dives.length > 0`, e il secondo — cinque tentativi
+> pronti — non è mai partito.
+>
+> Nessuna delle due batterie di prove poteva vederlo, perché ognuna prova il
+> proprio rimedio nel mondo in cui l'altro non esiste. **Il caso che lo inchioda
+> è quello che contiene tutti e due insieme** — immersioni in mano *e* un guasto
+> — e va cercato apposta: non nasce da solo da nessuna delle due storie.
+>
+> E la causa prossima è un nome. `riuscito` faceva due domande diverse —
+> «conservo il metodo?» e «c'è ancora qualcosa da fare?» — che per un giorno
+> avevano la stessa risposta. *Un nome più forte di quello che misura non è
+> impreciso: è una bomba a orologeria, e il timer è la prossima cosa che
+> funziona.*
 
 > ### ► LA LEZIONE DELL'1 SETTEMBRE: QUELLO CHE NESSUNO RIESCE A LEGGERE È SPENTO — E IN UNA SETTIMANA È SUCCESSO TRE VOLTE ◄
 >

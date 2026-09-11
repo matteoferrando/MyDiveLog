@@ -14,7 +14,7 @@ import {
  */
 function esito(cambia: Partial<EsitoTentativo> = {}): EsitoTentativo {
   return {
-    riuscito: false,
+    nienteAltroDaFare: false,
     haRisposto: false,
     metodo: { indice: 0, totale: 3 },
     fatti: 0,
@@ -87,11 +87,32 @@ describe('► come si insiste quando uno scarico non riesce ◄', () => {
     expect(scelta.perche).toContain('fermato');
   });
 
-  it('uno scarico riuscito non si ripete', () => {
-    const scelta = decidiComeInsistere(esito({ riuscito: true, haRisposto: true }));
+  it('quando non è rimasto niente da chiedere non si ripete', () => {
+    const scelta = decidiComeInsistere(esito({ nienteAltroDaFare: true, haRisposto: true }));
     expect(scelta.cosa).toBe('smetti');
     if (scelta.cosa !== 'smetti') throw new Error('impossibile');
-    expect(scelta.perche).toContain('riuscito');
+    expect(scelta.perche).toContain('niente da fare');
+  });
+
+  it('► delle immersioni in mano NON bastano a fermare il giro ◄', () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * LA PROVA NATA DAL DIARIO DEL 10 SETTEMBRE 2026.
+     *
+     * Fin qui questo campo si chiamava `riuscito` e chi chiamava ci metteva
+     * dentro `dives.length > 0`. Poi il recupero parziale ha cominciato a
+     * funzionare davvero: un Puck 4 che si rompe dopo due immersioni su
+     * quarantacinque **ne consegna due**, «almeno una» diventa vero, e il giro
+     * dei tentativi si spegne sul nascere.
+     *
+     * Qui dentro la regola non può accorgersene: questa funzione non sa cosa
+     * sia un'immersione. Quello che può fare — e che questa prova inchioda — è
+     * non avere nessuna scorciatoia che confonda le due cose: se chi chiama
+     * dice «c'è ancora da fare», si riprova, e basta. Il resto è in
+     * `metodoDiCollegamento.test.tsx`, dove la domanda viene formulata.
+     */
+    const scelta = decidiComeInsistere(esito({ nienteAltroDaFare: false, haRisposto: true }));
+    expect(scelta.cosa).toBe('stesso-metodo');
   });
 
   it('se il ponte non si è nemmeno aperto si riprova UNA volta da dove si era partiti', () => {

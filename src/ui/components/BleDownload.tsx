@@ -1178,7 +1178,17 @@ export function BleDownload() {
                 t('Spegni e riaccendi il computer subacqueo, avvicinalo e riprova.'),
               guasto,
             )
-          : t('Il computer non ha immersioni in memoria da scaricare.');
+          : segnalibro
+            ? /*
+               * ► CON UN SEGNALIBRO, ZERO IMMERSIONI NON È UNA MEMORIA VUOTA. ◄
+               * È la risposta «non c'è niente di più recente di quello che hai
+               * già», e dirla come se il computer fosse vuoto manda a
+               * controllare un apparecchio che non ha nessun problema — o, peggio,
+               * a rifare uno scarico completo per niente. La strada dei driver
+               * di casa questa distinzione la faceva già: qui mancava.
+               */
+              t('Niente di nuovo: il computer non ha immersioni più recenti di quelle che hai già.')
+            : t('Il computer non ha immersioni in memoria da scaricare.');
       } else {
         /*
          * L'ORIGINE DICE DA DOVE PASSA, e non è un dettaglio di etichetta.
@@ -1216,13 +1226,21 @@ export function BleDownload() {
        * provare — se c'è — e allora la schermata di esito non è un vicolo
        * cieco ma un pulsante.
        *
-       * «Riuscito» qui è **almeno un'immersione arrivata**, non l'assenza di
-       * eccezioni: un collegamento che si apre, non dice niente e si chiude
+       * «Ha funzionato» qui è **almeno un'immersione arrivata**, non l'assenza
+       * di eccezioni: un collegamento che si apre, non dice niente e si chiude
        * senza errori non ha dimostrato niente sul metodo, e conservarlo
        * vorrebbe dire inchiodare quel computer a una combinazione muta.
+       *
+       * ► E, ALL'OPPOSTO, UNO SCARICO ROTTO A METÀ IL METODO LO HA DIMOSTRATO
+       * ECCOME. ◄ Le due immersioni del Puck sono passate da lì: quel metodo è
+       * buono, è il collegamento che si è rotto. Per questo «conservo il
+       * metodo?» e «c'è ancora qualcosa da fare?» sono due domande diverse,
+       * con due risposte diverse, e da adesso hanno due nomi diversi. Tenerle
+       * insieme sotto un solo `riuscito` è costato il diario del 10 settembre:
+       * trenta righe più giù c'è scritto quanto.
        */
-      const riuscito = dives.length > 0;
-      if (riuscito && metodoInCorso) {
+      const metodoHaFunzionato = dives.length > 0;
+      if (metodoHaFunzionato && metodoInCorso) {
         salvaMetodo(device.id, metodoInCorso.chiave);
         diario.push(`metodo conservato per la prossima volta: ${metodoInCorso.nome}`);
       }
@@ -1231,7 +1249,7 @@ export function BleDownload() {
        * ════════════════════════════════════════════════════════════════════
        * ► IL SEGNALIBRO SI SALVA SOLO DOPO UNO SCARICO FINITO BENE. ◄
        *
-       * E qui la condizione è **`!grezzo`**, non `riuscito`: dev'essere finito
+       * E qui la condizione è **`!grezzo`**, non «ha funzionato»: dev’essere finito
        * senza errori, non «aver portato qualcosa».
        *
        * Perché le immersioni si leggono dalla più recente alla più vecchia. Uno
@@ -1250,7 +1268,7 @@ export function BleDownload() {
        * fallisse, il segnalibro salterebbe proprio le immersioni che non sono
        * entrate.
        */
-      if (!grezzo && riuscito && piuRecente) {
+      if (!grezzo && metodoHaFunzionato && piuRecente) {
         await saveBleMarker(chiaveSegnalibro, {
           fingerprint: piuRecente,
           at: new Date().toISOString(),
@@ -1293,8 +1311,40 @@ export function BleDownload() {
        * fra «riprova uguale» e «prova un altro modo» è la cosa più importante
        * di questa schermata, e va potuta provare senza un Bluetooth davanti.
        */
+      /*
+       * ════════════════════════════════════════════════════════════════════
+       * ► «SONO ARRIVATE DELLE IMMERSIONI» NON VUOL DIRE «NON C'È PIÙ NIENTE
+       *   DA FARE». ◄
+       *
+       * Questa riga nasce da un diario vero, quello del 10 settembre 2026: un
+       * Puck 4 su un iPhone, 64 236 byte ricevuti, un errore di protocollo, e
+       * **due** immersioni salvate su un archivio che ne conta quarantacinque.
+       * Il recupero parziale, scritto la notte prima, aveva fatto esattamente
+       * il suo mestiere. E proprio per questo l'applicazione si è fermata:
+       * `riuscito` era `dives.length > 0`, due è più di zero, e i cinque
+       * tentativi automatici — scritti la stessa notte, per lo stesso
+       * apparecchio — non sono mai partiti. *Due rimedi giusti, messi insieme,
+       * si sono spenti a vicenda: il primo ha fatto sembrare riuscito quello
+       * che il secondo esisteva per riprovare.*
+       *
+       * Si smette dunque solo quando non è rimasto niente da chiedere:
+       *
+       *  - lo scarico è finito **senza errori** (`!grezzo`) — un errore vuol
+       *    dire, per definizione, che il computer aveva ancora qualcosa da
+       *    dire e non è riuscito a dirlo;
+       *  - e o è arrivata almeno un'immersione, o c'era un **segnalibro**:
+       *    con un segnalibro, zero immersioni non è un fallimento ma la
+       *    risposta «niente di nuovo», e insistere cinque volte per farsela
+       *    ripetere sarebbe solo batteria buttata a chi non ha nessun problema.
+       *
+       * Restano a insistere i due casi che se lo meritano: lo scarico rotto —
+       * con o senza immersioni in mano — e il collegamento muto senza
+       * segnalibro, che è quello che fa girare i metodi.
+       */
+      const nienteAltroDaFare = !grezzo && (dives.length > 0 || segnalibro !== undefined);
+
       const scelta = decidiComeInsistere({
-        riuscito,
+        nienteAltroDaFare,
         haRisposto: (scambio?.notifications ?? 0) > 0,
         metodo: metodoInCorso ? { indice: metodoInCorso.indice, totale: metodoInCorso.totale } : undefined,
         partitoDa: tentativo,
@@ -1325,7 +1375,7 @@ export function BleDownload() {
        * chi ha il computer in mano sa cose che noi non sappiamo.*
        */
       const altroMetodo =
-        !riuscito && metodoInCorso && metodoInCorso.indice + 1 < metodoInCorso.totale
+        !metodoHaFunzionato && metodoInCorso && metodoInCorso.indice + 1 < metodoInCorso.totale
           ? {
               device,
               marca,
