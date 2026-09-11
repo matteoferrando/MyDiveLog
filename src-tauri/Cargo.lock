@@ -2655,10 +2655,11 @@ dependencies = [
 
 [[package]]
 name = "mydivelog"
-version = "1.8.10"
+version = "1.8.11"
 dependencies = [
  "cc",
  "keyring",
+ "objc2 0.6.4",
  "serde",
  "serde_json",
  "tauri",

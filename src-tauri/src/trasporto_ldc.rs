@@ -220,6 +220,13 @@ pub trait FlussoByte: Send {
     fn silenzio_massimo_ms(&self) -> u64 {
         0
     }
+
+    /// Quante seconde finestre sono state concesse, quante hanno portato
+    /// davvero una risposta, e quante volte il processo si è rivelato
+    /// congelato. Vedi `MisureLettura`.
+    fn proroghe(&self) -> (usize, usize, usize) {
+        (0, 0, 0)
+    }
 }
 
 // --------------------------------------------------------------- il flusso BLE
@@ -256,6 +263,13 @@ pub struct FlussoBle {
     pausa_massima: Duration,
     /// Il silenzio più lungo fra un comando e la sua risposta. Vedi `MisureLettura`.
     silenzio_massimo: Duration,
+    /// Quante volte si è concessa una seconda finestra invece di dire «scaduta».
+    proroghe: usize,
+    /// Quante di quelle hanno portato davvero una risposta. Vedi `MisureLettura`.
+    proroghe_utili: usize,
+    /// Quante volte l'attesa ha sforato la scadenza tanto da rivelare un
+    /// congelamento del processo.
+    congelamenti: usize,
 }
 
 /// Come si rimettono insieme le notifiche dentro una lettura.
@@ -319,6 +333,49 @@ impl Riassemblaggio {
 /// quaranta è largo abbastanza per prenderli e corto abbastanza da non pesare.
 /// Nelle prove è cortissimo: una prova che aspetta per vedere un'attesa
 /// insegna a non lanciare le prove.
+/// Di quanto un'attesa deve sforare la propria scadenza perché si possa dire
+/// che il processo era **congelato** invece che in ascolto.
+///
+/// ════════════════════════════════════════════════════════════════════════════
+/// ► UNA LETTURA NON È SCADUTA SOLO PERCHÉ IL TEMPO È PASSATO. ◄
+///
+/// `aspetta` calcola una scadenza assoluta e ci dorme sopra. Finché il
+/// processo gira, sforarla di più di qualche millisecondo è impossibile. Ma su
+/// iOS un'applicazione che va in secondo piano viene **sospesa**: i thread si
+/// fermano, l'orologio no. Al risveglio la scadenza è passata da un pezzo, e il
+/// codice — senza questa riga — direbbe «il computer non ha risposto» proprio
+/// nell'istante in cui il sistema gli sta consegnando la risposta che aveva
+/// tenuto in coda.
+///
+/// *Quel falso scaduto non è un fastidio: è l'innesco.* Il backend Mares, a
+/// quel punto, dorme un secondo, svuota l'ingresso e rimanda il comando — e
+/// siccome il protocollo Mares non ha né checksum né numeri di sequenza, una
+/// risposta vecchia che arriva dopo lo svuotamento desincronizza tutto senza
+/// che nessuno possa accorgersene. È la catena esatta del diario del 10
+/// settembre.
+///
+/// Mezzo secondo: abbondante per qualunque ritardo di sistema operativo
+/// occupato, incomparabilmente più corto di un blocco schermo.
+const SFORO_DA_CONGELAMENTO: Duration = if cfg!(test) {
+    Duration::from_millis(20)
+} else {
+    Duration::from_millis(500)
+};
+
+/// Se un'attesa finita in `passato`, che ne chiedeva `attesa`, rivela che il
+/// processo era fermo.
+///
+/// ► STA FUORI DAL FLUSSO PERCHÉ UN CONGELAMENTO NON SI PUÒ SIMULARE. ◄ Per
+/// vederlo davvero servirebbe sospendere il thread dall'esterno, cioè un
+/// sistema operativo dentro una prova. La regola però è una riga, e una riga si
+/// può inchiodare da sola: quello che resta senza guardia è soltanto il punto
+/// in cui viene chiamata, che sta in vista tre righe sotto. *È meno di quanto
+/// vorrei e più di quanto avevo: la versione prima non aveva né la funzione né
+/// la prova, e una mutazione è rimasta verde a dirlo.*
+fn e_un_congelamento(passato: Duration, attesa: Duration) -> bool {
+    passato > attesa + SFORO_DA_CONGELAMENTO
+}
+
 const ATTESA_FRAMMENTO: Duration =
     if cfg!(test) { Duration::from_millis(5) } else { Duration::from_millis(40) };
 
@@ -398,6 +455,9 @@ impl FlussoBle {
             frammenti_mancati: 0,
             pausa_massima: Duration::ZERO,
             silenzio_massimo: Duration::ZERO,
+            proroghe: 0,
+            proroghe_utili: 0,
+            congelamenti: 0,
         }
     }
 
@@ -503,8 +563,82 @@ impl FlussoByte for FlussoBle {
              */
             let inizio_silenzio = std::time::Instant::now();
             let esito_attesa = self.aspetta(attesa);
-            self.silenzio_massimo = self.silenzio_massimo.max(inizio_silenzio.elapsed());
+            let passato = inizio_silenzio.elapsed();
+            self.silenzio_massimo = self.silenzio_massimo.max(passato);
             esito_attesa?;
+
+            /*
+             * ════════════════════════════════════════════════════════════════
+             * ► NON CI SI ARRENDE AL PRIMO SILENZIO. ◄
+             *
+             * Questa è la correzione che non dipende da quale sia la causa
+             * vera, ed è per questo che vale più delle altre. Il silenzio di
+             * qualche secondo ha dieci cause possibili — l'applicazione
+             * congelata da iOS, il computer che si prende una pausa, un
+             * pacchetto perso — e su nessuna di quelle possiamo intervenire da
+             * qui. **Ma su cosa chiamiamo «scaduto» sì.**
+             *
+             * E chiamarlo scaduto costa caro: il backend Mares dorme un
+             * secondo, svuota l'ingresso e rimanda il comando, e il protocollo
+             * Mares non ha né checksum né numeri di sequenza — una risposta
+             * vecchia che arriva dopo lo svuotamento desincronizza tutto senza
+             * che nessuno se ne accorga. *Il timeout non è la reazione al
+             * guasto: è il guasto.*
+             *
+             * Due mosse, in ordine di costo.
+             *
+             * **L'ultimo istante**, che si concede a chiunque, anche a un metodo
+             * che non ha mai parlato. Non è una seconda finestra: è
+             * `ATTESA_FRAMMENTO`, quaranta millisecondi, contro i tremila della
+             * finestra vera. Serve al caso in cui la risposta è arrivata un
+             * soffio dopo la scadenza — e su una prima risposta quel soffio
+             * costa il metodo intero, perché il giro lo scarta come muto e
+             * passa al successivo.
+             *
+             * *La prima versione qui non aspettava niente: guardava e basta. Una
+             * mutazione è rimasta verde e ha dimostrato che quel guardare non
+             * era sorvegliato da nessuna prova — e non lo poteva essere, perché
+             * il caso da riprodurre era un millisecondo esatto fra due righe.
+             * Quaranta millisecondi sono la stessa idea in una forma che si può
+             * inchiodare.*
+             */
+            if self.arrivate.is_empty() {
+                self.aspetta(ATTESA_FRAMMENTO)?;
+            }
+
+            /*
+             * **La seconda finestra**, che costa un'attesa in più — e solo
+             * quando ha senso.
+             *
+             * ► LA CONDIZIONE `ricevuto_qualcosa` NON È PRUDENZA, È IL GIRO DEI
+             * METODI. ◄ Se da questa combinazione di caratteristiche non è mai
+             * arrivato niente, il metodo è sbagliato e va cambiato in fretta:
+             * raddoppiare l'attesa lì vorrebbe dire raddoppiare il tempo di
+             * ogni vicolo cieco, cioè rendere insopportabile proprio il giro
+             * che esiste per uscirne. Qui invece il computer ha già parlato:
+             * *una conversazione che funziona e inciampa merita un'altra
+             * domanda, una sola.*
+             *
+             * Il tetto è una proroga per lettura: un collegamento davvero morto
+             * costa il doppio del tempo, non l'infinito.
+             */
+            if self.arrivate.is_empty() && self.ricevuto_qualcosa {
+                if e_un_congelamento(passato, attesa) {
+                    // L'attesa ha sforato la propria scadenza: il processo era
+                    // fermo. Vedi `SFORO_DA_CONGELAMENTO`.
+                    self.congelamenti += 1;
+                }
+                self.proroghe += 1;
+                self.aspetta(attesa)?;
+                if !self.arrivate.is_empty() {
+                    // ► IL NUMERO CHE GIUDICA QUESTA CORREZIONE. ◄ Se le
+                    // proroghe utili sono tante, il tempo concesso era il
+                    // problema; se sono sempre zero, questa riga è solo un
+                    // raddoppio dell'attesa e va tolta. Il prossimo diario
+                    // decide, e nessuno deve indovinare.
+                    self.proroghe_utili += 1;
+                }
+            }
             /*
              * IL RIPIEGO SUL SILENZIO. Se non è mai arrivato niente in tutta la
              * sessione e la prima attesa è scaduta, il primo scambio è muto:
@@ -609,6 +743,10 @@ impl FlussoByte for FlussoBle {
 
     fn silenzio_massimo_ms(&self) -> u64 {
         self.silenzio_massimo.as_millis() as u64
+    }
+
+    fn proroghe(&self) -> (usize, usize, usize) {
+        (self.proroghe, self.proroghe_utili, self.congelamenti)
     }
 
     fn nome(&mut self) -> Option<String> {
@@ -924,6 +1062,20 @@ pub struct MisureLettura {
     /// misure indipendenti che insieme rispondono, e nessuna delle due che
     /// risponde da sola.*
     pub silenzio_massimo_ms: u64,
+    /// Quante volte si è concessa una seconda finestra invece di dire «scaduta».
+    pub proroghe: usize,
+    /// Quante di quelle hanno portato davvero una risposta.
+    ///
+    /// ► È IL NUMERO CHE GIUDICA LA CORREZIONE PIÙ IMPORTANTE DI QUESTA
+    /// VERSIONE. ◄ Se le proroghe utili sono tante, il tempo concesso era il
+    /// problema e la riga si è guadagnata il posto. Se sono sempre zero, quella
+    /// riga non fa che raddoppiare l'attesa di ogni guasto, e va tolta. *Una
+    /// correzione che porta con sé il numero che la può condannare è l'unico
+    /// tipo di correzione che non diventa superstizione.*
+    pub proroghe_utili: usize,
+    /// Quante volte l'attesa ha sforato la scadenza tanto da rivelare che il
+    /// processo era fermo — cioè sospeso dal sistema operativo.
+    pub congelamenti: usize,
 }
 
 /// Il posto condiviso dove il trasporto tiene il conto. Come `Guasto`: una
@@ -1019,6 +1171,10 @@ extern "C" fn cb_read(
         conti.frammenti_mancati = mancati;
         conti.pausa_massima_ms = conti.pausa_massima_ms.max(pausa);
         conti.silenzio_massimo_ms = conti.silenzio_massimo_ms.max(s.flusso.silenzio_massimo_ms());
+        let (proroghe, utili, congelamenti) = s.flusso.proroghe();
+        conti.proroghe = proroghe;
+        conti.proroghe_utili = utili;
+        conti.congelamenti = congelamenti;
     }
     match esito {
         Ok(letti) => {
@@ -1802,7 +1958,7 @@ impl CollegamentoLdc {
             return None;
         }
         Some(format!(
-            "letture: {}, di cui {} corte e {} vuote; pacchetti lasciati a metà: {}; pausa più lunga fra due frammenti: {} ms (si aspetta al massimo {} ms); silenzio più lungo fra un comando e la risposta: {} ms",
+            "letture: {}, di cui {} corte e {} vuote; pacchetti lasciati a metà: {}; pausa più lunga fra due frammenti: {} ms (si aspetta al massimo {} ms); silenzio più lungo fra un comando e la risposta: {} ms; seconde finestre concesse: {}, di cui utili {}; congelamenti visti: {}",
             m.letture,
             m.letture_corte,
             m.letture_vuote,
@@ -1810,6 +1966,9 @@ impl CollegamentoLdc {
             m.pausa_massima_ms,
             ATTESA_FRAMMENTO.as_millis(),
             m.silenzio_massimo_ms,
+            m.proroghe,
+            m.proroghe_utili,
+            m.congelamenti,
         ))
     }
 
@@ -3863,6 +4022,122 @@ mod prove {
         // guardia nel codice, ma perché non si è aspettato. È la stessa cosa
         // vista da fuori, ed è quella giusta da provare.
         assert_eq!(m.silenzio_massimo_ms, 0, "la risposta era già arrivata: nessun silenzio");
+    }
+
+    #[test]
+    fn una_risposta_in_ritardo_non_si_butta_via_come_se_non_fosse_mai_arrivata() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► LA CORREZIONE CHE NON DIPENDE DALLA CAUSA, E LA PROVA CHE LA TIENE. ◄
+         *
+         * Il silenzio di qualche secondo ha dieci cause possibili e su nessuna
+         * possiamo intervenire da qui. Su cosa chiamiamo «scaduto», sì. E
+         * chiamarlo scaduto è l'innesco: il backend Mares dorme un secondo,
+         * svuota l'ingresso e rimanda il comando, e siccome il protocollo Mares
+         * non ha né checksum né numeri di sequenza, una risposta vecchia dopo
+         * lo svuotamento desincronizza tutto senza che nessuno se ne accorga.
+         *
+         * Qui il computer ha già parlato una volta — quindi il metodo è buono —
+         * e la risposta dopo arriva **oltre** la scadenza della prima attesa.
+         * Prima di oggi era una lettura vuota, cioè un `DC_STATUS_TIMEOUT`.
+         */
+        let (manda, ricevi) = channel();
+        let mut flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())));
+
+        // Il primo scambio funziona: da qui in poi il metodo ha dimostrato di
+        // essere quello giusto.
+        manda.send(vec![1, 2, 3]).unwrap();
+        assert_eq!(flusso.leggi(10, Duration::from_millis(30)).unwrap(), vec![1, 2, 3]);
+
+        // La risposta dopo tarda più della finestra concessa.
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(60));
+            let _ = manda.send(vec![9, 9]);
+        });
+        let letto = flusso.leggi(10, Duration::from_millis(30)).unwrap();
+        assert_eq!(letto, vec![9, 9], "la risposta è arrivata in ritardo, non è mai mancata");
+
+        let (proroghe, utili, _) = flusso.proroghe();
+        assert_eq!(proroghe, 1, "si concede UNA seconda finestra, non un'attesa infinita");
+        assert_eq!(utili, 1, "e questa è servita: è il numero che giudica la riga");
+    }
+
+    #[test]
+    fn unattesa_che_sfora_la_propria_scadenza_rivela_un_processo_fermo() {
+        /*
+         * Un'attesa che dorme su una scadenza assoluta non può sforarla, se il
+         * processo gira: qualche millisecondo di sistema occupato, non di più.
+         * Sforarla di mezzo secondo vuol dire che i thread erano fermi mentre
+         * l'orologio andava avanti — cioè l'applicazione sospesa, che su iOS è
+         * quello che succede appena lo schermo si spegne.
+         *
+         * Distinguerlo conta perché il rimedio è diverso: un computer che tace
+         * è un problema di collegamento, un processo fermo è un problema di
+         * schermo. Nel diario le due cose arrivano accanto e insieme
+         * rispondono.
+         */
+        let attesa = Duration::from_millis(100);
+        assert!(!e_un_congelamento(Duration::from_millis(100), attesa), "finita in tempo");
+        assert!(
+            !e_un_congelamento(Duration::from_millis(105), attesa),
+            "qualche millisecondo è un sistema occupato, non un congelamento"
+        );
+        assert!(
+            e_un_congelamento(Duration::from_millis(100) + SFORO_DA_CONGELAMENTO * 2, attesa),
+            "sforare di molto la propria scadenza si può spiegare in un modo solo"
+        );
+    }
+
+    #[test]
+    fn anche_la_primissima_risposta_ha_diritto_a_un_ultimo_istante() {
+        /*
+         * ► IL CASO CHE COSTA UN METODO INTERO. ◄ Alla prima risposta di una
+         * combinazione mai provata, arrivare un soffio dopo la scadenza non
+         * vuol dire «questo metodo non funziona»: vuol dire «ci è mancato un
+         * soffio». Ma il giro dei metodi legge la lettura vuota come un vicolo
+         * cieco, scarta la combinazione e passa alla successiva — cioè butta
+         * via quella giusta.
+         *
+         * Qui il computer non ha mai parlato (niente seconda finestra intera) e
+         * la risposta arriva appena dopo la scadenza: deve essere presa lo
+         * stesso.
+         */
+        let (manda, ricevi) = channel();
+        let mut flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())));
+        std::thread::spawn(move || {
+            // Oltre i 20 ms di finestra, dentro i 5 ms + margine dell'ultimo
+            // istante... no: nelle prove `ATTESA_FRAMMENTO` è 5 ms, quindi si
+            // sceglie un ritardo che sta dentro la somma.
+            std::thread::sleep(Duration::from_millis(6));
+            let _ = manda.send(vec![7]);
+        });
+        let letto = flusso.leggi(10, Duration::from_millis(4)).unwrap();
+        assert_eq!(letto, vec![7], "un soffio di ritardo non è un metodo sbagliato");
+        assert_eq!(flusso.proroghe().0, 0, "l'ultimo istante non è una seconda finestra");
+    }
+
+    #[test]
+    fn un_metodo_che_non_ha_mai_parlato_non_si_prende_il_doppio_del_tempo() {
+        /*
+         * ► IL ROVESCIO, E PROTEGGE IL GIRO DEI METODI. ◄ Se da questa
+         * combinazione di caratteristiche non è mai arrivato niente, il metodo
+         * è sbagliato e va cambiato in fretta. Concedere anche lì la seconda
+         * finestra raddoppierebbe il tempo di ogni vicolo cieco — cioè
+         * renderebbe insopportabile proprio il giro che esiste per uscirne, e
+         * su otto metodi da provare è la differenza fra due minuti e quattro.
+         */
+        let (manda, ricevi) = channel();
+        let mut flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())));
+        // Il canale resta aperto e muto: `manda` vive fino a fine prova.
+        let inizio = std::time::Instant::now();
+        assert!(flusso.leggi(10, Duration::from_millis(40)).unwrap().is_empty());
+        let passato = inizio.elapsed();
+        assert!(
+            passato < Duration::from_millis(90),
+            "un metodo muto non deve costare due finestre: {passato:?}"
+        );
+        assert_eq!(flusso.proroghe().0, 0, "nessuna proroga a chi non ha mai risposto");
+        drop(manda);
     }
 
     #[test]

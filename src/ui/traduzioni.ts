@@ -1875,6 +1875,8 @@ export const INGLESE: Record<string, string> = {
   'già in archivio': 'already in the logbook',
   'Il computer non ha immersioni in memoria da scaricare.':
     'The computer has no dives in memory to download.',
+  'Tieni acceso lo schermo e resta su questa schermata: se il telefono si blocca o cambi applicazione, lo scarico si ferma.':
+    'Keep the screen on and stay on this page: if the phone locks or you switch apps, the download stops.',
   'Il computer ha più immersioni di quante ne siano arrivate.':
     'The computer holds more dives than the ones that made it across.',
   'Lo scarico si è interrotto dopo {0}. Su una memoria piena, riprovare spesso non basta: il trasferimento si rompe sempre prima della fine, e ogni tentativo riparte da capo.':

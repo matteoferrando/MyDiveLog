@@ -144,6 +144,10 @@ mod trasporto_ldc;
  * che è un messaggio che non spiega niente a nessuno. Il ponte vero, dentro,
  * è compilato solo con `computer-esterni`.
  */
+/// Tenere acceso lo schermo mentre uno scarico è in corso. Vedi `schermo.rs`:
+/// la strada del web non funziona dentro una WKWebView, e quella nativa sì.
+mod schermo;
+
 mod ponte_blec;
 
 /// Il ritorno dell'accesso sul desktop: un ascoltatore su 127.0.0.1.
@@ -363,7 +367,8 @@ pub fn run() {
         computer_esterni::elenca_computer_supportati,
         computer_esterni::riconosci_computer_esterno,
         ponte_blec::scarica_da_computer_esterno,
-        ponte_blec::rispondi_codice_pin
+        ponte_blec::rispondi_codice_pin,
+        schermo::tieni_acceso_lo_schermo
     ]);
 
     // Su iOS due differenze: l'esportazione di un file, che qui non può passare
@@ -378,7 +383,8 @@ pub fn run() {
         computer_esterni::elenca_computer_supportati,
         computer_esterni::riconosci_computer_esterno,
         ponte_blec::scarica_da_computer_esterno,
-        ponte_blec::rispondi_codice_pin
+        ponte_blec::rispondi_codice_pin,
+        schermo::tieni_acceso_lo_schermo
     ]);
 
     /*
@@ -410,7 +416,8 @@ pub fn run() {
         computer_esterni::elenca_computer_supportati,
         computer_esterni::riconosci_computer_esterno,
         ponte_blec::scarica_da_computer_esterno,
-        ponte_blec::rispondi_codice_pin
+        ponte_blec::rispondi_codice_pin,
+        schermo::tieni_acceso_lo_schermo
     ]);
 
     #[cfg(target_os = "android")]
@@ -419,7 +426,8 @@ pub fn run() {
         computer_esterni::elenca_computer_supportati,
         computer_esterni::riconosci_computer_esterno,
         ponte_blec::scarica_da_computer_esterno,
-        ponte_blec::rispondi_codice_pin
+        ponte_blec::rispondi_codice_pin,
+        schermo::tieni_acceso_lo_schermo
     ]);
 
     builder

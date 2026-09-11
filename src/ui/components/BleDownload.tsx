@@ -74,6 +74,16 @@ type Stato =
       fatte: number;
       totale?: number;
       passo: string;
+      /**
+       * Lo schermo non si può tenere acceso da qui: lo si dice a chi guarda,
+       * mentre può ancora farci qualcosa.
+       *
+       * Vedi `schermoSveglio.ts`. Su iOS uno schermo che si spegne **sospende
+       * l'applicazione**: le notifiche Bluetooth smettono di arrivare e per il
+       * computer subacqueo la conversazione si interrompe a metà. Se non
+       * riusciamo a impedirlo, l'unica difesa è una persona informata.
+       */
+      schermoScoperto?: boolean;
       /** Avanzamento a byte, per i protocolli che scaricano la memoria in blocco. */
       byte?: { fatti: number; totali: number };
     }
@@ -1189,6 +1199,9 @@ export function BleDownload() {
        * l'ipotesi con un'osservazione, non con un ragionamento.
        */
       const schermo = await tieniSvegliaLoSchermo();
+      if (!schermo.ottenuto) {
+        setStato((p) => (p.fase === 'scarica' ? { ...p, schermoScoperto: true } : p));
+      }
       const inizio = Date.now();
       try {
         const esito = await scaricaDaComputerEsterno({
@@ -2006,6 +2019,21 @@ export function BleDownload() {
         </div>
       )}
 
+      {stato.fase === 'scarica' && stato.schermoScoperto && (
+        /*
+         * ► SI DICE SOLO QUANDO NON SI PUÒ FARE. ◄ Se il blocco dello schermo
+         * l'abbiamo preso, questa riga è rumore sopra una barra che avanza: chi
+         * guarda non deve fare niente e leggerebbe un avvertimento inutile, che
+         * è il modo di insegnare a non leggere gli avvertimenti. Compare solo
+         * dove il sistema non ci lascia difendere lo scarico da soli — e lì è
+         * l'unica difesa che resta.
+         */
+        <div className="notice notice-error" role="status">
+          {t(
+            'Tieni acceso lo schermo e resta su questa schermata: se il telefono si blocca o cambi applicazione, lo scarico si ferma.',
+          )}
+        </div>
+      )}
       {stato.fase === 'scarica' && (
         <div className="notice" role="status" aria-live="polite">
           <b>{stato.nome}</b> — {stato.passo}{' '}

@@ -34,8 +34,26 @@
  * sparita» e lo scarico si rompe uguale, è morta, e si guarda altrove.
  */
 
+import { invoke } from '@tauri-apps/api/core';
+
+import { isTauri } from '../storage/index';
+
 /** Il pezzo di browser che serve, isolato per poterlo sostituire nelle prove. */
 export type ApiSchermo = {
+  /**
+   * La strada NATIVA: `UIApplication.setIdleTimerDisabled:` su iOS, attraverso
+   * un comando Rust. Risponde `true` solo se ha fatto qualcosa davvero.
+   *
+   * ► SI PROVA PER PRIMA, E LA RAGIONE È COSTATA UNA VERSIONE. ◄ La 1.8.10
+   * aveva solo la strada del web, e la strada del web **non esiste dentro una
+   * WKWebView** — cioè esattamente dove gira MyDiveLog su iOS e su macOS. Il
+   * rimedio è stato inerte dal momento in cui è stato spedito, e a dirlo è
+   * stata solo la misura che gli era stata messa accanto per dubitarne.
+   *
+   * *Da qui la regola: su tutto ciò che tocca l'hardware, il web è il ripiego,
+   * non la prima scelta.*
+   */
+  chiediIlBloccoNativo(acceso: boolean): Promise<boolean>;
   /**
    * Chiede al sistema di non spegnere lo schermo. `null` vuol dire «non so
    * farlo» — ed è la risposta onesta di Safari prima della 16.4, di un browser
@@ -52,8 +70,10 @@ export type ApiSchermo = {
 
 /** Com'è andata: quello che finisce nel diario. */
 export type ResocontoSchermo = {
-  /** Il blocco è stato ottenuto almeno una volta. */
+  /** Il blocco è stato ottenuto almeno una volta, per una delle due strade. */
   ottenuto: boolean;
+  /** Per quale strada: serve a sapere quale delle due ha funzionato davvero. */
+  come: 'nativo' | 'web' | 'niente';
   /** Quante volte la pagina è sparita durante lo scarico. */
   sparizioni: number;
   /** Quanto è stata via in tutto, in millisecondi. */
@@ -61,6 +81,17 @@ export type ResocontoSchermo = {
 };
 
 export type SchermoSveglio = {
+  /**
+   * Se si è riusciti a tenere acceso lo schermo, **saputo subito**.
+   *
+   * ► SERVE ALL'INTERFACCIA, NON AL DIARIO. ◄ Il diario lo racconta alla fine,
+   * quando ormai è successo tutto; chi ha il telefono in mano deve saperlo
+   * **prima**, mentre la barra avanza, perché è l'unico momento in cui può fare
+   * qualcosa — mettere il blocco automatico su «Mai» e restare sulla
+   * schermata. *Un'applicazione che sa di non poter difendere uno scarico e non
+   * lo dice sceglie di farlo fallire in silenzio.*
+   */
+  ottenuto: boolean;
   /** Rilascia il blocco e racconta com'è andata. */
   lascia(): Promise<ResocontoSchermo>;
 };
@@ -76,6 +107,16 @@ export type SchermoSveglio = {
  */
 export function apiDelBrowser(): ApiSchermo {
   return {
+    async chiediIlBloccoNativo(acceso: boolean) {
+      // Fuori da Tauri il comando non esiste, e chiederlo getta: non è un
+      // guasto, è un browser.
+      if (!isTauri()) return false;
+      try {
+        return (await invoke<boolean>('tieni_acceso_lo_schermo', { acceso })) === true;
+      } catch {
+        return false;
+      }
+    },
     async chiediIlBlocco() {
       try {
         const nav = navigator as Navigator & {
@@ -118,8 +159,16 @@ export function apiDelBrowser(): ApiSchermo {
  * serve di più.
  */
 export async function tieniSvegliaLoSchermo(api: ApiSchermo = apiDelBrowser()): Promise<SchermoSveglio> {
-  let blocco = await api.chiediIlBlocco();
-  let ottenuto = blocco !== null;
+  /*
+   * ► PRIMA IL NATIVO, POI IL WEB, E SOLO SE IL NATIVO HA DETTO DI NO. ◄
+   * Chiedere tutti e due quando il primo ha funzionato vorrebbe dire tenere due
+   * blocchi sullo stesso schermo e doverne rilasciare due — e su iOS il secondo
+   * non funziona comunque.
+   */
+  const nativo = await api.chiediIlBloccoNativo(true);
+  let blocco = nativo ? null : await api.chiediIlBlocco();
+  let ottenuto = nativo || blocco !== null;
+  let come: ResocontoSchermo['come'] = nativo ? 'nativo' : blocco ? 'web' : 'niente';
   let sparizioni = 0;
   let viaMs = 0;
   let viaDa: number | null = api.visibile() ? null : api.adesso();
@@ -139,16 +188,30 @@ export async function tieniSvegliaLoSchermo(api: ApiSchermo = apiDelBrowser()): 
       viaMs += api.adesso() - viaDa;
       viaDa = null;
     }
-    // Tornata visibile: il sistema ha buttato il blocco, si richiede.
-    void api.chiediIlBlocco().then((nuovo) => {
-      if (nuovo) {
-        blocco = nuovo;
+    /*
+     * Tornata visibile: il sistema ha buttato il blocco, si richiede. Vale per
+     * tutte e due le strade — su iOS `idleTimerDisabled` viene azzerato quando
+     * l'applicazione va in secondo piano, e la specifica del web dice
+     * esplicitamente che il blocco si rilascia quando la pagina si nasconde.
+     */
+    void api.chiediIlBloccoNativo(true).then((rifatto) => {
+      if (rifatto) {
         ottenuto = true;
+        come = 'nativo';
+        return;
       }
+      void api.chiediIlBlocco().then((nuovo) => {
+        if (nuovo) {
+          blocco = nuovo;
+          ottenuto = true;
+          come = 'web';
+        }
+      });
     });
   });
 
   return {
+    ottenuto,
     async lascia() {
       smettiDiAscoltare();
       if (viaDa !== null) {
@@ -162,7 +225,13 @@ export async function tieniSvegliaLoSchermo(api: ApiSchermo = apiDelBrowser()): 
       } catch {
         /* già rilasciato dal sistema */
       }
-      return { ottenuto, sparizioni, viaMs };
+      // Il blocco nativo si spegne SEMPRE, anche se non era stato acceso da
+      // noi: costa una chiamata e chiude il caso in cui un tentativo precedente
+      // lo aveva lasciato acceso. Un telefono che non si spegne più perché
+      // un'applicazione di logbook ha dimenticato una riga è un difetto che si
+      // paga in recensioni.
+      await api.chiediIlBloccoNativo(false).catch(() => false);
+      return { ottenuto, come, sparizioni, viaMs };
     },
   };
 }
@@ -181,6 +250,13 @@ export function righeDelloSchermo(r: ResocontoSchermo): string[] {
   const righe: string[] = [];
   if (!r.ottenuto) {
     righe.push('il sistema non sa tenere acceso lo schermo: se si spegne, lo scarico si ferma');
+  } else {
+    // ► SI DICE ANCHE QUANDO HA FUNZIONATO, E PER UNA VOLTA È GIUSTO. ◄ La
+    // 1.8.10 credeva di tenere acceso lo schermo e non lo teneva. Sapere PER
+    // QUALE STRADA ci è riuscito è la differenza fra «il rimedio c'è» e «il
+    // rimedio c'è sulla carta»: in un diario di guasto è la prima cosa da
+    // controllare.
+    righe.push(`schermo tenuto acceso per la strada ${r.come === 'nativo' ? 'nativa' : 'del web'}`);
   }
   if (r.sparizioni > 0) {
     righe.push(

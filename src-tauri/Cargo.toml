@@ -1,6 +1,6 @@
 [package]
 name = "mydivelog"
-version = "1.8.10"
+version = "1.8.11"
 description = "Logbook subacqueo multi-computer"
 authors = ["Matteo Ferrando"]
 edition = "2021"
@@ -95,6 +95,12 @@ tauri-plugin-process = "2"
 # schema URL dichiarato in `Info.ios.plist`.
 [target.'cfg(target_os = "ios")'.dependencies]
 tauri-plugin-deep-link = "2"
+# Per chiamare `UIApplication.setIdleTimerDisabled:` — vedi `schermo.rs`. La
+# strada del web (`navigator.wakeLock`) non esiste dentro una WKWebView, e su
+# iOS uno schermo che si spegne sospende l'applicazione: le notifiche Bluetooth
+# smettono di arrivare e lo scarico muore. `objc2` è già nell'albero (lo usa
+# wry), quindi questa dipendenza non aggiunge codice da compilare.
+objc2 = "0.6"
 
 [features]
 # Attivato automaticamente da `tauri build`.

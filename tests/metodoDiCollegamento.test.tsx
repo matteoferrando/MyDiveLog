@@ -43,6 +43,8 @@ const finto = vi.hoisted(() => ({
   salvati: [] as { chiave: string; m: unknown }[],
   /** Quante immersioni sono state mandate in archivio, un numero per chiamata. */
   importate: [] as number[],
+  /** Se il comando nativo che tiene acceso lo schermo risponde di sì. */
+  schermoNativo: false,
 }));
 
 vi.mock('../src/storage/computerEsterni', () => ({
@@ -64,7 +66,12 @@ vi.mock('../src/storage/computerEsterni', () => ({
 }));
 
 vi.mock('@tauri-apps/api/core', () => ({
-  invoke: () => Promise.resolve([{ marca: 'Mares', prodotto: 'Quad Ci' }]),
+  invoke: (comando: string) =>
+    // Il comando dello schermo risponde `false`, come farebbe un browser: qui
+    // dentro non c'è nessun iPhone. Vedi la prova sull'avviso.
+    comando === 'tieni_acceso_lo_schermo'
+      ? Promise.resolve(finto.schermoNativo)
+      : Promise.resolve([{ marca: 'Mares', prodotto: 'Quad Ci' }]),
 }));
 
 vi.mock('../src/storage/ble', () => ({
@@ -203,6 +210,11 @@ beforeEach(() => {
   finto.segnalibri = {};
   finto.salvati = [];
   finto.importate = [];
+  finto.schermoNativo = false;
+  // `isTauri()` guarda questo: senza, la strada nativa non si prova nemmeno, e
+  // la prova sullo schermo coperto resterebbe verde qualunque cosa faccia il
+  // codice.
+  (globalThis as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
   finto.chiamate = [];
   finto.emit = null;
   finto.finisci = null;
@@ -724,6 +736,56 @@ describe('il giro dei modi di collegarsi', () => {
       await act(async () => finto.fallisci!(new Error('niente')));
       await lasciaProvare(() => null);
       expect(ce(host, 'Considera già prese le più vecchie')).toBe(false);
+    } finally {
+      smonta();
+    }
+  });
+
+  it('► se lo schermo non si può tenere acceso, lo si dice MENTRE si scarica ◄', async () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * L'AVVISO CHE ESISTE PERCHÉ UN RIMEDIO È STATO SPEDITO INERTE.
+     *
+     * La 1.8.10 teneva acceso lo schermo con `navigator.wakeLock`, che dentro
+     * una WKWebView **non esiste**: su iPhone non faceva niente. La 1.8.11
+     * aggiunge la strada nativa, ma dove nemmeno quella c'è — un browser, un
+     * Android, un sistema che dice di no — resta una sola difesa, ed è una
+     * persona informata.
+     *
+     * E deve saperlo **mentre la barra avanza**, non nel diario alla fine:
+     * quello è l'unico momento in cui può mettere il blocco automatico su
+     * «Mai» e restare sulla schermata. *Un'applicazione che sa di non poter
+     * difendere uno scarico e non lo dice sceglie di farlo fallire in
+     * silenzio.*
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await metodo(1, 1);
+      expect(host.textContent).toContain('Tieni acceso lo schermo');
+      expect(host.textContent, 'e si dice cosa succede se non lo fa').toContain('lo scarico si ferma');
+      await act(async () => finto.fallisci!(new Error('niente')));
+    } finally {
+      smonta();
+    }
+  });
+
+  it('...e quando invece si può, non si dice niente', async () => {
+    /*
+     * ► IL ROVESCIO, E SENZA DI LUI LA PROVA QUI SOPRA NON VALE NIENTE. ◄ Una
+     * mutazione che facesse comparire l'avviso SEMPRE resterebbe verde: nelle
+     * prove il blocco non si ottiene mai, quindi l'avviso c'è comunque. Qui il
+     * comando nativo risponde di sì, e allora la riga deve sparire: un
+     * avvertimento sopra una barra che avanza, quando chi guarda non deve fare
+     * niente, è il modo di insegnare a non leggere gli avvertimenti.
+     */
+    finto.schermoNativo = true;
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await metodo(1, 1);
+      expect(host.textContent).not.toContain('Tieni acceso lo schermo');
+      await act(async () => finto.fallisci!(new Error('niente')));
     } finally {
       smonta();
     }

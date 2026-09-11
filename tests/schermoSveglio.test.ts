@@ -11,14 +11,25 @@ import {
  * Un browser finto: si può spegnere e riaccendere la pagina a comando, e
  * l'orologio va avanti solo quando glielo si dice.
  */
-function fintoBrowser(opzioni: { saFarlo?: boolean; visibileAllInizio?: boolean } = {}) {
+function fintoBrowser(opzioni: { saFarlo?: boolean; visibileAllInizio?: boolean; nativo?: boolean } = {}) {
   const saFarlo = opzioni.saFarlo ?? true;
+  // Il valore per difetto è **falso**: è il browser, dove il nativo non c'è.
+  // Le prove che vogliono la strada nativa lo dicono.
+  const nativo = opzioni.nativo ?? false;
   let visibile = opzioni.visibileAllInizio ?? true;
   let orologio = 1000;
   let ascoltatore: (() => void) | null = null;
-  const stato = { chieste: 0, rilasci: 0 };
+  const stato = { chieste: 0, rilasci: 0, nativeChieste: 0, nativeSpente: 0 };
 
   const api: ApiSchermo = {
+    chiediIlBloccoNativo: async (acceso: boolean) => {
+      if (!acceso) {
+        stato.nativeSpente += 1;
+        return false;
+      }
+      stato.nativeChieste += 1;
+      return nativo;
+    },
     chiediIlBlocco: async () => {
       stato.chieste += 1;
       if (!saFarlo) return null;
@@ -73,6 +84,52 @@ describe('► tenere acceso lo schermo mentre il computer parla ◄', () => {
     expect(b.ascoltato, 'l’ascolto va tolto, o resta appeso a ogni scarico').toBe(false);
   });
 
+  it('► si prova PRIMA la strada nativa, e se funziona il web non si tocca ◄', async () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * LA PROVA NATA DA UNA VERSIONE SPEDITA A VUOTO.
+     *
+     * La 1.8.10 aveva solo `navigator.wakeLock`, che è la strada del web, e la
+     * strada del web **non esiste dentro una WKWebView** — cioè esattamente
+     * dove gira MyDiveLog su iOS e su macOS. Il rimedio principale di quella
+     * versione è stato inerte dal momento in cui è stato spedito, e a dirlo è
+     * stata soltanto la misura che gli era stata messa accanto per dubitarne.
+     *
+     * *Su tutto ciò che tocca l'hardware, il web è il ripiego e non la prima
+     * scelta.* E quando il nativo funziona, il blocco del web non si chiede
+     * nemmeno: sarebbero due blocchi sullo stesso schermo e due da rilasciare.
+     */
+    const b = fintoBrowser({ nativo: true });
+    const sveglio = await tieniSvegliaLoSchermo(b.api);
+    expect(b.stato.nativeChieste).toBe(1);
+    expect(b.stato.chieste, 'con il nativo acceso non si chiede anche il web').toBe(0);
+    const r = await sveglio.lascia();
+    expect(r.come).toBe('nativo');
+    expect(b.stato.nativeSpente, 'e alla fine si spegne').toBe(1);
+  });
+
+  it('se il nativo dice di no, si ripiega sul web e lo si dichiara', async () => {
+    const b = fintoBrowser({ nativo: false, saFarlo: true });
+    const sveglio = await tieniSvegliaLoSchermo(b.api);
+    expect(b.stato.nativeChieste).toBe(1);
+    expect(b.stato.chieste, 'il ripiego si prova').toBe(1);
+    const r = await sveglio.lascia();
+    expect(r.come).toBe('web');
+  });
+
+  it('il blocco nativo si spegne SEMPRE, anche se non era stato acceso da noi', async () => {
+    // Un telefono che non si spegne più perché un'applicazione di logbook ha
+    // dimenticato una riga è un difetto che si paga in recensioni. Costa una
+    // chiamata, e chiude anche il caso di un tentativo precedente che lo aveva
+    // lasciato acceso.
+    const b = fintoBrowser({ nativo: false, saFarlo: false });
+    const sveglio = await tieniSvegliaLoSchermo(b.api);
+    const r = await sveglio.lascia();
+    expect(r.ottenuto).toBe(false);
+    expect(r.come).toBe('niente');
+    expect(b.stato.nativeSpente).toBe(1);
+  });
+
   it('► quando la pagina torna, il blocco si RICHIEDE ◄', async () => {
     /*
      * ════════════════════════════════════════════════════════════════════════
@@ -90,7 +147,28 @@ describe('► tenere acceso lo schermo mentre il computer parla ◄', () => {
     await b.sparisci();
     expect(b.stato.chieste, 'da nascosta non si chiede niente').toBe(1);
     await b.torna();
+    await Promise.resolve();
     expect(b.stato.chieste, 'tornata visibile, il blocco si riprende').toBe(2);
+    await sveglio.lascia();
+  });
+
+  it('e il blocco che si riprende vale anche per la strada nativa', async () => {
+    /*
+     * ► NON È UNA COPIA DELLA PROVA QUI SOPRA. ◄ Quella usa il ripiego del web,
+     * e con il ripiego una mutazione che toglie la ripresa del NATIVO resta
+     * verde — l'ho vista restare verde. Su iOS `idleTimerDisabled` viene
+     * azzerato quando l'applicazione va in secondo piano: senza questa riga, la
+     * prima notifica che copre l'app spegnerebbe la protezione per tutto il
+     * resto dello scarico, che è il caso peggiore e il più probabile.
+     */
+    const b = fintoBrowser({ nativo: true });
+    const sveglio = await tieniSvegliaLoSchermo(b.api);
+    expect(b.stato.nativeChieste).toBe(1);
+    await b.sparisci();
+    await b.torna();
+    await Promise.resolve();
+    expect(b.stato.nativeChieste, 'tornata visibile, il blocco nativo si riprende').toBe(2);
+    expect(b.stato.chieste, 'e non si ripiega sul web quando il nativo funziona').toBe(0);
     await sveglio.lascia();
   });
 
@@ -133,18 +211,36 @@ describe('► tenere acceso lo schermo mentre il computer parla ◄', () => {
   });
 
   it('il diario tace quando è andato tutto bene, e parla quando c’è qualcosa da dire', () => {
-    const bene: ResocontoSchermo = { ottenuto: true, sparizioni: 0, viaMs: 0 };
-    expect(righeDelloSchermo(bene), 'una riga che dice «tutto a posto» non ha mai aiutato nessuno').toEqual(
-      [],
-    );
+    /*
+     * ► LA STRADA CHE HA FUNZIONATO SI SCRIVE SEMPRE. ◄ La 1.8.10 credeva di
+     * tenere acceso lo schermo e non lo teneva: `navigator.wakeLock` non esiste
+     * dentro una WKWebView. Sapere PER QUALE STRADA ci è riuscito è la prima
+     * cosa da controllare in un diario di guasto, e distingue «il rimedio c'è»
+     * da «il rimedio c'è sulla carta».
+     */
+    const nativo: ResocontoSchermo = { ottenuto: true, come: 'nativo', sparizioni: 0, viaMs: 0 };
+    expect(righeDelloSchermo(nativo)[0]).toContain('strada nativa');
 
-    const senzaBlocco = righeDelloSchermo({ ottenuto: false, sparizioni: 0, viaMs: 0 });
+    const web = righeDelloSchermo({ ottenuto: true, come: 'web', sparizioni: 0, viaMs: 0 });
+    expect(web[0]).toContain('strada del web');
+
+    const senzaBlocco = righeDelloSchermo({
+      ottenuto: false,
+      come: 'niente',
+      sparizioni: 0,
+      viaMs: 0,
+    });
     expect(senzaBlocco).toHaveLength(1);
     expect(senzaBlocco[0]).toContain('non sa tenere acceso lo schermo');
 
-    const sparita = righeDelloSchermo({ ottenuto: true, sparizioni: 1, viaMs: 42_000 });
-    expect(sparita).toHaveLength(1);
-    expect(sparita[0]).toContain('1 volta');
-    expect(sparita[0], 'i secondi servono a capire se è stato il blocco automatico').toContain('42 s');
+    const sparita = righeDelloSchermo({
+      ottenuto: true,
+      come: 'nativo',
+      sparizioni: 1,
+      viaMs: 42_000,
+    });
+    expect(sparita).toHaveLength(2);
+    expect(sparita[1]).toContain('1 volta');
+    expect(sparita[1], 'i secondi servono a capire se è stato il blocco automatico').toContain('42 s');
   });
 });
