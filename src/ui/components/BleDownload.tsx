@@ -63,6 +63,7 @@ import { useDiveLog } from '../state';
 import { useLingua, useTraduciStabile } from '../lingua';
 import type { DownloadMarker } from '../../core/ble/types';
 import { dateShort, imm, plural } from '../format';
+import { versione } from '../../versione';
 
 type Stato =
   | { fase: 'iniziale' }
@@ -2305,7 +2306,36 @@ export function BleDownload() {
                   onClick={() => {
                     void (async () => {
                       try {
-                        const righe = stato.registrazione ?? [];
+                        /*
+                         * ► IL DIARIO VA IN TESTA ALLA REGISTRAZIONE, COME
+                         * INTESTAZIONE. ◄
+                         *
+                         * La prima registrazione vera, dell'11 settembre 2026,
+                         * era decodificabile per intero — seriale, orologio,
+                         * impronta, tutto tornava con il diario — e **non
+                         * diceva di chi fosse**. Nessun modello, nessuna
+                         * versione, nessuna data dentro il file.
+                         *
+                         * Fra sei mesi, con dieci registrazioni di apparecchi
+                         * diversi in una cartella, quel file sarebbe stato
+                         * indistinguibile dagli altri. *Un file destinato a
+                         * sopravvivere all'apparecchio deve dire da dove
+                         * viene, e il posto giusto per dirlo è dentro di sé,
+                         * non nel nome.*
+                         *
+                         * Il diario lo sa già tutto — modello, seriale,
+                         * firmware, MTU, metodo, durata — quindi non si
+                         * inventa niente: si mette in testa col segno `!`, che
+                         * nel formato vuol dire «evento» ed è già quello che
+                         * chi analizza salta.
+                         */
+                        const righe = [
+                          `! MyDiveLog ${versione()} — registrazione dello scambio`,
+                          `! salvata il ${new Date().toISOString()}`,
+                          ...stato.diario.map((r) => `! ${r}`),
+                          '',
+                          ...(stato.registrazione ?? []),
+                        ];
                         const dove = await esporta(
                           `mydivelog-scambio-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.txt`,
                           righe.join('\n'),

@@ -2655,7 +2655,7 @@ dependencies = [
 
 [[package]]
 name = "mydivelog"
-version = "1.8.13"
+version = "1.8.14"
 dependencies = [
  "cc",
  "keyring",

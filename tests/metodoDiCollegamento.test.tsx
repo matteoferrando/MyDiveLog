@@ -37,6 +37,8 @@ const finto = vi.hoisted(() => ({
   fallisci: null as ((e: unknown) => void) | null,
   /** Finisce con delle immersioni in mano E un guasto: lo scarico rotto a metà. */
   aMeta: null as ((v: unknown, guasto: string) => void) | null,
+  /** Finisce portandosi dietro la registrazione del banco di prova. */
+  conRegistrazione: null as ((v: unknown, registrazione: string[]) => void) | null,
   /** I segnalibri già in archivio, come li vedrebbe l'applicazione. */
   segnalibri: {} as Record<string, { fingerprint: string; at: string; dives: number }>,
   /** Quelli che l'applicazione ha chiesto di salvare, in ordine. */
@@ -45,6 +47,15 @@ const finto = vi.hoisted(() => ({
   importate: [] as number[],
   /** Se il comando nativo che tiene acceso lo schermo risponde di sì. */
   schermoNativo: false,
+  /** Quello che è stato salvato su file, l'ultima volta. */
+  esportato: null as { nome: string; contenuto: string } | null,
+}));
+
+vi.mock('../src/ui/esporta', () => ({
+  esporta: (nome: string, contenuto: string) => {
+    finto.esportato = { nome, contenuto };
+    return Promise.resolve({ dove: 'in una cartella finta' });
+  },
 }));
 
 vi.mock('../src/storage/computerEsterni', () => ({
@@ -59,6 +70,7 @@ vi.mock('../src/storage/computerEsterni', () => ({
       // andata. `aMeta` è il caso che prima non si poteva nemmeno esprimere:
       // immersioni buone e un guasto, insieme.
       finto.finisci = (v: unknown) => risolvi({ dives: v });
+      finto.conRegistrazione = (v: unknown, registrazione: string[]) => risolvi({ dives: v, registrazione });
       finto.aMeta = (v: unknown, guasto: string) => risolvi({ dives: v, guasto });
       finto.fallisci = rifiuta;
     });
@@ -243,6 +255,8 @@ beforeEach(() => {
   finto.finisci = null;
   finto.fallisci = null;
   finto.aMeta = null;
+  finto.conRegistrazione = null;
+  finto.esportato = null;
   localStorage.clear();
 });
 
@@ -873,6 +887,51 @@ describe('il giro dei modi di collegarsi', () => {
       expect(testo, 'ma non la riga che su un computer è falsa').not.toContain(
         'non sa tenere acceso lo schermo',
       );
+    } finally {
+      smonta();
+    }
+  });
+
+  it('► la registrazione salvata dice DI CHI È, o fra sei mesi non serve a niente ◄', async () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * LA PROVA NATA DALLA PRIMA REGISTRAZIONE VERA.
+     *
+     * L'11 settembre 2026, il primo file prodotto dal banco di prova si
+     * decodificava per intero: seriale, orologio del computer, impronta, tempi
+     * di andata e ritorno — tutto tornava con il diario, riga per riga. **E non
+     * diceva di chi fosse**: nessun modello, nessuna versione, nessuna data
+     * dentro il file.
+     *
+     * Con dieci registrazioni di apparecchi diversi in una cartella, fra sei
+     * mesi, sarebbe stato indistinguibile dagli altri. *Un file destinato a
+     * sopravvivere all'apparecchio deve dire da dove viene, e il posto per
+     * dirlo è dentro di sé, non nel nome.*
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await metodo(1, 1);
+      await act(async () => finto.conRegistrazione!([immersione()], ['   0.003 > n.1 2 byte [01 10]']));
+
+      await act(async () => {
+        premi(host, 'Salva lo scambio').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+
+      const salvato = finto.esportato;
+      expect(salvato, 'il pulsante deve aver salvato qualcosa').not.toBeNull();
+      const testo = salvato!.contenuto;
+
+      // L'intestazione: chi l'ha prodotto e quando.
+      expect(testo.split('\n')[0], 'la prima riga nomina il programma').toContain('MyDiveLog');
+      expect(testo).toContain('! salvata il ');
+      // Il diario intero, che porta modello, metodo e durata, marcato come
+      // evento così chi analizza il file lo salta senza confonderlo coi byte.
+      expect(testo, 'il diario va in testa, marcato').toContain('! MyDiveLog — diario dello scarico');
+      expect(testo, 'e il dispositivo si legge dentro al file').toContain('Quad Ci');
+      // E lo scambio vero, dopo.
+      expect(testo).toContain('0.003 > n.1 2 byte [01 10]');
+      expect(salvato!.nome, 'il nome dice che è uno scambio').toContain('scambio');
     } finally {
       smonta();
     }

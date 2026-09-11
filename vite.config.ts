@@ -1,11 +1,29 @@
+import { readFileSync } from 'node:fs';
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
+
+/**
+ * Il numero di versione, dentro l'interfaccia.
+ *
+ * ► SERVE A UN FILE, NON A UNA SCHERMATA. ◄ Le registrazioni del banco di prova
+ * sono fatte per essere riaperte fra mesi, quando l'apparecchio non c'è più e
+ * nessuno ricorda quale versione le ha prodotte. *Una registrazione che non dice
+ * da quale programma viene obbliga chi la legge a indovinare, e chi indovina
+ * sbaglia proprio sui casi interessanti.*
+ *
+ * Si legge da `package.json`, che è la stessa fonte da cui lo prendono
+ * `Cargo.toml` e `tauri.conf.json`: tre file con lo stesso numero, e una prova
+ * che li confronta.
+ */
+const VERSIONE = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
 
 // Tauri espone TAURI_DEV_HOST / TAURI_ENV_PLATFORM quando lancia vite.
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
+  define: { __VERSIONE__: JSON.stringify(VERSIONE) },
   plugins: [react()],
   resolve: {
     alias: {
