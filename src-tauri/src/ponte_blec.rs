@@ -1596,6 +1596,9 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         /// Vedi `Scambio::registrazione` per il perché sta qui dentro e non in
         /// un programma a parte.
         pub registrazione: Box<dyn Fn() -> Vec<String> + Send + Sync>,
+        /// Per annotare nella registrazione quello che il trasporto vede e il
+        /// ponte no: le letture andate a vuoto. Vedi `FlussoBle::registratore`.
+        pub annota_registrazione: Box<dyn Fn(String) + Send + Sync>,
         /// Da alzare PRIMA di scollegarsi di proposito, così la callback di
         /// caduta non racconta come «caduto da sé» uno scollegamento nostro.
         pub scollegamento_voluto: Arc<AtomicBool>,
@@ -1634,6 +1637,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                 riassunto,
                 misure,
                 registrazione,
+                annota_registrazione,
                 scollegamento_voluto,
                 metodo,
                 metodo_indice,
@@ -1649,6 +1653,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                 riassunto,
                 misure,
                 registrazione,
+                annota_registrazione,
                 scollegamento_voluto,
                 metodo,
                 metodo_indice,
@@ -2501,10 +2506,25 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             })
         };
 
+        let annota_registrazione = {
+            let scambio = scambio.clone();
+            Box::new(move |riga: String| {
+                // `lock` e non `try_lock`: qui siamo sul thread dello scarico,
+                // che è l'unico che scrive righe di questo tipo, e perderne una
+                // per una contesa vorrebbe dire un buco proprio dove il file
+                // deve essere completo.
+                if let Ok(mut registro) = scambio.lock() {
+                    let da = registro.prima_scrittura;
+                    registro.incidi(da, '!', riga);
+                }
+            })
+        };
+
         Ok(PonteBle {
             entrata,
             scrittura,
             registrazione,
+            annota_registrazione,
             accessori: Box::new(AccessoriDelPonte { nome, postino: postino.clone() }),
             su_silenzio,
             descrizione: profilo.descrizione.clone(),
@@ -2905,6 +2925,7 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             riassunto,
             misure,
             registrazione,
+            annota_registrazione,
             metodo,
             ..
         } = ponte;
@@ -2934,7 +2955,8 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         }
         let flusso = FlussoBle::nuovo(entrata, scrittura)
             .con_accessori(accessori, su_silenzio)
-            .con_riassemblaggio(come);
+            .con_riassemblaggio(come)
+            .con_registratore(Box::new(annota_registrazione));
         let collegamento = CollegamentoLdc::apri(Box::new(flusso))?;
         emetti(EventoScarico::Progress {
             done: 0,

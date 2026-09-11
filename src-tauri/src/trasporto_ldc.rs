@@ -270,6 +270,29 @@ pub struct FlussoBle {
     /// Quante volte l'attesa ha sforato la scadenza tanto da rivelare un
     /// congelamento del processo.
     congelamenti: usize,
+    /**
+     * Dove si annotano le letture **andate a vuoto**, per il banco di prova.
+     *
+     * ════════════════════════════════════════════════════════════════════════
+     * ► IL BUCO CHE HA MOSTRATO LA PRIMA REGISTRAZIONE VERA DELLA STRADA LDC. ◄
+     *
+     * L'11 settembre 2026, sera. Il file conteneva cinque scritture e **nessuna
+     * lettura**, perché le letture erano tornate tutte vuote e una lettura
+     * vuota non produce nessuna notifica da registrare. Dal file si capiva lo
+     * stesso — le scritture distavano 4,1 secondi l'una dall'altra, che sono i
+     * tre secondi di attesa della libreria più il secondo di sonno del suo
+     * ritentativo — **ma solo sapendo già il protocollo.**
+     *
+     * *Un file che si legge solo se sai già la risposta non è una
+     * registrazione: è un promemoria.* E questo file nasce per essere riaperto
+     * fra mesi, da chi quella cadenza non la ricorda.
+     *
+     * Quindi le letture a vuoto si scrivono, con quanto si era chiesto e
+     * quanto si è aspettato. Le letture **riuscite** no: quelle le racconta già
+     * la notifica che è arrivata, e scriverle due volte raddoppierebbe un file
+     * che su un archivio pieno ha già migliaia di righe.
+     */
+    registratore: Option<Box<dyn Fn(String) + Send>>,
 }
 
 /// Come si rimettono insieme le notifiche dentro una lettura.
@@ -458,7 +481,17 @@ impl FlussoBle {
             proroghe: 0,
             proroghe_utili: 0,
             congelamenti: 0,
+            registratore: None,
         }
+    }
+
+    /// Lo stesso flusso, che annota le letture a vuoto sul banco di prova.
+    ///
+    /// La chiusura riceve la riga già composta: chi la fornisce decide dove
+    /// metterla e come marcarla. Vedi `registratore`.
+    pub fn con_registratore(mut self, dove: Box<dyn Fn(String) + Send>) -> Self {
+        self.registratore = Some(dove);
+        self
     }
 
     /// Lo stesso flusso, con la politica di riassemblaggio detta.
@@ -720,7 +753,21 @@ impl FlussoByte for FlussoBle {
                         }
                     }
                 }
-                None => return Ok(Vec::new()),
+                None => {
+                    /*
+                     * ► LA LETTURA A VUOTO SI SCRIVE NEL BANCO DI PROVA. ◄ Per
+                     * chi legge il file fra mesi, il silenzio deve essere un
+                     * fatto scritto e non un buco fra due scritture da
+                     * interpretare. Vedi `registratore`.
+                     */
+                    if let Some(dove) = &self.registratore {
+                        dove(format!(
+                            "lettura a vuoto: chiesti {quanti} byte, aspettati {} ms",
+                            attesa.as_millis()
+                        ));
+                    }
+                    return Ok(Vec::new());
+                }
             }
         }
         let quanti = quanti.min(self.avanzo.len());
@@ -4114,6 +4161,56 @@ mod prove {
         let letto = flusso.leggi(10, Duration::from_millis(4)).unwrap();
         assert_eq!(letto, vec![7], "un soffio di ritardo non è un metodo sbagliato");
         assert_eq!(flusso.proroghe().0, 0, "l'ultimo istante non è una seconda finestra");
+    }
+
+    #[test]
+    fn una_lettura_a_vuoto_finisce_nella_registrazione_del_banco_di_prova() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * IL BUCO CHE HA MOSTRATO LA PRIMA REGISTRAZIONE VERA, L'11 SETTEMBRE.
+         *
+         * Il file conteneva cinque scritture e **nessuna lettura**: le letture
+         * erano tornate tutte vuote, e una lettura vuota non produce nessuna
+         * notifica da registrare. Si capiva lo stesso — le scritture distavano
+         * 4,1 secondi l'una dall'altra, che sono i tre secondi di attesa della
+         * libreria più il secondo di sonno del suo ritentativo — **ma solo
+         * sapendo già il protocollo**.
+         *
+         * *Un file che si legge solo se sai già la risposta non è una
+         * registrazione: è un promemoria.* E questo file nasce per essere
+         * riaperto fra mesi da chi quella cadenza non la ricorda.
+         */
+        let (manda, ricevi) = channel();
+        let righe: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+        let dove = righe.clone();
+        let mut flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())))
+            .con_registratore(Box::new(move |r: String| dove.lock().unwrap().push(r)));
+
+        assert!(flusso.leggi(241, Duration::from_millis(10)).unwrap().is_empty());
+
+        let scritte = righe.lock().unwrap().clone();
+        assert_eq!(scritte.len(), 1, "una riga per la lettura a vuoto: {scritte:?}");
+        assert!(scritte[0].contains("241 byte"), "quanto si era chiesto: {}", scritte[0]);
+        assert!(scritte[0].contains("10 ms"), "e quanto si è aspettato: {}", scritte[0]);
+        drop(manda);
+    }
+
+    #[test]
+    fn una_lettura_RIUSCITA_non_si_scrive_due_volte() {
+        /*
+         * ► IL ROVESCIO. ◄ Una lettura andata bene la racconta già la notifica
+         * che è arrivata: scriverla anche qui raddoppierebbe un file che su un
+         * archivio pieno ha già migliaia di righe, e un file gonfio è un file
+         * che nessuno apre.
+         */
+        let (manda, ricevi) = channel();
+        let righe: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+        let dove = righe.clone();
+        let mut flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())))
+            .con_registratore(Box::new(move |r: String| dove.lock().unwrap().push(r)));
+        manda.send(vec![1, 2, 3]).unwrap();
+        assert_eq!(flusso.leggi(10, Duration::from_millis(50)).unwrap(), vec![1, 2, 3]);
+        assert!(righe.lock().unwrap().is_empty(), "niente riga per una lettura riuscita");
     }
 
     #[test]
