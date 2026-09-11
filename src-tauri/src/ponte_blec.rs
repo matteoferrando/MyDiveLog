@@ -2865,6 +2865,19 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             for riga in collegamento.righe_della_libreria() {
                 emetti(EventoScarico::Trace { line: riga });
             }
+            /*
+             * ► E IL CONTO DELLE LETTURE, CHE È LA DOMANDA PER LA PROSSIMA
+             * VOLTA. ◄ Il diario del Puck 4 del 10 settembre ha una catena:
+             * lettura scaduta → ritentativo del backend → risposta
+             * disallineata → fine. Il primo anello è nostro, e questa riga dice
+             * se a romperlo è il tetto di quaranta millisecondi che questo
+             * trasporto concede a un frammento in ritardo. Vedi `MisureLettura`
+             * in `trasporto_ldc.rs`: è una misura, non una correzione, e serve
+             * apposta a non farne una alla cieca.
+             */
+            if let Some(riga) = collegamento.riga_delle_letture() {
+                emetti(EventoScarico::Trace { line: riga });
+            }
         };
         // I numeri escono PRIMA della prosa, e comunque vada: sono quelli che
         // decidono il tentativo dopo, e devono arrivare a chi ascolta anche se

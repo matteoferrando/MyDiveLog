@@ -3617,6 +3617,35 @@ rimettere il vecchio `riuscito`, togliere il segnalibro dalla condizione,
 attaccare il salvataggio del metodo a `!grezzo`, rimettere il messaggio
 bugiardo, e togliere del tutto la riga che fa smettere.
 
+### E una misura, per non tirare a indovinare la prossima volta
+
+La catena del diario è precisa: **lettura scaduta → ritentativo del backend →
+risposta disallineata → fine**. Il primo anello è nostro, ed è l'unico su cui si
+possa fare qualcosa. Un pacchetto Mares a lunghezza variabile arriva spezzato in
+una dozzina di notifiche, e il trasporto le rimette insieme aspettando al massimo
+**quaranta millisecondi** fra l'una e l'altra (`ATTESA_FRAMMENTO`). Su un
+telefono occupato, con un intervallo di connessione largo, quaranta millisecondi
+possono non bastare: il pacchetto torna a metà, e per chi legge con `actual`
+nullo — cioè tutti i backend — **una lettura corta è una lettura scaduta**.
+
+Alzare quel tetto sarebbe stato comodo e sarebbe stato l'ennesima deduzione. Al
+suo posto la 1.8.9 mette nel diario una riga sola:
+
+```
+letture: 812, di cui 3 corte e 1 vuote; pacchetti lasciati a metà: 3;
+pausa più lunga fra due frammenti: 41 ms (si aspetta al massimo 40 ms)
+```
+
+Se la pausa più lunga sta incollata al tetto, il tetto è il problema e si alza
+sapendo perché. Se le pause sono di cinque millisecondi e le letture scadono lo
+stesso, l'ipotesi è morta e si guarda altrove. *In tutti e due i casi il prossimo
+diario risponde a una domanda posta prima.* La pausa si cronometra **solo** quando
+il frammento non c'era ancora: contarla sempre farebbe un massimo perennemente
+incollato al tetto, cioè un numero che dice sempre la stessa cosa — una
+decorazione, non una misura. Cinque mutazioni, tutte rosse, più una mutazione di
+controllo che non muta niente e resta verde, che è il modo di sapere che il verde
+vuol dire qualcosa.
+
 ### Cosa questa versione NON fa
 
 Non ripara il disallineamento del toggle. Quello è dentro la libreria e non ha

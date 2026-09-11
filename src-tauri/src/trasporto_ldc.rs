@@ -202,6 +202,18 @@ pub trait FlussoByte: Send {
     fn leggi_caratteristica(&mut self, _uuid: [u8; 16]) -> Result<Vec<u8>, String> {
         Err("questo trasporto non sa leggere una caratteristica a parte".into())
     }
+
+    /// Quante volte un pacchetto è rimasto a metà per l'attesa scaduta, e la
+    /// pausa più lunga davvero aspettata fra due frammenti, in millisecondi.
+    ///
+    /// Sta sul trasporto e non sul chiamante perché è l'unico che vede i
+    /// frammenti: sopra di lui esistono solo letture, e una lettura corta non
+    /// dice se è corta perché il pacchetto era finito o perché un pezzo ha
+    /// tardato. Vedi `MisureLettura`. Chi non rimette insieme niente risponde
+    /// zero, che è la verità e non un valore di comodo.
+    fn misure_frammenti(&self) -> (usize, u64) {
+        (0, 0)
+    }
 }
 
 // --------------------------------------------------------------- il flusso BLE
@@ -232,6 +244,10 @@ pub struct FlussoBle {
     /// «piena», cioè dell'MTU meno tre. Non si può chiedere al plugin in modo
     /// portabile, e comunque quello che conta è quanto arriva davvero.
     notifica_piena: usize,
+    /// Quante volte il riassemblaggio si è arreso con un pacchetto a metà.
+    frammenti_mancati: usize,
+    /// La pausa più lunga davvero aspettata fra due frammenti. Vedi `MisureLettura`.
+    pausa_massima: Duration,
 }
 
 /// Come si rimettono insieme le notifiche dentro una lettura.
@@ -371,6 +387,8 @@ impl FlussoBle {
             ricevuto_qualcosa: false,
             riassemblaggio: Riassemblaggio::UnaNotifica,
             notifica_piena: 0,
+            frammenti_mancati: 0,
+            pausa_massima: Duration::ZERO,
         }
     }
 
@@ -510,11 +528,29 @@ impl FlussoByte for FlussoBle {
                                 // pacchetto riuscito, e la prima diagnosi che
                                 // libdivecomputer vedrebbe sarebbe quella
                                 // sbagliata.
-                                if let Err(motivo) = self.aspetta(ATTESA_FRAMMENTO) {
+                                //
+                                // ► E QUI SI CRONOMETRA. ◄ Il frammento non
+                                // c'è ancora: quanto si aspetta prima che
+                                // arrivi — o prima di arrendersi — è il numero
+                                // che dice se il tetto di `ATTESA_FRAMMENTO` è
+                                // stretto. Si misura solo in questo ramo
+                                // apposta: se il frammento era già arrivato,
+                                // la pausa è zero e contarla annacquerebbe il
+                                // massimo, che è proprio la cosa da non
+                                // annacquare.
+                                let inizio_pausa = std::time::Instant::now();
+                                let esito_attesa = self.aspetta(ATTESA_FRAMMENTO);
+                                self.pausa_massima = self.pausa_massima.max(inizio_pausa.elapsed());
+                                if let Err(motivo) = esito_attesa {
                                     self.avanzo.clear();
                                     return Err(motivo);
                                 }
                                 if self.arrivate.is_empty() {
+                                    // Il pacchetto resta a metà. Chi legge con
+                                    // `actual` nullo — cioè quasi tutti i
+                                    // backend — lo conterà come scaduto e
+                                    // butterà quello che è arrivato.
+                                    self.frammenti_mancati += 1;
                                     break;
                                 }
                             }
@@ -536,6 +572,14 @@ impl FlussoByte for FlussoBle {
         self.raccogli_subito();
         self.arrivate.clear();
         self.avanzo.clear();
+    }
+
+    /// I conti NON si azzerano qui: `svuota` butta via i byte, non la storia di
+    /// come sono andate le letture. Azzerarli renderebbe il diario cieco
+    /// proprio sul caso che interessa, che è quello in cui si svuota perché
+    /// qualcosa era andato storto.
+    fn misure_frammenti(&self) -> (usize, u64) {
+        (self.frammenti_mancati, self.pausa_massima.as_millis() as u64)
     }
 
     fn nome(&mut self) -> Option<String> {
@@ -782,10 +826,65 @@ struct Stato {
     /// numero. È la differenza fra «stato -6» e «il collegamento Bluetooth si
     /// è chiuso durante la scrittura n. 1».
     guasto: Guasto,
+    /// Il conto delle letture, condiviso col collegamento. Vedi `MisureLettura`.
+    conteggi: Conteggi,
 }
 
 /// Il posto dove il trasporto lascia scritto perché ha fallito.
 type Guasto = std::sync::Arc<std::sync::Mutex<Option<String>>>;
+
+/// Quello che il trasporto ha visto passare, e che serve a capire DOPO perché
+/// una lettura è scaduta.
+///
+/// ════════════════════════════════════════════════════════════════════════════
+/// ► PERCHÉ QUESTI QUATTRO NUMERI, E NON ALTRI. ◄
+///
+/// Il diario del Puck 4 del 10 settembre 2026 racconta una catena precisa: una
+/// lettura scaduta (`mares_iconhd.c:329`), il ritentativo interno del backend —
+/// due scritture identiche di fila nella coda, `ac 09` e `ac 09` — e poi una
+/// risposta disallineata (`mares_iconhd.c:521`) che nessuno ritenta e che
+/// chiude lo scarico. **Il primo anello è la lettura scaduta**: senza quella,
+/// niente ritentativo e niente disallineamento.
+///
+/// E su quel primo anello c'è un'ipotesi che si può provare con un numero solo.
+/// Un pacchetto Mares a lunghezza variabile arriva spezzato in una dozzina di
+/// notifiche, e questo trasporto le rimette insieme aspettando al massimo
+/// `ATTESA_FRAMMENTO` — **quaranta millisecondi** — fra l'una e l'altra. Su un
+/// telefono occupato, con un intervallo di connessione BLE negoziato largo,
+/// quaranta millisecondi possono non bastare: il pacchetto torna a metà,
+/// `dc_iostream_read` lo conta come scaduto perché ne aveva chiesti di più, e
+/// la catena comincia.
+///
+/// *Alzare quel tetto sarebbe una deduzione, e le deduzioni in questa storia
+/// hanno già perso una volta.* Quindi non si alza: si misura. Se la pausa più
+/// lunga davvero osservata sta incollata al tetto, il tetto è il problema e si
+/// alza sapendo perché; se le pause sono di cinque millisecondi e le letture
+/// scadono lo stesso, l'ipotesi è morta e si guarda altrove. **In tutti e due i
+/// casi il prossimo diario risponde a una domanda posta prima**, che è la cosa
+/// che in questa faccenda è mancata più spesso.
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MisureLettura {
+    /// Quante letture ha chiesto libdivecomputer.
+    pub letture: usize,
+    /// Quante ne sono tornate con MENO byte di quanti ne erano stati chiesti.
+    ///
+    /// Non è un guasto di per sé — il contratto lo permette — ma per chi legge
+    /// con `actual` nullo, cioè quasi tutti i backend, una lettura corta **è**
+    /// una lettura scaduta, e i byte tornati vengono buttati.
+    pub letture_corte: usize,
+    /// Quante sono tornate completamente vuote dopo aver aspettato tutto.
+    pub letture_vuote: usize,
+    /// Quante volte l'attesa fra due frammenti è scaduta lasciando il pacchetto a metà.
+    pub frammenti_mancati: usize,
+    /// La pausa più lunga davvero aspettata fra due frammenti dello stesso
+    /// pacchetto, in millisecondi. È il numero che decide.
+    pub pausa_massima_ms: u64,
+}
+
+/// Il posto condiviso dove il trasporto tiene il conto. Come `Guasto`: una
+/// copia sta nello `Stato` che vive dietro il puntatore di C, l'altra nel
+/// collegamento, che è quello che poi le racconta.
+type Conteggi = std::sync::Arc<std::sync::Mutex<MisureLettura>>;
 
 fn annota(guasto: &Guasto, cosa: String) {
     if let Ok(mut posto) = guasto.lock() {
@@ -856,7 +955,26 @@ extern "C" fn cb_read(
         unsafe { *actual = 0 };
         return DC_STATUS_SUCCESS;
     }
-    match s.flusso.leggi(size, s.attesa) {
+    let esito = s.flusso.leggi(size, s.attesa);
+    /*
+     * ► IL CONTO SI TIENE QUI, E COMUNQUE SIA ANDATA. ◄ Questo è l'unico punto
+     * in cui si sa tutto e insieme: quanti byte erano stati chiesti, quanti ne
+     * sono tornati, e — chiedendolo al trasporto — quante pause fra frammenti
+     * ci sono volute. Una riga sola nel diario, e la prossima segnalazione
+     * risponde alla domanda invece di aprirne un'altra. Vedi `MisureLettura`.
+     */
+    if let Ok(mut conti) = s.conteggi.lock() {
+        conti.letture += 1;
+        match &esito {
+            Ok(letti) if letti.is_empty() => conti.letture_vuote += 1,
+            Ok(letti) if letti.len() < size => conti.letture_corte += 1,
+            _ => {}
+        }
+        let (mancati, pausa) = s.flusso.misure_frammenti();
+        conti.frammenti_mancati = mancati;
+        conti.pausa_massima_ms = conti.pausa_massima_ms.max(pausa);
+    }
+    match esito {
         Ok(letti) => {
             // SICUREZZA: `data` punta a un buffer di almeno `size` byte, e non
             // ne scriviamo mai più di quanti ne abbiamo letti — che è al più
@@ -1179,6 +1297,8 @@ pub struct CollegamentoLdc {
     flusso: *mut DcIostream,
     /// La copia nostra del posto in cui il trasporto annota il guasto.
     guasto: Guasto,
+    /// E quella del conto delle letture. Vedi `MisureLettura`.
+    conteggi: Conteggi,
 }
 
 /// Il contesto di libdivecomputer, che si libera da solo.
@@ -1383,10 +1503,12 @@ impl CollegamentoLdc {
         let contesto = Contesto::nuovo_con_diario()?;
 
         let guasto: Guasto = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let conteggi: Conteggi = std::sync::Arc::new(std::sync::Mutex::new(MisureLettura::default()));
         let stato = Box::into_raw(Box::new(Stato {
             flusso: trasporto,
             attesa: Duration::from_secs(5),
             guasto: guasto.clone(),
+            conteggi: conteggi.clone(),
         }));
 
         let callbacks = DcCustomCbs {
@@ -1431,7 +1553,7 @@ impl CollegamentoLdc {
             drop(unsafe { Box::from_raw(stato) });
             return Err(format!("libdivecomputer non ha aperto il trasporto (stato {esito})"));
         }
-        Ok(Self { contesto, flusso, guasto })
+        Ok(Self { contesto, flusso, guasto, conteggi })
     }
 
     /// Il numero di libdivecomputer con il suo nome e, se il trasporto ha
@@ -1608,6 +1730,40 @@ impl CollegamentoLdc {
     /// `RIGHE_DI_LIBDIVECOMPUTER`, con la conta di quelle scartate.
     pub fn righe_della_libreria(&self) -> Vec<String> {
         self.contesto.righe_della_libreria()
+    }
+
+    /// Il conto delle letture, così com'è adesso.
+    pub fn misure_lettura(&self) -> MisureLettura {
+        self.conteggi.lock().map(|c| *c).unwrap_or_default()
+    }
+
+    /// Il conto delle letture in una riga di diario, o niente se non c'è stata
+    /// nessuna lettura.
+    ///
+    /// ► SI TACE QUANDO NON C'È NIENTE DA DIRE. ◄ Uno scarico che non è mai
+    /// arrivato a leggere — il computer non si apre, il collegamento cade
+    /// prima — produrrebbe «0 letture, pausa più lunga 0 ms», che è una riga
+    /// vera e inutile: occupa posto nel diario che una persona deve copiare e
+    /// incollare, e insegna a saltare le righe di questo tipo. *Un diario si
+    /// legge tutto solo finché ogni riga si è guadagnata il posto.*
+    ///
+    /// E il tetto si scrive accanto alla pausa **sempre**, anche quando sono
+    /// lontani: è il confronto a dire qualcosa, non il numero da solo, e chi
+    /// legge il diario non ha il codice davanti.
+    pub fn riga_delle_letture(&self) -> Option<String> {
+        let m = self.misure_lettura();
+        if m.letture == 0 {
+            return None;
+        }
+        Some(format!(
+            "letture: {}, di cui {} corte e {} vuote; pacchetti lasciati a metà: {};              pausa più lunga fra due frammenti: {} ms (si aspetta al massimo {} ms)",
+            m.letture,
+            m.letture_corte,
+            m.letture_vuote,
+            m.frammenti_mancati,
+            m.pausa_massima_ms,
+            ATTESA_FRAMMENTO.as_millis(),
+        ))
     }
 
     /// Come `scarica_tutto`, ma butta via quello che è arrivato se poi si è
@@ -3552,6 +3708,100 @@ mod prove {
         let mut buffer = [0u8; 16 + 5];
         assert_eq!(collegamento.ioctl(DC_IOCTL_BLE_CHARACTERISTIC_READ, &mut buffer), DC_STATUS_IO);
         assert!(collegamento.spiega(DC_STATUS_IO).contains("non si legge"), "{}", collegamento.spiega(DC_STATUS_IO));
+    }
+
+    #[test]
+    fn il_conto_delle_letture_dice_quante_sono_tornate_a_meta_e_quanto_si_e_aspettato() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► LA MISURA CHE DEVE RISPONDERE AL PROSSIMO DIARIO. ◄
+         *
+         * Il diario del Puck 4 del 10 settembre 2026 racconta una catena:
+         * lettura scaduta (`mares_iconhd.c:329`) → ritentativo interno del
+         * backend (due `ac 09` di fila nella coda) → risposta disallineata
+         * (`mares_iconhd.c:521`, che nessuno ritenta) → fine dello scarico.
+         *
+         * Il primo anello è nostro, ed è l'unico su cui si possa fare
+         * qualcosa. L'ipotesi: un frammento che tarda più dei quaranta
+         * millisecondi che questo trasporto concede fa tornare il pacchetto a
+         * metà, e per chi legge con `actual` nullo — cioè tutti i backend —
+         * una lettura corta È una lettura scaduta.
+         *
+         * *Alzare il tetto senza sapere sarebbe una deduzione, e in questa
+         * storia le deduzioni hanno già perso una volta.* Quindi qui si misura
+         * e basta. Questa prova costruisce apposta il caso: un pacchetto che
+         * resta a metà perché il pezzo dopo non arriva mai.
+         */
+        let (manda, ricevi) = channel();
+        let flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())))
+            .con_riassemblaggio(Riassemblaggio::PacchettoIntero);
+        let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+        collegamento.imposta_attesa(50);
+
+        // Prima di leggere non c'è niente da raccontare, e non si racconta.
+        assert!(
+            collegamento.riga_delle_letture().is_none(),
+            "senza letture la riga sarebbe vera e inutile"
+        );
+
+        // Un frammento «pieno» e nessun seguito: il pacchetto resta a metà, e
+        // chi ne aveva chiesti cento ne riceve otto.
+        manda.send(vec![0xaa; 8]).unwrap();
+        assert_eq!(collegamento.leggi(100).unwrap().len(), 8);
+
+        let m = collegamento.misure_lettura();
+        assert_eq!(m.letture, 1);
+        assert_eq!(m.letture_corte, 1, "otto byte su cento chiesti è una lettura corta");
+        assert_eq!(m.letture_vuote, 0);
+        assert_eq!(m.frammenti_mancati, 1, "il pacchetto è rimasto a metà per l'attesa scaduta");
+        assert!(
+            m.pausa_massima_ms > 0,
+            "si è aspettato davvero il frammento che non è mai arrivato: {m:?}"
+        );
+
+        // E una lettura che non porta niente si conta a parte: «corta» e
+        // «vuota» mandano a guardare due cose diverse — la prima il tetto fra
+        // i frammenti, la seconda il collegamento.
+        assert!(collegamento.leggi(10).is_err());
+        let m = collegamento.misure_lettura();
+        assert_eq!((m.letture, m.letture_corte, m.letture_vuote), (2, 1, 1));
+
+        let riga = collegamento.riga_delle_letture().unwrap();
+        assert!(riga.contains("letture: 2"), "{riga}");
+        assert!(riga.contains("1 corte"), "{riga}");
+        assert!(riga.contains("1 vuote"), "{riga}");
+        assert!(riga.contains("lasciati a metà: 1"), "{riga}");
+        // Il tetto sta accanto alla pausa: è il confronto a dire qualcosa, e
+        // chi legge il diario non ha il codice davanti.
+        assert!(
+            riga.contains(&format!("al massimo {} ms", ATTESA_FRAMMENTO.as_millis())),
+            "{riga}"
+        );
+    }
+
+    #[test]
+    fn un_pacchetto_arrivato_intero_non_conta_nessuna_pausa() {
+        /*
+         * ► IL ROVESCIO, E SERVE QUANTO L'ALTRO. ◄ Se ogni lettura contasse una
+         * pausa, il massimo sarebbe sempre incollato al tetto e la misura non
+         * distinguerebbe più niente — direbbe «il tetto è stretto» anche su uno
+         * scarico perfetto. *Un numero che dice sempre la stessa cosa non è una
+         * misura, è una decorazione.*
+         */
+        let (manda, ricevi) = channel();
+        let flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())))
+            .con_riassemblaggio(Riassemblaggio::PacchettoIntero);
+        let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+        collegamento.imposta_attesa(50);
+        // Quattro byte e poi due: la seconda notifica è più corta, quindi il
+        // messaggio è finito e non si aspetta niente.
+        manda.send(vec![1, 2, 3, 4]).unwrap();
+        manda.send(vec![5, 6]).unwrap();
+        assert_eq!(collegamento.leggi(100).unwrap(), vec![1, 2, 3, 4, 5, 6]);
+
+        let m = collegamento.misure_lettura();
+        assert_eq!(m.frammenti_mancati, 0);
+        assert_eq!(m.pausa_massima_ms, 0, "nessuna attesa: il pacchetto c'era già tutto");
     }
 
     #[test]
