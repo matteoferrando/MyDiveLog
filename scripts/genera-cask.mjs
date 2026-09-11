@@ -105,8 +105,7 @@ cask "mydivelog" do
   version "${versione}"
   sha256 "${impronta}"
 
-  url "https://github.com/${REPO}/releases/download/v#{version}/${DMG}",
-      verified: "github.com/${REPO}/"
+  url "https://github.com/${REPO}/releases/download/v#{version}/${DMG}"
   name "MyDiveLog"
   desc "Dive logbook that merges the data from several dive computers"
   homepage "https://mydivelog.site/"

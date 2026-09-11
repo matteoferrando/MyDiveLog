@@ -123,6 +123,23 @@ describe('la cask di Homebrew', () => {
     expect(CASK).toMatch(/^\s*app "MyDiveLog\.app"$/m);
   });
 
+  it('non contiene le forme che brew ha dichiarato deprecate', () => {
+    /*
+     * ► LE DEPRECAZIONI DI BREW SI SCOPRONO AL MOMENTO PEGGIORE. ◄ Non sono
+     * nostre e arrivano quando vogliono: `brew audit` fallisce, il flusso che
+     * aggiorna la cask si ferma, e chi ha installato con Homebrew resta alla
+     * versione prima — senza che nessuno se ne accorga, perché la release su
+     * GitHub c'è e il sito la mostra.
+     *
+     * È già successo due volte in dieci giorni: prima `depends_on macos` con la
+     * stringa invece del simbolo, l'11 settembre 2026 il parametro `verified:`
+     * dentro la `url`. Ogni volta la forma vecchia lascia qui la sua riga: la
+     * prova non può indovinare la deprecazione di domani, ma può garantire che
+     * quella di ieri non torni dentro con una rigenerazione.
+     */
+    expect(CASK, 'è tornato `verified:`, che brew rifiuta dal 2026').not.toMatch(/verified:/);
+  });
+
   it('resta un file generato, e lo dice a chi lo apre', () => {
     // È l'unica difesa contro la modifica a mano, che è il modo in cui la
     // versione e l'impronta si disallineano.
