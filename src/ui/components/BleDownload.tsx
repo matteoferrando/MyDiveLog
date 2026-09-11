@@ -1861,9 +1861,43 @@ export function BleDownload() {
                         {device.rssi !== undefined ? `${device.rssi} dBm` : '—'}
                       </span>
                       {driver ? (
-                        <button className="btn" onClick={() => void scarica({ device, driver })}>
-                          {t('Scarica')}
-                        </button>
+                        /*
+                         * ► LA VIA D'USCITA C'È ANCHE QUI, E PRIMA NON C'ERA. ◄
+                         *
+                         * Un computer riconosciuto da un driver di casa aveva
+                         * **solo** «Scarica»: nessun modo di dire «non è
+                         * questo». Sembrava ragionevole — se il nome combacia
+                         * con un driver nostro, quel driver è il migliore che
+                         * abbiamo — e nasconde lo stesso difetto che il ramo
+                         * qui sotto documenta da settembre: *il riconoscimento
+                         * si fa sul nome, e i nomi cambiano.*
+                         *
+                         * Un apparecchio di un'altra marca che si annuncia con
+                         * un nome somigliante finiva su un protocollo sbagliato
+                         * senza appello, e l'unica uscita era aspettare una
+                         * versione nuova. Adesso chi sa che computer ha lo dice.
+                         *
+                         * *L'ha trovato il proprietario, l'11 settembre 2026,
+                         * provando a forzare la strada di libdivecomputer su un
+                         * Aladin per collaudare il banco di prova: il pulsante
+                         * che gli avevo detto di premere non esisteva.*
+                         */
+                        <>
+                          <button
+                            className="btn secondary"
+                            style={{ fontSize: 12 }}
+                            data-scegli={device.id}
+                            onClick={() => {
+                              setSpiegazione(null);
+                              setScegliPer(scegliPer === device.id ? null : device.id);
+                            }}
+                          >
+                            {t('Non è questo?')}
+                          </button>
+                          <button className="btn" onClick={() => void scarica({ device, driver })}>
+                            {t('Scarica')}
+                          </button>
+                        </>
                       ) : scaricabile ? (
                         /*
                          * RICONOSCIUTO DAL NOME: «Scarica» diretto, e accanto

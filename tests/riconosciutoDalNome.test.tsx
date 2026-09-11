@@ -134,6 +134,8 @@ const ricercaCheTrova =
 
 const QUAD_CI: BleFoundDevice = { id: 'dev-quad', name: 'Quad Ci', rssi: -60, serviceUuids: [] };
 const BLUELINK: BleFoundDevice = { id: 'dev-blp', name: 'Mares bluelink pro', rssi: -70, serviceUuids: [] };
+/** Un nome che un driver di CASA reclama: l'Aladin si annuncia «Aladin Sport». */
+const ALADIN: BleFoundDevice = { id: 'dev-aladin', name: 'Aladin Sport', rssi: -55, serviceUuids: [] };
 const AURICOLARE: BleFoundDevice = {
   id: 'dev-cuffie',
   name: 'Cuffie di qualcuno',
@@ -187,6 +189,51 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
+
+describe('► un computer con driver di casa ha comunque una via d’uscita ◄', () => {
+  /*
+   * ══════════════════════════════════════════════════════════════════════════
+   * LA PROVA NATA DA UN PULSANTE CHE NON ESISTEVA.
+   *
+   * L'11 settembre 2026 avevo chiesto al proprietario di forzare la strada di
+   * libdivecomputer sul suo Aladin, per collaudare il registratore del guscio
+   * Rust prima di vedere un Puck 4 il giorno dopo. La risposta: **«Non è
+   * questo?» non compare**.
+   *
+   * Non compariva perché un dispositivo riconosciuto da un driver di casa
+   * aveva un pulsante solo. Sembra ragionevole — se il nome combacia con un
+   * driver nostro, quello è il meglio che abbiamo — e nasconde esattamente il
+   * difetto che il ramo accanto documenta da settimane: *il riconoscimento si
+   * fa sul nome, e i nomi cambiano.* Un apparecchio di un'altra marca con un
+   * nome somigliante finiva su un protocollo sbagliato **senza appello**.
+   */
+  it('la riga ha «Scarica» e anche «Non è questo?»', async () => {
+    const vista = await montaConDispositivi([ALADIN]);
+    const riga = rigaDi(vista.host, 'Aladin Sport');
+    expect(riga, 'la riga dell’Aladin').toBeDefined();
+    expect(pulsanti(vista.host, 'Scarica')).toHaveLength(1);
+    expect(pulsanti(vista.host, 'Non è questo?'), 'la via d’uscita').toHaveLength(1);
+    vista.smonta();
+  });
+
+  it('e da lì si arriva al catalogo intero, per scegliere un altro protocollo', async () => {
+    // È quello che serve a chi SA di avere un apparecchio diverso da quello che
+    // il nome lascia credere — e a chi deve collaudare l'altra strada.
+    const vista = await montaConDispositivi([ALADIN]);
+    await clic(vista.host, 'Non è questo?');
+    expect(vista.host.querySelector('.catalogo-computer'), 'il catalogo').not.toBeNull();
+    vista.smonta();
+  });
+
+  it('«Scarica» continua a partire col driver di casa, senza passare dal selettore', async () => {
+    // La via d'uscita non deve cambiare il caso normale: chi preme «Scarica»
+    // scarica, e il catalogo non si apre.
+    const vista = await montaConDispositivi([ALADIN]);
+    await clic(vista.host, 'Scarica');
+    expect(vista.host.querySelector('.catalogo-computer')).toBeNull();
+    vista.smonta();
+  });
+});
 
 describe('un computer senza driver di casa, riconosciuto dal nome', () => {
   it('► la riga dice «Mares Quad Ci» e non «non riconosciuto», e ha «Scarica» ◄', async () => {
