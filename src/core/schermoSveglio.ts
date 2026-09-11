@@ -37,6 +37,7 @@
 import { invoke } from '@tauri-apps/api/core';
 
 import { isTauri } from '../storage/index';
+import { suAndroid, suIOS } from '../piattaforma';
 
 /** Il pezzo di browser che serve, isolato per poterlo sostituire nelle prove. */
 export type ApiSchermo = {
@@ -66,6 +67,14 @@ export type ApiSchermo = {
   ascoltaLaVisibilita(quando: () => void): () => void;
   /** L'orologio, in millisecondi. */
   adesso(): number;
+  /**
+   * Se su questa piattaforma uno schermo spento ferma davvero lo scarico.
+   *
+   * Vero solo dove il sistema **sospende** l'applicazione: iPhone, iPad,
+   * Android. Su un computer lo schermo che si spegne non ferma niente, e dirlo
+   * lo stesso manderebbe a risolvere un problema che non c'è.
+   */
+  loSchermoFermaLoScarico(): boolean;
 };
 
 /** Com'è andata: quello che finisce nel diario. */
@@ -74,6 +83,22 @@ export type ResocontoSchermo = {
   ottenuto: boolean;
   /** Per quale strada: serve a sapere quale delle due ha funzionato davvero. */
   come: 'nativo' | 'web' | 'niente';
+  /**
+   * Se su questa piattaforma uno schermo che si spegne **ferma** lo scarico.
+   *
+   * ► LA RIGA CHE DICEVA IL FALSO, E CHI L'HA TROVATA. ◄ La prima versione
+   * scriveva sempre «il sistema non sa tenere acceso lo schermo: se si spegne,
+   * lo scarico si ferma». Su iPhone è vero — il sistema sospende
+   * l'applicazione. **Su Mac non lo è**: lo schermo che si spegne non sospende
+   * niente, il processo continua a girare e il Bluetooth continua a
+   * consegnare. Quella riga è comparsa sotto uno scarico riuscito sul Mac del
+   * proprietario, la sera dell'11 settembre 2026, ed era semplicemente falsa.
+   *
+   * *Una riga di diario che afferma una cosa che non succede è peggio di
+   * nessuna riga: chi ripara ci costruisce sopra.* È la stessa lezione della
+   * 1.8.7, ripetuta a quattro giorni di distanza e su un'altra riga.
+   */
+  contaDavvero: boolean;
   /** Quante volte la pagina è sparita durante lo scarico. */
   sparizioni: number;
   /** Quanto è stata via in tutto, in millisecondi. */
@@ -92,6 +117,14 @@ export type SchermoSveglio = {
    * lo dice sceglie di farlo fallire in silenzio.*
    */
   ottenuto: boolean;
+  /**
+   * Se su questa piattaforma uno schermo spento fermerebbe lo scarico.
+   *
+   * Serve all'avviso a schermo: su un computer non c'è niente da avvertire, e
+   * un avvertimento inutile sopra una barra che avanza è il modo di insegnare
+   * a non leggere gli avvertimenti.
+   */
+  contaDavvero: boolean;
   /** Rilascia il blocco e racconta com'è andata. */
   lascia(): Promise<ResocontoSchermo>;
 };
@@ -145,6 +178,10 @@ export function apiDelBrowser(): ApiSchermo {
       }
     },
     adesso: () => Date.now(),
+    // Un telefono sospende, un computer no. La domanda non è «che sistema è»
+    // ma «che cosa fa quando lo schermo si spegne», ed è per questo che la
+    // riga sta qui e non dentro `piattaforma.ts`.
+    loSchermoFermaLoScarico: () => suIOS() || suAndroid(),
   };
 }
 
@@ -165,6 +202,7 @@ export async function tieniSvegliaLoSchermo(api: ApiSchermo = apiDelBrowser()): 
    * blocchi sullo stesso schermo e doverne rilasciare due — e su iOS il secondo
    * non funziona comunque.
    */
+  const contaDavvero = api.loSchermoFermaLoScarico();
   const nativo = await api.chiediIlBloccoNativo(true);
   let blocco = nativo ? null : await api.chiediIlBlocco();
   let ottenuto = nativo || blocco !== null;
@@ -212,6 +250,7 @@ export async function tieniSvegliaLoSchermo(api: ApiSchermo = apiDelBrowser()): 
 
   return {
     ottenuto,
+    contaDavvero,
     async lascia() {
       smettiDiAscoltare();
       if (viaDa !== null) {
@@ -231,7 +270,7 @@ export async function tieniSvegliaLoSchermo(api: ApiSchermo = apiDelBrowser()): 
       // un'applicazione di logbook ha dimenticato una riga è un difetto che si
       // paga in recensioni.
       await api.chiediIlBloccoNativo(false).catch(() => false);
-      return { ottenuto, come, sparizioni, viaMs };
+      return { ottenuto, come, contaDavvero, sparizioni, viaMs };
     },
   };
 }
@@ -248,7 +287,15 @@ export async function tieniSvegliaLoSchermo(api: ApiSchermo = apiDelBrowser()): 
  */
 export function righeDelloSchermo(r: ResocontoSchermo): string[] {
   const righe: string[] = [];
-  if (!r.ottenuto) {
+  if (!r.ottenuto && !r.contaDavvero) {
+    /*
+     * ► SI TACE, ED È LA CORREZIONE DELL'11 SETTEMBRE SERA. ◄ Su un computer
+     * il blocco dello schermo non serve, perché uno schermo spento non sospende
+     * l'applicazione. Scrivere «non so tenerlo acceso» sarebbe vero e inutile;
+     * scrivere «se si spegne lo scarico si ferma» era falso, e stava sotto uno
+     * scarico riuscito.
+     */
+  } else if (!r.ottenuto) {
     righe.push('il sistema non sa tenere acceso lo schermo: se si spegne, lo scarico si ferma');
   } else {
     // ► SI DICE ANCHE QUANDO HA FUNZIONATO, E PER UNA VOLTA È GIUSTO. ◄ La

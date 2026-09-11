@@ -24,8 +24,10 @@
  */
 
 import type { Dive } from '../model';
+import { conRegistrazione } from './registratore';
 import type {
   BleFoundDevice,
+  BleLink,
   BleTransport,
   DiveComputerDriver,
   DownloadEvent,
@@ -53,6 +55,13 @@ export interface DownloadOutcome {
    * non serve a niente.
    */
   trace: string[];
+  /**
+   * Lo scambio intero, riga per riga, quando il banco di prova era acceso.
+   *
+   * È l'opposto di `trace`: quello è limitato apposta perché lo incolla una
+   * persona, questo non è limitato affatto perché serve a scrivere un driver.
+   */
+  registrazione?: string[];
   model?: string;
   serial?: string;
   firmware?: string;
@@ -120,6 +129,14 @@ export async function downloadFromComputer(
      * i tempi restano come li scrive il computer — vedi `DecodeOptions`.
      */
     fuso?: (oraAParete: number) => number;
+    /**
+     * Il banco di prova: registra **tutto** lo scambio col collegamento.
+     *
+     * Spento per difetto. Vedi `registratore.ts` — e in particolare il
+     * commento su **da quale altezza** è presa la registrazione, che è la metà
+     * del suo valore per chi la leggerà fra sei mesi.
+     */
+    registra?: boolean;
   } = {},
 ): Promise<DownloadOutcome> {
   const warnings: string[] = [];
@@ -214,12 +231,22 @@ export async function downloadFromComputer(
    */
   let ordinati: DownloadedRecord[] | undefined;
 
+  /*
+   * ► LA REGISTRAZIONE VIVE FUORI DAL `try`, E NON È UN DETTAGLIO. ◄ Vale di
+   * più quando lo scarico si rompe — è per quello che esiste — quindi deve
+   * sopravvivere a qualunque strada d'uscita, comprese quelle che saltano il
+   * resto.
+   */
+  const registrazione: string[] | undefined = opts.registra ? [] : undefined;
+  /** Il collegamento, avvolto nel registratore quando il banco è acceso. */
+  const conBanco = (l: BleLink) => (registrazione ? conRegistrazione(l, registrazione) : l);
+
   try {
     const stato = await transport.available();
     if (stato !== true) throw new Error(stato.detail);
 
     emit({ kind: 'connecting' });
-    link = await transport.open(device.id, driver.profile, ctl.signal);
+    link = conBanco(await transport.open(device.id, driver.profile, ctl.signal));
 
     /*
      * Riaprire il collegamento, quando il driver lo chiede.
@@ -239,14 +266,15 @@ export async function downloadFromComputer(
       link = undefined;
       await pausa(2000, ctl.signal);
       if (ctl.signal.aborted) throw new Error('annullato');
-      link = await transport.open(device.id, driver.profile, ctl.signal);
+      const riaperto = conBanco(await transport.open(device.id, driver.profile, ctl.signal));
+      link = riaperto;
       trace(
-        `riaperto: MTU ${link.mtu}${
-          link.mtuMisurato ? '' : ' (il sistema non l’ha detto: minimo garantito)'
+        `riaperto: MTU ${riaperto.mtu}${
+          riaperto.mtuMisurato ? '' : ' (il sistema non l’ha detto: minimo garantito)'
         }`,
       );
-      if (link.describe) trace(link.describe());
-      return link;
+      if (riaperto.describe) trace(riaperto.describe());
+      return riaperto;
     };
 
     /*
@@ -363,6 +391,11 @@ export async function downloadFromComputer(
       stato === 'complete' && tutteDecodificate ? (ordinati?.[0]?.key ?? records[0]?.key) : undefined,
     records,
     trace: saltate2 > 0 ? [...testa, `… ${saltate2} righe non riportate …`, ...coda] : [...testa, ...coda],
+    // ► NON TRONCATA, AL CONTRARIO DI `trace`. ◄ Vedi `registratore.ts`: sono
+    // due letture dello stesso scambio, una per chi incolla una segnalazione e
+    // una per chi scrive un driver, e ognuna è sbagliata per il mestiere
+    // dell'altra.
+    registrazione: registrazione && registrazione.length > 0 ? registrazione : undefined,
     total,
     model,
     serial,

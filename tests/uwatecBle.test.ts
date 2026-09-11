@@ -261,6 +261,68 @@ describe('► l’MTU nel diario: una misura o un ripiego, e si deve capire qual
   });
 });
 
+describe('► il banco di prova sulla strada dei driver di casa ◄', () => {
+  /*
+   * ══════════════════════════════════════════════════════════════════════════
+   * LA PROVA CHE NASCE DA UNA PROVA A MANO, DI CINQUE MINUTI.
+   *
+   * La registrazione completa dello scambio era stata scritta nel guscio Rust,
+   * dove passa libdivecomputer. La sera dell'11 settembre 2026, il giorno prima
+   * di vedere un Mares Puck 4 di persona, il proprietario ha fatto quello che
+   * gli avevo chiesto: provarla su un computer che aveva in casa. **Non è
+   * successo niente**, perché il suo Aladin non passa da libdivecomputer,
+   * passa da qui.
+   *
+   * *La spunta c'era, il pulsante no, e nessuno se ne sarebbe accorto fino al
+   * giorno dopo davanti all'unico Puck della giornata.* Da allora esiste questo
+   * blocco, e la regola che ne discende: **una funzione che vive su due strade
+   * va provata su tutte e due**, perché quella dimenticata è sempre quella che
+   * qualcuno userà per prima.
+   */
+  it('registra tutto lo scambio, per esteso, quando glielo si chiede', async () => {
+    const { t } = trasporto();
+    const esito = await downloadFromComputer(t, dispositivo, uwatecDriver, { registra: true });
+    const righe = esito.registrazione ?? [];
+    expect(righe.length, 'uno scarico vero muove decine di scambi').toBeGreaterThan(5);
+
+    // I due versi ci sono tutti e due, e si distinguono a colpo d'occhio.
+    expect(
+      righe.some((r) => r.includes(' > ')),
+      `nessuna scrittura: ${righe[0]}`,
+    ).toBe(true);
+    expect(
+      righe.some((r) => r.includes(' < ')),
+      `nessuna lettura: ${righe[0]}`,
+    ).toBe(true);
+    // E ogni riga comincia col tempo: è metà del valore della registrazione,
+    // perché il sospettato numero uno è il ritmo con cui si parla al computer.
+    expect(
+      righe.every((r) => /^\s*\d+\.\d{3} /.test(r)),
+      `i tempi: ${righe[0]}`,
+    ).toBe(true);
+  });
+
+  it('e da spento non registra niente', async () => {
+    // Su un archivio pieno sono migliaia di righe tenute in memoria: farlo a
+    // ogni scarico vorrebbe dire far pagare a tutti il lavoro di uno.
+    const { t } = trasporto();
+    const esito = await downloadFromComputer(t, dispositivo, uwatecDriver);
+    expect(esito.registrazione).toBeUndefined();
+  });
+
+  it('il diario tecnico resta corto: sono due letture, non due copie', async () => {
+    /*
+     * Il `trace` è tagliato apposta — lo incolla una persona in una
+     * segnalazione — e la registrazione no. Se un giorno qualcuno li unisse
+     * «per semplificare», uno dei due mestieri si romperebbe in silenzio: o il
+     * diario diventa incollabile, o la registrazione diventa inutile.
+     */
+    const { t } = trasporto();
+    const esito = await downloadFromComputer(t, dispositivo, uwatecDriver, { registra: true });
+    expect((esito.registrazione ?? []).length).toBeGreaterThan(esito.trace.length);
+  });
+});
+
 describe('inquadramento Uwatec', () => {
   it('la lunghezza conta il comando e non se stessa', () => {
     expect([...pacchettoUwatec(0x10)]).toEqual([1, 0x10]);

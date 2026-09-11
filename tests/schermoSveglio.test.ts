@@ -11,7 +11,15 @@ import {
  * Un browser finto: si può spegnere e riaccendere la pagina a comando, e
  * l'orologio va avanti solo quando glielo si dice.
  */
-function fintoBrowser(opzioni: { saFarlo?: boolean; visibileAllInizio?: boolean; nativo?: boolean } = {}) {
+function fintoBrowser(
+  opzioni: {
+    saFarlo?: boolean;
+    visibileAllInizio?: boolean;
+    nativo?: boolean;
+    /** Come un telefono: lo schermo che si spegne ferma lo scarico. */
+    fermaLoScarico?: boolean;
+  } = {},
+) {
   const saFarlo = opzioni.saFarlo ?? true;
   // Il valore per difetto è **falso**: è il browser, dove il nativo non c'è.
   // Le prove che vogliono la strada nativa lo dicono.
@@ -47,6 +55,7 @@ function fintoBrowser(opzioni: { saFarlo?: boolean; visibileAllInizio?: boolean;
       };
     },
     adesso: () => orologio,
+    loSchermoFermaLoScarico: () => opzioni.fermaLoScarico ?? true,
   };
 
   return {
@@ -218,24 +227,57 @@ describe('► tenere acceso lo schermo mentre il computer parla ◄', () => {
      * cosa da controllare in un diario di guasto, e distingue «il rimedio c'è»
      * da «il rimedio c'è sulla carta».
      */
-    const nativo: ResocontoSchermo = { ottenuto: true, come: 'nativo', sparizioni: 0, viaMs: 0 };
+    const nativo: ResocontoSchermo = {
+      ottenuto: true,
+      come: 'nativo',
+      contaDavvero: true,
+      sparizioni: 0,
+      viaMs: 0,
+    };
     expect(righeDelloSchermo(nativo)[0]).toContain('strada nativa');
 
-    const web = righeDelloSchermo({ ottenuto: true, come: 'web', sparizioni: 0, viaMs: 0 });
+    const web = righeDelloSchermo({
+      ottenuto: true,
+      come: 'web',
+      contaDavvero: true,
+      sparizioni: 0,
+      viaMs: 0,
+    });
     expect(web[0]).toContain('strada del web');
 
     const senzaBlocco = righeDelloSchermo({
       ottenuto: false,
       come: 'niente',
+      contaDavvero: true,
       sparizioni: 0,
       viaMs: 0,
     });
     expect(senzaBlocco).toHaveLength(1);
     expect(senzaBlocco[0]).toContain('non sa tenere acceso lo schermo');
 
+    /*
+     * ► E SU UN COMPUTER QUELLA STESSA RIGA NON SI SCRIVE. ◄ La prima versione
+     * la scriveva sempre, e l'11 settembre 2026 è comparsa sotto uno scarico
+     * RIUSCITO sul Mac, dicendo «se si spegne, lo scarico si ferma» — che su un
+     * Mac è falso: lo schermo spento non sospende l'applicazione.
+     *
+     * *Una riga di diario che afferma una cosa che non succede è peggio di
+     * nessuna riga.* L'ha trovata una prova di cinque minuti su un apparecchio
+     * che funzionava, fatta la sera prima invece che il giorno dopo.
+     */
+    const suUnComputer = righeDelloSchermo({
+      ottenuto: false,
+      come: 'niente',
+      contaDavvero: false,
+      sparizioni: 0,
+      viaMs: 0,
+    });
+    expect(suUnComputer, 'su un computer non c’è niente da avvertire').toEqual([]);
+
     const sparita = righeDelloSchermo({
       ottenuto: true,
       come: 'nativo',
+      contaDavvero: true,
       sparizioni: 1,
       viaMs: 42_000,
     });

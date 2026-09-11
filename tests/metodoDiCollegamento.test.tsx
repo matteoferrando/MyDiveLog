@@ -124,6 +124,23 @@ Object.defineProperty(globalThis, 'localStorage', {
   } satisfies Storage,
 });
 
+/**
+ * Fa credere all'applicazione di girare su un telefono.
+ *
+ * ► SERVE PERCHÉ LA RISPOSTA CAMBIA, E DEVE CAMBIARE. ◄ Su un telefono uno
+ * schermo che si spegne sospende l'applicazione e ferma lo scarico; su un
+ * computer no. L'11 settembre 2026 l'avviso e la riga di diario uscivano su
+ * tutte e due le piattaforme, e sul Mac dicevano una cosa falsa sotto uno
+ * scarico riuscito. Da allora la piattaforma fa parte della domanda, e queste
+ * prove devono dire su quale stanno.
+ */
+function comeUnTelefono() {
+  Object.defineProperty(navigator, 'userAgent', {
+    configurable: true,
+    value: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36',
+  });
+}
+
 const { BleDownload } = await import('../src/ui/components/BleDownload');
 const { TENTATIVI_AUTOMATICI } = await import('../src/core/insistenza');
 const { metodoConservato, salvaMetodo } = await import('../src/core/metodo');
@@ -211,6 +228,12 @@ beforeEach(() => {
   finto.salvati = [];
   finto.importate = [];
   finto.schermoNativo = false;
+  // Si riparte sempre da «computer»: è quello che è, qui dentro, e una prova
+  // che eredita il telefono da quella prima è una prova che mente.
+  Object.defineProperty(navigator, 'userAgent', {
+    configurable: true,
+    value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+  });
   // `isTauri()` guarda questo: senza, la strada nativa non si prova nemmeno, e
   // la prova sullo schermo coperto resterebbe verde qualunque cosa faccia il
   // codice.
@@ -758,6 +781,7 @@ describe('il giro dei modi di collegarsi', () => {
      * difendere uno scarico e non lo dice sceglie di farlo fallire in
      * silenzio.*
      */
+    comeUnTelefono();
     const { host, smonta } = await apri();
     try {
       await avvia(host);
@@ -779,6 +803,7 @@ describe('il giro dei modi di collegarsi', () => {
      * avvertimento sopra una barra che avanza, quando chi guarda non deve fare
      * niente, è il modo di insegnare a non leggere gli avvertimenti.
      */
+    comeUnTelefono();
     finto.schermoNativo = true;
     const { host, smonta } = await apri();
     try {
@@ -804,6 +829,7 @@ describe('il giro dei modi di collegarsi', () => {
      * distinguerebbe «lo schermo è rimasto acceso e si è rotto lo stesso» da
      * «lo schermo si è spento a metà», che chiedono due rimedi diversi.
      */
+    comeUnTelefono();
     const { host, smonta } = await apri();
     try {
       await avvia(host);
@@ -814,6 +840,39 @@ describe('il giro dei modi di collegarsi', () => {
       const testo = host.textContent ?? '';
       expect(testo).toContain('durata del tentativo:');
       expect(testo).toContain('non sa tenere acceso lo schermo');
+    } finally {
+      smonta();
+    }
+  });
+
+  it('► su un COMPUTER quella riga non compare, perché sarebbe falsa ◄', async () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * LA PROVA CHE VIENE DA UNO SCHERMO MANDATO LA SERA DELL'11 SETTEMBRE.
+     *
+     * Sotto uno scarico **riuscito**, su un Mac, il diario diceva: «il sistema
+     * non sa tenere acceso lo schermo: se si spegne, lo scarico si ferma». La
+     * prima metà era vera e inutile; **la seconda era falsa** — su macOS lo
+     * schermo che si spegne non sospende l'applicazione, il processo continua e
+     * il Bluetooth continua a consegnare.
+     *
+     * *Una riga di diario che afferma una cosa che non succede è peggio di
+     * nessuna riga: chi ripara ci costruisce sopra.* Qui non c'è nessun
+     * telefono — è il caso normale delle prove — e la riga non deve esserci.
+     */
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await metodo(1, 1);
+      expect(host.textContent, 'niente avvisi dove non servono').not.toContain('Tieni acceso lo schermo');
+      await scambio(3);
+      await act(async () => finto.fallisci!(new Error('niente')));
+      await lasciaProvare(() => null);
+      const testo = host.textContent ?? '';
+      expect(testo, 'la durata invece serve sempre').toContain('durata del tentativo:');
+      expect(testo, 'ma non la riga che su un computer è falsa').not.toContain(
+        'non sa tenere acceso lo schermo',
+      );
     } finally {
       smonta();
     }

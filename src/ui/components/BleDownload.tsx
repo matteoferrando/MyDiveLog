@@ -731,6 +731,7 @@ export function BleDownload() {
         esito = await downloadFromComputer(transport, scelto.device, driver, {
           onEvent,
           signal: ctl.signal,
+          registra,
           since: ({ serial }) => {
             if (tuttoDaCapo) return undefined;
             const chiave = markerKey(driver.id, serial, scelto.device.id);
@@ -866,6 +867,7 @@ export function BleDownload() {
            * quello di ieri. L'etichetta del pulsante che lo apre, invece, si
            * traduce: quella la legge chi usa l'app, non chi la ripara.
            */
+          registrazione: esito.registrazione,
           diario: [
             `MyDiveLog — diario dello scarico`,
             `dispositivo: ${scelto.device.name || 'senza nome'}`,
@@ -929,6 +931,9 @@ export function BleDownload() {
            * risposto, e senza di loro una segnalazione su un guasto del genere
            * non contiene niente su cui lavorare.
            */
+          // Anche qui, e soprattutto qui: la registrazione di uno scarico
+          // rotto vale più di quella di uno riuscito.
+          registrazione: esito?.registrazione,
           diario: [
             `MyDiveLog — diario dello scarico`,
             `dispositivo: ${scelto.device.name || 'senza nome'}`,
@@ -965,7 +970,17 @@ export function BleDownload() {
         setStato((p) => (p.fase === 'finito' ? { ...p, diario: [...p.diario, ...righe] } : p));
       }
     },
-    [importDives, fermaRicerca, bleMarkers, saveBleMarker, forgetBleMarker, tuttoDaCapo, transport, t],
+    [
+      importDives,
+      fermaRicerca,
+      bleMarkers,
+      saveBleMarker,
+      forgetBleMarker,
+      tuttoDaCapo,
+      registra,
+      transport,
+      t,
+    ],
   );
 
   /*
@@ -1210,7 +1225,11 @@ export function BleDownload() {
        * l'ipotesi con un'osservazione, non con un ragionamento.
        */
       const schermo = await tieniSvegliaLoSchermo();
-      if (!schermo.ottenuto) {
+      // ► E SOLO DOVE CONTA DAVVERO. ◄ Su un computer lo schermo che si
+      // spegne non sospende l'applicazione: avvertire sarebbe mandare a
+      // risolvere un problema che non c'è. Vedi `schermoSveglio.ts`, dove la
+      // stessa correzione toglie la riga falsa dal diario.
+      if (!schermo.ottenuto && schermo.contaDavvero) {
         setStato((p) => (p.fase === 'scarica' ? { ...p, schermoScoperto: true } : p));
       }
       const inizio = Date.now();
