@@ -259,8 +259,8 @@ pub struct FlussoBle {
     notifica_piena: usize,
     /// Quante volte il riassemblaggio si è arreso con un pacchetto a metà.
     frammenti_mancati: usize,
-    /// La pausa più lunga davvero aspettata fra due frammenti. Vedi `MisureLettura`.
-    pausa_massima: Duration,
+    /// La pausa più lunga fra due frammenti che è stata **colmata**. Vedi `MisureLettura`.
+    pausa_colmata: Duration,
     /// Il silenzio più lungo fra un comando e la sua risposta. Vedi `MisureLettura`.
     silenzio_massimo: Duration,
     /// Quante volte si è concessa una seconda finestra invece di dire «scaduta».
@@ -349,13 +349,76 @@ impl Riassemblaggio {
     }
 }
 
-/// Quanto si aspetta il pezzo successivo di un messaggio spezzato.
+/// Quanto si concede **a chiunque**, anche a un metodo che non ha mai parlato,
+/// quando la finestra vera è appena scaduta.
 ///
-/// I frammenti di uno stesso messaggio arrivano a distanza di un intervallo di
-/// connessione — da 7,5 a 30 millisecondi sui parametri consueti — quindi
-/// quaranta è largo abbastanza per prenderli e corto abbastanza da non pesare.
-/// Nelle prove è cortissimo: una prova che aspetta per vedere un'attesa
-/// insegna a non lanciare le prove.
+/// Non è l'attesa di un frammento: è l'ultimo istante prima di dichiarare muta
+/// una combinazione di caratteristiche. Qui il tetto **deve** restare corto, e
+/// la ragione non è il risparmio ma il giro dei metodi: ci sono otto
+/// combinazioni da provare e ogni vicolo cieco si paga su ognuna. Quaranta
+/// millisecondi contro i tremila della finestra vera.
+///
+/// Nelle prove è cortissimo: una prova che aspetta per vedere un'attesa insegna
+/// a non lanciare le prove.
+/// L'intervallo di connessione BLE **misurato**, non quello dei manuali.
+///
+/// Aladin Sport Matrix, 11 settembre 2026: andate e ritorni di 59, 58, 60, 60,
+/// 60 ms. Mares Puck 4, 12 settembre: 7472 scambi in 462 s di registrazione,
+/// mediana **60 ms**, massimo 151. *Due apparecchi di due marche, lo stesso
+/// numero.*
+///
+/// Sta qui perché i due tetti qui sotto si giustificano **contro di lui** e non
+/// contro un'intuizione: è la costante che ha smentito la forbice «7,5-30 ms»
+/// su cui era stato scelto il tetto vecchio.
+const INTERVALLO_MISURATO: Duration = Duration::from_millis(60);
+
+/// Il valore vero di `ULTIMO_ISTANTE`. Separato perché una prova lo possa
+/// guardare: sotto `cfg(test)` la costante usata è cortissima, quindi una prova
+/// che la leggesse non direbbe niente su quello che viene spedito.
+const ULTIMO_ISTANTE_VERO: Duration = Duration::from_millis(40);
+
+const ULTIMO_ISTANTE: Duration =
+    if cfg!(test) { Duration::from_millis(5) } else { ULTIMO_ISTANTE_VERO };
+
+/// Quanto si aspetta il pezzo successivo di un messaggio **già cominciato**.
+///
+/// ════════════════════════════════════════════════════════════════════════════
+/// ► QUARANTA MILLISECONDI ERANO MENO DI UN GIRO DI RADIO, E IL 12 SETTEMBRE
+/// SI È VISTO. ◄
+///
+/// Fino alla 1.8.17 questo tetto e `ULTIMO_ISTANTE` erano **la stessa
+/// costante**, e la giustificazione scritta qui sopra era una sola: «i
+/// frammenti arrivano a distanza di un intervallo di connessione — da 7,5 a 30
+/// millisecondi sui parametri consueti — quindi quaranta è largo abbastanza».
+///
+/// **Quel numero non era stato misurato, ed era sbagliato.** L'intervallo di
+/// connessione vero, misurato l'11 settembre sull'Aladin — 59, 58, 60, 60, 60
+/// ms di andata e ritorno — e confermato il 12 sul Puck 4 — 307 secondi utili
+/// per 4854 scambi, 63 ms l'uno — è il **doppio** del limite alto di quella
+/// forbice. *Aspettavamo un frammento meno di quanto la radio impiega a
+/// ripassare.*
+///
+/// Il diario del Puck 4 del 12 settembre lo dice con due numeri accostati, e
+/// li accosta apposta: `pausa più lunga fra due frammenti: 41 ms (si aspetta al
+/// massimo 40 ms)`, e `pacchetti lasciati a metà: 2`. Il tetto è stato toccato,
+/// e due pacchetti sono stati consegnati a metà a un protocollo che non ha
+/// checksum.
+///
+/// ► E LA DOMANDA ERA STATA SCRITTA PRIMA. ◄ Nel commento di `MisureLettura`,
+/// l'11 settembre: *«alzare quel tetto sarebbe una deduzione, e le deduzioni in
+/// questa storia hanno già perso una volta. Quindi non si alza: si misura. Se
+/// la pausa più lunga davvero osservata sta incollata al tetto, il tetto è il
+/// problema e si alza sapendo perché.»* È incollata. Si alza, e adesso il
+/// perché c'è.
+///
+/// **Duecentocinquanta millisecondi, cioè quattro intervalli di connessione
+/// misurati.** Il costo si paga solo dove il pacchetto è davvero cominciato e
+/// davvero si ferma: il 12 settembre sarebbe stato due volte su 4854 letture,
+/// cioè meno di mezzo secondo su sei minuti. E qui l'argomento del giro dei
+/// metodi **non vale**, ed è il motivo per cui le due costanti sono state
+/// separate: un pacchetto a metà è la prova che questa combinazione funziona.
+/// *Un tetto che serve a due scopi opposti prende il valore sbagliato per
+/// almeno uno dei due.*
 /// Di quanto un'attesa deve sforare la propria scadenza perché si possa dire
 /// che il processo era **congelato** invece che in ascolto.
 ///
@@ -399,8 +462,47 @@ fn e_un_congelamento(passato: Duration, attesa: Duration) -> bool {
     passato > attesa + SFORO_DA_CONGELAMENTO
 }
 
+/// Il valore vero di `ATTESA_FRAMMENTO`. Vedi `ULTIMO_ISTANTE_VERO` per il
+/// perché sta fuori dal `cfg`.
+const ATTESA_FRAMMENTO_VERA: Duration = Duration::from_millis(250);
+
 const ATTESA_FRAMMENTO: Duration =
-    if cfg!(test) { Duration::from_millis(5) } else { Duration::from_millis(40) };
+    if cfg!(test) { Duration::from_millis(5) } else { ATTESA_FRAMMENTO_VERA };
+
+#[cfg(test)]
+mod prove_dei_tetti {
+    use super::*;
+
+    /// ════════════════════════════════════════════════════════════════════════
+    /// ► I DUE TETTI SI GIUDICANO CONTRO UNA MISURA, NON L'UNO CONTRO L'ALTRO. ◄
+    ///
+    /// Sotto `cfg(test)` valgono tutti e due cinque millisecondi, quindi
+    /// **nessuna prova del trasporto può accorgersi se li si scambia**: si
+    /// spedirebbe un'applicazione in cui il frammento aspetta quaranta
+    /// millisecondi e il giro dei metodi ne aspetta duecentocinquanta, e tutto
+    /// resterebbe verde. *Un numero che conta solo in produzione va inchiodato
+    /// in produzione, o non è inchiodato affatto.*
+    ///
+    /// È la stessa regola che questo progetto applica ai conti scritti nei
+    /// commenti: se una spiegazione è la ragione di un valore, la spiegazione
+    /// diventa un'asserzione.
+    #[test]
+    fn il_frammento_aspetta_piu_di_un_giro_di_radio_e_il_giro_dei_metodi_meno() {
+        assert!(
+            ATTESA_FRAMMENTO_VERA >= INTERVALLO_MISURATO * 4,
+            "un pacchetto già cominciato deve poter attraversare più giri di radio: \
+             {ATTESA_FRAMMENTO_VERA:?} contro un intervallo di {INTERVALLO_MISURATO:?}. \
+             Il 12 settembre 2026 il tetto era 40 ms, cioè MENO di un giro, e il diario \
+             del Puck 4 lo dice: «pausa più lunga fra due frammenti: 45 ms»."
+        );
+        assert!(
+            ULTIMO_ISTANTE_VERO < INTERVALLO_MISURATO,
+            "l'ultimo istante si paga su OGNI vicolo cieco del giro degli otto metodi, \
+             e lì un tetto lungo raddoppia il tempo di ogni metodo sbagliato: \
+             {ULTIMO_ISTANTE_VERO:?} deve restare sotto {INTERVALLO_MISURATO:?}"
+        );
+    }
+}
 
 /*
  * ► QUI C'ERA UN'ECONOMIA, ED ERA UNA TRAPPOLA. ◄
@@ -476,7 +578,7 @@ impl FlussoBle {
             riassemblaggio: Riassemblaggio::UnaNotifica,
             notifica_piena: 0,
             frammenti_mancati: 0,
-            pausa_massima: Duration::ZERO,
+            pausa_colmata: Duration::ZERO,
             silenzio_massimo: Duration::ZERO,
             proroghe: 0,
             proroghe_utili: 0,
@@ -622,7 +724,7 @@ impl FlussoByte for FlussoBle {
              *
              * **L'ultimo istante**, che si concede a chiunque, anche a un metodo
              * che non ha mai parlato. Non è una seconda finestra: è
-             * `ATTESA_FRAMMENTO`, quaranta millisecondi, contro i tremila della
+             * `ULTIMO_ISTANTE`, quaranta millisecondi, contro i tremila della
              * finestra vera. Serve al caso in cui la risposta è arrivata un
              * soffio dopo la scadenza — e su una prima risposta quel soffio
              * costa il metodo intero, perché il giro lo scarta come muto e
@@ -636,7 +738,13 @@ impl FlussoByte for FlussoBle {
              * inchiodare.*
              */
             if self.arrivate.is_empty() {
-                self.aspetta(ATTESA_FRAMMENTO)?;
+                // ► `ULTIMO_ISTANTE` E NON `ATTESA_FRAMMENTO`, DAL 12 SETTEMBRE. ◄
+                // Qui il computer potrebbe non aver mai parlato, e il giro degli
+                // otto metodi si paga su ogni vicolo cieco. Là sotto, dove un
+                // pacchetto è già cominciato, vale il contrario. Fino alla
+                // 1.8.17 era la stessa costante per tutti e due, e ha preso il
+                // valore giusto per questo e sbagliato per quello.
+                self.aspetta(ULTIMO_ISTANTE)?;
             }
 
             /*
@@ -730,9 +838,30 @@ impl FlussoByte for FlussoBle {
                                 // la pausa è zero e contarla annacquerebbe il
                                 // massimo, che è proprio la cosa da non
                                 // annacquare.
+                                //
+                                // ► E SI CONTA SOLO SE IL FRAMMENTO POI ARRIVA.
+                                // ◄ Dal 12 settembre, e il motivo è che il
+                                // numero di prima **si saturava sul proprio
+                                // tetto**: un'attesa scaduta dura per
+                                // definizione quanto il tetto, quindi appena
+                                // una scadeva il massimo diventava il tetto e
+                                // non diceva più niente di tutte le altre. Il
+                                // diario del Puck diceva «41 ms (si aspetta al
+                                // massimo 40 ms)» e quel 41 non era una pausa
+                                // colmata: era il tetto più il ritardo dello
+                                // scheduler. *Un numero che si appoggia al
+                                // proprio limite dice che il limite è stato
+                                // toccato, e nient'altro — e a contare le volte
+                                // in cui è stato toccato c'è già
+                                // `frammenti_mancati`.*
+                                //
+                                // Adesso qui sta la pausa più lunga **colmata**,
+                                // cioè quanto margine abbiamo davvero sotto il
+                                // tetto: è l'unico dei due numeri che possa
+                                // dire se il tetto nuovo è largo abbastanza.
                                 let inizio_pausa = std::time::Instant::now();
                                 let esito_attesa = self.aspetta(ATTESA_FRAMMENTO);
-                                self.pausa_massima = self.pausa_massima.max(inizio_pausa.elapsed());
+                                let quanto = inizio_pausa.elapsed();
                                 if let Err(motivo) = esito_attesa {
                                     self.avanzo.clear();
                                     return Err(motivo);
@@ -745,6 +874,7 @@ impl FlussoByte for FlussoBle {
                                     self.frammenti_mancati += 1;
                                     break;
                                 }
+                                self.pausa_colmata = self.pausa_colmata.max(quanto);
                             }
                             let Some(pezzo) = self.arrivate.pop_front() else { break };
                             ultima = pezzo.len();
@@ -785,7 +915,7 @@ impl FlussoByte for FlussoBle {
     /// proprio sul caso che interessa, che è quello in cui si svuota perché
     /// qualcosa era andato storto.
     fn misure_frammenti(&self) -> (usize, u64) {
-        (self.frammenti_mancati, self.pausa_massima.as_millis() as u64)
+        (self.frammenti_mancati, self.pausa_colmata.as_millis() as u64)
     }
 
     fn silenzio_massimo_ms(&self) -> u64 {
@@ -1090,8 +1220,17 @@ pub struct MisureLettura {
     pub letture_vuote: usize,
     /// Quante volte l'attesa fra due frammenti è scaduta lasciando il pacchetto a metà.
     pub frammenti_mancati: usize,
-    /// La pausa più lunga davvero aspettata fra due frammenti dello stesso
-    /// pacchetto, in millisecondi. È il numero che decide.
+    /// La pausa più lunga fra due frammenti dello stesso pacchetto che è stata
+    /// **colmata** — cioè dopo la quale il frammento è davvero arrivato — in
+    /// millisecondi.
+    ///
+    /// ► NON È LA PAUSA PIÙ LUNGA VISTA, ED È UNA CORREZIONE DEL 12 SETTEMBRE. ◄
+    /// Quella si saturava sul tetto e smetteva di dire qualcosa: un'attesa
+    /// scaduta dura quanto il tetto, quindi bastava una scadenza perché il
+    /// massimo diventasse il tetto per sempre. Le scadenze le conta
+    /// `frammenti_mancati`; qui sta il **margine**, ed è il numero che dice se
+    /// `ATTESA_FRAMMENTO` è largo abbastanza. Vicino al tetto: stretto ancora.
+    /// Lontano: largo, e la causa del prossimo guasto è un'altra.
     pub pausa_massima_ms: u64,
     /// Il silenzio più lungo fra un comando e la sua risposta, in millisecondi.
     ///
@@ -2005,7 +2144,7 @@ impl CollegamentoLdc {
             return None;
         }
         Some(format!(
-            "letture: {}, di cui {} corte e {} vuote; pacchetti lasciati a metà: {}; pausa più lunga fra due frammenti: {} ms (si aspetta al massimo {} ms); silenzio più lungo fra un comando e la risposta: {} ms; seconde finestre concesse: {}, di cui utili {}; congelamenti visti: {}",
+            "letture: {}, di cui {} corte e {} vuote; pacchetti lasciati a metà: {}; pausa più lunga colmata fra due frammenti: {} ms (ci si arrende a {} ms); silenzio più lungo fra un comando e la risposta: {} ms; seconde finestre concesse: {}, di cui utili {}; congelamenti visti: {}",
             m.letture,
             m.letture_corte,
             m.letture_vuote,
@@ -4007,9 +4146,19 @@ mod prove {
         assert_eq!(m.letture_corte, 1, "otto byte su cento chiesti è una lettura corta");
         assert_eq!(m.letture_vuote, 0);
         assert_eq!(m.frammenti_mancati, 1, "il pacchetto è rimasto a metà per l'attesa scaduta");
-        assert!(
-            m.pausa_massima_ms > 0,
-            "si è aspettato davvero il frammento che non è mai arrivato: {m:?}"
+        /*
+         * ► E LA PAUSA RESTA ZERO, CHE È IL CONTRARIO DI PRIMA. ◄ Fino alla
+         * 1.8.17 qui si pretendeva `> 0`, perché il numero contava anche le
+         * attese scadute — e proprio per questo si saturava sul tetto e non
+         * diceva più niente. Adesso conta solo le pause **colmate**: qui il
+         * frammento non è mai arrivato, quindi non c'è nessun margine da
+         * riportare, e la scadenza la racconta `frammenti_mancati` che sta la
+         * riga sopra. *Due numeri che dicono due cose, invece di uno che le
+         * confonde.*
+         */
+        assert_eq!(
+            m.pausa_massima_ms, 0,
+            "il frammento non è arrivato: non c'è nessuna pausa colmata da riportare: {m:?}"
         );
 
         // E una lettura che non porta niente si conta a parte: «corta» e
@@ -4037,7 +4186,7 @@ mod prove {
         // Il tetto sta accanto alla pausa: è il confronto a dire qualcosa, e
         // chi legge il diario non ha il codice davanti.
         assert!(
-            riga.contains(&format!("al massimo {} ms", ATTESA_FRAMMENTO.as_millis())),
+            riga.contains(&format!("ci si arrende a {} ms", ATTESA_FRAMMENTO.as_millis())),
             "{riga}"
         );
     }

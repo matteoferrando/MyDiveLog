@@ -1346,7 +1346,60 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
     /// insiste tanto: da dentro il runtime andrebbero in panico.
     struct Postino {
         comandi: tauri::async_runtime::Sender<Comando>,
+        /// ════════════════════════════════════════════════════════════════════
+        /// ► QUANTI COMANDI IL CICLO NON HA ANCORA RESTITUITO. ◄
+        ///
+        /// Il compito che serve i comandi è **uno solo e sequenziale**: prende
+        /// un `Comando`, lo `await`a fino in fondo, e solo allora guarda il
+        /// successivo. Dall'altra parte c'è **un chiamante solo** — il thread
+        /// dello scarico — che blocca finché non ha la sua risposta.
+        ///
+        /// Da questi due fatti segue una cosa che non è una statistica ma una
+        /// dimostrazione: **se `recv_timeout` scade, il comando di prima non è
+        /// ancora tornato.** E se non è tornato, il ciclo è fermo lì: tutto
+        /// quello che mandiamo dopo **resta nel canale e non parte**.
+        ///
+        /// Il diario del Puck 4 del 12 settembre 2026 è questo, misurato: la
+        /// scrittura n. 4855 non confermata, e poi le n. 4856, 4857, 4858, 4859
+        /// «fallite» una dopo l'altra a dieci secondi l'una. **Cinquanta secondi
+        /// spesi aspettando un compito che non poteva rispondere**, e quattro
+        /// comandi fermi in coda.
+        ///
+        /// E c'era scritto il contrario, dentro il ciclo dei comandi: *«se chi
+        /// aspettava non c'è più non è un errore: il comando è comunque
+        /// partito»*. Per quel caso non era vero.
+        ///
+        /// ► IL DANNO VERO NON È IL TEMPO, SONO I COMANDI IN CODA. ◄ Se la
+        /// scrittura incastrata si sbloccasse, partirebbero **tutte insieme** —
+        /// lo stesso comando, quattro volte, su un protocollo che non ha né
+        /// checksum né numeri di sequenza. *Un archivio con dentro un profilo
+        /// plausibile e falso è il guasto peggiore che questo programma possa
+        /// produrre.*
+        ///
+        /// ► E PERCHÉ UN CONTATORE E NON UNA BANDIERA. ◄ La prima stesura
+        /// chiudeva il canale per sempre alla prima scadenza, e una prova
+        /// scritta il 10 settembre è diventata rossa a dire che era troppo:
+        /// `una_conferma_che_non_arriva_non_cambia_modalita` descrive un'antenna
+        /// che tace e **poi torna**, e in quel mondo chiudere costa uno scarico
+        /// che sarebbe andato avanti. Soprattutto, toglierebbe a
+        /// libdivecomputer il diritto di ritentare — che è una decisione presa
+        /// apposta il 10 settembre, con il suo motivo scritto in
+        /// `GuastoScrittura`, e non si ribalta su una misura sola.
+        ///
+        /// Il contatore dice l'unica cosa che serve davvero — *il ciclo è
+        /// ancora indietro di qualcosa* — e si richiude da solo quando il
+        /// comando incastrato torna. Niente attesa buttata, niente coda, e il
+        /// ritentativo resta possibile appena la strada è libera.
+        mandati: AtomicUsize,
+        /// Il gemello di `mandati`, scritto dal ciclo. Vedi `Finiti`.
+        finiti: Finiti,
     }
+
+    /// Quanti comandi il ciclo ha finito di servire. Lo incrementa il compito
+    /// asincrono, lo legge il `Postino`. Sta fuori dalla struttura perché il
+    /// compito nasce **dopo** il postino e non può tenerne un riferimento senza
+    /// un ciclo fra `Arc`.
+    type Finiti = Arc<AtomicUsize>;
 
     /// Perché una scrittura non è andata. La distinzione conta per la
     /// negoziazione: solo un RIFIUTO del plugin dice qualcosa sulla modalità.
@@ -1373,8 +1426,39 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         }
     }
 
+    /// Cosa si racconta quando il canale è già fermo da prima.
+    ///
+    /// Sta fuori dai due metodi apposta: è la stessa frase per la scrittura e
+    /// per la lettura, perché è lo stesso fatto — *il compito che serve i
+    /// comandi non è mai tornato indietro dal precedente* — e due frasi diverse
+    /// per un fatto solo mandano chi legge il diario a cercare due cause.
+    const CANALE_FERMO: &str =
+        "la richiesta precedente non è ancora tornata dal Bluetooth: questa non partirebbe, resterebbe in coda dietro a quella";
+
     impl Postino {
+        /// Se il ciclo dei comandi deve ancora restituirne qualcuno.
+        ///
+        /// Si legge PRIMA di mandare: mandare lo stesso cadrebbe in coda dietro
+        /// a quello incastrato, e il computer li riceverebbe tutti insieme al
+        /// primo sblocco.
+        fn e_indietro(&self) -> bool {
+            self.mandati.load(Ordering::SeqCst) > self.finiti.load(Ordering::SeqCst)
+        }
+
         fn scrivi(&self, caratteristica: &str, dati: &[u8], modo: ModoScrittura) -> Result<(), Guasto> {
+            if self.e_indietro() {
+                /*
+                 * ► SCADUTA, NON CHIUSA, ED È LA PAROLA CHE DECIDE. ◄
+                 * `cb_write` guarda solo questa qualifica: «chiusa»
+                 * toglierebbe a `mares_iconhd_transfer` il diritto di
+                 * ritentare, cioè rifarebbe il guasto del 9 settembre. Qui
+                 * invece non è successo niente di definitivo — il ciclo è
+                 * soltanto ancora indietro — e appena il comando incastrato
+                 * torna la strada si riapre da sola.
+                 */
+                return Err(Guasto::Scaduta(CANALE_FERMO.into()));
+            }
+            self.mandati.fetch_add(1, Ordering::SeqCst);
             let (rispondi, risposta) = std::sync::mpsc::sync_channel(1);
             self.comandi
                 .blocking_send(Comando::Scrivi {
@@ -1397,6 +1481,10 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         }
 
         fn leggi(&self, caratteristica: &str) -> Result<Vec<u8>, String> {
+            if self.e_indietro() {
+                return Err(CANALE_FERMO.into());
+            }
+            self.mandati.fetch_add(1, Ordering::SeqCst);
             let (rispondi, risposta) = std::sync::mpsc::sync_channel(1);
             self.comandi
                 .blocking_send(Comando::Leggi { caratteristica: caratteristica.to_string(), conferma: rispondi })
@@ -1410,6 +1498,120 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                     Err("il collegamento Bluetooth si è chiuso durante una lettura".into())
                 }
             }
+        }
+    }
+
+    #[cfg(test)]
+    mod prove_del_postino {
+        use super::*;
+
+        /// Il ciclo dei comandi, in piccolo: serve UNO alla volta, conta quello
+        /// che ha finito e poi risponde — nell'ordine esatto del vero.
+        ///
+        /// `ritardo` è quanto ci mette a servire il primo: è la manopola che
+        /// riproduce una scrittura incastrata nel controllo di flusso del
+        /// Bluetooth, che è il guasto del 12 settembre.
+        fn ciclo_finto(
+            ritardo_del_primo: Duration,
+        ) -> (Arc<Postino>, std::thread::JoinHandle<()>) {
+            let (comandi, mut ricevi) = tauri::async_runtime::channel(32);
+            let finiti: Finiti = Arc::new(AtomicUsize::new(0));
+            let postino =
+                Arc::new(Postino { comandi, mandati: AtomicUsize::new(0), finiti: finiti.clone() });
+            let compito = std::thread::spawn(move || {
+                let mut primo = true;
+                while let Some(comando) = ricevi.blocking_recv() {
+                    if primo {
+                        std::thread::sleep(ritardo_del_primo);
+                        primo = false;
+                    }
+                    finiti.fetch_add(1, Ordering::SeqCst);
+                    match comando {
+                        Comando::Scrivi { conferma, .. } => {
+                            let _ = conferma.send(Ok(()));
+                        }
+                        Comando::Leggi { conferma, .. } => {
+                            let _ = conferma.send(Ok(vec![1]));
+                        }
+                    }
+                }
+            });
+            (postino, compito)
+        }
+
+        #[test]
+        fn mentre_un_comando_e_incastrato_i_successivi_non_si_mettono_in_coda() {
+            // Il primo comando resta appeso più della pazienza del postino.
+            let (postino, compito) = ciclo_finto(ATTESA_CONFERMA * 3);
+
+            let prima = std::time::Instant::now();
+            let esito = postino.scrivi("cc", &[1, 2], ModoScrittura::SenzaRisposta);
+            assert!(matches!(esito, Err(Guasto::Scaduta(_))), "la prima scade");
+            assert!(prima.elapsed() >= ATTESA_CONFERMA, "e ha aspettato tutta la sua pazienza");
+
+            /*
+             * ► QUESTA È LA RIGA CHE VALE CINQUANTA SECONDI SUL PUCK. ◄ La
+             * seconda non deve aspettare niente: il ciclo è fermo sulla prima,
+             * quindi questa non partirebbe comunque. E soprattutto non deve
+             * finire in coda, o al primo sblocco uscirebbero tutte insieme —
+             * lo stesso comando più volte, su un protocollo senza numeri di
+             * sequenza.
+             */
+            let poi = std::time::Instant::now();
+            let esito = postino.scrivi("cc", &[1, 2], ModoScrittura::SenzaRisposta);
+            assert!(
+                matches!(esito, Err(Guasto::Scaduta(_))),
+                "la seconda non parte, e resta ritentabile"
+            );
+            assert!(
+                poi.elapsed() < ATTESA_CONFERMA / 2,
+                "e torna subito invece di rimettersi in coda: {:?}",
+                poi.elapsed()
+            );
+            // ► SCADUTA E NON CHIUSA. ◄ È la qualifica che `cb_write` guarda per
+            // decidere se libdivecomputer può ritentare. Chiamarla «chiusa»
+            // rifarebbe il guasto del 9 settembre su un ramo nuovo.
+            assert!(
+                postino.scrivi("cc", &[9], ModoScrittura::SenzaRisposta).is_err(),
+                "e finché il ciclo è indietro resta così"
+            );
+
+            /*
+             * ► E QUANDO IL COMANDO INCASTRATO TORNA, LA STRADA SI RIAPRE DA
+             * SOLA. ◄ È il rovescio, ed è quello che una bandiera «inchiodato
+             * per sempre» sbagliava: l'antenna che tace e poi torna esiste — la
+             * descrive `una_conferma_che_non_arriva_non_cambia_modalita` dal 10
+             * settembre — e in quel mondo chiudere costa uno scarico che
+             * sarebbe andato avanti.
+             */
+            std::thread::sleep(ATTESA_CONFERMA * 3);
+            assert!(!postino.e_indietro(), "il ciclo ha finito il comando incastrato");
+            assert!(
+                postino.scrivi("cc", &[3], ModoScrittura::SenzaRisposta).is_ok(),
+                "e da qui si riprende"
+            );
+
+            drop(postino);
+            let _ = compito.join();
+        }
+
+        #[test]
+        fn un_ciclo_che_risponde_non_blocca_niente() {
+            /*
+             * ► IL ROVESCIO CHE TIENE ONESTA LA GUARDIA SOPRA. ◄ Senza questa,
+             * un `e_indietro()` che dicesse sempre «sì» passerebbe tutte le
+             * prove del caso rotto e spegnerebbe lo scarico su ogni apparecchio
+             * funzionante. *Una guardia che non si è mai vista verde non è una
+             * guardia: è un interruttore.*
+             */
+            let (postino, compito) = ciclo_finto(Duration::ZERO);
+            for _ in 0..5 {
+                assert!(postino.scrivi("cc", &[1], ModoScrittura::SenzaRisposta).is_ok());
+                assert!(!postino.e_indietro());
+            }
+            assert_eq!(postino.leggi("cc").unwrap(), vec![1]);
+            drop(postino);
+            let _ = compito.join();
         }
     }
 
@@ -1938,22 +2140,41 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
          * fuori tempo massimo.
          */
         let (comandi, mut in_arrivo) = tauri::async_runtime::channel::<Comando>(32);
-        let postino = Arc::new(Postino { comandi });
+        let finiti: Finiti = Arc::new(AtomicUsize::new(0));
+        let postino =
+            Arc::new(Postino { comandi, mandati: AtomicUsize::new(0), finiti: finiti.clone() });
         {
             let antenna = antenna.clone();
             let servizio = profilo.servizio.clone();
+            let finiti = finiti.clone();
             tauri::async_runtime::spawn(async move {
                 while let Some(comando) = in_arrivo.recv().await {
                     match comando {
                         Comando::Scrivi { caratteristica, dati, modo, conferma } => {
                             let esito = antenna.scrivi(servizio.clone(), caratteristica, dati, modo).await;
-                            // Se chi aspettava non c'è più (ha rinunciato per
-                            // scadenza) non è un errore: il comando è
-                            // comunque partito.
+                            // ► SI CONTA QUI, PRIMA DI RISPONDERE. ◄ Da questo
+                            // istante il ciclo è di nuovo libero, e chi ha
+                            // rinunciato per scadenza deve poterlo sapere anche
+                            // se la sua `conferma` non la riceve più nessuno.
+                            // Contare dopo l'invio lascerebbe una finestra in
+                            // cui il canale è libero e il postino lo crede
+                            // occupato. Vedi `Postino::mandati`.
+                            finiti.fetch_add(1, Ordering::SeqCst);
+                            // Se chi aspettava non c'è più, il comando è
+                            // comunque partito: siamo QUI, cioè dopo l'`await`.
+                            //
+                            // ► QUELLO CHE QUESTA RIGA NON COPRE. ◄ Fino alla
+                            // 1.8.17 diceva «ha rinunciato per scadenza», e per
+                            // quel caso era falsa: se il chiamante è scaduto,
+                            // l'`await` qui sopra non è tornato, quindi non
+                            // siamo mai arrivati a questa riga e il comando
+                            // DOPO non è nemmeno stato letto dal canale. Vedi
+                            // `Postino::mandati`.
                             let _ = conferma.send(esito);
                         }
                         Comando::Leggi { caratteristica, conferma } => {
                             let esito = antenna.leggi(caratteristica).await;
+                            finiti.fetch_add(1, Ordering::SeqCst);
                             let _ = conferma.send(esito);
                         }
                     }
@@ -2230,6 +2451,44 @@ il computer resta senza crediti e smetterà di mandare dati"
                         // coda le due cose sarebbero indistinguibili, ed è
                         // esattamente la domanda che il diario del 9 settembre
                         // 2026 ci ha lasciato senza risposta.
+                        /*
+                         * ════════════════════════════════════════════════════
+                         * ► E LA REGISTRAZIONE DEVE DIRLO, CON IL SEGNO GIUSTO.
+                         * ◄ Fino alla 1.8.17 una scrittura fallita usciva di qui
+                         * senza lasciare niente nel banco di prova: il diario
+                         * la raccontava, il file no. Chi riapre quel file fra
+                         * mesi per scrivere un driver vede l'ultima scrittura
+                         * riuscita e poi il vuoto, e **il vuoto ha già un
+                         * significato scritto accanto**: «il computer ha smesso
+                         * di rispondere». Sono due cause opposte — lui muto,
+                         * oppure noi che non siamo riusciti a parlare — e il
+                         * file le confondeva.
+                         *
+                         * È la stessa correzione delle letture a vuoto della
+                         * 1.8.17, applicata al lato che allora non era stato
+                         * guardato.
+                         *
+                         * ► IL SEGNO È `!` E NON `>`, E NON È UN DETTAGLIO. ◄
+                         * `>` vuol dire «questi byte sono usciti». Questi non
+                         * sono usciti. Registrarli come traffico farebbe
+                         * ricostruire a chi legge una conversazione che non è
+                         * mai avvenuta — cioè esattamente il danno che un banco
+                         * di prova esiste per non fare.
+                         */
+                        {
+                            let mut registro =
+                                scambio_scrittura.lock().map_err(|_| "registro dello scambio guasto")?;
+                            let da = registro.prima_scrittura;
+                            registro.incidi(
+                                da,
+                                '!',
+                                format!(
+                                    "n.{numero} NON partita [{}] {}: {motivo}",
+                                    tutti_i_byte(dati),
+                                    nome_modo(modo)
+                                ),
+                            );
+                        }
                         cronista_scrittura(format!(
                             "scrittura n. {numero} ({} byte [{}], {}) fallita: {motivo}{}",
                             dati.len(),
