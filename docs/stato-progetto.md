@@ -1,7 +1,7 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **11 settembre 2026, sera** — **2 073 prove in 116 file** più
-**120 prove Rust** del ponte, lint e formato a **0 errori**.
+Aggiornato: **12 settembre 2026, sera** — **2 078 prove in 117 file** più
+**124 prove Rust** del ponte, lint e formato a **0 errori**.
 
 **► I TRE NUMERI NON COINCIDONO PIÙ, E STAVOLTA È VOLUTO. ◄** Nel repository
 c'è la **`1.8.17`**; su GitHub e sul sito la versione pubblica è la **`1.8.11`**;
@@ -4707,26 +4707,41 @@ Ma la quarta riga è quella nuova, ed è la sola che possa chiudere la faccenda:
 
 ### Tocca al codice
 
-0. **► TORNARE INDIETRO DA UN'IMMERSIONE DEVE RIPORTARE DOVE SI ERA. ◄**
-   *Chiesto dal proprietario il 12 settembre, col Puck in mano.* Aprire una
-   scheda deve partire dall'inizio della pagina — e lo fa; **tornare indietro
-   deve invece rimettere l'elenco all'altezza da cui si era partiti**, e oggi
-   riparte da capo. Su un archivio da centinaia di righe, guardare tre
-   immersioni di fila vuol dire scorrere tre volte da zero.
+0. **~~► TORNARE INDIETRO DA UN'IMMERSIONE DEVE RIPORTARE DOVE SI ERA. ◄~~
+   Fatto la sera del 12 settembre**, e la trappola che era scritta qui sotto
+   c'era davvero.
 
-   Il contenitore che scorre è `.main` in `App.tsx`, e `openDive` è uno stato
-   lì: basterebbe salvare `scrollTop` quando passa da vuoto a pieno e
-   rimetterlo quando torna vuoto.
+   *«Quando apro un'immersione e poi torno indietro non mi metto in cima a
+   inizio pagina, ma all'altezza dove ero arrivato. Invece quando apro
+   un'immersione devo sempre ripartire da inizio pagina.»* Due desideri opposti
+   sullo stesso contenitore, ed è per questo che sono **due** correzioni e non
+   una: `.main` non si azzera da sé cambiando contenuto, quindi chi apriva la
+   riga centoquaranta si ritrovava anche a metà della scheda nuova, in un punto
+   che non vuol dire niente.
 
-   > **Ma c'è una trappola, e va scritta prima che qualcuno ci inciampi.**
-   > `Logbook` **viene smontato** quando si apre una scheda — lo decide la
-   > `key` dell'`ErrorBoundary`, che serve a tutt'altro — quindi al ritorno la
-   > finestra delle righe (`quante`, 50 per volta) **riparte da cinquanta**. Chi
-   > aveva premuto «mostra altre» tre volte e stava a riga 140 torna a un
-   > elenco alto un terzo, e l'altezza salvata **non esiste più**: rimetterla
-   > così com'è la fa finire in fondo, che sembra un difetto peggiore di
-   > quello che si voleva togliere. *Va tenuta anche la finestra, non solo
-   > l'altezza — o l'altezza va ricalcolata dopo che le righe sono tornate.*
+   **La trappola era reale, e non si vedeva dai tipi né da un archivio corto.**
+   `Logbook` viene smontato quando si apre una scheda — lo decide la `key`
+   dell'`ErrorBoundary`, che sta lì perché da una scheda rotta non si esca più —
+   e con lui muore la finestra delle righe. Salvare la sola altezza avrebbe
+   funzionato benissimo sull'archivio di chi scrive le prove e avrebbe
+   scaraventato in fondo alla lista **proprio l'archivio che aveva il
+   problema**. Quindi in `ui/memoriaDellElenco.ts` sta anche `quante`, e già che
+   c'era anche i filtri: *cercare «Puck», aprire la terza riga e tornare a un
+   elenco senza filtro è lo stesso difetto visto di lato.*
+
+   Una regola sola — **l'elenco torna com'era** — invece di tre eccezioni. E la
+   memoria sta **fuori da React**, perché è lo stato che deve sopravvivere a uno
+   smontaggio voluto; e **fuori da `localStorage`**, perché riaprire il
+   programma il giorno dopo a metà elenco con un filtro che non ricordi di aver
+   scritto non è continuità, è un'applicazione che non parte da dove dice.
+
+   Cinque prove nuove, e tutte e sei le mutazioni provate sono morte: niente
+   scrittura dell'altezza (3 rosse), niente memoria all'apertura, ripristino a
+   ogni disegno invece che una volta sola, finestra delle righe non ricordata,
+   `App` che non azzera aprendo, ripristino che non aspetta le righe. *La più
+   istruttiva è l'ultima: senza quella guardia l'altezza veniva scritta su una
+   pagina ancora alta zero — una riga che gira, non fallisce, e non fa quello
+   che dice.*
 
 6. **Provare libdivecomputer con un computer che non sia il Peregrine né
    l'Aladin** — e solo allora togliere il «mai provato su questo modello». Adesso

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { formatDuration, mixName } from '../../core/units';
 import { mixLabel, modeLabel } from '../../core/analysis/aggregate';
 import { nextDiveBriefing, type NextDiveNote } from '../../core/analysis/nextDive';
@@ -18,14 +18,41 @@ import { ScegliAttrezzo, vocePerNome } from '../components/ScegliAttrezzo';
 import { pesoDelGav, type EquipmentKind } from '../../core/analysis/gear';
 import { Vuoto } from '../components/Vuoto';
 import { useLingua } from '../lingua';
+import {
+  contenitoreCheScorre,
+  elencoRicordato,
+  ricordaElenco,
+  type OrdineElenco,
+} from '../memoriaDellElenco';
 
-type SortKey = 'date' | 'depth' | 'duration' | 'rmv';
+/*
+ * L'ordine dell'elenco lo dichiara `memoriaDellElenco`, che è il posto dove
+ * deve sopravvivere allo smontaggio: tenerne due copie vorrebbe dire che il
+ * giorno che si aggiunge una colonna una delle due resta indietro, e la
+ * disallineata è sempre quella che non si compila.
+ */
+type SortKey = OrdineElenco;
 
 export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
   const { dives, numeri } = useDiveLog();
   const { t } = useLingua();
-  const [query, setQuery] = useState('');
-  const [sort, setSort] = useState<SortKey>('date');
+  /*
+   * ► SI LEGGE UNA VOLTA SOLA, AL MONTAGGIO. ◄ Non come chiamata diretta nel
+   * corpo: il corpo gira a ogni render, e da metà sessione in poi
+   * restituirebbe quello che l'elenco ha appena scritto per sé. I valori
+   * iniziali degli stati qui sotto verrebbero ignorati — React li guarda solo
+   * la prima volta — ma l'effetto del ripristino no, e si rimetterebbe a
+   * riposizionare la pagina sotto le dita di chi sta scorrendo.
+   *
+   * Uno stato con inizializzatore pigro, e non un `useRef`: il valore serve
+   * anche a decidere cosa disegnare — i campi dei filtri partono da lì — e
+   * leggere un riferimento durante il disegno è proprio la cosa che React
+   * chiede di non fare. *Il congelamento è lo stesso; il modo di ottenerlo è
+   * quello che il linter sa leggere.*
+   */
+  const [ricordo] = useState(elencoRicordato);
+  const [query, setQuery] = useState(ricordo?.query ?? '');
+  const [sort, setSort] = useState<SortKey>(ricordo?.ordine ?? 'date');
   /*
    * La selezione multipla.
    *
@@ -37,8 +64,8 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
    * sempre, e con loro restano vuote le statistiche che ci si appoggiano.
    */
   const [selezione, setSelezione] = useState<Set<string>>(new Set());
-  const [site, setSite] = useState('');
-  const [minDepth, setMinDepth] = useState('');
+  const [site, setSite] = useState(ricordo?.luogo ?? '');
+  const [minDepth, setMinDepth] = useState(ricordo?.profonditaMinima ?? '');
   /*
    * «Scrivila a mano» premuto dalla schermata dell'archivio vuoto.
    *
@@ -72,7 +99,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
    * e la selezione non può mai comprendere righe che non hai davanti.
    */
   const PER_VOLTA = 50;
-  const [quante, setQuante] = useState(PER_VOLTA);
+  const [quante, setQuante] = useState(ricordo?.quante ?? PER_VOLTA);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -120,6 +147,59 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
 
   /** La finestra visibile: è questa, non `filtered`, che comanda la selezione. */
   const mostrate = useMemo(() => filtered.slice(0, quante), [filtered, quante]);
+
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► APRIRE UNA SCHEDA SI PORTA DIETRO DOV'ERA L'ELENCO. ◄
+   *
+   * Passa di qui ogni strada che apre un'immersione — il tocco sulla riga, il
+   * tasto Invio, e anche `NewDive` quando salva e ci porta sulla scheda nuova.
+   * Una strada sola e non tre: la quarta la scriverà qualcuno che non ha letto
+   * le altre, e se ne accorgerà solo chi ha l'archivio lungo.
+   *
+   * Vedi `memoriaDellElenco` per il perché la memoria stia fuori da React e
+   * per la trappola della finestra delle righe.
+   */
+  const apri = (id: string) => {
+    ricordaElenco({
+      query,
+      luogo: site,
+      profonditaMinima: minDepth,
+      ordine: sort,
+      quante,
+      scorrimento: contenitoreCheScorre()?.scrollTop ?? 0,
+    });
+    onOpen(id);
+  };
+
+  /*
+   * ► E TORNANDO, L'ELENCO SI RIMETTE DOV'ERA. ◄
+   *
+   * `useLayoutEffect` e non `useEffect`: questo riposiziona la pagina, e un
+   * effetto normale gira **dopo** che il browser ha disegnato. Si vedrebbe
+   * l'elenco comparire in cima e saltare giù un istante dopo, che è un difetto
+   * più brutto di quello che stiamo togliendo perché si nota.
+   *
+   * ► E SI ASPETTA CHE LE RIGHE CI SIANO. ◄ L'archivio arriva dall'esterno:
+   * al primo giro `mostrate` può essere vuoto, la pagina è alta zero e
+   * `scrollTop` assegnato lì vale zero — cioè non succede niente, in silenzio.
+   * Si riprova a ogni layout finché una riga c'è, e allora si fa una volta e
+   * basta: da quel momento la pagina è di chi la sta guardando.
+   *
+   * L'altezza non si controlla: se l'elenco nel frattempo si è accorciato — un
+   * archivio ripulito, un filtro che ora trova meno — il browser taglia da solo
+   * al massimo possibile. Una spallata in fondo all'elenco è il peggio che
+   * possa succedere, ed è dove saresti finito comunque.
+   */
+  const ripristinato = useRef(false);
+  useLayoutEffect(() => {
+    if (ripristinato.current || mostrate.length === 0) return;
+    ripristinato.current = true;
+    const quota = ricordo?.scorrimento ?? 0;
+    if (quota <= 0) return;
+    const nodo = contenitoreCheScorre();
+    if (nodo) nodo.scrollTop = quota;
+  }, [mostrate.length, ricordo]);
 
   /*
    * L'ARCHIVIO VUOTO AVEVA UNA PORTA SOLA, e non era quella di tutti.
@@ -171,7 +251,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
           nell'istante in cui è appena comparsa. Con la chiave il componente è
           riconosciuto come lo stesso e l'esito sopravvive al salto.
         */}
-        {scriviAMano && <NewDive key="nuova-immersione" onDone={onOpen} apriSubito />}
+        {scriviAMano && <NewDive key="nuova-immersione" onDone={apri} apriSubito />}
       </div>
     );
   }
@@ -180,7 +260,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
     <div className="page">
       <NextDive dives={dives} />
 
-      <NewDive key="nuova-immersione" onDone={onOpen} />
+      <NewDive key="nuova-immersione" onDone={apri} />
 
       <div className="page-title-row">
         <h1 className="page-title">{t('Logbook')}</h1>
@@ -357,7 +437,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
               </tr>
             )}
             {mostrate.map((d) => (
-              <tr key={d.id} className="clickable" onClick={() => onOpen(d.id)}>
+              <tr key={d.id} className="clickable" onClick={() => apri(d.id)}>
                 {/* `stopPropagation`: la riga apre l'immersione, la casella no. */}
                 <td className="cella-scelta" onClick={(e) => e.stopPropagation()}>
                   <input
@@ -402,7 +482,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                     className="cell-link"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onOpen(d.id);
+                      apri(d.id);
                     }}
                   >
                     {dateShort(d.startTime, d.utcOffsetMinutes)}

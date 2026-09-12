@@ -24,13 +24,23 @@
  * guscio.
  */
 
-import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  Component,
+  lazy,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { imm } from './format';
 import { Logbook } from './pages/Logbook';
 import { CLAIM, Mark } from './components/Mark';
 import { useDiveLog } from './state';
 import { CambiaLingua, useLingua } from './lingua';
 import { ProvvedituraNavigazione, type Vista } from './navigazione';
+import { contenitoreCheScorre } from './memoriaDellElenco';
 
 /*
  * `React.lazy` vuole un modulo con export predefinito; le pagine esportano un
@@ -194,6 +204,27 @@ export function App() {
   const { t } = useLingua();
   const [view, setView] = useState<View>('logbook');
   const [openDive, setOpenDive] = useState<string | null>(null);
+
+  /*
+   * ► UNA SCHEDA SI APRE SEMPRE DALL'INIZIO. ◄
+   *
+   * L'altra metà della richiesta del 12 settembre 2026: *tornando* all'elenco
+   * si riprende da dove si era — ci pensa `Logbook` leggendo
+   * `memoriaDellElenco` — ma *aprendo* una scheda si riparte dalla cima. Sono
+   * due desideri opposti sullo stesso contenitore, ed è per questo che vanno
+   * scritti tutti e due: `.main` non si azzera da sé cambiando contenuto, e chi
+   * apriva la riga centoquaranta si ritrovava a metà della scheda nuova, su un
+   * punto che non vuol dire niente.
+   *
+   * Sta qui e non in `DiveDetail` perché il nodo che scorre è di questa pagina.
+   * `useLayoutEffect` perché avviene prima che il browser disegni: fatto dopo,
+   * si vedrebbe la scheda comparire storta e raddrizzarsi.
+   */
+  useLayoutEffect(() => {
+    if (!openDive) return;
+    const nodo = contenitoreCheScorre();
+    if (nodo) nodo.scrollTop = 0;
+  }, [openDive]);
 
   // Al primo avvio con archivio vuoto, la vista utile è l'import.
   useEffect(() => {
