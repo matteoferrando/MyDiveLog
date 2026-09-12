@@ -4192,6 +4192,70 @@ mod prove {
     }
 
     #[test]
+    fn un_frammento_in_ritardo_ma_dentro_il_tetto_viene_preso_e_cronometrato() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► IL CASO CHE SPIEGA «IL MAC ARRIVA IN FONDO E IL TELEFONO NO». ◄
+         *
+         * Il 12 settembre 2026 lo stesso Puck 4, nello stesso pomeriggio, ha
+         * consegnato **81 immersioni al Mac e 20 al telefono**. La differenza
+         * plausibile non sta nel protocollo — la registrazione del Mac è
+         * pulita, 7472 comandi e 7472 risposte senza un solo ritentativo — ma
+         * nell'**MTU**.
+         *
+         * Sul Mac le notifiche arrivavano fino a **244 byte**, cioè un
+         * pacchetto Mares intero in una sola: il rimontaggio non entrava quasi
+         * mai in funzione, e infatti i pacchetti lasciati a metà sono stati due
+         * su settemila. Con l'MTU più piccolo che iOS negozia di solito, lo
+         * STESSO pacchetto arriva in due pezzi, e allora questa attesa si paga
+         * **su ogni lettura** invece che due volte in tutto lo scarico.
+         *
+         * Da qui il senso della prova: un frammento che tarda — più
+         * dell'`ULTIMO_ISTANTE`, meno dell'`ATTESA_FRAMMENTO` — **deve essere
+         * preso**, e la sua pausa deve finire nel numero che poi si legge nel
+         * diario. Prima della 1.8.17 le due attese erano la stessa costante:
+         * questa prova, allora, sarebbe stata impossibile da scrivere.
+         */
+        let (manda, ricevi) = channel();
+        let flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())))
+            .con_riassemblaggio(Riassemblaggio::PacchettoIntero);
+        let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+        collegamento.imposta_attesa(50);
+
+        // Il primo pezzo, «pieno». Il secondo parte in ritardo, da un altro
+        // thread: è l'unico modo di avere un frammento che arriva DOPO che
+        // qualcuno ha già cominciato ad aspettarlo.
+        manda.send(vec![0xaa; 8]).unwrap();
+        let tardivo = std::thread::spawn(move || {
+            std::thread::sleep(ATTESA_FRAMMENTO / 2);
+            manda.send(vec![0xbb; 4]).unwrap();
+            manda
+        });
+
+        let letto = collegamento.leggi(12).unwrap();
+        assert_eq!(letto.len(), 12, "il pacchetto va consegnato INTERO: {letto:?}");
+        assert_eq!(&letto[8..], &[0xbb; 4], "e la coda è quella arrivata in ritardo");
+
+        let m = collegamento.misure_lettura();
+        assert_eq!(m.frammenti_mancati, 0, "nessun pacchetto lasciato a metà: {m:?}");
+        assert_eq!(m.letture_corte, 0, "e nessuna lettura corta: {m:?}");
+        /*
+         * ► E LA PAUSA COLMATA DEVE ESSERCI. ◄ È il numero che dal 12 settembre
+         * dice quanto margine resta sotto il tetto, ed è l'unico dei due che
+         * possa condannare il tetto nuovo come il vecchio è stato condannato.
+         * Senza questa riga, un codice che non lo scrive mai passerebbe tutte
+         * le altre prove: quella del pacchetto a metà pretende zero, e quella
+         * del pacchetto intero pretende zero.
+         */
+        assert!(
+            m.pausa_massima_ms > 0,
+            "il frammento è arrivato dopo un'attesa vera, e non è stato cronometrato: {m:?}"
+        );
+
+        let _ = tardivo.join();
+    }
+
+    #[test]
     fn un_pacchetto_arrivato_intero_non_conta_nessuna_pausa() {
         /*
          * ► IL ROVESCIO, E SERVE QUANTO L'ALTRO. ◄ Se ogni lettura contasse una
