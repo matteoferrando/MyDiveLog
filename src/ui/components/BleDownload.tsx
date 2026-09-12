@@ -64,6 +64,7 @@ import { useLingua, useTraduciStabile } from '../lingua';
 import type { DownloadMarker } from '../../core/ble/types';
 import { dateShort, imm, plural } from '../format';
 import { versione } from '../../versione';
+import { applicaAvanzamento } from '../avanzamentoScarico';
 
 type Stato =
   | { fase: 'iniziale' }
@@ -679,25 +680,12 @@ export function BleDownload() {
         setStato((p) =>
           p.fase !== 'scarica'
             ? p
-            : e.kind === 'identified'
+            : // `identified` resta qui e non nella regola condivisa: tocca il
+              // NOME del computer, che l'altra strada riempie da sé all'inizio.
+              // Vedi `avanzamentoScarico.ts` per il resto.
+              e.kind === 'identified'
               ? { ...p, nome: e.model, passo: t('Conteggio delle immersioni…') }
-              : e.kind === 'counted'
-                ? { ...p, totale: e.total, passo: t('Lettura in corso…') }
-                : e.kind === 'record'
-                  ? {
-                      ...p,
-                      fatte: e.done,
-                      totale: e.total ?? p.totale,
-                      passo: t('Lettura in corso…'),
-                      byte: undefined,
-                    }
-                  : e.kind === 'progress'
-                    ? {
-                        ...p,
-                        passo: e.label,
-                        byte: e.total ? { fatti: e.done, totali: e.total } : p.byte,
-                      }
-                    : p,
+              : applicaAvanzamento(p, e, t),
         );
       };
 
@@ -1152,27 +1140,7 @@ export function BleDownload() {
         if (e.kind === 'record' && piuRecente === undefined && !e.record.key.startsWith('posizione-')) {
           piuRecente = e.record.key;
         }
-        setStato((p) =>
-          p.fase !== 'scarica'
-            ? p
-            : e.kind === 'counted'
-              ? { ...p, totale: e.total, passo: t('Lettura in corso…') }
-              : e.kind === 'record'
-                ? {
-                    ...p,
-                    fatte: e.done,
-                    totale: e.total ?? p.totale,
-                    passo: t('Lettura in corso…'),
-                    byte: undefined,
-                  }
-                : e.kind === 'progress'
-                  ? {
-                      ...p,
-                      passo: e.label,
-                      byte: e.total ? { fatti: e.done, totali: e.total } : p.byte,
-                    }
-                  : p,
-        );
+        setStato((p) => (p.fase !== 'scarica' ? p : applicaAvanzamento(p, e, t)));
       };
 
       let dives: Dive[] = [];

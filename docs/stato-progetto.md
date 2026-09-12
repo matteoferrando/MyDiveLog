@@ -1,7 +1,7 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **12 settembre 2026, sera** — **2 078 prove in 117 file** più
-**124 prove Rust** del ponte, lint e formato a **0 errori**.
+Aggiornato: **12 settembre 2026, sera** — **2 086 prove in 118 file** più
+**128 prove Rust** del ponte, lint e formato a **0 errori**.
 
 **► I TRE NUMERI NON COINCIDONO PIÙ, E STAVOLTA È VOLUTO. ◄** Nel repository
 c'è la **`1.8.17`**; su GitHub e sul sito la versione pubblica è la **`1.8.11`**;
@@ -4706,6 +4706,64 @@ Ma la quarta riga è quella nuova, ed è la sola che possa chiudere la faccenda:
 > al posto loro._
 
 ### Tocca al codice
+
+0. **~~► CON LIBDIVECOMPUTER NON SI CAPIVA COSA STESSE SUCCEDENDO. ◄~~ Fatto la
+   sera del 12 settembre.** *«Serve un messaggio che dica quante immersioni stai
+   scaricando, che faccia il progress a video come nella libreria nativa di
+   Shearwater. Altrimenti dice solo sto scrivendo byte dal computer.»*
+
+   Aveva ragione, e il numero che lo dimostra è di quella stessa giornata: lo
+   scarico del Puck 4 è durato **sette minuti e quarantaquattro secondi**, e in
+   tutto quel tempo a schermo c'era un conto di byte grezzi **senza un totale**,
+   cioè un numero che sale verso un traguardo che nessuno dichiara. *Non è una
+   barra: è la prova che il programma non è morto.*
+
+   Adesso il ponte si iscrive a **`DC_EVENT_PROGRESS`** — byte letti **su** byte
+   totali, quindi una barra vera — e conta le immersioni man mano che la
+   callback di libdivecomputer le consegna. A schermo: **«Mares Puck 4 —
+   lettura della memoria del computer, 27 immersioni»** con la barra che avanza.
+
+   Tre cose che sono decisioni, e non gusto:
+
+   - **i due numeri non si fondono in un «27 di 81».** Con questi protocolli il
+     totale delle immersioni **non si sa prima**: si scopre arrivando in fondo.
+     Le immersioni dicono *che sta succedendo qualcosa*, i byte dicono *quando
+     finisce*. Era già scritto nell'interfaccia, per il driver Uwatec: *una barra
+     che punta a un totale inventato promette una fine che non conosce*;
+   - **la callback scatta a ogni lettura**, cioè 7472 volte sul Puck. Lasciarle
+     attraversare tutte il ponte vorrebbe dire settemila messaggi serializzati e
+     settemila disegni sullo stesso processo che deve stare dietro al Bluetooth:
+     *un avanzamento che rallenta lo scarico che sta raccontando è un
+     peggioramento travestito da funzione.* Filtra `vale_la_pena_dirlo`, che è
+     pura e provata: un'immersione nuova si dice **sempre e subito**, una
+     percentuale nuova aspetta un quarto di secondo, il tempo da solo non è una
+     notizia;
+   - **il vecchio conto di byte non è stato tolto**, si spegne da solo alla prima
+     notizia vera. Non tutti i backend mandano quell'evento, e dove non arriva
+     resta l'unica prova che qualcosa si muove. Lasciarli parlare tutti e due
+     riempirebbe la stessa riga a turno, e il conto sparirebbe e tornerebbe due
+     volte al secondo: *due voci che raccontano la stessa cosa non informano il
+     doppio, si contraddicono.*
+
+   > **E per scriverlo è saltato fuori un difetto che non c'entrava.** La regola
+   > che traduce un evento nella riga a schermo stava dentro `BleDownload.tsx`
+   > **in due copie identiche**, una per libdivecomputer e una per i driver di
+   > casa. La modifica è andata fatta in tutte e due, e la seconda l'ha salvata
+   > una ricerca fatta apposta. *Due copie della stessa regola non sono
+   > ridondanza: sono una regola e la sua versione vecchia, e quale sia la
+   > vecchia lo si scopre da una segnalazione.* Adesso è una sola, in
+   > `ui/avanzamentoScarico.ts`, ed è pura — dentro il componente era
+   > raggiungibile solo montando duemila righe di interfaccia con Tauri sotto, e
+   > infatti non aveva **nessuna** prova.
+
+   Cinque mutazioni provate, cinque morte: niente iscrizione all'evento, conto
+   delle immersioni fermo, nessun respiro fra un evento e l'altro, conto assente
+   che azzera quello che c'era, evento estraneo che restituisce una copia. *La
+   prima è la più istruttiva: senza l'iscrizione lo scarico riesce lo stesso e
+   la barra resta ferma — il difetto tornerebbe intatto e nessun comando
+   fallirebbe.* La prende la prova del giro completo sul finto Aladin, che è
+   l'unico posto dove `dc_device_set_events` incontra la libreria vera senza un
+   computer subacqueo attaccato.
 
 0. **~~► TORNARE INDIETRO DA UN'IMMERSIONE DEVE RIPORTARE DOVE SI ERA. ◄~~
    Fatto la sera del 12 settembre**, e la trappola che era scritta qui sotto

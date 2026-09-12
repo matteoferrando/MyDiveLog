@@ -457,6 +457,39 @@ describe('il tipo di sosta nel ponte Rust', () => {
     expect(RUST).toContain(`const ${nome}: c_uint = ${valore};`);
   });
 
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► E LA COSTANTE DELL'AVANZAMENTO, CHE SBAGLIATA NON FA FALLIRE NIENTE. ◄
+   *
+   * `DC_EVENT_PROGRESS` è `(1 << 1)` in `device.h`, dentro una maschera di bit
+   * — `WAITING` 1, `PROGRESS` 2, `DEVINFO` 4, `CLOCK` 8, `VENDOR` 16 — e
+   * `dc_device_set_events` vuole l'OR di quelli che interessano.
+   *
+   * Scriverne uno sbagliato **non dà nessun errore**: ci si iscrive a un altro
+   * evento, la callback non viene mai chiamata (o viene chiamata con una
+   * struttura diversa), e l'unica conseguenza è una barra ferma — cioè
+   * esattamente il difetto che l'avanzamento è nato per togliere, tornato
+   * indietro senza che nulla si lamenti. È la stessa famiglia di `DECO_NDL`
+   * qui sopra, che valeva 1 invece di 0.
+   */
+  it('DC_EVENT_PROGRESS vale 2, cioè (1 << 1) di device.h', () => {
+    expect(RUST).toContain('const DC_EVENT_PROGRESS: c_uint = 1 << 1;');
+  });
+
+  /*
+   * ► E LA STRUTTURA CHE LA LIBRERIA PASSA A QUELLA CALLBACK. ◄
+   * `dc_event_progress_t` sono due `unsigned int` nell'ordine `current`,
+   * `maximum`. Invertirli darebbe una percentuale che parte dal fondo e scende,
+   * e nemmeno quello fallirebbe: sarebbe soltanto una barra che mente.
+   */
+  it('DcEventProgress ha current e maximum, in quest’ordine', () => {
+    const inizio = RUST.indexOf('struct DcEventProgress {');
+    expect(inizio).toBeGreaterThan(-1);
+    const corpo = RUST.slice(inizio, RUST.indexOf('}', inizio));
+    expect(corpo.indexOf('current')).toBeGreaterThan(-1);
+    expect(corpo.indexOf('maximum')).toBeGreaterThan(corpo.indexOf('current'));
+  });
+
   /**
    * Il pezzo di sorgente fra due segni, con la garanzia che i segni ci siano.
    *

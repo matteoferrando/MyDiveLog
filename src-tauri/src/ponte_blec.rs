@@ -79,8 +79,8 @@ mod dentro {
     use std::time::{Duration, Instant};
 
     use crate::trasporto_ldc::{
-        traduci, trova_descrittore, AccessoriBle, CollegamentoLdc, Contesto, FlussoBle,
-        GuastoScrittura, ImmersioneLdc, Riassemblaggio, Ripiego,
+        traduci, trova_descrittore, AccessoriBle, Avanzamento, CollegamentoLdc, Contesto,
+        FlussoBle, GuastoScrittura, ImmersioneLdc, Riassemblaggio, Ripiego,
     };
 
     // --------------------------------------------------- quel che il GATT dice
@@ -2998,6 +2998,24 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             #[serde(skip_serializing_if = "Option::is_none")]
             total: Option<usize>,
             label: String,
+            /*
+             * ► QUANTE IMMERSIONI SONO GIÀ USCITE, QUANDO SI SA. ◄
+             *
+             * È il numero che è stato chiesto — *«un messaggio che dica quante
+             * immersioni stai scaricando»* — e viaggia **accanto** ai byte, non
+             * al posto loro: i byte dicono quando finisce, le immersioni dicono
+             * che sta succedendo qualcosa. Vedi `Avanzamento` in
+             * `trasporto_ldc.rs` per il perché non si fondono in un «27 di 81».
+             *
+             * ► E QUI NON C'È NESSUNA FRASE. ◄ Solo il numero: la frase la
+             * compone l'interfaccia, che è l'unica a sapere in che lingua sta
+             * parlando. Una stringa con dentro una cifra spedita da qui
+             * scavalcherebbe il dizionario — la chiave è la frase intera, e con
+             * il numero dentro cambia a ogni scarico — e chi ha scelto
+             * l'inglese leggerebbe italiano.
+             */
+            #[serde(skip_serializing_if = "Option::is_none")]
+            dives: Option<usize>,
         },
         Trace {
             line: String,
@@ -3170,6 +3188,16 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
     /// quello che torna indietro è soltanto il modello, che è dati.
     fn scarica_bloccante(
         emetti: &dyn Fn(EventoScarico),
+        /*
+         * ► L'AVANZAMENTO ARRIVA GIÀ CONFEZIONATO DA FUORI, E NON È UN
+         * CAPRICCIO. ◄ Chi chiama possiede anche il thread di ripiego che dice
+         * «byte ricevuti»: solo lui può farlo tacere nell'istante in cui questo
+         * comincia a parlare. Passando di qui un `emetti` e basta, la
+         * spegnitura andrebbe scritta qui dentro su una cosa che qui dentro non
+         * si vede — cioè sarebbe scritta due volte, e una delle due
+         * invecchierebbe.
+         */
+        avanza: &dyn Fn(Avanzamento),
         ponte: PonteBle,
         marca: &str,
         prodotto: &str,
@@ -3221,6 +3249,7 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             done: 0,
             total: None,
             label: "lettura della memoria del computer".into(),
+            dives: None,
         });
 
         /*
@@ -3290,7 +3319,19 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
                 ),
             });
         }
-        let esito_scarico = collegamento.scarica_tutto(&descrittore, segnalibro);
+        /*
+         * ► L'AVANZAMENTO, MENTRE SUCCEDE. ◄ Fino alla 1.8.17 di qui non usciva
+         * niente per tutta la durata dello scarico: sul Puck 4 del 12 settembre
+         * 2026 sono stati **sette minuti e quarantaquattro secondi** con a
+         * schermo la stessa riga ferma. *Un'applicazione ferma che non dice
+         * niente è indistinguibile da una bloccata*, ed è la differenza fra
+         * aspettare e staccare il Bluetooth a metà.
+         *
+         * Il respiro fra un evento e l'altro lo decide `vale_la_pena_dirlo`, di
+         * là: qui non si filtra niente, o il filtro finirebbe scritto in due
+         * posti e uno dei due invecchierebbe.
+         */
+        let esito_scarico = collegamento.scarica_tutto(&descrittore, segnalibro, avanza);
         let guasto_dello_scarico = esito_scarico.guasto;
         let grezze = esito_scarico.immersioni;
         let coda_del_guasto = match &guasto_dello_scarico {
@@ -3655,9 +3696,29 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         let ricevuti = ponte.ricevuti.clone();
         let scollegamento_voluto = ponte.scollegamento_voluto.clone();
         let finito = Arc::new(AtomicBool::new(false));
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► E DAL MOMENTO IN CUI PARLA LA LIBRERIA, QUESTO THREAD TACE. ◄
+         *
+         * Dalla 1.8.18 `DC_EVENT_PROGRESS` dice byte letti **su byte totali** e,
+         * accanto, quante immersioni sono già uscite: è tutto quello che questo
+         * thread diceva e molto di più. Lasciarli parlare tutti e due
+         * riempirebbe la stessa riga a turno — «27 immersioni, 34%» e subito
+         * dopo «byte ricevuti dal computer» senza barra — e chi guarda vedrebbe
+         * il conto sparire e tornare un paio di volte al secondo. *Due voci che
+         * raccontano la stessa cosa non informano il doppio: si contraddicono.*
+         *
+         * Ma non si toglie, e il motivo è che non tutti i backend di
+         * libdivecomputer mandano quell'evento: dove non arriva, questo resta
+         * l'unica prova che qualcosa si muove. Quindi non «o l'uno o l'altro»
+         * deciso da noi a tavolino, ma **il ripiego che si spegne da solo** la
+         * prima volta che quello vero arriva.
+         */
+        let racconta_la_libreria = Arc::new(AtomicBool::new(false));
         {
             let finito = finito.clone();
             let manda = manda.clone();
+            let racconta_la_libreria = racconta_la_libreria.clone();
             /*
              * Non se ne aspetta la fine, e non è distrazione: aspettarla
              * significherebbe bloccare un thread del runtime per il mezzo
@@ -3673,12 +3734,13 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
                     let ora = ricevuti.load(Ordering::Relaxed);
                     // Solo quando cambia: una barra che si aggiorna senza
                     // muoversi è rumore, e nasconde il caso in cui si è fermata.
-                    if ora != ultimo {
+                    if ora != ultimo && !racconta_la_libreria.load(Ordering::Relaxed) {
                         ultimo = ora;
                         manda(EventoScarico::Progress {
                             done: ora,
                             total: None,
                             label: "byte ricevuti dal computer".into(),
+                            dives: None,
                         });
                     }
                 }
@@ -3698,7 +3760,31 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
             tauri::async_runtime::channel::<Result<EsitoEsterno, String>>(1);
         let manda_dal_thread = manda.clone();
         std::thread::spawn(move || {
-            let esito = scarica_bloccante(&manda_dal_thread, ponte, &marca, &prodotto, &segnalibro_byte);
+            /*
+             * Il confezionamento dell'avanzamento sta QUI, dove si vede anche
+             * la bandierina che zittisce il ripiego: la prima cosa che fa è
+             * spegnerlo, e la seconda è dire il numero che è stato chiesto.
+             */
+            let avanza = {
+                let manda = manda_dal_thread.clone();
+                move |a: Avanzamento| {
+                    racconta_la_libreria.store(true, Ordering::Relaxed);
+                    manda(EventoScarico::Progress {
+                        done: a.byte_letti as usize,
+                        total: if a.byte_totali == 0 { None } else { Some(a.byte_totali as usize) },
+                        label: "lettura della memoria del computer".into(),
+                        dives: Some(a.immersioni),
+                    });
+                }
+            };
+            let esito = scarica_bloccante(
+                &manda_dal_thread,
+                &avanza,
+                ponte,
+                &marca,
+                &prodotto,
+                &segnalibro_byte,
+            );
             let _ = esito_va.blocking_send(esito);
         });
 

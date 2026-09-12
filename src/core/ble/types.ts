@@ -284,7 +284,28 @@ export type DownloadEvent =
    * non dice niente è indistinguibile da una bloccata. È la differenza fra
    * aspettare e riavviare.
    */
-  | { kind: 'progress'; done: number; total?: number; label: string }
+  | {
+      kind: 'progress';
+      done: number;
+      total?: number;
+      label: string;
+      /**
+       * Quante immersioni sono già uscite, per i protocolli che lo sanno dire
+       * mentre leggono.
+       *
+       * ► VIAGGIA ACCANTO AI BYTE, NON AL POSTO LORO. ◄ I byte dicono **quando
+       * finisce**, le immersioni dicono **che sta succedendo qualcosa**: sono
+       * due domande diverse e a schermo stanno sulla stessa riga senza fondersi.
+       * Un «27 di 81» qui sarebbe inventato — con questi protocolli il totale si
+       * scopre arrivando in fondo — e una barra che punta a un totale inventato
+       * promette una fine che non conosce.
+       *
+       * Lo manda libdivecomputer dalla 1.8.18, contando le immersioni che la
+       * sua callback consegna una per una. I driver di casa non ne hanno
+       * bisogno: loro il totale lo sanno prima, e usano `counted` e `record`.
+       */
+      dives?: number;
+    }
   /**
    * Una riga di diario tecnico.
    *

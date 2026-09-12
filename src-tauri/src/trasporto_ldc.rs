@@ -1069,6 +1069,36 @@ struct DcIterator {
 ///
 /// Restituire 0 significa «basta così»: è il modo in cui si interrompe uno
 /// scarico a metà senza che sia un errore.
+/// `DC_EVENT_PROGRESS` di `dc_event_type_t`, in `device.h`.
+///
+/// I valori sono una maschera di bit — `WAITING`, `PROGRESS`, `DEVINFO`,
+/// `CLOCK`, `VENDOR` — e `dc_device_set_events` vuole l'OR di quelli che
+/// interessano. Qui ne interessa uno solo: gli altri o li sappiamo già dal
+/// nostro lato dello scambio (modello e seriale li legge il protocollo, e il
+/// diario li scrive) o non hanno niente da mostrare a chi guarda.
+///
+/// Come tutte le costanti copiate da un'intestazione C, è confrontata con
+/// l'intestazione vera da una prova: una trascrizione sbagliata di un enum non
+/// dà errore, dà un numero plausibile — qui iscriverebbe a un evento diverso e
+/// la barra resterebbe ferma senza che niente fallisca.
+const DC_EVENT_PROGRESS: c_uint = 1 << 1;
+
+/// `dc_event_progress_t`: quanto della memoria del computer è stato letto.
+///
+/// **`maximum` non è il numero di immersioni**, ed è la ragione per cui a
+/// schermo le due cose restano separate: è la dimensione della zona di memoria
+/// che il backend ha deciso di attraversare. Quante immersioni ci siano dentro
+/// si scopre leggendole, una alla volta — sui Mares del 12 settembre 2026 sono
+/// uscite ottantuno da 1,73 MB, e nessuno lo sapeva prima di arrivare in fondo.
+#[repr(C)]
+struct DcEventProgress {
+    current: c_uint,
+    maximum: c_uint,
+}
+
+/// `dc_event_callback_t` di `device.h`.
+type DcEventCallback = extern "C" fn(*mut DcDevice, c_uint, *const c_void, *mut c_void);
+
 type DcDiveCallback = extern "C" fn(
     dati: *const u8,
     dimensione: c_uint,
@@ -1146,6 +1176,12 @@ extern "C" {
     fn dc_device_foreach(
         device: *mut DcDevice,
         callback: DcDiveCallback,
+        userdata: *mut c_void,
+    ) -> c_int;
+    fn dc_device_set_events(
+        device: *mut DcDevice,
+        events: c_uint,
+        callback: DcEventCallback,
         userdata: *mut c_void,
     ) -> c_int;
     fn dc_device_close(device: *mut DcDevice) -> c_int;
@@ -2084,6 +2120,106 @@ pub struct ImmersioneGrezza {
     pub impronta: Vec<u8>,
 }
 
+/// Quello che si può dire a chi guarda mentre lo scarico va avanti.
+///
+/// ════════════════════════════════════════════════════════════════════════════
+/// ► DUE NUMERI, E NON SI FONDONO MAI IN UNO. ◄
+///
+/// `immersioni` è quante ne sono già uscite: è il numero che una persona
+/// capisce, e l'unico che le interessi davvero. `byte_letti` su `byte_totali` è
+/// quanto manca: è l'unico che sappia dire **quando finisce**.
+///
+/// Fondere i due — inventare un «27 di 81» — richiederebbe di sapere prima
+/// quante immersioni ci sono, e con questi protocolli non si sa: si scopre
+/// leggendo. *Una barra che avanza verso un totale inventato promette una fine
+/// che non conosce*, ed è già scritto nell'interfaccia perché la stessa
+/// tentazione era venuta a chi ha scritto il driver Uwatec.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct Avanzamento {
+    pub immersioni: usize,
+    pub byte_letti: u32,
+    pub byte_totali: u32,
+}
+
+/// Ogni quanto si può dire la stessa cosa a chi guarda.
+const RESPIRO_DELL_AVANZAMENTO: Duration =
+    if cfg!(test) { Duration::from_millis(1) } else { Duration::from_millis(250) };
+
+/// Se questo avanzamento merita di attraversare il confine verso l'interfaccia.
+///
+/// ► LA CALLBACK DI libdivecomputer SCATTA A OGNI LETTURA. ◄ Sul Puck 4 del 12
+/// settembre 2026 sarebbero **7472 eventi** in sette minuti e quarantaquattro
+/// secondi: ognuno un messaggio serializzato, spedito attraverso il ponte e
+/// trasformato in un disegno. Su un telefono quel lavoro se lo prende lo stesso
+/// processo che deve stare dietro al Bluetooth — *un avanzamento che rallenta lo
+/// scarico che sta raccontando è un peggioramento travestito da funzione*.
+///
+/// Due ragioni per parlare, e la prima non ha respiro:
+///
+/// - **è uscita un'immersione nuova.** È il numero che è stato chiesto, cambia
+///   di rado — ottantuno volte in un'intera memoria — e vederlo salire è
+///   l'unica cosa che dica «sta andando avanti davvero» invece di «il programma
+///   non è bloccato»;
+/// - **è cambiata la percentuale intera**, e sono passati almeno
+///   `RESPIRO_DELL_AVANZAMENTO`. Più spesso di così nessuno lo vede: la barra si
+///   muoverebbe di meno di un pixel.
+///
+/// Sta fuori come funzione pura perché è l'unica parte di tutto questo che si
+/// possa inchiodare senza un computer subacqueo attaccato.
+fn vale_la_pena_dirlo(prima: Option<Avanzamento>, adesso: Avanzamento, passato: Duration) -> bool {
+    let Some(prima) = prima else { return true };
+    if adesso.immersioni != prima.immersioni {
+        return true;
+    }
+    if passato < RESPIRO_DELL_AVANZAMENTO {
+        return false;
+    }
+    percentuale(prima) != percentuale(adesso)
+}
+
+/// La percentuale intera, o `None` quando il totale non si sa ancora.
+fn percentuale(a: Avanzamento) -> Option<u32> {
+    if a.byte_totali == 0 {
+        None
+    } else {
+        Some((u64::from(a.byte_letti) * 100 / u64::from(a.byte_totali)).min(100) as u32)
+    }
+}
+
+/// Quello che sta dietro il `void *userdata` delle DUE callback dello scarico.
+///
+/// ► UNA SOLA, PER TUTTE E DUE. ◄ Le immersioni arrivano da
+/// `dc_device_foreach`, i byte da `dc_device_set_events`, e a schermo devono
+/// comparire **nella stessa riga**: con due userdata separati il conto delle
+/// immersioni e la percentuale sarebbero due verità che si rincorrono, e la
+/// riga direbbe «27 immersioni» accanto a una barra ferma a prima della
+/// ventisettesima.
+///
+/// ► E NON SERVE NESSUN LUCCHETTO. ◄ libdivecomputer chiama tutte e due dal
+/// thread che ha invocato `dc_device_foreach`, cioè da questo: è codice C
+/// sincrono, non c'è nessun altro thread in giro. *Scritto qui perché la
+/// prossima persona che legge `*mut` e callback si chiederà se serve un
+/// `Mutex`, e la risposta è no per un motivo, non per fortuna.*
+struct Raccolta<'a> {
+    immersioni: Vec<ImmersioneGrezza>,
+    avvisa: &'a dyn Fn(Avanzamento),
+    corrente: Avanzamento,
+    detto: Option<Avanzamento>,
+    quando: std::time::Instant,
+}
+
+impl Raccolta<'_> {
+    /// Dice l'avanzamento se vale la pena, e si ricorda cosa ha detto.
+    fn racconta(&mut self) {
+        if !vale_la_pena_dirlo(self.detto, self.corrente, self.quando.elapsed()) {
+            return;
+        }
+        (self.avvisa)(self.corrente);
+        self.detto = Some(self.corrente);
+        self.quando = std::time::Instant::now();
+    }
+}
+
 extern "C" fn raccogli(
     dati: *const u8,
     dimensione: c_uint,
@@ -2091,9 +2227,9 @@ extern "C" fn raccogli(
     dimensione_impronta: c_uint,
     userdata: *mut c_void,
 ) -> c_int {
-    // SICUREZZA: `userdata` è il Vec che abbiamo passato a `dc_device_foreach`,
-    // vivo per tutta la durata della chiamata.
-    let raccolte = unsafe { &mut *(userdata as *mut Vec<ImmersioneGrezza>) };
+    // SICUREZZA: `userdata` è la `Raccolta` passata a `dc_device_foreach`, viva
+    // per tutta la durata della chiamata.
+    let raccolta = unsafe { &mut *(userdata as *mut Raccolta) };
     let copia = |p: *const u8, n: c_uint| -> Vec<u8> {
         if p.is_null() || n == 0 {
             Vec::new()
@@ -2101,11 +2237,35 @@ extern "C" fn raccogli(
             unsafe { std::slice::from_raw_parts(p, n as usize) }.to_vec()
         }
     };
-    raccolte.push(ImmersioneGrezza {
+    raccolta.immersioni.push(ImmersioneGrezza {
         dati: copia(dati, dimensione),
         impronta: copia(impronta, dimensione_impronta),
     });
+    raccolta.corrente.immersioni = raccolta.immersioni.len();
+    raccolta.racconta();
     1 // continua
+}
+
+/// I byte letti finora, da `DC_EVENT_PROGRESS`.
+extern "C" fn avanzamento_della_libreria(
+    _dispositivo: *mut DcDevice,
+    evento: c_uint,
+    dati: *const c_void,
+    userdata: *mut c_void,
+) {
+    // Iscritti a un evento solo, ma la firma è quella generica: un giorno
+    // qualcuno ne aggiungerà un altro e questa riga eviterà che i campi di
+    // `dc_event_devinfo_t` vengano letti come se fossero un progresso.
+    if evento != DC_EVENT_PROGRESS || dati.is_null() || userdata.is_null() {
+        return;
+    }
+    // SICUREZZA: iscrivendoci a `DC_EVENT_PROGRESS` la libreria passa un
+    // `dc_event_progress_t`, e `userdata` è la stessa `Raccolta` di `raccogli`.
+    let progresso = unsafe { &*(dati as *const DcEventProgress) };
+    let raccolta = unsafe { &mut *(userdata as *mut Raccolta) };
+    raccolta.corrente.byte_letti = progresso.current;
+    raccolta.corrente.byte_totali = progresso.maximum;
+    raccolta.racconta();
 }
 
 impl CollegamentoLdc {
@@ -2161,7 +2321,9 @@ impl CollegamentoLdc {
     /// Come `scarica_tutto`, ma butta via quello che è arrivato se poi si è
     /// rotto qualcosa. La usano le prove, dove non c'è niente da salvare.
     pub fn scarica(&self, descrittore: &Descrittore) -> Result<Vec<ImmersioneGrezza>, String> {
-        self.scarica_tutto(descrittore, &[]).in_risultato()
+        // Le prove che usano questa scorciatoia non hanno nessuno a cui
+        // raccontare l'avanzamento: quelle che lo guardano chiamano `scarica_tutto`.
+        self.scarica_tutto(descrittore, &[], &|_| {}).in_risultato()
     }
 
     /// Scarica, e restituisce **quello che è arrivato anche se poi si è rotto**.
@@ -2183,7 +2345,12 @@ impl CollegamentoLdc {
     ///
     /// Chi legge deve fare due cose distinte: prendersi le immersioni **e**
     /// raccontare il guasto. Non sono in alternativa, ed è tutto il punto.
-    pub fn scarica_tutto(&self, descrittore: &Descrittore, impronta: &[u8]) -> EsitoScarico {
+    pub fn scarica_tutto(
+        &self,
+        descrittore: &Descrittore,
+        impronta: &[u8],
+        avvisa: &dyn Fn(Avanzamento),
+    ) -> EsitoScarico {
         let mut dispositivo: *mut DcDevice = std::ptr::null_mut();
         let esito = unsafe {
             dc_device_open(&mut dispositivo, self.contesto.0, descrittore.0, self.flusso)
@@ -2247,14 +2414,36 @@ impl CollegamentoLdc {
             }
         }
 
-        let mut raccolte: Vec<ImmersioneGrezza> = Vec::new();
-        let esito = unsafe {
-            dc_device_foreach(
-                dispositivo,
-                raccogli,
-                &mut raccolte as *mut Vec<ImmersioneGrezza> as *mut c_void,
-            )
+        let mut raccolta = Raccolta {
+            immersioni: Vec::new(),
+            avvisa,
+            corrente: Avanzamento::default(),
+            detto: None,
+            quando: std::time::Instant::now(),
         };
+        let suo = &mut raccolta as *mut Raccolta as *mut c_void;
+        /*
+         * ► L'ISCRIZIONE ALL'AVANZAMENTO NON PUÒ FAR FALLIRE UNO SCARICO. ◄
+         * Se la libreria la rifiuta — non dovrebbe, ma è un `dc_status_t` come
+         * tutti gli altri — l'unica conseguenza è una barra che non si muove.
+         * Fermarsi qui vorrebbe dire buttare via uno scarico che avrebbe
+         * funzionato per non poter raccontare come stava andando: *il resoconto
+         * non vale mai più della cosa che racconta.* Va però detto nel diario,
+         * o la barra ferma diventerebbe un secondo mistero da spiegare.
+         */
+        let iscritto =
+            unsafe { dc_device_set_events(dispositivo, DC_EVENT_PROGRESS, avanzamento_della_libreria, suo) };
+        if iscritto != DC_STATUS_SUCCESS {
+            annota(
+                &self.guasto,
+                format!(
+                    "la libreria non ha accettato di raccontare l'avanzamento ({}): la barra resterà ferma",
+                    self.spiega(iscritto)
+                ),
+            );
+        }
+        let esito = unsafe { dc_device_foreach(dispositivo, raccogli, suo) };
+        let raccolte = raccolta.immersioni;
         // La causa si legge PRIMA di chiudere: per i backend il cui `close`
         // scrive sul flusso (l'OSTC manda EXIT, Shearwater chiude la
         // sessione), una chiusura su un collegamento già caduto annota un
@@ -3165,7 +3354,7 @@ mod prove {
         drop(mittente);
         let flusso = FlussoBle::nuovo(ricevente, Box::new(|_| Ok(())));
         let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
-        let esito = collegamento.scarica_tutto(&descrittore, &[]);
+        let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
         assert!(esito.guasto.is_some(), "un computer muto non è uno scarico riuscito");
         assert!(esito.immersioni.is_empty(), "{} immersioni dal nulla", esito.immersioni.len());
     }
@@ -3254,9 +3443,48 @@ mod prove {
         // 1. Il segnalibro giusto: lo scarico va, come senza.
         let finto = FintoAladin::nuovo(memoria_con(50, 400));
         let collegamento = CollegamentoLdc::apri(Box::new(finto)).unwrap();
-        let esito = collegamento.scarica_tutto(&descrittore, &piu_recente);
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► E QUI SI GUARDA ANCHE L'AVANZAMENTO, SULLA LIBRERIA VERA. ◄
+         *
+         * È il solo posto di tutto il progetto dove `dc_device_set_events` può
+         * essere provato senza un computer subacqueo attaccato: di là c'è
+         * libdivecomputer compilata, e se l'iscrizione all'evento fosse scritta
+         * male — la costante sbagliata, la firma della callback sbagliata, lo
+         * userdata condiviso male — **niente fallirebbe**. Lo scarico andrebbe
+         * benissimo e la barra resterebbe ferma, cioè il difetto tornerebbe
+         * esattamente com'era prima della 1.8.18 e nessuna prova se ne
+         * accorgerebbe.
+         */
+        let visti = std::sync::Mutex::new(Vec::<Avanzamento>::new());
+        let esito =
+            collegamento.scarica_tutto(&descrittore, &piu_recente, &|a| visti.lock().unwrap().push(a));
         assert!(esito.guasto.is_none(), "{:?}", esito.guasto);
         assert_eq!(esito.immersioni.len(), 50);
+
+        let visti = visti.into_inner().unwrap();
+        assert!(!visti.is_empty(), "durante uno scarico di cinquanta immersioni non si è detto niente");
+        // Le immersioni salgono e arrivano a cinquanta: è il numero chiesto il
+        // 12 settembre 2026, «quante immersioni stai scaricando».
+        assert_eq!(
+            visti.last().map(|a| a.immersioni),
+            Some(50),
+            "l'ultimo avanzamento deve aver visto tutte le immersioni: {visti:?}"
+        );
+        assert!(
+            visti.windows(2).all(|c| c[1].immersioni >= c[0].immersioni),
+            "il conto delle immersioni non può tornare indietro: {visti:?}"
+        );
+        // E i byte: se `DC_EVENT_PROGRESS` non arrivasse, resterebbero a zero e
+        // la barra non avrebbe verso dove andare.
+        assert!(
+            visti.iter().any(|a| a.byte_totali > 0),
+            "la libreria non ha mai detto quanta memoria c'è da leggere: {visti:?}"
+        );
+        assert!(
+            visti.iter().any(|a| a.byte_letti > 0),
+            "la libreria non ha mai detto quanta memoria ha letto: {visti:?}"
+        );
         // E il segnalibro buono NON lascia la nota: se la lasciasse sempre,
         // la riga non distinguerebbe più niente e il diario mentirebbe.
         let nota = collegamento.guasto.lock().unwrap().clone();
@@ -3276,7 +3504,7 @@ mod prove {
          */
         let finto = FintoAladin::nuovo(memoria_con(50, 400));
         let collegamento = CollegamentoLdc::apri(Box::new(finto)).unwrap();
-        let esito = collegamento.scarica_tutto(&descrittore, &[0x01, 0x02, 0x03]);
+        let esito = collegamento.scarica_tutto(&descrittore, &[0x01, 0x02, 0x03], &|_| {});
         assert!(esito.guasto.is_none(), "un segnalibro storto non è un guasto: {:?}", esito.guasto);
         assert_eq!(esito.immersioni.len(), 50, "e non deve costare nemmeno un'immersione");
         /*
@@ -3301,7 +3529,7 @@ mod prove {
         //    ferma niente. Costa inutilità, non dati.
         let finto = FintoAladin::nuovo(memoria_con(50, 400));
         let collegamento = CollegamentoLdc::apri(Box::new(finto)).unwrap();
-        let esito = collegamento.scarica_tutto(&descrittore, &[0xde, 0xad, 0xbe, 0xef]);
+        let esito = collegamento.scarica_tutto(&descrittore, &[0xde, 0xad, 0xbe, 0xef], &|_| {});
         assert_eq!(esito.immersioni.len(), 50);
     }
 
@@ -4189,6 +4417,102 @@ mod prove {
             riga.contains(&format!("ci si arrende a {} ms", ATTESA_FRAMMENTO.as_millis())),
             "{riga}"
         );
+    }
+
+    fn avanzamento(immersioni: usize, letti: u32, totali: u32) -> Avanzamento {
+        Avanzamento { immersioni, byte_letti: letti, byte_totali: totali }
+    }
+
+    #[test]
+    fn unimmersione_nuova_si_dice_sempre_e_subito() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► È IL NUMERO CHE È STATO CHIESTO, E NON HA RESPIRO. ◄
+         *
+         * Le immersioni escono di rado — ottantuno in sette minuti e
+         * quarantaquattro secondi, sul Puck 4 del 12 settembre 2026 — e vederle
+         * salire è l'unica cosa che distingua «sta andando avanti» da «il
+         * programma non è bloccato». Farle aspettare il respiro della barra
+         * vorrebbe dire mostrare «26 immersioni» per un quarto di secondo dopo
+         * che la ventisettesima è già in archivio: piccolo, e falso.
+         */
+        let prima = avanzamento(26, 500_000, 1_700_000);
+        assert!(
+            vale_la_pena_dirlo(Some(prima), avanzamento(27, 500_000, 1_700_000), Duration::ZERO),
+            "l'immersione nuova non aspetta nessun respiro"
+        );
+    }
+
+    #[test]
+    fn la_stessa_percentuale_non_si_ripete_e_quella_nuova_aspetta_il_respiro() {
+        /*
+         * ► SETTEMILAQUATTROCENTOSETTANTADUE EVENTI, SE NESSUNO LI FILTRA. ◄
+         * La callback di libdivecomputer scatta a ogni lettura: sul Puck 4
+         * sarebbero stati 7472 messaggi serializzati e spediti attraverso il
+         * ponte, sullo stesso processo che deve stare dietro al Bluetooth.
+         * *Un avanzamento che rallenta lo scarico che sta raccontando è un
+         * peggioramento travestito da funzione.*
+         */
+        let prima = avanzamento(10, 500_000, 1_700_000);
+        assert!(
+            !vale_la_pena_dirlo(Some(prima), avanzamento(10, 500_100, 1_700_000), Duration::ZERO),
+            "stessa percentuale e nessun respiro: non c'è niente da dire"
+        );
+        assert!(
+            !vale_la_pena_dirlo(
+                Some(prima),
+                avanzamento(10, 1_000_000, 1_700_000),
+                Duration::ZERO
+            ),
+            "la percentuale è cambiata ma il respiro no: si aspetta"
+        );
+        assert!(
+            vale_la_pena_dirlo(
+                Some(prima),
+                avanzamento(10, 1_000_000, 1_700_000),
+                RESPIRO_DELL_AVANZAMENTO
+            ),
+            "respiro passato e percentuale cambiata: si dice"
+        );
+        /*
+         * ► E IL ROVESCIO, CHE È QUELLO CHE TIENE ONESTA LA REGOLA. ◄ Passato
+         * il respiro ma con la barra ferma allo stesso punto intero, non si
+         * dice niente: una barra che si aggiorna senza muoversi è rumore, e
+         * nasconde proprio il caso in cui si è fermata davvero.
+         */
+        assert!(
+            !vale_la_pena_dirlo(
+                Some(prima),
+                avanzamento(10, 500_100, 1_700_000),
+                RESPIRO_DELL_AVANZAMENTO * 100
+            ),
+            "il tempo da solo non è una notizia"
+        );
+    }
+
+    #[test]
+    fn il_primo_avanzamento_si_dice_comunque() {
+        // Senza, la barra comparirebbe solo al secondo evento utile: su un
+        // computer lento è mezzo minuto di schermata muta.
+        assert!(vale_la_pena_dirlo(None, Avanzamento::default(), Duration::ZERO));
+    }
+
+    #[test]
+    fn la_percentuale_non_divide_per_zero_e_non_supera_cento() {
+        /*
+         * ► IL TOTALE PUÒ ESSERE ZERO, E NON È UN CASO LIMITE INVENTATO. ◄
+         * Prima che `DC_EVENT_PROGRESS` arrivi la prima volta i due campi
+         * valgono zero, e `Avanzamento::default()` è esattamente quello stato.
+         * Una divisione lì dentro farebbe cadere il thread dello scarico —
+         * cioè perdere le immersioni già arrivate — per colpa del pezzo di
+         * codice che doveva solo raccontarlo.
+         */
+        assert_eq!(percentuale(Avanzamento::default()), None);
+        assert_eq!(percentuale(avanzamento(0, 12_345, 0)), None);
+        assert_eq!(percentuale(avanzamento(0, 850_000, 1_700_000)), Some(50));
+        // Alcuni backend stimano il massimo e poi lo superano: la barra si
+        // ferma piena invece di uscire dal riquadro.
+        assert_eq!(percentuale(avanzamento(0, 2_000_000, 1_700_000)), Some(100));
     }
 
     #[test]
