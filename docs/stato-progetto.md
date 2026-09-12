@@ -4707,6 +4707,27 @@ Ma la quarta riga è quella nuova, ed è la sola che possa chiudere la faccenda:
 
 ### Tocca al codice
 
+0. **► TORNARE INDIETRO DA UN'IMMERSIONE DEVE RIPORTARE DOVE SI ERA. ◄**
+   *Chiesto dal proprietario il 12 settembre, col Puck in mano.* Aprire una
+   scheda deve partire dall'inizio della pagina — e lo fa; **tornare indietro
+   deve invece rimettere l'elenco all'altezza da cui si era partiti**, e oggi
+   riparte da capo. Su un archivio da centinaia di righe, guardare tre
+   immersioni di fila vuol dire scorrere tre volte da zero.
+
+   Il contenitore che scorre è `.main` in `App.tsx`, e `openDive` è uno stato
+   lì: basterebbe salvare `scrollTop` quando passa da vuoto a pieno e
+   rimetterlo quando torna vuoto.
+
+   > **Ma c'è una trappola, e va scritta prima che qualcuno ci inciampi.**
+   > `Logbook` **viene smontato** quando si apre una scheda — lo decide la
+   > `key` dell'`ErrorBoundary`, che serve a tutt'altro — quindi al ritorno la
+   > finestra delle righe (`quante`, 50 per volta) **riparte da cinquanta**. Chi
+   > aveva premuto «mostra altre» tre volte e stava a riga 140 torna a un
+   > elenco alto un terzo, e l'altezza salvata **non esiste più**: rimetterla
+   > così com'è la fa finire in fondo, che sembra un difetto peggiore di
+   > quello che si voleva togliere. *Va tenuta anche la finestra, non solo
+   > l'altezza — o l'altezza va ricalcolata dopo che le righe sono tornate.*
+
 6. **Provare libdivecomputer con un computer che non sia il Peregrine né
    l'Aladin** — e solo allora togliere il «mai provato su questo modello». Adesso
    vale anche per Android, dove la libreria è dentro. _Dal 7 settembre il
