@@ -307,8 +307,39 @@ describe('nessun campo si perde nella fusione', () => {
       ...(deco ? { ndlS: 600, ttsS: 60, ceiling: 0, cns: 3 } : {}),
     }));
 
-  /** Una scheda con OGNI chiave di `Dive` valorizzata. */
-  const piena: Dive = {
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► «OGNI CHIAVE DI `Dive`» ERA UNA PROMESSA CHE QUESTO FILE NON MANTENEVA. ◄
+   *
+   * Qui sotto c'era scritto `const piena: Dive`, e la prova in fondo scorreva
+   * `Object.keys(piena)`: le chiavi di un oggetto scritto A MANO, non quelle
+   * del modello. Un campo nuovo aggiunto a `Dive` — opzionale, come sono tutti
+   * quelli che una persona scrive — non compariva qui, quindi non veniva
+   * cercato, quindi la fusione poteva perderlo **in silenzio e a prova verde**.
+   *
+   * Ed è successo: il 13 settembre 2026, aggiungendo `rmvLpmManual`, questa
+   * prova è restata verde mentre `mergeDive` lo buttava via. Il commento
+   * accanto all'elenco dei campi in `dedupe.ts` prometteva il contrario —
+   * *«così il prossimo campo nuovo non ricasca qui»* — e una riga che afferma
+   * una cosa che non succede è peggio di nessuna riga.
+   *
+   * `Required<Dive>` è la differenza: è superficiale, cioè pretende che ogni
+   * chiave di PRIMO livello ci sia, e il compilatore diventa rosso il giorno
+   * che al modello se ne aggiunge una. Le poche che non si possono riempire
+   * sono tolte QUI, una per una e con il motivo accanto: un'esclusione
+   * dichiarata si discute, una dimenticata no.
+   */
+  type SchedaPiena = Required<
+    Omit<
+      Dive,
+      // Derivate: `computeMetrics` le rifà da capo, e infatti la prova in fondo
+      // controlla a parte che dopo la fusione ci siano.
+      'metrics' | 'tissues'
+    >
+  >;
+
+  /** Una scheda con OGNI chiave di `Dive` valorizzata. Davvero, stavolta. */
+  const piena: SchedaPiena = {
     id: 'x',
     updatedAt: '2026-08-20T10:00:00.000Z',
     number: 137,
@@ -377,7 +408,9 @@ describe('nessun campo si perde nella fusione', () => {
     tags: ['relitto'],
     samples: profilo(200, 10, true),
     altSamples: profilo(500, 4),
-    metrics: undefined,
+    // Il consumo di superficie calcolato a mano: lo scrive una persona, quindi
+    // nessuna fonte automatica lo riporta e perderlo qui vuol dire perderlo.
+    rmvLpmManual: 13.4,
   };
 
   /** Il minimo indispensabile: solo i campi obbligatori del modello. */

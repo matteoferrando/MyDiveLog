@@ -720,7 +720,15 @@ function consumo(dive: Dive): string {
   const m = dive.metrics;
   if (m?.rmvLpm !== undefined) {
     const sac = m.sacBarPerMin !== undefined ? ` · ${m.sacBarPerMin.toFixed(1)} bar/min` : '';
-    return escapeHtml(`${m.rmvLpm.toFixed(1)} L/min${sac}`);
+    /*
+     * ► SUL FOGLIO, UN NUMERO DICHIARATO SI DICHIARA. ◄ Questo è il libretto
+     * dell'art. 12 comma 8: un documento che qualcun altro legge e a cui dà
+     * peso. Un consumo scritto a mano e uno letto dalla bombola sono due cose
+     * diverse, e chi legge il foglio non ha modo di distinguerle se non gliele
+     * distingue il foglio.
+     */
+    const da = m.rmvLpmDichiarato ? ' (indicato dal subacqueo)' : '';
+    return escapeHtml(`${m.rmvLpm.toFixed(1)} L/min${da}${sac}`);
   }
   const sac = m?.sacBarPerMin ?? sacDaBombole(dive);
   if (sac !== undefined) {

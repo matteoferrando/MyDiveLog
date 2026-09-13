@@ -354,6 +354,25 @@ export function ModificaImmersione({
   const { t } = useLingua();
   const { dives } = useDiveLog();
   const [draft, setDraft] = useState<Dive>(() => conChiaviDelleBombole(dive));
+
+  /*
+   * Se il consumo l'app lo sa già calcolare da sé.
+   *
+   * ► LE STESSE CONDIZIONI DI `analyseGas`, E NON UNA SOMIGLIANZA. ◄ Servono un
+   * volume e una differenza di pressione POSITIVA: una bombola che finisce con
+   * più bar di quanti ne aveva all'inizio è un errore di trascrizione, e lì il
+   * conto non si fa. Se questa riga dicesse «sì» dove quella dice «no», la nota
+   * sotto il campo prometterebbe un calcolo che non arriva mai — e chi legge
+   * lascerebbe la casella vuota aspettandolo.
+   */
+  const calcolabile = draft.cylinders.some(
+    (c) =>
+      c.sizeL !== undefined &&
+      c.sizeL > 0 &&
+      c.startBar !== undefined &&
+      c.endBar !== undefined &&
+      c.startBar - c.endBar > 0,
+  );
   const [saved, setSaved] = useState(false);
   /*
    * L'inventario si aggiorna in locale mentre si compila.
@@ -648,6 +667,44 @@ export function ModificaImmersione({
       >
         ＋ {t('Aggiungi una bombola')}
       </button>
+
+      {/*
+        ════════════════════════════════════════════════════════════════════════
+        ► IL CONSUMO DI SUPERFICIE SCRITTO A MANO. ◄
+
+        Sta qui sotto le bombole e non fra le metriche perché è un DATO
+        dell'immersione, non un risultato: `computeMetrics` rifà le metriche da
+        capo a ogni modifica, e un numero scritto a mano messo lì sparirebbe al
+        primo ricalcolo senza dire niente.
+
+        Serve perché quasi nessun computer ha l'integrazione d'aria: senza
+        pressioni il conto non si può fare, e quella casella resta vuota per
+        sempre anche a chi il manometro l'ha guardato.
+
+        La nota sotto dice ESATTAMENTE cosa succede al numero, e cambia a
+        seconda che le pressioni ci siano o no: un campo che in un caso conta e
+        nell'altro viene ignorato, senza dirlo, è peggio di un campo assente.
+      */}
+      <label className="stack" style={{ gap: 4, fontSize: 12, marginBottom: 14 }}>
+        <span className="muted">{t('Consumo di superficie (L/min), se lo calcoli tu')}</span>
+        <input
+          type="text"
+          inputMode="decimal"
+          step="0.1"
+          style={{ maxWidth: 160 }}
+          value={draft.rmvLpmManual ?? ''}
+          onChange={(e) => tocca({ rmvLpmManual: numero(e.target.value) })}
+        />
+        <span className="muted" style={{ fontSize: 11 }}>
+          {calcolabile
+            ? t(
+                'Le bombole hanno volume e pressioni: il consumo lo calcola l’app, e questo valore resta scritto qui accanto senza sostituirlo.',
+              )
+            : t(
+                'Senza volume e pressioni delle bombole il consumo non è calcolabile: questo valore prende il suo posto nella scheda, nelle statistiche e nel libretto, dichiarato come scritto da te.',
+              )}
+        </span>
+      </label>
 
       {/* ------------------------------------------------------ attrezzatura */}
       <div className="finding-section-label">{t('Attrezzatura')}</div>

@@ -202,6 +202,34 @@ export function computeMetrics(dive: Dive): DiveMetrics {
   const badGasSwitches = analyseGasSwitches(dive, samples, salinity);
   const deco = analyseDeco(samples);
   const gas = analyseGas(dive, samples, avgBar, caveats);
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► IL CONSUMO SCRITTO A MANO RIEMPIE IL BUCO, NON SCALZA LA MISURA. ◄
+   *
+   * Quasi nessun computer subacqueo ha l'integrazione d'aria: senza pressioni
+   * `gas.rmvLpm` resta `undefined`, e quella casella dell'archivio è vuota per
+   * sempre. Chi il numero ce l'ha — se lo è calcolato guardando il manometro —
+   * deve poterlo scrivere, e da lì in poi vale per l'archivio, le statistiche,
+   * il confronto e il libretto senza che nessuno di quelli debba saperne
+   * niente.
+   *
+   * ► MA SOLO DOVE IL CALCOLO NON ARRIVA. ◄ Quando le pressioni ci sono, vince
+   * la misura: è la stessa regola della miscela analizzata, dove il valore
+   * dichiarato sull'etichetta non sovrascrive mai quello letto
+   * dall'analizzatore. Un'applicazione che preferisse il numero scritto a mano
+   * a quello misurato insegnerebbe a non fidarsi del misurato.
+   *
+   * E `rmvLpmDichiarato` viaggia accanto, perché da qui in giù i due numeri
+   * hanno la stessa faccia e finiscono nella stessa media.
+   */
+  const manuale = dive.rmvLpmManual;
+  const dichiarato = gas.rmvLpm === undefined && manuale !== undefined && manuale > 0;
+  if (dichiarato) {
+    caveats.push(
+      'Il consumo di superficie mostrato l’hai scritto tu: non viene dalle pressioni della bombola.',
+    );
+  }
+
   const oxygen = analyseOxygen(dive, samples, maxDepth, salinity);
   // Sul profilo più fitto disponibile: un tratto di cinque secondi su un passo di
   // dieci non esiste proprio, e questa è la metrica che vive lì.
@@ -224,7 +252,8 @@ export function computeMetrics(dive: Dive): DiveMetrics {
     avgDepth,
     avgAta,
     phases,
-    rmvLpm: gas.rmvLpm,
+    rmvLpm: dichiarato ? manuale : gas.rmvLpm,
+    rmvLpmDichiarato: dichiarato ? true : undefined,
     sacBarPerMin: gas.sacBarPerMin,
     endPressureBar: gas.endPressureBar,
     reserveFraction: gas.reserveFraction,

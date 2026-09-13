@@ -308,7 +308,21 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
         <StatTile
           label={t('Consumo di superficie')}
           value={m?.rmvLpm !== undefined ? `${m.rmvLpm.toFixed(1)}` : '—'}
-          note={m?.rmvLpm !== undefined ? 'L/min' : t('servono volume e pressione della bombola')}
+          /*
+           * ► LA NOTA DICE DA DOVE VIENE IL NUMERO. ◄ Un valore scritto a mano
+           * e uno letto dalla bombola hanno la stessa faccia in questa
+           * casella, e questa è l'unica riga che li distingue davanti a chi
+           * guarda. Senza, l'applicazione mostrerebbe come misurato un numero
+           * che ha ricevuto — che è il modo di far perdere fiducia anche in
+           * quelli misurati davvero.
+           */
+          note={
+            m?.rmvLpm === undefined
+              ? t('servono volume e pressione della bombola')
+              : m.rmvLpmDichiarato
+                ? t('L/min — scritto da te')
+                : 'L/min'
+          }
         />
         <StatTile
           label={t('Oscillazione a quota tenuta')}

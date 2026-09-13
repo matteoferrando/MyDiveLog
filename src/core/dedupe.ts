@@ -857,6 +857,17 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
       'center',
       'plannedMaxDepth',
       'firmaGuida',
+      /*
+       * Il consumo di superficie scritto a mano, per la stessa ragione delle
+       * tre voci qui sopra: lo calcola una persona guardando il manometro, e
+       * nessun computer e nessun formato lo porta. Fondere due schede senza
+       * questa riga lo faceva sparire mentre la scheda diceva «arricchita».
+       *
+       * L'ha trovato la prova di completezza in `tests/dedupe.test.ts` il
+       * giorno che ha smesso di scorrere le chiavi di un oggetto scritto a mano
+       * e ha cominciato a pretenderle dal modello.
+       */
+      'rmvLpmManual',
     ] as const
   ).forEach(takeIfEmpty);
 

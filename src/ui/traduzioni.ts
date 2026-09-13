@@ -1335,6 +1335,17 @@ export const INGLESE: Record<string, string> = {
   Zavorra: 'Weight',
   'Zavorra (kg)': 'Weight (kg)',
 
+  // --- il consumo di superficie scritto a mano (13 settembre 2026) ---
+  // «Surface consumption», non «SAC»: la sigla non compare in nessuna lingua,
+  // e in inglese il termine per il valore riportato alla superficie è quello.
+  'Consumo di superficie (L/min), se lo calcoli tu':
+    'Surface consumption (L/min), if you work it out yourself',
+  'Le bombole hanno volume e pressioni: il consumo lo calcola l’app, e questo valore resta scritto qui accanto senza sostituirlo.':
+    'The cylinders have volume and pressures, so the app works the consumption out: this value stays here alongside it, without replacing it.',
+  'Senza volume e pressioni delle bombole il consumo non è calcolabile: questo valore prende il suo posto nella scheda, nelle statistiche e nel libretto, dichiarato come scritto da te.':
+    'Without cylinder volume and pressures the consumption cannot be worked out: this value takes its place on the dive, in the statistics and in the logbook sheet, marked as entered by you.',
+  'L/min — scritto da te': 'L/min — entered by you',
+
   // --- impostazioni: accesso, sincronizzazione, cestino, backup ---
   'Accedi con Google': 'Sign in with Google',
   'Accedi con Apple o con Google, oppure configura indirizzo e token del database.':

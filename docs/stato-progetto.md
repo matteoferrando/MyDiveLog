@@ -1,7 +1,7 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **12 settembre 2026, sera** — **2 086 prove in 118 file** più
-**128 prove Rust** del ponte, lint e formato a **0 errori**.
+Aggiornato: **13 settembre 2026, notte** — **2 097 prove in 119 file** più
+**130 prove Rust** del ponte, lint e formato a **0 errori**.
 
 **► I TRE NUMERI NON COINCIDONO PIÙ, E STAVOLTA È VOLUTO. ◄** Nel repository
 c'è la **`1.8.17`**; su GitHub e sul sito la versione pubblica è la **`1.8.11`**;
@@ -4706,6 +4706,106 @@ Ma la quarta riga è quella nuova, ed è la sola che possa chiudere la faccenda:
 > al posto loro._
 
 ### Tocca al codice
+
+0. **~~► IL CAMBIO GAS ERA SCRITTO NEL LOG E LO BUTTAVAMO VIA. ◄~~ Fatto la
+   notte del 13 settembre.** *«Nel log dei computer è segnato il cambio di gas,
+   dobbiamo integrarlo: faccio X minuti con un gas, poi cambio bombola con un
+   altro gas e setto il computer su quel gas.»*
+
+   Nel ramo `_ => {}` di `campione`, in `trasporto_ldc.rs`, c'era scritto:
+   *«Eventi, battito, rilevamento, dati del costruttore, **cambio gas**: non
+   servono al modello canonico e si scartano di proposito»*. Il modello canonico
+   però il posto ce l'ha — `Sample.gasIndex` esiste dal primo giorno, e lo
+   riempiono i driver di casa e i lettori di file — e **tutto quello che sta a
+   valle lo legge**: la saturazione dei tessuti, la CNS, l'OTU, e il controllo
+   che un cambio non sia stato fatto sotto la MOD del gas su cui si passa.
+
+   *Senza, un'immersione con cambio gas veniva calcolata tutta sulla miscela di
+   fondo, risalita e soste comprese. Nessun errore: una saturazione plausibile e
+   sbagliata, che in un logbook è il guasto peggiore.*
+
+   Tre cose che il lavoro ha richiesto e che non si vedevano dalla richiesta:
+
+   - **la miscela si dice solo quando cambia.** `DC_SAMPLE_GASMIX` arriva
+     nell'istante del cambio e il campione dopo non lo ripete. Chi non la porta
+     avanti si ritrova il gas su un campione ogni duemila — e `tissues.ts` legge
+     `s.gasIndex ?? 0` su **ogni** campione, quindi tutta la risalita tornerebbe
+     alla miscela di fondo. *Cioè il difetto di prima, con in più l'aria di
+     essere stato corretto;*
+   - **l'indice della miscela non è l'indice della bombola.** libdivecomputer
+     tiene due liste separate e `dc_tank_t` porta un campo `gasmix` proprio
+     perché non coincidono; il nostro `Sample.gasIndex` indicizza le bombole,
+     perché è quello che indicizza le pressioni. Il campo che arriva dal Rust si
+     chiama `gasMixIndex` apposta: un numero giusto con l'etichetta di un altro
+     farebbe respirare al modello dei tessuti il gas di un'altra bombola;
+   - **la miscela respirata che non sta in nessuna bombola**, che è il caso
+     *normale*: un trasmettitore solo, sulla bombola di fondo, e il deco gas
+     cambiato a mano sul computer. Attaccare quel cambio alla bombola 0 direbbe
+     una cosa falsa con la faccia di una misurata; buttarlo è il difetto di
+     prima. Adesso nasce **una bombola in più, in fondo all'elenco, senza volume
+     e senza pressioni**: c'era un secondo gas, e quanto ne sia stato usato non
+     si sa. In fondo e non in mezzo, perché `Sample.pressureBar` è indicizzato su
+     quella lista. E solo per le miscele **davvero respirate**: un computer da
+     decompressione ne porta in memoria cinque anche quando l'immersione è stata
+     fatta con una.
+
+   **Quanto copre, contato e non sperato:** dei 36 parser di libdivecomputer
+   0.9.0, **26 mandano `DC_SAMPLE_GASMIX`** — fra cui `mares_iconhd` (il Puck 4),
+   `shearwater_predator` e `uwatec_smart` — e **nessuno** usa soltanto il vecchio
+   evento `SAMPLE_EVENT_GASCHANGE`. Quindi non c'è nessun ripiego da scrivere, e
+   scriverlo vorrebbe dire indovinare una miscela da una percentuale di ossigeno
+   per una strada che nessun backend percorre.
+
+   Tre mutazioni, tre morte: la miscela che non si porta avanti, la bombola
+   mancante che non si aggiunge, la costante `13` scritta `4`. *L'ultima è la
+   più istruttiva: leggerebbe un altro membro della `union`, e una `union` non
+   protegge niente — restituisce comunque dei bit.*
+
+0. **~~► IL CONSUMO DI SUPERFICIE NON SI POTEVA SCRIVERE A MANO. ◄~~ Fatto la
+   notte del 13 settembre.** *«Serve poter mettere un consumo di superficie a
+   mano come valore, se lo calcoli tu per ogni immersione.»*
+
+   Il motivo è che **quasi nessun computer subacqueo ha l'integrazione d'aria**:
+   senza le pressioni della bombola il conto non si fa, e quella casella resta
+   vuota per sempre anche a chi il manometro l'ha guardato prima e dopo.
+
+   Il valore sta **sull'immersione** (`rmvLpmManual`) e non fra le metriche:
+   `computeMetrics` le rifà da capo a ogni modifica, a ogni riparazione
+   dell'archivio e a ogni unione di schede, e un numero scritto a mano messo lì
+   sarebbe sparito al primo ricalcolo — senza un errore e senza che nessuno
+   collegasse la sparizione alla modifica di mezz'ora prima.
+
+   **Riempie il buco, non scalza la misura.** Quando le pressioni ci sono vince
+   il calcolo: è la stessa regola della miscela analizzata, dove il valore
+   dichiarato sull'etichetta non sovrascrive mai quello letto dall'analizzatore.
+   *Un'applicazione che preferisse il numero scritto a mano a quello misurato
+   insegnerebbe, una scheda alla volta, a non fidarsi del misurato.*
+
+   E si porta dietro **da dove viene**: `metrics.rmvLpmDichiarato` viaggia
+   accanto al numero, la casella della scheda dice «scritto da te», il libretto
+   scrive «indicato dal subacqueo», e fra le avvertenze c'è la riga che lo
+   dichiara. *Da dentro `rmvLpm` in giù i due numeri hanno la stessa faccia e
+   finiscono nella stessa media: quella bandiera è il prezzo della comodità.*
+
+   Quattro mutazioni, quattro morte — fra cui «il manuale scalza anche la
+   misura» e «lo zero passa» (un subacqueo che consuma zero litri al minuto non
+   esiste, e uno zero dentro una media non fa rumore e tira giù il risultato di
+   tutti).
+
+   > **► E QUESTA VOCE HA TROVATO UNA GUARDIA CHE NON GUARDAVA. ◄** In
+   > `dedupe.ts` c'è un elenco dei campi che la fusione di due schede deve
+   > portarsi dietro, e accanto la promessa: *«`tests/dedupe.test.ts` fonde ora
+   > due schede piene in OGNI campo del modello e verifica che nessuna chiave si
+   > perda, così il prossimo campo nuovo non ricasca qui.»* Aggiungendo
+   > `rmvLpmManual` la prova è **restata verde** mentre la fusione lo buttava
+   > via: scorreva `Object.keys` di un oggetto scritto a mano, non le chiavi del
+   > modello, e un campo opzionale nuovo semplicemente non compariva.
+   >
+   > Adesso quell'oggetto è tipato `Required<Omit<Dive, 'metrics' | 'tissues'>>`:
+   > il compilatore diventa rosso il giorno che al modello si aggiunge una
+   > chiave, e le due esclusioni sono scritte una per una col loro motivo. *Una
+   > riga che afferma una cosa che non succede è peggio di nessuna riga — e
+   > questa lo affermava da settimane.*
 
 0. **~~► CON LIBDIVECOMPUTER NON SI CAPIVA COSA STESSE SUCCEDENDO. ◄~~ Fatto la
    sera del 12 settembre.** *«Serve un messaggio che dica quante immersioni stai

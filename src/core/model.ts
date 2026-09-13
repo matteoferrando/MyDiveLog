@@ -410,6 +410,23 @@ export interface Dive {
   notes?: string;
   mode: DiveMode;
   cylinders: Cylinder[];
+  /**
+   * Il consumo di superficie in L/min scritto a mano, quando lo calcoli tu.
+   *
+   * ► PERCHÉ STA SULL'IMMERSIONE E NON FRA LE METRICHE. ◄ `metrics` è roba
+   * **derivata**: `computeMetrics` la ricalcola da capo a ogni modifica, a ogni
+   * riparazione dell'archivio e a ogni unione di due schede. Un valore scritto
+   * a mano messo lì sopravvivrebbe fino al primo ricalcolo e poi sparirebbe —
+   * senza un errore, senza una riga, e senza che nessuno colleghi la sparizione
+   * alla modifica fatta mezz'ora prima.
+   *
+   * Serve perché quasi nessun computer subacqueo ha l'integrazione d'aria: per
+   * quelle immersioni le pressioni non ci sono, il conto non si può fare, e
+   * l'unico che sa il numero è chi ha guardato il manometro. Vedi
+   * `DiveMetrics.rmvLpmDichiarato` per come viene tenuto distinto da quello
+   * calcolato.
+   */
+  rmvLpmManual?: number;
   salinity?: Salinity;
   surfacePressureBar?: number;
   /** Intervallo di superficie dall'immersione precedente, secondi. */
@@ -626,6 +643,28 @@ export interface DiveMetrics {
    * **«consumo di superficie»**, che è corretto e non ha bisogno di sigle.
    */
   rmvLpm?: number;
+  /**
+   * Vero quando `rmvLpm` qui sopra **l'hai scritto tu**, non le bombole.
+   *
+   * ════════════════════════════════════════════════════════════════════════
+   * ► UN NUMERO DICHIARATO E UNO MISURATO NON DEVONO AVERE LA STESSA FACCIA. ◄
+   *
+   * Il valore a mano serve dove il calcolo non arriva — la stragrande
+   * maggioranza dei computer non ha l'integrazione d'aria, quindi senza
+   * pressioni il consumo non è calcolabile e la casella resta vuota per sempre.
+   * Metterlo dentro `rmvLpm` fa funzionare da solo tutto quello che sta a valle
+   * (l'archivio, le statistiche, il confronto, il libretto), ed è il motivo per
+   * cui ci sta.
+   *
+   * Ma da lì in poi quel numero è indistinguibile da uno letto dalla bombola, e
+   * finisce in una media insieme agli altri. Questa bandiera è il prezzo di
+   * quella comodità: chi mostra il numero può dire da dove viene, e chi fa una
+   * media può dire quanti dei suoi addendi non sono stati misurati.
+   *
+   * *La stessa regola della miscela analizzata: si tengono separati il valore e
+   * la sua provenienza, e non si sovrascrive mai il misurato col dichiarato.*
+   */
+  rmvLpmDichiarato?: boolean;
   /** Consumo in bar/min sulla bombola principale (dipende dalla bombola: meno confrontabile). */
   sacBarPerMin?: number;
   /** Pressione a fine immersione sulla bombola principale, bar. */
