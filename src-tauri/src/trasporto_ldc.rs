@@ -2496,6 +2496,18 @@ pub struct CampioneLdc {
     pub setpoint: Option<f64>,
     #[serde(rename = "rbtMin", skip_serializing_if = "Option::is_none")]
     pub rbt_min: Option<u32>,
+    /// L'indice della miscela respirata, nella lista delle MISCELE.
+    ///
+    /// ► NON È L'INDICE DELLA BOMBOLA, E IL NOME LO DICE. ◄ libdivecomputer
+    /// tiene due liste separate — `DC_FIELD_GASMIX` e `DC_FIELD_TANK` — e
+    /// `dc_tank_t` porta un campo `gasmix` proprio perché non coincidono. Il
+    /// modello dell'applicazione invece indicizza `Sample.gasIndex` sulle
+    /// BOMBOLE. Chiamarlo `gasIndex` già da qui vorrebbe dire consegnare a
+    /// valle un numero giusto con l'etichetta di un altro: la traduzione la fa
+    /// `core/ble/esterni.ts`, che è l'unico posto che vede tutte e due le
+    /// liste.
+    #[serde(rename = "gasMixIndex", skip_serializing_if = "Option::is_none")]
+    pub indice_miscela: Option<u32>,
     /// Il computer sta contando la SOSTA DI SICUREZZA, e lo dice lui.
     ///
     /// Non è un tetto e non è un obbligo: è il contatore che parte da solo negli
@@ -2584,6 +2596,20 @@ struct Accumulatore {
     corrente: CampioneLdc,
     iniziato: bool,
     quante_bombole: usize,
+    /// ════════════════════════════════════════════════════════════════════════
+    /// ► LA MISCELA SI DICE QUANDO CAMBIA, E VALE FINO AL CAMBIO DOPO. ◄
+    ///
+    /// libdivecomputer manda `DC_SAMPLE_GASMIX` **solo nell'istante del
+    /// cambio**: il campione dopo non lo ripete. Chi legge deve portarla avanti,
+    /// e chi non lo fa si ritrova un profilo in cui il gas è dichiarato su un
+    /// campione ogni duemila.
+    ///
+    /// Non è una comodità: `analysis/tissues.ts` legge `s.gasIndex ?? 0` **su
+    /// ogni campione**, quindi senza il riporto tutta l'immersione verrebbe
+    /// calcolata sulla miscela di fondo — compresa la risalita fatta con il
+    /// deco gas. *Su un'immersione con cambio gas sarebbe una saturazione
+    /// sbagliata presentata con la stessa faccia di una giusta.*
+    miscela_corrente: Option<u32>,
 }
 
 /*
@@ -2616,6 +2642,33 @@ struct Accumulatore {
  * Nessuna di queste tre cose dà errore. È il motivo per cui una costante
  * copiata a occhio da un'intestazione C va confrontata con l'intestazione.
  */
+/// `DC_SAMPLE_GASMIX` di `dc_sample_type_t`, in `parser.h`.
+///
+/// ════════════════════════════════════════════════════════════════════════════
+/// ► QUESTO CAMPIONE VENIVA BUTTATO DI PROPOSITO, E ERA UN BUCO. ◄
+///
+/// Fino alla 1.8.18 qui c'era scritto, nel ramo `_ => {}`: *«Eventi, battito,
+/// rilevamento, dati del costruttore, **cambio gas**: non servono al modello
+/// canonico e si scartano di proposito»*. Il modello canonico però ce l'ha, il
+/// posto per il gas — `Sample.gasIndex` esiste dal primo giorno e lo riempiono
+/// i driver di casa e i lettori di file — e **tutto quello che sta a valle lo
+/// legge**: la saturazione dei tessuti, la CNS, l'OTU, e il controllo che un
+/// cambio gas non sia stato fatto sotto la MOD del gas su cui si passa.
+///
+/// Senza, un'immersione con cambio gas veniva calcolata **tutta sulla miscela
+/// di fondo**, risalita e soste comprese. Non dava nessun errore: dava una
+/// saturazione plausibile e sbagliata, che in un logbook è il guasto peggiore.
+///
+/// ► QUANTO COPRE, MISURATO INVECE CHE SPERATO. ◄ Dei 36 parser di
+/// libdivecomputer 0.9.0, **26 mandano `DC_SAMPLE_GASMIX`** — fra cui
+/// `mares_iconhd` (il Puck 4), `shearwater_predator` e `uwatec_smart` — e
+/// **nessuno** usa soltanto il vecchio evento `SAMPLE_EVENT_GASCHANGE`.
+/// Contati nel sorgente, non dedotti: `grep -l DC_SAMPLE_GASMIX src/*.c`.
+/// Quindi non c'è nessun ripiego da scrivere sull'evento, e scriverlo sarebbe
+/// indovinare una miscela da una percentuale di ossigeno per una strada che
+/// nessun backend percorre.
+const CAMPIONE_MISCELA: c_uint = 13;
+
 const DECO_NDL: c_uint = 0;
 const DECO_SOSTA_SICUREZZA: c_uint = 1;
 const DECO_SOSTA_DECO: c_uint = 2;
@@ -2643,7 +2696,15 @@ extern "C" fn campione(tipo: c_uint, valore: *const ValoreCampione, userdata: *m
                 acc.immersione.samples.push(finito);
             }
             acc.iniziato = true;
-            acc.corrente = CampioneLdc { t: unsafe { v.tempo } / 1000, ..Default::default() };
+            acc.corrente = CampioneLdc {
+                t: unsafe { v.tempo } / 1000,
+                // ► LA MISCELA SI EREDITA DAL CAMPIONE PRIMA. ◄ Vedi
+                // `Accumulatore::miscela_corrente`: la libreria la dice solo
+                // quando cambia, e un `DC_SAMPLE_GASMIX` che arriva dopo questo
+                // istante sovrascrive tanto il campione quanto l'eredità.
+                indice_miscela: acc.miscela_corrente,
+                ..Default::default()
+            };
         }
         1 => acc.corrente.depth = Some(unsafe { v.profondita }),
         2 => {
@@ -2723,9 +2784,14 @@ extern "C" fn campione(tipo: c_uint, valore: *const ValoreCampione, userdata: *m
                 acc.corrente.tts_s = Some(d.tts);
             }
         }
-        // Eventi, battito, rilevamento, dati del costruttore, cambio gas: non
-        // servono al modello canonico e si scartano di proposito, invece di
-        // essere raccolti «casomai».
+        CAMPIONE_MISCELA => {
+            let quale = unsafe { v.miscela };
+            acc.miscela_corrente = Some(quale);
+            acc.corrente.indice_miscela = Some(quale);
+        }
+        // Eventi, battito, rilevamento e dati del costruttore: non servono al
+        // modello canonico e si scartano di proposito, invece di essere
+        // raccolti «casomai».
         _ => {}
     }
 }
@@ -2745,6 +2811,9 @@ union ValoreCampione {
     ppo2: Ppo2Campione,
     cns: f64,
     deco: DecoCampione,
+    /// L'indice nella lista delle MISCELE — non delle bombole. Vedi
+    /// `CAMPIONE_MISCELA`.
+    miscela: c_uint,
     _riempimento: [u8; 32],
 }
 
@@ -3004,6 +3073,10 @@ pub fn traduci(
         corrente: CampioneLdc::default(),
         iniziato: false,
         quante_bombole: 0,
+        // Nessuna miscela finché il computer non ne dichiara una: `None` vuol
+        // dire «non lo so», e a valle diventa «usa la prima», che è
+        // un'assunzione presa in un posto solo e dichiarata.
+        miscela_corrente: None,
     };
     let esito = unsafe {
         dc_parser_samples_foreach(parser, campione, &mut acc as *mut Accumulatore as *mut c_void)
@@ -4421,6 +4494,85 @@ mod prove {
 
     fn avanzamento(immersioni: usize, letti: u32, totali: u32) -> Avanzamento {
         Avanzamento { immersioni, byte_letti: letti, byte_totali: totali }
+    }
+
+    /// Guida `campione` come fa libdivecomputer: un istante, poi i valori che a
+    /// quell'istante sono cambiati.
+    fn accumula(passi: &[(c_uint, ValoreCampione)]) -> Vec<CampioneLdc> {
+        let mut acc = Accumulatore {
+            immersione: ImmersioneLdc::default(),
+            corrente: CampioneLdc::default(),
+            iniziato: false,
+            quante_bombole: 0,
+            miscela_corrente: None,
+        };
+        for (tipo, valore) in passi {
+            campione(*tipo, valore, &mut acc as *mut Accumulatore as *mut c_void);
+        }
+        // L'ultimo campione non ha un `DC_SAMPLE_TIME` dopo di sé che lo
+        // chiuda: lo chiude chi chiama, e qui si fa lo stesso.
+        if acc.iniziato {
+            acc.immersione.samples.push(acc.corrente);
+        }
+        acc.immersione.samples
+    }
+
+    const CAMPIONE_TEMPO: c_uint = 0;
+
+    #[test]
+    fn la_miscela_si_porta_avanti_fino_al_cambio_dopo() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► È LA METÀ CHE SI DIMENTICA, E SENZA DI LEI IL RESTO NON SERVE. ◄
+         *
+         * libdivecomputer manda `DC_SAMPLE_GASMIX` **solo nell'istante del
+         * cambio**: il campione dopo non lo ripete. Leggendolo senza portarlo
+         * avanti si ottiene il gas dichiarato su un campione ogni duemila — e
+         * `analysis/tissues.ts` legge `s.gasIndex ?? 0` su OGNI campione, quindi
+         * tutta la risalita tornerebbe a essere calcolata sulla miscela di
+         * fondo. *Cioè il difetto di prima, con in più l'aria di essere stato
+         * corretto.*
+         */
+        let campioni = accumula(&[
+            (CAMPIONE_TEMPO, ValoreCampione { tempo: 0 }),
+            (CAMPIONE_MISCELA, ValoreCampione { miscela: 0 }),
+            (CAMPIONE_TEMPO, ValoreCampione { tempo: 10_000 }),
+            (CAMPIONE_TEMPO, ValoreCampione { tempo: 20_000 }),
+            (CAMPIONE_MISCELA, ValoreCampione { miscela: 1 }),
+            (CAMPIONE_TEMPO, ValoreCampione { tempo: 30_000 }),
+        ]);
+        assert_eq!(
+            campioni.iter().map(|c| c.indice_miscela).collect::<Vec<_>>(),
+            vec![Some(0), Some(0), Some(1), Some(1)],
+            "la miscela dichiarata una volta vale fino al cambio dopo"
+        );
+        assert_eq!(campioni.iter().map(|c| c.t).collect::<Vec<_>>(), vec![0, 10, 20, 30]);
+    }
+
+    #[test]
+    fn prima_che_il_computer_dica_una_miscela_non_se_ne_inventa_nessuna() {
+        /*
+         * ► ASSENTE NON È ZERO. ◄ Dieci parser su trentasei non mandano mai
+         * `DC_SAMPLE_GASMIX`. Per loro il campo deve restare vuoto: a valle
+         * `?? 0` vuol dire «usa la prima bombola», che è un'assunzione presa in
+         * un posto solo e dichiarata lì. Scrivere zero qui la travestirebbe da
+         * lettura del computer — e la stessa riga direbbe due cose diverse a
+         * seconda di chi l'ha scritta.
+         *
+         * Vale anche per i campioni PRIMA del primo cambio su un computer che
+         * invece li manda: se il gas lo dichiara solo a metà immersione, la
+         * prima metà non l'ha detto nessuno.
+         */
+        let campioni = accumula(&[
+            (CAMPIONE_TEMPO, ValoreCampione { tempo: 0 }),
+            (CAMPIONE_TEMPO, ValoreCampione { tempo: 10_000 }),
+            (CAMPIONE_MISCELA, ValoreCampione { miscela: 2 }),
+            (CAMPIONE_TEMPO, ValoreCampione { tempo: 20_000 }),
+        ]);
+        assert_eq!(
+            campioni.iter().map(|c| c.indice_miscela).collect::<Vec<_>>(),
+            vec![None, Some(2), Some(2)]
+        );
     }
 
     #[test]

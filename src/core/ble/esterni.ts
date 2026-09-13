@@ -114,6 +114,14 @@ export interface CampioneLdc {
   ppo2?: number;
   setpoint?: number;
   rbtMin?: number;
+  /**
+   * L'indice della miscela respirata, nella lista `gas` — **non** in `bombole`.
+   *
+   * Le due liste sono diverse e libdivecomputer le tiene separate apposta. La
+   * traduzione verso `Sample.gasIndex`, che invece è indicizzato sulle bombole,
+   * la fa `cilindri` qui sotto: è l'unico posto che vede tutte e due.
+   */
+  gasMixIndex?: number;
 }
 
 export interface ContestoEsterno {
@@ -173,7 +181,7 @@ export function immersioneDaLdc(imm: ImmersioneLdc, ctx: ContestoEsterno): Dive 
   }
 
   const bombole = cilindri(imm);
-  const samples = campioni(imm, bombole.length);
+  const samples = campioni(imm, bombole.lista.length, bombole.perMiscela);
 
   /*
    * IL MASSIMO FRA IL DICHIARATO E I CAMPIONI, e non uno dei due.
@@ -236,7 +244,7 @@ export function immersioneDaLdc(imm: ImmersioneLdc, ctx: ContestoEsterno): Dive 
      * l'assunzione di tutti — ma adesso è un ripiego, non un'invenzione.
      */
     mode: imm.mode ?? 'oc',
-    cylinders: bombole,
+    cylinders: bombole.lista,
     computer: {
       model: `${ctx.marca} ${ctx.modello}`.trim(),
       deviceId: ctx.dispositivo,
@@ -287,11 +295,40 @@ export function immersioniDaLdc(imm: ImmersioneLdc[], ctx: ContestoEsterno): Div
  * ricade sulle miscele, che è il comportamento di prima ed è corretto proprio
  * perché in quel caso le due liste non hanno modo di divergere.
  */
-function cilindri(imm: ImmersioneLdc): Cylinder[] {
+interface Bombole {
+  lista: Cylinder[];
+  /**
+   * Da indice-MISCELA a indice-BOMBOLA, che è come `Sample.gasIndex` è
+   * indicizzato. `undefined` quando quella miscela non sta in nessuna bombola e
+   * non è mai stata respirata: inventarle un posto sarebbe aggiungere
+   * all'immersione un contenitore che non è esistito.
+   */
+  perMiscela: (i: number) => number | undefined;
+}
+
+/**
+ * Le miscele che il profilo dice di aver davvero respirato.
+ *
+ * ► SOLO QUELLE RESPIRATE, E NON TUTTE QUELLE DICHIARATE. ◄ Un computer da
+ * decompressione porta in memoria cinque miscele programmate anche quando
+ * l'immersione è stata fatta con una sola: aggiungere una bombola per ognuna
+ * riempirebbe la scheda di contenitori mai portati sott'acqua, e il conto del
+ * gas li conterebbe come bombole senza pressione — cioè come dati mancanti
+ * invece che come gas mai usati.
+ */
+function miscelePercorse(imm: ImmersioneLdc): Set<number> {
+  const viste = new Set<number>();
+  for (const c of imm.samples) {
+    if (c.gasMixIndex !== undefined) viste.add(c.gasMixIndex);
+  }
+  return viste;
+}
+
+function cilindri(imm: ImmersioneLdc): Bombole {
   const gas = imm.gas.map(miscela);
   const bombole = imm.bombole ?? [];
   if (bombole.length) {
-    return bombole.map((b) => ({
+    const lista: Cylinder[] = bombole.map((b) => ({
       // Una bombola senza miscela dichiarata prende la prima, che è quasi
       // sempre quella giusta e comunque meglio di nessun gas: senza `mix` non
       // si calcola né PPO2 né MOD né consumo.
@@ -300,6 +337,44 @@ function cilindri(imm: ImmersioneLdc): Cylinder[] {
       startBar: b.startBar,
       endBar: b.endBar,
     }));
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► LA MISCELA RESPIRATA CHE NON STA IN NESSUNA BOMBOLA. ◄
+     *
+     * È il caso NORMALE, non quello limite: un trasmettitore solo sulla bombola
+     * di fondo e il deco gas cambiato a mano sul computer. Il computer dichiara
+     * due miscele e una bombola, e a metà risalita dice «adesso respiro la
+     * miscela 1» — che in `bombole` non c'è.
+     *
+     * Le tre strade possibili, e perché questa:
+     *
+     *  - **buttare il cambio**: tutta la risalita verrebbe calcolata sulla
+     *    miscela di fondo. È quello che l'applicazione faceva fino alla 1.8.18,
+     *    ed è il difetto da togliere;
+     *  - **attaccare il cambio alla bombola 0**: peggio di buttarlo. Direbbe
+     *    che quel gas era nella bombola di fondo, cioè una cosa falsa scritta
+     *    con la faccia di una misurata;
+     *  - **una bombola in più, senza volume e senza pressioni**, che è quello
+     *    che è successo davvero: c'era un secondo gas, non sappiamo quanto ne
+     *    è stato usato. Il modello lo permette — `sizeL`, `startBar` e `endBar`
+     *    sono opzionali — e il conto del gas la salta da sé perché non ha
+     *    pressioni.
+     *
+     * Si aggiunge **in fondo**, e non è un dettaglio: `Sample.pressureBar` è
+     * indicizzato su questa lista, e infilarla in mezzo sposterebbe di uno le
+     * pressioni di tutte le bombole dopo.
+     */
+    const daMiscela = new Map<number, number>();
+    gas.forEach((_, m) => {
+      const quale = bombole.findIndex((b) => b.gasIndex === m);
+      if (quale >= 0) daMiscela.set(m, quale);
+    });
+    for (const m of miscelePercorse(imm)) {
+      if (daMiscela.has(m) || !gas[m]) continue;
+      daMiscela.set(m, lista.length);
+      lista.push({ mix: gas[m] });
+    }
+    return { lista, perMiscela: (i) => daMiscela.get(i) };
   }
   /*
    * ALMENO UNA BOMBOLA, SEMPRE.
@@ -310,7 +385,15 @@ function cilindri(imm: ImmersioneLdc): Cylinder[] {
    * parla di «immersione ad aria» come caso di riferimento — ed è dichiarata
    * qui invece che nascosta dentro un `?? 0.21` sparso.
    */
-  return gas.length ? gas.map((mix) => ({ mix })) : [{ mix: ARIA }];
+  /*
+   * Qui le due liste NON possono divergere — le bombole sono le miscele — e
+   * quindi l'indice della miscela è già l'indice della bombola. L'unico caso
+   * fuori posto è la bombola d'aria inventata quando non c'è nessuna miscela:
+   * lì qualunque indice punterebbe a un contenitore che il computer non ha
+   * dichiarato, e si preferisce non dire niente.
+   */
+  if (!gas.length) return { lista: [{ mix: ARIA }], perMiscela: () => undefined };
+  return { lista: gas.map((mix) => ({ mix })), perMiscela: (i) => (gas[i] ? i : undefined) };
 }
 
 const ARIA: GasMix = { o2: 0.21, he: 0 };
@@ -330,7 +413,11 @@ const ARIA: GasMix = { o2: 0.21, he: 0 };
  * avanti: quei campioni si buttano, invece di inventare uno zero che il grafico
  * mostrerebbe come una discesa dalla superficie che non è stata registrata.
  */
-function campioni(imm: ImmersioneLdc, quanteBombole: number): Sample[] {
+function campioni(
+  imm: ImmersioneLdc,
+  quanteBombole: number,
+  perMiscela: (i: number) => number | undefined,
+): Sample[] {
   const out: Sample[] = [];
   let ultima: number | undefined;
   for (const c of imm.samples) {
@@ -371,6 +458,18 @@ function campioni(imm: ImmersioneLdc, quanteBombole: number): Sample[] {
     if (c.ppo2 !== undefined) s.ppo2 = c.ppo2;
     if (c.setpoint !== undefined) s.setpoint = c.setpoint;
     if (c.rbtMin !== undefined) s.rbtMin = c.rbtMin;
+    /*
+     * ► DA INDICE-MISCELA A INDICE-BOMBOLA, E SOLO QUI. ◄ Il lato Rust manda
+     * l'indice nella lista delle miscele, perché è quello che libdivecomputer
+     * dice; `Sample.gasIndex` invece è indicizzato sulle bombole, perché è
+     * quello che indicizza le pressioni. Le due liste coincidono spesso e non
+     * sempre, e il giorno che divergono un numero giusto con l'etichetta
+     * sbagliata fa respirare al modello dei tessuti il gas di un'altra bombola.
+     */
+    if (c.gasMixIndex !== undefined) {
+      const quale = perMiscela(c.gasMixIndex);
+      if (quale !== undefined) s.gasIndex = quale;
+    }
     out.push(s);
   }
   return out;

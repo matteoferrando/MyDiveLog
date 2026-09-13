@@ -137,6 +137,179 @@ describe('i campioni', () => {
   });
 });
 
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► IL CAMBIO GAS, CHE FINO ALLA 1.8.18 VENIVA BUTTATO DI PROPOSITO. ◄
+ *
+ * Nel ramo `_ => {}` di `campione`, in `trasporto_ldc.rs`, c'era scritto:
+ * «Eventi, battito, rilevamento, dati del costruttore, CAMBIO GAS: non servono
+ * al modello canonico». Il modello canonico però ce l'ha il posto —
+ * `Sample.gasIndex` — e lo leggono la saturazione dei tessuti, la CNS, l'OTU e
+ * il controllo che un cambio non sia stato fatto sotto la MOD del gas nuovo.
+ *
+ * Senza, un'immersione con cambio gas veniva calcolata TUTTA sulla miscela di
+ * fondo, risalita e soste comprese: nessun errore, una saturazione plausibile e
+ * sbagliata.
+ */
+describe('il cambio gas che il computer ha registrato', () => {
+  it('diventa il gas del campione, e quello dei campioni dopo', () => {
+    /*
+     * ► IL RIPORTO IN AVANTI È LA METÀ CHE SI DIMENTICA. ◄ libdivecomputer
+     * manda `DC_SAMPLE_GASMIX` SOLO nell'istante del cambio. Chi non lo porta
+     * avanti si ritrova il gas dichiarato su un campione ogni duemila, e
+     * `tissues.ts` — che legge `s.gasIndex ?? 0` su OGNI campione — respirerebbe
+     * la bombola di fondo per tutto il resto della risalita.
+     *
+     * Il riporto lo fa il lato Rust, quindi quello che arriva qui ha già il gas
+     * su ogni campione: questa prova descrive il contratto fra i due lati, ed è
+     * rossa il giorno che uno dei due cambia idea.
+     */
+    const d = immersioneDaLdc(
+      unaImmersione({
+        gas: [
+          { o2: 0.21, he: 0 },
+          { o2: 0.5, he: 0 },
+        ],
+        bombole: [
+          { gasIndex: 0, sizeL: 12, startBar: 200, endBar: 70 },
+          { gasIndex: 1, sizeL: 7, startBar: 200, endBar: 150 },
+        ],
+        samples: [
+          { t: 0, depth: 5, gasMixIndex: 0 },
+          { t: 600, depth: 30, gasMixIndex: 0 },
+          { t: 1200, depth: 21, gasMixIndex: 1 },
+          { t: 1500, depth: 6, gasMixIndex: 1 },
+        ],
+      }),
+      { marca: 'Shearwater', modello: 'Perdix 2', importedAt: IMPORTATA },
+    )!;
+    expect(d.samples!.map((s) => s.gasIndex)).toEqual([0, 0, 1, 1]);
+    expect(d.cylinders).toHaveLength(2);
+  });
+
+  it('una miscela respirata che non sta in nessuna bombola ne guadagna una, in fondo', () => {
+    /*
+     * ► È IL CASO NORMALE, NON QUELLO LIMITE. ◄ Un trasmettitore solo, sulla
+     * bombola di fondo, e il deco gas cambiato a mano sul computer: due miscele
+     * dichiarate, UNA bombola. A metà risalita il computer dice «adesso respiro
+     * la miscela 1», che in `bombole` non esiste.
+     *
+     * Attaccare quel cambio alla bombola 0 direbbe che il deco gas stava nella
+     * bombola di fondo — una cosa falsa con la faccia di una misurata. Buttarlo
+     * è il difetto di prima. Resta la bombola in più, senza volume e senza
+     * pressioni: c'era un secondo gas, e quanto ne sia stato usato non si sa.
+     *
+     * ► E VA IN FONDO. ◄ `Sample.pressureBar` è indicizzato su questa lista:
+     * infilarla in mezzo sposterebbe di uno le pressioni di tutte le bombole
+     * dopo, cioè attribuirebbe a una bombola la pressione di un'altra.
+     */
+    const d = immersioneDaLdc(
+      unaImmersione({
+        gas: [
+          { o2: 0.21, he: 0 },
+          { o2: 0.8, he: 0 },
+        ],
+        bombole: [{ gasIndex: 0, sizeL: 15, startBar: 220, endBar: 60 }],
+        samples: [
+          { t: 0, depth: 30, gasMixIndex: 0, pressureBar: [220] },
+          { t: 900, depth: 6, gasMixIndex: 1, pressureBar: [80] },
+        ],
+      }),
+      { marca: 'Shearwater', modello: 'Perdix 2', importedAt: IMPORTATA },
+    )!;
+    expect(d.cylinders).toHaveLength(2);
+    expect(d.cylinders[0]).toMatchObject({ sizeL: 15, startBar: 220 });
+    expect(d.cylinders[1].mix).toEqual({ o2: 0.8, he: 0 });
+    // La bombola inventata NON dichiara un volume che nessuno ha misurato.
+    expect(d.cylinders[1].sizeL).toBeUndefined();
+    expect(d.cylinders[1].startBar).toBeUndefined();
+    expect(d.samples!.map((s) => s.gasIndex)).toEqual([0, 1]);
+    // E la pressione della bombola vera resta dov'era.
+    expect(d.samples![0].pressureBar).toEqual([220]);
+  });
+
+  it('una miscela programmata e mai respirata NON diventa una bombola', () => {
+    /*
+     * Un computer da decompressione porta in memoria cinque miscele programmate
+     * anche quando l'immersione è stata fatta con una sola. Aggiungerne una per
+     * ognuna riempirebbe la scheda di contenitori mai portati sott'acqua, e il
+     * conto del gas li conterebbe come **dati mancanti** invece che come gas
+     * mai usati — cioè trasformerebbe una scheda completa in una che sembra
+     * rotta.
+     */
+    const d = immersioneDaLdc(
+      unaImmersione({
+        gas: [
+          { o2: 0.21, he: 0 },
+          { o2: 0.5, he: 0 },
+          { o2: 1, he: 0 },
+        ],
+        bombole: [{ gasIndex: 0, sizeL: 12, startBar: 200, endBar: 50 }],
+        samples: [
+          { t: 0, depth: 10, gasMixIndex: 0 },
+          { t: 600, depth: 30, gasMixIndex: 0 },
+        ],
+      }),
+      { marca: 'Shearwater', modello: 'Perdix 2', importedAt: IMPORTATA },
+    )!;
+    expect(d.cylinders).toHaveLength(1);
+    expect(d.samples!.every((s) => s.gasIndex === 0)).toBe(true);
+  });
+
+  it('senza bombole dichiarate le miscele SONO le bombole, e l’indice è lo stesso', () => {
+    // Parecchi computer non espongono le bombole: lì le due liste non hanno
+    // modo di divergere, e la traduzione è l'identità. Va provata lo stesso,
+    // perché è l'unico ramo che la maggior parte dei modelli percorre.
+    const d = immersioneDaLdc(
+      unaImmersione({
+        gas: [
+          { o2: 0.21, he: 0 },
+          { o2: 0.5, he: 0 },
+        ],
+        bombole: undefined,
+        samples: [
+          { t: 0, depth: 30, gasMixIndex: 0 },
+          { t: 900, depth: 6, gasMixIndex: 1 },
+        ],
+      }),
+      { marca: 'Mares', modello: 'Puck 4', importedAt: IMPORTATA },
+    )!;
+    expect(d.cylinders).toHaveLength(2);
+    expect(d.samples!.map((s) => s.gasIndex)).toEqual([0, 1]);
+  });
+
+  it('un campione senza gas dichiarato non se ne inventa uno', () => {
+    /*
+     * I computer che non mandano `DC_SAMPLE_GASMIX` sono dieci su
+     * trentasei. Per loro `gasIndex` deve restare ASSENTE, non zero: a valle
+     * `?? 0` significa «usa la prima bombola», che è un'assunzione presa in un
+     * posto solo e dichiarata lì. Scrivere zero qui la travestirebbe da lettura
+     * del computer.
+     */
+    const d = immersioneDaLdc(
+      unaImmersione({
+        samples: [
+          { t: 0, depth: 10 },
+          { t: 600, depth: 20 },
+        ],
+      }),
+      { marca: 'Mares', modello: 'Puck 4', importedAt: IMPORTATA },
+    )!;
+    expect(d.samples!.every((s) => s.gasIndex === undefined)).toBe(true);
+  });
+
+  it('DC_SAMPLE_GASMIX vale 13, come in parser.h', () => {
+    /*
+     * La stessa famiglia di `DECO_NDL`, che valeva 1 invece di 0: una costante
+     * copiata a occhio da un'intestazione C non dà errore, dà un numero. Qui il
+     * numero sbagliato leggerebbe un altro membro della `union` — e la `union`
+     * non protegge niente, restituisce comunque dei bit.
+     */
+    const RUST = readFileSync('src-tauri/src/trasporto_ldc.rs', 'utf8');
+    expect(RUST).toContain('const CAMPIONE_MISCELA: c_uint = 13;');
+  });
+});
+
 describe('quello che non arriva e quello che si assume', () => {
   it('un profondimetro senza miscele dichiarate respira aria, non niente', () => {
     const d = immersioneDaLdc(unaImmersione({ gas: [] }), {
