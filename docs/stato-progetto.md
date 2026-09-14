@@ -1,7 +1,28 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **13 settembre 2026, notte** — **2 097 prove in 119 file** più
-**130 prove Rust** del ponte, lint e formato a **0 errori**.
+Aggiornato: **14 settembre 2026** — **2 108 prove in 120 file** più **130 prove
+Rust** del ponte, lint e formato a **0 errori**. Nel repository c'è la **1.8.18**,
+pronta per la compilazione su tutte le piattaforme.
+
+## La 1.8.18, e cosa porta
+
+Tutto quello che è nato dopo la giornata col Puck, in un numero solo:
+
+| | Cosa | Serve per vederlo |
+|---|---|---|
+| **Cambio gas** | libdivecomputer lo registra e noi lo buttavamo di proposito. Adesso la saturazione, la CNS, l'OTU e il controllo sulla profondità del cambio usano il gas **davvero respirato** in ogni istante | un'immersione che un cambio gas ce l'abbia, **riscaricata** |
+| **Consumo di superficie a mano** | quasi nessun computer ha l'integrazione d'aria: senza pressioni quella casella era vuota per sempre. Adesso si scrive, e resta **dichiarato** invece di confondersi col misurato | niente, solo l'applicazione |
+| **Avanzamento dello scarico** | «quante immersioni stai scaricando», con la barra vera sui byte letti su quelli totali | uno scarico **via libdivecomputer** |
+| **L'elenco torna dov'era** | tornando da una scheda si riprende dall'altezza, dalla finestra delle righe e dai filtri di prima | niente, solo un archivio lungo |
+| **Le righe dello scarico in inglese** | erano in italiano anche con l'applicazione in inglese, comprese quelle col numero dentro | l'applicazione in inglese |
+
+> **► E NIENTE DI TUTTO QUESTO HA ANCORA VISTO UN APPARECCHIO. ◄** Duemilacento
+> prove verdi, zero minuti su un computer subacqueo. *È esattamente lo stato in
+> cui era il banco di prova la sera in cui mezz'ora di prove a mano gli ha
+> trovato quattro difetti*, e due delle cinque righe qui sopra si provano senza
+> collegare niente.
+
+---
 
 **► I NEGOZI SONO ALLA `1.8.11`, E PER TRE GIORNI QUI C'È STATO SCRITTO `1.8.8`. ◄**
 Misurato il 14 settembre col `lookup` e l'anti-cache: **App Store per iPhone,
@@ -1624,12 +1645,12 @@ App Store Connect rifiuta un numero di versione già visto.
 CI «Controlli» a ogni push: Tipi → Formato → Lint → Test → Test fusi orari →
 Build.
 
-**Stato dei controlli, misurato l'11 settembre sul commit `be7f686`:**
+**Stato dei controlli, misurato il 14 settembre sulla 1.8.18:**
 
 | Comando | Esito |
 | --- | --- |
-| `npx vitest run` | **2 073 test in 116 file, tutti verdi** |
-| `#[test]` in `src-tauri/src/` | **120**, il ponte e il trasporto |
+| `npx vitest run` | **2 108 test in 120 file, tutti verdi** |
+| `#[test]` in `src-tauri/src/` | **130**, il ponte e il trasporto |
 | `npx tsc --noEmit` | pulito, nessuna riga in uscita |
 | `npx prettier --check .` | _All matched files use Prettier code style!_ |
 | `npm run lint` | **0 errori e 0 avvisi** — erano quattordici |
@@ -2957,6 +2978,18 @@ il sistema che si sta usando.
 scarico si rompe, e le immersioni già arrivate non si buttano: il segnalibro
 riparte da dove si era fermato. **Sull'iPhone tiene acceso lo schermo** con un
 comando nativo, e se non ci riesce lo dice **mentre** si scarica, non dopo.
+
+**Il cambio gas letto dal computer.** Se il computer lo ha registrato, la
+saturazione dei tessuti, la CNS, l'OTU e il controllo sulla profondità del
+cambio usano il gas **davvero respirato in quell'istante**, non la miscela di
+fondo per tutta l'immersione. Una miscela respirata che non sta in nessuna
+bombola dichiarata ne guadagna una, in fondo all'elenco, senza volume e senza
+pressioni: *c'era un secondo gas, e quanto ne sia stato usato non si sa.*
+
+**Il consumo di superficie si può scrivere a mano**, per le immersioni in cui il
+computer non ha le pressioni e il conto non si può fare. Riempie il buco e non
+scalza mai la misura, e si porta dietro da dove viene: la scheda dice «scritto da
+te», il libretto scrive «indicato dal subacqueo».
 
 **E c'è il banco di prova**: una spunta «registra lo scambio», spenta di suo, che
 scrive in un file **ogni byte scambiato col computer subacqueo, in tutte e due le
@@ -4478,6 +4511,34 @@ Ma la quarta riga è quella nuova, ed è la sola che possa chiudere la faccenda:
 ## Prossimi passi
 
 ### Tocca a chi pubblica
+
+0. **► LA 1.8.18 È PRONTA DA COMPILARE, E PRIMA VA TOCCATA CON UN DITO. ◄**
+   Numero alzato in tutti e tre i posti (`package.json`, `Cargo.toml`,
+   `tauri.conf.json`), documento e sito allineati, 2 108 prove in 120 file più
+   130 Rust, lint e formato a zero.
+
+   **Ma non ha ancora girato fuori da qui**, e due delle cinque cose che porta si
+   provano senza collegare nessun apparecchio:
+
+   - **il consumo scritto a mano**: Modifica immersione → sotto le bombole. Scrivi
+     un numero su un'immersione senza pressioni e controlla che la scheda dica
+     «scritto da te»;
+   - **l'elenco che torna dov'era**: apri un'immersione da metà archivio e torna
+     indietro. Serve un archivio lungo, e quello c'è.
+
+   Le altre tre chiedono di più: la **barra dell'avanzamento** vuole uno scarico
+   che passi da libdivecomputer (l'Aladin di suo usa il driver di casa, che ha già
+   la sua barra: va forzato, come l'11 sera); il **cambio gas** vuole
+   un'immersione che un cambio gas ce l'abbia davvero; le **righe in inglese**
+   vogliono l'applicazione in inglese.
+
+   > *Il banco di prova era verde su 2 073 prove la sera in cui mezz'ora di prove
+   > a mano gli ha trovato quattro difetti. Questa riga esiste per ricordarlo
+   > mentre si ha la tentazione di saltarla.*
+
+   Poi la strada di sempre: `npm run mac:pubblica`, il workflow per Windows,
+   Android e Linux, la firma dal Mac, la release con i nove allegati, la cask, il
+   sito, e infine i pacchetti per i negozi.
 
 0. **► DOMANI, COL PUCK 4: È L'UNICA VOCE CHE CONTA. ◄** È la prima volta in
    tutta questa storia che l'apparecchio che non funziona sarà a portata di

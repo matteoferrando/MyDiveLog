@@ -20,6 +20,7 @@
  */
 
 import type { DownloadEvent } from '../core/ble/types';
+import { frase } from '../core/frase';
 
 /** La parte di stato che l'avanzamento tocca. Il resto non lo riguarda. */
 export interface StatoAvanzamento {
@@ -75,15 +76,18 @@ export function applicaAvanzamento<S extends StatoAvanzamento>(
          * le etichette FISSE che manda il ponte Rust («lettura della memoria
          * del computer», «byte ricevuti dal computer») sono nel dizionario.
          *
-         * ► QUELLO CHE RESTA FUORI, DETTO INVECE CHE NASCOSTO. ◄ I driver di
-         * casa costruiscono l'etichetta col numero dentro — «Ricevo la memoria
-         * del computer: 128 di 512 kB» — e una frase così non entra in un
-         * dizionario la cui chiave è la frase intera: cambierebbe a ogni
-         * battito. Per tradurle andrebbero spezzate in chiave più numeri, come
-         * fa `frase()` altrove. *Finché non succede, chi ha l'applicazione in
-         * inglese le legge in italiano, ed è meglio saperlo che scoprirlo.*
+         * ► E QUELLE COL NUMERO DENTRO SI COMPONGONO QUI. ◄ I driver di casa
+         * non mandano più la frase già scritta — «Ricevo la memoria del
+         * computer: 128 di 512 kB», una chiave che cambiava a ogni battito e
+         * che nel dizionario non ci sarebbe mai stata — ma il **modello** coi
+         * segnaposti e i numeri a parte. Si traduce prima e si riempie dopo,
+         * che è l'unico ordine in cui l'inglese può mettere le parole nel
+         * proprio. Vedi `core/frase.ts` e `core/ble/avanzamentoTesti.ts`.
+         *
+         * Senza `valori` — è il caso delle etichette fisse del ponte Rust —
+         * `frase()` fa esattamente quello che faceva `t()`.
          */
-        passo: traduci(e.label),
+        passo: frase(traduci, e.label, ...(e.valori ?? [])),
         /*
          * ► IL CONTO DELLE IMMERSIONI DI CHI NON SA IL TOTALE. ◄ Dalla 1.8.18
          * libdivecomputer lo manda mentre legge, contando le immersioni che la

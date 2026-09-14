@@ -59,6 +59,7 @@ import {
   type UwatecDive,
 } from '../../parsers/uwatecSmart';
 import { advertisesService, either, exactName, nameStartsWith } from '../match';
+import { RIAPRO_IL_COLLEGAMENTO, RICEVO_LA_MEMORIA, RICEVO_LA_MEMORIA_RIPRESA } from '../avanzamentoTesti';
 import type { BleLink, ComputerIdentity, DiveComputerDriver, DownloadedRecord } from '../types';
 
 // --------------------------------------------------------------------- comandi
@@ -709,13 +710,18 @@ export const uwatecDriver: DiveComputerDriver = {
             // fra un giro e l'altro: è lì che le venti ore si accumulerebbero.
             if (Date.now() > scadenzaTotale) throw new UwatecProtocolError('tempo massimo superato');
             const kb = (v: number) => Math.round(v / 1024);
+            // ► IL MODELLO E I NUMERI, NON LA FRASE GIÀ SCRITTA. ◄ Vedi
+            // `avanzamentoTesti.ts`: qui la lingua non si sa, e una frase
+            // composta adesso non si può più tradurre.
+            const ripresa = giro > 1;
             emit({
               kind: 'progress',
               done: bytiTotali + fatti,
               total: bytiTotali + lunghezza,
-              label:
-                `Ricevo la memoria del computer: ${kb(bytiTotali + fatti)} di ${kb(bytiTotali + lunghezza)} kB` +
-                (giro > 1 ? ` (ripresa ${giro - 1})` : ''),
+              label: ripresa ? RICEVO_LA_MEMORIA_RIPRESA : RICEVO_LA_MEMORIA,
+              valori: ripresa
+                ? [kb(bytiTotali + fatti), kb(bytiTotali + lunghezza), giro - 1]
+                : [kb(bytiTotali + fatti), kb(bytiTotali + lunghezza)],
             });
           });
           completo = true;
@@ -837,7 +843,7 @@ export const uwatecDriver: DiveComputerDriver = {
           kind: 'progress',
           done: bytiTotali,
           total: bytiTotali,
-          label: 'Il computer non risponde più: riapro il collegamento…',
+          label: RIAPRO_IL_COLLEGAMENTO,
         });
         bus = new Riassemblatore(await riapri());
 

@@ -305,6 +305,18 @@ export type DownloadEvent =
        * bisogno: loro il totale lo sanno prima, e usano `counted` e `record`.
        */
       dives?: number;
+      /**
+       * I numeri che riempiono i segnaposti di `label`, quando ce ne sono.
+       *
+       * ► LA FRASE SI COMPONE ALLA FINE, DOVE LA LINGUA SI SA. ◄ Un driver vive
+       * in `core` e `t()` è roba dell'interfaccia: mandando quassù la frase già
+       * scritta, «Ricevo la memoria del computer: 128 di 512 kB» diventa una
+       * chiave di dizionario che cambia a ogni battito della barra e che non ci
+       * sarà mai. Il modello viaggia con i `{0}`, i numeri viaggiano qui, e
+       * `frase()` li mette insieme quando la lingua è nota. Vedi
+       * `core/ble/avanzamentoTesti.ts`.
+       */
+      valori?: (string | number)[];
     }
   /**
    * Una riga di diario tecnico.

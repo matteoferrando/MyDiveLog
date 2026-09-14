@@ -1352,6 +1352,16 @@ export const INGLESE: Record<string, string> = {
   'lettura della memoria del computer': 'reading the computer’s memory',
   'byte ricevuti dal computer': 'bytes received from the computer',
 
+  // --- e quelle dei driver di casa, col numero dentro ---
+  // Modello + segnaposti, non frase già scritta: vedi `core/ble/avanzamentoTesti.ts`.
+  // In inglese i segnaposti si possono spostare; quello che NON si può è
+  // perderne uno, e il test del dizionario lo impedisce.
+  'Ricevo la memoria del computer: {0} di {1} kB': 'Receiving the computer’s memory: {0} of {1} kB',
+  'Ricevo la memoria del computer: {0} di {1} kB (ripresa {2})':
+    'Receiving the computer’s memory: {0} of {1} kB (resumed {2})',
+  'Il computer non risponde più: riapro il collegamento…':
+    'The computer has stopped responding: reopening the connection…',
+
   // --- impostazioni: accesso, sincronizzazione, cestino, backup ---
   'Accedi con Google': 'Sign in with Google',
   'Accedi con Apple o con Google, oppure configura indirizzo e token del database.':
