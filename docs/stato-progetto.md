@@ -4514,6 +4514,125 @@ automatica poteva scoprire.
 
 ---
 
+## Il 14 settembre, dopo il rilascio: due numeri che c'erano e non si vedevano
+
+Segnalati dal proprietario guardando l'elenco sul telefono, a rilascio già
+fatto. Nessuno dei due è nato con la 1.8.18: c'erano da prima, e il secondo non
+era mai stato guardato da nessuno.
+
+### 1. La profondità media c'era, e l'elenco scriveva «—»
+
+*«Senza inserire i dati di consumo della bombola non mi dà, nella parte di
+recap, la profondità media.»* La bombola non c'entrava: era una correlazione, non
+una causa.
+
+**La causa, misurata.** Il parser Shearwater dentro libdivecomputer **non
+implementa `DC_FIELD_AVGDEPTH` affatto** — cercato nel sorgente di
+`shearwater_predator_parser.c`, zero occorrenze, mentre durata, profondità
+massima, miscele, bombole, salinità, pressione atmosferica, modalità e modello
+decompressivo ci sono tutti. Quindi `dive.avgDepth`, che è il valore
+**dichiarato dalla sorgente**, da uno Shearwater è vuoto per costruzione. Il
+profilo però c'è, e `computeMetrics` ne fa la media pesata sul tempo da sempre:
+il numero stava in `metrics.avgDepth`, e **quasi nessuno lo leggeva**.
+
+| Leggeva il campo giusto | Leggeva quello sbagliato |
+|---|---|
+| la scheda dell'immersione | **l'elenco del logbook** |
+| il confronto fra due immersioni | il **PDF della singola immersione** |
+| l'esportazione CSV | il grafico «consumo e profondità media» |
+| | l'esportazione **UDDF** |
+
+*Nessuna prova poteva accorgersene, e non per mancanza di prove: **ognuno dei
+due lettori era corretto rispetto al campo che leggeva**.* Il difetto non stava
+in una riga — stava nel fatto che le righe fossero due.
+
+> **► ED È LO STESSO IDENTICO DIFETTO DI `core/temperatura.ts`. ◄** Quel file si
+> apre così: *«Nella scheda il riquadro "Temperatura minima" diceva —, e trenta
+> centimetri più sotto il grafico disegnava una riga piatta a 30,0 °C. Lo stesso
+> schermo, lo stesso dato, due risposte diverse.»* Parola per parola la stessa
+> forma, trovata dalla stessa persona, a tre settimane di distanza, su un altro
+> campo. E l'elenco dei lettori sbagliati che quel file riporta — «la scheda, il
+> PDF, il CSV, l'esportazione UDDF, le statistiche e il confronto» — è **quasi
+> lo stesso elenco**.
+>
+> *Quando un difetto si ripresenta con la stessa forma su un campo diverso, la
+> prima domanda non è «come lo aggiusto»: è **quanti altri campi hanno questa
+> forma**.* Sono tutti quelli che esistono sia dichiarati sull'immersione sia
+> calcolati in `metrics`.
+
+Chiuso come il suo gemello: **`core/profondita.ts`**, una funzione che prende il
+valore da dove c'è. L'ordine dei due campi è però l'**opposto** di
+`temperaturaMinimaC`, e tutte e due le scelte hanno la ragione scritta accanto:
+per la temperatura vince il dichiarato, perché il minimo l'apparecchio lo calcola
+su tutti i suoi campionamenti interni mentre noi lo cerchiamo fra i pochi
+salvati; per la profondità media vince il misurato, perché una media pesata sul
+tempo si ricostruisce bene anche da un profilo rado — e perché è la regola che
+questo progetto applica ovunque.
+
+**Perché una funzione e non una riscrittura dell'archivio:** il numero c'è già in
+`metrics` di ogni immersione con un profilo, quindi la media ricompare su tutto
+l'archivio esistente **senza ricalcolare niente e senza toccare un record**. Ed è
+l'unico rimedio possibile per le 110 immersioni già scaricate, che
+all'importazione non si possono più riparare.
+
+E il ponte di libdivecomputer non riportava il valore sull'immersione: la riga
+`if (dive.avgDepth === undefined) dive.avgDepth = dive.metrics.avgDepth;` c'è in
+**tutti** gli altri importatori e in `esterni.ts` mancava.
+
+**La guardia** pretende che in tutta l'interfaccia e in tutte le esportazioni
+`.avgDepth` non si legga affatto, e nomina i file colpevoli; una seconda riga
+pretende che la funzione sia davvero usata, perché *una guardia che passa anche
+quando la cosa che protegge non esiste più non protegge niente*. Tutte e due
+viste rosse.
+
+### 2. Il consumo con più bombole: giusto, tranne in un caso
+
+*«Puoi verificare che quando metto due gas il calcolo sia corretto, e anche se
+metto due bombole in aria, anche con litraggio diverso.»* Verificato facendolo
+girare su configurazioni scelte perché i conti si rifacciano a mano.
+
+**Quello che era già giusto.** Due bombole uguali raddoppiano il consumo
+esattamente — si sommano, non si mediano. Litraggi diversi pesano ognuno per il
+proprio volume. Due gas diversi danno lo stesso numero di due bombole d'aria con
+le stesse pressioni, ed è corretto: un litro di EAN50 e un litro d'aria occupano
+lo stesso litro.
+
+E la parte che sembra sbagliata e non lo è: i litri di tutte le bombole si
+dividono per la pressione media dell'immersione **intera**, anche quando una
+stage è stata respirata solo a sei metri. Torna perché `durata × pressione media`
+**è** l'integrale della pressione nel tempo — la media è pesata sul tempo —
+cioè per definizione il divisore giusto. Nessuna assunzione su quando sia stato
+respirato cosa.
+
+**Quello che invece non tornava.** Una 12 L da 200 a 70 bar più una seconda
+bombola con le sue pressioni ma **senza litraggio** dava **13,3 L/min**: identico
+a quello della sola 12 L. I bar della seconda venivano letti, riconosciuti come
+consumo e poi buttati — senza volume non diventano litri — mentre il divisore
+restava l'immersione intera.
+
+*Il numero non usciva assente: usciva **basso**.* Ed è la direzione che fa più
+danno, perché è quella che fa piacere: si legge un consumo migliore del proprio e
+ci si pianifica sopra la riserva. L'avvertenza che esisteva non copriva il caso —
+scattava solo quando **nessuna** bombola aveva il volume. Adesso c'è, e dice il
+numero **e il verso dell'errore**.
+
+> **► E UNA COSA TROVATA DI STRISCIO, CHE RESTA APERTA. ◄** Le avvertenze delle
+> metriche — tutte, non solo quella nuova — sono disegnate **così come sono**:
+> `{m.quality.caveats.map((c) => <div>{c}</div>)}`, senza passare da `t()`.
+> Nessuna è nel dizionario. **Con l'applicazione in inglese le avvertenze escono
+> in italiano**, e sono una ventina.
+>
+> È **la stessa forma** del difetto chiuso nella 1.8.18 con le righe
+> dell'avanzamento: testo che nasce in `core`, dove la lingua non si sa, e che
+> viene disegnato senza passare dal dizionario — quindi invisibile alla guardia
+> del dizionario, che scorre il sorgente cercando `t()` e `frase()`. *Tre volte
+> lo stesso guasto in una settimana: il piano di miglioramento, le righe dello
+> scarico, e adesso le avvertenze.* La cura è quella già scritta e già provata:
+> costanti esportate, `frase()` per quelle col numero dentro, e una prova che le
+> scorra tutte. Non fatta.
+
+---
+
 ## Cosa resta aperto dopo la 1.8.18
 
 In ordine di quanto è probabile che sia lui. Rispetto alla lista di ieri **una
