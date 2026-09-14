@@ -437,6 +437,81 @@ describe('nessun campo si perde nella fusione', () => {
     expect(fusa.metrics).toBeDefined();
   });
 
+  it('un riscarico porta il CAMBIO GAS dentro un’immersione che era già in archivio', () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► LA DOMANDA ERA: «PER AVERE IL CAMBIO GAS VANNO REIMPORTATE LE
+     *   IMMERSIONI?» ◄
+     *
+     * Sì, e questa prova dice anche **come va a finire**, che è la metà che non
+     * si legge dal codice: riscaricando, l'immersione che c'è già non viene
+     * duplicata e non viene persa — viene **arricchita**.
+     *
+     * Il meccanismo è `profileChannels`: il gas respirato conta come un canale
+     * del profilo, quindi lo stesso identico scarico fatto con la versione
+     * nuova ne ha **uno in più** di quello in archivio, e il confronto lo fa
+     * vincere. Tutto il resto della scheda — sito, compagno, note, zavorra, il
+     * consumo scritto a mano — resta dov'è, perché la fusione tocca il profilo
+     * e non quelli.
+     *
+     * *Senza questa prova la risposta sarebbe stata una lettura del codice; con
+     * questa è una misura.*
+     */
+    const senzaGas: Dive = {
+      ...scarna,
+      source: { format: 'libdivecomputer', file: 'Puck 4', importedAt: '2026-09-01T00:00:00.000Z' },
+      cylinders: [{ mix: { o2: 0.21, he: 0 } }, { mix: { o2: 0.5, he: 0 } }],
+      samples: [
+        { t: 0, depth: 30, tempC: 18 },
+        { t: 600, depth: 30, tempC: 18 },
+        { t: 1200, depth: 6, tempC: 19 },
+      ],
+      // Due cose scritte da una persona: devono sopravvivere al riscarico.
+      notes: 'corrente in uscita',
+      rmvLpmManual: 13.4,
+    };
+    const conGas: Dive = {
+      ...senzaGas,
+      source: { format: 'libdivecomputer', file: 'Puck 4', importedAt: '2026-09-14T00:00:00.000Z' },
+      samples: [
+        { t: 0, depth: 30, tempC: 18, gasIndex: 0 },
+        { t: 600, depth: 30, tempC: 18, gasIndex: 0 },
+        { t: 1200, depth: 6, tempC: 19, gasIndex: 1 },
+      ],
+      notes: undefined,
+      rmvLpmManual: undefined,
+    };
+
+    const fusa = mergeDive(senzaGas, conGas, '2026-09-14T01:00:00.000Z');
+    expect(fusa.samples!.map((s) => s.gasIndex)).toEqual([0, 0, 1]);
+    // E non ha perso quello che aveva scritto una persona.
+    expect(fusa.notes).toBe('corrente in uscita');
+    expect(fusa.rmvLpmManual).toBe(13.4);
+  });
+
+  it('e riscaricando DUE volte non succede più niente: il profilo è già quello', () => {
+    /*
+     * ► IL ROVESCIO, E COSTA CARO SBAGLIARLO. ◄ Lo scarico Bluetooth ripresenta
+     * ogni volta l'intera memoria del computer. Se un profilo identico a quello
+     * già in archivio contasse come «migliore», ogni collegamento riscriverebbe
+     * tutte le immersioni — e riscriverle vuol dire ricalcolarne le metriche,
+     * che è il modo in cui, un tempo, la saturazione spariva dall'archivio a
+     * ogni scarico.
+     */
+    const conGas: Dive = {
+      ...scarna,
+      source: { format: 'libdivecomputer', file: 'Puck 4', importedAt: '2026-09-14T00:00:00.000Z' },
+      cylinders: [{ mix: { o2: 0.21, he: 0 } }, { mix: { o2: 0.5, he: 0 } }],
+      samples: [
+        { t: 0, depth: 30, tempC: 18, gasIndex: 0 },
+        { t: 1200, depth: 6, tempC: 19, gasIndex: 1 },
+      ],
+    };
+    const fusa = mergeDive(conGas, { ...conGas }, '2026-09-14T02:00:00.000Z');
+    expect(fusa.samples).toBe(conGas.samples);
+    expect(fusa.altSamples).toBeUndefined();
+  });
+
   it('porta con sé le tre voci del libretto che solo una persona può aver scritto', () => {
     // i) profondità programmata, m) centro, o) firma della guida. Non le
     // ricava nessun computer e nessun formato: o si fondono o si perdono.
