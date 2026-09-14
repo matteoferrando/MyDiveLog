@@ -168,7 +168,26 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # ► `packages:` NON È UN DETTAGLIO, ED È QUELLO CHE HA ROTTO LA 1.8.19. ◄
+      #
+      # Senza questa riga l'azione installa il suo elenco di default,
+      # `tools platform-tools`. Il pacchetto `tools` — l'SDK Tools vecchio — è
+      # stato tolto dal repository di Google, e `sdkmanager` risponde
+      # «Warning: Failed to find package 'tools'» e poi esce 1. Il lavoro muore
+      # PRIMA di compilare qualunque cosa nostra.
+      #
+      # Misurato il 14 settembre 2026: lo stesso workflow, sullo stesso commit
+      # di codice Android, era verde la mattina e rosso la sera. *È esattamente
+      # il guasto contro cui esiste il commento qui sotto sull'NDK fissato —
+      # «una build che ieri passava e oggi no, con in mezzo nessuna riga di
+      # codice cambiata» — solo che arrivava da una riga sopra, da un elenco di
+      # default che non avevamo scritto noi.*
+      #
+      # `platform-tools` basta: l'NDK se lo installa il passo successivo, e
+      # `tools` non lo usa nessuno qui dentro.
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       # La versione dell'NDK è fissata. Un NDK che cambia sotto i piedi è il
       # modo classico per avere una build che ieri passava e oggi no, con in
