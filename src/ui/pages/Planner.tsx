@@ -294,7 +294,7 @@ export function Planner() {
         pianoPdf(foglio),
         'application/pdf',
       );
-      setEsitoPdf(`${t('PDF salvato')} ${esito.dove}.`);
+      setEsitoPdf(`${t('PDF salvato')} ${t(esito.dove)}.`);
     } catch (err) {
       setEsitoPdf(
         conDettaglio(

@@ -254,6 +254,54 @@ describe('► un lettore solo per campo, e la guardia che lo pretende ◄', () =
     expect(quanti.length, `${funzione} non è usata da nessuna parte`).toBeGreaterThanOrEqual(5);
   });
 
+  it('► ogni importatore riporta la media sull’immersione, non solo qualcuno ◄', () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► LA GUARDIA DI IERI COPRIVA UN IMPORTATORE SOLO. ◄
+     *
+     * Il 14 settembre questa prova inchiodava la riga `if (dive.avgDepth ===
+     * undefined) dive.avgDepth = dive.metrics.avgDepth` **sul ponte
+     * libdivecomputer**, e il commento diceva «c'è in tutti gli altri
+     * importatori». Il giorno dopo si è scoperto che in uno non c'era: il
+     * driver Bluetooth di Shearwater, che non era coperto da nessuna prova.
+     * Lo stesso Peregrine scaricato via Bluetooth o importato da file produceva
+     * due righe diverse per la stessa immersione.
+     *
+     * *Una guardia scritta sull'esemplare che si stava guardando protegge
+     * quell'esemplare.* Questa guarda **tutti** quelli che producono
+     * un'immersione con un profilo.
+     */
+    const PRODUTTORI = [
+      'src/core/ble/drivers/shearwater.ts',
+      'src/core/ble/drivers/uwatec.ts',
+      'src/core/ble/esterni.ts',
+      'src/core/parsers/garminFit.ts',
+      'src/core/parsers/logtrak.ts',
+      'src/core/parsers/shearwater.ts',
+      'src/core/parsers/shearwaterCloud.ts',
+      'src/core/parsers/subsurface.ts',
+      'src/core/parsers/uddf.ts',
+    ];
+    /*
+     * Fuori dall'elenco per una ragione, non per dimenticanza:
+     *  - `csv.ts` legge righe di riepilogo senza profilo, quindi
+     *    `metrics.avgDepth` **è già** il dichiarato e il ripiego non farebbe
+     *    niente — una riga messa solo per far tacere una guardia è peggio che
+     *    non averla;
+     *  - `dedupe.ts` e `storage/repair.ts` non importano niente: ricalcolano
+     *    metriche su immersioni che esistono già.
+     */
+    const senzaRipiego = PRODUTTORI.filter(
+      // Basta che la media misurata finisca sull'immersione: la forma della
+      // riga — con o senza il controllo davanti — la decide ogni lettore.
+      (p) => !/dive\.avgDepth\s*=\s*dive\.metrics[?.]*\.avgDepth/.test(readFileSync(p, 'utf8')),
+    );
+    expect(
+      senzaRipiego,
+      `importatori che non riportano la media sull’immersione: ${senzaRipiego.join(' | ')}`,
+    ).toEqual([]);
+  });
+
   it('e i campi con questa forma sono ancora due, non tre', () => {
     /*
      * ► LA RIGA CHE FA SCATTARE LA GUARDIA SU UN CAMPO CHE NON ESISTE ANCORA. ◄

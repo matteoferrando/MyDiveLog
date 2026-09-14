@@ -403,9 +403,35 @@ function analyseVerticalRates(samples: Sample[], phases: DivePhases): RateResult
   // Medie di fase: sulla distanza netta percorsa, che è ciò che il subacqueo
   // percepisce come "quanto veloce sono scesa/risalito".
   const first = samples[0];
-  const deepest = samples.reduce((a, b) => (b.depth > a.depth ? b : a), samples[0]);
   if (phases.descentS > 0) {
-    out.descentRateMpm = round(((deepest.depth - first.depth) / phases.descentS) * 60, 1);
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► ERA SBAGLIATA DI +33,3% PER COSTRUZIONE, E IL NUMERO LO DICE. ◄
+     *
+     * Al numeratore c'era `deepest.depth − first.depth`, cioè la profondità
+     * **massima dell'immersione intera** (il 100%); al denominatore
+     * `phases.descentS`, che è il tempo per arrivare al **75%** della massima —
+     * `PHASE_THRESHOLD` vale 0.75. Numeratore e denominatore coprivano due
+     * tratti diversi, e il rapporto usciva esattamente `1/0.75`.
+     *
+     * Misurato su discese perfettamente lineari a 40 m: 6 m/min vera → 8
+     * dichiarata, 12 → 16, 18 → **24**, 30 → 40. Con `LIMITS.descentRateMpm` a
+     * 20 («discesa in caduta»), ogni discesa oltre i **15 m/min reali** sarebbe
+     * stata classificata come caduta.
+     *
+     * La risalita, dieci righe sotto, gli estremi coerenti li ha sempre avuti —
+     * prende la quota del primo campione della fase e quella dell'ultimo — e
+     * usciva giusta: le due velocità non erano confrontabili fra loro, ed è il
+     * genere di incoerenza che non si vede finché qualcuno non le mette in una
+     * tabella accanto.
+     *
+     * Adesso il numeratore è la profondità **raggiunta a `descentEndS`**, che è
+     * l'istante che chiude `descentS`: stesso tratto sopra e sotto la frazione.
+     */
+    const aFineDiscesa = samples.reduce((scelto, s) =>
+      s.t <= phases.descentEndS && s.t >= scelto.t ? s : scelto,
+    );
+    out.descentRateMpm = round(((aFineDiscesa.depth - first.depth) / phases.descentS) * 60, 1);
   }
   const ascentSamples = samples.filter((s) => s.t >= phases.ascentStartS);
   if (phases.ascentS > 30 && ascentSamples.length > 1) {

@@ -339,7 +339,15 @@ describe('analisi aggiuntive sull’archivio', () => {
     ]);
     expect(months[0]).toMatchObject({ label: 'gen', value: 13 });
     expect(months[7]).toMatchObject({ label: 'ago', value: 25 });
-    expect(months[3].value).toBe(0);
+    /*
+     * ► UN MESE SENZA IMMERSIONI NON HA TEMPERATURA ZERO. ◄ Questa riga diceva
+     * `0`, e quello zero non era neutro: chi legge la serie filtrava
+     * `value > 0` per togliere i mesi vuoti, e così **spariva il mese con la
+     * media sotto zero** — cioè il più freddo, cioè quello per cui la scheda
+     * esiste. L'assenza adesso si dice con `undefined`, che uno zero non può
+     * confondere.
+     */
+    expect(months[3].value).toBeUndefined();
   });
 });
 

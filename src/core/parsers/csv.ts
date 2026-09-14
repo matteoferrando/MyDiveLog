@@ -168,7 +168,6 @@ function rowToDive(row: Record<string, string>, fileName: string, importedAt: st
   const o2 = parsePercent(row.o2);
   const he = parsePercent(row.he);
   const cylinder: Cylinder = {
-    description: row.suit ? undefined : undefined,
     // «AL80» non è una misura: vedi `core/cylinders.ts`. `parseNumber` ne
     // avrebbe ricavato 80 litri, sette volte il volume vero.
     sizeL: parseCylinderSpec(row.tankSize)?.sizeL,
@@ -190,6 +189,16 @@ function rowToDive(row: Record<string, string>, fileName: string, importedAt: st
     site: row.site ? { name: row.site, region: row.region, country: row.country } : undefined,
     buddy: row.buddy,
     notes: row.notes,
+    /*
+     * ► ZAVORRA E MUTA ERANO RICONOSCIUTE E POI BUTTATE. ◄ Gli alias ci sono
+     * fra le colonne (`weight`/`zavorra`/`piombo`, `suit`/`muta`/`exposure`) e
+     * il modello ha i campi, ma `rowToDive` non li scriveva. E siccome le
+     * colonne venivano **riconosciute**, non finivano nemmeno nell'avviso
+     * «colonne ignorate perché non riconosciute»: sparivano in silenzio, che è
+     * peggio di non averle mai capite.
+     */
+    weightKg: parseNumber(row.weight),
+    suit: row.suit,
     mode: 'oc',
     cylinders: [cylinder],
     salinity: 'salt',

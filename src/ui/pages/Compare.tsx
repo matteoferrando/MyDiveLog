@@ -285,10 +285,18 @@ function ComparisonTable({ left, right, onOpen }: { left: Dive; right: Dive; onO
         lower: true,
       },
       {
+        /*
+         * ► `?? 0` TRASFORMAVA «NON MISURABILE» IN «ZERO». ◄ Su un'immersione
+         * senza profilo la riga scriveva «0.0 min» e calcolava una differenza,
+         * mentre tutte le altre righe della stessa colonna mostravano «—». Il
+         * sottotitolo della scheda promette *«dove un valore manca da una parte
+         * sola, la riga lo dichiara»*, e questa era l'unica che non lo faceva.
+         * `debriefDive` lo stesso difetto l'ha già chiuso dalla sua parte.
+         */
         label: 'Sosta di sicurezza',
         unit: 'min',
-        a: (l?.safetyStopS ?? 0) / 60,
-        b: (r?.safetyStopS ?? 0) / 60,
+        a: l?.safetyStopS === undefined ? undefined : l.safetyStopS / 60,
+        b: r?.safetyStopS === undefined ? undefined : r.safetyStopS / 60,
         lower: false,
       },
       { label: 'CNS calcolato', unit: '%', a: l?.cnsPct, b: r?.cnsPct, lower: true },

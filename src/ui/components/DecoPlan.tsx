@@ -1147,7 +1147,7 @@ export function DecoPlanner({
                       tableText,
                       'text/plain;charset=utf-8',
                     );
-                    setSalvataggio(`${t('Salvato')} ${dove.dove}.`);
+                    setSalvataggio(`${t('Salvato')} ${t(dove.dove)}.`);
                   } catch (err) {
                     // Il guscio c'era già; mancava il filtro. `esporta` chiama il
                     // guscio nativo, e i suoi errori arrivano con il nome del

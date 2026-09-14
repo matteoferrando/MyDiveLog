@@ -871,5 +871,18 @@ function buildDive(
 
   const dive: Dive = { ...base, id: diveIdFor(base) };
   dive.metrics = computeMetrics(dive);
+  /*
+   * ► ERA L'ULTIMO IMPORTATORE SENZA QUESTA RIGA. ◄ Ce l'hanno UDDF,
+   * Subsurface, LogTRAK, Garmin, Shearwater Cloud, il lettore Shearwater XML,
+   * il driver Uwatec e il ponte libdivecomputer. Qui mancava, e la guardia di
+   * `tests/profonditaMedia.test.ts` copriva il ponte esterno ma non questo
+   * driver.
+   *
+   * Conseguenze: la deduplica salta il confronto sulla media proprio quando
+   * accoppia questo tuffo con la copia arrivata da Shearwater Cloud, che la
+   * media ce l'ha; e *lo stesso Peregrine scaricato via Bluetooth o importato
+   * da file produceva due righe diverse per la stessa immersione.*
+   */
+  if (dive.avgDepth === undefined) dive.avgDepth = dive.metrics.avgDepth;
   return dive;
 }

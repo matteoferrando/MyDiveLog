@@ -1633,6 +1633,66 @@ export const INGLESE: Record<string, string> = {
     'stops fall back on bottom gas, at your normal RMV',
   'Lettura in corso…': 'Reading…',
 
+  // ── I mesi abbreviati: vedi `core/analysis/aggregate.ts` e `ui/format.ts`.
+  //    Finivano sull'asse dei grafici E nella descrizione per gli screen reader.
+  gen: 'Jan',
+  feb: 'Feb',
+  mar: 'Mar',
+  apr: 'Apr',
+  mag: 'May',
+  giu: 'Jun',
+  lug: 'Jul',
+  ago: 'Aug',
+  set: 'Sep',
+  ott: 'Oct',
+  nov: 'Nov',
+  dic: 'Dec',
+
+  // ── Le destinazioni di un'esportazione: vedi `ui/esporta.ts`.
+  'nell’app File, in «Sul mio iPhone → MyDiveLog»': 'in the Files app, under “On My iPhone → MyDiveLog”',
+  'dove il sistema mette i download': 'wherever your system puts downloads',
+
+  // ── Da dove si esporta, per ogni formato: vedi `ui/pages/ImportPage.tsx`.
+  'Shearwater Cloud Desktop → Export → UDDF': 'Shearwater Cloud Desktop → Export → UDDF',
+  'Subsurface → File → Salva con nome (.ssrf)': 'Subsurface → File → Save as (.ssrf)',
+  'Shearwater Cloud Desktop → Export → XML': 'Shearwater Cloud Desktop → Export → XML',
+  'Il database di Shearwater Cloud Desktop, o il suo backup .db':
+    'The Shearwater Cloud Desktop database, or its .db backup',
+  'Garmin Connect → attività → esporta FIT, oppure dalla cartella ACTIVITY del dispositivo':
+    'Garmin Connect → activity → export FIT, or from the device’s ACTIVITY folder',
+  'App o desktop Scubapro LogTRAK → Esporta → file .logtrak':
+    'Scubapro LogTRAK app or desktop → Export → .logtrak file',
+  'Qualsiasi foglio di calcolo con una riga per immersione e le intestazioni in prima riga':
+    'Any spreadsheet with one row per dive and the headers on the first row',
+
+  // ── Il Piano con l'archivio vuoto: vedi `ui/pages/Coach.tsx`.
+  'I suggerimenti nascono dalle tue immersioni, e qui non ce n’è ancora nessuna. Importa un file o scrivi la prima a mano dal Logbook: da tre in poi il piano si calcola.':
+    'The suggestions come from your dives, and there are none here yet. Import a file or write the first one by hand from the Logbook: from three onwards the plan can be worked out.',
+
+  // ── La serie della velocità di risalita: vedi `ui/pages/Stats.tsx`.
+  'Il momento più veloce della risalita, non la media.': 'The fastest moment of the ascent, not the average.',
+
+  // ── Obiettivi che non si chiedono a chi li ha già raggiunti.
+  'Mantenere la media sotto {0} L/min anche sulle immersioni più impegnative.':
+    'Keep the average below {0} L/min even on the more demanding dives.',
+  'Mantenere le immersioni con violazioni sotto il {0}.': 'Keep dives with violations below {0}.',
+  'Restare sopra il {0} anche nelle prossime 15 immersioni.': 'Stay above {0} over the next 15 dives too.',
+
+  // ── Periodi e conteggi detti come li direbbe una persona.
+  'nell’ultimo mese': 'in the last month',
+  '{0} immersioni {1}, l’ultima oggi.': '{0} dives {1}, the last one today.',
+  '{0} immersioni {1}, l’ultima ieri.': '{0} dives {1}, the last one yesterday.',
+  '{0} immersioni su {1} permettono di calcolare il consumo dalle pressioni.':
+    '{0} dives out of {1} allow consumption to be worked out from pressures.',
+  '{0} immersioni sopra i {1} m/min nei metri finali (il consiglio è {3}, con mezzo metro di tolleranza){2}.':
+    '{0} dives above {1} m/min in the final metres (the guidance is {3}, with half a metre of tolerance){2}.',
+
+  // ── Statistiche: la finestra scelta, e il verdetto che non è solo un colore.
+  'Nel periodo scelto': 'In the chosen period',
+  'nessuna immersione nel periodo scelto': 'no dives in the chosen period',
+  'nei limiti': 'within limits',
+  'da guardare': 'worth a look',
+
   // ── Le avvertenze delle metriche. Vedi core/analysis/avvertenze.ts: fino al
   //    14 settembre 2026 uscivano in italiano anche con l'applicazione in
   //    inglese, perché venivano disegnate senza passare di qui.

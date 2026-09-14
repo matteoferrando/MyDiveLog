@@ -43,7 +43,7 @@
  * dentro non ce l'ha.
  */
 
-import { immersioniDaLdc, type ImmersioneLdc } from '../core/ble/esterni';
+import { immersioniDaLdcConScarti, type ImmersioneLdc } from '../core/ble/esterni';
 import type { CandidatoRiconosciuto } from '../core/ble/riconosci';
 import { fusoDelDispositivo } from '../core/oraAParete';
 import type { Dive } from '../core/model';
@@ -177,6 +177,12 @@ export async function riconosciComputerEsterno(nome: string): Promise<CandidatoR
 export interface EsitoScaricoEsterno {
   /** Dalla più recente alla più vecchia. Può non essere vuoto anche se `guasto` c'è. */
   dives: Dive[];
+  /**
+   * I record che il computer ha consegnato e che non sono diventati
+   * un'immersione, con il motivo. **Vuoto vuol dire «sono entrate tutte»**, ed è
+   * la condizione da cui dipende il segnalibro: vedi `immersioniDaLdcConScarti`.
+   */
+  scartate: string[];
   /** Assente se è filato tutto liscio. */
   guasto?: string;
   /**
@@ -269,14 +275,16 @@ export async function scaricaDaComputerEsterno({
      * ripetere su altri cento modelli il difetto che il 24 agosto 2026 ha
      * fatto entrare due immersioni in archivio quattro volte.
      */
+    const tradotte = immersioniDaLdcConScarti(esito.immersioni, {
+      marca,
+      modello,
+      dispositivo,
+      fuso: fusoDelDispositivo,
+      importedAt: new Date().toISOString(),
+    });
     return {
-      dives: immersioniDaLdc(esito.immersioni, {
-        marca,
-        modello,
-        dispositivo,
-        fuso: fusoDelDispositivo,
-        importedAt: new Date().toISOString(),
-      }),
+      dives: tradotte.dives,
+      scartate: tradotte.scartate,
       guasto: esito.guasto,
       registrazione: esito.registrazione,
     };

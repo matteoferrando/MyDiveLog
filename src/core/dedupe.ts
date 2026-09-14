@@ -693,9 +693,66 @@ export function profileChannels(dive: Dive): number {
   );
 }
 
-export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().toISOString()): Dive {
+export function mergeDive(
+  base: Dive,
+  incoming: Dive,
+  now: string = new Date().toISOString(),
+  /**
+   * ════════════════════════════════════════════════════════════════════════
+   * ► «STESSA SCHEDA» O «DUE FONTI DIVERSE»: NON È LA STESSA FUSIONE. ◄
+   *
+   * Questa funzione prende sempre il **massimo** fra le due profondità e le due
+   * durate. È la regola giusta durante un'importazione: due computer sullo
+   * stesso tuffo, la lettura più profonda è quella che ha visto di più.
+   *
+   * In **sincronizzazione** i due lati sono la stessa identica scheda su due
+   * dispositivi, e allora il massimo non arbitra niente: schiaccia. Chi
+   * correggeva a mano un picco del sensore — da 32.4 a 31.0 — se lo vedeva
+   * tornare 32.4 **sul dispositivo che l'aveva corretto**, ricaricato sul
+   * remoto e ridisceso su tutti gli altri. Provato per tre giri: torna ogni
+   * volta, e resta la nota «picco del sensore corretto» accanto al valore non
+   * corretto, che è il modo peggiore di perdere un dato.
+   *
+   * Con `stessaScheda`, profondità e durata seguono la regola di tutti gli
+   * altri campi — vince chi ha scritto per ultimo, cioè `base`, che chi chiama
+   * sceglie per `updatedAt`.
+   */
+  stessaScheda = false,
+): Dive {
   const out: Dive = { ...base };
   let changed = false;
+
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► `mode` E `salinity` NON SI FONDEVANO MAI, E IL RISULTATO DIPENDEVA
+   * DALL'ORDINE DI IMPORT. ◄
+   *
+   * `takeIfEmpty` prende il campo dell'altro solo quando il proprio è vuoto.
+   * `mode` non era nemmeno nell'elenco — nel modello è obbligatorio, quindi
+   * «vuoto» non lo è mai — e `salinity` c'era ma i lettori la scrivono
+   * **sempre** (`csv.ts` mette `'salt'` e `'oc'` per default). Risultato: una
+   * riga di riepilogo da CSV già in archivio faceva vincere «circuito aperto»
+   * e «acqua salata» sul log vero di un rebreather in lago — e a ordine
+   * invertito vinceva l'altro.
+   *
+   * *Non è un'etichetta:* `salinity` entra nella pressione ambiente e quindi in
+   * `avgAta`, `maxPpo2`, CNS, OTU, nei cambi gas e nell'intera catena dei
+   * tessuti; `mode` governa statistiche, attrezzatura e libretto. E la scheda
+   * intanto dichiarava «arricchita».
+   *
+   * È lo stesso difetto che poche righe più sotto è già chiuso per la miscela
+   * con il caso speciale `isAir`: *«vinceva l'aria di chi non la sapeva, a
+   * seconda dell'ordine di import»*. Qui il ripiego da riconoscere è lo stesso:
+   * `'oc'` e `'salt'` sono quello che scrive chi non sa, quindi cedono a chi sa.
+   */
+  const ripiegoCede = <K extends 'mode' | 'salinity'>(key: K, ripiego: Dive[K]) => {
+    const mio = out[key];
+    const suo = incoming[key];
+    if (suo !== undefined && suo !== ripiego && mio === ripiego) {
+      out[key] = suo;
+      changed = true;
+    }
+  };
 
   const takeIfEmpty = <K extends keyof Dive>(key: K) => {
     const current = out[key];
@@ -868,8 +925,14 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
        * e ha cominciato a pretenderle dal modello.
        */
       'rmvLpmManual',
+      // Il voto di visibilità di Subsurface: vedi `Dive.visibilityRating`.
+      'visibilityRating',
     ] as const
   ).forEach(takeIfEmpty);
+
+  // I due campi che `takeIfEmpty` non poteva raggiungere: vedi `ripiegoCede`.
+  ripiegoCede('mode', 'oc');
+  ripiegoCede('salinity', 'salt');
 
   /*
    * ► IL FUSO NON SI PRENDE DA UN'IMMERSIONE CON UN ALTRO ORARIO. ◄
@@ -1066,13 +1129,17 @@ export function mergeDive(base: Dive, incoming: Dive, now: string = new Date().t
     changed = true;
   }
 
-  if (incoming.maxDepth > out.maxDepth) {
-    out.maxDepth = incoming.maxDepth;
-    changed = true;
-  }
-  if (incoming.durationS > out.durationS) {
-    out.durationS = incoming.durationS;
-    changed = true;
+  // Vedi `stessaScheda`: fra due FONTI vince la lettura più profonda, fra due
+  // versioni della stessa scheda vince chi ha scritto per ultimo.
+  if (!stessaScheda) {
+    if (incoming.maxDepth > out.maxDepth) {
+      out.maxDepth = incoming.maxDepth;
+      changed = true;
+    }
+    if (incoming.durationS > out.durationS) {
+      out.durationS = incoming.durationS;
+      changed = true;
+    }
   }
 
   // Un secondo profilo più rado del principale non serve a niente: la sua unica

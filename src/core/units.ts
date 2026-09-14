@@ -195,7 +195,13 @@ export function bestMix(
   surfaceBar: number = ATM_BAR,
 ): number {
   const abs = ambientBar(depthM, salinity, surfaceBar);
-  return Math.floor((maxPpo2 / abs) * 100) / 100;
+  /*
+   * ► IL TETTO A 1, E L'APPLICAZIONE CONSIGLIAVA «EAN106». ◄ Senza, a tre metri
+   * `1.4 / 1.32` dà **1.06**, e il pianificatore — che il campo profondità lo
+   * accetta da 3 m in su — stampava `EAN{Math.round(1.06*100)}`, cioè una
+   * miscela che non esiste. Sopra l'ossigeno puro non c'è niente da respirare.
+   */
+  return Math.min(1, Math.floor((maxPpo2 / abs) * 100) / 100);
 }
 
 /** Equivalent Air Depth, metri. */
@@ -357,4 +363,30 @@ export function formatRuntime(min: number): string {
   const whole = Math.round(min);
   if (whole < 60) return `${whole} min`;
   return `${Math.floor(whole / 60)} h ${String(whole % 60).padStart(2, '0')} min`;
+}
+
+/**
+ * Una frazione di gas, da un numero che potrebbe essere una percentuale.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► PERCHÉ ESISTE, E PERCHÉ SBAGLIARLA È PEGGIO DI NON AVERE IL DATO. ◄
+ *
+ * `0.21` e `21` vogliono dire la stessa cosa scritte in due scale, e i file li
+ * portano tutti e due: UDDF pretende la frazione ma i file scritti a mano ci
+ * mettono spesso la percentuale, e il campo di Shearwater si chiama `fraction`
+ * ed è salvato in percentuale.
+ *
+ * Con una frazione maggiore di uno la frazione inerte diventa zero: i tessuti
+ * **non caricano mai**, e l'immersione decompressiva più pesante dell'archivio
+ * esce con GF99 zero, tetto zero e zero minuti di obbligo. *Si presenta come la
+ * più tranquilla di tutte*, senza un errore da nessuna parte.
+ *
+ * La soglia è 1 e non 1.5 o 2: una frazione di ossigeno vale al massimo 1 —
+ * ossigeno puro — quindi qualunque numero sopra 1 è una percentuale, e non c'è
+ * ambiguità da risolvere. Il caso limite, `o2 = 1`, resta ossigeno puro, che è
+ * la lettura giusta: `100` come percentuale dà lo stesso risultato.
+ */
+export function frazioneDiGas(v: number | undefined): number | undefined {
+  if (v === undefined || !Number.isFinite(v) || v < 0) return undefined;
+  return v > 1 ? v / 100 : v;
 }

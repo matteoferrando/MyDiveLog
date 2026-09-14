@@ -203,7 +203,19 @@ export function immersioneDaLdc(imm: ImmersioneLdc, ctx: ContestoEsterno): Dive 
    * e il consumo sarebbe stato diviso per un minuto invece che per cinquanta.
    */
   const durationS = Math.max(imm.durationS || 0, ...samples.map((s) => s.t), 0);
-  if (maxDepth <= 0 && durationS <= 0) return undefined;
+  if (maxDepth <= 0 && durationS <= 0) {
+    /*
+     * ► ANCHE QUESTO SCARTO PARLA, E PRIMA NO. ◄ Venti righe più su c'è scritto
+     * «si scarta DICENDOLO, mai in silenzio», e questa uscita non lo faceva:
+     * restituiva `undefined` e basta. Non è simmetria estetica — vedi
+     * `immersioniDaLdc`: da questo avviso dipende il **segnalibro**, e un record
+     * sparito senza dirlo poteva portarselo dietro.
+     */
+    ctx.onScarto?.(
+      'Un record del computer non ha né profondità né durata: non è un’immersione, non è stato importato.',
+    );
+    return undefined;
+  }
 
   const oraAParete = imm.startMs;
   const fusoMinuti = ctx.fuso?.(oraAParete);
@@ -288,6 +300,48 @@ export function immersioniDaLdc(imm: ImmersioneLdc[], ctx: ContestoEsterno): Div
     .map((i) => immersioneDaLdc(i, ctx))
     .filter((d): d is Dive => d !== undefined)
     .sort((a, b) => Date.parse(b.startTime) - Date.parse(a.startTime));
+}
+
+/**
+ * Le immersioni **e** quello che è stato scartato per strada.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► PERCHÉ NON BASTAVA `immersioniDaLdc`, E PERCHÉ È UN DIFETTO DA LOGBOOK. ◄
+ *
+ * `ContestoEsterno.onScarto` esisteva da sempre e **non lo passava nessuno**:
+ * due sole occorrenze in tutto il sorgente, tutte e due dentro questo file.
+ * Quindi un record scartato qui spariva senza lasciare traccia — e il guaio non
+ * è l'immersione persa, è quello che succede dopo.
+ *
+ * Il Rust ha già emesso il suo `Record` per quel record, quindi l'interfaccia ha
+ * già fissato l'impronta della **più recente**. Se la più recente è proprio
+ * quella scartata, lo scarico finisce «senza errori», il segnalibro si salva su
+ * di lei, e al giro successivo `dc_device_set_fingerprint` ferma il backend lì:
+ * **quell'immersione e tutte quelle più vecchie non verranno più offerte. Mai
+ * più, senza un avviso.**
+ *
+ * *È il difetto peggiore che un logbook possa avere: non perde dati che hai,
+ * perde dati che non sai di non avere* — la frase è già scritta in
+ * `BleDownload.tsx` accanto al segnalibro, per l'interruzione a metà. Questa è
+ * la stessa cosa da un'altra porta, e la porta era aperta.
+ *
+ * La strada dei driver di casa la guardia ce l'ha: `download.ts` pretende
+ * `out.dives.length === records.length && saltate === 0` prima di dare per buono
+ * il segnalibro. Questa funzione è l'equivalente per la strada esterna.
+ */
+export function immersioniDaLdcConScarti(
+  imm: ImmersioneLdc[],
+  ctx: ContestoEsterno,
+): { dives: Dive[]; scartate: string[] } {
+  const scartate: string[] = [];
+  const dives = immersioniDaLdc(imm, {
+    ...ctx,
+    onScarto: (motivo) => {
+      scartate.push(motivo);
+      ctx.onScarto?.(motivo);
+    },
+  });
+  return { dives, scartate };
 }
 
 /**

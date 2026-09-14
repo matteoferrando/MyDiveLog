@@ -2610,6 +2610,9 @@ struct Accumulatore {
     /// deco gas. *Su un'immersione con cambio gas sarebbe una saturazione
     /// sbagliata presentata con la stessa faccia di una giusta.*
     miscela_corrente: Option<u32>,
+    /// Quante letture di pressione sono state scartate perché l'indice di
+    /// bombola era fuori scala. Vedi il ramo `DC_SAMPLE_PRESSURE`.
+    pressioni_fuori_scala: usize,
 }
 
 /*
@@ -2709,12 +2712,50 @@ extern "C" fn campione(tipo: c_uint, valore: *const ValoreCampione, userdata: *m
         1 => acc.corrente.depth = Some(unsafe { v.profondita }),
         2 => {
             let p = unsafe { v.pressione };
+            /*
+             * ════════════════════════════════════════════════════════════════
+             * ► UN INDICE DI BOMBOLA NON CONTROLLATO ERA LA DIMENSIONE DI
+             * UN'ALLOCAZIONE, E FACEVA ABORTIRE L'APPLICAZIONE INTERA. ◄
+             *
+             * `p.bombola` è un `unsigned int` che arriva così com'è dalla
+             * libreria e finiva dritto in `resize`. Con `0xFFFFFFFF` diventa
+             * `resize(4_294_967_296)` di elementi da sedici byte: **64 GiB**. In
+             * Rust un'allocazione fallita non è un `Err` e non è un panic che si
+             * possa raccogliere: è `abort()`. Muore il processo Tauri a metà di
+             * un trasferimento da minuti, senza messaggio, senza diario e senza
+             * le immersioni già arrivate.
+             *
+             * ► E NON È TEORICO: `0xFFFFFFFF` È UN VALORE CHE LA LIBRERIA MANDA.
+             * `shearwater_predator_parser.c` definisce `UNDEFINED 0xFFFFFFFF`,
+             * lo scrive in `tankidx[i]` per ogni slot non attivo e poi assegna
+             * `sample.pressure.tank = parser->tankidx[id]` **senza controllare**;
+             * `suunto_eonsteel_parser.c` fa `sample.pressure.tank = info->gasnr
+             * - 1` con `gasnr` inizializzato a zero, che in `unsigned` è di
+             * nuovo `0xFFFFFFFF`. Su un telefono a 32 bit va perfino peggio:
+             * `indice + 1` trabocca `usize` e in release diventa `resize(0)`,
+             * cioè un accesso fuori dai limiti subito dopo.
+             *
+             * ► IL TETTO, E PERCHÉ QUESTO NUMERO. ◄ `NTANKS` di Shearwater vale
+             * sei; nessun computer in commercio dichiara più bombole di così, e
+             * `dc_tank_t` ne conta una manciata. Sedici lascia margine a
+             * chiunque e resta un vettore da niente. *Oltre questo numero non
+             * c'è una bombola: c'è un dato sbagliato*, e un dato sbagliato si
+             * scarta — non gli si alloca la memoria che chiede.
+             */
+            const BOMBOLE_AL_MASSIMO: usize = 16;
             let indice = p.bombola as usize;
-            if acc.corrente.pressione_bar.len() <= indice {
-                acc.corrente.pressione_bar.resize(indice + 1, None);
+            if indice < BOMBOLE_AL_MASSIMO {
+                if acc.corrente.pressione_bar.len() <= indice {
+                    acc.corrente.pressione_bar.resize(indice + 1, None);
+                }
+                acc.corrente.pressione_bar[indice] = Some(p.valore);
+                acc.quante_bombole = acc.quante_bombole.max(indice + 1);
+            } else {
+                // Contato e non taciuto: un conto che resta a zero per sempre è
+                // la prova che il tetto non serve, e se un giorno salisse
+                // vorremmo saperlo dal diario invece che da una segnalazione.
+                acc.pressioni_fuori_scala += 1;
             }
-            acc.corrente.pressione_bar[indice] = Some(p.valore);
-            acc.quante_bombole = acc.quante_bombole.max(indice + 1);
         }
         3 => acc.corrente.temp_c = Some(unsafe { v.temperatura }),
         5 => acc.corrente.rbt_min = Some(unsafe { v.rbt }),
@@ -3077,6 +3118,7 @@ pub fn traduci(
         // dire «non lo so», e a valle diventa «usa la prima», che è
         // un'assunzione presa in un posto solo e dichiarata.
         miscela_corrente: None,
+        pressioni_fuori_scala: 0,
     };
     let esito = unsafe {
         dc_parser_samples_foreach(parser, campione, &mut acc as *mut Accumulatore as *mut c_void)
@@ -3090,6 +3132,15 @@ pub fn traduci(
     if acc.iniziato {
         let ultimo = std::mem::take(&mut acc.corrente);
         acc.immersione.samples.push(ultimo);
+    }
+    if acc.pressioni_fuori_scala > 0 {
+        // Sul diario, non in silenzio: il tetto sugli indici di bombola scarta
+        // un dato, e un dato scartato senza dirlo è la stessa specie di guasto
+        // che il tetto serve a evitare.
+        eprintln!(
+            "letture di pressione scartate per indice di bombola fuori scala: {}",
+            acc.pressioni_fuori_scala
+        );
     }
     Ok(acc.immersione)
 }
@@ -4505,6 +4556,7 @@ mod prove {
             iniziato: false,
             quante_bombole: 0,
             miscela_corrente: None,
+            pressioni_fuori_scala: 0,
         };
         for (tipo, valore) in passi {
             campione(*tipo, valore, &mut acc as *mut Accumulatore as *mut c_void);
@@ -4518,6 +4570,7 @@ mod prove {
     }
 
     const CAMPIONE_TEMPO: c_uint = 0;
+    const CAMPIONE_PRESSIONE: c_uint = 2;
 
     #[test]
     fn la_miscela_si_porta_avanti_fino_al_cambio_dopo() {
@@ -5146,5 +5199,85 @@ mod prove {
         assert_eq!(nome_stato(-7), "tempo scaduto");
         assert_eq!(nome_stato(-8), "errore di protocollo");
         assert_eq!(nome_stato(-1), "non supportato");
+    }
+
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► UN INDICE DI BOMBOLA FUORI SCALA NON DEVE DIVENTARE UN'ALLOCAZIONE. ◄
+     *
+     * `0xFFFFFFFF` è un valore che la libreria manda davvero:
+     * `shearwater_predator_parser.c` lo usa come `UNDEFINED` e lo passa senza
+     * controllarlo, e `suunto_eonsteel_parser.c` ci arriva con un `gasnr - 1`
+     * partito da zero. Prima del tetto quel numero diventava
+     * `resize(4_294_967_296)` di elementi da sedici byte — 64 GiB — e in Rust
+     * un'allocazione fallita è `abort()`: moriva il processo intero.
+     *
+     * Questa prova non può vedere l'abort (ucciderebbe anche il processo di
+     * prova): vede il **rimedio**, cioè che la lettura viene scartata, contata,
+     * e che il vettore delle pressioni resta della misura di prima.
+     */
+    #[test]
+    fn un_indice_di_bombola_assurdo_viene_scartato_e_contato() {
+        let mut acc = Accumulatore {
+            immersione: ImmersioneLdc::default(),
+            corrente: CampioneLdc::default(),
+            iniziato: false,
+            quante_bombole: 0,
+            miscela_corrente: None,
+            pressioni_fuori_scala: 0,
+        };
+        let utente = &mut acc as *mut Accumulatore as *mut c_void;
+
+        campione(CAMPIONE_TEMPO, &ValoreCampione { tempo: 0 }, utente);
+        // Prima quella buona, così si vede che il vettore resta com'era.
+        campione(
+            CAMPIONE_PRESSIONE,
+            &ValoreCampione { pressione: PressioneCampione { bombola: 0, valore: 200.0 } },
+            utente,
+        );
+        assert_eq!(acc.corrente.pressione_bar.len(), 1);
+
+        for assurdo in [0xFFFF_FFFFu32, 0xFFFF_FFFE, 1_000_000, 16] {
+            campione(
+                CAMPIONE_PRESSIONE,
+                &ValoreCampione {
+                    pressione: PressioneCampione { bombola: assurdo, valore: 111.0 },
+                },
+                utente,
+            );
+        }
+
+        assert_eq!(acc.corrente.pressione_bar.len(), 1, "il vettore è cresciuto");
+        assert_eq!(acc.corrente.pressione_bar[0], Some(200.0), "persa la lettura buona");
+        assert_eq!(acc.quante_bombole, 1);
+        assert_eq!(acc.pressioni_fuori_scala, 4, "gli scarti non sono stati contati");
+    }
+
+    /// E il tetto non deve stringere su nessun apparecchio vero: `NTANKS` di
+    /// Shearwater vale sei, ed è il più generoso fra quelli che conosciamo.
+    #[test]
+    fn le_bombole_vere_ci_stanno_tutte() {
+        let mut acc = Accumulatore {
+            immersione: ImmersioneLdc::default(),
+            corrente: CampioneLdc::default(),
+            iniziato: false,
+            quante_bombole: 0,
+            miscela_corrente: None,
+            pressioni_fuori_scala: 0,
+        };
+        let utente = &mut acc as *mut Accumulatore as *mut c_void;
+        campione(CAMPIONE_TEMPO, &ValoreCampione { tempo: 0 }, utente);
+        for b in 0..6u32 {
+            campione(
+                CAMPIONE_PRESSIONE,
+                &ValoreCampione {
+                    pressione: PressioneCampione { bombola: b, valore: 200.0 - b as f64 },
+                },
+                utente,
+            );
+        }
+        assert_eq!(acc.quante_bombole, 6);
+        assert_eq!(acc.pressioni_fuori_scala, 0);
+        assert_eq!(acc.corrente.pressione_bar[5], Some(195.0));
     }
 }

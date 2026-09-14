@@ -131,6 +131,13 @@ export function pressureValue(raw: string | undefined): number | undefined {
   return v.unit === 'psi' ? v.value / 14.5037738007 : v.value;
 }
 
+/** "6.0 kg" → 6 · "13 lbs" → 5.9 */
+export function weightValue(raw: string | undefined): number | undefined {
+  const v = valueWithUnit(raw);
+  if (!v) return undefined;
+  return v.unit === 'lbs' || v.unit === 'lb' ? v.value * 0.45359237 : v.value;
+}
+
 /** "9.0 C" → 9 · "48 F" → 8.9 */
 export function tempValue(raw: string | undefined): number | undefined {
   const v = valueWithUnit(raw);

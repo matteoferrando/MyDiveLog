@@ -13,6 +13,34 @@ import { LIMITS, type Dive } from '../model';
 import { DEEP_STOP_MIN_DEPTH_M } from './metrics';
 import { temperaturaMinimaC } from '../temperatura';
 
+/**
+ * I mesi abbreviati, in italiano, **come chiavi del dizionario**.
+ *
+ * ► PERCHÉ ESPORTATI E NON SCRITTI SUL POSTO. ◄ Erano due array identici dentro
+ * due funzioni, mai tradotti e assenti dal dizionario: finivano sull'asse X di
+ * «Attività mese per mese» e «Temperatura per mese», **e dentro la descrizione
+ * letta dallo screen reader e nella tabella equivalente**. Con l'applicazione in
+ * inglese si leggeva *«Max ott 25 on 3 dives»*.
+ *
+ * È la stessa forma degli altri tre casi della settimana — testo che nasce in
+ * `core`, dove la lingua non si sa, e viene disegnato senza passare da `t()`. La
+ * cura è la stessa: costanti esportate che una prova possa scorrere tutte.
+ */
+export const MESI_ABBREVIATI = [
+  'gen',
+  'feb',
+  'mar',
+  'apr',
+  'mag',
+  'giu',
+  'lug',
+  'ago',
+  'set',
+  'ott',
+  'nov',
+  'dic',
+] as const;
+
 export interface Bucket {
   label: string;
   value: number;
@@ -514,7 +542,7 @@ function byMonth(dives: Dive[], now: number): Bucket[] {
     const key = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}`;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
-  const MONTHS = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+  const MONTHS = MESI_ABBREVIATI;
   for (const key of keys) {
     const [y, mo] = key.split('-');
     out.push({ key, label: `${MONTHS[+mo - 1]} ${y.slice(2)}`, value: counts.get(key) ?? 0 });
@@ -768,14 +796,39 @@ export function settingsPeriods(dives: Dive[]): SettingsPeriod[] {
   return out;
 }
 
+/**
+ * Un mese della serie delle temperature: `value` assente vuol dire «nessuna
+ * immersione», che in una serie di temperature **non** si può dire con uno zero.
+ */
+export interface MeseTemperatura {
+  label: string;
+  key: string;
+  value?: number;
+}
+
 /** Temperatura minima media per mese dell'anno, per vedere la stagionalità. */
-export function tempByMonth(dives: Dive[]): Bucket[] {
-  const MONTHS = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+export function tempByMonth(dives: Dive[]): MeseTemperatura[] {
+  const MONTHS = MESI_ABBREVIATI;
   return MONTHS.map((label, i) => {
     const temps = dives
       .filter((d) => localeDi(d).getUTCMonth() === i && temperaturaMinimaC(d) !== undefined)
       .map((d) => temperaturaMinimaC(d) as number);
-    return { label, key: String(i).padStart(2, '0'), value: temps.length ? round(mean(temps) ?? 0, 1) : 0 };
+    /*
+     * ► ZERO NON PUÒ VOLER DIRE «NESSUNA IMMERSIONE» IN UNA SERIE DI
+     * TEMPERATURE. ◄ Chi legge questa serie filtrava `value > 0` per togliere i
+     * mesi vuoti, e così **spariva il mese con la media sotto zero** — cioè il
+     * più freddo, cioè quello per cui la scheda esiste («dice quando serve la
+     * muta più pesante»). E togliendone uno, i mesi rimasti potevano scendere
+     * sotto tre e far sparire la scheda intera.
+     *
+     * L'assenza adesso si dice con `undefined`, che è la sola cosa che uno zero
+     * non può confondere.
+     */
+    return {
+      label,
+      key: String(i).padStart(2, '0'),
+      value: temps.length ? round(mean(temps) ?? 0, 1) : undefined,
+    };
   });
 }
 

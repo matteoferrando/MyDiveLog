@@ -238,10 +238,20 @@ function readLog(
     tags: [],
     samples,
   };
-  dive.metrics = computeMetrics(dive);
-  dive.avgDepth = dive.metrics.avgDepth;
-
-  // Le pressioni iniziali/finali della bombola vengono dai campioni.
+  /*
+   * ► LE BOMBOLE SI RIEMPIONO **PRIMA** DELLE METRICHE. ◄
+   *
+   * Erano invertite: `computeMetrics` girava sulle bombole ancora senza
+   * pressioni e poi le pressioni arrivavano. Le metriche salvate non erano
+   * quelle della scheda che veniva salvata — `endPressureBar` 60.3 invece di
+   * 60, `sacBarPerMin` 3.8 invece di 3.81 — e non è il mezzo decimale il
+   * problema: è che `repairArchive` confronta le metriche salvate col
+   * ricalcolo, quindi **ogni immersione Shearwater XML era candidata a essere
+   * riscritta** al primo avvio che trovasse un altro motivo per ricalcolare.
+   *
+   * *Un lettore che produce una scheda le cui metriche non sono le sue è un
+   * lettore che non è idempotente, e l'archivio se ne accorge da solo.*
+   */
   cylinders.forEach((cyl, i) => {
     const values = samples
       .map((s) => s.pressureBar?.[i])
@@ -251,6 +261,9 @@ function readLog(
       cyl.endBar = Math.round(values[values.length - 1]);
     }
   });
+
+  dive.metrics = computeMetrics(dive);
+  dive.avgDepth = dive.metrics.avgDepth;
 
   return dive;
 }

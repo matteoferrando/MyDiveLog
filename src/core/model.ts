@@ -524,6 +524,20 @@ export interface Dive {
   /** L'estremo ALTO della fascia di visibilità, quando è una fascia. */
   visibilityMaxM?: number;
   /**
+   * La visibilità come **voto**, 0-5, quando la sorgente la dà così.
+   *
+   * ► PERCHÉ NON SI CONVERTE IN METRI. ◄ Perché non esiste una conversione: una
+   * stella non è un numero di metri, e il file non dice quanti. Subsurface
+   * scrive `visibility` accanto a `rating`, con la stessa scala, e questo
+   * lettore lo infilava in `visibilityM`: **ogni immersione importata da
+   * Subsurface entrava in archivio con una visibilità fra uno e cinque metri**,
+   * e la statistica sulla visibilità era costruita su quei numeri.
+   *
+   * *Un voto messo in una casella di metri non è un dato approssimato: è un
+   * dato di un'altra specie, che si legge come se fosse questa.*
+   */
+  visibilityRating?: number;
+  /**
    * Le condizioni, in forma leggibile da una macchina.
    *
    * Fino a ieri meteo e mare finivano dentro `tags` come etichette italiane

@@ -633,6 +633,123 @@ describe('cancellazioni fra due dispositivi', () => {
   });
 });
 
+describe('► la lapide revocata, e il rimpallo che non finiva mai ◄', () => {
+  let sql: ReturnType<typeof sqliteExecutor>;
+  beforeEach(() => {
+    sql = sqliteExecutor();
+  });
+
+  it('due dispositivi convergono invece di rimpallarsi all’infinito', async () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► IL DIFETTO, MISURATO: SEI GIRI SU SEI IDENTICI. ◄
+     *
+     * A cancella un'immersione, B la ritocca dopo. La risurrezione toglie la
+     * lapide **dal remoto**, ma A se la teneva per sempre nel proprio elenco: al
+     * giro dopo non la trovava più sul remoto e la rispediva, B la ritoglieva,
+     * e così via. Due scritture di rete per immersione a ogni sincronizzazione,
+     * per sempre — con A convinta di averla cancellata e B di averla.
+     *
+     * *Non c'era un vincitore e non c'era una convergenza: c'erano due
+     * dispositivi che si contraddicevano a ogni giro senza saperlo.*
+     */
+    const a = memoryStore([dive('x'), dive('y')]);
+    await syncArchive(a, sql);
+    const b = memoryStore([]);
+    await syncArchive(b, sql);
+
+    // A cancella alle 10:00.
+    await a.deleteDive('x');
+    await a.setSetting(TOMBSTONE_KEY, [{ id: 'x', at: '2026-09-14T10:00:00.000Z' }]);
+    await syncArchive(a, sql);
+
+    // B l'aveva ripristinata e toccata alle 10:30: la lapide è revocata.
+    await b.putDives([{ ...dive('x'), updatedAt: '2026-09-14T10:30:00.000Z' }]);
+    await syncArchive(b, sql);
+
+    // Da qui in poi nessuno dei due deve più scrivere niente.
+    const spinte: number[] = [];
+    for (let giro = 0; giro < 4; giro++) {
+      spinte.push((await syncArchive(a, sql)).deletionsPushed);
+      spinte.push((await syncArchive(b, sql)).deletionsPushed);
+    }
+    expect(spinte, 'la lapide viene rispedita a ogni giro: è il rimpallo').toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+
+    // E i due dispositivi sono d'accordo su cosa esiste.
+    const suA = (await a.listDives()).map((d) => d.id).sort();
+    const suB = (await b.listDives()).map((d) => d.id).sort();
+    expect(suA, 'i due dispositivi non sono d’accordo').toEqual(suB);
+    expect(suA).toContain('x');
+  });
+
+  it('ma una lapide mai spedita parte lo stesso, al primo giro', async () => {
+    /*
+     * Il rovescio, e non è pignoleria: se la regola fosse «non spedire mai due
+     * volte» applicata male, le cancellazioni non uscirebbero **affatto** — un
+     * rimedio che costa molto più del difetto.
+     */
+    const a = memoryStore([dive('x')]);
+    await syncArchive(a, sql);
+    await a.deleteDive('x');
+    await a.setSetting(TOMBSTONE_KEY, [{ id: 'x', at: '2026-09-14T10:00:00.000Z' }]);
+    const report = await syncArchive(a, sql);
+    expect(report.deletionsPushed).toBe(1);
+    const remoto = await sql.execute("SELECT COUNT(*) AS n FROM deletions WHERE id = 'x'");
+    expect(Number(remoto.rows[0].n)).toBe(1);
+  });
+});
+
+describe('► una correzione a mano non viene annullata dalla sincronizzazione ◄', () => {
+  let sql: ReturnType<typeof sqliteExecutor>;
+  beforeEach(() => {
+    sql = sqliteExecutor();
+  });
+
+  it('la profondità corretta resta corretta, su tutti i dispositivi', async () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► `mergeDive` PRENDEVA IL MASSIMO, ANCHE FRA DUE VERSIONI DELLA STESSA
+     * SCHEDA. ◄
+     *
+     * È la regola giusta fra due FONTI — due computer sullo stesso tuffo, la
+     * lettura più profonda ha visto di più. Fra due copie dello stesso record
+     * non arbitra niente: schiaccia, e il perdente è sempre la correzione
+     * dell'utente.
+     *
+     * Misurato prima del rimedio: 31.0 m corretti a mano tornavano **32.4 sul
+     * dispositivo che li aveva corretti**, risalivano sul remoto e
+     * ridiscendevano su tutti gli altri. Ricorretti per tre giri, tornavano
+     * ogni volta — e la nota «picco del sensore corretto» restava lì accanto al
+     * valore non corretto, che è il modo peggiore di perdere un dato.
+     */
+    const mac = memoryStore([dive('x', { maxDepth: 32.4, durationS: 2520 })]);
+    await syncArchive(mac, sql);
+    const telefono = memoryStore([]);
+    await syncArchive(telefono, sql);
+
+    // Sul telefono si corregge il picco del sensore.
+    await telefono.putDives([
+      {
+        ...dive('x', { maxDepth: 31, durationS: 2400 }),
+        notes: 'picco del sensore corretto',
+        updatedAt: '2026-09-14T22:00:00.000Z',
+      },
+    ]);
+
+    for (let giro = 0; giro < 3; giro++) {
+      await syncArchive(telefono, sql);
+      await syncArchive(mac, sql);
+    }
+
+    const sulTelefono = (await telefono.listDives()).find((d) => d.id === 'x')!;
+    const sulMac = (await mac.listDives()).find((d) => d.id === 'x')!;
+    expect(sulTelefono.maxDepth, 'la correzione è tornata indietro').toBe(31);
+    expect(sulTelefono.durationS).toBe(2400);
+    expect(sulMac.maxDepth, 'la correzione non è arrivata sull’altro dispositivo').toBe(31);
+    expect(sulMac.notes).toBe('picco del sensore corretto');
+  });
+});
+
 describe('il cestino ferma la sincronizzazione in entrambi i versi', () => {
   let sql: ReturnType<typeof sqliteExecutor>;
   beforeEach(() => {

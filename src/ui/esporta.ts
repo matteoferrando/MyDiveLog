@@ -29,6 +29,26 @@
 
 import { inApp, suIOS } from '../piattaforma';
 
+/**
+ * Le due destinazioni possibili di un'esportazione, **come chiavi del
+ * dizionario**.
+ *
+ * ► PERCHÉ COSTANTI. ◄ Perché questa frase viene interpolata dentro un'altra
+ * frase tradotta, in sei punti diversi — «PDF salvato {dove}» — e nessuno dei
+ * sei poteva tradurla: `t()` vuole una stringa letterale per essere vista dalla
+ * guardia del dizionario, e qui arriva una variabile. Con l'applicazione in
+ * inglese si leggeva *«PDF saved dove il sistema mette i download»* e *«Backup
+ * written dove il sistema mette i download: 42 dives»*.
+ *
+ * Esportate, una prova può scorrerle tutte e pretendere la voce inglese — la
+ * stessa cura di `core/ble/avanzamentoTesti.ts` e `core/analysis/avvertenze.ts`,
+ * che è il quarto caso della stessa forma in una settimana.
+ */
+export const DOVE_SU_IPHONE = 'nell’app File, in «Sul mio iPhone → MyDiveLog»';
+export const DOVE_NEI_DOWNLOAD = 'dove il sistema mette i download';
+/** Tutte e due, per la prova che le confronta col dizionario. */
+export const DESTINAZIONI = [DOVE_SU_IPHONE, DOVE_NEI_DOWNLOAD] as const;
+
 export interface EsitoEsportazione {
   /** Frase pronta da mostrare: «nell'app File, cartella MyDiveLog» o «nei Download». */
   dove: string;
@@ -50,7 +70,7 @@ export async function esporta(
   if (inApp() && suIOS()) {
     const { invoke } = await import('@tauri-apps/api/core');
     const percorso = await invoke<string>('esporta_nei_documenti', { nome, contenuto });
-    return { dove: 'nell’app File, in «Sul mio iPhone → MyDiveLog»', percorso };
+    return { dove: DOVE_SU_IPHONE, percorso };
   }
 
   const blob = new Blob([contenuto], { type: tipo });
@@ -62,5 +82,5 @@ export async function esporta(
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  return { dove: 'dove il sistema mette i download' };
+  return { dove: DOVE_NEI_DOWNLOAD };
 }

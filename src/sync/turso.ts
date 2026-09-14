@@ -110,6 +110,26 @@ export const TOMBSTONE_KEY = 'deletedDives';
 export interface Tombstone {
   id: string;
   at: string;
+  /**
+   * ════════════════════════════════════════════════════════════════════════
+   * ► VERA QUANDO QUESTA LAPIDE È GIÀ STATA SPEDITA AL REMOTO ALMENO UNA VOLTA.
+   *
+   * Serve a distinguere due situazioni che senza di lei sono identiche: «il
+   * remoto non ha ancora la mia lapide» e «il remoto la aveva e qualcuno l'ha
+   * **revocata**» — cioè ha ripristinato quell'immersione dal cestino o l'ha
+   * toccata dopo.
+   *
+   * Senza, i due dispositivi si rimpallavano all'infinito: A cancella, B
+   * ripristina e toglie la lapide dal remoto, A al giro dopo non la trova più e
+   * la rispedisce, B la ritoglie. Misurato: **sei giri su sei identici**, due
+   * scritture di rete per immersione a ogni sincronizzazione per sempre, A
+   * convinta di averla cancellata e B di averla. Non convergeva mai.
+   *
+   * Assente vuol dire «mai spedita», che è il valore giusto per le lapidi
+   * scritte prima che questo campo esistesse: al primo giro vengono spedite e
+   * marcate, e da lì in poi la regola vale.
+   */
+  spedita?: true;
 }
 
 /**
@@ -471,7 +491,14 @@ export async function syncDeletions(
   // significato.
   const { rows: already } = await sql.execute('SELECT id FROM deletions');
   const remoteKnown = new Set(already.map((r) => String(r.id)));
-  const pending = known.filter((t) => !remoteKnown.has(t.id));
+  /*
+   * ► SI SPEDISCE SOLO QUELLO CHE NON È MAI PARTITO. ◄ Una lapide già spedita
+   * che sul remoto non c'è più non è una lapide da rimandare: è una lapide
+   * **revocata** da qualcuno che ha ripristinato quell'immersione. Rimandarla
+   * era metà del rimpallo — vedi `Tombstone.spedita`.
+   */
+  const pending = known.filter((t) => !remoteKnown.has(t.id) && !t.spedita);
+  const revocate = new Set(known.filter((t) => t.spedita && !remoteKnown.has(t.id)).map((t) => t.id));
 
   for (const chunk of chunks(pending, PUSH_CHUNK)) {
     for (const t of chunk) {
@@ -518,10 +545,19 @@ export async function syncDeletions(
     ids.delete(id);
   }
 
+  /*
+   * ► QUELLO CHE SI TIENE IN CASA. ◄ `all` è quello che il remoto ha **dopo** la
+   * nostra spinta, quindi le lapidi appena spedite ci sono e si marcano; le
+   * revocate non ci sono e cadono da sole, che è l'altra metà del rimedio: da
+   * questo giro in poi non le rispediamo più, e il rimpallo finisce.
+   */
   await store.setSetting(
     TOMBSTONE_KEY,
-    all.filter((t) => !resurrected.has(t.id)),
+    all
+      .filter((t) => !resurrected.has(t.id) && !revocate.has(t.id))
+      .map((t) => ({ ...t, spedita: true as const })),
   );
+  for (const id of revocate) ids.delete(id);
   return { pushed, applied, ids };
 }
 
@@ -1100,7 +1136,15 @@ async function pullSamples(
  */
 function fondiRiepiloghi(base: Dive, arricchisce: Dive, metriche: Dive['metrics']): Dive {
   const senzaProfilo = stripSamples(base) as Dive;
-  const fusa = mergeDive(senzaProfilo, stripSamples(arricchisce) as Dive);
+  /*
+   * ► `stessaScheda` — QUI I DUE LATI SONO LA STESSA IMMERSIONE. ◄ Non due
+   * computer sullo stesso tuffo: lo stesso record su due dispositivi. Senza
+   * questa bandiera la fusione prendeva il **massimo** fra le due profondità e
+   * le due durate, e una correzione a mano — un picco del sensore portato da
+   * 32.4 a 31.0 — tornava indietro sul dispositivo che l'aveva fatta, risaliva
+   * sul remoto e ridiscendeva su tutti gli altri. Per sempre.
+   */
+  const fusa = mergeDive(senzaProfilo, stripSamples(arricchisce) as Dive, undefined, true);
   if (fusa === senzaProfilo) return base;
   if (base.samples) fusa.samples = base.samples;
   if (base.altSamples) fusa.altSamples = base.altSamples;

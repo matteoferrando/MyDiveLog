@@ -419,6 +419,7 @@ describe('nessun campo si perde nella fusione', () => {
     // Il consumo di superficie calcolato a mano: lo scrive una persona, quindi
     // nessuna fonte automatica lo riporta e perderlo qui vuol dire perderlo.
     rmvLpmManual: 13.4,
+    visibilityRating: 4,
   };
 
   /** Il minimo indispensabile: solo i campi obbligatori del modello. */
@@ -443,6 +444,65 @@ describe('nessun campo si perde nella fusione', () => {
     expect(perse, `campi persi dalla fusione: ${perse.join(', ')}`).toEqual([]);
     // Le metriche non si ereditano, si ricalcolano: la chiave c'è comunque.
     expect(fusa.metrics).toBeDefined();
+  });
+
+  it('► e non ne lascia indietro nemmeno il VALORE, che è un’altra cosa ◄', () => {
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► LA PROVA QUI SOPRA NON POTEVA FALLIRE SUI CAMPI OBBLIGATORI. ◄
+     *
+     * Il criterio era «la chiave c'era e adesso è `undefined`»: intercetta un
+     * campo **mancante**, non un campo **sbagliato**. Per `mode` — che nel
+     * modello è obbligatorio, quindi presente anche nella scheda scarna —
+     * `fusa.mode` non può essere `undefined` per costruzione, e l'asserzione
+     * era strutturalmente incapace di dire qualcosa.
+     *
+     * È il motivo per cui `mode` e `salinity` non si fondevano da sempre senza
+     * che nessuno se ne accorgesse: la scheda scarna portava i ripieghi di chi
+     * non sa — `'oc'` e `'salt'`, che `csv.ts` scrive per default — e vincevano
+     * loro. *Una guardia che controlla la presenza di una chiave non controlla
+     * il dato: controlla la forma dell'oggetto.*
+     */
+    const fusa = mergeDive(scarna, piena, '2026-08-25T00:00:00.000Z');
+    const sbagliati = Object.keys(piena).filter((k) => {
+      if (k === 'metrics' || k === 'id' || k === 'source' || k === 'extraSources') return false;
+      if (k === 'updatedAt') return false;
+      const mio = (scarna as unknown as Record<string, unknown>)[k];
+      const suo = (piena as unknown as Record<string, unknown>)[k];
+      const dopo = (fusa as unknown as Record<string, unknown>)[k];
+      // Solo dove la scarna non aveva niente di suo da difendere.
+      if (mio !== undefined && JSON.stringify(mio) !== JSON.stringify(dopo)) return false;
+      return JSON.stringify(dopo) !== JSON.stringify(suo);
+    });
+    expect(
+      sbagliati,
+      `campi che non hanno preso il valore della scheda piena: ${sbagliati.join(', ')}`,
+    ).toEqual([]);
+  });
+
+  it('il ripiego di chi non sa cede a chi sa: modalità e acqua', () => {
+    /*
+     * Una riga di riepilogo da CSV già in archivio, poi arriva il log vero: un
+     * rebreather in lago diventava «circuito aperto in acqua salata», e a
+     * ordine di import invertito vinceva l'altro. *`salinity` entra nella
+     * pressione ambiente, quindi in `avgAta`, `maxPpo2`, CNS, OTU, nei cambi
+     * gas e in tutta la catena dei tessuti* — e la scheda intanto dichiarava
+     * «arricchita».
+     */
+    const daCsv: Dive = { ...scarna, mode: 'oc', salinity: 'salt' };
+    const daLog: Dive = { ...piena, mode: 'ccr', salinity: 'fresh' };
+    const fusa = mergeDive(daCsv, daLog, '2026-08-25T00:00:00.000Z');
+    expect(fusa.mode).toBe('ccr');
+    expect(fusa.salinity).toBe('fresh');
+  });
+
+  it('ma chi sa non cede a chi non sa, nemmeno a ordine invertito', () => {
+    // Il rovescio: il ripiego non deve scalzare un dato vero.
+    const daLog: Dive = { ...piena, mode: 'ccr', salinity: 'fresh' };
+    const daCsv: Dive = { ...scarna, mode: 'oc', salinity: 'salt' };
+    const fusa = mergeDive(daLog, daCsv, '2026-08-25T00:00:00.000Z');
+    expect(fusa.mode).toBe('ccr');
+    expect(fusa.salinity).toBe('fresh');
   });
 
   it('un riscarico porta il CAMBIO GAS dentro un’immersione che era già in archivio', () => {

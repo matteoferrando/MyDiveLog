@@ -244,7 +244,27 @@ const ruleGasLevel: Rule = (agg, _dives, t) => {
             "Un consumo in questa fascia è normale ma comprimibile. Il guadagno più rapido viene dall'assetto, non dalla respirazione.",
           ),
     evidence,
-    target: frase(t, 'Portare la media sotto {0} L/min nelle prossime 10 immersioni.', BENCHMARK.rmvGood),
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► UN OBIETTIVO GIÀ RAGGIUNTO NON È UN OBIETTIVO: È UN COMPITO GIÀ FATTO. ◄
+     *
+     * La regola scatta sopra i 15 L/min e l'obiettivo diceva «sotto i 20»:
+     * tutta la fascia **15-20** riceveva un traguardo che aveva già superato.
+     * Stessa cosa sulle risalite (regola al 5%, obiettivo «sotto il 10%») e
+     * sulle soste di sicurezza (92% fatto, obiettivo «superare il 90%»).
+     *
+     * *Un piano di miglioramento che chiede quello che hai già fatto insegna a
+     * non leggere i suoi obiettivi.* Quando il riferimento è già superato si
+     * chiede di **mantenerlo**, che è una cosa vera da chiedere.
+     */
+    target:
+      rmv <= BENCHMARK.rmvGood
+        ? frase(
+            t,
+            'Mantenere la media sotto {0} L/min anche sulle immersioni più impegnative.',
+            BENCHMARK.rmvGood,
+          )
+        : frase(t, 'Portare la media sotto {0} L/min nelle prossime 10 immersioni.', BENCHMARK.rmvGood),
     drills: [
       t(
         'Prova di zavorra a fine immersione con 50 bar: devi restare fermo a 5 m con polmoni a metà. Togli piombo finché non ci riesci.',
@@ -426,7 +446,12 @@ const ruleAscentRate: Rule = (agg, dives, t) => {
         Math.max(...withProfile.map((d) => d.metrics?.maxAscentRateMpm ?? 0)).toFixed(0),
       ),
     ],
-    target: frase(t, 'Portare le immersioni con violazioni sotto il {0}.', pct(BENCHMARK.fastAscentRate)),
+    // Vedi il commento su `gas-level`: se il riferimento è già superato si
+    // chiede di mantenerlo, non di raggiungerlo.
+    target:
+      rate <= BENCHMARK.fastAscentRate
+        ? frase(t, 'Mantenere le immersioni con violazioni sotto il {0}.', pct(BENCHMARK.fastAscentRate))
+        : frase(t, 'Portare le immersioni con violazioni sotto il {0}.', pct(BENCHMARK.fastAscentRate)),
     drills: [
       t(
         'Risali contando: 3 m ogni 20 secondi sotto i 10 m, 3 m ogni 30 secondi sopra. Cronometra, non stimare.',
@@ -491,7 +516,11 @@ const ruleSafetyStop: Rule = (agg, _dives, t) => {
       ),
       t('Valutate solo le immersioni in curva oltre i 10 m con profilo campionato.'),
     ],
-    target: frase(t, 'Superare il {0} nelle prossime 15 immersioni.', pct(BENCHMARK.safetyStopRate)),
+    // Vedi il commento su `gas-level`.
+    target:
+      rate >= BENCHMARK.safetyStopRate
+        ? frase(t, 'Restare sopra il {0} anche nelle prossime 15 immersioni.', pct(BENCHMARK.safetyStopRate))
+        : frase(t, 'Superare il {0} nelle prossime 15 immersioni.', pct(BENCHMARK.safetyStopRate)),
     drills: [
       t('Programma la sosta come parte del profilo, non come extra: pianifica il gas per 5 m/5 min.'),
       t(
@@ -612,10 +641,18 @@ const ruleCurrency: Rule = (agg, _dives, t) => {
   // che la finestra aveva già ridotto a sei: su «Ultimi 6 mesi» accusava di
   // scarsa frequenza chi ne fa 2.6 al mese, con una cifra falsa nell'evidenza.
   const mesi = agg.spanMonths;
+  /*
+   * ► «NEGLI ULTIMI 1.0 MESI» NON È UNA FRASE. ◄ `spanMonths` ha per minimo 1,
+   * e sotto i due mesi veniva stampato con un decimale: chi ha immerso solo
+   * nell'ultimo mese leggeva «6 immersioni negli ultimi 1.0 mesi». Sotto i due
+   * mesi si dice «nell'ultimo mese», che è quello che significa.
+   */
   const periodo =
     mesi >= 11.5
       ? t('negli ultimi 12 mesi')
-      : frase(t, 'negli ultimi {0} mesi', mesi.toFixed(mesi < 2 ? 1 : 0));
+      : mesi < 1.5
+        ? t('nell’ultimo mese')
+        : frase(t, 'negli ultimi {0} mesi', mesi.toFixed(0));
   if (agg.count < 5) return null;
   const days = agg.daysSinceLastDive ?? 0;
   const perMonth = agg.perMonthLast12m;
@@ -678,7 +715,17 @@ const ruleCurrency: Rule = (agg, _dives, t) => {
       detail: t(
         'La frequenza è quella giusta per far attecchire i miglioramenti tecnici invece di ricominciare ogni volta.',
       ),
-      evidence: [frase(t, '{0} immersioni {1}, ultima {2} giorni fa.', agg.divesLast12m, periodo, days)],
+      /*
+       * «ultima 0 giorni fa» è come lo dice una macchina. Il Logbook la stessa
+       * cosa la dice bene da sempre — `days === 0 → oggi` — e qui no.
+       */
+      evidence: [
+        days === 0
+          ? frase(t, '{0} immersioni {1}, l’ultima oggi.', agg.divesLast12m, periodo)
+          : days === 1
+            ? frase(t, '{0} immersioni {1}, l’ultima ieri.', agg.divesLast12m, periodo)
+            : frase(t, '{0} immersioni {1}, ultima {2} giorni fa.', agg.divesLast12m, periodo, days),
+      ],
       drills: [],
       priority: 6,
       basis: agg.count,
@@ -712,7 +759,20 @@ const ruleDataQuality: Rule = (agg, dives, t) => {
 
   const evidence = [
     frase(t, '{0} immersioni su {1} hanno un profilo campionato.', agg.withProfile, agg.count),
-    frase(t, '{0} immersioni su {1} permettono di calcolare il consumo.', agg.count - noGas, agg.count),
+    /*
+     * ► «CALCOLARE» ESCLUDE QUELLO CHE HAI SCRITTO TU. ◄ `noGas` contava le
+     * immersioni con `rmvLpm` assente, e dalla 1.8.18 quel campo lo riempie
+     * anche il consumo **dichiarato a mano**. Risultato: la stessa scheda
+     * diceva «10 immersioni su 10 permettono di calcolare il consumo» sopra
+     * «10 immersioni non hanno le pressioni». Le due righe si contraddicevano,
+     * e quella sbagliata era la prima.
+     */
+    frase(
+      t,
+      '{0} immersioni su {1} permettono di calcolare il consumo dalle pressioni.',
+      agg.count - senzaPressioni,
+      agg.count,
+    ),
   ];
   if (missingVolume > 0) {
     evidence.push(
@@ -1029,12 +1089,23 @@ const ruleFinalAscent: Rule = (agg, _dives, t) => {
 
   const evidence = [
     frase(t, "Velocità mediana sull'ultimo tratto {0} m/min, su {1} immersioni.", median.toFixed(0), n),
+    /*
+     * ► IL NUMERO DELLA FRASE DEV'ESSERE IL NUMERO DEL CONTO. ◄ Qui `overLimit`
+     * conta sopra `sopraIlLimite` (6 + 0,5 di tolleranza = **6,5**) e la frase
+     * stampava `LIMITS.ascentRateShallowMpm`, cioè **6**. Misurato su otto
+     * immersioni tutte a 6,3 m/min sull'ultimo tratto: l'applicazione ne
+     * dichiarava **zero sopra i 6 m/min**, che è falso otto volte su otto.
+     *
+     * La tolleranza è una scelta documentata in `model.ts` e va bene che ci
+     * sia: quello che non va bene è che la frase non la dica.
+     */
     frase(
       t,
-      '{0} immersioni sopra i {1} m/min raccomandati nei metri finali{2}.',
+      '{0} immersioni sopra i {1} m/min nei metri finali (il consiglio è {3}, con mezzo metro di tolleranza){2}.',
       overLimit,
-      LIMITS.ascentRateShallowMpm,
+      sopraIlLimite,
       fast ? frase(t, ', di cui {0} sopra i 60 m/min', fast) : '',
+      LIMITS.ascentRateShallowMpm,
     ),
     t(
       'Misurata dalla sosta alla superficie, punto per punto: è un tratto troppo breve perché la velocità media dell’immersione lo mostri.',
@@ -1046,7 +1117,14 @@ const ruleFinalAscent: Rule = (agg, _dives, t) => {
       id: 'final-ascent-good',
       area: 'ascent',
       severity: 'good',
-      headline: frase(t, 'Ultimi metri controllati: {0} m/min di mediana', median.toFixed(0)),
+      /*
+       * ► UN DECIMALE, PERCHÉ SENZA LA SCHEDA SI CONTRADDICEVA DA SOLA. ◄ Il
+       * ramo «buono» scatta fino a 6,5 e il titolo arrotondava all'intero: con
+       * mediana esatta 6,5 si leggeva «Ultimi metri controllati: **7** m/min»
+       * sopra la riga «0 immersioni sopra i 6 m/min». Stessa scheda, due
+       * numeri che non stanno insieme.
+       */
+      headline: frase(t, 'Ultimi metri controllati: {0} m/min di mediana', median.toFixed(1)),
       detail: t(
         'Il tratto fra la sosta e la superficie è quello dove si accelera senza accorgersene, ed è anche quello dove la sovrasaturazione è massima. Qui non succede.',
       ),
@@ -1653,13 +1731,45 @@ function readinessFor(goal: Goal, agg: Aggregates, storico: Storico, t: Traduci)
             'Mancano {0} criteri su {1}. I più vicini: {2}.',
             missing.length,
             items.length,
-            missing
+            /*
+             * ► «I PIÙ VICINI» ORDINATI PER VICINANZA, CHE PRIMA NON LO ERANO. ◄
+             *
+             * Si prendevano i primi due **nell'ordine di dichiarazione**, e la
+             * distanza dall'obiettivo non veniva mai calcolata. Misurato su un
+             * archivio da nove immersioni a 18 m: la frase nominava «immersioni
+             * oltre i 30 m», che era a **zero su dieci** — il criterio più
+             * lontano possibile — e taceva le soste di sicurezza, che erano a
+             * 89 su 90. *Sono le due righe su cui la persona decide dove
+             * mettere l'impegno: nominare il più lontano la manda dalla parte
+             * opposta.*
+             *
+             * Chi non ha ancora un valore misurato resta in fondo: «non lo so»
+             * non è una distanza, e proporlo come traguardo vicino sarebbe
+             * inventare.
+             */
+            [...missing]
+              .sort((a, b) => quantoManca(a) - quantoManca(b))
               .slice(0, 2)
               .map((i) => i.label.toLowerCase())
               .join(', '),
           );
 
   return { goal, score: Math.round(score * 100) / 100, items, verdict };
+}
+
+/**
+ * Quanto manca a un criterio per essere soddisfatto, come frazione del
+ * traguardo: 0 vuol dire «c'è già», 1 «non è ancora cominciato».
+ *
+ * Si normalizza sul traguardo perché i criteri non hanno la stessa unità —
+ * ventiquattro immersioni e il novanta per cento di soste non si confrontano a
+ * numeri nudi. Chi non ha un valore misurato vale più di 1: resta in fondo, e
+ * non compare mai fra «i più vicini».
+ */
+function quantoManca(i: { have: number | undefined; need: number }): number {
+  if (i.have === undefined || !Number.isFinite(i.have)) return Number.POSITIVE_INFINITY;
+  if (!(i.need > 0)) return 0;
+  return Math.max(0, (i.need - i.have) / i.need);
 }
 
 // ---------------------------------------------------------------------------

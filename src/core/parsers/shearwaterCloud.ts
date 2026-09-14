@@ -275,6 +275,16 @@ function readDive(
   if (native?.durationS) dive.durationS = native.durationS;
 
   dive.metrics = computeMetrics(dive);
+  /*
+   * ► PRIMA SI PRENDE QUELLA MISURATA, POI CASO MAI CI SI LAMENTA. ◄
+   *
+   * Qui c'era solo l'avviso: un'immersione di Shearwater Cloud con il profilo
+   * ma senza `AverageDepth` dichiarata usciva con la casella vuota **e** con
+   * una riga che diceva «consumo non calcolabile» — mentre il numero stava già
+   * in `metrics`, calcolato sul profilo un rigo sopra. È la riga che hanno
+   * tutti gli altri importatori, e qui mancava.
+   */
+  if (dive.avgDepth === undefined) dive.avgDepth = dive.metrics.avgDepth;
   if (dive.avgDepth === undefined) {
     warnings.push(
       `${t('Immersione del')} ${base.startTime.slice(0, 10)} ${t('senza profondità media: consumo non calcolabile.')}`,

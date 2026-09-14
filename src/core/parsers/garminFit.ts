@@ -144,6 +144,17 @@ export async function parseFit(input: ParseInput, t: Traduci = comeSta): Promise
         model: deviceModel,
         deviceId: device?.serialNumber !== undefined ? String(device.serialNumber) : undefined,
         diveId: summary?.diveNumber !== undefined ? String(summary.diveNumber) : undefined,
+        /*
+         * ► I GRADIENT FACTOR ERANO NEL FILE, NEL TIPO, E NON ENTRAVANO. ◄
+         * `diveSettingsMesgs` è già dichiarato con `gfLow`/`gfHigh` e viene già
+         * letto due funzioni più sotto per la salinità: mancava solo di
+         * scriverli. Il modello lo dice perché contano: *«il GF99 all'uscita e
+         * l'obbligo decompressivo che il computer ha mostrato dipendono da
+         * questi due numeri»* — senza, il confronto fra la nostra curva e la sua
+         * è fra due impostazioni diverse, e sembra un difetto del modello.
+         */
+        gfLow: impostazioni(m)?.gfLow,
+        gfHigh: impostazioni(m)?.gfHigh,
       },
     };
 
@@ -288,8 +299,13 @@ function modeFor(subSport: string | undefined): DiveMode {
   return 'oc';
 }
 
+/** Le impostazioni decompressive del computer, quando il file le porta. */
+function impostazioni(m: FitMessages) {
+  return (m.diveSettingsMesgs ?? [])[0];
+}
+
 function waterType(m: FitMessages): string | undefined {
-  const settings = (m.diveSettingsMesgs ?? [])[0];
+  const settings = impostazioni(m);
   return settings?.waterType ? String(settings.waterType).toLowerCase() : undefined;
 }
 

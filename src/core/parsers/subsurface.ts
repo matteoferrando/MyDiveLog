@@ -30,6 +30,7 @@ import {
   pressureValue,
   tempValue,
   text,
+  weightValue,
 } from './xml';
 import { comeSta, type Traduci } from '../traduci';
 import { wallClockToIso } from '../units';
@@ -192,8 +193,18 @@ function readDive(
     durationS: base.durationS,
     maxDepth: base.maxDepth,
     avgDepth: roundOrUndef(depthValue(attr(depthNode, 'mean')), 2),
-    minTempC: minTemp(samples),
-    airTempC: tempValue(attr(node, 'airtemp')),
+    /*
+     * ► LA TEMPERATURA STA IN `<divetemperature>`, E NON LA LEGGEVA NESSUNO. ◄
+     * Subsurface scrive `<divetemperature air='27.0 C' water='16.0 C'/>` sotto
+     * `<dive>`; qui si guardava solo un attributo `airtemp` che Subsurface non
+     * scrive, e il minimo dell'acqua si ricavava dai soli campioni — assente su
+     * ogni immersione senza profilo.
+     */
+    minTempC: tempValue(attr(child(node, 'divetemperature'), 'water')) ?? minTemp(samples),
+    airTempC: tempValue(attr(node, 'airtemp')) ?? tempValue(attr(child(node, 'divetemperature'), 'air')),
+    suit: text(child(node, 'suit')),
+    guide: text(child(node, 'divemaster')),
+    weightKg: sommaZavorra(node),
     site: siteName ? { name: siteName, lat: site?.lat, lon: site?.lon, region: site?.region } : undefined,
     buddy: text(child(node, 'buddy')),
     notes: text(child(node, 'notes')),
@@ -204,7 +215,20 @@ function readDive(
     computer: base.computer,
     source: { format: 'subsurface', file: fileName, importedAt },
     rating: attrNum(node, 'rating'),
-    visibilityM: attrNum(node, 'visibility'),
+    /*
+     * ► `visibility` IN SUBSURFACE È UNA VALUTAZIONE A STELLE, NON UNA MISURA. ◄
+     *
+     * Sta scritto accanto a `rating` nel file, ha la stessa scala 0-5, e
+     * finiva in `visibilityM`, che il modello documenta come «visibilità in
+     * metri». Ogni immersione importata da Subsurface entrava in archivio con
+     * una visibilità fra uno e cinque metri, e la statistica sulla visibilità
+     * era costruita su quei numeri.
+     *
+     * *Non si converte in metri, perché non c'è una conversione:* una stella non
+     * è un numero di metri. Si tiene come quello che è — un voto — e la casella
+     * dei metri resta vuota, che è la risposta onesta.
+     */
+    visibilityRating: attrNum(node, 'visibility'),
     tags,
     samples,
   };
@@ -217,11 +241,62 @@ function readDive(
  * Legge i campioni riportando avanti i valori omessi.
  * `carry` è lo stato: ogni attributo assente eredita il valore precedente.
  */
+/**
+ * La zavorra totale, sommando tutti i `<weightsystem>`.
+ *
+ * Subsurface li scrive uno per pezzo — cintura, piastra, tasche — e il totale è
+ * quello che tira giù: passare il primo darebbe metà del peso, che è il difetto
+ * che `ai/context.ts` ha già chiuso dalla sua parte («due chili scritti più una
+ * piastra da tre fanno cinque»).
+ */
+function sommaZavorra(node: unknown): number | undefined {
+  let somma = 0;
+  let trovato = false;
+  for (const w of children(node, 'weightsystem')) {
+    const kg = weightValue(attr(w, 'weight'));
+    if (kg === undefined) continue;
+    somma += kg;
+    trovato = true;
+  }
+  return trovato ? Math.round(somma * 10) / 10 : undefined;
+}
+
 function readSamples(dc: unknown, nCylinders: number): Sample[] {
   const out: Sample[] = [];
   const carry: Partial<Sample> & { pressures: (number | undefined)[] } = {
     pressures: new Array(Math.max(1, nCylinders)).fill(undefined),
   };
+
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► IL CAMBIO GAS DI SUBSURFACE NON STA NEI CAMPIONI: STA NEGLI EVENTI. ◄
+   *
+   * Subsurface lo registra come `<event time='25:00 min' name='gaschange'
+   * cylinder='1'/>`, fuori dalla sequenza dei `<sample>`. Questo lettore gli
+   * eventi non li guardava affatto, quindi `gasIndex` non veniva mai assegnato
+   * e **tutta l'immersione veniva ricalcolata sulla miscela di fondo**.
+   *
+   * Non è una sfumatura. Misurato su un file con aria + EAN50 e cambio
+   * dichiarato a 25:00 restando a 30 metri — cioè un errore grave e
+   * verificabile:
+   *
+   *   letto prima:  badGasSwitches 0 · PPO2 max 0.85 bar · CNS 8.6% · OTU 22.5
+   *   letto adesso: badGasSwitches 1 · PPO2 max 2.02 bar · CNS 31.8% · OTU 45.6
+   *
+   * Un cambio sull'EAN50 a trenta metri è **esattamente** quello che
+   * `badGasSwitches` esiste per contare, e su ogni file Subsurface non veniva
+   * contato mai. L'esposizione all'ossigeno usciva dimezzata.
+   */
+  const cambiDiGas: { t: number; indice: number }[] = [];
+  for (const e of children(dc, 'event')) {
+    if (attr(e, 'name') !== 'gaschange') continue;
+    const t = durationValue(attr(e, 'time'));
+    // Subsurface numera le bombole da zero in `cylinder`; il vecchio attributo
+    // `value` porta invece la percentuale di ossigeno, che qui non serve.
+    const indice = attrNum(e, 'cylinder');
+    if (t !== undefined && indice !== undefined && indice >= 0) cambiDiGas.push({ t, indice });
+  }
+  cambiDiGas.sort((a, b) => a.t - b.t);
 
   for (const s of children(dc, 'sample')) {
     const t = durationValue(attr(s, 'time'));
@@ -254,8 +329,16 @@ function readSamples(dc: unknown, nCylinders: number): Sample[] {
     const hr = attrNum(s, 'heartbeat');
     if (hr !== undefined) carry.heartRate = hr;
 
+    // L'ultimo cambio avvenuto fino a questo istante, com'è per ogni altro
+    // valore che si porta avanti: un cambio vale finché non arriva il prossimo.
+    for (const c of cambiDiGas) {
+      if (c.t <= t) carry.gasIndex = c.indice;
+      else break;
+    }
+
     out.push({
       t,
+      gasIndex: carry.gasIndex,
       depth: carry.depth ?? 0,
       tempC: carry.tempC,
       pressureBar: carry.pressures.some((p) => p !== undefined) ? [...carry.pressures] : undefined,

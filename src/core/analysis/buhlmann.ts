@@ -89,7 +89,21 @@ export interface TissueState {
 
 /** Saturazione in aria a livello del mare: il punto di partenza di ogni immersione. */
 export function surfacedTissues(surfacePressureBar = 1.01325): TissueState {
-  const pn2 = (surfacePressureBar - WATER_VAPOUR_BAR) * 0.79;
+  /*
+   * ► `?? 1.01325` NON INTERCETTA LO ZERO, E CHI CHIAMA USA `??`. ◄
+   * `tissues.ts` fa `dive.surfacePressureBar ?? 1.01325`: uno zero scritto in
+   * archivio — `shearwaterPnf.ts` e `shearwater.ts` possono produrlo da un
+   * campo azzerato — passa intatto e dà azoto d'equilibrio **negativo**
+   * (−0.0495 bar), cioè tessuti che partono più vuoti del vuoto. Su un
+   * 40 m × 30 min il GF99 saliva da 177.8 a 272.9 e il tetto da 19.2 a 22.4 m.
+   * Il pianificatore il limite ce l'ha già ([0.3, 1.2] in `deco.ts`); il motore
+   * che rilegge l'archivio no.
+   */
+  const superficie =
+    Number.isFinite(surfacePressureBar) && surfacePressureBar >= 0.3 && surfacePressureBar <= 1.2
+      ? surfacePressureBar
+      : 1.01325;
+  const pn2 = (superficie - WATER_VAPOUR_BAR) * 0.79;
   return {
     n2: new Array(COMPARTMENTS).fill(pn2),
     he: new Array(COMPARTMENTS).fill(0),
@@ -108,8 +122,38 @@ export function surfacedTissues(surfacePressureBar = 1.01325): TissueState {
 export function step(state: TissueState, ambientBarValue: number, mix: GasMix, minutes: number): TissueState {
   if (!(minutes > 0)) return state;
   const inspired = Math.max(0, ambientBarValue - WATER_VAPOUR_BAR);
-  const fHe = mix.he ?? 0;
-  const fN2 = Math.max(0, 1 - mix.o2 - fHe);
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► UNA MISCELA IMPOSSIBILE FACEVA USCIRE L'IMMERSIONE CON ZERO DAPPERTUTTO. ◄
+   *
+   * Questa riga proteggeva l'azoto con un `Math.max(0, …)` e non controllava
+   * niente altro. Con `o2 = 21` — la percentuale scritta al posto della
+   * frazione, che i file UDDF fatti a mano contengono di continuo — la frazione
+   * inerte diventa **zero**: i tessuti non caricano mai, e a valle `gf99`
+   * confronta con `>` un NaN o uno zero e non aggiorna mai il massimo, e
+   * `ceilingM` fa lo stesso. **GF99 zero, tetto zero, zero minuti di obbligo.**
+   * Con `o2 = NaN` è peggio: tutti e sedici i compartimenti diventano NaN e
+   * l'esito è identico — zero — perché ogni confronto con NaN è falso.
+   *
+   * *L'immersione decompressiva più pesante dell'archivio si presentava come la
+   * più tranquilla di tutte, senza un errore da nessuna parte.* È la stessa
+   * regola che questo file si dà venti righe più sotto per i campioni — «zero è
+   * il valore più rassicurante che quel numero possa avere, ed è l'ultimo che
+   * dovrebbe comparire quando il dato manca».
+   *
+   * Il rimedio è quello che un modello decompressivo deve dare: **la miscela
+   * impossibile diventa aria**, che è l'assunzione più carica fra quelle
+   * plausibili e quindi sbaglia dalla parte prudente. Il posto giusto per
+   * accorgersene è il lettore del file — `frazioneDiGas` in `core/units.ts` —
+   * e questa è la rete sotto, perché un modello decompressivo non può
+   * permettersi di fidarsi di chi lo chiama.
+   */
+  const fO2 = Number.isFinite(mix.o2) ? mix.o2 : Number.NaN;
+  const fHeGrezza = Number.isFinite(mix.he) ? (mix.he ?? 0) : Number.NaN;
+  const impossibile =
+    !Number.isFinite(fO2) || !Number.isFinite(fHeGrezza) || fO2 < 0 || fHeGrezza < 0 || fO2 + fHeGrezza > 1;
+  const fHe = impossibile ? 0 : fHeGrezza;
+  const fN2 = impossibile ? 0.79 : Math.max(0, 1 - fO2 - fHe);
   const piN2 = inspired * fN2;
   const piHe = inspired * fHe;
 

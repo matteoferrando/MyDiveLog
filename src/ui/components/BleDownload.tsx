@@ -1162,6 +1162,13 @@ export function BleDownload() {
        */
       let guasto: unknown;
       let grezzo: string | undefined;
+      /**
+       * Falso appena un record consegnato dal computer non è diventato
+       * un'immersione. Blocca il segnalibro: vedi dove viene messo a falso.
+       */
+      let tutteTradotte = true;
+      /** I motivi degli scarti, da mostrare a chi ha appena aspettato. */
+      const scartiInTraduzione: string[] = [];
       /** Lo scambio intero, quando il banco di prova è acceso. */
       let registrazione: string[] | undefined;
       const conservato = codiceAccoppiamento(device.id);
@@ -1229,6 +1236,32 @@ export function BleDownload() {
         });
         dives = esito.dives;
         registrazione = esito.registrazione;
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► UN RECORD SCARTATO IN TRADUZIONE BLOCCA IL SEGNALIBRO. ◄
+         *
+         * Il Rust ha già emesso il suo `Record` per quel record, quindi
+         * `piuRecente` porta già la sua impronta. Se la più recente è proprio
+         * quella scartata — una data che il computer non ha dato, un record
+         * troncato senza profondità né durata — lo scarico finisce «senza
+         * errori», il segnalibro si salva su di lei, e al giro dopo il backend
+         * si ferma lì: **quell'immersione e tutte le più vecchie non tornano
+         * mai più**.
+         *
+         * Non si tratta come un guasto — le immersioni arrivate sono buone e si
+         * tengono — ma vale la stessa regola dell'interruzione a metà: il
+         * segnalibro non si conserva, e chi ha appena aspettato tre minuti
+         * legge perché.
+         */
+        // `?? []` perché questo è un confine: se un domani il ponte non
+        // dichiarasse gli scarti, «nessuno scartato» è l'unica lettura possibile
+        // — e farlo esplodere qui fermerebbe uno scarico riuscito.
+        const scartate = esito.scartate ?? [];
+        scartiInTraduzione.push(...scartate);
+        if (scartate.length > 0) {
+          tutteTradotte = false;
+          diario.push(`record scartati in traduzione: ${esito.scartate.length} — segnalibro NON conservato`);
+        }
         /*
          * ► UNO SCARICO ROTTO A METÀ NON È UNO SCARICO RIUSCITO, NEMMENO SE HA
          * PORTATO QUALCOSA. ◄ Le immersioni arrivate si tengono — sono buone,
@@ -1299,7 +1332,7 @@ export function BleDownload() {
       }
 
       let testo: string;
-      const avvisi: string[] = [];
+      const avvisi: string[] = [...scartiInTraduzione];
       if (dives.length === 0) {
         testo = grezzo
           ? conDettaglio(
@@ -1397,7 +1430,7 @@ export function BleDownload() {
        * fallisse, il segnalibro salterebbe proprio le immersioni che non sono
        * entrate.
        */
-      if (!grezzo && metodoHaFunzionato && piuRecente) {
+      if (!grezzo && tutteTradotte && metodoHaFunzionato && piuRecente) {
         await saveBleMarker(chiaveSegnalibro, {
           fingerprint: piuRecente,
           at: new Date().toISOString(),
@@ -2401,7 +2434,7 @@ export function BleDownload() {
                           righe.join('\n'),
                           'text/plain;charset=utf-8',
                         );
-                        setSalvataggio(`${t('Salvato')} ${dove.dove}.`);
+                        setSalvataggio(`${t('Salvato')} ${t(dove.dove)}.`);
                       } catch (err) {
                         // `conDettaglio` e non l'errore crudo: la prima
                         // versione di questa riga metteva a schermo il
@@ -2447,7 +2480,7 @@ export function BleDownload() {
                           JSON.stringify(stato.grezzi, null, 1),
                           'application/json',
                         );
-                        setSalvataggio(`${t('Salvato')} ${dove.dove}.`);
+                        setSalvataggio(`${t('Salvato')} ${t(dove.dove)}.`);
                       } catch (err) {
                         setSalvataggio(
                           conDettaglio(

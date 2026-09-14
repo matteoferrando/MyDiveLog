@@ -113,10 +113,29 @@ function tabellaNascosta(host: HTMLDivElement) {
   const contenitore = host.querySelector('.solo-lettori');
   expect(contenitore, 'manca la tabella equivalente').not.toBeNull();
   const stile = contenitore!.getAttribute('style') ?? '';
-  // `display:none` e `visibility:hidden` la toglierebbero anche agli screen
-  // reader: è l'errore classico, e il motivo per cui questa riga esiste.
-  expect(stile).not.toContain('display: none');
-  expect(stile).not.toContain('visibility: hidden');
+  /*
+   * ► LE DUE RIGHE QUI SOTTO NON POTEVANO FALLIRE, E CERCAVANO PROPRIO IL
+   * DIFETTO CHE IL COMMENTO DICE. ◄
+   *
+   * React serializza gli stili in linea **senza lo spazio dopo i due punti**:
+   * `display:none`, non `display: none`. Le due asserzioni cercavano la forma
+   * con lo spazio, quindi passavano anche con la tabella davvero nascosta agli
+   * screen reader. Misurato rileggendo l'attributo dal DOM:
+   * `"position:absolute;display:none;visibility:hidden;clip:rect(0 0 0 0)"` —
+   * verde su tutt'e due.
+   *
+   * *Una guardia che cerca una stringa deve cercarla nella forma in cui il
+   * programma la scrive, non in quella in cui la scriverebbe una persona.* Si
+   * normalizzano gli spazi e si guarda la dichiarazione, non il testo.
+   */
+  const dichiarazioni = stile
+    .split(';')
+    .map((d) => d.replace(/\s+/g, '').toLowerCase())
+    .filter(Boolean);
+  expect(dichiarazioni, 'display:none la toglie anche agli screen reader').not.toContain('display:none');
+  expect(dichiarazioni, 'visibility:hidden la toglie anche agli screen reader').not.toContain(
+    'visibility:hidden',
+  );
   expect(stile).toContain('clip');
   return contenitore!.querySelector('table')!;
 }

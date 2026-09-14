@@ -107,7 +107,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
       const giorno = dive.startTime.slice(0, 10);
       const sito = (dive.site?.name ?? 'immersione').replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 30);
       const esito = await esporta(`MyDiveLog-${giorno}-${sito}.pdf`, pdf, 'application/pdf');
-      setEsitoPdf(`${t('PDF salvato')} ${esito.dove}.`);
+      setEsitoPdf(`${t('PDF salvato')} ${t(esito.dove)}.`);
     } catch (err) {
       /*
        * ► QUI L'ERRORE GREZZO ERA TUTTO IL MESSAGGIO: nemmeno il guscio. ◄

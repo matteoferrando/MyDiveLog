@@ -823,7 +823,7 @@ export function SyncPage() {
         {exported && (
           <div className="notice" style={{ marginTop: 12 }}>
             <b>
-              {exported.quante}, {exported.dove}.
+              {exported.quante}, {t(exported.dove)}.
             </b>{' '}
             {exported.omitted.length > 0 && (
               <>
@@ -1178,7 +1178,7 @@ function BackupCard() {
          */
         const dove = await esporta(backupFileName(), JSON.stringify(file), 'application/json');
         setEsito(
-          `${t('Backup scritto')} ${dove.dove}: ${imm(file.summary.dives, t)}, ${file.summary.samples.toLocaleString(localeCorrente())} ${t('campioni')}, ${file.summary.settings.length} ${t('impostazioni')}.`,
+          `${t('Backup scritto')} ${t(dove.dove)}: ${imm(file.summary.dives, t)}, ${file.summary.samples.toLocaleString(localeCorrente())} ${t('campioni')}, ${file.summary.settings.length} ${t('impostazioni')}.`,
         );
       } catch (err) {
         setErrore(err instanceof Error ? err.message : String(err));

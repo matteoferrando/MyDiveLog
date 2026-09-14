@@ -19,11 +19,11 @@
  */
 
 import { AIR, type Cylinder, type Dive, type DiveMode, type GasMix, type Sample } from '../model';
-import { cubicMToL, kelvinToC, pascalToBar, wallClockToIso } from '../units';
+import { cubicMToL, frazioneDiGas, kelvinToC, pascalToBar, wallClockToIso } from '../units';
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
 import { comeSta, type Traduci } from '../traduci';
-import { asArray, attr, attrNumAny, child, children, num, parseXml, text } from './xml';
+import { asArray, attr, attrNumAny, child, children, num, parseXml, text, type XmlNode } from './xml';
 import type { DiveParser, ParseInput, ParseResult } from './types';
 
 export const uddfParser: DiveParser = {
@@ -77,8 +77,18 @@ function readGasDefinitions(uddf: Record<string, unknown>): Map<string, GasMix &
     const id = attr(mix, 'id');
     if (!id) continue;
     out.set(id, {
-      o2: num(child(mix, 'o2')) ?? 0.21,
-      he: num(child(mix, 'he')) ?? 0,
+      /*
+       * ► `21` NON È IL VENTUNO PER CENTO, ED È PEGGIO DI UN NUMERO MANCANTE. ◄
+       *
+       * UDDF vuole la frazione (`0.21`), ma i file scritti a mano e diversi
+       * esportatori ci mettono la percentuale. Senza questa normalizzazione
+       * `mix.o2` vale 21, la frazione inerte diventa zero, i tessuti non
+       * caricano mai e l'immersione più impegnativa dell'archivio esce con
+       * GF99 **0**, tetto **0** e zero minuti di deco: *si presenta come la più
+       * tranquilla di tutte.* Il lettore Shearwater questa riga ce l'ha già.
+       */
+      o2: frazioneDiGas(num(child(mix, 'o2'))) ?? 0.21,
+      he: frazioneDiGas(num(child(mix, 'he'))) ?? 0,
       name: text(child(mix, 'name')),
     });
   }
@@ -180,6 +190,17 @@ function readDive(
   }
   if (cylinders.length === 0) cylinders.push({ mix: AIR });
 
+  /*
+   * L'identificativo di ogni `<tankdata>` verso la sua posizione: serve a
+   * mettere la `<tankpressure ref="…">` sulla bombola giusta invece che su
+   * quella del gas respirato. Vedi il commento dove si leggono le pressioni.
+   */
+  const indiceBombolaPerId = new Map<string, number>();
+  children<XmlNode>(node, 'tankdata').forEach((tank, i) => {
+    const id = attr(tank, 'id');
+    if (id) indiceBombolaPerId.set(id, i);
+  });
+
   // --- profilo ---
   const gasIndexByRef = new Map<string, number>();
   children(node, 'tankdata').forEach((tank, i) => {
@@ -204,13 +225,38 @@ function readDive(
     const stopTime = attrNumAny(decostop, 'duration', 'time');
     const kind = attr(decostop, 'kind');
 
-    const tankPressurePa = num(child(wp, 'tankpressure'));
+    /*
+     * ► TUTTE LE PRESSIONI DEL WAYPOINT, E CIASCUNA SULLA SUA BOMBOLA. ◄
+     *
+     * Erano due difetti in una riga sola, `num(child(wp, 'tankpressure'))`:
+     *
+     *  1. con **più di una** `<tankpressure>` — che è quello che scrive la
+     *     nostra stessa esportazione, una per bombola — `child` restituisce un
+     *     array e `num` su un array dà `undefined`: sparivano **tutte**. Un giro
+     *     esporta-reimporta perdeva 41 pressioni su 41, e la perdita non era
+     *     nemmeno fra quelle che l'esportazione dichiara.
+     *  2. l'attributo `ref="cyl-i"` era ignorato, e la lettura finiva
+     *     all'indice del **gas respirato** invece che della bombola a cui
+     *     appartiene. Con un trasmettitore sulla principale e uno stage deco,
+     *     i 130 bar della principale finivano sullo stage, che risultava
+     *     consumato senza essere mai stato respirato.
+     */
+    const pressioni: (number | undefined)[] = [];
+    for (const tp of children<XmlNode>(wp, 'tankpressure')) {
+      const pa = num(tp);
+      if (pa === undefined) continue;
+      const rif = attr(tp, 'ref');
+      // Senza `ref` non si sa a quale bombola appartenga: la prima è
+      // l'assunzione meno sbagliata, il gas respirato è quella peggiore.
+      const i = rif !== undefined ? (indiceBombolaPerId.get(rif) ?? 0) : 0;
+      if (pressioni.length <= i) pressioni.length = i + 1;
+      pressioni[i] = pascalToBar(pa);
+    }
     const sample: Sample = {
       t: Math.round(tempoS),
       depth,
       tempC: mapDefined(num(child(wp, 'temperature')), kelvinToC),
-      pressureBar:
-        tankPressurePa !== undefined ? indexed(currentGas ?? 0, pascalToBar(tankPressurePa)) : undefined,
+      pressureBar: pressioni.length ? pressioni : undefined,
       ndlS: num(child(wp, 'nodecotime')),
       ttsS: num(child(wp, 'remainingbottomtime')),
       stopDepth,
@@ -234,7 +280,22 @@ function readDive(
        * la risposta ce l'hanno scritta dentro.*
        */
       inDeco: kind === 'safety' ? false : kind === 'mandatory' || (stopDepth !== undefined && stopDepth > 0),
-      cns: mapDefined(num(child(wp, 'cns')), (v) => (v <= 1 ? v * 100 : v)),
+      /*
+       * ► LA CNS CROLLAVA ESATTAMENTE QUANDO SUPERAVA IL 100%. ◄
+       *
+       * La regola era `v <= 1 ? v * 100 : v`, cioè «se sembra una frazione
+       * moltiplica». Continua sotto il 100% e discontinua sopra: `0.98` →
+       * **98**, `1.02` → **1.02**. Cioè l'orologio dell'ossigeno si azzerava
+       * nell'istante esatto in cui si sfora il limite NOAA — l'unico istante in
+       * cui quella colonna serve a qualcosa.
+       *
+       * UDDF la scrive come frazione e lo dichiara nel formato: si converte
+       * **sempre**, senza indovinare. Un file che sbagliasse scala darebbe un
+       * numero cento volte troppo grande, che si vede; la regola di prima dava
+       * un numero cento volte troppo piccolo *solo oltre il limite*, che non si
+       * vede e rassicura.
+       */
+      cns: mapDefined(num(child(wp, 'cns')), (v) => v * 100),
       ppo2: mapDefined(num(child(wp, 'measuredpo2')) ?? num(child(wp, 'calculatedpo2')), pascalToBar),
       setpoint: mapDefined(num(child(wp, 'setpo2')), pascalToBar),
       gasIndex: currentGas,
@@ -334,7 +395,14 @@ function readDive(
     surfaceIntervalS: num(child(child(before, 'surfaceintervalbeforedive'), 'passedtime')),
     computer: base.computer,
     source: { format: 'uddf', file: fileName, importedAt },
-    rating: num(child(after, 'rating')),
+    /*
+     * ► IL VOTO IN UDDF È ANNIDATO. ◄ `<rating><ratingvalue>4</ratingvalue></rating>`
+     * è la forma del formato 3.2, ed è quella che scrive l'esportazione di
+     * Subsurface: `num()` su un nodo con figli dà `undefined`, e il voto
+     * spariva da ogni file scritto secondo lo standard. Si prova prima la forma
+     * annidata e poi quella diretta, che è quella che scriviamo noi.
+     */
+    rating: num(child(child(after, 'rating'), 'ratingvalue')) ?? num(child(after, 'rating')),
     visibilityM: num(child(after, 'visibility')),
     tags: [],
     samples,
@@ -351,12 +419,6 @@ const round1 = (v: number) => Math.round(v * 10) / 10;
 
 function mapDefined<T, R>(v: T | undefined, fn: (v: T) => R): R | undefined {
   return v === undefined ? undefined : fn(v);
-}
-
-function indexed(index: number, value: number): (number | undefined)[] {
-  const arr: (number | undefined)[] = [];
-  arr[index] = value;
-  return arr;
 }
 
 /**

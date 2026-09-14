@@ -190,3 +190,23 @@ export function descriviFinestra(
     altre: Math.min(perVolta, restanti),
   };
 }
+
+/**
+ * L'etichetta di un mese tradotta: `"ott 25"` → `"oct 25"`.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► PERCHÉ NON SI TRADUCE DOVE NASCE. ◄ Nasce in `core/analysis/aggregate.ts`,
+ * dove la lingua non si sa: è la stessa ragione per cui le righe
+ * dell'avanzamento e le avvertenze delle metriche viaggiano come modello e si
+ * compongono qui. L'anno resta un numero e non si traduce; il mese è una parola
+ * e passa dal dizionario.
+ *
+ * Fino al 15 settembre 2026 non passava da nessuna parte: con l'applicazione in
+ * inglese l'asse X di «Attività mese per mese» diceva `ott 25`, **e lo diceva
+ * anche la descrizione letta dallo screen reader** — *«Max ott 25 on 3 dives»*.
+ */
+export function etichettaMese(label: string, t: Traduci): string {
+  const [mese, ...resto] = label.split(' ');
+  const tradotto = t(mese);
+  return resto.length ? `${tradotto} ${resto.join(' ')}` : tradotto;
+}

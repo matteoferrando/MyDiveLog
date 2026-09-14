@@ -10,7 +10,7 @@ import {
 } from '../components/Charts';
 import { useDiveLog } from '../state';
 import { PeriodPicker } from '../components/PeriodPicker';
-import { dateShort, imm, int, pct, type Traduci } from '../format';
+import { dateShort, etichettaMese, imm, int, pct, type Traduci } from '../format';
 import { OTU_DAILY_MAX, OTU_DAILY_TDI } from '../../core/analysis/oxygen';
 import {
   correlation,
@@ -164,13 +164,23 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
             <div className="tile-label">{t('Immersioni nel periodo')}</div>
             <div className="hero">{int(a.count)}</div>
             <div className="tile-note">
-              {`${formatHours(a.totalS)} ${t('sott’acqua')} · ${t('media')} ${formatDuration(a.avgDurationS)} · ${a.avgMaxDepth.toFixed(1)} m`}
+              {a.count > 0
+                ? `${formatHours(a.totalS)} ${t('sott’acqua')} · ${t('media')} ${formatDuration(a.avgDurationS)} · ${a.avgMaxDepth.toFixed(1)} m`
+                : t('nessuna immersione nel periodo scelto')}
             </div>
           </div>
           <div className="grid grid-tiles" style={{ flex: '1 1 480px' }}>
+            {/*
+              ► UNA FINESTRA VUOTA NON HA UNA PROFONDITÀ MASSIMA DI ZERO. ◄ La
+              pagina usciva presto solo su `dives.length === 0`, non su
+              `scope.dives.length === 0`: con un archivio pieno ma tutto fuori
+              periodo, `aggregate([])` dava `maxDepthEver: 0` e la tessera
+              scriveva «0.0 m» accanto a «Più lunga —». La stessa assenza,
+              raccontata in due modi, e uno dei due era un numero.
+            */}
             <StatTile
               label={t('Più profonda')}
-              value={`${a.maxDepthEver.toFixed(1)} m`}
+              value={a.count > 0 ? `${a.maxDepthEver.toFixed(1)} m` : '—'}
               note={a.deepest?.site?.name ?? (a.deepest ? dateShort(a.deepest.startTime) : undefined)}
             />
             <StatTile
@@ -178,8 +188,15 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               value={a.longest ? formatDuration(a.longest.durationS) : '—'}
               note={a.longest?.site?.name ?? undefined}
             />
+            {/*
+              ► LA TESSERA NOMINAVA UN PERIODO E NE MOSTRAVA UN ALTRO. ◄
+              `aggregates` è calcolato su `scope.dives`, cioè sulla finestra già
+              scelta: con «Ultimi 6 mesi» la tessera intitolata *Ultimi 12 mesi*
+              mostrava un conteggio su sei. Adesso il titolo dice la finestra
+              vera, come fa già il piano di miglioramento.
+            */}
             <StatTile
-              label={t('Ultimi 12 mesi')}
+              label={a.spanMonths >= 11.5 ? t('Ultimi 12 mesi') : t('Nel periodo scelto')}
               value={int(a.divesLast12m)}
               note={`${a.perMonthLast12m}/${t('mese')} · ${a.divesLast90d} ${t('negli ultimi 90 giorni')}`}
             />
@@ -418,7 +435,12 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
             dell'informazione, e comprimerli farebbe sembrare continuo un anno in
             cui ci si è immersi due volte. */}
         <p className="card-sub">{t('Ultimi 24 mesi. I mesi vuoti restano visibili.')}</p>
-        <ColumnChart data={a.byMonth} unit={t('immersioni')} height={170} />
+        {/* Le etichette dei mesi passano dal dizionario: vedi `etichettaMese`. */}
+        <ColumnChart
+          data={a.byMonth.map((b) => ({ ...b, label: etichettaMese(b.label, t) }))}
+          unit={t('immersioni')}
+          height={170}
+        />
       </div>
 
       <div className="card">
@@ -589,11 +611,19 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
                 <td className="muted">{t('Sotto i 14 °C')}</td>
                 <td className="num tabular">{int(a.coldDives)}</td>
               </tr>
-              {/* Le miscele arrivano dai dati — «Aria», «EAN32» — e non sono frasi
-                  da tradurre: sono nomi. */}
+              {/*
+                ► «EAN32» È UN NOME, «ARIA» NO. ◄ Il commento che stava qui
+                diceva che le miscele sono nomi e non si traducono, e per
+                «EAN32» è vero; ma nello stesso elenco ci sono «Aria»,
+                «Ossigeno» e «Sconosciuto», **che il dizionario traduce già** —
+                il Logbook lo fa da sempre con `t(mixLabel(d))`. Con
+                l'applicazione in inglese questa tabella diceva «Aria 30».
+                `t()` su un nome proprio restituisce il nome: non c'è niente da
+                perdere e c'è una parola da tradurre.
+              */}
               {a.byMix.slice(0, 4).map((b) => (
                 <tr key={b.key}>
-                  <td className="muted">{b.label}</td>
+                  <td className="muted">{t(b.label)}</td>
                   <td className="num tabular">{int(b.value)}</td>
                 </tr>
               ))}
@@ -658,8 +688,22 @@ function DisciplineRow({
           <span
             className={`dot ${verdict === undefined ? '' : verdict ? 'dot-good' : 'dot-warning'}`}
             style={verdict === undefined ? { background: 'var(--axis)' } : undefined}
+            /*
+             * ► IL COLORE NON PORTA MAI IL SIGNIFICATO DA SOLO. ◄ La regola è
+             * scritta in `format.ts` — «accanto al pallino c'è sempre questa
+             * etichetta testuale» — ed è rispettata nel Piano e nella riga dei
+             * criteri. Questa tabella era l'unico punto che la violava: otto
+             * righe in cui *se il numero sia buono o no* passava solo dal
+             * verde contro l'ambra, su un cerchio di otto pixel.
+             */
+            aria-hidden="true"
           />
           <span>{t(label)}</span>
+          {verdict !== undefined && (
+            <span className="muted" style={{ fontSize: 11 }}>
+              {t(verdict ? 'nei limiti' : 'da guardare')}
+            </span>
+          )}
         </div>
         <div className="muted" style={{ fontSize: 11, marginLeft: 15 }}>
           {measurable ? `${t('su')} ${basis}` : `${t('nessuna immersione verificabile')}: ${basis}`}
@@ -1341,7 +1385,11 @@ function SettingsHistory({ dives }: { dives: Dive[] }) {
 /** Stagionalità: temperatura minima media per mese. */
 function Seasonality({ dives }: { dives: Dive[] }) {
   const { t } = useLingua();
-  const months = tempByMonth(dives).filter((m) => m.value > 0);
+  // Si tolgono i mesi SENZA immersioni, non quelli con la media sotto zero:
+  // vedi `tempByMonth`, dove l'assenza adesso è `undefined` e non uno zero.
+  const months = tempByMonth(dives)
+    .filter((m): m is { label: string; key: string; value: number } => m.value !== undefined)
+    .map((m) => ({ label: etichettaMese(m.label, t), key: m.key, value: m.value }));
   if (months.length < 3) return null;
   return (
     <div className="card">
