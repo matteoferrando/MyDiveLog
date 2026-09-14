@@ -68,7 +68,22 @@ export function applicaAvanzamento<S extends StatoAvanzamento>(
     case 'progress':
       return {
         ...p,
-        passo: e.label,
+        /*
+         * ► LA RIGA PASSA DAL DIZIONARIO, E QUELLE CHE NON CI SONO RESTANO
+         * IN ITALIANO. ◄ `t()` risponde la chiave quando la voce manca, quindi
+         * questa riga non rompe niente e traduce quello che si può tradurre:
+         * le etichette FISSE che manda il ponte Rust («lettura della memoria
+         * del computer», «byte ricevuti dal computer») sono nel dizionario.
+         *
+         * ► QUELLO CHE RESTA FUORI, DETTO INVECE CHE NASCOSTO. ◄ I driver di
+         * casa costruiscono l'etichetta col numero dentro — «Ricevo la memoria
+         * del computer: 128 di 512 kB» — e una frase così non entra in un
+         * dizionario la cui chiave è la frase intera: cambierebbe a ogni
+         * battito. Per tradurle andrebbero spezzate in chiave più numeri, come
+         * fa `frase()` altrove. *Finché non succede, chi ha l'applicazione in
+         * inglese le legge in italiano, ed è meglio saperlo che scoprirlo.*
+         */
+        passo: traduci(e.label),
         /*
          * ► IL CONTO DELLE IMMERSIONI DI CHI NON SA IL TOTALE. ◄ Dalla 1.8.18
          * libdivecomputer lo manda mentre legge, contando le immersioni che la

@@ -332,9 +332,17 @@ describe('nessun campo si perde nella fusione', () => {
   type SchedaPiena = Required<
     Omit<
       Dive,
-      // Derivate: `computeMetrics` le rifà da capo, e infatti la prova in fondo
-      // controlla a parte che dopo la fusione ci siano.
-      'metrics' | 'tissues'
+      /*
+       * Derivata: `computeMetrics` la rifà da capo, e infatti la prova in fondo
+       * controlla a parte che dopo la fusione ci sia.
+       *
+       * ► QUI C'ERA ANCHE `'tissues'`, E `Dive` NON HA NESSUNA CHIAVE COSÌ. ◄
+       * `Omit` non si lamenta di una chiave inesistente, quindi quella riga non
+       * faceva niente e diceva che il modello aveva un campo che non ha — la
+       * saturazione vive dentro `metrics.tissuesEnd`. Scritta, per giunta, nel
+       * commento in cui si spiegava che una guardia non guardava.
+       */
+      'metrics'
     >
   >;
 

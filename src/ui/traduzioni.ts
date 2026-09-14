@@ -1346,6 +1346,12 @@ export const INGLESE: Record<string, string> = {
     'Without cylinder volume and pressures the consumption cannot be worked out: this value takes its place on the dive, in the statistics and in the logbook sheet, marked as entered by you.',
   'L/min — scritto da te': 'L/min — entered by you',
 
+  // --- le etichette fisse dell'avanzamento, che arrivano dal ponte Rust ---
+  // Quelle dei driver di casa hanno il numero dentro e non possono stare qui:
+  // vedi il commento in `avanzamentoScarico.ts`.
+  'lettura della memoria del computer': 'reading the computer’s memory',
+  'byte ricevuti dal computer': 'bytes received from the computer',
+
   // --- impostazioni: accesso, sincronizzazione, cestino, backup ---
   'Accedi con Google': 'Sign in with Google',
   'Accedi con Apple o con Google, oppure configura indirizzo e token del database.':
