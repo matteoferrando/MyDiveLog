@@ -27,6 +27,7 @@ import { mergeImports } from '../src/core/dedupe';
 import { computeMetrics, VERSIONE_METRICHE } from '../src/core/analysis/metrics';
 import type { Dive, Sample } from '../src/core/model';
 import type { DiveStore } from '../src/storage';
+import { avvertenzeComposte } from '../src/core/analysis/avvertenze';
 
 function profile(n: number, everyS = 10): Sample[] {
   return Array.from({ length: n }, (_, i) => ({
@@ -445,7 +446,9 @@ describe('secondo profilo: il meglio dei due computer', () => {
     // Le velocità sono misurate sul fitto, e la scheda lo dichiara.
     expect(merged.metrics?.quality.ratesFromAlt).toBe(true);
     expect(merged.metrics?.quality.ratesIntervalS).toBe(4);
-    expect(merged.metrics?.quality.caveats.join(' ')).toMatch(/secondo computer/);
+    expect(avvertenzeComposte(merged.metrics?.quality.caveats ?? [], (x) => x).join(' ')).toMatch(
+      /secondo computer/,
+    );
   });
 
   it('misurare sul profilo fitto cambia l’assetto in modo sostanziale', () => {

@@ -39,6 +39,8 @@ import { formatDuration } from '../core/units';
 import { conditionsOf, condizioniTesto, visibilitaTesto } from '../core/conditions';
 import { piastraDellImmersione, zavorraTotaleKg, type Equipment } from '../core/analysis/gear';
 import { temperaturaMinimaC } from '../core/temperatura';
+import { profonditaMedia } from '../core/profondita';
+import { avvertenzeComposte } from '../core/analysis/avvertenze';
 
 /** Quanti punti del profilo entrano nel contesto di una singola immersione. */
 const PROFILE_POINTS = 48;
@@ -280,7 +282,7 @@ export function diveContext(
       zona: dive.site?.region ?? null,
       coordinate: dive.site?.lat != null ? [dive.site.lat, dive.site.lon] : null,
       profonditaMassimaM: n1(dive.maxDepth),
-      profonditaMediaM: n1(dive.avgDepth),
+      profonditaMediaM: n1(profonditaMedia(dive)),
       durata: formatDuration(dive.durationS),
       durataS: dive.durationS,
       acqua: tradotto(ACQUA, dive.salinity),
@@ -505,7 +507,11 @@ export function diveContext(
             saturazioneDIngressoStimata: m.tissuesEstimated ?? false,
             campioni: m.quality.sampleCount,
             passoS: n1(m.quality.sampleIntervalS),
-            avvertenze: m.quality.caveats.length ? m.quality.caveats : 'nessuna',
+            // Il contesto è in italiano: la traduzione è l'identità, ma la frase va
+            // comunque COMPOSTA, o i numeri resterebbero segnaposti.
+            avvertenze: m.quality.caveats.length
+              ? avvertenzeComposte(m.quality.caveats, (x) => x)
+              : 'nessuna',
           },
         }
       : 'nessuna metrica: immersione senza profilo campionato',
@@ -538,7 +544,7 @@ export function archiveContext(
       d.site?.name ?? null,
       n1(d.maxDepth),
       Math.round(d.durationS / 60),
-      n1(d.avgDepth),
+      n1(profonditaMedia(d)),
       n1(d.metrics?.rmvLpm),
       n1(d.metrics?.bottomVerticalTravelMpm),
       n1(d.metrics?.maxAscentRateMpm),

@@ -23,6 +23,7 @@
 
 import {
   LIMITS,
+  type Avvertenza,
   type Dive,
   type DiveMetrics,
   type DivePhases,
@@ -31,6 +32,7 @@ import {
   type Sample,
 } from '../model';
 import { ambientAta, ambientBar, end as endDepth, mod } from '../units';
+import * as A from './avvertenze';
 import { exposureOfProfile } from './oxygen';
 
 /**
@@ -61,7 +63,19 @@ import { exposureOfProfile } from './oxygen';
  * | 3 | il tempo in deco non conta più le soste soltanto proposte, e la sosta profonda non conta più il tempo sotto un tetto |
  * | 4 | la sosta profonda ha una durata massima (oltre è un livello, non una sosta), e nasce `ceilingMarginM` |
  */
-export const VERSIONE_METRICHE = 4;
+/*
+ * ► ALZATA A 5 IL 14 SETTEMBRE 2026, E NON PERCHÉ UNA FORMULA ABBIA CAMBIATO I
+ * NUMERI. ◄ Il contratto scritto su `repair.ts` dice «si alza quando una
+ * formula cambia i numeri»; qui a cambiare è la **forma** delle avvertenze, che
+ * da frasi già scritte diventano modello più valori per poter essere tradotte.
+ * Il meccanismo è lo stesso — si ricalcola tutto ciò che porta una versione più
+ * bassa — e il contratto si allarga qui invece di essere aggirato in silenzio.
+ *
+ * *Quello che il ricalcolo NON raggiunge:* le immersioni senza profilo, che
+ * `repairArchive` salta. Là le avvertenze restano stringhe italiane già
+ * composte, ed è il motivo per cui il tipo su `MetricQuality` le ammette ancora.
+ */
+export const VERSIONE_METRICHE = 5;
 
 /** Ampiezza della finestra mobile per le velocità verticali, secondi. */
 export const RATE_WINDOW_S = 30;
@@ -104,18 +118,16 @@ export function computeMetrics(dive: Dive): DiveMetrics {
   const samples = (dive.samples ?? []).filter((s) => Number.isFinite(s.depth) && s.t >= 0);
   samples.sort((a, b) => a.t - b.t);
 
-  const caveats: string[] = [];
+  const caveats: Avvertenza[] = [];
   const hasProfile = samples.length >= 3;
   const intervalS = hasProfile
     ? (samples[samples.length - 1].t - samples[0].t) / Math.max(1, samples.length - 1)
     : 0;
 
   if (!hasProfile) {
-    caveats.push('Nessun profilo campionato: disponibili solo i dati di sintesi.');
+    caveats.push({ testo: A.SENZA_PROFILO });
   } else if (intervalS > 20) {
-    caveats.push(
-      `Campionamento a ${Math.round(intervalS)} s: velocità verticali e sosta di sicurezza sono approssimate.`,
-    );
+    caveats.push({ testo: A.CAMPIONAMENTO_RADO, valori: [Math.round(intervalS)] });
   }
 
   const maxDepth = hasProfile
@@ -188,9 +200,10 @@ export function computeMetrics(dive: Dive): DiveMetrics {
   const ratesSamples = useAlt ? alt : samples;
   const ratesIntervalS = useAlt ? altIntervalS : intervalS;
   if (useAlt) {
-    caveats.push(
-      `Velocità e assetto misurati sul profilo a ${Math.round(ratesIntervalS)} s del secondo computer, più fitto di quello mostrato (${Math.round(intervalS)} s): un profilo più rado leggerebbe l'oscillazione più bassa di quanto è.`,
-    );
+    caveats.push({
+      testo: A.PROFILO_ALTERNATIVO,
+      valori: [Math.round(ratesIntervalS), Math.round(intervalS)],
+    });
   }
 
   const ratesPhases = useAlt ? detectPhases(ratesSamples, maxDepth, dive.durationS) : phases;
@@ -225,9 +238,7 @@ export function computeMetrics(dive: Dive): DiveMetrics {
   const manuale = dive.rmvLpmManual;
   const dichiarato = gas.rmvLpm === undefined && manuale !== undefined && manuale > 0;
   if (dichiarato) {
-    caveats.push(
-      'Il consumo di superficie mostrato l’hai scritto tu: non viene dalle pressioni della bombola.',
-    );
+    caveats.push({ testo: A.CONSUMO_A_MANO });
   }
 
   const oxygen = analyseOxygen(dive, samples, maxDepth, salinity);
@@ -850,7 +861,7 @@ function analyseDeco(samples: Sample[]) {
 // Consumo gas
 // ---------------------------------------------------------------------------
 
-function analyseGas(dive: Dive, samples: Sample[], avgBar: number | undefined, caveats: string[]) {
+function analyseGas(dive: Dive, samples: Sample[], avgBar: number | undefined, caveats: Avvertenza[]) {
   const cylinders = dive.cylinders ?? [];
   const durationMin = dive.durationS / 60;
 
@@ -907,9 +918,7 @@ function analyseGas(dive: Dive, samples: Sample[], avgBar: number | undefined, c
 
   let rmvLpm: number | undefined;
   if (avgBar === undefined && hasTankPressure && hasCylinderVolume) {
-    caveats.push(
-      'Profondità media sconosciuta (nessun profilo campionato): l’RMV in L/min non è calcolabile, resta il consumo in bar/min.',
-    );
+    caveats.push({ testo: A.SENZA_MEDIA_NIENTE_RMV });
   }
   if (avgBar !== undefined && hasCylinderVolume && consumedBarL > 0 && durationMin > 0 && avgBar > 0) {
     // `consumedBarL` è bar·litro: il divisore è la pressione media in BAR. Con
@@ -931,9 +940,7 @@ function analyseGas(dive: Dive, samples: Sample[], avgBar: number | undefined, c
        * sommano. Quello che si può fare è NON far passare per generale un dato
        * che riguarda una bombola sola, e dirlo dove il numero viene letto.
        */
-      caveats.push(
-        'Più bombole: l’RMV in L/min è calcolato sul totale di tutte, mentre il consumo in bar/min, la pressione finale e la frazione di riserva riguardano SOLO la prima bombola — i bar di bombole di volume diverso non si sommano.',
-      );
+      caveats.push({ testo: A.PIU_BOMBOLE });
     }
     if (senzaVolumeMaConsumate > 0) {
       /*
@@ -944,14 +951,14 @@ function analyseGas(dive: Dive, samples: Sample[], avgBar: number | undefined, c
        */
       caveats.push(
         senzaVolumeMaConsumate === 1
-          ? 'Una bombola ha consumato gas ma non ha il litraggio: i suoi litri NON sono nel consumo in L/min, che quindi è più basso del vero. Scrivi il volume e il numero si corregge.'
-          : `${senzaVolumeMaConsumate} bombole hanno consumato gas ma non hanno il litraggio: i loro litri NON sono nel consumo in L/min, che quindi è più basso del vero. Scrivi i volumi e il numero si corregge.`,
+          ? { testo: A.UNA_BOMBOLA_SENZA_VOLUME }
+          : { testo: A.BOMBOLE_SENZA_VOLUME, valori: [senzaVolumeMaConsumate] },
       );
     }
   } else if (hasTankPressure && !hasCylinderVolume) {
-    caveats.push('Volume bombola non indicato: calcolabile solo il consumo in bar/min, non l’RMV in L/min.');
+    caveats.push({ testo: A.SENZA_VOLUME });
   } else if (!hasTankPressure) {
-    caveats.push('Nessuna pressione bombola: consumo gas non calcolabile.');
+    caveats.push({ testo: A.SENZA_PRESSIONE });
   }
 
   return {

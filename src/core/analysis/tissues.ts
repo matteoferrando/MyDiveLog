@@ -25,6 +25,7 @@
 
 import type { Dive, DiveMetrics, GasMix, Salinity, Sample } from '../model';
 import { ambientBar } from '../units';
+import { profonditaMedia } from '../profondita';
 import {
   WATER_VAPOUR_BAR,
   ceilingM,
@@ -264,7 +265,11 @@ export interface ChainReport {
 export function squareProfile(dive: Dive, ascentRateMpm = 9, descentRateMpm = 18): Sample[] {
   const durationS = Math.max(60, Math.round(dive.durationS));
   const maxDepth = Math.max(1, dive.maxDepth);
-  const avg = dive.avgDepth && dive.avgDepth > 0 ? Math.min(dive.avgDepth, maxDepth) : maxDepth * 0.7;
+  // Anche qui la funzione e non il campo: il profilo non c'è **adesso**, ma le
+  // metriche possono portare una media misurata al momento dell'importazione,
+  // e un quadro costruito su quella è più vicino al vero del 70% di ripiego.
+  const media = profonditaMedia(dive);
+  const avg = media && media > 0 ? Math.min(media, maxDepth) : maxDepth * 0.7;
   const descentS = Math.round((avg / descentRateMpm) * 60);
   const ascentS = Math.round((avg / ascentRateMpm) * 60);
   // Se discesa e risalita da sole non ci stanno nella durata, si comprimono in

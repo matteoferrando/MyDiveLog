@@ -888,8 +888,36 @@ export interface MetricQuality {
   ratesIntervalS: number;
   /** Vero se le velocità vengono dal secondo profilo, più fitto del principale. */
   ratesFromAlt: boolean;
-  /** Note leggibili sui limiti del calcolo, mostrate nella UI. */
-  caveats: string[];
+  /**
+   * Note leggibili sui limiti del calcolo, mostrate nella UI.
+   *
+   * ► PERCHÉ NON SONO PIÙ STRINGHE GIÀ SCRITTE. ◄ Perché una frase già scritta
+   * non si può tradurre: nasce in `core`, dove la lingua non si sa, e quelle
+   * col numero dentro non avrebbero mai una chiave stabile nel dizionario. Il
+   * modello coi segnaposti viaggia in `testo`, i numeri in `valori`, e la frase
+   * si compone dove si disegna — con `frase()`. Vedi
+   * `core/analysis/avvertenze.ts`.
+   *
+   * ► E PERCHÉ IL TIPO AMMETTE ANCORA UNA STRINGA NUDA. ◄ Perché le metriche
+   * sono **salvate** con l'immersione: negli archivi scritti prima del 14
+   * settembre 2026 queste sono stringhe italiane già composte. Il ricalcolo le
+   * rifà — `VERSIONE_METRICHE` è stata alzata apposta — ma solo per le
+   * immersioni con un profilo, quindi qualcuna resterà com'era. *Un tipo che
+   * dichiara il passato è più onesto di una migrazione che si dà per riuscita.*
+   */
+  caveats: (string | Avvertenza)[];
+}
+
+/**
+ * Un'avvertenza prima che diventi una frase: il modello e i suoi numeri.
+ *
+ * `testo` è la chiave del dizionario — la frase italiana intera, coi segnaposti
+ * `{0}`, `{1}` al posto delle cifre — e `valori` sono le cifre, nell'ordine.
+ * Chi disegna fa `frase(t, a.testo, ...(a.valori ?? []))`.
+ */
+export interface Avvertenza {
+  testo: string;
+  valori?: (string | number)[];
 }
 
 // ---------------------------------------------------------------------------

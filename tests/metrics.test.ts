@@ -4,6 +4,7 @@ import { computeMetrics } from '../src/core/analysis/metrics';
 import { oxygenLoad } from '../src/core/analysis/oxygen';
 import { parseFile } from '../src/core/parsers';
 import { synthesise, toUddf } from './fixtures';
+import { avvertenzeComposte } from '../src/core/analysis/avvertenze';
 
 function makeDive(samples: Sample[], overrides: Partial<Dive> = {}): Dive {
   const maxDepth = Math.max(...samples.map((s) => s.depth));
@@ -194,7 +195,7 @@ describe('consumo gas', () => {
     const m = computeMetrics(makeDive(samples, { cylinders: [{ mix: AIR, startBar: 200, endBar: 80 }] }));
     expect(m.rmvLpm).toBeUndefined();
     expect(m.sacBarPerMin).toBeDefined();
-    expect(m.quality.caveats.join(' ')).toContain('Volume bombola');
+    expect(avvertenzeComposte(m.quality.caveats ?? [], (x) => x).join(' ')).toContain('Volume bombola');
   });
 
   /*
@@ -238,7 +239,7 @@ describe('qualità del dato', () => {
     for (let t = 0; t <= 1800; t += 60) samples.push({ t, depth: 20 });
     const m = computeMetrics(makeDive(samples));
     expect(m.quality.sampleIntervalS).toBe(60);
-    expect(m.quality.caveats.join(' ')).toContain('approssimate');
+    expect(avvertenzeComposte(m.quality.caveats ?? [], (x) => x).join(' ')).toContain('approssimate');
   });
 
   it("gestisce un'immersione senza profilo senza esplodere", () => {
@@ -249,7 +250,7 @@ describe('qualità del dato', () => {
     const m = computeMetrics(dive);
     expect(m.quality.hasProfile).toBe(false);
     expect(m.fastAscentS).toBe(0);
-    expect(m.quality.caveats.join(' ')).toContain('Nessun profilo');
+    expect(avvertenzeComposte(m.quality.caveats ?? [], (x) => x).join(' ')).toContain('Nessun profilo');
   });
 });
 

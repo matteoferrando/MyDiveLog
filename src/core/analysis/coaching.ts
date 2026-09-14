@@ -30,6 +30,7 @@ import { localeCorrente } from '../locale';
 import { comeSta, type Traduci } from '../traduci';
 import { frase } from '../frase';
 import { medianOf, type Aggregates } from './aggregate';
+import { profonditaMedia } from '../profondita';
 
 export type CoachArea = 'gas' | 'buoyancy' | 'ascent' | 'safety' | 'deco' | 'experience' | 'data';
 
@@ -1821,15 +1822,16 @@ export function debriefDive(dive: Dive, t: Traduci = comeSta): Observation[] {
     );
   }
   if (m.rmvLpm !== undefined) {
+    const media = profonditaMedia(dive);
     out.push({
       severity: m.rmvLpm <= BENCHMARK.rmvGood ? 'good' : m.rmvLpm > BENCHMARK.rmvHigh ? 'serious' : 'warning',
       text:
-        m.avgDepth !== undefined
+        media !== undefined
           ? frase(
               t,
               'Consumo di superficie {0} L/min a {1} m di media.',
               m.rmvLpm.toFixed(1),
-              m.avgDepth.toFixed(1),
+              media.toFixed(1),
             )
           : frase(t, 'Consumo di superficie {0} L/min.', m.rmvLpm.toFixed(1)),
     });

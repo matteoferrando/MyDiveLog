@@ -27,6 +27,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeMetrics } from '../src/core/analysis/metrics';
 import { AIR, type Cylinder, type Dive, type Sample } from '../src/core/model';
+import { avvertenzeComposte } from '../src/core/analysis/avvertenze';
 
 /** Quaranta minuti a 20 m, discesa e risalita di due minuti. */
 const profilo = (): Sample[] => {
@@ -52,7 +53,7 @@ function consumo(cylinders: Cylinder[]) {
     samples: profilo(),
   };
   const m = computeMetrics(dive);
-  return { rmv: m.rmvLpm, avvertenze: m.quality.caveats.join(' | ') };
+  return { rmv: m.rmvLpm, avvertenze: avvertenzeComposte(m.quality.caveats, (x) => x).join(' | ') };
 }
 
 const DODICI = { mix: AIR, sizeL: 12, startBar: 200, endBar: 70 };

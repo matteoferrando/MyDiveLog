@@ -20,6 +20,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeMetrics } from '../src/core/analysis/metrics';
 import { AIR, type Dive, type Sample } from '../src/core/model';
+import { avvertenzeComposte } from '../src/core/analysis/avvertenze';
 
 const profilo = (): Sample[] =>
   Array.from({ length: 60 }, (_, i) => ({
@@ -53,7 +54,7 @@ describe('quando il consumo non è calcolabile', () => {
      * ma le avvertenze sono quello che finisce nei contesti per l'analisi e nei
      * posti dove il numero viene riletto senza la sua casella accanto.
      */
-    expect(m.quality.caveats.join(' ')).toContain('l’hai scritto tu');
+    expect(avvertenzeComposte(m.quality.caveats ?? [], (x) => x).join(' ')).toContain('l’hai scritto tu');
   });
 
   it('senza niente scritto a mano resta vuoto, e non diventa zero', () => {
@@ -98,7 +99,7 @@ describe('quando il consumo è calcolabile', () => {
     const m = computeMetrics(conBombola({ rmvLpmManual: 99 }));
     expect(m.rmvLpm).toBe(calcolato);
     expect(m.rmvLpmDichiarato).toBeUndefined();
-    expect(m.quality.caveats.join(' ')).not.toContain('l’hai scritto tu');
+    expect(avvertenzeComposte(m.quality.caveats ?? [], (x) => x).join(' ')).not.toContain('l’hai scritto tu');
   });
 
   it('ma il valore scritto a mano NON viene cancellato dall’immersione', () => {

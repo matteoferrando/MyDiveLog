@@ -13,6 +13,7 @@ import { parseFit } from '../src/core/parsers/garminFit';
 import { detectTimeScale, parseShearwaterDate, shearwaterParser } from '../src/core/parsers/shearwater';
 import { parseDateTime, parseDurationCell, splitRow } from '../src/core/parsers/csv';
 import { synthesise, toCsv, toFit, toShearwaterXml, toSubsurface, toUddf } from './fixtures';
+import { avvertenzeComposte } from '../src/core/analysis/avvertenze';
 
 const synth = synthesise();
 const maxDepth = Math.max(...synth.samples.map((s) => s.depth));
@@ -273,7 +274,7 @@ describe('coerenza fra formati', () => {
     expect(m.sacBarPerMin).toBeDefined();
     expect(m.quality.hasTankPressure).toBe(true);
     expect(m.quality.hasCylinderVolume).toBe(false);
-    expect(m.quality.caveats.join(' ')).toContain('Volume bombola');
+    expect(avvertenzeComposte(m.quality.caveats ?? [], (x) => x).join(' ')).toContain('Volume bombola');
   });
 });
 

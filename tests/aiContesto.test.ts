@@ -98,7 +98,22 @@ describe('contesto di una immersione', () => {
     const parsed = JSON.parse(context);
     expect(parsed.bombole[0].litri).toBeNull();
     expect(parsed.bombole[0].barIniziali).toBeNull();
-    expect(parsed.immersione.profonditaMediaM).toBeNull();
+    /*
+     * ► QUESTA RIGA È CAMBIATA IL 14 SETTEMBRE 2026, E IL NOME DELLA PROVA
+     * RESTA VERO. ◄ La scheda dichiara `avgDepth: undefined`, ma ha un
+     * profilo: la media pesata sul tempo si misura, e il contesto adesso la
+     * porta — come già faceva per la temperatura minima, due righe più sotto,
+     * dal 22 agosto. *Un numero letto dal profilo non è inventato: inventato
+     * sarebbe il 70% della massima.*
+     *
+     * La garanzia che questa prova custodisce — «assenti vuol dire nulli» —
+     * non si perde: si sposta sul caso in cui non c'è davvero niente da
+     * leggere, ed è la riga qui sotto.
+     */
+    expect(parsed.immersione.profonditaMediaM).toBeCloseTo(24.3, 1);
+
+    const cieca = diveContext(dive({ samples: [], avgDepth: undefined }));
+    expect(JSON.parse(cieca).immersione.profonditaMediaM).toBeNull();
     // Nessun consumo: senza volume e pressioni non è calcolabile e non compare.
     expect(parsed.calcolatoDallApp.consumoDiSuperficieLMin).toBeNull();
   });

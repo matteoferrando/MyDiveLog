@@ -1632,6 +1632,30 @@ export const INGLESE: Record<string, string> = {
   'le soste tornano sul gas di fondo, con il tuo consumo normale':
     'stops fall back on bottom gas, at your normal RMV',
   'Lettura in corso…': 'Reading…',
+
+  // ── Le avvertenze delle metriche. Vedi core/analysis/avvertenze.ts: fino al
+  //    14 settembre 2026 uscivano in italiano anche con l'applicazione in
+  //    inglese, perché venivano disegnate senza passare di qui.
+  'Nessun profilo campionato: disponibili solo i dati di sintesi.':
+    'No sampled profile: only summary data is available.',
+  'Campionamento a {0} s: velocità verticali e sosta di sicurezza sono approssimate.':
+    'Sampled every {0} s: vertical speeds and the safety stop are approximate.',
+  'Velocità e assetto misurati sul profilo a {0} s del secondo computer, più fitto di quello mostrato ({1} s): un profilo più rado leggerebbe l’oscillazione più bassa di quanto è.':
+    'Speeds and buoyancy measured on the second computer’s {0} s profile, finer than the one shown ({1} s): a coarser profile would read the swing as smaller than it is.',
+  'Il consumo di superficie mostrato l’hai scritto tu: non viene dalle pressioni della bombola.':
+    'The surface consumption shown is the one you typed in: it does not come from cylinder pressures.',
+  'Profondità media sconosciuta (nessun profilo campionato): l’RMV in L/min non è calcolabile, resta il consumo in bar/min.':
+    'Average depth unknown (no sampled profile): RMV in L/min cannot be worked out, only consumption in bar/min.',
+  'Più bombole: l’RMV in L/min è calcolato sul totale di tutte, mentre il consumo in bar/min, la pressione finale e la frazione di riserva riguardano SOLO la prima bombola — i bar di bombole di volume diverso non si sommano.':
+    'Several cylinders: RMV in L/min is worked out on the total of all of them, while consumption in bar/min, the end pressure and the reserve fraction concern ONLY the first cylinder — bar from cylinders of different volume do not add up.',
+  'Una bombola ha consumato gas ma non ha il litraggio: i suoi litri NON sono nel consumo in L/min, che quindi è più basso del vero. Scrivi il volume e il numero si corregge.':
+    'One cylinder used gas but has no volume: its litres are NOT in the L/min figure, which is therefore lower than the truth. Enter the volume and the number corrects itself.',
+  '{0} bombole hanno consumato gas ma non hanno il litraggio: i loro litri NON sono nel consumo in L/min, che quindi è più basso del vero. Scrivi i volumi e il numero si corregge.':
+    '{0} cylinders used gas but have no volume: their litres are NOT in the L/min figure, which is therefore lower than the truth. Enter the volumes and the number corrects itself.',
+  'Volume bombola non indicato: calcolabile solo il consumo in bar/min, non l’RMV in L/min.':
+    'Cylinder volume not given: only consumption in bar/min can be worked out, not RMV in L/min.',
+  'Nessuna pressione bombola: consumo gas non calcolabile.':
+    'No cylinder pressure: gas consumption cannot be worked out.',
   'Litri al minuto riportati alla superficie. Solo dove il volume della bombola è noto.':
     'Litres per minute at the surface. Only where cylinder size is known.',
   'Litri e materiale non cambiano quanto respiri, cambiano quanto ti dura: se il consumo differisce, differiscono le immersioni in cui la porti.':

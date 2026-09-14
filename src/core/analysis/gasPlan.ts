@@ -45,6 +45,7 @@ import {
 } from '../units';
 import { barometric } from './deco';
 import { exposureOfSegments, type OxygenExposure } from './oxygen';
+import { profonditaMedia } from '../profondita';
 
 /** Consumo di superficie usato per il gas d'emergenza, litri al minuto. */
 export const STRESS_RMV_DEFAULT = 30;
@@ -1440,7 +1441,13 @@ export function similarDives(
  */
 export function usualDepthRatio(dives: Dive[]): number | undefined {
   const ratios = dives
-    .map((d) => (d.avgDepth !== undefined && d.maxDepth > 0 ? d.avgDepth / d.maxDepth : undefined))
+    .map((d) => {
+      // Dal campo dichiarato il rapporto si calcolava su un SOTTOINSIEME
+      // dell'archivio — quello dei formati che la media la scrivono — e il
+      // numero che ne usciva veniva poi applicato a tutti.
+      const media = profonditaMedia(d);
+      return media !== undefined && d.maxDepth > 0 ? media / d.maxDepth : undefined;
+    })
     .filter((v): v is number => v !== undefined && v > 0.2 && v <= 1)
     .sort((a, b) => a - b);
   if (ratios.length < 5) return undefined;

@@ -128,8 +128,61 @@ describe('quando il profilo non c’è', () => {
   });
 });
 
-describe('► un lettore solo, e la guardia che lo pretende ◄', () => {
-  const RADICI = ['src/ui', 'src/core/export'];
+describe('► un lettore solo per campo, e la guardia che lo pretende ◄', () => {
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► PERCHÉ LA GUARDIA COPRE DUE CAMPI E QUATTRO CARTELLE. ◄
+   *
+   * Perché il difetto ha una **forma**, e la forma vale per ogni campo che
+   * esista sia dichiarato sull'immersione sia calcolato in `metrics`. I campi
+   * con questa forma sono esattamente due — contati confrontando `Dive` e
+   * `DiveMetrics`, non a memoria — e tutti e due hanno già avuto il loro
+   * difetto: `minTempC` il 22 agosto, `avgDepth` il 14 settembre.
+   *
+   * ► E LA SECONDA VOLTA HA INSEGNATO PIÙ DELLA PRIMA. ◄ Cercando i lettori di
+   * `avgDepth` sono saltati fuori **quattro lettori di `minTempC` ancora
+   * sbagliati**, tre settimane dopo che quel difetto era stato «chiuso»: le
+   * statistiche delle mute, che scartavano l'immersione invece di leggerla
+   * altrove, e il PDF del libretto. *Una correzione che converte i lettori che
+   * si trovano lascia in piedi quelli che non si cercano.* Da qui la guardia:
+   * non fidarsi di aver convertito tutto, pretenderlo.
+   *
+   * Le cartelle sono quattro perché il difetto si è manifestato in tutte e
+   * quattro: l'interfaccia (l'elenco), le esportazioni (il libretto, l'UDDF),
+   * l'analisi (le mute, il rapporto medio/massima) e il contesto per l'analisi
+   * con Claude.
+   */
+  const RADICI = ['src/ui', 'src/core/export', 'src/core/analysis', 'src/ai'];
+
+  /**
+   * Chi il valore lo CALCOLA, e quindi il campo dichiarato deve leggerlo.
+   */
+  const CHI_LO_CALCOLA = ['src/core/analysis/metrics.ts'];
+
+  /**
+   * ► LE ECCEZIONI, CON IL MOTIVO SCRITTO ACCANTO. ◄
+   *
+   * Sono punti dove il nome del campo compare su un oggetto che **non è
+   * un'immersione**: la ricerca è testuale e non può saperlo. Scriverle qui,
+   * una per una e con la ragione, è meglio che allargare l'espressione
+   * regolare finché smette di lamentarsi — *una guardia che si taglia su misura
+   * dei suoi falsi allarmi finisce per non vedere più nemmeno quelli veri.*
+   *
+   * La prova sotto pretende che ogni eccezione corrisponda ancora a
+   * un'occorrenza vera: un'eccezione che non serve più è una porta lasciata
+   * aperta per un motivo che non esiste.
+   */
+  const ECCEZIONI: Record<string, string> = {
+    'src/ui/components/NewDive.tsx':
+      'la bozza del modulo a mano, dove i campi sono stringhe da tastiera e non numeri di un’immersione',
+    'src/ui/pages/Stats.tsx':
+      'le righe aggregate della tabella delle mute, che sono riepiloghi di gruppi e non immersioni',
+  };
+
+  const CAMPI = [
+    { campo: 'avgDepth', funzione: 'profonditaMedia' },
+    { campo: 'minTempC', funzione: 'temperaturaMinimaC' },
+  ];
 
   function tuttiISorgenti(radice: string): string[] {
     const fuori: string[] = [];
@@ -141,7 +194,8 @@ describe('► un lettore solo, e la guardia che lo pretende ◄', () => {
     return fuori;
   }
 
-  const sorgenti = RADICI.flatMap(tuttiISorgenti);
+  const tutti = RADICI.flatMap(tuttiISorgenti);
+  const sorgenti = tutti.filter((p) => !CHI_LO_CALCOLA.includes(p) && !(p in ECCEZIONI));
 
   it('la guardia sta guardando qualcosa: i file ci sono', () => {
     /*
@@ -151,30 +205,79 @@ describe('► un lettore solo, e la guardia che lo pretende ◄', () => {
      * stesso motivo per cui `avanzamentoTradotto.test.ts` pretende «almeno
      * due» etichette dal sorgente Rust.
      */
-    expect(sorgenti.length).toBeGreaterThan(20);
+    expect(sorgenti.length).toBeGreaterThan(30);
+    for (const radice of RADICI) expect(tuttiISorgenti(radice).length).toBeGreaterThan(0);
   });
 
-  it('nessuno legge `.avgDepth` per conto suo', () => {
+  it.each(CAMPI)('nessuno legge `.$campo` per conto suo', ({ campo, funzione }) => {
     /*
      * `avgDepthM` del modulo di inserimento a mano non è questo campo — è il
      * testo di una casella — e il confine di parola lo lascia fuori da solo.
      */
-    const colpevoli = sorgenti.filter((p) => /\.avgDepth\b/.test(readFileSync(p, 'utf8')));
+    const cerca = new RegExp(`\\.${campo}\\b`);
+    const colpevoli = sorgenti.filter((p) => cerca.test(readFileSync(p, 'utf8')));
     expect(
       colpevoli,
-      `leggono il campo invece della funzione: ${colpevoli.join(' | ')}\n` +
-        'La profondità media si chiede a `profonditaMedia(dive)`, che sa che i campi sono due.',
+      `leggono \`.${campo}\` invece di \`${funzione}(dive)\`: ${colpevoli.join(' | ')}\n` +
+        'Quel campo è solo quello DICHIARATO dalla sorgente, e può essere vuoto:\n' +
+        'la funzione sa che i campi sono due e prende il valore da dove c’è.',
     ).toEqual([]);
   });
 
-  it('e la funzione è davvero quella che usano', () => {
+  it('ogni eccezione serve ancora a qualcosa', () => {
+    /*
+     * ► LA GUARDIA DELL'ELENCO DELLE ECCEZIONI. ◄ Il giorno in cui la tabella
+     * delle mute smette di avere una colonna di temperatura, la sua eccezione
+     * resta lì e copre in silenzio qualunque lettura sbagliata che qualcuno
+     * scriva in quel file. Quindi si pretende che serva: se il campo lì dentro
+     * non compare più, l'eccezione va tolta.
+     */
+    const cerca = new RegExp(CAMPI.map((c) => `\\.${c.campo}\\b`).join('|'));
+    for (const [file, motivo] of Object.entries(ECCEZIONI)) {
+      expect(tutti, `l’eccezione «${file}» punta a un file che non c’è più`).toContain(file);
+      expect(
+        cerca.test(readFileSync(file, 'utf8')),
+        `l’eccezione «${file}» (${motivo}) non serve più: toglila`,
+      ).toBe(true);
+    }
+  });
+
+  it.each(CAMPI)('e `$funzione` è davvero quella che usano', ({ funzione }) => {
     /*
      * Il rovescio del controllo sopra: senza questa riga, cancellare ogni
      * profondità media dall'interfaccia farebbe passare la guardia a pieni
      * voti. *Una guardia che passa anche quando la cosa che protegge non
      * esiste più non protegge niente.*
      */
-    const quanti = sorgenti.filter((p) => /profonditaMedia\(/.test(readFileSync(p, 'utf8')));
-    expect(quanti.length, 'la funzione non è usata da nessuna parte').toBeGreaterThanOrEqual(6);
+    const cerca = new RegExp(`${funzione}\\(`);
+    const quanti = sorgenti.filter((p) => cerca.test(readFileSync(p, 'utf8')));
+    expect(quanti.length, `${funzione} non è usata da nessuna parte`).toBeGreaterThanOrEqual(5);
+  });
+
+  it('e i campi con questa forma sono ancora due, non tre', () => {
+    /*
+     * ► LA RIGA CHE FA SCATTARE LA GUARDIA SU UN CAMPO CHE NON ESISTE ANCORA. ◄
+     * `CAMPI` qui sopra è un elenco scritto a mano, e un elenco scritto a mano
+     * invecchia: il giorno in cui qualcuno aggiunge a `DiveMetrics` un terzo
+     * campo che esiste anche su `Dive`, nascerebbe un terzo difetto di questa
+     * famiglia e nessuna prova se ne accorgerebbe.
+     *
+     * Quindi i due tipi si confrontano davvero, leggendo il modello. Se questa
+     * riga diventa rossa non è un guasto: è il progetto che chiede di decidere
+     * chi vince fra il dichiarato e il calcolato, e di scriverlo in una
+     * funzione come le altre due.
+     */
+    const modello = readFileSync('src/core/model.ts', 'utf8');
+    const campiDi = (nome: string) => {
+      const i = modello.indexOf(`export interface ${nome} {`);
+      expect(i, `interfaccia ${nome} non trovata`).toBeGreaterThan(0);
+      const corpo = modello.slice(i, modello.indexOf('\n}', i));
+      return new Set([...corpo.matchAll(/^ {2}(\w+)\??:/gm)].map((m) => m[1]));
+    };
+    const metriche = campiDi('DiveMetrics');
+    const doppi = [...campiDi('Dive')].filter((c) => metriche.has(c)).sort();
+    expect(doppi, 'un campo nuovo esiste sia su Dive sia su DiveMetrics: chi vince?').toEqual(
+      CAMPI.map((c) => c.campo).sort(),
+    );
   });
 });

@@ -34,6 +34,7 @@ import {
 import { useLingua } from '../lingua';
 import { usePortaInVista } from '../scorri';
 import { profonditaMedia } from '../../core/profondita';
+import { avvertenzeComposte } from '../../core/analysis/avvertenze';
 
 export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const { dives, loadProfiles, saveDive, removeDive, gear, saveGear, subacqueo, numeri } = useDiveLog();
@@ -752,8 +753,12 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
           ))}
           {m?.quality.caveats.length ? (
             <div className="notice" style={{ marginTop: 12 }}>
-              {m.quality.caveats.map((c) => (
-                <div key={c}>{c}</div>
+              {/* Le avvertenze passano dal dizionario come tutto il resto: fino
+                  al 14 settembre 2026 uscivano in italiano anche con
+                  l'applicazione in inglese, ed erano nove. La chiave è il
+                  modello, i numeri arrivano a parte. */}
+              {avvertenzeComposte(m.quality.caveats, t).map((riga) => (
+                <div key={riga}>{riga}</div>
               ))}
             </div>
           ) : null}

@@ -227,9 +227,16 @@ export function mutaFuoriAbitudine(dives: Dive[], minBase = 3): FuoriAbitudine[]
   const utili: { d: Dive; nome: string; t: number }[] = [];
   for (const d of dives) {
     const nome = nomeMuta(d);
-    if (!nome || d.minTempC === undefined || !Number.isFinite(d.minTempC)) continue;
-    utili.push({ d, nome, t: d.minTempC });
-    const f = fascia(d.minTempC);
+    /*
+     * La temperatura si chiede alla funzione, non al campo: un'immersione
+     * scaricata da un computer che non scrive il minimo nel riepilogo
+     * finiva in `continue`, cioè **spariva dalle statistiche delle mute**
+     * — proprio quelle in cui la temperatura è tutto.
+     */
+    const tMin = temperaturaMinimaC(d);
+    if (!nome || tMin === undefined || !Number.isFinite(tMin)) continue;
+    utili.push({ d, nome, t: tMin });
+    const f = fascia(tMin);
     const m = conteggi.get(f) ?? new Map();
     const k = normalizzaNome(nome);
     const c = m.get(k) ?? { nome, n: 0 };
@@ -417,7 +424,7 @@ export function consumoPerAttrezzo(dives: Dive[], minDives = 3): TabellaConsumo[
         rmvBasis: rmv.length,
         medianRmvLpm: arrotonda(mediana(rmv)),
         medianMaxDepth: arrotonda(mediana(numeri(g.dives, (d) => d.maxDepth))),
-        medianTempC: arrotonda(mediana(numeri(g.dives, (d) => d.minTempC))),
+        medianTempC: arrotonda(mediana(numeri(g.dives, (d) => temperaturaMinimaC(d)))),
         medianDurationMin: arrotonda(mediana(numeri(g.dives, (d) => d.durationS / 60)), 0),
       });
     }

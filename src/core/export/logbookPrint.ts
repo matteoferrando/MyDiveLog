@@ -60,6 +60,7 @@ import { zavorraTotaleKg, type Equipment } from '../analysis/gear';
 import { libretto, type Subacqueo } from '../libretto';
 import { descriviFirma, firmaPath, firmaVuota } from '../firma';
 import { profonditaMedia } from '../profondita';
+import { temperaturaMinimaC } from '../temperatura';
 
 // ---------------------------------------------------------------------------
 // Escape
@@ -680,7 +681,11 @@ function paginaImmersione(
 
 function temperatura(dive: Dive): string {
   const parti: string[] = [];
-  if (dive.minTempC !== undefined) parti.push(`min ${dive.minTempC.toFixed(1)} °C`);
+  // Il libretto è il documento che si manda a un centro o a un'assicurazione:
+  // leggendo il solo campo dichiarato stampava «—» su ogni immersione di un
+  // computer che il minimo non lo scrive nel riepilogo.
+  const tMin = temperaturaMinimaC(dive);
+  if (tMin !== undefined) parti.push(`min ${tMin.toFixed(1)} °C`);
   if (dive.airTempC !== undefined) parti.push(`aria ${dive.airTempC.toFixed(0)} °C`);
   return parti.length ? escapeHtml(parti.join(' · ')) : '—';
 }
