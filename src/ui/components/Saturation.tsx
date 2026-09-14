@@ -23,6 +23,7 @@ import { compartments, type CompartmentState } from '../../core/analysis/buhlman
 import { StatTile, TabellaEquivalente, useWidth } from './Charts';
 import { useLingua } from '../lingua';
 import { plural, type Traduci } from '../format';
+import { profonditaMedia } from '../../core/profondita';
 
 /**
  * Coppie che vale la pena confrontare: dalla tecnica alla ricreativa larga.
@@ -124,7 +125,7 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
           {t(
             'Senza campioni il carico si calcola su un profilo quadro, ricavato da durata e profondità media: più la tua immersione era multilivello, meno il numero è preciso.',
           )}{' '}
-          {dive.avgDepth === undefined && (
+          {profonditaMedia(dive) === undefined && (
             <>
               {t(
                 'Manca anche la profondità media: qui è usato il 70% della massima. Scrivila nella scheda e la stima migliora.',

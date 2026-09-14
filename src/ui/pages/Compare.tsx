@@ -22,6 +22,7 @@ import { useDiveLog } from '../state';
 import { Vuoto } from '../components/Vuoto';
 import { useLingua } from '../lingua';
 import { temperaturaMinimaC } from '../../core/temperatura';
+import { profonditaMedia } from '../../core/profondita';
 
 export function Compare({ onOpen }: { onOpen: (id: string) => void }) {
   const { dives, loadSamples } = useDiveLog();
@@ -253,7 +254,13 @@ function ComparisonTable({ left, right, onOpen }: { left: Dive; right: Dive; onO
     const r = right.metrics;
     return [
       { label: 'Profondità massima', unit: 'm', a: left.maxDepth, b: right.maxDepth, lower: null },
-      { label: 'Profondità media', unit: 'm', a: l?.avgDepth, b: r?.avgDepth, lower: null },
+      {
+        label: 'Profondità media',
+        unit: 'm',
+        a: profonditaMedia(left),
+        b: profonditaMedia(right),
+        lower: null,
+      },
       { label: 'Durata', unit: 'min', a: left.durationS / 60, b: right.durationS / 60, lower: null },
       { label: 'Consumo di superficie', unit: 'L/min', a: l?.rmvLpm, b: r?.rmvLpm, lower: true },
       {

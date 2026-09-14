@@ -36,6 +36,7 @@ import { perMeteo, perStatoDelMare, perVisibilita, quanteConCondizioni } from '.
 import { Vuoto } from '../components/Vuoto';
 import { useLingua } from '../lingua';
 import { temperaturaMinimaC } from '../../core/temperatura';
+import { profonditaMedia } from '../../core/profondita';
 
 type Series = 'rmv' | 'trim' | 'ascent' | 'gf99';
 
@@ -704,7 +705,7 @@ function Correlations({
       hint: 'Se il consumo cresce con la profondità, di solito è affaticamento o assetto.',
       points: pairsOf(
         dives,
-        (d) => d.avgDepth,
+        (d) => profonditaMedia(d),
         (d) => d.metrics?.rmvLpm,
       ),
       xLabel: 'profondità media (m)',

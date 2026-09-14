@@ -23,6 +23,7 @@
 import type { Dive, GasMix, Sample } from '../model';
 import { barToPascal, cToKelvin, mixName } from '../units';
 import { temperaturaMinimaC } from '../temperatura';
+import { profonditaMedia } from '../profondita';
 
 export interface UddfExportOptions {
   /** Nome del generatore scritto nel file. */
@@ -206,8 +207,8 @@ export function exportUddf(dives: Dive[], options: UddfExportOptions = {}): Uddf
 
     out.push('        <informationafterdive>');
     out.push(`          <greatestdepth>${n(dive.maxDepth, 2)}</greatestdepth>`);
-    if (dive.avgDepth !== undefined)
-      out.push(`          <averagedepth>${n(dive.avgDepth, 2)}</averagedepth>`);
+    const media = profonditaMedia(dive);
+    if (media !== undefined) out.push(`          <averagedepth>${n(media, 2)}</averagedepth>`);
     out.push(`          <diveduration>${n(dive.durationS, 0)}</diveduration>`);
     /*
      * La temperatura si prende da dove c'è: dichiarata o misurata sul profilo.

@@ -33,6 +33,7 @@ import {
 } from '../format';
 import { useLingua } from '../lingua';
 import { usePortaInVista } from '../scorri';
+import { profonditaMedia } from '../../core/profondita';
 
 export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const { dives, loadProfiles, saveDive, removeDive, gear, saveGear, subacqueo, numeri } = useDiveLog();
@@ -295,8 +296,8 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
           label={t('Profondità massima')}
           value={`${dive.maxDepth.toFixed(1)} m`}
           note={
-            m?.avgDepth !== undefined
-              ? `${t('media')} ${m.avgDepth.toFixed(1)} m`
+            profonditaMedia(dive) !== undefined
+              ? `${t('media')} ${profonditaMedia(dive)!.toFixed(1)} m`
               : t('media non disponibile')
           }
         />

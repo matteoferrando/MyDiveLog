@@ -260,6 +260,25 @@ export function immersioneDaLdc(imm: ImmersioneLdc, ctx: ContestoEsterno): Dive 
 
   const dive: Dive = { ...base, id: diveIdFor(base) };
   dive.metrics = computeMetrics(dive);
+  /*
+   * ► LA PROFONDITÀ MEDIA MISURATA TORNA SULL'IMMERSIONE, COME FANNO GLI ALTRI. ◄
+   *
+   * Questa riga c'è in **tutti** gli altri importatori — UDDF, Subsurface,
+   * LogTRAK, Garmin, Shearwater Cloud, il driver Uwatec di casa — e qui
+   * mancava. Non è simmetria estetica: `dive.avgDepth` è quello che finisce
+   * nella deduplica, nel profilo quadro della catena dei tessuti e
+   * nell'archivio salvato, e lasciarlo vuoto quando il numero ce l'abbiamo
+   * significa buttarlo.
+   *
+   * E si buttava sempre, non ogni tanto: il parser Shearwater di
+   * libdivecomputer **non implementa `DC_FIELD_AVGDEPTH`**, quindi
+   * `imm.avgDepth` da uno Shearwater è vuoto per costruzione.
+   *
+   * Il dichiarato resta padrone quando c'è: `computeMetrics` mette nel campo la
+   * media pesata sul profilo e ricade sul dichiarato solo senza campioni, e
+   * questa riga scrive soltanto dove non c'era niente.
+   */
+  if (dive.avgDepth === undefined) dive.avgDepth = dive.metrics.avgDepth;
   return dive;
 }
 

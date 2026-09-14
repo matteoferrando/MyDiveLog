@@ -18,6 +18,8 @@ import { ScegliAttrezzo, vocePerNome } from '../components/ScegliAttrezzo';
 import { pesoDelGav, type EquipmentKind } from '../../core/analysis/gear';
 import { Vuoto } from '../components/Vuoto';
 import { useLingua } from '../lingua';
+import { profonditaMedia } from '../../core/profondita';
+
 import {
   contenitoreCheScorre,
   elencoRicordato,
@@ -511,7 +513,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                   {formatDuration(d.durationS)}
                 </td>
                 <td className="num tabular muted" data-col={t('Media')}>
-                  {d.avgDepth?.toFixed(1) ?? '—'}
+                  {profonditaMedia(d)?.toFixed(1) ?? '—'}
                 </td>
                 <td className="num tabular" data-col="L/min">
                   {d.metrics?.rmvLpm?.toFixed(1) ?? '—'}

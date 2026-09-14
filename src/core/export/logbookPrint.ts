@@ -59,6 +59,7 @@ import { condizioniTesto, visibilitaTesto } from '../conditions';
 import { zavorraTotaleKg, type Equipment } from '../analysis/gear';
 import { libretto, type Subacqueo } from '../libretto';
 import { descriviFirma, firmaPath, firmaVuota } from '../firma';
+import { profonditaMedia } from '../profondita';
 
 // ---------------------------------------------------------------------------
 // Escape
@@ -465,7 +466,7 @@ function paginaImmersione(
 
   const voci: Voce[] = [
     ['Profondità massima', num(dive.maxDepth, 1, 'm')],
-    ['Profondità media', num(m?.avgDepth ?? dive.avgDepth, 1, 'm')],
+    ['Profondità media', num(profonditaMedia(dive), 1, 'm')],
     ['Durata', formatDuration(dive.durationS)],
     ['Temperatura', temperatura(dive)],
     ['Miscela', miscele(dive)],

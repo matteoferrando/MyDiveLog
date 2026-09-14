@@ -47,6 +47,7 @@ import { firmaVuota, type FirmaGuida } from '../firma';
 import { formatDuration } from '../units';
 import { temperaturaMinimaC } from '../temperatura';
 import type { FoglioPiano } from './planPrint';
+import { profonditaMedia } from '../profondita';
 
 /** A4 in punti tipografici, arrotondato: il PDF misura tutto in questa unità. */
 const LARGHEZZA = 595;
@@ -502,7 +503,10 @@ function contenutoPagina(dive: Dive, samples: Sample[], opts: PdfOptions): strin
   const numeri: [string, string][] = [
     ['Profondità massima', `${dive.maxDepth.toFixed(1)} m`],
     ['Durata', formatDuration(dive.durationS)],
-    ['Profondità media', dive.avgDepth === undefined ? '—' : `${dive.avgDepth.toFixed(1)} m`],
+    [
+      'Profondità media',
+      profonditaMedia(dive) === undefined ? '—' : `${profonditaMedia(dive)!.toFixed(1)} m`,
+    ],
     [
       'Temperatura minima',
       temperaturaMinimaC(dive) === undefined ? '—' : `${temperaturaMinimaC(dive)!.toFixed(1)} °C`,

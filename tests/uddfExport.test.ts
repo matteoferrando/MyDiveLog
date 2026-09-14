@@ -72,7 +72,27 @@ describe('export UDDF', () => {
     // Kelvin → Celsius.
     expect(d.minTempC).toBeCloseTo(14.5, 1);
     expect(d.airTempC).toBeCloseTo(27, 1);
-    expect(d.avgDepth).toBeCloseTo(18.4, 1);
+    /*
+     * ► LA PROFONDITÀ MEDIA CHE ESCE È QUELLA MISURATA, NON QUELLA DICHIARATA,
+     * E IL 14 SETTEMBRE 2026 QUESTA RIGA È CAMBIATA. ◄
+     *
+     * Prima diceva `18.4`, cioè il numero che la scheda finta si era scritta in
+     * `avgDepth`. Ma questa immersione ha anche un profilo, la cui media pesata
+     * sul tempo è un'altra — e l'applicazione, in ogni sua schermata, mostra
+     * quella. Un file UDDF che dicesse `18.4` **contraddirebbe il PDF della
+     * stessa immersione**, ed è esattamente il guasto che ha fatto nascere
+     * `core/profondita.ts`: lo stesso dato, due risposte diverse.
+     *
+     * Il numero non si riscrive a mano qui: si chiede alle metriche. Una
+     * costante copiata sarebbe un secondo posto in cui la regola vive, e fra
+     * sei mesi sarebbe la sua versione vecchia.
+     */
+    const atteso = dive().metrics!.avgDepth!;
+    expect(atteso).not.toBeCloseTo(18.4, 1); // il caso ha senso solo se i due divergono
+    // L'export scrive due decimali e il parser ne tiene uno: 15.25 torna 15.3.
+    // Si confronta con l'arrotondamento dichiarato, non con una tolleranza che
+    // per un pelo diceva di no proprio sul valore giusto.
+    expect(d.avgDepth).toBe(Math.round(atteso * 10) / 10);
   });
 
   it('il profilo torna campione per campione', async () => {

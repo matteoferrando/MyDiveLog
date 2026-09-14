@@ -863,6 +863,27 @@ function analyseGas(dive: Dive, samples: Sample[], avgBar: number | undefined, c
   let primaryDelta: number | undefined;
   let primaryEnd: number | undefined;
   let primaryStart: number | undefined;
+  /*
+   * ► LE BOMBOLE CHE HANNO CONSUMATO GAS MA NON DICONO QUANTO ERANO GROSSE. ◄
+   *
+   * Contarle serve, e il perché si vede con due numeri. Una 12 L che va da 200
+   * a 70 bar più una seconda bombola con le stesse pressioni ma **senza
+   * litraggio**: prima di questa riga il consumo usciva **13,3 L/min**, cioè
+   * identico a quello della sola 12 L. I bar della seconda venivano letti,
+   * riconosciuti, e poi buttati — perché senza volume non si possono
+   * trasformare in litri — mentre il divisore restava l'immersione intera.
+   *
+   * *Il numero non usciva assente: usciva basso.* Ed è la direzione che fa più
+   * danno, perché è quella che fa piacere: un subacqueo legge un consumo
+   * migliore del suo e ci pianifica sopra la riserva.
+   *
+   * L'avvertenza che esisteva non copriva questo caso: scattava solo quando
+   * **nessuna** bombola aveva il volume. Con una sola bombola nota
+   * `hasCylinderVolume` è già vero, e l'unica cosa che si leggeva era
+   * l'avvertenza sulle «più bombole», che parla di bar/min e di riserva — non
+   * di litri mancanti.
+   */
+  let senzaVolumeMaConsumate = 0;
 
   cylinders.forEach((cyl, i) => {
     const start = cyl.startBar ?? fromSamples[i]?.start;
@@ -879,6 +900,8 @@ function analyseGas(dive: Dive, samples: Sample[], avgBar: number | undefined, c
     if (cyl.sizeL !== undefined && cyl.sizeL > 0) {
       hasCylinderVolume = true;
       consumedBarL += delta * cyl.sizeL;
+    } else {
+      senzaVolumeMaConsumate++;
     }
   });
 
@@ -910,6 +933,19 @@ function analyseGas(dive: Dive, samples: Sample[], avgBar: number | undefined, c
        */
       caveats.push(
         'Più bombole: l’RMV in L/min è calcolato sul totale di tutte, mentre il consumo in bar/min, la pressione finale e la frazione di riserva riguardano SOLO la prima bombola — i bar di bombole di volume diverso non si sommano.',
+      );
+    }
+    if (senzaVolumeMaConsumate > 0) {
+      /*
+       * Si dice il numero e si dice il VERSO dell'errore. «Il dato è parziale»
+       * lascerebbe credere che il consumo mostrato sia comunque una stima
+       * ragionevole; è invece un limite inferiore, e chi legge deve poterlo
+       * sapere senza rifare il conto.
+       */
+      caveats.push(
+        senzaVolumeMaConsumate === 1
+          ? 'Una bombola ha consumato gas ma non ha il litraggio: i suoi litri NON sono nel consumo in L/min, che quindi è più basso del vero. Scrivi il volume e il numero si corregge.'
+          : `${senzaVolumeMaConsumate} bombole hanno consumato gas ma non hanno il litraggio: i loro litri NON sono nel consumo in L/min, che quindi è più basso del vero. Scrivi i volumi e il numero si corregge.`,
       );
     }
   } else if (hasTankPressure && !hasCylinderVolume) {
