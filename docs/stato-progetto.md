@@ -3,13 +3,28 @@
 Aggiornato: **13 settembre 2026, notte** — **2 097 prove in 119 file** più
 **130 prove Rust** del ponte, lint e formato a **0 errori**.
 
-**► I TRE NUMERI NON COINCIDONO PIÙ, E STAVOLTA È VOLUTO. ◄** Nel repository
-c'è la **`1.8.17`**; su GitHub e sul sito la versione pubblica è la **`1.8.11`**;
-sui due negozi Apple c'è ancora la **`1.8.8`**. Il 10 settembre coincidevano
-tutti e tre, ed era una notizia; oggi non coincidono per una ragione scritta, che
-sta per intero nella prima voce dei **prossimi passi**: *domani il proprietario
-vede il Puck 4, e un giro di revisione speso stasera consegnerebbe ai negozi uno
-strumento di diagnosi invece del rimedio che da quella giornata potrebbe uscire.*
+**► I NEGOZI SONO ALLA `1.8.11`, E PER TRE GIORNI QUI C'È STATO SCRITTO `1.8.8`. ◄**
+Misurato il 14 settembre col `lookup` e l'anti-cache: **App Store per iPhone,
+`1.8.11`, pubblicata il `2026-09-11T23:53:50Z`.** Su GitHub e sul sito la
+versione pubblica è la stessa; nel repository c'è la **`1.8.17`** più il lavoro
+delle notti successive.
+
+> **► ED È UN ERRORE MIO, DELLA SPECIE CHE QUESTO DOCUMENTO RACCOGLIE DA
+> SETTIMANE. ◄** Dall'11 al 14 settembre qui è stato scritto «i negozi sono alla
+> 1.8.8», e in quei giorni l'ho ripetuto al proprietario più volte — compresa una
+> raccomandazione di **non** consegnare niente ai negozi «perché ci sono ancora
+> nove versioni di distanza». Nel frattempo la `1.8.11` era già pubblica da
+> quarantotto ore.
+>
+> Il comando per saperlo sta scritto in questo stesso documento da giorni, in tre
+> punti diversi, con accanto la regola: *«approvata» non è «pubblicata», e si
+> misura invece di dedurla.* **Ce l'avevo e non l'ho lanciato**: ho dedotto lo
+> stato del negozio dall'ultima riga che avevo scritto io. *Una riga di questo
+> documento che nessuno rimisura diventa, nel giro di due giorni, la fonte da cui
+> si deduce il mondo* — che è esattamente il guasto contro cui il documento
+> esiste.
+>
+> `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
 
 **La `1.8.11` è pubblicata: release `v1.8.11` con nove allegati**, tag su
 `0c862e8`. L'impronta del
@@ -2996,25 +3011,30 @@ protegge lo script e un travaso dal Mac per quello che resta indietro.
 **► iOS: pubblicata sull'App Store. ◄** Approvata il 26 agosto 2026 al terzo
 invio; i due rifiuti precedenti — 2.1 (informazioni) e 2.1(a) (crash su iPad
 toccando «Take Photo or Video») — sono chiusi tutti e due. **La versione che il
-negozio serve è la `1.8.8`**, pubblicata il **10 settembre 2026 alle 17:44:11 UTC**
-— misurata col `lookup` e l'anti-cache, non dedotta. *E resta la `1.8.8` anche
-adesso che il repository è alla `1.8.17`: vedi la prima voce dei prossimi passi.* La scheda è
+negozio serve è la `1.8.11`**, pubblicata il **11 settembre 2026 alle 23:53:50
+UTC** — misurata col `lookup` e l'anti-cache il 14 settembre, non dedotta. *La
+`1.8.8` c'era stata dal 10 settembre alle 17:44:11; per tre giorni questa riga
+ha continuato a dire `1.8.8` perché nessuno l'ha rimisurata.* La scheda è
 in **italiano soltanto**, e anche questo si misura: la stessa descrizione
 italiana torna interrogando la vetrina americana.
 
 **► macOS: pubblicata sul Mac App Store. ◄** Il pacchetto era stato consegnato il
 27 agosto alle 21:44, al terzo tentativo; sciolta la «Conformità mancante» e
 mandata in revisione, la 1.7.0 è uscita il 28 agosto, e la `1.7.1` l'ha
-seguita l'1 settembre. **Oggi il Mac App Store è alla `1.8.8`**, approvata l'11
-settembre — e qui è sempre **dichiarato dal proprietario**, mai misurato, per la
-ragione spiegata due riquadri più sotto.
+seguita l'1 settembre. **Del Mac App Store oggi non si sa il numero**, e non è
+una dimenticanza: la scheda è una sola per iPhone e Mac e il `lookup` restituisce
+la versione iOS, quindi da fuori la build macOS non si vede. L'ultima cosa
+dichiarata dal proprietario è la `1.8.8` approvata l'11 settembre; se nel
+frattempo ha caricato anche la `1.8.11` **lo sa solo lui**, ed è il genere di
+riga che va chiesta invece che dedotta.
 
 > **► E I NEGOZI SONO QUASI SEMPRE INDIETRO RISPETTO AL SITO. ◄** Il 7
 > settembre il sito e GitHub servivano la **1.8.0** e i due negozi Apple la
-> **1.7.1**; l'11 settembre il sito serve la **1.8.11**, i negozi la **1.8.8**, e
-> il repository è alla **1.8.17**. Fra il pacchetto pronto e la versione
-> pubblicata ci sono un caricamento a mano e una revisione, e a volte — come
-> adesso — una decisione di aspettare. *Quando arriva una segnalazione, «ho
+> **1.7.1**. Il 14 settembre il sito, GitHub e l'App Store per iPhone dicono
+> tutti e tre **1.8.11**, e il repository è avanti con il lavoro delle notti
+> dopo. Fra il pacchetto pronto e la versione pubblicata ci sono un caricamento
+> a mano e una revisione — e *l'unico modo di sapere dove si è arrivati è
+> chiederlo al negozio, non al documento.* *Quando arriva una segnalazione, «ho
 > l'ultima versione» vuol dire due programmi diversi a seconda di dove è stata
 > presa l'app — ed è la prima cosa da chiedere.*
 
@@ -4419,6 +4439,12 @@ tutte le tabelle di compatibilità citate in questo documento.
 
 ### E una cosa scomoda, che va scritta
 
+*[Scritto l'11 settembre. Il 14 si è scoperto che la premessa era falsa: la
+`1.8.11` era già sull'App Store dal `2026-09-11T23:53:50Z`, quindi il suo amico
+poteva averla da subito. Il ragionamento resta perché vale per la distanza fra il
+repository e i negozi in generale, ma il numero di partenza era sbagliato — e a
+sbagliarlo è stato chi non ha rimisurato.]*
+
 Il suo amico è fermo alla **1.8.8**. Fra quella e oggi ci sono **nove
 versioni**, e non sono tutte della stessa specie:
 
@@ -4490,36 +4516,33 @@ Ma la quarta riga è quella nuova, ed è la sola che possa chiudere la faccenda:
    *Quello che quel file può dire e nessun conto ha potuto: il byte esatto
    arrivato quando ne aspettavamo un altro, e il tempo in cui è arrivato.*
 
-1. **► I NEGOZI SONO ALLA 1.8.8, E CI RESTANO FINO A DOPO IL PUCK. ◄** Sui due
-   negozi Apple c'è la **1.8.8**; nel repository c'è la **1.8.17**. Nove
-   versioni di distanza, e la decisione è di **non** consegnarne nessuna prima
-   della giornata col Puck.
+1. **~~► I NEGOZI SONO ALLA 1.8.8, E CI RESTANO FINO A DOPO IL PUCK. ◄~~ Era
+   sbagliata: la `1.8.11` era già pubblica mentre la scrivevo.**
 
-   Il motivo non è pigrizia, è aritmetica dei giri di revisione. I pacchetti
-   pronti in `da-caricare-su-app-store/` sono della **1.8.11**, quindi già
-   superati da sei versioni; e delle sei che li superano nessuna è un rimedio
-   allo scarico: sono il banco di prova e i quattro difetti che gli sono stati
-   trovati addosso a mano. *Un giro di revisione speso adesso consegnerebbe uno
-   strumento di diagnosi a chi non deve diagnosticare niente — e se dal Puck
-   esce un rimedio vero, quel rimedio troverebbe la coda occupata.* È la stessa
-   regola per cui la 1.8.5 non è mai stata caricata, scritta più sotto.
+   **App Store per iPhone: `1.8.11` dal `2026-09-11T23:53:50Z`** — misurato il 14
+   settembre col `lookup` e l'anti-cache. Cioè: la versione che l'11 settembre
+   sera dicevo di «tenere ferma fino a dopo il Puck» era stata approvata **due
+   ore prima**, e per tre giorni ho continuato a raccomandare di aspettare una
+   consegna già avvenuta.
 
-   Dalla **1.8.12** alla **1.8.17** esistono solo come `.dmg` per Mac, ed è
-   voluto: servivano a lui, stasera, su un apparecchio in casa. **Sul sito e su
-   GitHub la versione pubblica resta la 1.8.11.**
+   > *Il comando che lo dice sta in questo documento in tre punti, con accanto la
+   > regola «si misura invece di dedurla». Ce l'avevo e non l'ho lanciato: ho
+   > dedotto lo stato del negozio dall'ultima riga che avevo scritto io.*
 
-   Quando si riparte, si riparte da qui: rigenerare i pacchetti dei negozi dalla
-   versione che esce dal Puck (`bash scripts/pubblica-mac-negozio.sh`,
-   `npm run ios:negozio`), e misurare la pubblicazione invece di dedurla —
-   `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`.
+   **Cosa ne consegue, e va fatto:**
 
-   > **E la bozza del messaggio per l'amico col Puck è già scaduta.** È stata
-   > scritta oggi pomeriggio — `messaggio-per-l-amico.md`, non ancora mandata,
-   > da non confondere col messaggio sulla 1.8.8 partito il 10 — e gli chiede di
-   > aggiornare dal negozio alla **1.8.11**: sul negozio quella versione non c'è e
-   > non ci arriverà. *Una riga che chiede una cosa
-   > impossibile è peggio di una riga assente, perché sembra un piano.* Va
-   > riscritto dopo il Puck, sulla versione che ci sarà davvero.
+   - **il messaggio all'amico col Puck non è più scaduto, è giusto.**
+     `messaggio-per-l-amico.md` gli chiede di aggiornare alla `1.8.11` dal
+     negozio, e sul negozio c'è. Può partire così com'è;
+   - **del Mac App Store non si sa il numero** e non si può misurare da fuori: la
+     scheda è una sola per iPhone e Mac. Lo dichiara il proprietario;
+   - **Google Play** aspettava la fine del test chiuso attorno al 12 settembre:
+     anche questo lo sa solo lui.
+
+   Resta da decidere cosa fare del lavoro **dopo** la 1.8.11 — il banco di prova,
+   l'avanzamento dello scarico, il cambio gas, il consumo scritto a mano, la
+   memoria dell'elenco. Quello sì che non è ancora uscito da nessuna parte: serve
+   un numero nuovo, una compilazione, un rilascio pubblico e poi i negozi.
 
 0. **~~La 1.8.1 ai due negozi, e la mail al centro sub.~~ Chiuse tutte e due,
    l'8 settembre.** Consegnate insieme la sera del 7; **Mac App Store approvato
