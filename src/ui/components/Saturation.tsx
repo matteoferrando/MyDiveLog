@@ -19,7 +19,7 @@
 import { useId, useMemo, useState } from 'react';
 import type { Dive } from '../../core/model';
 import { entryStateFor, gfOf, whatIfGf } from '../../core/analysis/tissues';
-import { compartments, type CompartmentState } from '../../core/analysis/buhlmann';
+import { compartments, N2_HALF, type CompartmentState } from '../../core/analysis/buhlmann';
 import { StatTile, TabellaEquivalente, useWidth } from './Charts';
 import { useLingua } from '../lingua';
 import { plural, type Traduci } from '../format';
@@ -170,25 +170,55 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
         />
       </div>
 
-      {costo !== undefined && m.gf99CleanPct !== undefined && (
-        <div className="notice" style={{ marginTop: 12 }}>
-          {costo >= 0.5 ? (
-            <>
-              <b>
-                {t('L’intervallo di superficie è costato')} {costo.toFixed(1)} {t('punti')}.
-              </b>{' '}
-              {t('Sei uscito al')} {m.gf99Pct.toFixed(0)}%; {t('da tessuti puliti saresti uscito al')}{' '}
-              {m.gf99CleanPct.toFixed(0)}%.
-            </>
-          ) : (
-            <>
-              <b>{t('Il residuo non ha inciso.')}</b> {capitalise(fmtInterval(m.surfaceIntervalMin, t))}{' '}
-              {t('di pausa sono bastati')}: {t('da tessuti puliti saresti uscito al')}{' '}
-              {m.gf99CleanPct.toFixed(0)}% {t('invece del')} {m.gf99Pct.toFixed(0)}%.
-            </>
-          )}
-        </div>
-      )}
+      {/*
+        I due numeri COME SI LEGGONO a schermo, non come stanno in memoria: è su
+        questi che si decide cosa scrivere.
+      */}
+      {costo !== undefined &&
+        m.gf99CleanPct !== undefined &&
+        (() => {
+          const uscita = m.gf99Pct.toFixed(0);
+          const pulito = m.gf99CleanPct.toFixed(0);
+          return (
+            <div className="notice" style={{ marginTop: 12 }}>
+              {costo >= 0.5 ? (
+                <>
+                  <b>
+                    {t('L’intervallo di superficie è costato')} {costo.toFixed(1)} {t('punti')}.
+                  </b>{' '}
+                  {t('Sei uscito al')} {m.gf99Pct.toFixed(0)}%; {t('da tessuti puliti saresti uscito al')}{' '}
+                  {m.gf99CleanPct.toFixed(0)}%.
+                </>
+              ) : (
+                <>
+                  {/*
+                ► «AL 69% INVECE DEL 69%». ◄ Questo ramo viene scelto proprio
+                perché la differenza è sotto mezzo punto, e poi stampava i due
+                numeri come se differissero: arrotondati all'intero sono quasi
+                sempre lo stesso, e la frase diceva «X invece di X».
+
+                Il difetto non è la frase: è che la CONDIZIONE guardava il delta
+                grezzo mentre il lettore vede i numeri arrotondati. *Il numero
+                che decide dev'essere il numero che si mostra* — la stessa
+                lezione della profondità media, dove chi decideva e chi mostrava
+                leggevano due campi diversi.
+              */}
+                  <b>{t('Il residuo non ha inciso.')}</b> {capitalise(fmtInterval(m.surfaceIntervalMin, t))}{' '}
+                  {t('di pausa sono bastati')}:{' '}
+                  {uscita === pulito ? (
+                    <>
+                      {t('sei uscito al')} {uscita}%, {t('tanto quanto saresti uscito da tessuti puliti')}.
+                    </>
+                  ) : (
+                    <>
+                      {t('sei uscito al')} {uscita}%, {t('da tessuti puliti saresti uscito al')} {pulito}%.
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })()}
 
       {m.tissuesEnd && (
         <>
@@ -346,10 +376,27 @@ function GfSlider({
  */
 function compartmentNote(n: number | undefined, t: Traduci = (s) => s): string {
   if (n === undefined) return t('non calcolato');
-  if (n <= 3) return t('tessuto velocissimo: immersione corta e profonda');
-  if (n <= 6) return t('tessuto veloce: il caso più comune in ricreativa');
-  if (n <= 10) return t('tessuto medio: immersione lunga, o ripetitiva');
-  return t('tessuto lento: esposizione prolungata o più giorni di fila');
+  /*
+   * ► L'AGGETTIVO DA SOLO DICEVA UNA COSA CHE NON REGGE. ◄ Il sesto
+   * compartimento di ZH-L16C ha un emitempo di **38,3 minuti**, e veniva
+   * presentato come «tessuto veloce»; il decimo ne ha 146 ed era «medio».
+   * Nessun subacqueo chiama veloce un tessuto da quaranta minuti.
+   *
+   * Le soglie non si spostano — dove finisca «veloce» e cominci «medio» è
+   * opinabile, e qualunque riga si tiri è opinabile uguale — ma **accanto
+   * all'aggettivo adesso c'è il numero**, che opinabile non è. Chi legge può
+   * dissentire sull'etichetta e avere comunque il dato.
+   */
+  const semiperiodo = `${t('semiperiodo')} ${Math.round(N2_HALF[n - 1] ?? 0)} min`;
+  const tipo =
+    n <= 3
+      ? t('tessuto velocissimo: immersione corta e profonda')
+      : n <= 6
+        ? t('tessuto veloce: il caso più comune in ricreativa')
+        : n <= 10
+          ? t('tessuto medio: immersione lunga, o ripetitiva')
+          : t('tessuto lento: esposizione prolungata o più giorni di fila');
+  return `${tipo} · ${semiperiodo}`;
 }
 
 function fmtInterval(min: number | undefined, t: Traduci = (s) => s): string {

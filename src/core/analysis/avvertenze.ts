@@ -80,6 +80,23 @@ export const BOMBOLE_SENZA_VOLUME =
 export const SENZA_VOLUME =
   'Volume bombola non indicato: calcolabile solo il consumo in bar/min, non l’RMV in L/min.';
 
+/**
+ * Più bombole respirate, ma il profilo non dice quando si è cambiato.
+ *
+ * ► PERCHÉ È LA PIÙ IMPORTANTE DI TUTTE QUESTE RIGHE. ◄ Non parla di un numero
+ * mancante: parla di **numeri presenti e sbagliati**. Il tetto, il TTS, il GF99
+ * e i sedici compartimenti vengono tutti dal profilo riletto, e il profilo
+ * riletto respira `cylinders[0]` dal primo all'ultimo campione quando nessun
+ * campione dichiara la miscela. Chi ha fatto la decompressione su una miscela
+ * più ricca vede un tetto più profondo e un obbligo più lungo di quelli veri, e
+ * niente glielo dice.
+ *
+ * Il caso non è raro: **è tutto l'archivio scaricato prima della 1.8.18**, più
+ * qualunque formato che il cambio gas non lo scriva.
+ */
+export const GAS_NON_SEGUITO =
+  'Hai respirato più di una bombola, ma il profilo non dice quando hai cambiato: tetto, TTS, GF99 e compartimenti sono ricalcolati tutti sulla PRIMA bombola. Se la seconda era una miscela da decompressione, il tetto vero era meno profondo e l’obbligo più corto. Riscarica il computer: il cambio di gas c’è nel suo registro.';
+
 /** Senza pressioni non si calcola nessun consumo. */
 export const SENZA_PRESSIONE = 'Nessuna pressione bombola: consumo gas non calcolabile.';
 
@@ -101,6 +118,7 @@ export const TESTI_DELLE_AVVERTENZE = [
   BOMBOLE_SENZA_VOLUME,
   SENZA_VOLUME,
   SENZA_PRESSIONE,
+  GAS_NON_SEGUITO,
 ] as const;
 
 /**

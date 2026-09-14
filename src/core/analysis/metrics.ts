@@ -895,6 +895,8 @@ function analyseGas(dive: Dive, samples: Sample[], avgBar: number | undefined, c
    * di litri mancanti.
    */
   let senzaVolumeMaConsumate = 0;
+  /** Quante bombole hanno davvero erogato gas: una stage intatta non conta. */
+  let bombolleRespirate = 0;
 
   cylinders.forEach((cyl, i) => {
     const start = cyl.startBar ?? fromSamples[i]?.start;
@@ -903,6 +905,7 @@ function analyseGas(dive: Dive, samples: Sample[], avgBar: number | undefined, c
     const delta = start - endBar;
     if (delta <= 0) return;
     hasTankPressure = true;
+    bombolleRespirate++;
     if (i === 0 || primaryDelta === undefined) {
       primaryDelta = delta;
       primaryEnd = endBar;
@@ -941,6 +944,20 @@ function analyseGas(dive: Dive, samples: Sample[], avgBar: number | undefined, c
        * che riguarda una bombola sola, e dirlo dove il numero viene letto.
        */
       caveats.push({ testo: A.PIU_BOMBOLE });
+    }
+    if (bombolleRespirate > 1 && samples.length > 1 && samples.every((s) => s.gasIndex === undefined)) {
+      /*
+       * ► L'UNICA AVVERTENZA CHE NON PARLA DI UN NUMERO MANCANTE. ◄ Le altre
+       * dicono «questo non si può calcolare»; questa dice «questo è calcolato, e
+       * su un'assunzione che non regge». `analyseProfile` rilegge il profilo con
+       * `dive.cylinders[s.gasIndex ?? 0]`: senza indice respira la prima
+       * bombola dal primo all'ultimo campione.
+       *
+       * Si controlla che le bombole **respirate** siano più di una, non che ce
+       * ne siano più di una: una stage portata e non toccata non cambia niente,
+       * e un'avvertenza che compare quando non serve insegna a non leggerle.
+       */
+      caveats.push({ testo: A.GAS_NON_SEGUITO });
     }
     if (senzaVolumeMaConsumate > 0) {
       /*

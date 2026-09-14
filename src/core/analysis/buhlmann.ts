@@ -27,8 +27,15 @@ import { ambientBar, depthFromAbsoluteBar } from '../units';
 /** Pressione del vapore acqueo nei polmoni, bar (47 mmHg). */
 export const WATER_VAPOUR_BAR = 0.0627;
 
-/** Emitempi dell'azoto, minuti. */
-const N2_HALF = [
+/**
+ * Emitempi dell'azoto, minuti.
+ *
+ * Esportati perché l'interfaccia deve poter **dire il numero** accanto
+ * all'aggettivo: «tessuto veloce» su un compartimento da 38 minuti è una
+ * descrizione opinabile, «38 min» non lo è. Vedi `compartmentNote` in
+ * `ui/components/Saturation.tsx`.
+ */
+export const N2_HALF = [
   4.0, 8.0, 12.5, 18.5, 27.0, 38.3, 54.3, 77.0, 109.0, 146.0, 187.0, 239.0, 305.0, 390.0, 498.0, 635.0,
 ];
 

@@ -1656,6 +1656,12 @@ export const INGLESE: Record<string, string> = {
     'Cylinder volume not given: only consumption in bar/min can be worked out, not RMV in L/min.',
   'Nessuna pressione bombola: consumo gas non calcolabile.':
     'No cylinder pressure: gas consumption cannot be worked out.',
+  'Hai respirato più di una bombola, ma il profilo non dice quando hai cambiato: tetto, TTS, GF99 e compartimenti sono ricalcolati tutti sulla PRIMA bombola. Se la seconda era una miscela da decompressione, il tetto vero era meno profondo e l’obbligo più corto. Riscarica il computer: il cambio di gas c’è nel suo registro.':
+    'You breathed more than one cylinder, but the profile does not say when you switched: ceiling, TTS, GF99 and compartments are all recomputed on the FIRST cylinder. If the second was a decompression mix, the real ceiling was shallower and the obligation shorter. Download from your computer again: the gas switch is in its log.',
+  'sei uscito al': 'you came out at',
+  'tanto quanto saresti uscito da tessuti puliti':
+    'exactly what you would have come out at with clean tissues',
+  semiperiodo: 'half-time',
   'Litri al minuto riportati alla superficie. Solo dove il volume della bombola è noto.':
     'Litres per minute at the surface. Only where cylinder size is known.',
   'Litri e materiale non cambiano quanto respiri, cambiano quanto ti dura: se il consumo differisce, differiscono le immersioni in cui la porti.':
