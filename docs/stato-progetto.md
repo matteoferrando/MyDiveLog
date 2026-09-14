@@ -1,8 +1,10 @@
 # MyDiveLog — stato del progetto
 
 Aggiornato: **14 settembre 2026** — **2 108 prove in 120 file** più **130 prove
-Rust** del ponte, lint e formato a **0 errori**. Nel repository c'è la **1.8.18**,
-pronta per la compilazione su tutte le piattaforme.
+Rust** del ponte, lint e formato a **0 errori**. La **1.8.18 è pubblicata** su
+tutte le piattaforme: release `v1.8.18` con **nove allegati**, sito allineato e
+verificato, cask e PKGBUILD riscritti. **Ai negozi non è ancora consegnata**, e i
+pacchetti stanno pronti e fermi apposta.
 
 ## La 1.8.18, e cosa porta
 
@@ -27,8 +29,11 @@ Tutto quello che è nato dopo la giornata col Puck, in un numero solo:
 **► I NEGOZI SONO ALLA `1.8.11`, E PER TRE GIORNI QUI C'È STATO SCRITTO `1.8.8`. ◄**
 Misurato il 14 settembre col `lookup` e l'anti-cache: **App Store per iPhone,
 `1.8.11`, pubblicata il `2026-09-11T23:53:50Z`.** Su GitHub e sul sito la
-versione pubblica è la stessa; nel repository c'è la **`1.8.17`** più il lavoro
-delle notti successive.
+versione pubblica era, **quella mattina**, la stessa; nel repository c'era la
+**`1.8.17`** più il lavoro delle notti successive — diventato la `1.8.18`, e
+pubblicato, poche ore dopo. *La misura del negozio resta quella: l'App Store per
+iPhone è ancora alla `1.8.11` finché il pacchetto della `1.8.18` non viene
+caricato e approvato.*
 
 > **► ED È UN ERRORE MIO, DELLA SPECIE CHE QUESTO DOCUMENTO RACCOGLIE DA
 > SETTIMANE. ◄** Dall'11 al 14 settembre qui è stato scritto «i negozi sono alla
@@ -47,7 +52,80 @@ delle notti successive.
 >
 > `curl -s "https://itunes.apple.com/lookup?bundleId=it.ferrando.mydivelog&country=it&t=$(date +%s)"`
 
-**La `1.8.11` è pubblicata: release `v1.8.11` con nove allegati**, tag su
+**► LA `1.8.18` È PUBBLICATA, IL 14 SETTEMBRE. ◄** Release `v1.8.18` con **nove
+allegati**, tag su `b3a9cf1` — *il commit compilato, non «l'ultimo»: il target è
+stato passato per esteso.* Contati uno per uno sull'API: **nove**, tutti
+`uploaded`. `latest.json` servito da `releases/latest` dice `1.8.18` e porta
+**due** piattaforme, `darwin-aarch64` e `windows-x86_64`: il Mac l'ha firmato
+`pubblica-mac.sh`, Windows `firma-windows.mjs` **dal Mac**, e la chiave privata
+non ha attraversato nessuna rete. Otto indirizzi di `releases/latest/download/`
+provati col `?v=` anti-cache: **200 su tutti e otto**.
+
+Le impronte sono state contate **tre volte da tre parti che non si parlano**, e
+tutte e tre dicono la stessa cosa: quelle che ho calcolato io sugli allegati
+prima di caricarli, quelle che il workflow aveva scritto nei suoi `SHA256.txt`
+dentro gli artefatti, e quella che l'API di GitHub dichiara nel campo `digest`
+sul file che sta **servendo** — da cui la cask del tap si è riscritta da sola
+(`14c73868…`, la stessa che `npm run cask` ha ricalcolato scaricando il `.dmg`).
+*Un'impronta che tre conti indipendenti confermano non è più una dichiarazione,
+è una misura.*
+
+Il sito: `sito:versiona` ha detto **pagine aggiornate: 0** — ed era vero e
+insufficiente. Quello script risponde alla domanda «è cambiato il foglio di
+stile», e il foglio di stile non era cambiato; le due pagine dell'aiuto invece
+sì. **L'ha trovato `sito:online`**, che confronta le intestazioni servite con
+quelle sul disco: *«online manca "Il consumo non c'è: la casella dice solo
+servono volume e pressione"»*. Pubblicate con `wrangler` — **2 file caricati su
+35**, esattamente le due — e riverificate: dodici pagine su dodici allineate.
+*Il passo 7 ha due domande e non una, e `sito:versiona` ne risponde solo a metà:
+lo zero non è la risposta, è metà della risposta.*
+
+> **► E IL SITO PROMETTEVA UNA COSA CHE QUATTRO RELEASE DI FILA NON MANTENEVANO. ◄**
+> In fondo alla sezione delle piattaforme c'è scritto, e c'è da settimane:
+> *«Nessuno dei tre è firmato da un'autorità, quindi il file non racconta la
+> propria origine. Lo fa la sua impronta SHA-256, pubblicata accanto al pacchetto
+> nella pagina delle release.»* Nelle note della `1.8.8`, `1.8.9`, `1.8.10` e
+> `1.8.11` di impronte **non ce n'è nessuna**: cercato con `grep -ci`, quattro
+> zeri di fila.
+>
+> Chi scaricava l'APK e faceva quello che il sito gli diceva di fare non trovava
+> niente da confrontare. *Una riga che afferma una cosa che non succede è peggio
+> di nessuna riga*: senza, uno si insospettisce e chiede; con, uno si fida e non
+> guarda. Nelle note della `1.8.18` le cinque impronte ci sono — `.dmg`,
+> i due `.exe`, il `.deb`, l'`.apk` — e la promessa torna vera. **Restano
+> scoperte le quattro versioni di prima, ed è un fatto, non un dettaglio.**
+
+**I pacchetti per i negozi sono pronti, e fermi.** In
+`da-caricare-su-app-store/` ci sono l'`.ipa` e il `.pkg` della 1.8.18, in
+`da-caricare-su-play/` l'`.aab`; le versioni di prima sono in `superate/`, e i
+tre `LEGGIMI.md` sono stati **riscritti**, non lasciati — *un LEGGIMI che
+descrive un pacchetto diverso da quello che gli sta accanto è peggio di nessun
+LEGGIMI, perché il pacchetto non si può leggere e il LEGGIMI sì.* Il testo delle
+novità per i due negozi, italiano e inglese, sta in
+`consegna-1.8.18/novita-negozi-1.8.18.md`, **contato**: 2 102 e 2 009 caratteri
+contro i 4 000 dell'App Store, 440 e 427 contro i 500 di Play.
+
+Le tre righe che distinguono l'`.ipa` del negozio da quello del telefono sono
+state lette dentro il pacchetto, non ricordate: `Name` = *iOS Team **Store**
+Provisioning Profile*, `get-task-allow` = `false`, `ProvisionedDevices` **non
+esiste**. E il `.pkg` del Mac App Store è stato espanso e passato a `strings`:
+**zero** `releases/latest/download/latest.json`, **zero** `api.anthropic.com`.
+
+> **► UNA VERIFICA CHE SEMBRAVA FALLIRE E INVECE NON SI APPLICA. ◄** Cercando nel
+> binario dell'`.ipa` le frasi nuove dell'interfaccia — «Consumo di superficie»,
+> e per controllo anche «Attrezzatura», che c'è da sempre — **non si trova
+> niente**. Per un istante sembra un pacchetto costruito male. La stessa ricerca
+> sull'`.ipa` della **1.8.11**, che è sull'App Store e funziona, dà **gli stessi
+> zeri**: Tauri incorpora il frontend compresso, e `strings` non lo vede.
+>
+> *Il controllo va tarato su un campione che sappiamo buono, o non è un
+> controllo: è un modo di spaventarsi.* Le frasi del **ponte Rust** invece si
+> trovano, e dicono quello che serve — `lettura della memoria del computer` e
+> `gasMixIndex` sono dentro il binario della 1.8.18.
+
+---
+
+**La `1.8.11` era pubblicata da tre giorni: release `v1.8.11` con nove allegati**, tag su
 `0c862e8`. L'impronta del
 `.dmg` che GitHub sta servendo — `85cfa20c…` — è quella che la cask di Homebrew
 si è scritta da sola dall'API, non a mano. Sito allineato e verificato con
@@ -4436,7 +4514,7 @@ automatica poteva scoprire.
 
 ---
 
-## Cosa resta aperto dopo la 1.8.17
+## Cosa resta aperto dopo la 1.8.18
 
 In ordine di quanto è probabile che sia lui. Rispetto alla lista di ieri **una
 riga è nuova** — la terza, che nessun ragionamento avrebbe potuto produrre — e
