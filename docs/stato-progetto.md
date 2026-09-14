@@ -4629,7 +4629,55 @@ numero **e il verso dell'errore**.
 > lo stesso guasto in una settimana: il piano di miglioramento, le righe dello
 > scarico, e adesso le avvertenze.* La cura è quella già scritta e già provata:
 > costanti esportate, `frase()` per quelle col numero dentro, e una prova che le
-> scorra tutte. Non fatta.
+> scorra tutte. **Fatta la sera stessa — vedi il paragrafo qui sotto.**
+
+### 3. «Applica a tutto», e i quattro lettori che la correzione di agosto non aveva convertito
+
+Chiesto la sera del 14. Cercando chi legge `avgDepth` sono saltati fuori
+**quattro lettori di `minTempC` ancora sbagliati**, tre settimane dopo che quel
+difetto era stato dichiarato chiuso da `core/temperatura.ts`:
+
+| Dove | Cosa faceva |
+|---|---|
+| `gearStats.ts`, le **statistiche delle mute** | un'immersione il cui computer non scrive il minimo nel riepilogo finiva in `continue`: **spariva dalla tabella**, proprio quella in cui la temperatura è tutto |
+| `logbookPrint.ts`, il **PDF del libretto** | stampava «—» — ed è una delle tre conseguenze che il commento di `temperatura.ts` elenca come **risolte** |
+| `ai/context.ts` | consegnava all'analisi una profondità media nulla |
+| `gasPlan.ts` | il rapporto medio/massima si calcolava su un **sottoinsieme** dell'archivio e veniva poi applicato a tutti |
+
+> **► È LA LEZIONE PIÙ UTILE DELLA GIORNATA. ◄** Il 22 agosto quel difetto era
+> stato capito bene, scritto benissimo — `temperatura.ts` è uno dei file meglio
+> commentati del progetto — e **corretto solo dove si era guardato**. Tre
+> settimane dopo, due dei tre danni che quel commento elenca come riparati erano
+> ancora in piedi, compreso il PDF che si manda a un'assicurazione.
+>
+> *Una correzione che converte i lettori che si trovano lascia in piedi quelli
+> che non si cercano.* La differenza fra le due volte non è la comprensione: è
+> che stavolta c'è una **guardia** al posto di una convinzione.
+
+La guardia copre adesso **due campi e quattro cartelle** — interfaccia,
+esportazioni, analisi, contesto per l'analisi — con un elenco di eccezioni che
+porta il motivo scritto accanto (la bozza del modulo a mano e le righe aggregate
+della tabella delle mute, dove il nome del campo sta su un oggetto che non è
+un'immersione) e una prova che pretende che **ogni eccezione serva ancora a
+qualcosa**: un'eccezione che non serve più è una porta lasciata aperta per un
+motivo che non esiste.
+
+E una riga che guarda avanti invece che indietro: **i campi presenti sia su
+`Dive` sia su `DiveMetrics` si contano leggendo il modello**, non a memoria.
+Sono due. Il giorno in cui qualcuno ne aggiunge un terzo la prova diventa rossa,
+e non è un guasto: è il progetto che chiede di decidere chi vince fra il
+dichiarato e il calcolato **prima** che nasca il terzo difetto della famiglia.
+Provata aggiungendo `maxDepth` a `DiveMetrics`: rossa, con l'elenco a tre.
+
+E le nove avvertenze adesso parlano inglese: `core/analysis/avvertenze.ts` con
+le costanti esportate, `frase()` per le tre che contengono un numero,
+`MetricQuality.caveats` che diventa `(string | Avvertenza)[]` — e il tipo
+**dichiara il passato di proposito**, perché le metriche sono salvate con
+l'immersione e negli archivi di prima quelle sono frasi italiane già composte.
+`VERSIONE_METRICHE` sale a 5 per farle ricalcolare, col commento che dice che
+stavolta a cambiare è la forma e non una formula: *il contratto si allarga qui,
+invece di essere aggirato in silenzio.* Quello che il ricalcolo non raggiunge —
+le immersioni senza profilo — si continua a saperlo leggere.
 
 ---
 
