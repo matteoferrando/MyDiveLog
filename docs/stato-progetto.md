@@ -4681,6 +4681,74 @@ le immersioni senza profilo — si continua a saperlo leggere.
 
 ---
 
+## La 1.8.19: costruita tutta, installata sul Mac, e ferma
+
+Dieci pacchetti, commit `45ec8f0`, la sera del 14 settembre. **Non pubblicata**:
+su GitHub e sul sito resta la 1.8.18, e gli allegati stanno pronti in
+`consegna-1.8.19/`. È una scelta, non un passo saltato.
+
+| Pacchetto | byte |
+|---|---|
+| macOS `.dmg`, Developer ID, notarizzato e pinzato | 4 496 719 |
+| macOS `.app.tar.gz` + `latest.json` a due piattaforme | 3 888 591 |
+| Windows setup `.exe` | 3 232 170 |
+| Windows portatile `.exe` | 7 481 856 |
+| Windows `.nsis.zip`, firmato **dal Mac** | 3 213 378 |
+| Linux `.deb` | 3 793 000 |
+| Android `.apk` | 10 344 098 |
+| Android `.aab` per Play | 6 873 956 |
+| iOS `.ipa` per l'App Store | 4 514 087 |
+| macOS `.pkg` per il Mac App Store | 3 177 312 |
+
+Installata su `/Applications`: **1.8.19**, `spctl` *accepted — source=Notarized
+Developer ID*. Le quattro impronte del workflow combaciano con quelle
+ricalcolate a mano sugli allegati.
+
+**Perché il numero si è alzato per tre commit.** Perché la 1.8.18 è già in mano
+alla gente da stamattina: *due binari diversi con lo stesso numero è la cosa che
+poi non si districa più*, e quando qualcuno scrive «non funziona sulla 1.8.18»
+non c'è modo di sapere quale abbia in mano. E ai negozi la 1.8.18 non ci è mai
+arrivata: i suoi pacchetti erano pronti in cartella quando è nata la 1.8.19, e
+spendere un giro di revisione per una versione già superata sarebbe stato
+regalare due giorni.
+
+### ► Android è morto prima di compilare, e la causa era una riga che non avevamo scritto noi ◄
+
+Il workflow, **verde la mattina per la 1.8.18 e rosso la sera per la 1.8.19**,
+sullo stesso codice Android. Il lavoro si fermava su
+`android-actions/setup-android@v3`, cioè **prima** di toccare una riga di nostro:
+
+```
+Warning: Failed to find package 'tools'
+Error: The process '…/sdkmanager' failed with exit code 1
+```
+
+Senza un `packages:` esplicito quell'azione installa il suo elenco di default,
+`tools platform-tools`. Il pacchetto `tools` — l'SDK Tools vecchio — **non è più
+nel repository di Google**. Corretto con `packages: platform-tools`: l'NDK lo
+installa il passo successivo, e `tools` qui dentro non lo usa nessuno.
+
+> **► LA LEZIONE STA IN DUE RIGHE CHE SI GUARDANO IN FACCIA. ◄** Subito sotto
+> quell'azione c'è, da mesi, questo commento nostro:
+>
+> > *«La versione dell'NDK è fissata. Un NDK che cambia sotto i piedi è il modo
+> > classico per avere una build che ieri passava e oggi no, con in mezzo nessuna
+> > riga di codice cambiata.»*
+>
+> È successo esattamente quello — **una riga più sopra**, in un elenco di default
+> che non avevamo scritto noi e che quindi non avevamo pensato di fissare.
+> *Fissare la versione di ciò che si installa a mano non serve a niente se quello
+> che si installa da solo resta implicito.* È la stessa forma dei difetti di
+> questa giornata: non il pezzo che si guarda, ma quello accanto che si dà per
+> scontato.
+>
+> E si riconosce da un dettaglio che vale la pena imparare: **un fallimento che
+> arriva prima del primo passo nostro non è un nostro difetto**, ed è inutile
+> rilanciarlo sperando — quello era deterministico, e rilanciare avrebbe solo
+> buttato otto minuti.
+
+---
+
 ## Cosa resta aperto dopo la 1.8.18
 
 In ordine di quanto è probabile che sia lui. Rispetto alla lista di ieri **una
