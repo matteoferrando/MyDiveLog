@@ -1,10 +1,10 @@
 # MyDiveLog — stato del progetto
 
 Aggiornato: **14 settembre 2026** — **2 108 prove in 120 file** più **130 prove
-Rust** del ponte, lint e formato a **0 errori**. La **1.8.18 è pubblicata** su
-tutte le piattaforme: release `v1.8.18` con **nove allegati**, sito allineato e
-verificato, cask e PKGBUILD riscritti. **Ai negozi non è ancora consegnata**, e i
-pacchetti stanno pronti e fermi apposta.
+Rust** del ponte, lint e formato a **0 errori** — dopo la notte di revisione del
+14 settembre sono **2 219 prove in 130 file** e **132 prove Rust**. La **1.8.20 è
+l'ultima**, con trentacinque correzioni sopra la 1.8.18; ai negozi non è ancora
+consegnata, e i pacchetti stanno pronti e fermi apposta.
 
 ## La 1.8.18, e cosa porta
 
@@ -4746,6 +4746,143 @@ installa il passo successivo, e `tools` qui dentro non lo usa nessuno.
 > arriva prima del primo passo nostro non è un nostro difetto**, ed è inutile
 > rilanciarlo sperando — quello era deterministico, e rilanciare avrebbe solo
 > buttato otto minuti.
+
+---
+
+## La notte del 14 settembre: cinque revisioni in parallelo, trentacinque difetti
+
+Chiesto di controllare **tutto**, con la notte davanti. Cinque revisori
+avversariali su cinque aree — motore decompressivo, formati e archivio,
+interfaccia e lingue, BLE e ponte Rust — con un obbligo solo: *misurare invece di
+sospettare*, e scartare in una riga i sospetti che non reggono. Hanno riferito
+quaranta segnalazioni; trentacinque hanno retto alla verifica e sono chiuse.
+
+### I due che potevano rovinare una giornata
+
+**Un indice di bombola fuori scala faceva ABORTIRE l'applicazione.**
+`DC_SAMPLE_PRESSURE` usava `p.bombola` — un `unsigned int` che arriva così com'è
+dalla libreria — direttamente come dimensione di un `Vec`. Con `0xFFFFFFFF`
+diventa `resize(4_294_967_296)` di elementi da sedici byte: **64 GiB**. In Rust
+un'allocazione fallita non è un `Err` e non è un panic che si possa raccogliere:
+è `abort()`.
+
+> **► E NON ERA TEORICO. ◄** `shearwater_predator_parser.c` definisce `UNDEFINED
+> 0xFFFFFFFF`, lo scrive in `tankidx[i]` per ogni slot non attivo e poi assegna
+> `sample.pressure.tank = parser->tankidx[id]` **senza controllare**;
+> `suunto_eonsteel_parser.c` ci arriva con un `gasnr - 1` partito da zero.
+> Provato togliendo il tetto: il processo di prova muore con **SIGABRT**, e
+> `memory allocation of 68719476736 bytes failed`.
+>
+> *La differenza fra un dato sbagliato e una richiesta di memoria è un controllo
+> di una riga, e senza quella riga sono la stessa cosa.*
+
+**Il segnalibro si salvava su un'immersione che non era entrata in archivio.**
+`immersioneDaLdc` scarta i record senza data e quelli senza profondità né durata;
+`ContestoEsterno.onScarto` esisteva da sempre e **non lo passava nessuno** — due
+occorrenze in tutto il sorgente, tutte e due dentro `esterni.ts`. Il Rust aveva
+già emesso il suo `Record`, quindi l'interfaccia aveva già in mano l'impronta
+della più recente: se la più recente era la scartata, lo scarico chiudeva «senza
+errori» e al giro dopo `dc_device_set_fingerprint` fermava il backend lì.
+
+> *Non perde dati che hai: perde dati che non sai di non avere.* La frase era già
+> scritta accanto al segnalibro da settimane — per l'interruzione a metà. Questa
+> era la stessa cosa da un'altra porta, e la porta era aperta. **La strada dei
+> driver di casa la guardia ce l'aveva** (`out.dives.length === records.length
+> && saltate === 0`): la strada esterna no.
+
+### I due che perdevano dati in sincronizzazione
+
+| Cosa | Misurato |
+|---|---|
+| **Una correzione a mano veniva annullata e ripropagata** — `mergeDive` prende il massimo fra le due profondità, che è giusto fra due FONTI e distruttivo fra due versioni della stessa scheda | 31,0 m corretti tornavano **32,4 sul dispositivo che li aveva corretti**, per tre giri di fila, con la nota «picco del sensore corretto» accanto al valore non corretto |
+| **Le lapidi si rimpallavano all'infinito** — chi risuscita la toglie dal remoto, chi l'aveva scritta la rispedisce | **sei giri su sei identici**, due scritture di rete per immersione a ogni sincronizzazione, senza convergere mai |
+
+### I numeri che uscivano sbagliati senza dirlo
+
+- **la CNS crollava esattamente quando superava il 100%**: la regola UDDF era
+  `v <= 1 ? v*100 : v`, continua sotto e rotta sopra — `0.98` → 98, `1.02` →
+  **1.02**. *L'orologio dell'ossigeno si azzerava nell'unico istante in cui
+  quella colonna serve;*
+- **una miscela scritta in percentuale faceva uscire GF99 zero, tetto zero e zero
+  minuti di obbligo.** Con `o2 = 21` la frazione inerte diventa zero e i tessuti
+  non caricano mai; con `o2 = NaN` ogni confronto è falso e il massimo non si
+  aggiorna. *L'immersione decompressiva più pesante dell'archivio si presentava
+  come la più tranquilla di tutte.* Chiuso in due punti: il lettore normalizza
+  (`frazioneDiGas`), e il motore con una miscela impossibile respira **aria** —
+  cioè sbaglia dalla parte prudente, perché un modello decompressivo non può
+  fidarsi di chi lo chiama;
+- **la velocità di discesa era sbagliata di +33,3% per costruzione**: numeratore
+  la profondità massima (il 100%), denominatore il tempo per arrivare al 75%.
+  Misurato su discese lineari: 6→8, 12→16, **18→24**, 30→40, rapporto esatto
+  `1/0.75`;
+- **i file Subsurface perdevano il cambio gas**, che sta negli `<event>` e non
+  nei campioni: su un cambio a EAN50 a 30 m la PPO2 usciva **0,85 bar invece di
+  2,02**, la CNS 8,6% invece di 31,8%, e `badGasSwitches` restava a zero proprio
+  sull'errore che esiste per contare;
+- **la visibilità dei file Subsurface era un voto a stelle nella casella dei
+  metri** — ogni immersione importata entrava con «4 metri di visibilità», e la
+  statistica era costruita lì sopra;
+- le pressioni bombola sparivano **tutte** (41 campioni su 41) da un giro
+  esporta-reimporta UDDF, e quando c'erano finivano sulla bombola del gas
+  respirato invece che sulla propria;
+- una pressione di superficie a zero dava azoto d'equilibrio **negativo**;
+  `bestMix` a tre metri consigliava **«EAN106»**.
+
+### Quello che i lettori trovavano nel file e buttavano
+
+Zavorra e muta dai CSV — colonne **riconosciute** e poi scartate, quindi nemmeno
+segnalate fra quelle ignorate; temperatura, muta, guida e zavorra da Subsurface;
+i gradient factor da Garmin, che erano nel file **e nel tipo**. E la profondità
+media mancava ancora su due strade: il driver Bluetooth di Shearwater e
+Shearwater Cloud.
+
+> **► LA GUARDIA DI IERI COPRIVA QUELLO CHE STAVO GUARDANDO. ◄** Il 14 settembre
+> quella riga è stata inchiodata *sul ponte libdivecomputer*, con un commento che
+> diceva «c'è in tutti gli altri importatori». Ce n'erano due in cui non c'era.
+> La guardia adesso li guarda tutti e nove, con un elenco di eccezioni che porta
+> il motivo scritto accanto.
+>
+> *È la terza volta in due giorni che una correzione risulta applicata solo dove
+> si era guardato.* Prima la temperatura del 22 agosto, poi la profondità media,
+> adesso questa.
+
+### I testi che dicevano il falso a schermo
+
+Il conto delle risalite usava 6,5 m/min e la frase diceva 6 — **otto immersioni
+su otto sopra il limite, dichiarate zero**. «I più vicini» del piano di
+miglioramento non era ordinato per vicinanza: nominava il criterio a **zero su
+dieci** e taceva quello a 89 su 90. Tre obiettivi erano già raggiunti da chi li
+riceveva (la regola del consumo scatta a 15 L/min e l'obiettivo diceva «sotto
+20»). La tessera «Ultimi 12 mesi» mostrava il conteggio del periodo scelto. Una
+finestra vuota dava «0.0 m» dove la tessera accanto diceva «—». Il mese più
+freddo spariva dal grafico delle temperature, perché lo zero voleva dire due
+cose. Il verdetto della tabella Disciplina passava **solo dal colore**, unico
+punto che violava una regola scritta in `format.ts`.
+
+### Il quinto canale di testo che la guardia del dizionario non vede
+
+`chiaviDi` pretende un apice subito dopo `t(`: tutto quello che arriva come
+variabile le è invisibile. Ci sono passati il piano di miglioramento, le righe
+dell'avanzamento, le avvertenze delle metriche, e adesso la destinazione di ogni
+esportazione (*«PDF saved dove il sistema mette i download»*), i nomi dei mesi
+sugli assi **e dentro la descrizione letta dagli screen reader** (*«Max ott 25 on
+3 dives»*), le sette istruzioni «da dove si esporta» e il messaggio del Piano con
+l'archivio vuoto.
+
+### ► E TRE GUARDIE CHE NON POTEVANO FALLIRE ◄
+
+- `accessibilita-grafici` cercava `display: none` **con lo spazio**, che React
+  non scrive mai: passava anche con la tabella nascosta agli screen reader — cioè
+  esattamente il difetto per cui era stata scritta, e il commento sopra lo
+  diceva;
+- `dedupe` controllava la **presenza della chiave** e non il valore: per un campo
+  obbligatorio non poteva fallire per costruzione, ed è il motivo per cui `mode`
+  e `salinity` non si fondevano da sempre;
+- e una prova scritta quella stessa notte cercava la **vecchia formulazione**
+  invece del difetto: sotto mutazione restava verde, ed è stata riscritta.
+
+*Una guardia che non si è mai vista rossa non è una guardia, e una guardia
+scritta contro il testo di ieri non protegge da quello di domani.*
 
 ---
 
