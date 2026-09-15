@@ -468,7 +468,29 @@ export function unitaDellIntestazione(header: string): string | undefined {
    * cambiava di significato: 14 libbre di piombo diventavano 14 chili.
    */
   if (/\b(lb|lbs|libbre)\b/.test(h)) return 'lb';
-  if (/\b(f|fahrenheit)\b/.test(h)) return '°F';
+  /*
+   * ► LA `f` DA SOLA NON BASTA, E COSTAVA CARO. ◄
+   *
+   * `/\b(f|fahrenheit)\b/` scatta su qualunque «f» isolata, e `normalise`
+   * trasforma le parentesi in spazi — quindi produce un confine di parola
+   * proprio dove c'era la parentesi. Misurato il 15 settembre 2026, tutte
+   * riconosciute come colonne in gradi Fahrenheit:
+   *
+   *   «Note (F)»   «Buddy F»   «Sito: F»   «Fondo (f)»
+   *
+   * Su una colonna di testo l'effetto visibile è un avviso falso — «unità
+   * dichiarate nell'intestazione e applicate a tutta la colonna: Site (F)» —
+   * che è il tipo di avviso che insegna a non fidarsi degli avvisi. Su una
+   * colonna numerica il danno è vero: ogni numero passa per una conversione da
+   * Fahrenheit.
+   *
+   * Adesso la `f` sola vale solo dove una temperatura ci sta: la colonna deve
+   * anche parlare di temperatura, oppure dichiarare i gradi con il simbolo.
+   * `fahrenheit` scritto per intero resta buono da solo — nessuno lo scrive per
+   * caso.
+   */
+  if (/\bfahrenheit\b/.test(h) || /°\s*f\b/i.test(header)) return '°F';
+  if (/\bf\b/.test(h) && /\b(temp|temperatura|temperature|air|aria|acqua|water)\b/.test(h)) return '°F';
   return undefined;
 }
 

@@ -14,7 +14,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parseFile } from '../src/core/parsers';
-import { csvParser, parseNumber, plausibile, righeCsv } from '../src/core/parsers/csv';
+import { csvParser, parseNumber, plausibile, righeCsv, unitaDellIntestazione } from '../src/core/parsers/csv';
 import { parseXmlSalvando } from '../src/core/parsers/xml';
 import { diveIdFor } from '../src/core/dedupe';
 import { esportaCsv } from '../src/core/export/csv';
@@ -254,5 +254,40 @@ describe('l’ora che il file dichiara è l’ora che si mostra', () => {
       </dive></repetitiongroup></profiledata></uddf>`;
     const r = await parseFile({ fileName: 'x.uddf', text: uddf });
     expect(r.dives[0].utcOffsetMinutes).toBeUndefined();
+  });
+});
+
+describe('l’unità dichiarata in intestazione si riconosce, la «f» qualunque no', () => {
+  /**
+   * ► LA `f` DA SOLA COSTAVA CARO. ◄
+   *
+   * `normalise` trasforma le parentesi in spazi, quindi `/\b(f|fahrenheit)\b/`
+   * trovava un confine di parola proprio dove c'era la parentesi: «Note (F)»,
+   * «Buddy F», «Sito: F» risultavano tutte colonne in gradi Fahrenheit.
+   *
+   * Su una colonna di testo l'effetto è un avviso falso — «unità dichiarate
+   * nell'intestazione e applicate a tutta la colonna: Site (F)» — che è il tipo
+   * di avviso che insegna a non fidarsi degli avvisi. Su una colonna numerica
+   * ogni numero passava per una conversione da Fahrenheit.
+   */
+  it('una «F» in una colonna che non parla di temperatura non è Fahrenheit', () => {
+    for (const h of ['Note (F)', 'Buddy F', 'Sito: F', 'Fondo (f)', 'Guida F']) {
+      expect(unitaDellIntestazione(h), h).toBeUndefined();
+    }
+  });
+
+  it('e in una che ne parla sì', () => {
+    for (const h of ['Min Temp (F)', 'Water temp F', 'Air Temp (°F)', 'Temperature (Fahrenheit)']) {
+      expect(unitaDellIntestazione(h), h).toBe('°F');
+    }
+  });
+
+  it('le altre unità restano quelle di prima', () => {
+    // Senza queste righe, «non riconoscere mai niente» passerebbe le due prove
+    // qui sopra — e le libbre lette come chili sono un difetto già visto.
+    expect(unitaDellIntestazione('Max Depth (ft)')).toBe('ft');
+    expect(unitaDellIntestazione('Weight (lbs)')).toBe('lb');
+    expect(unitaDellIntestazione('Start pressure (psi)')).toBe('psi');
+    expect(unitaDellIntestazione('Min Temp (C)')).toBeUndefined();
   });
 });

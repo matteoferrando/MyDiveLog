@@ -24,8 +24,23 @@ nel modo più semplice possibile — **tutto il sorgente è pubblico e si ricomp
 con un comando**, quindi chiunque può cambiare quel file, o quella libreria, e
 rifare l'applicazione.
 
-**Su App Store la funzionalità non entra**, e la ragione è tecnica: nessun
-computer subacqueo di terzi è mai stato collegato a questo codice. La catena si
+> **► QUESTO PARAGRAFO ERA VECCHIO DI TRE SETTIMANE, ED È STATO CORRETTO IL 15
+> SETTEMBRE 2026. ◄** Diceva «su App Store la funzionalità non entra». **Entra**,
+> e da un pezzo: `computer-esterni` è nei `default` di `Cargo.toml` dal **25
+> agosto 2026**, con un riquadro che spiega perché — e questo file non se n'era
+> accorto. Un documento sulle licenze che si contraddice con la configurazione
+> che decide cosa viene spedito è il posto sbagliato per lasciare una riga
+> vecchia: la LGPL riguarda proprio cosa c'è dentro il pacchetto che si
+> distribuisce.
+>
+> Il testo qui sotto resta perché racconta la posizione com'era prima, e perché
+> la prova che descrive — nessun computer di terzi collegato — era vera quando è
+> stata scritta. Da allora ne sono stati provati diversi, di marche diverse, e la
+> funzionalità è stata accesa di conseguenza.
+
+*Fino al 25 agosto 2026:* **su App Store la funzionalità non entrava**, e la
+ragione era tecnica: nessun computer subacqueo di terzi era mai stato collegato a
+questo codice. La catena si
 compila e si prova a pezzi — il trasporto contro un flusso finto, l'accorpamento
 dei campioni, la traduzione contro immersioni sintetiche — ma il primo
 apparecchio vero non è ancora esistito. Accenderla prima di quella prova vuol

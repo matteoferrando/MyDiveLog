@@ -108,9 +108,12 @@ export const logtrakParser: DiveParser = {
     const dives: Dive[] = [];
     let profileFailures = 0;
     let withoutProfile = 0;
+    // Quante immersioni hanno il profilo TAGLIATO — non assente, non illeggibile:
+    // presente e monco. È il caso che l'avviso singolare nascondeva.
+    const conta = { incompleti: 0 };
 
     ordered.forEach((raw) => {
-      const dive = readDive(raw, sites, computers, input.fileName, importedAt, warnings, t);
+      const dive = readDive(raw, sites, computers, input.fileName, importedAt, warnings, conta, t);
       if (!dive) return;
       if (!raw.diveLogBase64) withoutProfile++;
       else if ((dive.samples?.length ?? 0) === 0) profileFailures++;
@@ -127,6 +130,17 @@ export const logtrakParser: DiveParser = {
         `${profileFailures} ${t('profili non decodificabili: le immersioni sono state importate senza profilo.')}`,
       );
     }
+    /*
+     * ► IL NUMERO, non «un'immersione». ◄ Vedi il riquadro in `readDive`: su un
+     * archivio vero erano 85 su 104, e l'avviso ne nominava una. Un avviso al
+     * singolare su ottantacinque casi è un'informazione sbagliata e per giunta
+     * rassicurante: chi lo legge pensa «una su cento, pazienza».
+     */
+    if (conta.incompleti > 0) {
+      warnings.push(
+        `${conta.incompleti} ${t('profili sono incompleti: una parte dei dati registrati non si è potuta rileggere. Le immersioni ci sono, ma la loro curva si ferma prima della fine.')}`,
+      );
+    }
     if (dives.length === 0) warnings.push(t('Nessuna immersione valida nel file LogTRAK.'));
     return { format: 'logtrak', dives, warnings };
   },
@@ -141,6 +155,7 @@ function readDive(
   fileName: string,
   importedAt: string,
   warnings: string[],
+  conta: { incompleti: number },
   t: Traduci = comeSta,
 ): Dive | null {
   if (!raw.startTime) return null;
@@ -161,6 +176,26 @@ function readDive(
         t,
       });
       samples = uwatecSamplesToCanonical(trimSurface(decoded.samples));
+      /*
+       * ════════════════════════════════════════════════════════════════════
+       * ► «UN'IMMERSIONE» ERA IL SINGOLARE SBAGLIATO. ◄
+       *
+       * Il `if (!warnings.includes(w))` teneva l'avviso a una copia sola — che
+       * è la cosa giusta per non riempire la schermata — e il testo diceva «il
+       * profilo di UN'immersione potrebbe essere incompleto». Misurato il 15
+       * settembre 2026 su un archivio LogTRAK vero: **85 immersioni su 104**
+       * avevano il profilo tagliato, per **33 475 campioni persi**. Una di
+       * quelle dichiarava 2 100 secondi di durata e il suo profilo finiva a
+       * 872 secondi **a sedici metri di profondità** — un'immersione che non
+       * risale mai.
+       *
+       * Un avviso al singolare su ottantacinque casi non è un avviso
+       * attenuato: è un'informazione sbagliata, e per giunta rassicurante. Chi
+       * lo legge pensa «una su cento, pazienza» e non va a controllare.
+       *
+       * Adesso si contano, e il numero lo scrive chi chiama.
+       */
+      if (decoded.warnings.length > 0) conta.incompleti++;
       for (const w of decoded.warnings) {
         if (!warnings.includes(w)) warnings.push(w);
       }

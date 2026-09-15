@@ -2837,6 +2837,8 @@ export const INGLESE: Record<string, string> = {
     'PPO2 went above 1.6 bar, where the NOAA table ends: past that point the count stops at the last row, so this number is a minimum.',
   'Questo archivio è stato scritto da una versione più recente di MyDiveLog. Aggiorna l’applicazione: aprirlo così rischierebbe di perdere i dati che questa versione non conosce.':
     'This archive was written by a newer version of MyDiveLog. Update the application: opening it like this would risk losing data this version does not know about.',
+  'profili sono incompleti: una parte dei dati registrati non si è potuta rileggere. Le immersioni ci sono, ma la loro curva si ferma prima della fine.':
+    'profiles are incomplete: part of the recorded data could not be read back. The dives are there, but their curve stops before the end.',
   'Un controllo non ha potuto girare': 'A check could not run',
   'Una delle regole di analisi si è interrotta, quindi questo piano è INCOMPLETO: quello che quella regola avrebbe dovuto dirti non c’è.':
     'One of the analysis rules stopped with an error, so this plan is INCOMPLETE: whatever that rule was meant to tell you is missing.',

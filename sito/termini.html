@@ -205,6 +205,19 @@
           Il marchio, il nome e il logo non rientrano nella licenza del codice: puoi ridistribuire versioni
           modificate, ma non presentarle come se fossero l'originale.
         </p>
+        <p>
+          <strong>Dentro l'applicazione c'è una libreria che ha una licenza sua</strong>, ed è giusto che tu
+          lo sappia leggendo questa pagina invece di doverlo scoprire nel repository. È
+          <a href="https://libdivecomputer.org" target="_blank" rel="noopener">libdivecomputer</a>, la
+          libreria che decifra i protocolli dei computer subacquei, ed è
+          <strong>LGPL-2.1 o successiva</strong>. La LGPL chiede che chi riceve il programma possa sostituire
+          quella libreria con una propria versione e rimettere insieme il tutto: qui la condizione è
+          soddisfatta nel modo più diretto possibile, perché il sorgente dell'applicazione è pubblico e il
+          sorgente esatto della libreria è versionato nel repository —
+          <code>src-tauri/vendor/libdivecomputer-0.9.0.tar.gz</code> — ed è quello da cui la compilazione
+          parte. Chiunque può cambiarla e rifare l'applicazione identica. I dettagli, con l'elenco preciso di
+          che cosa non è MIT, stanno in <code>LICENSES/LEGGIMI.md</code>.
+        </p>
 
         <h2 id="servizio">4. Il servizio di sincronizzazione</h2>
         <p>

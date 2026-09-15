@@ -197,6 +197,18 @@
           but not present them as the original.
         </p>
 
+        <p>
+          <strong>The application contains a library with a licence of its own</strong>, and you ought to know
+          it from this page rather than having to find it in the repository. It is
+          <a href="https://libdivecomputer.org" target="_blank" rel="noopener">libdivecomputer</a>, the
+          library that decodes dive computer protocols, and it is <strong>LGPL-2.1 or later</strong>. The LGPL
+          requires that whoever receives the program be able to replace that library with a version of their
+          own and put the whole back together: here the condition is met in the most direct way possible,
+          because the application's source is public and the exact source of the library is versioned in the
+          repository — <code>src-tauri/vendor/libdivecomputer-0.9.0.tar.gz</code> — and that is what the build
+          compiles from. Anyone can change it and rebuild the application identically. The details, with the
+          precise list of what is not MIT, are in <code>LICENSES/LEGGIMI.md</code>.
+        </p>
         <h2 id="service">4. The sync service</h2>
         <p>
           The service is <strong>optional</strong>. The application works in full without it, because the

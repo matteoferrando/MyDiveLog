@@ -519,12 +519,16 @@ export function decodeUwatecSmart(bytes: Uint8Array, opts: DecodeOptions = {}): 
   dive.bytesConsumed = flusso.byteConsumati;
   if (flusso.byteConsumati !== declared) {
     /*
-     * I due conteggi restano nella console e non a schermo: «consumati 4812
-     * byte su 4830 dichiarati» è la misura del disallineamento, cioè una cosa
-     * che serve a chi ripara il decodificatore. Chi ha appena importato le sue
-     * immersioni ha bisogno di sapere una cosa sola, ed è la conseguenza.
+     * IL CONTEGGIO STA IN `dive.bytesConsumed`, NON NELLA CONSOLE.
+     *
+     * Qui c'era un `console.warn` per ogni immersione con il disallineamento, e
+     * il commento diceva che serviva a chi ripara il decodificatore. Misurato
+     * su un archivio vero: **85 righe identiche per un solo import**, che in una
+     * console è rumore e non diagnosi. Il dato serve davvero — è la misura del
+     * disallineamento — ma sta già due righe più su, in `dive.bytesConsumed`,
+     * dove chi ripara lo legge insieme al resto dell'immersione invece che in
+     * mezzo a ottantaquattro copie.
      */
-    console.warn(`Uwatec: consumati ${flusso.byteConsumati} byte su ${declared} dichiarati.`);
     warnings.push(
       t(
         'Il profilo di un’immersione potrebbe essere incompleto: una parte dei dati registrati non si è potuta rileggere.',

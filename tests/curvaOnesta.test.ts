@@ -137,3 +137,39 @@ describe('monotonia: quello che resta, contato', () => {
     expect(conta((p, m) => [[p + 1, m]])).toBeLessThanOrEqual(2);
   });
 });
+
+describe('la tabella somma', () => {
+  /**
+   * ► UN FOGLIO IN CUI LE RIGHE NON FANNO IL TOTALE È UN FOGLIO CHE NON SI PUÒ
+   *   USARE. ◄
+   *
+   * La frase è di questo stesso modulo, scritta accanto alle soste. Valeva per
+   * metà della tabella: i TRATTI arrotondavano i propri minuti per conto loro
+   * mentre il totale arrotondava la somma non arrotondata.
+   *
+   * Misurato il 15 settembre 2026 su 1 470 piani: **898 con righe che non
+   * facevano il totale**, fino a 0.60 minuti di scarto. Adesso i minuti di ogni
+   * tratto si ricavano dalla differenza fra due runtime consecutivi, quindi la
+   * somma è esatta per costruzione e non per fortuna.
+   */
+  it('la somma dei tratti stampati fa il runtime stampato, su tutta la griglia', () => {
+    const colpevoli: string[] = [];
+    for (let p = 10; p <= 80; p += 5) {
+      for (let m = 5; m <= 70; m += 5) {
+        const r = piano(p, m);
+        const somma = r.segments.reduce((a, x) => a + x.minutes, 0);
+        if (Math.abs(somma - r.runtimeMin) > 1e-9) {
+          colpevoli.push(`${p}m × ${m}min: righe ${somma.toFixed(2)} vs totale ${r.runtimeMin}`);
+        }
+      }
+    }
+    expect(colpevoli).toEqual([]);
+  });
+
+  it('e i minuti dei tratti restano quelli veri, non zeri di comodo', () => {
+    // La correzione ovvia sbagliata sarebbe azzerare tutto tranne l'ultimo.
+    const r = piano(40, 25);
+    expect(r.segments.every((x) => x.minutes >= 0)).toBe(true);
+    expect(r.segments.filter((x) => x.minutes > 0).length).toBeGreaterThan(3);
+  });
+});

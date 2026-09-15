@@ -3266,6 +3266,31 @@ impl Drop for CollegamentoLdc {
     }
 }
 
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► QUESTO `Drop` NON SCATTA SU UN PANIC, E VA SAPUTO. ◄
+ *
+ * Verificato il 15 settembre 2026. `Cargo.toml` mette `panic = "abort"` nel
+ * profilo `release`: un panic non srotola lo stack, quindi **nessun `Drop`
+ * viene eseguito** — questo compreso.
+ *
+ * Perché non è un difetto da correggere. Con `abort` il processo muore subito,
+ * e quando il processo muore il sistema operativo chiude ogni descrittore e
+ * libera ogni pagina: il collegamento Bluetooth cade, la memoria della libreria
+ * torna al sistema. Non si perde niente che non si perderebbe comunque.
+ *
+ * Perché allora scriverlo. Perché la riga sopra dice «si libera dopo, da sé» e
+ * chi la legge potrebbe concluderne che quella pulizia avvenga SEMPRE — e da lì
+ * ragionare che un panic sia gestibile, che il collegamento si chiuda per bene,
+ * che si possa riprovare senza riaprire l'applicazione. Nessuna delle tre è
+ * vera in `release`.
+ *
+ * In `debug` invece lo srotolamento c'è e il `Drop` scatta: cioè il
+ * comportamento delle prove NON è quello dei pacchetti che si spediscono.
+ * *Una prova che passa in una configurazione che non si distribuisce dice meno
+ * di quanto sembra*, e questo riquadro esiste perché non se ne perda memoria.
+ */
+
 // ------------------------------------------------------------------- prove
 
 #[cfg(test)]
