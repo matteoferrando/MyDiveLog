@@ -93,6 +93,10 @@ function immersionePiena(): Dive {
   const base: Dive = {
     id: 'piena-1',
     updatedAt: '2026-07-01T09:00:00.000Z',
+    // Il registro dei campi svuotati: qui dentro non ha un campo vuoto a cui
+    // riferirsi — la scheda è piena per costruzione — ma deve esserci, perché
+    // questa prova pretende ogni chiave del modello.
+    svuotatiIl: { guide: '2026-07-01T08:00:00.000Z' },
     number: 42,
     startTime: '2026-06-14T10:00:00.000Z',
     utcOffsetMinutes: 120,
@@ -242,6 +246,8 @@ const NON_SONO_PERDITE: Record<string, string> = {
   metrics: 'sono derivate: `computeMetrics` le rifà a ogni lettura da profilo e bombole',
   'cylinders.id':
     'è la chiave con cui la scheda di modifica tiene le bombole al loro posto mentre le modifichi, non un dato che descrive la bombola',
+  svuotatiIl:
+    'è il registro dei campi che qualcuno ha tolto, e serve solo alla fusione fra due dispositivi: un file UDDF non ha due lati da mettere d’accordo, e portarlo fuori direbbe a un altro programma una cosa che riguarda soltanto noi',
 };
 
 describe('l’elenco delle perdite dell’export UDDF', () => {

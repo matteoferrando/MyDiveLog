@@ -342,7 +342,20 @@ describe('nessun campo si perde nella fusione', () => {
        * saturazione vive dentro `metrics.tissuesEnd`. Scritta, per giunta, nel
        * commento in cui si spiegava che una guardia non guardava.
        */
-      'metrics'
+      | 'metrics'
+      /*
+       * ► ANCHE QUESTA È DERIVATA, MA IN UN MODO PIÙ SOTTILE. ◄ `svuotatiIl`
+       * registra i campi che qualcuno ha tolto, e la fusione toglie da sé la
+       * voce di un campo che ADESSO ha un valore: tenerla vorrebbe dire
+       * rifiutare il prossimo completamento legittimo di quel campo.
+       *
+       * Questa scheda ha ogni campo valorizzato per costruzione — è tutto il suo
+       * senso — quindi qualunque voce ci si metta dentro è stantia per
+       * definizione e sparisce. Pretenderla in uscita vorrebbe dire pretendere
+       * che la fusione conservi un'informazione che si è appena smentita da
+       * sola. Il comportamento vero è coperto da `svuotareSiPropaga.test.ts`.
+       */
+      | 'svuotatiIl'
     >
   >;
 

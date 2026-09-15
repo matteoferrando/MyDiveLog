@@ -507,3 +507,264 @@ describe('l’istruzione da tastiera è annunciata', () => {
     expect(svgDi(senza).querySelector('desc')!.textContent).not.toContain('Frecce');
   });
 });
+
+// ---------------------------------------------------------------------------
+
+/**
+ * ► CENTOVENTI PUNTI CLICCABILI, E L'ISTRUZIONE CHE LO PROMETTEVA. ◄
+ *
+ * I punti della serie temporale e quelli della dispersione aprono l'immersione
+ * che rappresentano. Lo facevano con un `onClick` su un cerchio e nient'altro:
+ * nessun `tabIndex`, nessun `onKeyDown`, e per giunta `aria-hidden` sopra.
+ * Misurato sulla pagina delle statistiche: quattordici grafici, centoventi
+ * cerchi con `cursor: pointer`, **zero elementi con `tabIndex ≥ 0`**. Sotto ai
+ * grafici c'era scritto «Ogni punto è un'immersione: cliccala per aprirla».
+ *
+ * Non era un vicolo cieco — le stesse immersioni si aprono dall'elenco — ma una
+ * promessa che dalla tastiera non si poteva mantenere: ed è la promessa il
+ * difetto, non il mouse.
+ *
+ * ► QUESTE PROVE GUARDANO IL COMPORTAMENTO, NON LE PAROLE. ◄ Premono i tasti sul
+ * DOM reso e controllano che cosa succede: quale identificativo arriva a
+ * `onPick`, quante tappe di tabulazione esistono, che cosa dice il nome
+ * accessibile. Riscrivendo tutte le frasi restano accese; togliendo il
+ * `tabIndex`, o l'Invio, o l'anello del punto scelto, cadono.
+ */
+describe('i punti che aprono un’immersione si raggiungono anche da tastiera', () => {
+  /** Preme un tasto sull'elemento, come farebbe il browser. */
+  function premi(el: Element, key: string, shiftKey = false) {
+    act(() => {
+      el.dispatchEvent(new KeyboardEvent('keydown', { key, shiftKey, bubbles: true }));
+    });
+  }
+
+  /** Dà il fuoco al grafico come fa il browser quando ci si arriva col tabulatore. */
+  function metteIlFuoco(el: Element) {
+    act(() => {
+      el.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    });
+  }
+
+  /** Sei immersioni in ordine sparso: l'ordine dell'array NON è quello dell'asse. */
+  const NUVOLA = [
+    { x: 5, y: 10, diveId: 'quinta', label: 'immersione quinta' },
+    { x: 1, y: 2, diveId: 'prima', label: 'immersione prima' },
+    { x: 3, y: 6, diveId: 'terza', label: 'immersione terza' },
+    { x: 2, y: 4, diveId: 'seconda', label: 'immersione seconda' },
+    { x: 6, y: 12, diveId: 'sesta', label: 'immersione sesta' },
+    { x: 4, y: 8, diveId: 'quarta', label: 'immersione quarta' },
+  ];
+
+  const SERIE = [
+    { at: Date.UTC(2025, 2, 15, 12), value: 20, id: 'marzo' },
+    { at: Date.UTC(2025, 5, 15, 12), value: 18, id: 'giugno' },
+    { at: Date.UTC(2025, 8, 15, 12), value: 16, id: 'settembre' },
+  ];
+
+  it('senza niente da aprire il grafico NON prende una tappa nella tabulazione', () => {
+    // Una tappa che non porta a nessuna azione è un ostacolo, non un servizio:
+    // è la stessa regola per cui il profilo si tabula solo se ha un cursore.
+    const nuvola = rendi(e(ScatterChart, { points: NUVOLA, xLabel: 'm', yLabel: 'L/min' }));
+    expect(svgDi(nuvola).getAttribute('tabindex')).toBeNull();
+    const serie = rendi(e(TimeSeriesChart, { points: SERIE, unit: 'L/min' }));
+    expect(svgDi(serie).getAttribute('tabindex')).toBeNull();
+  });
+
+  it('quando c’è da aprire, la tappa è UNA per grafico e non una per punto', () => {
+    /*
+     * È la misura del difetto, al contrario. Prima erano zero tappe per
+     * centoventi punti cliccabili; la cura sbagliata sarebbero centoventi tappe,
+     * cioè centoventi pressioni di Tab per attraversare una pagina sola. Il
+     * numero giusto è uno per grafico, e dev'essere l'SVG — se domani qualcuno
+     * mette `tabIndex` sui cerchi, questo conto lo dice subito.
+     */
+    for (const nodo of [
+      e(ScatterChart, { points: NUVOLA, xLabel: 'm', yLabel: 'L/min', onPick: () => {} }),
+      e(TimeSeriesChart, { points: SERIE, unit: 'L/min', onPick: () => {} }),
+    ]) {
+      const vista = monta(nodo);
+      const tappe = [...vista.host.querySelectorAll('[tabindex]')];
+      expect(tappe.map((el) => el.tagName.toLowerCase())).toEqual(['svg']);
+      expect(tappe[0].getAttribute('tabindex')).toBe('0');
+      vista.unmount();
+    }
+  });
+
+  it('le frecce attraversano la nuvola nell’ordine dell’ASSE, non dell’array', () => {
+    /*
+     * I punti arrivano in ordine di immersione, cioè sparsi sul disegno: un
+     * cursore che li visita in quell'ordine salta avanti e indietro sulla nuvola
+     * e non è un cursore, è un sorteggio. Qui l'array è mescolato apposta e le
+     * ascisse vanno da 1 a 6: due frecce a destra devono fermarsi sulla seconda
+     * da sinistra, non sulla seconda dell'array.
+     */
+    const aperte: string[] = [];
+    const vista = monta(
+      e(ScatterChart, {
+        points: NUVOLA,
+        xLabel: 'profondità (m)',
+        yLabel: 'consumo (L/min)',
+        onPick: (id: string) => aperte.push(id),
+      }),
+    );
+    const svg = vista.host.querySelector('svg')!;
+
+    // Invio prima di aver scelto non apre un'immersione a caso.
+    premi(svg, 'Enter');
+    expect(aperte).toEqual([]);
+
+    premi(svg, 'ArrowRight');
+    premi(svg, 'ArrowRight');
+    premi(svg, 'Enter');
+    expect(aperte).toEqual(['seconda']);
+
+    // La barra spaziatrice fa quello che fa l'Invio: su una cosa che si attiva
+    // sono lo stesso tasto, e chi naviga da tastiera prova l'una o l'altra.
+    premi(svg, ' ');
+    expect(aperte).toEqual(['seconda', 'seconda']);
+
+    // Fine porta all'ultima dell'asse, Inizio alla prima, Esc lascia il cursore.
+    premi(svg, 'End');
+    premi(svg, 'Enter');
+    premi(svg, 'Home');
+    premi(svg, 'Enter');
+    premi(svg, 'Escape');
+    premi(svg, 'Enter');
+    expect(aperte).toEqual(['seconda', 'seconda', 'sesta', 'prima']);
+    vista.unmount();
+  });
+
+  it('sulla serie temporale i tasti aprono l’immersione di quel punto', () => {
+    const aperte: string[] = [];
+    const vista = monta(
+      e(TimeSeriesChart, { points: SERIE, unit: 'L/min', onPick: (id: string) => aperte.push(id) }),
+    );
+    const svg = vista.host.querySelector('svg')!;
+    premi(svg, 'ArrowLeft'); // la prima freccia a sinistra parte dall'ultimo punto
+    premi(svg, 'Enter');
+    premi(svg, 'ArrowLeft');
+    premi(svg, ' ');
+    expect(aperte).toEqual(['settembre', 'giugno']);
+    vista.unmount();
+  });
+
+  it('un tasto che non c’entra non sceglie e non apre niente', () => {
+    const aperte: string[] = [];
+    const vista = monta(
+      e(ScatterChart, {
+        points: NUVOLA,
+        xLabel: 'm',
+        yLabel: 'L/min',
+        onPick: (id: string) => aperte.push(id),
+      }),
+    );
+    const svg = vista.host.querySelector('svg')!;
+    premi(svg, 'a');
+    premi(svg, 'Enter');
+    expect(aperte).toEqual([]);
+    vista.unmount();
+  });
+
+  it('il nome accessibile dice QUALE immersione si aprirebbe', () => {
+    /*
+     * La regione viva annuncia il punto nel momento in cui ci si arriva e poi
+     * tace: chi torna sul grafico col tabulatore, o chi chiede allo screen
+     * reader «dove sono», risentirebbe soltanto «Dispersione: consumo in
+     * funzione di profondità» — cioè il nome di un disegno, mentre lì l'Invio
+     * apre una cosa precisa. Il nome deve dire quale.
+     */
+    const vista = monta(
+      e(ScatterChart, {
+        points: NUVOLA,
+        xLabel: 'profondità (m)',
+        yLabel: 'consumo (L/min)',
+        onPick: () => {},
+      }),
+    );
+    const svg = vista.host.querySelector('svg')!;
+    expect(svg.getAttribute('aria-label')).toBe('Dispersione: consumo (L/min) in funzione di profondità (m)');
+
+    premi(svg, 'ArrowRight');
+    const nome = svg.getAttribute('aria-label')!;
+    expect(nome).toContain('immersione prima');
+    // I due canali dello stesso nome non devono divergere: `aria-label` è quello
+    // che si sente, il `<title>` è quello che si legge se l'SVG viene salvato.
+    expect(svg.querySelector('title')!.textContent).toBe(nome);
+    vista.unmount();
+  });
+
+  it('il punto raggiunto viene annunciato, e solo dal grafico che si sta guidando', () => {
+    const vista = monta(
+      e(ScatterChart, {
+        points: NUVOLA,
+        xLabel: 'profondità (m)',
+        yLabel: 'consumo (L/min)',
+        onPick: () => {},
+      }),
+    );
+    // In una pagina di statistiche i grafici col cursore sono nove: se ognuno
+    // tenesse una regione viva sempre presente, una freccia premuta produrrebbe
+    // nove annunci identici.
+    expect(vista.host.querySelector('[role="status"]')).toBeNull();
+
+    const svg = vista.host.querySelector('svg')!;
+    metteIlFuoco(svg);
+    premi(svg, 'ArrowRight');
+    const annuncio = vista.host.querySelector('[role="status"]')!;
+    expect(annuncio.getAttribute('aria-live')).toBe('polite');
+    // Le stesse righe del riquadro del mouse: nome dell'immersione e le due
+    // misure, con gli stessi numeri. Una voce e un riquadro che dicono cose
+    // diverse sullo stesso pallino sono due grafici, non uno.
+    expect(annuncio.textContent).toContain('immersione prima');
+    expect(annuncio.textContent).toContain('profondità (m) 1');
+    expect(annuncio.textContent).toContain('consumo (L/min) 2.0');
+    vista.unmount();
+  });
+
+  it('il punto scelto si VEDE, non solo si sente', () => {
+    /*
+     * Chi naviga da tastiera e ci vede benissimo — tastiera per abitudine, per
+     * un braccio rotto, per un trackpad che non funziona — non ha la regione
+     * viva: se il punto scelto non è marcato sul disegno, preme Invio alla cieca.
+     * Il contorno del fuoco dice quale GRAFICO si sta guidando; serve anche
+     * qualcosa che dica quale PUNTO.
+     */
+    const vista = monta(e(ScatterChart, { points: NUVOLA, xLabel: 'm', yLabel: 'L/min', onPick: () => {} }));
+    const svg = vista.host.querySelector('svg')!;
+    const prima = svg.querySelectorAll('circle').length;
+    premi(svg, 'ArrowRight');
+    expect(svg.querySelectorAll('circle').length).toBe(prima + 1);
+    premi(svg, 'Escape');
+    expect(svg.querySelectorAll('circle').length).toBe(prima);
+    vista.unmount();
+  });
+
+  it('l’istruzione e la funzione stanno insieme, o cadono insieme', () => {
+    /*
+     * Il difetto era esattamente questo: la promessa da una parte e la funzione
+     * dall'altra. Una guardia che si limitasse a cercare la parola «Invio» nella
+     * descrizione resterebbe verde mentre i punti tornano cliccabili e basta —
+     * provato, togliendo il cursore dall'SVG: la frase c'era ancora.
+     *
+     * Quindi non si controlla la frase: si controlla che le due cose siano
+     * legate. Se la descrizione nomina l'Invio, il grafico dev'essere
+     * raggiungibile col tabulatore; se tace, non deve prendersi una tappa.
+     */
+    for (const nodo of [
+      e(ScatterChart, { points: NUVOLA, xLabel: 'm', yLabel: 'L/min', onPick: () => {} }),
+      e(ScatterChart, { points: NUVOLA, xLabel: 'm', yLabel: 'L/min' }),
+      e(TimeSeriesChart, { points: SERIE, unit: 'L/min', onPick: () => {} }),
+      e(TimeSeriesChart, { points: SERIE, unit: 'L/min' }),
+    ]) {
+      const svg = svgDi(rendi(nodo));
+      const promette = svg.querySelector('desc')!.textContent!.includes('Invio');
+      const tabulabile = svg.getAttribute('tabindex') === '0';
+      expect(
+        tabulabile,
+        promette
+          ? 'la descrizione promette l’Invio ma il grafico non entra nella tabulazione'
+          : 'il grafico si tabula senza che niente lo annunci',
+      ).toBe(promette);
+    }
+  });
+});

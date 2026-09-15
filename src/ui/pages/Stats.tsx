@@ -1,11 +1,14 @@
-import { useMemo, useState, useRef } from 'react';
+import { useId, useMemo, useState, useRef } from 'react';
 import { formatDuration, formatHours } from '../../core/units';
 import {
+  AnnuncioCursore,
   BarChart,
   ColumnChart,
   ScatterChart,
   StatTile,
   TimeSeriesChart,
+  contornoFuoco,
+  useCursoreDiScelta,
   useWidth,
 } from '../components/Charts';
 import { useDiveLog } from '../state';
@@ -38,6 +41,9 @@ import { Vuoto } from '../components/Vuoto';
 import { useLingua } from '../lingua';
 import { temperaturaMinimaC } from '../../core/temperatura';
 import { profonditaMedia } from '../../core/profondita';
+// `frase()` e non un letterale interpolato: la chiave del dizionario è la frase
+// intera, e una chiave che contiene un numero non ci sarà mai.
+import { frase } from '../../core/frase';
 
 type Series = 'rmv' | 'trim' | 'ascent' | 'gf99';
 
@@ -506,7 +512,28 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
           {t(meta.blurb)} {`${points.length}/${a.count} ${t('immersioni')}.`}
         </p>
         <TimeSeriesChart
-          points={points}
+          /*
+           * ► IL CAMPO SI CHIAMAVA `diveId` DA UNA PARTE E `id` DALL'ALTRA, E
+           * NESSUNO DEI DUE LO SAPEVA. ◄
+           *
+           * `SeriesPoint` (in `analysis/aggregate.ts`) porta l'identificativo in
+           * `diveId`; `TimePoint` (in `components/Charts.tsx`) lo cerca in `id`,
+           * e lo dichiara **opzionale** perché ci sono serie che non aprono
+           * niente. Qui si passava `points` così com'era: TypeScript non ha
+           * detto niente — un campo opzionale che manca è legittimo — e
+           * `onClick={() => onPick && p.id && onPick(p.id)}` trovava sempre
+           * `undefined`. Risultato: **cliccare un punto di questo grafico non
+           * apriva nessuna immersione, mai**, e sotto c'era scritto «Clicca un
+           * punto per aprire l'immersione». `onPick` era passato, il cursore era
+           * a manina, il riquadro compariva: tutto sembrava collegato.
+           *
+           * L'ha trovato la prova del cursore da tastiera (`promessaDaTastiera`):
+           * premuto Invio su un punto scelto, non si apriva niente — e col mouse
+           * non si apriva da prima. Si rinomina qui, dove i due nomi si
+           * incontrano, invece di allargare `TimePoint`: un solo punto in cui
+           * sbagliare, e la prova lo tiene.
+           */
+          points={points.map((p) => ({ at: p.at, value: p.value, id: p.diveId }))}
           unit={meta.unit}
           reference={meta.reference}
           referenceLabel={t(meta.referenceLabel)}
@@ -514,8 +541,18 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
           onPick={onOpen}
         />
         {points.length > 0 && (
+          /* ► L'ISTRUZIONE PROMETTEVA UNA COSA CHE DALLA TASTIERA NON SI POTEVA FARE. ◄
+             Diceva soltanto «clicca», e i punti erano cerchi con `onClick` e
+             nient'altro: chi naviga da tastiera leggeva la frase, provava, e non
+             succedeva niente. Ora il cursore con le frecce c'è (vedi
+             `useCursoreDiScelta`) e la frase lo dice — perché una funzione di
+             cui nessuno viene informato è una funzione che non c'è, e una
+             promessa che parla solo di clic resta falsa anche dopo che la
+             tastiera funziona. */
           <p className="muted" style={{ fontSize: 11, marginTop: 8, marginBottom: 0 }}>
-            {t('Clicca un punto per aprire l’immersione.')}
+            {t(
+              'Clicca un punto per aprire l’immersione. Da tastiera: Tab sul grafico, frecce per scegliere, Invio per aprire.',
+            )}
           </p>
         )}
       </div>
@@ -866,7 +903,7 @@ function Correlations({
       <h2>{t('Cosa dipende da cosa')}</h2>
       <p className="card-sub">
         {t(
-          'Ogni punto è un’immersione: cliccala per aprirla. La retta è la tendenza, r è la correlazione — 0 nessuna, ±1 perfetta. È una correlazione, non una causa.',
+          'Ogni punto è un’immersione: cliccala per aprirla, o scegli il punto con le frecce e premi Invio. La retta è la tendenza, r è la correlazione — 0 nessuna, ±1 perfetta. È una correlazione, non una causa.',
         )}
       </p>
       <div className="grid grid-2">
@@ -1573,6 +1610,7 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
      sul cerchio più sotto. In un ref e non in uno stato perché serve dentro la
      stessa sequenza di eventi, prima che React ridisegni. */
   const eraAttivo = useRef(false);
+  const uid = useId();
 
   const sites = new Map<string, { name: string; lat: number; lon: number; dives: Dive[] }>();
   for (const d of dives) {
@@ -1587,6 +1625,22 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
   const withoutCoords = new Set(
     dives.filter((d) => d.site?.name && d.site.lat === undefined).map((d) => d.site!.name!),
   ).size;
+
+  /*
+   * ► LE BOLLE ERANO LO STESSO DIFETTO DEI PUNTI DEI GRAFICI. ◄
+   *
+   * `cursor: pointer`, `onClick`, e sotto la scritta «Clicca una bolla per
+   * aprire un'immersione fatta lì»: da tastiera non si poteva né scegliere un
+   * sito né aprirlo, e l'SVG non aveva nemmeno un nome — era un buco muto in
+   * mezzo alla pagina. Stesso gancio dei grafici e non un secondo meccanismo:
+   * chi ha imparato le frecce su una dispersione le ritrova qui.
+   *
+   * Da ovest a est, perché è il verso in cui il disegno le dispone: la freccia
+   * destra deve muovere il cursore verso destra, altrimenti il tasto dice una
+   * cosa e lo schermo ne fa un'altra.
+   */
+  const daOvest = [...list].sort((a, b) => a.lon - b.lon);
+  const cursore = useCursoreDiScelta(daOvest, (s) => s.dives[0].id, onOpen);
 
   if (withCoords < 2) return null;
 
@@ -1609,6 +1663,37 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
   const px = (lon: number) => width / 2 + ((lon * kx - cx) / span) * size;
   const py = (lat: number) => height / 2 - ((lat - cy) / span) * size;
   const maxDives = Math.max(...list.map((s) => s.dives.length));
+  const piuFrequentato = list.reduce((a, b) => (b.dives.length > a.dives.length ? b : a), list[0]);
+
+  /* Il sito detto come lo dice l'etichetta sul disegno: nome e quante. */
+  const etichettaSito = (sito: (typeof list)[number]) => `${sito.name}, ${imm(sito.dives.length, t)}`;
+  const annuncioSito = (sito: (typeof list)[number]) =>
+    frase(t, '{0}. Invio per aprire un’immersione fatta lì.', etichettaSito(sito));
+  const nome = t('Disposizione dei siti di immersione');
+  /* Il nome dice anche QUALE sito si aprirebbe: la regione viva dell'annuncio
+     non si rilegge da sola, e chi torna qui col tabulatore deve risentire dove
+     era rimasto. */
+  const nomeAccessibile = cursore.punto ? `${nome} — ${annuncioSito(cursore.punto)}` : nome;
+  /* Calcolata dai siti veri e non scritta a mano: una descrizione fissa
+     resterebbe vera il giorno in cui è stata scritta e falsa alla prima
+     importazione successiva, e chi la sente non ha modo di accorgersene. */
+  const descrizione =
+    frase(
+      t,
+      '{0} siti con coordinate, {1} in tutto. Il più frequentato è {2}.',
+      withCoords,
+      imm(
+        list.reduce((n, sito) => n + sito.dives.length, 0),
+        t,
+      ),
+      etichettaSito(piuFrequentato),
+    ) +
+    (cursore.attivo
+      ? ' ' +
+        t(
+          'Frecce per scegliere un sito, Inizio e Fine agli estremi, Invio per aprire un’immersione fatta lì.',
+        )
+      : '');
 
   return (
     <div className="card">
@@ -1625,10 +1710,24 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
         )}
       </p>
       <div className="chart" ref={ref}>
-        <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img">
+        <svg
+          width={width}
+          height={height}
+          viewBox={`0 0 ${width} ${height}`}
+          role="img"
+          aria-label={nomeAccessibile}
+          aria-describedby={`${uid}-desc`}
+          {...cursore.svg}
+          style={contornoFuoco(cursore.fuoco)}
+        >
+          <title>{nomeAccessibile}</title>
+          <desc id={`${uid}-desc`}>{descrizione}</desc>
           {list.map((site) => {
             const r = 5 + (site.dives.length / maxDives) * 16;
-            const active = hover === site.name;
+            /* Scelto col mouse OPPURE con le frecce: da qui in giù le due strade
+               sono la stessa cosa — il nome compare, e l'Invio apre come il clic. */
+            const scelto = cursore.punto?.name === site.name;
+            const active = hover === site.name || scelto;
             return (
               <g key={site.name}>
                 <circle
@@ -1670,6 +1769,21 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
                     if (eraAttivo.current) onOpen(site.dives[0].id);
                   }}
                 />
+                {/* L'anello della bolla scelta dalle frecce: il contorno del
+                    fuoco dice che si sta guidando la mappa, questo dice quale
+                    bolla — e le bolle vicine si sovrappongono, quindi il solo
+                    cambio di opacità non basterebbe a distinguerla. */}
+                {scelto && (
+                  <circle
+                    aria-hidden="true"
+                    cx={px(site.lon)}
+                    cy={py(site.lat)}
+                    r={r + 4}
+                    fill="none"
+                    stroke="var(--series-2)"
+                    strokeWidth={2.5}
+                  />
+                )}
                 {/* L'etichetta solo sulla bolla puntata e sulla più frequentata:
                     i siti vicini fra loro si sovrappongono per davvero, e
                     scriverli tutti produceva un grumo illeggibile. */}
@@ -1690,12 +1804,20 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
           })}
         </svg>
       </div>
+      {/* Solo la mappa che ha il fuoco annuncia: vedi `useCursoreDiScelta`. */}
+      {cursore.fuoco && (
+        <AnnuncioCursore
+          testo={cursore.punto ? annuncioSito(cursore.punto) : t('Cursore non posizionato: usa le frecce.')}
+        />
+      )}
       {/* Le coordinate arrivano solo dai formati che le contengono: UDDF,
           Subsurface, il GPS dei Garmin e i log Shearwater dalla versione 17 in
           su. Chi non le vede non ha sbagliato niente, gli manca il formato — ma
           a schermo quell'elenco non aiuta nessuno a fare qualcosa. */}
       <p className="muted" style={{ fontSize: 11, margin: '6px 0 0' }}>
-        {t('Clicca una bolla per aprire un’immersione fatta lì.')}
+        {t(
+          'Clicca una bolla per aprire un’immersione fatta lì. Da tastiera: Tab sulla mappa, frecce per scegliere il sito, Invio per aprire.',
+        )}
       </p>
     </div>
   );

@@ -958,8 +958,33 @@ export async function syncArchive(
   const fuseSalendo: Dive[] = [];
 
   for (const id of plan.push) {
-    const locale = localDives.find((d) => d.id === id);
-    if (!locale) continue;
+    const grezzaLocale = localDives.find((d) => d.id === id);
+    if (!grezzaLocale) continue;
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► SI NORMALIZZA ANCHE QUELLO CHE SALE, O I DUE NON CONVERGONO MAI. ◄
+     *
+     * `normaliseDive` era chiamata solo su ciò che SCENDE. Bastava che un
+     * dispositivo avesse in archivio una scheda non normalizzata — lo stesso
+     * Aladin scritto `6303450223` nel computer principale e `63034502` fra gli
+     * altri, il caso vero che `repair.ts` documenta — perché il giro non si
+     * chiudesse più: B la caricava com'era, A la scaricava e la correggeva, A la
+     * rispediva corretta, e a `updatedAt` pari il pareggio si rompeva sul
+     * digest. **Sei giri misurati, sei identici**, due scritture di rete per
+     * immersione a ogni sincronizzazione, per sempre.
+     *
+     * Non si perdevano dati — la fusione protegge i campi — ma la convergenza
+     * dipendeva da `repairArchive`, che sta fuori da qui, gira all'avvio e viene
+     * chiamata dentro un `.catch(() => undefined)`: cioè se avesse smesso di
+     * funzionare, il guasto sarebbe stato muto. *Una funzione che converge solo
+     * se qualcun altro fa la sua parte non converge.*
+     *
+     * La versione corretta torna anche in archivio, con le altre fuse salendo:
+     * normalizzare solo in uscita lascerebbe il locale sporco, e il giro dopo
+     * ricomincerebbe da capo.
+     * ════════════════════════════════════════════════════════════════════════
+     */
+    const locale = normaliseDive(grezzaLocale);
     const remoto = remotiPerFusione.get(id);
     const dive = remoto
       ? fondiRiepiloghi(
@@ -969,13 +994,15 @@ export async function syncArchive(
           plan.pullSamples.includes(id) ? remoto.metrics : locale.metrics,
         )
       : locale;
-    if (dive !== locale) fuseSalendo.push(dive);
+    if (dive !== grezzaLocale) fuseSalendo.push(dive);
     const fp = digests.get(id)!;
     const doc = stripSamples(dive);
     // L'impronta si ricalcola sul documento che si sta davvero scrivendo: su
     // una versione fusa quella del piano descrive il riepilogo di prima, e
     // salvarla farebbe divergere per sempre le due parti.
-    const digest = dive === locale ? fp.digest : digestOf(doc as unknown as Record<string, unknown>);
+    // L'impronta del piano descrive la scheda GREZZA: vale solo se non l'ha
+    // toccata né la normalizzazione né la fusione.
+    const digest = dive === grezzaLocale ? fp.digest : digestOf(doc as unknown as Record<string, unknown>);
     await sql.execute(
       `INSERT INTO dives (id, start_time, updated_at, sample_count, digest, doc)
        VALUES (?, ?, ?, ?, ?, ?)
@@ -994,11 +1021,34 @@ export async function syncArchive(
       // le parti, il piano non chiedeva niente, e quel profilo non lo scaricava
       // più nessuno. Il conteggio descrive il PROFILO, non il riepilogo che si
       // sta caricando.
+      //
+      // ════════════════════════════════════════════════════════════════════════
+      // ► E PROPRIO PER QUESTO NON SI SCRIVE QUELLO LOCALE: SI SCRIVE QUELLO CHE
+      //   IL REMOTO HA DAVVERO ADESSO. ◄
+      //
+      // I riepiloghi salgono tutti qui, e i profili molto più sotto. Scrivendo
+      // `fp.sampleCount` — il conteggio del profilo che sta su QUESTO
+      // dispositivo — la riga remota dichiarava duecento campioni mentre
+      // `dive_samples` era ancora vuota. Se la rete cadeva in mezzo, e in barca
+      // cade, quello stato restava per sempre: il piano confronta i due
+      // conteggi, li trovava uguali, e **non ricaricava mai più quel profilo**;
+      // un terzo dispositivo lo chiedeva a ogni sincronizzazione senza
+      // riceverlo. Se poi l'archivio del primo si perdeva, il profilo non era in
+      // nessun file.
+      //
+      // *Un numero che promette una cosa che sta per succedere è una bugia
+      // finché non succede, e se non succede resta una bugia.* Il conteggio lo
+      // alza il caricamento del profilo, quando il profilo è arrivato davvero —
+      // ed è esattamente quello che fa `alt_count`, che è una sottoquery sulla
+      // tabella vera e non può mentire.
+      // ════════════════════════════════════════════════════════════════════════
       [
         id,
         dive.startTime,
         dive.updatedAt ?? null,
-        Math.max(fp.sampleCount, remoteById.get(id)?.sampleCount ?? 0),
+        // ► NON SI DICHIARA UN PROFILO CHE NON È ANCORA STATO CARICATO. ◄
+        // Vedi il riquadro sopra questo blocco.
+        remoteById.get(id)?.sampleCount ?? 0,
         digest,
         JSON.stringify(doc),
       ],
@@ -1036,12 +1086,13 @@ export async function syncArchive(
 
   for (const id of plan.pushSamples) {
     const samples = await store.getSamples(id);
-    if (!samples.length) continue;
-    await sql.execute(
-      `INSERT INTO dive_samples (dive_id, count, doc) VALUES (?, ?, ?)
-       ON CONFLICT(dive_id) DO UPDATE SET count = excluded.count, doc = excluded.doc`,
-      [id, samples.length, JSON.stringify(samples)],
-    );
+    if (samples.length) {
+      await sql.execute(
+        `INSERT INTO dive_samples (dive_id, count, doc) VALUES (?, ?, ?)
+         ON CONFLICT(dive_id) DO UPDATE SET count = excluded.count, doc = excluded.doc`,
+        [id, samples.length, JSON.stringify(samples)],
+      );
+    }
     // Il secondo profilo viaggia con il principale, non per conto suo: è ciò che
     // permette all'altro dispositivo di ricalcolare le metriche senza peggiorarle.
     const alt = await store.getAltSamples(id);
@@ -1052,11 +1103,27 @@ export async function syncArchive(
         [id, alt.length, JSON.stringify(alt)],
       );
     }
-    // `sample_count` sul riepilogo deve restare coerente, altrimenti il piano
-    // successivo ricaricherebbe lo stesso profilo all'infinito.
-    await sql.execute('UPDATE dives SET sample_count = ? WHERE id = ?', [samples.length, id]);
-    pushedProfiles++;
-    say(`${t('Caricati')} ${pushedProfiles} ${t('profili…')}`);
+    /*
+     * ► IL PROFILO PRINCIPALE PUÒ NON ESSERCI, E IL SECONDO SÌ. ◄ Qui c'era un
+     * `if (!samples.length) continue` in testa al ciclo, e con lui saltava anche
+     * il secondo profilo. Non è un caso di scuola: `planSync` mette
+     * un'immersione fra quelle da caricare anche quando ha solo `altSamples`, e
+     * ci si arriva importando via libdivecomputer sopra un'immersione già in
+     * archivio senza profilo — la guardia «una sorgente mai verificata non
+     * scalza un profilo verificato» fa perdere il confronto al profilo in
+     * arrivo, che finisce fra i secondi. Risultato: l'unico profilo di
+     * quell'immersione restava su un dispositivo solo, **e il piano lo chiedeva
+     * a ogni giro senza che niente lo segnalasse.**
+     */
+    if (samples.length) {
+      // `sample_count` sul riepilogo deve restare coerente, altrimenti il piano
+      // successivo ricaricherebbe lo stesso profilo all'infinito.
+      await sql.execute('UPDATE dives SET sample_count = ? WHERE id = ?', [samples.length, id]);
+    }
+    if (samples.length || alt.length) {
+      pushedProfiles++;
+      say(`${t('Caricati')} ${pushedProfiles} ${t('profili…')}`);
+    }
   }
 
   const total = (await store.listDives()).length;

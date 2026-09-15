@@ -399,15 +399,42 @@ const ruleAscentRate: Rule = (agg, dives, t) => {
     (d) => (d.metrics?.fastAscentS ?? 0) + (d.metrics?.fastShallowAscentS ?? 0) >= 30,
   );
 
-  if (rate <= 0.02) {
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► LA SOGLIA È UNA SOLA, ED È QUELLA CHE L'APPLICAZIONE DICHIARA. ◄
+   *
+   * Qui il ramo buono scattava sotto il **2%**, mentre la riga «Immersioni con
+   * risalite fuori limite» di Statistiche usa `BENCHMARK.fastAscentRate`, cioè
+   * il **10%** — che è anche il numero scritto accanto al criterio di prontezza
+   * («non oltre il 10%») e nell'obiettivo qui sotto. Chi stava al 5% leggeva un
+   * pallino verde e «nei limiti» in una schermata, e una scheda di avviso
+   * nell'altra: *due schermate della stessa applicazione, stessi dati, verdetti
+   * opposti*, con in mezzo un numero che l'applicazione gli aveva appena detto
+   * essere il limite.
+   *
+   * Adesso il verdetto è lo stesso di Statistiche, e la differenza fra «dentro
+   * il limite» e «sotto controllo» sta nelle parole, non nel giudizio: un elogio
+   * più forte dentro il ramo buono non contraddice nessun pallino.
+   * ════════════════════════════════════════════════════════════════════════
+   */
+  if (rate <= BENCHMARK.fastAscentRate) {
+    const impeccabile = rate <= 0.02;
     return {
       id: 'ascent-good',
       area: 'ascent',
       severity: 'good',
-      headline: t('Velocità di risalita sotto controllo'),
-      detail: t(
-        'Le risalite rispettano i limiti in modo costante, anche nella fascia finale, che è quella che conta di più.',
-      ),
+      headline: impeccabile
+        ? t('Velocità di risalita sotto controllo')
+        : t('Velocità di risalita dentro il limite'),
+      detail: impeccabile
+        ? t(
+            'Le risalite rispettano i limiti in modo costante, anche nella fascia finale, che è quella che conta di più.',
+          )
+        : frase(
+            t,
+            'Le immersioni con almeno mezzo minuto fuori limite restano sotto il {0} che questo logbook considera accettabile. La fascia finale è quella che conta di più: è lì che si guadagna o si perde il margine.',
+            pct(BENCHMARK.fastAscentRate),
+          ),
       evidence: [
         frase(t, '{0} immersioni su {1} con almeno 30 s fuori limite.', offenders.length, withProfile.length),
       ],
@@ -417,8 +444,9 @@ const ruleAscentRate: Rule = (agg, dives, t) => {
     };
   }
 
-  const severity: Severity =
-    rate > 0.3 ? 'critical' : rate > BENCHMARK.fastAscentRate ? 'serious' : 'warning';
+  // Sotto la soglia non si arriva più qui: il ramo buono se l'è preso. Restano
+  // le tre gravità vere, tutte sopra il limite dichiarato.
+  const severity: Severity = rate > 0.3 ? 'critical' : rate > 0.2 ? 'serious' : 'warning';
   const shallow = offenders.filter((d) => (d.metrics?.fastShallowAscentS ?? 0) >= 30).length;
   return {
     id: 'ascent-rate',

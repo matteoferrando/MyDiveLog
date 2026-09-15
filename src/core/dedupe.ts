@@ -660,6 +660,65 @@ function intervalOf(samples: Sample[]): number {
   return (samples[samples.length - 1].t - samples[0].t) / (samples.length - 1);
 }
 
+/**
+ * I campi che `takeIfEmpty` completa, divisi per CHI LI SCRIVE.
+ *
+ * Il perché della divisione sta dentro `mergeDive`, al punto in cui si usano.
+ * In breve: una macchina non cancella niente, una persona sì — quindi un campo
+ * vuoto significa «non ce l'ho» sul primo elenco e «l'ho tolto» sul secondo.
+ */
+
+/**
+ * Li scrive una misura: un computer subacqueo o un lettore di file.
+ *
+ * `number` sta qui perché lo assegna l'applicazione rinumerando l'archivio, non
+ * una persona; `salinity` e `mode` hanno una regola propria poco più sotto
+ * (`ripiegoCede`), perché per loro il problema non è il vuoto ma il ripiego.
+ */
+export const CAMPI_MISURATI = [
+  'number',
+  'avgDepth',
+  'minTempC',
+  'airTempC',
+  'salinity',
+  'surfacePressureBar',
+  'surfaceIntervalS',
+  // Il voto di visibilità di Subsurface: lo porta il file, non la scheda. Vedi
+  // `Dive.visibilityRating`.
+  'visibilityRating',
+] as const satisfies readonly (keyof Dive)[];
+
+/**
+ * Li scrive una persona, nella scheda di modifica o in un gesto equivalente.
+ *
+ * Tre di questi sono voci del libretto di legge che restavano fuori dall'elenco
+ * quando era uno solo: i) `plannedMaxDepth`, m) `center`, o) `firmaGuida` (art.
+ * 12 comma 8; vedi `core/libretto.ts`). Come `analisi` fra le bombole, sono dati
+ * che NESSUNA fonte automatica porta: la profondità programmata è un'intenzione,
+ * il centro è chi ha organizzato l'uscita, la firma è un gesto. O li scrive una
+ * persona o non esistono — ed è esattamente il motivo per cui, quando una
+ * persona li toglie, vanno lasciati tolti.
+ *
+ * `rmvLpmManual` per la stessa ragione: lo calcola qualcuno guardando il
+ * manometro, e nessun computer e nessun formato lo porta.
+ */
+export const CAMPI_SCRITTI_A_MANO = [
+  'buddy',
+  'notes',
+  'site',
+  'rating',
+  'visibilityM',
+  'visibilityMaxM',
+  'title',
+  'guide',
+  'weightKg',
+  'suit',
+  'center',
+  'plannedMaxDepth',
+  'firmaGuida',
+  'rmvLpmManual',
+] as const satisfies readonly (keyof Dive)[];
+
 /** Il più fitto fra i profili candidati, cioè quello col passo minore. */
 function denserOf(...candidates: (Sample[] | undefined)[]): Sample[] | undefined {
   let best: Sample[] | undefined;
@@ -872,67 +931,87 @@ export function mergeDive(
     }
   }
 
-  (
-    [
-      'number',
-      'avgDepth',
-      'minTempC',
-      'airTempC',
-      'buddy',
-      'notes',
-      'site',
-      'rating',
-      'visibilityM',
-      'visibilityMaxM',
-      'title',
-      'guide',
-      'salinity',
-      'surfacePressureBar',
-      'surfaceIntervalS',
-      'weightKg',
-      'suit',
-      /*
-       * Le tre voci del libretto di legge che restavano fuori da questo elenco:
-       * i) `plannedMaxDepth`, m) `center`, o) `firmaGuida` (art. 12 comma 8;
-       * vedi `core/libretto.ts`).
-       *
-       * Come `analisi` fra le bombole, sono dati che NESSUNA fonte automatica
-       * porta: la profondità programmata è un'intenzione, il centro è chi ha
-       * organizzato l'uscita, la firma è un gesto. O li scrive una persona o
-       * non esistono. Non essendo qui, fondere due schede li faceva uscire
-       * `undefined` — mentre `changed` si accendeva per altri motivi e la
-       * scheda diceva «arricchita». Succedeva nei tre percorsi reali della
-       * fusione: ripristino da backup in modalità «Fondi», «unisci due
-       * immersioni», inserimento a mano su un'immersione già in archivio.
-       *
-       * È lo stesso difetto che il commento su `conditions` e `gear` più sotto
-       * dichiara di aver chiuso: la correzione non era stata estesa a questi.
-       * `tests/dedupe.test.ts` fonde ora due schede piene in OGNI campo del
-       * modello e verifica che nessuna chiave si perda, così il prossimo campo
-       * nuovo non ricasca qui.
-       */
-      'center',
-      'plannedMaxDepth',
-      'firmaGuida',
-      /*
-       * Il consumo di superficie scritto a mano, per la stessa ragione delle
-       * tre voci qui sopra: lo calcola una persona guardando il manometro, e
-       * nessun computer e nessun formato lo porta. Fondere due schede senza
-       * questa riga lo faceva sparire mentre la scheda diceva «arricchita».
-       *
-       * L'ha trovato la prova di completezza in `tests/dedupe.test.ts` il
-       * giorno che ha smesso di scorrere le chiavi di un oggetto scritto a mano
-       * e ha cominciato a pretenderle dal modello.
-       */
-      'rmvLpmManual',
-      // Il voto di visibilità di Subsurface: vedi `Dive.visibilityRating`.
-      'visibilityRating',
-    ] as const
-  ).forEach(takeIfEmpty);
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► CHI SCRIVE UN CAMPO DECIDE COSA SIGNIFICA TROVARLO VUOTO. ◄
+   *
+   * `takeIfEmpty` riempie i buchi del vincitore con i dati del perdente, ed è
+   * la regola giusta quando i due lati sono **fonti diverse** sullo stesso
+   * tuffo: un CSV che porta la zavorra e un log che porta la temperatura non si
+   * contraddicono, si completano.
+   *
+   * In **sincronizzazione** i due lati sono la stessa scheda su due
+   * dispositivi, e il vincitore è quello che ha scritto per ultimo. Lì un campo
+   * vuoto non è un buco: **è una cancellazione.** Misurato: si toglie la nota,
+   * il compagno e il voto sul Mac, si sincronizza, e tornano tutti e tre dalla
+   * copia dell'altro — *e vengono riscritti anche sul remoto*, quindi la
+   * correzione è persa ovunque e al giro dopo torna di nuovo. Togliere una nota
+   * sbagliata, con la sincronizzazione accesa, era impossibile.
+   *
+   * La regola che distingue i due casi non è un elenco a sentimento: **è chi
+   * scrive il campo.** Una macchina — un computer subacqueo, un lettore di file
+   * — non cancella niente: se non ha un dato, non ce l'ha. Una persona sì, e
+   * quando lo fa intende esattamente quello. Quindi i campi che una persona può
+   * scrivere nella scheda cedono il passo solo fra fonti diverse; quelli che
+   * arrivano da una misura si comportano come prima anche fra dispositivi.
+   *
+   * *Il confine è verificabile e non opinabile:* `tests/svuotareSiPropaga.test.ts`
+   * legge da `ModificaImmersione.tsx` quali campi il modulo di modifica scrive
+   * davvero, e pretende che stiano tutti qui sotto. Il giorno che si aggiunge un
+   * campo scrivibile a mano, quella prova diventa rossa col nome dentro.
+   * ════════════════════════════════════════════════════════════════════════
+   */
+  CAMPI_MISURATI.forEach((k) => takeIfEmpty(k));
+  /*
+   * I campi scritti a mano si completano come gli altri, **tranne quelli che
+   * risultano svuotati di proposito**: `svuotatiIl` porta il nome del campo e la
+   * data del gesto, ed è l'unica cosa che distingue «l'ho tolto» da «non ce l'ho
+   * mai avuto». Vedi `Dive.svuotatiIl`.
+   *
+   * Fra due FONTI diverse la distinzione non si applica: là nessuno ha tolto
+   * niente, e i due lati si completano come hanno sempre fatto.
+   */
+  CAMPI_SCRITTI_A_MANO.forEach((k) => {
+    if (stessaScheda && out.svuotatiIl?.[k]) return;
+    takeIfEmpty(k);
+  });
 
-  // I due campi che `takeIfEmpty` non poteva raggiungere: vedi `ripiegoCede`.
-  ripiegoCede('mode', 'oc');
-  ripiegoCede('salinity', 'salt');
+  /*
+   * Il registro degli svuotamenti si fonde: ogni lato ne conosce solo i propri, e
+   * un campo tolto sul Mac deve restare tolto anche quando vince l'iPhone per
+   * un'altra ragione. Quando lo stesso campo compare da tutte e due le parti
+   * vale il gesto più recente, che è la stessa regola di tutto il resto.
+   *
+   * E una voce si toglie da sé: se il campo adesso ha un valore, qualcuno l'ha
+   * riscritto dopo, e tenere la lapide farebbe rifiutare il prossimo
+   * completamento legittimo.
+   */
+  const svuotati: Record<string, string> = { ...(incoming.svuotatiIl ?? {}) };
+  for (const [campo, quando] of Object.entries(out.svuotatiIl ?? {}))
+    if (!svuotati[campo] || quando > svuotati[campo]) svuotati[campo] = quando;
+  for (const campo of Object.keys(svuotati)) {
+    const valore = out[campo as keyof Dive];
+    if (valore !== undefined && valore !== null && valore !== '') delete svuotati[campo];
+  }
+  const primaSvuotati = JSON.stringify(out.svuotatiIl ?? {});
+  if (JSON.stringify(svuotati) !== primaSvuotati) {
+    out.svuotatiIl = Object.keys(svuotati).length ? svuotati : undefined;
+    changed = true;
+  }
+
+  /*
+   * I due campi che `takeIfEmpty` non poteva raggiungere: vedi `ripiegoCede`.
+   *
+   * **Solo fra fonti diverse**, per la stessa ragione dell'elenco qui sopra: fra
+   * due dispositivi, «circuito aperto» e «acqua salata» sul vincitore possono
+   * essere quello che una persona ha appena SCELTO, non il ripiego di chi non
+   * sapeva. Senza questa condizione, riportare un'immersione da CCR a circuito
+   * aperto durava fino alla sincronizzazione successiva.
+   */
+  if (!stessaScheda) {
+    ripiegoCede('mode', 'oc');
+    ripiegoCede('salinity', 'salt');
+  }
 
   /*
    * ► IL FUSO NON SI PRENDE DA UN'IMMERSIONE CON UN ALTRO ORARIO. ◄
@@ -1081,10 +1160,33 @@ export function mergeDive(
     changed = true;
   }
 
-  const tags = new Set([...(out.tags ?? []), ...(incoming.tags ?? [])]);
-  if (tags.size !== (out.tags?.length ?? 0)) {
-    out.tags = [...tags];
-    changed = true;
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► LE ETICHETTE SI UNISCONO FRA FONTI DIVERSE, NON FRA DISPOSITIVI. ◄
+   *
+   * L'unione è la regola giusta quando i due lati sono due letture della stessa
+   * immersione: nessuna delle due ha l'elenco completo, e sommarle non toglie
+   * niente a nessuno.
+   *
+   * Fra due dispositivi toglie l'unica cosa che conta: **la possibilità di
+   * togliere un'etichetta.** Misurato: si toglie `pioggia`, si sincronizza, e
+   * torna dalla copia dell'altro; dopo tre giri ce l'hanno di nuovo tutti e
+   * due. E non è un dettaglio estetico — `salva()` in `ModificaImmersione`
+   * toglie i tag vecchi quando si compila il campo delle condizioni, apposta
+   * perché *«la stessa immersione direbbe due cose, e nessuno saprebbe quale
+   * delle due l'app usa per contare»*: l'unione additiva ricreava proprio
+   * quello stato, con `pioggia` accanto a `conditions.weather = 'rain'`.
+   *
+   * Con `stessaScheda`, l'elenco del vincitore è l'elenco: chi ha scritto per
+   * ultimo ha deciso anche cosa non c'è più.
+   * ════════════════════════════════════════════════════════════════════════
+   */
+  if (!stessaScheda) {
+    const tags = new Set([...(out.tags ?? []), ...(incoming.tags ?? [])]);
+    if (tags.size !== (out.tags?.length ?? 0)) {
+      out.tags = [...tags];
+      changed = true;
+    }
   }
 
   // Pulizia di archivi scritti da versioni precedenti: se l'elenco contiene il

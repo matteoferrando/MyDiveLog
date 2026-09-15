@@ -493,6 +493,43 @@ describe('syncArchive contro un SQLite vero', () => {
     }
   });
 
+  it('converge anche se un archivio contiene una scheda non normalizzata', async () => {
+    /*
+     * ► IL DIFETTO: `normaliseDive` si applicava solo a ciò che SCENDE. ◄ Basta
+     * che un dispositivo abbia in archivio lo stesso computer scritto in due
+     * modi — `6303450223` come principale e `63034502` fra gli altri, il caso
+     * vero che `storage/repair.ts` documenta — perché il giro non si chiuda
+     * più: beta la carica com'è, alpha la scarica e la corregge, alpha la
+     * rispedisce corretta, beta se la riprende. **Sei giri misurati, sei
+     * identici**, due scritture di rete per immersione a ogni sincronizzazione.
+     *
+     * Non si perdevano dati, e per questo non se n'era accorto nessuno: la
+     * convergenza dipendeva da `repairArchive`, che gira all'avvio, sta fuori
+     * dalla sincronizzazione e viene chiamata dentro un `.catch`.
+     */
+    const sporca = dive('n', {
+      computer: { model: 'Aladin', serial: '6303450223' },
+      otherComputers: [{ model: 'Aladin', serial: '63034502' }],
+    });
+    const alpha = memoryStore([dive('n')]);
+    const beta = memoryStore([sporca]);
+
+    await syncArchive(beta, sql);
+    await syncArchive(alpha, sql);
+    await syncArchive(beta, sql);
+
+    // Due giri a vuoto: se la normalizzazione si applicasse solo scendendo, qui
+    // ci sarebbero una scrittura per parte, per sempre.
+    for (const s of [alpha, beta, alpha, beta]) {
+      expect(await syncArchive(s, sql)).toMatchObject({ pushed: 0, pulled: 0 });
+    }
+    // E la scheda è quella corretta da tutte e due le parti: un solo computer.
+    for (const s of [alpha, beta]) {
+      const d = (await s.listDives()).find((x) => x.id === 'n')!;
+      expect(d.otherComputers ?? []).toHaveLength(0);
+    }
+  });
+
   it('non cancella niente da remoto quando un’immersione sparisce in locale', async () => {
     // Cancellare in locale e propagare la cancellazione richiederebbe un
     // registro delle eliminazioni. Finché non c'è, la scelta è dichiarata:
@@ -1208,7 +1245,20 @@ describe('passare a un account senza perdere niente', () => {
     expect(attrezzatura.equipment.length).toBe(1);
     expect(attrezzatura.certifications.length).toBe(1);
     expect(await altroDispositivo.getSetting('period')).toBe('24m');
-    expect(await altroDispositivo.getSetting(BLE_MARKERS_KEY)).toBeTruthy();
+    /*
+     * ► IL VALORE, NON LA CHIAVE. ◄ Qui c'era `toBeTruthy()`, e la superava
+     * qualunque oggetto non vuoto: se `fondiSegnalibri` avesse consegnato la
+     * mappa sotto un'altra chiave, o con l'impronta persa per strada, questa
+     * riga sarebbe restata verde — e il secondo dispositivo avrebbe riletto
+     * l'intera memoria del computer via BLE, che è il motivo per cui questo
+     * campo esiste. *Un guasto che si manifesta come lentezza non accende
+     * niente: lo prende solo una prova che guarda il dato.* Le due righe qui
+     * sopra il valore lo controllano; questa no, ed era l'unica che proteggesse
+     * una cosa che nessuno vedrebbe rompersi.
+     */
+    expect(await altroDispositivo.getSetting(BLE_MARKERS_KEY)).toEqual({
+      '63034502': { at: '2026-05-01T00:00:00Z' },
+    });
 
     // Le lapidi: senza queste, le immersioni cancellate tornerebbero al primo
     // scarico dal computer subacqueo, che nella sua memoria le ha ancora.

@@ -34,10 +34,11 @@ proprietario, con Transporter e con Play Console.
 > Corretti tutti la mattina del 15, e il testo per l'App Store riscritto sulla
 > distanza vera: **1.8.18 → 1.8.21**. Per Google Play la pagina pubblica risponde
 > **404** — traccia di test chiuso — quindi da qui non si misura affatto, e
-> l'unica fonte è Play Console. *Dieci difetti della revisione
-restano aperti e sono scritti per esteso più in basso: quattro sono perdita di
-dati silenziosa nella sincronizzazione, e nessuno dei quattro si chiude con una
-riga.*
+> l'unica fonte è Play Console. *I dieci difetti che la revisione aveva
+lasciato aperti sono stati chiusi la mattina del 15 — compresi i quattro di
+perdita di dati silenziosa nella sincronizzazione — e stanno più in basso, con
+accanto il perché di ogni scelta: in due casi la soluzione ovvia rompeva
+qualcos'altro, e si vede da quali prove è diventata rossa.*
 
 ## La 1.8.18, e cosa porta
 
@@ -5251,6 +5252,104 @@ Gli altri sei, minori:
   di Statistiche usa il 10%. È lo stesso schema delle soglie appena allineate, ma
   lì la regola ha tre bande di gravità e allinearla in un verso o nell'altro è
   una decisione di prodotto, non una correzione.
+
+---
+
+## I dieci che restavano, chiusi la mattina del 15
+
+*Scritti come aperti poche ore prima, e chiusi nella stessa giornata. Vale la
+pena tenere le due sezioni una dietro l'altra: la prima dice cosa si sapeva e non
+si sapeva risolvere, questa dice come si è risolto — e in due casi la soluzione
+ovvia era sbagliata.*
+
+### I quattro della sincronizzazione
+
+**Un campo svuotato tornava indietro, e la soluzione ovvia rompeva un'altra
+cosa.** `takeIfEmpty` riempie i buchi del vincitore con i dati del perdente. Il
+primo tentativo è stato il più semplice: *fra due dispositivi non si riempie
+niente, perché il vincitore ha scritto per ultimo.* Ha fatto diventare rosse tre
+prove esistenti, e avevano ragione loro: **«due lati che toccano campi DIVERSI
+non si cancellano a vicenda»** è il caso per cui quella riga esiste — la nota
+scritta sul Mac e il compagno scritto sull'iPhone devono sopravvivere tutti e
+due.
+
+*Il problema vero non era la regola: erano due vuoti che si somigliano.* Un campo
+mai scritto e un campo tolto sono `undefined` allo stesso modo, e da dentro la
+fusione non si distinguono. Quindi la distinzione si scrive **dove il gesto
+accade**: `Dive.svuotatiIl` porta il nome del campo e la data, lo scrive la
+scheda di modifica quando un campo passa da pieno a vuoto, e sparisce da sé
+quando quel campo torna pieno. La fusione non ripesca un campo che risulta tolto
+di proposito, e continua a completare tutti gli altri.
+
+> **E l'elenco dei campi non è a sentimento.** `CAMPI_MISURATI` e
+> `CAMPI_SCRITTI_A_MANO` dividono per **chi scrive il campo**: una macchina non
+> cancella niente, una persona sì. Il confine è verificabile —
+> `svuotareSiPropaga.test.ts` legge da `ModificaImmersione.tsx` quali campi il
+> modulo di modifica scrive davvero, e pretende che stiano tutti dalla parte
+> giusta. Il giorno che se ne aggiunge uno, quella prova diventa rossa col nome
+> dentro.
+
+**Un'etichetta tolta tornava indietro.** L'unione dei `tags` è additiva, ed è
+giusta fra due letture della stessa immersione. Fra due dispositivi toglieva
+l'unica cosa che conta — la possibilità di togliere un'etichetta — e ricreava
+proprio lo stato che `ModificaImmersione.salva()` esiste per impedire:
+`pioggia` accanto a `conditions.weather = 'rain'`, *«e nessuno saprebbe quale
+delle due l'app usa per contare»*. Adesso, fra dispositivi, l'elenco del
+vincitore è l'elenco.
+
+**Attrezzatura, brevetti e piani cancellati risorgevano.** La fusione per chiave
+non ha nessuna nozione di cancellazione. La soluzione non aggiunge niente alla
+sincronizzazione: *la cancellazione è già una scrittura come le altre.* La voce
+resta dov'è con una data di cancellazione e una data di salvataggio fresca, e
+vince per data come vincerebbe una modifica — zero righe nuove nel giro di rete,
+zero chiavi nuove nell'archivio. **L'interfaccia le lapidi non le vede mai**:
+filtrare in un posto solo, all'uscita dallo stato, è l'unico modo di essere
+sicuri che nessuna delle decine di schermate che leggono l'attrezzatura se ne
+dimentichi. *Il prezzo è dichiarato:* quelle raccolte non si accorciano più, e
+potarle vorrebbe dire far risorgere quello che si è potato sul dispositivo
+rimasto spento più a lungo.
+
+**Il remoto dichiarava un profilo che non aveva.** `sample_count` veniva scritto
+sul riepilogo — tutti i riepiloghi salgono prima — con il conteggio del profilo
+locale, che sarebbe salito molto dopo. Una caduta di rete in mezzo, e quella
+riga restava per sempre: il piano confrontava i due conteggi, li trovava uguali,
+e **non ricaricava mai più quel profilo**. Adesso si scrive quello che il remoto
+ha davvero adesso, e lo alza il caricamento del profilo quando il profilo è
+arrivato. *Un numero che promette una cosa che sta per succedere è una bugia
+finché non succede, e se non succede resta una bugia.*
+
+### Gli altri sei
+
+- **Il solo secondo profilo non saliva mai**: un `continue` in testa al ciclo
+  saltava anche `altSamples`, e il piano lo richiedeva a ogni giro senza che
+  niente lo segnalasse.
+- **`syncArchive` non convergeva da solo**: la normalizzazione si applicava a ciò
+  che scende e mai a ciò che sale, e due dispositivi con versioni diverse si
+  rispingevano la stessa immersione per sempre — sei giri misurati, sei
+  identici. *Una funzione che converge solo se qualcun altro fa la sua parte non
+  converge*, e quell'altra parte girava all'avvio dentro un `.catch`.
+- **La guardia dei segnalibri controllava la chiave e non il valore**: la
+  superava qualunque oggetto non vuoto, e il guasto che proteggeva si manifesta
+  come **lentezza** — rileggere l'intera memoria del computer via BLE — non come
+  errore.
+- **Centoventi punti di grafico si aprivano solo col mouse**, e sotto c'era
+  scritto di cliccarli. Adesso hanno lo stesso cursore da tastiera del profilo di
+  profondità, frecce e Invio, con l'annuncio di quale immersione si aprirebbe. *E
+  la prova ha trovato un difetto che nessuno aveva segnalato:* nel grafico
+  dell'andamento l'identificativo dell'immersione viaggiava sotto due nomi
+  diversi, quindi **cliccare un punto non apriva niente nemmeno col mouse**,
+  mentre la frase sotto prometteva che sì.
+- **In «Confronta» la colonna «Differenza» diceva il verdetto solo col colore** —
+  due colori che in bianco e nero stanno a 1,15:1 — e il segno da solo non dice
+  da che parte sta il meglio. Adesso c'è la parola, e non c'è dove un verso
+  migliore non esiste.
+- **La soglia delle risalite era doppia**: il piano chiamava «buono» sotto il 2%,
+  Statistiche «nei limiti» sotto il 10% — che è anche il numero che
+  l'applicazione mostra accanto al criterio. Adesso la soglia è una sola, ed è
+  quella dichiarata; la differenza fra «sotto controllo» e «dentro il limite»
+  sta nelle parole, non nel giudizio.
+
+**2 494 prove in 146 file**, più 132 prove Rust. Tipi, formato e lint a zero.
 
 ---
 

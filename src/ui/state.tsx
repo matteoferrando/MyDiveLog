@@ -76,6 +76,7 @@ export interface DecoAnalysisInput {
 }
 import { exportUddf, type UddfExportResult } from '../core/export/uddf';
 import { migrateGear, type GearArchive } from '../core/analysis/gear';
+import { conLapidi, soloVive } from '@core/lapidiPerChiave';
 import type { Subacqueo } from '../core/libretto';
 
 export interface ImportOutcome {
@@ -1182,7 +1183,13 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
 
   const deleteNamedDecoPlan = useCallback(
     async (name: string) => {
-      const next = decoPlans.filter((p) => p.name !== name);
+      // Lapide, non filtro: vedi `core/lapidiPerChiave.ts`. Un piano tolto e
+      // basta tornava dal primo dispositivo che non sapeva della cancellazione.
+      const next = conLapidi(
+        decoPlans,
+        soloVive(decoPlans).filter((p) => p.name !== name),
+        (p) => p.name,
+      );
       setDecoPlans(next);
       await store?.setSetting('decoPlans', next);
       await store?.setSetting('decoPlans:at', new Date().toISOString());
@@ -1335,6 +1342,22 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     [store, syncCredentials, traduci],
   );
 
+  /*
+   * ► L'INTERFACCIA NON VEDE LE LAPIDI. ◄ Lo stato tiene l'elenco vero —
+   * cancellazioni comprese, perché è quello che va sincronizzato — e da qui in
+   * giù passa solo ciò che è vivo. Filtrare qui invece che nelle decine di punti
+   * che leggono l'attrezzatura non è una comodità: è l'unico modo di essere
+   * sicuri che nessuno se ne dimentichi e mostri una voce cancellata.
+   */
+  const gearVive = useMemo<GearArchive>(
+    () => ({
+      equipment: soloVive(gear.equipment),
+      certifications: soloVive(gear.certifications),
+    }),
+    [gear],
+  );
+  const decoPlansVivi = useMemo(() => soloVive(decoPlans), [decoPlans]);
+
   const saveGear = useCallback(
     async (archive: GearArchive) => {
       // Ogni pezzo porta il proprio timbro, non solo la lista.
@@ -1352,9 +1375,21 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
             old && JSON.stringify({ ...old, savedAt: null }) === JSON.stringify({ ...item, savedAt: null });
           return unchanged ? old : { ...item, savedAt: now };
         });
+      /*
+       * ► QUELLO CHE NON C'È PIÙ NON SPARISCE: PRENDE UNA LAPIDE. ◄ Senza,
+       * cancellare una muta o un brevetto durava fino alla sincronizzazione
+       * successiva — la fusione per chiave non ha nessuna nozione di
+       * cancellazione, e riaggiungeva la voce dalla copia dell'altro
+       * dispositivo. Il perché per esteso sta in `core/lapidiPerChiave.ts`.
+       */
       const stamped: GearArchive = {
-        equipment: stamp(archive.equipment, gear.equipment),
-        certifications: stamp(archive.certifications, gear.certifications),
+        equipment: conLapidi(gear.equipment, stamp(archive.equipment, gearVive.equipment), (g) => g.id, now),
+        certifications: conLapidi(
+          gear.certifications,
+          stamp(archive.certifications, gearVive.certifications),
+          (c) => c.id,
+          now,
+        ),
       };
       setGearState(stamped);
       if (store) {
@@ -1362,7 +1397,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         await store.setSetting('gear:at', now);
       }
     },
-    [store, gear],
+    [store, gear, gearVive],
   );
 
   /**
@@ -1666,12 +1701,12 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     gasInput,
     decoInput,
     saveDecoInput,
-    decoPlans,
+    decoPlans: decoPlansVivi,
     saveNamedDecoPlan,
     deleteNamedDecoPlan,
     saveGasInput,
     secretPlace,
-    gear,
+    gear: gearVive,
     subacqueo,
     saveSubacqueo,
     saveGear,

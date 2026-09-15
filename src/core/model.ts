@@ -387,6 +387,29 @@ export interface Dive {
    * arriva da remoto, altrimenti ogni sincronizzazione sembrerebbe una modifica.
    */
   updatedAt?: string;
+
+  /**
+   * I campi che qualcuno ha SVUOTATO, e quando.
+   *
+   * ► SERVE A DISTINGUERE DUE VUOTI CHE ALTRIMENTI SONO IDENTICI. ◄ In
+   * sincronizzazione due dispositivi portano la stessa scheda, e la fusione
+   * riempie i buchi del vincitore con i dati del perdente: è quello che permette
+   * a chi scrive la nota sul Mac e il compagno sull'iPhone di non cancellarsi a
+   * vicenda. Ma un campo che una persona ha **tolto** è vuoto esattamente come
+   * uno che non c'è mai stato, e quella regola lo rimetteva — dalla copia
+   * dell'altro, e poi su tutti i dispositivi. *Togliere una nota sbagliata, con
+   * la sincronizzazione accesa, era impossibile.*
+   *
+   * Qui c'è la sola cosa che i due vuoti non hanno in comune: il gesto, con la
+   * sua data. Si scrive quando un campo passa da pieno a vuoto nella scheda di
+   * modifica, e si toglie quando quel campo torna pieno. `mergeDive` non
+   * ripesca un campo che risulta svuotato di proposito.
+   *
+   * *Non è un registro di tutte le modifiche* — quello costerebbe una data per
+   * campo su ogni immersione, per un caso che riguarda solo i campi scritti a
+   * mano e solo quando vengono tolti.
+   */
+  svuotatiIl?: Record<string, string>;
   /** Numero progressivo dal computer/logbook sorgente. */
   number?: number;
   /** ISO 8601 con offset. Inizio immersione. */

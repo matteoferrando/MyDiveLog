@@ -40,6 +40,9 @@ import {
 // direbbe un numero diverso da quello stampato accanto al grafico.
 import { correlation } from '../../core/analysis/aggregate';
 import { localeCorrente } from '../../core/locale';
+// `frase()` e non un letterale interpolato: la chiave del dizionario è la frase
+// intera, e una chiave che contiene un'etichetta variabile non c'è mai.
+import { frase } from '../../core/frase';
 import { useLingua } from '../lingua';
 import { imm, plural, type Traduci } from '../format';
 
@@ -335,6 +338,175 @@ export function AnnuncioCursore({ testo }: { testo: string }) {
  */
 export const contornoFuoco = (attivo: boolean): CSSProperties =>
   attivo ? { outline: '2px solid var(--series-1)', outlineOffset: 2 } : {};
+
+// ---------------------------------------------------------------------------
+// Cursore da tastiera sui punti che aprono un'immersione
+// ---------------------------------------------------------------------------
+
+/**
+ * ► CENTOVENTI PUNTI CHE SI APRIVANO SOLO COL MOUSE, CON L'ISTRUZIONE CHE LO DICEVA. ◄
+ *
+ * I punti della serie temporale e quelli della dispersione portano dentro
+ * un'immersione: `onClick` sul cerchio, `cursor: pointer`, e nient'altro. Nessun
+ * `tabIndex`, nessun `role`, nessun `onKeyDown` — e il cerchio stava per giunta
+ * dentro un `role="img"` con `aria-hidden` sopra, cioè nascosto anche a chi
+ * legge invece di guardare. Contati a schermo: quattordici grafici, centoventi
+ * cerchi con la manina, ZERO elementi raggiungibili col tabulatore. Intanto
+ * sotto ai grafici c'era scritto «Ogni punto è un'immersione: cliccala per
+ * aprirla».
+ *
+ * Non era un vicolo cieco — le stesse immersioni si aprono dall'elenco — ma una
+ * promessa che dalla tastiera non si poteva mantenere, e **il difetto è la
+ * promessa, non il mouse**: o si toglie la frase, o si fa quello che dice.
+ *
+ * ► PERCHÉ UN CURSORE SOLO E NON CENTOVENTI TAPPE. ◄ Un `tabIndex={0}` su ogni
+ * punto sarebbe la traduzione letterale del «clicca», e infilerebbe centoventi
+ * tappe nell'ordine di tabulazione di UNA pagina: per arrivare al piè di pagina
+ * si preme Tab centoventi volte, e un accesso che costa centoventi pressioni non
+ * è un accesso. Un cursore unico guidato dalle frecce costa una tappa per
+ * grafico, ed è lo STESSO meccanismo che il profilo di profondità ha già
+ * (`DepthProfile`): stessi tasti, stesso `AnnuncioCursore`, stesso
+ * `contornoFuoco`. Chi ha imparato a leggere un profilo sa già leggere una nuvola.
+ *
+ * ► COSA TORNEREBBE A SUCCEDERE SENZA QUESTO GANCIO. ◄ Un grafico nuovo con
+ * `onPick` e senza cursore ridiventa cliccabile e basta, e la frase sotto
+ * ricomincia a mentire. Per questo il gancio sta qui e non dentro i due
+ * componenti: aggiungerlo è una riga, e chi copia un grafico copia anche quella.
+ */
+export interface CursoreDiScelta<T> {
+  /** C'è davvero qualcosa da scegliere. Senza, niente tappa nella tabulazione. */
+  attivo: boolean;
+  /** Il punto sotto il cursore, `null` finché non se ne sceglie uno. */
+  punto: T | null;
+  /** Questo grafico ha il fuoco: decide CHI annuncia — vedi `AnnuncioCursore`. */
+  fuoco: boolean;
+  /** Da spargere sull'`<svg>`: tabulazione, tasti, fuoco. */
+  svg: {
+    tabIndex?: number;
+    onKeyDown: (evt: React.KeyboardEvent<SVGSVGElement>) => void;
+    onFocus: () => void;
+    onBlur: () => void;
+  };
+}
+
+/**
+ * @param punti  i punti NELL'ORDINE in cui le frecce devono attraversarli.
+ * @param apre   l'immersione che quel punto apre; `undefined` se non apre niente.
+ * @param onPick chi la apre. Senza, il grafico resta un disegno e non si tabula.
+ */
+export function useCursoreDiScelta<T>(
+  punti: T[],
+  apre: (p: T) => string | undefined,
+  onPick?: (id: string) => void,
+): CursoreDiScelta<T> {
+  const [indice, setIndice] = useState(-1);
+  // Il fuoco è in uno stato e non serve a disegnare un bordo: serve a decidere
+  // CHI annuncia. In una pagina di statistiche i grafici con il cursore sono
+  // nove, e se ognuno tenesse una regione viva sempre presente una freccia
+  // premuta produrrebbe nove annunci identici.
+  const [fuoco, setFuoco] = useState(false);
+
+  const attivo = onPick !== undefined && punti.length > 0;
+  /*
+   * L'indice si tiene nei limiti QUI, al disegno, e non con un effetto.
+   *
+   * I punti cambiano sotto ai piedi del cursore ogni volta che si cambia
+   * periodo o serie dal menù «Andamento di»: da quaranta punti si passa a sei e
+   * l'indice 30 resta dov'era. Con un effetto che lo corregge DOPO il render, in
+   * mezzo ci sarebbe un fotogramma con `punti[30] === undefined`, cioè una
+   * lettura di `.at` su `undefined` e la pagina bianca.
+   */
+  const corrente = attivo && indice >= 0 && indice < punti.length ? indice : -1;
+  const punto = corrente >= 0 ? punti[corrente] : null;
+
+  const onKeyDown = (evt: React.KeyboardEvent<SVGSVGElement>) => {
+    if (!attivo) return;
+    const ultimo = punti.length - 1;
+
+    // Invio E barra spaziatrice: su un elemento che si attiva sono la stessa
+    // cosa, e chi naviga da tastiera prova l'una o l'altra senza pensarci.
+    if (evt.key === 'Enter' || evt.key === ' ') {
+      const id = punto ? apre(punto) : undefined;
+      if (id === undefined) return;
+      // Senza questo la barra spaziatrice scorre la pagina MENTRE apre
+      // l'immersione, e la scheda si apre già scrollata a metà.
+      evt.preventDefault();
+      onPick?.(id);
+      return;
+    }
+
+    /*
+     * Il primo tasto premuto porta a un estremo, non al punto più interessante.
+     *
+     * Il profilo di profondità parte dal punto più profondo perché lì un punto
+     * «che si va a cercare» esiste. Qui no: su una nuvola di consumo contro
+     * profondità il punto notevole è quello lontano dalla retta, e su una serie
+     * temporale è l'ultimo oppure il picco, a seconda di cosa si sta guardando.
+     * Inventarne uno vorrebbe dire far partire il cursore da un posto che chi
+     * ascolta non può prevedere. Destra parte dal primo, sinistra dall'ultimo:
+     * il tasto dice il verso, e il verso dice dove si comincia.
+     */
+    let prossimo: number | null = null;
+    // Maiusc salta un decimo della serie: su trecento immersioni attraversarla
+    // un punto alla volta sono trecento pressioni, ed è di nuovo il costo che
+    // rende finto l'accesso.
+    const passo = evt.shiftKey ? Math.max(1, Math.round(punti.length / 10)) : 1;
+    if (evt.key === 'ArrowRight') prossimo = corrente < 0 ? 0 : corrente + passo;
+    else if (evt.key === 'ArrowLeft') prossimo = corrente < 0 ? ultimo : corrente - passo;
+    else if (evt.key === 'Home') prossimo = 0;
+    else if (evt.key === 'End') prossimo = ultimo;
+    else if (evt.key === 'Escape') {
+      setIndice(-1);
+      return;
+    } else return;
+    evt.preventDefault(); // altrimenti le frecce scorrono la pagina sotto il grafico
+    setIndice(Math.min(ultimo, Math.max(0, prossimo)));
+  };
+
+  return {
+    attivo,
+    punto,
+    fuoco,
+    svg: {
+      // Raggiungibile col tabulatore SOLO quando c'è qualcosa da aprire: una
+      // tappa che non porta a nessuna azione è un ostacolo, non un servizio.
+      tabIndex: attivo ? 0 : undefined,
+      onKeyDown,
+      onFocus: () => setFuoco(true),
+      onBlur: () => {
+        setFuoco(false);
+        // Un anello di scelta su un grafico che nessuno sta guidando si legge
+        // come una selezione che invece non c'è più.
+        setIndice(-1);
+      },
+    },
+  };
+}
+
+/**
+ * Il punto raggiunto dal cursore, detto come lo dice il riquadro del mouse.
+ *
+ * L'etichetta la compone chi disegna, con le STESSE righe che finiscono nel
+ * riquadro: se le due divergessero, chi ascolta e chi guarda leggerebbero due
+ * grafici diversi. Qui si aggiunge solo la cosa che al riquadro non serve e alla
+ * voce sì — che cosa succede premendo Invio.
+ */
+export function annuncioDelPunto(etichetta: string, t: Traduci = comeSta): string {
+  return frase(t, '{0}. Invio per aprire l’immersione.', etichetta);
+}
+
+/**
+ * Il nome accessibile del grafico mentre il cursore è fermo su un punto.
+ *
+ * Il nome da solo — «Dispersione: consumo in funzione di profondità» — non dice
+ * QUALE immersione si aprirebbe premendo Invio, e il grafico adesso è una cosa
+ * che si attiva. Serve perché la regione viva dell'annuncio non si rilegge da
+ * sola: chi torna sul grafico col tabulatore, o chi chiede allo screen reader
+ * «dove sono», deve risentire su che punto era rimasto.
+ */
+export function nomeColPunto(nome: string, etichetta: string | null, t: Traduci = comeSta): string {
+  return etichetta === null ? nome : `${nome} — ${annuncioDelPunto(etichetta, t)}`;
+}
 
 // ---------------------------------------------------------------------------
 // Riassunti: che cosa dice il disegno, in una frase
@@ -995,6 +1167,14 @@ export function BarChart({
 export interface TimePoint {
   at: number;
   value: number;
+  /**
+   * L'immersione che il punto apre. Opzionale perché ci sono serie che non
+   * aprono niente — ma **è questo campo, e solo questo, a rendere il punto
+   * apribile**: senza, `onPick` viene passato, il cursore diventa una manina, il
+   * riquadro compare, e il clic non fa niente. È successo per mesi sul grafico
+   * dell'andamento, perché chi chiamava passava punti che chiamavano lo stesso
+   * dato `diveId`. Chi passa `onPick` deve riempire anche questo.
+   */
   id?: string;
 }
 
@@ -1026,6 +1206,9 @@ export function TimeSeriesChart({
   // cambierebbe il conteggio facendo cadere il componente. È lo stesso incidente
   // documentato in `DepthProfile`, e questo è il punto in cui si ripeterebbe.
   const uid = useId();
+  // Il gancio PRIMA del return anticipato qui sotto, per la stessa ragione di
+  // `useId`: è un hook, e un hook saltato in un render cambia il conteggio.
+  const cursore = useCursoreDiScelta(points, (p) => p.id, onPick);
 
   if (points.length === 0) {
     return (
@@ -1062,16 +1245,33 @@ export function TimeSeriesChart({
   const showDots = points.length <= 24;
 
   const nome = titolo ?? `${t('Andamento nel tempo')} — ${unit}`;
-  const descrizione = riassuntoSerie(
-    points,
-    {
-      unita: unit,
-      formato: format,
-      riferimento: reference,
-      etichettaRiferimento: referenceLabel,
-    },
-    t,
-  );
+  /* Un punto si dice con le STESSE righe del riquadro del mouse — data e
+     valore — perché una voce e un riquadro che descrivono diversamente lo stesso
+     pallino sono due grafici, non uno. */
+  const etichettaPunto = (p: TimePoint) =>
+    `${new Date(p.at).toLocaleDateString(localeCorrente(), {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })}, ${format(p.value)} ${unit}`;
+  const nomeAccessibile = nomeColPunto(nome, cursore.punto ? etichettaPunto(cursore.punto) : null, t);
+  const descrizione =
+    riassuntoSerie(
+      points,
+      {
+        unita: unit,
+        formato: format,
+        riferimento: reference,
+        etichettaRiferimento: referenceLabel,
+      },
+      t,
+    ) +
+    // L'istruzione sta nella descrizione, che è l'unica cosa che lo screen
+    // reader legge arrivando sul grafico: una funzione di cui nessuno viene
+    // informato è, per chi non vede lo schermo, una funzione che non c'è.
+    (cursore.attivo
+      ? ' ' + t('Frecce per scegliere un punto, Inizio e Fine agli estremi, Invio per aprire l’immersione.')
+      : '');
   const periodi = aggregaPerPeriodo(points);
 
   return (
@@ -1081,10 +1281,12 @@ export function TimeSeriesChart({
         height={height}
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label={nome}
+        aria-label={nomeAccessibile}
         aria-describedby={`${uid}-desc`}
+        {...cursore.svg}
+        style={contornoFuoco(cursore.fuoco)}
       >
-        <title>{nome}</title>
+        <title>{nomeAccessibile}</title>
         <desc id={`${uid}-desc`}>{descrizione}</desc>
         {/* `tacca` e non `t`: il nome `t` è preso dalla funzione che traduce. */}
         {ticks.map((tacca) => (
@@ -1167,6 +1369,21 @@ export function TimeSeriesChart({
           </g>
         ))}
 
+        {/* Il punto scelto col cursore da tastiera. Il contorno del fuoco dice
+            QUALE grafico si sta guidando, questo anello dice QUALE punto: senza,
+            chi naviga da tastiera e ci vede benissimo premerebbe Invio alla cieca. */}
+        {cursore.punto && (
+          <circle
+            aria-hidden="true"
+            cx={px(cursore.punto.at)}
+            cy={py(cursore.punto.value)}
+            r={8}
+            fill="none"
+            stroke="var(--series-2)"
+            strokeWidth={2.5}
+          />
+        )}
+
         {/* Etichetta diretta solo sull'ultimo punto, con la sua marca. */}
         <g aria-hidden="true">
           <circle
@@ -1212,6 +1429,16 @@ export function TimeSeriesChart({
         intestazioni={[t('Periodo'), t('Rilevazioni'), `${t('Mediana')} (${unit})`]}
         righe={periodi.map((p) => [p.periodo, p.conteggio, format(p.mediana)])}
       />
+      {/* Solo il grafico che ha il fuoco annuncia: vedi `useCursoreDiScelta`. */}
+      {cursore.fuoco && (
+        <AnnuncioCursore
+          testo={
+            cursore.punto
+              ? annuncioDelPunto(etichettaPunto(cursore.punto), t)
+              : t('Cursore non posizionato: usa le frecce.')
+          }
+        />
+      )}
       <Tooltip state={tip} containerWidth={width} />
     </div>
   );
@@ -1318,8 +1545,9 @@ const INTESTAZIONI_QUARTILI = ['Misura', 'Minimo', 'Primo quartile', 'Mediana', 
  *
  * È l'unico modo onesto di mostrare una relazione fra due misure: una media non
  * la mostra, e una curva che le sovrappone su due assi Y la suggerisce senza
- * mostrarla. Ogni punto è un'immersione e si può cliccare per aprirla — un valore
- * strano deve portare al dato, non restare un puntino.
+ * mostrarla. Ogni punto è un'immersione e si apre — col clic, oppure scegliendolo
+ * con le frecce e premendo Invio — perché un valore strano deve portare al dato,
+ * non restare un puntino. Il come sta su `useCursoreDiScelta`.
  */
 export function ScatterChart({
   points,
@@ -1346,6 +1574,15 @@ export function ScatterChart({
   const { tip, perElemento } = useTooltip();
   const { t } = useLingua();
   const uid = useId();
+  /* I punti in ordine di ascissa, che è l'ordine in cui le frecce devono
+     attraversarli: nell'array arrivano in ordine di immersione, cioè sparsi sul
+     disegno, e un cursore che salta avanti e indietro sulla nuvola non è un
+     cursore. Copia e non ordinamento sul posto: `points` è del chiamante, e
+     riordinargli l'array cambierebbe anche il disegno e la retta di tendenza. */
+  const perAsse = [...points].sort((a, b) => a.x - b.x);
+  // Il gancio PRIMA del return anticipato: è un hook, e un hook saltato in un
+  // render cambia il conteggio che React tiene.
+  const cursore = useCursoreDiScelta(perAsse, (p) => p.diveId, onPick);
 
   if (points.length < 3) {
     return (
@@ -1394,7 +1631,19 @@ export function ScatterChart({
   }
 
   const nome = titolo ?? `${t('Dispersione')}: ${yLabel} ${t('in funzione di')} ${xLabel}`;
-  const descrizione = riassuntoDispersione(points, { xLabel, yLabel, xFormat, yFormat }, t);
+  /* Le stesse tre righe del riquadro del mouse: il nome dell'immersione e le due
+     misure. Se divergessero, chi ascolta e chi guarda starebbero leggendo due
+     grafici diversi sullo stesso pallino. */
+  const etichettaPunto = (p: (typeof points)[number]) =>
+    `${p.label}, ${xLabel} ${xFormat(p.x)}, ${yLabel} ${yFormat(p.y)}`;
+  const nomeAccessibile = nomeColPunto(nome, cursore.punto ? etichettaPunto(cursore.punto) : null, t);
+  const descrizione =
+    riassuntoDispersione(points, { xLabel, yLabel, xFormat, yFormat }, t) +
+    // L'istruzione nella descrizione e non in una nota accanto: è l'unica cosa
+    // che lo screen reader legge quando arriva sul grafico.
+    (cursore.attivo
+      ? ' ' + t('Frecce per scegliere un punto, Inizio e Fine agli estremi, Invio per aprire l’immersione.')
+      : '');
   const qx = quartili(points.map((p) => p.x))!;
   const qy = quartili(points.map((p) => p.y))!;
 
@@ -1405,11 +1654,12 @@ export function ScatterChart({
         height={height}
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label={nome}
+        aria-label={nomeAccessibile}
         aria-describedby={`${uid}-desc`}
-        style={{ display: 'block' }}
+        {...cursore.svg}
+        style={{ display: 'block', ...contornoFuoco(cursore.fuoco) }}
       >
-        <title>{nome}</title>
+        <title>{nomeAccessibile}</title>
         <desc id={`${uid}-desc`}>{descrizione}</desc>
         {/* `tacca` e non `t`: il nome `t` è preso dalla funzione che traduce. */}
         {yTicks.map((tacca) => (
@@ -1476,6 +1726,21 @@ export function ScatterChart({
           />
         ))}
 
+        {/* Il punto scelto dalle frecce. Su una nuvola serve più che altrove: i
+            pallini sono tutti uguali e vicini, e senza anello chi guarda non ha
+            modo di sapere quale immersione aprirebbe premendo Invio. */}
+        {cursore.punto && (
+          <circle
+            aria-hidden="true"
+            cx={px(cursore.punto.x)}
+            cy={py(cursore.punto.y)}
+            r={7}
+            fill="none"
+            stroke="var(--series-2)"
+            strokeWidth={2.5}
+          />
+        )}
+
         <g aria-hidden="true">
           <line
             x1={pad.left}
@@ -1504,6 +1769,17 @@ export function ScatterChart({
           [yLabel, yFormat(qy.min), yFormat(qy.q1), yFormat(qy.mediana), yFormat(qy.q3), yFormat(qy.max)],
         ]}
       />
+      {/* Solo il grafico che ha il fuoco annuncia: in «Cosa dipende da cosa» le
+          nuvole sono sei affiancate. */}
+      {cursore.fuoco && (
+        <AnnuncioCursore
+          testo={
+            cursore.punto
+              ? annuncioDelPunto(etichettaPunto(cursore.punto), t)
+              : t('Cursore non posizionato: usa le frecce.')
+          }
+        />
+      )}
       <Tooltip state={tip} containerWidth={width} />
     </div>
   );

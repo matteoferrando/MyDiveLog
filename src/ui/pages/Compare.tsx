@@ -357,6 +357,42 @@ function ComparisonTable({ left, right, onOpen }: { left: Dive; right: Dive; onO
                 : row.lower
                   ? delta < 0
                   : delta > 0;
+            /*
+             * ► IL VERDETTO LO DICEVA SOLO IL COLORE. ◄
+             *
+             * La cella stampava il numero col segno e lo tingeva di verde o di
+             * ocra, e basta. **Il segno da solo non dice se è un miglioramento**,
+             * perché il verso lo decide `row.lower`: su «Consumo di superficie»
+             * meno è meglio, su «Sosta di sicurezza» è più, e su «Profondità
+             * massima» il meglio non esiste. Lo stesso «+3.0» è quindi un
+             * progresso, un peggioramento o niente a seconda della riga, e
+             * l'unica cosa che le distingueva era la tinta.
+             *
+             * Misurato: nel tema chiaro `--good-text #006300` e `--warning-text
+             * #845206` stanno a 1.15:1 di luminanza. In bianco e nero, con un
+             * daltonismo rosso-verde o con lo schermo al sole sono lo stesso
+             * colore — e la colonna torna a essere un numero col segno, cioè il
+             * dato grezzo senza il giudizio che la scheda promette.
+             *
+             * `format.ts` dichiara la regola del progetto — *accanto al pallino
+             * c'è sempre l'etichetta testuale* — e Statistiche la rispetta da
+             * sempre con le sue pastiglie. Qui la rispetta da adesso: la parola
+             * sotto il numero, nello stesso colore, come canale ridondante e non
+             * alternativo.
+             *
+             * ► DOVE LA PAROLA NON C'È, ED È VOLUTO. ◄ Con `row.lower === null`
+             * un verso migliore non esiste: scriverci «meglio» o «peggio»
+             * sarebbe inventare un giudizio, che è peggio di non darne nessuno.
+             * Lì resta il numero, grigio, come prima.
+             */
+            const verdetto =
+              delta === undefined || row.lower === null
+                ? undefined
+                : Math.abs(delta) < 0.05
+                  ? t('uguale')
+                  : better
+                    ? t('meglio')
+                    : t('peggio');
             return (
               <tr key={row.label}>
                 <td>{t(row.label)}</td>
@@ -377,6 +413,14 @@ function ComparisonTable({ left, right, onOpen }: { left: Dive; right: Dive; onO
                   {delta === undefined
                     ? t('non confrontabile')
                     : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}${row.unit ? ` ${row.unit}` : ''}`}
+                  {/* In blocco e non di fianco: la colonna è incolonnata sulle
+                      cifre (`num tabular`), e una parola sulla stessa riga
+                      sposterebbe i numeri di tre larghezze diverse a seconda del
+                      verdetto, disallineando l'unica colonna che si legge in
+                      verticale. */}
+                  {verdetto !== undefined && (
+                    <span style={{ display: 'block', fontSize: 11, fontWeight: 550 }}>{verdetto}</span>
+                  )}
                 </td>
               </tr>
             );

@@ -273,8 +273,21 @@ export const INGLESE: Record<string, string> = {
   'calcolato dal profilo': 'computed from the profile',
   'cambiati nel periodo': 'changed during the period',
   'Caso peggiore': 'Worst case',
-  'Clicca un punto per aprire l’immersione.': 'Click a point to open the dive.',
-  'Clicca una bolla per aprire un’immersione fatta lì.': 'Click a bubble to open a dive done there.',
+  // Le tre istruzioni dicevano solo «clicca», e da tastiera non si poteva fare
+  // niente: adesso il cursore con le frecce c'è, e la frase lo dice. Le vecchie
+  // chiavi — senza la parte da tastiera — sono state tolte perché nessuno le
+  // interroga più, e una voce che nessuno interroga diventa una traduzione da
+  // aggiornare per sempre.
+  'Clicca un punto per aprire l’immersione. Da tastiera: Tab sul grafico, frecce per scegliere, Invio per aprire.':
+    'Click a point to open the dive. By keyboard: Tab to the chart, arrows to pick, Enter to open.',
+  'Clicca una bolla per aprire un’immersione fatta lì. Da tastiera: Tab sulla mappa, frecce per scegliere il sito, Invio per aprire.':
+    'Click a bubble to open a dive done there. By keyboard: Tab to the map, arrows to pick the site, Enter to open.',
+  'Disposizione dei siti di immersione': 'How the dive sites sit',
+  'Frecce per scegliere un sito, Inizio e Fine agli estremi, Invio per aprire un’immersione fatta lì.':
+    'Arrows pick a site, Home and End for the ends, Enter opens a dive done there.',
+  '{0} siti con coordinate, {1} in tutto. Il più frequentato è {2}.':
+    '{0} sites with coordinates, {1} in all. The most visited is {2}.',
+  '{0}. Invio per aprire un’immersione fatta lì.': '{0}. Press Enter to open a dive done there.',
   'Come ti immergi, di solito': 'How you usually dive',
   'cominciate con azoto ancora in circolo': 'started with nitrogen still on board',
   'Composizione dell’archivio': 'What is in the logbook',
@@ -349,8 +362,8 @@ export const INGLESE: Record<string, string> = {
   'non indicata': 'not given',
   'Non è una mappa: sotto non c’è cartografia. È la disposizione dei siti, con la bolla grande quanto le immersioni fatte lì.':
     'Not a map: there is no cartography under it. It is how the sites sit relative to each other, bubble size by dives there.',
-  'Ogni punto è un’immersione: cliccala per aprirla. La retta è la tendenza, r è la correlazione — 0 nessuna, ±1 perfetta. È una correlazione, non una causa.':
-    'Each point is a dive: click to open it. The line is the trend, r is the correlation — 0 none, ±1 perfect. A correlation, not a cause.',
+  'Ogni punto è un’immersione: cliccala per aprirla, o scegli il punto con le frecce e premi Invio. La retta è la tendenza, r è la correlazione — 0 nessuna, ±1 perfetta. È una correlazione, non una causa.':
+    'Each point is a dive: click to open it, or pick it with the arrow keys and press Enter. The line is the trend, r is the correlation — 0 none, ±1 perfect. A correlation, not a cause.',
   'oltre i 20 m': 'deeper than 20 m',
   'Oltre i 30 m': 'Deeper than 30 m',
   'Oltre i 40 m': 'Deeper than 40 m',
@@ -407,6 +420,13 @@ export const INGLESE: Record<string, string> = {
     'Two profiles on one chart, and the same numbers side by side.',
   'I due profili': 'The two profiles',
   'Le differenze': 'The differences',
+  // Il verdetto della colonna «Differenza», a parole sotto al numero: il colore
+  // da solo non porta mai il significato, e il segno nemmeno — il verso lo
+  // decide la misura. Stessa regola delle pastiglie di Statistiche, vedi
+  // `SEVERITY_TEXT` in `format.ts`.
+  meglio: 'better',
+  peggio: 'worse',
+  uguale: 'same',
   Misura: 'Measure',
   'Nessuna delle due ha un profilo campionato.': 'Neither has a recorded profile.',
   'Nessuno dei due è riscalato: se una dura meno, si vede.':
@@ -1150,6 +1170,9 @@ export const INGLESE: Record<string, string> = {
   'Frecce per muovere il cursore, Maiusc per saltare di un minuto, Inizio e Fine agli estremi.':
     'Arrows move the cursor, Shift jumps a minute, Home and End to the ends.',
   'Frecce per muovere il cursore.': 'Arrows move the cursor.',
+  'Frecce per scegliere un punto, Inizio e Fine agli estremi, Invio per aprire l’immersione.':
+    'Arrows pick a point, Home and End for the ends, Enter opens the dive.',
+  '{0}. Invio per aprire l’immersione.': '{0}. Press Enter to open the dive.',
   'il più profondo': 'deepest',
   'Immersione senza profilo campionato.': 'Dive with no sampled profile.',
   in: 'in',
@@ -2356,6 +2379,9 @@ export const INGLESE: Record<string, string> = {
     'Small corrections with the breath, the BCD only for real changes of depth.',
   "Passa un'immersione a seguire una parete a quota costante e guarda il profilo dopo: il grafico è il giudice.":
     'Spend a dive following a wall at constant depth and look at the profile after: the graph is the judge.',
+  'Velocità di risalita dentro il limite': 'Ascent rate within the limit',
+  'Le immersioni con almeno mezzo minuto fuori limite restano sotto il {0} che questo logbook considera accettabile. La fascia finale è quella che conta di più: è lì che si guadagna o si perde il margine.':
+    'Dives with at least half a minute over the limit stay below the {0} this logbook considers acceptable. The final stretch is the one that matters most: that is where the margin is won or lost.',
   'Velocità di risalita sotto controllo': 'Ascent rate under control',
   'Le risalite rispettano i limiti in modo costante, anche nella fascia finale, che è quella che conta di più.':
     'Your ascents keep within the limits consistently, including the last stretch, which is the one that counts most.',

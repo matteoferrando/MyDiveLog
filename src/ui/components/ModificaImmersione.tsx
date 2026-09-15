@@ -36,6 +36,7 @@ import {
   tagsSenzaCondizioni,
 } from '../../core/conditions';
 import { parseCylinderSpec } from '../../core/cylinders';
+import { CAMPI_SCRITTI_A_MANO } from '../../core/dedupe';
 import type { Cylinder, Dive, DiveGear, GearRef, Waves, Weather } from '../../core/model';
 import { useLingua } from '../lingua';
 import { descriviAnalisi, discorda } from '../../core/analisiGas';
@@ -316,6 +317,26 @@ function RigaBombola({
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Il registro aggiornato dei campi svuotati, confrontando la scheda com'era con
+ * quella che si sta salvando.
+ *
+ * Un campo che passa da pieno a vuoto entra col momento del salvataggio; uno che
+ * torna pieno esce, perché una lapide su un campo che adesso ha un valore
+ * farebbe rifiutare il prossimo completamento legittimo. Si guardano solo i
+ * campi che una persona può scrivere: per gli altri il vuoto non è mai un gesto.
+ */
+function registroDegliSvuotamenti(prima: Dive, adesso: Dive): Record<string, string> | undefined {
+  const vuoto = (v: unknown) => v === undefined || v === null || v === '';
+  const registro: Record<string, string> = { ...(adesso.svuotatiIl ?? {}) };
+  const quando = new Date().toISOString();
+  for (const campo of CAMPI_SCRITTI_A_MANO as readonly (keyof Dive)[]) {
+    if (!vuoto(prima[campo]) && vuoto(adesso[campo])) registro[campo] = quando;
+    else if (!vuoto(adesso[campo])) delete registro[campo];
+  }
+  return Object.keys(registro).length ? registro : undefined;
+}
+
 export function ModificaImmersione({
   dive,
   gear,
@@ -433,6 +454,20 @@ export function ModificaImmersione({
       ...draft,
       conditions: condizioni.weather || condizioni.waves ? condizioni : undefined,
       tags: tagsSenzaCondizioni(draft.tags ?? []),
+      /*
+       * ► CHI TOGLIE UN CAMPO LASCIA DETTO CHE L'HA TOLTO. ◄
+       *
+       * Senza questa riga, un campo svuotato qui dentro tornava indietro alla
+       * prima sincronizzazione: la fusione riempie i buchi del vincitore con i
+       * dati dell'altro dispositivo — che è quello che permette a chi scrive la
+       * nota sul Mac e il compagno sull'iPhone di non cancellarsi a vicenda — e
+       * un campo tolto è vuoto esattamente come uno mai scritto.
+       *
+       * Il gesto si registra QUI e non nella fusione perché è qui che si sa che
+       * è un gesto: più a valle c'è solo un `undefined`, uguale a tutti gli
+       * altri. Vedi `Dive.svuotatiIl`.
+       */
+      svuotatiIl: registroDegliSvuotamenti(dive, draft),
     };
     void onSave(pulita).then(() => {
       setDraft(pulita);
