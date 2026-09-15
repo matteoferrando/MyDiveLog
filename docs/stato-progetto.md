@@ -1,10 +1,12 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **14 settembre 2026** — **2 108 prove in 120 file** più **130 prove
-Rust** del ponte, lint e formato a **0 errori** — dopo la notte di revisione del
-14 settembre sono **2 219 prove in 130 file** e **132 prove Rust**. La **1.8.20 è
-l'ultima**, con trentacinque correzioni sopra la 1.8.18; ai negozi non è ancora
-consegnata, e i pacchetti stanno pronti e fermi apposta.
+Aggiornato: **15 settembre 2026** — **2 227 prove in 131 file** più **132 prove
+Rust** del ponte, lint e formato a **0 errori**. La **1.8.20 è l'ultima ed è
+pubblicata**: release con nove allegati, Mac installato, cask e tap allineati,
+sito verificato riga per riga contro quello sul disco. **Ai negozi non è ancora
+consegnata**, e i pacchetti stanno pronti e misurati in
+`da-caricare-su-app-store/` e `da-caricare-su-play/`: il caricamento lo fa il
+proprietario, con Transporter e con Play Console.
 
 ## La 1.8.18, e cosa porta
 
@@ -4883,6 +4885,131 @@ l'archivio vuoto.
 
 *Una guardia che non si è mai vista rossa non è una guardia, e una guardia
 scritta contro il testo di ieri non protegge da quello di domani.*
+
+---
+
+## La 1.8.20 pubblicata, e due guardie nuove trovate mentre si chiudeva
+
+Release **`v1.8.20`** sul tag `09ebadf`, **nove allegati** contati uno per uno,
+cinque impronte SHA-256 nelle note — calcolate tre volte in modo indipendente e
+tutte e tre d'accordo. Catena verde prima di partire: **2 227 prove in 131 file**
+e **132 prove Rust**, tipi, formato e lint a zero. Mac notarizzato, pinzato,
+`spctl` *accepted*, e installato in `/Applications`. Windows firmato **dal Mac**.
+Android firmato con la chiave del proprietario. Cask e `PKGBUILD` rigenerati
+(`ef7919e`) e il tap aggiornato dal suo workflow.
+
+### ► LA 1.8.19 NON È USCITA DA NESSUNA PARTE, E UN DOCUMENTO DICEVA IL CONTRARIO ◄
+
+Nel testo delle novità per i negozi era scritto che «la 1.8.18 e la 1.8.19 sono
+uscite su GitHub e sul sito». **La 1.8.19 no.** Misurato, non ricordato:
+`gh release list` non la elenca, `git tag` non ce l'ha, e `git log -S'1.8.19' --
+homebrew/mydivelog.rb` non trova niente — la cask non l'ha mai vista. È stata
+costruita tutta e tenuta ferma, che è esattamente quello che dice il commit che
+la chiude (`72634f1`, *«La 1.8.19 costruita tutta e ferma»*).
+
+*La riga sbagliata era in un documento destinato a un negozio*, cioè nell'unico
+posto dove non c'è nessuno che possa smentirla. È stata corretta prima di
+consegnarla, e vale la regola di sempre: **una frase che contiene un numero di
+versione si rimisura ogni volta che la si riusa**, anche — soprattutto — quando
+la si sta copiando da un documento di ieri scritto da noi.
+
+### La prima guardia nuova: nessuno verificava che l'aggiornamento si installi
+
+Il passo 6 dell'elenco di rilascio conta gli allegati e legge le impronte. Il
+passo 8 controlla che gli indirizzi rispondano 200. **Fra «il pacchetto è
+pubblicato» e «chi ce l'ha installato lo riceve» c'è una firma, e nessuno la
+verificava.**
+
+Il manifesto `latest.json` porta, per ogni piattaforma, l'indirizzo di un
+pacchetto e la sua firma minisign. L'applicazione installata scarica, verifica
+con la chiave pubblica murata nel binario, e **se la firma non torna non
+aggiorna: in silenzio**, dentro un controllo che non stampa niente e non avvisa
+nessuno. Firmare il file sbagliato, firmare con la chiave di prova, ricostruire
+il pacchetto dopo averlo firmato: tre strade diverse per arrivarci, e nessuna
+delle tre accende una spia.
+
+`npm run aggiornamento:verifica` (`scripts/verifica-aggiornamento.ts`) rifà da
+fuori il conto che fa l'applicazione: scarica il manifesto **pubblicato**, scarica
+i pacchetti a cui punta, e verifica la firma con la chiave pubblica che sta in
+chiaro in `tauri.conf.json`. *La chiave privata non serve e non entra: una firma
+si verifica con la metà pubblica, ed è tutto il punto delle firme.*
+
+Sulla 1.8.20, misurato: `darwin-aarch64` → `MyDiveLog.app.tar.gz` (3,7 MB) e
+`windows-x86_64` → `MyDiveLog-Windows-setup.nsis.zip` (3,1 MB), **firme
+verificate sui file veri**, versione nel manifesto `1.8.20`.
+
+> **► E UNA COSA CHE LA CRITTOGRAFIA NON PUÒ DIRE. ◄** Una firma validissima può
+> essere la firma di **un altro pacchetto** — capita riusando un manifesto vecchio
+> dopo aver ricostruito gli artefatti, e crittograficamente non c'è niente di
+> storto. Il commento fidato che Tauri scrive dentro la firma contiene il nome
+> del file firmato ed è coperto dalla firma globale: si confronta con il nome
+> nell'indirizzo del manifesto, e i due devono combaciare. Sulla 1.8.20
+> combaciano.
+
+**La guardia è stata vista rossa prima di crederle.** `tests/firmaAggiornamento.test.ts`
+fabbrica una coppia di chiavi sul momento e costruisce i quattro modi di
+sbagliare: il pacchetto cambiato di un byte dopo la firma, la firma di un'altra
+chiave, il commento fidato riscritto a mano, la firma giusta di un file diverso.
+Poi si è mutata l'implementazione in tre punti — via il confronto crittografico,
+via il controllo dell'identificativo di chiave, via la firma globale — e ogni
+mutazione ha fatto fallire **la prova che doveva**, e solo quella.
+
+### La seconda: `sito:online` dichiarava un buco, e il buco si poteva chiudere
+
+In testa a quello script c'era scritto, apertamente: *«Resta fuori quello che
+cambia dentro un paragrafo senza toccare nessuna intestazione, ed è
+dichiarato.»* Dichiarare un buco è meglio che nasconderlo, **ma un buco
+dichiarato resta un buco**: la dichiarazione serve a chi legge il codice, non a
+chi legge il sito.
+
+Quella notte le dodici pagine sono state scaricate e confrontate a mano con
+quelle sul disco, byte per byte. Non coincidevano — **e la causa non era il
+sito**: con l'offuscamento degli indirizzi acceso, Cloudflare riscrive ogni
+`mailto:` in un rimando a `/cdn-cgi/l/email-protection` e aggiunge in fondo alla
+pagina lo `<script>` che lo decifra. *Sono le uniche due trasformazioni, e sono
+state misurate:* tolte quelle, **le dodici pagine coincidono esattamente**.
+
+Quindi il confronto si poteva fare, e adesso lo fa lo script: oltre al titolo,
+all'impronta del foglio di stile e alle intestazioni, confronta **tutto il testo
+visibile** parola per parola e **tutti i rimandi** (`href` e `src`) in ordine —
+perché un pulsante «Scarica» che punta al nome vecchio di un allegato dice la
+frase giusta e consegna un 404, e il testo visibile non lo vede.
+
+Vista rossa così: una parola finta infilata dentro un paragrafo di `/aiuto` e un
+rimando di download cambiato su `/`. Lo script ha stampato *«testo vecchio dopo
+…Scrivilo — bastano due righe»* con le due versioni a confronto, e *«rimando
+diverso»* con i due indirizzi. Poi le due pagine sono state rimesse a posto e il
+verde è tornato.
+
+> **Si normalizza soltanto quello che si è visto fare alla CDN.** Normalizzare a
+> tappeto — schiacciare tutto finché due cose diverse si somigliano — renderebbe
+> questa guardia incapace di accendersi, che è il modo più silenzioso di
+> spegnerla. E se un giorno tutte e dodici le pagine diventassero rosse insieme,
+> lo script lo dice: *somiglia più a una trasformazione nuova della CDN che a
+> dodici pagine vecchie.*
+
+### I pacchetti dei negozi, pronti e misurati
+
+`da-caricare-su-app-store/` e `da-caricare-su-play/` contengono la 1.8.20; la
+1.8.19 è scesa in `superate/` senza essere mai stata caricata. Cosa è stato
+guardato dentro, invece di fidarsi del nome del file:
+
+| | Misurato |
+|---|---|
+| `.ipa` | `CFBundleShortVersionString` e `CFBundleVersion` = `1.8.20`; profilo *iOS Team **Store** Provisioning Profile*, `get-task-allow` = `False`, **nessun** `ProvisionedDevices`; firma *Apple Distribution* |
+| `.pkg` | installatore *3rd Party Mac Developer Installer*, applicazione *Apple Distribution*, profilo *MyDiveLog Mac App Store*; sandbox e **cinque** diritti, nient'altro; `strings`: **zero** `latest.json`, **zero** `api.anthropic.com` — l'aggiornatore non c'è |
+| `.aab` | `versionName` `1.8.20`, **`versionCode` 1008020** (la 1.8.19 era 1008019: il numero sale, e Play rifiuta un `versionCode` già visto); `META-INF/MYDIVELO.RSA` — la chiave di caricamento c'è |
+
+Le impronte nei due `LEGGIMI.md` sono calcolate **sui file che stanno in quelle
+cartelle dopo la copia**, non su quelli da cui sono nati: è la copia che
+Transporter leggerà.
+
+> **► UNA COSA VISTA PER CASO, E CHE NON RIGUARDA IL CODICE. ◄** Interrogando
+> per sbaglio `mydivelog.**app**` invece di `mydivelog.**site**`, risponde un
+> sito Next.js che non è nostro, intitolato *MyDiveLog*, con la descrizione
+> *«One logbook for every dive.»* Non è un guasto e non c'è niente da
+> correggere; è un'informazione che il proprietario ha il diritto di avere
+> prima che diventi una domanda posta da qualcun altro.
 
 ---
 
