@@ -480,12 +480,34 @@ await page
 const syncMessage = await page.locator('.card').first().innerText();
 await page.screenshot({ path: 'screenshots/11-sincronizza-errore.png', fullPage: true });
 
-// L'analisi con Claude senza chiave configurata: il pulsante deve essere spento e
-// la carta deve spiegare cosa manca, non fallire in silenzio.
+/*
+ * ► QUESTO PUNTO HA UCCISO LO SCRIPT PER TRE SETTIMANE, e nessuno l'ha visto. ◄
+ *
+ * Qui c'era il controllo dell'analisi con Claude: «il pulsante deve essere
+ * spento e la carta deve spiegare cosa manca, non fallire in silenzio». Quella
+ * carta è uscita dall'applicazione il **25 agosto 2026** con la 1.6.0 (commit
+ * e1bba92, «via l'analisi con Claude dall'applicazione»). Da allora il locator
+ * aspettava trent'anni di secondi una carta che non esiste, l'eccezione
+ * usciva, e **tutto quello che sta sotto — dalla riga 490 alla fine — non è
+ * più stato eseguito**. Compresi i controlli del telefono.
+ *
+ * È esattamente la frase scritta trenta righe più su, avverata una seconda
+ * volta: *un controllo che non parte non è un controllo che passa, è un
+ * controllo che non c'è.* E la ragione per cui non se n'è accorto nessuno è
+ * sempre la stessa: lo si lancia a mano, e l'eccezione scorre via in fondo a
+ * un output lungo.
+ *
+ * Al suo posto c'è quello che la scheda mostra OGGI: il punteggio di prontezza
+ * con il suo verdetto. Se un giorno sparisce anche quello, lo script si ferma
+ * qui dicendo il perché, invece di aspettare mezzo minuto e morire.
+ */
 await page.click('button:has-text("Suggerimenti")');
 await page.waitForTimeout(600);
-const aiCard = await page.locator('.card', { hasText: 'Rilettura del piano' }).first().innerText();
-await page.screenshot({ path: 'screenshots/12-analisi.png', fullPage: true });
+const coachCard = await page
+  .locator('.card', { hasText: 'Criteri di riferimento' })
+  .first()
+  .innerText({ timeout: 8000 });
+await page.screenshot({ path: 'screenshots/12-suggerimenti.png', fullPage: true });
 
 // Le carte nuove del pianificatore: contingenze, START, e il gas di deco.
 await page.click('button:has-text("Gas")');
@@ -563,8 +585,23 @@ const sosteRec = await page
   .innerText()
   .catch(() => 'NESSUNA CARTA SOSTE');
 await page.screenshot({ path: 'screenshots/13d-gas-soste.png', fullPage: true });
-const stampaPiano = await page
-  .locator('button:has-text("Stampa il piano")')
+/*
+ * ► QUARTO PUNTO MORTO, e questo non uccideva: mentiva. ◄
+ *
+ * Cercava «Stampa il piano», che è stato tolto di proposito — due pulsanti per
+ * due gesti che chi legge non distingue, e uno dei due era un sottoinsieme
+ * dell'altro (da un PDF si stampa; dalla finestra di stampa, sui telefoni, non
+ * si fa niente perché non esiste). Il `.catch(() => false)` in coda faceva sì
+ * che il resoconto stampasse «PULSANTE ASSENTE» a ogni giro, da settimane, per
+ * un pulsante che nessuno voleva più.
+ *
+ * *Un controllo che segnala un difetto inesistente è peggio di un controllo
+ * che manca: insegna a scorrere il resoconto senza leggerlo,* e la riga vera —
+ * quando arriverà — passerà inosservata in mezzo a quella falsa. Ora guarda il
+ * pulsante che c'è.
+ */
+const esportaPdf = await page
+  .locator('button:has-text("Esporta PDF")')
   .first()
   .isVisible()
   .catch(() => false);
@@ -603,9 +640,7 @@ const confronto = await page
  * si controlla che la sezione della zavorra — che NON si compila, si ricava dalle
  * immersioni — dica qualcosa di sensato sull'archivio dimostrativo.
  */
-await page.click('button:has-text("Attrezzatura")');
-await page.waitForTimeout(600);
-// Il primo «Aggiungi» è quello dell'attrezzatura, il secondo quello dei brevetti.
+await vaiA(page, 'Attrezzatura');
 await page.locator('button:has-text("Aggiungi")').first().click();
 await page.waitForTimeout(300);
 await page.locator('label', { hasText: 'Marca e modello' }).first().locator('input').fill('Scubapro MK25');
@@ -613,16 +648,95 @@ await page.locator('label', { hasText: 'Ultima fatta' }).first().locator('input'
 await page.locator('button:has-text("Salva")').first().click();
 await page.waitForTimeout(600);
 
-await page.locator('button:has-text("Aggiungi")').nth(1).click();
+/*
+ * ► SECONDO PUNTO MORTO, nascosto dietro il primo. ◄
+ *
+ * Qui c'era `.nth(1)` con il commento «il primo Aggiungi è quello
+ * dell'attrezzatura, il secondo quello dei brevetti». I brevetti sono usciti da
+ * questa scheda settimane fa — `brevettiEschede.test.ts` lo inchioda da allora,
+ * con la prova «la scheda Attrezzatura non ne parla più» — quindi su
+ * Attrezzatura di «Aggiungi» ce n'è **uno solo** e il secondo non è mai
+ * arrivato. Non se n'era accorto nessuno perché il controllo dell'analisi con
+ * Claude, trenta righe più su, uccideva lo script prima di arrivare qui: due
+ * difetti in fila, e il primo faceva da coperchio al secondo.
+ *
+ * Dal 15 settembre 2026 i brevetti stanno in «Il tuo profilo» insieme al nome
+ * sul libretto. Il giro passa di là e poi torna: si aggiunge un brevetto dove
+ * si aggiunge davvero, e si controlla la carta dove sta davvero.
+ */
+await vaiA(page, 'Il tuo profilo');
+await page.locator('button:has-text("Aggiungi")').first().click();
 await page.waitForTimeout(300);
-await page.locator('label', { hasText: 'Didattica' }).first().locator('input').fill('PADI');
-await page
-  .locator('label', { hasText: 'Nome sulla tessera' })
-  .first()
-  .locator('input')
-  .fill('Advanced Open Water');
-await page.locator('button:has-text("Salva")').first().click();
+/*
+ * ► TERZO PUNTO MORTO, nascosto dietro il secondo. ◄
+ *
+ * Qui si scriveva «PADI» a mano in un campo di testo e «Advanced Open Water» in
+ * uno chiamato «Nome sulla tessera». Nessuno dei due esiste più: il brevetto si
+ * SCEGLIE da due tendine — la didattica e poi il corso — da quando il catalogo
+ * `didattiche.ts` è la sorgente unica (era il difetto delle «due verità sullo
+ * stesso fatto»). Tre punti morti in fila, ognuno coperto dal precedente,
+ * tutti in codice che qualcuno leggendo avrebbe giurato funzionante.
+ *
+ * Scegliere invece di scrivere è anche un controllo migliore: se un giorno il
+ * catalogo perde PADI o il corso cambia nome, `selectOption` fallisce subito e
+ * dice quale valore non ha trovato.
+ */
+/*
+ * ► IL MODULO SI RESTRINGE PRIMA DI CERCARCI DENTRO, e non è pedanteria. ◄
+ *
+ * Su questa pagina ci sono DUE tendine etichettate «Brevetto»: quella del
+ * libretto, in cima, che sceglie fra i brevetti già registrati (e all'inizio è
+ * disabilitata perché non ce n'è nessuno), e quella del modulo qui sotto, che
+ * sceglie il corso dal catalogo. Un `.first()` sulla pagina intera prende la
+ * prima, cioè quella spenta, e lo script muore dopo trenta secondi dicendo
+ * «element is not enabled» — che è vero e non spiega niente.
+ *
+ * È lo stesso difetto già pagato più su con i campi delle credenziali: cercare
+ * «il primo campo che si chiama così» in una pagina che cresce. La cura è
+ * identica — restringere al contenitore giusto — ed è per questo che il modulo
+ * si identifica dal suo titolo.
+ */
+/*
+ * ► E L'ANCORA NON PUÒ ESSERE IL TITOLO, che cambia sotto i piedi. ◄
+ *
+ * Prima riga scritta: `{ hasText: 'Nuovo brevetto' }`. Funziona per le due
+ * tendine e poi smette, perché il titolo del modulo **è** il nome del brevetto
+ * scelto: appena si sceglie «Advanced Open Water Diver» la carta non si chiama
+ * più «Nuovo brevetto», il locator — che Playwright rivaluta a ogni uso — non
+ * trova più niente, e «Salva» aspetta trenta secondi un modulo che è lì davanti.
+ * Un'ancora che il gesto stesso cancella non è un'ancora.
+ *
+ * La carta si identifica invece da quello che CONTIENE e che non cambia: la
+ * tendina della didattica.
+ */
+const moduloBrevetto = page
+  .locator('.card')
+  .filter({ has: page.locator('label:has-text("Didattica") select') })
+  .first();
+await moduloBrevetto.locator('label', { hasText: 'Didattica' }).locator('select').selectOption('padi');
+await page.waitForTimeout(300);
+await moduloBrevetto
+  .locator('label', { hasText: 'Brevetto' })
+  .locator('select')
+  .selectOption('Advanced Open Water Diver');
+await moduloBrevetto.locator('button:has-text("Salva")').first().click();
 await page.waitForTimeout(600);
+const brevetti = await page
+  .locator('.card', { hasText: 'Brevetti' })
+  .first()
+  .innerText()
+  .catch(() => 'CARTA BREVETTI MANCANTE');
+// E la tendina del libretto deve essersi riempita con quello appena registrato:
+// è la ragione per cui le due carte stanno sulla stessa pagina.
+const librettoTendina = await page
+  .locator('label', { hasText: 'Brevetto' })
+  .first()
+  .locator('select')
+  .innerText()
+  .catch(() => 'TENDINA MANCANTE');
+await page.screenshot({ path: 'screenshots/17b-profilo.png', fullPage: true });
+
+await vaiA(page, 'Attrezzatura');
 
 /*
  * DUE PEZZI DI FILA: si apre il primo, si annulla, si apre il secondo.
@@ -665,11 +779,6 @@ const attrezzatura = await page
   .first()
   .innerText()
   .catch(() => 'CARTA ATTREZZATURA MANCANTE');
-const brevetti = await page
-  .locator('.card', { hasText: 'Brevetti' })
-  .first()
-  .innerText()
-  .catch(() => 'CARTA BREVETTI MANCANTE');
 const zavorra = await page
   .locator('.card', { hasText: 'Zavorra e configurazione' })
   .first()
@@ -1253,7 +1362,7 @@ console.log('DIVE ROWS:', diveCount, '→ dopo inserimento a mano:', dopoInserim
 console.log('AVVISI DEL MODULO:\n' + avvisiNuova.slice(0, 400));
 console.log('SATURAZIONE STIMATA:\n' + saturazioneStimata.slice(0, 700));
 console.log('SYNC CARD:\n' + syncMessage);
-console.log('AI CARD:\n' + aiCard);
+console.log('SUGGERIMENTI:\n' + coachCard);
 console.log('GAS CONSUMO:\n' + gasTiles);
 console.log('GAS CAMPI:', gasFields);
 console.log('GAS A 42 m:\n' + gasResult);
@@ -1275,6 +1384,7 @@ console.log('SCHEDA DOPO DUE APERTURE:', schedaDopoDueAperture, '(atteso: Scubap
 console.log('ELIMINA CHIEDE CONFERMA:', chiedeConferma > 0 ? 'sì' : 'NO — cancella al primo clic');
 console.log('ATTREZZATURA:\n' + attrezzatura.slice(0, 420));
 console.log('BREVETTI:\n' + brevetti.slice(0, 300));
+console.log('TENDINA DEL LIBRETTO: ' + librettoTendina.replace(/\s+/g, ' ').slice(0, 160));
 console.log('ZAVORRA:\n' + zavorra.slice(0, 500));
 console.log('MAPPA:\n' + mappa.slice(0, 220));
 console.log('CURVA MINUTO PER MINUTO:');
@@ -1298,7 +1408,7 @@ console.log('LOGBOOK A 390 px:', logbookEsito);
 console.log('BERSAGLI TATTILI A 390 px:', bersagliEsito);
 console.log('BOZZA NON SALVATA:', bozzaEsito);
 console.log('DIGITAZIONE A CIFRE:', digitazione);
-console.log('STAMPA DEL PIANO:', stampaPiano ? 'pulsante presente' : 'PULSANTE ASSENTE');
+console.log('PDF DEL PIANO:', esportaPdf ? 'pulsante presente' : 'PULSANTE ASSENTE');
 console.log(
   'MODIFICA IN BLOCCO:',
   bloccoOk
