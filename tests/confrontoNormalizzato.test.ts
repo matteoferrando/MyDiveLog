@@ -83,28 +83,33 @@ describe('campoModificato', () => {
  * Il percorso è relativo a QUESTO file e non alla cartella da cui si lancia
  * vitest: `import.meta.url` è l'unica cosa che resta vera comunque lo si lanci.
  */
-const SYNC_PAGE = readFileSync(
-  fileURLToPath(new URL('../src/ui/pages/SyncPage.tsx', import.meta.url)),
-  'utf8',
-);
+const sorgente = (f: string) => readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8');
+const SYNC_PAGE = sorgente('src/ui/pages/SyncPage.tsx');
+/*
+ * La carta del libretto è passata in «Il tuo profilo» il 15 settembre 2026,
+ * quando Impostazioni è stata divisa fra i dati di chi si immerge e le funzioni
+ * del programma. La proprietà da inchiodare è la stessa — il confronto passa
+ * dalla regola — ed è cambiato solo il file dove cercarla.
+ */
+const PROFILO = sorgente('src/ui/pages/ProfiloPage.tsx');
 
 /** Il corpo di una dichiarazione `const nome = …;`, punto e virgola escluso. */
-function dichiarazione(sorgente: string, nome: string): string {
+function dichiarazione(sorgente: string, dove: string, nome: string): string {
   const m = new RegExp(`\\bconst ${nome} =([\\s\\S]*?);\\n`).exec(sorgente);
-  if (!m) throw new Error(`in SyncPage.tsx non c'è più una const «${nome}»`);
+  if (!m) throw new Error(`in ${dove} non c'è più una const «${nome}»`);
   return m[1];
 }
 
-describe('SyncPage confronta il digitato col salvato passando dalla regola', () => {
+describe('il digitato si confronta col salvato passando dalla regola', () => {
   it('le credenziali: il token non si confronta più grezzo', () => {
-    const corpo = dichiarazione(SYNC_PAGE, 'dirty');
+    const corpo = dichiarazione(SYNC_PAGE, 'SyncPage.tsx', 'dirty');
     expect(corpo).toContain('campoModificato');
     // Nessun confronto scritto a mano: è la forma che aveva il difetto.
     expect(corpo).not.toMatch(/!==/);
   });
 
   it('il nome sul libretto: stessa regola, stessa funzione', () => {
-    const corpo = dichiarazione(SYNC_PAGE, 'nomeSporco');
+    const corpo = dichiarazione(PROFILO, 'ProfiloPage.tsx', 'nomeSporco');
     expect(corpo).toContain('campoModificato');
     expect(corpo).not.toMatch(/!==/);
   });

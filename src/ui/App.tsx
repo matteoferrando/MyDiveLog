@@ -39,7 +39,7 @@ import { Logbook } from './pages/Logbook';
 import { CLAIM, Mark } from './components/Mark';
 import { useDiveLog } from './state';
 import { CambiaLingua, useLingua } from './lingua';
-import { ProvvedituraNavigazione, type Vista } from './navigazione';
+import { BARRA, GRUPPI_ALTRO, ProvvedituraNavigazione, TABS, type Vista } from './navigazione';
 import { contenitoreCheScorre } from './memoriaDellElenco';
 
 /*
@@ -55,6 +55,7 @@ const Compare = lazy(() => import('./pages/Compare').then((m) => ({ default: m.C
 const Gear = lazy(() => import('./pages/Gear').then((m) => ({ default: m.Gear })));
 const ImportPage = lazy(() => import('./pages/ImportPage').then((m) => ({ default: m.ImportPage })));
 const SyncPage = lazy(() => import('./pages/SyncPage').then((m) => ({ default: m.SyncPage })));
+const ProfiloPage = lazy(() => import('./pages/ProfiloPage').then((m) => ({ default: m.ProfiloPage })));
 const DiveDetail = lazy(() => import('./pages/DiveDetail').then((m) => ({ default: m.DiveDetail })));
 
 /*
@@ -66,25 +67,6 @@ const DiveDetail = lazy(() => import('./pages/DiveDetail').then((m) => ({ defaul
  * caricamento pigro proprio delle pagine che si volevano rimandare.
  */
 type View = Vista;
-
-/*
- * Le etichette restano ITALIANE nella tabella, e si traducono al disegno.
- *
- * È la regola di tutta l'applicazione (vedi `lingua.tsx`): la frase italiana è
- * la chiave. Tradurle qui, una volta, vorrebbe dire tenere la tabella dentro il
- * componente per poter usare `t()` — e ricostruirla a ogni render per otto
- * stringhe costanti.
- */
-const TABS: { id: View; label: string }[] = [
-  { id: 'logbook', label: 'Logbook' },
-  { id: 'compare', label: 'Confronta' },
-  { id: 'stats', label: 'Statistiche' },
-  { id: 'coach', label: 'Suggerimenti' },
-  { id: 'planner', label: 'Gas' },
-  { id: 'gear', label: 'Attrezzatura' },
-  { id: 'import', label: 'Importa' },
-  { id: 'sync', label: 'Impostazioni' },
-];
 
 /**
  * La rete sotto l'interfaccia.
@@ -172,29 +154,78 @@ function PagePlaceholder() {
 }
 
 /**
- * Il segno dell'hamburger, disegnato invece che scritto.
+ * I segni della barra in basso, disegnati invece che scritti.
  *
- * Tre righe in un `svg` e non il carattere «☰»: quel carattere non esiste in
+ * ► PERCHÉ NON EMOJI E NON CARATTERI SPECIALI. ◄ Un «☰» o un «⚙» non esiste in
  * tutti i font di sistema, e dove manca la webview lo sostituisce con un glifo
- * di ripiego che cambia dimensione e allineamento da un dispositivo all'altro.
- * `currentColor` lo tiene legato al colore del testo, quindi segue il tema
- * chiaro e quello scuro senza una seconda regola.
+ * di ripiego che cambia dimensione e allineamento da un dispositivo all'altro —
+ * cioè proprio in una barra dove cinque bersagli devono stare allineati al
+ * pixel. Le emoji fanno di peggio: portano un colore loro, che a schermo scuro
+ * stona e che nessuna regola di tema può correggere.
+ *
+ * `currentColor` lega il tratto al colore del testo: la voce attiva si accende
+ * cambiando UNA proprietà, e il tema chiaro e quello scuro non hanno bisogno di
+ * una seconda regola.
+ *
+ * ► I DISEGNI SONO DELIBERATAMENTE BANALI. ◄ Un elenco puntato, tre barre, una
+ * freccia in un cassetto, una bombola, tre punti. Un'icona in una barra di
+ * navigazione non deve essere bella: deve essere riconosciuta di sfuggita, con
+ * il telefono in una mano e l'attrezzatura nell'altra. L'unica che si concede
+ * un disegno vero è la bombola, perché è l'unica cosa qui dentro che una
+ * convenzione universale non ce l'ha — e perché chi apre quest'app la riconosce
+ * prima di leggere la parola sotto.
  */
-function SegnoMenu({ chiuso }: { chiuso: boolean }) {
+const SEGNI: Record<string, ReactNode> = {
+  // Un elenco puntato: righe e punti. Con `strokeLinecap: round` un tratto
+  // lungo zero (`h.01`) si disegna come un cerchietto pieno — è il modo
+  // standard di fare un punto senza aggiungere un secondo elemento.
+  logbook: (
+    <>
+      <path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" />
+      <path d="M9 6h10.5M9 12h10.5M9 18h10.5" />
+    </>
+  ),
+  stats: <path d="M5 20v-6.5M12 20V4.5M19 20v-9.5" />,
+  // Una freccia che entra in un cassetto: «arriva roba da fuori». La stessa
+  // figura, girata, vorrebbe dire esportare — ed è per questo che la punta va
+  // in basso e il cassetto sta sotto, non sopra.
+  import: (
+    <>
+      <path d="M12 3.5v9.5" />
+      <path d="m8.25 9.25 3.75 3.75 3.75-3.75" />
+      <path d="M4.5 15.5V18a2.5 2.5 0 0 0 2.5 2.5h10a2.5 2.5 0 0 0 2.5-2.5v-2.5" />
+    </>
+  ),
+  // Una bombola: rubinetteria, collo, corpo arrotondato in basso.
+  planner: (
+    <>
+      <path d="M10 3.5h4" />
+      <path d="M11 3.5V7M13 3.5V7" />
+      <path d="M9.5 9a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v8.5a2.5 2.5 0 0 1-2.5 2.5h-.01a2.5 2.5 0 0 1-2.49-2.5z" />
+    </>
+  ),
+  /* I puntini hanno il LORO spessore, e non quello comune. Un tratto lungo
+     zero con la punta tonda diventa un cerchio del diametro dello spessore:
+     a 1.9 px erano tre granelli accanto a segni larghi 15, e la quinta voce
+     sembrava scolorita. A 2.8 px pesano come gli altri. */
+  altro: <path d="M5.5 12h.01M12 12h.01M18.5 12h.01" strokeWidth="2.8" />,
+};
+
+function Segno({ quale }: { quale: string }) {
   return (
-    <svg width="18" height="14" viewBox="0 0 18 14" aria-hidden="true" focusable="false">
-      {chiuso ? (
-        <>
-          <path d="M2 2 L16 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          <path d="M16 2 L2 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </>
-      ) : (
-        <>
-          <path d="M1 2 H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          <path d="M1 7 H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          <path d="M1 12 H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </>
-      )}
+    <svg
+      width="23"
+      height="23"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {SEGNI[quale]}
     </svg>
   );
 }
@@ -237,18 +268,15 @@ export function App() {
   }, [ready, dives.length]);
 
   /*
-   * SUL TELEFONO LA NAVIGAZIONE È UN MENU, NON UNA STRISCIA.
+   * LO STATO DEL FOGLIO «ALTRO», e perché è rimasto quello del vecchio menu.
    *
-   * La striscia orizzontale era l'unica cosa dell'applicazione che si
-   * trascinasse di lato, e stava in cima a OGNI pagina: la sensazione che
-   * restava era che l'app scorresse in orizzontale, non che ci fosse dell'altra
-   * navigazione. Con otto schede e 390 px non c'è larghezza che basti, e la
-   * sfumatura sul bordo destro dice che c'è dell'altro senza dire che cosa.
-   *
-   * Un menu a comparsa cambia il compromesso: costa un tocco in più, e in cambio
-   * mostra TUTTE le destinazioni con il loro nome per intero, con bersagli
-   * grandi abbastanza per un pollice. Sopra i 700 px la striscia resta com'era —
-   * lì ci sta, ed è più veloce.
+   * Il pannello a comparsa non c'è più — al suo posto c'è la barra in basso più
+   * un foglio con le destinazioni che nella barra non stanno — ma le tre cose
+   * che gli stavano attorno servono identiche: uno stato aperto/chiuso, il
+   * riferimento al pulsante che lo apre (per RIDARGLI il fuoco alla chiusura) e
+   * quello al pannello (per PRENDERE il fuoco all'apertura). Riscriverle
+   * sarebbe stato riscrivere gli stessi tre effetti con nomi nuovi, e rifare da
+   * capo gli errori che quei tre effetti hanno già imparato a evitare.
    */
   const [menuAperto, setMenuAperto] = useState(false);
   const bottoneMenu = useRef<HTMLButtonElement>(null);
@@ -334,7 +362,10 @@ export function App() {
          */}
         <nav className="nav" aria-label={t('Sezioni')}>
           {TABS.map((scheda) => {
-            const corrente = view === scheda.id && !openDive;
+            // Stessa regola della barra in basso, e per lo stesso motivo: la
+            // scheda da cui si è aperta un'immersione è ancora quella, e
+            // premerla riporta all'elenco. Vedi il commento là sotto.
+            const corrente = view === scheda.id;
             return (
               <button
                 key={scheda.id}
@@ -351,73 +382,21 @@ export function App() {
         </nav>
         <span className="topbar-spacer" />
         {/*
-         * IL CAMBIO LINGUA STA NELLA BARRA, non dentro Impostazioni.
+         * IL CAMBIO LINGUA STA NELLA BARRA, ma solo dove nella barra c'è posto.
          *
          * Chi apre l'app e non capisce la lingua non sa che «Impostazioni» vuol
          * dire impostazioni: due sigle in un angolo si riconoscono senza saper
-         * leggere niente di quello che c'è attorno.
+         * leggere niente di quello che c'è attorno, e sul desktop non costano
+         * niente a nessuno.
          *
-         * Sotto i 700 px questa copia è nascosta dal CSS e ne compare un'altra
-         * dentro il menu: in alto non ci stava, e la barra portava il documento
-         * a 412 px su uno schermo da 390. Sono due elementi e non uno spostato
-         * perché il menu esiste solo quando è aperto.
+         * Sotto i 700 px questa copia è nascosta dal CSS e NON ne compare più
+         * un'altra nel menu: dal 15 settembre 2026 la lingua è una riga di
+         * Impostazioni come le altre (vedi `RigaLingua` in `lingua.tsx`). Nel
+         * menu a comparsa era l'elemento più forte dello schermo — due caselle,
+         * una piena del colore d'accento, sotto nove voci tutte uguali — cioè il
+         * comando più raro dell'applicazione disegnato come il più importante.
          */}
         <CambiaLingua />
-        {/*
-         * Il pulsante dice DOVE SI È, non solo che esiste un menu.
-         *
-         * Un hamburger muto costringe ad aprirlo per sapere in che pagina si
-         * sta: il nome accanto al segno è la stessa informazione che sul
-         * desktop dà la scheda evidenziata, e costa i pixel che sul telefono
-         * avanzano perché la striscia non c'è più.
-         */}
-        <button
-          ref={bottoneMenu}
-          className="hamburger"
-          onClick={() => setMenuAperto((v) => !v)}
-          aria-expanded={menuAperto}
-          aria-controls="menu-principale"
-          aria-haspopup="menu"
-        >
-          <SegnoMenu chiuso={menuAperto} />
-          <span>{t(openDive ? 'Immersione' : (TABS.find((s) => s.id === view)?.label ?? 'Menu'))}</span>
-        </button>
-        {menuAperto && (
-          <>
-            {/*
-             * Il fondo è un PULSANTE, non un `div` con un `onClick`.
-             *
-             * Toccare fuori per chiudere è il gesto che ci si aspetta, ma un
-             * `div` cliccabile non esiste per chi naviga da tastiera e non
-             * esiste per un lettore di schermo: il menu resterebbe aperto senza
-             * via d'uscita se non con Esc. Un pulsante con la sua etichetta è la
-             * stessa cosa per il dito e una via d'uscita vera per tutti gli
-             * altri.
-             */}
-            <button
-              className="menu-fondo"
-              aria-label={t('Chiudi il menu')}
-              onClick={() => setMenuAperto(false)}
-            />
-            <div className="menu-telefono" id="menu-principale" ref={pannelloMenu} tabIndex={-1}>
-              <nav aria-label={t('Sezioni')}>
-                {TABS.map((scheda) => {
-                  const corrente = view === scheda.id && !openDive;
-                  return (
-                    <button
-                      key={scheda.id}
-                      onClick={() => go(scheda.id)}
-                      aria-current={corrente ? 'page' : undefined}
-                    >
-                      {t(scheda.label)}
-                    </button>
-                  );
-                })}
-              </nav>
-              <CambiaLingua />
-            </div>
-          </>
-        )}
       </header>
 
       {/*
@@ -484,6 +463,8 @@ export function App() {
                 <Compare onOpen={setOpenDive} />
               ) : view === 'gear' ? (
                 <Gear />
+              ) : view === 'profilo' ? (
+                <ProfiloPage />
               ) : view === 'sync' ? (
                 <SyncPage />
               ) : (
@@ -493,6 +474,111 @@ export function App() {
           </Suspense>
         </ErrorBoundary>
       </main>
+
+      {/*
+       * ► LA BARRA STA NEL FLUSSO, NON IN `position: fixed`. ◄
+       *
+       * È un figlio della colonna flessibile `.app`, come la barra in alto e
+       * come `.main`: si prende la sua altezza, e quella che resta è l'altezza
+       * del contenuto. Con `fixed` avrebbe galleggiato SOPRA la pagina, e
+       * l'ultima carta di ogni scheda sarebbe finita sotto — il rimedio classico
+       * è un `padding-bottom` sul contenuto pari all'altezza della barra, cioè
+       * una costante da tenere allineata a mano con un'altezza che cambia con il
+       * ritaglio dello schermo e con la dimensione del testo di sistema. Quella
+       * costante sarebbe sbagliata il giorno dopo su un telefono diverso.
+       *
+       * Sopra i 700 px il CSS la spegne: là c'è la striscia in alto, e due
+       * navigazioni sono una di troppo.
+       */}
+      <nav className="barra-basso" aria-label={t('Sezioni')}>
+        {BARRA.map((scheda) => (
+          <button
+            key={scheda.id}
+            className={scheda.id === 'import' ? 'voce voce-importa' : 'voce'}
+            onClick={() => go(scheda.id)}
+            /*
+             * ► LA SCHEDA ACCESA È `view`, ANCHE CON UN'IMMERSIONE APERTA. ◄
+             *
+             * La striscia in alto ci metteva `&& !openDive`, e sul telefono
+             * quella regola lasciava la barra tutta spenta per l'intera durata
+             * della scheda di un'immersione — cinque bersagli grigi, che si
+             * leggono come un guasto. Ed era anche falsa: `openDive` non azzera
+             * `view`, la scheda da cui si è entrati è ancora quella, e premerla
+             * riporta esattamente all'elenco da cui si è partiti. La barra dice
+             * la verità sullo stato, e la stessa regola vale ora anche in alto.
+             */
+            aria-current={view === scheda.id ? 'page' : undefined}
+          >
+            <span className="voce-segno">
+              <Segno quale={scheda.id} />
+            </span>
+            <span className="voce-nome">{t(scheda.label)}</span>
+          </button>
+        ))}
+        {/*
+         * «Altro» è marcato `aria-current="true"` e non `"page"` quando la
+         * pagina aperta sta nel foglio: non È la pagina corrente, è il ramo che
+         * la contiene. La distinzione la fa la specifica (`page` per la pagina,
+         * `true` per il generico «elemento corrente dell'insieme»), e a un
+         * lettore di schermo cambia la frase che pronuncia.
+         */}
+        <button
+          ref={bottoneMenu}
+          className="voce voce-altro"
+          onClick={() => setMenuAperto((v) => !v)}
+          aria-expanded={menuAperto}
+          aria-controls="menu-altro"
+          aria-haspopup="menu"
+          aria-current={BARRA.some((b) => b.id === view) ? undefined : 'true'}
+        >
+          <span className="voce-segno">
+            <Segno quale="altro" />
+          </span>
+          <span className="voce-nome">{t('Altro')}</span>
+        </button>
+      </nav>
+
+      {menuAperto && (
+        <>
+          {/*
+           * Il fondo è un PULSANTE, non un `div` con un `onClick`.
+           *
+           * Toccare fuori per chiudere è il gesto che ci si aspetta, ma un `div`
+           * cliccabile non esiste per chi naviga da tastiera e non esiste per un
+           * lettore di schermo: il foglio resterebbe aperto senza via d'uscita
+           * se non con Esc. Un pulsante con la sua etichetta è la stessa cosa
+           * per il dito e una via d'uscita vera per tutti gli altri.
+           */}
+          <button
+            className="foglio-fondo"
+            aria-label={t('Chiudi il menu')}
+            onClick={() => setMenuAperto(false)}
+          />
+          <div className="foglio-altro" id="menu-altro" ref={pannelloMenu} tabIndex={-1}>
+            {/* La maniglia non fa niente — non c'è nessun trascinamento da
+                intercettare — e serve lo stesso: è il segno convenzionale che
+                dice «questo è un foglio che si chiude», e senza, il pannello si
+                legge come una parte della pagina. */}
+            <span className="foglio-maniglia" aria-hidden="true" />
+            {GRUPPI_ALTRO.map((gruppo) => (
+              <section key={gruppo.titolo} className="foglio-gruppo">
+                <h2>{t(gruppo.titolo)}</h2>
+                <nav aria-label={t(gruppo.titolo)}>
+                  {gruppo.voci.map((id) => {
+                    const scheda = TABS.find((s) => s.id === id);
+                    if (!scheda) return null;
+                    return (
+                      <button key={id} onClick={() => go(id)} aria-current={view === id ? 'page' : undefined}>
+                        {t(scheda.label)}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </section>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -21,6 +21,7 @@
  */
 
 import pw from 'playwright';
+import { vaiA } from './naviga.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { mkdirSync } from 'node:fs';
@@ -79,10 +80,10 @@ async function giro(locale, suffisso) {
   await page.waitForSelector('.card h2', { timeout: 60000 });
   await page.waitForTimeout(1200);
 
-  const vai = async (nome) => {
-    await page.locator(`.nav button:has-text("${nome}")`).first().click();
-    await page.waitForTimeout(900);
-  };
+  // Sesta copia della stessa navigazione, tolta insieme alle altre cinque: qui
+  // le finestre sono tutte sopra i 700 px e la striscia c'è sempre, ma è
+  // esattamente il ragionamento che ha lasciato in giro le altre.
+  const vai = (nome) => vaiA(page, nome, 900);
   const scatta = async (nome) => {
     await page.evaluate(() => {
       document.querySelector('.main').scrollTop = 0;

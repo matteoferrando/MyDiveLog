@@ -28,6 +28,12 @@ export const INGLESE: Record<string, string> = {
   // --- il guscio: navigazione, avvii, errori, conteggi ---
   'Apertura dell’archivio…': 'Opening your logbook…',
   'Chiudi il menu': 'Close menu',
+  // I gruppi del foglio «Altro» sul telefono: dividono le pagine che
+  // mostrano dati da quelle che fanno fare qualcosa.
+  'Le tue immersioni': 'Your dives',
+  'L’applicazione': 'The app',
+  Tu: 'You',
+  'Il tuo profilo': 'Your profile',
   di: 'of',
   immersione: 'dive',
   immersioni: 'dives',
@@ -1281,6 +1287,7 @@ export const INGLESE: Record<string, string> = {
   'il logbook le mostra comunque': 'the logbook still shows them all',
   'Immersione aggiunta.': 'Dive added.',
   Impostazioni: 'Settings',
+  Lingua: 'Language',
   'in inventario': 'in your gear',
   Inizio: 'Start',
   "L'immersione": 'The dive',

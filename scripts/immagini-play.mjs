@@ -49,6 +49,7 @@
  */
 
 import pw from 'playwright';
+import { vaiA } from './naviga.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { mkdirSync } from 'node:fs';
@@ -99,25 +100,6 @@ const APPARECCHI = [
 const browser = await pw.chromium.launch(
   process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
 );
-
-/**
- * Sotto i 700 px la navigazione è un menu a comparsa, sopra è una striscia di
- * schede. Questa funzione percorre la strada vera dell'una o dell'altra invece
- * di forzare lo stato: è la stessa `vaiA` di `scripts/screenshot.mjs`, e la
- * ragione per cui esiste è che un click ingoiato da un `.catch` faceva
- * «fotografare» otto schede restando sempre sulla stessa.
- */
-async function vaiA(page, tab) {
-  const hamburger = page.locator('.hamburger');
-  if (await hamburger.isVisible().catch(() => false)) {
-    await hamburger.click();
-    await page.waitForTimeout(250);
-    await page.locator(`.menu-telefono button:has-text("${tab}")`).first().click();
-  } else {
-    await page.locator(`.nav button:has-text("${tab}")`).first().click();
-  }
-  await page.waitForTimeout(600);
-}
 
 for (const app of APPARECCHI) {
   const page = await browser.newPage({

@@ -32,6 +32,7 @@
  */
 
 import pw from 'playwright';
+import { vaiA } from './naviga.mjs';
 import { spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFile, readdir } from 'node:fs/promises';
@@ -45,7 +46,7 @@ const LARGHEZZE = [
   // 390: un iPhone qualunque, ed è la larghezza a cui il difetto è successo.
   { px: 390, alto: 780, nome: '390' },
   // 1280: il portatile. Serve perché le due disposizioni sono diverse davvero
-  // — sotto i 700 px la navigazione diventa un hamburger — e un difetto
+  // — sotto i 700 px la navigazione scende in una barra in basso — e un difetto
   // aggiustato stringendo può ricomparire allargando.
   { px: 1280, alto: 900, nome: '1280' },
 ];
@@ -104,26 +105,6 @@ const trabocchi = [];
 /** Le schermate che si sono davvero prodotte, per poterlo dichiarare alla fine. */
 const fatte = [];
 const errori = [];
-
-/**
- * Va a una scheda, QUALUNQUE sia la larghezza della finestra.
- *
- * Copiato da `screenshot.mjs` insieme alla lezione che c'è dietro: sotto i
- * 700 px la striscia di navigazione non esiste, c'è l'hamburger. Un clic che
- * non trova il pulsante deve ROMPERE — un `catch` vuoto qui significa misurare
- * otto volte la stessa pagina e dichiararle tutte pulite.
- */
-async function vaiA(page, tab) {
-  const hamburger = page.locator('.hamburger');
-  if (await hamburger.isVisible().catch(() => false)) {
-    await hamburger.click();
-    await page.waitForTimeout(250);
-    await page.locator(`.menu-telefono button:has-text("${tab}")`).first().click();
-  } else {
-    await page.locator(`.nav button:has-text("${tab}")`).first().click();
-  }
-  await page.waitForTimeout(400);
-}
 
 /**
  * Fotografa, e dichiara di averlo fatto.
@@ -230,7 +211,7 @@ async function giro({ px, alto, nome: larghezza }) {
 
   // --------------------------------------------------- 1. l'elenco dei trovati
   await page.goto(`http://localhost:${PORTA}/`, { waitUntil: 'networkidle' });
-  await vaiA(page, 'Importa');
+  await vaiA(page, 'Importa', 400);
   await page.locator('button:has-text("Cerca il computer")').first().click();
   // Quattro dispositivi: se non arrivano, il finto non è nella build e tutto il
   // resto misurerebbe una pagina vuota dichiarandola pulita.
@@ -419,7 +400,7 @@ async function giro({ px, alto, nome: larghezza }) {
    * non trovare niente.
    */
   await page.goto(`http://localhost:${PORTA}/?finto=vuoto`, { waitUntil: 'networkidle' });
-  await vaiA(page, 'Importa');
+  await vaiA(page, 'Importa', 400);
   await page.locator('button:has-text("Cerca il computer")').first().click();
   await page.waitForSelector('.notice:has-text("Ancora niente")', { timeout: 20_000 });
   await scatta(page, larghezza, '9-ricerca-a-vuoto');
@@ -428,7 +409,7 @@ async function giro({ px, alto, nome: larghezza }) {
 
   // ------------------------------------------- 7. il Bluetooth spento
   await page.goto(`http://localhost:${PORTA}/?finto=spento`, { waitUntil: 'networkidle' });
-  await vaiA(page, 'Importa');
+  await vaiA(page, 'Importa', 400);
   await page.locator('button:has-text("Cerca il computer")').first().click();
   await page.waitForSelector('.notice-error', { timeout: 10_000 });
   await scatta(page, larghezza, '10-bluetooth-spento');

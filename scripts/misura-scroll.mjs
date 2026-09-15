@@ -21,6 +21,7 @@
  */
 
 import pw from 'playwright';
+import { schede, vaiA } from './naviga.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
@@ -76,19 +77,10 @@ const files = [
   'demo/vecchio-logbook.csv',
 ];
 // L'importazione passa dalla scheda Importa, come la farebbe una persona.
-async function vaiA(tab) {
-  const hamburger = page.locator('.hamburger');
-  if (await hamburger.isVisible().catch(() => false)) {
-    await hamburger.click();
-    await page.waitForTimeout(200);
-    await page.locator(`.menu-telefono button:has-text("${tab}")`).first().click();
-  } else {
-    await page.locator(`.nav button:has-text("${tab}")`).first().click();
-  }
-  await page.waitForTimeout(600);
-}
+// La strada per arrivarci — striscia, barra o foglio «Altro» — la sa `naviga.mjs`.
+const vai = (tab) => vaiA(page, tab, 600);
 
-await vaiA('Importa');
+await vai('Importa');
 await page.setInputFiles('input[type=file]', files);
 await page.waitForTimeout(3500);
 
@@ -109,14 +101,29 @@ async function misura(nome) {
         }))
         .sort((a, b) => b.h - a.h)
         .slice(0, 5);
-      return { altezza: main.scrollHeight, vista, blocchi };
+      /*
+       * ► IL DIVISORE È L'ALTEZZA DI `.main`, NON QUELLA DELLA FINESTRA. ◄
+       *
+       * Fino al 15 settembre 2026 era `ALTEZZA`, cioè i 790 px del viewport, e
+       * la parola «schermate» diceva quindi una cosa diversa da quella che
+       * misurava: una schermata di CONTENUTO non è alta quanto lo schermo — le
+       * tolgono qualcosa la barra in alto e, da oggi, la barra in basso. Con il
+       * divisore fisso quelle due barre erano invisibili al conto: si poteva
+       * aggiungerne una terza e il resoconto sarebbe rimasto identico, mentre
+       * chi scorre avrebbe pagato tutto.
+       *
+       * `clientHeight` di `.main` è il numero che decide davvero quante volte
+       * bisogna trascinare, ed è quindi quello che va mostrato.
+       */
+      return { altezza: main.scrollHeight, vista: main.clientHeight, finestra: vista, blocchi };
     },
     { vista: ALTEZZA },
   );
   if (!dati) return;
   const schermate = dati.altezza / dati.vista;
   console.log(
-    `${nome.padEnd(16)} ${String(dati.altezza).padStart(6)} px  =  ${schermate.toFixed(1).padStart(5)} schermate`,
+    `${nome.padEnd(16)} ${String(dati.altezza).padStart(6)} px  =  ${schermate.toFixed(1).padStart(5)} schermate ` +
+      `(contenuto visibile ${dati.vista} px su ${dati.finestra})`,
   );
   for (const b of dati.blocchi) {
     console.log(`                 ${String(b.h).padStart(5)} px  ${b.classe.padEnd(22)} ${b.testo}`);
@@ -124,30 +131,22 @@ async function misura(nome) {
 }
 
 console.log(`\nViewport ${LARGHEZZA}×${ALTEZZA} (iPhone 16 Pro, Safari con barre)\n`);
-for (const tab of [
-  'Logbook',
-  'Confronta',
-  'Statistiche',
-  'Suggerimenti',
-  'Gas',
-  'Attrezzatura',
-  'Importa',
-  'Impostazioni',
-]) {
+// L'elenco si legge dall'applicazione e non si copia qui: vedi `schede()`.
+for (const tab of await schede(page)) {
   try {
-    await vaiA(tab);
+    await vai(tab);
   } catch {
-    // La navigazione che non riesce deve ROMPERE, non misurare la pagina di
-    // prima e dichiararla: è lo stesso modo di fallire che  si è
-    // già portato dietro due volte.
-    console.log(`${tab.padEnd(16)} NON RAGGIUNTA — il nome della scheda non combacia`);
+    // La navigazione che non riesce non deve misurare la pagina di PRIMA e
+    // dichiararla col nome di questa: è lo stesso modo di fallire che questo
+    // file si è già portato dietro due volte. Si dice, e si passa oltre.
+    console.log(`${tab.padEnd(16)} NON RAGGIUNTA`);
     continue;
   }
   await misura(tab);
 }
 
 // E la scheda di una singola immersione, che è la pagina più lunga di tutte.
-await vaiA('Logbook');
+await vai('Logbook');
 await page
   .locator('.riga-immersione, tbody tr, .card-immersione')
   .first()

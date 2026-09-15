@@ -232,3 +232,53 @@ export function CambiaLingua() {
     </div>
   );
 }
+
+/**
+ * La lingua come riga di impostazione, e non come interruttore nella barra.
+ *
+ * ► PERCHÉ NE È NATA UNA SECONDA VERSIONE, il 15 settembre 2026. ◄
+ *
+ * Sul telefono la coppia IT/EN stava in fondo al menu a comparsa, ed era
+ * l'elemento più forte dello schermo: due caselle, una piena del colore
+ * d'accento, sotto otto voci tutte uguali. Chi ha guardato l'app da fuori l'ha
+ * detto subito — la cosa che si vede per prima aprendo il menu è la cosa che si
+ * usa una volta nella vita dell'installazione. Un comando raro non può essere
+ * il più appariscente.
+ *
+ * Qui dentro invece è una riga come le altre: titolo a sinistra, valore a
+ * destra, alta quanto il resto. È il posto dove chiunque abbia usato un
+ * telefono va a cercarla.
+ *
+ * ► E NON È UN DOPPIONE DELLA COPPIA IN ALTO. ◄ Le due chiamano la stessa
+ * `cambia()` dello stesso contesto: la regola è una, e sta in questo file. Sono
+ * due APPIGLI, come il menu e la scorciatoia da tastiera per la stessa voce.
+ * La coppia in alto sopravvive solo sopra i 700 px, dove nella barra c'è posto
+ * e un puntatore la raggiunge senza costare niente.
+ *
+ * ► I NOMI DELLE LINGUE NON SI TRADUCONO. ◄ «Italiano» e «English», sempre
+ * così, in tutte e due le lingue dell'interfaccia. È la regola di ogni sistema
+ * operativo, e la ragione è ovvia appena la si dice: chi cerca la propria
+ * lingua in un elenco la cerca com'è scritta a casa sua — non sa come la
+ * chiamano qui.
+ */
+export function RigaLingua() {
+  const { lingua, cambia, t } = useLingua();
+  return (
+    <div className="card">
+      <div className="riga-impostazione">
+        <h2 style={{ margin: 0 }}>{t('Lingua')}</h2>
+        <select
+          value={lingua}
+          onChange={(e) => cambia(e.target.value as Lingua)}
+          /* L'etichetta porta tutte e due le parole: un lettore di schermo
+             impostato in inglese su un'interfaccia italiana legge comunque
+             qualcosa che si riconosce. */
+          aria-label="Lingua / Language"
+        >
+          <option value="it">Italiano</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+    </div>
+  );
+}

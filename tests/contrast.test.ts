@@ -137,8 +137,8 @@ describe('contrasto della tavolozza', () => {
  * Una media query non aggiunge specificità: `@media … { .nav { display: none } }`
  * e `.nav { display: flex }` pesano identico, e vince l'ultima scritta nel file.
  * È già costato due volte — il corpo dei pulsanti della navigazione, e poi la
- * striscia che restava visibile sul telefono accanto all'hamburger — e in
- * entrambi i casi il sintomo era «la regola non fa niente», che nessuno screenshot
+ * striscia che restava visibile sul telefono accanto al menu — e in entrambi i
+ * casi il sintomo era «la regola non fa niente», che nessuno screenshot
  * distingue da «la regola non c'è».
  *
  * Il test non giudica il layout: verifica solo che chi spegne qualcosa sul
@@ -168,17 +168,45 @@ describe('ordine delle regole per il telefono', () => {
     expect(spenta).toBeGreaterThan(accesa);
   });
 
-  it("l'hamburger si accende dopo essere stato spento", () => {
-    const spento = dove('.hamburger {', 'display: none');
-    const acceso = dove('.hamburger {', 'display: inline-flex');
-    expect(spento).toBeGreaterThan(-1);
-    expect(acceso).toBeGreaterThan(spento);
+  /*
+   * ► LE TRE COSE DEL TELEFONO SI SPENGONO INSIEME, IN UNA REGOLA SOLA. ◄
+   *
+   * `.barra-basso`, `.foglio-fondo` e `.foglio-altro` condividono lo stesso
+   * `display: none` di partenza: è scritto così apposta, perché tre regole
+   * separate sono tre occasioni di dimenticarne una — e quella dimenticata
+   * lascerebbe un pannello del telefono piantato in mezzo alla finestra del
+   * Mac. Il selettore comune si cerca per intero, con le tre voci nell'ordine
+   * in cui stanno nel file.
+   */
+  it('la barra in basso e il foglio partono spenti, in una regola sola', () => {
+    const spegne = css.indexOf('.barra-basso,\n.foglio-fondo,\n.foglio-altro {');
+    expect(spegne, 'le tre cose del telefono non si spengono più insieme').toBeGreaterThan(-1);
+    expect(css.slice(spegne, css.indexOf('}', spegne))).toContain('display: none');
   });
 
-  it('il pannello del menu parte spento, e si accende solo sotto i 700 px', () => {
-    expect(dove('.menu-telefono {', 'display: none')).toBeGreaterThan(-1);
-    const acceso = dove('.menu-telefono {', 'display: block');
-    expect(acceso).toBeGreaterThan(-1);
+  /*
+   * ► IL VALORE CHE ACCENDE VA SCRITTO PER ESTESO, e la prima stesura di questa
+   *   prova non lo faceva. ◄
+   *
+   * Cercava `display: ` — il nome della proprietà e basta — e `.foglio-altro {`
+   * è una sottostringa del selettore raggruppato qui sopra, che di `display:`
+   * ne contiene uno: `none`. Misurato togliendo `display: block` dalla media
+   * query, **la prova restava verde**, perché trovava lo SPEGNIMENTO e lo
+   * scambiava per l'accensione. Una prova che confonde l'una con l'altro
+   * verifica soltanto che la parola «display» compaia da qualche parte.
+   *
+   * Cercando il valore giusto — `flex` per la barra, `block` per i due pezzi
+   * del foglio — quella sottostringa non può più rispondere al posto suo.
+   */
+  it.each([
+    ['.barra-basso {', 'display: flex'],
+    ['.foglio-fondo {', 'display: block'],
+    ['.foglio-altro {', 'display: block'],
+  ])('%s si accende dopo essere stato spento, e solo sotto i 700 px', (regola, accende) => {
+    const spento = css.indexOf('.barra-basso,\n.foglio-fondo,\n.foglio-altro {');
+    const acceso = dove(regola, accende);
+    expect(acceso, `la regola che accende ${regola} non c’è più`).toBeGreaterThan(-1);
+    expect(acceso).toBeGreaterThan(spento);
     // La regola che lo accende deve stare dentro una media query per telefono:
     // si guarda l'ultima `@media` aperta prima di quel punto.
     const media = css.lastIndexOf('@media', acceso);

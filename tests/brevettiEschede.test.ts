@@ -19,27 +19,49 @@ const leggi = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), '
 
 const GEAR = leggi('src/ui/pages/Gear.tsx');
 const BREVETTI = leggi('src/ui/components/Brevetti.tsx');
+/*
+ * ► IL LIBRETTO E I BREVETTI HANNO TRASLOCATO, il 15 settembre 2026. ◄
+ *
+ * Stavano in Impostazioni, fra l'accesso e il backup. Sono DATI TUOI, non
+ * comandi del programma, e da oggi hanno una pagina loro — «Il tuo profilo» —
+ * che sul telefono è una schermata sola invece di essere il terzo terzo di
+ * una pagina lunga sei. Le proprietà verificate qui sotto non cambiano: la
+ * carta del libretto esiste, i brevetti stanno subito sotto, e il brevetto si
+ * SCEGLIE invece di digitarlo. È cambiato il file in cui guardarle.
+ *
+ * Impostazioni si continua a leggere, per la proprietà opposta: che quelle due
+ * carte non siano rimaste anche lì. *Due copie della stessa carta sono una
+ * carta e la sua versione vecchia*, e sarebbe stato l'esito naturale di un
+ * trasloco fatto copiando invece che spostando.
+ */
+const PROFILO = leggi('src/ui/pages/ProfiloPage.tsx');
 const IMPOSTAZIONI = leggi('src/ui/pages/SyncPage.tsx');
 
-describe('i brevetti stanno nelle Impostazioni, sotto il libretto', () => {
+describe('i brevetti stanno nel profilo, sotto il libretto', () => {
   it('la scheda Attrezzatura non ne parla più', () => {
     for (const traccia of ['SchedaBrevetto', 'certifications', 'highestLevel', 'CERT_LEVEL_LABEL']) {
       expect(GEAR, `Attrezzatura nomina ancora ${traccia}`).not.toContain(traccia);
     }
   });
 
-  it('le Impostazioni li mostrano subito dopo la carta del libretto', () => {
-    const libretto = IMPOSTAZIONI.indexOf('<LibrettoCard />');
-    const brevetti = IMPOSTAZIONI.indexOf('<Brevetti />');
+  it('il profilo li mostra subito dopo la carta del libretto', () => {
+    const libretto = PROFILO.indexOf('<LibrettoCard />');
+    const brevetti = PROFILO.indexOf('<Brevetti />');
     expect(libretto).toBeGreaterThan(-1);
     expect(brevetti).toBeGreaterThan(libretto);
     // Fra le due non c'è un'altra carta: «sotto al paragrafo», alla lettera.
-    expect(IMPOSTAZIONI.slice(libretto, brevetti)).not.toContain('<div className="card">');
+    expect(PROFILO.slice(libretto, brevetti)).not.toContain('<div className="card">');
+  });
+
+  it('e le Impostazioni non ne tengono una seconda copia', () => {
+    for (const traccia of ['<LibrettoCard />', '<Brevetti />', 'function LibrettoCard(']) {
+      expect(IMPOSTAZIONI, `Impostazioni contiene ancora ${traccia}`).not.toContain(traccia);
+    }
   });
 
   it('la carta si chiama «Dati per il LogBook» e passa dal dizionario', () => {
-    expect(IMPOSTAZIONI).toContain("t('Dati per il LogBook')");
-    expect(IMPOSTAZIONI).not.toContain("t('Il tuo libretto')");
+    expect(PROFILO).toContain("t('Dati per il LogBook')");
+    expect(PROFILO).not.toContain("t('Il tuo libretto')");
   });
 
   /*
@@ -56,13 +78,14 @@ describe('i brevetti stanno nelle Impostazioni, sotto il libretto', () => {
      * l'applicazione avesse niente che non andasse. Una guardia che si accende
      * per la lunghezza di un commento insegna solo a non fidarsi di lei.
      */
-    const inizio = IMPOSTAZIONI.indexOf('function LibrettoCard()');
-    const carta = IMPOSTAZIONI.slice(inizio, IMPOSTAZIONI.indexOf('\n}\n', inizio));
+    const inizio = PROFILO.indexOf('function LibrettoCard()');
+    expect(inizio, 'la carta del libretto non è più in ProfiloPage.tsx').toBeGreaterThan(-1);
+    const carta = PROFILO.slice(inizio, PROFILO.indexOf('\n}\n', inizio));
     expect(carta).toContain('sortCertifications');
     expect(carta).toContain('<select');
     expect(carta).toContain('etichettaBrevetto');
     // E la tendina pesca dal catalogo, non più dalle sole etichette di livello.
-    expect(IMPOSTAZIONI).toContain('didatticaId');
+    expect(PROFILO).toContain('didatticaId');
   });
 });
 

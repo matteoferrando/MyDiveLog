@@ -20,6 +20,7 @@
  */
 
 import pw from 'playwright';
+import { schede, vaiA } from './naviga.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
@@ -62,17 +63,6 @@ const DISPOSITIVI = process.env.SOLO
       ['portatile', 1280, 800],
       ['schermo grande', 1680, 1050],
     ];
-
-const SCHEDE = [
-  'Logbook',
-  'Confronta',
-  'Statistiche',
-  'Suggerimenti',
-  'Gas',
-  'Attrezzatura',
-  'Importa',
-  'Impostazioni',
-];
 
 const browser = await chromium.launch(
   process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
@@ -156,17 +146,7 @@ for (const [nome, w, h] of DISPOSITIVI) {
   });
   await page.goto('http://localhost:4179/', { waitUntil: 'networkidle' });
   await page.waitForTimeout(600);
-  const vai = async (tab) => {
-    const ham = page.locator('.hamburger');
-    if (await ham.isVisible().catch(() => false)) {
-      await ham.click();
-      await page.waitForTimeout(150);
-      await page.locator(`.menu-telefono button:has-text("${tab}")`).first().click();
-    } else {
-      await page.locator(`.nav button:has-text("${tab}")`).first().click();
-    }
-    await page.waitForTimeout(450);
-  };
+  const vai = (tab) => vaiA(page, tab, 450);
   await vai('Importa');
   await page.setInputFiles('input[type=file]', [
     'demo/shearwater-cloud-export.uddf',
@@ -180,7 +160,8 @@ for (const [nome, w, h] of DISPOSITIVI) {
   await page.waitForTimeout(3000);
 
   const righe = [];
-  for (const tab of SCHEDE) {
+  // L'elenco si legge dall'applicazione e non si copia qui: vedi `schede()`.
+  for (const tab of await schede(page)) {
     await vai(tab);
     const esito = await page.evaluate(CERCA_SFORI);
     if (!esito) continue;
@@ -217,6 +198,37 @@ for (const [nome, w, h] of DISPOSITIVI) {
         );
       }
     }
+  }
+
+  /*
+   * ► E LA STRISCIA DI NAVIGAZIONE, che non è «un elemento della pagina». ◄
+   *
+   * `CERCA_SFORI` salta tutto quello che sta dentro un contenitore con
+   * `overflow-x: auto`, ed è giusto — una tabella che scorre nel suo riquadro
+   * non è un difetto. Ma proprio per questo la striscia in alto le era
+   * INVISIBILE: `overflow-x: auto` era la sua stessa dichiarazione, quindi
+   * poteva contenere il doppio della sua larghezza e lo script diceva «tutto
+   * dentro». Misurato il 15 settembre 2026: con nove schede la striscia vuole
+   * 831 px e a 744 px ne mostrava 594 — cioè su un iPad in verticale tre
+   * destinazioni su nove non si vedevano, e nessuna riga di questo resoconto lo
+   * diceva.
+   *
+   * *Una rete che salta per principio la cosa che deve guardare non è una
+   * rete.* La striscia è navigazione: o ci sta tutta, o va a capo. Trascinabile
+   * non è un esito accettabile, ed è la regola che la soglia dei 1199 px nel
+   * CSS deve rispettare — qui si verifica che la rispetti davvero, a ogni
+   * larghezza, invece di fidarsi del numero.
+   */
+  const striscia = await page.evaluate(() => {
+    const nav = document.querySelector('.nav');
+    if (!nav || !nav.getClientRects().length) return null; // sotto i 700 px non c'è
+    return { visibile: Math.round(nav.clientWidth), contenuto: Math.round(nav.scrollWidth) };
+  });
+  if (striscia && striscia.contenuto > striscia.visibile + 1) {
+    problemi++;
+    righe.push(
+      `  ► Striscia di navigazione TAGLIATA: ${striscia.visibile} px visibili su ${striscia.contenuto}`,
+    );
   }
 
   console.log(`${nome} — ${w}×${h}${righe.length ? '' : '   tutto dentro'}`);

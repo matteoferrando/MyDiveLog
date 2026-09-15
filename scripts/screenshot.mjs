@@ -17,6 +17,7 @@ import pw from 'playwright';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
+import { vaiA } from './naviga.mjs';
 const { chromium } = pw;
 
 const MIME = {
@@ -86,29 +87,6 @@ async function shots(page, prefix, max = 6) {
   await page.evaluate(() => {
     document.querySelector('.main').scrollTop = 0;
   });
-}
-
-/**
- * Va a una scheda, QUALUNQUE sia la larghezza della finestra.
- *
- * Sotto i 700 px la striscia di navigazione non esiste più — c'è l'hamburger —
- * e i cicli che facevano `click('button:has-text("Statistiche")')` con un
- * `.catch(() => {})` in coda avrebbero continuato a girare misurando sempre la
- * stessa pagina, dichiarando otto schede pulite dopo averne guardata una. È lo
- * stesso modo di fallire che questo file si è già portato dietro due volte
- * (nomi di scheda sbagliati, misure alla larghezza sbagliata): la navigazione
- * che non riesce deve ROMPERE, non tacere.
- */
-async function vaiA(page, tab) {
-  const hamburger = page.locator('.hamburger');
-  if (await hamburger.isVisible().catch(() => false)) {
-    await hamburger.click();
-    await page.waitForTimeout(250);
-    await page.locator(`.menu-telefono button:has-text("${tab}")`).first().click();
-  } else {
-    await page.locator(`.nav button:has-text("${tab}")`).first().click();
-  }
-  await page.waitForTimeout(500);
 }
 
 const browser = await chromium.launch(
@@ -767,15 +745,21 @@ const dopoIlCestino = await page.locator('tbody tr').count();
 await page.screenshot({ path: 'screenshots/19-cestino.png', fullPage: true });
 
 /*
- * A 390 px LA NAVIGAZIONE È UN MENU, e va provata come tale.
+ * A 390 px LA NAVIGAZIONE È UNA BARRA IN BASSO, e va provata come tale.
  *
- * Prima era una striscia orizzontale: larga 350 px e con dentro 728, mostrava
- * metà delle destinazioni e si trascinava di lato in cima a OGNI pagina — cioè
- * era l'unica cosa dell'applicazione a muoversi in orizzontale, e faceva
- * sembrare che a scorrere fosse tutta l'app. Il controllo di allora contava
- * quante schede si vedevano; questo verifica le tre proprietà che contano ora:
- * la striscia non c'è, il menu si apre e contiene TUTTE le destinazioni, e
- * sceglierne una porta lì e richiude il pannello.
+ * ► TRE FORME IN UN MESE, E OGNI CONTROLLO HA MISURATO LA SUA. ◄ Prima era una
+ * striscia orizzontale: larga 350 px e con dentro 728, mostrava metà delle
+ * destinazioni e si trascinava di lato in cima a OGNI pagina — e il controllo di
+ * allora contava quante schede si vedevano. Poi è stata un menu a comparsa, e
+ * il controllo contava le otto voci del pannello. Adesso è una barra in basso,
+ * e le proprietà che contano sono altre:
+ *
+ *  1. la striscia in alto non c'è e la barra in basso sì;
+ *  2. le cinque caselle stanno DENTRO lo schermo e reggono un pollice;
+ *  3. il cerchio di «Importa» è centrato — sporge, e storto si vede;
+ *  4. il cambio lingua NON è più qui (è una riga di Impostazioni);
+ *  5. «Altro» apre un foglio che contiene TUTTE le altre destinazioni, divise
+ *     per gruppi, e sceglierne una porta lì e richiude tutto.
  *
  * Il controllo che il vecchio ciclo del trabocco NON faceva: quello rimisurava a
  * 1180 px, perché la finestra veniva riallargata più su e mai più ristretta.
@@ -783,54 +767,64 @@ await page.screenshot({ path: 'screenshots/19-cestino.png', fullPage: true });
 await page.setViewportSize({ width: 390, height: 780 });
 await vaiA(page, 'Logbook');
 const navMobile = await page.evaluate(() => {
-  const nav = document.querySelector('.nav');
-  const hamburger = document.querySelector('.hamburger');
   const visibile = (el) => !!el && !!el.getClientRects().length;
-  return {
-    strisciaVisibile: visibile(nav),
-    hamburgerVisibile: visibile(hamburger),
-    etichetta: hamburger?.textContent?.trim() ?? '—',
-  };
-});
-await page.click('.hamburger').catch(() => {});
-await page.waitForTimeout(350);
-const menuMobile = await page.evaluate(() => {
-  /*
-   * SI CONTANO LE DESTINAZIONI, non tutti i pulsanti del pannello.
-   *
-   * Da quando il cambio lingua scende qui sotto sul telefono, `.menu-telefono
-   * button` ne trova dieci invece di otto, e la coppia IT/EN faceva fallire
-   * anche la misura dell'altezza minima. Le destinazioni stanno dentro il
-   * `nav`; la coppia si misura a parte, appena sotto, perché anche lei deve
-   * reggere un pollice.
-   */
-  const voci = [...document.querySelectorAll('.menu-telefono nav button')];
-  const lingua = [...document.querySelectorAll('.menu-telefono .lingua button')];
+  const barra = document.querySelector('.barra-basso');
+  const voci = [...document.querySelectorAll('.barra-basso .voce')];
   const w = document.documentElement.clientWidth;
+  const cerchio = document.querySelector('.voce-importa .voce-segno')?.getBoundingClientRect();
   return {
-    voci: voci.length,
-    lingua: lingua.length,
-    linguaAltezza: lingua.length
-      ? Math.round(Math.min(...lingua.map((b) => b.getBoundingClientRect().height)))
-      : 0,
-    // Un menu che sporge dallo schermo sarebbe lo stesso difetto di prima con
-    // un vestito nuovo.
+    strisciaVisibile: visibile(document.querySelector('.nav')),
+    barraVisibile: visibile(barra),
+    caselle: voci.length,
+    // Le sigle IT/EN sono scese in Impostazioni: se ricompaiono quaggiù è
+    // tornato il difetto che questa riorganizzazione doveva chiudere.
+    lingua: document.querySelectorAll('.barra-basso .lingua button').length,
     dentroLoSchermo: voci.every((b) => {
       const r = b.getBoundingClientRect();
       return r.left >= -1 && r.right <= w + 1;
     }),
     // 44 px è la misura sotto la quale un pollice sbaglia bersaglio.
-    altezzaMinima: Math.round(Math.min(...voci.map((b) => b.getBoundingClientRect().height))),
-    corrente: document.querySelector('.menu-telefono [aria-current="page"]')?.textContent ?? '—',
+    altezzaMinima: voci.length
+      ? Math.round(Math.min(...voci.map((b) => b.getBoundingClientRect().height)))
+      : 0,
+    // Quanto il centro del cerchio si scosta dal centro dello schermo: sopra
+    // un paio di pixel la barra si legge come storta.
+    scartoDelCerchio: cerchio ? Math.round(Math.abs((cerchio.left + cerchio.right) / 2 - w / 2)) : -1,
+    corrente: document.querySelector('.barra-basso [aria-current]')?.textContent ?? '—',
+  };
+});
+await page.screenshot({ path: 'screenshots/20-barra-390.png', fullPage: true });
+await page.click('.voce-altro').catch(() => {});
+await page.waitForTimeout(350);
+const menuMobile = await page.evaluate(() => {
+  const voci = [...document.querySelectorAll('.foglio-gruppo nav button')];
+  const w = document.documentElement.clientWidth;
+  return {
+    gruppi: document.querySelectorAll('.foglio-gruppo').length,
+    voci: voci.length,
+    dentroLoSchermo: voci.every((b) => {
+      const r = b.getBoundingClientRect();
+      return r.left >= -1 && r.right <= w + 1;
+    }),
+    altezzaMinima: voci.length
+      ? Math.round(Math.min(...voci.map((b) => b.getBoundingClientRect().height)))
+      : 0,
+    // Il foglio non deve sporgere dal basso: `dvh` e ritaglio dell'indicatore
+    // di home sono esattamente le due cose che una costante sbaglia.
+    dentroInBasso:
+      (document.querySelector('.foglio-altro')?.getBoundingClientRect().bottom ?? 0) <=
+      document.documentElement.clientHeight + 1,
   };
 });
 await page.screenshot({ path: 'screenshots/20-menu-390.png', fullPage: true });
-await page.click('.menu-telefono button:has-text("Statistiche")').catch(() => {});
+await page.click('.foglio-gruppo button:has-text("Attrezzatura")').catch(() => {});
 await page.waitForTimeout(800);
 const dopoIlMenu = await page.evaluate(() => ({
-  pannelloChiuso: !document.querySelector('.menu-telefono'),
-  veloChiuso: !document.querySelector('.menu-fondo'),
-  etichetta: document.querySelector('.hamburger')?.textContent?.trim() ?? '—',
+  pannelloChiuso: !document.querySelector('.foglio-altro'),
+  veloChiuso: !document.querySelector('.foglio-fondo'),
+  // «Altro» resta acceso perché la pagina aperta sta nel foglio: è il ramo che
+  // la contiene, ed è l'unica cosa che la barra possa dire di vero.
+  altroAcceso: !!document.querySelector('.voce-altro[aria-current]'),
   titolo: document.querySelector('.main h1, .main h2')?.textContent ?? '—',
 }));
 await page.screenshot({ path: 'screenshots/20b-menu-scelta.png', fullPage: true });
@@ -861,23 +855,35 @@ const bersagliEsito = piccoli.length
   ? `SOTTO 24x24: ${piccoli.join(' · ')}`
   : `tutti almeno 24x24 (caselle ${bersagli.caselle?.w}x${bersagli.caselle?.h}, date ${bersagli.date?.w}x${bersagli.date?.h})`;
 const navEsito =
-  navMobile.strisciaVisibile || !navMobile.hamburgerVisibile
+  navMobile.strisciaVisibile ||
+  !navMobile.barraVisibile ||
+  navMobile.caselle !== 5 ||
+  !navMobile.dentroLoSchermo ||
+  navMobile.altezzaMinima < 44 ||
+  navMobile.lingua !== 0 ||
+  navMobile.scartoDelCerchio > 2
     ? `SBAGLIATA: striscia ${navMobile.strisciaVisibile ? 'ANCORA VISIBILE' : 'assente'}, ` +
-      `hamburger ${navMobile.hamburgerVisibile ? 'presente' : 'ASSENTE'}`
-    : `hamburger «${navMobile.etichetta}», striscia nascosta`;
+      `barra ${navMobile.barraVisibile ? 'presente' : 'ASSENTE'}, ` +
+      `${navMobile.caselle} caselle ${navMobile.dentroLoSchermo ? 'dentro' : 'FUORI DALLO'} schermo ` +
+      `da ${navMobile.altezzaMinima} px, cerchio scostato di ${navMobile.scartoDelCerchio} px, ` +
+      `${navMobile.lingua} sigle di lingua (devono essere 0: stanno in Impostazioni)`
+    : `barra da ${navMobile.caselle} caselle alte ${navMobile.altezzaMinima} px, ` +
+      `cerchio centrato (scarto ${navMobile.scartoDelCerchio} px), ` +
+      `corrente «${navMobile.corrente}», striscia nascosta`;
 const menuEsito =
-  menuMobile.voci !== 8 ||
+  menuMobile.gruppi !== 3 ||
+  menuMobile.voci !== 5 ||
   !menuMobile.dentroLoSchermo ||
-  menuMobile.altezzaMinima < 44 ||
-  menuMobile.lingua !== 2 ||
-  menuMobile.linguaAltezza < 44
-    ? `SBAGLIATO: ${menuMobile.voci} voci, ${menuMobile.dentroLoSchermo ? 'dentro' : 'FUORI DALLO'} schermo, ` +
-      `voce più bassa ${menuMobile.altezzaMinima} px, ` +
-      `${menuMobile.lingua} sigle di lingua da ${menuMobile.linguaAltezza} px`
-    : `${menuMobile.voci} voci da almeno ${menuMobile.altezzaMinima} px, ` +
-      `IT/EN da ${menuMobile.linguaAltezza} px, corrente «${menuMobile.corrente}» → ` +
+  !menuMobile.dentroInBasso ||
+  menuMobile.altezzaMinima < 44
+    ? `SBAGLIATO: ${menuMobile.gruppi} gruppi, ${menuMobile.voci} voci, ` +
+      `${menuMobile.dentroLoSchermo ? 'dentro' : 'FUORI DALLO'} schermo, ` +
+      `${menuMobile.dentroInBasso ? 'dentro' : 'SPORGE'} in basso, ` +
+      `voce più bassa ${menuMobile.altezzaMinima} px`
+    : `${menuMobile.gruppi} gruppi, ${menuMobile.voci} voci da almeno ${menuMobile.altezzaMinima} px → ` +
       `dopo la scelta: pannello ${dopoIlMenu.pannelloChiuso ? 'chiuso' : 'ANCORA APERTO'}, ` +
-      `velo ${dopoIlMenu.veloChiuso ? 'chiuso' : 'ANCORA APERTO'}, hamburger dice «${dopoIlMenu.etichetta}»`;
+      `velo ${dopoIlMenu.veloChiuso ? 'chiuso' : 'ANCORA APERTO'}, ` +
+      `«Altro» ${dopoIlMenu.altroAcceso ? 'acceso' : 'SPENTO'}, titolo «${dopoIlMenu.titolo}»`;
 await page.setViewportSize({ width: 1180, height: 900 });
 await page.waitForTimeout(300);
 
