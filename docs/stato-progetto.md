@@ -1,12 +1,15 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **15 settembre 2026** — **2 227 prove in 131 file** più **132 prove
-Rust** del ponte, lint e formato a **0 errori**. La **1.8.20 è l'ultima ed è
-pubblicata**: release con nove allegati, Mac installato, cask e tap allineati,
-sito verificato riga per riga contro quello sul disco. **Ai negozi non è ancora
-consegnata**, e i pacchetti stanno pronti e misurati in
+Aggiornato: **15 settembre 2026, mattina** — **2 454 prove in 141 file** più
+**132 prove Rust** del ponte, lint e formato a **0 errori**. La **1.8.21 è
+l'ultima**: porta trentatré correzioni sopra la 1.8.20, trovate in una seconda
+notte di revisione sulle quattro aree che la prima non aveva guardato. **Ai
+negozi non è ancora consegnata**, e i pacchetti stanno pronti e misurati in
 `da-caricare-su-app-store/` e `da-caricare-su-play/`: il caricamento lo fa il
-proprietario, con Transporter e con Play Console.
+proprietario, con Transporter e con Play Console. *Dieci difetti della revisione
+restano aperti e sono scritti per esteso più in basso: quattro sono perdita di
+dati silenziosa nella sincronizzazione, e nessuno dei quattro si chiude con una
+riga.*
 
 ## La 1.8.18, e cosa porta
 
@@ -5010,6 +5013,216 @@ Transporter leggerà.
 > *«One logbook for every dive.»* Non è un guasto e non c'è niente da
 > correggere; è un'informazione che il proprietario ha il diritto di avere
 > prima che diventi una domanda posta da qualcun altro.
+
+---
+
+## La notte del 15 settembre: quattro revisioni sulle aree mai guardate, quarantatré difetti
+
+La notte prima cinque revisori avevano guardato motore decompressivo, formati e
+archivio, interfaccia, BLE e ponte Rust. **Quattro aree erano rimaste fuori**, e
+sono quelle di questa notte: il **server di sincronizzazione**, tutto ciò che
+**esce** dall'applicazione, i **numeri che l'applicazione mostra**, e le **due
+lingue con l'accessibilità**. Quarantatré segnalazioni misurate; **trentatré
+chiuse**, dieci scritte qui sotto con dentro il perché.
+
+> **► LA FORMA CHE TORNA. ◄** Quasi tutti questi difetti sono lo stesso guasto
+> di sempre: *un indicatore che risponde con sicurezza a una domanda vicina a
+> quella che gli è stata fatta.* «Ha le pressioni» che non vuol dire «si può
+> calcolare il consumo». «Zero violazioni» che non vuol dire «nessuna
+> violazione», quando le violazioni non erano misurabili. «`undefined`» che non
+> intercetta il `null` che l'archivio produce. E, la più cara di tutte, «sei
+> immersioni al mese» che non vuol dire «sei al mese» ma «sei divise per quanto
+> è vecchia la più vecchia».
+
+### I dati che uscivano sbagliati
+
+**Una bombola senza trasmettitore usciva a ZERO BAR su ogni campione UDDF.** Il
+modello tiene le pressioni in un array a elementi opzionali; l'archivio li salva
+con `JSON.stringify`, che trasforma un buco in `null`; il controllo cercava
+`undefined`. `barToPascal(null)` fa zero, e chi apriva il file vedeva il
+manometro a zero dall'inizio alla fine — *la lettura più allarmante che un
+manometro possa dare, su un dato che semplicemente non c'era.* Misurato sul giro
+vero (`JSON.parse(JSON.stringify(dive))`, che è quello che fa `storage/sqlite.ts`):
+otto campioni su otto.
+
+**Il CSV scriveva data e ora in UTC** mentre il logbook, il PDF e il libretto di
+legge usano il fuso del sito. A UTC+14 il file diceva `2026-03-14 18:00` e il
+libretto `15/03/2026 08:00`: **il giorno sbagliato**, in un foglio che qualcuno
+ordina per data.
+
+**Il CSV in ingresso dichiarava di convertire i piedi e le libbre e non lo
+faceva.** L'applicazione scriveva «Unità dichiarate nell'intestazione e applicate
+a tutta la colonna: … Visibility (ft)» e poi salvava 30 ft come 30 m e 14 lbs
+come 14 kg. *Una dichiarazione falsa è peggio del silenzio: chi legge smette di
+controllare.*
+
+**Due siti diversi diventavano lo stesso sito.** L'identificativo cancellava
+tutto ciò che non era `[A-Za-z0-9_-]`, quindi «Grotta Azzurra (Capri)» e «Grotta
+Azzurra Capri» collidevano, e due nomi in alfabeti non latini diventavano
+**entrambi** `site-`: reimportando, la seconda immersione prendeva nome e
+coordinate della prima. Adesso l'identificativo **codifica invece di cancellare**,
+quindi è iniettivo per costruzione — non «abbastanza raro», proprio impossibile.
+
+E ancora: le coordinate di un sito perse quando la prima immersione lì non le
+aveva; identificativi `cyl-0` ripetuti nello stesso documento (un validatore lo
+rifiuta, `ID cyl-0 already defined`); la sigla della bombola **inventata** al
+reimport («D12 lungo» tornava «EAN32», che sembra scritto dall'utente); la
+seconda bombola e la percentuale di gas analizzato tagliate via dal PDF, cioè
+*«il posto dove serve di più: chi te lo chiede vuole sapere che il gas l'hai
+verificato»*.
+
+**E l'elenco «Restano fuori» prometteva di essere completo e non lo era**: ci
+mancavano la profondità pianificata, il centro, **la firma della guida** e **la
+miscela analizzata**, che sono lettere del libretto di legge. Adesso la guardia
+chiude la classe e non il caso: `tests/elencoOnesto.test.ts` legge i campi dal
+modello, fa il giro esporta→reimporta e pretende che **ogni** perdita sia
+dichiarata. Chi aggiunge un campo a `Dive` trova la prova rossa col nome dentro.
+
+### I numeri che l'applicazione mostrava
+
+**La frequenza mensile divideva per l'ampiezza dei DATI, non della finestra.**
+Con «Ultimi 12 mesi» e sei immersioni fatte nell'ultima settimana usciva «6 al
+mese, in allenamento», fra i punti di forza; **le stesse sei più una fatta undici
+mesi fa** diventavano «0,6 al mese: poche per consolidare», con l'avviso.
+*Aggiungere un'immersione peggiorava il giudizio di dieci volte*, e nessuno dei
+due numeri era giusto: su dodici mesi sono 0,5 e 0,58. Era esattamente ciò che
+`window.ts` vieta in testa a se stesso — «non spostare silenziosamente la
+finestra indietro fino a trovare dei dati» — applicato al filtro e non al numero
+che si legge.
+
+> **La correzione sta in due file, e uno dei due è una riga sola.** `aggregate`
+> ha imparato a ricevere l'ampiezza della finestra; ma se `state.tsx` non gliela
+> passa, il conto giusto resta dentro la funzione e non arriva a nessuna
+> schermata, **senza che niente diventi rosso**. La riga adesso ha la sua guardia,
+> che legge il sorgente e pretende che ogni chiamata porti il periodo.
+
+**Il piano dichiarava «gestite senza violazioni» su immersioni in cui il tetto
+non era verificabile.** Dieci immersioni a 42 m importate da LogTRAK — che il
+canale del tetto non lo scrive affatto — davano `ceilingViolations: 0` e
+`ceilingEligible: 0`. Statistiche diceva onestamente «— · nessuna immersione
+verificabile»; il piano diceva «dieci immersioni con obbligo decompressivo,
+gestite senza violazioni». *Due schermate della stessa applicazione, stessi dati,
+risposte opposte — e quella rassicurante parlava di decompressione.*
+
+**Il GF99 aveva due criteri.** Statistiche giudicava con una soglia assoluta
+(≤ 65), il piano con una relativa (≤ 75% del proprio GF alto), e il commento
+accanto al piano spiegava per esteso, con la tabella, perché quella assoluta è
+sbagliata: la correzione non era mai arrivata all'altra schermata. Con computer a
+70/70 e GF99 a 64 — il **91%** del proprio limite — una diceva «nei limiti» e
+l'altra «margine ridotto». Adesso il criterio è **uno solo, esportato**, e lo
+chiamano tutte e due.
+
+Poi, tutti della stessa famiglia: il denominatore dello scarto dal computer
+(«su 48 immersioni» quando le confrontabili erano una); la tessera che contava
+sopra 6,5 m/min e stampava «> 6 m/min», falsa otto volte su otto — *lo stesso
+difetto che il piano dichiarava già corretto, rimasto nell'altra schermata*; i
+criteri di prontezza che mostravano un valore che soddisfa il criterio mostrato e
+lo dichiaravano non soddisfatto, perché `have` arrotondava e `met` decideva sul
+valore pieno; «Solo lo **0%** delle 250 immersioni sotto i 50 bar» con
+un'immersione sotto riserva in archivio; e un'immersione che spariva dal grafico
+dei mesi **restando nel conto della stessa pagina**, perché le colonne si
+costruivano sul mese UTC e i secchi sul mese del luogo.
+
+**E il grafico delle temperature non sapeva disegnare lo zero.** `ColumnChart` è
+nato per contare immersioni: una colonna a zero non la disegna, perché lì zero è
+l'assenza. Su una serie di **misure** quel silenzio dice il falso — il mese in
+cui qualcuno è sceso sotto il ghiaccio a zero gradi era indistinguibile da un
+mese senza immersioni — e il riassunto per chi non vede annunciava «totale
+77 °C», che è una somma di temperature, e «A zero: 1 su 6», cioè chiamava buco
+l'unico mese davvero freddo. *Zero è il valore più rassicurante che un numero
+possa avere, e l'ultimo che dovrebbe comparire quando il dato manca:* qui non
+mancava, era misurato. Adesso il componente sa di che pasta sono i suoi numeri.
+
+### Le due lingue
+
+**Trentatré avvisi del pianificatore non passavano mai dal dizionario.** Con
+l'applicazione in inglese, nella pagina dove il testo **è una regola di
+sicurezza** — PPO2, END, controdiffusione, GF99, CNS, obbligo decompressivo — il
+riquadro diceva «Worth knowing:» e poi una frase italiana intera. Erano template
+literal con `${}` dentro: per costruzione non potevano avere una voce a
+dizionario. Adesso passano dalla stessa forma delle avvertenze — modello più
+valori — e non da un secondo meccanismo. *E `text` è diventato `testo` apposta:
+un campo che cambia significato tenendo il nome vecchio è un difetto che il
+compilatore non trova.*
+
+**`<html lang>` restava `it` con l'interfaccia in inglese**: uno screen reader
+leggeva tutto l'inglese con la fonetica italiana. E il pulsante EN era già
+`aria-pressed="true"`, quindi chi lo usava non aveva nessun motivo di premerlo —
+solo premendolo il `lang` si correggeva.
+
+**I messaggi del ripristino da backup erano tutti in italiano**, ed è
+l'operazione che si fa quando le cose sono già andate male; con dentro anche
+«1 immersioni compaiono più di una volta», che sbaglia il plurale pure in
+italiano. Come gli avvisi dello scarico Bluetooth, che sono **la spiegazione del
+perché mancano delle immersioni**.
+
+### Due guardie vecchie che non potevano fallire
+
+La prova sulla destinazione dell'esportazione cercava la **forma di scrittura**
+storica (`${esito.dove}`) e non il difetto: misurato che cambiando
+`{t(exported.dove)}` in `{exported.dove}` restava **verde**. Il suo titolo diceva
+«i sei punti», l'elenco ne aveva cinque, e l'applicazione mostra la destinazione
+in **undici**. Riscritta: adesso scorre tutto `src/`, classifica ogni lettura in
+tradotta / di trasporto / nuda, e pretende zero nude.
+
+La prova sul mese delle temperature usava immersioni **senza fuso dichiarato**,
+cioè le uniche su cui le due convenzioni non divergono: passava con entrambe.
+Riscritta sul confine del mese, con il fuso dichiarato — ed è la guardia che
+avrebbe dovuto fermare l'immersione sparita dal grafico.
+
+*Una guardia che non si è mai vista rossa non è una guardia, e una guardia
+scritta contro il testo di ieri non protegge da quello di domani.* Questa notte
+le mutazioni verificate sono state **ventuno sul lato esportazioni** più quelle
+di statistiche, lingue e grafici: ognuna ha fatto fallire **la prova che doveva,
+e solo quella**.
+
+---
+
+## Cosa resta aperto della revisione del 15 settembre, e perché
+
+**I quattro della sincronizzazione sono i più gravi di tutta la revisione, e
+nessuno dei quattro si chiude con una riga.** Vanno scritti qui per intero,
+perché sono perdita di dati silenziosa e perché la soluzione è una decisione, non
+una correzione.
+
+| | Cosa succede | Perché non è chiuso |
+|---|---|---|
+| 1 | **Un campo svuotato dall'utente torna indietro.** Si cancella la nota, il compagno, il voto sul Mac; si sincronizza; `takeIfEmpty` non sa distinguere «svuotato apposta» da «buco da riempire» e li rimette dalla copia dell'altro dispositivo — **e li riscrive anche sul remoto**, quindi la correzione è persa ovunque e al giro dopo torna di nuovo | Serve sapere *quando* un campo è stato svuotato, cioè una lapide per campo o un'ora di modifica per campo. È un cambio di formato dell'archivio, non un `if` |
+| 2 | **Un'etichetta tolta torna indietro**, e ricrea la doppia verità che `ModificaImmersione` esiste apposta per evitare: `pioggia` riappare accanto a `conditions.weather = 'rain'`. Misurato: dopo tre giri i due dispositivi sono entrambi tornati indietro. *Togliere un'etichetta, con la sincronizzazione accesa, è impossibile* | Stessa causa: l'unione dei `tags` è additiva per costruzione |
+| 3 | **Attrezzatura, brevetti e piani di decompressione cancellati risorgono.** `mergeKeyed` non ha nessuna nozione di cancellazione, e per queste raccolte non esistono lapidi come per le immersioni | Stessa decisione di fondo. *E qui pesa di più:* l'attrezzatura è, per ammissione del progetto, «l'unico dato dell'archivio che esiste solo perché qualcuno l'ha scritto a mano» |
+| 4 | **Una sincronizzazione interrotta fra riepilogo e profilo lascia il remoto che dichiara un profilo che non ha, per sempre.** `sample_count` è scritto in anticipo ed è denormalizzato: da lì il dispositivo che ha il profilo non lo ricarica mai più, e un terzo dispositivo lo chiede a ogni sincronizzazione senza riceverlo | Si chiude spostando la scrittura del conteggio dopo i campioni, oppure leggendolo dalla tabella vera come già fa `alt_count`. È una modifica piccola ma tocca l'ordine delle scritture: va fatta a mente fresca, non alle cinque del mattino |
+
+> **► LA NOTA CHE SPIEGA TUTTI E QUATTRO. ◄** `tests/sync.test.ts` ha
+> cinquantadue prove sul lato **additivo** della fusione — «non si perde niente
+> quando si aggiunge» — e **nessuna** sul lato sottrattivo. I difetti 1, 2 e 3
+> stanno tutti dentro quel cono d'ombra. *Non è che le prove fossero deboli: era
+> la domanda a essere metà.*
+
+Gli altri sei, minori:
+
+- **il profilo di un'immersione che ha solo il secondo profilo non sale mai**, e
+  il piano lo richiede a ogni sincronizzazione senza che niente lo segnali;
+- **`syncArchive` da solo non converge** quando i due dispositivi hanno versioni
+  diverse dell'applicazione: la normalizzazione si applica a ciò che scende e mai
+  a ciò che sale, e i due si rispingono la stessa immersione per sempre. Non si
+  perdono dati — la fusione protegge i campi — ma è traffico e scritture di rete
+  a ogni giro, e la convergenza dipende da `repairArchive`, che sta fuori e che
+  nessuna prova lega;
+- **una guardia che verifica la presenza della chiave** dei segnalibri, non il
+  segnalibro: qualunque oggetto non vuoto la supera, e il guasto che
+  proteggerebbe si manifesta come lentezza (rileggere l'intera memoria del
+  computer) e non come errore;
+- **i centoventi punti dei grafici si aprono solo col mouse**, e l'istruzione
+  accanto dice di cliccarli. Non è un vicolo cieco — le immersioni si aprono
+  anche dall'elenco — ma l'istruzione promette una cosa che dalla tastiera non si
+  può fare;
+- **in «Confronta» la colonna «Differenza» dice se è un miglioramento solo col
+  colore**: il numero col segno, senza sapere da che parte sta il meglio, non lo
+  dice;
+- **`ruleAscentRate` chiama «buono» sotto il 2%** mentre la riga corrispondente
+  di Statistiche usa il 10%. È lo stesso schema delle soglie appena allineate, ma
+  lì la regola ha tre bande di gravità e allinearla in un verso o nell'altro è
+  una decisione di prodotto, non una correzione.
 
 ---
 
