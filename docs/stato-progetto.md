@@ -2,8 +2,13 @@
 
 Aggiornato: **15 settembre 2026, mattina** — **2 454 prove in 141 file** più
 **132 prove Rust** del ponte, lint e formato a **0 errori**. La **1.8.21 è
-l'ultima**: porta trentatré correzioni sopra la 1.8.20, trovate in una seconda
-notte di revisione sulle quattro aree che la prima non aveva guardato. **Ai
+l'ultima ed è pubblicata**: release `v1.8.21` sul tag `2cc5ee5` con **nove
+allegati**, Mac notarizzato e installato, cask e tap alla 1.8.21, sito verificato
+testo per testo e rimando per rimando, e — *passo nuovo, ed è la prima volta che
+lo si misura su una release vera* — le **firme dell'aggiornamento verificate sui
+file pubblicati**: chi ha l'applicazione installata la riceve davvero. Porta
+trentatré correzioni sopra la 1.8.20, trovate in una seconda notte di revisione
+sulle quattro aree che la prima non aveva guardato. **Ai
 negozi non è ancora consegnata**, e i pacchetti stanno pronti e misurati in
 `da-caricare-su-app-store/` e `da-caricare-su-play/`: il caricamento lo fa il
 proprietario, con Transporter e con Play Console. *Dieci difetti della revisione
