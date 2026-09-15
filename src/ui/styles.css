@@ -1802,10 +1802,30 @@ input[type='text'],
 input[type='number'],
 input[type='search'],
 input[type='password'],
+/*
+ * ► LA FRECCIA DI UN `<select>` STA DENTRO IL SUO PADDING. ◄
+ *
+ * Con nove pixel a destra — gli stessi di un campo di testo, dove la freccia non
+ * c'è — l'ultima lettera dell'opzione finisce sotto il triangolo del sistema:
+ * su un telefono, nel menu dell'obiettivo dei Suggerimenti, si leggeva
+ * «Miglioramento general». È saltato fuori guardando le schermate rigenerate per
+ * Google Play, cioè le uniche immagini dell'applicazione che finiscono davanti a
+ * qualcuno che non l'ha mai vista.
+ *
+ * Ventisei pixel sono la larghezza della freccia su WebKit e su Chromium più il
+ * respiro che aveva prima. Vale solo per `select`: su un campo di testo
+ * lascerebbe un vuoto a destra senza ragione.
+ */
+select {
+  padding-right: 26px;
+}
+
 textarea {
   font: inherit;
   font-size: 13px;
   padding: 6px 9px;
+  /* Vedi la regola qui sotto per il solo `select`: la freccia del sistema sta
+     DENTRO il padding destro, e su un menu stretto si mangia l'ultima lettera. */
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-strong);
   background: var(--surface-1);
