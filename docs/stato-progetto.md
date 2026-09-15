@@ -1,8 +1,17 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **15 settembre 2026, mattina** — **2 454 prove in 141 file** più
-**132 prove Rust** del ponte, lint e formato a **0 errori**. La **1.8.21 è
-l'ultima ed è pubblicata**: release `v1.8.21` sul tag `2cc5ee5` con **nove
+Aggiornato: **15 settembre 2026, mattina** — **2 494 prove in 146 file** più
+**132 prove Rust** del ponte, lint e formato a **0 errori**. La **1.8.22 è
+l'ultima ed è pubblicata**: release `v1.8.22` sul tag `40086ce` con nove
+allegati, le cinque impronte riscaricate dall'indirizzo pubblico e ricalcolate,
+firme dell'aggiornamento verificate sui file pubblicati, Mac installato e aperto
+senza crash, cask e tap alla 1.8.22, sito invariato e confermato. Porta **i dieci
+difetti che la revisione aveva lasciato aperti**, quattro dei quali erano perdita
+di dati silenziosa nella sincronizzazione. *La 1.8.21 non è mai arrivata ai
+negozi: i suoi pacchetti sono scesi in `superate/` senza essere caricati, come la
+1.8.19 e la 1.8.20.*
+
+La riga di prima, per storico: la **1.8.21 era pubblicata**: release `v1.8.21` sul tag `2cc5ee5` con **nove
 allegati**, Mac notarizzato e installato, cask e tap alla 1.8.21, sito verificato
 testo per testo e rimando per rimando, e — *passo nuovo, ed è la prima volta che
 lo si misura su una release vera* — le **firme dell'aggiornamento verificate sui
