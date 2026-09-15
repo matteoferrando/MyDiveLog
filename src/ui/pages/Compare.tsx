@@ -21,6 +21,7 @@ import { dateShort } from '../format';
 import { useDiveLog } from '../state';
 import { Vuoto } from '../components/Vuoto';
 import { useLingua } from '../lingua';
+import { CartaApribile } from '../components/CartaApribile';
 import { temperaturaMinimaC } from '../../core/temperatura';
 import { profonditaMedia } from '../../core/profondita';
 
@@ -101,8 +102,14 @@ export function Compare({ onOpen }: { onOpen: (id: string) => void }) {
 
       {left && right && (
         <>
-          <div className="card">
-            <h2>{t('I due profili')}</h2>
+          <CartaApribile
+            chiave="confronta-profili"
+            titolo={t('I due profili')}
+            /* Le due massime: è il confronto che si guarda per primo, e da
+               chiusa dice se le due immersioni sono paragonabili. */
+            sommario={`${left.maxDepth.toFixed(1)} m · ${right.maxDepth.toFixed(1)} m`}
+            apertoDiDefault
+          >
             {/* Il perché della scelta — nessun riscalamento alla stessa durata —
                 sta in cima al file. A schermo basta dire che le durate diverse
                 si vedono. */}
@@ -111,16 +118,23 @@ export function Compare({ onOpen }: { onOpen: (id: string) => void }) {
               left={{ dive: left, samples: profiles[leftId] ?? [] }}
               right={{ dive: right, samples: profiles[rightId] ?? [] }}
             />
-          </div>
+          </CartaApribile>
 
-          <div className="card">
-            <h2>{t('Le differenze')}</h2>
+          <CartaApribile
+            chiave="confronta-differenze"
+            titolo={t('Le differenze')}
+            /* Le due durate: insieme alle due massime della carta sopra sono i
+               due numeri con cui si decide se il confronto ha senso, e sono
+               diversi da quelli — un sommario che ripete quello di sopra non
+               aggiunge niente. */
+            sommario={`${formatDuration(left.durationS)} · ${formatDuration(right.durationS)}`}
+          >
             {/* Una misura che c'è da una parte sola non è una differenza piccola:
                 vuol dire che le due immersioni non sono confrontabili su quella
                 riga. Per questo la riga resta e lo dichiara invece di sparire. */}
             <p className="card-sub">{t('Dove un valore manca da una parte sola, la riga lo dichiara.')}</p>
             <ComparisonTable left={left} right={right} onOpen={onOpen} />
-          </div>
+          </CartaApribile>
         </>
       )}
     </div>

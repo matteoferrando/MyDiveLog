@@ -38,23 +38,17 @@
  */
 
 import { useEffect, useId, useState, type ReactNode } from 'react';
-import { comeSta, type Traduci } from '../../core/traduci';
+import { useApertura, useRegistraCapitolo } from './capitoli';
 
-/**
- * Quali riquadri sono aperti, per questa sessione.
+/*
+ * ► LO STATO «APERTO» SE N'È ANDATO DA QUI, il 15 settembre 2026. ◄
  *
- * Un modulo e non `localStorage`, come `memoriaDellElenco.ts`: chi apre un
- * riquadro lo ritrova aperto finché l'applicazione è accesa, e alla riapertura
- * si riparte dai valori predefiniti. Se un giorno servisse ricordarlo anche
- * dopo, il posto è `setSetting` dell'archivio — ma va deciso, perché una scelta
- * ricordata per sempre è una scelta che nessuno si ricorda di aver fatto.
+ * Era una mappa privata di questo modulo, e andava benissimo finché l'unico modo
+ * di aprire un capitolo era toccarlo. Il navigatore laterale deve poterne aprire
+ * uno da fuori e sapere quali esistono, quindi la mappa — con i suoi ascoltatori
+ * — sta in `capitoli.tsx`. Qui resta il disegno.
  */
-const aperti = new Map<string, boolean>();
-
-/** Per le prove, che altrimenti si passerebbero lo stato l'una con l'altra. */
-export function dimenticaSezioniAperte(): void {
-  aperti.clear();
-}
+export { dimenticaSezioniAperte } from './capitoli';
 
 /**
  * Vero quando siamo sotto la soglia del telefono.
@@ -129,7 +123,15 @@ export interface CartaApribileProps {
   sommario: ReactNode;
   /** Aperto anche sul telefono: per il riquadro principale della pagina. */
   apertoDiDefault?: boolean;
-  t?: Traduci;
+  /*
+   * ► LA PROP `t` NON C'È PIÙ. ◄
+   *
+   * Serviva a una cosa sola: tradurre «sezione aperta»/«sezione chiusa» per i
+   * lettori di schermo. Tolto quel testo — lo stato lo dichiara già
+   * `aria-expanded`, ed è l'unico che venga annunciato al momento giusto — la
+   * prop non faceva più niente, e restava passata da quaranta punti diversi.
+   * *Una prop che non fa niente è una domanda che ogni lettore si farà.*
+   */
   children: ReactNode;
 }
 
@@ -139,18 +141,20 @@ export function CartaApribile({
   sotto,
   sommario,
   apertoDiDefault = false,
-  t = comeSta,
   children,
 }: CartaApribileProps) {
   const telefono = useTelefono();
-  const [aperto, setAperto] = useState(() => aperti.get(chiave) ?? apertoDiDefault);
+  const [aperto, cambia] = useApertura(chiave, apertoDiDefault);
   const idCorpo = useId();
-
-  const cambia = () => {
-    const nuovo = !aperto;
-    aperti.set(chiave, nuovo);
-    setAperto(nuovo);
-  };
+  /*
+   * Il nodo si tiene in uno STATO e non in un `ref`, perché il navigatore deve
+   * essere avvisato quando arriva. Un `ref` cambia senza far ridisegnare niente:
+   * l'effetto che registra il capitolo girerebbe una volta sola con `null` in
+   * mano, e l'indice resterebbe vuoto su una pagina piena di capitoli — un
+   * difetto silenzioso, che non rompe niente e non si vede leggendo.
+   */
+  const [nodo, setNodo] = useState<HTMLDivElement | null>(null);
+  useRegistraCapitolo(telefono ? nodo : null, chiave, titolo, sommario);
 
   // Sul computer il riquadro è quello di sempre: nessun pulsante, nessun
   // `aria-expanded`, niente che si possa chiudere per sbaglio.
@@ -165,7 +169,7 @@ export function CartaApribile({
   }
 
   return (
-    <div className={`card carta-apribile${aperto ? ' aperta' : ''}`}>
+    <div ref={setNodo} className={`card carta-apribile${aperto ? ' aperta' : ''}`}>
       {/*
         Il titolo È il pulsante, e non «un pulsante accanto al titolo»: l'area
         da toccare deve essere tutta la riga, perché su un telefono una freccia
@@ -197,15 +201,31 @@ export function CartaApribile({
 
         Il contenuto resta MONTATO: un grafico smontato e rimontato ricalcola e
         rianima a ogni apertura, e chi apre e chiude due volte lo vede
-        lampeggiare. Costa memoria e non tempo, che su questa pagina è il verso
-        giusto.
+        lampeggiare.
+
+        ► E COSTA ANCHE TEMPO, al primo disegno. ◄ Qui c'era scritto «costa
+        memoria e non tempo», ed era falso: misurato con diciotto carte tutte
+        chiuse, il contenuto viene calcolato diciotto volte su diciotto e
+        produce centosessantatré nodi. Quello che si risparmia è il LAYOUT —
+        `hidden` toglie dal flusso — non il lavoro di React. Il verso resta
+        giusto lo stesso, ma per la ragione vera: una carta che lampeggia a ogni
+        apertura è un difetto che si vede sempre, un decimo di secondo in più
+        all'apertura della pagina è un costo che si paga una volta.
       */}
       <div id={idCorpo} hidden={!aperto}>
         {sotto ? <p className="card-sub">{sotto}</p> : null}
         {children}
       </div>
-      {/* Per chi usa un lettore di schermo: lo stato a parole, non solo il segno. */}
-      <span className="solo-lettori">{aperto ? t('sezione aperta') : t('sezione chiusa')}</span>
+      {/*
+       * ► QUI C'ERA UN TESTO PER I LETTORI DI SCHERMO, ed è stato tolto. ◄
+       *
+       * Diceva «sezione aperta» / «sezione chiusa» dentro la carta. Ma lo stato
+       * lo dichiara già `aria-expanded` sul pulsante, che è il modo standard e
+       * l'unico che venga annunciato AL MOMENTO GIUSTO: quel testo, non essendo
+       * una regione viva, non veniva letto al cambio — restava lì come una
+       * stringa vagante che chi naviga a testo si ritrovava dopo il titolo.
+       * Costava rumore e non aggiungeva niente.
+       */}
     </div>
   );
 }

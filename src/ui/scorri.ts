@@ -42,8 +42,16 @@
  */
 import { useEffect, useRef } from 'react';
 
-/** Chi ha chiesto meno animazioni non vuole nemmeno questa: si arriva di colpo. */
-function comeScorrere(): ScrollBehavior {
+/**
+ * Chi ha chiesto meno animazioni non vuole nemmeno questa: si arriva di colpo.
+ *
+ * Esportata dal 15 settembre 2026: l'indice laterale ne aveva bisogno e aveva
+ * scritto `'smooth'` a mano, diventando l'unico scorrimento dell'applicazione
+ * sordo a quell'impostazione — e proprio quello che può animare quattro
+ * schermate con un tocco. *Una regola che si può riscrivere a mano è una regola
+ * che prima o poi qualcuno riscrive a mano.*
+ */
+export function comeScorrere(): ScrollBehavior {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
 }
 

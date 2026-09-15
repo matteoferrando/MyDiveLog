@@ -14,7 +14,7 @@ import {
 } from '../components/Charts';
 import { useDiveLog } from '../state';
 import { PeriodPicker } from '../components/PeriodPicker';
-import { dateShort, etichettaMese, imm, int, pct, type Traduci } from '../format';
+import { dateShort, etichettaMese, etichettaSecchio, imm, int, pct, type Traduci } from '../format';
 import { OTU_DAILY_MAX, OTU_DAILY_TDI } from '../../core/analysis/oxygen';
 import {
   correlation,
@@ -254,7 +254,6 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
             ? `${medianOf(a.rmv.map((punto) => punto.value))!.toFixed(1)} L/min`
             : t('serve un profilo campionato')
         }
-        t={t}
       >
         <div className="page-title-row" style={{ marginBottom: 12 }}>
           <span className="muted" style={{ fontSize: 12 }}>
@@ -313,7 +312,6 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               ? frase(t, '{0} ripetitive, +{1} GF99', a.repetitiveDives, a.repetitiveCostMedian.toFixed(1))
               : imm(a.repetitiveDives, t)
           }
-          t={t}
         >
           <div className="page-title-row" style={{ marginBottom: 12 }}>
             <span className="muted" style={{ fontSize: 12 }}>
@@ -386,7 +384,6 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               ? `CNS ${a.oxygen.worstCnsDay.peakCnsPercent}% · OTU ${a.oxygen.worstOtuDay.otu}`
               : imm(a.oxygen.eligible, t)
           }
-          t={t}
         >
           <div className="page-title-row" style={{ marginBottom: 12 }}>
             {/* Il valore che scrive il computer è un'altra cosa: modello diverso.
@@ -521,7 +518,6 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               )
             : t('nessuna immersione nel periodo scelto')
         }
-        t={t}
       >
         {/* I mesi vuoti restano nel grafico: la stagionalità e le pause sono parte
             dell'informazione, e comprimerli farebbe sembrare continuo un anno in
@@ -627,10 +623,11 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
              questo è esattamente il numero che il grafico dentro disegna. */
           sommario={
             a.byDepthBand.some((b) => b.value > 0)
-              ? `${a.byDepthBand.reduce((m, b) => (b.value > m.value ? b : m)).label} ${t('soprattutto')}`
+              ? /* `frase()` e non una concatenazione: concatenando usciva «18–24 m mostly»,
+                   cioè l'ordine delle parole italiano imposto all'inglese. */
+                frase(t, 'soprattutto {0}', a.byDepthBand.reduce((m, b) => (b.value > m.value ? b : m)).label)
               : t('nessuna immersione nel periodo scelto')
           }
-          t={t}
         >
           <BarChart data={a.byDepthBand} unit={t('immersioni')} />
         </CartaApribile>
@@ -645,7 +642,6 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               ? `${a.topSites[0].name} · ${imm(a.topSites[0].dives, t)}`
               : t('nessun sito registrato')
           }
-          t={t}
         >
           <p className="card-sub">{t('Per numero di immersioni.')}</p>
           <BarChart
@@ -671,7 +667,6 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               ? `${pctPiano(a.safetyStopRate)} ${t('soste completate')}`
               : t('nessuna immersione verificabile')
           }
-          t={t}
         >
           <p className="card-sub">
             {t(
@@ -790,7 +785,6 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
              dicono CHE TIPO di subacqueo sei. Qui lo zero è un dato vero e non
              un'assenza — il denominatore è noto — quindi non serve ripiego. */
           sommario={frase(t, '{0} oltre i 30 m, {1} con deco', a.deepDives30, a.decoDives)}
-          t={t}
         >
           <p className="card-sub">{t('Configurazione, miscele, esposizione.')}</p>
           <table>
@@ -852,7 +846,6 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               )
             : t('nessuna immersione nel periodo scelto')
         }
-        t={t}
       >
         <ColumnChart
           data={[...a.byYear].sort((x, y) => x.key.localeCompare(y.key))}
@@ -1032,7 +1025,6 @@ function Correlations({
         sets.length,
         Math.max(...sets.map((s) => Math.abs(correlation(s.points) ?? 0))).toFixed(2),
       )}
-      t={t}
     >
       <p className="card-sub">
         {t(
@@ -1148,7 +1140,6 @@ function Distributions({ dives }: { dives: Dive[] }) {
             )
           : t('serve un profilo campionato')
       }
-      t={t}
     >
       <p className="card-sub">
         {t('Quante immersioni per intervallo. Le code sono i casi che una media nasconde.')}
@@ -1160,7 +1151,14 @@ function Distributions({ dives }: { dives: Dive[] }) {
               <span>{b.title}</span>
             </div>
             <ColumnChart
-              data={b.bins.map((x) => ({ key: x.label, label: x.label, value: x.count }))}
+              /* La `key` resta l'etichetta ITALIANA: è un identificatore di riga,
+                 e cambiarla con la lingua farebbe rimontare tutte le colonne a
+                 ogni tocco su EN. Quella che si legge passa da `t()`. */
+              data={b.bins.map((x) => ({
+                key: x.label,
+                label: etichettaSecchio(x.label, t),
+                value: x.count,
+              }))}
               unit={t('immersioni')}
               height={150}
               labelEvery={1}
@@ -1241,7 +1239,6 @@ function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipm
            sono. Il numero che fa decidere se aprirla è quante immersioni hanno la
            muta compilata, cioè la ragione del silenzio. */
         sommario={frase(t, 'solo {0} con l’attrezzatura', conMuta)}
-        t={t}
       >
         <p className="card-sub" style={{ marginBottom: 0 }}>
           {`${imm(conMuta, t)} ${t('con l’attrezzatura registrata: troppo poche per un confronto. Compila muta, zavorra ed erogatori nella scheda dell’immersione.')}`}
@@ -1264,7 +1261,6 @@ function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipm
       /* Quante mute distinte hanno abbastanza immersioni per entrare in tabella:
          è la misura di quanto ha da dire questa carta. */
       sommario={frase(t, '{0} mute a confronto', mute.length)}
-      t={t}
     >
       {/* Nessuna di queste tabelle dice «meglio». Accanto a ogni riga stanno la
           profondità mediana e il numero di immersioni su cui è calcolata: sono i
@@ -1529,7 +1525,6 @@ function Condizioni({ dives }: { dives: Dive[] }) {
           'solo {0} con le condizioni registrate',
           Math.max(quante.mare, quante.visibilita, quante.meteo),
         )}
-        t={t}
       >
         <p className="card-sub" style={{ marginBottom: 0 }}>
           {t(
@@ -1563,7 +1558,6 @@ function Condizioni({ dives }: { dives: Dive[] }) {
             )
           : frase(t, '{0} condizioni a confronto', tabelle.length)
       }
-      t={t}
     >
       <p className="card-sub">
         {t(
@@ -1680,7 +1674,6 @@ function SettingsHistory({ dives }: { dives: Dive[] }) {
          impostazioni. `periods.length >= 2` è garantito dall'uscita anticipata qui
          sopra, quindi «0 cambi» non può comparire. */
       sommario={frase(t, '{0} cambi, ora {1}', periods.length - 1, periods[periods.length - 1].label)}
-      t={t}
     >
       <p className="card-sub">
         {t('Il GF99 all’uscita dipende da queste impostazioni: tienine conto quando confronti due periodi.')}
@@ -1738,7 +1731,6 @@ function Seasonality({ dives }: { dives: Dive[] }) {
         const piuFreddo = months.reduce((m, x) => (x.value < m.value ? x : m));
         return `${piuFreddo.label} ${piuFreddo.value.toFixed(1)} °C`;
       })()}
-      t={t}
     >
       <ColumnChart data={months} unit="°C" height={150} labelEvery={1} serie="misure" />
     </CartaApribile>
@@ -1949,7 +1941,6 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
           ? frase(t, '{0} siti · {1} senza coordinate', withCoords, withoutCoords)
           : `${withCoords} ${t('siti')}`
       }
-      t={t}
     >
       <div className="page-title-row" style={{ marginBottom: 4 }}>
         <span className="muted" style={{ fontSize: 12 }}>

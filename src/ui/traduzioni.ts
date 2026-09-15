@@ -38,7 +38,7 @@ export const INGLESE: Record<string, string> = {
   // pagina senza doverci entrare. Corte, perché stanno su una riga sola.
   'Due profili sullo stesso grafico': 'Two profiles on one chart',
   'Il piano di miglioramento': 'Your improvement plan',
-  'Nome e brevetti per il libretto': 'Name and certifications for the logbook',
+  'Nome e brevetti per il libretto': 'Name and certs for your logbook',
   'Bombole, mute, zavorra, revisioni': 'Cylinders, suits, weights, servicing',
   'Accesso, backup, lingua, cestino': 'Sign-in, backup, language, trash',
   di: 'of',
@@ -49,6 +49,17 @@ export const INGLESE: Record<string, string> = {
   'Qualcosa si è rotto in questa pagina': 'Something broke on this page',
   Riprova: 'Try again',
   Sezioni: 'Sections',
+  'Sezioni della pagina': 'Sections on this page',
+  'Altre sezioni': 'More sections',
+  // L'etichetta del pulsante secondario della schermata vuota: arriva a `t()`
+  // come proprietà (`Vuoto.tsx`), quindi la guardia del dizionario non la vede.
+  'Scrivila a mano': 'Type it in by hand',
+  // Le etichette dei secchi degli istogrammi, costruite in `aggregate.ts`.
+  'fino a {0}': 'up to {0}',
+  'oltre {0}': 'over {0}',
+  '{0} bar fissi': '{0} bar fixed',
+  'esci con {0} bar': 'surface with {0} bar',
+  'Soste con {0}': 'Stops on {0}',
   'tutte mostrate': 'all shown',
 
   // --- importazione da file e scarico via Bluetooth ---
@@ -224,7 +235,9 @@ export const INGLESE: Record<string, string> = {
   '{0} bar usati': '{0} bar used',
   'pressioni non registrate': 'pressures not recorded',
   'Riepilogo calcolato dal computer': 'Summary computed by the dive computer',
-  obbligo: 'obligation',
+  // «deco» e non «obligation»: è la parola che usa chi si immerge, ed è la
+  // stessa con cui il titolo della carta sotto traduce «obbligo».
+  obbligo: 'deco',
   'nessun valore di sintesi': 'no summary values',
   'sempre in curva, minimo {0} min': 'always within NDL, {0} min at worst',
   'Limite di PPO2 impostato': 'PPO2 limit set',
@@ -433,21 +446,29 @@ export const INGLESE: Record<string, string> = {
   // Sono la riga che una sezione chiusa mostra accanto al titolo: devono restare
   // corte in inglese quanto in italiano, o sul telefono vanno a capo.
   'Quanto ti costano le ripetitive': 'What repetitive dives cost you',
-  '{0} ripetitive, +{1} GF99': '{0} repetitive, +{1} GF99',
+  // «repetitive» da solo è un aggettivo: «12 repetitive» non è inglese. «repets»
+  // è la parola vera dei subacquei, ed è anche più corta.
+  '{0} ripetitive, +{1} GF99': '{0} repets, +{1} GF99',
   '{0} mesi su {1} con immersioni': '{0} of {1} months with dives',
   'nessun sito registrato': 'no site recorded',
   'Disciplina: soste, risalite, riserva': 'Discipline: stops, ascents, reserve',
   'soste completate': 'safety stops done',
   '{0} oltre i 30 m, {1} con deco': '{0} past 30 m, {1} with deco',
   '{0} anni, fino a {1} in uno': '{0} years, up to {1} in one',
-  '{0} relazioni, r fino a {1}': '{0} relationships, r up to {1}',
+  // «correlations» e non «relationships»: in inglese i secondi sono i rapporti
+  // fra persone, e il corpo della carta parla già di r.
+  '{0} relazioni, r fino a {1}': '{0} correlations, r up to {1}',
   'Le code che la media nasconde': 'The tails an average hides',
-  soprattutto: 'mostly',
+  // Con `frase()` e non concatenata: concatenando usciva «18–24 m mostly», cioè
+  // l'ordine delle parole italiano imposto all'inglese.
+  'soprattutto {0}': 'mostly {0}',
   '{0} mute a confronto': '{0} suits compared',
   '{0} uscite sotto i {1} bar': '{0} exits below {1} bar',
   'solo {0} con l’attrezzatura': 'only {0} with gear filled in',
   'solo {0} con le condizioni registrate': 'only {0} with conditions recorded',
-  'consumo da {0} a {1} L/min': '{0} to {1} L/min',
+  // Senza «RMV» l'inglese perdeva il soggetto: restava un intervallo nudo sotto
+  // un titolo che chiede quanto contano le condizioni.
+  'consumo da {0} a {1} L/min': 'RMV {0} to {1} L/min',
   '{0} condizioni a confronto': '{0} conditions compared',
   '{0} cambi, ora {1}': '{0} changes, now {1}',
   '{0} siti · {1} senza coordinate': '{0} sites · {1} without coordinates',
@@ -1112,7 +1133,8 @@ export const INGLESE: Record<string, string> = {
   'Usa nel piano': 'Use in the plan',
   'usciresti con': 'you would surface on',
   'Uscita più bassa': 'Lowest end pressure',
-  'uscita prevista': 'expected end',
+  // Stesso inglese della gemella maiuscola: le due compaiono nella stessa pagina.
+  'uscita prevista': 'expected on surfacing',
   'Uscita prevista': 'Expected on surfacing',
   'Uscita tipica': 'Typical end pressure',
   Utilizzabile: 'Usable',
@@ -1248,7 +1270,9 @@ export const INGLESE: Record<string, string> = {
   media: 'average',
   Mediana: 'Median',
   'metà dei punti fra': 'half the points between',
-  Minimo: 'Minimum',
+  // «Min» come «Max»: le due stanno nella stessa riga di intestazione dei
+  // quartili, e «Minimum … Max» si legge come una svista.
+  Minimo: 'Min',
   minimo: 'min',
   minuti: 'minutes',
   'minuti su': 'minutes over',
@@ -1310,6 +1334,8 @@ export const INGLESE: Record<string, string> = {
   apnea: 'freediving',
   Aprila: 'Open it',
   Attrezzatura: 'Gear',
+  '{0} configurazioni': '{0} setups',
+  'nessuna zavorra registrata': 'no weighting recorded',
   Bombole: 'Cylinders',
   "C'è già un'immersione con questo orario, profondità e durata. Salvando, i tuoi dati riempiono i campi vuoti di quella.":
     'There is already a dive with this time, depth and duration. Saving fills its empty fields with your data.',
@@ -1988,7 +2014,9 @@ export const INGLESE: Record<string, string> = {
     'No cylinder pressure: gas consumption cannot be worked out.',
   'Hai respirato più di una bombola, ma il profilo non dice quando hai cambiato: tetto, TTS, GF99 e compartimenti sono ricalcolati tutti sulla PRIMA bombola. Se la seconda era una miscela da decompressione, il tetto vero era meno profondo e l’obbligo più corto. Riscarica il computer: il cambio di gas c’è nel suo registro.':
     'You breathed more than one cylinder, but the profile does not say when you switched: ceiling, TTS, GF99 and compartments are all recomputed on the FIRST cylinder. If the second was a decompression mix, the real ceiling was shallower and the obligation shorter. Download from your computer again: the gas switch is in its log.',
-  'sei uscito al': 'you came out at',
+  // «surfaced», come la gemella maiuscola due righe di codice più in là: era lo
+  // stesso fatto detto con due verbi diversi nello stesso componente.
+  'sei uscito al': 'you surfaced at',
   'tanto quanto saresti uscito da tessuti puliti':
     'exactly what you would have come out at with clean tissues',
   semiperiodo: 'half-time',
@@ -2086,7 +2114,8 @@ export const INGLESE: Record<string, string> = {
   'solo PPO2': 'PPO2 only',
   sosta: 'stop',
   'Sosta di sicurezza completata': 'Safety stop completed',
-  'sosta profonda': 'deep stops',
+  // Singolare: è l'etichetta di UNA fascia, non dell'insieme.
+  'sosta profonda': 'deep stop',
   'Soste (sicurezza e deco)': 'Stops (safety and deco)',
   'Soste di sicurezza completate': 'Safety stops completed',
   'Stato del mare': 'Sea state',
@@ -2234,7 +2263,6 @@ export const INGLESE: Record<string, string> = {
   'Profilo del': 'Profile of',
   'Restano i dati di riepilogo.': 'The summary data is left.',
   'Riconosciuto uno sfasamento di': 'Recognised a clock offset of',
-  Riga: 'Row',
   'righe scartate: data o durata non interpretabili.': 'rows discarded: date or duration unreadable.',
   'scartata: data, durata o profondità non interpretabili.': 'discarded: date, duration or depth unreadable.',
   'scartata: durata o profondità mancanti.': 'discarded: duration or depth missing.',

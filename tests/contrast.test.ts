@@ -214,6 +214,66 @@ describe('ordine delle regole per il telefono', () => {
   });
 });
 
+/**
+ * LA TESTA DEL LOGBOOK CHE RESTA FERMA, e le tre cose che la rompono in silenzio.
+ *
+ * `position: sticky` è la dichiarazione che «non fa niente» più facilmente di
+ * ogni altra, e in tutti e tre i modi il sintomo è lo stesso: la pagina si
+ * vede, solo che scorre tutta. Nessuno screenshot distingue «non si blocca» da
+ * «non doveva bloccarsi».
+ */
+describe('la testa del logbook resta ferma', () => {
+  /*
+   * ► IL SELETTORE SI CERCA A INIZIO RIGA, e la prima stesura no. ◄
+   *
+   * `css.indexOf('.main {')` trovava la prima occorrenza, che è **dentro la
+   * media query del telefono** (`  .main { padding-bottom: 20px }`): la prova
+   * leggeva quel corpo di due righe e concludeva che `.main` non ha padding —
+   * una prova rossa su un file corretto. L'a capo davanti àncora la regola di
+   * primo livello, che è quella di cui si parla qui.
+   */
+  const regola = (selettore: string): string => {
+    const i = css.indexOf('\n' + selettore);
+    return i < 0 ? '' : css.slice(i, css.indexOf('}', i));
+  };
+
+  it('è `sticky` e dichiara il suo `top`', () => {
+    const testa = regola('.logbook-testa {');
+    expect(testa, 'la regola non c’è più').not.toBe('');
+    expect(testa).toContain('position: sticky');
+    // Senza `top`, `sticky` si comporta come `static`: la regola c'è e non fa
+    // niente. È il primo dei tre modi.
+    expect(testa, '`sticky` senza `top` non blocca niente').toMatch(/\btop:/);
+  });
+
+  it('ha uno sfondo, o l’elenco le passa attraverso', () => {
+    // Il secondo modo: la testa resta ferma ma è trasparente, e si legge una
+    // data del 2019 sovrapposta alla parola «Logbook».
+    expect(regola('.logbook-testa {')).toContain('background:');
+  });
+
+  /*
+   * ► IL TERZO MODO, ed è quello che è successo davvero. ◄
+   *
+   * Il rettangolo a cui `sticky` si aggancia è quello del contenitore che
+   * scorre **ridotto del suo padding**. Con `padding-top: 20px` su `.main`, la
+   * testa si fermava venti pixel più in basso e in quella striscia il contenuto
+   * continuava a scorrere visibile: si vedeva passare il bordo di una carta
+   * sopra il titolo. Misurato: `top` della testa a 20 px dal bordo di `.main`,
+   * con lo scorrimento a 1400.
+   *
+   * La cura è stata spostare quei venti pixel su `.page`. Queste due righe
+   * tengono insieme la coppia: chi li rimettesse su `.main` — la cosa più
+   * naturale del mondo — rifarebbe il difetto senza vedere niente di rotto.
+   */
+  it('`.main` non ha padding in alto, e `.page` sì', () => {
+    expect(regola('.main {'), '`.main` ha di nuovo un padding in alto: la testa si blocca più giù').toMatch(
+      /padding:\s*0 /,
+    );
+    expect(regola('.page {'), 'i venti pixel non sono su `.page`').toMatch(/padding-top:\s*20px/);
+  });
+});
+
 describe('bersagli e ritagli dello schermo', () => {
   /*
    * Due proprietà che si possono verificare solo leggendo il file, e che sono

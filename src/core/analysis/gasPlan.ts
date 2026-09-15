@@ -666,7 +666,20 @@ export function planGas(raw: GasPlanInput): GasPlan {
       ? [
           phase(
             stopsOnDeco
-              ? `Soste con ${mixName(decoMix!)}`
+              ? /*
+                 * ► L'ETICHETTA È UN MODELLO, e il gas viaggia in un campo suo. ◄
+                 *
+                 * Prima era `` `Soste con ${mixName(decoMix)}` ``, cioè una chiave
+                 * COSTRUITA: «Soste con EAN50» non sarà mai nel dizionario, e in
+                 * inglese quella riga restava italiana in mezzo a otto fasi
+                 * tradotte. È il difetto che `dizionario.test.ts` cerca con
+                 * «nessuna chiave è costruita interpolando un valore», e che non
+                 * vedeva perché l'interpolazione avviene qui e non dentro `t()`.
+                 *
+                 * Adesso l'etichetta è la chiave, il gas sta in `gasEtichetta`, e
+                 * chi disegna li rimette insieme con `frase()`.
+                 */
+                'Soste con {0}'
               : extraStopMin > 0
                 ? 'Soste (sicurezza e deco)'
                 : 'Sosta di sicurezza',
@@ -1109,8 +1122,10 @@ export interface SchedulePoint {
   bar: number;
   /** Litri consumati fino a quel momento. */
   litres: number;
-  /** Cosa stai facendo: l'etichetta della fase. */
+  /** Cosa stai facendo: l'etichetta della fase, che può essere un modello. */
   phase: string;
+  /** Il gas da rimettere dentro l'etichetta, quando l'etichetta ha un `{0}`. */
+  gasEtichetta?: string;
   /** Vero sui confini di fase: sono le righe che vanno in grassetto. */
   boundary: boolean;
 }
@@ -1142,13 +1157,14 @@ export function pressureSchedule(plan: GasPlan, stepMin?: number): SchedulePoint
 
   const out: SchedulePoint[] = [];
   for (const at of ordered) {
-    const { litres, depthM, phase } = consumedAt(plan, at);
+    const { litres, depthM, phase, gasEtichetta } = consumedAt(plan, at);
     out.push({
       runMin: Math.round(at * 10) / 10,
       depthM: Math.round(depthM * 10) / 10,
       litres: Math.round(litres),
       bar: Math.max(0, Math.round(startBar - litres / tankL)),
       phase,
+      gasEtichetta,
       boundary: at === 0 || boundaries.has(Math.round(at * 100) / 100),
     });
   }
@@ -1163,7 +1179,10 @@ export function pressureSchedule(plan: GasPlan, stepMin?: number): SchedulePoint
  * fino a metà di una risalita è quello alla profondità media di quella metà, non
  * metà del consumo del tratto intero.
  */
-function consumedAt(plan: GasPlan, atMin: number): { litres: number; depthM: number; phase: string } {
+function consumedAt(
+  plan: GasPlan,
+  atMin: number,
+): { litres: number; depthM: number; phase: string; gasEtichetta?: string } {
   const { salinity, altitudeM } = plan.input;
   // La stessa pressione di superficie con cui sono state costruite le fasi: a
   // 1500 m un minuto costa il 16% in meno che al mare, e la tabella che ignorava
@@ -1173,6 +1192,9 @@ function consumedAt(plan: GasPlan, atMin: number): { litres: number; depthM: num
   let litres = 0;
   let depthM = plan.planned[0]?.fromM ?? 0;
   let phase = plan.planned[0]?.label ?? '';
+  // Il gas da rimettere nell'etichetta viaggia con lei: vedi il riquadro sulla
+  // fase delle soste con lo stage.
+  let gasEtichetta = plan.planned[0] ? mixName(plan.planned[0].mix) : undefined;
   for (const ph of plan.planned) {
     const inPhase = Math.min(Math.max(0, atMin - elapsed), ph.minutes);
     if (inPhase > 0) {
@@ -1189,11 +1211,12 @@ function consumedAt(plan: GasPlan, atMin: number): { litres: number; depthM: num
       }
       depthM = to;
       phase = ph.label;
+      gasEtichetta = mixName(ph.mix);
     }
     elapsed += ph.minutes;
     if (atMin <= elapsed + 1e-9) break;
   }
-  return { litres, depthM, phase };
+  return { litres, depthM, phase, gasEtichetta };
 }
 
 /**

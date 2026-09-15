@@ -342,7 +342,6 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
         /* Quanti ne legge: è il numero che questa carta produce, ed è anche
            l'unica cosa che chi ha un file in mano vuole sapere prima di aprirla. */
         sommario={frase(t, '{0} formati letti', PARSERS.length)}
-        t={t}
       >
         <div className="table-scroll">
           <table>
@@ -381,7 +380,6 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
         /* Il titolo promette un confronto fra formati: il sommario dice qual è
            la cosa che li distingue davvero, cioè quello che NON portano. */
         sommario={t('e cosa lascia fuori')}
-        t={t}
       >
         <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)', fontSize: 13 }}>
           <li>

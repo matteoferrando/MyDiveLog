@@ -373,7 +373,6 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
         titolo={t('Profilo')}
         sommario={`${dive.maxDepth.toFixed(1)} m × ${formatDuration(dive.durationS)}`}
         apertoDiDefault
-        t={t}
       >
         <div className="spread" style={{ alignItems: 'flex-start', gap: 12 }}>
           <p className="card-sub">
@@ -574,7 +573,6 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                 ? `${t('Tempo in deco')} ${formatDuration(m.decoS)}`
                 : t('nessuna deco')
           }
-          t={t}
         >
           <table>
             <tbody>
@@ -787,7 +785,6 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                       : t('pressioni non registrate')
                   }`
           }
-          t={t}
         >
           {/* Il volume in litri serve al consumo in L/min: senza, resta bar/min,
               che non si confronta fra bombole di taglia diversa. */}
@@ -902,7 +899,6 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                       }`
                     : t('nessun valore di sintesi')
               }
-              t={t}
             >
               {/* Restano distinti da quelli che ricaviamo noi dal profilo: due
                   misure diverse, e sovrapporle nasconderebbe la differenza. */}
@@ -944,7 +940,6 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                  produttore: non c'è un valore «principale», quindi il numero
                  della carta è quante ce ne sono. */
               sommario={`${Object.keys(annotazioniDelLogbook).length} ${t('voci')}`}
-              t={t}
             >
               <p className="card-sub">{t('Come le hai scritte nel logbook di origine.')}</p>
               <table>
@@ -1062,6 +1057,22 @@ function ComputerSettings({ dive }: { dive: Dive }) {
             computer={c}
             surfacePressureBar={i === 0 ? dive.surfacePressureBar : undefined}
             title={c.model ?? `${t('Computer')} ${i + 1}`}
+            /*
+             * ► LA CHIAVE DEL CAPITOLO È LA POSIZIONE, e non il modello né il
+             *   titolo. ◄
+             *
+             * Prima era `imm-computer-${c.serial ?? title}`, e aveva due modi di
+             * andare storta, tutti e due silenziosi. **Due computer dello stesso
+             * modello senza numero di serie** — due gemelli di riserva, o un
+             * lettore che il seriale non lo scrive — producevano la stessa
+             * chiave: le due carte si aprivano insieme e una spariva
+             * dall'indice laterale. E il titolo del computer singolo passa da
+             * `t()`: premere EN cambiava la chiave, richiudeva la carta e
+             * lasciava una voce orfana nella mappa delle aperture.
+             *
+             * L'indice nella griglia non cambia con la lingua e non collide mai.
+             */
+            indice={i}
           />
         ))}
       </div>
@@ -1072,6 +1083,7 @@ function ComputerSettings({ dive }: { dive: Dive }) {
       computer={all[0]}
       surfacePressureBar={dive.surfacePressureBar}
       title={t('Impostazioni del computer')}
+      indice={0}
     />
   );
 }
@@ -1080,10 +1092,13 @@ function SingleComputerSettings({
   computer: c,
   surfacePressureBar,
   title,
+  indice,
 }: {
   computer: ComputerInfo | undefined;
   surfacePressureBar?: number;
   title: string;
+  /** La posizione nella griglia: è quello che fa la chiave del capitolo. */
+  indice: number;
 }) {
   const { t } = useLingua();
   if (!c) return null;
@@ -1129,7 +1144,7 @@ function SingleComputerSettings({
      * cambia il significato di tutti gli altri numeri della pagina.
      */
     <CartaApribile
-      chiave={`imm-computer-${c.serial ?? title}`}
+      chiave={`imm-computer-${indice}`}
       titolo={title}
       /* Il GF99 e l'obbligo decompressivo mostrati sopra sono stati calcolati
          dal computer con queste impostazioni: confrontare due immersioni fatte
@@ -1140,7 +1155,6 @@ function SingleComputerSettings({
           ? `GF ${c.gfLow}/${c.gfHigh}`
           : (c.decoModel ?? `${rows.length} ${t('voci')}`)
       }
-      t={t}
     >
       <table>
         <tbody>
@@ -1279,7 +1293,6 @@ function DecoTimelineCard({
           ? `${t('tetto')} ${maxCeiling.toFixed(1)} m`
           : frase(t, 'sempre in curva, minimo {0} min', Math.min(...timeline.map((p) => p.ndlMin)).toFixed(0))
       }
-      t={t}
     >
       {/* I numeri del computer compaiono tratteggiati non per correggerlo — era
           lui in acqua, ed è lui ad avere ragione — ma perché due

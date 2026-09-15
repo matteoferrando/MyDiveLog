@@ -41,6 +41,8 @@ import { useDiveLog } from './state';
 import { CambiaLingua, useLingua } from './lingua';
 import { BARRA, GRUPPI_ALTRO, ProvvedituraNavigazione, TABS, type Vista } from './navigazione';
 import { contenitoreCheScorre } from './memoriaDellElenco';
+import { ProvvedituraCapitoli, useCapitoli } from './components/capitoli';
+import { MINIMO_CAPITOLI, NavigatoreSezioni } from './components/NavigatoreSezioni';
 
 /*
  * `React.lazy` vuole un modulo con export predefinito; le pagine esportano un
@@ -314,6 +316,31 @@ function Segno({ quale }: { quale: string }) {
   );
 }
 
+/**
+ * `.main` più il suo indice, e la classe che li tiene d'accordo.
+ *
+ * Esiste per una ragione sola: `App` disegna la provveditura dei capitoli, e un
+ * componente non può leggere il contesto che fornisce lui stesso. Serviva
+ * qualcuno DENTRO la provveditura che sapesse quanti capitoli ci sono, per
+ * mettere a `.main` la classe che gli stringe il margine destro — solo quando
+ * l'indice si disegna davvero, non «sul telefono» in generale.
+ *
+ * ► LA SOGLIA È UNA SOLA, ed è esportata da chi la usa. ◄ Scriverla due volte —
+ * qui per la classe e là per il disegno — vorrebbe dire un giorno avere il
+ * margine stretto senza indice, o l'indice sopra il contenuto. Sono due
+ * conseguenze della stessa decisione e leggono lo stesso numero.
+ */
+function ContenutoConIndice({ children }: { children: ReactNode }) {
+  const capitoli = useCapitoli();
+  const conIndice = capitoli.length >= MINIMO_CAPITOLI;
+  return (
+    <>
+      <main className={conIndice ? 'main con-navigatore' : 'main'}>{children}</main>
+      <NavigatoreSezioni />
+    </>
+  );
+}
+
 export function App() {
   const { ready, dives, initError } = useDiveLog();
   const { t } = useLingua();
@@ -395,20 +422,34 @@ export function App() {
      * ritroverebbe spalancato senza averlo chiesto. Su iPhone non succede mai —
      * succede sul desktop, che è dove l'app si ridimensiona davvero.
      */
-    const largo = window.matchMedia('(min-width: 701px)');
+    /* `?.` come negli altri sei richiami dell'interfaccia: in jsdom `window` c'è
+       e `matchMedia` no, e senza il punto interrogativo qualunque prova che apra
+       il foglio «Altro» lancia invece di misurare. Vedi `CartaApribile`. */
+    const largo = window.matchMedia?.('(min-width: 701px)');
     const suCambio = () => {
-      if (largo.matches) setMenuAperto(false);
+      if (largo?.matches) setMenuAperto(false);
     };
-    largo.addEventListener('change', suCambio);
+    largo?.addEventListener('change', suCambio);
     return () => {
       window.removeEventListener('keydown', suTasto);
-      largo.removeEventListener('change', suCambio);
+      largo?.removeEventListener('change', suCambio);
     };
   }, [menuAperto]);
 
   const go = (v: View) => {
     setOpenDive(null);
     setView(v);
+    /*
+     * ► CHIUDENDO IL FOGLIO IL FUOCO TORNA AL PULSANTE, anche per questa strada. ◄
+     *
+     * Il ramo di Esc lo faceva già; questo no — ed è la strada che si percorre
+     * sempre. Sceglieva una voce, il foglio spariva con dentro il pulsante che
+     * aveva il fuoco, e il fuoco tornava sul corpo del documento: il Tab
+     * successivo ripartiva dalla cima della pagina. Stesso difetto del ramo
+     * scritto apposta per evitarlo, sul percorso normale invece che su quello
+     * d'emergenza.
+     */
+    if (menuAperto) bottoneMenu.current?.focus();
     setMenuAperto(false);
   };
 
@@ -489,75 +530,85 @@ export function App() {
        * pulsanti di navigazione sparirebbero proprio nell'istante in cui l'utente
        * ha appena finito di premerne uno.
        */}
-      <main className="main">
-        {/*
-         * L'avvio parziale si dichiara, e sta FUORI dall'ErrorBoundary.
-         *
-         * Se una parte dell'archivio non si è aperta, l'applicazione parte
-         * comunque — è la scelta giusta, meglio metà che niente — ma senza
-         * questa riga metà archivio e archivio vuoto sono indistinguibili, e la
-         * reazione naturale a «non ci sono le mie immersioni» è reimportarle,
-         * cioè scrivere sopra a un archivio che c'era già.
-         */}
-        {initError && (
-          <div className="page" style={{ paddingBottom: 0 }}>
-            <div className="notice notice-error" role="alert">
-              {initError}
+      {/*
+       * ► LA PROVVEDITURA DEI CAPITOLI ABBRACCIA `.main` E IL NAVIGATORE. ◄
+       *
+       * Deve stare sopra tutti e due perché i capitoli si registrano DENTRO la
+       * pagina e l'indice vive FUORI, sul bordo destro: se stesse dentro
+       * `.main`, il navigatore scorrerebbe insieme al contenuto — cioè sarebbe
+       * un indice che scappa mentre lo si usa.
+       */}
+      <ProvvedituraCapitoli>
+        <ContenutoConIndice>
+          {/*
+           * L'avvio parziale si dichiara, e sta FUORI dall'ErrorBoundary.
+           *
+           * Se una parte dell'archivio non si è aperta, l'applicazione parte
+           * comunque — è la scelta giusta, meglio metà che niente — ma senza
+           * questa riga metà archivio e archivio vuoto sono indistinguibili, e la
+           * reazione naturale a «non ci sono le mie immersioni» è reimportarle,
+           * cioè scrivere sopra a un archivio che c'era già.
+           */}
+          {initError && (
+            <div className="page" style={{ paddingBottom: 0 }}>
+              <div className="notice notice-error" role="alert">
+                {initError}
+              </div>
             </div>
-          </div>
-        )}
-        {/*
-         * ► LA `key` È QUELLO CHE RENDE VERA LA FRASE «Le altre schede
-         *   funzionano». ◄
-         *
-         * Un confine d'errore, una volta scattato, NON si azzera da solo:
-         * `state.error` resta finché il componente non viene rimontato. Senza
-         * questa `key` React vedeva sempre lo stesso elemento al cambio di
-         * scheda e lo conservava — la schermata rotta restava lì mentre il suo
-         * testo prometteva che altrove si può lavorare. Chi ci provava scopriva
-         * che non era vero, e da quel momento non si fida più di nessun altro
-         * messaggio dell'applicazione.
-         *
-         * Cambiando `key` React smonta e rimonta: lo stato dell'errore muore
-         * con il componente vecchio, che è l'unico modo che un confine d'errore
-         * ha di dimenticare. Il pulsante «Riprova» resta perché serve a un'altra
-         * cosa — riprovare la STESSA pagina, senza andarsene.
-         *
-         * L'immersione aperta entra nella chiave insieme alla scheda, e non è
-         * un di più: `go('logbook')` con una scheda d'immersione rotta sopra al
-         * logbook azzera `openDive` ma lascia `view` su `logbook`. Una chiave
-         * fatta della sola vista non cambierebbe, e da un dettaglio che si è
-         * rotto — dove il pulsante «indietro» sta dentro la parte che non c'è
-         * più — non si uscirebbe in nessun modo.
-         */}
-        <ErrorBoundary key={openDive ? `immersione:${openDive}` : `scheda:${view}`} t={t}>
-          <Suspense fallback={<PagePlaceholder />}>
-            <ProvvedituraNavigazione vaiA={go}>
-              {openDive ? (
-                <DiveDetail id={openDive} onBack={() => setOpenDive(null)} />
-              ) : view === 'logbook' ? (
-                <Logbook onOpen={setOpenDive} />
-              ) : view === 'stats' ? (
-                <Stats onOpen={setOpenDive} />
-              ) : view === 'coach' ? (
-                <Coach />
-              ) : view === 'planner' ? (
-                <Planner />
-              ) : view === 'compare' ? (
-                <Compare onOpen={setOpenDive} />
-              ) : view === 'gear' ? (
-                <Gear />
-              ) : view === 'profilo' ? (
-                <ProfiloPage />
-              ) : view === 'sync' ? (
-                <SyncPage />
-              ) : (
-                <ImportPage onDone={() => go('logbook')} />
-              )}
-            </ProvvedituraNavigazione>
-          </Suspense>
-        </ErrorBoundary>
-      </main>
+          )}
+          {/*
+           * ► LA `key` È QUELLO CHE RENDE VERA LA FRASE «Le altre schede
+           *   funzionano». ◄
+           *
+           * Un confine d'errore, una volta scattato, NON si azzera da solo:
+           * `state.error` resta finché il componente non viene rimontato. Senza
+           * questa `key` React vedeva sempre lo stesso elemento al cambio di
+           * scheda e lo conservava — la schermata rotta restava lì mentre il suo
+           * testo prometteva che altrove si può lavorare. Chi ci provava scopriva
+           * che non era vero, e da quel momento non si fida più di nessun altro
+           * messaggio dell'applicazione.
+           *
+           * Cambiando `key` React smonta e rimonta: lo stato dell'errore muore
+           * con il componente vecchio, che è l'unico modo che un confine d'errore
+           * ha di dimenticare. Il pulsante «Riprova» resta perché serve a un'altra
+           * cosa — riprovare la STESSA pagina, senza andarsene.
+           *
+           * L'immersione aperta entra nella chiave insieme alla scheda, e non è
+           * un di più: `go('logbook')` con una scheda d'immersione rotta sopra al
+           * logbook azzera `openDive` ma lascia `view` su `logbook`. Una chiave
+           * fatta della sola vista non cambierebbe, e da un dettaglio che si è
+           * rotto — dove il pulsante «indietro» sta dentro la parte che non c'è
+           * più — non si uscirebbe in nessun modo.
+           */}
+          <ErrorBoundary key={openDive ? `immersione:${openDive}` : `scheda:${view}`} t={t}>
+            <Suspense fallback={<PagePlaceholder />}>
+              <ProvvedituraNavigazione vaiA={go}>
+                {openDive ? (
+                  <DiveDetail id={openDive} onBack={() => setOpenDive(null)} />
+                ) : view === 'logbook' ? (
+                  <Logbook onOpen={setOpenDive} />
+                ) : view === 'stats' ? (
+                  <Stats onOpen={setOpenDive} />
+                ) : view === 'coach' ? (
+                  <Coach />
+                ) : view === 'planner' ? (
+                  <Planner />
+                ) : view === 'compare' ? (
+                  <Compare onOpen={setOpenDive} />
+                ) : view === 'gear' ? (
+                  <Gear />
+                ) : view === 'profilo' ? (
+                  <ProfiloPage />
+                ) : view === 'sync' ? (
+                  <SyncPage />
+                ) : (
+                  <ImportPage onDone={() => go('logbook')} />
+                )}
+              </ProvvedituraNavigazione>
+            </Suspense>
+          </ErrorBoundary>
+        </ContenutoConIndice>
+      </ProvvedituraCapitoli>
 
       {/*
        * ► LA BARRA STA NEL FLUSSO, NON IN `position: fixed`. ◄
@@ -611,8 +662,14 @@ export function App() {
           className="voce voce-altro"
           onClick={() => setMenuAperto((v) => !v)}
           aria-expanded={menuAperto}
-          aria-controls="menu-altro"
-          aria-haspopup="menu"
+          /* `dialog` e non `menu`: dentro non ci sono `role="menu"`/`menuitem`,
+             ci sono sezioni con un titolo e dei pulsanti. Dichiarare un menu che
+             non è un menu fa promettere a un lettore di schermo la navigazione
+             con le frecce, che qui non c'è. E `aria-controls` si dichiara solo
+             quando il foglio esiste: puntare a un id assente è una promessa
+             rotta. */
+          aria-haspopup="dialog"
+          aria-controls={menuAperto ? 'menu-altro' : undefined}
           aria-current={BARRA.some((b) => b.id === view) ? undefined : 'true'}
         >
           <span className="voce-segno">
@@ -638,7 +695,15 @@ export function App() {
             aria-label={t('Chiudi il menu')}
             onClick={() => setMenuAperto(false)}
           />
-          <div className="foglio-altro" id="menu-altro" ref={pannelloMenu} tabIndex={-1}>
+          <div
+            className="foglio-altro"
+            id="menu-altro"
+            ref={pannelloMenu}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('Altre sezioni')}
+          >
             {/* La maniglia non fa niente — non c'è nessun trascinamento da
                 intercettare — e serve lo stesso: è il segno convenzionale che
                 dice «questo è un foglio che si chiude», e senza, il pannello si

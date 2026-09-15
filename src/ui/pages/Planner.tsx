@@ -430,7 +430,6 @@ export function Planner() {
         chiave="gas-consumo"
         titolo={t('Il tuo consumo')}
         sommario={`${shown.rmvLpm.toFixed(1)} L/min`}
-        t={t}
       >
         {/* Non è una stima: servono volume bombola, pressione di partenza e
             pressione d'uscita. Se manca uno dei tre il valore non esiste, e non
@@ -512,7 +511,6 @@ export function Planner() {
         titolo={t('Immersione pianificata')}
         sommario={`${input.depthM} m × ${input.bottomMin} min · ${mixName(input.mix)}`}
         apertoDiDefault
-        t={t}
       >
         <div className="grid grid-3" style={{ gap: 10 }}>
           <NumField
@@ -770,8 +768,13 @@ export function Planner() {
       <CartaApribile
         chiave="gas-riserva"
         titolo={t('Riserva e regola di rientro')}
-        sommario={input.reserveRule === 'rockBottom' ? t('gas minimo') : `${shown.reserveBarFixed} bar fissi`}
-        t={t}
+        sommario={
+          input.reserveRule === 'rockBottom'
+            ? t('gas minimo')
+            : /* Il ramo gemello passava dal dizionario e questo no: in inglese
+                 il sommario diceva «50 bar fissi» sotto un titolo tradotto. */
+              frase(t, '{0} bar fissi', shown.reserveBarFixed)
+        }
       >
         {/* Se il gas minimo non lo si chiede non viene calcolato: non è un
             numero nascosto che compare altrove nella pagina. */}
@@ -958,7 +961,6 @@ export function Planner() {
            quando si vuole capire dove vanno i minuti, non ogni volta. */
         sommario={formatRuntime(plan.totalRuntimeMin)}
         apertoDiDefault
-        t={t}
       >
         <div className="runtime">
           <div>
@@ -1007,7 +1009,6 @@ export function Planner() {
         chiave="gas-profilo"
         titolo={t('Il profilo pianificato')}
         sommario={`${shown.depthM} m × ${shown.bottomMin} min`}
-        t={t}
       >
         {/* Del fondo il piano conosce la media e il punto più profondo, non la
             forma: disegnare una discesa sarebbe inventare un dato che non c'è. */}
@@ -1140,7 +1141,6 @@ export function Planner() {
         chiave="gas-bilancio"
         titolo={t('Bilancio della bombola')}
         sommario={`${shown.startBar} bar × ${shown.tankL} L`}
-        t={t}
       >
         <p className="card-sub">
           {shown.startBar} bar × {shown.tankL} L = {startL} L {t('a bordo')}.{' '}
@@ -1155,7 +1155,6 @@ export function Planner() {
           chiave="gas-minimo"
           titolo={t('Il gas minimo, fase per fase')}
           sommario={`${plan.reserveBar} bar`}
-          t={t}
         >
           {/* Quattro fasi e non un numero solo perché un numero solo non si può
               controllare. Ogni fase usa la pressione ambiente alla sua
@@ -1182,12 +1181,24 @@ export function Planner() {
       <CartaApribile
         chiave="gas-quando"
         titolo={t('Quanti bar devi avere, e quando')}
+        /*
+         * ► SENZA REGOLA DI RIENTRO IL SOMMARIO DICE LA PRESSIONE D'USCITA. ◄
+         *
+         * Era `: undefined`, e «Nessuna — discesa lineare» è una voce del menu
+         * della riserva, non un caso limite: bastava sceglierla perché questa
+         * carta diventasse **un titolo con una freccia**, cioè esattamente la
+         * cosa che `CartaApribile` vieta. Il tipo non poteva accorgersene —
+         * `ReactNode` comprende `undefined` — e nemmeno la guardia, che cerca un
+         * `sommario={undefined}` scritto per esteso e non un ternario.
+         *
+         * Senza rientro un numero c'è lo stesso, ed è quello che si guarda: con
+         * quanti bar si esce.
+         */
         sommario={
           turnAt !== undefined
             ? `${t('rientro a')} ${plan.turnBar} bar, ${t('minuto')} ${turnAt.toFixed(0)}`
-            : undefined
+            : frase(t, 'esci con {0} bar', Math.round(plan.expectedEndBar))
         }
-        t={t}
       >
         <div className="page-title-row" style={{ marginBottom: 4 }}>
           {turnAt !== undefined && (
@@ -1225,7 +1236,6 @@ export function Planner() {
           chiave="gas-profondita"
           titolo={t('Se scendi più giù')}
           sommario={`${plan.gasLimitedBottomMin.toFixed(0)} min ${t('a')} ${shown.depthM} m`}
-          t={t}
         >
           {/* La media segue la massima in proporzione, con la stessa funzione
               del modulo: così la curva a 40 m e il campo a 40 m concordano. */}
@@ -1266,7 +1276,6 @@ export function Planner() {
           chiave="gas-respiro"
           titolo={t('Quanto conta il tuo respiro')}
           sommario={`${t('quanto cambia il fondo se respiri di più')}`}
-          t={t}
         >
           {/* La distanza fra mediana e peggiore è la ragione per cui il modulo
               parte dal 75° percentile e non dalla media. */}
@@ -1288,7 +1297,6 @@ export function Planner() {
           chiave="gas-ossigeno"
           titolo={t('Esposizione all’ossigeno')}
           sommario={`CNS ${plan.oxygen.cnsPercent.toFixed(0)}% · OTU ${plan.oxygen.otu.toFixed(0)}`}
-          t={t}
         >
           {/* Il CNS è il rischio di crisi convulsiva e si dimezza ogni 90
               minuti in superficie; gli OTU sono il danno polmonare cumulativo e
@@ -1333,7 +1341,6 @@ export function Planner() {
           chiave="gas-narcosi"
           titolo={t('Ossigeno e narcosi')}
           sommario={`MOD ${plan.modM.toFixed(0)} m`}
-          t={t}
         >
           <p className="card-sub">
             {mixName(shown.mix)} {t('a')} {shown.depthM} m{' '}
@@ -1381,7 +1388,6 @@ export function Planner() {
             ? t('nessuna immersione simile da confrontare')
             : `${similar.n} ${t('simili, uscita tipica')} ${similar.medianEndBar} bar`
         }
-        t={t}
       >
         {/* È la parte che un pianificatore generico non può avere: il confronto
             con l'archivio. Se il piano promette un'uscita più generosa di
@@ -1460,7 +1466,6 @@ export function Planner() {
          */
         titolo={t('E se…')}
         sommario={`${plans.length} ${t('scenari, lo stesso piano con un parametro cambiato')}`}
-        t={t}
       >
         {/* Sono gli schedule di contingenza che la didattica chiede di avere in
             tasca prima di entrare: lo stesso piano con un parametro cambiato. */}
@@ -1540,7 +1545,6 @@ export function Planner() {
         chiave="gas-prima"
         titolo={t('Prima di scendere')}
         sommario={t('il controllo START da fare in superficie')}
-        t={t}
       >
         <p className="card-sub">
           {t('Le cinque lettere fanno START: il controllo da fare in superficie insieme al compagno.')}
@@ -1618,7 +1622,6 @@ export function Planner() {
         titolo={t('Note')} /* Nome proprio e due numeri: non passa dal dizionario perché non c'è
            niente da tradurre, come «UDDF · CSV · KML» in Impostazioni. */
         sommario="Bühlmann ZH-L16C, GF 40/85"
-        t={t}
       >
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--text-secondary)' }}>
           <li>
@@ -2359,7 +2362,7 @@ function PressureTimeline({
             rows: [
               { label: t('pressione attesa'), value: `${best.bar} bar` },
               { label: t('profondità'), value: `${best.depthM} m` },
-              { label: t('fase'), value: t(best.phase) },
+              { label: t('fase'), value: frase(t, best.phase, best.gasEtichetta ?? '') },
             ],
           });
         }}
@@ -2515,7 +2518,9 @@ function ScheduleTable({
                   {p.litres} L
                 </td>
                 <td className="muted" style={{ fontSize: 12 }}>
-                  {t(p.phase)}
+                  {/* `frase()` e non `t()`: l'etichetta delle soste con lo stage è un
+                      modello con dentro il gas. Vedi `gasPlan.ts`. */}
+                  {frase(t, p.phase, p.gasEtichetta ?? '')}
                   {atTurn && (
                     <span className="badge" style={{ marginLeft: 6 }}>
                       {t('rientro')}
@@ -2569,7 +2574,6 @@ function SosteCard({ soste, plan }: { soste: DecoResult; plan: GasPlan }) {
       /* Il totale delle soste obbligate: è la cosa che si vuole sapere senza
          aprire, perché decide se questa immersione si può fare a fiato corto. */
       sommario={`${obbligo.reduce((a, s) => a + s.minutes, 0)} ${t('min di soste obbligate')}`}
-      t={t}
     >
       <p className="card-sub">
         {t('Stessi gradient factor della curva qui sopra')} ({GF_RICREATIVI.low}/{GF_RICREATIVI.high}),{' '}
@@ -2693,7 +2697,6 @@ function CurveCard({ curve, plan }: { curve: PlanCurveResult; plan: GasPlan }) {
           ? frase(t, 'esce dalla curva al {0}° minuto', esce.toFixed(0))
           : frase(t, 'in curva, {0} min di margine', margine.toFixed(0))
       }
-      t={t}
     >
       {/* 40/85 è la coppia che i computer ricreativi montano di fabbrica: vedi
           `GF_RICREATIVI` in cima al file per il perché non è `DEFAULT_GF`. */}

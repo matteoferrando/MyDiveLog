@@ -870,7 +870,21 @@ body {
 .main {
   flex: 1;
   overflow-y: auto;
-  padding: 20px calc(20px + var(--safe-right)) calc(32px + var(--safe-bottom)) calc(20px + var(--safe-left));
+  /*
+   * ► IL PADDING IN ALTO È PASSATO A `.page`, e non è un riordino. ◄
+   *
+   * `position: sticky` si ferma al bordo del contenitore che scorre RIDOTTO del
+   * suo padding: con venti pixel qui sopra, la testa bloccata del logbook si
+   * fermava venti pixel più in basso, e in quella striscia il contenuto
+   * continuava a scorrere VISIBILE — si vedeva passare il bordo di una carta
+   * sopra il titolo «Logbook». Misurato, non dedotto: la testa risultava ferma a
+   * 20 px dal bordo di `.main`.
+   *
+   * Spostato su `.page`, la striscia sta *dentro* il contenuto, sopra il primo
+   * riquadro, e non c'è più niente che possa passarci sotto. A schermo non
+   * cambia un pixel.
+   */
+  padding: 0 calc(20px + var(--safe-right)) calc(32px + var(--safe-bottom)) calc(20px + var(--safe-left));
   /*
    * `position: relative` NON è decorativo: senza, la pagina acquisisce una
    * seconda barra di scorrimento e un vuoto nero sotto il contenuto.
@@ -924,6 +938,8 @@ body {
    * Oltre i 1600 px il testo diventa scomodo da leggere, quindi lì si ferma. */
   max-width: 1600px;
   margin: 0 auto;
+  /* I venti pixel che stavano su `.main`: vedi il riquadro là sopra. */
+  padding-top: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -2902,4 +2918,242 @@ button.btn.bottone-apple:focus-visible {
   outline: 2px solid var(--accent-solid);
   outline-offset: 3px;
   border-radius: 6px;
+}
+
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * L'INDICE LATERALE DI UNA PAGINA LUNGA
+ *
+ * Sedici pixel sul bordo destro, che sono esattamente il margine che le carte
+ * lasciano libero: `.main` ha 20 px di padding, le carte arrivano a 20 px dal
+ * bordo, e i punti stanno di là. **L'indice non ruba niente al contenuto.**
+ *
+ * ► `pointer-events` A DUE LIVELLI, ed è la riga che evita il difetto. ◄ Il
+ * contenitore è alto quanto tutti i punti insieme e largo abbastanza da
+ * prendere un dito: un rettangolo di quella misura, sopra il contenuto, si
+ * mangerebbe i tocchi sul bordo destro delle carte — e il bordo destro di una
+ * carta apribile è la metà destra del suo pulsante. Spento il contenitore e
+ * accesi i soli bottoni, quello che non è un punto passa sotto.
+ *
+ * ► SOPRA I 700 px NON ESISTE, e non è solo il CSS a dirlo: il componente non
+ * si disegna proprio. La regola qui è la seconda rete, per la finestra che si
+ * allarga con l'indice già a schermo.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+.navigatore-sezioni {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .navigatore-sezioni {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    right: calc(2px + var(--safe-right));
+    /*
+     * Ancorato al centro e non in alto: un indice che parte dal bordo superiore
+     * finisce sotto il pollice solo per i primi capitoli, e il pollice sta in
+     * mezzo allo schermo. `translateY(-50%)` lo centra qualunque sia il numero
+     * di capitoli, senza che nessuno debba calcolare un'altezza.
+     */
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 30;
+    pointer-events: none;
+  }
+
+  .navigatore-sezioni .punto {
+    /* `--passo` arriva dal componente: si stringe quando i capitoli sono tanti. */
+    height: var(--passo, 24px);
+    width: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    appearance: none;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    pointer-events: auto;
+    /* Nessuna transizione sul bottone: solo il segno dentro si muove, e così il
+       bersaglio resta fermo mentre l'occhio segue il punto. */
+  }
+
+  .navigatore-sezioni .punto-segno {
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border-strong);
+    transition:
+      width 0.12s ease,
+      height 0.12s ease,
+      background-color 0.12s ease;
+  }
+
+  /*
+   * Il punto corrente diventa un TRATTINO, non un punto più grande.
+   *
+   * Un cerchio più grande in mezzo a cerchi piccoli si legge come «questo è più
+   * importante»; un trattino verticale si legge come «sei qui», perché è la
+   * forma dell'indicatore di posizione — la stessa di una barra di scorrimento.
+   * E si distingue anche da fermo, che è quello che serve a chi guarda l'indice
+   * senza toccarlo.
+   */
+  .navigatore-sezioni .punto-corrente .punto-segno {
+    width: 4px;
+    height: calc(var(--passo, 24px) - 8px);
+    border-radius: 2px;
+    background: var(--accent-solid);
+  }
+
+  .navigatore-sezioni .punto:focus-visible {
+    outline: 2px solid var(--accent-solid);
+    outline-offset: -2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /*
+   * Il nome compare A SINISTRA del punto premuto, e non sopra.
+   *
+   * Sopra finirebbe sotto il dito che lo ha appena chiamato: è il difetto
+   * classico dei suggerimenti al tocco, e si vede solo provando su un telefono
+   * vero, mai su un browser con il mouse.
+   */
+  .navigatore-nome {
+    position: absolute;
+    right: 32px;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    max-width: 62vw;
+    padding: 7px 11px;
+    border-radius: var(--radius);
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .navigatore-nome b {
+    font-size: 13px;
+    font-weight: 650;
+    color: var(--text-primary);
+    /* Un titolo lungo si stringe invece di sfondare di lato: è la regola di
+       tutta l'applicazione da quando un nome di sito senza spazi ha fatto
+       scorrere il logbook. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .navigatore-nome em {
+    font-size: 11px;
+    font-style: normal;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /*
+   * Il contenuto si stringe di dieci pixel quando l'indice c'è.
+   *
+   * I punti stanno nel margine e non coprono le carte, ma il BERSAGLIO di un
+   * punto è largo 26 px e sborda di sei sul bordo della carta. Sei pixel di
+   * sovrapposizione su un pulsante alto 44 sono un tocco sbagliato ogni tanto,
+   * e «ogni tanto» su un gesto che si fa cento volte è tutti i giorni. La
+   * classe la mette `App.tsx` solo quando l'indice si disegna davvero.
+   */
+  .main.con-navigatore {
+    padding-right: calc(30px + var(--safe-right));
+  }
+}
+
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * LA TESTA DEL LOGBOOK RESTA FERMA, SCORRE SOLO L'ELENCO
+ *
+ * Quarantotto immersioni sono 3 670 px: arrivati alla trentesima non si sa più
+ * quante ne siano rimaste fuori dal filtro, e per cambiarlo bisogna risalire in
+ * cima e poi ritrovare il punto. Bloccati, il conteggio dice sempre «12 di 48»
+ * mentre si scorre e «Cerca e filtra» è raggiungibile da qualunque punto.
+ *
+ * ► `position: sticky` HA TRE CONDIZIONI, e due sono facili da rompere. ◄
+ *
+ * 1. Il `top` va dichiarato: senza, `sticky` si comporta come `static` e la
+ *    regola non fa niente — il difetto silenzioso che questo foglio di stile ha
+ *    già pagato quattro volte con le media query.
+ * 2. **Nessun antenato può avere `overflow` diverso da `visible`.** Qui
+ *    l'antenato che scorre è `.main`, ed è quello giusto: fra `.main` e questo
+ *    elemento c'è solo `.page`, che non dichiara overflow. Se un giorno
+ *    qualcuno mettesse `overflow: hidden` su `.page` — la cosa più naturale del
+ *    mondo per contenere un grafico — la testa smetterebbe di bloccarsi e
+ *    nessun errore lo direbbe.
+ * 3. Lo sfondo NON è facoltativo: senza, l'elenco scorre VISIBILE sotto il
+ *    titolo, e si legge una data sovrapposta alla parola «Logbook».
+ *
+ * Il margine negativo e il padding che lo compensa servono a coprire tutta la
+ * larghezza: `.main` ha 20 px di padding, e senza questo trucco l'elenco
+ * passerebbe scoperto nei venti pixel di lato.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+.logbook-testa {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--surface-2);
+  /*
+   * ► IL MARGINE NEGATIVO È SOLO LATERALE, e all'inizio era anche in alto. ◄
+   *
+   * In alto serviva a coprire i venti pixel di `.page`, ma la testa NON è il
+   * primo figlio della pagina: sopra di lei ci sono «Prima della prossima
+   * immersione» e «Aggiungi a mano». In un flex con `gap: 20px` quel margine
+   * negativo azzerava lo stacco fra la carta sopra e il titolo «Logbook»,
+   * incollandoli. E per bloccarsi non serviva: basta `top: 0`.
+   */
+  margin: 0 -20px;
+  padding: 8px 20px;
+  /*
+   * ► E NON PUÒ CRESCERE OLTRE METÀ SCHERMO. ◄
+   *
+   * Dentro la testa c'è la carta «Cerca e filtra», che aperta misura 260 px di
+   * soli campi (misurati a 402 px): con la riga del titolo e il pulsante da
+   * 44 px la testa bloccata arrivava a ~350 px inchiodati in cima. Su un
+   * iPhone SE `.main` è alto ~440: restava una riga e mezza di elenco, e non
+   * c'era modo di far scorrere via la testa perché è `sticky`.
+   *
+   * Peggio: un elemento bloccato PIÙ ALTO del contenitore che scorre ha il
+   * fondo permanentemente fuori schermo — con il testo di sistema ingrandito,
+   * il menu «Ordina» in fondo ai filtri diventava irraggiungibile.
+   *
+   * Con il tetto, la testa aperta si ferma a metà e scorre dentro di sé: il
+   * contenuto ci arriva sempre, e l'elenco sotto resta metà schermo.
+   */
+  max-height: 50dvh;
+  overflow-y: auto;
+}
+
+/* Sotto la testa bloccata una riga sottile, che compare solo quando qualcosa le
+   è passato sotto: è il segno che dice «qui finisce quello che sta fermo».
+   Senza, la testa e la prima immersione si toccano e sembrano la stessa cosa. */
+.logbook-testa::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--border);
+}
+
+@media (max-width: 700px) {
+  /* Sul telefono `.main` ha lo stesso padding laterale più il ritaglio dello
+     schermo: il margine negativo deve seguirlo, o resta una fessura da cui si
+     vede passare l'elenco. */
+  .logbook-testa {
+    margin-left: calc(-20px - var(--safe-left));
+    margin-right: calc(-20px - var(--safe-right));
+    padding-left: calc(20px + var(--safe-left));
+    padding-right: calc(20px + var(--safe-right));
+  }
 }

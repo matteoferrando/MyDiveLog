@@ -302,17 +302,36 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
 
       <NewDive key="nuova-immersione" onDone={apri} />
 
-      <div className="page-title-row">
-        <h1 className="page-title">{t('Logbook')}</h1>
-        <span className="muted" style={{ fontSize: 12 }}>
-          {filtered.length === dives.length
-            ? imm(dives.length, t)
-            : `${filtered.length} ${t('di')} ${imm(dives.length, t)}`}
-        </span>
-      </div>
-
-      {/* I filtri stanno su una riga sola sopra il contenuto. */}
       {/*
+       * ► IL TITOLO E I FILTRI RESTANO FERMI, SCORRE SOLO L'ELENCO. ◄
+       *
+       * Quarantotto immersioni sono 3 670 px di elenco: arrivati alla trentesima
+       * non si sa più quante ne siano rimaste fuori dal filtro, e per cambiare
+       * il filtro bisogna risalire fino in cima e poi ritrovare il punto. Su un
+       * telefono quei due viaggi sono la ragione per cui un filtro non lo usa
+       * nessuno.
+       *
+       * Bloccati, il conteggio dice sempre «12 di 48» mentre si scorre, e la
+       * riga «Cerca e filtra» è sotto il pollice in qualunque punto dell'elenco.
+       *
+       * ► COSA RESTA FUORI, ed è una scelta. ◄ I due riquadri d'apertura —
+       * «Prima della prossima immersione» e «Aggiungi a mano» — scorrono via:
+       * sono cose che si guardano arrivando, non mentre si cerca un'immersione
+       * del 2019. Bloccare anche quelli vorrebbe dire lasciare meno di mezza
+       * schermata all'elenco.
+       */}
+      <div className="logbook-testa">
+        <div className="page-title-row">
+          <h1 className="page-title">{t('Logbook')}</h1>
+          <span className="muted" style={{ fontSize: 12 }}>
+            {filtered.length === dives.length
+              ? imm(dives.length, t)
+              : `${filtered.length} ${t('di')} ${imm(dives.length, t)}`}
+          </span>
+        </div>
+
+        {/* I filtri stanno su una riga sola sopra il contenuto. */}
+        {/*
         ► I FILTRI STANNO SOTTO UN TOCCO, SUL TELEFONO. ◄
       
         Misurati il 15 settembre 2026 a 402 px: la ricerca e i tre menu occupano
@@ -326,74 +345,74 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
         da guardare, e soprattutto si vede senza aprire — che è la differenza fra
         una sezione chiusa e un filtro dimenticato acceso.
       */}
-      <CartaApribile
-        chiave="logbook-filtri"
-        titolo={t('Cerca e filtra')}
-        sommario={[
-          query.trim() ? `«${query.trim()}»` : null,
-          site || t('tutti i siti'),
-          minDepth ? `oltre ${minDepth} m` : null,
-          ORDINE_IN_PAROLE[sort](t),
-        ]
-          .filter(Boolean)
-          .join(' · ')}
-        t={t}
-      >
-        <div className="filters">
-          {/*
-           * `aria-label` e non il solo `placeholder`: il segnaposto sparisce al
-           * primo carattere digitato, quindi un lettore di schermo che torni sul
-           * campo a metà ricerca annuncia «casella di testo» e basta. Il nome di
-           * un controllo deve esistere anche quando il controllo è pieno.
-           */}
-          <input
-            type="search"
-            aria-label={t('Cerca fra le immersioni')}
-            placeholder={t('Cerca sito, compagno, note…')}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            style={{ minWidth: 200 }}
-          />
-          <label>
-            {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
+        <CartaApribile
+          chiave="logbook-filtri"
+          titolo={t('Cerca e filtra')}
+          sommario={[
+            query.trim() ? `«${query.trim()}»` : null,
+            site || t('tutti i siti'),
+            minDepth ? `oltre ${minDepth} m` : null,
+            ORDINE_IN_PAROLE[sort](t),
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        >
+          <div className="filters">
+            {/*
+             * `aria-label` e non il solo `placeholder`: il segnaposto sparisce al
+             * primo carattere digitato, quindi un lettore di schermo che torni sul
+             * campo a metà ricerca annuncia «casella di testo» e basta. Il nome di
+             * un controllo deve esistere anche quando il controllo è pieno.
+             */}
+            <input
+              type="search"
+              aria-label={t('Cerca fra le immersioni')}
+              placeholder={t('Cerca sito, compagno, note…')}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              style={{ minWidth: 200 }}
+            />
+            <label>
+              {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
                 così i tre menu si allineano invece di iniziare ognuno dove capita.
                 Un nodo di testo nudo non si può dimensionare. */}
-            <span>{t('Sito')}</span>
-            <select value={site} onChange={(e) => setSite(e.target.value)}>
-              <option value="">{t('tutti')}</option>
-              {sites.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
+              <span>{t('Sito')}</span>
+              <select value={site} onChange={(e) => setSite(e.target.value)}>
+                <option value="">{t('tutti')}</option>
+                {sites.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
                 così i tre menu si allineano invece di iniziare ognuno dove capita.
                 Un nodo di testo nudo non si può dimensionare. */}
-            <span>{t('Oltre')}</span>
-            <select value={minDepth} onChange={(e) => setMinDepth(e.target.value)}>
-              <option value="">{t('qualsiasi profondità')}</option>
-              <option value="18">18 m</option>
-              <option value="30">30 m</option>
-              <option value="40">40 m</option>
-            </select>
-          </label>
-          <label>
-            {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
+              <span>{t('Oltre')}</span>
+              <select value={minDepth} onChange={(e) => setMinDepth(e.target.value)}>
+                <option value="">{t('qualsiasi profondità')}</option>
+                <option value="18">18 m</option>
+                <option value="30">30 m</option>
+                <option value="40">40 m</option>
+              </select>
+            </label>
+            <label>
+              {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
                 così i tre menu si allineano invece di iniziare ognuno dove capita.
                 Un nodo di testo nudo non si può dimensionare. */}
-            <span>{t('Ordina per')}</span>
-            <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-              <option value="date">{t('data')}</option>
-              <option value="depth">{t('profondità')}</option>
-              <option value="duration">{t('durata')}</option>
-              <option value="rmv">{t('consumo di superficie')}</option>
-            </select>
-          </label>
-        </div>
-      </CartaApribile>
+              <span>{t('Ordina per')}</span>
+              <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+                <option value="date">{t('data')}</option>
+                <option value="depth">{t('profondità')}</option>
+                <option value="duration">{t('durata')}</option>
+                <option value="rmv">{t('consumo di superficie')}</option>
+              </select>
+            </label>
+          </div>
+        </CartaApribile>
+      </div>
 
       {selezione.size > 0 && (
         <BulkEdit

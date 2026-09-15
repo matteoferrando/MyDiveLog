@@ -833,6 +833,7 @@ await shots(page, 'screenshots/9b-mobile-gas', 4);
 // La finestra torna larga: i passi precedenti la stringono a 390 px per
 // provare il telefono, e una scheda di modifica in blocco a quella larghezza
 // impila i pulsanti in un modo che rende il percorso diverso da quello vero.
+
 await page.setViewportSize({ width: 1180, height: 900 });
 await page.click('button:has-text("Logbook")');
 await page.waitForTimeout(600);
@@ -953,6 +954,71 @@ const dopoIlMenu = await page.evaluate(() => ({
   titolo: document.querySelector('.main h1, .main h2')?.textContent ?? '—',
 }));
 await page.screenshot({ path: 'screenshots/20b-menu-scelta.png', fullPage: true });
+
+/*
+ * ► L'INDICE LATERALE E LA TESTA BLOCCATA, misurati dove vivono. ◄
+ *
+ * Due cose che una prova su jsdom non può vedere, perché jsdom non ha un
+ * layout: che l'indice stia DENTRO lo schermo e non finisca sotto la barra in
+ * basso, e che la testa del logbook resti davvero ferma quando si scorre. La
+ * seconda è già costata una correzione — si fermava venti pixel più in basso e
+ * il contenuto le passava sotto visibile — e quella si vedeva solo così.
+ */
+await vaiA(page, 'Gas');
+const indice = await page.evaluate(() => {
+  const nav = document.querySelector('.navigatore-sezioni');
+  if (!nav) return { c: 'ASSENTE' };
+  const r = nav.getBoundingClientRect();
+  const barra = document.querySelector('.barra-basso')?.getBoundingClientRect();
+  return {
+    punti: nav.querySelectorAll('.punto').length,
+    correnti: nav.querySelectorAll('[aria-current]').length,
+    dentroInAltezza: r.top >= -1 && r.bottom <= document.documentElement.clientHeight + 1,
+    sopraLaBarra: !barra || r.bottom <= barra.top + 1,
+    // I punti stanno nel margine: se il contenuto non si stringe, il bersaglio
+    // si mangia il bordo destro dei pulsanti delle carte.
+    mainStretto: document.querySelector('.main')?.classList.contains('con-navigatore') === true,
+  };
+});
+await vaiA(page, 'Logbook');
+const testaFerma = await page.evaluate(() => {
+  const main = document.querySelector('.main');
+  main.scrollTop = 1400;
+  const t = document.querySelector('.logbook-testa');
+  if (!t) return { c: 'ASSENTE' };
+  const r = t.getBoundingClientRect();
+  const m = main.getBoundingClientRect();
+  return {
+    scostamento: Math.round(r.top - m.top),
+    coprePerIntero:
+      Math.round(r.left) <= Math.round(m.left) + 1 && Math.round(r.right) >= Math.round(m.right) - 1,
+    // Lo sfondo trasparente è il difetto che fa leggere una data sopra il titolo.
+    opaca: !/rgba\(0, 0, 0, 0\)|transparent/.test(getComputedStyle(t).backgroundColor),
+    indiceQui: !!document.querySelector('.navigatore-sezioni'),
+  };
+});
+await page.screenshot({ path: 'screenshots/20c-testa-ferma.png' });
+await page.evaluate(() => {
+  document.querySelector('.main').scrollTop = 0;
+});
+
+const indiceEsito =
+  indice.c === 'ASSENTE' ||
+  indice.punti < 6 ||
+  indice.correnti !== 1 ||
+  !indice.dentroInAltezza ||
+  !indice.sopraLaBarra ||
+  !indice.mainStretto
+    ? `SBAGLIATO: ${JSON.stringify(indice)}`
+    : `${indice.punti} punti, uno corrente, dentro lo schermo e sopra la barra, contenuto stretto`;
+const testaEsito =
+  testaFerma.c === 'ASSENTE' ||
+  testaFerma.scostamento > 1 ||
+  !testaFerma.coprePerIntero ||
+  !testaFerma.opaca ||
+  testaFerma.indiceQui
+    ? `SBAGLIATA: ${JSON.stringify(testaFerma)}`
+    : 'ferma al bordo, opaca, per tutta la larghezza, e senza indice (un capitolo solo)';
 /*
  * I BERSAGLI TATTILI del logbook, misurati alla larghezza del telefono.
  *
@@ -1421,6 +1487,8 @@ console.log(condizioniCard.slice(0, 700));
 console.log('SOSTE IN RICREATIVA:');
 console.log(sosteRec.slice(0, 500));
 console.log('NAVIGAZIONE A 390 px:', navEsito);
+console.log('INDICE LATERALE A 390 px:', indiceEsito);
+console.log('TESTA DEL LOGBOOK A 390 px:', testaEsito);
 console.log('MENU A 390 px:', menuEsito);
 console.log('LOGBOOK A 390 px:', logbookEsito);
 console.log('BERSAGLI TATTILI A 390 px:', bersagliEsito);

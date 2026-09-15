@@ -1,6 +1,7 @@
 import type { Severity } from '../core/analysis/coaching';
 import { localeCorrente } from '../core/locale';
 import { comeSta, type Traduci } from '../core/traduci';
+import { frase } from '../core/frase';
 
 /**
  * Date e ore delle immersioni.
@@ -205,6 +206,29 @@ export function descriviFinestra(
  * inglese l'asse X di «Attività mese per mese» diceva `ott 25`, **e lo diceva
  * anche la descrizione letta dallo screen reader** — *«Max ott 25 on 3 dives»*.
  */
+/**
+ * L'etichetta di un secchio d'istogramma, tradotta.
+ *
+ * ► PERCHÉ NON LA TRADUCE CHI LA COSTRUISCE. ◄ `histogram()` sta nel cuore
+ * dell'applicazione, che non conosce la lingua — e fa bene: le aggregazioni si
+ * calcolano una volta e si riusano, mentre la lingua cambia con un tocco. È la
+ * stessa divisione dei mesi qui sotto: il cuore emette una CHIAVE, l'interfaccia
+ * la traduce al disegno.
+ *
+ * ► PERCHÉ ESISTE. ◄ I secchi di mezzo sono numeri puri («3–6 m») e non hanno
+ * niente da tradurre. Il primo e l'ultimo hanno una parola ciascuno, e quelle
+ * due parole restavano italiane: nella carta «The tails an average hides» si
+ * leggeva «fino a 3 m», «oltre 18 m/min», «fino a 30 bar». Sei etichette su
+ * diciotto, in mezzo a un grafico tradotto.
+ */
+export function etichettaSecchio(label: string, t: Traduci): string {
+  const oltre = /^oltre (.+)$/.exec(label);
+  if (oltre) return frase(t, 'oltre {0}', oltre[1]);
+  const fino = /^fino a (.+)$/.exec(label);
+  if (fino) return frase(t, 'fino a {0}', fino[1]);
+  return label;
+}
+
 export function etichettaMese(label: string, t: Traduci): string {
   const [mese, ...resto] = label.split(' ');
   const tradotto = t(mese);

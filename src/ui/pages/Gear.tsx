@@ -27,6 +27,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { CartaApribile } from '../components/CartaApribile';
 import { numeroDaTesto } from '../numero';
 import {
   EQUIPMENT_LABEL,
@@ -294,8 +295,19 @@ export function Gear() {
       )}
 
       {/* ---------------------------------------------- 2. zavorra e configurazione */}
-      <div className="card">
-        <h2>{t('Zavorra e configurazione')}</h2>
+      {/* La zavorra è una tabella di riferimento: si consulta prima di una
+         muta nuova o di un'acqua diversa, non a ogni apertura della scheda. */}
+      <CartaApribile
+        chiave="gear-zavorra"
+        titolo={t('Zavorra e configurazione')}
+        /* Quante configurazioni distinte hanno abbastanza immersioni per
+           entrare in tabella: è la misura di quanto ha da dire questa carta.
+           Zero non è un'assenza da nascondere — è la ragione per cui la carta
+           è vuota — quindi si dice. */
+        sommario={
+          zavorra.length ? frase(t, '{0} configurazioni', zavorra.length) : t('nessuna zavorra registrata')
+        }
+      >
         {/*
          * Perché la zavorra sta accanto all'oscillazione d'assetto: la domanda
          * vera non è «quanti chili ho usato» ma «con quanti chili tengo meglio
@@ -407,7 +419,7 @@ export function Gear() {
             </table>
           </>
         )}
-      </div>
+      </CartaApribile>
     </div>
   );
 }

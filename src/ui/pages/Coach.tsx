@@ -139,7 +139,6 @@ export function Coach() {
            accanto non ci starebbe su una riga di telefono. */
         sommario={`${Math.round(readiness.score * 100)}%`}
         apertoDiDefault
-        t={t}
       >
         <div className="spread" style={{ alignItems: 'flex-start' }}>
           <div style={{ flex: 1, minWidth: 240 }}>
@@ -231,7 +230,6 @@ export function Coach() {
           chiave="coach-dopo"
           titolo={t('Dopo, in ordine')}
           sommario={plural(dopo.length, 'cosa da guardare', 'cose da guardare', t)}
-          t={t}
         >
           <div className="stack">
             {dopo.map((f) => (
@@ -249,7 +247,6 @@ export function Coach() {
              fa la differenza fra aprirla e non aprirla. La carta compare solo con
              almeno un punto di forza, quindi non può dire «0». */
           sommario={plural(plan.strengths.length, 'cosa che funziona', 'cose che funzionano', t)}
-          t={t}
         >
           <p className="card-sub">{t('Quello che già funziona, con i numeri che lo dicono.')}</p>
           <div className="stack" style={{ gap: 10 }}>
@@ -285,7 +282,6 @@ export function Coach() {
            perché una regola non compare — sono le immersioni che hanno il
            profilo, cioè quelle su cui le metriche derivate esistono. */
         sommario={frase(t, '{0} immersioni su {1} con il profilo', aggregates.withProfile, aggregates.count)}
-        t={t}
       >
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--text-secondary)' }}>
           <li>{t('Una valutazione tace finché non ha almeno sei immersioni con il dato che le serve.')}</li>

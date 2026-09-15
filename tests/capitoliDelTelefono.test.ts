@@ -106,9 +106,27 @@ describe('i capitoli che si aprono', () => {
        * Il tipo pretende che `sommario` venga passato; non può pretendere che sia
        * qualcosa. `sommario=""` e `sommario={undefined}` compilano, e a schermo
        * sono esattamente il titolo con la freccia che la regola vieta.
+       *
+       * ► SI GUARDA IL CODICE SENZA I COMMENTI, e la prima stesura no. ◄ Ogni
+       * attributo di questo progetto ha il suo commento, e uno di quei commenti
+       * spiegava il difetto citandolo: «cerca un `sommario={undefined}` scritto
+       * per esteso». La prova lo trovava e diventava rossa su una carta
+       * corretta. *Una guardia che legge i commenti finisce per trovare se
+       * stessa*, ed è la terza volta che succede in questo progetto.
+       *
+       * ► E IL RAMO «ALTRIMENTI NIENTE» CONTA COME VUOTO. ◄ Il difetto vero non
+       * era `sommario={undefined}` scritto a mano — quello non l'ha mai scritto
+       * nessuno — ma `turnAt !== undefined ? … : undefined` nel pianificatore:
+       * bastava scegliere «Nessuna regola di rientro», che è una voce del menu,
+       * perché quella carta diventasse un titolo con una freccia. `!== undefined`
+       * resta lecito, perché è un confronto e non un valore restituito.
        */
-      expect(capitolo.tag, 'manca `sommario`').toContain('sommario');
-      expect(capitolo.tag, 'il sommario è vuoto').not.toMatch(/sommario=(""|{undefined}|{''}|{null})/);
+      const codice = capitolo.tag.replace(/\/\*[\s\S]*?\*\//g, '');
+      expect(codice, 'manca `sommario`').toContain('sommario');
+      expect(codice, 'il sommario è vuoto').not.toMatch(/sommario=(""|{undefined}|{''}|{null})/);
+      expect(codice, 'il sommario può non esserci: un ramo restituisce `undefined`').not.toMatch(
+        /(\?\?|:)\s*undefined\b/,
+      );
     },
   );
 

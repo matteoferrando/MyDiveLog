@@ -486,7 +486,6 @@ export function SyncPage() {
         chiave="sync-cosa-succede"
         titolo={t('Cosa succede quando premi Sincronizza')}
         sommario={t('non cancella niente')}
-        t={t}
       >
         {/*
          * QUESTO ELENCO ERA UN SAGGIO, ed è il posto giusto per tenerne le
@@ -681,7 +680,6 @@ export function SyncPage() {
         /* I tre formati sono la domanda a cui la carta risponde: chi arriva qui
            sa già che vuole portare fuori i dati, e vuole sapere DOVE. */
         sommario="UDDF · CSV · KML"
-        t={t}
       >
         {/*
          * PERCHÉ L'UDDF NON È UN BACKUP, e perché lo diciamo qui in una riga.
@@ -887,7 +885,6 @@ function RiconoscimentiCard() {
         'MyDiveLog legge i computer subacquei grazie al lavoro di chi ha decifrato i loro protocolli e lo ha reso pubblico.',
       )}
       sommario="libdivecomputer · LGPL-2.1"
-      t={t}
     >
       <p style={{ fontSize: 13 }}>
         <b>libdivecomputer</b> — {t('di Jef Driesen e collaboratori, licenza')}{' '}
@@ -1290,7 +1287,6 @@ function BackupCard() {
          salva davvero», che è l'unica domanda che si fa chi guarda questa carta
          senza aver deciso niente. */
       sommario={imm(dives.length, t)}
-      t={t}
     >
       {/*
        * IL BACKUP NON LO LEGGE NESSUN ALTRO PROGRAMMA, ed è voluto: quel
@@ -1466,7 +1462,6 @@ function TrashCard() {
            freccia: «Cestino +» chiuso fa aprire chiunque per scoprire che non
            c'era niente da vedere. */
         sommario={t('vuoto')}
-        t={t}
       >
         {/* Finché è nel cestino un'immersione sparisce dall'archivio e non si
          * sincronizza, ma non è perduta: è lo stato intermedio che rende
@@ -1489,7 +1484,6 @@ function TrashCard() {
          qualcosa dentro va detto, perché quelle immersioni spariscono
          dall'archivio e dalla sincronizzazione finché restano lì. */
       sommario={imm(items.length, t)}
-      t={t}
     >
       <div className="spread" style={{ alignItems: 'flex-start' }}>
         <div>
