@@ -11,7 +11,30 @@ trentatré correzioni sopra la 1.8.20, trovate in una seconda notte di revisione
 sulle quattro aree che la prima non aveva guardato. **Ai
 negozi non è ancora consegnata**, e i pacchetti stanno pronti e misurati in
 `da-caricare-su-app-store/` e `da-caricare-su-play/`: il caricamento lo fa il
-proprietario, con Transporter e con Play Console. *Dieci difetti della revisione
+proprietario, con Transporter e con Play Console.
+
+> **► E L'APP STORE, MISURATO LA MATTINA DEL 15, È ALLA `1.8.18` — NON ALLA
+> `1.8.11`. ◄** `itunes.apple.com/lookup?id=6804439480` risponde `1.8.18`,
+> pubblicata il **14 settembre alle 21:29 UTC**, con `MacDesktop` fra i
+> `supportedDevices`: iPhone, iPad e Mac insieme. È stata approvata e pubblicata
+> **mentre si lavorava alla 1.8.20 e alla 1.8.21**, e per tutta la notte i
+> documenti di questo progetto — compreso questo — hanno continuato a scrivere
+> «i negozi sono alla 1.8.11».
+>
+> *È la terza volta che questo documento registra lo stesso guasto*, e la forma
+> non cambia mai: **una riga che nessuno rimisura diventa la fonte da cui si
+> deduce il mondo.** L'11 settembre era «i negozi sono alla 1.8.8» mentre la
+> 1.8.11 era pubblica da due giorni; stanotte era «1.8.11» mentre la 1.8.18 lo
+> era da poche ore. Il comando per saperlo sta scritto qui da giorni, in quattro
+> punti diversi, con accanto la regola: *«approvata» non è «pubblicata», e si
+> misura invece di dedurla.* **Ce l'avevo e non l'ho lanciato**, e la riga
+> sbagliata è finita anche nei due `LEGGIMI.md` dei negozi e nel testo delle
+> novità — cioè negli unici posti dove non c'è nessuno che possa smentirla.
+>
+> Corretti tutti la mattina del 15, e il testo per l'App Store riscritto sulla
+> distanza vera: **1.8.18 → 1.8.21**. Per Google Play la pagina pubblica risponde
+> **404** — traccia di test chiuso — quindi da qui non si misura affatto, e
+> l'unica fonte è Play Console. *Dieci difetti della revisione
 restano aperti e sono scritti per esteso più in basso: quattro sono perdita di
 dati silenziosa nella sincronizzazione, e nessuno dei quattro si chiude con una
 riga.*
