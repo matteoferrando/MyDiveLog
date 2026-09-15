@@ -1,7 +1,38 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **15 settembre 2026, mattina** — **2 494 prove in 146 file** più
-**132 prove Rust** del ponte, lint e formato a **0 errori**. La **1.8.22 è
+Aggiornato: **15 settembre 2026, sera** — **2 564 prove in 152 file** più
+**134 prove Rust** del ponte, tipi, lint e formato a **0 errori**.
+
+> **► LA REVISIONE DEL 15 SETTEMBRE: SEI SGUARDI AVVERSARIALI, UNA OTTANTINA DI
+> DIFETTI MISURATI, TRE SCAGLIONI DI CORREZIONI. ◄**
+>
+> Sei revisori indipendenti in sola lettura — sito, Bluetooth, ponte Rust,
+> lettori di file, motore decompressivo, sicurezza e prestazioni — hanno girato
+> il codice con file ostili, profili casuali e mutazioni, con l'obbligo di
+> incollare l'output vero di ogni difetto riportato. Non una lettura: una
+> misura.
+>
+> **Il peggiore.** Il pianificatore dichiarava «in curva», in verde, piani che
+> il suo stesso modello portava al **132% del valore M**. La risalita sceglieva
+> la quota guardando il tetto sui tessuti del momento, e su un rimbalzo profondo
+> saliva da 80 metri alla superficie in una gamba sola da otto minuti — durante
+> la quale i compartimenti medi caricano — senza che nessuno ricontrollasse
+> all'arrivo. Cinquantuno combinazioni fra 10 e 90 metri; sette sopra il 100%.
+> Adesso zero, e `tests/curvaOnesta.test.ts` lo tiene a zero.
+>
+> **Il più subdolo.** La sincronizzazione ritimbrava il documento fuso con l'ora
+> della sincronizzazione: la regola dichiarata «vince chi ha scritto per ultimo»
+> diventava «vince chi ha sincronizzato mentre l'altro era offline». Una
+> correzione fatta in barca alle 11:00 spariva sotto un timbro delle 14:31,
+> senza avvisi e senza cestino.
+>
+> **Quello che si ripete.** Il segnalibro del Bluetooth si salvava anche quando
+> l'archivio aveva rifiutato la scrittura — ma solo sulla strada di
+> libdivecomputer, perché la lezione era stata imparata sull'altra. Adesso la
+> decisione è una funzione sola, usata da entrambe.
+>
+> I tre commit portano i numeri di ogni difetto: `15693ed` il motore, `905f1f4`
+> i lettori di file, `7ba31e1` sito, sicurezza e archivio. La **1.8.22 è
 l'ultima ed è pubblicata**: release `v1.8.22` sul tag `40086ce` con nove
 allegati, le cinque impronte riscaricate dall'indirizzo pubblico e ricalcolate,
 firme dell'aggiornamento verificate sui file pubblicati, Mac installato e aperto
@@ -5238,12 +5269,107 @@ e solo quella**.
 
 ---
 
-## Cosa resta aperto della revisione del 15 settembre, e perché
+## Da fare: il numero progressivo, chiesto da chi usa l'applicazione
 
-**I quattro della sincronizzazione sono i più gravi di tutta la revisione, e
-nessuno dei quattro si chiude con una riga.** Vanno scritti qui per intero,
-perché sono perdita di dati silenziosa e perché la soluzione è una decisione, non
-una correzione.
+**Segnalazione arrivata il 15 settembre 2026**, e vale la pena riportarla come è
+scritta perché il caso è più preciso di come lo descriverei io:
+
+> «Vorrei suggerire la possibilità di modificare il numero progressivo delle
+> immersioni o di impostare un offset iniziale. Utilizzando più computer
+> subacquei, infatti, il numero importato da un singolo dispositivo può non
+> coincidere con il numero reale complessivo delle immersioni effettuate. Ad
+> esempio, un'immersione indicata come n. 148 dal computer potrebbe essere in
+> realtà la mia n. 183. Sarebbe utile poter correggere solo la numerazione,
+> lasciando invariati tutti gli altri dati importati.»
+
+**Metà del lavoro è già fatta, e non se ne era accorto nessuno.**
+`numeriProgressivi(dives, precedenti = 0)` in `src/core/numerazione.ts` accetta
+già il parametro «quante immersioni ci sono state PRIMA di questo archivio», con
+tanto di commento che spiega il caso di chi ha un logbook di carta alle spalle.
+Solo che `state.tsx:1011` la chiama senza, e non c'è nessun posto
+nell'interfaccia dove scrivere quel numero.
+
+Quindi il pezzo che manca è **un'impostazione** — «immersioni precedenti a questo
+logbook» — e il suo giro fino a `numeriProgressivi`. Il resto viene da sé: il
+numero è una vista, si ricalcola, e non tocca nessun dato importato, che è
+esattamente quello che la segnalazione chiede.
+
+**Il caso dell'esempio però è un altro, e va distinto.** Chi ha due computer non
+ha «183 immersioni prima del logbook»: ha un logbook che ne contiene 183 e un
+computer che di quelle ne ha viste 148. Se le 183 sono tutte in archivio, il
+numero giusto **esce già da solo**, perché il numero è la posizione nel logbook e
+non quello che dice il computer — è la regola scritta in testa a
+`numerazione.ts`. L'offset serve solo a chi in archivio ce ne ha meno di quante
+ne ha fatte davvero: chi ha cominciato a registrare in ritardo, o ha un vecchio
+libretto di carta che non ha importato.
+
+Vale quindi la pena **chiedere a chi ha scritto** quale dei due casi è il suo,
+prima di costruire: sono due funzioni diverse, e una delle due esiste già.
+
+*Lasciato da fare su richiesta del proprietario.*
+
+## Chiusi la sera del 15 settembre — l'elenco, con i numeri
+
+Quello che segue è chiuso, con una guardia ciascuno vista rossa mutando la riga
+che protegge. I difetti sono raggruppati per commit.
+
+**Il motore decompressivo e il pianificatore** (`15693ed`)
+
+| Cosa succedeva | Il numero |
+|---|---|
+| Piani dichiarati «in curva», in verde, che il modello portava sopra il valore M | GF99 **132.3** su 80 m × 5 min; 51 combinazioni fra 10 e 90 m, 7 sopra il 100% |
+| La sosta di sicurezza spariva appena il piano usciva dalla curva, sostituita dal minuto d'obbligo | Un minuto in più al fondo accorciava il piano **43 volte su 4 386**; fino a 1.9 min e 19 punti di GF99 |
+| Il riquadro «Curva al primo livello» rispondeva alla domanda della tabella, su un orologio diverso da quello della casella accanto | Diceva 2.1 min a 90 m; il piano a 2 min mostrava **15 minuti di soste** |
+| L'ancora dei gradient factor nasceva dal tetto con `gfLow`, cioè prima che ci fosse un obbligo | Nessun piano si accorcia; runtime **+0.08 min** medio, GF99 **−0.36** |
+| Il TTS del grafico si fermava a 394 minuti e restituiva i minuti accumulati come se fossi emerso | 60 m × 80 min: **394 contro 633**; 45 m × 180 min: **396 contro 1 131** |
+| `buildPlan` inghiottiva l'eccezione di tutte e sedici le regole, cinque delle quali di sicurezza | Rompendo `ruleCeilingViolations`, l'unico avviso critico spariva e restavano quattro «punti di forza» |
+| `runProfile` non ordinava i campioni mentre `computeMetrics` sì | **60.7 minuti d'obbligo su un'immersione di 34.3** |
+| La pressione di superficie a zero era filtrata in un punto su tre | Un'ora di superficie lavava i tessuti a **GF99 0** dove il vero era 35.6 |
+| La sincronizzazione ritimbrava il documento fuso con l'ora della sincronizzazione | Una correzione delle 11:00 spariva sotto un timbro delle 14:31 |
+| Il segnalibro BLE si salvava anche a scrittura rifiutata, sulla strada di libdivecomputer | Disco pieno → le immersioni non tornano più, e il computer risponde «niente di nuovo» |
+
+**I lettori di file** (`905f1f4`) — quindici difetti, quasi tutti «un dato falso
+e plausibile al posto di un errore»: un XML troncato che perdeva tutte le
+immersioni e mostrava l'errore della libreria in inglese; due immersioni diverse
+fuse perché condividevano l'indice interno del computer senza seriale; una bomba
+di compressione da 264 kB che allocava 372 MB; `maxTime` 40 letto come 40 secondi
+invece di 40 minuti; `size='80 cuft'` come 80 litri (consumo sette volte più
+alto); ogni sito Subsurface senza GPS a latitudine zero; il backup
+dell'applicazione scambiato per CSV; il CSV esportato che l'applicazione non
+sapeva rileggere; valori impossibili accettati senza avvisi; `1e9` che diventava
+19; formule eseguibili nel CSV esportato; «UTC+74»; il fuso UDDF buttato;
+cinquantamila avvisi in una cella di tabella; le firme binarie cercate nel testo
+decodificato. E tre nel ponte Rust: le pressioni attribuite alla bombola
+sbagliata, le date valide se `anno != 0`, il fuso orario letto e buttato con un
+commento che diceva il contrario.
+
+**Sito, sicurezza, archivio, prestazioni** (`7ba31e1`) — «356 modelli
+supportati» quando sono 113; cinque marche in vetrina che nel catalogo non ci
+sono; due pagine con i meta di un'altra; l'informativa che prometteva il
+portachiavi di sistema senza dire che su Windows, Linux e Android la sessione sta
+in chiaro nell'archivio; formule nel foglio delle segnalazioni; il backup su
+iPhone che azzerava il precedente prima di scrivere; l'archivio SQLite senza
+numero di versione e senza transazioni; CORS aperto; sei ricerche lineari dentro
+cicli (1 113 ms a ottomila immersioni); la velocità di risalita giudicata sul
+valore grezzo e stampata arrotondata; `planGas` senza rete anti-NaN; la MOD
+infinita su una miscela allo 0% di ossigeno; l'RMV che spariva senza dirlo;
+CNS e OTU che ignoravano la quota e il «più di» che non usciva.
+
+## I quattro della sincronizzazione: com'erano quando sono stati trovati
+
+> **► SONO CHIUSI. ◄** Questa sezione resta perché racconta il difetto com'era
+> visto la prima volta, e il capitolo più in basso — «I quattro della
+> sincronizzazione», nelle correzioni — racconta come si è risolto e perché in
+> due casi la soluzione ovvia era sbagliata. *Il titolo diceva «cosa resta
+> aperto» ed era rimasto lì dopo che tutti e quattro erano stati chiusi: una
+> sezione che si contraddice con quella sotto è peggio di nessuna sezione,
+> perché chi legge non sa quale delle due è vecchia.* Corretto il 15 settembre
+> 2026, sera.
+
+**I quattro della sincronizzazione sono stati i più gravi di tutta la revisione,
+e nessuno dei quattro si è chiuso con una riga.** Vanno scritti qui per intero,
+perché erano perdita di dati silenziosa e perché la soluzione è stata una
+decisione, non una correzione.
 
 | | Cosa succede | Perché non è chiuso |
 |---|---|---|
