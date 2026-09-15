@@ -567,6 +567,17 @@ body {
     position: fixed;
     inset: 0;
     background: rgb(0 0 0 / 40%);
+    /*
+     * La sfocatura, e perché non basta il velo nero.
+     *
+     * Sul tema chiaro il 40% di nero dice benissimo «la pagina sotto è
+     * sospesa». Sul tema scuro non dice niente: nero al 40% sopra una pagina
+     * quasi nera è nero, e il contenuto dietro resta leggibile come prima —
+     * cioè sembra ancora premibile. Tre pixel di sfocatura funzionano su tutti
+     * e due i fondi perché non tolgono luce, tolgono FUOCO. Dove non è
+     * supportata resta il velo, che è il comportamento di prima.
+     */
+    backdrop-filter: blur(3px);
     border: 0;
     padding: 0;
     z-index: 40;
@@ -584,9 +595,9 @@ body {
     border-top: 1px solid var(--border-strong);
     /* Gli angoli arrotondati solo in alto sono il segno che dice «questo è
        arrivato da sotto, e da sotto se ne va». */
-    border-radius: 16px 16px 0 0;
+    border-radius: 18px 18px 0 0;
     box-shadow: var(--shadow);
-    padding: 8px calc(8px + var(--safe-right)) calc(14px + var(--safe-bottom)) calc(8px + var(--safe-left));
+    padding: 10px calc(14px + var(--safe-right)) calc(16px + var(--safe-bottom)) calc(14px + var(--safe-left));
     /* Se un giorno le voci diventassero troppe, scorre in VERTICALE: è l'unica
        direzione accettabile per una lista. `dvh` tiene conto della barra di
        Safari che compare e scompare. */
@@ -600,15 +611,15 @@ body {
 
   .foglio-maniglia {
     display: block;
-    width: 36px;
+    width: 38px;
     height: 4px;
-    margin: 0 auto 10px;
+    margin: 0 auto 14px;
     border-radius: 2px;
     background: var(--border-strong);
   }
 
   .foglio-gruppo + .foglio-gruppo {
-    margin-top: 14px;
+    margin-top: 16px;
   }
 
   /*
@@ -620,8 +631,8 @@ body {
    * scaffale, non un titolo di capitolo.
    */
   .foglio-gruppo h2 {
-    margin: 0 0 4px;
-    padding: 0 14px;
+    margin: 0 0 6px;
+    padding: 0 4px;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.06em;
@@ -629,30 +640,142 @@ body {
     color: var(--text-muted);
   }
 
+  /*
+   * ► IL GRUPPO È UNA CARTA, come tutto il resto dell'applicazione. ◄
+   *
+   * Nella prima versione le voci erano parole appoggiate sul bianco: niente
+   * diceva dove finisse una e cominciasse l'altra, niente diceva che fossero da
+   * premere, e le tre intestazioni galleggiavano in mezzo senza niente da
+   * intestare. Un bordo, un raggio e un filo fra le righe costano tre
+   * dichiarazioni e fanno la differenza fra «un elenco di parole» e «un menu».
+   *
+   * `overflow: hidden` serve al raggio: senza, lo sfondo della prima e
+   * dell'ultima riga premute uscirebbe dagli angoli arrotondati.
+   */
   .foglio-gruppo nav {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
   }
 
   .foglio-gruppo button {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    /* 60 px: i 44 del pollice più le due righe di testo. */
+    min-height: 60px;
+    padding: 9px 12px;
     appearance: none;
     border: 0;
     background: transparent;
     color: var(--text-primary);
     font: inherit;
-    font-size: 15px;
     text-align: left;
-    /* 44 px: la misura sotto la quale un pollice sbaglia bersaglio. */
-    min-height: 44px;
-    padding: 0 14px;
-    border-radius: var(--radius-sm);
     cursor: pointer;
   }
 
-  .foglio-gruppo button[aria-current='page'] {
+  /* Il filo sta FRA le righe e non sotto ognuna: sotto l'ultima diventerebbe una
+     seconda linea a un pixel dal bordo della carta. */
+  .foglio-gruppo button + button {
+    border-top: 1px solid var(--border);
+  }
+
+  /*
+   * IL SEGNO STA IN UN QUADRATO, e il quadrato è quello che dà il ritmo.
+   *
+   * Cinque tratti allineati sulla stessa colonna, tutti della stessa dimensione,
+   * sono ciò che trasforma cinque righe in una lista: l'occhio scende lungo i
+   * quadrati e non deve rileggere le parole per capire dove comincia la
+   * prossima voce.
+   *
+   * ► IL BLU È `--series-1` E NON `--accent-solid`, ed è una misura. ◄
+   * `--accent-solid` è il blu dei bottoni PIENI: è scelto per reggere il testo
+   * bianco che ci sta sopra, non per farsi vedere come tratto su una
+   * superficie. Misurato su `--surface-3`: 4.41:1 sul tema chiaro ma **3.18:1
+   * su quello scuro**, cioè appena sopra la soglia dei 3:1 che WCAG 1.4.11
+   * chiede a un segno grafico. `--series-1` è l'unico blu di questo foglio di
+   * stile che viene ridefinito per tema proprio per staccare da uno sfondo, e
+   * infatti sta a 3.93:1 sul chiaro e 4.32:1 sullo scuro.
+   */
+  .foglio-segno {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
     background: var(--surface-3);
-    font-weight: 650;
+    color: var(--series-1);
+  }
+
+  .foglio-testi {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1 1 auto;
+    /* Un figlio flessibile parte da `min-width: auto`, cioè non si restringe
+       sotto la sua parola più lunga: senza questa riga una spiegazione lunga
+       spingerebbe il gallone fuori dallo schermo. */
+    min-width: 0;
+  }
+
+  .foglio-nome {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+
+  .foglio-sotto {
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--text-muted);
+    /* Se la traduzione è più lunga dell'italiano va a capo dentro la riga,
+       invece di sfondare di lato: è la regola di tutta l'applicazione da
+       quando un nome di sito senza spazi ha fatto scorrere il logbook. */
+    overflow-wrap: anywhere;
+  }
+
+  .foglio-gallone {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    color: var(--text-muted);
+  }
+
+  /*
+   * LA VOCE CORRENTE: quadrato pieno, non riga evidenziata.
+   *
+   * Lo sfondo colorato su tutta la riga era la prima idea, e su una carta con i
+   * fili fra le righe si legge come una riga SELEZIONATA in una tabella — cioè
+   * come qualcosa che sta per essere modificato, non come «sei qui». Il
+   * quadrato pieno dice la stessa cosa dove l'occhio già guarda, e lascia la
+   * carta intera.
+   */
+  .foglio-gruppo button[aria-current='page'] .foglio-segno {
+    background: var(--accent-solid);
+    color: #fff;
+  }
+
+  /*
+   * ► IL NOME RESTA NERO, e la prima stesura lo coloriva. ◄
+   *
+   * Sembrava meglio — quadrato blu e nome blu — e sul tema chiaro lo è: 4.82:1.
+   * Sul tema scuro `--accent-solid` su `--surface-1` sta a **3.52:1**, cioè
+   * sotto il 4.5:1 che serve a un testo di 15 px. Sarebbe stata l'unica riga
+   * illeggibile del foglio, e proprio quella che dice «sei qui».
+   *
+   * Non si è cercato un blu più chiaro: un segno solo basta. Il quadrato pieno
+   * sta dove l'occhio già guarda, e raddoppiare il segnale sul nome aggiungeva
+   * un rischio di contrasto senza aggiungere informazione. Resta il grassetto,
+   * che non ha colore e quindi non ha contrasto da rispettare.
+   */
+  .foglio-gruppo button[aria-current='page'] .foglio-nome {
+    font-weight: 700;
   }
 }
 

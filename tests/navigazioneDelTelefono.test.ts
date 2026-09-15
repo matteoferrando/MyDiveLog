@@ -28,7 +28,10 @@ import { BARRA, GRUPPI_ALTRO, TABS, type Vista } from '../src/ui/navigazione';
 import { INGLESE as EN } from '../src/ui/traduzioni';
 
 /** Tutto quello che il telefono mostra, nell'ordine in cui lo mostra. */
-const SUL_TELEFONO: Vista[] = [...BARRA.map((b) => b.id), ...GRUPPI_ALTRO.flatMap((g) => g.voci)];
+const SUL_TELEFONO: Vista[] = [
+  ...BARRA.map((b) => b.id),
+  ...GRUPPI_ALTRO.flatMap((g) => g.voci.map((v) => v.id)),
+];
 
 describe('dal telefono si arriva a tutte le schede', () => {
   it.each(TABS.map((s) => s.id))('«%s» è raggiungibile', (id) => {
@@ -94,5 +97,44 @@ describe('le parole della navigazione passano dal dizionario', () => {
 
   it.each(GRUPPI_ALTRO.map((g) => g.titolo))('il gruppo «%s» ha la sua voce in inglese', (titolo) => {
     expect(EN[titolo], `manca la traduzione del gruppo «${titolo}»`).toBeDefined();
+  });
+
+  it.each(GRUPPI_ALTRO.flatMap((g) => g.voci).map((v) => v.sotto))(
+    'la riga «%s» ha la sua voce in inglese',
+    (sotto) => {
+      expect(EN[sotto], `manca la traduzione della riga «${sotto}»`).toBeDefined();
+    },
+  );
+});
+
+describe('ogni voce del foglio dice anche cosa c’è dentro', () => {
+  /*
+   * ► LA RIGA SOTTO NON È UN ABBELLIMENTO. ◄
+   *
+   * La prima versione del foglio era un elenco di sostantivi nudi, e un menu di
+   * sostantivi si può usare soltanto se si sa già cosa vuol dire ognuno:
+   * «Suggerimenti» non dice che è il piano di miglioramento, «Il tuo profilo»
+   * non dice che lì dentro ci sono i brevetti. Chi arriva la prima volta deve
+   * entrare in tutte e cinque per scoprirlo.
+   *
+   * Quindi la riga è obbligatoria, e la prova la pretende: una voce nuova
+   * aggiunta senza spiegazione non passa. Non giudica le parole — quelle sono
+   * scelte — ma verifica che ci siano, che siano corte abbastanza per stare su
+   * una riga di telefono, e che non ripetano l'etichetta che hanno sopra.
+   */
+  const voci = GRUPPI_ALTRO.flatMap((g) => g.voci);
+
+  it.each(voci)('«$id» ha una riga di spiegazione', (voce) => {
+    expect(voce.sotto.trim().length, `«${voce.id}» non ha spiegazione`).toBeGreaterThan(0);
+    // 40 caratteri a 12 px stanno in 402 px meno il segno e il gallone; oltre,
+    // va a capo e la riga diventa alta il doppio solo per quella voce.
+    expect(voce.sotto.length, `la riga di «${voce.id}» è troppo lunga: «${voce.sotto}»`).toBeLessThanOrEqual(
+      40,
+    );
+    const etichetta = TABS.find((s) => s.id === voce.id)?.label ?? '';
+    expect(
+      voce.sotto.toLowerCase(),
+      `la riga di «${voce.id}» ripete l’etichetta invece di aggiungere qualcosa`,
+    ).not.toBe(etichetta.toLowerCase());
   });
 });

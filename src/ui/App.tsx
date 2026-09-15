@@ -209,7 +209,91 @@ const SEGNI: Record<string, ReactNode> = {
      a 1.9 px erano tre granelli accanto a segni larghi 15, e la quinta voce
      sembrava scolorita. A 2.8 px pesano come gli altri. */
   altro: <path d="M5.5 12h.01M12 12h.01M18.5 12h.01" strokeWidth="2.8" />,
+
+  /*
+   * ► I CINQUE DEL FOGLIO «ALTRO». ◄
+   *
+   * Stessa mano dei cinque della barra — tratto, non riempimento — perché
+   * altrimenti il foglio sembrerebbe di un'altra applicazione. Ognuno dice una
+   * cosa sola, e nessuno prova a disegnare il concetto per intero.
+   */
+  // Due frecce in senso opposto: il segno universale di «metti a confronto».
+  compare: (
+    <>
+      <path d="M3.5 9h14" />
+      <path d="m13.5 5 4 4-4 4" />
+      <path d="M20.5 15h-14" />
+      <path d="m10.5 11-4 4 4 4" />
+    </>
+  ),
+  // Una linea che sale e la sua punta: è il piano di MIGLIORAMENTO, e il
+  // miglioramento ha una direzione.
+  coach: (
+    <>
+      <path d="M3.5 16.5 9 11l3.5 3.5L20.5 7" />
+      <path d="M15.5 7h5v5" />
+    </>
+  ),
+  profilo: (
+    <>
+      <path d="M12 11.5a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2Z" />
+      <path d="M4.8 20.2a7.2 7.2 0 0 1 14.4 0" />
+    </>
+  ),
+  /*
+   * L'attrezzatura è una MASCHERA, e non una chiave inglese.
+   *
+   * La chiave direbbe «manutenzione» — che è metà di quella scheda, le
+   * revisioni — e lascerebbe fuori l'altra metà, cioè le cose. E starebbe
+   * accanto agli ingranaggi di Impostazioni: due arnesi vicini si confondono.
+   * La maschera è l'unico oggetto che in questo mestiere non si può scambiare
+   * per nient'altro, e in un'app di immersioni si riconosce a 20 px.
+   */
+  gear: (
+    <>
+      <path d="M6.2 7.8h11.6a2 2 0 0 1 2 2v2a3.4 3.4 0 0 1-3.4 3.4h-1.6a1.7 1.7 0 0 1-1.3-.6L12 13.2l-1.5 1.4a1.7 1.7 0 0 1-1.3.6H7.6A3.4 3.4 0 0 1 4.2 11.8v-2a2 2 0 0 1 2-2Z" />
+      <path d="M4.2 10.4H2.2M19.8 10.4h2" />
+    </>
+  ),
+  /*
+   * Due cursori e non una ruota dentata: la ruota vuole otto denti per
+   * leggersi, e a 20 px otto denti diventano una macchia. I cursori si leggono
+   * anche piccoli, e dicono la stessa cosa — «qui si regola».
+   */
+  sync: (
+    <>
+      <path d="M3.5 8.5h4M12.5 8.5h8M3.5 15.5h8M16.5 15.5h4" />
+      <circle cx="10" cy="8.5" r="2.3" />
+      <circle cx="14" cy="15.5" r="2.3" />
+    </>
+  ),
 };
+
+/**
+ * Il gallone che dice «questa riga porta da un'altra parte».
+ *
+ * Non è decorazione: senza, una riga di un foglio si legge come una voce di un
+ * elenco — qualcosa da guardare — e non come un comando. È l'unico segno che
+ * distingue «Confronta» scritto qui da «Confronta» scritto in un titolo.
+ */
+function Gallone() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="m9.5 5.5 6.5 6.5-6.5 6.5" />
+    </svg>
+  );
+}
 
 function Segno({ quale }: { quale: string }) {
   return (
@@ -563,13 +647,34 @@ export function App() {
             {GRUPPI_ALTRO.map((gruppo) => (
               <section key={gruppo.titolo} className="foglio-gruppo">
                 <h2>{t(gruppo.titolo)}</h2>
+                {/*
+                 * Il gruppo è una CARTA con le righe divise da un filo, come
+                 * tutto il resto dell'applicazione. Nella prima versione erano
+                 * parole appoggiate sul bianco: niente diceva dove finisse una
+                 * voce e cominciasse l'altra, niente diceva che fossero da
+                 * premere, e le tre intestazioni galleggiavano in mezzo senza
+                 * niente da intestare.
+                 */}
                 <nav aria-label={t(gruppo.titolo)}>
-                  {gruppo.voci.map((id) => {
-                    const scheda = TABS.find((s) => s.id === id);
+                  {gruppo.voci.map((voce) => {
+                    const scheda = TABS.find((s) => s.id === voce.id);
                     if (!scheda) return null;
                     return (
-                      <button key={id} onClick={() => go(id)} aria-current={view === id ? 'page' : undefined}>
-                        {t(scheda.label)}
+                      <button
+                        key={voce.id}
+                        onClick={() => go(voce.id)}
+                        aria-current={view === voce.id ? 'page' : undefined}
+                      >
+                        <span className="foglio-segno">
+                          <Segno quale={voce.id} />
+                        </span>
+                        <span className="foglio-testi">
+                          <span className="foglio-nome">{t(scheda.label)}</span>
+                          <span className="foglio-sotto">{t(voce.sotto)}</span>
+                        </span>
+                        <span className="foglio-gallone">
+                          <Gallone />
+                        </span>
                       </button>
                     );
                   })}

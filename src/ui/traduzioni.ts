@@ -34,6 +34,13 @@ export const INGLESE: Record<string, string> = {
   'L’applicazione': 'The app',
   Tu: 'You',
   'Il tuo profilo': 'Your profile',
+  // Le righe sotto le voci del foglio «Altro»: dicono cosa c'è dentro una
+  // pagina senza doverci entrare. Corte, perché stanno su una riga sola.
+  'Due profili sullo stesso grafico': 'Two profiles on one chart',
+  'Il piano di miglioramento': 'Your improvement plan',
+  'Nome e brevetti per il libretto': 'Name and certifications for the logbook',
+  'Bombole, mute, zavorra, revisioni': 'Cylinders, suits, weights, servicing',
+  'Accesso, backup, lingua, cestino': 'Sign-in, backup, language, trash',
   di: 'of',
   immersione: 'dive',
   immersioni: 'dives',

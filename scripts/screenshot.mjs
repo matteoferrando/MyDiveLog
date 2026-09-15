@@ -911,10 +911,26 @@ const menuMobile = await page.evaluate(() => {
   return {
     gruppi: document.querySelectorAll('.foglio-gruppo').length,
     voci: voci.length,
-    dentroLoSchermo: voci.every((b) => {
-      const r = b.getBoundingClientRect();
-      return r.left >= -1 && r.right <= w + 1;
-    }),
+    // Ogni voce porta una riga che dice cosa c'è dentro la pagina: se un
+    // giorno se ne aggiunge una senza, il foglio torna a essere un elenco di
+    // sostantivi — che è la versione che qualcuno ha guardato e definito
+    // orribile.
+    spiegazioni: document.querySelectorAll('.foglio-sotto').length,
+    /*
+     * Si guardano TUTTI i discendenti, non i soli pulsanti.
+     *
+     * I pulsanti sono larghi quanto la carta e dentro la carta non possono
+     * sfondare: misurarli soltanto vuol dire misurare una cosa che è vera per
+     * costruzione. Quello che può uscire è il TESTO — una traduzione più lunga
+     * dell'italiano, un nome che non va a capo — ed è per questo che il giro
+     * scende fino in fondo all'albero.
+     */
+    dentroLoSchermo: [...(document.querySelector('.foglio-altro')?.querySelectorAll('*') ?? [])].every(
+      (e) => {
+        const r = e.getBoundingClientRect();
+        return r.left >= -1 && r.right <= w + 1;
+      },
+    ),
     altezzaMinima: voci.length
       ? Math.round(Math.min(...voci.map((b) => b.getBoundingClientRect().height)))
       : 0,
@@ -982,14 +998,16 @@ const navEsito =
 const menuEsito =
   menuMobile.gruppi !== 3 ||
   menuMobile.voci !== 5 ||
+  menuMobile.spiegazioni !== menuMobile.voci ||
   !menuMobile.dentroLoSchermo ||
   !menuMobile.dentroInBasso ||
   menuMobile.altezzaMinima < 44
-    ? `SBAGLIATO: ${menuMobile.gruppi} gruppi, ${menuMobile.voci} voci, ` +
+    ? `SBAGLIATO: ${menuMobile.gruppi} gruppi, ${menuMobile.voci} voci di cui ` +
+      `${menuMobile.spiegazioni} con spiegazione, ` +
       `${menuMobile.dentroLoSchermo ? 'dentro' : 'FUORI DALLO'} schermo, ` +
       `${menuMobile.dentroInBasso ? 'dentro' : 'SPORGE'} in basso, ` +
       `voce più bassa ${menuMobile.altezzaMinima} px`
-    : `${menuMobile.gruppi} gruppi, ${menuMobile.voci} voci da almeno ${menuMobile.altezzaMinima} px → ` +
+    : `${menuMobile.gruppi} gruppi, ${menuMobile.voci} voci spiegate da almeno ${menuMobile.altezzaMinima} px → ` +
       `dopo la scelta: pannello ${dopoIlMenu.pannelloChiuso ? 'chiuso' : 'ANCORA APERTO'}, ` +
       `velo ${dopoIlMenu.veloChiuso ? 'chiuso' : 'ANCORA APERTO'}, ` +
       `«Altro» ${dopoIlMenu.altroAcceso ? 'acceso' : 'SPENTO'}, titolo «${dopoIlMenu.titolo}»`;

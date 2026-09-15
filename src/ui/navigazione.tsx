@@ -107,13 +107,37 @@ export const BARRA: { id: Vista; label: string }[] = [
  * intestazioni costano tre righe di schermo e in cambio dicono, prima ancora di
  * leggere le voci, in quale metà del mondo si sta guardando.
  *
- * Le intestazioni restano ITALIANE nella tabella e si traducono al disegno,
- * come le etichette: stessa regola, stesso motivo (vedi `TABS`).
+ * ► E OGNI VOCE PORTA LA SUA RIGA. ◄ La prima versione del foglio era un elenco
+ * di cinque sostantivi nudi su fondo bianco — «Confronta», «Suggerimenti»,
+ * «Attrezzatura» — e chi l'ha visto l'ha detto in una parola: orribile. Il
+ * problema non era solo estetico: **un menu di sostantivi si può usare soltanto
+ * se si sa già cosa vuol dire ognuno.** «Suggerimenti» non dice che è il piano
+ * di miglioramento, «Il tuo profilo» non dice che lì dentro ci sono i brevetti.
+ * La riga sotto costa dodici parole in tutto e toglie la necessità di entrare
+ * per scoprirlo.
+ *
+ * Le stringhe restano ITALIANE nella tabella e si traducono al disegno, come le
+ * etichette: stessa regola, stesso motivo (vedi `TABS`).
  */
-export const GRUPPI_ALTRO: { titolo: string; voci: Vista[] }[] = [
-  { titolo: 'Le tue immersioni', voci: ['compare', 'coach'] },
-  { titolo: 'Tu', voci: ['profilo', 'gear'] },
-  { titolo: 'L’applicazione', voci: ['sync'] },
+export const GRUPPI_ALTRO: { titolo: string; voci: { id: Vista; sotto: string }[] }[] = [
+  {
+    titolo: 'Le tue immersioni',
+    voci: [
+      { id: 'compare', sotto: 'Due profili sullo stesso grafico' },
+      { id: 'coach', sotto: 'Il piano di miglioramento' },
+    ],
+  },
+  {
+    titolo: 'Tu',
+    voci: [
+      { id: 'profilo', sotto: 'Nome e brevetti per il libretto' },
+      { id: 'gear', sotto: 'Bombole, mute, zavorra, revisioni' },
+    ],
+  },
+  {
+    titolo: 'L’applicazione',
+    voci: [{ id: 'sync', sotto: 'Accesso, backup, lingua, cestino' }],
+  },
 ];
 
 const CONTESTO = createContext<(vista: Vista) => void>(() => {});
