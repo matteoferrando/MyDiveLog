@@ -43,7 +43,9 @@
     "sito:controlla": "node scripts/controlla-sito.mjs",
     "sito:online": "node scripts/sito-online.mjs",
     "cask": "node scripts/genera-cask.mjs",
-    "aggiornamento:verifica": "tsx scripts/verifica-aggiornamento.ts"
+    "aggiornamento:verifica": "tsx scripts/verifica-aggiornamento.ts",
+    "larghezza:verifica": "node scripts/misura-larghezza.mjs",
+    "scroll:misura": "node scripts/misura-scroll.mjs"
   },
   "dependencies": {
     "@garmin/fitsdk": "^21.171.0",

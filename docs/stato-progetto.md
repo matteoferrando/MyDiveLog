@@ -5324,6 +5324,46 @@ la larghezza non si può misurare**. Tenere chiuso nasconderebbe contenuto a chi
 non ha modo di sapere che c'è; tenere aperto costa una pagina più lunga. *Una
 misura che manca non autorizza a togliere: autorizza solo a non aggiungere.*
 
+## Lo scorrimento laterale, e perché l'archivio dimostrativo non lo mostrava
+
+**Segnalazione del 15 settembre 2026:** «su iPhone 16 il logbook scrolla
+orizzontale». Con i file dimostrativi **non succedeva**, a nessuna delle dieci
+larghezze provate — e questa è la parte istruttiva.
+
+Il difetto **dipende dai dati**. Un sito chiamato
+`Grottadellafocamonacaepuntadelloscogliolungo` — che è come lo scrivono certi
+computer subacquei — è una parola sola che non si spezza: detta la larghezza
+minima della cella, la cella spinge la scheda, la scheda spinge il contenitore.
+Misurato: **96 px di scorrimento a 320, 23 a 393, 14 a 402**. L'archivio
+dimostrativo aveva solo nomi con gli spazi, quindi il giro di misura dichiarava
+pulito tutto. *Un campione che non contiene il caso difficile misura la propria
+scelta del campione* — da qui `demo/nomi-lunghi.csv`, che adesso fa parte degli
+esempi.
+
+Cercandolo ne sono venuti fuori altri quattro, tutti della stessa famiglia:
+
+| dove | cosa succedeva | quanto |
+|---|---|---|
+| `.main` | dichiarava solo `overflow-y: auto`, e la specifica calcola l'altro asse a **`auto`**: il contenitore era trascinabile di lato per costruzione, senza che nessuno l'avesse deciso | — |
+| celle del logbook | una parola lunga non si spezzava | 96 px a 320 |
+| tessere delle statistiche | stesso nome di sito, altro punto della pagina | 12 px a 320 |
+| filtri sul telefono | `flex-direction: column` con `flex-wrap: wrap` ereditato: una colonna che «va a capo» crea una **seconda colonna**, e la larghezza la detta l'elemento più largo, non il contenitore | `.filters` largo 280 con dentro una `label` larga **325** |
+| pastiglie | `white-space: nowrap` su frasi lunghe come «in miglioramento: 21.2 → 18.3 L/min» | 29 px a 320 |
+
+**La rete e la correzione non sono la stessa cosa, e vale la pena dirlo.**
+`.main { overflow-x: hidden }` impedisce che un difetto futuro si presenti come
+una pagina che scappa di lato. Ma con `hidden` un contenuto che sfora diventa
+*invisibile* invece che raggiungibile — peggio, non meglio. Per questo la riga
+che conta è `overflow-wrap: anywhere` sulle celle e sulle tessere, e le pastiglie
+sono state fatte andare a capo **prima** di mettere la rete: *una rete che
+trasforma un difetto visibile in uno invisibile non è una rete, è un tappeto.*
+
+`npm run larghezza:verifica` apre la build in un browser vero a dieci larghezze
+— da iPhone SE a uno schermo da 27", scheda immersione compresa — e dice quali
+elementi hanno il bordo destro oltre il contenitore. Oggi: **nessuno sforo**.
+`tests/larghezzaDelTelefono.test.ts` tiene le quattro dichiarazioni che sono
+costate un difetto ciascuna, perché sono righe che sembrano superflue a leggerle.
+
 ## Da fare: il numero progressivo, chiesto da chi usa l'applicazione
 
 **Segnalazione arrivata il 15 settembre 2026**, e vale la pena riportarla come è

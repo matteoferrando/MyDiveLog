@@ -482,7 +482,15 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
       <div className="card">
         <div className="filters" style={{ marginBottom: 12 }}>
           <label>
-            {t('Andamento di')}
+            {/*
+              Lo `<span>` non è decorativo: sul telefono `.filters label > span`
+              gli dà una larghezza fissa e il menu prende il resto, così i tre
+              bordi cadono sulla stessa verticale. Un nodo di testo nudo non si
+              può dimensionare, e senza di lui a 320 px questa riga sforava di
+              undici pixel — misurato il 15 settembre 2026. La regola c'era da
+              mesi; era il markup che non la incontrava.
+            */}
+            <span>{t('Andamento di')}</span>
             <select value={series} onChange={(e) => setSeries(e.target.value as Series)}>
               <option value="rmv">{t('consumo di superficie')}</option>
               <option value="trim">{t('assetto')}</option>

@@ -538,6 +538,32 @@ body {
    * scorre fino a quell'altezza, e il documento torna alto quanto la finestra.
    */
   position: relative;
+  /*
+   * ► `overflow-x` DICHIARATO, e non lasciato decidere alla specifica. ◄
+   *
+   * Qui c'era solo `overflow-y: auto`. Sembra innocuo e non lo è: quando un
+   * asse è `visible` e l'altro no, la specifica calcola il primo a **`auto`**.
+   * Cioè questo contenitore era orizzontalmente trascinabile per costruzione,
+   * senza che nessuno l'avesse deciso — e bastava un elemento che sforasse di
+   * un pixel perché la pagina si spostasse sotto il dito mentre si scorre in
+   * verticale.
+   *
+   * È successo il 15 settembre 2026 con un nome di sito senza spazi (vedi il
+   * riquadro nella scheda del logbook), e sarebbe ricapitato con il prossimo
+   * contenuto largo: un nome di computer, un indirizzo, una nota incollata.
+   *
+   * `hidden` chiude quella porta: quello che deve scorrere di lato ha già il
+   * suo contenitore — `.table-scroll` — che lo dichiara. *La cosa giusta da
+   * fare quando un comportamento non è stato deciso da nessuno non è
+   * conviverci: è deciderlo.*
+   *
+   * ► E NON SOSTITUISCE LA CORREZIONE VERA. ◄ Con `hidden`, un contenuto che
+   * sfora diventa invisibile invece che raggiungibile: peggio, non meglio. Per
+   * questo la riga che conta è `overflow-wrap: anywhere` sulle celle, e questa
+   * è solo la rete perché un difetto futuro non si presenti di nuovo come una
+   * pagina che scappa di lato.
+   */
+  overflow-x: hidden;
 }
 
 .page {
@@ -654,11 +680,34 @@ body {
 
 /* ------------------------------------------------------------------ tiles */
 
+/*
+ * LA TESSERA, e il nome di sito che la faceva sfondare.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * Le tessere stanno in una griglia `repeat(auto-fit, minmax(min(150px, 100%),
+ * 1fr))`, che è già scritta per non sfondare: `min(150px, 100%)` fa sì che su
+ * uno schermo strettissimo la colonna valga il 100% invece dei 150 px.
+ *
+ * Quello che quella riga non può sapere è che dentro ci finisce del testo
+ * scritto da qualcun altro. «Più lunga — 58:00 — Grottadellafocamonacaepunta…»
+ * è il nome di un sito come lo esporta un computer subacqueo, senza spazi: una
+ * parola sola non si spezza, detta la larghezza minima della tessera, e la
+ * tessera sfonda la colonna che la contiene. Misurato a 320 px il 15 settembre
+ * 2026: dodici pixel di troppo, con la pagina che scappa di lato.
+ *
+ * È lo stesso difetto delle schede del logbook e degli identificativi BLE
+ * nell'elenco dei computer — tre posti diversi, una causa sola. Qui la
+ * correzione è la stessa: `anywhere` e non `break-word`, perché è `anywhere`
+ * che toglie la parola lunga dal conto della larghezza MINIMA, e la larghezza
+ * minima è quella che spinge.
+ */
 .tile {
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px 14px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .tile-label {
@@ -1079,10 +1128,42 @@ tbody tr.clickable:hover {
     margin-bottom: 8px;
   }
 
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► UNA PAROLA LUNGA SENZA SPAZI TRASCINAVA IL LOGBOOK DI LATO. ◄
+   *
+   * IL DIFETTO CHIUSO IL 15 SETTEMBRE 2026, riportato da chi usa
+   * l'applicazione: «su iPhone 16 il logbook scrolla orizzontale». Non si
+   * vedeva con l'archivio dimostrativo — dipende dai DATI, ed è il motivo per
+   * cui una misura fatta sui file di prova non bastava.
+   *
+   * Misurato con un sito chiamato «Grottadellafocamonacaepuntadelloscogliolungo»,
+   * che è come si chiamano davvero certi punti d'immersione quando li scrive un
+   * computer subacqueo senza spazi:
+   *
+   *   320 px (iPhone SE)     il contenitore si trascina di **96 px**
+   *   393 px (iPhone 16)     di **23 px**
+   *   402 px (iPhone 16 Pro) di **14 px**
+   *
+   * La causa è che una parola sola non si spezza: detta la larghezza minima
+   * della cella, la cella spinge la scheda, la scheda spinge `.main`. Lo stesso
+   * meccanismo che l'elenco dei computer aveva già trovato con gli
+   * identificativi BLE da trentasei caratteri — vedi il riquadro più in basso —
+   * e la lezione non era mai arrivata fin qui.
+   *
+   * `anywhere` e non `break-word`: `break-word` spezza solo se la parola da
+   * sola non ci sta nella riga intera, e in una scheda larga 304 px con un
+   * indirizzo web di cinquanta caratteri quella condizione può non verificarsi
+   * mai. `anywhere` spezza dove serve, e in più fa sì che la larghezza MINIMA
+   * della cella non dipenda più dalla parola più lunga — che è la parte che
+   * conta, perché è quella che spinge.
+   */
   .tabella-logbook td {
     border: 0;
     padding: 1px 0;
     text-align: left;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   /* Data e sito sono l'intestazione: riga intera. I valori si dividono lo
      spazio rimasto due alla volta. */
@@ -1192,6 +1273,27 @@ tbody tr.clickable:hover {
 
 /* ------------------------------------------------------------------ badges */
 
+/*
+ * LA PASTIGLIA, e il `nowrap` che su uno schermo stretto diventava un difetto.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * `white-space: nowrap` è quello che rende una pastiglia una pastiglia: «EAN32»
+ * spezzato su due righe non è più un'etichetta, è un incidente. Ma alcune di
+ * queste frasi sono lunghe — «in miglioramento: 21.2 → 18.3 L/min»,
+ * «Decompressione · Da migliorare» — e su un iPhone SE non ci stanno.
+ *
+ * Misurato il 15 settembre 2026 a 320 px: sforavano di 11 e 29 pixel. Con
+ * `.main` che dichiara `overflow-x: hidden` da oggi, sforare vuol dire essere
+ * TAGLIATE — cioè una frase che finisce a metà, che è peggio di una pagina che
+ * scorre. *Una rete che trasforma un difetto visibile in uno invisibile non è
+ * una rete: è un tappeto.*
+ *
+ * `max-width: 100%` più il ritorno a capo consentito: la pastiglia corta resta
+ * una pastiglia — non ha mai un motivo per andare a capo — e quella lunga si
+ * spezza invece di uscire dallo schermo. `align-items: baseline` al posto di
+ * `center` perché su due righe il pallino accanto deve stare sulla prima, non
+ * a metà altezza fra le due.
+ */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -1203,6 +1305,17 @@ tbody tr.clickable:hover {
   border: 1px solid var(--border-strong);
   color: var(--text-secondary);
   white-space: nowrap;
+  max-width: 100%;
+}
+
+@media (max-width: 480px) {
+  .badge {
+    /* Sotto i 480 px — cioè su ogni telefono — una pastiglia lunga va a capo
+       invece di uscire. Sopra, dove lo spazio c'è, resta su una riga sola. */
+    white-space: normal;
+    align-items: baseline;
+    overflow-wrap: anywhere;
+  }
 }
 
 .dot {
@@ -1392,6 +1505,42 @@ textarea {
   .filters {
     flex-direction: column;
     align-items: stretch;
+    /*
+     * ► `nowrap`, E NON È PEDANTERIA. ◄
+     *
+     * La regola base ha `flex-wrap: wrap`, che in RIGA è quello che serve. In
+     * COLONNA vuol dire un'altra cosa: che il contenitore può creare una
+     * seconda colonna accanto alla prima — e la larghezza di una colonna la
+     * detta l'elemento più largo che contiene, **non il contenitore**. Con
+     * `align-items: stretch` quella larghezza viene poi imposta a tutti.
+     *
+     * Effetto misurato a 320 px il 15 settembre 2026: `.filters` largo 280 con
+     * dentro una `label` larga **325**, cioè un figlio più largo del padre,
+     * con la pagina che scappava di lato di 25 pixel. `min-width: 0` sulla
+     * label non bastava a niente, perché non era la label a decidere.
+     */
+    flex-wrap: nowrap;
+  }
+
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► `min-width: 0`, L'ANELLO CHE MANCAVA. ◄
+   *
+   * Il menu ce l'aveva già (`.filters label > select`), e non bastava: un
+   * elemento in flex non scende sotto la larghezza del proprio contenuto a meno
+   * che non glielo si dica, e `.filters` e la sua `label` non se lo erano mai
+   * sentito dire. Quindi il `<select>` era libero di stringersi dentro una
+   * `label` che non poteva stringersi, e la `label` spingeva la carta.
+   *
+   * Misurato a 320 px il 15 settembre 2026, nella scheda Suggerimenti:
+   * `.page` largo 280, `.filters` largo **325**. Ottantotto pixel di etichetta
+   * più dieci di spazio più i 231 del menu, che prende la sua larghezza
+   * dall'opzione più lunga — «Subacquea Tecnica Avanzato». Una catena in cui
+   * l'ultimo anello si stringe e il penultimo no non si stringe affatto.
+   */
+  .filters,
+  .filters label {
+    min-width: 0;
   }
 
   .filters > input[type='search'] {

@@ -101,7 +101,10 @@ export function Coach() {
         <h1 className="page-title">{t('Piano di miglioramento')}</h1>
         <div className="filters">
           <label>
-            {t('Obiettivo')}
+            {/* Lo `<span>` non è decorativo: vedi il riquadro di `.filters` nel
+                foglio di stile. Un nodo di testo nudo non si può dimensionare, e
+                sul telefono l'etichetta e il menu smettono di allinearsi. */}
+            <span>{t('Obiettivo')}</span>
             <select value={goalId} onChange={(e) => setGoalId(e.target.value as GoalId)}>
               {/* `GOALS` è una costante del cuore dell'applicazione: resta in
                   italiano lì — non deve rinascere a ogni render — e si traduce
