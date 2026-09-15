@@ -2833,6 +2833,10 @@ export const INGLESE: Record<string, string> = {
   Righe: 'Rows',
   'L’orologio di un computer non concorda con la data registrata: l’ora locale di quelle immersioni non è affidabile.':
     'A computer’s clock does not agree with the recorded date: the local time of those dives is not reliable.',
+  'La PPO2 ha superato 1.6 bar, dove la tabella NOAA finisce: sopra quella soglia il conto si ferma all’ultima riga, quindi questo numero è un minimo.':
+    'PPO2 went above 1.6 bar, where the NOAA table ends: past that point the count stops at the last row, so this number is a minimum.',
+  'Questo archivio è stato scritto da una versione più recente di MyDiveLog. Aggiorna l’applicazione: aprirlo così rischierebbe di perdere i dati che questa versione non conosce.':
+    'This archive was written by a newer version of MyDiveLog. Update the application: opening it like this would risk losing data this version does not know about.',
   'Un controllo non ha potuto girare': 'A check could not run',
   'Una delle regole di analisi si è interrotta, quindi questo piano è INCOMPLETO: quello che quella regola avrebbe dovuto dirti non c’è.':
     'One of the analysis rules stopped with an error, so this plan is INCOMPLETE: whatever that rule was meant to tell you is missing.',

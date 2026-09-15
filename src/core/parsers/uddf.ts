@@ -23,17 +23,7 @@ import { cubicMToL, frazioneDiGas, kelvinToC, pascalToBar, wallClockToIso } from
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
 import { comeSta, type Traduci } from '../traduci';
-import {
-  asArray,
-  attr,
-  attrNumAny,
-  child,
-  children,
-  num,
-  parseXmlSalvando,
-  text,
-  type XmlNode,
-} from './xml';
+import { asArray, attr, attrNumAny, child, children, num, parseXmlSalvando, text, type XmlNode } from './xml';
 import { conDettaglio } from '../ble/causaGuasto';
 import type { DiveParser, ParseInput, ParseResult } from './types';
 
@@ -75,10 +65,7 @@ export const uddfParser: DiveParser = {
         format: 'uddf',
         dives: [],
         warnings: [
-          conDettaglio(
-            t('Questo file non è un XML leggibile: sembra incompleto o danneggiato.'),
-            err,
-          ),
+          conDettaglio(t('Questo file non è un XML leggibile: sembra incompleto o danneggiato.'), err),
         ],
       };
     }

@@ -152,10 +152,24 @@ export function exposureOfSegments(segments: { ppo2: number; minutes: number }[]
  * questo il risultato può essere leggermente più basso di un conto fatto a mano
  * sulla profondità massima.
  */
+/**
+ * @param surfaceBar la pressione di superficie del posto.
+ *
+ * ► MANCAVA, E SULLA STESSA SCHEDA `maxPpo2` CE L'AVEVA. ◄ Misurato il 15
+ * settembre 2026: la stessa immersione al livello del mare e in un lago a
+ * tremila metri dava CNS 20% e OTU 51.4 in entrambi i casi, mentre `maxPpo2`
+ * scendeva correttamente da 1.27 a 1.17. Due numeri accanto, uno che la quota
+ * la conosce e uno no.
+ *
+ * Il verso è prudente — in quota si sovrastimava — ma contraddiceva la regola
+ * scritta in `units.ts`, «la pressione di superficie arriva fin qui», e in
+ * `metrics.ts`. Una regola applicata in tre punti su quattro non è una regola.
+ */
 export function exposureOfProfile(
   samples: Sample[],
   mixOf: (s: Sample) => GasMix | undefined,
   salinity: Salinity = 'salt',
+  surfaceBar?: number,
 ): OxygenExposure {
   if (samples.length < 2) return { ...EMPTY };
   const segments: { ppo2: number; minutes: number }[] = [];
@@ -169,7 +183,7 @@ export function exposureOfProfile(
     const measured = cur.ppo2 ?? prev.ppo2;
     const mix = mixOf(cur) ?? mixOf(prev);
     const meanDepth = (prev.depth + cur.depth) / 2;
-    const ppo2 = measured ?? (mix ? mix.o2 * ambientBar(meanDepth, salinity) : undefined);
+    const ppo2 = measured ?? (mix ? mix.o2 * ambientBar(meanDepth, salinity, surfaceBar) : undefined);
     if (ppo2 === undefined) continue;
     segments.push({ ppo2, minutes });
   }

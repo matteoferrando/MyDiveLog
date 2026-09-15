@@ -79,10 +79,7 @@ export const subsurfaceParser: DiveParser = {
         format: 'subsurface',
         dives: [],
         warnings: [
-          conDettaglio(
-            t('Questo file non è un XML leggibile: sembra incompleto o danneggiato.'),
-            err,
-          ),
+          conDettaglio(t('Questo file non è un XML leggibile: sembra incompleto o danneggiato.'), err),
         ],
       };
     }

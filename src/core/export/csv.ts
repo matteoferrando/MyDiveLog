@@ -93,7 +93,12 @@ const COLONNE: Colonna[] = [
   { it: 'Longitudine', en: 'Longitude', valore: (d) => d.site?.lon },
   { it: 'Titolo', en: 'Title', valore: (d) => d.title },
   { it: 'Modalità', en: 'Mode', valore: (d) => d.mode },
-  { it: 'Durata (min)', en: 'Duration (min)', valore: (d) => arrotonda(d.durationS / 60, 1), campo: 'duration' },
+  {
+    it: 'Durata (min)',
+    en: 'Duration (min)',
+    valore: (d) => arrotonda(d.durationS / 60, 1),
+    campo: 'duration',
+  },
   { it: 'Prof. max (m)', en: 'Max depth (m)', valore: (d) => arrotonda(d.maxDepth, 1), campo: 'maxDepth' },
   {
     it: 'Prof. media (m)',
@@ -101,7 +106,12 @@ const COLONNE: Colonna[] = [
     campo: 'avgDepth',
     valore: (d) => arrotonda(profonditaMedia(d), 1),
   },
-  { it: 'T minima (°C)', en: 'Min temp (°C)', valore: (d) => arrotonda(temperaturaMinimaC(d), 1), campo: 'minTemp' },
+  {
+    it: 'T minima (°C)',
+    en: 'Min temp (°C)',
+    valore: (d) => arrotonda(temperaturaMinimaC(d), 1),
+    campo: 'minTemp',
+  },
   { it: 'T aria (°C)', en: 'Air temp (°C)', valore: (d) => arrotonda(d.airTempC, 1), campo: 'airTemp' },
   {
     it: 'Consumo (L/min)',
@@ -341,7 +351,6 @@ export function esportaCsv(dives: Dive[], opzioni: OpzioniCsv = {}): RisultatoCs
   }
   return { csv: '﻿' + righe.join('\r\n') + '\r\n', righe: dives.length };
 }
-
 
 /**
  * LE INTESTAZIONI CHE QUESTO FILE SCRIVE, per campo del lettore.

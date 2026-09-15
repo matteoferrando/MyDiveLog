@@ -310,9 +310,21 @@ function rifiuto(stato: number, messaggio: string, origine: string | null): Resp
   });
 }
 
-function intestazioniCors(origine: string | null): Record<string, string> {
+/**
+ * @param origine l'origine della richiesta, già passata dal controllo della
+ *   lista `ORIGINI_AMMESSE` quando quella lista c'è.
+ * @param jolly vero solo per le rotte che devono restare aperte a chiunque:
+ *   il rimbalzo di Apple, che arriva da `appleid.apple.com`.
+ *
+ * ► L'ASTERISCO NON È PIÙ IL RIPIEGO. ◄ Prima questa funzione faceva
+ * `origine ?? '*'`: senza intestazione `Origin` — cioè da qualunque cosa non
+ * sia un browser — rispondeva «chiunque può leggermi». Non era un buco sulla
+ * sessione (l'autenticazione è `Bearer` e non ci sono credenziali CORS), ma è
+ * un permesso dato per abitudine invece che per bisogno.
+ */
+function intestazioniCors(origine: string | null, jolly = false): Record<string, string> {
   return {
-    'Access-Control-Allow-Origin': origine ?? '*',
+    'Access-Control-Allow-Origin': origine ?? (jolly ? '*' : 'null'),
     'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',

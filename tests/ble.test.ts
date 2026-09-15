@@ -14,6 +14,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import { byteUtiliDaMtu } from '../src/storage/ble';
 import { BleClosedError, BleTimeoutError, ByteStream, chunkForMtu } from '../src/core/ble/stream';
 import { FakeTransport, fakeDevice, type FakeResponder } from '../src/core/ble/fake';
 import { downloadFromComputer } from '../src/core/ble/download';
@@ -551,5 +552,47 @@ describe('l’ordine dei dispositivi trovati non trema', () => {
       primo.map((r) => r.device.id),
     );
     expect(dopo.map((r) => r.device.id)).toEqual(['aladin', 'altro']);
+  });
+});
+
+describe('l’MTU che si misura e quello di ripiego parlano la stessa lingua', () => {
+  /**
+   * ► DUE CONVENZIONI PER LO STESSO NUMERO. ◄
+   *
+   * `MTU_PRUDENTE` vale 20 perché «ventitré meno tre di intestazione ATT»: è
+   * scritto accanto alla costante da mesi. Il valore misurato dal plugin è
+   * invece l'MTU **ATT**, intestazione compresa, e finiva dentro `TauriBleLink`
+   * tale e quale — dove serve come lunghezza massima del payload.
+   *
+   * Cioè la strada di ripiego era prudente di tre byte e quella misurata lunga
+   * di tre, e quella sbagliata è quella che si usa quando le cose vanno bene.
+   * Su un collegamento che negozia 185 si scrivevano pacchetti da 185 byte dove
+   * ne entrano 182, e un computer subacqueo che riceve un pacchetto troncato
+   * non risponde con un errore: tace.
+   */
+  it('dal valore ATT si tolgono i tre byte di intestazione', () => {
+    expect(byteUtiliDaMtu(185)).toBe(182);
+    expect(byteUtiliDaMtu(247)).toBe(244);
+    // Il minimo dello standard: 23 ATT → 20 utili, che è esattamente il ripiego.
+    expect(byteUtiliDaMtu(23)).toBe(20);
+  });
+
+  it('un MTU assurdamente basso non fa scrivere un byte alla volta', () => {
+    // Capita su stack che rispondono prima che la negoziazione sia finita. Venti
+    // byte sono il minimo garantito, quindi usarli comunque non rischia niente;
+    // scriverne uno alla volta vuol dire uno scarico che non finisce mai.
+    expect(byteUtiliDaMtu(4)).toBe(20);
+    expect(byteUtiliDaMtu(0)).toBe(20);
+    expect(byteUtiliDaMtu(-7)).toBe(20);
+  });
+
+  it('e uno assurdamente alto si ferma al massimo dello standard', () => {
+    expect(byteUtiliDaMtu(512)).toBe(509);
+    expect(byteUtiliDaMtu(65_535)).toBe(509);
+  });
+
+  it('senza misura si usa il minimo garantito', () => {
+    expect(byteUtiliDaMtu(undefined)).toBe(20);
+    expect(byteUtiliDaMtu(NaN)).toBe(20);
   });
 });

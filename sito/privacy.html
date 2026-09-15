@@ -182,8 +182,13 @@
         </p>
         <p>
           Le credenziali — la sessione dell'accesso e l'eventuale token di un database tuo — stanno nel
-          <strong>portachiavi di sistema</strong>, non nell'archivio. Nessuna di queste cose viene inviata al
-          titolare.
+          <strong>portachiavi di sistema su Mac e iPhone</strong>, cioè dove un portachiavi c'è e
+          l'applicazione può usarlo.
+          <strong>Su Windows, Linux e Android stanno nell'archivio, in chiaro</strong>: quei sistemi un
+          portachiavi ce l'hanno, ma non lo usiamo ancora, e dirlo è meglio che lasciartelo credere. In
+          pratica vuol dire che se copi l'archivio — in un backup, su un disco esterno, in una cartella
+          sincronizzata — copi anche la sessione, che dura trenta giorni. Nel dubbio, su quei sistemi, esci
+          dall'account prima di fare una copia. Nessuna di queste cose viene inviata al titolare.
         </p>
 
         <h2 id="quando">3. Quando qualcosa esce dal dispositivo</h2>
@@ -345,8 +350,9 @@
 
         <h2 id="sicurezza">10. Sicurezza</h2>
         <p>
-          Le comunicazioni viaggiano cifrate. Le credenziali stanno nel portachiavi di sistema e non
-          nell'archivio, perché un archivio finisce nei backup. La chiave che apre il database
+          Le comunicazioni viaggiano cifrate. Le credenziali stanno nel portachiavi di sistema su Mac e iPhone
+          — e nell'archivio, in chiaro, su Windows, Linux e Android, come detto al punto 2 — perché un
+          archivio finisce nei backup. La chiave che apre il database
           <strong>vale due ore e non viene scritta da nessuna parte</strong>: esiste solo nella memoria
           dell'applicazione. Ogni persona ha un database fisicamente separato dagli altri.
         </p>

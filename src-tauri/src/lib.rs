@@ -105,8 +105,49 @@ fn esporta_nei_documenti(app: tauri::AppHandle, nome: String, contenuto: String)
         .map_err(|e| format!("cartella Documenti non raggiungibile: {e}"))?;
     std::fs::create_dir_all(&cartella).map_err(|e| e.to_string())?;
     let destinazione = cartella.join(&pulito);
-    std::fs::write(&destinazione, contenuto.as_bytes())
-        .map_err(|e| format!("scrittura fallita: {e}"))?;
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► SI SCRIVE ACCANTO E POI SI RINOMINA, MAI SOPRA. ◄
+     *
+     * IL DIFETTO CHIUSO IL 15 SETTEMBRE 2026. `std::fs::write` apre con
+     * `O_TRUNC`: **azzera il file prima di scrivere il nuovo contenuto**. E il
+     * nome del backup dipende solo dalla data — `mydivelog-backup-AAAA-MM-GG.json`
+     * — quindi il secondo backup della giornata colpisce il primo.
+     *
+     * Su un iPhone, che chiude le applicazioni quando la memoria scarseggia,
+     * basta che il processo muoia a metà scrittura: il backup precedente non
+     * c'è più e quello nuovo è troncato. L'unica copia della giornata resta
+     * mezza, e nessuno lo sa.
+     *
+     * La docstring di questa funzione dice che «una falsa conferma è il difetto
+     * peggiore che ci possa essere». Un backup troncato al posto di uno intero
+     * è la stessa cosa scritta sul disco.
+     *
+     * Si scrive in un file temporaneo nella STESSA cartella e si rinomina: la
+     * rinomina è atomica sullo stesso filesystem, quindi in ogni istante sul
+     * nome definitivo c'è o il backup vecchio intero o quello nuovo intero.
+     */
+    let temporaneo = cartella.join(format!(".{pulito}.parziale"));
+    {
+        use std::io::Write;
+        let mut file =
+            std::fs::File::create(&temporaneo).map_err(|e| format!("scrittura fallita: {e}"))?;
+        file.write_all(contenuto.as_bytes()).map_err(|e| format!("scrittura fallita: {e}"))?;
+        /*
+         * `sync_all` PRIMA della rinomina, e non è pedanteria: senza, i byte
+         * possono essere ancora nella cache del sistema quando il nome cambia,
+         * e un telefono che si spegne in quel momento lascia un file dal nome
+         * giusto e dal contenuto vuoto — che è peggio di non averlo affatto,
+         * perché sembra un backup.
+         */
+        file.sync_all().map_err(|e| format!("scrittura fallita: {e}"))?;
+    }
+    std::fs::rename(&temporaneo, &destinazione).map_err(|e| {
+        // Il temporaneo non deve restare in giro: è nascosto (comincia per
+        // punto) ma occuperebbe spazio a ogni tentativo fallito.
+        let _ = std::fs::remove_file(&temporaneo);
+        format!("scrittura fallita: {e}")
+    })?;
     Ok(destinazione.to_string_lossy().into_owned())
 }
 

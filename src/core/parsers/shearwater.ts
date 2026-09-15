@@ -69,10 +69,7 @@ export const shearwaterParser: DiveParser = {
         format: 'shearwater-xml',
         dives: [],
         warnings: [
-          conDettaglio(
-            t('Questo file non è un XML leggibile: sembra incompleto o danneggiato.'),
-            err,
-          ),
+          conDettaglio(t('Questo file non è un XML leggibile: sembra incompleto o danneggiato.'), err),
         ],
       };
     }

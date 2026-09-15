@@ -164,6 +164,23 @@ export function mod(
   salinity: Salinity = 'salt',
   surfaceBar: number = ATM_BAR,
 ): number {
+  /*
+   * ► UNA MISCELA SENZA OSSIGENO NON HA UNA PROFONDITÀ MASSIMA: NON SI
+   *   RESPIRA. ◄
+   *
+   * `maxPpo2 / 0` vale `Infinity`, e da lì la MOD usciva infinita — cioè «puoi
+   * andare a qualunque profondità» su un gas che non si respira nemmeno in
+   * superficie. Misurato il 15 settembre 2026 passando `o2 = 0` al
+   * pianificatore. Il confronto `profondita > mod` con `Infinity` è sempre
+   * falso, quindi l'avviso di profondità massima superata non compariva mai.
+   *
+   * Zero è il valore giusto: una MOD di zero metri dice «non puoi portarlo
+   * sotto», che è vero, e fa scattare ogni controllo che confronta con lei.
+   * Un gas con meno dell'1% di ossigeno esiste — è un gas di viaggio
+   * ipossico — ma la sua MOD vera è comunque enorme e il limite qui sotto non
+   * la tocca.
+   */
+  if (!(mix.o2 > 0) || !Number.isFinite(maxPpo2)) return 0;
   const absBar = maxPpo2 / mix.o2;
   return depthFromAbsoluteBar(absBar, salinity, surfaceBar);
 }

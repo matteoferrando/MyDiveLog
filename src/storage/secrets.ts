@@ -187,11 +187,27 @@ export async function openSecretStore(archive: {
   };
 }
 
-/** Come dirlo a chi legge, senza né allarmare né rassicurare a vuoto. */
+/**
+ * Come dirlo a chi legge, senza né allarmare né rassicurare a vuoto.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► LA FRASE DELL'ARCHIVIO ERA SCRITTA PENSANDO SOLO AL WEB, E NON LO ERA. ◄
+ *
+ * Diceva: «Un browser non ha un portachiavi che una pagina possa usare […]
+ * Sull'app desktop finiscono invece nel portachiavi di macOS». Ma `mod segreti`
+ * nel Rust è `#[cfg(any(target_os = "macos", target_os = "ios"))]`, e i
+ * pacchetti Windows, Linux e Android **si costruiscono e si distribuiscono**.
+ * Su quelli il posto è l'archivio, e la frase diceva a chi la leggeva sul
+ * proprio PC Windows che le sue credenziali erano nel portachiavi di un Mac che
+ * non ha. Trovato il 15 settembre 2026.
+ *
+ * Adesso la frase dice dove sono davvero, e non nomina un sistema operativo che
+ * non è quello di chi legge.
+ */
 export function describePlace(place: SecretPlace): string {
   return place === 'keychain'
     ? 'Nel portachiavi di sistema: cifrate dal sistema operativo e leggibili solo da questa applicazione. Non entrano nell’archivio né nei backup.'
-    : 'Nell’archivio locale di questo dispositivo, in chiaro. Un browser non ha un portachiavi che una pagina possa usare, e cifrare con una chiave che sta nella stessa pagina sarebbe teatro. Sull’app desktop finiscono invece nel portachiavi di macOS.';
+    : 'Nell’archivio locale di questo dispositivo, in chiaro — su questo sistema non c’è un portachiavi che questa applicazione possa usare. L’archivio è un file: se finisce in un backup o su un disco esterno, ci finiscono anche loro. Il portachiavi lo usiamo su macOS e iPhone.';
 }
 
 /**

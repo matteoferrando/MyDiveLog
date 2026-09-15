@@ -263,9 +263,7 @@ export function decodePnfBlob(blob: Uint8Array): PnfLog {
    * decompressi; quattro megabyte sono quaranta volte tanto.
    */
   if (declared > 4 * 1024 * 1024) {
-    throw new Error(
-      `Log incoerente: dichiara ${declared} byte, che non è la dimensione di un'immersione.`,
-    );
+    throw new Error(`Log incoerente: dichiara ${declared} byte, che non è la dimensione di un'immersione.`);
   }
   const raw = gunzip(blob.subarray(4));
   if (declared && raw.length !== declared) {

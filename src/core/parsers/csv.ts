@@ -113,15 +113,12 @@ let aliasCache: Record<string, string[]> | undefined;
 function alias(): Record<string, string[]> {
   if (aliasCache) return aliasCache;
   aliasCache = Object.fromEntries(
-    [...new Set([...Object.keys(ALIAS_SCRITTI), ...Object.keys(INTESTAZIONI_ESPORTATE)])].map(
-      (campo) => [
-        campo,
-        [
-          ...(ALIAS_SCRITTI[campo] ?? []),
-          ...(INTESTAZIONI_ESPORTATE[campo] ?? []).map(normalise),
-        ].filter((a, i, tutti) => a && tutti.indexOf(a) === i),
-      ],
-    ),
+    [...new Set([...Object.keys(ALIAS_SCRITTI), ...Object.keys(INTESTAZIONI_ESPORTATE)])].map((campo) => [
+      campo,
+      [...(ALIAS_SCRITTI[campo] ?? []), ...(INTESTAZIONI_ESPORTATE[campo] ?? []).map(normalise)].filter(
+        (a, i, tutti) => a && tutti.indexOf(a) === i,
+      ),
+    ]),
   );
   return aliasCache;
 }
@@ -590,11 +587,7 @@ export function parseNumber(raw: string | undefined): number | undefined {
  * dato — un campo vuoto letto come zero, una virgola fuori posto, una colonna
  * scambiata.
  */
-export function plausibile(
-  v: number | undefined,
-  min: number,
-  max: number,
-): number | undefined {
+export function plausibile(v: number | undefined, min: number, max: number): number | undefined {
   return v !== undefined && Number.isFinite(v) && v >= min && v <= max ? v : undefined;
 }
 

@@ -1321,9 +1321,7 @@ describe('il timbro del documento fuso', () => {
     // E il timbro non può essere più recente della più recente scrittura vera.
     expect(remoto.updatedAt).toBe('2026-03-01T10:00:00.000Z');
 
-    const telefono = memoryStore([
-      dive('d1', { buddy: 'Beatrice', updatedAt: '2026-03-01T11:00:00.000Z' }),
-    ]);
+    const telefono = memoryStore([dive('d1', { buddy: 'Beatrice', updatedAt: '2026-03-01T11:00:00.000Z' })]);
     await syncArchive(telefono, sql);
     expect((await telefono.getDive('d1'))?.buddy).toBe('Beatrice');
     // E la correzione arriva anche agli altri, che è il punto di sincronizzare.

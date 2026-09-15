@@ -99,8 +99,7 @@ export async function parseBrowserFile(file: File, t: Traduci = comeSta): Promis
    * i primi otto byte erano UTF-8 «neutri», cioè per caso.
    */
   const testa = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-  const firma = (da: number, a: number) =>
-    String.fromCharCode(...testa.subarray(da, a));
+  const firma = (da: number, a: number) => String.fromCharCode(...testa.subarray(da, a));
   if (firma(8, 12) === '.FIT' || firma(0, 15) === 'SQLite format 3') {
     const bytes = new Uint8Array(await file.arrayBuffer());
     return parseFile({ fileName: name, bytes }, t);

@@ -253,7 +253,8 @@ function tagliaAllUltimo(text: string, elemento: string): string | undefined {
    * `<dive>` commentato non è un tag aperto.
    */
   const pila: string[] = [];
-  const token = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<!DOCTYPE[^>]*>|<\/?([A-Za-z_][\w.:-]*)([^>]*)>/g;
+  const token =
+    /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<!DOCTYPE[^>]*>|<\/?([A-Za-z_][\w.:-]*)([^>]*)>/g;
   for (let m = token.exec(testa); m; m = token.exec(testa)) {
     const nome = m[1];
     if (!nome) continue; // commento, CDATA, istruzione, DOCTYPE
@@ -266,12 +267,20 @@ function tagliaAllUltimo(text: string, elemento: string): string | undefined {
       pila.push(nome);
     }
   }
-  return testa + pila.reverse().map((n) => `</${n}>`).join('');
+  return (
+    testa +
+    pila
+      .reverse()
+      .map((n) => `</${n}>`)
+      .join('')
+  );
 }
 
 /** Il testo finisce con la chiusura del suo elemento radice? */
 function chiudeLaRadice(text: string): boolean {
-  const apertura = /<([A-Za-z_][\w.:-]*)/.exec(text.replace(/<\?[\s\S]*?\?>|<!--[\s\S]*?-->|<!DOCTYPE[^>]*>/g, ''));
+  const apertura = /<([A-Za-z_][\w.:-]*)/.exec(
+    text.replace(/<\?[\s\S]*?\?>|<!--[\s\S]*?-->|<!DOCTYPE[^>]*>/g, ''),
+  );
   if (!apertura) return false;
   return new RegExp(`</\\s*${apertura[1]}\\s*>\\s*$`).test(text.trimEnd());
 }

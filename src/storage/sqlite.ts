@@ -53,6 +53,20 @@ const SCHEMA = [
    )`,
 ];
 
+/**
+ * LA VERSIONE DELLO SCHEMA DELL'ARCHIVIO.
+ *
+ * Si alza quando lo schema cambia in un modo che una versione precedente non
+ * saprebbe leggere. Un archivio con un numero PIÙ ALTO di questo non si apre:
+ * meglio un messaggio che dice «aggiorna l'applicazione» che una riscrittura
+ * silenziosa che butta via i campi che questa versione non conosce.
+ *
+ * Parte da 1 e non da 0 perché zero è il valore che SQLite dà a un archivio in
+ * cui nessuno l'ha mai scritto: gli archivi già esistenti hanno zero, passano
+ * il controllo, e vengono marcati alla prima apertura.
+ */
+export const VERSIONE_ARCHIVIO = 1;
+
 export class SqliteStore implements DiveStore {
   readonly kind = 'sqlite' as const;
   /** Come in `IndexedDbStore`: la frase è la chiave, e si traduce a schermo. */
@@ -76,7 +90,36 @@ export class SqliteStore implements DiveStore {
     if (this.db) return;
     const { default: Database } = await import('@tauri-apps/plugin-sql');
     this.db = (await Database.load('sqlite:mydivelog.db')) as unknown as SqlDatabase;
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► UN ARCHIVIO SCRITTO DA UNA VERSIONE PIÙ NUOVA NON SI APRE ALLA CIECA. ◄
+     *
+     * IL BUCO CHIUSO IL 15 SETTEMBRE 2026. Qui non c'era **nessun numero di
+     * versione**: né `PRAGMA user_version` né una chiave in `settings`. Cioè
+     * l'applicazione non aveva modo di accorgersi di stare aprendo un archivio
+     * scritto da una versione futura — e con la sincronizzazione fra dispositivi
+     * il caso non è teorico: basta che il telefono si aggiorni prima del Mac.
+     *
+     * Finché tutto sta dentro la colonna `doc` va bene per caso, non per
+     * costruzione: la prima colonna vera aggiunta da una versione futura fa sì
+     * che questa apra l'archivio, non veda quella colonna, e riscriva i
+     * documenti senza il campo che non conosce. Silenziosamente.
+     *
+     * `IndexedDbStore` un numero di versione ce l'ha da sempre (`DB_VERSION`);
+     * qui mancava, ed è il ramo che gira su Mac e iPhone, cioè dove sta
+     * l'archivio vero delle persone.
+     */
+    const [{ user_version: versione }] =
+      await this.db.select<{ user_version: number }[]>('PRAGMA user_version');
+    if (versione > VERSIONE_ARCHIVIO) {
+      throw new Error(
+        this.t(
+          'Questo archivio è stato scritto da una versione più recente di MyDiveLog. Aggiorna l’applicazione: aprirlo così rischierebbe di perdere i dati che questa versione non conosce.',
+        ),
+      );
+    }
     for (const stmt of SCHEMA) await this.db.execute(stmt);
+    await this.db.execute(`PRAGMA user_version = ${VERSIONE_ARCHIVIO}`);
     await this.db.execute('PRAGMA foreign_keys = ON');
   }
 
@@ -144,7 +187,38 @@ export class SqliteStore implements DiveStore {
     return new Map(rows.map((r) => [r.dive_id, Number(r.count)]));
   }
 
+  /**
+   * Scrive le immersioni, TUTTE O NESSUNA.
+   *
+   * ══════════════════════════════════════════════════════════════════════════
+   * ► PERCHÉ LA TRANSAZIONE, visto che «tanto SQLite è affidabile». ◄
+   *
+   * Perché ogni immersione qui è **tre scritture**: il riepilogo, il profilo e
+   * l'eventuale secondo profilo. In auto-commit sono tre transazioni separate, e
+   * l'applicazione chiusa in mezzo — su un telefono succede quando il sistema
+   * ha bisogno di memoria — lascia un'immersione in archivio senza il suo
+   * profilo. Su un dispositivo con l'account la sincronizzazione lo ripesca; su
+   * uno senza, quel profilo non c'è più e niente lo dice.
+   *
+   * L'ordine scelto era già quello giusto — prima il riepilogo, poi i profili —
+   * e questo riquadro non lo cambia: aggiunge solo che il pezzo o è tutto
+   * dentro o è tutto fuori.
+   */
   async putDives(dives: Dive[]): Promise<void> {
+    await this.sql.execute('BEGIN');
+    try {
+      await this.scriviDives(dives);
+      await this.sql.execute('COMMIT');
+    } catch (err) {
+      // `ROLLBACK` può fallire a sua volta — per esempio se la transazione è
+      // già stata annullata dal motore — e il guasto da riportare è il primo,
+      // non il secondo: il secondo è una conseguenza.
+      await this.sql.execute('ROLLBACK').catch(() => undefined);
+      throw err;
+    }
+  }
+
+  private async scriviDives(dives: Dive[]): Promise<void> {
     for (const dive of dives) {
       const summary: DiveSummary = stripSamples(dive);
       await this.sql.execute(

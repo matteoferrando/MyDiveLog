@@ -639,7 +639,25 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
               />
               <Row
                 label={t('CNS calcolato (NOAA)')}
-                value={m?.cnsPct !== undefined ? `${m.cnsPct.toFixed(0)}%` : '—'}
+                /*
+                 * ► IL «PIÙ DI» NON È UN ABBELLIMENTO. ◄ Sopra 1.6 bar di PPO2
+                 * la tabella NOAA finisce e il conteggio si ferma alla sua
+                 * ultima riga: trenta minuti a 1.9 bar danno lo stesso numero
+                 * di trenta minuti a 1.6. Quel numero è quindi un MINIMO, e
+                 * mostrarlo secco come gli altri vorrebbe dire far credere che
+                 * sia una misura. Il pianificatore lo dice da mesi con un
+                 * avviso; qui il dato c'era e non usciva.
+                 */
+                value={
+                  m?.cnsPct === undefined ? '—' : `${m.cnsFuoriTabella ? '> ' : ''}${m.cnsPct.toFixed(0)}%`
+                }
+                hint={
+                  m?.cnsFuoriTabella
+                    ? t(
+                        'La PPO2 ha superato 1.6 bar, dove la tabella NOAA finisce: sopra quella soglia il conto si ferma all’ultima riga, quindi questo numero è un minimo.',
+                      )
+                    : undefined
+                }
               />
               <Row label="OTU" value={m?.otu !== undefined ? m.otu.toFixed(0) : '—'} />
               <Row
@@ -1018,13 +1036,20 @@ function stepOf(samples: { t: number }[]): number | string {
   return Math.round((samples[samples.length - 1].t - samples[0].t) / (samples.length - 1));
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <tr>
       <td className="muted" style={{ width: '38%' }}>
         {label}
       </td>
-      <td>{value}</td>
+      {/*
+        `title` PIÙ `aria-label`: il primo è il suggerimento del mouse, il
+        secondo è quello che legge uno screen reader — senza, chi non vede il
+        puntatore non saprebbe mai che quel numero ha una nota.
+      */}
+      <td title={hint} aria-label={hint ? `${value}. ${hint}` : undefined}>
+        {value}
+      </td>
     </tr>
   );
 }

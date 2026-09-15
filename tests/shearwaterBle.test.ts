@@ -24,6 +24,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { segnalibroDaSalvare } from '../src/core/ble/segnalibroDaSalvare';
 import { downloadFromComputer } from '../src/core/ble/download';
 import { FakeTransport, fakeDevice, fintoPeregrine, logPnfSintetico } from '../src/core/ble/fake';
 import {
@@ -345,6 +346,16 @@ describe('scarico completo dal finto Peregrine', () => {
     const out = await downloadFromComputer(t, fakeDevice({ name: 'Peregrine' }), shearwaterDriver);
     expect(out.status).toBe('complete');
     expect(out.newestKey).toBe('00000001');
+    // Il caso buono: qui il segnalibro si salva. Senza questa riga, «non si
+    // salva mai» passerebbe la prova qui sotto senza fare il suo mestiere.
+    expect(
+      segnalibroDaSalvare({
+        impronta: out.newestKey,
+        completo: out.status === 'complete',
+        salvate: true,
+        tutteTradotte: true,
+      }),
+    ).toBe(true);
   });
 
   it('uno scarico interrotto NON deve poter spostare il segnalibro', async () => {
@@ -369,6 +380,29 @@ describe('scarico completo dal finto Peregrine', () => {
     ]);
     const out = await downloadFromComputer(t, fakeDevice({ name: 'Peregrine' }), shearwaterDriver);
     expect(out.status).toBe('partial');
+    /*
+     * ► E QUESTA È LA RIGA CHE MANCAVA. ◄
+     *
+     * Fino al 15 settembre 2026 questa prova finiva sopra. Il titolo parla del
+     * segnalibro; l'unica asserzione guardava lo stato. Cioè verificava che il
+     * DRIVER dicesse «mi sono fermato a metà», non che qualcuno se ne
+     * accorgesse: togliendo dalla schermata l'`if` che legge lo stato, la prova
+     * restava verde e le immersioni si perdevano lo stesso. *Una guardia mai
+     * vista rossa non è una guardia.*
+     *
+     * Adesso si chiede la cosa vera: dato questo esito, la decisione che
+     * l'interfaccia prende. `segnalibroDaSalvare` è la funzione che la prende
+     * davvero, su entrambe le strade — quella dei driver di casa e quella di
+     * libdivecomputer — e ha un file di prove suo per le quattro condizioni.
+     */
+    expect(
+      segnalibroDaSalvare({
+        impronta: out.newestKey,
+        completo: out.status === 'complete',
+        salvate: true,
+        tutteTradotte: true,
+      }),
+    ).toBe(false);
   });
 
   it('`since` ferma il manifesto e non riscarica niente', async () => {

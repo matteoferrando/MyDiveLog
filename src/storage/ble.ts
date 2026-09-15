@@ -105,6 +105,48 @@ function attendi(ms: number, signal: AbortSignal): Promise<void> {
  */
 const MTU_PRUDENTE = 20;
 
+/** Quanti byte di intestazione ATT viaggiano davanti a ogni scrittura. */
+const INTESTAZIONE_ATT = 3;
+
+/**
+ * DALL'MTU ATT AI BYTE CHE CI STANNO DENTRO.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► IL DIFETTO CHIUSO IL 15 SETTEMBRE 2026, ed era una riga contro un commento
+ *   che diceva già la cosa giusta. ◄
+ *
+ * `MTU_PRUDENTE` vale 20 perché «ventitré meno tre di intestazione ATT»: il
+ * commento qui sopra lo dice da mesi. Quello che il plugin restituisce da
+ * `getMtu()` è invece l'MTU **ATT**, intestazione compresa — la sua
+ * documentazione dice «the MTU of the currently connected device» — e finiva
+ * dentro `TauriBleLink` tale e quale, dove serve come lunghezza massima del
+ * PAYLOAD.
+ *
+ * Quindi: strada di ripiego prudente di tre byte, strada misurata lunga di tre.
+ * Due convenzioni per lo stesso numero, e quella sbagliata è quella che si usa
+ * quando le cose vanno bene. Su un collegamento che negozia 185 si scrivevano
+ * pacchetti da 185 byte dove ne entrano 182, e *un computer subacqueo che
+ * riceve un pacchetto troncato non risponde con un errore: tace* — che è
+ * esattamente quello che il commento di `MTU_PRUDENTE` dice di voler evitare.
+ *
+ * È una funzione e non due righe in mezzo a `open` perché così si può provare:
+ * `open` ha bisogno del plugin Tauri sotto e qui non gira.
+ */
+export function byteUtiliDaMtu(mtuAtt: number | undefined): number {
+  if (mtuAtt === undefined || !Number.isFinite(mtuAtt)) return MTU_PRUDENTE;
+  /*
+   * Il pavimento è `MTU_PRUDENTE` e non 1: un MTU dichiarato assurdamente basso
+   * — capita su stack che rispondono prima che la negoziazione sia finita —
+   * faceva scrivere un byte alla volta, cioè uno scarico che non finisce mai
+   * invece di uno che fallisce. Venti byte sono il minimo garantito dallo
+   * standard, quindi non si rischia niente a usarli comunque.
+   *
+   * Il tetto è 509 e non 512 per la stessa ragione del meno tre: 512 è l'MTU
+   * ATT massimo, il payload che ci sta dentro è 509.
+   */
+  return Math.max(MTU_PRUDENTE, Math.min(mtuAtt - INTESTAZIONE_ATT, 509));
+}
+
 /** Le caratteristiche risolte: dal profilo se scritte, altrimenti scoperte. */
 interface Canali {
   service: string;
@@ -480,15 +522,55 @@ export class TauriBleTransport implements BleTransport {
      * Un tentativo solo: se non basta, il computer si è davvero addormentato, e
      * insistere allungherebbe l'attesa senza cambiare niente.
      */
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► «INTERROMPI» DEVE INTERROMPERE ANCHE UNA CONNESSIONE CHE NON TORNA. ◄
+     *
+     * IL DIFETTO CHIUSO IL 15 SETTEMBRE 2026. Il segnale si guardava all'inizio
+     * di questa funzione e poi mai più: `api.connect` non lo riceve e non ha un
+     * tempo massimo suo, quindi un computer che accetta il collegamento e poi
+     * non finisce la scoperta dei servizi lasciava la schermata ferma con il
+     * pulsante «Interrompi» che non interrompeva niente.
+     *
+     * Non si può annullare la chiamata al plugin — quella parte per conto suo —
+     * ma si può smettere di aspettarla e chiudere il collegamento appena la
+     * risposta arriva. Per chi guarda lo schermo è la stessa cosa, ed è quello
+     * che conta: *un pulsante che non fa niente è peggio di un pulsante che non
+     * c'è, perché chi lo preme smette di cercare altre strade.*
+     */
+    const conInterruzione = async (lavoro: Promise<void>) => {
+      let sciogli = () => {};
+      const interrotto = new Promise<never>((_, rifiuta) => {
+        const alSegnale = () => rifiuta(new Error('annullato'));
+        if (signal.aborted) alSegnale();
+        signal.addEventListener('abort', alSegnale, { once: true });
+        sciogli = () => signal.removeEventListener('abort', alSegnale);
+      });
+      try {
+        await Promise.race([lavoro, interrotto]);
+      } catch (err) {
+        // Se abbiamo smesso di aspettare, il collegamento può aprirsi lo stesso
+        // un istante dopo: va chiuso, altrimenti resta appeso e il tentativo
+        // successivo trova il dispositivo occupato.
+        if (String(err).includes('annullato')) {
+          void lavoro.catch(() => undefined).then(() => api.disconnect().catch(() => undefined));
+        }
+        throw err;
+      } finally {
+        sciogli();
+      }
+    };
+
     try {
-      await api.connect(deviceId, () => link?.onDisconnect());
+      await conInterruzione(api.connect(deviceId, () => link?.onDisconnect()));
     } catch (err) {
+      if (signal.aborted) throw new Error('annullato');
       if (!/no peripheral with id/i.test(String(err))) throw err;
       await api.startScan(() => undefined, 3000);
       await attendi(3400, signal);
       await api.stopScan().catch(() => undefined);
       if (signal.aborted) throw new Error('annullato');
-      await api.connect(deviceId, () => link?.onDisconnect());
+      await conInterruzione(api.connect(deviceId, () => link?.onDisconnect()));
     }
 
     /*
@@ -507,10 +589,13 @@ export class TauriBleTransport implements BleTransport {
      * scarico è più lento del necessario senza che nessuno lo sappia.
      */
     let mtuMisurato = true;
-    const mtu = await api.getMtu().catch(() => {
-      mtuMisurato = false;
-      return MTU_PRUDENTE;
-    });
+    const mtu = await api
+      .getMtu()
+      .then(byteUtiliDaMtu)
+      .catch(() => {
+        mtuMisurato = false;
+        return MTU_PRUDENTE;
+      });
 
     /*
      * Le caratteristiche si scoprono DOPO la connessione.
@@ -534,7 +619,7 @@ export class TauriBleTransport implements BleTransport {
       throw new Error(canali.error);
     }
 
-    link = new TauriBleLink(Math.max(1, Math.min(mtu, 512)), mtuMisurato, canali, profile.writeType, api);
+    link = new TauriBleLink(mtu, mtuMisurato, canali, profile.writeType, api);
     await api.subscribe(canali.notify, canali.service, (data) => link?.feed(data));
     return link;
   }

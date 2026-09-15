@@ -1070,7 +1070,7 @@ export function planDeco(
      * È la regola che `decoTimeline` e `runProfile` applicano da mesi — «finché
      * puoi salire dritto non c'è niente da cui fermarsi» — e che qui mancava.
      *
-     * Misurato su 465 piani fra 10 e 70 metri: **nessun piano si accorcia**, 
+     * Misurato su 465 piani fra 10 e 70 metri: **nessun piano si accorcia**,
      * il runtime sale in media di 0.08 minuti (massimo +2), e il GF99 all'uscita
      * cala in media di 0.36 punti. Più prudente, non meno.
      */
@@ -1716,16 +1716,24 @@ function remainingNoDecoMin(
    */
   const fits = (minutes: number) => {
     const dopo = step(state, amb, mix, minutes);
-      /*
-       * Due condizioni, e la prima è quella storica: **si può stare in
-       * superficie adesso?** Senza, un punto del profilo a profondità zero
-       * scavalcava del tutto la camminata — fra zero e la superficie non c'è
-       * nessun gradino da controllare — e la curva risultava al massimo, 99
-       * minuti, su un subacqueo già emerso con un obbligo sopra la testa.
-       * La seconda è la camminata: **ci si arriva, risalendo?**
-       */
+    /*
+     * Due condizioni, e la prima è quella storica: **si può stare in
+     * superficie adesso?** Senza, un punto del profilo a profondità zero
+     * scavalcava del tutto la camminata — fra zero e la superficie non c'è
+     * nessun gradino da controllare — e la curva risultava al massimo, 99
+     * minuti, su un subacqueo già emerso con un obbligo sopra la testa.
+     * La seconda è la camminata: **ci si arriva, risalendo?**
+     */
     if (ceilingM(dopo, s.gfHigh, s.salinity, s.surfacePressureBar) > 0) return false;
-    return finDoveSiSale(dopo, depthM, s, () => s.gfHigh, () => mix).quota <= 0.01;
+    return (
+      finDoveSiSale(
+        dopo,
+        depthM,
+        s,
+        () => s.gfHigh,
+        () => mix,
+      ).quota <= 0.01
+    );
   };
   if (!fits(0)) return 0;
   if (fits(maxMin)) return maxMin;

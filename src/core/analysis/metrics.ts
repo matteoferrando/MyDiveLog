@@ -395,8 +395,32 @@ function analyseVerticalRates(samples: Sample[], phases: DivePhases): RateResult
     if (depth <= SURFACE_M) continue;
 
     if (rate > maxAscent) maxAscent = rate;
-    if (depth >= 10 && rate > LIMITS.ascentRateDeepMpm) out.fastAscentS += slice;
-    if (depth < 10 && rate > LIMITS.ascentRateShallowMpm) out.fastShallowAscentS += slice;
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► SI DECIDE SUL NUMERO CHE SI STAMPA, NON SU QUELLO NASCOSTO DIETRO. ◄
+     *
+     * IL DIFETTO CHIUSO IL 15 SETTEMBRE 2026. La soglia si confrontava con
+     * `rate` grezzo; a schermo compare `round(rate, 1)`, e nel piano di
+     * miglioramento `toFixed(0)`. Da cui due contraddizioni sulla stessa
+     * scheda, misurate:
+     *
+     *   velocità vera 9.96 → mostrata «10 m/min», nessuna osservazione
+     *   velocità vera 10.04 → mostrata «10 m/min», «Risalita oltre il limite
+     *                          per 1:48, picco 10 m/min»
+     *
+     * Cioè lo stesso numero a schermo, due giudizi opposti. Chi legge non ha
+     * modo di capire, e chi ci scrive per segnalarlo riceve una spiegazione che
+     * comincia con «in realtà il valore vero era».
+     *
+     * Il progetto ha già chiuso esattamente questo caso per la risalita finale
+     * (vedi `sopraIlLimite` in `coaching.ts`, dove la soglia stampata è 6.5 e
+     * non 6); qui la correzione non era arrivata. Arrotondare prima di
+     * confrontare costa un decimo di prudenza e restituisce una scheda che non
+     * si contraddice.
+     */
+    const mostrata = round(rate, 1);
+    if (depth >= 10 && mostrata > LIMITS.ascentRateDeepMpm) out.fastAscentS += slice;
+    if (depth < 10 && mostrata > LIMITS.ascentRateShallowMpm) out.fastShallowAscentS += slice;
   }
   out.maxAscentRateMpm = round(maxAscent, 1);
 
@@ -946,10 +970,36 @@ function analyseGas(dive: Dive, samples: Sample[], avgBar: number | undefined, c
   });
 
   let rmvLpm: number | undefined;
-  if (avgBar === undefined && hasTankPressure && hasCylinderVolume) {
+  /*
+   * ► `!== undefined` NON INTERCETTA `NaN`, E QUI IL `NaN` ARRIVA. ◄
+   *
+   * `avgBar` si calcola dalla pressione ambiente media, che dipende dalla
+   * pressione di superficie dell'immersione: con un valore non plausibile in
+   * archivio diventa `NaN`. Misurato il 15 settembre 2026:
+   *
+   *   surfacePressureBar = 0   → avgAta NaN, rmv **14.9** (il vero è 10.9:
+   *                              sbagliato del 37% verso l'alto), zero avvertenze
+   *   surfacePressureBar = NaN → avgAta NaN, rmv **assente**, zero avvertenze
+   *
+   * Il primo è un numero sbagliato presentato come giusto; il secondo è un dato
+   * che sparisce senza dire perché, dentro un modulo il cui principio dichiarato
+   * è che un dato mancante si spiega. `Number.isFinite` copre tutti e due.
+   *
+   * (Il caso `0` non si verifica più da quando `pressioneDiSuperficie` filtra a
+   * monte; questa riga resta perché *una difesa che dipende da un'altra difesa
+   * non è una difesa*, e perché `NaN` può arrivare anche da un profilo strano.)
+   */
+  if (!Number.isFinite(avgBar) && hasTankPressure && hasCylinderVolume) {
     caveats.push({ testo: A.SENZA_MEDIA_NIENTE_RMV });
   }
-  if (avgBar !== undefined && hasCylinderVolume && consumedBarL > 0 && durationMin > 0 && avgBar > 0) {
+  if (
+    avgBar !== undefined &&
+    Number.isFinite(avgBar) &&
+    hasCylinderVolume &&
+    consumedBarL > 0 &&
+    durationMin > 0 &&
+    avgBar > 0
+  ) {
     // `consumedBarL` è bar·litro: il divisore è la pressione media in BAR. Con
     // gli ATA locali il risultato dipendeva dalla pressione di superficie del
     // posto — vedi il commento sulla convenzione dove `avgBar` viene calcolato.
@@ -1075,6 +1125,7 @@ function analyseOxygen(dive: Dive, samples: Sample[], maxDepth: number, salinity
           samples,
           (sample: Sample) => dive.cylinders[sample.gasIndex ?? 0]?.mix ?? dive.cylinders[0]?.mix,
           salinity,
+          dive.surfacePressureBar,
         )
       : undefined;
 
@@ -1083,6 +1134,20 @@ function analyseOxygen(dive: Dive, samples: Sample[], maxDepth: number, salinity
     minPpo2,
     endM,
     cnsPct: exposure?.cnsPercent,
+    /*
+     * ► `offTable` VENIVA CALCOLATO E BUTTATO. ◄
+     *
+     * Sopra 1.6 bar la tabella NOAA finisce, e `cnsPercentPerMinute` tronca
+     * alla riga 1.6: misurato, 1.6, 1.8, 2.0, 3.0 e 10.0 bar danno tutti lo
+     * stesso 2.2222 %/min. Cioè trenta minuti a PPO2 1.9 uscivano come **66.7%
+     * di CNS**, ed era per costruzione un MINIMO.
+     *
+     * Il pianificatore lo dichiara con un avviso esplicito da mesi
+     * («quindi è una SOTTOSTIMA»); la scheda immersione aveva il dato — il
+     * campo `offTable` esisteva e veniva riempito — e non lo portava fuori.
+     * *Un dato calcolato e non mostrato è un dato che non esiste.*
+     */
+    cnsFuoriTabella: exposure?.offTable || undefined,
     otu: exposure?.otu,
     minutesAbovePpo214: exposure?.minutesAbove14,
     minutesAbovePpo216: exposure?.minutesAbove16,

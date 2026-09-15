@@ -44,7 +44,7 @@ import {
   ppo2At,
 } from '../units';
 import * as A from './avvisiDelPiano';
-import { barometric } from './deco';
+import { barometric, sane, sanePositive, MAX_PLANNABLE_DEPTH_M } from './deco';
 import { exposureOfSegments, type OxygenExposure } from './oxygen';
 import { profonditaMedia } from '../profondita';
 
@@ -503,36 +503,61 @@ export function planGas(raw: GasPlanInput): GasPlan {
   // massima, una sosta sotto il fondo, un'immersione più corta del suo tempo di
   // fondo. Il risultato normalizzato torna dentro `plan.input`, così la pagina
   // mostra esattamente i valori con cui si è calcolato.
-  const depthM = Math.max(1, raw.depthM);
-  const stopDepthM = Math.min(Math.max(0, raw.stopDepthM), depthM);
-  const avgDepthM = Math.min(Math.max(0, raw.avgDepthM), depthM);
-  const bottomMin = Math.max(0, raw.bottomMin);
-  const stopMin = Math.max(0, raw.stopMin);
-  const extraStopMin = Math.max(0, raw.extraStopMin);
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► `Math.max(1, NaN)` VALE `NaN`, E DA LÌ IN POI IL PIANO NON HA PIÙ
+   *   AVVISI. ◄
+   *
+   * IL DIFETTO CHIUSO IL 15 SETTEMBRE 2026. Tutti i limiti qui sotto erano
+   * `Math.max` e `Math.min` — che tagliano un valore fuori scala, ma un `NaN`
+   * lo lasciano passare intatto, perché ogni confronto con `NaN` è falso.
+   *
+   * Il pericolo non è il `NaN` stampato: quello si vede. È che **ogni controllo
+   * di sicurezza con un NaN dentro risulta superato**: `insufficient`,
+   * «pressione finale sotto la riserva», i limiti di PPO2. Misurato:
+   * con `depthM = NaN` il piano usciva con **zero avvisi** — cioè dichiarato
+   * eseguibile — e ogni numero della tabella valeva `NaN`.
+   *
+   * `sane`/`sanePositive` esistono in `deco.ts` da mesi, con un riquadro che
+   * spiega esattamente questo, e sono usate su tutti i sedici campi del
+   * pianificatore tecnico. Qui, nel pianificatore ricreativo — quello che usano
+   * in più persone — non erano mai arrivate. *Una lezione imparata dentro un
+   * modulo protegge quel modulo.*
+   *
+   * La regola è la stessa di là: un valore fuori scala si taglia, perché
+   * l'intenzione c'è ed è sbagliata di misura; un valore che non è un numero
+   * torna al predefinito, perché «non l'ho impostato» ha una risposta giusta.
+   */
+  const depthM = sanePositive(raw.depthM, 18, 1, MAX_PLANNABLE_DEPTH_M);
+  const stopDepthM = Math.min(sane(raw.stopDepthM, 5, 0, depthM), depthM);
+  const avgDepthM = Math.min(sane(raw.avgDepthM, depthM / 2, 0, depthM), depthM);
+  const bottomMin = sane(raw.bottomMin, 20, 0, 1440);
+  const stopMin = sane(raw.stopMin, 3, 0, 1440);
+  const extraStopMin = sane(raw.extraStopMin, 0, 0, 1440);
   const stopsMin = stopMin + extraStopMin;
   // Il totale non può essere più corto di fondo più soste: una sosta di
   // decompressione è un obbligo, non un'opzione che si taglia per rientrare
   // nell'orario. Se il numero dato è più basso, viene alzato — e siccome
   // `plan.input` è quello normalizzato, la pagina mostra il valore corretto invece
   // di un totale che le fasi contraddicono.
-  const totalMin = Math.max(raw.totalMin, bottomMin + stopsMin);
-  const tankL = Math.max(0.1, raw.tankL);
-  const startBar = Math.max(0, raw.startBar);
+  const totalMin = Math.max(sane(raw.totalMin, bottomMin + stopsMin, 0, 1440), bottomMin + stopsMin);
+  const tankL = sanePositive(raw.tankL, 12, 0.1, 100);
+  const startBar = sane(raw.startBar, 200, 0, 500);
   // Il consumo di squadra: il più alto dei due, come impone il manuale.
-  const ownRmvLpm = Math.max(0.1, raw.rmvLpm);
-  const buddyRmvLpm = Math.max(0, raw.buddyRmvLpm ?? 0);
+  const ownRmvLpm = sanePositive(raw.rmvLpm, 20, 0.1, 200);
+  const buddyRmvLpm = sane(raw.buddyRmvLpm, 0, 0, 200);
   const rmvLpm = Math.max(ownRmvLpm, buddyRmvLpm);
-  const stressRmvLpm = Math.max(0.1, raw.stressRmvLpm);
-  const divers = Math.max(1, Math.round(raw.divers));
-  const emergencyRateMpm = Math.max(1, raw.ascentRateMpm);
-  const problemMin = Math.max(0, raw.problemMin);
-  const maxPpo2 = Math.max(0.1, raw.maxPpo2);
-  const reserveBarFixed = Math.max(0, raw.reserveBarFixed);
+  const stressRmvLpm = sanePositive(raw.stressRmvLpm, 30, 0.1, 300);
+  const divers = Math.round(sanePositive(raw.divers, 2, 1, 20));
+  const emergencyRateMpm = sanePositive(raw.ascentRateMpm, 9, 1, 60);
+  const problemMin = sane(raw.problemMin, 1, 0, 120);
+  const maxPpo2 = sanePositive(raw.maxPpo2, 1.4, 0.1, 3);
+  const reserveBarFixed = sane(raw.reserveBarFixed, 50, 0, 500);
   const { mix, salinity, reserveRule, turnRule } = raw;
   // La quota entra da un punto solo: la pressione di superficie. Da lì scende in
   // ogni fase, perché ogni fase calcola la propria pressione ambiente media, ed è
   // quella a decidere quanti litri costa un minuto.
-  const surfaceBar = barometric(raw.altitudeM ?? 0);
+  const surfaceBar = barometric(sane(raw.altitudeM, 0, -500, 9000));
   const phase = (
     label: string,
     fromM: number,

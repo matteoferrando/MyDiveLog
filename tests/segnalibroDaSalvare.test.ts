@@ -108,9 +108,9 @@ describe('quando il segnalibro si può spostare', () => {
     // Nessuna condizione «compensa» un'altra: sono tutte necessarie, e il
     // motivo mostrato è quello che viene prima nella lista, cioè il più vicino
     // alla perdita di dati.
-    expect(segnalibroDaSalvare({ impronta: undefined, completo: false, salvate: false, tutteTradotte: false })).toBe(
-      false,
-    );
+    expect(
+      segnalibroDaSalvare({ impronta: undefined, completo: false, salvate: false, tutteTradotte: false }),
+    ).toBe(false);
     expect(perchéNonSiSalva({ ...PERFETTO, completo: false, salvate: false })).toContain(
       'non è arrivato in fondo',
     );

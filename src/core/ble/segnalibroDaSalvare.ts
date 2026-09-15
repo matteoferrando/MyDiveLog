@@ -68,9 +68,7 @@ export interface EsitoPerSegnalibro {
  * Vero solo se tutte e quattro le condizioni valgono. Non c'è un ordine di
  * importanza fra loro: ciascuna, da sola, basta a perdere dati per sempre.
  */
-export function segnalibroDaSalvare(
-  e: EsitoPerSegnalibro,
-): e is EsitoPerSegnalibro & { impronta: string } {
+export function segnalibroDaSalvare(e: EsitoPerSegnalibro): e is EsitoPerSegnalibro & { impronta: string } {
   return Boolean(e.impronta) && e.completo && e.salvate && e.tutteTradotte;
 }
 

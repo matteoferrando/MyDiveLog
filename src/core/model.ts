@@ -789,6 +789,19 @@ export interface DiveMetrics {
    * modello. Divergono, e vanno mostrati separati.
    */
   cnsPct?: number;
+  /**
+   * Vero quando l'immersione ha superato 1.6 bar di PPO2, cioè la fine della
+   * tabella NOAA.
+   *
+   * ► SERVE PERCHÉ SOPRA QUELLA RIGA `cnsPct` È UN MINIMO, NON UNA MISURA. ◄
+   * `cnsPercentPerMinute` tronca alla riga 1.6: trenta minuti a 1.9 bar danno
+   * lo stesso numero di trenta minuti a 1.6. Il valore veniva calcolato in
+   * `oxygen.ts` — il campo `offTable` esisteva — e `analyseOxygen` lo buttava.
+   * Su un rebreather con un picco di PPO2 quel numero è per costruzione una
+   * sottostima, e chi lo legge deve saperlo: il pianificatore lo dice da mesi
+   * con un avviso, la scheda immersione no.
+   */
+  cnsFuoriTabella?: boolean;
   /** OTU accumulate, dose polmonare cumulativa. */
   otu?: number;
   /** Minuti passati sopra 1.4 e sopra 1.6 bar di PPO2. */

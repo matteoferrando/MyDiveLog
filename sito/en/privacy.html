@@ -176,7 +176,13 @@
         </p>
         <p>
           Credentials — the sign-in session and any token for a database of your own — live in the
-          <strong>system keychain</strong>, not in the archive. None of them is ever sent to the controller.
+          <strong>system keychain on Mac and iPhone</strong>, that is, where a keychain exists and the
+          application can use it.
+          <strong>On Windows, Linux and Android they live in the archive, in the clear</strong>: those systems
+          do have a keychain, but we do not use it yet, and saying so is better than letting you assume
+          otherwise. In practice it means that copying the archive — into a backup, onto an external disk,
+          into a synced folder — copies the session too, and the session lasts thirty days. When in doubt, on
+          those systems, sign out before making a copy. None of them is ever sent to the controller.
         </p>
 
         <h2 id="when">3. When data leaves your device</h2>
@@ -336,8 +342,9 @@
 
         <h2 id="security">10. Security</h2>
         <p>
-          Traffic is encrypted. Credentials live in the system keychain rather than in the archive, because
-          archives end up in backups. The key that opens the database
+          Traffic is encrypted. Credentials live in the system keychain on Mac and iPhone — and in the
+          archive, in the clear, on Windows, Linux and Android, as said in section 2 — because archives end up
+          in backups. The key that opens the database
           <strong>lasts two hours and is never written anywhere</strong>: it exists only in the application's
           memory. Each person has a database physically separate from everyone else's.
         </p>

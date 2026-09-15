@@ -787,16 +787,24 @@ function remainingNdl(
   };
   const fits = (minutes: number) => {
     const dopo = step(state, amb, mix, minutes);
-      /*
-       * Due condizioni, e la prima è quella storica: **si può stare in
-       * superficie adesso?** Senza, un punto del profilo a profondità zero
-       * scavalcava del tutto la camminata — fra zero e la superficie non c'è
-       * nessun gradino da controllare — e la curva risultava al massimo, 99
-       * minuti, su un subacqueo già emerso con un obbligo sopra la testa.
-       * La seconda è la camminata: **ci si arriva, risalendo?**
-       */
+    /*
+     * Due condizioni, e la prima è quella storica: **si può stare in
+     * superficie adesso?** Senza, un punto del profilo a profondità zero
+     * scavalcava del tutto la camminata — fra zero e la superficie non c'è
+     * nessun gradino da controllare — e la curva risultava al massimo, 99
+     * minuti, su un subacqueo già emerso con un obbligo sopra la testa.
+     * La seconda è la camminata: **ci si arriva, risalendo?**
+     */
     if (ceilingM(dopo, gfHigh, salinity, surfaceBar) > 0) return false;
-    return finDoveSiSale(dopo, depthM, passo, () => gfHigh, () => mix).quota <= 0.01;
+    return (
+      finDoveSiSale(
+        dopo,
+        depthM,
+        passo,
+        () => gfHigh,
+        () => mix,
+      ).quota <= 0.01
+    );
   };
   if (!fits(0)) return 0;
   if (fits(maxMin)) return maxMin;
