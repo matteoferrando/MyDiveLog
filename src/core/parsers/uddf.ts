@@ -170,7 +170,22 @@ function readDive(
     }
     const volumeM3 = num(child(tank, 'tankvolume'));
     cylinders.push({
-      description: mix?.name,
+      /*
+       * ► LA SIGLA DELLA BOMBOLA NON SI INVENTA: RESTA VUOTA. ◄
+       *
+       * Qui c'era `description: mix?.name`, cioè il nome della MISCELA messo
+       * nella casella dell'etichetta scritta dall'utente. `description` è
+       * «D12 lungo», «stage 40%»: l'esportazione la dichiara persa, ed è
+       * giusto — UDDF non ha un posto per lei. Riempirla col nome del gas non
+       * recuperava niente e faceva peggio di così: dopo un giro
+       * esporta→reimporta «D12 lungo» tornava come «EAN32», un'etichetta che
+       * sembra scritta a mano e che nessuno ha scritto. E con un 31.5%
+       * analizzato la sigla diceva «EAN32» mentre `o2` valeva 0.315, cioè due
+       * numeri diversi per lo stesso gas nella stessa bombola.
+       *
+       * Una casella vuota si vede ed è vera. Un'etichetta inventata no.
+       */
+      description: undefined,
       sizeL: volumeM3 !== undefined ? round1(cubicMToL(volumeM3)) : undefined,
       startBar: toBar(num(child(tank, 'tankpressurebegin'))),
       endBar: toBar(num(child(tank, 'tankpressureend'))),
@@ -185,8 +200,10 @@ function readDive(
     );
   }
   if (cylinders.length === 0 && mixIds.length) {
+    // Stessa ragione della riga sopra: si sa che gas era, non come la chiamava
+    // chi l'ha respirata.
     const first = mixes.get(mixIds[0])!;
-    cylinders.push({ description: first.name, mix: { o2: first.o2, he: first.he } });
+    cylinders.push({ mix: { o2: first.o2, he: first.he } });
   }
   if (cylinders.length === 0) cylinders.push({ mix: AIR });
 
@@ -201,12 +218,28 @@ function readDive(
     if (id) indiceBombolaPerId.set(id, i);
   });
 
-  // --- profilo ---
+  /*
+   * --- profilo ---
+   *
+   * Da una miscela alla bombola che la porta, e con DUE BOMBOLE DELLO STESSO GAS
+   * VINCE LA PRIMA.
+   *
+   * `<switchmix ref="…">` riferisce il gas, non la bombola: è il formato a
+   * volerlo così, e quando due bombole portano lo stesso gas — due D12 ad aria
+   * in sidemount — il riferimento non basta più a dire quale delle due. Qui si
+   * scriveva `set(ref, i)` per ogni `tankdata`, quindi vinceva l'ULTIMA: un
+   * `gasIndex` 0 tornava indietro come 1, sempre, e il consumo finiva sulla
+   * bombola sbagliata. Nessuna delle due scelte è dimostrabile dal file, ma la
+   * prima è quella che sbaglia meno spesso: è la bombola con cui si comincia, ed
+   * è quella che le nostre stesse esportazioni indicano quando il campione non
+   * dichiara nessun cambio. Quello che resta indecidibile lo dichiara
+   * l'esportazione fra le perdite, invece di far finta che il file lo sappia.
+   */
   const gasIndexByRef = new Map<string, number>();
   children(node, 'tankdata').forEach((tank, i) => {
     asArray(child(tank, 'link')).forEach((l) => {
       const ref = attr(l, 'ref');
-      if (ref) gasIndexByRef.set(ref, i);
+      if (ref && !gasIndexByRef.has(ref)) gasIndexByRef.set(ref, i);
     });
   });
 

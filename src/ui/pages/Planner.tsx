@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { testoAvvertenza } from '../../core/analysis/avvertenze';
 import {
   ascentGeometry,
   atDepth,
@@ -1069,12 +1070,26 @@ export function Planner() {
         <div className="stack" style={{ gap: 8 }}>
           {/* Il rosso è riservato a "questo piano non si esegue": usarlo anche per
               gli avvisi di contesto insegnerebbe a ignorarli tutti. */}
+          {/*
+            ► QUI IL TESTO È UNA REGOLA DI SICUREZZA. ◄ Gli avvisi nascono in
+            `core/analysis/gasPlan.ts`, dove la lingua non si sa, e venivano
+            disegnati così com'erano: con l'applicazione in inglese il riquadro
+            diceva «Worth knowing:» e poi una frase italiana intera — PPO2 oltre
+            il limite, END, obbligo decompressivo probabile.
+
+            `testoAvvertenza` compone modello e valori nella lingua di adesso:
+            è la stessa funzione che compone le avvertenze delle metriche, e non
+            una seconda che le somiglia. Vedi `core/analysis/avvisiDelPiano.ts`.
+          */}
           {plan.warnings.map((w) => (
-            <div key={w.text} className={w.level === 'critical' ? 'notice notice-error' : 'notice'}>
+            <div
+              key={`${w.testo}|${w.valori?.join('|') ?? ''}`}
+              className={w.level === 'critical' ? 'notice notice-error' : 'notice'}
+            >
               <strong style={{ fontWeight: 650 }}>
                 {w.level === 'critical' ? `${t('Il piano non regge')}: ` : `${t('Da sapere')}: `}
               </strong>
-              {w.text}
+              {testoAvvertenza(w, t)}
             </div>
           ))}
         </div>
@@ -1374,9 +1389,29 @@ export function Planner() {
               {plans.map((c) => (
                 <tr key={c.label}>
                   <td>
+                    {/*
+                      ► IL VERDETTO A PAROLE, ACCANTO AL PALLINO. ◄
+
+                      C'era solo il pallino — otto pixel — e il numero rosso nella
+                      colonna accanto: due modi di dire la stessa cosa, **e tutti
+                      e due col solo colore**. Chi non distingue il rosso dal
+                      verde, chi legge con uno screen reader e chi stampa la
+                      pagina in bianco e nero leggeva una tabella di scenari
+                      senza sapere quali reggono.
+
+                      La regola del progetto sta scritta in `ui/format.ts`, sopra
+                      `SEVERITY_TEXT`: *un colore di stato non porta mai il
+                      significato da solo*. Statistiche e Debrief la seguono già;
+                      e il foglio stampato dello stesso piano — `planSheet.ts` —
+                      scrive «— non ci sta» a parole da sempre. Era questa
+                      schermata a essere l'eccezione.
+                    */}
                     <div className="row" style={{ gap: 7 }}>
                       <span className={`dot ${c.fits ? 'dot-good' : 'dot-critical'}`} />
                       <span style={{ fontWeight: 550 }}>{t(c.label)}</span>
+                      <span className="muted" style={{ fontSize: 11, fontWeight: 650 }}>
+                        {c.fits ? t('ci sta') : t('non ci sta')}
+                      </span>
                     </div>
                   </td>
                   <td
@@ -2500,7 +2535,8 @@ function SosteCard({ soste, plan }: { soste: DecoResult; plan: GasPlan }) {
           className={w.level === 'critical' ? 'notice notice-error' : 'notice'}
           style={{ marginTop: 10 }}
         >
-          {w.text}
+          {/* Come sopra: modello e valori, composti nella lingua di adesso. */}
+          {testoAvvertenza(w, t)}
         </div>
       ))}
 

@@ -77,9 +77,27 @@ function linguaSalvataOdiSistema(): Lingua {
  * una scrittura, quindi impura in un inizializzatore di `useState`; ma è
  * idempotente — riscrivere lo stesso locale non fa niente — e questo la rende
  * innocua anche al doppio giro che StrictMode fa in sviluppo.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► E LA TERZA COSA CHE DIPENDE DALLA LINGUA: `<html lang>`. ◄
+ *
+ * Era l'unica delle tre a stare FUORI di qui — si scriveva solo dentro `cambia`,
+ * cioè solo se qualcuno premeva il pulsante. Chi apriva l'applicazione con il
+ * telefono in inglese leggeva «Dives logged» dentro un documento che continuava
+ * a dichiarare `lang="it"` (`index.html`), e **uno screen reader legge l'inglese
+ * con la fonetica italiana**: non è una sfumatura, è testo incomprensibile. Il
+ * pulsante EN, per giunta, era già `aria-pressed="true"` — quindi chi avrebbe
+ * potuto correggere la situazione premendolo non aveva nessun motivo di farlo.
+ *
+ * Adesso le tre conseguenze di «che lingua parliamo» — dizionario, locale ICU e
+ * lingua dichiarata del documento — partono tutte dallo stesso punto, e non
+ * possono più separarsi. È la stessa ragione per cui il locale è finito qui.
  */
 function adotta(l: Lingua): Lingua {
   registraLocale(LOCALE_DELLA_LINGUA[l]);
+  // Fuori dal browser — i test del nucleo, la generazione delle schermate — non
+  // c'è nessun documento da dichiarare, e non averlo non è un errore.
+  if (typeof document !== 'undefined') document.documentElement.lang = l;
   return l;
 }
 
@@ -128,7 +146,8 @@ export function ProvvedituraLingua({ children }: { children: ReactNode }) {
     } catch {
       // Come sopra: la scelta vale per questa sessione e amen.
     }
-    if (typeof document !== 'undefined') document.documentElement.lang = l;
+    // `<html lang>` non si scrive più qui: lo scrive `adotta`, insieme al locale
+    // ICU, così vale anche per la lingua di partenza e non solo per il cambio.
   }, []);
 
   const valore = useMemo<Contesto>(

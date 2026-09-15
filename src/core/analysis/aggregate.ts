@@ -97,6 +97,10 @@ export interface Aggregates {
    * mensile è l'unica grandezza dell'aggregato che dipende dall'ampiezza della
    * finestra, e senza questo numero mentiva ogni volta che la finestra non era
    * l'anno intero.
+   *
+   * ► È L'AMPIEZZA DELLA FINESTRA, NON QUELLA DEI DATI. ◄ Vedi `finestraMesi`
+   * in `aggregate()`: misurandola sui dati, aggiungere un'immersione vecchia
+   * allungava il denominatore e PEGGIORAVA il giudizio di dieci volte.
    */
   spanMonths: number;
   /** Media mensile sugli ultimi 12 mesi. */
@@ -230,13 +234,42 @@ export function medianOf(values: number[]): number | undefined {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-export function aggregate(dives: Dive[], now: number = Date.now()): Aggregates {
+/**
+ * @param finestraMesi Quanti mesi copre la finestra scelta dall'utente
+ *   (`window.ts`: 6, 12, 24), oppure `undefined` per «tutto l'archivio».
+ *
+ * ► PERCHÉ LA FINESTRA VA PASSATA E NON DEDOTTA. ◄ Qui arrivano le immersioni
+ * GIÀ filtrate, e dalle sole immersioni l'ampiezza della finestra non si può
+ * ricavare: dieci giorni di dati possono essere dieci giorni dentro una
+ * finestra di dodici mesi. Misurando il denominatore sui dati succedeva questo,
+ * con «Ultimi 12 mesi» attiva:
+ *
+ * | archivio nella finestra | denominatore vecchio | frequenza | giudizio |
+ * |---|---|---|---|
+ * | 6 immersioni negli ultimi 10 giorni | 1 mese (minimo) | **6.0/mese** | «In allenamento» |
+ * | le stesse 6 **più una di 11 mesi fa** | 11 mesi | **0.6/mese** | «poche per consolidare» |
+ *
+ * *Aggiungere un'immersione peggiorava il giudizio di dieci volte.* Su dodici
+ * mesi i due valori giusti sono 0.5 e 0.58, e la differenza fra loro è
+ * un'immersione, come deve essere.
+ *
+ * Il caso «tutto l'archivio» è l'unico diverso, e per questo è `undefined`
+ * invece di un numero: quella finestra non ha un inizio, quindi il solo periodo
+ * su cui si possa dividere è quello che i dati coprono davvero.
+ */
+export function aggregate(dives: Dive[], now: number = Date.now(), finestraMesi?: number): Aggregates {
   const sorted = [...dives].sort((a, b) => at(a) - at(b));
   const withProfile = sorted.filter((d) => (d.metrics?.quality?.sampleCount ?? 0) > 2);
-  // Su quanti mesi si sta guardando: la finestra è già stata applicata a monte,
-  // qui si misura l'ampiezza reale dell'insieme ricevuto.
+  // Su quanti mesi si sta guardando. Con una finestra scelta è la sua ampiezza;
+  // senza — «tutto l'archivio» — è quella dei dati, misurata qui. Il tetto di
+  // dodici resta in tutti e due i casi perché il numeratore, `divesLast12m`,
+  // conta solo gli ultimi 365 giorni: dividerlo per ventiquattro darebbe una
+  // frequenza dimezzata per costruzione.
   const oldest = sorted.length ? at(sorted[0]) : now;
-  const spanMonths = Math.max(1, Math.min(12, (now - oldest) / (30.44 * DAY)));
+  const spanMonths =
+    finestraMesi === undefined
+      ? Math.max(1, Math.min(12, (now - oldest) / (30.44 * DAY)))
+      : Math.max(1, Math.min(12, finestraMesi));
 
   const totalS = sum(sorted.map((d) => d.durationS));
   const deepest = maxBy(sorted, (d) => d.maxDepth);
@@ -289,17 +322,15 @@ export function aggregate(dives: Dive[], now: number = Date.now()): Aggregates {
     daysSinceLastDive: last ? Math.floor((now - at(last)) / DAY) : undefined,
 
     // Questi tre contano su quello che ricevono, che è già filtrato dalla
-    // finestra scelta nell'interfaccia. `spanMonths` dice su quanti mesi si sta
-    // guardando davvero, e la frequenza si divide per QUELLI: scegliendo «ultimi
-    // 6 mesi» il coach accusava di scarsa frequenza chi fa 2.6 immersioni al mese,
-    // perché divideva per dodici un conteggio di sei.
+    // finestra scelta nell'interfaccia. `spanMonths` dice quanto è AMPIA quella
+    // finestra, e la frequenza si divide per QUELLA: scegliendo «ultimi 6 mesi»
+    // il coach accusava di scarsa frequenza chi fa 2.6 immersioni al mese,
+    // perché divideva per dodici un conteggio di sei — e misurandola sui dati
+    // invece che sulla finestra sbagliava all'altro estremo, vedi `finestraMesi`.
     divesLast90d: sorted.filter((d) => now - at(d) <= 90 * DAY).length,
     divesLast12m: sorted.filter((d) => now - at(d) <= 365 * DAY).length,
     spanMonths: round(spanMonths, 1),
-    perMonthLast12m: round(
-      sorted.filter((d) => now - at(d) <= 365 * DAY).length / Math.max(1, Math.min(12, spanMonths)),
-      1,
-    ),
+    perMonthLast12m: round(sorted.filter((d) => now - at(d) <= 365 * DAY).length / spanMonths, 1),
 
     byYear: byYear(sorted),
     byMonth: byMonth(sorted, now),
@@ -522,28 +553,58 @@ function byYear(dives: Dive[]): Bucket[] {
   return groupCount(dives, (d) => String(localeDi(d).getUTCFullYear()));
 }
 
+/**
+ * Il mese come numero progressivo: anno × 12 + mese, da 0.
+ *
+ * Sta qui perché le colonne e i secchi devono contarsi nello stesso modo, e
+ * confrontare due `Date` costruite con convenzioni diverse è esattamente il
+ * difetto che `byMonth` aveva addosso.
+ */
+const indiceMese = (anno: number, mese: number) => anno * 12 + mese;
+const chiaveMese = (indice: number) =>
+  `${Math.floor(indice / 12)}-${String((indice % 12) + 1).padStart(2, '0')}`;
+
 function byMonth(dives: Dive[], now: number): Bucket[] {
   // 24 mesi pieni, anche quelli a zero: un istogramma con i buchi mostra la
   // stagionalità e le pause, che è esattamente l'informazione utile.
   const out: Bucket[] = [];
   const cursor = new Date(now);
-  const keys: string[] = [];
-  for (let i = 23; i >= 0; i--) {
-    // Costruito in UTC come le chiavi delle immersioni: mescolare `Date.UTC` e il
-    // costruttore locale faceva cadere un'immersione di fine mese nel secchio
-    // sbagliato a seconda del fuso di chi guarda.
-    const d = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() - i, 1));
-    keys.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
-  }
+  const meseDiAdesso = indiceMese(cursor.getUTCFullYear(), cursor.getUTCMonth());
+
   const counts = new Map<string, number>();
+  /*
+   * ► LE COLONNE E I SECCHI DEVONO PARLARE DELLO STESSO CALENDARIO. ◄
+   *
+   * Le 24 chiavi si costruivano dal mese **UTC** di adesso, i secchi dal mese
+   * **locale** dell'immersione (`localeDi`, che è quello che il Logbook mostra).
+   * Quando le due convenzioni cadono su mesi diversi, il secchio esiste e la
+   * colonna no, e l'immersione non viene disegnata da nessuna parte:
+   *
+   *   `now` = 31/08 23:00Z, immersione delle 22:30Z del 31 agosto in Italia
+   *   (+2) → il Logbook la data **1° settembre**, la colonna più recente è
+   *   «ago 26», e nella stessa pagina si leggeva «3 immersioni nel periodo»
+   *   sopra un istogramma le cui colonne sommavano a 2.
+   *
+   * L'ultima colonna adesso è il mese più recente di cui questo grafico sappia
+   * qualcosa: quello di adesso, o quello dell'immersione più avanti nel proprio
+   * calendario se lo supera. Al massimo di un mese — un fuso sposta una data di
+   * ore, mai di due mesi — perché una data sbagliata in archivio non allunghi
+   * il grafico su mesi che non esistono, svuotandolo.
+   */
+  let ultimo = meseDiAdesso;
   for (const d of dives) {
     // Il mese del LUOGO, come nel logbook. Vedi `localeDi`.
     const dt = localeDi(d);
-    const key = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}`;
+    const indice = indiceMese(dt.getUTCFullYear(), dt.getUTCMonth());
+    const key = chiaveMese(indice);
     counts.set(key, (counts.get(key) ?? 0) + 1);
+    if (indice > ultimo) ultimo = indice;
   }
+  if (ultimo > meseDiAdesso + 1) ultimo = meseDiAdesso + 1;
+
   const MONTHS = MESI_ABBREVIATI;
-  for (const key of keys) {
+  for (let i = 23; i >= 0; i--) {
+    const key = chiaveMese(ultimo - i);
     const [y, mo] = key.split('-');
     out.push({ key, label: `${MONTHS[+mo - 1]} ${y.slice(2)}`, value: counts.get(key) ?? 0 });
   }

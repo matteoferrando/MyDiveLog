@@ -427,12 +427,28 @@ export const dataLunga = (ms: number) =>
  *
  * Dice il totale, dove sta il picco e dove sta il buco: sono le tre cose che un
  * vedente ricava dalla forma in mezzo secondo. Le colonne a zero sono nominate a
- * parte perché in questo archivio significano qualcosa — un mese senza
+ * parte perché in un istogramma di CONTEGGI significano qualcosa — un mese senza
  * immersioni è un'informazione, non un dato mancante.
+ *
+ * ► E IN UNA SERIE DI MISURE LE STESSE DUE FRASI DICONO IL FALSO. ◄ La scheda
+ * «Temperatura per mese» passa di qui: su dodici gradi e ventitré gradi, «totale
+ * 77 °C» è la somma di temperature, che non è una temperatura e non è niente; e
+ * «A zero: 1 su 6» annuncia come un buco il mese in cui si è immersi sotto il
+ * ghiaccio a zero gradi — proprio la lettura che `tempByMonth` è stato riscritto
+ * per impedire, perché *zero è il valore più rassicurante che un numero possa
+ * avere, e l'ultimo che dovrebbe comparire quando il dato manca.*
+ *
+ * Quindi `serie` dice di che pasta sono i numeri. Per le misure si dà la media —
+ * che è l'unica delle tre ad avere senso — e non si nomina lo zero, che lì è un
+ * valore come gli altri.
  */
 export function riassuntoDistribuzione(
   dati: ColumnDatum[],
-  { unita = '', elemento = 'colonne' }: { unita?: string; elemento?: string } = {},
+  {
+    unita = '',
+    elemento = 'colonne',
+    serie = 'conteggi',
+  }: { unita?: string; elemento?: string; serie?: TipoDiSerie } = {},
   t: Traduci = comeSta,
 ): string {
   if (dati.length === 0) return t('Nessun dato da mostrare.');
@@ -446,13 +462,16 @@ export function riassuntoDistribuzione(
   // «voci» — sono scritte qui sotto e stanno nel dizionario.
   const u = unita ? ` ${unita}` : '';
   const parti = [
-    `${dati.length} ${t(elemento)}, ${t('totale')} ${numeroBreve(totale)}${u}, ${t('media')} ${numeroBreve(totale / dati.length)}${u}.`,
+    serie === 'misure'
+      ? `${dati.length} ${t(elemento)}, ${t('media')} ${numeroBreve(totale / dati.length)}${u}.`
+      : `${dati.length} ${t(elemento)}, ${t('totale')} ${numeroBreve(totale)}${u}, ${t('media')} ${numeroBreve(totale / dati.length)}${u}.`,
     `${t('Massimo')} ${alto.label} ${t('con')} ${numeroBreve(alto.value)}${u}, ${t('minimo')} ${basso.label} ${t('con')} ${numeroBreve(basso.value)}${u}.`,
   ];
   // «A zero: 2 su 24» e non «2 colonne a zero»: la forma con il denominatore si
   // accorda con qualunque parola passata in `elemento` e dice anche quanto pesa.
+  // Su una serie di misure non si dice affatto: lì zero è un valore.
   const vuote = valori.filter((v) => v === 0).length;
-  if (vuote > 0) parti.push(`${t('A zero')}: ${vuote} ${t('su')} ${dati.length}.`);
+  if (serie === 'conteggi' && vuote > 0) parti.push(`${t('A zero')}: ${vuote} ${t('su')} ${dati.length}.`);
   return parti.join(' ');
 }
 
@@ -687,6 +706,15 @@ export function Meter({ value, max = 1 }: { value: number; max?: number }) {
 // Istogramma a colonne
 // ---------------------------------------------------------------------------
 
+/**
+ * Di che pasta sono i numeri di un istogramma.
+ *
+ * `conteggi`: quante immersioni, quante soste — lo zero vuol dire «nessuna», e
+ * sommarli dà un totale che significa qualcosa. `misure`: gradi, metri, bar —
+ * lo zero è un valore, e la somma non è niente.
+ */
+export type TipoDiSerie = 'conteggi' | 'misure';
+
 export interface ColumnDatum {
   key: string;
   label: string;
@@ -700,12 +728,24 @@ export function ColumnChart({
   /** Mostra un'etichetta ogni N colonne, per non affollare l'asse. */
   labelEvery,
   titolo,
+  serie = 'conteggi',
 }: {
   data: ColumnDatum[];
   height?: number;
   unit?: string;
   /** Se omesso, il passo delle etichette si adatta alla larghezza disponibile. */
   labelEvery?: number;
+  /**
+   * Di che pasta sono i numeri. Con `misure` (gradi, metri, bar) una colonna a
+   * zero viene comunque disegnata — sottile, ma c'è — e il riassunto testuale
+   * non parla né di totale né di colonne «a zero».
+   *
+   * Il perché per esteso sta sopra `riassuntoDistribuzione`: su una serie di
+   * temperature, un mese a zero gradi non disegnato è indistinguibile da un mese
+   * senza immersioni, ed è la lettura sbagliata per l'unico mese in cui qualcuno
+   * è sceso sotto il ghiaccio.
+   */
+  serie?: TipoDiSerie;
   /**
    * Nome accessibile del grafico. È opzionale e non obbligatorio di proposito:
    * ogni istogramma di questa applicazione sta già dentro una carta con il suo
@@ -734,7 +774,7 @@ export function ColumnChart({
   const labelStep = labelEvery ?? Math.max(1, Math.ceil(46 / Math.max(1, band)));
 
   const nome = titolo ?? `${t('Istogramma a colonne')}${unit ? ` — ${unit}` : ''}`;
-  const descrizione = riassuntoDistribuzione(data, { unita: unit }, t);
+  const descrizione = riassuntoDistribuzione(data, { unita: unit, serie }, t);
 
   return (
     <div className="chart" ref={ref}>
@@ -784,7 +824,25 @@ export function ColumnChart({
                   rows: [{ label: unit || t('valore'), value: String(d.value) }],
                 }))}
               />
-              {d.value > 0 && <path d={roundedTopBar(x, y, barW, h, 4)} fill="var(--series-1)" />}
+              {/*
+                Su una serie di misure la colonna si disegna sempre, anche a
+                zero: due pixel bastano a dire «qui una misura c'è», ed è tutta
+                la differenza fra «zero gradi» e «nessuna immersione». Su una
+                serie di conteggi no — lì lo zero è davvero l'assenza, e una
+                marca la racconterebbe come una presenza.
+              */}
+              {(d.value > 0 || serie === 'misure') && (
+                <path
+                  d={roundedTopBar(
+                    x,
+                    serie === 'misure' ? Math.min(y, pad.top + plotH - 2) : y,
+                    barW,
+                    Math.max(h, serie === 'misure' ? 2 : 0),
+                    4,
+                  )}
+                  fill="var(--series-1)"
+                />
+              )}
               {i % labelStep === 0 && (
                 <text
                   className="axis-label"

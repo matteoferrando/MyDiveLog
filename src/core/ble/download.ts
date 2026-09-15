@@ -23,7 +23,9 @@
  * all'app del costruttore di connettersi finché non li si spegne a mano.
  */
 
+import { frase } from '../frase';
 import type { Dive } from '../model';
+import { comeSta, type Traduci } from '../traduci';
 import { conRegistrazione } from './registratore';
 import type {
   BleFoundDevice,
@@ -106,6 +108,47 @@ function pausa(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+/**
+ * ═════════════════════════════════════════════════════════════════════════════
+ * ► LE DUE FRASI CHE SPIEGANO PERCHÉ MANCANO DELLE IMMERSIONI. ◄
+ *
+ * Sono le più importanti dell'intero scarico: chi ha appena aspettato tre minuti
+ * conta le immersioni, e se il conto non torna queste righe sono l'unica cosa che
+ * glielo spiega. Uscivano in italiano anche con l'applicazione in inglese.
+ *
+ * Due modelli e non uno col numero davanti, come in `analysis/avvertenze.ts`: in
+ * italiano «un'immersione non si è potuta leggere» e «tre immersioni non si sono
+ * potute leggere» cambiano il verbo, e in inglese cambia anche il sostantivo.
+ * Chi traduce deve vedere la frase intera per poterla girare nella sua lingua.
+ */
+
+/** Un solo record che il driver non ha saputo trasformare in immersione. */
+export const UNA_NON_LETTA =
+  'Un’immersione non si è potuta leggere. Il punto di ripartenza non viene spostato, così alla prossima connessione il computer la ripropone: costa qualche minuto di lettura, ma non si perde niente.';
+/** Come sopra, da due in su. `{0}` è quante sono. */
+export const NON_LETTE =
+  '{0} immersioni non si sono potute leggere. Il punto di ripartenza non viene spostato, così alla prossima connessione il computer le ripropone: costa qualche minuto di lettura, ma non si perde niente.';
+
+/** La decodifica è caduta in blocco, e c'era un record solo. `{0}` è il motivo. */
+export const UNA_NON_DECODIFICATA = 'L’immersione è stata scaricata ma non si è potuta decodificare: {0}.';
+/** Come sopra, da due in su. `{0}` è quante sono, `{1}` il motivo. */
+export const NON_DECODIFICATE =
+  'Le {0} immersioni sono state scaricate ma non si sono potute decodificare: {1}.';
+
+/**
+ * Tutte quante, per la prova che le confronta col dizionario.
+ *
+ * Una costante nuova che non finisce in questo elenco sfugge alla guardia: è il
+ * solo punto debole del meccanismo, ed è scritto qui perché chi aggiunge la
+ * prossima lo veda mentre lo fa.
+ */
+export const TESTI_DELLO_SCARICO = [
+  UNA_NON_LETTA,
+  NON_LETTE,
+  UNA_NON_DECODIFICATA,
+  NON_DECODIFICATE,
+] as const;
+
 export async function downloadFromComputer(
   transport: BleTransport,
   device: BleFoundDevice,
@@ -137,8 +180,29 @@ export async function downloadFromComputer(
      * del suo valore per chi la leggerà fra sei mesi.
      */
     registra?: boolean;
+    /**
+     * Chi traduce, perché gli avvisi di questo modulo si leggono a schermo.
+     *
+     * ► PERCHÉ ARRIVA DA FUORI. ◄ `src/core` non conosce `t()`: la lingua la sa
+     * l'interfaccia. Ma le frasi qui sotto — «tre immersioni non si sono potute
+     * leggere», «il punto di ripartenza non viene spostato» — finiscono
+     * nell'elenco sotto la riga verde a fine scarico, cioè **nella spiegazione
+     * del perché mancano delle immersioni**, e uscivano in italiano anche con
+     * l'applicazione in inglese.
+     *
+     * Tradurle QUI e non dove si disegnano ha una ragione precisa: due di esse
+     * contengono un numero, e un numero entrato nella frase prima del dizionario
+     * fa una chiave che cambia a ogni scarico e che nel dizionario non ci sarà
+     * mai. Con `frase()` il modello resta uno solo — e per giunta è una stringa
+     * letterale, quindi `chiaviDi` la vede e `tests/dizionario.test.ts` si
+     * accorge da solo se manca la voce. Vedi `core/frase.ts`.
+     *
+     * Senza, resta italiano: è la chiave, quindi nessun chiamante si rompe.
+     */
+    t?: Traduci;
   } = {},
 ): Promise<DownloadOutcome> {
+  const t = opts.t ?? comeSta;
   const warnings: string[] = [];
   const records: DownloadedRecord[] = [];
   /** Quante immersioni il driver ha dichiarato illeggibili. Vedi `emit`. */
@@ -196,7 +260,7 @@ export async function downloadFromComputer(
     }
     if (e.kind === 'record') records.push(e.record);
     if (e.kind === 'skipped') {
-      warnings.push(`Immersione ${e.key} non letta: ${e.reason}`);
+      warnings.push(frase(t, 'Immersione {0} non letta: {1}', e.key, e.reason));
       /*
        * UN'IMMERSIONE SALTATA È UN BUCO, e il segnalibro non lo può scavalcare.
        *
@@ -319,7 +383,13 @@ export async function downloadFromComputer(
     if (link) {
       // La chiusura non deve poter nascondere l'errore vero.
       await link.close().catch((err: unknown) => {
-        warnings.push(`Chiusura del collegamento non riuscita: ${err instanceof Error ? err.message : err}`);
+        warnings.push(
+          frase(
+            t,
+            'Chiusura del collegamento non riuscita: {0}',
+            String(err instanceof Error ? err.message : err),
+          ),
+        );
       });
     }
   }
@@ -357,17 +427,15 @@ export async function downloadFromComputer(
       tutteDecodificate = out.dives.length === records.length && saltate === 0;
       if (!tutteDecodificate) {
         const perse = records.length - out.dives.length + saltate;
-        warnings.push(
-          `${perse} ${perse === 1 ? 'immersione non si è potuta leggere' : 'immersioni non si sono potute leggere'}. ` +
-            'Il punto di ripartenza non viene spostato, così alla prossima connessione il computer le ' +
-            'ripropone: costa qualche minuto di lettura, ma non si perde niente.',
-        );
+        warnings.push(perse === 1 ? t(UNA_NON_LETTA) : frase(t, NON_LETTE, perse));
       }
     } catch (err) {
       tutteDecodificate = false;
+      const motivo = err instanceof Error ? err.message : String(err);
       warnings.push(
-        `Le ${records.length} immersioni sono state scaricate ma non si sono potute decodificare: ` +
-          `${err instanceof Error ? err.message : String(err)}.`,
+        records.length === 1
+          ? frase(t, UNA_NON_DECODIFICATA, motivo)
+          : frase(t, NON_DECODIFICATE, records.length, motivo),
       );
     }
   }
@@ -415,6 +483,7 @@ export async function downloadFromComputer(
      * un driver nuovo non deve doverselo ricordare.
      */
     status: stato,
-    error: errore ?? (annullato ? 'Scarico annullato: quello che era arrivato è stato salvato.' : undefined),
+    error:
+      errore ?? (annullato ? t('Scarico annullato: quello che era arrivato è stato salvato.') : undefined),
   };
 }

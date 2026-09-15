@@ -27,6 +27,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { testoAvvertenza } from '../src/core/analysis/avvertenze';
+import { comeSta } from '../src/core/traduci';
 import { planDeco, switchDepthOf } from '../src/core/analysis/deco';
 import { DEFAULT_PLAN, planGas } from '../src/core/analysis/gasPlan';
 import type { PlanGas } from '../src/core/analysis/deco';
@@ -55,7 +57,9 @@ function gasDa(o2: number): PlanGas {
 /** Gli avvisi che nominano la PPO2 in fase di lavoro. */
 function avvisiPpo2Lavoro(o2: number, quotaM: number): string[] {
   const res = planDeco([{ depthM: quotaM, minutes: 20 }] as never, [gasDa(o2)], IMPOSTAZIONI);
-  return res.warnings.filter((w) => w.text.includes('in fase di lavoro')).map((w) => w.text);
+  return res.warnings
+    .map((w) => testoAvvertenza(w, comeSta))
+    .filter((testo) => testo.includes('in fase di lavoro'));
 }
 
 describe('la MOD arrotondata e l’avviso sulla PPO2', () => {
@@ -111,11 +115,15 @@ describe('la MOD mostrata e l’avviso del pianificatore del gas', () => {
   it('pianificare alla MOD mostrata non fa scattare l’avviso che la nomina', () => {
     const piano = planGas(base as never);
     expect(piano.modM).toBe(33.3);
-    expect(piano.warnings.filter((w) => w.text.includes('profondità massima operativa'))).toEqual([]);
+    expect(
+      piano.warnings.filter((w) => testoAvvertenza(w, comeSta).includes('profondità massima operativa')),
+    ).toEqual([]);
   });
 
   it('ma un metro più giù sì', () => {
     const piano = planGas({ ...base, depthM: 34.3 } as never);
-    expect(piano.warnings.filter((w) => w.text.includes('profondità massima operativa'))).toHaveLength(1);
+    expect(
+      piano.warnings.filter((w) => testoAvvertenza(w, comeSta).includes('profondità massima operativa')),
+    ).toHaveLength(1);
   });
 });

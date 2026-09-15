@@ -18,6 +18,8 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { testoAvvertenza } from '../src/core/analysis/avvertenze';
+import { comeSta } from '../src/core/traduci';
 import { describe, expect, it } from 'vitest';
 import {
   ascentGeometry,
@@ -43,7 +45,15 @@ import {
 import type { Dive } from '../src/core/model';
 
 /** Le avvertenze come un testo unico: i test guardano cosa dicono, non l'ordine. */
-const texts = (plan: { warnings: { text: string }[] }) => plan.warnings.map((w) => w.text).join(' ');
+/**
+ * Gli avvisi del piano, composti in italiano e messi in fila.
+ *
+ * Viaggiano come MODELLO più valori — «A {0} m questa miscela supera…» — e si
+ * compongono dove la lingua si conosce: vedi `core/analysis/avvisiDelPiano.ts`.
+ * Qui si passa l'identità, quindi resta l'italiano, che è la chiave.
+ */
+const texts = (plan: { warnings: { testo: string; valori?: (string | number)[] }[] }) =>
+  plan.warnings.map((w) => testoAvvertenza(w, comeSta)).join(' ');
 
 const input = (over: Partial<GasPlanInput> = {}): GasPlanInput => ({
   ...DEFAULT_PLAN,

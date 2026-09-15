@@ -43,6 +43,7 @@ import {
   ppn2At,
   ppo2At,
 } from '../units';
+import * as A from './avvisiDelPiano';
 import { barometric } from './deco';
 import { exposureOfSegments, type OxygenExposure } from './oxygen';
 import { profonditaMedia } from '../profondita';
@@ -248,7 +249,24 @@ export const DEFAULT_PLAN: Omit<GasPlanInput, 'rmvLpm'> = {
  */
 export interface GasWarning {
   level: 'critical' | 'caution';
-  text: string;
+  /**
+   * Il MODELLO italiano dell'avviso, cioè la chiave del dizionario — coi
+   * segnaposti `{0}` al posto dei numeri. Le costanti stanno in
+   * `analysis/avvisiDelPiano.ts`.
+   *
+   * ► PERCHÉ NON È PIÙ UNA FRASE GIÀ SCRITTA. ◄ Era `text`, e conteneva la frase
+   * composta coi numeri dentro. Le schermate la disegnavano così com'era, quindi
+   * **con l'applicazione in inglese uscivano trentatré frasi italiane** in una
+   * pagina in cui il testo è una regola di sicurezza. Avvolgerla in `t()` non
+   * sarebbe bastato: coi numeri dentro, la chiave cambia a ogni piano e nel
+   * dizionario non ci sarebbe mai. Vedi `core/frase.ts`.
+   *
+   * Il nome è cambiato apposta: un campo che cambia significato e tiene il
+   * vecchio nome è un difetto che il compilatore non trova.
+   */
+  testo: string;
+  /** I valori dei segnaposti, in ordine. Viaggiano a parte: si compone alla fine. */
+  valori?: (string | number)[];
 }
 
 export interface GasPhase {
@@ -791,33 +809,35 @@ export function planGas(raw: GasPlanInput): GasPlan {
   if (travelMin <= 0) {
     warnings.push({
       level: 'critical',
-      text: `Il tempo totale non lascia nemmeno un minuto per risalire: ${bottomMin} minuti di fondo più ${stopsMin} di sosta riempiono già l'immersione. Per risalire da ${depthM} m alla velocità massima consentita servono almeno ${Math.ceil(minTotalMin)} minuti in tutto.`,
+      testo: A.TEMPO_TOTALE_INSUFFICIENTE,
+      valori: [bottomMin, stopsMin, depthM, Math.ceil(minTotalMin)],
     });
   } else if (plannedAscentRateMpm !== undefined && plannedAscentRateMpm > LIMITS.ascentRateDeepMpm) {
     warnings.push({
       level: 'critical',
-      text: `Con questi tempi la risalita viaggia a ${plannedAscentRateMpm.toFixed(1)} m/min di media, oltre i ${LIMITS.ascentRateDeepMpm} m/min raccomandati: porta il tempo totale ad almeno ${Math.ceil(minTotalMin)} minuti, o accorcia il fondo.`,
+      testo: A.RISALITA_TROPPO_VELOCE,
+      valori: [plannedAscentRateMpm.toFixed(1), LIMITS.ascentRateDeepMpm, Math.ceil(minTotalMin)],
     });
   }
   if (askedMaxTime > maxTimeMin + 0.05) {
     warnings.push({
       level: 'caution',
-      text: `Con una media di ${avgDepthM} m su ${bottomMin} minuti di fondo, il tempo massimo che puoi passare a ${depthM} m è ${maxTimeMin.toFixed(1)} minuti: oltre, il resto dell'immersione dovrebbe stare sopra la superficie per far tornare la media. Il piano usa ${maxTimeMin.toFixed(1)}.`,
+      testo: A.TEMPO_OLTRE_LA_MEDIA,
+      valori: [avgDepthM, bottomMin, depthM, maxTimeMin.toFixed(1), maxTimeMin.toFixed(1)],
     });
   }
   if (reserveBar >= startBar) {
     warnings.push({
       level: 'critical',
-      text:
-        reserveRule === 'fixedBar'
-          ? `La riserva fissa di ${reserveBar} bar è pari o superiore alla pressione di partenza: con questa bombola non resta gas da usare.`
-          : `Il gas minimo per la risalita d'emergenza (${reserveBar} bar) è pari o superiore alla pressione di partenza: con questa bombola l'immersione non è pianificabile.`,
+      testo: reserveRule === 'fixedBar' ? A.RISERVA_FISSA_TROPPO_ALTA : A.GAS_MINIMO_TROPPO_ALTO,
+      valori: [reserveBar],
     });
   }
   if (reserveRule === 'fixedBar' && depthM > 30) {
     warnings.push({
       level: 'caution',
-      text: `La riserva fissa non dipende dalla profondità: a ${depthM} m gli stessi ${reserveBar} bar durano molto meno che a 15 m. Sotto i 30 metri, o in due su una bombola, il gas minimo calcolato è la regola che risponde alla domanda giusta — si attiva qui sopra.`,
+      testo: A.RISERVA_FISSA_NON_SCALA,
+      valori: [depthM, reserveBar],
     });
   }
   if (overBudget) {
@@ -826,13 +846,15 @@ export function planGas(raw: GasPlanInput): GasPlan {
     // frase diventava "basta per 20 minuti, non 20". Al bordo si dice l'unica cosa
     // vera, cioè che non c'è margine.
     const allowed = Math.floor(gasLimitedBottomMin);
-    warnings.push({
-      level: 'critical',
-      text:
-        allowed < bottomMin
-          ? `Il gas basta per ${allowed} minuti di fondo, non ${bottomMin}: servono più litri, una pressione di partenza più alta, meno profondità o meno tempo.`
-          : `Il piano consuma tutto il gas utilizzabile senza lasciare margine: ${plannedL} L pianificati su ${Math.round(usableL)} L disponibili oltre la riserva.`,
-    });
+    warnings.push(
+      allowed < bottomMin
+        ? { level: 'critical', testo: A.GAS_PER_MENO_MINUTI, valori: [allowed, bottomMin] }
+        : {
+            level: 'critical',
+            testo: A.GAS_SENZA_MARGINE,
+            valori: [plannedL, Math.round(usableL)],
+          },
+    );
   }
   /*
    * ► IL CONFRONTO SI FA CON LA MOD ARROTONDATA, CIOÈ CON QUELLA MOSTRATA. ◄
@@ -853,7 +875,8 @@ export function planGas(raw: GasPlanInput): GasPlan {
   if (depthM > round1(modAtLimit) + 1e-9) {
     warnings.push({
       level: 'critical',
-      text: `A ${depthM} m questa miscela supera il limite di PPO2 di ${maxPpo2} bar che hai impostato sul computer: la profondità massima operativa è ${round1(modAtLimit).toFixed(1)} m.`,
+      testo: A.OLTRE_LA_MOD,
+      valori: [depthM, maxPpo2, round1(modAtLimit).toFixed(1)],
     });
   }
   // La narcosi, nell'unità in cui la didattica la esprime davvero: «the generally
@@ -864,66 +887,82 @@ export function planGas(raw: GasPlanInput): GasPlan {
   if (ppn2 > 5.21) {
     warnings.push({
       level: 'caution',
-      text: `Pressione parziale dell'azoto ${ppn2.toFixed(2)} ata (END ${end.toFixed(0)} m): oltre il limite superiore della fascia comunemente accettata, che va da 4.0 a 5.21 ata.`,
+      testo: A.AZOTO_OLTRE_LA_FASCIA,
+      valori: [ppn2.toFixed(2), end.toFixed(0)],
     });
   } else if (ppn2 > 4) {
     warnings.push({
       level: 'caution',
-      text: `Pressione parziale dell'azoto ${ppn2.toFixed(2)} ata (END ${end.toFixed(0)} m): dentro la fascia accettata (4.0–5.21), ma sopra i 4.0 che la didattica indica come massimo in acqua fredda, buia o in ambiente ostruito.`,
+      testo: A.AZOTO_SOPRA_QUATTRO,
+      valori: [ppn2.toFixed(2), end.toFixed(0)],
     });
   }
   if (oxygen.cnsPercent >= 80) {
+    /*
+     * Due modelli invece di una coda cucita dentro la frase: «con 12 minuti
+     * sopra 1.4 bar» in inglese può andare in un altro punto del periodo, e chi
+     * traduce deve vedere la frase intera per poterla spostare.
+     */
     warnings.push({
       level: oxygen.cnsPercent >= 100 ? 'critical' : 'caution',
-      text: `Esposizione all'ossigeno ${oxygen.cnsPercent.toFixed(0)}% dell'orologio CNS${oxygen.minutesAbove14 > 0 ? `, con ${oxygen.minutesAbove14.toFixed(0)} minuti sopra 1.4 bar` : ''}: il limite è il 100% e va contato su tutte le immersioni della giornata, non solo su questa.`,
+      ...(oxygen.minutesAbove14 > 0
+        ? {
+            testo: A.CNS_ALTO_CON_MINUTI,
+            valori: [oxygen.cnsPercent.toFixed(0), oxygen.minutesAbove14.toFixed(0)],
+          }
+        : { testo: A.CNS_ALTO, valori: [oxygen.cnsPercent.toFixed(0)] }),
     });
   }
   if (!overBudget && expectedEndBar < reserveBar) {
     warnings.push({
       level: 'critical',
-      text: `Uscita prevista a ${expectedEndBar} bar, sotto la riserva di ${reserveBar} bar che hai scelto: il piano consuma il gas che dovevi tenere da parte.`,
+      testo: A.USCITA_SOTTO_LA_RISERVA,
+      valori: [expectedEndBar, reserveBar],
     });
   } else if (expectedEndBar < LIMITS.minReserveBar) {
     warnings.push({
       level: 'critical',
-      text: `Uscita prevista a ${expectedEndBar} bar, sotto la riserva di ${LIMITS.minReserveBar} bar: il piano non lascia margine per un imprevisto in superficie.`,
+      testo: A.USCITA_SOTTO_IL_MINIMO,
+      valori: [expectedEndBar, LIMITS.minReserveBar],
     });
   }
   if (buddyRmvLpm > ownRmvLpm) {
     warnings.push({
       level: 'caution',
-      text: `Il piano usa il consumo del compagno (${buddyRmvLpm} L/min) invece del tuo (${ownRmvLpm}): la didattica impone di pianificare sul respiro più alto della squadra, altrimenti è lui a girare prima e il piano non lo sa.`,
+      testo: A.CONSUMO_DEL_COMPAGNO,
+      valori: [buddyRmvLpm, ownRmvLpm],
     });
   }
   if (decoMix && !stopsOnDeco && decoSwitchDepthM !== undefined) {
     warnings.push({
       level: 'caution',
-      text: `La sosta è a ${stopDepthM} m ma ${mixName(decoMix)} si respira solo da ${decoSwitchDepthM.toFixed(1)} m in su: il piano paga le soste col gas di fondo. Sposta la sosta o cambia miscela di decompressione.`,
+      testo: A.SOSTA_SOTTO_IL_CAMBIO,
+      valori: [stopDepthM, mixName(decoMix), decoSwitchDepthM.toFixed(1)],
     });
   }
   if (deco?.short) {
     warnings.push({
       level: 'critical',
-      text: `La bombola di decompressione non basta: servono ${deco.requiredBar} bar su ${raw.decoTankL} L (${deco.litres} L di soste × 1.5 di margine) e ne hai dichiarati ${raw.decoStartBar}.`,
+      testo: A.STAGE_INSUFFICIENTE,
+      valori: [deco.requiredBar, raw.decoTankL ?? 0, deco.litres, raw.decoStartBar ?? 0],
     });
   }
   if (decoMix && decoMix.o2 > LIMITS.o2CleanThreshold + 1e-9) {
     warnings.push({
       level: 'caution',
-      text: `Anche la bombola di decompressione (${mixName(decoMix)}) va pulita per il servizio ossigeno, e va etichettata con la sua profondità massima: ${decoSwitchDepthM?.toFixed(0)} m.`,
+      testo: A.STAGE_SERVIZIO_OSSIGENO,
+      valori: [mixName(decoMix), decoSwitchDepthM?.toFixed(0) ?? '?'],
     });
   }
   if (mix.o2 > LIMITS.o2CleanThreshold + 1e-9) {
     warnings.push({
       level: 'caution',
-      text: `Oltre il 40% di ossigeno serve attrezzatura pulita per il servizio ossigeno: erogatore, bombola e riempimento. Questa miscela è al ${Math.round(mix.o2 * 100)}%.`,
+      testo: A.GAS_SERVIZIO_OSSIGENO,
+      valori: [Math.round(mix.o2 * 100)],
     });
   }
   if (extraStopMin === 0 && depthM >= 30 && bottomMin >= 20) {
-    warnings.push({
-      level: 'caution',
-      text: 'A questa profondità e con questo tempo di fondo un obbligo decompressivo è probabile: le soste vanno prese dal tuo piano o dal computer e inserite come minuti aggiuntivi, questo pianificatore non le calcola.',
-    });
+    warnings.push({ level: 'caution', testo: A.OBBLIGO_PROBABILE });
   }
 
   return {

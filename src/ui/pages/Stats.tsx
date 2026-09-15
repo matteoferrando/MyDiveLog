@@ -23,6 +23,7 @@ import {
   type Trend,
 } from '../../core/analysis/aggregate';
 import { LIMITS, type Dive } from '../../core/model';
+import { BENCHMARK, gf99ConMargine, percentuale } from '../../core/analysis/coaching';
 import { piastraDellImmersione, zavorraTotaleKg, type Equipment } from '../../core/analysis/gear';
 import {
   consumoPerAttrezzo,
@@ -39,6 +40,26 @@ import { temperaturaMinimaC } from '../../core/temperatura';
 import { profonditaMedia } from '../../core/profondita';
 
 type Series = 'rmv' | 'trim' | 'ascent' | 'gf99';
+
+/**
+ * La velocità oltre la quale l'ultimo tratto viene contato, tolleranza compresa.
+ *
+ * È la soglia vera di `finalAscentsOverAppLimit` in `aggregate.ts`, e va scritta
+ * qui una volta sola perché la tessera non possa stampare un numero diverso da
+ * quello con cui conta. Il perché della tolleranza sta su `finalAscentToleranceMpm`.
+ */
+const SOPRA_IL_LIMITE_FINALE = LIMITS.ascentRateShallowMpm + LIMITS.finalAscentToleranceMpm;
+
+/**
+ * La percentuale come la scrive il piano di miglioramento.
+ *
+ * `pct()` arrotonda sempre all'intero, e su una uscita sotto riserva ogni 250
+ * immersioni stampava «0%»: lo zero è il valore più rassicurante che un numero
+ * possa avere, e qui compariva proprio dove un caso c'era. `percentuale()` sta
+ * in `coaching.ts` perché le due schermate scrivano la stessa cifra e decidano
+ * su quella.
+ */
+const pctPiano = (v: number | undefined) => (v === undefined ? '—' : `${percentuale(v)}%`);
 
 /**
  * Le quattro serie che il grafico dell'andamento sa disegnare.
@@ -383,13 +404,25 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               }
               note={
                 a.finalAscent.length
-                  ? // Contro il limite dell'app, non contro i 60 m/min che DAN
-                    // MISURA come media dei subacquei: quella soglia non scatta
-                    // quasi mai — ed è giusto così, perché superarla vuol dire
-                    // andare più veloce di una popolazione che già va troppo
-                    // veloce — ma una nota che dice sempre «0» si smette di
-                    // leggere. Vedi `danFinalAscentMpm`.
-                    `${t('mediana dalla sosta alla superficie')} · ${a.finalAscentsOverAppLimit} > ${LIMITS.ascentRateShallowMpm} m/min`
+                  ? /*
+                     * Contro il limite dell'app, non contro i 60 m/min che DAN
+                     * MISURA come media dei subacquei: quella soglia non scatta
+                     * quasi mai — ed è giusto così, perché superarla vuol dire
+                     * andare più veloce di una popolazione che già va troppo
+                     * veloce — ma una nota che dice sempre «0» si smette di
+                     * leggere. Vedi `danFinalAscentMpm`.
+                     *
+                     * ► E IL NUMERO STAMPATO DEV'ESSERE QUELLO DEL CONTO. ◄
+                     * `finalAscentsOverAppLimit` conta sopra
+                     * `ascentRateShallowMpm + finalAscentToleranceMpm`, cioè
+                     * **6,5**, e qui si scriveva «> 6 m/min». Con otto
+                     * immersioni tutte a 6,3 m/min sull'ultimo tratto la
+                     * tessera diceva «**0 > 6 m/min**», falso otto volte su
+                     * otto. È lo stesso difetto che `ruleFinalAscent` in
+                     * `coaching.ts` aveva già chiuso dalla sua parte, con la
+                     * stessa cura: stampare la soglia vera, tolleranza compresa.
+                     */
+                    `${t('mediana dalla sosta alla superficie')} · ${a.finalAscentsOverAppLimit} > ${SOPRA_IL_LIMITE_FINALE} m/min`
                   : t('serve un profilo campionato')
               }
             />
@@ -513,26 +546,36 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
           </p>
           <table>
             <tbody>
+              {/*
+                ► LE TRE RIGHE CHE IL PIANO GIUDICA ANCHE LUI. ◄ Soglie e
+                arrotondamento arrivano da `coaching.ts`, non riscritti qui.
+                Prima erano numeri a mano — `>= 0.9`, `<= 0.05` — contro un
+                piano che usava `0.95` e `0.02`: con 35 soste su 37 questa
+                tabella scriveva «nei limiti» e il piano «Da migliorare», sugli
+                stessi dati e nella stessa applicazione. E il confronto passa
+                dallo STESSO numero che si stampa (`percentuale`), così la
+                pastiglia verde non può contraddire la cifra che ha accanto.
+              */}
               <DisciplineRow
                 label="Sosta di sicurezza completata"
-                value={pct(a.safetyStopRate)}
+                value={pctPiano(a.safetyStopRate)}
                 basis={`${imm(a.safetyStopEligible, t)} ${t('in curva sopra i 10 m')}`}
                 eligible={a.safetyStopEligible}
-                good={(a.safetyStopRate ?? 0) >= 0.9}
+                good={percentuale(a.safetyStopRate ?? 0) >= percentuale(BENCHMARK.safetyStopRate)}
               />
               <DisciplineRow
                 label="Immersioni con risalite fuori limite"
-                value={pct(a.fastAscentRate)}
+                value={pctPiano(a.fastAscentRate)}
                 basis={`${imm(a.withProfile, t)} ${t('con profilo')}`}
                 eligible={a.withProfile}
-                good={(a.fastAscentRate ?? 1) <= 0.1}
+                good={percentuale(a.fastAscentRate ?? 1) <= percentuale(BENCHMARK.fastAscentRate)}
               />
               <DisciplineRow
                 label="Uscite sotto i 50 bar"
-                value={pct(a.lowReserveRate)}
+                value={pctPiano(a.lowReserveRate)}
                 basis={`${imm(a.lowReserveEligible, t)} ${t('con pressione finale')}`}
                 eligible={a.lowReserveEligible}
-                good={(a.lowReserveRate ?? 1) <= 0.05}
+                good={percentuale(a.lowReserveRate ?? 1) <= percentuale(BENCHMARK.lowReserveRate)}
               />
               <DisciplineRow
                 label="Violazioni del tetto deco"
@@ -576,10 +619,30 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
                   // modo onesto di presentare un numero calcolato da noi.
                   basis={
                     a.gf99Agreement !== undefined
-                      ? `${imm(a.gf99.length, t)} · ${t('scarto dal computer')} ${a.gf99Agreement.toFixed(1)} ${t('punti')}`
+                      ? /*
+                          ► LO SCARTO SI DICHIARA SU QUANTE IMMERSIONI LO
+                          PRODUCONO. ◄ Qui c'era `a.gf99.length`, cioè TUTTE le
+                          immersioni con un GF99 calcolato da noi, mentre lo
+                          scarto esiste solo dove esistono tutti e due i valori.
+                          Con 48 immersioni di cui una sola confrontabile si
+                          leggeva «su 48 immersioni · scarto dal computer 12.0
+                          punti»: un numero misurato su una, dichiarato su
+                          quarantotto. `aggregate` conta apposta
+                          `gf99AgreementCount`, ed è quello che `ai/context.ts`
+                          usa già dalla sua parte.
+                        */
+                        `${imm(a.gf99AgreementCount, t)} · ${t('scarto dal computer')} ${a.gf99Agreement.toFixed(1)} ${t('punti')}`
                       : `${imm(a.gf99.length, t)} · ${t('calcolato dal profilo')}`
                   }
-                  good={a.avgGf99 <= 65}
+                  /*
+                    ► IL CRITERIO È QUELLO DEL PIANO, E NON UNA SOGLIA ASSOLUTA. ◄
+                    `a.avgGf99 <= 65` giudicava il GF99 in assoluto: con un
+                    computer impostato a 70/70 e un GF99 di 64 questa riga
+                    diceva «nei limiti» mentre il piano diceva «margine
+                    ridotto» — e 64 su 70 è il 91% del proprio limite. Il perché
+                    per esteso, con la tabella dei due casi, sta in `ruleGf99`.
+                  */
+                  good={gf99ConMargine(a.avgGf99, a.gf99, scoped)}
                 />
               )}
             </tbody>
@@ -1397,7 +1460,7 @@ function Seasonality({ dives }: { dives: Dive[] }) {
       <p className="card-sub">
         {t('Temperatura minima media per mese: dice quando serve la muta più pesante.')}
       </p>
-      <ColumnChart data={months} unit="°C" height={150} labelEvery={1} />
+      <ColumnChart data={months} unit="°C" height={150} labelEvery={1} serie="misure" />
     </div>
   );
 }

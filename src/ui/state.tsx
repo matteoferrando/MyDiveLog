@@ -1579,7 +1579,24 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   // insieme di immersioni, e non c'è modo che le due viste mostrino numeri
   // calcolati su periodi diversi.
   const scope = useMemo(() => applyPeriod(dives, period), [dives, period]);
-  const aggregates = useMemo(() => aggregate(scope.dives), [scope]);
+  /*
+   * L'AMPIEZZA DELLA FINESTRA VA PASSATA, NON DEDOTTA DAI DATI.
+   *
+   * `aggregate` divide le immersioni per i mesi guardati, e fino alla notte del
+   * 15 settembre quei mesi se li misurava da sé: dalla più vecchia immersione
+   * ricevuta a adesso. Con «Ultimi 12 mesi» e sei immersioni fatte nell'ultima
+   * settimana usciva «6 al mese», in allenamento; **aggiungendo una sola
+   * immersione di undici mesi fa** lo stesso archivio diventava «0,6 al mese:
+   * poche per consolidare». *Aggiungere un dato peggiorava il giudizio di dieci
+   * volte*, e nessuno dei due numeri era quello giusto — su dodici mesi sono 0,5
+   * e 0,58.
+   *
+   * La finestra la sceglie l'utente e la sappiamo qui: `scope.period.months` è
+   * `undefined` solo per «tutto l'archivio», dove misurarla sui dati è invece la
+   * risposta esatta. Passarla è una riga, e senza quella riga il conto corretto
+   * resta dentro `aggregate` senza arrivare a nessuna schermata.
+   */
+  const aggregates = useMemo(() => aggregate(scope.dives, undefined, scope.period.months), [scope]);
   /*
    * I criteri di prontezza guardano TUTTO l'archivio, non la finestra.
    *

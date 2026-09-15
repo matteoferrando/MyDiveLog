@@ -17,6 +17,8 @@
  */
 
 import { formatRuntime, mixName } from '../units';
+import { comeSta } from '../traduci';
+import { testoAvvertenza } from '../analysis/avvertenze';
 import type { Contingency, GasPlan, SchedulePoint } from '../analysis/gasPlan';
 import type { DecoResult, DecoSegment } from '../analysis/deco';
 import type { PlanCurve } from '../analysis/tissues';
@@ -222,11 +224,17 @@ export function foglioDelPiano(ctx: {
     });
   }
 
+  /*
+   * Composti con l'identità: il foglio si stampa in italiano, sempre — come il
+   * libretto di legge. Gli avvisi arrivano come modello più valori (vedi
+   * `analysis/avvisiDelPiano.ts`), e `comeSta` è la traduzione che non traduce.
+   */
   const avvisi: FoglioPiano['avvisi'] = plan.warnings.map((w) => ({
     livello: w.level === 'critical' ? 'critical' : 'warning',
-    testo: w.text,
+    testo: testoAvvertenza(w, comeSta),
   }));
-  for (const w of soste?.warnings ?? []) avvisi.push({ livello: w.level, testo: w.text });
+  for (const w of soste?.warnings ?? [])
+    avvisi.push({ livello: w.level, testo: testoAvvertenza(w, comeSta) });
   /*
    * L'avviso vale in ENTRAMBE le modalità, ed è in tecnica che serve di più.
    *

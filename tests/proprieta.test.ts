@@ -47,6 +47,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { testoAvvertenza } from '../src/core/analysis/avvertenze';
+import { comeSta } from '../src/core/traduci';
 import {
   DEFAULT_DECO,
   bailoutPlan,
@@ -238,7 +240,7 @@ function nonFiniti(valore: unknown, percorso = '$', trovati: string[] = [], live
  * dichiari invece di nasconderlo è la ragione per cui si può escluderlo qui.
  */
 const converge = (r: DecoResult): boolean =>
-  !r.warnings.some((w) => w.text.includes('La risalita non converge'));
+  !r.warnings.some((w) => testoAvvertenza(w, comeSta).includes('La risalita non converge'));
 
 /**
  * Il telaio di ogni proprietà: gira `quanti` casi, raccoglie i primi tre

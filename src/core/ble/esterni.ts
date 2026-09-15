@@ -159,6 +159,39 @@ export interface ContestoEsterno {
  * sporcare le statistiche con immersioni di zero minuti che poi vanno
  * cancellate a mano una per una.
  */
+/**
+ * ═════════════════════════════════════════════════════════════════════════════
+ * ► I DUE MOTIVI DI SCARTO, COME COSTANTI. ◄
+ *
+ * Non sono note interne: finiscono nell'elenco sotto la riga verde a fine
+ * scarico, cioè **nella spiegazione del perché il conto delle immersioni non
+ * torna**. Uscivano in italiano anche con l'applicazione in inglese, perché
+ * `BleDownload.tsx` disegnava l'elenco così com'era.
+ *
+ * Costanti esportate e non stringhe sul posto perché una prova possa scorrerle
+ * tutte e pretendere la voce inglese: la traduzione avviene dove si disegna —
+ * qui la lingua non si sa — e lì la chiave arriva come variabile, quindi
+ * `chiaviDi` non la vede. È la stessa cura di `core/ble/avanzamentoTesti.ts` e
+ * `core/analysis/avvertenze.ts`.
+ */
+
+/** Il computer non ha dichiarato la data: senza, l'immersione non entra. */
+export const SCARTO_SENZA_DATA =
+  'Il computer non ha dato la data di questa immersione: non è stata importata.';
+
+/** Né profondità né durata: non è un'immersione. */
+export const SCARTO_SENZA_PROFONDITA_NE_DURATA =
+  'Un record del computer non ha né profondità né durata: non è un’immersione, non è stato importato.';
+
+/**
+ * Tutti e due, per la prova che li confronta col dizionario.
+ *
+ * Un motivo nuovo che non finisce in questo elenco sfugge alla guardia: è il
+ * solo punto debole del meccanismo, ed è scritto qui perché chi aggiunge il
+ * prossimo lo veda mentre lo fa.
+ */
+export const MOTIVI_DI_SCARTO = [SCARTO_SENZA_DATA, SCARTO_SENZA_PROFONDITA_NE_DURATA] as const;
+
 export function immersioneDaLdc(imm: ImmersioneLdc, ctx: ContestoEsterno): Dive | undefined {
   /*
    * ► UN RECORD SENZA DATA NON ENTRA IN ARCHIVIO. ◄
@@ -176,7 +209,7 @@ export function immersioneDaLdc(imm: ImmersioneLdc, ctx: ContestoEsterno): Dive 
    * entrata e perché.
    */
   if (imm.senzaData) {
-    ctx.onScarto?.('Il computer non ha dato la data di questa immersione: non è stata importata.');
+    ctx.onScarto?.(SCARTO_SENZA_DATA);
     return undefined;
   }
 
@@ -211,9 +244,7 @@ export function immersioneDaLdc(imm: ImmersioneLdc, ctx: ContestoEsterno): Dive 
      * `immersioniDaLdc`: da questo avviso dipende il **segnalibro**, e un record
      * sparito senza dirlo poteva portarselo dietro.
      */
-    ctx.onScarto?.(
-      'Un record del computer non ha né profondità né durata: non è un’immersione, non è stato importato.',
-    );
+    ctx.onScarto?.(SCARTO_SENZA_PROFONDITA_NE_DURATA);
     return undefined;
   }
 

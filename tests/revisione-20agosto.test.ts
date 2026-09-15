@@ -13,6 +13,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { testoAvvertenza } from '../src/core/analysis/avvertenze';
+import { comeSta } from '../src/core/traduci';
 import {
   DEFAULT_DECO,
   planDeco,
@@ -441,7 +443,7 @@ describe('il gas di transito e la PPO2 minima', () => {
 
   it('senza gas di transito, l’ipossica in superficie è un avviso critico', () => {
     const p = planDeco([{ depthM: 80, minutes: 20 }], [ipossica], DEFAULT_DECO);
-    const avviso = p.warnings.find((w) => w.text.includes('non è respirabile'));
+    const avviso = p.warnings.find((w) => testoAvvertenza(w, comeSta).includes('non è respirabile'));
     expect(avviso?.level).toBe('critical');
   });
 

@@ -28,6 +28,9 @@
  */
 
 import type { GasMix, Salinity } from '../model';
+import { comeSta } from '../traduci';
+import * as A from './avvisiDelPiano';
+import { testoAvvertenza } from './avvertenze';
 import { ambientAta, ambientBar, ead, end as endOf, mod, ppn2At, ppo2At } from '../units';
 import { ceilingM, desaturate, gf99, step, surfacedTissues, type TissueState } from './buhlmann';
 import { exposureOfSegments, type OxygenExposure } from './oxygen';
@@ -303,7 +306,17 @@ export interface DecoResult {
   bottomTissues: TissueState;
   /** Ore prima di poter volare, dalla riemersione. */
   timeToFlyH?: number;
-  warnings: { level: 'info' | 'warning' | 'critical'; text: string }[];
+  /**
+   * Gli avvisi del piano: MODELLO più valori, non frasi già scritte.
+   *
+   * ► PERCHÉ NON SONO PIÙ STRINGHE. ◄ `DecoPlan.tsx` le disegnava così com'erano,
+   * quindi con l'applicazione in inglese uscivano in italiano — PPO2 oltre il
+   * limite, controdiffusione isobarica, GF99 all'uscita: **testo che è una
+   * regola di sicurezza**. Coi numeri già dentro non si potevano nemmeno
+   * tradurre: la chiave sarebbe cambiata a ogni piano. Vedi
+   * `analysis/avvisiDelPiano.ts` e `core/frase.ts`.
+   */
+  warnings: { level: 'info' | 'warning' | 'critical'; testo: string; valori?: (string | number)[] }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -588,15 +601,13 @@ export function planDeco(
       minutes: Math.min(l.minutes, MAX_PLANNABLE_MINUTES),
     }));
   if (levels.length && !usable.length) {
-    warnings.push({
-      level: 'critical',
-      text: 'Nessun livello utilizzabile: profondità o tempi mancanti, negativi o non numerici. Il piano qui sotto è vuoto perché non c\u2019è niente da pianificare, non perché l\u2019immersione non richieda soste.',
-    });
+    warnings.push({ level: 'critical', testo: A.NESSUN_LIVELLO });
   }
   if (levels.some((l) => Number.isFinite(l.depthM) && l.depthM > MAX_PLANNABLE_DEPTH_M)) {
     warnings.push({
       level: 'critical',
-      text: `Profondità oltre i ${MAX_PLANNABLE_DEPTH_M} m: il piano è stato calcolato a ${MAX_PLANNABLE_DEPTH_M} m, che è già oltre il record mondiale a circuito aperto.`,
+      testo: A.OLTRE_IL_MASSIMO_PIANIFICABILE,
+      valori: [MAX_PLANNABLE_DEPTH_M, MAX_PLANNABLE_DEPTH_M],
     });
   }
   if (!usable.length || !gases.length) {
@@ -1076,10 +1087,7 @@ export function planDeco(
     // Non è mai successo sui piani provati, ma un ciclo che non converge deve
     // dirlo invece di restituire una tabella lunga duemila righe come se niente
     // fosse: succede se il gas rimasto non permette di uscire.
-    warnings.push({
-      level: 'critical',
-      text: 'La risalita non converge: con questi gas e questi gradient factor il modello non arriva in superficie. Controlla le miscele.',
-    });
+    warnings.push({ level: 'critical', testo: A.RISALITA_NON_CONVERGE });
   }
 
   // --- riepiloghi ----------------------------------------------------------
@@ -1165,7 +1173,8 @@ export function planDeco(
   if (worstDeco > s.maxPpo2Deco + 0.05) {
     warnings.push({
       level: 'critical',
-      text: `PPO2 fino a ${worstDeco.toFixed(2)} bar in decompressione, oltre il limite di ${s.maxPpo2Deco.toFixed(1)} che hai impostato.`,
+      testo: A.PPO2_DECO_OLTRE,
+      valori: [worstDeco.toFixed(2), s.maxPpo2Deco.toFixed(1)],
     });
   }
   /*
@@ -1194,7 +1203,8 @@ export function planDeco(
   if (worstWork > s.maxPpo2Work + 0.05) {
     warnings.push({
       level: worstWork > s.maxPpo2Deco + 0.05 ? 'critical' : 'warning',
-      text: `PPO2 fino a ${worstWork.toFixed(2)} bar in fase di lavoro, oltre ${s.maxPpo2Work.toFixed(1)}: a questa quota non hai una miscela respirabile.`,
+      testo: A.PPO2_LAVORO_OLTRE,
+      valori: [worstWork.toFixed(2), s.maxPpo2Work.toFixed(1)],
     });
   }
   /*
@@ -1224,7 +1234,8 @@ export function planDeco(
   if (ppo2Minima && ppo2Minima.valore < PPO2_MINIMA) {
     warnings.push({
       level: 'critical',
-      text: `PPO2 di ${ppo2Minima.valore.toFixed(2)} bar a ${Math.round(ppo2Minima.quota)} m: sotto ${PPO2_MINIMA.toFixed(2)} la miscela non è respirabile. Per il tratto verso il fondo serve un gas di transito.`,
+      testo: A.PPO2_TROPPO_BASSA,
+      valori: [ppo2Minima.valore.toFixed(2), Math.round(ppo2Minima.quota), PPO2_MINIMA.toFixed(2)],
     });
   }
 
@@ -1232,29 +1243,39 @@ export function planDeco(
   if (worstEnd > 40) {
     warnings.push({
       level: 'warning',
-      text: `Profondità narcotica equivalente fino a ${worstEnd.toFixed(0)} m: oltre i 40 m la didattica tecnica chiede l'elio.`,
+      testo: A.END_OLTRE_QUARANTA,
+      valori: [worstEnd.toFixed(0)],
     });
   }
   if (ccr?.insufficientO2) {
     warnings.push({
       level: 'critical',
-      text: `L'ossigeno del rebreather non basta: servono ${ccr.o2Bar} bar su ${ccr.o2StartBar} disponibili.`,
+      testo: A.OSSIGENO_CCR_INSUFFICIENTE,
+      valori: [ccr.o2Bar ?? 0, ccr.o2StartBar ?? 0],
     });
   }
   for (const u of gasUsage) {
     if (u.insufficient) {
-      warnings.push({
-        level: 'critical',
-        text: Number.isFinite(u.bar)
-          ? `Il gas ${label(gases[u.gasIndex])} non basta: servono ${u.bar} bar su ${u.startBar ?? 0} disponibili.`
-          : `Il gas ${label(gases[u.gasIndex])} serve al piano (${u.litres} L) ma la bombola dichiarata è vuota.`,
-      });
+      warnings.push(
+        Number.isFinite(u.bar)
+          ? {
+              level: 'critical',
+              testo: A.GAS_INSUFFICIENTE,
+              valori: [label(gases[u.gasIndex]), u.bar ?? 0, u.startBar ?? 0],
+            }
+          : {
+              level: 'critical',
+              testo: A.GAS_BOMBOLA_VUOTA,
+              valori: [label(gases[u.gasIndex]), u.litres],
+            },
+      );
     }
   }
   for (const w of icd) {
     warnings.push({
       level: 'warning',
-      text: `Controdiffusione a ${w.atDepthM} m passando da ${w.fromLabel} a ${w.toLabel}: l'azoto sale di ${w.n2RiseBar.toFixed(2)} bar mentre l'elio scende di ${w.heDropBar.toFixed(2)}. La regola dei quinti dice di non farlo.`,
+      testo: A.CONTRODIFFUSIONE,
+      valori: [w.atDepthM, w.fromLabel, w.toLabel, w.n2RiseBar.toFixed(2), w.heDropBar.toFixed(2)],
     });
   }
   // Uscire oltre il cento per cento significa essere arrivati in superficie sopra
@@ -1264,18 +1285,21 @@ export function planDeco(
   if (surfaceGf.percent > 100) {
     warnings.push({
       level: 'critical',
-      text: `Questo piano arriva in superficie al ${surfaceGf.percent.toFixed(0)}% del valore M: oltre il cento per cento si emerge sopra il limite del modello, quali che siano i gradient factor impostati.`,
+      testo: A.OLTRE_IL_VALORE_M,
+      valori: [surfaceGf.percent.toFixed(0)],
     });
   } else if (surfaceGf.percent > s.gfHigh * 100 + 1) {
     warnings.push({
       level: 'warning',
-      text: `GF99 previsto all'uscita ${surfaceGf.percent.toFixed(0)}%, oltre il ${Math.round(s.gfHigh * 100)}% che hai impostato come GF alto.`,
+      testo: A.GF99_OLTRE_IMPOSTATO,
+      valori: [surfaceGf.percent.toFixed(0), Math.round(s.gfHigh * 100)],
     });
   }
   if (oxygen.cnsPercent >= 100) {
     warnings.push({
       level: 'critical',
-      text: `Orologio CNS al ${oxygen.cnsPercent.toFixed(0)}%: oltre il limite per singola esposizione.`,
+      testo: A.CNS_OLTRE_IL_LIMITE,
+      valori: [oxygen.cnsPercent.toFixed(0)],
     });
   }
   // Sopra 1.6 bar la tabella NOAA non esiste più e il CNS viene contato come se
@@ -1284,16 +1308,10 @@ export function planDeco(
   // decimo evita che scatti sull'ossigeno ai sei metri, che sta a 1.61 per
   // procedura.
   if (worstDeco > 1.65 || worstWork > 1.65) {
-    warnings.push({
-      level: 'warning',
-      text: `Sopra 1.6 bar di PPO2 le tabelle NOAA non arrivano: il CNS qui sopra è calcolato come se fossero 1.6 bar, quindi è una SOTTOSTIMA. Il valore vero non lo sa nessuno, ed è la ragione per cui quel limite esiste.`,
-    });
+    warnings.push({ level: 'warning', testo: A.CNS_FUORI_TABELLA });
   }
   if (deepestM > 40 && !segments.some((x) => x.kind === 'stop')) {
-    warnings.push({
-      level: 'info',
-      text: 'Oltre i 40 metri senza soste obbligate: verifica che il tuo computer, con i suoi gradient factor, sia d’accordo.',
-    });
+    warnings.push({ level: 'info', testo: A.QUARANTA_SENZA_SOSTE });
   }
 
   return {
@@ -1788,7 +1806,15 @@ export function decoTableText(
     L.push('');
     L.push('AVVISI');
     for (const w of result.warnings)
-      L.push(`  [${w.level === 'critical' ? '!!' : w.level === 'warning' ? '! ' : '  '}] ${w.text}`);
+      /*
+       * Composto con l'identità: questo riassunto è il foglio tecnico in
+       * italiano, non una schermata. È la stessa scelta di `avvertenze.ts` —
+       * dove non c'è una lingua da scegliere, si passa la traduzione che non
+       * traduce.
+       */
+      L.push(
+        `  [${w.level === 'critical' ? '!!' : w.level === 'warning' ? '! ' : '  '}] ${testoAvvertenza(w, comeSta)}`,
+      );
   }
 
   L.push('');

@@ -333,7 +333,22 @@ function ComparisonTable({ left, right, onOpen }: { left: Dive; right: Dive; onO
         <tbody>
           {rows.map((row) => {
             const both = row.a !== undefined && row.b !== undefined;
-            const delta = both ? row.b! - row.a! : undefined;
+            /*
+             * ► LA DIFFERENZA È QUELLA FRA I DUE NUMERI CHE SI VEDONO. ◄
+             *
+             * Il delta si calcolava sui valori PIENI e le due colonne accanto
+             * stampano un decimale (`fmt`), quindi la riga poteva non tornare:
+             * 45:02 e 45:04 di durata sono 45.033 e 45.067 minuti, e uscivano
+             * «45.0 | 45.1 | **+0.0**». Chi legge vede tre numeri e fa la
+             * sottrazione a mente: se non torna, il conto sbagliato sembra
+             * quello dell'app — e in un caso su due lo è davvero, perché a
+             * essere arrotondati sono gli addendi.
+             *
+             * Arrotondando prima e sottraendo poi, la colonna dice esattamente
+             * quello che le altre due mostrano. Il secondo arrotondamento
+             * serve alla virgola mobile: 45.1 − 45.0 fa 0.09999999999999432.
+             */
+            const delta = both ? arrotonda(arrotonda(row.b!) - arrotonda(row.a!)) : undefined;
             // Il verso "migliore" esiste solo per alcune misure: sulla profondità
             // massima non significa niente, e colorarla sarebbe un giudizio finto.
             const better =
@@ -372,5 +387,14 @@ function ComparisonTable({ left, right, onOpen }: { left: Dive; right: Dive; onO
   );
 }
 
+/**
+ * Il valore come la tabella lo mostra: un decimale.
+ *
+ * Sta fuori da `fmt` perché serve anche alla colonna «Differenza», che deve
+ * sottrarre gli stessi numeri che le altre due colonne stampano e non quelli
+ * pieni. Vedi il commento sul calcolo del delta.
+ */
+const arrotonda = (v: number) => Math.round(v * 10) / 10;
+
 const fmt = (v: number | undefined, unit: string) =>
-  v === undefined ? '—' : `${v.toFixed(1)}${unit ? ` ${unit}` : ''}`;
+  v === undefined ? '—' : `${arrotonda(v).toFixed(1)}${unit ? ` ${unit}` : ''}`;

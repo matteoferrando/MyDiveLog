@@ -278,6 +278,10 @@ export const INGLESE: Record<string, string> = {
   'Come ti immergi, di solito': 'How you usually dive',
   'cominciate con azoto ancora in circolo': 'started with nitrogen still on board',
   'Composizione dell’archivio': 'What is in the logbook',
+  // Il verdetto degli scenari «E se…», a parole accanto al pallino: il colore
+  // da solo non porta mai il significato. Vedi `SEVERITY_TEXT` in `format.ts`.
+  'ci sta': 'it fits',
+  'non ci sta': 'does not fit',
   'con il dato': 'with the data',
   'con il tetto registrato': 'with the ceiling recorded',
   'con l’attrezzatura registrata: troppo poche per un confronto. Compila muta, zavorra ed erogatori nella scheda dell’immersione.':
@@ -1415,7 +1419,182 @@ export const INGLESE: Record<string, string> = {
     'days, then the deletion becomes final on every device.',
   'già presenti verranno': 'already here will be',
   'Il backup è una copia da tenere altrove.': 'The backup is a copy to keep somewhere else.',
+  /*
+   * IL RIPRISTINO DI UN BACKUP, DALL'ERRORE ALL'IMPEDIMENTO.
+   *
+   * Nascono in `core/export/backup.ts`, che non conosce `t`: la traduzione gli
+   * viene passata da `SyncPage`. Prima uscivano in italiano dentro un riquadro
+   * rosso — nell'operazione che si fa quando le cose sono già andate male.
+   *
+   * Le quattro coppie singolare/plurale non sono ridondanza: in italiano cambia
+   * il verbo («compare» / «compaiono») e in inglese anche il sostantivo, e una
+   * frase sola col numero davanti scriveva «1 immersioni compaiono».
+   */
+  'Il backup non contiene nessuna immersione.': 'The backup contains no dives at all.',
+  'Il file contiene impostazioni che questa applicazione non scrive mai ({0}). Non viene ripristinato: fra queste può esserci il registro delle cancellazioni, che si propagherebbe a tutti i dispositivi collegati.':
+    'The file contains settings this application never writes ({0}). It will not be restored: one of them may be the deletion log, which would spread to every connected device.',
+  'Il file contiene la chiave «{0}», che nelle versioni recenti resta fuori dai backup perché è una credenziale. Verrà ignorata.':
+    'The file contains the «{0}» key, which recent versions keep out of backups because it is a credential. It will be ignored.',
+  'Il file non contiene un oggetto JSON.': 'The file does not contain a JSON object.',
+  'Il file è stato scritto da una versione più recente dell’applicazione (formato {0}, questa legge fino al {1}). Aggiorna prima di ripristinare: leggerlo comunque significherebbe scartare in silenzio quello che non capisce.':
+    'The file was written by a newer version of the application (format {0}, this one reads up to {1}). Update before restoring: reading it anyway would silently drop whatever it does not understand.',
+  'Le impostazioni non sono leggibili.': 'The settings cannot be read.',
+  'Manca il numero di versione del formato.': 'The format version number is missing.',
+  'Manca l’elenco delle immersioni.': 'The list of dives is missing.',
+  'Questo non è un backup di MyDiveLog. Se stai cercando di importare immersioni da un’altra applicazione, il posto giusto è la scheda Importa: lì i formati riconosciuti sono sette.':
+    'This is not a MyDiveLog backup. If you are trying to import dives from another application, the Import tab is the place: it reads seven formats.',
+  'Un’immersione è incompleta — manca l’identificativo, la data, la profondità, la durata o la provenienza. Il file è danneggiato, e ripristinarlo renderebbe il logbook inapribile.':
+    'One dive is incomplete — it has no id, date, depth, duration or origin. The file is damaged, and restoring it would leave the logbook unable to open.',
+  '{0} immersioni sono incomplete — manca l’identificativo, la data, la profondità, la durata o la provenienza. Il file è danneggiato, e ripristinarlo renderebbe il logbook inapribile.':
+    '{0} dives are incomplete — they have no id, date, depth, duration or origin. The file is damaged, and restoring it would leave the logbook unable to open.',
+  'Un’immersione compare più di una volta nel file: le copie verranno fuse fra loro invece di contarsi due volte.':
+    'One dive appears more than once in the file: the copies will be merged instead of counted twice.',
+  '{0} immersioni compaiono più di una volta nel file: le copie verranno fuse fra loro invece di contarsi due volte.':
+    '{0} dives appear more than once in the file: the copies will be merged instead of counted twice.',
+  'Questo backup non contiene nessuna immersione, e «ricostruisci da zero» cancellerebbe l’unica che hai adesso senza rimetterne nessuna. Il file è vuoto o troncato: o ne usi un altro, oppure scegli «fondi», che con un file vuoto non fa niente.':
+    'This backup contains no dives, and «rebuild from scratch» would delete the only one you have now without putting any back. The file is empty or truncated: use another one, or choose «merge», which does nothing with an empty file.',
+  'Questo backup non contiene nessuna immersione, e «ricostruisci da zero» cancellerebbe le {0} che hai adesso senza rimetterne nessuna. Il file è vuoto o troncato: o ne usi un altro, oppure scegli «fondi», che con un file vuoto non fa niente.':
+    'This backup contains no dives, and «rebuild from scratch» would delete the {0} you have now without putting any back. The file is empty or truncated: use another one, or choose «merge», which does nothing with an empty file.',
   'Il cestino contiene': 'The trash holds',
+  /*
+   * LE PERDITE DICHIARATE DELL'ESPORTAZIONE UDDF.
+   *
+   * L'elenco di quello che un UDDF non sa portarsi dietro: nasce in
+   * `core/export/uddf.ts` e si legge nella scheda Sincronizza. Aggiunte qui
+   * perché `traduzioni.ts` ha un solo custode, mentre le frasi vivono nel
+   * modulo che le produce.
+   */
+  'l’estremo alto della fascia di visibilità, quando è una fascia':
+    'the upper end of the visibility range, when it is a range',
+  'la visibilità a stelle dei logbook che la danno come voto':
+    'star-rated visibility, for the logbooks that record it as a score',
+  'il centro di immersione': 'the dive centre',
+  'la profondità massima programmata': 'the planned maximum depth',
+  'il consumo in L/min scritto a mano': 'the surface air consumption in L/min entered by hand',
+  'la data dell’ultima modifica della scheda': 'the date the dive record was last edited',
+  'la firma della guida raccolta sul posto': 'the dive guide’s signature captured on site',
+  'la miscela analizzata: quanto, quando e da chi':
+    'the analysed mix: the measured fraction, when it was measured and by whom',
+  'CNS e PPO2 campione per campione': 'CNS and PPO2 sample by sample',
+  'il setpoint del rebreather campione per campione': 'the rebreather setpoint sample by sample',
+  'la prossima sosta, l’obbligo di decompressione e la sosta di sicurezza campione per campione':
+    'the next stop, the decompression obligation and the safety stop sample by sample',
+  'quale bombola stavi respirando, quando due bombole portano lo stesso gas (UDDF collega il cambio al gas, non alla bombola)':
+    'which cylinder you were breathing, when two cylinders carry the same gas (UDDF links the switch to the gas, not to the cylinder)',
+  'il secondo profilo dell’altro computer, se l’immersione ne ha uno':
+    'the second profile from the other computer, if the dive has one',
+  /*
+   * ══════════════════════════════════════════════════════════════════════
+   * I TRENTASETTE AVVISI DEI DUE PIANIFICATORI.
+   *
+   * Nascono in `core/analysis/avvisiDelPiano.ts` e si compongono con `frase()`
+   * dove la lingua si conosce. Sono la pagina in cui **il testo è una regola di
+   * sicurezza** — PPO2, END, controdiffusione, GF99, CNS, obbligo decompressivo
+   * — e fino a oggi uscivano in italiano sotto un'intestazione inglese.
+   *
+   * I segnaposti si possono SPOSTARE traducendo, purché ci siano tutti: il
+   * controllo lo fa `tests/testiTradotti.test.ts`. I simboli tecnici — PPO2,
+   * END, GF99, CNS, bar, m/min — non si traducono: sono gli stessi in tutte le
+   * didattiche.
+   */
+  'Il tempo totale non lascia nemmeno un minuto per risalire: {0} minuti di fondo più {1} di sosta riempiono già l’immersione. Per risalire da {2} m alla velocità massima consentita servono almeno {3} minuti in tutto.':
+    'The total time leaves not one minute to ascend: {0} minutes of bottom time plus {1} of stops already fill the dive. Coming up from {2} m at the maximum allowed rate needs at least {3} minutes in all.',
+  'Con questi tempi la risalita viaggia a {0} m/min di media, oltre i {1} m/min raccomandati: porta il tempo totale ad almeno {2} minuti, o accorcia il fondo.':
+    'With these times the ascent averages {0} m/min, beyond the recommended {1} m/min: raise the total time to at least {2} minutes, or shorten the bottom.',
+  'Con una media di {0} m su {1} minuti di fondo, il tempo massimo che puoi passare a {2} m è {3} minuti: oltre, il resto dell’immersione dovrebbe stare sopra la superficie per far tornare la media. Il piano usa {4}.':
+    'With an average of {0} m over {1} minutes of bottom time, the longest you can spend at {2} m is {3} minutes: beyond that, the rest of the dive would have to be above the surface for the average to work out. The plan uses {4}.',
+  'La riserva fissa di {0} bar è pari o superiore alla pressione di partenza: con questa bombola non resta gas da usare.':
+    'The fixed reserve of {0} bar equals or exceeds the starting pressure: this cylinder leaves no gas to use.',
+  'Il gas minimo per la risalita d’emergenza ({0} bar) è pari o superiore alla pressione di partenza: con questa bombola l’immersione non è pianificabile.':
+    'The minimum gas for an emergency ascent ({0} bar) equals or exceeds the starting pressure: this cylinder makes the dive unplannable.',
+  'La riserva fissa non dipende dalla profondità: a {0} m gli stessi {1} bar durano molto meno che a 15 m. Sotto i 30 metri, o in due su una bombola, il gas minimo calcolato è la regola che risponde alla domanda giusta — si attiva qui sopra.':
+    'A fixed reserve does not scale with depth: at {0} m those same {1} bar last far less than at 15 m. Below 30 metres, or with two divers on one cylinder, the computed minimum gas is the rule that answers the right question — you switch to it above.',
+  'Il gas basta per {0} minuti di fondo, non {1}: servono più litri, una pressione di partenza più alta, meno profondità o meno tempo.':
+    'The gas is enough for {0} minutes of bottom time, not {1}: you need more litres, a higher starting pressure, less depth or less time.',
+  'Il piano consuma tutto il gas utilizzabile senza lasciare margine: {0} L pianificati su {1} L disponibili oltre la riserva.':
+    'The plan uses every usable litre with nothing to spare: {0} L planned out of {1} L available beyond the reserve.',
+  'A {0} m questa miscela supera il limite di PPO2 di {1} bar che hai impostato sul computer: la profondità massima operativa è {2} m.':
+    'At {0} m this mix goes past the PPO2 limit of {1} bar you set on the computer: its maximum operating depth is {2} m.',
+  'Pressione parziale dell’azoto {0} ata (END {1} m): oltre il limite superiore della fascia comunemente accettata, che va da 4.0 a 5.21 ata.':
+    'Nitrogen partial pressure {0} ata (END {1} m): beyond the upper end of the commonly accepted range, which runs from 4.0 to 5.21 ata.',
+  'Pressione parziale dell’azoto {0} ata (END {1} m): dentro la fascia accettata (4.0–5.21), ma sopra i 4.0 che la didattica indica come massimo in acqua fredda, buia o in ambiente ostruito.':
+    'Nitrogen partial pressure {0} ata (END {1} m): inside the accepted range (4.0–5.21), but above the 4.0 that training agencies give as the maximum in cold or dark water, or in an overhead environment.',
+  'Esposizione all’ossigeno {0}% dell’orologio CNS: il limite è il 100% e va contato su tutte le immersioni della giornata, non solo su questa.':
+    'Oxygen exposure {0}% of the CNS clock: the limit is 100% and it counts across every dive of the day, not just this one.',
+  'Esposizione all’ossigeno {0}% dell’orologio CNS, con {1} minuti sopra 1.4 bar: il limite è il 100% e va contato su tutte le immersioni della giornata, non solo su questa.':
+    'Oxygen exposure {0}% of the CNS clock, with {1} minutes above 1.4 bar: the limit is 100% and it counts across every dive of the day, not just this one.',
+  'Uscita prevista a {0} bar, sotto la riserva di {1} bar che hai scelto: il piano consuma il gas che dovevi tenere da parte.':
+    'Expected exit at {0} bar, below the {1} bar reserve you chose: the plan eats into the gas you meant to keep aside.',
+  'Uscita prevista a {0} bar, sotto la riserva di {1} bar: il piano non lascia margine per un imprevisto in superficie.':
+    'Expected exit at {0} bar, below the {1} bar reserve: the plan leaves no margin for something unexpected at the surface.',
+  'Il piano usa il consumo del compagno ({0} L/min) invece del tuo ({1}): la didattica impone di pianificare sul respiro più alto della squadra, altrimenti è lui a girare prima e il piano non lo sa.':
+    'The plan uses your buddy’s consumption ({0} L/min) instead of yours ({1}): training requires planning on the heaviest breather in the team, or it is the buddy who has to turn first and the plan does not know it.',
+  'La sosta è a {0} m ma {1} si respira solo da {2} m in su: il piano paga le soste col gas di fondo. Sposta la sosta o cambia miscela di decompressione.':
+    'The stop is at {0} m but {1} can only be breathed from {2} m up: the plan pays for the stops with bottom gas. Move the stop or change the decompression mix.',
+  'La bombola di decompressione non basta: servono {0} bar su {1} L ({2} L di soste × 1.5 di margine) e ne hai dichiarati {3}.':
+    'The decompression cylinder is not enough: it needs {0} bar on {1} L ({2} L of stops × 1.5 margin) and you declared {3}.',
+  'Anche la bombola di decompressione ({0}) va pulita per il servizio ossigeno, e va etichettata con la sua profondità massima: {1} m.':
+    'The decompression cylinder ({0}) also needs oxygen-service cleaning, and a label with its maximum depth: {1} m.',
+  'Oltre il 40% di ossigeno serve attrezzatura pulita per il servizio ossigeno: erogatore, bombola e riempimento. Questa miscela è al {0}%.':
+    'Above 40% oxygen you need oxygen-service clean equipment: regulator, cylinder and fill. This mix is {0}%.',
+  'A questa profondità e con questo tempo di fondo un obbligo decompressivo è probabile: le soste vanno prese dal tuo piano o dal computer e inserite come minuti aggiuntivi, questo pianificatore non le calcola.':
+    'At this depth and bottom time a decompression obligation is likely: take the stops from your own plan or from the computer and enter them as extra minutes — this planner does not work them out.',
+  'Nessun livello utilizzabile: profondità o tempi mancanti, negativi o non numerici. Il piano qui sotto è vuoto perché non c’è niente da pianificare, non perché l’immersione non richieda soste.':
+    'No usable level: depths or times are missing, negative or not numbers. The plan below is empty because there is nothing to plan, not because the dive needs no stops.',
+  'Profondità oltre i {0} m: il piano è stato calcolato a {1} m, che è già oltre il record mondiale a circuito aperto.':
+    'Depth beyond {0} m: the plan was worked out at {1} m, which is already past the open-circuit world record.',
+  'La risalita non converge: con questi gas e questi gradient factor il modello non arriva in superficie. Controlla le miscele.':
+    'The ascent does not converge: with these gases and gradient factors the model never reaches the surface. Check the mixes.',
+  'PPO2 fino a {0} bar in decompressione, oltre il limite di {1} che hai impostato.':
+    'PPO2 up to {0} bar during decompression, beyond the limit of {1} you set.',
+  'PPO2 fino a {0} bar in fase di lavoro, oltre {1}: a questa quota non hai una miscela respirabile.':
+    'PPO2 up to {0} bar during the working phase, beyond {1}: at this depth you have no breathable mix.',
+  'PPO2 di {0} bar a {1} m: sotto {2} la miscela non è respirabile. Per il tratto verso il fondo serve un gas di transito.':
+    'PPO2 of {0} bar at {1} m: below {2} the mix is not breathable. The stretch down to the bottom needs a travel gas.',
+  'Profondità narcotica equivalente fino a {0} m: oltre i 40 m la didattica tecnica chiede l’elio.':
+    'Equivalent narcotic depth up to {0} m: beyond 40 m technical training calls for helium.',
+  'L’ossigeno del rebreather non basta: servono {0} bar su {1} disponibili.':
+    'The rebreather’s oxygen is not enough: it needs {0} bar out of {1} available.',
+  'Il gas {0} non basta: servono {1} bar su {2} disponibili.':
+    'Gas {0} is not enough: it needs {1} bar out of {2} available.',
+  'Il gas {0} serve al piano ({1} L) ma la bombola dichiarata è vuota.':
+    'Gas {0} is needed by the plan ({1} L) but the cylinder you declared is empty.',
+  'Controdiffusione a {0} m passando da {1} a {2}: l’azoto sale di {3} bar mentre l’elio scende di {4}. La regola dei quinti dice di non farlo.':
+    'Isobaric counterdiffusion at {0} m switching from {1} to {2}: nitrogen rises by {3} bar while helium drops by {4}. The rule of fifths says not to.',
+  'Questo piano arriva in superficie al {0}% del valore M: oltre il cento per cento si emerge sopra il limite del modello, quali che siano i gradient factor impostati.':
+    'This plan surfaces at {0}% of the M-value: past one hundred per cent you surface above the model’s limit, whatever gradient factors are set.',
+  'GF99 previsto all’uscita {0}%, oltre il {1}% che hai impostato come GF alto.':
+    'GF99 expected on surfacing {0}%, beyond the {1}% you set as GF high.',
+  'Orologio CNS al {0}%: oltre il limite per singola esposizione.':
+    'CNS clock at {0}%: beyond the single-exposure limit.',
+  'Sopra 1.6 bar di PPO2 le tabelle NOAA non arrivano: il CNS qui sopra è calcolato come se fossero 1.6 bar, quindi è una SOTTOSTIMA. Il valore vero non lo sa nessuno, ed è la ragione per cui quel limite esiste.':
+    'Above 1.6 bar of PPO2 the NOAA tables stop: the CNS above is worked out as if it were 1.6 bar, so it is an UNDERESTIMATE. Nobody knows the true value, and that is exactly why the limit exists.',
+  'Oltre i 40 metri senza soste obbligate: verifica che il tuo computer, con i suoi gradient factor, sia d’accordo.':
+    'Beyond 40 metres with no mandatory stops: check that your computer, with its own gradient factors, agrees.',
+  /*
+   * LO SCARICO BLUETOOTH: QUANDO IL CONTO DELLE IMMERSIONI NON TORNA.
+   *
+   * Nascono in `core/ble/download.ts` e `core/ble/esterni.ts` e finiscono
+   * nell'elenco sotto la riga verde a fine scarico. Sono la SPIEGAZIONE del
+   * perché mancano delle immersioni: uscivano in italiano anche con
+   * l'applicazione in inglese, sotto un riepilogo inglese.
+   */
+  'Il computer non ha dato la data di questa immersione: non è stata importata.':
+    'The computer gave no date for this dive: it was not imported.',
+  'Un record del computer non ha né profondità né durata: non è un’immersione, non è stato importato.':
+    'One record from the computer has neither depth nor duration: it is not a dive, and was not imported.',
+  'Un’immersione non si è potuta leggere. Il punto di ripartenza non viene spostato, così alla prossima connessione il computer la ripropone: costa qualche minuto di lettura, ma non si perde niente.':
+    'One dive could not be read. The restart point is left where it is, so next time the computer offers it again: it costs a few minutes of reading, but nothing is lost.',
+  '{0} immersioni non si sono potute leggere. Il punto di ripartenza non viene spostato, così alla prossima connessione il computer le ripropone: costa qualche minuto di lettura, ma non si perde niente.':
+    '{0} dives could not be read. The restart point is left where it is, so next time the computer offers them again: it costs a few minutes of reading, but nothing is lost.',
+  'L’immersione è stata scaricata ma non si è potuta decodificare: {0}.':
+    'The dive was downloaded but could not be decoded: {0}.',
+  'Le {0} immersioni sono state scaricate ma non si sono potute decodificare: {1}.':
+    'The {0} dives were downloaded but could not be decoded: {1}.',
+  'Immersione {0} non letta: {1}': 'Dive {0} not read: {1}',
+  'Chiusura del collegamento non riuscita: {0}': 'Closing the connection failed: {0}',
+  'Scarico annullato: quello che era arrivato è stato salvato.':
+    'Download cancelled: whatever had arrived has been saved.',
   'Il file non è JSON valido': 'The file is not valid JSON',
   'il logbook funziona anche senza.': 'the logbook works without it.',
   'immersione cancellata': 'deleted dive',
@@ -1710,6 +1889,7 @@ export const INGLESE: Record<string, string> = {
     'Several cylinders: RMV in L/min is worked out on the total of all of them, while consumption in bar/min, the end pressure and the reserve fraction concern ONLY the first cylinder — bar from cylinders of different volume do not add up.',
   'Una bombola ha consumato gas ma non ha il litraggio: i suoi litri NON sono nel consumo in L/min, che quindi è più basso del vero. Scrivi il volume e il numero si corregge.':
     'One cylinder used gas but has no volume: its litres are NOT in the L/min figure, which is therefore lower than the truth. Enter the volume and the number corrects itself.',
+  '{0} bombole': '{0} cylinders',
   '{0} bombole hanno consumato gas ma non hanno il litraggio: i loro litri NON sono nel consumo in L/min, che quindi è più basso del vero. Scrivi i volumi e il numero si corregge.':
     '{0} cylinders used gas but have no volume: their litres are NOT in the L/min figure, which is therefore lower than the truth. Enter the volumes and the number corrects itself.',
   'Volume bombola non indicato: calcolabile solo il consumo in bar/min, non l’RMV in L/min.':
@@ -1799,6 +1979,8 @@ export const INGLESE: Record<string, string> = {
   selezionate: 'selected',
   'selezionate non sono in elenco': 'selected dives are not listed',
   semichiuso: 'semi-closed',
+  'Senza la profondità media i tessuti si stimano su un profilo quadro.':
+    'Without an average depth the tissues are estimated on a square profile.',
   'Senza le due pressioni e il volume della bombola il consumo non si può calcolare, e questa immersione resterà fuori dalle statistiche sul consumo.':
     'Without both pressures and the cylinder volume there is no RMV, and this dive stays out of the consumption stats.',
   'Senza temperatura questa immersione non entra nelle correlazioni fra freddo e consumo.':
@@ -2276,8 +2458,6 @@ export const INGLESE: Record<string, string> = {
     'That is the rate that lets technical gains stick instead of starting over every time.',
   '{0} immersioni {1}, ultima {2} giorni fa.': '{0} dives {1}, the last one {2} days ago.',
   '{0} immersioni su {1} hanno un profilo campionato.': '{0} dives out of {1} have a sampled profile.',
-  '{0} immersioni su {1} permettono di calcolare il consumo.':
-    '{0} dives out of {1} allow RMV to be worked out.',
   '{0} immersioni hanno la pressione ma non il volume della bombola.':
     '{0} dives have the pressure but not the cylinder volume.',
   '{0} immersioni non hanno le pressioni.': '{0} dives have no pressures at all.',
@@ -2348,8 +2528,6 @@ export const INGLESE: Record<string, string> = {
     'Check which gradient factors you have set — many divers do not know, and without that GF99 cannot be read.',
   "Velocità mediana sull'ultimo tratto {0} m/min, su {1} immersioni.":
     'Median speed on the last stretch {0} m/min, over {1} dives.',
-  '{0} immersioni sopra i {1} m/min raccomandati nei metri finali{2}.':
-    '{0} dives above the {1} m/min recommended in the final metres{2}.',
   ', di cui {0} sopra i 60 m/min': ', of which {0} above 60 m/min',
   'Misurata dalla sosta alla superficie, punto per punto: è un tratto troppo breve perché la velocità media dell’immersione lo mostri.':
     'Measured from the stop to the surface, point by point: too short a stretch for the dive’s average ascent rate to show it.',

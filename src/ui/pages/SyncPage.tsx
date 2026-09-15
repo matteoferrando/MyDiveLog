@@ -1198,7 +1198,17 @@ function BackupCard() {
     setPiano(null);
     void (async () => {
       try {
-        const check = checkBackup(JSON.parse(await f.text()));
+        /*
+         * La traduzione scende nel nucleo insieme al file.
+         *
+         * `checkBackup` vive in `core` e non conosce `t`; le sue frasi finiscono
+         * dritte in un riquadro rosso qui sotto (`setErrore(check.errors.join(' '))`)
+         * senza passare da nessun dizionario. Passandogli `t` escono già nella
+         * lingua giusta — ed è il ripristino, cioè l'operazione che si fa quando
+         * le cose sono già andate male: non è il momento di leggere una lingua
+         * che non si capisce.
+         */
+        const check = checkBackup(JSON.parse(await f.text()), t);
         setAvvisi(check.warnings);
         if (!check.ok || !check.file) {
           setErrore(check.errors.join(' '));
@@ -1226,7 +1236,7 @@ function BackupCard() {
    * `restoreBlockers` per il perché un backup vuoto in «ricostruisci da zero»
    * non sia una scelta legittima da lasciar prendere.
    */
-  const impedimenti = candidato ? restoreBlockers(candidato, modo, dives.length) : [];
+  const impedimenti = candidato ? restoreBlockers(candidato, modo, dives.length, t) : [];
 
   const ripristina = () => {
     if (!candidato || impedimenti.length) return;

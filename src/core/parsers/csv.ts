@@ -197,14 +197,27 @@ function rowToDive(row: Record<string, string>, fileName: string, importedAt: st
      * «colonne ignorate perché non riconosciute»: sparivano in silenzio, che è
      * peggio di non averle mai capite.
      */
-    weightKg: parseNumber(row.weight),
+    /*
+     * ► LA ZAVORRA PASSAVA DA `parseNumber`, CHE L'UNITÀ NON LA GUARDA. ◄ Il
+     * file dichiara «Weight (lbs)», l'applicazione RISPONDE all'utente «Unità
+     * dichiarate nell'intestazione e applicate a tutta la colonna: Weight
+     * (lbs)», e poi 14 libbre entravano in archivio come 14 chili. Una promessa
+     * scritta a schermo e non mantenuta è peggio di nessuna promessa: chi la
+     * legge smette di controllare. Sono 6.4 kg diventati 14, cioè il doppio del
+     * piombo su ogni immersione di uno storico importato.
+     */
+    weightKg: parseMeasure(row.weight, 'weight'),
     suit: row.suit,
     mode: 'oc',
     cylinders: [cylinder],
     salinity: 'salt',
     source: { format: 'csv', file: fileName, importedAt },
     rating: parseNumber(row.rating),
-    visibilityM: parseNumber(row.visibility),
+    // Stessa storia della zavorra, e con lo stesso avviso a schermo: il campo si
+    // chiama `visibilityM`, quindi «Visibility (ft)» va convertita come
+    // qualunque altra profondità. 30 piedi salvati come 30 metri non sono un
+    // arrotondamento: sono tre volte la visibilità vera.
+    visibilityM: parseMeasure(row.visibility, 'depth'),
     tags: (row.tags ?? '')
       .split(/[,;|]/)
       .map((t) => t.trim())
@@ -287,6 +300,16 @@ export function unitaDellIntestazione(header: string): string | undefined {
   const h = normalise(header);
   if (/\b(ft|feet|piedi)\b/.test(h)) return 'ft';
   if (/\bpsi\b/.test(h)) return 'psi';
+  /*
+   * ► LE LIBBRE NON ERANO NELL'ELENCO, E L'AVVISO LO DICEVA LO STESSO. ◄
+   * «Weight (lbs)» è la forma normale di un export imperiale, ma qui dentro non
+   * c'era nessuna riga che la riconoscesse: la colonna non entrava fra le
+   * `imperiali`, quindi l'avviso «unità dichiarate nell'intestazione e applicate
+   * a tutta la colonna» nemmeno la nominava — e la cella arrivava a
+   * `parseMeasure` senza unità, cioè come chili. Il numero restava lo stesso e
+   * cambiava di significato: 14 libbre di piombo diventavano 14 chili.
+   */
+  if (/\b(lb|lbs|libbre)\b/.test(h)) return 'lb';
   if (/\b(f|fahrenheit)\b/.test(h)) return '°F';
   return undefined;
 }
@@ -324,14 +347,27 @@ function resolveField(header: string): string | undefined {
 // Interpretazione dei valori
 // ---------------------------------------------------------------------------
 
-/** Riconosce l'unità nella cella e converte: "60 ft" → 18.3, "3000 psi" → 207. */
-function parseMeasure(raw: string | undefined, kind: 'depth' | 'pressure' | 'temp'): number | undefined {
+/**
+ * Un chilo in libbre. Sta qui e non in `core/units.ts` perché le libbre entrano
+ * nell'applicazione in un punto solo: la colonna della zavorra di un foglio
+ * imperiale. È il valore esatto della libbra internazionale, non un'approssimazione.
+ */
+const LB_TO_KG = 0.45359237;
+
+/** Riconosce l'unità nella cella e converte: "60 ft" → 18.3, "3000 psi" → 207, "14 lbs" → 6.4. */
+function parseMeasure(
+  raw: string | undefined,
+  kind: 'depth' | 'pressure' | 'temp' | 'weight',
+): number | undefined {
   if (!raw) return undefined;
   const value = parseNumber(raw);
   if (value === undefined) return undefined;
   const lower = raw.toLowerCase();
   if (kind === 'depth') return /ft|feet|piedi/.test(lower) ? round1(feetToM(value)) : round1(value);
   if (kind === 'pressure') return /psi/.test(lower) ? Math.round(psiToBar(value)) : Math.round(value);
+  // `\b` in coda e non `lbs?`: senza, «14 lb» starebbe dentro «14 lbs» ma anche
+  // dentro una parola qualunque che cominci per lb.
+  if (kind === 'weight') return /\blbs?\b|libbre/.test(lower) ? round1(value * LB_TO_KG) : round1(value);
   return /°?\s*f\b|fahrenheit/.test(lower) ? round1(fahrenheitToC(value)) : round1(value);
 }
 

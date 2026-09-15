@@ -553,6 +553,63 @@ export function piastraDellImmersione(
   return pesoDelGav(inventario.find((e) => e.id === id));
 }
 
+/** Circuito chiuso: le bombole non si contano, si conta il circuito. */
+export const CCR = 'Rebreather a circuito chiuso';
+/** Circuito semichiuso. */
+export const SCR = 'Rebreather semichiuso';
+/** Nessuna bombola registrata: il dato manca, non è zero. */
+export const BOMBOLE_NON_REGISTRATE = 'Bombole non registrate';
+/** Una sola bombola. */
+export const UNA_BOMBOLA = 'Una bombola';
+/** Due bombole. */
+export const DUE_BOMBOLE = 'Due bombole';
+/**
+ * Da tre in su: `{0}` è quante sono.
+ *
+ * ► PERCHÉ UN MODELLO E NON UNA CHIAVE PER OGNI NUMERO. ◄ Qui c'era scritto,
+ * accanto alla tabella, che «una chiave per ogni numero non è una traduzione» —
+ * ed è vero. La conclusione però era sbagliata: da lì si concludeva che «3
+ * bombole» e «4 bombole» dovessero restare italiane, in mezzo a righe inglesi.
+ *
+ * La risposta giusta è la stessa di tutto il resto del progetto: **si traduce
+ * prima e si riempie dopo**. Il modello è uno, la voce nel dizionario è una, e
+ * chi traduce può perfino spostare il numero se la sua lingua lo vuole altrove.
+ * Vedi `core/frase.ts`.
+ *
+ * Le prime due restano frasi a sé — «Una bombola», «Due bombole» — perché in
+ * italiano si scrivono in lettere e perché sono le due righe che compaiono
+ * sempre: è la stessa scelta di `avvertenze.ts`, dove il singolare ha il suo
+ * modello per non far dire «1 bombola hanno».
+ */
+export const N_BOMBOLE = '{0} bombole';
+
+/**
+ * Le etichette fisse, per la prova che le confronta col dizionario.
+ *
+ * Esportate perché `Gear.tsx` le traduce con `t(c.label)` — su una variabile — e
+ * `chiaviDi` vede solo una stringa letterale scritta subito dopo la parentesi
+ * aperta di `t`: da fuori, questo canale è invisibile alla guardia del
+ * dizionario. È la stessa cura di
+ * `core/ble/avanzamentoTesti.ts` e `core/analysis/avvertenze.ts`.
+ */
+export const ETICHETTE_DI_CONFIGURAZIONE = [
+  CCR,
+  SCR,
+  BOMBOLE_NON_REGISTRATE,
+  UNA_BOMBOLA,
+  DUE_BOMBOLE,
+  N_BOMBOLE,
+] as const;
+
+/** Una riga della tabella: il modello, i suoi valori, e quante immersioni. */
+export interface RigaDiConfigurazione {
+  /** Il MODELLO, cioè la chiave del dizionario. Coi segnaposti, quando ne ha. */
+  label: string;
+  /** I numeri che vanno nei segnaposti. Viaggiano a parte: vedi `core/frase.ts`. */
+  valori?: (string | number)[];
+  dives: number;
+}
+
 /**
  * La configurazione usata, ricavata dal numero di bombole per immersione.
  *
@@ -561,25 +618,35 @@ export function piastraDellImmersione(
  * ammetterla. Serve a rispondere «quante immersioni ho fatto con più di una
  * bombola», che è l'unica cosa che il log sa davvero.
  */
-export function configurationRows(dives: Dive[]): { label: string; dives: number }[] {
-  const counts = new Map<string, number>();
+export function configurationRows(dives: Dive[]): RigaDiConfigurazione[] {
+  const counts = new Map<string, RigaDiConfigurazione>();
   for (const d of dives) {
     const n = d.cylinders.length;
     const label =
       d.mode === 'ccr'
-        ? 'Rebreather a circuito chiuso'
+        ? CCR
         : d.mode === 'scr'
-          ? 'Rebreather semichiuso'
+          ? SCR
           : n === 0
-            ? 'Bombole non registrate'
+            ? BOMBOLE_NON_REGISTRATE
             : n === 1
-              ? 'Una bombola'
+              ? UNA_BOMBOLA
               : n === 2
-                ? 'Due bombole'
-                : `${n} bombole`;
-    counts.set(label, (counts.get(label) ?? 0) + 1);
+                ? DUE_BOMBOLE
+                : N_BOMBOLE;
+    const valori = label === N_BOMBOLE ? [n] : undefined;
+    /*
+     * La chiave del raggruppamento comprende i valori, non solo il modello:
+     * tre e quattro bombole condividono ormai lo stesso modello `{0} bombole`, e
+     * raggruppare sul solo modello le fonderebbe in una riga sola che dice un
+     * numero e ne conta un altro.
+     */
+    const chiave = valori ? `${label}\u0000${valori.join('\u0000')}` : label;
+    const riga = counts.get(chiave);
+    if (riga) riga.dives += 1;
+    else counts.set(chiave, { label, valori, dives: 1 });
   }
-  return [...counts.entries()].map(([label, dives]) => ({ label, dives })).sort((a, b) => b.dives - a.dives);
+  return [...counts.values()].sort((a, b) => b.dives - a.dives);
 }
 
 // ---------------------------------------------------------------------------

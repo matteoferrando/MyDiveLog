@@ -727,6 +727,16 @@ export function BleDownload() {
           onEvent,
           signal: ctl.signal,
           registra,
+          /*
+           * La lingua scende nel nucleo insieme al resto.
+           *
+           * Gli avvisi che `download.ts` produce — «tre immersioni non si sono
+           * potute leggere» — hanno un numero dentro, e un numero entrato nella
+           * frase prima del dizionario fa una chiave che cambia a ogni scarico.
+           * Si compongono quindi lì, dove il modello è uno solo, e arrivano qui
+           * già nella lingua giusta. Vedi `core/frase.ts`.
+           */
+          t: traduci,
           since: ({ serial }) => {
             if (tuttoDaCapo) return undefined;
             const chiave = markerKey(driver.id, serial, scelto.device.id);
@@ -975,6 +985,10 @@ export function BleDownload() {
       registra,
       transport,
       t,
+      // `useTraduciStabile()` ha un'identità che non cambia mai — vedi
+      // `ui/lingua.tsx` — quindi nominarla qui non fa ricostruire niente: serve
+      // solo a dire che questa funzione la usa davvero.
+      traduci,
     ],
   );
 
@@ -2530,8 +2544,24 @@ export function BleDownload() {
           </details>
           {stato.avvisi.length > 0 && (
             <ul className="muted" style={{ fontSize: 12, margin: '8px 0 0', paddingLeft: 18 }}>
+              {/*
+                ► QUESTO È IL PERCHÉ MANCANO DELLE IMMERSIONI, E USCIVA IN ITALIANO. ◄
+
+                L'elenco raccoglie frasi di tre provenienze: i motivi di scarto di
+                `core/ble/esterni.ts`, gli avvisi dei driver, e quelli
+                dell'importazione — che `state.tsx` traduce già. Veniva disegnato
+                così com'era, quindi con l'applicazione in inglese, finito lo
+                scarico, sotto la riga verde comparivano righe italiane: proprio
+                quelle che spiegano perché il conto non torna.
+
+                `frase()` su una stringa nuda fa esattamente quello che fa `t()` —
+                cerca la chiave e, non trovandola, restituisce la frase com'è — e
+                in più regge i modelli coi segnaposti. Quelle già tradotte passano
+                indenni: una frase inglese nel dizionario italiano non c'è, quindi
+                torna identica. È lo stesso meccanismo di `testoAvvertenza`.
+              */}
               {stato.avvisi.map((a, i) => (
-                <li key={i}>{a}</li>
+                <li key={i}>{frase(t, a)}</li>
               ))}
             </ul>
           )}

@@ -63,8 +63,8 @@ interface Colonna {
  */
 const COLONNE: Colonna[] = [
   { it: 'N.', en: 'No.', valore: (d) => d.number },
-  { it: 'Data', en: 'Date', valore: (d) => d.startTime.slice(0, 10) },
-  { it: 'Ora', en: 'Time', valore: (d) => d.startTime.slice(11, 16) },
+  { it: 'Data', en: 'Date', valore: (d) => oreLocali(d)?.data },
+  { it: 'Ora', en: 'Time', valore: (d) => oreLocali(d)?.ora },
   {
     it: 'Fuso (min)',
     en: 'UTC offset (min)',
@@ -167,6 +167,37 @@ const COLONNE: Colonna[] = [
   { it: 'Provenienza', en: 'Source', valore: (d) => provenienza(d) },
   { it: 'Note', en: 'Notes', valore: (d) => d.notes },
 ];
+
+/**
+ * Data e ora NEL FUSO DEL SITO, come ovunque nel resto dell'applicazione.
+ *
+ * ► COSA USCIVA PRIMA. ◄ `d.startTime.slice(0, 10)` e `.slice(11, 16)`: i
+ * caratteri dell'istante ISO, cioè l'ora **UTC**. Un'immersione delle 08:00 a
+ * UTC+14 usciva nel foglio come `2026-03-14 18:00` mentre il logbook, il PDF e
+ * il libretto della stessa immersione dicevano `15/03/2026 08:00`: non un'ora
+ * diversa — **un giorno diverso**. Chi somma le immersioni per mese, chi cerca
+ * «il tuffo di sabato» o chi confronta il foglio con la scheda stampata trova
+ * due verità, e nessuna delle due dice di essere in un fuso.
+ *
+ * Lo spostamento è quello di `ui/format.ts` e di `core/libretto.ts`: si somma
+ * l'offset all'istante e poi si legge in UTC, che è l'unico modo di rivedere
+ * l'ora che il computer al polso segnava. Senza `utcOffsetMinutes` non si sa e
+ * si resta su UTC — la stessa scelta dichiarata dal resto dell'app, e il valore
+ * sta comunque nella colonna «Fuso (min)» qui accanto, così il foglio resta
+ * leggibile senza indovinare.
+ */
+function oreLocali(d: Dive): { data: string; ora: string } | undefined {
+  const istante = Date.parse(d.startTime);
+  if (Number.isNaN(istante)) return undefined;
+  const spostato = new Date(istante + (d.utcOffsetMinutes ?? 0) * 60_000);
+  const due = (v: number) => String(v).padStart(2, '0');
+  return {
+    // La data resta in forma ISO: è quella che ogni foglio di calcolo riconosce
+    // come data in qualunque lingua sia impostato.
+    data: `${spostato.getUTCFullYear()}-${due(spostato.getUTCMonth() + 1)}-${due(spostato.getUTCDate())}`,
+    ora: `${due(spostato.getUTCHours())}:${due(spostato.getUTCMinutes())}`,
+  };
+}
 
 function etichettaMare(d: Dive): string | undefined {
   const w = conditionsOf(d).waves;

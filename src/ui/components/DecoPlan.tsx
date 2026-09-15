@@ -19,6 +19,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { testoAvvertenza } from '../../core/analysis/avvertenze';
 import { InputNumerico } from './InputNumerico';
 import { esporta } from '../esporta';
 import {
@@ -1039,8 +1040,18 @@ export function DecoPlanner({
 
       {plan.warnings.length > 0 && (
         <div className="stack" style={{ gap: 8 }}>
+          {/*
+            ► PPO2, CONTRODIFFUSIONE, GF99: TESTO CHE È UNA REGOLA DI SICUREZZA. ◄
+            Nascono in `core/analysis/deco.ts` e venivano disegnati così com'erano:
+            con l'applicazione in inglese uscivano in italiano, sotto
+            un'intestazione inglese. `testoAvvertenza` compone modello e valori
+            nella lingua di adesso — vedi `core/analysis/avvisiDelPiano.ts`.
+          */}
           {plan.warnings.map((w) => (
-            <div key={w.text} className={w.level === 'critical' ? 'notice notice-error' : 'notice'}>
+            <div
+              key={`${w.testo}|${w.valori?.join('|') ?? ''}`}
+              className={w.level === 'critical' ? 'notice notice-error' : 'notice'}
+            >
               <strong style={{ fontWeight: 650 }}>
                 {w.level === 'critical'
                   ? `${t('Il piano non regge')}: `
@@ -1048,7 +1059,7 @@ export function DecoPlanner({
                     ? `${t('Attenzione')}: `
                     : `${t('Da sapere')}: `}
               </strong>
-              {w.text}
+              {testoAvvertenza(w, t)}
             </div>
           ))}
         </div>
@@ -1416,9 +1427,13 @@ export function DecoPlanner({
               {bailout.warnings
                 .filter((w) => w.level === 'critical')
                 .map((w) => (
-                  <div key={w.text} className="notice notice-error" style={{ marginTop: 10 }}>
+                  <div
+                    key={`${w.testo}|${w.valori?.join('|') ?? ''}`}
+                    className="notice notice-error"
+                    style={{ marginTop: 10 }}
+                  >
                     <strong style={{ fontWeight: 650 }}>{t('Il bailout non regge')}: </strong>
-                    {w.text}
+                    {testoAvvertenza(w, t)}
                   </div>
                 ))}
             </>

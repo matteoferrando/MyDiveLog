@@ -29,7 +29,9 @@
  */
 
 import { mergeDive } from '../dedupe';
+import { frase } from '../frase';
 import type { Dive, Sample } from '../model';
+import { comeSta, type Traduci } from '../traduci';
 
 /**
  * La versione del formato.
@@ -198,6 +200,42 @@ export interface BackupCheck {
 }
 
 /**
+ * ═════════════════════════════════════════════════════════════════════════════
+ * ► LE QUATTRO FRASI CHE CONTANO QUALCOSA, IN DUE MODELLI L'UNA. ◄
+ *
+ * «1 immersioni compaiono più di una volta» era sbagliato **anche in italiano**,
+ * e non lo aggiusta `plural()`: quello sa mettere il sostantivo al singolare
+ * («1 immersione») ma la frase intorno continua a dire «compaiono». In italiano
+ * cambia il verbo, in inglese cambiano verbo e sostantivo: l'unica cosa che
+ * funziona è **due frasi intere**, ognuna traducibile per conto suo.
+ *
+ * È la stessa scelta già presa in `analysis/avvertenze.ts` per «Una bombola ha»
+ * contro «{0} bombole hanno», e per la stessa ragione: *chi traduce deve vedere
+ * la frase intera per poterla girare nella propria lingua*.
+ */
+
+/** Una sola immersione senza i campi indispensabili. */
+export const UNA_IMMERSIONE_INCOMPLETA =
+  'Un’immersione è incompleta — manca l’identificativo, la data, la profondità, la durata o la provenienza. Il file è danneggiato, e ripristinarlo renderebbe il logbook inapribile.';
+/** Come sopra, da due in su. `{0}` è quante sono. */
+export const IMMERSIONI_INCOMPLETE =
+  '{0} immersioni sono incomplete — manca l’identificativo, la data, la profondità, la durata o la provenienza. Il file è danneggiato, e ripristinarlo renderebbe il logbook inapribile.';
+
+/** Un solo identificativo ripetuto nel file. */
+export const UNA_IMMERSIONE_DOPPIA =
+  'Un’immersione compare più di una volta nel file: le copie verranno fuse fra loro invece di contarsi due volte.';
+/** Come sopra, da due in su. `{0}` è quante sono. */
+export const IMMERSIONI_DOPPIE =
+  '{0} immersioni compaiono più di una volta nel file: le copie verranno fuse fra loro invece di contarsi due volte.';
+
+/** «Ricostruisci da zero» con un file vuoto e UNA sola immersione in archivio. */
+export const RICOSTRUZIONE_A_VUOTO_UNA =
+  'Questo backup non contiene nessuna immersione, e «ricostruisci da zero» cancellerebbe l’unica che hai adesso senza rimetterne nessuna. Il file è vuoto o troncato: o ne usi un altro, oppure scegli «fondi», che con un file vuoto non fa niente.';
+/** Come sopra, da due in su. `{0}` è quante ne hai adesso. */
+export const RICOSTRUZIONE_A_VUOTO =
+  'Questo backup non contiene nessuna immersione, e «ricostruisci da zero» cancellerebbe le {0} che hai adesso senza rimetterne nessuna. Il file è vuoto o troncato: o ne usi un altro, oppure scegli «fondi», che con un file vuoto non fa niente.';
+
+/**
  * Controlla un file prima di toccare l'archivio.
  *
  * Il ripristino è l'operazione che si fa quando le cose sono già andate male, e
@@ -205,31 +243,54 @@ export interface BackupCheck {
  * peggio di come si era partiti. Quindi si verifica tutto PRIMA: che sia il
  * formato giusto, che la versione sia leggibile, che le immersioni abbiano i
  * campi senza cui non sono immersioni.
+ *
+ * ► CHI TRADUCE ARRIVA DA FUORI, ED È IL MOTIVO PER CUI C'È UN PARAMETRO IN PIÙ. ◄
+ * Questo modulo sta in `core`, dove `t()` non esiste: la lingua la sa
+ * l'interfaccia. Finora le frasi uscivano di qui già scritte in italiano e
+ * `SyncPage` le disegnava così com'erano — `setErrore(check.errors.join(' '))` —
+ * quindi **con l'applicazione in inglese e un file sbagliato usciva un riquadro
+ * rosso in italiano, proprio nell'operazione che si fa quando le cose sono già
+ * andate male**.
+ *
+ * La cura è quella che il progetto usa già nei parser: `t` come ultimo
+ * parametro, con `comeSta` per difetto — chi non lo passa ottiene l'italiano,
+ * che è la chiave del dizionario, e nessun chiamante esistente si rompe. Il
+ * vantaggio rispetto a far tradurre chi disegna è che qui le chiavi sono
+ * **stringhe letterali dentro `t()` e `frase()`**, quindi `chiaviDi` le vede e
+ * `tests/dizionario.test.ts` si accorge da solo di una voce mancante. Vedi
+ * `core/traduci.ts` e `core/frase.ts`.
  */
-export function checkBackup(raw: unknown): BackupCheck {
+export function checkBackup(raw: unknown, t: Traduci = comeSta): BackupCheck {
   const errors: string[] = [];
   const warnings: string[] = [];
 
   if (!raw || typeof raw !== 'object') {
-    return { ok: false, errors: ['Il file non contiene un oggetto JSON.'], warnings };
+    return { ok: false, errors: [t('Il file non contiene un oggetto JSON.')], warnings };
   }
   const f = raw as Partial<BackupFile>;
   if (f.format !== 'mydivelog-backup') {
     return {
       ok: false,
       errors: [
-        'Questo non è un backup di MyDiveLog. Se stai cercando di importare immersioni da un’altra applicazione, il posto giusto è la scheda Importa: lì i formati riconosciuti sono sette.',
+        t(
+          'Questo non è un backup di MyDiveLog. Se stai cercando di importare immersioni da un’altra applicazione, il posto giusto è la scheda Importa: lì i formati riconosciuti sono sette.',
+        ),
       ],
       warnings,
     };
   }
-  if (typeof f.version !== 'number') errors.push('Manca il numero di versione del formato.');
+  if (typeof f.version !== 'number') errors.push(t('Manca il numero di versione del formato.'));
   else if (f.version > BACKUP_VERSION) {
     errors.push(
-      `Il file è stato scritto da una versione più recente dell’applicazione (formato ${f.version}, questa legge fino al ${BACKUP_VERSION}). Aggiorna prima di ripristinare: leggerlo comunque significherebbe scartare in silenzio quello che non capisce.`,
+      frase(
+        t,
+        'Il file è stato scritto da una versione più recente dell’applicazione (formato {0}, questa legge fino al {1}). Aggiorna prima di ripristinare: leggerlo comunque significherebbe scartare in silenzio quello che non capisce.',
+        f.version,
+        BACKUP_VERSION,
+      ),
     );
   }
-  if (!Array.isArray(f.dives)) errors.push('Manca l’elenco delle immersioni.');
+  if (!Array.isArray(f.dives)) errors.push(t('Manca l’elenco delle immersioni.'));
   else {
     /*
      * Si controllano TUTTI i campi che l'interfaccia dà per scontati, non solo
@@ -257,19 +318,15 @@ export function checkBackup(raw: unknown): BackupCheck {
       typeof d.source !== 'object';
     const rotte = f.dives.filter(incompleta).length;
     if (rotte) {
-      errors.push(
-        `${rotte} immersioni sono incomplete — manca l’identificativo, la data, la profondità, la durata o la provenienza. Il file è danneggiato, e ripristinarlo renderebbe il logbook inapribile.`,
-      );
+      errors.push(rotte === 1 ? t(UNA_IMMERSIONE_INCOMPLETA) : frase(t, IMMERSIONI_INCOMPLETE, rotte));
     }
     const doppi = f.dives.length - new Set(f.dives.map((d) => d?.id)).size;
     if (doppi > 0) {
-      warnings.push(
-        `${doppi} immersioni compaiono più di una volta nel file: le copie verranno fuse fra loro invece di contarsi due volte.`,
-      );
+      warnings.push(doppi === 1 ? t(UNA_IMMERSIONE_DOPPIA) : frase(t, IMMERSIONI_DOPPIE, doppi));
     }
-    if (!f.dives.length) warnings.push('Il backup non contiene nessuna immersione.');
+    if (!f.dives.length) warnings.push(t('Il backup non contiene nessuna immersione.'));
   }
-  if (f.settings && typeof f.settings !== 'object') errors.push('Le impostazioni non sono leggibili.');
+  if (f.settings && typeof f.settings !== 'object') errors.push(t('Le impostazioni non sono leggibili.'));
   /*
    * Una chiave che il programma non scrive MAI non è un'impostazione da
    * ripristinare: è qualcosa che qualcun altro ha messo lì. La più pericolosa è
@@ -280,13 +337,21 @@ export function checkBackup(raw: unknown): BackupCheck {
   );
   if (sconosciute.length) {
     errors.push(
-      `Il file contiene impostazioni che questa applicazione non scrive mai (${sconosciute.join(', ')}). Non viene ripristinato: fra queste può esserci il registro delle cancellazioni, che si propagherebbe a tutti i dispositivi collegati.`,
+      frase(
+        t,
+        'Il file contiene impostazioni che questa applicazione non scrive mai ({0}). Non viene ripristinato: fra queste può esserci il registro delle cancellazioni, che si propagherebbe a tutti i dispositivi collegati.',
+        sconosciute.join(', '),
+      ),
     );
   }
   for (const k of SECRET_KEYS) {
     if (f.settings && k in (f.settings as object)) {
       warnings.push(
-        `Il file contiene la chiave «${k}», che nelle versioni recenti resta fuori dai backup perché è una credenziale. Verrà ignorata.`,
+        frase(
+          t,
+          'Il file contiene la chiave «{0}», che nelle versioni recenti resta fuori dai backup perché è una credenziale. Verrà ignorata.',
+          k,
+        ),
       );
     }
   }
@@ -313,11 +378,16 @@ export function checkBackup(raw: unknown): BackupCheck {
  * La fusione resta permessa: fondere un file vuoto non fa niente, e «non fa
  * niente» non ha bisogno di essere impedito.
  */
-export function restoreBlockers(file: BackupFile, mode: 'merge' | 'replace', currentDives: number): string[] {
+export function restoreBlockers(
+  file: BackupFile,
+  mode: 'merge' | 'replace',
+  currentDives: number,
+  t: Traduci = comeSta,
+): string[] {
   const out: string[] = [];
   if (mode === 'replace' && file.dives.length === 0 && currentDives > 0) {
     out.push(
-      `Questo backup non contiene nessuna immersione, e «ricostruisci da zero» cancellerebbe le ${currentDives} che hai adesso senza rimetterne nessuna. Il file è vuoto o troncato: o ne usi un altro, oppure scegli «fondi», che con un file vuoto non fa niente.`,
+      currentDives === 1 ? t(RICOSTRUZIONE_A_VUOTO_UNA) : frase(t, RICOSTRUZIONE_A_VUOTO, currentDives),
     );
   }
   return out;

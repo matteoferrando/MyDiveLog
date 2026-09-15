@@ -43,6 +43,7 @@ import {
   type EquipmentKind,
   type ServiceKind,
 } from '../../core/analysis/gear';
+import { frase } from '../../core/frase';
 import { LIMITS } from '../../core/model';
 import { useDiveLog } from '../state';
 import { dateShort, imm, plural } from '../format';
@@ -387,12 +388,18 @@ export function Gear() {
             <table>
               <tbody>
                 {configurazioni.map((c) => (
-                  <tr key={c.label}>
-                    {/* Le etichette fisse («Una bombola», «Rebreather a circuito
-                        chiuso») stanno nel dizionario; quelle con dentro un
-                        numero — «4 bombole» — restano italiane, perché una
-                        chiave per ogni numero non è una traduzione. */}
-                    <td>{t(c.label)}</td>
+                  <tr key={`${c.label}|${c.valori?.join('|') ?? ''}`}>
+                    {/*
+                      Le etichette fisse («Una bombola», «Rebreather a circuito
+                      chiuso») e quella col numero dentro («4 bombole») passano
+                      tutte di qui. Qui c'era scritto che una chiave per ogni
+                      numero non è una traduzione — vero — e se ne concludeva che
+                      «3 bombole» dovesse restare italiana in mezzo a righe
+                      inglesi. La risposta giusta è quella del resto del progetto:
+                      il modello è uno solo (`{0} bombole`), si traduce prima e si
+                      riempie dopo. Vedi `core/frase.ts`.
+                    */}
+                    <td>{frase(t, c.label, ...(c.valori ?? []))}</td>
                     <td className="num tabular">{imm(c.dives, t)}</td>
                   </tr>
                 ))}

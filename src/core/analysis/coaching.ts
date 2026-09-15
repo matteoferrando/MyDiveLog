@@ -29,7 +29,7 @@ import { formatDuration } from '../units';
 import { localeCorrente } from '../locale';
 import { comeSta, type Traduci } from '../traduci';
 import { frase } from '../frase';
-import { medianOf, type Aggregates } from './aggregate';
+import { medianOf, type Aggregates, type SeriesPoint } from './aggregate';
 import { profonditaMedia } from '../profondita';
 
 export type CoachArea = 'gas' | 'buoyancy' | 'ascent' | 'safety' | 'deco' | 'experience' | 'data';
@@ -157,7 +157,15 @@ export interface Plan {
 // Soglie di riferimento
 // ---------------------------------------------------------------------------
 
-const BENCHMARK = {
+/**
+ * I riferimenti del piano, ed **esportati perché Statistiche usi gli stessi**.
+ *
+ * Le due schermate avevano ognuna i suoi numeri scritti a mano: Statistiche
+ * chiamava «nei limiti» una sosta di sicurezza al 90%, il piano la chiamava «Da
+ * migliorare» fino al 95%, e sugli stessi dati le due pagine si contraddicevano.
+ * Una soglia che vive in due posti prima o poi diverge; questa vive qui.
+ */
+export const BENCHMARK = {
   /** Consumo di superficie, L/min. Riferimenti diffusi nella didattica tecnica. */
   rmvExcellent: 15,
   rmvGood: 20,
@@ -470,7 +478,20 @@ const ruleAscentRate: Rule = (agg, dives, t) => {
 const ruleSafetyStop: Rule = (agg, _dives, t) => {
   if (agg.safetyStopEligible < BENCHMARK.minBasis || agg.safetyStopRate === undefined) return null;
   const rate = agg.safetyStopRate;
-  if (rate >= 0.95) {
+  /*
+   * ► LA SOGLIA È UNA SOLA, E DECIDE SUL NUMERO CHE STAMPA. ◄
+   *
+   * Qui c'era `rate >= 0.95`, mentre Statistiche chiamava «nei limiti» lo
+   * stesso tasso a partire dal 90% (`BENCHMARK.safetyStopRate`, che è anche
+   * quello che il bersaglio qui sotto promette e che il criterio di prontezza
+   * chiede). Con 35 soste su 37 — 94.6% — le due pagine dicevano il contrario
+   * l'una dell'altra sugli stessi dati, e il titolo del ramo «da migliorare»
+   * stampava «95%», cioè la soglia che diceva di non aver raggiunto.
+   *
+   * Adesso la soglia è quella dichiarata una volta sola, e il confronto passa
+   * da `percentuale()`: decide lo stesso numero che si legge.
+   */
+  if (percentuale(rate) >= percentuale(BENCHMARK.safetyStopRate)) {
     return {
       id: 'safety-stop-good',
       area: 'safety',
@@ -576,7 +597,20 @@ const ruleCeilingViolations: Rule = (agg, dives, t) => {
 const ruleGasReserve: Rule = (agg, dives, t) => {
   if (agg.lowReserveEligible < BENCHMARK.minBasis || agg.lowReserveRate === undefined) return null;
   const rate = agg.lowReserveRate;
-  if (rate <= 0.02) {
+  /*
+   * ► LA STESSA SOGLIA DI STATISTICHE, E LO STESSO NUMERO STAMPATO. ◄
+   *
+   * Il cancello era `rate <= 0.02` mentre Statistiche chiama «nei limiti» fino
+   * al 5% (`BENCHMARK.lowReserveRate`): un archivio al 3% era un punto di forza
+   * di là e «Da migliorare» di qua.
+   *
+   * E il ramo buono stampava `pct(rate)` arrotondato all'intero: con **una**
+   * uscita sotto riserva su 250 si leggeva «Solo il **0%** delle 250 immersioni
+   * sotto i 50 bar», cioè la scheda negava il caso che stava descrivendo. Ora
+   * `percentuale()` scende di un decimale invece di dire zero — «0.4%» — e il
+   * confronto passa dallo stesso numero che finisce nella frase.
+   */
+  if (percentuale(rate) <= percentuale(BENCHMARK.lowReserveRate)) {
     return {
       id: 'reserve-good',
       area: 'safety',
@@ -754,6 +788,23 @@ const ruleDataQuality: Rule = (agg, dives, t) => {
    */
   const senzaPressioni = dives.filter((d) => !d.metrics?.quality?.hasTankPressure).length;
   const altraCausa = noGas - senzaPressioni - missingVolume;
+  /*
+   * ► «DALLE PRESSIONI» VUOL DIRE PRESSIONI **E** VOLUME. ◄
+   *
+   * La riga si calcolava come `agg.count - senzaPressioni`, cioè contava le
+   * immersioni che hanno le pressioni e basta. Ma per arrivare ai litri al
+   * minuto serve anche il volume della bombola — lo dice il `detail` di questa
+   * stessa scheda due schermate più giù, ed è il motivo per cui `missingVolume`
+   * esiste. Con dieci immersioni che hanno le pressioni e nessuna il volume si
+   * leggeva «**10 immersioni su 10** permettono di calcolare il consumo dalle
+   * pressioni» sotto un titolo che dice che l'analisi è bloccata, e sopra la
+   * riga «10 immersioni hanno la pressione ma non il volume della bombola».
+   * Tre righe della stessa scheda, e la prima smentiva le altre due: il numero
+   * giusto lì è **zero**.
+   */
+  const conPressioniEVolume = dives.filter(
+    (d) => d.metrics?.quality?.hasTankPressure && d.metrics.quality.hasCylinderVolume,
+  ).length;
 
   if (noGas / agg.count < 0.3 && noProfile / agg.count < 0.3) return null;
 
@@ -770,7 +821,7 @@ const ruleDataQuality: Rule = (agg, dives, t) => {
     frase(
       t,
       '{0} immersioni su {1} permettono di calcolare il consumo dalle pressioni.',
-      agg.count - senzaPressioni,
+      conPressioniEVolume,
       agg.count,
     ),
   ];
@@ -855,6 +906,30 @@ const ruleDecoExposure: Rule = (agg, dives, t) => {
   const violations = agg.ceilingViolations;
   if (violations > 0) return null; // già coperto dalla regola critica
 
+  /*
+   * ► «SENZA VIOLAZIONI» SI PUÒ DIRE SOLO DOVE LA VIOLAZIONE SI VEDREBBE. ◄
+   *
+   * Le immersioni decompressive si contano da due parti — il profilo oppure
+   * l'obbligo dichiarato dal computer — ma la violazione del tetto si può
+   * misurare da UNA sola: il canale del tetto dentro il profilo. Quando quel
+   * canale non c'è, `ceilingViolationS` vale 0 **per assenza di dato**, e
+   * `agg.ceilingViolations` lo legge come un'assenza di violazioni.
+   *
+   * Il caso vero: dieci immersioni a 42 m importate da LogTRAK, formato che il
+   * tetto non lo porta. Statistiche scriveva giustamente «— · nessuna
+   * immersione verificabile»; il piano, sugli stessi dieci profili, «10
+   * immersioni con obbligo decompressivo, **gestite senza violazioni**».
+   * *Non verificabile non è «tutto a posto», e qui si parla di decompressione.*
+   *
+   * Il titolo parla di TUTTE le immersioni decompressive, quindi la scheda esce
+   * solo se tutte sono verificabili. Su un archivio misto il piano tace: è la
+   * perdita di un punto di forza, contro una rassicurazione che nessun dato
+   * sostiene. `agg.ceilingEligible` non basterebbe da solo — conta su tutto
+   * l'archivio, e qui la domanda riguarda queste immersioni.
+   */
+  const verificabili = decoDives.filter((d) => d.metrics?.quality?.hasCeiling === true).length;
+  if (verificabili < decoDives.length) return null;
+
   return {
     id: 'deco-exposure',
     area: 'deco',
@@ -901,6 +976,51 @@ const ruleDecoExposure: Rule = (agg, dives, t) => {
  * fermarsi più a lungo negli ultimi metri. Quindi qui si riportano i numeri e si
  * rimanda all'istruttore per l'interpretazione, senza prescrivere niente.
  */
+
+/**
+ * Il gradient factor alto quando il computer non lo ha scritto.
+ *
+ * È il valore più diffuso, ed è un'ASSUNZIONE: le frasi che ci si appoggiano
+ * devono dirlo, vedi `conGfNoto` dentro `ruleGf99`.
+ */
+export const GF_ALTO_ASSUNTO = 85;
+
+/**
+ * Quanta parte del PROPRIO gradient factor alto si può usare e chiamarlo ancora
+ * «margine». Tre quarti: oltre, il margine è quello che è rimasto, non quello
+ * che si è tenuto.
+ */
+export const GF99_FRAZIONE_CON_MARGINE = 0.75;
+
+/** Il GF alto mediano delle immersioni di una serie di GF99, assunto dove manca. */
+export function gfAltoMedianoDi(gf99: SeriesPoint[], dives: Dive[]): number {
+  const gfHighOf = (diveId: string) =>
+    dives.find((d) => d.id === diveId)?.computer?.gfHigh ?? GF_ALTO_ASSUNTO;
+  return medianOf(gf99.map((p) => gfHighOf(p.diveId))) ?? GF_ALTO_ASSUNTO;
+}
+
+/**
+ * Se un GF99 lascia margine, misurato come frazione del proprio limite.
+ *
+ * ► ESPORTATA PERCHÉ IL CRITERIO SIA UNO SOLO. ◄ Il piano la usava (scritta a
+ * mano) e Statistiche no: lì il giudizio restava `avgGf99 <= 65`, una soglia
+ * assoluta. Con un computer impostato a 70/70 e un GF99 di 64, Statistiche
+ * scriveva «nei limiti» e il piano «margine ridotto» — e 64 su 70 è il 91% del
+ * proprio limite, cioè quasi niente di margine. Il perché per esteso, con la
+ * tabella dei due casi, sta dentro `ruleGf99`.
+ *
+ * `undefined` quando non c'è niente da giudicare: un archivio senza GF99 non è
+ * un archivio prudente.
+ */
+export function gf99ConMargine(
+  valore: number | undefined,
+  gf99: SeriesPoint[],
+  dives: Dive[],
+): boolean | undefined {
+  if (valore === undefined || gf99.length === 0) return undefined;
+  return valore / gfAltoMedianoDi(gf99, dives) <= GF99_FRAZIONE_CON_MARGINE;
+}
+
 const ruleGf99: Rule = (agg, dives, t) => {
   const n = agg.gf99.length;
   if (n < BENCHMARK.minBasis || agg.avgGf99 === undefined) return null;
@@ -932,7 +1052,6 @@ const ruleGf99: Rule = (agg, dives, t) => {
    * l'archivio — ma adesso si conta anche su quante immersioni il valore era
    * davvero scritto, e la prova lo dichiara.
    */
-  const GF_ALTO_ASSUNTO = 85;
   const gfHighDi = (diveId: string) => dives.find((d) => d.id === diveId)?.computer?.gfHigh;
   const gfHighOf = (diveId: string) => gfHighDi(diveId) ?? GF_ALTO_ASSUNTO;
   const high = agg.gf99.filter((p) => p.value / gfHighOf(p.diveId) >= 0.85).length;
@@ -959,9 +1078,16 @@ const ruleGf99: Rule = (agg, dives, t) => {
    * contrario.* Adesso il cancello guarda la stessa frazione di `high`: la
    * mediana rapportata al GF alto di quelle immersioni. Tre quarti del proprio
    * limite è «margine»; oltre, non lo è.
+   *
+   * ► E LA CORREZIONE È ARRIVATA QUI E NON IN STATISTICHE. ◄ La tabella qui
+   * sopra descriveva ANCHE la riga «GF99 medio all'uscita» della pagina
+   * Statistiche, che continuava a giudicare con `avgGf99 <= 65`: con un
+   * computer a 70/70 e GF99 64%, il piano diceva «margine ridotto» e
+   * Statistiche «nei limiti» — sugli stessi numeri, nella stessa applicazione.
+   * Per questo il criterio adesso è una funzione esportata,
+   * `gf99ConMargine`, e non due righe gemelle in due file.
    */
-  const gfAltoMediano = medianOf(agg.gf99.map((p) => gfHighOf(p.diveId))) ?? GF_ALTO_ASSUNTO;
-  const conMargine = median / gfAltoMediano <= 0.75;
+  const conMargine = gf99ConMargine(median, agg.gf99, dives) === true;
 
   const evidence = [
     frase(
@@ -1551,6 +1677,83 @@ export function storicoDi(dives: Dive[], now = Date.now()): Storico {
   return { count: dives.length, deepDives24, deepDives30, divesLast12m };
 }
 
+/**
+ * Una frazione come criterio di prontezza: il valore mostrato, in percento.
+ *
+ * ► ESISTE PERCHÉ `have` E `met` NON POSSANO PIÙ GUARDARE DUE NUMERI DIVERSI. ◄
+ * `have` era `Math.round(rate * 100)` e `met` decideva sulla frazione piena,
+ * quindi la riga poteva mostrare un valore che soddisfa il criterio mostrato e
+ * marcarsi «da fare»:
+ *
+ * | criterio | dati | `have` | `need` | `met` prima |
+ * |---|---|---|---|---|
+ * | risalite fuori limite | 12 su 115 → 0.104 | **10%** | non oltre 10% | ✗ |
+ * | soste di sicurezza | 43 su 48 → 0.896 | **90%** | almeno 90% | ✗ |
+ *
+ * Chi legge vede «10% / non oltre 10% · da fare» e non ha nessun modo di
+ * capire perché. Adesso il confronto avviene sull'intero che finisce a schermo,
+ * e i due decimali che nessuno vede non decidono più niente.
+ */
+function criterioPercentuale(
+  label: string,
+  rate: number | undefined,
+  need: number,
+  opts: { lowerIsBetter?: boolean } = {},
+) {
+  return criterioMostrato(label, rate === undefined ? undefined : Math.round(rate * 100), need, '%', opts);
+}
+
+/**
+ * Una misura come criterio di prontezza: il valore mostrato, con un decimale.
+ *
+ * Stessa regola di `criterioPercentuale`, applicata alle righe in L/min e
+ * m/min. `Coach.tsx` le stampa con `toFixed(1)`, quindi un consumo medio di
+ * 20.04 L/min si legge «20.0 / non oltre 20 · **da fare**»: il numero a
+ * schermo soddisfa il criterio a schermo, e la riga dice di no per via di un
+ * centesimo che non compare da nessuna parte.
+ */
+function criterioMisura(
+  label: string,
+  valore: number | undefined,
+  need: number,
+  unit: string,
+  opts: { lowerIsBetter?: boolean } = {},
+) {
+  return criterioMostrato(
+    label,
+    valore === undefined ? undefined : Math.round(valore * 10) / 10,
+    need,
+    unit,
+    opts,
+  );
+}
+
+function criterioMostrato(
+  label: string,
+  have: number | undefined,
+  need: number,
+  unit: string,
+  opts: { lowerIsBetter?: boolean },
+): {
+  label: string;
+  have: number | undefined;
+  need: number;
+  unit: string;
+  met: boolean;
+  lowerIsBetter?: boolean;
+} {
+  return {
+    label,
+    have,
+    need,
+    unit,
+    // Un criterio mai misurato non è soddisfatto: `undefined` non è uno zero
+    // ottimo né un cento ottimo, è un dato che non c'è.
+    met: have === undefined ? false : opts.lowerIsBetter ? have <= need : have >= need,
+    ...(opts.lowerIsBetter ? { lowerIsBetter: true } : {}),
+  };
+}
+
 function readinessFor(goal: Goal, agg: Aggregates, storico: Storico, t: Traduci): Readiness {
   /*
    * LE ETICHETTE SI TRADUCONO QUI, le note no.
@@ -1588,37 +1791,25 @@ function readinessFor(goal: Goal, agg: Aggregates, storico: Storico, t: Traduci)
         note: 'Continuità: conta più del totale storico.',
       },
       {
-        label: t('Consumo di superficie'),
-        have: agg.avgRmv,
-        need: BENCHMARK.rmvGood,
-        unit: 'L/min',
-        met: agg.avgRmv !== undefined && agg.avgRmv <= BENCHMARK.rmvGood,
-        lowerIsBetter: true,
+        ...criterioMisura(t('Consumo di superficie'), agg.avgRmv, BENCHMARK.rmvGood, 'L/min', {
+          lowerIsBetter: true,
+        }),
         note: 'Serve un valore noto e stabile: la pianificazione del gas si basa su questo.',
       },
-      {
-        label: t('Oscillazione a quota tenuta'),
-        have: agg.avgTrim,
-        need: BENCHMARK.trimGood,
-        unit: 'm/min',
-        met: agg.avgTrim !== undefined && agg.avgTrim <= BENCHMARK.trimGood,
+      criterioMisura(t('Oscillazione a quota tenuta'), agg.avgTrim, BENCHMARK.trimGood, 'm/min', {
         lowerIsBetter: true,
-      },
-      {
-        label: t('Immersioni con risalite fuori limite'),
-        have: agg.fastAscentRate === undefined ? undefined : Math.round(agg.fastAscentRate * 100),
-        need: 10,
-        unit: '%',
-        met: (agg.fastAscentRate ?? 1) <= BENCHMARK.fastAscentRate,
-        lowerIsBetter: true,
-      },
-      {
-        label: t('Soste di sicurezza completate'),
-        have: agg.safetyStopRate === undefined ? undefined : Math.round(agg.safetyStopRate * 100),
-        need: 90,
-        unit: '%',
-        met: (agg.safetyStopRate ?? 0) >= BENCHMARK.safetyStopRate,
-      },
+      }),
+      criterioPercentuale(
+        t('Immersioni con risalite fuori limite'),
+        agg.fastAscentRate,
+        Math.round(BENCHMARK.fastAscentRate * 100),
+        { lowerIsBetter: true },
+      ),
+      criterioPercentuale(
+        t('Soste di sicurezza completate'),
+        agg.safetyStopRate,
+        Math.round(BENCHMARK.safetyStopRate * 100),
+      ),
       {
         label: t('Immersioni con soste decompressive'),
         have: agg.decoDives,
@@ -1664,21 +1855,14 @@ function readinessFor(goal: Goal, agg: Aggregates, storico: Storico, t: Traduci)
         unit: '',
         met: storico.divesLast12m >= 10,
       },
-      {
-        label: t('Consumo di superficie'),
-        have: agg.avgRmv,
-        need: BENCHMARK.rmvHigh,
-        unit: 'L/min',
-        met: agg.avgRmv !== undefined && agg.avgRmv <= BENCHMARK.rmvHigh,
+      criterioMisura(t('Consumo di superficie'), agg.avgRmv, BENCHMARK.rmvHigh, 'L/min', {
         lowerIsBetter: true,
-      },
-      {
-        label: t('Soste di sicurezza completate'),
-        have: agg.safetyStopRate === undefined ? undefined : Math.round(agg.safetyStopRate * 100),
-        need: 90,
-        unit: '%',
-        met: (agg.safetyStopRate ?? 0) >= BENCHMARK.safetyStopRate,
-      },
+      }),
+      criterioPercentuale(
+        t('Soste di sicurezza completate'),
+        agg.safetyStopRate,
+        Math.round(BENCHMARK.safetyStopRate * 100),
+      ),
     );
   } else {
     items.push(
@@ -1689,29 +1873,17 @@ function readinessFor(goal: Goal, agg: Aggregates, storico: Storico, t: Traduci)
         unit: '',
         met: storico.divesLast12m >= 12,
       },
-      {
-        label: t('Consumo di superficie'),
-        have: agg.avgRmv,
-        need: BENCHMARK.rmvGood,
-        unit: 'L/min',
-        met: agg.avgRmv !== undefined && agg.avgRmv <= BENCHMARK.rmvGood,
+      criterioMisura(t('Consumo di superficie'), agg.avgRmv, BENCHMARK.rmvGood, 'L/min', {
         lowerIsBetter: true,
-      },
-      {
-        label: t('Oscillazione a quota tenuta'),
-        have: agg.avgTrim,
-        need: BENCHMARK.trimGood,
-        unit: 'm/min',
-        met: agg.avgTrim !== undefined && agg.avgTrim <= BENCHMARK.trimGood,
+      }),
+      criterioMisura(t('Oscillazione a quota tenuta'), agg.avgTrim, BENCHMARK.trimGood, 'm/min', {
         lowerIsBetter: true,
-      },
-      {
-        label: t('Soste di sicurezza completate'),
-        have: agg.safetyStopRate === undefined ? undefined : Math.round(agg.safetyStopRate * 100),
-        need: 90,
-        unit: '%',
-        met: (agg.safetyStopRate ?? 0) >= BENCHMARK.safetyStopRate,
-      },
+      }),
+      criterioPercentuale(
+        t('Soste di sicurezza completate'),
+        agg.safetyStopRate,
+        Math.round(BENCHMARK.safetyStopRate * 100),
+      ),
     );
   }
 
@@ -1964,7 +2136,36 @@ export function debriefDive(dive: Dive, t: Traduci = comeSta): Observation[] {
 
 // ---------------------------------------------------------------------------
 
-const pct = (v: number) => `${Math.round(v * 100)}%`;
+/**
+ * La percentuale COME FINISCE A SCHERMO, in numero.
+ *
+ * ► ESISTE PERCHÉ IL NUMERO CHE DECIDE DEV'ESSERE QUELLO CHE SI MOSTRA. ◄ Le
+ * schede stampavano `pct(rate)` — arrotondato all'intero — e sceglievano il
+ * ramo sul valore pieno. Due difetti, tutti e due visibili nella stessa riga:
+ *
+ *  - 35 soste su 37 fanno 94.6%, che stampato è «95%», sotto un testo scelto
+ *    dal ramo «sotto il 95%». La scheda contraddiceva il proprio titolo.
+ *  - un'uscita sotto riserva su 250 fa 0.4%, che arrotondato all'intero è
+ *    «**0%**»: il numero più rassicurante che ci sia, stampato dove un caso
+ *    c'è. Sotto il mezzo punto percentuale si scende di un decimale, perché
+ *    uno zero al posto di «una su 250» non è un arrotondamento, è un'altra
+ *    informazione.
+ *
+ * Confrontando `percentuale(valore)` con `percentuale(soglia)` il ramo e la
+ * frase non possono più dire cose diverse, qualunque sia l'arrotondamento.
+ */
+export function percentuale(v: number): number {
+  if (!(v > 0)) return 0;
+  const intera = Math.round(v * 100);
+  if (intera > 0) return intera;
+  const decimo = Math.round(v * 1000) / 10;
+  // Anche un decimo può arrotondare a zero (una su cinquemila): allora si
+  // mostra il più piccolo valore che resta diverso da zero. Meglio un numero
+  // leggermente generoso che uno che nega il caso.
+  return decimo > 0 ? decimo : 0.1;
+}
+
+const pct = (v: number) => `${percentuale(v)}%`;
 const rmv2 = (v: number) => v.toFixed(1);
 const signed = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(1)}`;
 

@@ -55,6 +55,20 @@ const ALTEZZA = 842;
 const MARGINE = 48;
 
 /**
+ * Dove comincia il blocco delle firme, in fondo alla scheda immersione.
+ *
+ * È una costante e non un numero scritto in due posti perché serve a chi
+ * disegna le firme E a chi scrive sopra di loro: il testo della scheda deve
+ * sapere dove si deve fermare, e finché quel confine esisteva solo dentro la
+ * funzione che disegna, chi scriveva più in alto poteva solo sperare.
+ */
+const Y_FIRME = MARGINE + 64;
+/** L'altezza del riquadro in cui si ridisegna il tratto raccolto sul posto. */
+const ALTEZZA_FIRMA = 40;
+/** La quota sotto la quale nessun testo della scheda può scendere. */
+const CIMA_DELLE_FIRME = Y_FIRME + 4 + ALTEZZA_FIRMA;
+
+/**
  * Da carattere a byte WinAnsi, per quelli che servono all'italiano.
  *
  * Non è una tabella completa e non deve esserlo: copre le lettere accentate, le
@@ -572,15 +586,52 @@ function contenutoPagina(dive: Dive, samples: Sample[], opts: PdfOptions): strin
   const dettagli: [string, string][] = [
     ['Compagno', dive.buddy ?? '—'],
     ['Acqua', dive.salinity === undefined ? '—' : dive.salinity === 'fresh' ? 'Dolce' : 'Salata'],
-    ['Bombole', bombole(dive)],
     ['Muta', dive.gear?.suit?.name ?? dive.suit ?? '—'],
     ['Zavorra', dive.weightKg === undefined ? '—' : `${dive.weightKg} kg`],
     ['Provenienza', accorcia(provenienza(dive, opts.etichetteFormato ?? {}), 40)],
   ];
   scrivi(c, MARGINE, y, 'La scheda', 11, true);
   y -= 16;
+
+  /*
+   * ► LE BOMBOLE HANNO UNA RIGA TUTTA PER LORO, E LA RAGIONE È UN CONTO. ◄
+   *
+   * Stavano nella griglia a due colonne con `accorcia(valore, 24)`. Ventiquattro
+   * caratteri: «15 L da 210 a 60 bar (32% analizzato) · 7 L da 200 a 150 bar»
+   * ne ha sessanta, e sul foglio usciva «15 L da 210 a 60 bar…» — sparivano la
+   * stage **e** la percentuale analizzata, che è proprio il dato per cui
+   * `bombole()` la scrive: chi ti chiede il foglio vuole sapere che il gas l'hai
+   * verificato. Su un documento che qualcuno controlla, un dato tagliato vale
+   * meno di nessun dato: sembra che l'applicazione non lo sappia.
+   *
+   * La geometria dice che lo spazio c'era, e dove. Nella griglia il valore ha
+   * `mezzo - 152` punti, cioè 97.5: quella stringa ne vuole circa 203, e
+   * nessun troncamento «più largo» ce la farebbe stare. A tutta pagina il
+   * valore ne ha 347, e ci sta con il doppio di margine; quando non basta —
+   * quattro bombole, o le sigle lunghe — va a capo invece di essere tagliata.
+   *
+   * L'a capo si MISURA con le larghezze di Helvetica invece di contare i
+   * caratteri: una riga di «15 L» e una di «WWWW» hanno lo stesso numero di
+   * caratteri e larghezze diversissime. `LARGHEZZE` è la tabella del tondo e
+   * qui si scrive in nero: si manda a capo su una frazione della larghezza vera,
+   * che è il modo di tenere il conto dalla parte giusta senza portarsi dietro
+   * una seconda tabella.
+   */
+  const LARGHEZZA_VALORE = LARGHEZZA - MARGINE - (MARGINE + 152);
+  const MARGINE_DEL_NERO = 0.9;
+  const righeBombole = aCapoMisurato(bombole(dive), 7.5, LARGHEZZA_VALORE * MARGINE_DEL_NERO);
+  righeBombole.forEach((linea, i) => {
+    if (i === 0) {
+      grigio(c, 0.45);
+      scrivi(c, MARGINE, y, 'Bombole', 7.5);
+      grigio(c, 0);
+    }
+    scrivi(c, MARGINE + 152, y - i * 12, linea, 7.5, true);
+  });
+  y -= righeBombole.length * 12;
+
   // Qui le due colonne restano: sono coppie brevi — «Zavorra», «6 kg» — e su
-  // una colonna sola sprecherebbero mezza pagina per sei righe.
+  // una colonna sola sprecherebbero mezza pagina per cinque righe.
   const mezzo = (LARGHEZZA - MARGINE * 2) / 2;
   const metaDettagli = Math.ceil(dettagli.length / 2);
   dettagli.forEach(([etichetta, valore], i) => {
@@ -592,18 +643,35 @@ function contenutoPagina(dive: Dive, samples: Sample[], opts: PdfOptions): strin
     grigio(c, 0);
     scrivi(c, x + 152, riy, accorcia(valore, 24), 7.5, true);
   });
-  y -= metaDettagli * 13 + 20;
+  // Lo stacco prima delle note era di venti punti e adesso è di dodici: li
+  // riprende la riga delle bombole qui sopra. È spazio bianco fra due blocchi,
+  // e vale meno della stage che prima non si leggeva.
+  y -= metaDettagli * 13 + 12;
 
   if (dive.notes) {
-    scrivi(c, MARGINE, y, 'Note', 11, true);
-    y -= 14;
-    // A capo contando i caratteri: senza le tabelle delle larghezze non si può
-    // misurare il testo, e novantacinque caratteri a corpo otto stanno dentro
-    // il foglio con margine di sicurezza. Al massimo sei righe: una nota lunga
-    // sta nell'applicazione, non su un foglio da firmare.
-    for (const linea of aCapo(dive.notes, 95).slice(0, 6)) {
-      scrivi(c, MARGINE, y, linea, 8);
-      y -= 11;
+    /*
+     * ► QUANTE RIGHE CI STANNO SI MISURA, non si spera. ◄
+     *
+     * Il limite era sei righe fisse, e reggeva finché niente cresceva sopra:
+     * con le sei righe piene l'ultima cadeva diciassette punti sopra il riquadro
+     * della firma. Bastava una riga in più nel blocco qui sopra — una quarta
+     * bombola — e il testo della nota finiva DENTRO la firma dell'istruttore,
+     * su un foglio che serve proprio a farsi firmare. Le firme stanno a
+     * un'altezza fissa apposta (vedi più sotto): allora è il testo a doversi
+     * fermare, e a saperlo prima di scrivere invece che dopo.
+     *
+     * Sei resta il massimo — una nota lunga sta nell'applicazione, non su un
+     * foglio da firmare — e l'a capo continua a contare i caratteri, che a corpo
+     * otto su novantacinque colonne sta dentro il foglio con margine.
+     */
+    const quante = Math.min(6, Math.ceil((y - 14 - CIMA_DELLE_FIRME) / 11));
+    if (quante > 0) {
+      scrivi(c, MARGINE, y, 'Note', 11, true);
+      y -= 14;
+      for (const linea of aCapo(dive.notes, 95).slice(0, quante)) {
+        scrivi(c, MARGINE, y, linea, 8);
+        y -= 11;
+      }
     }
   }
 
@@ -613,10 +681,10 @@ function contenutoPagina(dive: Dive, samples: Sample[], opts: PdfOptions): strin
    * a seconda della lunghezza delle note sembra fatto male, e su una pila di
    * schede impilate si vede al primo colpo d'occhio.
    */
-  const yFirme = MARGINE + 64;
+  const yFirme = Y_FIRME;
   const larghezzaFirma = 200;
   if (!firmaVuota(dive.firmaGuida)) {
-    segnoFirma(c, dive.firmaGuida!, MARGINE, yFirme + 4, larghezzaFirma, 40);
+    segnoFirma(c, dive.firmaGuida!, MARGINE, yFirme + 4, larghezzaFirma, ALTEZZA_FIRMA);
   }
   riga(c, MARGINE, yFirme, MARGINE + larghezzaFirma, yFirme, 0.6);
   grigio(c, 0.45);

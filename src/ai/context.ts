@@ -40,7 +40,8 @@ import { conditionsOf, condizioniTesto, visibilitaTesto } from '../core/conditio
 import { piastraDellImmersione, zavorraTotaleKg, type Equipment } from '../core/analysis/gear';
 import { temperaturaMinimaC } from '../core/temperatura';
 import { profonditaMedia } from '../core/profondita';
-import { avvertenzeComposte } from '../core/analysis/avvertenze';
+import { avvertenzeComposte, testoAvvertenza } from '../core/analysis/avvertenze';
+import { comeSta } from '../core/traduci';
 
 /** Quanti punti del profilo entrano nel contesto di una singola immersione. */
 const PROFILE_POINTS = 48;
@@ -954,7 +955,9 @@ export function gasPlanContext(
           nonBasta: plan.deco.short,
         }
       : 'nessuna bombola di decompressione separata: le soste si pagano col gas di fondo',
-    avvertenzeGiaProdotteDallApp: plan.warnings.map((w) => `${w.level}: ${w.text}`),
+    // Il contesto per l'analisi è in italiano: gli avvisi si compongono con
+    // l'identità, che è la traduzione che non traduce. Vedi `avvertenze.ts`.
+    avvertenzeGiaProdotteDallApp: plan.warnings.map((w) => `${w.level}: ${testoAvvertenza(w, comeSta)}`),
     schedulediContingenza: contingency.map((c) => ({
       scenario: c.label,
       cosaCambia: c.change,
@@ -1139,7 +1142,7 @@ export function decoPlanContext(
       aumentoAzotoBar: w.n2RiseBar,
       caloElioBar: w.heDropBar,
     })),
-    avvisi: result.warnings.map((w) => ({ gravita: w.level, testo: w.text })),
+    avvisi: result.warnings.map((w) => ({ gravita: w.level, testo: testoAvvertenza(w, comeSta) })),
     contingenze: contingencies.map((c) => ({
       scenario: c.label,
       descrizione: c.description,

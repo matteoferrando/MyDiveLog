@@ -24,6 +24,7 @@ import type { Dive, GasMix, Sample } from '../model';
 import { barToPascal, cToKelvin, mixName } from '../units';
 import { temperaturaMinimaC } from '../temperatura';
 import { profonditaMedia } from '../profondita';
+import { firmaVuota } from '../firma';
 
 export interface UddfExportOptions {
   /** Nome del generatore scritto nel file. */
@@ -34,11 +35,39 @@ export interface UddfExportOptions {
   includeProfiles?: boolean;
 }
 
+/**
+ * Una perdita dichiarata, insieme ai campi del modello che la producono.
+ *
+ * ► PERCHÉ I CAMPI E NON SOLO LA FRASE. ◄ Questo modulo promette in testa che
+ * «un elenco incompleto è peggio di nessun elenco». Un elenco di frasi però è
+ * scollegato dal modello: il giorno in cui si aggiunge un campo a `Dive`,
+ * l'elenco resta quello di prima e continua a sembrare completo — che è il modo
+ * esatto in cui era diventato incompleto la prima volta. Con il campo scritto
+ * accanto alla frase, una prova può fare il giro esporta→reimporta, guardare
+ * quali campi non sopravvivono e pretendere che ognuno sia dichiarato: a
+ * dirlo non è più una persona che si ricorda, è la prova.
+ *
+ * Il verso opposto vale quanto questo: un campo dichiarato che invece
+ * sopravvive è una bugia nell'altra direzione, e la stessa prova la vede.
+ */
+export interface PerditaDichiarata {
+  /**
+   * I campi del modello che restano fuori, come percorsi dentro `Dive`:
+   * `buddy`, `site.region`, `cylinders.analisi`, `samples.setpoint`. Un passo
+   * che cade su un array vale «almeno un elemento».
+   */
+  campi: string[];
+  /** La frase mostrata a chi esporta. */
+  testo: string;
+}
+
 export interface UddfExportResult {
   xml: string;
   dives: number;
   /** Cosa non è entrato nel file, in chiaro: serve a chi lo userà come backup. */
   omitted: string[];
+  /** Le stesse perdite di `omitted`, ognuna legata ai campi che la producono. */
+  perdite: PerditaDichiarata[];
 }
 
 /** Escape XML: i nomi dei siti e le note contengono di tutto. */
@@ -56,8 +85,74 @@ const n = (v: number, digits = 3) => {
   return Number.isFinite(r) ? String(r) : '0';
 };
 
-/** Identificatore XML valido: gli id dell'app sono esadecimali, ma non si sa mai. */
-const idOf = (prefix: string, raw: string) => `${prefix}-${raw.replace(/[^A-Za-z0-9_-]/g, '')}`;
+/**
+ * Un identificativo XML che NON fa collidere due nomi diversi.
+ *
+ * ► COSA FACEVA PRIMA. ◄ `raw.replace(/[^A-Za-z0-9_-]/g, '')`: **cancellava** i
+ * caratteri che non gli piacevano. Cancellare non è codificare, e la differenza
+ * si vede subito: «Grotta Azzurra (Capri)» e «Grotta Azzurra Capri» uscivano
+ * identiche, e due nomi scritti in un alfabeto non latino diventavano tutti e
+ * due la stringa vuota, cioè `site-`. Nel file restava un `<site>` solo, e
+ * reimportandolo la seconda immersione si prendeva nome e coordinate della
+ * prima: due posti diversi diventavano lo stesso posto, senza un avviso e senza
+ * che nel file rimanesse traccia di quello perso.
+ *
+ * ► COSA FA ADESSO. ◄ Codifica invece di cancellare. Ogni carattere fuori da
+ * `[A-Za-z0-9-]` diventa `_<codice esadecimale>_`, e l'underscore letterale
+ * diventa `__`. La trasformazione si ripercorre all'indietro senza ambiguità —
+ * dopo un `_` o c'è un altro `_`, e allora era un underscore vero, o ci sono
+ * cifre esadecimali fino al `_` di chiusura — quindi da nomi diversi escono per
+ * COSTRUZIONE identificativi diversi, e da nomi uguali lo stesso
+ * identificativo. Non è una probabilità di collisione bassa: è zero.
+ *
+ * Quello che esce resta un `ID` XML valido: comincia con la lettera del
+ * prefisso e contiene solo lettere, cifre, `-` e `_`.
+ */
+function idOf(prefix: string, raw: string): string {
+  let corpo = '';
+  // Il ciclo `for…of` su una stringa scorre per punto di codice e non per unità
+  // UTF-16: senza, un carattere fuori dal piano base si spezzerebbe in due metà
+  // e due caratteri diversi potrebbero condividerne una.
+  for (const carattere of raw) {
+    if (carattere === '_') corpo += '__';
+    else if (/[A-Za-z0-9-]/.test(carattere)) corpo += carattere;
+    else corpo += `_${(carattere.codePointAt(0) ?? 0).toString(16)}_`;
+  }
+  return `${prefix}-${corpo}`;
+}
+
+/**
+ * Il numero quando c'è davvero; `undefined` in ogni altro caso.
+ *
+ * ► PERCHÉ `=== undefined` NON BASTA SU QUELLO CHE ARRIVA DALL'ARCHIVIO. ◄ I
+ * campioni sono salvati con `JSON.stringify` (vedi `storage/sqlite.ts`), e
+ * dentro un array quella funzione scrive `null` dove in memoria c'era un buco o
+ * un `undefined`. Una bombola senza trasmettitore ha esattamente quella forma —
+ * `pressureBar` valorizzata per la stage e vuota per la principale — quindi
+ * `if (bar === undefined) continue` lasciava passare il `null`, `barToPascal`
+ * ne faceva 0 e il file usciva con `<tankpressure>0</tankpressure>` su OGNI
+ * campione: chi lo apre vede la bombola principale a zero bar dall'inizio alla
+ * fine, cioè un'immersione fatta con una bombola vuota. Senza questa riga torna
+ * esattamente quello.
+ */
+const numeroVero = (v: number | null | undefined): number | undefined =>
+  typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+
+/**
+ * Vero quando il campo porta davvero qualcosa.
+ *
+ * Serve alle dichiarazioni di perdita: `!== undefined` da solo fa scattare la
+ * riga anche su una lista vuota o su una stringa vuota, cioè su un campo che
+ * non ha niente da perdere. Vedi il commento sul tipo di circuito più in basso:
+ * una voce che compare quando non ti riguarda è una voce che si smette di
+ * leggere.
+ */
+function valorizzato(v: unknown): boolean {
+  if (v === undefined || v === null || v === '') return false;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === 'object') return Object.values(v).some((x) => x !== undefined);
+  return true;
+}
 
 function gasKey(mix: GasMix): string {
   return `mix-${Math.round(mix.o2 * 1000)}-${Math.round((mix.he ?? 0) * 1000)}`;
@@ -81,17 +176,43 @@ function gasDefinitions(dives: Dive[]): string[] {
   });
 }
 
-function sampleXml(s: Sample, gasKeyByIndex: (i: number | undefined) => string | undefined): string {
+/**
+ * L'identificativo XML della bombola `i` di una data immersione.
+ *
+ * ► GLI IDENTIFICATIVI ERANO DUPLICATI DENTRO LO STESSO DOCUMENTO. ◄ Era
+ * `cyl-${i}`, e `i` ripartiva da zero a ogni immersione: un file con tre
+ * immersioni conteneva `cyl-0` tre volte. In XML un `ID` è unico nel documento,
+ * non nell'elemento che lo contiene: un validatore rifiuta il file («ID cyl-0
+ * already defined»), e un lettore che risolva i riferimenti sull'intero
+ * documento — invece che dentro la singola immersione, come fa il nostro —
+ * attacca la pressione della terza immersione alla bombola della prima. Il
+ * prefisso è l'identificativo dell'immersione, che nel documento è già unico.
+ */
+const idBombola = (idDive: string, i: number) => `${idDive}-cyl-${i}`;
+
+function sampleXml(s: Sample, dive: Dive, idDive: string): string {
   const parts = [`        <divetime>${n(s.t, 1)}</divetime>`, `        <depth>${n(s.depth, 2)}</depth>`];
   if (s.tempC !== undefined) parts.push(`        <temperature>${n(cToKelvin(s.tempC), 2)}</temperature>`);
   if (s.pressureBar) {
-    for (const [i, bar] of s.pressureBar.entries()) {
-      if (bar === undefined) continue;
-      parts.push(`        <tankpressure ref="cyl-${i}">${n(barToPascal(bar), 0)}</tankpressure>`);
+    for (const [i, grezzo] of s.pressureBar.entries()) {
+      const bar = numeroVero(grezzo);
+      // Niente pressione, niente riga: vedi `numeroVero`. E niente riga nemmeno
+      // per una bombola che nel documento non esiste — un `ref` che non si
+      // risolve manda il lettore sulla bombola sbagliata invece che su nessuna.
+      if (bar === undefined || !dive.cylinders[i]) continue;
+      parts.push(
+        `        <tankpressure ref="${idBombola(idDive, i)}">${n(barToPascal(bar), 0)}</tankpressure>`,
+      );
     }
   }
-  const key = gasKeyByIndex(s.gasIndex);
-  if (key) parts.push(`        <switchmix ref="${key}" />`);
+  /*
+   * `<switchmix>` riferisce il GAS, non la bombola: è il formato a volerlo così.
+   * Quando due bombole portano lo stesso gas l'informazione su QUALE delle due
+   * fosse in respirazione non ha un posto dove stare, e viene dichiarata fra le
+   * perdite invece di essere scritta in un attributo inventato da noi.
+   */
+  const cyl = dive.cylinders[s.gasIndex ?? 0];
+  if (cyl) parts.push(`        <switchmix ref="${gasKey(cyl.mix)}" />`);
   return `      <waypoint>\n${parts.join('\n')}\n      </waypoint>`;
 }
 
@@ -99,17 +220,48 @@ export function exportUddf(dives: Dive[], options: UddfExportOptions = {}): Uddf
   const { generator = 'MyDiveLog', now = new Date().toISOString(), includeProfiles = true } = options;
   const sorted = [...dives].sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
 
+  /*
+   * ► IL SITO SI COSTRUISCE SU TUTTE LE IMMERSIONI CHE LO NOMINANO, NON SULLA PRIMA. ◄
+   *
+   * `if (!sites.has(key))` congelava il sito alla prima occorrenza. Se la prima
+   * immersione a «Relitto Haven» era stata inserita a mano senza GPS e la
+   * seconda aveva le coordinate, il `<site>` usciva senza `<geography>`: le
+   * coordinate non comparivano da nessuna parte nel file, e non erano nemmeno
+   * fra le perdite dichiarate — chi usa l'UDDF come backup non aveva modo di
+   * accorgersene. L'export KML, sugli stessi dati, quelle coordinate le scrive:
+   * era l'applicazione a dare due risposte diverse sullo stesso archivio.
+   *
+   * Latitudine e longitudine si prendono IN COPPIA e dalla stessa immersione:
+   * metà coordinata di un'immersione e metà di un'altra non è un punto a metà, è
+   * un punto inventato in mezzo al mare.
+   *
+   * La chiave è il nome ripulito dagli spazi ai bordi — la stessa che usa
+   * l'export KML per raggruppare i segnaposti, perché due esportazioni dello
+   * stesso archivio che contano i siti in modo diverso sono un difetto in sé.
+   */
+  const chiaveSito = (dive: Dive): string | undefined => {
+    const nome = dive.site?.name?.trim();
+    return nome ? nome : undefined;
+  };
   const sites = new Map<string, { name: string; lat?: number; lon?: number }>();
   for (const dive of sorted) {
-    if (dive.site?.name) {
-      const key = idOf('site', dive.site.name.toLowerCase().replace(/\s+/g, '-'));
-      if (!sites.has(key)) {
-        sites.set(key, { name: dive.site.name, lat: dive.site.lat, lon: dive.site.lon });
+    const chiave = chiaveSito(dive);
+    if (chiave === undefined) continue;
+    const sito = sites.get(chiave) ?? { name: chiave };
+    if (sito.lat === undefined || sito.lon === undefined) {
+      const lat = numeroVero(dive.site?.lat);
+      const lon = numeroVero(dive.site?.lon);
+      if (lat !== undefined && lon !== undefined) {
+        sito.lat = lat;
+        sito.lon = lon;
       }
     }
+    sites.set(chiave, sito);
   }
-  const siteKeyOf = (dive: Dive) =>
-    dive.site?.name ? idOf('site', dive.site.name.toLowerCase().replace(/\s+/g, '-')) : undefined;
+  const siteKeyOf = (dive: Dive) => {
+    const chiave = chiaveSito(dive);
+    return chiave === undefined ? undefined : idOf('site', chiave);
+  };
 
   const out: string[] = [];
   out.push('<?xml version="1.0" encoding="UTF-8"?>');
@@ -125,8 +277,8 @@ export function exportUddf(dives: Dive[], options: UddfExportOptions = {}): Uddf
 
   if (sites.size) {
     out.push('  <divesite>');
-    for (const [key, site] of sites) {
-      out.push(`    <site id="${key}">`);
+    for (const [chiave, site] of sites) {
+      out.push(`    <site id="${idOf('site', chiave)}">`);
       out.push(`      <name>${esc(site.name)}</name>`);
       if (site.lat !== undefined && site.lon !== undefined) {
         out.push('      <geography>');
@@ -143,11 +295,8 @@ export function exportUddf(dives: Dive[], options: UddfExportOptions = {}): Uddf
   out.push('    <repetitiongroup id="rg-1">');
 
   for (const dive of sorted) {
-    const gasKeyByIndex = (i: number | undefined) => {
-      const cyl = dive.cylinders[i ?? 0];
-      return cyl ? gasKey(cyl.mix) : undefined;
-    };
-    out.push(`      <dive id="${idOf('dive', dive.id)}">`);
+    const idDive = idOf('dive', dive.id);
+    out.push(`      <dive id="${idDive}">`);
     out.push('        <informationbeforedive>');
     out.push(`          <datetime>${esc(dive.startTime)}</datetime>`);
     if (dive.number !== undefined) out.push(`          <divenumber>${dive.number}</divenumber>`);
@@ -187,7 +336,7 @@ export function exportUddf(dives: Dive[], options: UddfExportOptions = {}): Uddf
 
     // Le bombole: volume in metri cubi, pressioni in pascal.
     for (const [i, cyl] of dive.cylinders.entries()) {
-      out.push(`        <tankdata id="cyl-${i}">`);
+      out.push(`        <tankdata id="${idBombola(idDive, i)}">`);
       out.push(`          <link ref="${gasKey(cyl.mix)}" />`);
       if (cyl.sizeL !== undefined) out.push(`          <tankvolume>${n(cyl.sizeL / 1000, 5)}</tankvolume>`);
       if (cyl.startBar !== undefined) {
@@ -201,7 +350,7 @@ export function exportUddf(dives: Dive[], options: UddfExportOptions = {}): Uddf
 
     if (includeProfiles && dive.samples?.length) {
       out.push('      <samples>');
-      for (const s of dive.samples) out.push(sampleXml(s, gasKeyByIndex));
+      for (const s of dive.samples) out.push(sampleXml(s, dive, idDive));
       out.push('      </samples>');
     }
 
@@ -230,41 +379,107 @@ export function exportUddf(dives: Dive[], options: UddfExportOptions = {}): Uddf
   out.push('  </profiledata>');
   out.push('</uddf>');
 
-  // Cosa resta fuori. Dichiararlo è parte dell'export: chi usa questo file come
-  // backup deve sapere che non è una copia completa dell'archivio.
-  const omitted: string[] = [];
-  if (sorted.some((d) => d.computer?.gfLow !== undefined)) {
-    omitted.push('i gradient factor impostati sul computer (UDDF non li prevede)');
-  }
-  if (sorted.some((d) => d.samples?.some((s) => s.ceiling !== undefined || s.ndlS !== undefined))) {
-    omitted.push('tetto di decompressione, NDL e TTS campione per campione');
-  }
-  if (sorted.some((d) => d.extraSources?.length)) {
-    omitted.push('la provenienza multipla delle immersioni fuse da più computer');
-  }
-  if (sorted.some((d) => d.altSamples?.length)) {
-    omitted.push('il secondo profilo, quello più fitto registrato dall’altro computer');
-  }
-  // L'elenco dichiarava quattro perdite su venti.
-  //
-  // Il modulo promette in testa di dichiarare quello che UDDF non sa
-  // rappresentare, e il giro export→import ne perdeva molto di più in silenzio:
-  // il tipo di circuito (un rebreather tornava a circuito aperto), il compagno,
-  // la zavorra, la muta, la visibilità, i tag, il fuso del sito, la pressione di
-  // superficie — che entra nel calcolo Bühlmann, quindi il backup non
-  // ricostruiva nemmeno le saturazioni. Un elenco incompleto è peggio di nessun
-  // elenco: fa credere di sapere cosa si sta perdendo.
+  /*
+   * COSA RESTA FUORI. Dichiararlo è parte dell'export: chi usa questo file come
+   * backup deve sapere che non è una copia completa dell'archivio.
+   *
+   * L'elenco dichiarava quattro perdite su venti, e poi venti su trenta. Il
+   * modulo promette in testa di dichiarare quello che UDDF non sa rappresentare,
+   * e il giro export→import ne perdeva di più in silenzio ogni volta che un
+   * campo nuovo entrava nel modello: la profondità programmata, il centro, la
+   * firma della guida, la miscela analizzata, le soste campione per campione.
+   * Un elenco incompleto è peggio di nessun elenco: fa credere di sapere cosa si
+   * sta perdendo.
+   *
+   * Per questo ogni voce porta con sé i CAMPI del modello che la producono (vedi
+   * `PerditaDichiarata`): così la completezza dell'elenco non dipende più dal
+   * fatto che qualcuno si ricordi di aggiornarlo — la si misura facendo il giro
+   * esporta→reimporta e guardando cosa non torna.
+   */
+  const perdite: PerditaDichiarata[] = [];
+  const dichiara = (campi: string[], testo: string) => perdite.push({ campi, testo });
+
+  /** Dichiara la perdita di un campo dell'immersione, se almeno una ce l'ha. */
   const perde = <K extends keyof Dive>(key: K, label: string) => {
-    if (sorted.some((d) => d[key] !== undefined && d[key] !== null)) omitted.push(label);
+    if (sorted.some((d) => valorizzato(d[key]))) dichiara([key], label);
   };
-  perde('mode', 'il tipo di circuito (un rebreather torna a circuito aperto)');
+  /** Come sopra per un campo del campione: basta un campione in tutto l'archivio. */
+  const perdeCampione = (campi: string[], test: (s: Sample) => boolean, label: string) => {
+    if (sorted.some((d) => d.samples?.some(test))) dichiara(campi, label);
+  };
+  /** Come sopra per un campo della bombola. */
+  const perdeBombola = (campi: string[], test: (c: Dive['cylinders'][number]) => boolean, label: string) => {
+    if (sorted.some((d) => d.cylinders?.some(test))) dichiara(campi, label);
+  };
+
+  if (sorted.some((d) => d.computer?.gfLow !== undefined || d.computer?.gfHigh !== undefined)) {
+    dichiara(
+      ['computer.gfLow', 'computer.gfHigh'],
+      'i gradient factor impostati sul computer (UDDF non li prevede)',
+    );
+  }
+  perdeCampione(
+    ['samples.ceiling', 'samples.ndlS', 'samples.ttsS'],
+    (s) => s.ceiling !== undefined || s.ndlS !== undefined || s.ttsS !== undefined,
+    'tetto di decompressione, NDL e TTS campione per campione',
+  );
+  if (sorted.some((d) => d.extraSources?.length)) {
+    dichiara(['extraSources'], 'la provenienza multipla delle immersioni fuse da più computer');
+  }
+
+  /*
+   * ► IL SECONDO PROFILO: LA DICHIARAZIONE NON COMPARIVA MAI. ◄
+   *
+   * La condizione era `d.altSamples?.length`, e da qui dentro è sempre falsa.
+   * Chi esporta l'archivio (`ui/state.tsx`) passa i RIEPILOGHI delle immersioni
+   * e ci aggiunge i campioni del profilo principale letti dall'archivio:
+   * `altSamples` in quei riepiloghi non c'è, e non perché l'immersione non ne
+   * abbia uno — perché non è stato caricato. Il secondo profilo si perdeva e
+   * l'avviso taceva proprio nel caso normale.
+   *
+   * ► PERCHÉ LA DECISIONE NON PUÒ STARE QUI. ◄ Da dentro questa funzione «non
+   * ce l'ha» e «non me l'hanno dato» sono lo stesso `undefined`, e nel parametro
+   * non c'è nient'altro che le distingua: non è una svista da correggere con un
+   * controllo più furbo, è informazione che non è arrivata. Quello che si può
+   * fare è non far passare il dubbio per un no. Un array VUOTO invece è una
+   * risposta vera — quell'immersione un secondo profilo non ce l'ha — e infatti
+   * non fa scattare niente.
+   */
+  if (sorted.some((d) => d.altSamples?.length)) {
+    dichiara(['altSamples'], 'il secondo profilo, quello più fitto registrato dall’altro computer');
+  } else if (sorted.some((d) => d.altSamples === undefined || d.altSamples === null)) {
+    dichiara(['altSamples'], 'il secondo profilo dell’altro computer, se l’immersione ne ha uno');
+  }
+
+  /*
+   * ► «RESTANO FUORI: IL TIPO DI CIRCUITO» COMPARIVA SEMPRE. ◄
+   *
+   * `mode` è obbligatorio nel modello, quindi `d.mode !== undefined` è vero per
+   * ogni immersione — comprese cento immersioni tutte a circuito aperto. Chi
+   * esportava leggeva «un rebreather torna a circuito aperto» senza avere un
+   * rebreather, e una voce che compare quando non ti riguarda è una voce che si
+   * smette di leggere: proprio quella su cui poi bisognerebbe contare. Il
+   * lettore UDDF ricostruisce `oc` quando `<apparatus>` manca, quindi
+   * un'immersione a circuito aperto non perde niente e la riga ha senso solo
+   * per le altre.
+   */
+  if (sorted.some((d) => d.mode !== undefined && d.mode !== 'oc')) {
+    dichiara(['mode'], 'il tipo di circuito (un rebreather torna a circuito aperto)');
+  }
+
   perde('buddy', 'il compagno');
   perde('rating', 'la valutazione');
   perde('weightKg', 'la zavorra');
   perde('suit', 'la muta');
   perde('visibilityM', 'la visibilità');
+  perde('visibilityMaxM', 'l’estremo alto della fascia di visibilità, quando è una fascia');
+  perde('visibilityRating', 'la visibilità a stelle dei logbook che la danno come voto');
   perde('title', 'il titolo dell’immersione');
   perde('guide', 'la guida sub');
+  perde('center', 'il centro di immersione');
+  perde('plannedMaxDepth', 'la profondità massima programmata');
+  perde('rmvLpmManual', 'il consumo in L/min scritto a mano');
+  perde('updatedAt', 'la data dell’ultima modifica della scheda');
   perde('conditions', 'meteo e stato del mare');
   perde('gear', 'l’attrezzatura usata: erogatori, GAV, e il peso della piastra');
   perde('utcOffsetMinutes', 'il fuso orario del sito (gli orari restano in UTC)');
@@ -272,34 +487,137 @@ export function exportUddf(dives: Dive[], options: UddfExportOptions = {}): Uddf
   perde('reported', 'i valori di sintesi letti dal computer (GF99, TTS, NDL minimo)');
   perde('events', 'i segnalibri messi durante l’immersione');
   perde('otherComputers', 'le impostazioni degli altri computer che hanno registrato l’immersione');
-  if (sorted.some((d) => d.tags?.length)) omitted.push('le etichette');
-  if (sorted.some((d) => d.site?.region || d.site?.country)) omitted.push('regione e paese del sito');
-  if (sorted.some((d) => d.cylinders?.some((c) => c.material || c.workPressureBar))) {
-    omitted.push('materiale e pressione di esercizio delle bombole');
+  perde('tags', 'le etichette');
+  // La firma è un disegno, e un disegno vuoto non è una perdita: `firmaVuota`
+  // sa già distinguere i tratti raccolti sul posto da un tocco per sbaglio.
+  if (sorted.some((d) => !firmaVuota(d.firmaGuida))) {
+    dichiara(['firmaGuida'], 'la firma della guida raccolta sul posto');
   }
-  if (sorted.some((d) => d.samples?.some((s) => s.cns !== undefined || s.ppo2 !== undefined))) {
-    omitted.push('CNS, PPO2 e setpoint campione per campione');
+  if (sorted.some((d) => d.site?.region || d.site?.country)) {
+    dichiara(['site.region', 'site.country'], 'regione e paese del sito');
+  }
+  perdeBombola(
+    ['cylinders.material', 'cylinders.workPressureBar'],
+    (c) => !!c.material || c.workPressureBar !== undefined,
+    'materiale e pressione di esercizio delle bombole',
+  );
+  perdeBombola(
+    ['cylinders.description'],
+    (c) => !!c.description,
+    'la descrizione delle bombole («D12 lungo», «stage 40%»)',
+  );
+  /*
+   * ► LA MISCELA ANALIZZATA NON È LA MISCELA DICHIARATA. ◄ UDDF ha un posto per
+   * la composizione del gas e non ne ha uno per dire che quella composizione
+   * l'hai MISURATA: la percentuale letta all'analizzatore, quando l'hai letta e
+   * chi l'ha letta restano fuori tutte e tre. Sul file esce il 32% della sigla
+   * anche quando l'analizzatore aveva detto 31.5, ed è la differenza fra un dato
+   * verificato e un adesivo.
+   */
+  perdeBombola(['cylinders.analisi'], (c) => !!c.analisi, 'la miscela analizzata: quanto, quando e da chi');
+  perdeCampione(
+    ['samples.cns', 'samples.ppo2'],
+    (s) => s.cns !== undefined || s.ppo2 !== undefined,
+    'CNS e PPO2 campione per campione',
+  );
+  /*
+   * ► IL SETPOINT AVEVA LA CONDIZIONE DI UN ALTRO. ◄ Stava dentro la riga di CNS
+   * e PPO2 — «CNS, PPO2 e setpoint» — e quindi si accendeva solo se c'era uno
+   * degli altri due. Un rebreather che registra il setpoint e non la CNS lo
+   * perdeva in silenzio, cioè perdeva in silenzio il numero che dice a quale
+   * pressione parziale di ossigeno stava lavorando l'elettronica.
+   */
+  perdeCampione(
+    ['samples.setpoint'],
+    (s) => s.setpoint !== undefined,
+    'il setpoint del rebreather campione per campione',
+  );
+  /*
+   * ► LE SOSTE. ◄ Il lettore UDDF legge `<decostop>` — quota, durata e `kind`,
+   * che è quello che distingue la sosta obbligatoria da quella di sicurezza — e
+   * l'esportazione non lo scrive. Il profilo torna indietro con ogni campione
+   * fuori deco e nessuna sosta programmata: non un buco, un profilo tranquillo.
+   */
+  perdeCampione(
+    [
+      'samples.stopDepth',
+      'samples.stopTimeS',
+      'samples.inDeco',
+      'samples.inSafetyStop',
+      'samples.inDeepStop',
+    ],
+    (s) =>
+      s.stopDepth !== undefined ||
+      s.stopTimeS !== undefined ||
+      s.inDeco !== undefined ||
+      s.inSafetyStop !== undefined ||
+      s.inDeepStop !== undefined,
+    'la prossima sosta, l’obbligo di decompressione e la sosta di sicurezza campione per campione',
+  );
+  perdeCampione(
+    ['samples.heartRate'],
+    (s) => s.heartRate !== undefined,
+    'il battito cardiaco campione per campione',
+  );
+  perdeCampione(
+    ['samples.rbtMin', 'samples.bearing'],
+    (s) => s.rbtMin !== undefined || s.bearing !== undefined,
+    'il tempo di fondo residuo e la bussola campione per campione',
+  );
+  if (sorted.some((d) => d.computer?.model)) {
+    dichiara(['computer'], 'modello, matricola e impostazioni del computer subacqueo');
   }
   /*
-   * Il battito ha la sua riga.
+   * ► CON DUE BOMBOLE DELLO STESSO GAS, IL GAS RESPIRATO TORNA SULLA BOMBOLA SBAGLIATA. ◄
    *
-   * Stava dentro la dichiarazione di CNS e PPO2, quindi un'immersione registrata
-   * da un Garmin o da un Uwatec — con il cardio e senza CNS — perdeva il battito
-   * senza che l'elenco lo dicesse.
+   * UDDF segna il cambio con `<switchmix ref="…">`, e quel riferimento punta a
+   * una `<mix>` delle `gasdefinitions`: al GAS, non alla bombola. Finché i gas
+   * sono diversi la bombola si ricava dal gas; con due D12 ad aria in sidemount
+   * il gas è lo stesso e il collegamento non esiste più. Il formato non ha un
+   * posto dove scriverlo, e inventare un attributo nostro darebbe un file che
+   * rilegge solo chi l'ha scritto — cioè il contrario del motivo per cui si
+   * esporta in UDDF. Il lettore sceglie la PRIMA bombola che porta quel gas,
+   * che è l'assunzione che sbaglia meno spesso; se stavi respirando la seconda,
+   * quell'informazione nel file non c'è.
+   *
+   * La riga compare solo quando c'è davvero da perdere qualcosa: due bombole
+   * con lo stesso gas E un campione che dichiara di respirare proprio quella
+   * che il lettore non saprà scegliere.
    */
-  if (sorted.some((d) => d.samples?.some((s) => s.heartRate !== undefined))) {
-    omitted.push('il battito cardiaco campione per campione');
+  if (includeProfiles && sorted.some(bombolaNonRicostruibile)) {
+    dichiara(
+      ['samples.gasIndex'],
+      'quale bombola stavi respirando, quando due bombole portano lo stesso gas (UDDF collega il cambio al gas, non alla bombola)',
+    );
   }
-  if (sorted.some((d) => d.samples?.some((s) => s.rbtMin !== undefined || s.bearing !== undefined))) {
-    omitted.push('il tempo di fondo residuo e la bussola campione per campione');
-  }
-  if (sorted.some((d) => d.cylinders?.some((c) => c.description))) {
-    omitted.push('la descrizione delle bombole («D12 lungo», «stage 40%»)');
-  }
-  if (sorted.some((d) => d.computer?.model)) {
-    omitted.push('modello, matricola e impostazioni del computer subacqueo');
-  }
-  if (!includeProfiles) omitted.push('i profili campionati, esclusi su richiesta');
+  if (!includeProfiles) dichiara(['samples'], 'i profili campionati, esclusi su richiesta');
 
-  return { xml: out.join('\n'), dives: sorted.length, omitted };
+  return {
+    xml: out.join('\n'),
+    dives: sorted.length,
+    omitted: perdite.map((p) => p.testo),
+    perdite,
+  };
+}
+
+/**
+ * Vero se in questa immersione un campione dichiara di respirare una bombola che
+ * il lettore non può ricostruire dal solo gas.
+ *
+ * Vedi il commento sulla dichiarazione che la usa: succede quando due bombole
+ * portano lo stesso gas e il campione punta a quella che NON è la prima con
+ * quel gas — la prima è l'unica che un lettore possa dedurre da `<switchmix>`.
+ */
+function bombolaNonRicostruibile(dive: Dive): boolean {
+  const primaConQuelGas = new Map<string, number>();
+  dive.cylinders.forEach((c, i) => {
+    const k = gasKey(c.mix);
+    if (!primaConQuelGas.has(k)) primaConQuelGas.set(k, i);
+  });
+  return (dive.samples ?? []).some((s) => {
+    const i = numeroVero(s.gasIndex);
+    if (i === undefined) return false;
+    const cyl = dive.cylinders[i];
+    return cyl !== undefined && primaConQuelGas.get(gasKey(cyl.mix)) !== i;
+  });
 }

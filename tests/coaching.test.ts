@@ -331,14 +331,38 @@ describe('analisi aggiuntive sull’archivio', () => {
     expect(periods[1]).toMatchObject({ label: 'GF 20/85', dives: 1 });
   });
 
-  it('la temperatura per mese usa il mese vero e non quello locale', () => {
+  /*
+   * ► LA GUARDIA CHE NON POTEVA VEDERE NIENTE. ◄
+   *
+   * Qui c'erano tre immersioni a metà mese e senza `utcOffsetMinutes`: sul mese
+   * UTC e sul mese del LUOGO cadevano nello stesso secchio, quindi la prova
+   * restava verde con tutte e due le convenzioni. Era la sola rete tesa sotto
+   * questa scelta, e `byMonth` — che le mescolava, costruendo le colonne sul
+   * mese UTC di adesso e i secchi sul mese locale dell'immersione — le è
+   * passato accanto per intero: in Italia, un'immersione delle 22:30Z del 31
+   * agosto non entrava in nessuna colonna, e la pagina scriveva «3 immersioni»
+   * sopra un istogramma che ne mostrava 2.
+   *
+   * Adesso le immersioni stanno sul CONFINE del mese e dichiarano il fuso: le
+   * due convenzioni danno risposte diverse su ognuna delle quattro righe qui
+   * sotto, e una sola delle due le supera. Il caso di `byMonth` sta in
+   * `statisticheCoerenti.test.tsx`, che guarda le colonne.
+   */
+  it('la temperatura per mese usa il mese del LUOGO, come la data del logbook', () => {
     const months = tempByMonth([
-      dive({ startTime: '2026-01-15T10:00:00Z', minTempC: 12 }),
-      dive({ startTime: '2026-01-20T10:00:00Z', minTempC: 14 }),
-      dive({ startTime: '2026-08-15T10:00:00Z', minTempC: 25 }),
+      // Le 23:30Z del 31 gennaio, in Italia (+2), sono l'1 febbraio: è la data
+      // che il logbook mostra, quindi è il mese in cui va contata.
+      dive({ startTime: '2026-01-31T23:30:00Z', utcOffsetMinutes: 120, minTempC: 12 }),
+      dive({ startTime: '2026-02-10T10:00:00Z', utcOffsetMinutes: 120, minTempC: 14 }),
+      // Le 00:30Z dell'1 agosto, ai Caraibi (−5), sono il 31 luglio.
+      dive({ startTime: '2026-08-01T00:30:00Z', utcOffsetMinutes: -300, minTempC: 28 }),
     ]);
-    expect(months[0]).toMatchObject({ label: 'gen', value: 13 });
-    expect(months[7]).toMatchObject({ label: 'ago', value: 25 });
+    // Col mese UTC gennaio avrebbe 12 e febbraio solo 14.
+    expect(months[0].value).toBeUndefined();
+    expect(months[1]).toMatchObject({ label: 'feb', value: 13 });
+    // Col mese UTC luglio sarebbe vuoto e agosto varrebbe 28.
+    expect(months[6]).toMatchObject({ label: 'lug', value: 28 });
+    expect(months[7].value).toBeUndefined();
     /*
      * ► UN MESE SENZA IMMERSIONI NON HA TEMPERATURA ZERO. ◄ Questa riga diceva
      * `0`, e quello zero non era neutro: chi legge la serie filtrava
@@ -348,6 +372,7 @@ describe('analisi aggiuntive sull’archivio', () => {
      * confondere.
      */
     expect(months[3].value).toBeUndefined();
+    expect(months[3].value).not.toBe(0);
   });
 });
 

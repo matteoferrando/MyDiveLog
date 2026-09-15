@@ -18,6 +18,17 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { testoAvvertenza } from '../src/core/analysis/avvertenze';
+import { comeSta } from '../src/core/traduci';
+
+/**
+ * Un avviso, composto in italiano.
+ *
+ * Gli avvisi del piano viaggiano come MODELLO più valori — la frase si compone
+ * dove la lingua si conosce, vedi `core/analysis/avvisiDelPiano.ts`. Qui la
+ * lingua non c'è, quindi si passa l'identità: resta l'italiano, che è la chiave.
+ */
+const avviso = (w: { testo: string; valori?: (string | number)[] }) => testoAvvertenza(w, comeSta);
 import {
   DEFAULT_DECO,
   barometric,
@@ -203,7 +214,7 @@ describe('quando deve rifiutarsi di essere ottimista', () => {
     });
     // 1.61 bar è la PPO2 dell'ossigeno puro a sei metri: è la procedura standard,
     // e un avviso critico proprio lì insegnerebbe a ignorare tutti gli avvisi.
-    expect(r.warnings.filter((w) => w.level === 'critical' && w.text.includes('PPO2'))).toHaveLength(0);
+    expect(r.warnings.filter((w) => w.level === 'critical' && avviso(w).includes('PPO2'))).toHaveLength(0);
   });
 });
 
@@ -394,7 +405,7 @@ describe('circuito chiuso', () => {
     // di lavoro smettesse di funzionare, e un fondo a 1.5 bar passava in silenzio.
     const r = planDeco([{ depthM: 60, minutes: 30 }], [{ ...DIL, tankL: 24 }, EAN50], CCR);
     expect(r.stops.length).toBeGreaterThan(0);
-    expect(r.warnings.some((w) => w.text.includes('fase di lavoro'))).toBe(true);
+    expect(r.warnings.some((w) => avviso(w).includes('fase di lavoro'))).toBe(true);
   });
 });
 
@@ -745,7 +756,7 @@ describe('difetti trovati dalla revisione', () => {
       imposedStops: [{ depthM: 100, minutes: 5 }],
     });
     expect(r.gf99EndPct).toBeGreaterThan(100);
-    expect(r.warnings.some((w) => w.level === 'critical' && w.text.includes('valore M'))).toBe(true);
+    expect(r.warnings.some((w) => w.level === 'critical' && avviso(w).includes('valore M'))).toBe(true);
   });
 
   it('dichiara che sopra 1.6 bar il CNS è una sottostima', () => {
@@ -757,7 +768,7 @@ describe('difetti trovati dalla revisione', () => {
       switchDepthM: 30,
     };
     const r = planDeco([{ depthM: 30, minutes: 20 }], [ricco], GF);
-    expect(r.warnings.some((w) => w.text.includes('SOTTOSTIMA'))).toBe(true);
+    expect(r.warnings.some((w) => avviso(w).includes('SOTTOSTIMA'))).toBe(true);
   });
 
   it('un passo fra le soste a zero non produce una tabella vuota', () => {
