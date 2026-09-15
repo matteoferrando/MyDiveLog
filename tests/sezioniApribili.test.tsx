@@ -150,10 +150,10 @@ describe('sul telefono parte chiuso, e dice cosa c’è dentro', () => {
     fingiLarghezza(false);
     const host = monta(
       <>
-        <CartaApribile chiave="uno" titolo="Primo">
+        <CartaApribile chiave="uno" titolo="Primo" sommario="1">
           <p>corpo uno</p>
         </CartaApribile>
-        <CartaApribile chiave="due" titolo="Secondo">
+        <CartaApribile chiave="due" titolo="Secondo" sommario="2">
           <p>corpo due</p>
         </CartaApribile>
       </>,

@@ -47,6 +47,7 @@ import { curveOfPlan, type PlanCurve as PlanCurveResult } from '../../core/analy
 import { barometric, planDeco, type DecoResult } from '../../core/analysis/deco';
 import { pianoPdf } from '../../core/export/pdf';
 import { conDettaglio } from '../../core/ble/causaGuasto';
+import { frase } from '../../core/frase';
 import { esporta } from '../esporta';
 import { foglioDelPiano } from '../../core/export/planSheet';
 import { useDiveLog } from '../state';
@@ -493,8 +494,26 @@ export function Planner() {
         )}
       </CartaApribile>
 
-      <div className="card">
-        <h2>{t('Immersione pianificata')}</h2>
+      {/*
+       * ► IL MODULO PARTE APERTO, e si può chiudere. ◄
+       *
+       * Misurato a 402 px: mille pixel, cioè una schermata e mezza di soli
+       * campi, in cima a una pagina che ne è alta sei. È il modulo che si
+       * compila UNA volta e poi si guarda il risultato — e per guardare il
+       * risultato bisogna scorrere oltre i campi ogni volta che si torna su.
+       *
+       * `apertoDiDefault` è lo stato iniziale e non un divieto: chi arriva
+       * trova i campi come prima, chi ha già pianificato chiude e da lì in poi
+       * legge il piano dal primo pixel. Il sommario è il piano in tre numeri,
+       * che è esattamente quello che i campi dicono.
+       */}
+      <CartaApribile
+        chiave="gas-immersione"
+        titolo={t('Immersione pianificata')}
+        sommario={`${input.depthM} m × ${input.bottomMin} min · ${mixName(input.mix)}`}
+        apertoDiDefault
+        t={t}
+      >
         <div className="grid grid-3" style={{ gap: 10 }}>
           <NumField
             label={t('Profondità massima')}
@@ -746,7 +765,7 @@ export function Planner() {
             />
           </div>
         </details>
-      </div>
+      </CartaApribile>
 
       <CartaApribile
         chiave="gas-riserva"
@@ -931,7 +950,16 @@ export function Planner() {
       {/* La durata e la sua distribuzione: il numero grande, e subito sotto dove
           vanno a finire quei minuti. La barra è l'unico posto in cui si vede che
           la risalita è una fetta del tempo, non un'appendice. */}
-      <div className="card">
+      <CartaApribile
+        chiave="gas-durata"
+        titolo={t('Durata totale dell’immersione')}
+        /* La durata: è il numero grande della carta, e da chiusa è l'unica cosa
+           che serve sapere — la distribuzione fra fondo e risalita si guarda
+           quando si vuole capire dove vanno i minuti, non ogni volta. */
+        sommario={formatRuntime(plan.totalRuntimeMin)}
+        apertoDiDefault
+        t={t}
+      >
         <div className="runtime">
           <div>
             <div className="tile-label">{t('Durata totale dell’immersione')}</div>
@@ -973,7 +1001,7 @@ export function Planner() {
           {plan.plannedAscentRateMpm === undefined ? '—' : `${plan.plannedAscentRateMpm.toFixed(1)} m/min`},{' '}
           {t('contro i')} {LIMITS.ascentRateDeepMpm} m/min {t('raccomandati')}.
         </p>
-      </div>
+      </CartaApribile>
 
       <CartaApribile
         chiave="gas-profilo"
@@ -1583,8 +1611,15 @@ export function Planner() {
        *    con risalita libera sono più severi del necessario: lì il numero
        *    utile è il gas minimo, non la pressione di rientro.
        */}
-      <div className="card">
-        <h2>{t('Note')}</h2>
+      {/* Le note sono il «come è fatto il conto»: si leggono una volta, per
+          decidere se fidarsi, e poi stanno in fondo a ogni visita. */}
+      <CartaApribile
+        chiave="gas-note"
+        titolo={t('Note')} /* Nome proprio e due numeri: non passa dal dizionario perché non c'è
+           niente da tradurre, come «UDDF · CSV · KML» in Impostazioni. */
+        sommario="Bühlmann ZH-L16C, GF 40/85"
+        t={t}
+      >
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--text-secondary)' }}>
           <li>
             <strong>{t('Le soste le calcola.')}</strong>{' '}
@@ -1609,7 +1644,7 @@ export function Planner() {
             {dives.length} {t('in archivio')}.
           </li>
         </ul>
-      </div>
+      </CartaApribile>
     </div>
   );
 }
@@ -2640,7 +2675,26 @@ function CurveCard({ curve, plan }: { curve: PlanCurveResult; plan: GasPlan }) {
   const margine = curve.ndlAtAvgMin - shown.bottomMin;
 
   return (
-    <CartaApribile chiave="gas-curva" titolo={t('Curva di sicurezza')} t={t}>
+    <CartaApribile
+      chiave="gas-curva"
+      titolo={t('Curva di sicurezza')}
+      /*
+       * L'unica delle quindici sezioni del pianificatore rimasta senza sommario,
+       * e la regola vale anche per lei: chiusa deve dire se il piano sta in
+       * curva o no, perché è la domanda per cui la carta esiste.
+       *
+       * Il minuto in cui si esce, quando si esce, e il margine che avanza
+       * quando non si esce: due numeri opposti per due esiti opposti, ed
+       * entrambi sono numeri. «In curva» da solo sarebbe un giudizio senza
+       * misura, e la differenza fra due minuti di margine e quaranta è tutta lì.
+       */
+      sommario={
+        esce !== undefined
+          ? frase(t, 'esce dalla curva al {0}° minuto', esce.toFixed(0))
+          : frase(t, 'in curva, {0} min di margine', margine.toFixed(0))
+      }
+      t={t}
+    >
       {/* 40/85 è la coppia che i computer ricreativi montano di fabbrica: vedi
           `GF_RICREATIVI` in cima al file per il perché non è `DEFAULT_GF`. */}
       <p className="card-sub">

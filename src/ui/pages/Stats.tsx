@@ -243,7 +243,19 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
           di quelli che descrivono soltanto. Il valore è la MEDIANA: su serie
           piccole una singola immersione storta sposta la media e non la mediana,
           e qui la domanda è "di solito", non "in totale". */}
-      <CartaApribile chiave="stat-come-ti-immergi-di-solit" titolo={t('Come ti immergi, di solito')} t={t}>
+      <CartaApribile
+        chiave="stat-come-ti-immergi-di-solit"
+        titolo={t('Come ti immergi, di solito')}
+        /* Delle quattro mediane, il consumo è l'unica su cui si lavora e l'unica
+           confrontabile con un obiettivo. Manca spesso — serve il volume della
+           bombola — e allora si dice PERCHÉ manca, invece di scrivere «0.0». */
+        sommario={
+          a.rmv.length
+            ? `${medianOf(a.rmv.map((punto) => punto.value))!.toFixed(1)} L/min`
+            : t('serve un profilo campionato')
+        }
+        t={t}
+      >
         <div className="page-title-row" style={{ marginBottom: 12 }}>
           <span className="muted" style={{ fontSize: 12 }}>
             {t('Mediane sul periodo. Ogni tessera dice su quante immersioni si basa.')}
@@ -291,7 +303,18 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
       </CartaApribile>
 
       {a.repetitiveDives > 0 && (
-        <CartaApribile chiave="stat-le-ripetitive" titolo={t('Le ripetitive')} t={t}>
+        <CartaApribile
+          chiave="stat-le-ripetitive"
+          /* «Le ripetitive» nominava un insieme; questa carta parla di quanto
+             COSTANO, che è l'unica cosa che un logbook sa dire e un computer no. */
+          titolo={t('Quanto ti costano le ripetitive')}
+          sommario={
+            a.repetitiveCostMedian !== undefined
+              ? frase(t, '{0} ripetitive, +{1} GF99', a.repetitiveDives, a.repetitiveCostMedian.toFixed(1))
+              : imm(a.repetitiveDives, t)
+          }
+          t={t}
+        >
           <div className="page-title-row" style={{ marginBottom: 12 }}>
             <span className="muted" style={{ fontSize: 12 }}>
               {`${imm(a.repetitiveDives, t)} ${t('cominciate con azoto ancora in circolo')}`}
@@ -350,7 +373,21 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
       )}
 
       {a.oxygen.eligible > 0 && (
-        <CartaApribile chiave="stat-esposizione-all-ossigeno" titolo={t('Esposizione all’ossigeno')} t={t}>
+        <CartaApribile
+          chiave="stat-esposizione-all-ossigeno"
+          titolo={t('Esposizione all’ossigeno')}
+          /* La giornata PEGGIORE, non la media: il limite è 100%, e una media
+             tranquilla su una giornata fuori scala è il modo più elegante di non
+             dire niente. Stessa forma del sommario del pianificatore, di
+             proposito: le due pagine devono dire l'ossigeno allo stesso modo.
+             Il doppio controllo evita «CNS 0% · OTU 0» quando il dato manca. */
+          sommario={
+            a.oxygen.worstCnsDay && a.oxygen.worstOtuDay
+              ? `CNS ${a.oxygen.worstCnsDay.peakCnsPercent}% · OTU ${a.oxygen.worstOtuDay.otu}`
+              : imm(a.oxygen.eligible, t)
+          }
+          t={t}
+        >
           <div className="page-title-row" style={{ marginBottom: 12 }}>
             {/* Il valore che scrive il computer è un'altra cosa: modello diverso.
                 Non lo diciamo a schermo perché non cambia niente di quello che
@@ -466,7 +503,26 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
 
       <SitesMap dives={scoped} onOpen={onOpen} />
 
-      <CartaApribile chiave="stat-attivit-mese-per-mese" titolo={t('Attività mese per mese')} t={t}>
+      <CartaApribile
+        chiave="stat-attivit-mese-per-mese"
+        titolo={t('Attività mese per mese')}
+        /* Quanti mesi sono PIENI, non quante immersioni: la carta esiste per far
+           vedere stagionalità e pause. `a.byMonth` ha sempre i suoi secchi anche
+           con la finestra vuota, quindi senza il controllo su `a.count` si
+           leggerebbe «0 mesi su 24» — un numero giusto per una domanda che
+           nessuno ha fatto. */
+        sommario={
+          a.count > 0
+            ? frase(
+                t,
+                '{0} mesi su {1} con immersioni',
+                a.byMonth.filter((b) => b.value > 0).length,
+                a.byMonth.length,
+              )
+            : t('nessuna immersione nel periodo scelto')
+        }
+        t={t}
+      >
         {/* I mesi vuoti restano nel grafico: la stagionalità e le pause sono parte
             dell'informazione, e comprimerli farebbe sembrare continuo un anno in
             cui ci si è immersi due volte. */}
@@ -563,12 +619,34 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
       </div>
 
       <div className="grid grid-2">
-        <div className="card">
-          <h2>{t('Fasce di profondità')}</h2>
-          <p className="card-sub">{t('Dove passi il tempo.')}</p>
+        <CartaApribile
+          chiave="stat-fasce-di-profondita"
+          titolo={t('Fasce di profondità')}
+          sotto={t('Dove passi il tempo.')}
+          /* La fascia più battuta: «dove passi il tempo» ha una risposta sola, e
+             questo è esattamente il numero che il grafico dentro disegna. */
+          sommario={
+            a.byDepthBand.some((b) => b.value > 0)
+              ? `${a.byDepthBand.reduce((m, b) => (b.value > m.value ? b : m)).label} ${t('soprattutto')}`
+              : t('nessuna immersione nel periodo scelto')
+          }
+          t={t}
+        >
           <BarChart data={a.byDepthBand} unit={t('immersioni')} />
-        </div>
-        <CartaApribile chiave="stat-siti-pi-frequentati" titolo={t('Siti più frequentati')} t={t}>
+        </CartaApribile>
+        <CartaApribile
+          chiave="stat-siti-pi-frequentati"
+          titolo={t('Siti più frequentati')}
+          /* «Più frequentati» ha una risposta sola: quale, e quante volte. Su un
+             archivio senza nome del sito l'elenco è vuoto, e «0 immersioni»
+             sarebbe falso — le immersioni ci sono, manca il sito. */
+          sommario={
+            a.topSites.length
+              ? `${a.topSites[0].name} · ${imm(a.topSites[0].dives, t)}`
+              : t('nessun sito registrato')
+          }
+          t={t}
+        >
           <p className="card-sub">{t('Per numero di immersioni.')}</p>
           <BarChart
             data={a.topSites.map((s) => ({ key: s.name, label: s.name, value: s.dives }))}
@@ -578,7 +656,23 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
       </div>
 
       <div className="grid grid-2">
-        <CartaApribile chiave="stat-disciplina" titolo={t('Disciplina')} t={t}>
+        <CartaApribile
+          chiave="stat-disciplina"
+          /* Una parola sola non diceva cosa viene misurato: il titolo adesso lo
+             elenca. */
+          titolo={t('Disciplina: soste, risalite, riserva')}
+          /* Delle otto righe, la sosta di sicurezza ha il denominatore più grande
+             ed è la sola che dipende soltanto da te. `pctPiano` è la stessa
+             funzione che stampa la cifra dentro la tabella: il numero che si
+             legge da chiusa e quello che si legge da aperta devono essere lo
+             stesso numero, non due arrotondamenti diversi. */
+          sommario={
+            a.safetyStopEligible > 0
+              ? `${pctPiano(a.safetyStopRate)} ${t('soste completate')}`
+              : t('nessuna immersione verificabile')
+          }
+          t={t}
+        >
           <p className="card-sub">
             {t(
               'Percentuali calcolate solo dove la verifica è possibile: il denominatore è accanto a ogni riga.',
@@ -689,7 +783,15 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
           </table>
         </CartaApribile>
 
-        <CartaApribile chiave="stat-composizione-dell-archiv" titolo={t('Composizione dell’archivio')} t={t}>
+        <CartaApribile
+          chiave="stat-composizione-dell-archiv"
+          titolo={t('Composizione dell’archivio')}
+          /* Profondità e obbligo decompressivo: delle cinque righe sono le due che
+             dicono CHE TIPO di subacqueo sei. Qui lo zero è un dato vero e non
+             un'assenza — il denominatore è noto — quindi non serve ripiego. */
+          sommario={frase(t, '{0} oltre i 30 m, {1} con deco', a.deepDives30, a.decoDives)}
+          t={t}
+        >
           <p className="card-sub">{t('Configurazione, miscele, esposizione.')}</p>
           <table>
             <tbody>
@@ -734,7 +836,24 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
         </CartaApribile>
       </div>
 
-      <CartaApribile chiave="stat-immersioni-per-anno" titolo={t('Immersioni per anno')} t={t}>
+      <CartaApribile
+        chiave="stat-immersioni-per-anno"
+        titolo={t('Immersioni per anno')}
+        /* Quanto è lungo l'archivio e qual è stato l'anno pieno. Il controllo sulla
+           lunghezza non è decorativo: `Math.max()` su un elenco vuoto restituisce
+           `-Infinity`, che a schermo diventa «-∞ in uno». */
+        sommario={
+          a.byYear.length
+            ? frase(
+                t,
+                '{0} anni, fino a {1} in uno',
+                a.byYear.length,
+                Math.max(...a.byYear.map((b) => b.value)),
+              )
+            : t('nessuna immersione nel periodo scelto')
+        }
+        t={t}
+      >
         <ColumnChart
           data={[...a.byYear].sort((x, y) => x.key.localeCompare(y.key))}
           unit={t('immersioni')}
@@ -900,7 +1019,21 @@ function Correlations({
   if (!sets.length) return null;
 
   return (
-    <CartaApribile chiave="stat-cosa-dipende-da-cosa" titolo={t('Cosa dipende da cosa')} t={t}>
+    <CartaApribile
+      chiave="stat-cosa-dipende-da-cosa"
+      titolo={t('Cosa dipende da cosa')}
+      /* La carta produce dei coefficienti: sapere che il legame più forte è 0.62
+         invece di 0.08 è esattamente quello che fa decidere se aprirla. Il `?? 0`
+         qui è corretto — una correlazione non calcolabile è davvero «nessun legame
+         misurabile», e non deve vincere il massimo. */
+      sommario={frase(
+        t,
+        '{0} relazioni, r fino a {1}',
+        sets.length,
+        Math.max(...sets.map((s) => Math.abs(correlation(s.points) ?? 0))).toFixed(2),
+      )}
+      t={t}
+    >
       <p className="card-sub">
         {t(
           'Ogni punto è un’immersione: cliccala per aprirla, o scegli il punto con le frecce e premi Invio. La retta è la tendenza, r è la correlazione — 0 nessuna, ±1 perfetta. È una correlazione, non una causa.',
@@ -990,7 +1123,33 @@ function Distributions({ dives }: { dives: Dive[] }) {
   if (!blocks.length) return null;
 
   return (
-    <CartaApribile chiave="stat-distribuzioni" titolo={t('Distribuzioni')} t={t}>
+    <CartaApribile
+      chiave="stat-distribuzioni"
+      /* «Distribuzioni» è una parola da statistica che non dice cosa ci si guarda.
+         Il titolo nuovo è la frase con cui questo file spiega già la carta. */
+      titolo={t('Le code che la media nasconde')}
+      /*
+       * La coda che conta è quella della riserva, e si conta sui secchi il cui
+       * bordo ALTO sta sotto il limite.
+       *
+       * Non si usa quella delle risalite: i bordi sono 0-3-6-9-12-15-18 e il
+       * limite è 10, quindi un filtro `from >= limite` salterebbe il secchio
+       * [9,12) e conterebbe MENO del vero — un numero rassicurante e sbagliato.
+       * E senza il controllo `some`, un archivio senza pressioni finali direbbe
+       * «0 uscite sotto i 50 bar», che è la bugia più tranquilla che ci sia.
+       */
+      sommario={
+        reserve.some((b) => b.count > 0)
+          ? frase(
+              t,
+              '{0} uscite sotto i {1} bar',
+              reserve.filter((b) => b.to <= LIMITS.minReserveBar).reduce((n, b) => n + b.count, 0),
+              LIMITS.minReserveBar,
+            )
+          : t('serve un profilo campionato')
+      }
+      t={t}
+    >
       <p className="card-sub">
         {t('Quante immersioni per intervallo. Le code sono i casi che una media nasconde.')}
       </p>
@@ -1070,7 +1229,20 @@ function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipm
     const conMuta = dives.filter((d) => nomeMuta(d)).length;
     if (!conMuta) return null;
     return (
-      <CartaApribile chiave="stat-attrezzatura" titolo={t('Attrezzatura')} t={t}>
+      <CartaApribile
+        /* Chiave diversa dall'altro ramo, ed è la prova a chiederlo: i due non
+           convivono mai a schermo — o ci sono i dati o non ci sono — ma
+           «unica, tranne quando i due rami sono esclusivi» non è una regola che
+           si possa verificare leggendo il sorgente. Una chiave in più costa
+           zero e la regola torna vera com'è scritta. */
+        chiave="stat-attrezzatura-senza-dati"
+        titolo={t('Attrezzatura')}
+        /* Questa carta non ha statistiche: ha una spiegazione del perché non ce ne
+           sono. Il numero che fa decidere se aprirla è quante immersioni hanno la
+           muta compilata, cioè la ragione del silenzio. */
+        sommario={frase(t, 'solo {0} con l’attrezzatura', conMuta)}
+        t={t}
+      >
         <p className="card-sub" style={{ marginBottom: 0 }}>
           {`${imm(conMuta, t)} ${t('con l’attrezzatura registrata: troppo poche per un confronto. Compila muta, zavorra ed erogatori nella scheda dell’immersione.')}`}
         </p>
@@ -1082,8 +1254,18 @@ function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipm
     s === 'salt' ? t('salata') : s === 'fresh' ? t('dolce') : t('non indicata');
 
   return (
-    <div className="card">
-      <h2>{t('Attrezzatura')}</h2>
+    /* ► TRE TABELLE: era la sezione più alta della pagina, e l'unica rimasta
+       sempre aperta. Le due carte gemelle — il ramo «dati insufficienti» qui
+       sopra e questa — ora si comportano allo stesso modo, che è il minimo che
+       ci si aspetti da due rami della stessa funzione. */
+    <CartaApribile
+      chiave="stat-attrezzatura"
+      titolo={t('Attrezzatura')}
+      /* Quante mute distinte hanno abbastanza immersioni per entrare in tabella:
+         è la misura di quanto ha da dire questa carta. */
+      sommario={frase(t, '{0} mute a confronto', mute.length)}
+      t={t}
+    >
       {/* Nessuna di queste tabelle dice «meglio». Accanto a ogni riga stanno la
           profondità mediana e il numero di immersioni su cui è calcolata: sono i
           due numeri con cui si smonta una correlazione finta, e per questo non
@@ -1292,7 +1474,7 @@ function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipm
           </div>
         </div>
       ))}
-    </div>
+    </CartaApribile>
   );
 }
 
@@ -1312,6 +1494,20 @@ function Condizioni({ dives }: { dives: Dive[] }) {
   ].filter((tab) => tab.righe.length >= 2);
 
   /*
+   * Tutti i consumi mediani dei gruppi, messi in fila.
+   *
+   * Serve al sommario, che da chiuso deve rispondere alla domanda del titolo —
+   * «quanto contano le condizioni» — con l'escursione fra il gruppo che consuma
+   * meno e quello che consuma di più. Il consumo mediano è facoltativo per
+   * gruppo (un gruppo senza profili campionati non ce l'ha), e il filtro lo
+   * toglie invece di farlo passare come zero: uno zero in un minimo diventa
+   * «consumo da 0.0 a 18.7 L/min», cioè un'escursione inventata.
+   */
+  const consumiDeiGruppi = tabelle
+    .flatMap((tab) => tab.righe.map((r) => r.medianRmvLpm))
+    .filter((v): v is number => v !== undefined);
+
+  /*
    * Con un solo gruppo non c'è niente da confrontare, e una tabella con una riga
    * sola invita a leggere quel numero come «il tuo consumo col mare calmo»
    * quando è semplicemente il tuo consumo. Sotto le due righe la tabella non
@@ -1321,7 +1517,20 @@ function Condizioni({ dives }: { dives: Dive[] }) {
     const totale = quante.mare + quante.meteo + quante.visibilita;
     if (totale === 0) return null;
     return (
-      <CartaApribile chiave="stat-condizioni" titolo={t('Condizioni')} t={t}>
+      <CartaApribile
+        chiave="stat-condizioni"
+        titolo={t('Condizioni')}
+        /* Il massimo dei tre e non `totale`: quello è `mare + meteo + visibilità`,
+           cioè conta tre volte la stessa immersione quando ha tutti e tre i campi,
+           e su quattro immersioni complete direbbe «solo 12 con le condizioni
+           registrate» in una carta che spiega che i dati sono POCHI. */
+        sommario={frase(
+          t,
+          'solo {0} con le condizioni registrate',
+          Math.max(quante.mare, quante.visibilita, quante.meteo),
+        )}
+        t={t}
+      >
         <p className="card-sub" style={{ marginBottom: 0 }}>
           {t(
             'Le condizioni sono registrate su poche immersioni: con un gruppo solo non c’è niente da confrontare. Compila mare, visibilità e meteo nella scheda dell’immersione.',
@@ -1332,7 +1541,30 @@ function Condizioni({ dives }: { dives: Dive[] }) {
   }
 
   return (
-    <CartaApribile chiave="stat-quanto-contano-le-condiz" titolo={t('Quanto contano le condizioni')} t={t}>
+    <CartaApribile
+      chiave="stat-quanto-contano-le-condiz"
+      titolo={t('Quanto contano le condizioni')}
+      /*
+       * Il titolo fa una domanda, e il sommario risponde con l'escursione del
+       * consumo fra i gruppi: è quella la misura di «quanto contano». Contare le
+       * tabelle sarebbe stato più facile e avrebbe risposto a un'altra domanda —
+       * *il numero che decide dev'essere il numero che si mostra.*
+       *
+       * Il consumo mediano è facoltativo per gruppo, e con meno di due valori
+       * un'escursione non esiste: allora si dice quanti assi sono confrontabili.
+       */
+      sommario={
+        consumiDeiGruppi.length >= 2
+          ? frase(
+              t,
+              'consumo da {0} a {1} L/min',
+              Math.min(...consumiDeiGruppi).toFixed(1),
+              Math.max(...consumiDeiGruppi).toFixed(1),
+            )
+          : frase(t, '{0} condizioni a confronto', tabelle.length)
+      }
+      t={t}
+    >
       <p className="card-sub">
         {t(
           'Le tue mediane divise per mare, visibilità e meteo. Accanto al consumo trovi profondità e temperatura dello stesso gruppo: se salgono insieme, non sono state le onde. Solo i gruppi da tre immersioni in su.',
@@ -1443,6 +1675,11 @@ function SettingsHistory({ dives }: { dives: Dive[] }) {
     <CartaApribile
       chiave="stat-impostazioni-del-compute"
       titolo={t('Impostazioni del computer nel tempo')}
+      /* Quanti cambi e com'è messo ADESSO: è l'intero messaggio della carta, che
+         esiste per avvisare quando una tendenza del GF99 attraversa un cambio di
+         impostazioni. `periods.length >= 2` è garantito dall'uscita anticipata qui
+         sopra, quindi «0 cambi» non può comparire. */
+      sommario={frase(t, '{0} cambi, ora {1}', periods.length - 1, periods[periods.length - 1].label)}
       t={t}
     >
       <p className="card-sub">
@@ -1491,13 +1728,20 @@ function Seasonality({ dives }: { dives: Dive[] }) {
     .map((m) => ({ label: etichettaMese(m.label, t), key: m.key, value: m.value }));
   if (months.length < 3) return null;
   return (
-    <div className="card">
-      <h2>{t('Temperatura per mese')}</h2>
-      <p className="card-sub">
-        {t('Temperatura minima media per mese: dice quando serve la muta più pesante.')}
-      </p>
+    <CartaApribile
+      chiave="stat-temperatura-per-mese"
+      titolo={t('Temperatura per mese')}
+      sotto={t('Temperatura minima media per mese: dice quando serve la muta più pesante.')}
+      /* Il mese più freddo e i suoi gradi: è la risposta alla domanda per cui
+         questa carta esiste — quando serve la muta più pesante. */
+      sommario={(() => {
+        const piuFreddo = months.reduce((m, x) => (x.value < m.value ? x : m));
+        return `${piuFreddo.label} ${piuFreddo.value.toFixed(1)} °C`;
+      })()}
+      t={t}
+    >
       <ColumnChart data={months} unit="°C" height={150} labelEvery={1} serie="misure" />
-    </div>
+    </CartaApribile>
   );
 }
 
@@ -1695,7 +1939,18 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
       : '');
 
   return (
-    <CartaApribile chiave="stat-dove-ti-immergi" titolo={t('Dove ti immergi')} t={t}>
+    <CartaApribile
+      chiave="stat-dove-ti-immergi"
+      titolo={t('Dove ti immergi')}
+      /* È lo stesso conteggio che il sottotitolo mostra da aperta, ed è giusto
+         ripeterlo: da chiusa quel sottotitolo è `hidden`, cioè non esiste. */
+      sommario={
+        withoutCoords
+          ? frase(t, '{0} siti · {1} senza coordinate', withCoords, withoutCoords)
+          : `${withCoords} ${t('siti')}`
+      }
+      t={t}
+    >
       <div className="page-title-row" style={{ marginBottom: 4 }}>
         <span className="muted" style={{ fontSize: 12 }}>
           {`${withCoords} ${t('siti con coordinate')}`}

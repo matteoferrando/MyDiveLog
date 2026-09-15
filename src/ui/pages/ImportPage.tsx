@@ -15,6 +15,8 @@ import { accettaFile } from '../accettaFile';
 import { useDiveLog, type ImportOutcome } from '../state';
 import { BleDownload } from '../components/BleDownload';
 import { BottoneConferma } from '../components/Conferma';
+import { CartaApribile } from '../components/CartaApribile';
+import { frase } from '../../core/frase';
 import { useLingua } from '../lingua';
 import { conDettaglio } from '../../core/ble/causaGuasto';
 
@@ -327,13 +329,21 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
        */}
       <BleDownload />
 
-      <div className="card">
-        <h2>{t('Formati supportati')}</h2>
-        <p className="card-sub">
-          {t(
-            'Il formato si riconosce dal contenuto, non dall’estensione: un .xml può essere UDDF (il formato universale di scambio dei logbook), Subsurface o Shearwater.',
-          )}
-        </p>
+      {/* Misurata a 402 px: 947 px, cioè metà della pagina. È una tabella di
+          riferimento — si consulta la prima volta e quando arriva un file
+          strano — e nel frattempo stava fra la zona di trascinamento e il
+          pulsante del Bluetooth, che sono le due cose che si vengono a fare. */}
+      <CartaApribile
+        chiave="import-formati"
+        titolo={t('Formati supportati')}
+        sotto={t(
+          'Il formato si riconosce dal contenuto, non dall’estensione: un .xml può essere UDDF (il formato universale di scambio dei logbook), Subsurface o Shearwater.',
+        )}
+        /* Quanti ne legge: è il numero che questa carta produce, ed è anche
+           l'unica cosa che chi ha un file in mano vuole sapere prima di aprirla. */
+        sommario={frase(t, '{0} formati letti', PARSERS.length)}
+        t={t}
+      >
         <div className="table-scroll">
           <table>
             <thead>
@@ -354,7 +364,7 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
             </tbody>
           </table>
         </div>
-      </div>
+      </CartaApribile>
 
       {/*
        * Cosa porta ogni formato: cinque righe, non cinque paragrafi.
@@ -365,8 +375,14 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
        * il parser, non a chi importa un file: chi legge questa scheda vuole
        * sapere se dopo l'import dovrà completare qualcosa a mano.
        */}
-      <div className="card">
-        <h2>{t('Cosa porta ogni formato')}</h2>
+      <CartaApribile
+        chiave="import-cosa-porta"
+        titolo={t('Cosa porta ogni formato')}
+        /* Il titolo promette un confronto fra formati: il sommario dice qual è
+           la cosa che li distingue davvero, cioè quello che NON portano. */
+        sommario={t('e cosa lascia fuori')}
+        t={t}
+      >
         <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)', fontSize: 13 }}>
           <li>
             <b>Shearwater</b>{' '}
@@ -393,7 +409,7 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
             {t(': solo riepilogo, nessun profilo. Utile per recuperare uno storico da un foglio di calcolo.')}
           </li>
         </ul>
-      </div>
+      </CartaApribile>
 
       {dives.length > 0 && (
         <div className="card">

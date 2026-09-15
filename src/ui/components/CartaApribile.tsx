@@ -110,11 +110,23 @@ export interface CartaApribileProps {
   /**
    * Il numero che questo riquadro produce, da leggere SENZA aprirlo.
    *
-   * Vedi il riquadro in testa al file: senza, chi legge apre per forza e il
-   * risparmio si trasforma in un tocco in più. Se un riquadro non ha un numero
-   * da riassumere, probabilmente non è un riquadro che conviene chiudere.
+   * ► OBBLIGATORIO DAL 15 SETTEMBRE 2026, e la ragione è una misura. ◄
+   *
+   * Era facoltativo, e il risultato si è visto contando: su ventitré riquadri
+   * apribili dell'applicazione, **ventitré erano senza** — tutte e quindici le
+   * Statistiche, tutte e cinque quelle della scheda di un'immersione, due dei
+   * Suggerimenti, una del pianificatore. Cioè la regola scritta in testa a
+   * questo file valeva per una carta su sedici, e le altre erano esattamente
+   * quello che quella regola vieta: *un titolo con una freccia.*
+   *
+   * Reso obbligatorio, non se ne può più dimenticare uno: il compilatore
+   * rifiuta il riquadro prima che arrivi a schermo. È una guardia migliore di
+   * una prova, perché non si può lasciare rossa «per adesso».
+   *
+   * Se un riquadro non ha nessun numero da riassumere, quasi sempre vuol dire
+   * che non è un riquadro che conviene chiudere.
    */
-  sommario?: ReactNode;
+  sommario: ReactNode;
   /** Aperto anche sul telefono: per il riquadro principale della pagina. */
   apertoDiDefault?: boolean;
   t?: Traduci;

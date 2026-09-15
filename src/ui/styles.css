@@ -2089,6 +2089,20 @@ textarea {
   gap: 8px;
 }
 
+/*
+ * UN RIQUADRO DENTRO UN RIQUADRO NON HA IL SUO BORDO.
+ *
+ * I risultati «da guardare dopo» stanno dentro una carta che si apre: con la
+ * loro cornice si vedrebbero due bordi a due pixel di distanza, che si legge
+ * come un errore di disegno e non come una gerarchia. Resta la spaziatura fra
+ * uno e l'altro, che è quello che li separa davvero.
+ */
+.finding-annidato {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
 .finding-head {
   display: flex;
   align-items: flex-start;

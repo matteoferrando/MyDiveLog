@@ -211,6 +211,22 @@ export const INGLESE: Record<string, string> = {
   'la distanza fra le due curve è quella differenza.': 'the gap between the two curves is that difference.',
   'Lette dal log del computer, non inserite a mano.': 'Read from the computer log, not typed in.',
   'Letto dal computer': 'From the computer',
+
+  // --- i sommari delle sezioni che si aprono, nella scheda di un'immersione ---
+  // «Debrief» resta «Debrief»: è la parola che si usa in inglese e in italiano a
+  // bordo, e tradurla in «Debriefing» la allontanerebbe da tutte e due.
+  Debrief: 'Debrief',
+  'Attrezzatura, condizioni e numeri': 'Gear, conditions and numbers',
+  'numeri non calcolati': 'numbers not computed',
+  'nessuna deco': 'no deco',
+  'l’analisi non coincide con l’etichetta': 'analysis does not match the label',
+  'nessuna bombola registrata': 'no cylinder recorded',
+  '{0} bar usati': '{0} bar used',
+  'pressioni non registrate': 'pressures not recorded',
+  'Riepilogo calcolato dal computer': 'Summary computed by the dive computer',
+  obbligo: 'obligation',
+  'nessun valore di sintesi': 'no summary values',
+  'sempre in curva, minimo {0} min': 'always within NDL, {0} min at worst',
   'Limite di PPO2 impostato': 'PPO2 limit set',
   Logbook: 'Logbook',
   'm più profonda della prima': 'm deeper than the first',
@@ -412,6 +428,29 @@ export const INGLESE: Record<string, string> = {
   'sott’acqua': 'underwater',
   Stagione: 'Season',
   Statistiche: 'Statistics',
+
+  // --- i sommari delle sezioni che si aprono, nelle Statistiche ---
+  // Sono la riga che una sezione chiusa mostra accanto al titolo: devono restare
+  // corte in inglese quanto in italiano, o sul telefono vanno a capo.
+  'Quanto ti costano le ripetitive': 'What repetitive dives cost you',
+  '{0} ripetitive, +{1} GF99': '{0} repetitive, +{1} GF99',
+  '{0} mesi su {1} con immersioni': '{0} of {1} months with dives',
+  'nessun sito registrato': 'no site recorded',
+  'Disciplina: soste, risalite, riserva': 'Discipline: stops, ascents, reserve',
+  'soste completate': 'safety stops done',
+  '{0} oltre i 30 m, {1} con deco': '{0} past 30 m, {1} with deco',
+  '{0} anni, fino a {1} in uno': '{0} years, up to {1} in one',
+  '{0} relazioni, r fino a {1}': '{0} relationships, r up to {1}',
+  'Le code che la media nasconde': 'The tails an average hides',
+  soprattutto: 'mostly',
+  '{0} mute a confronto': '{0} suits compared',
+  '{0} uscite sotto i {1} bar': '{0} exits below {1} bar',
+  'solo {0} con l’attrezzatura': 'only {0} with gear filled in',
+  'solo {0} con le condizioni registrate': 'only {0} with conditions recorded',
+  'consumo da {0} a {1} L/min': '{0} to {1} L/min',
+  '{0} condizioni a confronto': '{0} conditions compared',
+  '{0} cambi, ora {1}': '{0} changes, now {1}',
+  '{0} siti · {1} senza coordinate': '{0} sites · {1} without coordinates',
   'T mediana': 'Median T',
   'T minima': 'Min T',
   'Temperatura minima media per mese: dice quando serve la muta più pesante.':
@@ -571,6 +610,12 @@ export const INGLESE: Record<string, string> = {
   'senza nome': 'unnamed',
   'Serve un nome.': 'A name is required.',
   Suggerimenti: 'Coaching',
+  // I sommari delle sezioni del piano di miglioramento.
+  '{0} immersioni su {1} con il profilo': '{0} of {1} dives have a profile',
+  'cosa che funziona': 'thing working',
+  'cose che funzionano': 'things working',
+  'cosa da guardare': 'thing to look at',
+  'cose da guardare': 'things to look at',
   'Sì, elimina': 'Yes, delete',
   Ultima: 'Last',
   'Vengono proposti come piastra sulle immersioni in cui lo scegli, e li puoi cambiare lì.':
@@ -649,6 +694,8 @@ export const INGLESE: Record<string, string> = {
   'Curva alla massima': 'No-deco at max depth',
   'Curva alla media': 'No-deco at average depth',
   'Curva di sicurezza': 'No-deco limit',
+  'esce dalla curva al {0}° minuto': 'leaves NDL at minute {0}',
+  'in curva, {0} min di margine': 'within NDL, {0} min to spare',
   'Da portare in acqua': 'To take in the water',
   'Da sapere': 'Worth knowing',
   'dalla fine del fondo alla superficie': 'from the end of the bottom to the surface',
@@ -1294,6 +1341,9 @@ export const INGLESE: Record<string, string> = {
   'il logbook le mostra comunque': 'the logbook still shows them all',
   'Immersione aggiunta.': 'Dive added.',
   Impostazioni: 'Settings',
+  // I sommari delle sezioni che si aprono, in Impostazioni.
+  'non cancella niente': 'nothing gets deleted',
+  vuoto: 'empty',
   Lingua: 'Language',
   'in inventario': 'in your gear',
   Inizio: 'Start',
@@ -1823,6 +1873,9 @@ export const INGLESE: Record<string, string> = {
   'Immersioni oltre i 30 m': 'Dives past 30 m',
   'Immersioni registrate': 'Dives logged',
   Importa: 'Import',
+  // I sommari delle sezioni che si aprono, nella scheda Importa.
+  '{0} formati letti': '{0} formats read',
+  'e cosa lascia fuori': 'and what it leaves out',
   'Importa le immersioni e qui metti due profili sullo stesso grafico.':
     'Import your dives and this page puts two profiles on one chart.',
   Importante: 'Serious',

@@ -7,6 +7,7 @@ import { PeriodPicker } from '../components/PeriodPicker';
 import { imm, plural, SEVERITY_CLASS, SEVERITY_TEXT, type Traduci } from '../format';
 import { Vuoto } from '../components/Vuoto';
 import { useLingua } from '../lingua';
+import { frase } from '../../core/frase';
 
 export function Coach() {
   const { plan, goalId, setGoalId, dives, aggregates, scope } = useDiveLog();
@@ -121,13 +122,27 @@ export function Coach() {
 
       <PeriodPicker />
 
-      <div className="card">
+      {/*
+       * ► LA PRONTEZZA PARTE APERTA, ma la tabella dei criteri si può chiudere. ◄
+       *
+       * È la carta principale della pagina, e la percentuale è la prima cosa che
+       * si guarda: farla aprire a mano sarebbe un tocco imposto a tutti. Quello
+       * che pesa sul telefono non è la percentuale — è la tabella dei criteri
+       * sotto, otto righe che si leggono una volta e poi si sanno. Chi le ha
+       * lette chiude la carta e da lì in poi vede la percentuale nel sommario.
+       */}
+      <CartaApribile
+        chiave="coach-prontezza"
+        titolo={t(readiness.goal.label)}
+        sotto={t(readiness.goal.description)}
+        /* La percentuale, che è l'intera risposta della carta. Il verdetto
+           accanto non ci starebbe su una riga di telefono. */
+        sommario={`${Math.round(readiness.score * 100)}%`}
+        apertoDiDefault
+        t={t}
+      >
         <div className="spread" style={{ alignItems: 'flex-start' }}>
           <div style={{ flex: 1, minWidth: 240 }}>
-            <h2>{t(readiness.goal.label)}</h2>
-            <p className="card-sub" style={{ marginBottom: 10 }}>
-              {t(readiness.goal.description)}
-            </p>
             <div className="row" style={{ gap: 12, marginBottom: 6 }}>
               <span className="hero" style={{ fontSize: 34 }}>
                 {Math.round(readiness.score * 100)}%
@@ -181,7 +196,7 @@ export function Coach() {
         <p className="muted" style={{ fontSize: 11, marginTop: 14, marginBottom: 0 }}>
           {t('Sono riferimenti, non i requisiti di un corso: quelli chiedili all’istruttore.')}
         </p>
-      </div>
+      </CartaApribile>
 
       {plan.focus.length > 0 && (
         <div className="stack">
@@ -198,16 +213,44 @@ export function Coach() {
       )}
 
       {dopo.length > 0 && (
-        <div className="stack">
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 650 }}>{t('Dopo, in ordine')}</h2>
-          {dopo.map((f) => (
-            <FindingCard key={f.id} finding={f} collapsed />
-          ))}
-        </div>
+        /*
+         * ► «DOPO» È UN CAPITOLO, e chiuso è più onesto che aperto. ◄
+         *
+         * Misurato: 578 px sul telefono, cioè quasi una schermata di cose che la
+         * pagina stessa dichiara di NON voler far fare adesso. La riga sopra
+         * dice «tre alla volta: fare tutto insieme non funziona», e poi l'elenco
+         * delle altre sette stava lì spalancato sotto — cioè l'interfaccia
+         * contraddiceva il proprio consiglio con il suo stesso ingombro.
+         *
+         * Dentro, i riquadri perdono il bordo: un riquadro dentro un riquadro,
+         * con due cornici a due pixel di distanza, si legge come un errore di
+         * disegno. È lo stesso motivo per cui una tabella dentro una carta non
+         * ha una seconda intestazione.
+         */
+        <CartaApribile
+          chiave="coach-dopo"
+          titolo={t('Dopo, in ordine')}
+          sommario={plural(dopo.length, 'cosa da guardare', 'cose da guardare', t)}
+          t={t}
+        >
+          <div className="stack">
+            {dopo.map((f) => (
+              <FindingCard key={f.id} finding={f} collapsed annidato />
+            ))}
+          </div>
+        </CartaApribile>
       )}
 
       {plan.strengths.length > 0 && (
-        <CartaApribile chiave="coach-punti-di-forza" titolo={t('Punti di forza')} t={t}>
+        <CartaApribile
+          chiave="coach-punti-di-forza"
+          titolo={t('Punti di forza')}
+          /* Quante sono: è l'unico numero che una carta di complimenti produce, e
+             fa la differenza fra aprirla e non aprirla. La carta compare solo con
+             almeno un punto di forza, quindi non può dire «0». */
+          sommario={plural(plan.strengths.length, 'cosa che funziona', 'cose che funzionano', t)}
+          t={t}
+        >
           <p className="card-sub">{t('Quello che già funziona, con i numeri che lo dicono.')}</p>
           <div className="stack" style={{ gap: 10 }}>
             {plan.strengths.map((f) => (
@@ -238,6 +281,10 @@ export function Coach() {
       <CartaApribile
         chiave="coach-come-costruito-questo-pi"
         titolo={t('Come è costruito questo piano')}
+        /* La copertura del dato è il numero di questa carta: spiega da sola
+           perché una regola non compare — sono le immersioni che hanno il
+           profilo, cioè quelle su cui le metriche derivate esistono. */
+        sommario={frase(t, '{0} immersioni su {1} con il profilo', aggregates.withProfile, aggregates.count)}
         t={t}
       >
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--text-secondary)' }}>
@@ -291,7 +338,16 @@ function AnnuncioPiano({ testo }: { testo: string }) {
   );
 }
 
-function FindingCard({ finding: f, collapsed = false }: { finding: Finding; collapsed?: boolean }) {
+function FindingCard({
+  finding: f,
+  collapsed = false,
+  annidato = false,
+}: {
+  finding: Finding;
+  collapsed?: boolean;
+  /** Dentro una carta che si apre: niente bordo, niente sfondo, niente padding. */
+  annidato?: boolean;
+}) {
   const { t } = useLingua();
   /*
    * Titolo, dettaglio, prove ed esercizi arrivano dalle regole con i numeri già
@@ -301,7 +357,7 @@ function FindingCard({ finding: f, collapsed = false }: { finding: Finding; coll
    * regole non compongono le loro frasi a pezzi.
    */
   return (
-    <div className="finding">
+    <div className={annidato ? 'finding finding-annidato' : 'finding'}>
       <div className="finding-head">
         <span className={`dot ${SEVERITY_CLASS[f.severity]}`} style={{ marginTop: 6 }} />
         <h3>{f.headline}</h3>

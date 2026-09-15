@@ -44,6 +44,7 @@ import type { Fornitore } from '../../sync/account';
 import { nomeImpostazione, traduciErroreSync, type StradaSync, type SyncReport } from '../../sync/turso';
 import { frase } from '../../core/frase';
 import { BottoneConferma } from '../components/Conferma';
+import { CartaApribile } from '../components/CartaApribile';
 
 /**
  * Quando questo dispositivo ha sincronizzato l'ultima volta.
@@ -473,8 +474,20 @@ export function SyncPage() {
        * il dubbio a cui questo elenco risponde — non scorreva fin laggiù, e chi
        * ci arrivava scorrendo non aveva più in mente il pulsante.
        */}
-      <div className="card">
-        <h2>{t('Cosa succede quando premi Sincronizza')}</h2>
+      {/*
+       * ► QUESTA È LA CARTA CHE PIÙ DI TUTTE VA CHIUSA SUL TELEFONO. ◄
+       *
+       * È una spiegazione, non un comando: si legge UNA volta, per decidere se
+       * fidarsi, e da lì in poi resta in mezzo fra il pulsante e il cestino a
+       * ogni visita. Il sommario dice la cosa che una persona vuole sapere
+       * senza aprire, ed è la promessa dell'intero elenco.
+       */}
+      <CartaApribile
+        chiave="sync-cosa-succede"
+        titolo={t('Cosa succede quando premi Sincronizza')}
+        sommario={t('non cancella niente')}
+        t={t}
+      >
         {/*
          * QUESTO ELENCO ERA UN SAGGIO, ed è il posto giusto per tenerne le
          * ragioni. Quello che si è spostato qui dentro:
@@ -528,7 +541,7 @@ export function SyncPage() {
             <b>{t('Sincronizzare due volte di fila non fa niente la seconda volta.')}</b>
           </li>
         </ul>
-      </div>
+      </CartaApribile>
 
       {/*
        * IL CAMPO MANUALE È FINITO QUI SOTTO, E NON È STATO TOLTO.
@@ -662,8 +675,14 @@ export function SyncPage() {
 
       <BackupCard />
 
-      <div className="card">
-        <h2>{t('Esporta l’archivio')}</h2>
+      <CartaApribile
+        chiave="sync-esporta"
+        titolo={t('Esporta l’archivio')}
+        /* I tre formati sono la domanda a cui la carta risponde: chi arriva qui
+           sa già che vuole portare fuori i dati, e vuole sapere DOVE. */
+        sommario="UDDF · CSV · KML"
+        t={t}
+      >
         {/*
          * PERCHÉ L'UDDF NON È UN BACKUP, e perché lo diciamo qui in una riga.
          *
@@ -829,7 +848,7 @@ export function SyncPage() {
             )}
           </div>
         )}
-      </div>
+      </CartaApribile>
 
       <RiconoscimentiCard />
     </div>
@@ -856,13 +875,20 @@ export function SyncPage() {
 function RiconoscimentiCard() {
   const { t } = useLingua();
   return (
-    <div className="card">
-      <h2>{t('Riconoscimenti')}</h2>
-      <p className="card-sub">
-        {t(
-          'MyDiveLog legge i computer subacquei grazie al lavoro di chi ha decifrato i loro protocolli e lo ha reso pubblico.',
-        )}
-      </p>
+    /* Un'attribuzione va RAGGIUNGIBILE, non spalancata: la LGPL chiede che chi
+       riceve il programma possa scoprire da dove viene e dove sta il sorgente,
+       non che se lo ritrovi in mezzo ai comandi ogni volta che apre le
+       impostazioni. Chiusa resta a un tocco, e il tocco è dichiarato dal
+       sommario, che nomina la libreria e la sua licenza. */
+    <CartaApribile
+      chiave="sync-riconoscimenti"
+      titolo={t('Riconoscimenti')}
+      sotto={t(
+        'MyDiveLog legge i computer subacquei grazie al lavoro di chi ha decifrato i loro protocolli e lo ha reso pubblico.',
+      )}
+      sommario="libdivecomputer · LGPL-2.1"
+      t={t}
+    >
       <p style={{ fontSize: 13 }}>
         <b>libdivecomputer</b> — {t('di Jef Driesen e collaboratori, licenza')}{' '}
         {/*
@@ -892,7 +918,7 @@ function RiconoscimentiCard() {
           github.com/matteoferrando/MyDiveLog
         </a>
       </p>
-    </div>
+    </CartaApribile>
   );
 }
 
@@ -1257,8 +1283,15 @@ function BackupCard() {
   };
 
   return (
-    <div className="card">
-      <h2>{t('Backup completo e ripristino')}</h2>
+    <CartaApribile
+      chiave="sync-backup"
+      titolo={t('Backup completo e ripristino')}
+      /* Quante immersioni finirebbero nel file: è la risposta a «e questo cosa
+         salva davvero», che è l'unica domanda che si fa chi guarda questa carta
+         senza aver deciso niente. */
+      sommario={imm(dives.length, t)}
+      t={t}
+    >
       {/*
        * IL BACKUP NON LO LEGGE NESSUN ALTRO PROGRAMMA, ed è voluto: quel
        * mestiere lo fa l'UDDF: qui in cambio non si perde niente — immersioni
@@ -1406,7 +1439,7 @@ function BackupCard() {
       <p className="muted" style={{ fontSize: 11, marginTop: 12, marginBottom: 0 }}>
         {t('L’archivio vive')} {t(storeLocation)}. {t('Il backup è una copia da tenere altrove.')}
       </p>
-    </div>
+    </CartaApribile>
   );
 }
 
@@ -1425,8 +1458,16 @@ function TrashCard() {
 
   if (!items.length) {
     return (
-      <div className="card">
-        <h2>{t('Cestino')}</h2>
+      <CartaApribile
+        /* Chiave diversa dal ramo pieno: vedi la stessa scelta in `Stats.tsx`. */
+        chiave="sync-cestino-vuoto"
+        titolo={t('Cestino')}
+        /* Vuoto si DICE, e non si lascia indovinare da un titolo con una
+           freccia: «Cestino +» chiuso fa aprire chiunque per scoprire che non
+           c'era niente da vedere. */
+        sommario={t('vuoto')}
+        t={t}
+      >
         {/* Finché è nel cestino un'immersione sparisce dall'archivio e non si
          * sincronizza, ma non è perduta: è lo stato intermedio che rende
          * riparabile un errore. Passati i giorni, la cancellazione diventa
@@ -1435,15 +1476,23 @@ function TrashCard() {
           {t('Vuoto. Quello che cancelli resta qui')} {TRASH_DAYS}{' '}
           {t('giorni, poi la cancellazione diventa definitiva su tutti i dispositivi.')}
         </p>
-      </div>
+      </CartaApribile>
     );
   }
 
   return (
-    <div className="card">
+    <CartaApribile
+      chiave="sync-cestino"
+      titolo={t('Cestino')}
+      /* Quante ce ne sono dentro. È il numero che decide se aprire: zero non può
+         comparire qui — quel ramo è il `return` qui sopra — e un cestino con
+         qualcosa dentro va detto, perché quelle immersioni spariscono
+         dall'archivio e dalla sincronizzazione finché restano lì. */
+      sommario={imm(items.length, t)}
+      t={t}
+    >
       <div className="spread" style={{ alignItems: 'flex-start' }}>
         <div>
-          <h2 style={{ margin: 0 }}>{t('Cestino')}</h2>
           <p className="card-sub" style={{ marginBottom: 0 }}>
             {plural(items.length, 'immersione cancellata', 'immersioni cancellate', t)},{' '}
             {t('col loro profilo. Finché sono qui, «Rimetti a posto» le riporta com’erano.')}
@@ -1548,7 +1597,7 @@ function TrashCard() {
           </tbody>
         </table>
       </div>
-    </div>
+    </CartaApribile>
   );
 }
 

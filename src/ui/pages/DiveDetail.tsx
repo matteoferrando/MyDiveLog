@@ -206,6 +206,12 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
     );
 
   const m = dive.metrics;
+  /* Vedi il riquadro accanto alle due carte in fondo: un oggetto vuoto è vero, e
+     si contano le chiavi invece di fidarsi della sua esistenza. */
+  const sintesiDelComputer =
+    dive.reported && Object.keys(dive.reported).length > 0 ? dive.reported : undefined;
+  const annotazioniDelLogbook =
+    dive.annotations && Object.keys(dive.annotations).length > 0 ? dive.annotations : undefined;
   const hasAlt = (dive.altSamples?.length ?? 0) > 2;
   // Il profilo mostrato può essere il secondo, su richiesta. Le metriche NON
   // cambiano: sono calcolate una volta sul dato migliore disponibile, e mostrarle
@@ -348,8 +354,27 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
         />
       </div>
 
-      <div className="card">
-        <h2>{t('Profilo')}</h2>
+      {/*
+       * ► IL PROFILO PARTE APERTO, ma si può chiudere. ◄
+       *
+       * È il riquadro principale della pagina: chi apre un'immersione vuole
+       * vedere la curva, e farlo aprire a mano sarebbe un tocco imposto a tutti
+       * per far risparmiare scroll a nessuno. `apertoDiDefault` dice esattamente
+       * questo — è lo STATO INIZIALE, non un divieto di chiudere — e chi ha già
+       * guardato la curva e sta cercando le bombole se lo richiude per il resto
+       * della sessione.
+       *
+       * Il sommario serve lo stesso, e proprio per quel caso: una volta chiuso,
+       * resta chiuso finché l'applicazione è accesa, e deve dire quale
+       * immersione si sta guardando.
+       */}
+      <CartaApribile
+        chiave="imm-profilo"
+        titolo={t('Profilo')}
+        sommario={`${dive.maxDepth.toFixed(1)} m × ${formatDuration(dive.durationS)}`}
+        apertoDiDefault
+        t={t}
+      >
         <div className="spread" style={{ alignItems: 'flex-start', gap: 12 }}>
           <p className="card-sub">
             {t('Profondità in metri, tempo in minuti.')}{' '}
@@ -503,11 +528,11 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
             />
           </div>
         )}
-      </div>
+      </CartaApribile>
 
       {observations.length > 0 && (
         <div className="card">
-          <h2>Debrief</h2>
+          <h2>{t('Debrief')}</h2>
           <p className="card-sub">{t('Cosa dice il profilo di questa immersione.')}</p>
           <div className="stack" style={{ gap: 7 }}>
             {observations.map((o) => (
@@ -527,7 +552,30 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
       )}
 
       <div className="grid grid-2">
-        <CartaApribile chiave="imm-dettagli" titolo={t('Dettagli')} t={t}>
+        <CartaApribile
+          chiave="imm-dettagli"
+          /* «Dettagli» non distingueva niente da niente: tutta questa pagina è
+             fatta di dettagli. Il titolo adesso elenca cosa c'è dentro. */
+          titolo={t('Attrezzatura, condizioni e numeri')}
+          /*
+           * Le sei tessere qui sopra dicono già profondità, durata, consumo,
+           * risalita e temperatura. L'unica cosa che questa tabella aggiunge, e
+           * che fa decidere se aprirla, è «ho preso deco?».
+           *
+           * Zero secondi di deco esce come «nessuna deco» e non come «0:00»:
+           * uno zero accanto alla parola «deco» si legge per un decimo di
+           * secondo come un difetto del calcolo invece che come una buona
+           * notizia.
+           */
+          sommario={
+            m === undefined
+              ? t('numeri non calcolati')
+              : m.decoS > 0
+                ? `${t('Tempo in deco')} ${formatDuration(m.decoS)}`
+                : t('nessuna deco')
+          }
+          t={t}
+        >
           <table>
             <tbody>
               {/* `modeLabel` sta in `core` e torna l'etichetta italiana: si
@@ -710,7 +758,37 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
           </table>
         </CartaApribile>
 
-        <CartaApribile chiave="imm-bombole-e-miscele" titolo={t('Bombole e miscele')} t={t}>
+        <CartaApribile
+          chiave="imm-bombole-e-miscele"
+          titolo={t('Bombole e miscele')}
+          /*
+           * ► L'AVVISO BATTE IL NUMERO. ◄
+           *
+           * Di norma il sommario è la miscela e i bar consumati. Ma se
+           * l'analisi non coincide con l'etichetta, quella è l'unica cosa che
+           * conta: è il caso in cui MOD, PPO2 e CNS di tutta la pagina sono
+           * calcolati su una miscela che non è quella respirata. Una carta
+           * chiusa che nasconde un avviso non è una carta chiusa, è un avviso
+           * perso.
+           *
+           * Il `+N` invece dell'elenco: tre bombole scritte per esteso fanno
+           * una riga lunga il doppio dello schermo.
+           */
+          sommario={
+            scartiDiAnalisi(dive.cylinders).length > 0
+              ? t('l’analisi non coincide con l’etichetta')
+              : dive.cylinders.length === 0
+                ? t('nessuna bombola registrata')
+                : `${mixName(dive.cylinders[0].mix)}${
+                    dive.cylinders.length > 1 ? ` +${dive.cylinders.length - 1}` : ''
+                  } · ${
+                    dive.cylinders[0].startBar !== undefined && dive.cylinders[0].endBar !== undefined
+                      ? frase(t, '{0} bar usati', dive.cylinders[0].startBar - dive.cylinders[0].endBar)
+                      : t('pressioni non registrate')
+                  }`
+          }
+          t={t}
+        >
           {/* Il volume in litri serve al consumo in L/min: senza, resta bar/min,
               che non si confronta fra bombole di taglia diversa. */}
           <p className="card-sub">{t('Senza i litri della bombola il consumo in L/min non si calcola.')}</p>
@@ -792,10 +870,40 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
       <CartaFirma dive={dive} onSalva={(d) => void saveDive(d)} />
 
-      {(dive.reported || dive.annotations) && (
+      {/*
+       * ► `{}` È VERO, e queste due guardie ci cascavano. ◄
+       *
+       * `dive.reported &&` passa anche con un oggetto senza nessun campo: un
+       * import che scrive `reported: {}` disegnava una carta di quattro
+       * trattini, e `annotations: {}` una tabella senza righe. Una carta che
+       * esiste per mostrare dei dati e non ne ha nessuno non va disegnata
+       * vuota: va lasciata fuori. Si contano le chiavi.
+       */}
+      {(sintesiDelComputer || annotazioniDelLogbook) && (
         <div className="grid grid-2">
-          {dive.reported && (
-            <CartaApribile chiave="imm-letto-dal-computer" titolo={t('Letto dal computer')} t={t}>
+          {sintesiDelComputer && (
+            <CartaApribile
+              chiave="imm-letto-dal-computer"
+              /* Anche il profilo e le impostazioni sono «letti dal computer»:
+                 questa carta è il suo RIEPILOGO, e il titolo lo dice. */
+              titolo={t('Riepilogo calcolato dal computer')}
+              /* Dei quattro campi, il GF99 all'uscita è l'unico che nessun'altra
+                 parte della pagina mostra come dato del computer, ed è quello che
+                 si confronta con il nostro. La cascata evita lo zero secco:
+                 obbligo di zero secondi esce «nessuno». */
+              sommario={
+                sintesiDelComputer.gf99End !== undefined
+                  ? `GF99 ${sintesiDelComputer.gf99End}%`
+                  : sintesiDelComputer.maxDecoObligationS !== undefined
+                    ? `${t('obbligo')} ${
+                        sintesiDelComputer.maxDecoObligationS > 0
+                          ? formatDuration(sintesiDelComputer.maxDecoObligationS)
+                          : t('nessuno')
+                      }`
+                    : t('nessun valore di sintesi')
+              }
+              t={t}
+            >
               {/* Restano distinti da quelli che ricaviamo noi dal profilo: due
                   misure diverse, e sovrapporle nasconderebbe la differenza. */}
               <p className="card-sub">{t('Quello che ha calcolato il computer durante l’immersione.')}</p>
@@ -803,33 +911,45 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                 <tbody>
                   <Row
                     label={t('GF99 all’uscita')}
-                    value={dive.reported.gf99End !== undefined ? `${dive.reported.gf99End}%` : '—'}
+                    value={sintesiDelComputer.gf99End !== undefined ? `${sintesiDelComputer.gf99End}%` : '—'}
                   />
                   <Row
                     label={t('Obbligo decompressivo')}
                     value={
-                      dive.reported.maxDecoObligationS !== undefined
-                        ? dive.reported.maxDecoObligationS > 0
-                          ? formatDuration(dive.reported.maxDecoObligationS)
+                      sintesiDelComputer.maxDecoObligationS !== undefined
+                        ? sintesiDelComputer.maxDecoObligationS > 0
+                          ? formatDuration(sintesiDelComputer.maxDecoObligationS)
                           : t('nessuno')
                         : '—'
                     }
                   />
                   <Row
                     label={t('NDL minimo')}
-                    value={dive.reported.minNdlS !== undefined ? formatDuration(dive.reported.minNdlS) : '—'}
+                    value={
+                      sintesiDelComputer.minNdlS !== undefined
+                        ? formatDuration(sintesiDelComputer.minNdlS)
+                        : '—'
+                    }
                   />
-                  <Row label={t('Consumo dichiarato')} value={dive.reported.avgSac ?? '—'} />
+                  <Row label={t('Consumo dichiarato')} value={sintesiDelComputer.avgSac ?? '—'} />
                 </tbody>
               </table>
             </CartaApribile>
           )}
-          {dive.annotations && (
-            <CartaApribile chiave="imm-annotazioni-del-logbook" titolo={t('Annotazioni del logbook')} t={t}>
+          {annotazioniDelLogbook && (
+            <CartaApribile
+              chiave="imm-annotazioni-del-logbook"
+              titolo={t('Annotazioni del logbook')}
+              /* Le annotazioni sono un sacchetto libero di coppie messe dal
+                 produttore: non c'è un valore «principale», quindi il numero
+                 della carta è quante ce ne sono. */
+              sommario={`${Object.keys(annotazioniDelLogbook).length} ${t('voci')}`}
+              t={t}
+            >
               <p className="card-sub">{t('Come le hai scritte nel logbook di origine.')}</p>
               <table>
                 <tbody>
-                  {Object.entries(dive.annotations).map(([k, v]) => (
+                  {Object.entries(annotazioniDelLogbook).map(([k, v]) => (
                     <Row key={k} label={k} value={v} />
                   ))}
                 </tbody>
@@ -995,12 +1115,33 @@ function SingleComputerSettings({
   if (!rows.length) return null;
 
   return (
-    <div className="card">
-      <h2>{title}</h2>
-      {/* Il GF99 e l'obbligo decompressivo mostrati sopra sono stati calcolati
-          dal computer con queste impostazioni: confrontare due immersioni fatte
-          con impostazioni diverse senza saperlo porta a conclusioni sbagliate. */}
-      <p className="card-sub">{t('Lette dal log del computer, non inserite a mano.')}</p>
+    /*
+     * ► LA CHIAVE CONTIENE IL COMPUTER, e non è prudenza. ◄
+     *
+     * Questa carta viene disegnata DUE VOLTE su un'immersione fatta con due
+     * computer, affiancate. `CartaApribile` ricorda l'apertura in una mappa
+     * indicizzata dalla chiave: due carte con la stessa chiave si aprirebbero e
+     * si chiuderebbero insieme, come un interruttore solo per due lampade.
+     *
+     * Un elenco di firmware, numeri di serie e versioni del log non si rilegge
+     * a ogni apertura della scheda: è la definizione di quello che conviene
+     * tenere chiuso. Il gradient factor è il suo numero — è l'impostazione che
+     * cambia il significato di tutti gli altri numeri della pagina.
+     */
+    <CartaApribile
+      chiave={`imm-computer-${c.serial ?? title}`}
+      titolo={title}
+      /* Il GF99 e l'obbligo decompressivo mostrati sopra sono stati calcolati
+         dal computer con queste impostazioni: confrontare due immersioni fatte
+         con impostazioni diverse senza saperlo porta a conclusioni sbagliate. */
+      sotto={t('Lette dal log del computer, non inserite a mano.')}
+      sommario={
+        c.gfLow !== undefined && c.gfHigh !== undefined
+          ? `GF ${c.gfLow}/${c.gfHigh}`
+          : (c.decoModel ?? `${rows.length} ${t('voci')}`)
+      }
+      t={t}
+    >
       <table>
         <tbody>
           {rows.map(([label, value]) => (
@@ -1008,7 +1149,7 @@ function SingleComputerSettings({
           ))}
         </tbody>
       </table>
-    </div>
+    </CartaApribile>
   );
 }
 
@@ -1122,6 +1263,22 @@ function DecoTimelineCard({
     <CartaApribile
       chiave="imm-curva-e-obbligo-minuto-p"
       titolo={t('Curva e obbligo, minuto per minuto')}
+      /*
+       * Il tetto massimo: è il prodotto di questa carta, cioè la risposta a «ho
+       * dovuto fermarmi, e a che quota».
+       *
+       * Anche il ramo buono porta un numero. «Sempre in curva» da solo sarebbe
+       * un giudizio senza misura, e la differenza fra un piano avanzato di due
+       * minuti e uno avanzato di quaranta è tutta lì.
+       *
+       * `frase()` e non `t('minimo')` accanto all'unità: nel dizionario
+       * «minimo» traduce «min», e accanto ai minuti darebbe «min 12 min».
+       */
+      sommario={
+        maxCeiling > 0
+          ? `${t('tetto')} ${maxCeiling.toFixed(1)} m`
+          : frase(t, 'sempre in curva, minimo {0} min', Math.min(...timeline.map((p) => p.ndlMin)).toFixed(0))
+      }
       t={t}
     >
       {/* I numeri del computer compaiono tratteggiati non per correggerlo — era
