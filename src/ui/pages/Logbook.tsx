@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { Traduci } from '../../core/traduci';
+import { CartaApribile } from '../components/CartaApribile';
 import { formatDuration, mixName } from '../../core/units';
 import { mixLabel, modeLabel } from '../../core/analysis/aggregate';
 import { nextDiveBriefing, type NextDiveNote } from '../../core/analysis/nextDive';
@@ -34,6 +36,20 @@ import {
  * disallineata è sempre quella che non si compila.
  */
 type SortKey = OrdineElenco;
+
+/**
+ * L'ordinamento, a parole, per il sommario dei filtri chiusi.
+ *
+ * Una tabella e non uno `switch` in mezzo al JSX: le quattro parole sono le
+ * stesse che stanno nelle `<option>` qui sotto, e tenerle in un posto solo è
+ * l'unico modo perché non divergano il giorno che se ne aggiunge una quinta.
+ */
+const ORDINE_IN_PAROLE: Record<SortKey, (t: Traduci) => string> = {
+  date: (t) => t('per data'),
+  depth: (t) => t('per profondità'),
+  duration: (t) => t('per durata'),
+  rmv: (t) => t('per consumo'),
+};
 
 export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
   const { dives, numeri } = useDiveLog();
@@ -100,7 +116,29 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
    * che si allunga toglie l'ambiguità: quello che è caricato è quello che vedi,
    * e la selezione non può mai comprendere righe che non hai davanti.
    */
-  const PER_VOLTA = 50;
+  /*
+   * ► CINQUANTA SUL COMPUTER, VENTI SUL TELEFONO. ◄
+   *
+   * Misurato il 15 settembre 2026 a 402 px, la larghezza dell'iPhone 16 Pro:
+   * una scheda di immersione è alta **183 px**, quindi cinquanta immersioni
+   * fanno **9 150 pixel — undici schermate e mezza**, e il pulsante «mostra
+   * altre» sta in fondo a tutte e undici. Sul Mac le stesse cinquanta righe
+   * sono una tabella alta duemila pixel, che è un'altra cosa.
+   *
+   * Venti è la stessa finestra che si allunga, solo più corta al primo colpo:
+   * la ragione per cui è una finestra e non pagine numerate — «quello che è
+   * caricato è quello che vedi, e la selezione non può mai comprendere righe
+   * che non hai davanti» — resta intatta, perché non cambia il meccanismo,
+   * cambia dove comincia.
+   *
+   * La larghezza si guarda UNA VOLTA, all'apertura, e non si ascolta il cambio:
+   * ruotando il telefono la finestra si allargherebbe da sola sotto le dita di
+   * chi stava scorrendo, e il posto in cui si era arrivati salterebbe. Chi
+   * ruota e vuole più righe preme «mostra altre», che è il gesto che già
+   * conosce.
+   */
+  const PER_VOLTA =
+    typeof window !== 'undefined' && window.matchMedia?.('(min-width: 701px)').matches === false ? 20 : 50;
   const [quante, setQuante] = useState(ricordo?.quante ?? PER_VOLTA);
 
   const filtered = useMemo(() => {
@@ -274,60 +312,88 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
       </div>
 
       {/* I filtri stanno su una riga sola sopra il contenuto. */}
-      <div className="filters">
-        {/*
-         * `aria-label` e non il solo `placeholder`: il segnaposto sparisce al
-         * primo carattere digitato, quindi un lettore di schermo che torni sul
-         * campo a metà ricerca annuncia «casella di testo» e basta. Il nome di
-         * un controllo deve esistere anche quando il controllo è pieno.
-         */}
-        <input
-          type="search"
-          aria-label={t('Cerca fra le immersioni')}
-          placeholder={t('Cerca sito, compagno, note…')}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          style={{ minWidth: 200 }}
-        />
-        <label>
-          {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
-              così i tre menu si allineano invece di iniziare ognuno dove capita.
-              Un nodo di testo nudo non si può dimensionare. */}
-          <span>{t('Sito')}</span>
-          <select value={site} onChange={(e) => setSite(e.target.value)}>
-            <option value="">{t('tutti')}</option>
-            {sites.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
-              così i tre menu si allineano invece di iniziare ognuno dove capita.
-              Un nodo di testo nudo non si può dimensionare. */}
-          <span>{t('Oltre')}</span>
-          <select value={minDepth} onChange={(e) => setMinDepth(e.target.value)}>
-            <option value="">{t('qualsiasi profondità')}</option>
-            <option value="18">18 m</option>
-            <option value="30">30 m</option>
-            <option value="40">40 m</option>
-          </select>
-        </label>
-        <label>
-          {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
-              così i tre menu si allineano invece di iniziare ognuno dove capita.
-              Un nodo di testo nudo non si può dimensionare. */}
-          <span>{t('Ordina per')}</span>
-          <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-            <option value="date">{t('data')}</option>
-            <option value="depth">{t('profondità')}</option>
-            <option value="duration">{t('durata')}</option>
-            <option value="rmv">{t('consumo di superficie')}</option>
-          </select>
-        </label>
-      </div>
+      {/*
+        ► I FILTRI STANNO SOTTO UN TOCCO, SUL TELEFONO. ◄
+      
+        Misurati il 15 settembre 2026 a 402 px: la ricerca e i tre menu occupano
+        **260 pixel** in cima alla pagina, e insieme ai due riquadri d'apertura
+        facevano 588 px — cioè tre quarti di schermata prima che comparisse la
+        prima immersione. Chi apre il logbook nove volte su dieci vuole vedere le
+        sue immersioni, non filtrarle.
+      
+        Il sommario dice quali filtri sono accesi: chiuso, «tutti · qualsiasi
+        profondità · per data» è più corto da leggere di quanto i tre menu siano
+        da guardare, e soprattutto si vede senza aprire — che è la differenza fra
+        una sezione chiusa e un filtro dimenticato acceso.
+      */}
+      <CartaApribile
+        chiave="logbook-filtri"
+        titolo={t('Cerca e filtra')}
+        sommario={[
+          query.trim() ? `«${query.trim()}»` : null,
+          site || t('tutti i siti'),
+          minDepth ? `oltre ${minDepth} m` : null,
+          ORDINE_IN_PAROLE[sort](t),
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        t={t}
+      >
+        <div className="filters">
+          {/*
+           * `aria-label` e non il solo `placeholder`: il segnaposto sparisce al
+           * primo carattere digitato, quindi un lettore di schermo che torni sul
+           * campo a metà ricerca annuncia «casella di testo» e basta. Il nome di
+           * un controllo deve esistere anche quando il controllo è pieno.
+           */}
+          <input
+            type="search"
+            aria-label={t('Cerca fra le immersioni')}
+            placeholder={t('Cerca sito, compagno, note…')}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            style={{ minWidth: 200 }}
+          />
+          <label>
+            {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
+                così i tre menu si allineano invece di iniziare ognuno dove capita.
+                Un nodo di testo nudo non si può dimensionare. */}
+            <span>{t('Sito')}</span>
+            <select value={site} onChange={(e) => setSite(e.target.value)}>
+              <option value="">{t('tutti')}</option>
+              {sites.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
+                così i tre menu si allineano invece di iniziare ognuno dove capita.
+                Un nodo di testo nudo non si può dimensionare. */}
+            <span>{t('Oltre')}</span>
+            <select value={minDepth} onChange={(e) => setMinDepth(e.target.value)}>
+              <option value="">{t('qualsiasi profondità')}</option>
+              <option value="18">18 m</option>
+              <option value="30">30 m</option>
+              <option value="40">40 m</option>
+            </select>
+          </label>
+          <label>
+            {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
+                così i tre menu si allineano invece di iniziare ognuno dove capita.
+                Un nodo di testo nudo non si può dimensionare. */}
+            <span>{t('Ordina per')}</span>
+            <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+              <option value="date">{t('data')}</option>
+              <option value="depth">{t('profondità')}</option>
+              <option value="duration">{t('durata')}</option>
+              <option value="rmv">{t('consumo di superficie')}</option>
+            </select>
+          </label>
+        </div>
+      </CartaApribile>
 
       {selezione.size > 0 && (
         <BulkEdit

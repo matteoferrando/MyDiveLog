@@ -1129,8 +1129,25 @@ tbody tr.clickable:hover {
 
   /* Data e sito sono l'intestazione della scheda: niente etichetta, e il sito
      va a capo invece di essere troncato. */
+  /*
+   * ► L'ORA STA ACCANTO ALLA DATA, NON SOTTO. ◄
+   *
+   * Misurato il 15 settembre 2026 a 402 px, la larghezza dell'iPhone 16 Pro:
+   * la cella della data era alta **41 px** perché «20/08/26» e «09:45» stavano
+   * su due righe. Insieme occupano 120 px su 304 disponibili — cioè c'era posto
+   * per tutte e due da sempre, e la seconda riga era solo il `div` che le
+   * separava.
+   *
+   * Venti pixel a scheda sembrano niente; su quarantotto immersioni sono
+   * **quasi mille pixel**, cioè una schermata intera di rotolamento tolta senza
+   * perdere un solo dato. Sulla tabella del desktop non cambia niente: là la
+   * regola non arriva.
+   */
   .tabella-logbook td.cella-data {
     font-weight: 600;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
   }
   .tabella-logbook td.cella-data .cell-link {
     font-size: 15px;
@@ -2281,4 +2298,94 @@ button.btn.bottone-apple:focus-visible {
    * il computer in una mano e il telefono nell'altra, su una barca.
    */
   min-height: 44px;
+}
+
+/* ------------------------------------------------- riquadri che si aprono */
+
+/*
+ * IL RIQUADRO CHE SUL TELEFONO PARTE CHIUSO.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * Tutto quello che c'è qui sotto vive SOLO sotto i 700 px, e non per prudenza:
+ * il componente `CartaApribile` sopra quella soglia non disegna nemmeno il
+ * pulsante. Le regole stanno fuori da una media query perché le classi
+ * `.carta-apribile` e `.apri-sezione` sopra i 700 px non esistono nel DOM —
+ * *il posto giusto dove non far succedere una cosa è dove la cosa non si
+ * scrive, non una regola che la annulla.*
+ *
+ * Il pulsante deve sembrare il titolo che sostituisce: stessa dimensione,
+ * stesso peso, stesso colore. Se sembrasse un pulsante, ogni pagina si
+ * riempirebbe di pulsanti grigi e il contenuto sparirebbe dietro la cornice.
+ */
+.carta-apribile {
+  /* Chiusa, il riquadro è alto quanto la sua riga: il respiro sopra e sotto
+     serve al contenuto, che non c'è. */
+  padding: 10px 14px;
+}
+.carta-apribile.aperta {
+  padding: 16px 18px;
+}
+
+.apri-sezione {
+  /* Tutta la riga è l'area da toccare: una freccia di dodici pixel, su una
+     barca con le mani bagnate, non si prende. Quarantaquattro pixel è il
+     minimo che le linee guida di Apple indicano, ed è anche quello che serve. */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.apri-sezione-testo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.apri-sezione-titolo {
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+
+/*
+ * IL NUMERO CHE SI LEGGE SENZA APRIRE.
+ *
+ * È la riga che rende utile tutto il resto: senza, un riquadro chiuso è un
+ * titolo con una freccia e chi legge lo apre comunque — un tocco in più al
+ * posto di uno scorrimento in meno. Va a capo invece di essere troncato,
+ * perché un numero tagliato a metà non è un numero.
+ */
+.apri-sezione-sommario {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.apri-sezione-freccia {
+  flex: 0 0 auto;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-muted);
+  width: 22px;
+  text-align: center;
+}
+
+/* La cornice si accende quando il riquadro è quello che stai guardando: senza,
+   una colonna di righe chiuse tutte uguali non dice dove sei. */
+.apri-sezione:focus-visible {
+  outline: 2px solid var(--accent-solid);
+  outline-offset: 3px;
+  border-radius: 6px;
 }

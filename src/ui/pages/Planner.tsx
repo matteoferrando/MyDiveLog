@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CartaApribile } from '../components/CartaApribile';
 import { testoAvvertenza } from '../../core/analysis/avvertenze';
 import {
   ascentGeometry,
@@ -424,8 +425,12 @@ export function Planner() {
         )}
       </div>
 
-      <div className="card">
-        <h2>{t('Il tuo consumo')}</h2>
+      <CartaApribile
+        chiave="gas-consumo"
+        titolo={t('Il tuo consumo')}
+        sommario={`${shown.rmvLpm.toFixed(1)} L/min`}
+        t={t}
+      >
         {/* Non è una stima: servono volume bombola, pressione di partenza e
             pressione d'uscita. Se manca uno dei tre il valore non esiste, e non
             lo inventiamo con una tabella. */}
@@ -486,7 +491,7 @@ export function Planner() {
             </div>
           </div>
         )}
-      </div>
+      </CartaApribile>
 
       <div className="card">
         <h2>{t('Immersione pianificata')}</h2>
@@ -743,8 +748,12 @@ export function Planner() {
         </details>
       </div>
 
-      <div className="card">
-        <h2>{t('Riserva e regola di rientro')}</h2>
+      <CartaApribile
+        chiave="gas-riserva"
+        titolo={t('Riserva e regola di rientro')}
+        sommario={input.reserveRule === 'rockBottom' ? t('gas minimo') : `${shown.reserveBarFixed} bar fissi`}
+        t={t}
+      >
         {/* Se il gas minimo non lo si chiede non viene calcolato: non è un
             numero nascosto che compare altrove nella pagina. */}
         <p className="card-sub">
@@ -917,7 +926,7 @@ export function Planner() {
             </span>
           </label>
         </div>
-      </div>
+      </CartaApribile>
 
       {/* La durata e la sua distribuzione: il numero grande, e subito sotto dove
           vanno a finire quei minuti. La barra è l'unico posto in cui si vede che
@@ -966,8 +975,12 @@ export function Planner() {
         </p>
       </div>
 
-      <div className="card">
-        <h2>{t('Il profilo pianificato')}</h2>
+      <CartaApribile
+        chiave="gas-profilo"
+        titolo={t('Il profilo pianificato')}
+        sommario={`${shown.depthM} m × ${shown.bottomMin} min`}
+        t={t}
+      >
         {/* Del fondo il piano conosce la media e il punto più profondo, non la
             forma: disegnare una discesa sarebbe inventare un dato che non c'è. */}
         <p className="card-sub">
@@ -975,7 +988,7 @@ export function Planner() {
         </p>
         <ProfileChart plan={plan} />
         <PhaseTable phases={plan.planned} total={plan.plannedL} tankL={shown.tankL} />
-      </div>
+      </CartaApribile>
 
       {mode === 'rec' ? (
         <>
@@ -1095,19 +1108,27 @@ export function Planner() {
         </div>
       )}
 
-      <div className="card">
-        <h2>{t('Bilancio della bombola')}</h2>
+      <CartaApribile
+        chiave="gas-bilancio"
+        titolo={t('Bilancio della bombola')}
+        sommario={`${shown.startBar} bar × ${shown.tankL} L`}
+        t={t}
+      >
         <p className="card-sub">
           {shown.startBar} bar × {shown.tankL} L = {startL} L {t('a bordo')}.{' '}
           {input.reserveRule === 'rockBottom' ? t('Il gas minimo') : t('La riserva')}{' '}
           {t('non è disponibile: resta ferma se qualcosa va storto.')}
         </p>
         <PressureBudget plan={plan} />
-      </div>
+      </CartaApribile>
 
       {plan.reserve.length > 0 ? (
-        <div className="card">
-          <h2>{t('Il gas minimo, fase per fase')}</h2>
+        <CartaApribile
+          chiave="gas-minimo"
+          titolo={t('Il gas minimo, fase per fase')}
+          sommario={`${plan.reserveBar} bar`}
+          t={t}
+        >
           {/* Quattro fasi e non un numero solo perché un numero solo non si può
               controllare. Ogni fase usa la pressione ambiente alla sua
               profondità media; si parte dalla massima perché in emergenza è da
@@ -1119,7 +1140,7 @@ export function Planner() {
           </p>
           <AscentSchematic plan={plan} />
           <PhaseTable phases={plan.reserve} total={plan.reserveL} tankL={shown.tankL} />
-        </div>
+        </CartaApribile>
       ) : (
         <div className="card">
           <h2>{t('Gas d’emergenza: non calcolato')}</h2>
@@ -1130,9 +1151,17 @@ export function Planner() {
         </div>
       )}
 
-      <div className="card">
+      <CartaApribile
+        chiave="gas-quando"
+        titolo={t('Quanti bar devi avere, e quando')}
+        sommario={
+          turnAt !== undefined
+            ? `${t('rientro a')} ${plan.turnBar} bar, ${t('minuto')} ${turnAt.toFixed(0)}`
+            : undefined
+        }
+        t={t}
+      >
         <div className="page-title-row" style={{ marginBottom: 4 }}>
-          <h2 style={{ margin: 0 }}>{t('Quanti bar devi avere, e quando')}</h2>
           {turnAt !== undefined && (
             <span className="badge">
               {t('rientro a')} {plan.turnBar} bar, {t('minuto')} {turnAt.toFixed(0)}
@@ -1161,11 +1190,15 @@ export function Planner() {
         <p className="muted" style={{ fontSize: 11, marginTop: 10, marginBottom: 0 }}>
           {t('La colonna dei bar non fa parte della tabella di risalita che insegnano i corsi: è in più.')}
         </p>
-      </div>
+      </CartaApribile>
 
       <div className="grid grid-2-fill">
-        <div className="card">
-          <h2>{t('Se scendi più giù')}</h2>
+        <CartaApribile
+          chiave="gas-profondita"
+          titolo={t('Se scendi più giù')}
+          sommario={`${plan.gasLimitedBottomMin.toFixed(0)} min ${t('a')} ${shown.depthM} m`}
+          t={t}
+        >
           {/* La media segue la massima in proporzione, con la stessa funzione
               del modulo: così la curva a 40 m e il campo a 40 m concordano. */}
           <p className="card-sub">{t('Tempo di fondo che il gas consente, al variare della profondità.')}</p>
@@ -1178,7 +1211,7 @@ export function Planner() {
             reference={shown.bottomMin}
             referenceLabel={`${t('pianificati')} ${shown.bottomMin} min`}
           />
-        </div>
+        </CartaApribile>
         {input.reserveRule === 'rockBottom' && (
           <div className="card">
             <h2>{t('Gas minimo per profondità')}</h2>
@@ -1201,8 +1234,12 @@ export function Planner() {
             />
           </div>
         )}
-        <div className="card">
-          <h2>{t('Quanto conta il tuo respiro')}</h2>
+        <CartaApribile
+          chiave="gas-respiro"
+          titolo={t('Quanto conta il tuo respiro')}
+          sommario={`${t('quanto cambia il fondo se respiri di più')}`}
+          t={t}
+        >
           {/* La distanza fra mediana e peggiore è la ragione per cui il modulo
               parte dal 75° percentile e non dalla media. */}
           <p className="card-sub">
@@ -1218,9 +1255,13 @@ export function Planner() {
             reference={shown.bottomMin}
             referenceLabel={t('pianificati')}
           />
-        </div>
-        <div className="card">
-          <h2>{t('Esposizione all’ossigeno')}</h2>
+        </CartaApribile>
+        <CartaApribile
+          chiave="gas-ossigeno"
+          titolo={t('Esposizione all’ossigeno')}
+          sommario={`CNS ${plan.oxygen.cnsPercent.toFixed(0)}% · OTU ${plan.oxygen.otu.toFixed(0)}`}
+          t={t}
+        >
           {/* Il CNS è il rischio di crisi convulsiva e si dimezza ogni 90
               minuti in superficie; gli OTU sono il danno polmonare cumulativo e
               non recuperano fra un'immersione e l'altra. Tabelle NOAA come le
@@ -1258,10 +1299,14 @@ export function Planner() {
               }
             />
           </div>
-        </div>
+        </CartaApribile>
 
-        <div className="card">
-          <h2>{t('Ossigeno e narcosi')}</h2>
+        <CartaApribile
+          chiave="gas-narcosi"
+          titolo={t('Ossigeno e narcosi')}
+          sommario={`MOD ${plan.modM.toFixed(0)} m`}
+          t={t}
+        >
           <p className="card-sub">
             {mixName(shown.mix)} {t('a')} {shown.depthM} m{' '}
             {shown.salinity === 'salt' ? t('in mare') : t('in lago')}.
@@ -1297,11 +1342,19 @@ export function Planner() {
               note={`END ${plan.endM.toFixed(0)} m · ${t('accettabile fino a 5.21 atmosfere assolute')}`}
             />
           </div>
-        </div>
+        </CartaApribile>
       </div>
 
-      <div className="card">
-        <h2>{t('Il piano contro la realtà')}</h2>
+      <CartaApribile
+        chiave="gas-realta"
+        titolo={t('Il piano contro la realtà')}
+        sommario={
+          similar.n === 0
+            ? t('nessuna immersione simile da confrontare')
+            : `${similar.n} ${t('simili, uscita tipica')} ${similar.medianEndBar} bar`
+        }
+        t={t}
+      >
         {/* È la parte che un pianificatore generico non può avere: il confronto
             con l'archivio. Se il piano promette un'uscita più generosa di
             quelle vere, il consumo usato è ottimista. */}
@@ -1364,10 +1417,23 @@ export function Planner() {
             )}
           </>
         )}
-      </div>
+      </CartaApribile>
 
-      <div className="card">
-        <h2>{t('E se…')}</h2>
+      <CartaApribile
+        chiave="gas-ese"
+        /*
+         * IL TITOLO RESTA «E se…», e il numero va nel sommario.
+         *
+         * Per un momento era diventato «4 scenari di contingenza»: più
+         * informativo e più anonimo. «E se…» è la domanda che uno si fa davvero
+         * prima di scendere, ed è anche il nome con cui questa carta è
+         * conosciuta — `tests/verdettoNonSoloColore.test.tsx` la cerca così, e
+         * ha fatto bene a diventare rossa.
+         */
+        titolo={t('E se…')}
+        sommario={`${plans.length} ${t('scenari, lo stesso piano con un parametro cambiato')}`}
+        t={t}
+      >
         {/* Sono gli schedule di contingenza che la didattica chiede di avere in
             tasca prima di entrare: lo stesso piano con un parametro cambiato. */}
         <p className="card-sub">
@@ -1440,10 +1506,14 @@ export function Planner() {
         <p className="muted" style={{ fontSize: 11, marginTop: 10, marginBottom: 0 }}>
           {t('Il pallino rosso: quello scenario consuma la riserva.')}
         </p>
-      </div>
+      </CartaApribile>
 
-      <div className="card">
-        <h2>{t('Prima di scendere')}</h2>
+      <CartaApribile
+        chiave="gas-prima"
+        titolo={t('Prima di scendere')}
+        sommario={t('il controllo START da fare in superficie')}
+        t={t}
+      >
         <p className="card-sub">
           {t('Le cinque lettere fanno START: il controllo da fare in superficie insieme al compagno.')}
         </p>
@@ -1474,7 +1544,7 @@ export function Planner() {
             </div>
           ))}
         </div>
-      </div>
+      </CartaApribile>
 
       {/*
        * LE NOTE, E PERCHÉ SONO CORTE.
@@ -2458,8 +2528,14 @@ function SosteCard({ soste, plan }: { soste: DecoResult; plan: GasPlan }) {
   const restano = gas?.bar !== undefined ? plan.input.startBar - gas.bar : undefined;
 
   return (
-    <div className="card">
-      <h2>{t('Le soste che questo piano impone')}</h2>
+    <CartaApribile
+      chiave="gas-soste"
+      titolo={t('Le soste che questo piano impone')}
+      /* Il totale delle soste obbligate: è la cosa che si vuole sapere senza
+         aprire, perché decide se questa immersione si può fare a fiato corto. */
+      sommario={`${obbligo.reduce((a, s) => a + s.minutes, 0)} ${t('min di soste obbligate')}`}
+      t={t}
+    >
       <p className="card-sub">
         {t('Stessi gradient factor della curva qui sopra')} ({GF_RICREATIVI.low}/{GF_RICREATIVI.high}),{' '}
         {t('sul gas del fondo. È il piano minimo: con un gas di deco dedicato sarebbero più corte.')}
@@ -2544,7 +2620,7 @@ function SosteCard({ soste, plan }: { soste: DecoResult; plan: GasPlan }) {
         {t('Con la modalità')} <b>{t('Tecnica')}</b>{' '}
         {t('aggiungi un gas di deco, più livelli e il bailout da ogni quota.')}
       </p>
-    </div>
+    </CartaApribile>
   );
 }
 
@@ -2564,8 +2640,7 @@ function CurveCard({ curve, plan }: { curve: PlanCurveResult; plan: GasPlan }) {
   const margine = curve.ndlAtAvgMin - shown.bottomMin;
 
   return (
-    <div className="card">
-      <h2>{t('Curva di sicurezza')}</h2>
+    <CartaApribile chiave="gas-curva" titolo={t('Curva di sicurezza')} t={t}>
       {/* 40/85 è la coppia che i computer ricreativi montano di fabbrica: vedi
           `GF_RICREATIVI` in cima al file per il perché non è `DEFAULT_GF`. */}
       <p className="card-sub">
@@ -2625,6 +2700,6 @@ function CurveCard({ curve, plan }: { curve: PlanCurveResult; plan: GasPlan }) {
           )}
         </div>
       )}
-    </div>
+    </CartaApribile>
   );
 }

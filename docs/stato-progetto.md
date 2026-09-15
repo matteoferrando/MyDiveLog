@@ -5269,6 +5269,61 @@ e solo quella**.
 
 ---
 
+## Lo scroll sull'iPhone, misurato e dimezzato
+
+**Segnalazione del 15 settembre 2026, una riga:** «su iPhone 16 Pro c'è parecchio
+scroll». È il tipo di osservazione che non si chiude discutendo — o si misura, o
+si tira a indovinare quale schermata intendesse.
+
+`scripts/misura-scroll.mjs` apre la build di produzione alla larghezza vera di
+quel telefono (402 px logici, altezza utile 790 con le barre di Safari) e conta
+quante schermate serve scorrere per arrivare in fondo a ogni scheda. Il
+contenitore che scorre è `.main`, non il documento: `document.body.scrollHeight`
+risponderebbe sempre la stessa cosa.
+
+| scheda | prima | dopo |
+|---|---|---|
+| **Gas** | **14,2** | **5,5** |
+| **Logbook** | **13,0** | **5,4** |
+| **Statistiche** | **9,0** | **3,3** |
+| Scheda immersione | 6,4 | 3,7 |
+| Suggerimenti | 5,4 | 4,8 |
+| Impostazioni | 3,5 | 3,5 |
+| Importa | 2,5 | 2,5 |
+| Confronta | 2,1 | 2,1 |
+| Attrezzatura | 0,9 | 0,9 |
+
+**Quattro correzioni, e nessuna toglie un dato.**
+
+1. **Data e ora su una riga sola.** Nella scheda del logbook stavano su due,
+   e insieme occupano 120 px su 304 disponibili: c'era posto da sempre. Venti
+   pixel a scheda, che su quarantotto immersioni sono ottocento — una schermata.
+
+2. **I riquadri secondari partono chiusi, sul telefono.** `CartaApribile`: sopra
+   i 700 px disegna il riquadro di prima, `<h2>` compreso, e non c'è niente da
+   aprire; sotto, il titolo diventa il pulsante. **Verificato che sul computer
+   non cambi niente**: a 1280 px zero sezioni apribili su tutte e quattro le
+   pagine convertite.
+
+3. **La regola che rende utile il resto:** un riquadro chiuso mostra il numero
+   che produce — «rientro a 163 bar», «CNS 20% · OTU 51», «36 min a 30 m». Senza,
+   chi legge apre comunque, e il risparmio diventa un tocco in più. Quattro
+   sezioni erano rimaste senza, ed erano esattamente «un titolo con una freccia»:
+   corrette prima di chiudere.
+
+4. **Venti immersioni per volta sul telefono, cinquanta sul computer.** Stessa
+   finestra che si allunga — non pagine numerate, per la ragione scritta in
+   `Logbook.tsx` — solo più corta al primo colpo: cinquanta schede da 183 px
+   fanno undici schermate e mezza, e il pulsante «mostra altre» stava in fondo a
+   tutte e undici.
+
+**E la lezione che è costata ventinove prove rosse:** `window.matchMedia` in
+jsdom non esiste. Il progetto lo scrive con `?.` in altri tre punti, per questa
+ragione. Ma la lezione vera non è il punto interrogativo: è **cosa fare quando
+la larghezza non si può misurare**. Tenere chiuso nasconderebbe contenuto a chi
+non ha modo di sapere che c'è; tenere aperto costa una pagina più lunga. *Una
+misura che manca non autorizza a togliere: autorizza solo a non aggiungere.*
+
 ## Da fare: il numero progressivo, chiesto da chi usa l'applicazione
 
 **Segnalazione arrivata il 15 settembre 2026**, e vale la pena riportarla come è

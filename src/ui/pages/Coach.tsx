@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { CartaApribile } from '../components/CartaApribile';
 import { AREA_LABEL, GOALS, type Finding, type GoalId } from '../../core/analysis/coaching';
 import { Meter } from '../components/Charts';
 import { useDiveLog } from '../state';
@@ -203,8 +204,7 @@ export function Coach() {
       )}
 
       {plan.strengths.length > 0 && (
-        <div className="card">
-          <h2>{t('Punti di forza')}</h2>
+        <CartaApribile chiave="coach-punti-di-forza" titolo={t('Punti di forza')} t={t}>
           <p className="card-sub">{t('Quello che già funziona, con i numeri che lo dicono.')}</p>
           <div className="stack" style={{ gap: 10 }}>
             {plan.strengths.map((f) => (
@@ -219,7 +219,7 @@ export function Coach() {
               </div>
             ))}
           </div>
-        </div>
+        </CartaApribile>
       )}
 
       {/*
@@ -232,8 +232,11 @@ export function Coach() {
        * per capire perché una regola non compare — a chi si immerge basta
        * sapere che il conto è trasparente e che l'istruttore resta l'ultima parola.
        */}
-      <div className="card">
-        <h2>{t('Come è costruito questo piano')}</h2>
+      <CartaApribile
+        chiave="coach-come-costruito-questo-pi"
+        titolo={t('Come è costruito questo piano')}
+        t={t}
+      >
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--text-secondary)' }}>
           <li>{t('Una valutazione tace finché non ha almeno sei immersioni con il dato che le serve.')}</li>
           <li>{t('I numeri che vedi sono quelli che hanno generato il giudizio.')}</li>
@@ -243,7 +246,7 @@ export function Coach() {
           </li>
           <li>{t('Sulla sicurezza il piano dice cosa guardare, non sostituisce l’istruttore.')}</li>
         </ul>
-      </div>
+      </CartaApribile>
     </div>
   );
 }

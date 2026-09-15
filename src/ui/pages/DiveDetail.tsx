@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CartaApribile } from '../components/CartaApribile';
 import { BottoneConferma } from '../components/Conferma';
 import { LIMITS, type ComputerInfo, type Dive, type Sample } from '../../core/model';
 import { formatDuration, mixName } from '../../core/units';
@@ -526,8 +527,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
       )}
 
       <div className="grid grid-2">
-        <div className="card">
-          <h2>{t('Dettagli')}</h2>
+        <CartaApribile chiave="imm-dettagli" titolo={t('Dettagli')} t={t}>
           <table>
             <tbody>
               {/* `modeLabel` sta in `core` e torna l'etichetta italiana: si
@@ -708,10 +708,9 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
               <SourcesRow dive={dive} />
             </tbody>
           </table>
-        </div>
+        </CartaApribile>
 
-        <div className="card">
-          <h2>{t('Bombole e miscele')}</h2>
+        <CartaApribile chiave="imm-bombole-e-miscele" titolo={t('Bombole e miscele')} t={t}>
           {/* Il volume in litri serve al consumo in L/min: senza, resta bar/min,
               che non si confronta fra bombole di taglia diversa. */}
           <p className="card-sub">{t('Senza i litri della bombola il consumo in L/min non si calcola.')}</p>
@@ -780,7 +779,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
               ))}
             </div>
           ) : null}
-        </div>
+        </CartaApribile>
       </div>
 
       {timeline.length > 2 && (
@@ -796,8 +795,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
       {(dive.reported || dive.annotations) && (
         <div className="grid grid-2">
           {dive.reported && (
-            <div className="card">
-              <h2>{t('Letto dal computer')}</h2>
+            <CartaApribile chiave="imm-letto-dal-computer" titolo={t('Letto dal computer')} t={t}>
               {/* Restano distinti da quelli che ricaviamo noi dal profilo: due
                   misure diverse, e sovrapporle nasconderebbe la differenza. */}
               <p className="card-sub">{t('Quello che ha calcolato il computer durante l’immersione.')}</p>
@@ -824,11 +822,10 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                   <Row label={t('Consumo dichiarato')} value={dive.reported.avgSac ?? '—'} />
                 </tbody>
               </table>
-            </div>
+            </CartaApribile>
           )}
           {dive.annotations && (
-            <div className="card">
-              <h2>{t('Annotazioni del logbook')}</h2>
+            <CartaApribile chiave="imm-annotazioni-del-logbook" titolo={t('Annotazioni del logbook')} t={t}>
               <p className="card-sub">{t('Come le hai scritte nel logbook di origine.')}</p>
               <table>
                 <tbody>
@@ -837,7 +834,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </CartaApribile>
           )}
         </div>
       )}
@@ -1122,8 +1119,11 @@ function DecoTimelineCard({
   const maxCeiling = Math.max(...timeline.map((p) => p.ceilingM));
 
   return (
-    <div className="card">
-      <h2>{t('Curva e obbligo, minuto per minuto')}</h2>
+    <CartaApribile
+      chiave="imm-curva-e-obbligo-minuto-p"
+      titolo={t('Curva e obbligo, minuto per minuto')}
+      t={t}
+    >
       {/* I numeri del computer compaiono tratteggiati non per correggerlo — era
           lui in acqua, ed è lui ad avere ragione — ma perché due
           implementazioni dello stesso modello che divergono dicono qualcosa, e
@@ -1239,7 +1239,7 @@ function DecoTimelineCard({
           {t('la distanza fra le due curve è quella differenza.')}
         </li>
       </ul>
-    </div>
+    </CartaApribile>
   );
 }
 

@@ -1,4 +1,5 @@
 import { useId, useMemo, useState, useRef } from 'react';
+import { CartaApribile } from '../components/CartaApribile';
 import { formatDuration, formatHours } from '../../core/units';
 import {
   AnnuncioCursore,
@@ -242,9 +243,8 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
           di quelli che descrivono soltanto. Il valore è la MEDIANA: su serie
           piccole una singola immersione storta sposta la media e non la mediana,
           e qui la domanda è "di solito", non "in totale". */}
-      <div className="card">
+      <CartaApribile chiave="stat-come-ti-immergi-di-solit" titolo={t('Come ti immergi, di solito')} t={t}>
         <div className="page-title-row" style={{ marginBottom: 12 }}>
-          <h2 style={{ margin: 0 }}>{t('Come ti immergi, di solito')}</h2>
           <span className="muted" style={{ fontSize: 12 }}>
             {t('Mediane sul periodo. Ogni tessera dice su quante immersioni si basa.')}
           </span>
@@ -288,12 +288,11 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
             missing={t('Serve un profilo campionato.')}
           />
         </div>
-      </div>
+      </CartaApribile>
 
       {a.repetitiveDives > 0 && (
-        <div className="card">
+        <CartaApribile chiave="stat-le-ripetitive" titolo={t('Le ripetitive')} t={t}>
           <div className="page-title-row" style={{ marginBottom: 12 }}>
-            <h2 style={{ margin: 0 }}>{t('Le ripetitive')}</h2>
             <span className="muted" style={{ fontSize: 12 }}>
               {`${imm(a.repetitiveDives, t)} ${t('cominciate con azoto ancora in circolo')}`}
             </span>
@@ -347,13 +346,12 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               note={t('fra due immersioni della stessa giornata')}
             />
           </div>
-        </div>
+        </CartaApribile>
       )}
 
       {a.oxygen.eligible > 0 && (
-        <div className="card">
+        <CartaApribile chiave="stat-esposizione-all-ossigeno" titolo={t('Esposizione all’ossigeno')} t={t}>
           <div className="page-title-row" style={{ marginBottom: 12 }}>
-            <h2 style={{ margin: 0 }}>{t('Esposizione all’ossigeno')}</h2>
             {/* Il valore che scrive il computer è un'altra cosa: modello diverso.
                 Non lo diciamo a schermo perché non cambia niente di quello che
                 l'utente deve fare. */}
@@ -463,13 +461,12 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
           <p className="muted" style={{ fontSize: 11, marginTop: 12, marginBottom: 0 }}>
             {t('Il CNS si dimezza ogni 90 minuti in superficie; le OTU non recuperano mai.')}
           </p>
-        </div>
+        </CartaApribile>
       )}
 
       <SitesMap dives={scoped} onOpen={onOpen} />
 
-      <div className="card">
-        <h2>{t('Attività mese per mese')}</h2>
+      <CartaApribile chiave="stat-attivit-mese-per-mese" titolo={t('Attività mese per mese')} t={t}>
         {/* I mesi vuoti restano nel grafico: la stagionalità e le pause sono parte
             dell'informazione, e comprimerli farebbe sembrare continuo un anno in
             cui ci si è immersi due volte. */}
@@ -480,7 +477,7 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
           unit={t('immersioni')}
           height={170}
         />
-      </div>
+      </CartaApribile>
 
       <div className="card">
         <div className="filters" style={{ marginBottom: 12 }}>
@@ -563,19 +560,17 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
           <p className="card-sub">{t('Dove passi il tempo.')}</p>
           <BarChart data={a.byDepthBand} unit={t('immersioni')} />
         </div>
-        <div className="card">
-          <h2>{t('Siti più frequentati')}</h2>
+        <CartaApribile chiave="stat-siti-pi-frequentati" titolo={t('Siti più frequentati')} t={t}>
           <p className="card-sub">{t('Per numero di immersioni.')}</p>
           <BarChart
             data={a.topSites.map((s) => ({ key: s.name, label: s.name, value: s.dives }))}
             unit={t('immersioni')}
           />
-        </div>
+        </CartaApribile>
       </div>
 
       <div className="grid grid-2">
-        <div className="card">
-          <h2>{t('Disciplina')}</h2>
+        <CartaApribile chiave="stat-disciplina" titolo={t('Disciplina')} t={t}>
           <p className="card-sub">
             {t(
               'Percentuali calcolate solo dove la verifica è possibile: il denominatore è accanto a ogni riga.',
@@ -684,10 +679,9 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               )}
             </tbody>
           </table>
-        </div>
+        </CartaApribile>
 
-        <div className="card">
-          <h2>{t('Composizione dell’archivio')}</h2>
+        <CartaApribile chiave="stat-composizione-dell-archiv" titolo={t('Composizione dell’archivio')} t={t}>
           <p className="card-sub">{t('Configurazione, miscele, esposizione.')}</p>
           <table>
             <tbody>
@@ -729,17 +723,16 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </CartaApribile>
       </div>
 
-      <div className="card">
-        <h2>{t('Immersioni per anno')}</h2>
+      <CartaApribile chiave="stat-immersioni-per-anno" titolo={t('Immersioni per anno')} t={t}>
         <ColumnChart
           data={[...a.byYear].sort((x, y) => x.key.localeCompare(y.key))}
           unit={t('immersioni')}
           height={150}
         />
-      </div>
+      </CartaApribile>
 
       <Correlations dives={scoped} onOpen={onOpen} inventario={gear.equipment} />
       <Condizioni dives={scoped} />
@@ -899,8 +892,7 @@ function Correlations({
   if (!sets.length) return null;
 
   return (
-    <div className="card">
-      <h2>{t('Cosa dipende da cosa')}</h2>
+    <CartaApribile chiave="stat-cosa-dipende-da-cosa" titolo={t('Cosa dipende da cosa')} t={t}>
       <p className="card-sub">
         {t(
           'Ogni punto è un’immersione: cliccala per aprirla, o scegli il punto con le frecce e premi Invio. La retta è la tendenza, r è la correlazione — 0 nessuna, ±1 perfetta. È una correlazione, non una causa.',
@@ -931,7 +923,7 @@ function Correlations({
           );
         })}
       </div>
-    </div>
+    </CartaApribile>
   );
 }
 
@@ -990,8 +982,7 @@ function Distributions({ dives }: { dives: Dive[] }) {
   if (!blocks.length) return null;
 
   return (
-    <div className="card">
-      <h2>{t('Distribuzioni')}</h2>
+    <CartaApribile chiave="stat-distribuzioni" titolo={t('Distribuzioni')} t={t}>
       <p className="card-sub">
         {t('Quante immersioni per intervallo. Le code sono i casi che una media nasconde.')}
       </p>
@@ -1013,7 +1004,7 @@ function Distributions({ dives }: { dives: Dive[] }) {
           </div>
         ))}
       </div>
-    </div>
+    </CartaApribile>
   );
 }
 
@@ -1071,12 +1062,11 @@ function Attrezzatura({ dives, inventario }: { dives: Dive[]; inventario: Equipm
     const conMuta = dives.filter((d) => nomeMuta(d)).length;
     if (!conMuta) return null;
     return (
-      <div className="card">
-        <h2>{t('Attrezzatura')}</h2>
+      <CartaApribile chiave="stat-attrezzatura" titolo={t('Attrezzatura')} t={t}>
         <p className="card-sub" style={{ marginBottom: 0 }}>
           {`${imm(conMuta, t)} ${t('con l’attrezzatura registrata: troppo poche per un confronto. Compila muta, zavorra ed erogatori nella scheda dell’immersione.')}`}
         </p>
-      </div>
+      </CartaApribile>
     );
   }
 
@@ -1323,20 +1313,18 @@ function Condizioni({ dives }: { dives: Dive[] }) {
     const totale = quante.mare + quante.meteo + quante.visibilita;
     if (totale === 0) return null;
     return (
-      <div className="card">
-        <h2>{t('Condizioni')}</h2>
+      <CartaApribile chiave="stat-condizioni" titolo={t('Condizioni')} t={t}>
         <p className="card-sub" style={{ marginBottom: 0 }}>
           {t(
             'Le condizioni sono registrate su poche immersioni: con un gruppo solo non c’è niente da confrontare. Compila mare, visibilità e meteo nella scheda dell’immersione.',
           )}
         </p>
-      </div>
+      </CartaApribile>
     );
   }
 
   return (
-    <div className="card">
-      <h2>{t('Quanto contano le condizioni')}</h2>
+    <CartaApribile chiave="stat-quanto-contano-le-condiz" titolo={t('Quanto contano le condizioni')} t={t}>
       <p className="card-sub">
         {t(
           'Le tue mediane divise per mare, visibilità e meteo. Accanto al consumo trovi profondità e temperatura dello stesso gruppo: se salgono insieme, non sono state le onde. Solo i gruppi da tre immersioni in su.',
@@ -1427,7 +1415,7 @@ function Condizioni({ dives }: { dives: Dive[] }) {
           'Nessuna di queste righe dice una causa: col mare agitato cambiano anche sito, profondità e temperatura.',
         )}
       </p>
-    </div>
+    </CartaApribile>
   );
 }
 
@@ -1444,8 +1432,11 @@ function SettingsHistory({ dives }: { dives: Dive[] }) {
   const periods = settingsPeriods(dives);
   if (periods.length < 2) return null;
   return (
-    <div className="card">
-      <h2>{t('Impostazioni del computer nel tempo')}</h2>
+    <CartaApribile
+      chiave="stat-impostazioni-del-compute"
+      titolo={t('Impostazioni del computer nel tempo')}
+      t={t}
+    >
       <p className="card-sub">
         {t('Il GF99 all’uscita dipende da queste impostazioni: tienine conto quando confronti due periodi.')}
       </p>
@@ -1478,7 +1469,7 @@ function SettingsHistory({ dives }: { dives: Dive[] }) {
           </tbody>
         </table>
       </div>
-    </div>
+    </CartaApribile>
   );
 }
 
@@ -1696,9 +1687,8 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
       : '');
 
   return (
-    <div className="card">
+    <CartaApribile chiave="stat-dove-ti-immergi" titolo={t('Dove ti immergi')} t={t}>
       <div className="page-title-row" style={{ marginBottom: 4 }}>
-        <h2 style={{ margin: 0 }}>{t('Dove ti immergi')}</h2>
         <span className="muted" style={{ fontSize: 12 }}>
           {`${withCoords} ${t('siti con coordinate')}`}
           {withoutCoords ? ` · ${withoutCoords} ${t('senza')}` : ''}
@@ -1819,6 +1809,6 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
           'Clicca una bolla per aprire un’immersione fatta lì. Da tastiera: Tab sulla mappa, frecce per scegliere il sito, Invio per aprire.',
         )}
       </p>
-    </div>
+    </CartaApribile>
   );
 }
