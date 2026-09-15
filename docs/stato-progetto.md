@@ -1,7 +1,38 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **15 settembre 2026, sera** — **2 564 prove in 152 file** più
+Aggiornato: **16 settembre 2026, notte** — **2 692 prove in 157 file** più
 **134 prove Rust** del ponte, tipi, lint e formato a **0 errori**.
+
+> **► LA 1.8.23 È PRONTA E NON È PUBBLICATA. ◄** Il numero è nei quattro file,
+> le schermate dei negozi e del sito sono rigenerate, la catena è verde. Porta
+> **l'interfaccia del telefono rifatta da capo** — barra in basso con Importa al
+> centro, capitoli che si aprono ognuno col numero che produce, indice laterale
+> sul bordo destro, testa del logbook ferma mentre scorre l'elenco — «Il tuo
+> profilo» come pagina a sé, la lingua come riga di Impostazioni, e **ventitré
+> difetti** chiusi da due revisioni avversariali su tutto ciò che è stato
+> riscritto.
+>
+> Quello che deve fare il proprietario, nell'ordine e con i comandi pronti, sta
+> in **`rilascio-1.8.23.md`** nel progetto; il racconto lungo delle scelte in
+> **`navigazione-del-telefono.md`**.
+>
+> **Due cose vanno dette prima di crederci:**
+>
+> 1. **Niente di questo lavoro è stato provato su un iPhone vero.** Playwright
+>    non emula le safe area: in ogni misura `env(safe-area-inset-*)` valeva
+>    **zero**, e la barra in basso, il foglio «Altro» e l'indice laterale sono
+>    disegnati per l'indicatore di home.
+> 2. **Le schermate caricate su Google Play mostrano un'applicazione che non
+>    esiste più** — hanno l'hamburger in alto. Le diciotto nuove sono pronte in
+>    `_transfer/play/` e **vanno caricate insieme all'`.aab`**.
+
+> **► IL GIRO COMPLETO DELL'INTERFACCIA ERA MORTO DA TRE SETTIMANE. ◄**
+> `npm run screenshot` cercava una carta rimossa con la 1.6.0 il 25 agosto:
+> l'eccezione usciva e **metà del file non veniva più eseguita**. Sotto c'erano
+> altri tre punti morti, ognuno coperto dal precedente, e un quarto che non
+> uccideva ma mentiva. Nel file c'era già scritto: *«un controllo che non parte
+> non è un controllo che passa: è un controllo che non c'è.»* Adesso arriva in
+> fondo — e finché resta fuori da una catena automatica, ricapiterà.
 
 > **► LA REVISIONE DEL 15 SETTEMBRE: SEI SGUARDI AVVERSARIALI, UNA OTTANTINA DI
 > DIFETTI MISURATI, TRE SCAGLIONI DI CORREZIONI. ◄**
