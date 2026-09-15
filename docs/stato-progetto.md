@@ -11,6 +11,28 @@ di dati silenziosa nella sincronizzazione. *La 1.8.21 non è mai arrivata ai
 negozi: i suoi pacchetti sono scesi in `superate/` senza essere caricati, come la
 1.8.19 e la 1.8.20.*
 
+> **► E LA 1.8.22 È STATA CARICATA E INVIATA IN REVISIONE, IL 15 SETTEMBRE. ◄**
+> Lo dice il proprietario, che è l'unica fonte possibile: App Store Connect non
+> si interroga da qui. **Sono due affermazioni diverse e vanno tenute
+> separate** — «caricata» vuol dire che la build è salita con Transporter e
+> compare fra quelle disponibili; «inviata» vuol dire che è dentro una versione
+> e in coda alla revisione. *Una build caricata e non inviata sta ferma per
+> sempre senza che nessuno dica niente*, ed è già successo in questo progetto.
+>
+> Restano due affermazioni ancora da misurare, e nessuna delle due si deduce
+> dalle prime: **approvata** e **pubblicata**. La seconda si misura in una riga,
+> e va rilanciata invece di ricordata:
+>
+> `curl -s "https://itunes.apple.com/lookup?id=6804439480&country=it&t=$(date +%s)"`
+>
+> Alle 10:00 del 15 settembre risponde ancora **`1.8.18`**, che è il
+> comportamento giusto: la revisione non era ancora finita.
+>
+> **Google Play è fermo:** l'`.aab` della 1.8.22 è pronto in
+> `da-caricare-su-play/` e non è stato caricato. La traccia di test è chiusa e la
+> sua versione da qui non si misura — risponde 404 — quindi l'unica fonte è Play
+> Console.
+
 La riga di prima, per storico: la **1.8.21 era pubblicata**: release `v1.8.21` sul tag `2cc5ee5` con **nove
 allegati**, Mac notarizzato e installato, cask e tap alla 1.8.21, sito verificato
 testo per testo e rimando per rimando, e — *passo nuovo, ed è la prima volta che
