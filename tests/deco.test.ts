@@ -798,10 +798,31 @@ describe('difetti di calcolo trovati nella revisione', () => {
     });
     expect(mare.gasUsage[0].bar).toBeGreaterThan(118);
     expect(mare.gasUsage[0].bar).toBeLessThan(132);
-    // In quota il consumo sale un poco, perché la decompressione si allunga: NON
-    // di un quarto, che era l'effetto del divisore sbagliato.
-    expect(quota.gasUsage[0].bar!).toBeGreaterThan(mare.gasUsage[0].bar!);
-    expect(quota.gasUsage[0].bar!).toBeLessThan(mare.gasUsage[0].bar! * 1.15);
+    /*
+     * IN QUOTA LA DECOMPRESSIONE SI ALLUNGA: quello è il fatto fisico, ed è il
+     * primo a essere chiesto. Misurato: 14 minuti d'obbligo al mare, 23 a 2000
+     * metri; runtime da 47.3 a 56.3.
+     *
+     * Il GAS invece resta praticamente lo stesso — 2863 litri contro 2861 — e
+     * questa riga diceva il contrario. Fino al 15 settembre 2026 l'asserzione
+     * era `quota.bar > mare.bar` e passava, ma passava per un motivo che non
+     * c'entrava: la risalita del piano in quota saltava gradini di griglia (il
+     * difetto chiuso in `deco.ts`, selezione della quota raggiungibile) e
+     * gonfiava il tratto profondo. Corretta quella, i due consumi coincidono al
+     * bar, e l'asserzione è diventata rossa dicendo la verità.
+     *
+     * Il perché i litri non salgano è che i due effetti si annullano: in quota
+     * ogni minuto costa meno bar·litro — la pressione ambiente è 0.22 bar più
+     * bassa a ogni profondità — e i nove minuti di obbligo in più si fanno fra
+     * i 3 e i 9 metri, dove un minuto costa poco. *Quello che si misura vince
+     * su quello che ci si aspetta.*
+     *
+     * Il difetto che questa prova protegge resta l'altro, ed è intatto: col
+     * divisore sbagliato (ATA locali invece di bar) lo stesso piano in quota
+     * chiederebbe **150 bar** invece di 120, cioè un quarto in più.
+     */
+    expect(quota.decoMin).toBeGreaterThan(mare.decoMin);
+    expect(quota.gasUsage[0].bar!).toBeLessThan(mare.gasUsage[0].bar! * 1.05);
     expect(quota.gasUsage[0].bar!).toBeLessThan(140);
   });
 

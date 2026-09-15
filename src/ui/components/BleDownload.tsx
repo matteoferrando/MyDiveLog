@@ -28,6 +28,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fusoDelDispositivo } from '../../core/oraAParete';
 import { downloadFromComputer, type DownloadOutcome } from '../../core/ble/download';
+import { segnalibroDaSalvare, perchéNonSiSalva } from '../../core/ble/segnalibroDaSalvare';
 import { frase } from '../../core/frase';
 import { DRIVERS, recognise, type RecognisedDevice } from '../../core/ble/registry';
 import type { VoceCatalogo } from '../../core/ble/catalogo';
@@ -823,10 +824,19 @@ export function BleDownload() {
              * E dopo `importDives`, non prima: se il salvataggio fallisse, il
              * segnalibro salterebbe proprio le immersioni che non sono entrate.
              */
-            if (esito.status === 'complete' && esito.newestKey) {
+            const daSalvare = {
+              impronta: esito.newestKey,
+              completo: esito.status === 'complete',
+              salvate: r.ok,
+              // Sui driver di casa il traduttore è lo stesso che ha letto il
+              // protocollo: se un record non fosse diventato un'immersione,
+              // non sarebbe arrivato fin qui. Niente da chiedere.
+              tutteTradotte: true,
+            };
+            if (segnalibroDaSalvare(daSalvare)) {
               const chiave = markerKey(driver.id, esito.serial, scelto.device.id);
               await saveBleMarker(chiave, {
-                fingerprint: esito.newestKey,
+                fingerprint: daSalvare.impronta,
                 at: new Date().toISOString(),
                 dives: r.found,
                 model: esito.model,
@@ -1346,6 +1356,26 @@ export function BleDownload() {
       }
 
       let testo: string;
+      /*
+       * ► «ARRIVATE» E «SALVATE» SONO DUE COSE DIVERSE, E IL SEGNALIBRO GUARDA
+       * LA SECONDA. ◄
+       *
+       * Questa riga nasce da un difetto trovato il 15 settembre 2026 leggendo
+       * questa strada accanto a quella dei driver di casa. Là il segnalibro sta
+       * DENTRO il ramo `r.ok` — non si può salvarlo se l'archivio ha detto di
+       * no. Qui `r` viveva dentro il blocco `else` e il segnalibro, ottanta
+       * righe più in basso, chiedeva soltanto se lo scarico era finito pulito.
+       *
+       * Quindi: disco pieno, `importDives` fallisce, l'utente legge «sono
+       * arrivate ma non si sono potute salvare» — e intanto il segnalibro si
+       * sposta sulla più recente. Il prossimo scarico dice «niente di nuovo».
+       * Quelle immersioni non tornano più, e nessuno ha visto un errore.
+       *
+       * È lo stesso difetto già chiuso una volta sull'altra strada. *Una
+       * lezione imparata dentro un percorso protegge quel percorso*: finché non
+       * la si scrive anche nell'altro, il secondo resta com'era.
+       */
+      let salvateInArchivio = false;
       const avvisi: string[] = [...scartiInTraduzione];
       if (dives.length === 0) {
         testo = grezzo
@@ -1384,6 +1414,7 @@ export function BleDownload() {
             `${r.error ?? t('motivo non riportato')}. ` +
             t('Controlla lo spazio libero sul dispositivo e riprova.');
         if (r.ok) avvisi.push(...r.warnings);
+        salvateInArchivio = r.ok;
       }
       // Come sull'altra strada: se non è arrivato niente il motivo sta già in
       // `testo`, e ripeterlo qui sarebbe la stessa riga scritta due volte.
@@ -1444,9 +1475,21 @@ export function BleDownload() {
        * fallisse, il segnalibro salterebbe proprio le immersioni che non sono
        * entrate.
        */
-      if (!grezzo && tutteTradotte && metodoHaFunzionato && piuRecente) {
+      const esitoSegnalibro = {
+        impronta: piuRecente,
+        // «Finito senza errori» e «ha portato qualcosa» sono due domande
+        // diverse: `grezzo` è la prima, `metodoHaFunzionato` la seconda, e il
+        // segnalibro ha bisogno di tutte e due.
+        completo: !grezzo && metodoHaFunzionato,
+        salvate: salvateInArchivio,
+        tutteTradotte,
+      };
+      if (!segnalibroDaSalvare(esitoSegnalibro) && metodoHaFunzionato) {
+        diario.push(perchéNonSiSalva(esitoSegnalibro));
+      }
+      if (segnalibroDaSalvare(esitoSegnalibro)) {
         await saveBleMarker(chiaveSegnalibro, {
-          fingerprint: piuRecente,
+          fingerprint: esitoSegnalibro.impronta,
           at: new Date().toISOString(),
           dives: dives.length,
           model: `${marca} ${modello}`,

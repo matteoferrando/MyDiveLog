@@ -1987,11 +1987,48 @@ export function buildPlan(
   t: Traduci = comeSta,
 ): Plan {
   const goal = GOALS.find((g) => g.id === goalId) ?? GOALS[2];
-  const findings = RULES.map((rule) => {
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► UNA REGOLA CHE ESPLODE DEVE FARE RUMORE, NON SPARIRE. ◄
+   *
+   * IL DIFETTO CHIUSO IL 15 SETTEMBRE 2026. Qui c'era `catch { return null }` e
+   * basta: sedici regole, e se una qualunque lanciava, il piano usciva senza di
+   * lei. Senza un errore, senza un segnaposto, senza un conteggio.
+   *
+   * Cinque di quelle sedici parlano di sicurezza — violazioni del tetto,
+   * velocità di risalita, GF99, esposizione decompressiva, ossigeno. La prova
+   * fatta rompendo apposta `ruleCeilingViolations` su un archivio con due
+   * immersioni sopra il tetto: l'unico avviso **critico** spariva, restavano
+   * quattro «punti di forza», e il piano risultava **più sano di prima**.
+   * `aggregate` continuava a sapere che le violazioni erano due; nessuno
+   * glielo chiedeva più.
+   *
+   * Uno zero al posto di un dato mancante è il difetto peggiore che questo
+   * modulo possa fare, e un avviso mancante è la stessa cosa scritta con meno
+   * caratteri. Adesso un guasto diventa un `Finding` critico con il nome della
+   * regola dentro: è brutto da vedere, ed è esattamente il punto.
+   */
+  const findings = RULES.map((rule, i): Finding | null => {
     try {
       return rule(agg, dives, t);
-    } catch {
-      return null;
+    } catch (e) {
+      return {
+        id: `regola-rotta-${i}`,
+        area: 'data',
+        severity: 'critical',
+        headline: t('Un controllo non ha potuto girare'),
+        detail:
+          `${t('Una delle regole di analisi si è interrotta, quindi questo piano è INCOMPLETO: quello che quella regola avrebbe dovuto dirti non c’è.')} ` +
+          `${t('Segnalacelo dalla pagina del sito, indicando questo codice')}: R${i} — ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        evidence: [`${t('regola')} R${i}`],
+        drills: [],
+        // Sopra qualunque altra cosa: un piano di cui non si conosce un pezzo
+        // non va letto come se fosse completo.
+        priority: 100,
+        basis: dives.length,
+      };
     }
   })
     .filter((f): f is Finding => f !== null)

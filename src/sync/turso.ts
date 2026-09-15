@@ -1211,7 +1211,43 @@ function fondiRiepiloghi(base: Dive, arricchisce: Dive, metriche: Dive['metrics'
    * 32.4 a 31.0 — tornava indietro sul dispositivo che l'aveva fatta, risaliva
    * sul remoto e ridiscendeva su tutti gli altri. Per sempre.
    */
-  const fusa = mergeDive(senzaProfilo, stripSamples(arricchisce) as Dive, undefined, true);
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► IL TIMBRO È QUELLO DEL VINCITORE, NON L'ORA DELLA SINCRONIZZAZIONE. ◄
+   *
+   * IL DIFETTO CHIUSO IL 15 SETTEMBRE 2026, e non è un dettaglio contabile.
+   *
+   * Qui si passava `undefined` come terzo argomento, e `mergeDive` allora usa
+   * `new Date().toISOString()`: il documento fuso usciva timbrato **con
+   * l'istante della sincronizzazione**. Quel timbro finiva nella riga remota, e
+   * da lì batteva qualunque modifica vera più vecchia di quell'istante.
+   *
+   * Lo scenario, misurato: il telefono corregge il nome del compagno alle 11:00
+   * e resta offline. Il Mac sincronizza alle 14:31, la fusione ritimbra il
+   * documento a 14:31, e quando il telefono si collega vede una riga remota
+   * «più recente» della propria modifica delle 11:00 e se la riscrive sopra. La
+   * correzione sparisce, senza un avviso, senza un cestino da cui ripescarla.
+   *
+   * La regola dichiarata in tre riquadri di questo file — «vince chi ha scritto
+   * per ultimo» — diventava «vince chi ha sincronizzato mentre l'altro era
+   * offline». *Un timbro non è un'opinione: dice quando il dato è cambiato, e
+   * durante una fusione il dato non cambia, si mettono insieme due dati che
+   * esistevano già.*
+   *
+   * Il massimo dei due, e non `base.updatedAt`, perché il massimo è vero
+   * qualunque cosa chi chiama abbia messo da che parte — e nessun terzo
+   * dispositivo con una copia più vecchia può batterlo.
+   */
+  const timbro =
+    (base.updatedAt ?? '') >= (arricchisce.updatedAt ?? '')
+      ? (base.updatedAt ?? arricchisce.updatedAt)
+      : arricchisce.updatedAt;
+  const fusa = mergeDive(
+    senzaProfilo,
+    stripSamples(arricchisce) as Dive,
+    timbro ?? new Date().toISOString(),
+    true,
+  );
   if (fusa === senzaProfilo) return base;
   if (base.samples) fusa.samples = base.samples;
   if (base.altSamples) fusa.altSamples = base.altSamples;

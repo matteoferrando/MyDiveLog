@@ -107,7 +107,14 @@
 
 import type { GasMix, Salinity } from '../model';
 import { ATM_BAR, ambientBar, depthFromAbsoluteBar } from '../units';
-import { COMPARTMENTS, WATER_VAPOUR_BAR, step, surfacedTissues, type TissueState } from './buhlmann';
+import {
+  COMPARTMENTS,
+  FRAZIONE_N2_ARIA,
+  WATER_VAPOUR_BAR,
+  step,
+  surfacedTissues,
+  type TissueState,
+} from './buhlmann';
 // La parte «tessuti» di ripetitive e quota esiste già in `deco.ts` ed è la stessa
 // per i due modelli: desaturare in superficie e arrivare in quota non dipendono da
 // come si calcola la risalita. Si importa invece di riscriverla — `deco.ts` non
@@ -872,7 +879,7 @@ export function planVpm(
    * è zero.
    */
   const surfacePhaseVolumeTime = (state: TissueState): number[] => {
-    const inspiredN2 = (s.surfacePressureBar - WATER_VAPOUR_BAR) * 0.79;
+    const inspiredN2 = (s.surfacePressureBar - WATER_VAPOUR_BAR) * FRAZIONE_N2_ARIA;
     const out = zeros();
     for (let i = 0; i < COMPARTMENTS; i++) {
       const n2 = state.n2[i];

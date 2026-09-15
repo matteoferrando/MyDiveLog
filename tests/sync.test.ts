@@ -1266,3 +1266,87 @@ describe('passare a un account senza perdere niente', () => {
     expect(lapidi.map((l) => l.id)).toContain('non-mia');
   });
 });
+
+describe('il timbro del documento fuso', () => {
+  /**
+   * ► LA MODIFICA PIÙ RECENTE NON PUÒ PERDERE CONTRO UNA SINCRONIZZAZIONE. ◄
+   *
+   * IL DIFETTO, misurato il 15 settembre 2026. `fondiRiepiloghi` passava
+   * `undefined` a `mergeDive`, che allora timbra con `new Date()`: il documento
+   * fuso usciva datato **all'ora della sincronizzazione**, non a quella
+   * dell'ultima modifica vera. Quel timbro saliva sul remoto e da lì batteva
+   * qualunque scrittura più vecchia di quell'istante.
+   *
+   * Lo scenario è quello normale di chi ha due dispositivi: il telefono corregge
+   * il compagno in barca alle 11:00 e resta senza rete; il Mac sincronizza nel
+   * pomeriggio; il telefono si collega il giorno dopo e trova una riga remota
+   * «più recente» della propria correzione. La correzione sparisce — senza un
+   * avviso, e senza cestino da cui ripescarla.
+   *
+   * La regola che questo file dichiara in tre riquadri è «vince chi ha scritto
+   * per ultimo». Senza questa prova diventava «vince chi ha sincronizzato
+   * mentre l'altro era offline».
+   */
+  it('non è l’ora della sincronizzazione, ed è per questo che la modifica del telefono sopravvive', async () => {
+    const sql = sqliteExecutor();
+    await ensureRemoteSchema(sql);
+
+    /*
+     * Tre dispositivi, perché ne servono tre per far scattare il difetto: la
+     * fusione avviene solo quando i due lati hanno campi DIVERSI, e il danno si
+     * vede solo su un terzo che arriva dopo.
+     *
+     *  1. Il vecchio portatile conosce il sito, e sincronizza per primo.
+     *  2. Il Mac conosce il compagno, ed è più recente: quando sincronizza
+     *     spinge in su la sua copia FONDENDOLA con il sito del remoto. È in
+     *     questo istante che il timbro veniva riscritto all'adesso.
+     *  3. Il telefono ha la correzione più recente di tutte, fatta in barca
+     *     senza rete. Quando finalmente si collega, o vince lui — che è la
+     *     regola dichiarata — o ha vinto un orologio.
+     */
+    const vecchio = memoryStore([
+      dive('d1', { site: { name: 'Punta Mesco' }, updatedAt: '2026-03-01T09:00:00.000Z' }),
+    ]);
+    await syncArchive(vecchio, sql);
+
+    const mac = memoryStore([dive('d1', { buddy: 'Anna', updatedAt: '2026-03-01T10:00:00.000Z' })]);
+    await syncArchive(mac, sql);
+
+    const { rows } = await sql.execute('SELECT doc FROM dives WHERE id = ?', ['d1']);
+    const remoto = JSON.parse(String(rows[0].doc)) as Dive;
+    // La fusione è avvenuta davvero — senza questa riga la prova passerebbe
+    // anche se il percorso che si vuole difendere non fosse mai stato percorso.
+    expect(remoto.site?.name).toBe('Punta Mesco');
+    expect(remoto.buddy).toBe('Anna');
+    // E il timbro non può essere più recente della più recente scrittura vera.
+    expect(remoto.updatedAt).toBe('2026-03-01T10:00:00.000Z');
+
+    const telefono = memoryStore([
+      dive('d1', { buddy: 'Beatrice', updatedAt: '2026-03-01T11:00:00.000Z' }),
+    ]);
+    await syncArchive(telefono, sql);
+    expect((await telefono.getDive('d1'))?.buddy).toBe('Beatrice');
+    // E la correzione arriva anche agli altri, che è il punto di sincronizzare.
+    await syncArchive(mac, sql);
+    expect((await mac.getDive('d1'))?.buddy).toBe('Beatrice');
+  });
+
+  it('la convergenza regge lo stesso: due giri di fila non spostano niente', async () => {
+    // Un timbro che non avanza mai potrebbe far rimpallare le immersioni fra i
+    // due dispositivi per sempre. Questa riga è la ragione per cui la correzione
+    // sopra usa il MASSIMO dei due timbri e non quello di un lato solo.
+    const sql = sqliteExecutor();
+    await ensureRemoteSchema(sql);
+    const a = memoryStore([dive('d1', { buddy: 'Anna', updatedAt: '2026-03-01T10:00:00.000Z' })]);
+    const b = memoryStore([
+      dive('d1', { site: { name: 'Punta Mesco' }, updatedAt: '2026-03-01T11:00:00.000Z' }),
+    ]);
+    await syncArchive(a, sql);
+    await syncArchive(b, sql);
+    await syncArchive(a, sql);
+    const terzo = await syncArchive(b, sql);
+    const quarto = await syncArchive(a, sql);
+    expect({ push: terzo.pushed, pull: terzo.pulled }).toEqual({ push: 0, pull: 0 });
+    expect({ push: quarto.pushed, pull: quarto.pulled }).toEqual({ push: 0, pull: 0 });
+  });
+});

@@ -349,7 +349,15 @@ describe('curva e obbligo lungo l’immersione', () => {
   it('il tempo di risalita cresce col carico e torna a zero in superficie', () => {
     const tl = decoTimeline(profondo, profondo.samples!);
     const alFondo = tl.filter((p) => p.depthM > 35);
-    expect(alFondo[alFondo.length - 1].ttsMin).toBeGreaterThan(alFondo[0].ttsMin);
+    /*
+     * `ttsMin` può mancare — da settembre 2026 la funzione restituisce
+     * `undefined` invece di un numero troncato quando la risalita non converge.
+     * Su questo profilo converge, e chiederlo esplicitamente è parte della
+     * prova: se un giorno smettesse di convergere, `toBeGreaterThan(undefined)`
+     * darebbe un errore di tipo confuso invece di dire cos'è successo.
+     */
+    expect(alFondo[0].ttsMin).toBeTypeOf('number');
+    expect(alFondo[alFondo.length - 1].ttsMin).toBeGreaterThan(alFondo[0].ttsMin!);
     // In superficie il conto è zero per definizione: non c'è più niente da
     // risalire. Un metro sopra la superficie, invece, il TTS è ancora quello
     // dell'obbligo che ti porti dietro — ed è il caso di questo profilo, che

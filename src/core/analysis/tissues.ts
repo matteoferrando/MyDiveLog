@@ -24,7 +24,8 @@
  */
 
 import type { Dive, DiveMetrics, GasMix, Salinity, Sample } from '../model';
-import { ambientBar } from '../units';
+import { ambientBar, pressioneDiSuperficie } from '../units';
+import { finDoveSiSale, type PassoDiRisalita } from './deco';
 import { profonditaMedia } from '../profondita';
 import {
   WATER_VAPOUR_BAR,
@@ -37,6 +38,7 @@ import {
   surfacedTissues,
   type ProfileResult,
   type TissueState,
+  FRAZIONE_N2_ARIA,
 } from './buhlmann';
 
 /** Oltre questo intervallo il residuo è trascurabile e la catena riparte da zero. */
@@ -66,7 +68,7 @@ export interface TissueEntry {
 
 /** Azoto di equilibrio in superficie: il valore verso cui tutto tende a riposo. */
 function equilibriumN2(surfaceBar: number): number {
-  return (surfaceBar - WATER_VAPOUR_BAR) * 0.79;
+  return (surfaceBar - WATER_VAPOUR_BAR) * FRAZIONE_N2_ARIA;
 }
 
 /** Quanto inerte porti sopra l'equilibrio, nel compartimento che ne porta di più. */
@@ -80,9 +82,16 @@ export function residualLoadBar(state: TissueState, surfaceBar: number): number 
   return Math.round(worst * 1000) / 1000;
 }
 
-/** Pressione di superficie dichiarata dal computer, o quella standard. */
+/**
+ * Pressione di superficie dichiarata dal computer, o quella standard.
+ *
+ * `??` non basta e non è mai bastato: uno zero scritto in archivio da un campo
+ * azzerato del computer passa intatto e fa partire i tessuti da azoto negativo.
+ * Il filtro sta in `pressioneDiSuperficie`, una volta sola per tutta
+ * l'applicazione.
+ */
 function surfaceOf(dive: Dive): number {
-  return dive.surfacePressureBar ?? 1.01325;
+  return pressioneDiSuperficie(dive.surfacePressureBar);
 }
 
 /**
@@ -619,8 +628,15 @@ export interface DecoPoint {
   ceilingDirectM: number;
   /** Sovrasaturazione istantanea rispetto al modello nudo. */
   gf99: number;
-  /** Minuti per arrivare in superficie rispettando gli obblighi. */
-  ttsMin: number;
+  /**
+   * Minuti per arrivare in superficie rispettando gli obblighi.
+   *
+   * `undefined` quando la risalita non converge entro duemila passi: succede
+   * sulle esposizioni estreme, e prima restituiva i minuti accumulati come se il
+   * subacqueo fosse emerso — 394 minuti dove ne servivano 1 131. *Un buco nel
+   * grafico si vede, un numero sbagliato no.*
+   */
+  ttsMin: number | undefined;
 }
 
 /**
@@ -715,6 +731,23 @@ export function decoTimeline(
   return out;
 }
 
+/*
+ * ► LA VELOCITÀ DI RISALITA E IL PASSO DELLE SOSTE, UNA VOLTA SOLA. ◄
+ *
+ * Erano due costanti locali dentro `timeToSurface` (`ASCENT = 9`, `STOP = 3`) e
+ * due numeri scritti a mano dentro `decoTimeline` (`Math.ceil(deep / 3) * 3`).
+ * Quattro copie dello stesso valore in un file solo, e nessuna che sapesse
+ * dell'altra: cambiarne una avrebbe lasciato indietro le altre tre.
+ *
+ * Restano diverse da `DEFAULT_DECO` del pianificatore per una ragione dichiarata
+ * e non per dimenticanza: questo è il TTS «da computer subacqueo», che non sa
+ * che gas hai a bordo né a che quota hai deciso di fare l'ultima sosta, e usa i
+ * valori di procedura. Se un giorno diventeranno configurabili, si cambiano qui
+ * e cambiano dappertutto.
+ */
+const ASCENT_MPM = 9;
+const STOP_M = 3;
+
 /**
  * Quanti minuti restano in curva DA QUESTO STATO, a questa quota.
  *
@@ -737,8 +770,34 @@ function remainingNdl(
   maxMin = 99,
 ): number {
   const amb = ambientBar(depthM, salinity, surfaceBar);
-  const fits = (minutes: number) =>
-    ceilingM(step(state, amb, mix, minutes), gfHigh, salinity, surfaceBar) <= 0;
+  /*
+   * «SENZA OBBLIGHI» VUOL DIRE RISALENDO, e la risalita è quella vera: nove
+   * metri al minuto lungo la griglia delle soste, integrando i tessuti. Qui
+   * c'era la domanda della tabella — «potrei emergere in questo istante?» — che
+   * è un'altra cosa, e dava un numero diverso da quello del pianificatore sulla
+   * stessa immersione. `finDoveSiSale` è la stessa funzione che usa `planDeco`:
+   * *due copie della stessa regola sono una regola e la sua versione vecchia.*
+   */
+  const passo: PassoDiRisalita = {
+    lastStopM: 3,
+    stopIntervalM: 3,
+    ascentRateMpm: ASCENT_MPM,
+    salinity,
+    surfacePressureBar: surfaceBar,
+  };
+  const fits = (minutes: number) => {
+    const dopo = step(state, amb, mix, minutes);
+      /*
+       * Due condizioni, e la prima è quella storica: **si può stare in
+       * superficie adesso?** Senza, un punto del profilo a profondità zero
+       * scavalcava del tutto la camminata — fra zero e la superficie non c'è
+       * nessun gradino da controllare — e la curva risultava al massimo, 99
+       * minuti, su un subacqueo già emerso con un obbligo sopra la testa.
+       * La seconda è la camminata: **ci si arriva, risalendo?**
+       */
+    if (ceilingM(dopo, gfHigh, salinity, surfaceBar) > 0) return false;
+    return finDoveSiSale(dopo, depthM, passo, () => gfHigh, () => mix).quota <= 0.01;
+  };
   if (!fits(0)) return 0;
   if (fits(maxMin)) return maxMin;
   let lo = 0;
@@ -748,7 +807,20 @@ function remainingNdl(
     if (fits(mid)) lo = mid;
     else hi = mid;
   }
-  return Math.round(lo * 10) / 10;
+  /*
+   * SI ARROTONDA PER DIFETTO, e non è pedanteria sul decimo.
+   *
+   * `lo` è per costruzione un tempo che passa la prova; `Math.round` può
+   * portarlo fino a mezzo decimo OLTRE il confine vero. Su un numero qualunque
+   * non importerebbe; su questo sì, perché è il numero che qualcuno scrive
+   * nella casella dei minuti e porta in acqua. Misurato il 15 settembre 2026:
+   * cinque profondità fra 48 e 68 metri dichiaravano una curva che, scritta
+   * tale e quale, faceva uscire il piano con uno o due minuti di obbligo.
+   *
+   * *Un minuto in più a una sosta non ha mai fatto male a nessuno; un minuto in
+   * più al fondo sì.*
+   */
+  return Math.floor(lo * 10) / 10;
 }
 
 /**
@@ -765,39 +837,81 @@ function timeToSurface(
   gf: { low: number; high: number },
   salinity: Salinity,
   surfaceBar: number,
-): number {
-  const ASCENT = 9;
-  const STOP = 3;
+): number | undefined {
+  const passo: PassoDiRisalita = {
+    lastStopM: STOP_M,
+    stopIntervalM: STOP_M,
+    ascentRateMpm: ASCENT_MPM,
+    salinity,
+    surfacePressureBar: surfaceBar,
+  };
   let current = depthM;
   let tissues = state;
   let minutes = 0;
   let anchor: number | undefined;
   let guard = 0;
 
-  while (current > 0 && guard++ < 400) {
+  /*
+   * ► LA GUARDIA È ALZATA, E SOPRATTUTTO ADESSO PARLA. ◄
+   *
+   * Era `guard++ < 400`, e quando scattava questa funzione restituiva i minuti
+   * accumulati **come se il subacqueo fosse emerso**. Nessun `undefined`, nessun
+   * segnale: un numero plausibile e sbagliato.
+   *
+   * Misurato il 15 settembre 2026: 60 m per 80 minuti ad aria mostravano un TTS
+   * di 394 minuti contro i 633 veri; 45 m per 180 minuti ne mostravano 396
+   * contro 1 131. **Una sottostima di dodici ore**, su *il* numero con cui si
+   * decide se il gas basta, stampato accanto al TTS del computer. Il gemello di
+   * questa funzione in `deco.ts` la stessa cosa la faceva bene da mesi: guardia
+   * a 2000 **e** un avviso.
+   *
+   * Adesso il tetto è lo stesso — un'immersione che chiede più di duemila
+   * minuti di risalita non è un'immersione — e chi non converge restituisce
+   * `undefined`, che il grafico disegna come un buco. *Un buco si vede, un
+   * numero sbagliato no.*
+   */
+  while (current > 0 && guard++ < 2000) {
     if (anchor === undefined) {
-      const deep = ceilingM(tissues, gf.low, salinity, surfaceBar);
-      if (deep > 0) anchor = Math.max(STOP, Math.ceil(deep / STOP) * STOP);
+      /*
+       * ► L'ANCORA NASCE QUANDO NASCE L'OBBLIGO, E L'OBBLIGO LO DECIDE `gfHigh`. ◄
+       *
+       * Qui l'ancora si accendeva appena il tetto con `gfLow` diventava
+       * positivo — che con GF 30/85 succede molto prima che ci sia un obbligo
+       * vero. Da quel momento questa funzione infilava soste in una risalita
+       * che non ne aveva bisogno, e il grafico della scheda mostrava, sullo
+       * stesso istante, «restano 3.6 minuti di curva» accanto a un tempo di
+       * risalita che conteneva soste. Due numeri che si smentiscono a vicenda,
+       * uno sotto l'altro.
+       *
+       * È la stessa regola che `decoTimeline` applica due righe più su per il
+       * tetto — «finché puoi salire dritto non c'è niente da cui fermarsi» — e
+       * che `runProfile` applica da sempre. Mancava solo qui.
+       */
+      if (ceilingM(tissues, gf.high, salinity, surfaceBar) > 0) {
+        const deep = ceilingM(tissues, gf.low, salinity, surfaceBar);
+        if (deep > 0) anchor = Math.max(STOP_M, Math.ceil(deep / STOP_M) * STOP_M);
+      }
     }
     const gfAt = (d: number) =>
       anchor && anchor > 0 ? gf.high + ((gf.low - gf.high) * Math.min(d, anchor)) / anchor : gf.high;
 
-    let target = current;
-    for (let d = 0; d < current - 0.01; d = d === 0 ? STOP : d + STOP) {
-      if (ceilingM(tissues, gfAt(d), salinity, surfaceBar) <= d + 1e-6) {
-        target = d;
-        break;
-      }
-    }
+    // La stessa camminata del pianificatore: un gradino per volta, integrando.
+    // Prima si guardava il tetto sui tessuti di ADESSO e si saltava dritti al
+    // bersaglio, che su un rimbalzo profondo diceva «puoi emergere» mentre la
+    // risalita caricava ancora.
+    const salita = finDoveSiSale(tissues, current, passo, gfAt, () => mix);
+    const target = salita.quota;
     if (target >= current - 0.01) {
       tissues = step(tissues, ambientBar(current, salinity, surfaceBar), mix, 1);
       minutes += 1;
       continue;
     }
-    const travel = (current - target) / ASCENT;
-    tissues = step(tissues, ambientBar((current + target) / 2, salinity, surfaceBar), mix, travel);
+    const travel = (current - target) / ASCENT_MPM;
+    tissues = salita.tessuti;
     minutes += travel;
     current = target;
   }
+  // Non convergente: meglio niente che un numero. Chi lo mostra disegna un buco.
+  if (current > 0) return undefined;
   return Math.round(minutes * 10) / 10;
 }

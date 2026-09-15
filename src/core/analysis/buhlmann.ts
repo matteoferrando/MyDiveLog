@@ -22,7 +22,18 @@
  */
 
 import type { GasMix, Salinity, Sample } from '../model';
-import { ambientBar, depthFromAbsoluteBar } from '../units';
+import { ambientBar, depthFromAbsoluteBar, pressioneDiSuperficie } from '../units';
+
+/**
+ * L'ARIA, e la frazione di azoto che contiene.
+ *
+ * Erano due letterali sparsi: `0.79` compariva in `buhlmann.ts` due volte, in
+ * `tissues.ts` e in `vpm.ts`, e `{ o2: 0.21, he: 0 }` ovunque servisse una
+ * miscela di ripiego. *Due copie della stessa costante sono una costante e la
+ * sua versione vecchia*: qui ce n'è una, e chi la cambia la cambia per tutti.
+ */
+export const FRAZIONE_N2_ARIA = 0.79;
+export const ARIA: GasMix = { o2: 0.21, he: 0 };
 
 /** Pressione del vapore acqueo nei polmoni, bar (47 mmHg). */
 export const WATER_VAPOUR_BAR = 0.0627;
@@ -99,11 +110,7 @@ export function surfacedTissues(surfacePressureBar = 1.01325): TissueState {
    * Il pianificatore il limite ce l'ha già ([0.3, 1.2] in `deco.ts`); il motore
    * che rilegge l'archivio no.
    */
-  const superficie =
-    Number.isFinite(surfacePressureBar) && surfacePressureBar >= 0.3 && surfacePressureBar <= 1.2
-      ? surfacePressureBar
-      : 1.01325;
-  const pn2 = (superficie - WATER_VAPOUR_BAR) * 0.79;
+  const pn2 = (pressioneDiSuperficie(surfacePressureBar) - WATER_VAPOUR_BAR) * FRAZIONE_N2_ARIA;
   return {
     n2: new Array(COMPARTMENTS).fill(pn2),
     he: new Array(COMPARTMENTS).fill(0),
@@ -153,7 +160,7 @@ export function step(state: TissueState, ambientBarValue: number, mix: GasMix, m
   const impossibile =
     !Number.isFinite(fO2) || !Number.isFinite(fHeGrezza) || fO2 < 0 || fHeGrezza < 0 || fO2 + fHeGrezza > 1;
   const fHe = impossibile ? 0 : fHeGrezza;
-  const fN2 = impossibile ? 0.79 : Math.max(0, 1 - fO2 - fHe);
+  const fN2 = impossibile ? FRAZIONE_N2_ARIA : Math.max(0, 1 - fO2 - fHe);
   const piN2 = inspired * fN2;
   const piHe = inspired * fHe;
 
@@ -284,7 +291,9 @@ export function desaturate(
   surfaceMinutes: number,
   surfacePressureBar = 1.01325,
 ): TissueState {
-  return step(state, surfacePressureBar, { o2: 0.21, he: 0 }, surfaceMinutes);
+  // La pressione passa dal filtro come dappertutto: uno zero qui LAVA i tessuti
+  // sotto il vuoto, ed è il verso pericoloso — la ripetitiva partirebbe pulita.
+  return step(state, pressioneDiSuperficie(surfacePressureBar), ARIA, surfaceMinutes);
 }
 
 /**
@@ -354,7 +363,8 @@ export function runProfile(
     initial,
   } = options;
 
-  const amb = (depth: number) => ambientBar(depth, salinity, surfacePressureBar);
+  const superficie = pressioneDiSuperficie(surfacePressureBar);
+  const amb = (depth: number) => ambientBar(depth, salinity, superficie);
 
   /*
    * I campioni inutilizzabili si buttano PRIMA, non si integrano.
@@ -374,7 +384,36 @@ export function runProfile(
    */
   const clean = samples.filter((sm) => Number.isFinite(sm.t) && Number.isFinite(sm.depth) && sm.depth >= 0);
   const skipped = samples.length - clean.length;
-  samples = clean;
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► E SI ORDINANO, PERCHÉ NESSUNO GARANTISCE CHE ARRIVINO IN ORDINE. ◄
+   *
+   * IL DIFETTO CHIUSO IL 15 SETTEMBRE 2026. `computeMetrics` ordina i campioni
+   * (`metrics.ts`, `samples.sort((a, b) => a.t - b.t)`); questa funzione, che è
+   * l'altra metà dell'analisi della stessa immersione, li prendeva nell'ordine
+   * del file. E i lettori consegnano l'ordine del documento: `uddf.ts` legge i
+   * `<waypoint>` come stanno scritti, e un orologio che salta indietro a metà
+   * immersione — succede — produce campioni con `t` decrescente.
+   *
+   * Cosa ne usciva, misurato sulla stessa immersione di 34.3 minuti:
+   *
+   *   in ordine                                  GF99 170.6  obbligo 26.7 min
+   *   con un campione di superficie in testa     GF99 171.7  obbligo 26.5 min
+   *   con l'orologio che salta indietro di 5 min GF99 185.3  obbligo 31.5 min
+   *   col blocco di risalita scritto prima       GF99 248.1  obbligo 60.7 min
+   *
+   * **Sessanta minuti di obbligo decompressivo su un'immersione di
+   * trentaquattro.** Un numero impossibile, mostrato senza un avviso, mentre
+   * `computeMetrics` sulla stessa scheda dava la profondità media giusta in
+   * tutti e quattro i casi — perché ordina.
+   *
+   * L'ordinamento è per tempo e POI per profondità: due campioni allo stesso
+   * istante — capitano nei file fatti a mano, dove l'ora si scrive al minuto —
+   * senza un secondo criterio si disporrebbero come li ha letti il lettore, e
+   * il risultato cambierebbe da un avvio all'altro senza che nessuno abbia
+   * toccato niente.
+   */
+  samples = [...clean].sort((a, b) => a.t - b.t || a.depth - b.depth);
 
   let state = initial ?? surfacedTissues(surfacePressureBar);
   let gf99Max = 0;

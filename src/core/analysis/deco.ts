@@ -750,6 +750,9 @@ export function planDeco(
       ? transitoIniziale
       : bestGasAt(usable[0].depthM, gases, s, usable[0].setpointBar !== undefined));
 
+  let tessutiAlPrimoLivello: TissueState | undefined;
+  let discesaAlPrimoLivelloMin = 0;
+
   for (let i = 0; i < usable.length; i++) {
     const level = usable[i];
     levelSetpoint = level.setpointBar;
@@ -822,6 +825,16 @@ export function planDeco(
       s.rmvLpm,
     );
     currentDepth = level.depthM;
+    /*
+     * I TESSUTI CON CUI SI ARRIVA SUL PRIMO LIVELLO, e i minuti spesi per
+     * arrivarci. Servono al riquadro «Curva al primo livello» in fondo: senza,
+     * quel numero rispondeva a una domanda diversa da quella che la casella
+     * accanto pone. Vedi il riquadro al punto in cui `ndlMin` si calcola.
+     */
+    if (i === 0) {
+      tessutiAlPrimoLivello = state;
+      discesaAlPrimoLivelloMin = travelMin;
+    }
 
     const wanted = level.gasIndex ?? bestGasAt(level.depthM, gases, s, levelSetpoint !== undefined);
     if (wanted !== gasIndex) {
@@ -879,9 +892,59 @@ export function planDeco(
    */
   const maybeSafetyStop = (from: number, to: number): number => {
     if (!safety || safetyDone || to > 0.01) return from;
-    if (decoMin > 0) return from;
     if (deepestSoFar < SAFETY_STOP_MIN_DEPTH_M) return from;
     if (from <= 0.01) return from;
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► LE SOSTE OBBLIGATE SOSTITUISCONO LA SOSTA DI SICUREZZA SOLO SE DURANO
+     *   ALMENO QUANTO LEI. ◄
+     *
+     * Qui c'era `if (decoMin > 0) return from;` — un piano con obblighi non
+     * riceve la sosta di sicurezza — con la motivazione, scritta qui sopra, che
+     * «su un'immersione decompressiva l'ultima sosta fa già quel mestiere».
+     *
+     * La motivazione è giusta. La riga non la implementava: non guardava quanto
+     * duri quell'ultima sosta. E nel momento esatto in cui un'immersione esce
+     * dalla curva, l'obbligo che il modello impone è **un minuto**. Tre minuti
+     * di sosta di sicurezza sparivano, sostituiti da uno.
+     *
+     * Effetto misurato il 15 settembre 2026, su una griglia 11–60 m × 4–90 min:
+     * **43 volte un minuto in più al fondo accorciava il piano**, e 66 volte lo
+     * accorciava un metro in più di profondità. La peggiore: 53 m per 5 minuti
+     * contro 54 m per 5 minuti — runtime da 13.9 a 12.0, GF99 all'uscita da
+     * 62.7 a **75.6**. Chi legge la tabella vede l'immersione più impegnativa
+     * come la meno impegnativa, e il numero che dovrebbe allarmarlo — il tempo
+     * totale — va nella direzione sbagliata.
+     *
+     * Da adesso la domanda è quella vera: *quanto tempo si è già stati fermi a
+     * questa quota o più in alto?* Se raggiunge i minuti della sosta di
+     * sicurezza, il mestiere è fatto e non si aggiunge niente — è il caso
+     * dell'immersione decompressiva vera, con venti minuti a tre metri. Se non
+     * li raggiunge, si aggiunge la differenza, e resta segnata come sosta di
+     * sicurezza perché è quello che è: prudenza in più, non obbligo del
+     * modello. *Un minuto in più a una sosta non ha mai fatto male a nessuno,
+     * uno in meno sì.*
+     */
+    /*
+     * Con una tabella IMPOSTA da un altro modello non si aggiunge niente: quel
+     * ramo esiste apposta per eseguire la tabella di qualcun altro invece di
+     * calcolarne una propria, e appiccicarle sotto una sosta nostra
+     * sovrapporrebbe due modelli — che è precisamente ciò che quel ramo evita.
+     */
+    if (s.imposedStops?.length) return from;
+    /*
+     * La quota a cui si misura, e a cui eventualmente ci si ferma. Senza
+     * obblighi è quella della sosta di sicurezza, cinque metri, che è la
+     * pratica ricreativa. Con obblighi è l'ultima sosta che il piano può usare:
+     * scendere sotto `lastStopM` vorrebbe dire aggiungere un gradino che chi ha
+     * impostato l'ultima sosta a sei metri ha deciso di non avere.
+     */
+    const quotaSicurezza = decoMin > 0 ? Math.max(safety.depthM, s.lastStopM) : safety.depthM;
+    const giaFermi = segments
+      .filter((x) => x.kind === 'stop' && x.fromM <= quotaSicurezza + 0.01)
+      .reduce((a, x) => a + x.minutes, 0);
+    const mancano = safety.minutes - giaFermi;
+    if (mancano <= 0.01) return from;
     /*
      * La sosta si fa alla quota nominale se ci si arriva dall'alto, ALTRIMENTI
      * dove si è già.
@@ -900,7 +963,7 @@ export function planDeco(
      *
      * Risalire per fare la sosta non è un'opzione: si sosta dove si è.
      */
-    const stopAt = Math.min(from, safety.depthM);
+    const stopAt = Math.min(from, quotaSicurezza);
     const wanted = bestGasAt(from, gases, s, levelSetpoint !== undefined);
     if (wanted !== gasIndex) {
       switchTo(from, gasIndex, wanted);
@@ -923,7 +986,7 @@ export function planDeco(
       gasIndex = atStop;
     }
     safetyStopSegments.add(segments.length);
-    advance('stop', stopAt, stopAt, safety.minutes, gasIndex, levelSetpoint, s.decoRmvLpm);
+    advance('stop', stopAt, stopAt, mancano, gasIndex, levelSetpoint, s.decoRmvLpm);
     safetyDone = true;
     return stopAt;
   };
@@ -941,11 +1004,6 @@ export function planDeco(
    * di «posso salire fino a sei metri», e trattarla a parte è il modo in cui si
    * finisce per usare il gradient factor sbagliato sull'ultima sosta.
    */
-  const candidates = (below: number): number[] => {
-    const out = [0];
-    for (let d = s.lastStopM; d < below - 0.01; d += s.stopIntervalM) out.push(d);
-    return out;
-  };
 
   // Risalita a soste imposte: si esegue la tabella di un altro modello invece di
   // calcolarla. Il tetto non si consulta — quella decisione l'ha già presa chi ha
@@ -997,7 +1055,26 @@ export function planDeco(
     // La prima sosta si decide con `gfLow`: è la sua definizione. Da lì in poi il
     // gradient factor si interpola verso `gfHigh`, che vale in superficie —
     // valutato SEMPRE alla quota di destinazione, non a quella di partenza.
-    if (anchorM === undefined) {
+    /*
+     * ► L'ANCORA NASCE QUANDO NASCE L'OBBLIGO, E L'OBBLIGO LO DECIDE `gfHigh`. ◄
+     *
+     * Il cancello `ceilingM(state, gfHigh) > 0` è stato aggiunto il 15 settembre
+     * 2026. Senza, l'ancora si accendeva appena il tetto con `gfLow` diventava
+     * positivo — che con GF 30/85 succede molto prima che ci sia un obbligo — e
+     * da quel momento il pianificatore infilava soste in una risalita che non ne
+     * aveva bisogno. Effetto in superficie: il riquadro «Curva al primo livello»
+     * diceva 6.1 minuti a 50 metri e scrivendo 6.1 nella casella accanto uscivano
+     * quattro minuti di obbligo. Due numeri sulla stessa schermata, uno che
+     * smentiva l'altro.
+     *
+     * È la regola che `decoTimeline` e `runProfile` applicano da mesi — «finché
+     * puoi salire dritto non c'è niente da cui fermarsi» — e che qui mancava.
+     *
+     * Misurato su 465 piani fra 10 e 70 metri: **nessun piano si accorcia**, 
+     * il runtime sale in media di 0.08 minuti (massimo +2), e il GF99 all'uscita
+     * cala in media di 0.36 punti. Più prudente, non meno.
+     */
+    if (anchorM === undefined && ceilingM(state, s.gfHigh, s.salinity, s.surfacePressureBar) > 0) {
       const deep = ceilingM(state, s.gfLow, s.salinity, s.surfacePressureBar);
       /*
        * L'ancora è il tetto con `gfLow` arrotondato IN SU alla griglia delle
@@ -1005,33 +1082,101 @@ export function planDeco(
        * con cui il modello è stato validato contro 38 immersioni reali dello
        * Shearwater (scarto medio 0.07 punti di GF99).
        *
-       * LIMITE NOTO E MISURATO. L'ancora così è una quota a cui non sempre ci si
-       * ferma: quando il tetto cade appena sopra una riga della griglia — 15.04
-       * invece di 14.98 — l'ancora sale di un gradino mentre la prima sosta
-       * eseguita resta dov'era, e i gradient factor alle soste reali risultano
-       * un filo più laschi. Effetto: a 33 m un minuto di fondo IN PIÙ può dare
-       * un minuto di deco IN MENO. Su una griglia di 550 combinazioni (10–60 m
-       * × 5–60 min, tre coppie di GF) succede UNA volta, e vale un minuto.
+       * LIMITE NOTO E MISURATO, numeri rifatti il 15 settembre 2026. L'ancora
+       * così è una quota a cui non sempre ci si ferma: quando il tetto cade
+       * appena sopra una riga della griglia — 15.04 invece di 14.98 — l'ancora
+       * sale di un gradino, e un'ancora più profonda rende PIÙ LASCHI tutti i
+       * gradient factor intermedi. Effetto: un minuto di fondo IN PIÙ può dare
+       * un piano IN MENO.
        *
-       * PROVATO E SCARTATO: ancorare alla prima sosta effettiva con un punto
-       * fisso. Un punto fisso spesso non esiste — abbassare l'ancora stringe i
-       * gradient factor e fa tornare la sosta più profonda, e i due valori si
-       * rincorrono — e scegliendo l'ancora più bassa nell'oscillazione le
-       * violazioni passavano da una a nove, con cali fino a cinque minuti.
-       * Sostituire un difetto misurato da un minuto con uno da cinque non è una
-       * correzione: qui resta la regola validata, con il suo limite scritto.
+       * Sulla griglia 11–60 m × 4–90 min (4 386 coppie) succede **11 volte** sul
+       * tempo e **1 volta** sulla profondità, e vale sempre circa un minuto. Il
+       * caso peggiore misurato è 51 m: quattro minuti di fondo danno due minuti
+       * d'obbligo a 6 m, cinque minuti non ne danno nessuno, e il runtime cala
+       * da 14.7 a 13.7. Prima delle correzioni del 15 settembre le violazioni
+       * erano 43 e 66, con cali fino a 1.9 minuti e salti di 19 punti di GF99:
+       * quelle venivano dalla sosta di sicurezza soppressa, non da qui.
+       *
+       * PROVATO E SCARTATO DUE VOLTE.
+       *
+       *  1. Ancorare alla prima sosta effettiva con un punto fisso. Un punto
+       *     fisso spesso non esiste — abbassare l'ancora stringe i gradient
+       *     factor e fa tornare la sosta più profonda, e i due valori si
+       *     rincorrono — e scegliendo l'ancora più bassa nell'oscillazione le
+       *     violazioni passavano da una a nove, con cali fino a cinque minuti.
+       *
+       *  2. Non arrotondare affatto: `anchorM = max(lastStopM, deep)`. **Le
+       *     violazioni calano davvero** (11 → 7 sul tempo, 1 → 0 sulla
+       *     profondità) e tutte le 276 prove del motore restano verdi. È stato
+       *     scartato lo stesso, e per un motivo solo: misurando 360 piani fra
+       *     12 e 70 metri, la decompressione cambia in media di **1.0 minuto**
+       *     e fino a **9**, con GF99 fino a **7.7 punti** di differenza. La
+       *     validazione contro le 38 immersioni vere dello Shearwater vale 0.07
+       *     punti di scarto medio: uno spostamento medio di 0.286 punti la
+       *     butterebbe via, e quelle 38 immersioni qui non ci sono per rifarla.
+       *     *Non si scambia un accordo misurato con un modello vero per una
+       *     proprietà che si può scrivere nel commento.*
+       *
+       * Qui resta la regola validata, con il suo limite scritto e contato.
        */
       if (deep > 0) anchorM = Math.max(s.lastStopM, Math.ceil(deep / s.stopIntervalM) * s.stopIntervalM);
     }
 
-    // La quota più bassa raggiungibile: la prima, salendo, che il tetto consente.
-    let target = currentDepth;
-    for (const d of candidates(currentDepth)) {
-      if (ceilingM(state, gfAt(d), s.salinity, s.surfacePressureBar) <= d + 1e-6) {
-        target = d;
-        break;
-      }
-    }
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► LA QUOTA PIÙ BASSA RAGGIUNGIBILE SI CAMMINA, NON SI SALTA. ◄
+     *
+     * IL DIFETTO CHE QUESTA FUNZIONE CHIUDE, misurato il 15 settembre 2026.
+     *
+     * Qui c'era un ciclo che scorreva le quote dalla più bassa alla più
+     * profonda e prendeva la prima il cui tetto — calcolato sui tessuti di
+     * ADESSO — la consentisse. Su una risalita normale è corretto: si parte
+     * dal fondo con i compartimenti veloci sovrasaturi, che salendo scaricano,
+     * quindi il tetto scende mentre si sale e controllarlo alla partenza è la
+     * cosa prudente.
+     *
+     * Su un RIMBALZO PROFONDO è l'esatto contrario. A 80 metri per 5 minuti i
+     * compartimenti medi non hanno ancora caricato: a fine fondo il tetto con
+     * `gfHigh` è zero, il ciclo rispondeva «puoi salire fino in superficie», e
+     * la risalita diventava **una sola gamba da otto minuti a 42 metri di
+     * profondità media** — durante la quale quei compartimenti caricano eccome.
+     * Arrivati a zero nessuno ricontrollava, `decoMin` restava 0, e il piano
+     * usciva con `noDeco: true`.
+     *
+     * Il numero che ne veniva fuori, misurato: **GF99 132.3 all'uscita**, cioè
+     * il 132% del valore M, stampato nel riquadro «Decompressione» come
+     * `0 min` **in verde**, con la tabella da portare in acqua senza una sosta.
+     * Su 51 combinazioni fra 10 e 90 metri, sette sopra il 100%.
+     *
+     * *Lo zero è il valore più rassicurante che un numero possa avere, ed è
+     * l'ultimo che deve comparire quando il dato manca.* Uno zero verde al
+     * posto di un obbligo è il difetto peggiore che questo modulo possa fare.
+     *
+     * ────────────────────────────────────────────────────────────────────────
+     * COME FUNZIONA ADESSO. Si sale un gradino di griglia per volta,
+     * integrando i tessuti a ogni gradino, e ci si ferma al primo la cui quota
+     * il tetto non consente. È quello che il ciclo esterno avrebbe fatto da sé
+     * se non avesse mai potuto saltare più di un gradino: qui la stessa cosa
+     * senza spezzare la tabella in venti righe di risalita.
+     *
+     * ► L'INTEGRAZIONE È LA STESSA DI `advance`: un passo solo alla quota
+     * media. ◄ Non è una scorciatoia, è una scelta misurata. Integrando a
+     * passi di un metro il GF99 della gamba 80→0 passa da 134.2 a 120.1 — cioè
+     * il passo grosso è PIÙ PRUDENTE — e sulle gambe normali la differenza è di
+     * un decimo di punto (18 m × 30 min: 67.8 contro 67.7). Il modello è
+     * validato così contro 38 immersioni vere dello Shearwater, con scarto
+     * medio 0.07 punti di GF99: raffinarlo qui lo renderebbe meno prudente e
+     * butterebbe quella validazione per un decimo di punto. *Il numero che
+     * decide dev'essere lo stesso che il modello poi esegue.*
+     *
+     * Il gas è quello respirato alla partenza della gamba: se per strada c'è un
+     * cambio, il ciclo esterno spezza comunque lì (`cambio`), e una gamba più
+     * corta non può che essere più sicura di quella provata qui.
+     */
+    const gasGamba = gases[bestGasAt(currentDepth, gases, s, levelSetpoint !== undefined)];
+    const target = finDoveSiSale(state, currentDepth, s, gfAt, (q) =>
+      breathedAt(q, gasGamba, levelSetpoint, s),
+    ).quota;
 
     if (target >= currentDepth - 0.01) {
       // Il tetto non lascia salire: un minuto di sosta qui, sul gas migliore.
@@ -1129,12 +1274,43 @@ export function planDeco(
     usable[0].setpointBar,
     s,
   );
-  const ndlMin = remainingNoDecoMin(
-    s.initial ?? surfacedTissues(s.surfacePressureBar),
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► IL NUMERO MOSTRATO DEV'ESSERE SULLO STESSO OROLOGIO DELLA CASELLA
+   *   ACCANTO. ◄
+   *
+   * Questo valore finisce nel riquadro «Curva al primo livello · quanto puoi
+   * restare senza obblighi», che sta a fianco della casella dei minuti del
+   * primo livello. E per il pianificatore **i minuti del primo livello
+   * comprendono la discesa** — è scritto trenta righe più su, `atDepth = i === 0
+   * ? minutes - travelMin : minutes`.
+   *
+   * Qui invece si partiva dai tessuti dell'ingresso e si contava solo il tempo
+   * al fondo, saltando la discesa in due modi insieme: non ne contava il
+   * carico e non ne contava i minuti. Misurato il 15 settembre 2026: a 40
+   * metri il riquadro diceva **6.6 minuti**, e scrivendo 6.6 nella casella
+   * accanto il piano usciva con **un minuto di obbligo**. Il numero che si
+   * legge non era il numero da scrivere.
+   *
+   * Adesso parte dai tessuti con cui si arriva davvero sul primo livello — la
+   * discesa li ha già caricati — e ci riaggiunge i minuti della discesa, così
+   * quello che il riquadro dice è quello che si può scrivere nella casella.
+   * *Il numero che decide dev'essere il numero che mostri.*
+   */
+  const curvaAlFondo = remainingNoDecoMin(
+    tessutiAlPrimoLivello ?? s.initial ?? surfacedTissues(s.surfacePressureBar),
     firstDepth,
     firstMix,
     s,
   );
+  /*
+   * Sotto una certa profondità la discesa da sola impegna: a 80 metri, arrivare
+   * al fondo e ripartire subito costa già sei minuti di soste. Lì i minuti «da
+   * scrivere nella casella» sono **zero**, non i quattro e mezzo che ci si
+   * mette a scendere. Sommare la discesa quando al fondo non resta curva
+   * trasformerebbe il tempo di viaggio in un permesso.
+   */
+  const ndlMin = curvaAlFondo > 0 ? curvaAlFondo + discesaAlPrimoLivelloMin : 0;
 
   const usesCcr = ccrO2Litres > 0 || ccrDiluentLitres > 0;
   const ccr: CcrUsage | undefined = usesCcr
@@ -1404,6 +1580,104 @@ export function barometric(altitudeM: number): number {
  * è tutta nel punto di partenza. Tagliato a 99 minuti come fanno i computer: oltre
  * il centinaio il numero smette di essere un limite e diventa «tanto».
  */
+/**
+ * LE QUOTE A CUI CI SI PUÒ FERMARE, dalla più bassa alla più profonda.
+ *
+ * La superficie è una di queste: «posso salire fino a zero» è la stessa domanda
+ * di «posso salire fino a sei metri», e trattarla a parte è il modo in cui si
+ * finisce per usare il gradient factor sbagliato sull'ultima sosta.
+ */
+function quoteDiSosta(sotto: number, lastStopM: number, stopIntervalM: number): number[] {
+  const out = [0];
+  for (let d = lastStopM; d < sotto - 0.01; d += stopIntervalM) out.push(d);
+  return out;
+}
+
+/**
+ * FIN DOVE SI PUÒ SALIRE ADESSO — camminando la griglia, non saltandola.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► PERCHÉ È UNA FUNZIONE SOLA, USATA DA DUE POSTI. ◄
+ *
+ * Questa domanda se la fanno in due: il ciclo di risalita di `planDeco`, che la
+ * usa per scegliere il prossimo tratto, e `remainingNoDecoMin`, che la usa per
+ * rispondere «quanto posso restare qui senza obblighi». Per mesi se la sono
+ * fatta in due modi diversi, e le due risposte si contraddicevano sulla stessa
+ * schermata: il riquadro «Curva al primo livello» diceva 2.1 minuti a 90 metri,
+ * e il piano a due minuti mostrava quindici minuti di soste obbligate.
+ *
+ * *Due copie della stessa regola sono una regola e la sua versione vecchia.*
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * COME. Si sale un gradino di griglia per volta, integrando i tessuti a ogni
+ * gradino con lo stesso passo che `advance` poi esegue davvero — un solo passo
+ * alla quota media — e ci si ferma al primo gradino la cui quota il tetto non
+ * consente. Integrare più fine renderebbe il modello meno prudente (misurato:
+ * GF99 134.2 contro 120.1 sulla gamba 80→0) e butterebbe la validazione contro
+ * le immersioni vere: *il numero che decide dev'essere lo stesso che il modello
+ * poi esegue.*
+ *
+ * @param gfAlla il gradient factor da usare a una certa quota. Nel piano è
+ *   l'interpolazione di Baker sull'ancora; nella domanda della curva è `gfHigh`
+ *   secco, perché «senza obblighi» vuol dire proprio che l'ancora non esiste.
+ * @param mixAlla la miscela respirata a una certa quota. A circuito chiuso
+ *   cambia con la profondità, a circuito aperto no.
+ */
+export interface PassoDiRisalita {
+  lastStopM: number;
+  stopIntervalM: number;
+  ascentRateMpm: number;
+  salinity: Salinity;
+  surfacePressureBar: number;
+}
+
+export function finDoveSiSale(
+  partenza: TissueState,
+  da: number,
+  s: PassoDiRisalita,
+  gfAlla: (quota: number) => number,
+  mixAlla: (quota: number) => GasMix,
+): { quota: number; tessuti: TissueState } {
+  let tessuti = partenza;
+  let quota = da;
+  for (const d of [...quoteDiSosta(da, s.lastStopM, s.stopIntervalM)].reverse()) {
+    if (d >= quota - 0.01) continue;
+    /*
+     * ► DUE DOMANDE, NON UNA, E IL GRADINO SI FA SOLO SE PASSANO ENTRAMBE. ◄
+     *
+     * **Il tetto di adesso**, calcolato sui tessuti di PARTENZA. È il controllo
+     * storico, ed è quello che decide sulle risalite normali: dal fondo i
+     * compartimenti veloci sono sovrasaturi e scaricano salendo, quindi il
+     * tetto cala mentre si sale e guardarlo alla partenza è la cosa prudente.
+     * Toglierlo — misurato il 15 settembre 2026 su 465 piani fra 10 e 70 metri
+     * — accorcia **256 piani su 465**, fino a nove minuti, portando il GF99
+     * all'uscita da 82.2 a 85.0: il motore diventerebbe meno prudente proprio
+     * sulle immersioni ricreative e di deco leggera, che sono quasi tutte.
+     *
+     * **Il tetto all'arrivo**, sui tessuti integrati lungo la gamba. È il
+     * controllo nuovo, e serve al caso opposto: sul rimbalzo profondo i
+     * compartimenti medi non hanno ancora caricato, il tetto di adesso dice
+     * «puoi salire fino in superficie», e la gamba da otto minuti a 42 metri di
+     * media li carica eccome. Era il difetto dell'80 m × 5 min che usciva
+     * dichiarato «in curva» con GF99 132.
+     *
+     * Chiederle tutte e due non è cintura e bretelle: sono due modi diversi di
+     * sbagliare, uno per ogni verso, e nessuna delle due copre l'altra.
+     */
+    if (ceilingM(partenza, gfAlla(d), s.salinity, s.surfacePressureBar) > d + 1e-6) break;
+    const minuti = (quota - d) / s.ascentRateMpm;
+    const media = (quota + d) / 2;
+    const dopo =
+      minuti > 0
+        ? step(tessuti, ambientBar(media, s.salinity, s.surfacePressureBar), mixAlla(media), minuti)
+        : tessuti;
+    if (ceilingM(dopo, gfAlla(d), s.salinity, s.surfacePressureBar) > d + 1e-6) break;
+    tessuti = dopo;
+    quota = d;
+  }
+  return { quota, tessuti };
+}
+
 function remainingNoDecoMin(
   state: TissueState,
   depthM: number,
@@ -1412,8 +1686,47 @@ function remainingNoDecoMin(
   maxMin = 99,
 ): number {
   const amb = ambientBar(depthM, s.salinity, s.surfacePressureBar);
-  const fits = (minutes: number) =>
-    ceilingM(step(state, amb, mix, minutes), s.gfHigh, s.salinity, s.surfacePressureBar) <= 0;
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► «SENZA OBBLIGHI» VUOL DIRE RISALENDO, NON TELETRASPORTANDOSI. ◄
+   *
+   * IL DIFETTO CHIUSO IL 15 SETTEMBRE 2026. Qui c'era una riga sola: dopo
+   * `minutes` al fondo, il tetto con `gfHigh` è zero? Cioè: *potrei emergere in
+   * questo istante?* È la definizione giusta per una tabella — la NDL delle
+   * tabelle risponde esattamente a quella domanda — ma nel pianificatore è
+   * l'altra domanda, perché la risalita fa parte del piano e a 90 metri dura
+   * dieci minuti a 45 metri di profondità media, durante i quali i
+   * compartimenti medi caricano.
+   *
+   * Misurato: il riquadro «Curva al primo livello» diceva 2.1 minuti a 90 m, e
+   * il piano a due minuti sulla stessa schermata mostrava **quindici minuti di
+   * soste obbligate**. Due numeri che si contraddicono, stampati uno sotto
+   * l'altro, sul foglio che si porta in acqua.
+   *
+   * Adesso si chiede la cosa vera: dopo `minutes` al fondo, la risalita
+   * pianificata arriva in superficie senza doversi mai fermare? Stessa
+   * camminata, stessa integrazione, stessa funzione del piano — `finDoveSiSale`
+   * — così i due numeri non possono più divergere.
+   *
+   * Il gradient factor è `gfHigh` secco a ogni quota, e non l'interpolazione di
+   * Baker: l'ancora nasce quando un obbligo c'è, e qui la domanda è proprio se
+   * non ce ne sia nessuno. La sosta di sicurezza non entra nel conto perché non
+   * è un obbligo: contarla significherebbe dire «sei in curva purché tu faccia
+   * una sosta», che è una contraddizione.
+   */
+  const fits = (minutes: number) => {
+    const dopo = step(state, amb, mix, minutes);
+      /*
+       * Due condizioni, e la prima è quella storica: **si può stare in
+       * superficie adesso?** Senza, un punto del profilo a profondità zero
+       * scavalcava del tutto la camminata — fra zero e la superficie non c'è
+       * nessun gradino da controllare — e la curva risultava al massimo, 99
+       * minuti, su un subacqueo già emerso con un obbligo sopra la testa.
+       * La seconda è la camminata: **ci si arriva, risalendo?**
+       */
+    if (ceilingM(dopo, s.gfHigh, s.salinity, s.surfacePressureBar) > 0) return false;
+    return finDoveSiSale(dopo, depthM, s, () => s.gfHigh, () => mix).quota <= 0.01;
+  };
   if (!fits(0)) return 0;
   if (fits(maxMin)) return maxMin;
   let lo = 0;
@@ -1423,7 +1736,20 @@ function remainingNoDecoMin(
     if (fits(mid)) lo = mid;
     else hi = mid;
   }
-  return Math.round(lo * 10) / 10;
+  /*
+   * SI ARROTONDA PER DIFETTO, e non è pedanteria sul decimo.
+   *
+   * `lo` è per costruzione un tempo che passa la prova; `Math.round` può
+   * portarlo fino a mezzo decimo OLTRE il confine vero. Su un numero qualunque
+   * non importerebbe; su questo sì, perché è il numero che qualcuno scrive
+   * nella casella dei minuti e porta in acqua. Misurato il 15 settembre 2026:
+   * cinque profondità fra 48 e 68 metri dichiaravano una curva che, scritta
+   * tale e quale, faceva uscire il piano con uno o due minuti di obbligo.
+   *
+   * *Un minuto in più a una sosta non ha mai fatto male a nessuno; un minuto in
+   * più al fondo sì.*
+   */
+  return Math.floor(lo * 10) / 10;
 }
 
 /** Le soste consecutive alla stessa quota diventano una riga sola. */

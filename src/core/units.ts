@@ -59,6 +59,40 @@ export const G = 9.80665;
 export const ATM_BAR = 1.01325;
 
 /**
+ * LA PRESSIONE DI SUPERFICIE, RESA CREDIBILE — un solo posto, per tutti.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► PERCHÉ ESISTE, E PERCHÉ NON BASTAVA `?? ATM_BAR`. ◄
+ *
+ * Perché `??` non intercetta lo zero. E lo zero arriva davvero: quattro lettori
+ * di file possono produrlo da un campo azzerato del computer
+ * (`shearwaterPnf.ts`, `shearwater.ts`, `uddf.ts`, `subsurface.ts`), e da lì
+ * finisce in archivio e viene riletto a ogni apertura della scheda.
+ *
+ * Con zero, l'azoto d'equilibrio dei tessuti diventa **negativo**: si parte più
+ * vuoti del vuoto. Sulla singola immersione l'errore è verso l'alto — GF99
+ * gonfiato, innocuo — ma sull'INTERVALLO DI SUPERFICIE è verso il basso, e lì
+ * vale tutto: misurato il 15 settembre 2026, un'ora di superficie lavava i
+ * tessuti fino a un GF99 di **0** dove il valore vero era 35.6. Cioè la
+ * ripetitiva partiva da pulito quando non lo era.
+ *
+ * La protezione esisteva già, ma in un punto solo — dentro `surfacedTissues` —
+ * mentre `desaturate` e il calcolo della pressione ambiente prendevano il
+ * numero grezzo. *Una lezione imparata dentro una funzione protegge quella
+ * funzione.* Da qui in avanti ce n'è una, e la chiamano tutti.
+ *
+ * L'intervallo [0.3, 1.2] bar è lo stesso che il pianificatore già applica:
+ * 0.3 bar sono circa novemila metri di quota — sopra l'Everest — e 1.2 bar non
+ * si raggiungono al livello del mare nemmeno con l'anticiclone più solido.
+ * Fuori da lì non è una pressione: è un campo non compilato.
+ */
+export function pressioneDiSuperficie(valore: number | undefined): number {
+  return Number.isFinite(valore) && (valore as number) >= 0.3 && (valore as number) <= 1.2
+    ? (valore as number)
+    : ATM_BAR;
+}
+
+/**
  * Pressione idrostatica della colonna d'acqua, in bar.
  * Salato: ~0.1010 bar/m (10.06 m per bar). Dolce: ~0.0981 bar/m.
  */
