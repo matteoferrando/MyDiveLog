@@ -242,7 +242,31 @@ export function decodePnfBlob(blob: Uint8Array): PnfLog {
   if (!isPnfBlob(blob)) throw new Error('Non è un log Shearwater compresso.');
   // Little-endian: verificato su 38 log reali, dove coincide esattamente con la
   // lunghezza decompressa (13056, 13184, …). In big-endian darebbe milioni.
-  const declared = blob[0] | (blob[1] << 8) | (blob[2] << 16) | (blob[3] << 24);
+  /*
+   * `>>> 0` PERCHÉ `<< 24` HA IL SEGNO.
+   *
+   * In JavaScript gli operatori bit a bit lavorano su interi a 32 bit CON
+   * segno: con il byte più alto sopra 0x7f, `blob[3] << 24` diventa negativo e
+   * `declared` esce con un valore tipo −1073741824. Il controllo qui sotto è
+   * `declared && raw.length !== declared`, quindi un numero negativo passa il
+   * primo test e fallisce il secondo — per caso, non per progetto. Con un byte
+   * diverso avrebbe potuto combaciare.
+   */
+  const declared = (blob[0] | (blob[1] << 8) | (blob[2] << 16) | (blob[3] << 24)) >>> 0;
+  /*
+   * E LA DIMENSIONE SI CONTROLLA PRIMA, non dopo.
+   *
+   * Il controllo qui sotto — dichiarati contro decompressi — arriva quando la
+   * decompressione è già finita, cioè quando la memoria è già stata allocata.
+   * Su un blob con una lunghezza assurda serviva a niente: l'applicazione era
+   * già morta. Il log compresso di un'immersione vera sta sotto i 100 kB
+   * decompressi; quattro megabyte sono quaranta volte tanto.
+   */
+  if (declared > 4 * 1024 * 1024) {
+    throw new Error(
+      `Log incoerente: dichiara ${declared} byte, che non è la dimensione di un'immersione.`,
+    );
+  }
   const raw = gunzip(blob.subarray(4));
   if (declared && raw.length !== declared) {
     throw new Error(`Log incoerente: dichiarati ${declared} byte, decompressi ${raw.length}.`);

@@ -66,6 +66,21 @@ export interface ImmersioneLdc {
    * raggruppano per giornata.
    */
   senzaData?: boolean;
+  /**
+   * Lo scostamento da UTC in minuti, QUANDO IL COMPUTER LO DICHIARA.
+   *
+   * ► ARRIVAVA E VENIVA BUTTATO. ◄ Nel ponte Rust c'era un commento che diceva
+   * che libdivecomputer il fuso non lo fornisce; non è vero — `dc_datetime_t`
+   * ha il campo, e sei famiglie di lettori lo riempiono, Shearwater compresa —
+   * e il valore veniva letto e scartato. Le immersioni di uno Shearwater
+   * entravano con l'orario spostato dello scostamento.
+   *
+   * Vale più del fuso del telefono (`ContestoEsterno.fuso`): quello è dove sei
+   * ADESSO, questo è dove eri QUANDO TI SEI IMMERSO. Chi scarica in aeroporto
+   * al ritorno dal Mar Rosso li ha diversi di un'ora, e il secondo è quello
+   * giusto.
+   */
+  utcOffsetMinutes?: number;
   durationS: number;
   maxDepth: number;
   avgDepth?: number;
@@ -249,7 +264,17 @@ export function immersioneDaLdc(imm: ImmersioneLdc, ctx: ContestoEsterno): Dive 
   }
 
   const oraAParete = imm.startMs;
-  const fusoMinuti = ctx.fuso?.(oraAParete);
+  /*
+   * ► IL FUSO DEL COMPUTER VIENE PRIMA DI QUELLO DEL TELEFONO. ◄
+   *
+   * `ctx.fuso` è il fuso del dispositivo che sta scaricando, applicato alla
+   * data dell'immersione: è un ripiego ragionevole e resta, perché la maggior
+   * parte dei computer il fuso non lo dichiara. Ma quando il computer lo dice,
+   * lo dice meglio: è dove eri quando ti sei immerso, non dove sei adesso.
+   * Chi scarica in aeroporto al ritorno dal Mar Rosso ha un'ora di differenza
+   * fra i due, e quell'ora finisce su ogni immersione del viaggio.
+   */
+  const fusoMinuti = imm.utcOffsetMinutes ?? ctx.fuso?.(oraAParete);
   const startTime = new Date(
     fusoMinuti === undefined ? oraAParete : istanteDaOraAParete(oraAParete, fusoMinuti),
   ).toISOString();

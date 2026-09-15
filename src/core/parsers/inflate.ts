@@ -223,19 +223,50 @@ export function inflateRaw(bytes: Uint8Array, expectedSize?: number): Uint8Array
  * Come `inflateRaw`, ma dice anche quanti byte del buffer sono stati consumati:
  * serve a gzip per sapere dove sta il piede quando dopo il flusso c'è altro.
  */
+/**
+ * QUANTO PUÒ VENIR FUORI, AL MASSIMO, DA UN FLUSSO COMPRESSO.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► LA BOMBA DI COMPRESSIONE, MISURATA IL 15 SETTEMBRE 2026. ◄
+ *
+ * Il DEFLATE comprime fino a **1032 a 1**: 16 megabyte di dati compressi ne
+ * producono sedici gigabyte. Qui non c'era nessun tetto — `ensure` raddoppiava
+ * il buffer finché ce n'era bisogno — e il controllo sulla lunghezza dichiarata,
+ * in `shearwaterPnf.ts`, arrivava DOPO la decompressione: non proteggeva da
+ * niente.
+ *
+ * Quello che si è misurato: un file `.db` da **264 kB** allocava 372 MB e ci
+ * metteva 2.2 secondi; uno da 3 MB arrivava a **5.5 gigabyte** e 36 secondi.
+ * Su un iPhone il sistema uccide l'applicazione ben prima — cioè nel momento in
+ * cui qualcuno sta importando le sue immersioni.
+ *
+ * Non serve malafede: basta un file danneggiato in cui i byte della lunghezza
+ * sono diventati un altro numero. Il tetto è generoso — il log compresso di
+ * un'immersione vera sta sotto i 100 kB decompressi, e 64 MB sono quasi mille
+ * volte tanto — quindi non può tagliare niente di legittimo.
+ */
+const TETTO_DECOMPRESSO = 64 * 1024 * 1024;
+
 export function inflateRawTracked(
   bytes: Uint8Array,
   expectedSize?: number,
 ): { out: Uint8Array; bytesRead: number } {
   const reader = new BitReader(bytes);
-  let out = new Uint8Array(expectedSize && expectedSize > 0 ? expectedSize : 1024);
+  let out = new Uint8Array(
+    expectedSize && expectedSize > 0 ? Math.min(expectedSize, TETTO_DECOMPRESSO) : 1024,
+  );
   let len = 0;
 
   const ensure = (extra: number) => {
+    if (len + extra > TETTO_DECOMPRESSO) {
+      throw new InflateError(
+        `Flusso compresso sproporzionato: oltre ${Math.round(TETTO_DECOMPRESSO / 1024 / 1024)} MB decompressi. Il file è probabilmente danneggiato.`,
+      );
+    }
     if (len + extra <= out.length) return;
     let size = out.length * 2;
     while (size < len + extra) size *= 2;
-    const bigger = new Uint8Array(size);
+    const bigger = new Uint8Array(Math.min(size, TETTO_DECOMPRESSO));
     bigger.set(out.subarray(0, len));
     out = bigger;
   };

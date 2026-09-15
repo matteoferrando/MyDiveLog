@@ -15,6 +15,7 @@
 
 import { AIR, type Cylinder, type Dive } from '../model';
 import { parseCylinderSpec } from '../cylinders';
+import { INTESTAZIONI_ESPORTATE } from '../export/csv';
 import { feetToM, fahrenheitToC, isoFromParts, psiToBar, wallClockToIso } from '../units';
 import { comeSta, type Traduci } from '../traduci';
 import { diveIdFor } from '../dedupe';
@@ -22,7 +23,28 @@ import { computeMetrics } from '../analysis/metrics';
 import type { DiveParser, ParseInput, ParseResult } from './types';
 
 /** Alias di intestazione → campo canonico. Confronto normalizzato e case-insensitive. */
-const ALIASES: Record<string, string[]> = {
+/**
+ * GLI ALIAS DELLE COLONNE — i nostri, più quelli che scriviamo noi stessi.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► IL CSV CHE L'APPLICAZIONE ESPORTA, L'APPLICAZIONE NON LO SAPEVA RILEGGERE. ◄
+ *
+ * Misurato il 15 settembre 2026: esportare l'archivio in CSV e trascinarlo
+ * nell'importazione dava **zero immersioni** e l'avviso «colonne ignorate
+ * perché non riconosciute: Prof. max (m), Prof. media (m), T minima (°C)…».
+ * L'esportazione scrive «Prof. max (m)»; qui sotto c'erano `max depth` e
+ * `profondita max`, non `prof max`. Due elenchi di nomi per la stessa colonna,
+ * scritti in due file diversi da due persone diverse in due momenti diversi.
+ *
+ * Adesso l'esportazione dichiara, colonna per colonna, quale campo del lettore
+ * le corrisponde (`campo` in `export/csv.ts`), e quei nomi arrivano qui da soli.
+ * Chi aggiunge una colonna all'esportazione la rende leggibile senza saperlo.
+ *
+ * Gli alias scritti a mano restano e vengono PRIMA: servono per i file degli
+ * altri — Diving Log, MacDive, Subsurface, divelogs.de — che è il caso per cui
+ * questo lettore esiste.
+ */
+const ALIAS_SCRITTI: Record<string, string[]> = {
   number: ['number', 'dive number', 'divenumber', 'no', 'n', 'numero', 'num', '#'],
   date: ['date', 'dive date', 'divedate', 'data', 'datum', 'date time', 'datetime', 'start time', 'start'],
   time: ['time', 'ora', 'start time', 'entry time', 'zeit'],
@@ -82,6 +104,28 @@ const ALIASES: Record<string, string[]> = {
   suit: ['suit', 'muta', 'exposure'],
 };
 
+/*
+ * Costruito alla prima richiesta e non all'apertura del modulo: `normalise` è
+ * dichiarato più in basso, e un `const` non si può usare prima della sua riga.
+ * Il valore non cambia mai, quindi si calcola una volta e si tiene.
+ */
+let aliasCache: Record<string, string[]> | undefined;
+function alias(): Record<string, string[]> {
+  if (aliasCache) return aliasCache;
+  aliasCache = Object.fromEntries(
+    [...new Set([...Object.keys(ALIAS_SCRITTI), ...Object.keys(INTESTAZIONI_ESPORTATE)])].map(
+      (campo) => [
+        campo,
+        [
+          ...(ALIAS_SCRITTI[campo] ?? []),
+          ...(INTESTAZIONI_ESPORTATE[campo] ?? []).map(normalise),
+        ].filter((a, i, tutti) => a && tutti.indexOf(a) === i),
+      ],
+    ),
+  );
+  return aliasCache;
+}
+
 export const csvParser: DiveParser = {
   format: 'csv',
   label: 'CSV di riepilogo (foglio di calcolo, export logbook)',
@@ -90,16 +134,51 @@ export const csvParser: DiveParser = {
   detect(input: ParseInput) {
     if (!input.text) return false;
     if (/^\s*</.test(input.text)) return false; // è XML
-    const firstLine = input.text.split(/\r?\n/, 1)[0] ?? '';
-    const delim = detectDelimiter(firstLine);
-    const headers = splitRow(firstLine, delim).map(normalise);
+    /*
+     * ► IL BACKUP DELL'APPLICAZIONE NON È UN CSV, E RIVENDICARLO È PEGGIO CHE
+     *   NON RICONOSCERLO. ◄
+     *
+     * `SyncPage` scrive il backup con `JSON.stringify` compatto: **una riga
+     * sola**, lunghissima, che contiene `"durationS":`, `"maxdepth":`,
+     * `"notes":` e altre trenta parole che `resolveField` riconosce come
+     * intestazioni. Tre bastavano: il file veniva rivendicato da questo lettore
+     * e usciva «CSV senza righe di dati», zero immersioni.
+     *
+     * Misurato il 15 settembre 2026 trascinando nell'importazione il backup che
+     * l'applicazione stessa aveva appena scritto — che è precisamente il gesto
+     * che la pagina dei computer suggerisce di fare.
+     */
+    if (/^\s*\{\s*"[a-zA-Z]+"\s*:/.test(input.text)) return false;
+    const testa = intestazioneCsv(input.text);
+    if (!testa) return false;
+    const headers = splitRow(testa, detectDelimiter(testa)).map(normalise);
     return headers.filter((h) => resolveField(h) !== undefined).length >= 3;
   },
 
   parse(input: ParseInput, t: Traduci = comeSta): ParseResult {
     const warnings: string[] = [];
     const text = (input.text ?? '').replace(/^﻿/, '');
-    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    /*
+     * I RECORD SI SPEZZANO SAPENDO CHE LE VIRGOLETTE ESISTONO.
+     *
+     * Era `text.split(/\r?\n/)`, che non sa niente di virgolette: una nota su
+     * due righe — prevista da RFC 4180 e normale negli export di logbook —
+     * spezzava il record in due, la seconda metà finiva fra le righe scartate e
+     * compariva un avviso su una riga che nel file non esiste. Misurato il 15
+     * settembre 2026.
+     */
+    const tutte = righeCsv(text).filter((l) => l.trim().length > 0);
+    /*
+     * ► L'INTESTAZIONE NON È PER FORZA LA PRIMA RIGA. ◄
+     *
+     * Il CSV che questa stessa applicazione esporta comincia con `sep=;` — la
+     * riga che dice a Excel quale separatore usare — e non si rileggeva:
+     * «formato non riconosciuto» su un file scritto da noi, cinque minuti
+     * prima. Diving Log e MacDive ci mettono spesso un titolo. Si cercano le
+     * prime righe finché non se ne trova una che somigli a un'intestazione.
+     */
+    const inizio = tutte.findIndex((riga, i) => i < 5 && somigliaAIntestazione(riga));
+    const lines = inizio > 0 ? tutte.slice(inizio) : tutte;
     if (lines.length < 2) return { format: 'csv', dives: [], warnings: [t('CSV senza righe di dati.')] };
 
     const delim = detectDelimiter(lines[0]);
@@ -129,6 +208,7 @@ export const csvParser: DiveParser = {
 
     const importedAt = new Date().toISOString();
     const dives: Dive[] = [];
+    const scartate: number[] = [];
 
     for (let ln = 1; ln < lines.length; ln++) {
       const cells = splitRow(lines[ln], delim);
@@ -141,11 +221,26 @@ export const csvParser: DiveParser = {
 
       const dive = rowToDive(row, input.fileName, importedAt);
       if (dive) dives.push(dive);
-      else {
-        warnings.push(
-          `${t('Riga')} ${ln + 1} ${t('scartata: data, durata o profondità non interpretabili.')}`,
-        );
-      }
+      else scartate.push(ln + 1 + inizio);
+    }
+    /*
+     * ► GLI AVVISI HANNO UN TETTO, E IL NUMERO DI RIGA È QUELLO DEL FILE. ◄
+     *
+     * Prima ogni riga scartata produceva il suo avviso, e il numero di riga era
+     * contato sull'elenco GIÀ ripulito dalle righe vuote — un file con un buco
+     * a metà diceva «riga 2» per un problema alla riga 5. Un CSV da cinquantamila
+     * righe illeggibili produceva cinquantamila avvisi, 3.3 MB di testo, e la
+     * schermata di importazione li disegnava tutti dentro una cella di tabella.
+     *
+     * Adesso: una riga sola con il conteggio e i primi numeri, e i numeri sono
+     * quelli che si leggono aprendo il file.
+     */
+    if (scartate.length) {
+      const primi = scartate.slice(0, 10).join(', ');
+      warnings.push(
+        `${scartate.length} ${t('righe scartate: data, durata o profondità non interpretabili.')} ` +
+          `${t('Righe')}: ${primi}${scartate.length > 10 ? '…' : ''}`,
+      );
     }
 
     if (dives.length) {
@@ -161,19 +256,29 @@ export const csvParser: DiveParser = {
 
 function rowToDive(row: Record<string, string>, fileName: string, importedAt: string): Dive | null {
   const startTime = parseDateTime(row.date, row.time);
-  const durationS = parseDurationCell(row.duration);
-  const maxDepth = parseMeasure(row.maxDepth, 'depth');
+  // Un secondo di durata minima e ventiquattro ore di massima; mezzo metro e
+  // 350, che è oltre il record mondiale in circuito aperto. Vedi `plausibile`.
+  const durationS = plausibile(parseDurationCell(row.duration), 1, 86_400);
+  const maxDepth = plausibile(parseMeasure(row.maxDepth, 'depth'), 0.5, 350);
   if (!startTime || !durationS || !maxDepth) return null;
+  // L'anno: dal 1900 — la subacquea con l'autorespiratore comincia nel 1943 — a
+  // uno in avanti, per chi ha l'orologio del computer avanti di qualche mese.
+  const anno = new Date(startTime).getUTCFullYear();
+  if (!(anno >= 1900 && anno <= new Date().getUTCFullYear() + 1)) return null;
 
   const o2 = parsePercent(row.o2);
   const he = parsePercent(row.he);
+  // Aria più elio non possono superare il tutto: se lo fanno, la miscela non si
+  // è capita e vale di più dirlo che indovinare.
+  const miscelaCredibile = (o2 ?? 0) + (he ?? 0) <= 1;
   const cylinder: Cylinder = {
     // «AL80» non è una misura: vedi `core/cylinders.ts`. `parseNumber` ne
     // avrebbe ricavato 80 litri, sette volte il volume vero.
     sizeL: parseCylinderSpec(row.tankSize)?.sizeL,
-    startBar: parseMeasure(row.startBar, 'pressure'),
-    endBar: parseMeasure(row.endBar, 'pressure'),
-    mix: { o2: o2 ?? AIR.o2, he: he ?? 0 },
+    // Zero bar è una bombola vuota e capita; 500 è oltre qualunque bombola.
+    startBar: plausibile(parseMeasure(row.startBar, 'pressure'), 0, 500),
+    endBar: plausibile(parseMeasure(row.endBar, 'pressure'), 0, 500),
+    mix: miscelaCredibile ? { o2: o2 ?? AIR.o2, he: he ?? 0 } : AIR,
   };
 
   const base = { startTime, maxDepth, durationS };
@@ -184,8 +289,9 @@ function rowToDive(row: Record<string, string>, fileName: string, importedAt: st
     durationS,
     maxDepth,
     avgDepth: parseMeasure(row.avgDepth, 'depth'),
-    minTempC: parseMeasure(row.minTemp, 'temp'),
-    airTempC: parseMeasure(row.airTemp, 'temp'),
+    // L'acqua liquida sta fra −2 °C (mare polare) e 40 °C; l'aria arriva a 55.
+    minTempC: plausibile(parseMeasure(row.minTemp, 'temp'), -2, 40),
+    airTempC: plausibile(parseMeasure(row.airTemp, 'temp'), -40, 55),
     site: row.site ? { name: row.site, region: row.region, country: row.country } : undefined,
     buddy: row.buddy,
     notes: row.notes,
@@ -212,7 +318,7 @@ function rowToDive(row: Record<string, string>, fileName: string, importedAt: st
     cylinders: [cylinder],
     salinity: 'salt',
     source: { format: 'csv', file: fileName, importedAt },
-    rating: parseNumber(row.rating),
+    rating: plausibile(parseNumber(row.rating), 0, 5),
     // Stessa storia della zavorra, e con lo stesso avviso a schermo: il campo si
     // chiama `visibilityM`, quindi «Visibility (ft)» va convertita come
     // qualunque altra profondità. 30 piedi salvati come 30 metri non sono un
@@ -231,6 +337,61 @@ function rowToDive(row: Record<string, string>, fileName: string, importedAt: st
 // ---------------------------------------------------------------------------
 // Lettura CSV
 // ---------------------------------------------------------------------------
+
+/**
+ * Spezza il testo in RECORD, non in righe: un a capo dentro le virgolette non
+ * chiude il record.
+ *
+ * `splitRow` le virgolette le conosce già, ma lavora su una riga sola — e a
+ * quel punto il danno è fatto. RFC 4180 prevede il campo su più righe, e le
+ * note di un logbook lo usano di continuo.
+ */
+export function righeCsv(text: string): string[] {
+  const out: string[] = [];
+  let corrente = '';
+  let dentro = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') {
+      // `""` dentro un campo quotato è una virgoletta letterale, non la fine.
+      if (dentro && text[i + 1] === '"') {
+        corrente += '""';
+        i++;
+        continue;
+      }
+      dentro = !dentro;
+      corrente += c;
+    } else if (!dentro && (c === '\n' || c === '\r')) {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      out.push(corrente);
+      corrente = '';
+    } else {
+      corrente += c;
+    }
+  }
+  out.push(corrente);
+  return out;
+}
+
+/**
+ * Questa riga può essere l'intestazione di un CSV di immersioni?
+ *
+ * Tre colonne riconosciute: la stessa soglia di `detect`, e la stessa ragione —
+ * due sole capitano per caso in un titolo qualunque, tre no.
+ */
+export function somigliaAIntestazione(riga: string): boolean {
+  if (!riga.trim() || /^sep=./i.test(riga.trim())) return false;
+  const celle = splitRow(riga, detectDelimiter(riga)).map(normalise);
+  return celle.filter((h) => resolveField(h) !== undefined).length >= 3;
+}
+
+/** La prima riga che somiglia a un'intestazione, fra le prime cinque. */
+export function intestazioneCsv(text: string): string | undefined {
+  const righe = righeCsv(text.replace(/^\ufeff/, ''))
+    .filter((l) => l.trim().length > 0)
+    .slice(0, 5);
+  return righe.find(somigliaAIntestazione);
+}
 
 export function detectDelimiter(line: string): string {
   const candidates = [',', ';', '\t', '|'];
@@ -320,7 +481,7 @@ function cellaHaUnita(cella: string): boolean {
 }
 
 function resolveField(header: string): string | undefined {
-  for (const [field, aliases] of Object.entries(ALIASES)) {
+  for (const [field, aliases] of Object.entries(alias())) {
     if (aliases.includes(header)) return field;
   }
   // Corrispondenza parziale come ripiego: "maximum depth reached" non è un alias
@@ -333,7 +494,7 @@ function resolveField(header: string): string | undefined {
   // Stessa cosa per "air temp" che cadeva in `minTemp` (alias "temp"). Il dato
   // usciva sbagliato in silenzio, che è peggio di un dato mancante.
   let best: { field: string; length: number } | undefined;
-  for (const [field, aliases] of Object.entries(ALIASES)) {
+  for (const [field, aliases] of Object.entries(alias())) {
     for (const a of aliases) {
       if (a.length > 3 && header.includes(a) && (!best || a.length > best.length)) {
         best = { field, length: a.length };
@@ -373,19 +534,76 @@ function parseMeasure(
 
 export function parseNumber(raw: string | undefined): number | undefined {
   if (!raw) return undefined;
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► `1e9` DIVENTAVA 19, E NON ERA UN RIFIUTO: ERA UNA SOSTITUZIONE. ◄
+   *
+   * `raw.replace(/[^\d.,-]/g, '')` cancella ogni lettera, e la `e` della
+   * notazione scientifica è una lettera. Misurato il 15 settembre 2026:
+   *
+   *   "1e9"    → 19        "3.05e1" → 3.051     "1.4E5" → 1.45
+   *   "0x1F"   → 1         "2e-3"   → undefined
+   *
+   * Una cella `1e9` nelle colonne di durata e profondità produceva
+   * **un'immersione di 19 minuti a 19 metri**, importata senza un avviso.
+   * Non un valore scartato: un valore plausibile messo al posto di uno assurdo,
+   * che è il modo più efficace di far entrare un dato falso in un archivio.
+   *
+   * E il codice sapeva che la notazione scientifica esiste: `cellaHaUnita` la
+   * riconosce apposta con `/[eE](?=[+-]?\d)/`. Sapeva, e la distruggeva due
+   * funzioni più in là.
+   *
+   * ADESSO: si estrae il numero con una espressione che la notazione
+   * scientifica la contempla, e se dopo il numero resta qualcosa che non è
+   * un'unità di misura si restituisce `undefined` — perché una cella che non si
+   * è capita è un dato mancante, e un dato mancante si dichiara.
+   */
+  const testo = raw.trim();
+  const m = /^[^\d+-]*([+-]?(?:\d[\d.,]*)(?:[eE][+-]?\d+)?)/.exec(testo);
+  if (!m) return undefined;
+  const grezzo = m[1];
   // Accetta sia "18.3" sia "18,3", ma non confonde "1,234" con "1.234".
-  const cleaned = raw.replace(/[^\d.,-]/g, '');
-  if (!cleaned) return undefined;
   const normalised =
-    cleaned.includes(',') && !cleaned.includes('.') ? cleaned.replace(',', '.') : cleaned.replace(/,/g, '');
+    grezzo.includes(',') && !grezzo.includes('.') ? grezzo.replace(',', '.') : grezzo.replace(/,/g, '');
   const v = Number(normalised);
   return Number.isFinite(v) ? v : undefined;
+}
+
+/**
+ * I VALORI CHE NON POSSONO ESISTERE — un filtro di plausibilità, una volta sola.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * Il solo controllo che c'era, in `rowToDive`, era
+ * `if (!startTime || !durationS || !maxDepth) return null` — e un numero
+ * negativo è *truthy*. Misurato il 15 settembre 2026, tutto accettato senza un
+ * avviso: durata −2400 s, profondità −30.5 m, temperatura −273 °C, pressione
+ * −200 bar, voto 99 su 5, anno 9999.
+ *
+ * E la miscela non aveva tetto: `parsePercent` fa `v > 1 ? v/100 : v`, quindi
+ * un refuso `3200` diventava una frazione di **32**, cioè il 3200% di ossigeno.
+ * Il motore decompressivo si difende — sostituisce aria — ma l'esposizione
+ * all'ossigeno no: lo stesso file con `o2=2100` dava CNS 70.4% e OTU 2470
+ * invece di 10.9% e 28.7.
+ *
+ * Gli intervalli sono larghi apposta: devono lasciar passare tutto quello che
+ * un subacqueo può aver fatto davvero, e fermare solo quello che non è un
+ * dato — un campo vuoto letto come zero, una virgola fuori posto, una colonna
+ * scambiata.
+ */
+export function plausibile(
+  v: number | undefined,
+  min: number,
+  max: number,
+): number | undefined {
+  return v !== undefined && Number.isFinite(v) && v >= min && v <= max ? v : undefined;
 }
 
 function parsePercent(raw: string | undefined): number | undefined {
   const v = parseNumber(raw);
   if (v === undefined) return undefined;
-  return v > 1 ? v / 100 : v;
+  const frazione = v > 1 ? v / 100 : v;
+  // Oltre il 100% non è una miscela: è un refuso. Vedi `plausibile`.
+  return plausibile(frazione, 0, 1);
 }
 
 /** "45", "45 min", "0:45", "45:30" → secondi. */

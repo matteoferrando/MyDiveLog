@@ -88,6 +88,17 @@ export const NOMI_INTERNI = [
   'sqlite',
   'wry',
   'serde',
+  /*
+   * Aggiunti il 15 settembre 2026, quando i tre lettori XML hanno smesso di
+   * lasciar passare l'eccezione grezza. `fast-xml-parser` scrive cose come
+   * «readTagExp returned undefined at position 742510. Context: "<tankpres…»:
+   * è preziosa nel diario e non significa niente per chi legge, che vuole solo
+   * sapere che il file è rotto e che va riesportato.
+   */
+  'readtagexp',
+  'xmlparser',
+  'fast-xml',
+  'at position',
 ] as const;
 
 /**

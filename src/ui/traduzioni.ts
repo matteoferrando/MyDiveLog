@@ -2824,6 +2824,23 @@ export const INGLESE: Record<string, string> = {
     'The download was interrupted. No dive was saved.',
   'Lo scarico si è interrotto. Quello che era già arrivato è salvato in archivio: {0}.':
     'The download was interrupted. What had already arrived is saved in your logbook: {0}.',
+  'Il file finisce a metà: sono state lette le immersioni complete, quelle dopo il punto di rottura no. Riesportalo dal programma che l’ha scritto.':
+    'The file ends halfway through: the complete dives were read, the ones after the break were not. Re-export it from the program that wrote it.',
+  'Questo file non è un XML leggibile: sembra incompleto o danneggiato.':
+    'This file is not readable XML: it looks incomplete or damaged.',
+  'righe scartate: data, durata o profondità non interpretabili.':
+    'rows skipped: date, duration or depth could not be read.',
+  Righe: 'Rows',
+  'L’orologio di un computer non concorda con la data registrata: l’ora locale di quelle immersioni non è affidabile.':
+    'A computer’s clock does not agree with the recorded date: the local time of those dives is not reliable.',
+  'Un controllo non ha potuto girare': 'A check could not run',
+  'Una delle regole di analisi si è interrotta, quindi questo piano è INCOMPLETO: quello che quella regola avrebbe dovuto dirti non c’è.':
+    'One of the analysis rules stopped with an error, so this plan is INCOMPLETE: whatever that rule was meant to tell you is missing.',
+  'Segnalacelo dalla pagina del sito, indicando questo codice':
+    'Please report it from the website, quoting this code',
+  regola: 'rule',
+  'Il profilo di almeno un’immersione finisce prima della fine dichiarata, e in profondità: il file potrebbe essere incompleto.':
+    'At least one dive’s profile ends before its declared end, and at depth: the file may be incomplete.',
   'Spegni e riaccendi il computer subacqueo, avvicinalo e riprova.':
     'Switch the dive computer off and on, bring it closer and retry.',
   'Controlla lo spazio libero sul dispositivo e riprova.': 'Check the free space on your device and retry.',

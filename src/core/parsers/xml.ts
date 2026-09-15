@@ -165,3 +165,113 @@ export function durationValue(raw: string | undefined): number | undefined {
   if (nums.length === 2) return nums[0] * 60 + nums[1];
   return nums[0] * 3600 + nums[1] * 60 + nums[2];
 }
+
+/**
+ * LEGGE UN XML CHE POTREBBE ESSERE TRONCATO, E SALVA QUELLO CHE C'È.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► IL DIFETTO CHE CHIUDE, misurato il 15 settembre 2026. ◄
+ *
+ * `parseXml` non era dentro nessun `try` in nessuno dei tre lettori XML. Un
+ * file interrotto a metà — un download finito male, una chiavetta staccata
+ * durante l'export, uno spazio esaurito — faceva due cose, tutte e due brutte.
+ *
+ * **Perdeva tutto.** Un UDDF Shearwater da 1.2 MB con diciotto immersioni,
+ * tagliato al 60%, ne aveva diciassette leggibili per intero. Ne arrivavano
+ * zero.
+ *
+ * **E lo diceva in inglese, con parole che non significano niente per chi
+ * legge.** La stringa che finiva a schermo accanto al nome del file, misurata:
+ * `readTagExp returned undefined at position 742510. Context: "<tankpressure>…`.
+ * È esattamente il difetto che `core/ble/causaGuasto.ts` è nato per chiudere
+ * sul Bluetooth, e che `shearwaterCloud.ts` evita correttamente con
+ * `conDettaglio`: qui i tre lettori XML erano rimasti indietro.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * COME SALVA. Taglia al termine dell'ultimo elemento ripetuto chiuso bene — la
+ * `</dive>` o la `</diveLog>` — e poi richiude a mano i tag rimasti aperti
+ * sopra di lui. Quello che ne esce è un documento valido che contiene tutte le
+ * immersioni complete e nessuna di quelle mozze: cioè esattamente il
+ * sottoinsieme di cui ci si può fidare.
+ *
+ * Chi chiama riceve `tagliato: true` e deve dirlo: un import che perde tre
+ * immersioni su venti senza avvisare è peggio di uno che ne perde venti,
+ * perché non si nota.
+ */
+export function parseXmlSalvando(
+  text: string,
+  elementoRipetuto: string,
+): { root: Record<string, unknown>; tagliato: boolean } {
+  try {
+    const root = parseXml(text);
+    /*
+     * ► UN XML CHE SI LEGGE NON È PER FORZA UN XML INTERO. ◄
+     *
+     * fast-xml-parser è tollerante: su un taglio che cade in un punto fortunato
+     * — fra due elementi, invece che a metà di un tag — non si lamenta e
+     * restituisce quello che ha letto. Misurato: lo stesso UDDF tagliato al 60%
+     * lanciava un'eccezione, tagliato al 30% passava liscio consegnando sei
+     * immersioni su diciotto **senza un avviso**.
+     *
+     * Il segno che resta è la fine del documento: un XML completo finisce con
+     * la chiusura del suo elemento radice. Se non c'è, il file finisce prima di
+     * finire, e chi importa deve saperlo — *un buco dichiarato è pur sempre un
+     * buco, ma un buco taciuto non si può nemmeno cercare.*
+     */
+    return { root, tagliato: !chiudeLaRadice(text) };
+  } catch (primo) {
+    const salvato = tagliaAllUltimo(text, elementoRipetuto);
+    if (salvato !== undefined) {
+      try {
+        return { root: parseXml(salvato), tagliato: true };
+      } catch {
+        /* il salvataggio non ha funzionato: si ricade sull'errore originale */
+      }
+    }
+    throw primo;
+  }
+}
+
+/**
+ * Taglia il testo dopo l'ultima chiusura di `<elemento>` e richiude i tag
+ * rimasti aperti sopra, dal più interno al più esterno.
+ *
+ * Restituisce `undefined` quando non c'è nemmeno un elemento chiuso bene: lì
+ * non c'è niente da salvare e conviene dirlo invece di consegnare un documento
+ * vuoto che sembra un archivio senza immersioni.
+ */
+function tagliaAllUltimo(text: string, elemento: string): string | undefined {
+  const chiusura = new RegExp(`</\\s*${elemento}\\s*>`, 'gi');
+  let fine = -1;
+  for (let m = chiusura.exec(text); m; m = chiusura.exec(text)) fine = m.index + m[0].length;
+  if (fine < 0) return undefined;
+  const testa = text.slice(0, fine);
+
+  /*
+   * I tag ancora aperti, con una pila. Si saltano commenti, CDATA, istruzioni
+   * di elaborazione e DOCTYPE: dentro un commento può esserci di tutto, e un
+   * `<dive>` commentato non è un tag aperto.
+   */
+  const pila: string[] = [];
+  const token = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<!DOCTYPE[^>]*>|<\/?([A-Za-z_][\w.:-]*)([^>]*)>/g;
+  for (let m = token.exec(testa); m; m = token.exec(testa)) {
+    const nome = m[1];
+    if (!nome) continue; // commento, CDATA, istruzione, DOCTYPE
+    if (m[0].startsWith('</')) {
+      // Chiude il corrispondente più vicino: un documento malformato in mezzo
+      // non deve far esplodere il salvataggio.
+      const i = pila.lastIndexOf(nome);
+      if (i >= 0) pila.length = i;
+    } else if (!m[2].trimEnd().endsWith('/')) {
+      pila.push(nome);
+    }
+  }
+  return testa + pila.reverse().map((n) => `</${n}>`).join('');
+}
+
+/** Il testo finisce con la chiusura del suo elemento radice? */
+function chiudeLaRadice(text: string): boolean {
+  const apertura = /<([A-Za-z_][\w.:-]*)/.exec(text.replace(/<\?[\s\S]*?\?>|<!--[\s\S]*?-->|<!DOCTYPE[^>]*>/g, ''));
+  if (!apertura) return false;
+  return new RegExp(`</\\s*${apertura[1]}\\s*>\\s*$`).test(text.trimEnd());
+}

@@ -23,7 +23,18 @@ import { cubicMToL, frazioneDiGas, kelvinToC, pascalToBar, wallClockToIso } from
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
 import { comeSta, type Traduci } from '../traduci';
-import { asArray, attr, attrNumAny, child, children, num, parseXml, text, type XmlNode } from './xml';
+import {
+  asArray,
+  attr,
+  attrNumAny,
+  child,
+  children,
+  num,
+  parseXmlSalvando,
+  text,
+  type XmlNode,
+} from './xml';
+import { conDettaglio } from '../ble/causaGuasto';
 import type { DiveParser, ParseInput, ParseResult } from './types';
 
 export const uddfParser: DiveParser = {
@@ -37,7 +48,40 @@ export const uddfParser: DiveParser = {
 
   parse(input: ParseInput, t: Traduci = comeSta): ParseResult {
     const warnings: string[] = [];
-    const root = parseXml(input.text ?? '');
+    /*
+     * IL FILE POTREBBE ESSERE TRONCATO, e in quel caso si salva il salvabile
+     * invece di perdere tutto. Vedi `parseXmlSalvando`: taglia all'ultima
+     * `</dive>` chiusa bene e richiude i tag rimasti aperti.
+     */
+    let root: Record<string, unknown>;
+    try {
+      const letto = parseXmlSalvando(input.text ?? '', 'dive');
+      root = letto.root;
+      if (letto.tagliato) {
+        warnings.push(
+          t(
+            'Il file finisce a metà: sono state lette le immersioni complete, quelle dopo il punto di rottura no. Riesportalo dal programma che l’ha scritto.',
+          ),
+        );
+      }
+    } catch (err) {
+      /*
+       * Il motivo grezzo della libreria — «readTagExp returned undefined at
+       * position 742510» — non dice niente a chi legge, e prima finiva a
+       * schermo tale e quale accanto al nome del file. `conDettaglio` lo tiene
+       * per il diario e mostra la frase umana.
+       */
+      return {
+        format: 'uddf',
+        dives: [],
+        warnings: [
+          conDettaglio(
+            t('Questo file non è un XML leggibile: sembra incompleto o danneggiato.'),
+            err,
+          ),
+        ],
+      };
+    }
     const uddf = (child(root, 'uddf') ?? root) as Record<string, unknown>;
     const importedAt = new Date().toISOString();
 
@@ -138,6 +182,7 @@ function readDive(
     return null;
   }
   const startTime = normaliseDateTime(datetime);
+  const fuso = fusoDichiarato(datetime);
   if (!startTime) {
     /*
      * SPEZZATA IN TRE, e la ragione vale per tutti gli avvisi che seguono: una
@@ -424,6 +469,9 @@ function readDive(
       if (densita === undefined) return 'salt';
       return densita < 1015 ? 'fresh' : 'salt';
     })(),
+    // Il fuso scritto nel file è un dato, non un dettaglio di formattazione:
+    // senza, la scheda mostra un'ora in cui nessuno si è immerso.
+    utcOffsetMinutes: fuso,
     surfacePressureBar: mapDefined(num(child(before, 'surfacepressure')), pascalToBar),
     surfaceIntervalS: num(child(child(before, 'surfaceintervalbeforedive'), 'passedtime')),
     computer: base.computer,
@@ -471,4 +519,32 @@ export function normaliseDateTime(raw: string): string | undefined {
   // profondità — ne fondeva a due a due. Tre immersioni entravano, due restavano,
   // e la schermata di import diceva «1 duplicato». Senza un avviso.
   return wallClockToIso(raw);
+}
+
+/**
+ * IL FUSO DICHIARATO NEL FILE, quando c'è.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► IL DIFETTO CHE CHIUDE, misurato il 15 settembre 2026. ◄
+ *
+ * UDDF 3.2 permette di scrivere `<datetime>2026-06-14T10:38:00+02:00</datetime>`,
+ * e quando lo fa quel `+02:00` è un'informazione vera: l'immersione è cominciata
+ * alle 10:38 ORA DEL POSTO. `wallClockToIso` fa la cosa giusta con la data —
+ * converte in UTC — ma l'offset lo butta via, e `readDive` non scriveva mai
+ * `utcOffsetMinutes`.
+ *
+ * Risultato: la scheda mostrava **08:38**, cioè un'ora che nel file non c'è e
+ * in cui il subacqueo non si è immerso. `logtrak.ts` l'offset lo conserva da
+ * mesi; qui no.
+ *
+ * `Z` vale zero ed è un fuso dichiarato quanto gli altri: un file scritto in
+ * UTC dice «l'ora locale era UTC», e va distinto da un file che il fuso non lo
+ * dice affatto.
+ */
+export function fusoDichiarato(raw: string): number | undefined {
+  const m = /([+-])(\d{2}):?(\d{2})$|Z$/i.exec(raw.trim());
+  if (!m) return undefined;
+  if (!m[1]) return 0;
+  const minuti = Number(m[2]) * 60 + Number(m[3]);
+  return m[1] === '-' ? -minuti : minuti;
 }

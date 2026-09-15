@@ -81,11 +81,30 @@ export async function parseBrowserFile(file: File, t: Traduci = comeSta): Promis
     return parseFile({ fileName: name, bytes }, t);
   }
 
-  const text = await file.text();
-  // Un file rinominato può nascondere un binario: controlliamo le firme comunque.
-  if (text.slice(8, 12) === '.FIT' || text.startsWith('SQLite format 3')) {
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► LE FIRME BINARIE SI GUARDANO SUI BYTE, NON SUL TESTO. ◄
+   *
+   * Qui c'era `text.slice(8, 12) === '.FIT'` — cioè la firma cercata dentro
+   * una stringa ottenuta decodificando byte binari come UTF-8. Gli indici di
+   * CARATTERE non corrispondono agli indici di BYTE: basta che nei primi otto
+   * byte ci sia una coppia che in UTF-8 vale un carattere solo, e la firma si
+   * sposta.
+   *
+   * Misurato il 15 settembre 2026 su un FIT il cui campo `dataSize` (byte 4..7)
+   * conteneva `C3 A9`, che in UTF-8 sono un carattere: i byte 8..11 erano
+   * `.FIT`, ma `testo.slice(8,12)` dava `FIT͞` e `slice(7,11)` dava `.FIT`. Lo
+   * stesso file, rinominato `.fit`, si leggeva senza problemi; senza
+   * estensione, «formato non riconosciuto». Il controllo funzionava solo finché
+   * i primi otto byte erano UTF-8 «neutri», cioè per caso.
+   */
+  const testa = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+  const firma = (da: number, a: number) =>
+    String.fromCharCode(...testa.subarray(da, a));
+  if (firma(8, 12) === '.FIT' || firma(0, 15) === 'SQLite format 3') {
     const bytes = new Uint8Array(await file.arrayBuffer());
     return parseFile({ fileName: name, bytes }, t);
   }
+  const text = await file.text();
   return parseFile({ fileName: name, text }, t);
 }

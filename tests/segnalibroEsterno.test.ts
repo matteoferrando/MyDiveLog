@@ -94,9 +94,20 @@ describe('► la guardia che lega gli scarti al segnalibro ◄', () => {
      * montare senza Tauri sotto. Si controlla sul sorgente, come fa
      * `avanzamentoTradotto.test.ts` con le etichette del ponte Rust: è l'unico
      * modo di legare due pezzi che non si possono far girare insieme qui.
+     *
+     * DAL 15 SETTEMBRE 2026 la condizione non è più un `if` scritto a mano: è
+     * `segnalibroDaSalvare`, una funzione pura con quattro condizioni e un file
+     * di prove suo (`tests/segnalibroDaSalvare.test.ts`), nato perché lo stesso
+     * `if` esisteva in due copie e una delle due non chiedeva se l'archivio
+     * avesse confermato la scrittura. Qui resta la verifica che *questa*
+     * schermata le passi davvero `tutteTradotte`, che è il pezzo che
+     * `esterni.ts` produce e che nessun altro può controllare.
      */
     const sorgente = readFileSync('src/ui/components/BleDownload.tsx', 'utf8');
-    expect(sorgente).toContain('if (!grezzo && tutteTradotte && metodoHaFunzionato && piuRecente)');
+    expect(sorgente).toContain('if (segnalibroDaSalvare(esitoSegnalibro))');
+    expect(sorgente, 'la bandiera degli scarti deve entrare nella decisione').toMatch(
+      /const esitoSegnalibro = \{[\s\S]{0,600}tutteTradotte,/,
+    );
     expect(sorgente, 'lo scarto deve mettere a falso la bandiera').toMatch(
       /scartate\.length > 0\) \{[\s\S]{0,40}tutteTradotte = false;/,
     );
@@ -106,5 +117,39 @@ describe('► la guardia che lega gli scarti al segnalibro ◄', () => {
     const sorgente = readFileSync('src/storage/computerEsterni.ts', 'utf8');
     expect(sorgente).toContain('immersioniDaLdcConScarti');
     expect(sorgente, 'gli scarti devono uscire dalla funzione').toContain('scartate: tradotte.scartate');
+  });
+});
+
+describe('quello che il computer dichiara vale più di quello che deduce il telefono', () => {
+  /**
+   * ► IL FUSO DEL COMPUTER ARRIVAVA E VENIVA BUTTATO. ◄
+   *
+   * Nel ponte Rust c'era scritto, in un commento, che libdivecomputer il fuso
+   * non lo fornisce. `dc_datetime_t` ce l'ha, e sei famiglie di lettori lo
+   * riempiono — fra cui Shearwater, che è il computer più diffuso fra chi usa
+   * questa applicazione. Il campo veniva letto e scartato, e le immersioni
+   * entravano in archivio con l'orario spostato dello scostamento.
+   */
+  const conFuso = (fuso?: number): ImmersioneLdc => ({
+    ...buona(14),
+    ...(fuso === undefined ? {} : { utcOffsetMinutes: fuso }),
+  });
+
+  it('il fuso dichiarato dal computer vince su quello del telefono', () => {
+    const fusoDelTelefono = () => 60; // l'ora legale italiana
+    const [imm] = immersioniDaLdc([conFuso(180)], { ...CTX, fuso: fusoDelTelefono });
+    expect(imm.utcOffsetMinutes).toBe(180);
+    // E l'ora a parete resta quella: è l'istante assoluto a spostarsi.
+    expect(imm.startTime).toBe('2026-09-14T07:00:00.000Z');
+  });
+
+  it('senza quello del computer resta quello del telefono, che è il ripiego di prima', () => {
+    const [imm] = immersioniDaLdc([conFuso(undefined)], { ...CTX, fuso: () => 120 });
+    expect(imm.utcOffsetMinutes).toBe(120);
+  });
+
+  it('e senza né l’uno né l’altro non se ne inventa nessuno', () => {
+    const [imm] = immersioniDaLdc([conFuso(undefined)], CTX);
+    expect(imm.utcOffsetMinutes).toBeUndefined();
   });
 });

@@ -186,7 +186,35 @@ function readDive(
   if (epochS !== undefined && epochS > 0) {
     startMs = epochS * 1000;
     if (Number.isFinite(localMs)) {
-      utcOffsetMinutes = Math.round((localMs - startMs) / 60_000 / 15) * 15;
+      /*
+       * ► «UTC+74» NON È UN FUSO ORARIO, È UN OROLOGIO NON REIMPOSTATO. ◄
+       *
+       * Il fuso qui si ricava dalla differenza fra due campi: l'istante assoluto
+       * e l'ora locale scritta. Finché i due concordano è una misura; quando non
+       * concordano — un computer a cui non è stata rimessa la data dopo il
+       * cambio batteria scrive `DIVE_START_TIME` di tre giorni prima di
+       * `DiveDate` — la differenza non è più un fuso, è uno scarto.
+       *
+       * Misurato il 15 settembre 2026: `utcOffsetMinutes = 4440`, e la scheda
+       * immersione stampava «(UTC+74, ora locale del sito)». Un fatto geografico
+       * inventato a partire da due campi che si contraddicono, e l'orario
+       * mostrato ricostruito su quello.
+       *
+       * I fusi veri stanno fra UTC−12:00 (Baker Island) e UTC+14:00 (Kiribati).
+       * Fuori da lì non si scrive niente e si dice che l'orologio non torna:
+       * *un dato mancante si dichiara, uno inventato no.*
+       */
+      const scarto = Math.round((localMs - startMs) / 60_000 / 15) * 15;
+      if (scarto >= -720 && scarto <= 840) {
+        utcOffsetMinutes = scarto;
+      } else {
+        const avviso = t(
+          'L’orologio di un computer non concorda con la data registrata: l’ora locale di quelle immersioni non è affidabile.',
+        );
+        // Una volta sola: un archivio intero scaricato da quel computer lo
+        // ripeterebbe per ogni immersione.
+        if (!warnings.includes(avviso)) warnings.push(avviso);
+      }
     }
   } else if (Number.isFinite(localMs)) {
     // Senza l'epoch resta solo l'ora locale: la interpretiamo come tale, senza

@@ -2557,6 +2557,21 @@ pub struct ImmersioneLdc {
      */
     #[serde(rename = "senzaData", skip_serializing_if = "std::ops::Not::not")]
     pub senza_data: bool,
+    /**
+     * Lo scostamento da UTC in MINUTI, quando il computer lo dichiara.
+     *
+     * Per mesi qui c'era scritto, in un commento, che libdivecomputer il fuso
+     * non lo fornisce. Non era vero: `dc_datetime_t` ha il campo `timezone`, sei
+     * famiglie di lettori lo riempiono — Shearwater compresa — e il valore
+     * veniva letto e poi buttato. Le immersioni di uno Shearwater entravano in
+     * archivio con l'orario spostato dello scostamento: fatte alle 10:38 in
+     * Italia, mostrate alle 08:38.
+     *
+     * `DC_TIMEZONE_NONE` (0x7FFFFFFF) resta assente, che è la cosa giusta: «non
+     * lo dice» non è «è a Greenwich».
+     */
+    #[serde(rename = "utcOffsetMinutes", skip_serializing_if = "Option::is_none")]
+    pub fuso_minuti: Option<i32>,
     pub samples: Vec<CampioneLdc>,
 }
 
@@ -3002,9 +3017,33 @@ pub fn traduci(
      * seguito. Adesso c'è una bandiera, e chi legge decide.
      */
     let mut quando = DcDatetime { anno: 0, mese: 0, giorno: 0, ora: 0, minuto: 0, secondo: 0, fuso: 0 };
-    if unsafe { dc_parser_get_datetime(parser, &mut quando) } == DC_STATUS_SUCCESS && quando.anno != 0
+    if unsafe { dc_parser_get_datetime(parser, &mut quando) } == DC_STATUS_SUCCESS
+        && data_plausibile(&quando)
     {
         immersione.inizio_ms = millisecondi(&quando);
+        /*
+         * ► IL FUSO C'È, E LO SI BUTTAVA. ◄
+         *
+         * Qui c'era un commento che diceva che libdivecomputer il fuso non lo
+         * fornisce. Non è vero: `dc_datetime_t` ha il campo `timezone`, e sei
+         * famiglie di lettori lo riempiono — fra cui Shearwater, che è il
+         * computer più diffuso fra chi usa questa applicazione.
+         *
+         * `DC_TIMEZONE_NONE` vale `0x7FFFFFFF` e significa «questo computer non
+         * lo dice»: quello sì va ignorato. Tutto il resto sono secondi di
+         * scostamento da UTC, e buttarli via faceva comparire l'immersione con
+         * l'orario spostato dell'offset — un'immersione fatta alle 10:38 in
+         * Italia mostrata alle 08:38.
+         */
+        const FUSO_ASSENTE: i32 = 0x7FFF_FFFF;
+        if quando.fuso != FUSO_ASSENTE {
+            let minuti = quando.fuso / 60;
+            // Gli stessi limiti che applica il lettore di Shearwater Cloud:
+            // da UTC−12:00 a UTC+14:00. Fuori di lì non è un fuso.
+            if (-720..=840).contains(&minuti) {
+                immersione.fuso_minuti = Some(minuti);
+            }
+        }
     } else {
         immersione.senza_data = true;
     }
@@ -3066,13 +3105,38 @@ pub fn traduci(
         )
     } == DC_STATUS_SUCCESS
     {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► UNA BOMBOLA CHE LA LIBRERIA NON SA DESCRIVERE LASCIA IL SUO POSTO
+         *   VUOTO, NON SPARISCE. ◄
+         *
+         * IL DIFETTO CHIUSO IL 15 SETTEMBRE 2026, ed è un dato falso e
+         * credibile — la specie peggiore.
+         *
+         * Le pressioni dei CAMPIONI sono indicizzate sull'indice che la
+         * libreria dà alla bombola: il campione dice «bombola 2, 137 bar».
+         * Qui invece si faceva `push` solo quando la lettura riusciva, quindi
+         * una bombola rifiutata a metà elenco — capita sui Mares con le unità
+         * imperiali — faceva **scalare di uno tutte quelle dopo**. Il campione
+         * continuava a dire «bombola 2» e trovava la 3.
+         *
+         * Cioè: la pressione di una bombola finiva attribuita a un'altra. Il
+         * consumo, la riserva, il grafico delle pressioni, tutto giusto nella
+         * forma e riferito all'oggetto sbagliato — e nessun modo di accorgersene
+         * leggendo la scheda.
+         *
+         * Il posto resta, con tutti i campi a `None`: «qui c'è una bombola di
+         * cui non sappiamo niente» è un'affermazione vera, e a valle un campo
+         * assente è già gestito dappertutto. *Un buco dichiarato è pur sempre un
+         * buco, ma un buco che sposta gli altri è un altro problema.*
+         */
         for i in 0..quante_bombole {
             let mut b = BombolaC::default();
-            if unsafe {
+            let letta = unsafe {
                 dc_parser_get_field(parser, CAMPO_BOMBOLA, i, &mut b as *mut BombolaC as *mut c_void)
-            } == DC_STATUS_SUCCESS
-            {
-                immersione.bombole.push(BombolaLdc {
+            } == DC_STATUS_SUCCESS;
+            immersione.bombole.push(if letta {
+                BombolaLdc {
                     indice_gas: (b.gasmix != GASMIX_SCONOSCIUTA).then_some(b.gasmix as usize),
                     // Zero non è una misura: è «non dichiarato». `dc_tank_t` lo
                     // dice esplicitamente per il volume, e una bombola da zero
@@ -3081,8 +3145,10 @@ pub fn traduci(
                     pressione_iniziale_bar: (b.pressione_iniziale > 0.0)
                         .then_some(b.pressione_iniziale),
                     pressione_finale_bar: (b.pressione_finale > 0.0).then_some(b.pressione_finale),
-                });
-            }
+                }
+            } else {
+                BombolaLdc::default()
+            });
         }
     }
 
@@ -3143,6 +3209,31 @@ pub fn traduci(
         );
     }
     Ok(acc.immersione)
+}
+
+/// UNA DATA CHE PUÒ ESISTERE.
+///
+/// ════════════════════════════════════════════════════════════════════════════
+/// ► IL DIFETTO CHIUSO IL 15 SETTEMBRE 2026. ◄ Il controllo era `anno != 0`, e
+/// basta. Tutto il resto entrava come data certa: mese 0, giorno 0, ora 31,
+/// anno 4095 — cioè i valori che escono da un blocco di memoria non
+/// inizializzato, o da un computer a cui non è mai stata messa l'ora.
+///
+/// `millisecondi` è aritmetica civile pura e non si lamenta: con mese 0 e giorno
+/// 0 produce un istante, e quell'istante finisce in archivio con la catena dei
+/// tessuti, le statistiche per giornata e il libretto a valore legale appresi.
+///
+/// Meglio nessuna data — che l'applicazione sa già mostrare e far correggere a
+/// mano — che una data sbagliata di tre mesi.
+fn data_plausibile(q: &DcDatetime) -> bool {
+    // 1950 perché i computer subacquei non esistevano prima; il tetto è largo
+    // per non tagliare fuori chi ha l'orologio avanti di qualche mese.
+    (1950..=2100).contains(&q.anno)
+        && (1..=12).contains(&q.mese)
+        && (1..=31).contains(&q.giorno)
+        && q.ora <= 23
+        && q.minuto <= 59
+        && q.secondo <= 60
 }
 
 /// Da una data «locale senza fuso» ai millisecondi dall'epoca.
@@ -5279,5 +5370,75 @@ mod prove {
         assert_eq!(acc.quante_bombole, 6);
         assert_eq!(acc.pressioni_fuori_scala, 0);
         assert_eq!(acc.corrente.pressione_bar[5], Some(195.0));
+    }
+}
+
+#[cfg(test)]
+mod prove_data_e_bombole {
+    use super::*;
+
+    fn quando(anno: c_int, mese: c_uint, giorno: c_uint, ora: c_uint) -> DcDatetime {
+        DcDatetime { anno, mese, giorno, ora, minuto: 0, secondo: 0, fuso: 0 }
+    }
+
+    /// ► IL CONTROLLO ERA `anno != 0`, E BASTA. ◄
+    ///
+    /// Tutto il resto entrava come data certa: mese 0, giorno 0, ora 31, anno
+    /// 4095 — cioè i valori che escono da un blocco di memoria non
+    /// inizializzato o da un computer a cui non è mai stata messa l'ora.
+    /// `millisecondi` è aritmetica pura e non si lamenta: produce un istante, e
+    /// quell'istante finisce in archivio con la catena dei tessuti e le
+    /// statistiche per giornata appresso.
+    ///
+    /// Meglio nessuna data — che l'applicazione sa mostrare e far correggere a
+    /// mano — che una data sbagliata di tre mesi.
+    #[test]
+    fn una_data_impossibile_non_e_una_data() {
+        assert!(data_plausibile(&quando(2026, 6, 14, 10)), "una data vera deve passare");
+        assert!(data_plausibile(&quando(1950, 1, 1, 0)), "il limite basso passa");
+        assert!(data_plausibile(&quando(2100, 12, 31, 23)), "il limite alto passa");
+
+        assert!(!data_plausibile(&quando(0, 1, 1, 0)), "anno zero");
+        assert!(!data_plausibile(&quando(4095, 6, 14, 10)), "anno da memoria sporca");
+        assert!(!data_plausibile(&quando(2026, 0, 14, 10)), "mese zero");
+        assert!(!data_plausibile(&quando(2026, 13, 14, 10)), "mese tredici");
+        assert!(!data_plausibile(&quando(2026, 6, 0, 10)), "giorno zero");
+        assert!(!data_plausibile(&quando(2026, 6, 32, 10)), "giorno trentadue");
+        assert!(!data_plausibile(&quando(2026, 6, 14, 31)), "ora trentuno");
+        assert!(!data_plausibile(&DcDatetime { minuto: 99, ..quando(2026, 6, 14, 10) }));
+        assert!(!data_plausibile(&DcDatetime { secondo: 99, ..quando(2026, 6, 14, 10) }));
+    }
+
+    /// ► UNA BOMBOLA CHE NON SI LEGGE LASCIA IL SUO POSTO VUOTO. ◄
+    ///
+    /// `CampioneLdc.pressione_bar` è indicizzata sull'indice che la libreria dà
+    /// alla bombola. Saltando la bombola rifiutata — capita sui Mares in unità
+    /// imperiali — tutte quelle dopo scalavano di uno, e la pressione di una
+    /// finiva attribuita a un'altra: consumo, riserva e grafico giusti nella
+    /// forma e riferiti all'oggetto sbagliato.
+    ///
+    /// Qui si prova la proprietà sulla struttura, che è quello che si può
+    /// provare senza un computer attaccato: il posto vuoto esiste, non dice
+    /// niente, e non sposta gli altri.
+    #[test]
+    fn il_posto_della_bombola_illeggibile_resta() {
+        let mut bombole: Vec<BombolaLdc> = Vec::new();
+        for i in 0..3u32 {
+            // La seconda (indice 1) è quella che la libreria rifiuta.
+            bombole.push(if i == 1 {
+                BombolaLdc::default()
+            } else {
+                BombolaLdc {
+                    indice_gas: Some(i as usize),
+                    volume_l: Some(12.0),
+                    pressione_iniziale_bar: Some(200.0 + i as f64),
+                    pressione_finale_bar: Some(50.0),
+                }
+            });
+        }
+        assert_eq!(bombole.len(), 3, "il posto della bombola illeggibile resta");
+        assert_eq!(bombole[2].pressione_iniziale_bar, Some(202.0), "la terza è ancora la terza");
+        assert!(bombole[1].volume_l.is_none(), "e quella in mezzo non dichiara niente");
+        assert!(bombole[1].indice_gas.is_none());
     }
 }

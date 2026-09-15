@@ -27,7 +27,8 @@ import { fahrenheitToC, feetToM, mbarToBar, shearwaterTankToBar, wallClockToIso 
 import { diveIdFor } from '../dedupe';
 import { computeMetrics } from '../analysis/metrics';
 import { comeSta, type Traduci } from '../traduci';
-import { child, children, num, parseXml, text } from './xml';
+import { child, children, num, parseXmlSalvando, text } from './xml';
+import { conDettaglio } from '../ble/causaGuasto';
 import type { DiveParser, ParseInput, ParseResult } from './types';
 
 export const shearwaterParser: DiveParser = {
@@ -41,7 +42,40 @@ export const shearwaterParser: DiveParser = {
 
   parse(input: ParseInput, t: Traduci = comeSta): ParseResult {
     const warnings: string[] = [];
-    const root = parseXml(input.text ?? '');
+    /*
+     * IL FILE POTREBBE ESSERE TRONCATO, e in quel caso si salva il salvabile
+     * invece di perdere tutto. Vedi `parseXmlSalvando`: taglia all'ultima
+     * `</diveLog>` chiusa bene e richiude i tag rimasti aperti.
+     */
+    let root: Record<string, unknown>;
+    try {
+      const letto = parseXmlSalvando(input.text ?? '', 'diveLog');
+      root = letto.root;
+      if (letto.tagliato) {
+        warnings.push(
+          t(
+            'Il file finisce a metà: sono state lette le immersioni complete, quelle dopo il punto di rottura no. Riesportalo dal programma che l’ha scritto.',
+          ),
+        );
+      }
+    } catch (err) {
+      /*
+       * Il motivo grezzo della libreria — «readTagExp returned undefined at
+       * position 742510» — non dice niente a chi legge, e prima finiva a
+       * schermo tale e quale accanto al nome del file. `conDettaglio` lo tiene
+       * per il diario e mostra la frase umana.
+       */
+      return {
+        format: 'shearwater-xml',
+        dives: [],
+        warnings: [
+          conDettaglio(
+            t('Questo file non è un XML leggibile: sembra incompleto o danneggiato.'),
+            err,
+          ),
+        ],
+      };
+    }
     const importedAt = new Date().toISOString();
 
     // Un file può contenere un solo <dive> o una raccolta.
@@ -194,6 +228,14 @@ function readLog(
     normaliseDuration(num(child(log, 'maxTime')), samples) ??
     (samples.length ? samples[samples.length - 1].t : undefined);
 
+  if (durationS && profiloTroncato(durationS, samples)) {
+    warnings.push(
+      t(
+        'Il profilo di almeno un’immersione finisce prima della fine dichiarata, e in profondità: il file potrebbe essere incompleto.',
+      ),
+    );
+  }
+
   if (!maxDepth || !durationS) {
     // Spezzata perché una chiave con la data dentro sarebbe una voce di
     // dizionario diversa per ogni immersione. Vale per tutte quelle che seguono.
@@ -297,8 +339,28 @@ export function detectTimeScale(raw: (number | undefined)[]): number | null {
 }
 
 /**
- * `maxTime` non dichiara l'unità. Se è dello stesso ordine dell'ultimo campione
- * (in secondi) sono secondi; se è ~60 volte più piccolo sono minuti.
+ * `maxTime` non dichiara l'unità: si deduce dal profilo.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► IL DIFETTO CHIUSO IL 15 SETTEMBRE 2026: QUARANTA MINUTI DIVENTAVANO
+ *   QUARANTA SECONDI. ◄
+ *
+ * La regola era una sola: se l'ultimo campione (in secondi) sta fra 30 e 90
+ * volte `maxTime`, allora `maxTime` è in minuti. Funziona — finché il profilo
+ * c'è tutto. Ma si appoggia proprio alla cosa che manca quando il file è
+ * troncato: con sessanta record su duecentoquarantuno, l'ultimo campione sta a
+ * 590 secondi, il rapporto con 40 vale 14.75, e l'immersione entrava in archivio
+ * **con durata 40 secondi** e profondità 30 metri. Senza un avviso. E con un
+ * identificativo diverso da quella intera, quindi affiancata all'originale
+ * invece che riconosciuta.
+ *
+ * La regola nuova non deduce: **osserva un'impossibilità.** `maxTime` è la
+ * durata totale dell'immersione; non può essere più corta dell'istante
+ * dell'ultimo campione registrato. Se letta in secondi lo è, in secondi non è.
+ *
+ * Il caso intero continua a passare dalla prima regola, che resta la primaria
+ * perché è quella validata sugli export veri; la seconda copre solo i casi in
+ * cui la prima non si pronuncia.
  */
 function normaliseDuration(maxTime: number | undefined, samples: Sample[]): number | undefined {
   if (maxTime === undefined || maxTime <= 0) return undefined;
@@ -307,7 +369,24 @@ function normaliseDuration(maxTime: number | undefined, samples: Sample[]): numb
   if (lastT <= 0) return maxTime;
   const ratio = lastT / maxTime;
   if (ratio > 30 && ratio < 90) return Math.round(maxTime * 60); // maxTime in minuti
+  // Letto in secondi sarebbe più corto del profilo che descrive: impossibile.
+  if (maxTime < lastT) return Math.round(maxTime * 60);
   return Math.round(maxTime);
+}
+
+/**
+ * Il profilo finisce prima della fine dell'immersione, e per giunta in
+ * profondità: il file è quasi certamente incompleto, e va detto.
+ *
+ * `uddf.ts` emette da mesi lo stesso avviso per la stessa ragione; qui mancava,
+ * e un'immersione troncata entrava in archivio con l'aria di una intera.
+ */
+function profiloTroncato(durationS: number, samples: Sample[]): boolean {
+  if (samples.length === 0) return false;
+  const ultimo = samples[samples.length - 1];
+  // Trenta secondi di tolleranza: molti computer smettono di registrare poco
+  // prima dell'emersione, e quello non è un file troncato.
+  return ultimo.t < durationS - 30 && ultimo.depth > 2;
 }
 
 /** NDL e tempi di sosta Shearwater sono in minuti. */

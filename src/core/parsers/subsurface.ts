@@ -26,14 +26,16 @@ import {
   children,
   depthValue,
   durationValue,
-  parseXml,
   pressureValue,
   tempValue,
   text,
   weightValue,
+  parseXmlSalvando,
 } from './xml';
+import { conDettaglio } from '../ble/causaGuasto';
 import { comeSta, type Traduci } from '../traduci';
 import { wallClockToIso } from '../units';
+import { parseCylinderSpec } from '../cylinders';
 import type { DiveParser, ParseInput, ParseResult } from './types';
 
 export const subsurfaceParser: DiveParser = {
@@ -50,7 +52,40 @@ export const subsurfaceParser: DiveParser = {
 
   parse(input: ParseInput, t: Traduci = comeSta): ParseResult {
     const warnings: string[] = [];
-    const root = parseXml(input.text ?? '');
+    /*
+     * IL FILE POTREBBE ESSERE TRONCATO, e in quel caso si salva il salvabile
+     * invece di perdere tutto. Vedi `parseXmlSalvando`: taglia all'ultima
+     * `</dive>` chiusa bene e richiude i tag rimasti aperti.
+     */
+    let root: Record<string, unknown>;
+    try {
+      const letto = parseXmlSalvando(input.text ?? '', 'dive');
+      root = letto.root;
+      if (letto.tagliato) {
+        warnings.push(
+          t(
+            'Il file finisce a metà: sono state lette le immersioni complete, quelle dopo il punto di rottura no. Riesportalo dal programma che l’ha scritto.',
+          ),
+        );
+      }
+    } catch (err) {
+      /*
+       * Il motivo grezzo della libreria — «readTagExp returned undefined at
+       * position 742510» — non dice niente a chi legge, e prima finiva a
+       * schermo tale e quale accanto al nome del file. `conDettaglio` lo tiene
+       * per il diario e mostra la frase umana.
+       */
+      return {
+        format: 'subsurface',
+        dives: [],
+        warnings: [
+          conDettaglio(
+            t('Questo file non è un XML leggibile: sembra incompleto o danneggiato.'),
+            err,
+          ),
+        ],
+      };
+    }
     const divelog = child(root, 'divelog') as Record<string, unknown> | undefined;
     if (!divelog) {
       // Il nome del tag che manca non serve a chi legge: serve a chi ha scritto
@@ -86,12 +121,26 @@ function readSites(divelog: Record<string, unknown>) {
   for (const site of children(child(divelog, 'divesites'), 'site')) {
     const uuid = attr(site, 'uuid');
     if (!uuid) continue;
-    const gps = attr(site, 'gps');
-    const [lat, lon] = (gps ?? '').split(/\s+/).map(Number);
+    /*
+     * ► DUE COORDINATE, O NESSUNA. ◄
+     *
+     * `''.split(/\s+/)` vale `['']`, `Number('')` vale **0**, e
+     * `Number.isFinite(0)` è vero: ogni sito senza GPS di ogni archivio
+     * Subsurface importato finiva a **latitudine zero** — il Golfo di Guinea —
+     * con la longitudine assente. Misurato il 15 settembre 2026. L'esportazione
+     * KML filtrava per fortuna i siti senza entrambe, quindi il danno non
+     * arrivava alla mappa; il valore però entrava in archivio, si sincronizzava
+     * e finiva nel contesto delle analisi.
+     *
+     * *Lo zero è il valore più rassicurante che un numero possa avere, e
+     * l'ultimo che deve comparire quando il dato manca.*
+     */
+    const parti = (attr(site, 'gps') ?? '').trim().split(/\s+/).filter(Boolean).map(Number);
+    const [lat, lon] = parti.length === 2 && parti.every(Number.isFinite) ? parti : [];
     out.set(uuid.toLowerCase(), {
       name: attr(site, 'name') ?? uuid,
-      lat: Number.isFinite(lat) ? lat : undefined,
-      lon: Number.isFinite(lon) ? lon : undefined,
+      lat,
+      lon,
       region: attr(site, 'description'),
     });
   }
@@ -124,7 +173,22 @@ function readDive(
 
   const cylinders: Cylinder[] = children(node, 'cylinder').map((c) => ({
     description: attr(c, 'description'),
-    sizeL: depthValueless(attr(c, 'size')),
+    /*
+     * ► `80 cuft` NON SONO 80 LITRI. ◄
+     *
+     * `depthValueless` fa `Number(raw.replace(/[^\d.]/g, ''))`: cancella
+     * l'unità e restituisce il numero nudo. Su `size='80 cuft'` — la scrittura
+     * normale di un archivio americano — dava **80 litri** al posto di 11, e il
+     * consumo usciva sette volte più alto: 59.3 L/min invece di 8.2, che è il
+     * numero di testa della scheda immersione e inquina ogni statistica.
+     * Cancellava anche la virgola decimale (`13,4 l` → 134) e il segno.
+     *
+     * `parseCylinderSpec` fa la cosa giusta, esiste da mesi, ed è già usata da
+     * `csv.ts` e `shearwaterCloud.ts` — dove il commento racconta esattamente
+     * questo errore. Qui non era arrivata. *Una lezione imparata dentro un
+     * lettore protegge quel lettore.*
+     */
+    sizeL: parseCylinderSpec(attr(c, 'size'))?.sizeL,
     workPressureBar: pressureValue(attr(c, 'workpressure')),
     startBar: roundOrUndef(pressureValue(attr(c, 'start'))),
     endBar: roundOrUndef(pressureValue(attr(c, 'end'))),
@@ -363,13 +427,6 @@ function roundOrUndef(v: number | undefined, digits = 0): number | undefined {
   if (v === undefined) return undefined;
   const f = 10 ** digits;
   return Math.round(v * f) / f;
-}
-
-/** `size='13.399 l'` → 13.4 (litri). */
-function depthValueless(raw: string | undefined): number | undefined {
-  if (!raw) return undefined;
-  const v = Number(raw.replace(/[^\d.]/g, ''));
-  return Number.isFinite(v) && v > 0 ? Math.round(v * 10) / 10 : undefined;
 }
 
 /** `'32.0%'` → 0.32 */
