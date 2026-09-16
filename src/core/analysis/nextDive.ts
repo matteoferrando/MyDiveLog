@@ -27,6 +27,7 @@ import { frase } from '../frase';
 
 import { CHAIN_BREAK_HOURS, entryStateFor } from './tissues';
 import { cnsAfterSurface } from './oxygen';
+import { cnsMostrato } from '../units';
 
 export type NoteLevel = 'critical' | 'warning' | 'info' | 'good';
 
@@ -117,16 +118,23 @@ export function nextDiveBriefing(
         priority: residualN2Bar > 0.15 ? 10 : 45,
       });
     }
-    if (residualCnsPct !== undefined && residualCnsPct >= 20) {
+    /*
+     * ► LA SOGLIA GUARDA IL NUMERO CHE SI MOSTRA. ◄ Vedi `cnsMostrato` in
+     * `units.ts`: col valore pieno un residuo di 19.6 non produceva nessuna
+     * nota pur essendo «20%» a schermo, e uno di 49.6 usciva come «50%» ma solo
+     * informativo.
+     */
+    const cnsResiduo = residualCnsPct === undefined ? undefined : cnsMostrato(residualCnsPct);
+    if (cnsResiduo !== undefined && cnsResiduo >= 20) {
       notes.push({
         id: 'residual-cns',
-        level: residualCnsPct >= 50 ? 'warning' : 'info',
-        headline: frase(t, 'Orologio CNS ancora al {0}%', residualCnsPct.toFixed(0)),
+        level: cnsResiduo >= 50 ? 'warning' : 'info',
+        headline: frase(t, 'Orologio CNS ancora al {0}%', String(cnsResiduo)),
         detail: t(
           'Si dimezza ogni novanta minuti in superficie. Conta se la prossima è una immersione con miscele ricche o profonda: parte da qui, non da zero.',
         ),
         goTo: 'planner',
-        priority: residualCnsPct >= 50 ? 12 : 50,
+        priority: cnsResiduo >= 50 ? 12 : 50,
       });
     }
   }

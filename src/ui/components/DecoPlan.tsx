@@ -44,7 +44,7 @@ import type { Dive } from '../../core/model';
 import { dateShort } from '../format';
 import { OTU_DAILY_TDI } from '../../core/analysis/oxygen';
 import type { GasMix, Salinity } from '../../core/model';
-import { withFraction } from '../../core/units';
+import { withFraction, cnsMostrato } from '../../core/units';
 import { StatTile } from './Charts';
 import { useLingua } from '../lingua';
 import { conDettaglio } from '../../core/ble/causaGuasto';
@@ -1283,9 +1283,15 @@ export function DecoPlanner({
               value={
                 <span
                   className="tabular"
-                  style={{ color: plan.oxygen.cnsPercent >= 100 ? 'var(--critical)' : undefined }}
+                  /* Rosso deciso sul numero che si mostra, non su quello pieno:
+                     altrimenti lo stesso «100%» esce rosso (100.4) o nero
+                     (99.6) a seconda di decimali che non si vedono. Vedi
+                     `cnsMostrato` in `core/units.ts`. */
+                  style={{
+                    color: cnsMostrato(plan.oxygen.cnsPercent) >= 100 ? 'var(--critical)' : undefined,
+                  }}
                 >
-                  {plan.oxygen.cnsPercent.toFixed(0)}%
+                  {cnsMostrato(plan.oxygen.cnsPercent)}%
                 </span>
               }
               note={t('di questa sola immersione')}

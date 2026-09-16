@@ -42,6 +42,7 @@ import {
   mod,
   ppn2At,
   ppo2At,
+  cnsMostrato,
 } from '../units';
 import * as A from './avvisiDelPiano';
 import { barometric, sane, sanePositive, MAX_PLANNABLE_DEPTH_M } from './deco';
@@ -958,20 +959,27 @@ export function planGas(raw: GasPlanInput): GasPlan {
       valori: [ppn2.toFixed(2), end.toFixed(0)],
     });
   }
-  if (oxygen.cnsPercent >= 80) {
+  /*
+   * ► LA SOGLIA GUARDA IL NUMERO CHE SI MOSTRA. ◄ Vedi `cnsMostrato` in
+   * `units.ts`: col valore pieno, un CNS di 79.6 usciva a schermo come «80%»
+   * senza nessun avviso, e uno di 99.6 usciva come «100%» classificato
+   * soltanto `caution`.
+   */
+  const cns = cnsMostrato(oxygen.cnsPercent);
+  if (cns >= 80) {
     /*
      * Due modelli invece di una coda cucita dentro la frase: «con 12 minuti
      * sopra 1.4 bar» in inglese può andare in un altro punto del periodo, e chi
      * traduce deve vedere la frase intera per poterla spostare.
      */
     warnings.push({
-      level: oxygen.cnsPercent >= 100 ? 'critical' : 'caution',
+      level: cns >= 100 ? 'critical' : 'caution',
       ...(oxygen.minutesAbove14 > 0
         ? {
             testo: A.CNS_ALTO_CON_MINUTI,
-            valori: [oxygen.cnsPercent.toFixed(0), oxygen.minutesAbove14.toFixed(0)],
+            valori: [String(cns), oxygen.minutesAbove14.toFixed(0)],
           }
-        : { testo: A.CNS_ALTO, valori: [oxygen.cnsPercent.toFixed(0)] }),
+        : { testo: A.CNS_ALTO, valori: [String(cns)] }),
     });
   }
   if (!overBudget && expectedEndBar < reserveBar) {

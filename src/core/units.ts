@@ -130,6 +130,39 @@ export function depthFromAbsoluteBar(
 
 // --- gas -------------------------------------------------------------------
 
+/**
+ * IL CNS COME LO LEGGE CHI GUARDA: L'INTERO.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► IL NUMERO CHE DECIDE DEV'ESSERE IL NUMERO CHE SI MOSTRA. ◄
+ *
+ * Il CNS si mostra dappertutto con `toFixed(0)` e si confrontava dappertutto
+ * col valore pieno. Le due cose non coincidono, e nella fascia che conta
+ * divergono sempre. Misurato il 16 settembre 2026:
+ *
+ *   99.6 % → a schermo **«100%»**, ma il piano lo classifica `caution`: il
+ *            lettore vede il numero del limite e accanto un avviso che dice
+ *            che il limite non è superato;
+ *   79.6 % → a schermo **«80%»**, e **nessun avviso**, perché la soglia degli
+ *            avvisi è 80 e il valore pieno non ci arriva.
+ *
+ * *Un avviso che si contraddice dentro la propria frase non insegna niente, e
+ * insegna a saltare quelli veri.* È lo stesso guasto della MOD che diceva «a
+ * 33.3 m superi il limite: la massima operativa è 33.3 m», e la stessa
+ * medicina: **la soglia si confronta con la cosa mostrata.**
+ *
+ * Al bordo si sceglie la severità: 99.6 diventa 100 e quindi critico. Non è
+ * una tolleranza in più, è l'unica scelta coerente con quello che c'è scritto
+ * a schermo — e per un avviso di tossicità è anche quella prudente.
+ *
+ * Vale per il CNS pianificato, per quello del residuo e per il colore rosso
+ * della casella: una sola regola, perché due copie della stessa regola sono
+ * una regola e la sua versione vecchia.
+ */
+export function cnsMostrato(percent: number): number {
+  return Math.round(percent);
+}
+
 export const n2Fraction = (mix: GasMix) => Math.max(0, 1 - mix.o2 - mix.he);
 
 /*

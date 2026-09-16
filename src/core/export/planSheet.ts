@@ -16,7 +16,7 @@
  * 3 m · 1.0 min» dove un run time schedule vero scrive una riga sola.
  */
 
-import { formatRuntime, mixName } from '../units';
+import { formatRuntime, mixName, cnsMostrato } from '../units';
 import { comeSta } from '../traduci';
 import { frase } from '../frase';
 import { testoAvvertenza } from '../analysis/avvertenze';
@@ -189,7 +189,7 @@ export function foglioDelPiano(ctx: {
       ['MOD in decompressione', `${m1(plan.modDecoM)} m a 1.6 bar`],
       ['PPO2 al fondo', `${plan.ppo2AtDepth.toFixed(2)} bar`],
       ['END al fondo', `${m1(plan.endM)} m`],
-      ['CNS / OTU', `${plan.oxygen.cnsPercent.toFixed(0)} % · ${plan.oxygen.otu.toFixed(0)}`],
+      ['CNS / OTU', `${cnsMostrato(plan.oxygen.cnsPercent)} % · ${plan.oxygen.otu.toFixed(0)}`],
     ],
   });
 

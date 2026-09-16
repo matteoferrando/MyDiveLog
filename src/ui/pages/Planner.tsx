@@ -32,7 +32,7 @@ import {
 } from '../../core/analysis/gasPlan';
 import { LIMITS, type GasMix } from '../../core/model';
 import { OTU_DAILY_TDI } from '../../core/analysis/oxygen';
-import { formatRuntime, mixName } from '../../core/units';
+import { formatRuntime, mixName, cnsMostrato } from '../../core/units';
 import {
   CurveChart,
   StatTile,
@@ -1296,7 +1296,7 @@ export function Planner() {
         <CartaApribile
           chiave="gas-ossigeno"
           titolo={t('Esposizione all’ossigeno')}
-          sommario={`CNS ${plan.oxygen.cnsPercent.toFixed(0)}% · OTU ${plan.oxygen.otu.toFixed(0)}`}
+          sommario={`CNS ${cnsMostrato(plan.oxygen.cnsPercent)}% · OTU ${plan.oxygen.otu.toFixed(0)}`}
         >
           {/* Il CNS è il rischio di crisi convulsiva e si dimezza ogni 90
               minuti in superficie; gli OTU sono il danno polmonare cumulativo e
@@ -1313,9 +1313,15 @@ export function Planner() {
               value={
                 <span
                   className="tabular"
-                  style={{ color: plan.oxygen.cnsPercent >= 100 ? 'var(--critical)' : undefined }}
+                  /* Rosso deciso sul numero che si mostra, non su quello pieno:
+                     altrimenti lo stesso «100%» esce rosso (100.4) o nero
+                     (99.6) a seconda di decimali che non si vedono. Vedi
+                     `cnsMostrato` in `core/units.ts`. */
+                  style={{
+                    color: cnsMostrato(plan.oxygen.cnsPercent) >= 100 ? 'var(--critical)' : undefined,
+                  }}
                 >
-                  {plan.oxygen.cnsPercent.toFixed(0)}%
+                  {cnsMostrato(plan.oxygen.cnsPercent)}%
                 </span>
               }
               note={t('di questa immersione, sul limite del 100%')}

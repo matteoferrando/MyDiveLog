@@ -31,7 +31,7 @@ import type { GasMix, Salinity } from '../model';
 import { comeSta } from '../traduci';
 import * as A from './avvisiDelPiano';
 import { testoAvvertenza } from './avvertenze';
-import { ambientAta, ambientBar, ead, end as endOf, mod, ppn2At, ppo2At } from '../units';
+import { ambientAta, ambientBar, ead, end as endOf, mod, ppn2At, ppo2At, cnsMostrato } from '../units';
 import { ceilingM, desaturate, gf99, step, surfacedTissues, type TissueState } from './buhlmann';
 import { exposureOfSegments, type OxygenExposure } from './oxygen';
 
@@ -1485,24 +1485,38 @@ export function planDeco(
   // il valore M del modello: nessun avviso lo diceva, e con soste imposte
   // incoerenti il piano si dichiarava perfino «in curva». È l'unica cosa che il
   // motore può affermare senza sapere niente di chi la esegue.
-  if (surfaceGf.percent > 100) {
+  /*
+   * ► ANCHE QUI IL NUMERO CHE DECIDE È QUELLO CHE SI MOSTRA. ◄ Stessa forma
+   * del CNS qui sotto: si confrontava `surfaceGf.percent` pieno e si stampava
+   * `toFixed(0)`, quindi lo stesso «100%» compariva una volta come «oltre il
+   * valore M» (100.4) e una volta senza avviso (99.6). Al bordo si sceglie la
+   * severità, che per un avviso di sovrasaturazione è anche la scelta
+   * prudente.
+   */
+  const gf99Intero = Math.round(surfaceGf.percent);
+  const gfAltoIntero = Math.round(s.gfHigh * 100);
+  if (gf99Intero >= 100) {
     warnings.push({
       level: 'critical',
       testo: A.OLTRE_IL_VALORE_M,
-      valori: [surfaceGf.percent.toFixed(0)],
+      valori: [String(gf99Intero)],
     });
-  } else if (surfaceGf.percent > s.gfHigh * 100 + 1) {
+  } else if (gf99Intero > gfAltoIntero + 1) {
     warnings.push({
       level: 'warning',
       testo: A.GF99_OLTRE_IMPOSTATO,
-      valori: [surfaceGf.percent.toFixed(0), Math.round(s.gfHigh * 100)],
+      valori: [String(gf99Intero), gfAltoIntero],
     });
   }
-  if (oxygen.cnsPercent >= 100) {
+  // La soglia guarda il numero che si mostra: vedi `cnsMostrato` in `units.ts`.
+  // Col valore pieno, 99.6 usciva a schermo come «100%» senza l'avviso che
+  // nomina proprio quel limite.
+  const cnsDaMostrare = cnsMostrato(oxygen.cnsPercent);
+  if (cnsDaMostrare >= 100) {
     warnings.push({
       level: 'critical',
       testo: A.CNS_OLTRE_IL_LIMITE,
-      valori: [oxygen.cnsPercent.toFixed(0)],
+      valori: [String(cnsDaMostrare)],
     });
   }
   // Sopra 1.6 bar la tabella NOAA non esiste più e il CNS viene contato come se
@@ -2158,7 +2172,7 @@ export function decoTableText(
   L.push('');
 
   L.push(
-    `CNS ${result.oxygen.cnsPercent.toFixed(0)}% · OTU ${result.oxygen.otu.toFixed(0)} · ` +
+    `CNS ${cnsMostrato(result.oxygen.cnsPercent)}% · OTU ${result.oxygen.otu.toFixed(0)} · ` +
       `GF99 previsto ${result.gf99EndPct.toFixed(0)}%` +
       (result.timeToFlyH !== undefined ? ` · volo dopo ${result.timeToFlyH} h (modello)` : ''),
   );
