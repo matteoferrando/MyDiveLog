@@ -58,3 +58,25 @@ cosa è successo.*
 Ogni correzione ha una prova, e ogni prova è stata rimessa alla prova rimettendo
 il difetto: **sette mutazioni, sette guardie rosse**. In tutto **2 839 controlli
 automatici in 173 file**, più **149** sul motore nativo.
+
+### Impronte SHA-256
+
+| Pacchetto | SHA-256 | byte |
+|---|---|---|
+| `MyDiveLog-macOS-arm64.dmg` | `cd834d784890651d31ec510ac9361ce177fc06c58a8fa3e5bcbb58ef7661fddc` | 4.531.589 |
+| `MyDiveLog-Windows-setup.exe` | `ed4f42409244bbc4bbc0486065abf81d765e5bc637f66ba555806ec9943d4272` | 3.264.192 |
+| `MyDiveLog-Windows-portatile.exe` | `a5b0068a011cf639bcc24a1bd608fdab2b0bf87be6c7ee8b5245498e9f10a2dc` | 7.523.840 |
+| `MyDiveLog-Android-arm64.apk` | `4184045ff776b9de02e380c66d18d9bc71b8be611cc8db311fbc2efdcea97e9d` | 11.133.302 |
+| `MyDiveLog-Linux-amd64.deb` | `58d484188aaecc41bc2f4d120d3ed525018b70880f65e959b9ebda8d7402c60f` | 3.827.242 |
+
+*Calcolate sui file allegati a questa release, non su una compilazione
+precedente.*
+
+> **Quello che non è stato provato su un apparecchio.** La correzione dell'i330R
+> è verde sulle prove, che riproducono il pacchetto spezzato con i numeri esatti
+> del diario — 96 byte di carico, 101 in tutto — ma **qui un i330R non c'è**. La
+> conferma vera è il prossimo messaggio di chi l'ha segnalato.
+>
+> Lo stesso vale, come sempre, per il giro completo su Windows e Android:
+> finestra, Bluetooth, archivio e stampa su quelle due piattaforme non sono mai
+> stati percorsi a mano. Su Linux sì, meno il Bluetooth.
