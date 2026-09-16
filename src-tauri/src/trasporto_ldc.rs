@@ -2605,6 +2605,34 @@ pub struct BombolaLdc {
     pub pressione_finale_bar: Option<f64>,
 }
 
+/// UNA LISTA INDICIZZATA LETTA DALLA LIBRERIA, CON IL POSTO DELLE LETTURE FALLITE.
+///
+/// ► PERCHÉ ESISTE UNA FUNZIONE PER DUE RIGHE. ◄ Perché lo stesso difetto è
+/// stato commesso due volte, a quaranta righe di distanza, e chiuso una volta
+/// sola.
+///
+/// Le liste che libdivecomputer espone per indice — le bombole e le miscele —
+/// sono l'indirizzo con cui i CAMPIONI parlano: il campione dice «bombola 2,
+/// 137 bar» e «adesso respiro la miscela 2». Se chi legge fa `push` solo quando
+/// la lettura riesce, una voce rifiutata a metà elenco fa **scalare di uno
+/// tutte quelle dopo**, e il campione continua a indicare il numero 2 trovando
+/// il contenuto del 3.
+///
+/// Il 15 settembre 2026 questo è stato corretto per le bombole. Le miscele sono
+/// rimaste come prima fino al 16, e la conseguenza era peggiore: misurata su un
+/// profilo con tre gas in cui la libreria rifiuta il secondo, la bombola di
+/// decompressione diventava **ossigeno puro** e la PPO2 di picco passava da
+/// 1.06 a **1.62** — cioè un'immersione tranquilla mostrata come un'esposizione
+/// da convulsione, o il suo contrario, a seconda di come cade lo scorrimento.
+///
+/// *Due copie della stessa regola sono una regola e la sua versione vecchia.*
+/// Adesso la regola è una, i due chiamanti la usano, e la prova la esercita
+/// davvero — invece di ricostruire a mano un vettore e controllare il vettore
+/// che si è appena costruito.
+fn lista_allineata<T: Default>(quante: c_uint, leggi: impl Fn(c_uint) -> Option<T>) -> Vec<T> {
+    (0..quante).map(|i| leggi(i).unwrap_or_default()).collect()
+}
+
 /// Quello che si accumula mentre libdivecomputer sciorina i campioni.
 struct Accumulatore {
     immersione: ImmersioneLdc,
@@ -3078,14 +3106,32 @@ pub fn traduci(
         dc_parser_get_field(parser, CAMPO_GAS_QUANTI, 0, &mut quanti_gas as *mut c_uint as *mut c_void)
     } == DC_STATUS_SUCCESS
     {
-        for i in 0..quanti_gas {
+        /*
+         * ► UNA MISCELA CHE NON SI LEGGE LASCIA IL SUO POSTO, esattamente come
+         *   una bombola. ◄ Vedi `lista_allineata`: qui il `push` condizionato
+         *   faceva scorrere gli indici, e il campione che dichiara «miscela 2»
+         *   finiva a respirare la 3.
+         *
+         * Il posto vuoto è `o2 = 0`, che non è una miscela possibile — le
+         * frazioni di `dc_gasmix_t` stanno fra 0 e 1 e nessun gas respirabile
+         * ha zero ossigeno — quindi è un valore che vuol dire soltanto «di
+         * questa non sappiamo niente». Il lato TypeScript lo interpreta già
+         * così: `miscela()` in `ble/esterni.ts` tratta `o2 <= 0` come «non
+         * dichiarata» e ricade sull'aria, che è l'assunzione presa in un posto
+         * solo e scritta lì accanto.
+         */
+        immersione.gas = lista_allineata(quanti_gas, |i| {
             let mut mix = GasMix::default();
-            if unsafe {
+            (unsafe {
                 dc_parser_get_field(parser, CAMPO_GAS, i, &mut mix as *mut GasMix as *mut c_void)
-            } == DC_STATUS_SUCCESS
-            {
-                immersione.gas.push(GasLdc { o2: mix.ossigeno, he: mix.elio });
-            }
+            } == DC_STATUS_SUCCESS)
+                .then(|| GasLdc { o2: mix.ossigeno, he: mix.elio })
+        });
+        let ignote = immersione.gas.iter().filter(|g| g.o2 <= 0.0).count();
+        if ignote > 0 {
+            // Sul diario, mai in silenzio: è la stessa regola delle pressioni
+            // fuori scala qui sotto.
+            eprintln!("miscele dichiarate ma illeggibili, posto tenuto: {ignote}");
         }
     }
 
@@ -3130,13 +3176,12 @@ pub fn traduci(
          * assente è già gestito dappertutto. *Un buco dichiarato è pur sempre un
          * buco, ma un buco che sposta gli altri è un altro problema.*
          */
-        for i in 0..quante_bombole {
+        immersione.bombole = lista_allineata(quante_bombole, |i| {
             let mut b = BombolaC::default();
-            let letta = unsafe {
+            (unsafe {
                 dc_parser_get_field(parser, CAMPO_BOMBOLA, i, &mut b as *mut BombolaC as *mut c_void)
-            } == DC_STATUS_SUCCESS;
-            immersione.bombole.push(if letta {
-                BombolaLdc {
+            } == DC_STATUS_SUCCESS)
+                .then(|| BombolaLdc {
                     indice_gas: (b.gasmix != GASMIX_SCONOSCIUTA).then_some(b.gasmix as usize),
                     // Zero non è una misura: è «non dichiarato». `dc_tank_t` lo
                     // dice esplicitamente per il volume, e una bombola da zero
@@ -3145,11 +3190,8 @@ pub fn traduci(
                     pressione_iniziale_bar: (b.pressione_iniziale > 0.0)
                         .then_some(b.pressione_iniziale),
                     pressione_finale_bar: (b.pressione_finale > 0.0).then_some(b.pressione_finale),
-                }
-            } else {
-                BombolaLdc::default()
-            });
-        }
+                })
+        });
     }
 
     /*
@@ -3225,15 +3267,60 @@ pub fn traduci(
 ///
 /// Meglio nessuna data — che l'applicazione sa già mostrare e far correggere a
 /// mano — che una data sbagliata di tre mesi.
+///
+/// ► E IL DIFETTO CHE ERA RIMASTO, CHIUSO IL 16 SETTEMBRE 2026. ◄ Il giorno lo
+/// si controllava con `(1..=31)`, cioè senza guardare in che mese cade: il **31
+/// febbraio** passava, e con lui il 31 aprile, il 31 giugno, il 31 settembre e
+/// il 31 novembre.
+///
+/// E passare non vuol dire «entra e si vede che è strano»: `millisecondi` è
+/// aritmetica civile di Howard Hinnant, che **non ha casi speciali** — il 31
+/// febbraio 2026 diventa il 3 marzo, il 31 aprile diventa il 1° maggio. La
+/// data entra in archivio **spostata fino a tre giorni e dichiarata certa**, e
+/// da lì comanda l'ordine del logbook, il raggruppamento per giornata di CNS e
+/// OTU, l'intervallo di superficie della catena dei tessuti e il libretto a
+/// valore legale.
+///
+/// *Un valore impossibile riconosciuto come impossibile diventa «senza data»,
+/// che l'applicazione sa mostrare e far correggere a mano. Un valore
+/// impossibile arrotondato a uno possibile non lo riconosce più nessuno.*
 fn data_plausibile(q: &DcDatetime) -> bool {
     // 1950 perché i computer subacquei non esistevano prima; il tetto è largo
     // per non tagliare fuori chi ha l'orologio avanti di qualche mese.
     (1950..=2100).contains(&q.anno)
         && (1..=12).contains(&q.mese)
-        && (1..=31).contains(&q.giorno)
+        && q.giorno >= 1
+        && q.giorno <= giorni_del_mese(q.anno, q.mese)
         && q.ora <= 23
         && q.minuto <= 59
+        // Il 60 è il secondo intercalare, che esiste davvero: `millisecondi` lo
+        // porta al minuto dopo, ed è uno spostamento di un secondo su un dato
+        // vero — non la stessa specie di cosa del 31 febbraio.
         && q.secondo <= 60
+}
+
+/// Quanti giorni ha un mese, bisestili compresi.
+///
+/// Il calendario gregoriano in una riga: bisestile se divisibile per quattro, a
+/// meno che non lo sia per cento, a meno che non lo sia per quattrocento. Il
+/// 2000 è bisestile, il 1900 no, e il 2100 — che è il tetto degli anni
+/// accettati qui sopra — nemmeno.
+fn giorni_del_mese(anno: c_int, mese: c_uint) -> c_uint {
+    match mese {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            let bisestile = anno % 4 == 0 && (anno % 100 != 0 || anno % 400 == 0);
+            if bisestile {
+                29
+            } else {
+                28
+            }
+        }
+        // Un mese che non esiste non ha giorni: il controllo sul mese qui sopra
+        // lo prende già, e questo ramo non lascia comunque passare niente.
+        _ => 0,
+    }
 }
 
 /// Da una data «locale senza fuso» ai millisecondi dall'epoca.
@@ -5429,41 +5516,103 @@ mod prove_data_e_bombole {
         assert!(!data_plausibile(&quando(2026, 13, 14, 10)), "mese tredici");
         assert!(!data_plausibile(&quando(2026, 6, 0, 10)), "giorno zero");
         assert!(!data_plausibile(&quando(2026, 6, 32, 10)), "giorno trentadue");
+
+        /*
+         * ► I GIORNI CHE NEL LORO MESE NON ESISTONO. ◄ Passavano tutti, e non
+         * restavano strani: `millisecondi` li arrotonda in avanti — il 31
+         * febbraio 2026 diventa il 3 marzo — e la data entrava certa, spostata
+         * fino a tre giorni.
+         */
+        assert!(!data_plausibile(&quando(2026, 2, 31, 10)), "31 febbraio");
+        assert!(!data_plausibile(&quando(2026, 2, 30, 10)), "30 febbraio");
+        assert!(!data_plausibile(&quando(2026, 2, 29, 10)), "29 febbraio di un anno non bisestile");
+        assert!(!data_plausibile(&quando(2026, 4, 31, 10)), "31 aprile");
+        assert!(!data_plausibile(&quando(2026, 6, 31, 10)), "31 giugno");
+        assert!(!data_plausibile(&quando(2026, 9, 31, 10)), "31 settembre");
+        assert!(!data_plausibile(&quando(2026, 11, 31, 10)), "31 novembre");
+
+        // E i giorni che invece esistono devono continuare a passare, altrimenti
+        // il controllo avrebbe solo cambiato verso: un'immersione vera buttata
+        // via è lo stesso guasto dall'altra parte.
+        assert!(data_plausibile(&quando(2026, 2, 28, 10)), "28 febbraio");
+        assert!(data_plausibile(&quando(2024, 2, 29, 10)), "29 febbraio di un anno bisestile");
+        assert!(data_plausibile(&quando(2000, 2, 29, 10)), "il 2000 è bisestile");
+        assert!(!data_plausibile(&quando(1900, 2, 29, 10)), "il 1900 no");
+        assert!(!data_plausibile(&quando(2100, 2, 29, 10)), "e nemmeno il 2100");
+        assert!(data_plausibile(&quando(2026, 4, 30, 10)), "30 aprile");
+        assert!(data_plausibile(&quando(2026, 12, 31, 10)), "31 dicembre");
         assert!(!data_plausibile(&quando(2026, 6, 14, 31)), "ora trentuno");
         assert!(!data_plausibile(&DcDatetime { minuto: 99, ..quando(2026, 6, 14, 10) }));
         assert!(!data_plausibile(&DcDatetime { secondo: 99, ..quando(2026, 6, 14, 10) }));
     }
 
-    /// ► UNA BOMBOLA CHE NON SI LEGGE LASCIA IL SUO POSTO VUOTO. ◄
+    /// ► UNA VOCE CHE NON SI LEGGE LASCIA IL SUO POSTO VUOTO. ◄
     ///
-    /// `CampioneLdc.pressione_bar` è indicizzata sull'indice che la libreria dà
-    /// alla bombola. Saltando la bombola rifiutata — capita sui Mares in unità
-    /// imperiali — tutte quelle dopo scalavano di uno, e la pressione di una
-    /// finiva attribuita a un'altra: consumo, riserva e grafico giusti nella
-    /// forma e riferiti all'oggetto sbagliato.
+    /// Bombole e miscele sono l'indirizzo con cui i campioni parlano:
+    /// `CampioneLdc.pressione_bar` è indicizzata sulle bombole e
+    /// `gas_mix_index` sulle miscele. Saltando la voce rifiutata — capita sui
+    /// Mares in unità imperiali — tutte quelle dopo scalavano di uno, e il
+    /// contenuto di una finiva attribuito a un'altra.
     ///
-    /// Qui si prova la proprietà sulla struttura, che è quello che si può
-    /// provare senza un computer attaccato: il posto vuoto esiste, non dice
-    /// niente, e non sposta gli altri.
+    /// ► LA PROVA DI PRIMA NON POTEVA VEDERLO. ◄ Costruiva a mano un `Vec` con
+    /// il posto vuoto dentro e poi controllava che il posto vuoto ci fosse:
+    /// *una prova che legge il valore che sta controllando non può vederlo
+    /// cambiare.* Il codice vero poteva tornare a fare `push` condizionato e
+    /// lei restava verde — ed è esattamente quello che è successo alle
+    /// miscele, rimaste col difetto mentre la prova sulle bombole era verde.
+    ///
+    /// Adesso esercita `lista_allineata`, che è la funzione che i due
+    /// chiamanti usano davvero, con un lettore finto che rifiuta la seconda
+    /// voce.
     #[test]
-    fn il_posto_della_bombola_illeggibile_resta() {
-        let mut bombole: Vec<BombolaLdc> = Vec::new();
-        for i in 0..3u32 {
+    fn il_posto_della_voce_illeggibile_resta() {
+        let bombole: Vec<BombolaLdc> = lista_allineata(3, |i| {
             // La seconda (indice 1) è quella che la libreria rifiuta.
-            bombole.push(if i == 1 {
-                BombolaLdc::default()
-            } else {
-                BombolaLdc {
-                    indice_gas: Some(i as usize),
-                    volume_l: Some(12.0),
-                    pressione_iniziale_bar: Some(200.0 + i as f64),
-                    pressione_finale_bar: Some(50.0),
-                }
-            });
-        }
+            (i != 1).then(|| BombolaLdc {
+                indice_gas: Some(i as usize),
+                volume_l: Some(12.0),
+                pressione_iniziale_bar: Some(200.0 + f64::from(i)),
+                pressione_finale_bar: Some(50.0),
+            })
+        });
         assert_eq!(bombole.len(), 3, "il posto della bombola illeggibile resta");
         assert_eq!(bombole[2].pressione_iniziale_bar, Some(202.0), "la terza è ancora la terza");
         assert!(bombole[1].volume_l.is_none(), "e quella in mezzo non dichiara niente");
         assert!(bombole[1].indice_gas.is_none());
+
+        /*
+         * LE MISCELE, che è il difetto misurato il 16 settembre 2026.
+         *
+         * Aria di fondo, un gas intermedio che la libreria rifiuta, ossigeno
+         * puro per le soste. Scalando, l'indice 1 — quello che il campione usa
+         * a venti metri — trovava l'ossigeno: PPO2 di picco da 1.06 a **1.62**.
+         */
+        let gas: Vec<GasLdc> = lista_allineata(3, |i| match i {
+            0 => Some(GasLdc { o2: 0.21, he: 0.0 }),
+            1 => None,
+            _ => Some(GasLdc { o2: 1.0, he: 0.0 }),
+        });
+        assert_eq!(gas.len(), 3, "il posto della miscela illeggibile resta");
+        assert_eq!(gas[2].o2, 1.0, "l'ossigeno è ancora il terzo");
+        assert_eq!(
+            gas[1].o2, 0.0,
+            "e quella in mezzo non dichiara niente: `o2 = 0` non è una miscela possibile, \
+             ed è così che il lato TypeScript riconosce il posto vuoto"
+        );
+    }
+
+    /// La lista vuota e la lista intera, cioè i due bordi.
+    #[test]
+    fn lista_allineata_ai_bordi() {
+        let niente: Vec<GasLdc> = lista_allineata(0, |_| Some(GasLdc { o2: 0.21, he: 0.0 }));
+        assert!(niente.is_empty(), "zero voci fanno una lista vuota, non una voce vuota");
+
+        let tutte: Vec<GasLdc> =
+            lista_allineata(4, |i| Some(GasLdc { o2: 0.2 + f64::from(i) / 100.0, he: 0.0 }));
+        assert_eq!(tutte.len(), 4);
+        assert_eq!(tutte[3].o2, 0.23, "senza rifiuti l'ordine è quello di lettura");
+
+        let nessuna: Vec<GasLdc> = lista_allineata(2, |_| None);
+        assert_eq!(nessuna.len(), 2, "due voci illeggibili restano due posti vuoti");
     }
 }
