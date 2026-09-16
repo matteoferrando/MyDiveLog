@@ -18,6 +18,7 @@
 
 import { formatRuntime, mixName } from '../units';
 import { comeSta } from '../traduci';
+import { frase } from '../frase';
 import { testoAvvertenza } from '../analysis/avvertenze';
 import type { Contingency, GasPlan, SchedulePoint } from '../analysis/gasPlan';
 import type { DecoResult, DecoSegment } from '../analysis/deco';
@@ -156,7 +157,9 @@ export function foglioDelPiano(ctx: {
       colonne: ['Fase', 'Durata', 'Prof. media', 'Litri'],
       numeriche: [1, 2, 3],
       righe: plan.planned.map((f) => [
-        f.label,
+        /* Il foglio che si porta sott'acqua stampava «Soste con {0}». Vedi il
+           riquadro su `GasPhase.label`. */
+        frase(comeSta, f.label, f.gasEtichetta ?? ''),
         formatRuntime(f.minutes),
         `${m1(f.meanDepthM)} m`,
         `${Math.round(f.litres)}`,

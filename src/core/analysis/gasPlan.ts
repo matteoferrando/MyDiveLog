@@ -270,7 +270,26 @@ export interface GasWarning {
 }
 
 export interface GasPhase {
+  /**
+   * L'etichetta della fase, che può essere un MODELLO da dizionario.
+   *
+   * ► LA PRIMA STESURA SI ERA FERMATA A METÀ, e il difetto è finito sul foglio
+   *   che si porta sott'acqua. ◄
+   *
+   * Il modello `'Soste con {0}'` era stato portato fino a `SchedulePoint`, che
+   * è la tabella delle pressioni, e lì funzionava. Ma chi disegna le FASI —
+   * `PhaseTable` nel pianificatore e la sezione «Le fasi» del PDF — legge
+   * `label` e basta: sul foglio stampato si leggeva letteralmente
+   * `Soste con {0}`, e in inglese `Stops on {0}`.
+   *
+   * Nessuna prova poteva accorgersene: `tests/gasPlan.test.ts` non legge mai
+   * `planned[].label`, e la guardia del dizionario vede solo i `t('letterale')`.
+   * *Un modello che gira per il codice senza il suo valore è una stringa rotta
+   * che aspetta il primo che la disegni.*
+   */
   label: string;
+  /** Il gas da rimettere dentro l'etichetta, quando l'etichetta ha un `{0}`. */
+  gasEtichetta?: string;
   /**
    * Che tipo di tratto è. Serve a distinguere il fondo dal resto senza guardare
    * l'etichetta: da quando il fondo può essere spezzato in due, confrontare le
@@ -477,6 +496,10 @@ function phaseAt(
   const meanBar = ambientBar(meanDepthM, salinity, surfaceBar);
   return {
     label,
+    /* Il valore del `{0}`, quando l'etichetta è un modello. Si prende dalla
+       miscela della fase, che `phaseAt` ha già in mano: chiederlo al chiamante
+       vorrebbe dire due sorgenti per la stessa cosa. */
+    gasEtichetta: mixName(mix),
     kind,
     // Nessun arrotondamento: la somma delle durate delle fasi DEVE valere la
     // durata totale, e arrotondare ogni fase a due decimali la faceva sballare di

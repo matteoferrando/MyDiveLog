@@ -2055,7 +2055,9 @@ function PhaseTable({ phases, total, tankL }: { phases: GasPhase[]; total: numbe
         <tbody>
           {phases.map((p) => (
             <tr key={p.label}>
-              <td>{t(p.label)}</td>
+              {/* `frase()` e non `t()`: l'etichetta delle soste con lo stage è un
+                  modello col gas dentro. Qui si leggeva «Soste con {0}». */}
+              <td>{frase(t, p.label, p.gasEtichetta ?? '')}</td>
               <td className="tabular" style={{ textAlign: 'right' }}>
                 {p.minutes.toFixed(p.minutes < 10 ? 1 : 0)} min
               </td>
