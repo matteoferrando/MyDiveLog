@@ -258,6 +258,67 @@ const FIPSAS: Didattica = {
   ],
 };
 
+/*
+ * ► FIAS, LA SECONDA FEDERAZIONE ITALIANA — e non è un alias della prima. ◄
+ *
+ * Aggiunta il 16 settembre 2026 su segnalazione di un istruttore che usa
+ * l'applicazione: *«aggiungi anche la FIAS tra le didattiche principali per i
+ * brevetti, se no la federazione italiana attività subacquee si offende»*.
+ * Aveva ragione: c'era FIPSAS e basta, e le due non sono la stessa cosa —
+ * stesso paese, due scale diverse. Il primo livello FIAS dichiara 20 metri
+ * contro i 18 del 1° Grado FIPSAS, e il gradino profondo 40 contro 42. Come
+ * per CMAS e FIPSAS, sono due voci separate apposta.
+ *
+ * ► I NUMERI VENGONO DALLE PAGINE UFFICIALI, e dove tacciono qui non c'è
+ * niente. ◄ Minisub e Junior sono corsi per bambini di 7 e 9 anni e una
+ * profondità non la scrivono: resta `undefined`. Nitrox 32/36 nemmeno — il
+ * limite lo dà la miscela, come per ogni altra didattica.
+ *
+ * ► E LA LINEA TECNICA NON DICHIARA LA DECOMPRESSIONE, quindi non la
+ * dichiariamo noi. ◄ Le quattro voci Trimix portano i metri che la federazione
+ * pubblica (50, 55, 70, 90). Che oltre i 40 si vada in decompressione lo sa
+ * chiunque si immerga, ma la pagina che lo direbbe con le parole della
+ * federazione non è leggibile da fuori, e *quello che sappiamo noi non è
+ * quello che dichiara la didattica*: il campo resta vuoto finché qualcuno
+ * legge lo standard. Il corso «Decompressione» della linea specializzazione,
+ * quello sì, la dichiara — ed è l'unico che qui la porta.
+ */
+const FIAS: Didattica = {
+  id: 'fias',
+  sigla: 'FIAS',
+  nome: 'Federazione Italiana Attività Subacquee',
+  tipo: 'ricreativa',
+  fonte:
+    'fias.it, pagine ufficiali «Corsi di formazione ARA», «Corsi di specializzazione» e «Linee brevetti», lette il 16 settembre 2026',
+  brevetti: [
+    // I due corsi per i più piccoli: nessuna profondità dichiarata.
+    { nome: 'Minisub', livello: 'intro' },
+    { nome: 'Junior', livello: 'intro' },
+    // EN ISO 24801-1: si scende accompagnati.
+    { nome: 'Dodicimetri', livello: 'intro', profonditaM: 12, alias: ['12 metri', 'Dodici metri'] },
+    // EN ISO 24801-2, il primo livello autonomo. Venti metri, non diciotto.
+    { nome: 'Base', livello: 'base', profonditaM: 20, alias: ['Subacqueo Base', 'ARA Base'] },
+    { nome: 'ARA', livello: 'advanced', profonditaM: 30, alias: ['Subacqueo ARA'] },
+    // «NON prevedono decompressione», dice la pagina dei corsi ARA.
+    { nome: 'ARA Estensione', livello: 'deep', profonditaM: 40, alias: ['Estensione ARA'] },
+    { nome: 'Decompressione', livello: 'deep', profonditaM: 40, decompressione: true },
+    { nome: 'Nitrox 32/36', livello: 'nitrox', alias: ['Nitrox Base', 'Nitrox 32', 'Nitrox 36'] },
+    { nome: 'Nitrox Avanzato', livello: 'nitrox', profonditaM: 40 },
+    { nome: 'Salvamento A.R.A.', livello: 'base', ruolo: 'soccorso', alias: ['Salvamento ARA'] },
+    // EN ISO 24801-3, e i 40 metri li dichiara la federazione.
+    { nome: 'Guida Subacquea', livello: 'deep', ruolo: 'guida', profonditaM: 40 },
+    // I due gradini della linea didattica: EN ISO 24802-1 e 24802-2. Nessuno
+    // dei due dichiara metri propri, come l'Istruttore AR di FIPSAS.
+    { nome: 'Istruttore Base', livello: 'deep', ruolo: 'istruttore' },
+    { nome: 'Istruttore Federale', livello: 'deep', ruolo: 'istruttore' },
+    // ── la linea tecnica ────────────────────────────────────────────────────
+    { nome: 'Introduzione al Trimix', livello: 'tech', profonditaM: 50 },
+    { nome: 'Trimix 55', livello: 'tech', profonditaM: 55 },
+    { nome: 'Trimix 70', livello: 'tech', profonditaM: 70, alias: ['Trimix Normossico'] },
+    { nome: 'Trimix 90', livello: 'tech', profonditaM: 90, alias: ['Trimix Ipossico'] },
+  ],
+};
+
 const NAUI: Didattica = {
   id: 'naui',
   sigla: 'NAUI',
@@ -687,6 +748,7 @@ export const DIDATTICHE: Didattica[] = [
   SSI,
   CMAS,
   FIPSAS,
+  FIAS,
   SNSI,
   ESA,
   NADD,

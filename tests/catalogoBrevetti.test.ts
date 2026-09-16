@@ -177,6 +177,48 @@ describe('i numeri che tutti sbagliano', () => {
     expect(voce('CMAS', 'Three Star Diver').profonditaM).toBe(40);
   });
 
+  it('e FIAS non è FIPSAS: due federazioni italiane, due scale', () => {
+    /*
+     * ► LA VOCE CHE MANCAVA, fino al 16 settembre 2026. ◄ Nel catalogo c'era una
+     * sola federazione italiana, e un istruttore lo ha fatto notare: «se no la
+     * federazione italiana attività subacquee si offende». Il rischio, aggiunta
+     * la seconda, è di trattarla come un alias della prima — ed è lo stesso
+     * errore già fatto una volta fra CMAS e FIPSAS.
+     *
+     * I numeri dicono di no: il primo livello autonomo è 20 m in FIAS e 18 in
+     * FIPSAS, il gradino profondo 40 contro 42. Chi un domani «semplificasse»
+     * facendo puntare l'una all'altra trova qui il motivo per cui non si fa.
+     */
+    expect(voce('FIAS', 'Base').profonditaM).toBe(20);
+    expect(voce('FIPSAS', '1° Grado AR').profonditaM).toBe(18);
+    expect(voce('FIAS', 'ARA Estensione').profonditaM).toBe(40);
+    expect(voce('FIPSAS', '3° Grado AR').profonditaM).toBe(42);
+  });
+
+  it('FIAS: i corsi dei bambini e il Nitrox non dichiarano metri, il Dodicimetri sì', () => {
+    // Minisub e Junior sono corsi per bambini di 7 e 9 anni: la federazione non
+    // scrive nessuna profondità, e qui non se ne inventa una. Il Dodicimetri
+    // invece ce l'ha nel nome ed è EN ISO 24801-1.
+    expect(voce('FIAS', 'Minisub').profonditaM).toBeUndefined();
+    expect(voce('FIAS', 'Junior').profonditaM).toBeUndefined();
+    expect(voce('FIAS', 'Nitrox 32/36').profonditaM).toBeUndefined();
+    expect(voce('FIAS', 'Dodicimetri').profonditaM).toBe(12);
+  });
+
+  it('FIAS: la decompressione la dichiara il corso che si chiama così, e non la linea tecnica', () => {
+    /*
+     * Le quattro voci Trimix portano i metri pubblicati dalla federazione
+     * (50, 55, 70, 90) e NON il campo `decompressione`: la pagina che lo
+     * direbbe con le parole della federazione non è leggibile da fuori, e
+     * quello che sappiamo noi non è quello che dichiara la didattica. Il giorno
+     * in cui qualcuno legge lo standard, si mette — e questa riga va cambiata
+     * insieme al catalogo, non prima.
+     */
+    expect(voce('FIAS', 'Decompressione').decompressione).toBe(true);
+    expect(voce('FIAS', 'Trimix 90').profonditaM).toBe(90);
+    expect(voce('FIAS', 'Trimix 90').decompressione).toBeUndefined();
+  });
+
   it('RAID Open Water è 18 metri, e «Open Water 20» è solo il vecchio nome', () => {
     // Il numero nel nome storico diceva 20. La pagina attuale dice 18: tenere
     // il vecchio nome con i vecchi metri sarebbe un dato di sicurezza sbagliato.

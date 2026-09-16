@@ -1,8 +1,29 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **16 settembre 2026, notte** — **2 859 prove in 178 file** più
+Aggiornato: **16 settembre 2026, notte** — **2 862 prove in 178 file** più
 **149 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**.
+
+> ## ► LA FIAS ERA LA FEDERAZIONE ITALIANA CHE MANCAVA. ◄
+>
+> Dal messaggio di un istruttore che usa l'applicazione, la sera del 16
+> settembre: nel catalogo dei brevetti c'era **una sola** federazione italiana.
+> Aggiunta la seconda — **17 voci**, dalla linea ARA (Minisub, Junior,
+> Dodicimetri, Base, ARA, ARA Estensione) alle specializzazioni (Decompressione,
+> Nitrox, Salvamento, Guida Subacquea), alla linea didattica, alla linea tecnica
+> (Trimix 50, 55, 70, 90).
+>
+> **Non è un alias di FIPSAS**, ed è lo stesso errore già evitato una volta fra
+> CMAS e FIPSAS: il primo livello autonomo dichiara **20 m** contro 18, il
+> gradino profondo **40** contro 42. Una prova lo scrive, così nessuno
+> «semplifica» facendo puntare l'una all'altra.
+>
+> I numeri vengono dalle pagine ufficiali `fias.it`, lette stanotte. Dove la
+> federazione tace qui non c'è niente: Minisub e Junior (7 e 9 anni) non
+> dichiarano profondità, il Nitrox 32/36 nemmeno. E le quattro voci Trimix
+> portano i metri ma **non** il campo `decompressione`: la pagina della linea
+> tecnica non è leggibile da fuori, e *quello che sappiamo noi non è quello che
+> dichiara la didattica*.
 
 > ## ► SEI DIFETTI DELL'INTERFACCIA DESKTOP, MISURATI SULLA BUILD VERA. ◄
 >
