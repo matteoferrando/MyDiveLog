@@ -68,15 +68,16 @@ lettura dei computer subacquei, verdi anche con l'orologio a UTC+14 e a UTC−11
 
 | Pacchetto | SHA-256 | byte |
 |---|---|---|
-| `MyDiveLog-macOS-arm64.dmg` | `DA-RIEMPIRE` | |
-| `MyDiveLog-Windows-setup.exe` | `DA-RIEMPIRE` | |
-| `MyDiveLog-Windows-portatile.exe` | `DA-RIEMPIRE` | |
-| `MyDiveLog-Android-arm64.apk` | `DA-RIEMPIRE` | |
-| `MyDiveLog-Linux-amd64.deb` | `eeb37815ca55beb6ded52d41a24d93bc93677678a245f5719cef8743a1810c01` | 3.843.180 |
+| `MyDiveLog-macOS-arm64.dmg` | `c3fe424977a8b747dc00e542b20d98c7660011c89976c3f411da691439b4e0f8` | 4.521.208 |
+| `MyDiveLog-Windows-setup.exe` | `5f37b051918181bd5b3796577a94414930e52e112160e9c23df9fb4bf817409c` | 3.257.539 |
+| `MyDiveLog-Windows-portatile.exe` | `d40e564f345cdb03f436cc4a8311ac85c4200c772446ed15e74cb87277aa2fb1` | 7.507.968 |
+| `MyDiveLog-Android-arm64.apk` | `ed5be25bd47d0870244271ab4971a725c3540d7a19bb2a96607a5c321d68debf` | 10.376.618 |
+| `MyDiveLog-Linux-amd64.deb` | `83bdda81334637f5109dc8557971c07403cb9c7ca1cd841fcb64edaf66f7863d` | 3.816.910 |
 
-*L'impronta del `.deb` è quella del pacchetto costruito il 16 settembre nella
-sessione in cloud, con gli stessi comandi del workflow. Se allegi quello uscito
-da GitHub Actions, ricalcolala: due compilazioni non danno lo stesso byte.*
+*Calcolate sui file allegati a questa release, non su una compilazione
+precedente. Il `.deb` e l'`.apk` non li ha costruiti nessun Mac: vengono dal
+workflow, e i loro due controlli hanno risposto giusto — «nessuna traccia
+dell'aggiornatore nel binario» per Linux, «firmati: 1 apk, 1 aab» per Android.*
 
 > **Su Windows e Android il giro completo non l'ha provato nessuno.** Il codice
 > del motore è lo stesso del Mac e dell'iPhone, con tutte le prove dietro, ma
