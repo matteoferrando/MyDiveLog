@@ -886,9 +886,16 @@ const navMobile = await page.evaluate(() => {
     strisciaVisibile: visibile(document.querySelector('.nav')),
     barraVisibile: visibile(barra),
     caselle: voci.length,
-    // Le sigle IT/EN sono scese in Impostazioni: se ricompaiono quaggiù è
-    // tornato il difetto che questa riorganizzazione doveva chiudere.
-    lingua: document.querySelectorAll('.barra-basso .lingua button').length,
+    /*
+     * Il comando della lingua vive in Impostazioni e in nessun altro posto.
+     * Si contano tutti i modi in cui potrebbe ricomparire fuori di lì — la
+     * vecchia coppia di sigle e una seconda copia della riga — perché contare
+     * solo la coppia, che dal 16 settembre 2026 non esiste più in tutto il
+     * progetto, sarebbe una guardia che non può più diventare rossa.
+     */
+    lingua: document.querySelectorAll(
+      '.barra-basso .lingua button, header .lingua button, .barra-basso [aria-label="Lingua / Language"], header [aria-label="Lingua / Language"]',
+    ).length,
     dentroLoSchermo: voci.every((b) => {
       const r = b.getBoundingClientRect();
       return r.left >= -1 && r.right <= w + 1;
@@ -1405,9 +1412,16 @@ await page.waitForTimeout(1400);
  *
  * Serve a vedere quello che i test non vedono: una traduzione più lunga
  * dell'italiano che manda a capo un pulsante, o una frase rimasta italiana in
- * mezzo a una pagina inglese. Si preme EN come lo premerebbe una persona,
- * invece di scrivere la preferenza nell'archivio locale: così il giro prova
- * anche il pulsante.
+ * mezzo a una pagina inglese. La lingua si cambia dove la cambierebbe una
+ * persona — la riga in Impostazioni — invece di scrivere la preferenza
+ * nell'archivio locale: così il giro prova anche il comando.
+ *
+ * ► DAL 16 SETTEMBRE 2026 QUEL COMANDO È UNO SOLO. ◄ Prima qui si premeva la
+ * sigla EN nella barra in alto; la coppia IT/EN è stata tolta perché era il
+ * doppione della riga di Impostazioni, e questo script è morto con un timeout
+ * sul selettore `.lingua button` — che è l'esito giusto: uno script che non
+ * trova il comando deve rompere, non fotografare l'applicazione in italiano
+ * chiamandola inglese.
  *
  * `italianeRimaste` è il controllo vero. Non può cercare «una parola italiana»
  * — non esiste un elenco — quindi cerca le stringhe che l'applicazione mostra
@@ -1415,7 +1429,11 @@ await page.waitForTimeout(1400);
  * la prima cosa che si legge, e i titoli delle schede.
  */
 await page.setViewportSize({ width: 1280, height: 1000 });
-await page.locator('.lingua button', { hasText: 'EN' }).click();
+await vaiA(page, 'Impostazioni', 600);
+/* L'etichetta accessibile porta tutte e due le parole ed è la stessa nelle due
+   lingue: è l'unico appiglio che non cambia sotto i piedi a metà giro. */
+const scegliLingua = page.locator('select[aria-label="Lingua / Language"]');
+await scegliLingua.selectOption('en');
 await page.waitForTimeout(600);
 await page.click('.nav button:has-text("Logbook")');
 await page.waitForTimeout(400);
@@ -1436,7 +1454,8 @@ const italianeRimaste = navInglese.filter((v) =>
 console.log('NAVIGAZIONE IN INGLESE:', navInglese.join(' · '));
 console.log('VOCI RIMASTE ITALIANE:', italianeRimaste.length ? italianeRimaste.join(', ') : 'nessuna');
 // Si torna in italiano: lo stato salvato non deve sporcare il prossimo giro.
-await page.locator('.lingua button', { hasText: 'IT' }).click();
+// Qui si è già su Settings, cioè sulla pagina dove sta il comando.
+await page.locator('select[aria-label="Lingua / Language"]').selectOption('it');
 await page.waitForTimeout(300);
 
 await browser.close();
