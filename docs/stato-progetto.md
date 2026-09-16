@@ -5,12 +5,14 @@ Aggiornato: **16 settembre 2026, mattina** — **2 755 prove in 164 file** più
 verde anche a **UTC+14 e UTC−11**.
 
 > **► LA 1.8.24 È PRONTA E NON È PUBBLICATA. ◄** Il numero è nei quattro file e
-> la catena è verde. Rispetto alla 1.8.23 non aggiunge niente: chiude **i
-> sedici difetti rimasti aperti** dopo le revisioni avversariali del 15
-> settembre, ognuno misurato prima di essere corretto e ognuno con una prova
-> **mutata** — si rimette il difetto e si guarda la prova diventare rossa.
+> la catena è verde. Rispetto alla 1.8.23 non aggiunge niente: chiude
+> **diciotto difetti** — i sedici rimasti aperti dopo le revisioni
+> avversariali del 15 settembre, uno saltato fuori rigenerando il sito, e uno
+> **segnalato da chi usa l'applicazione**. Ognuno misurato prima di essere
+> corretto e ognuno con una prova **mutata**: si rimette il difetto e si
+> guarda la prova diventare rossa.
 >
-> I sedici, per quello che cambiano a chi si immerge, stanno in
+> Tutti, per quello che cambiano a chi si immerge, stanno in
 > **`docs/NOTE-1.8.24.md`**. I più grossi: il consumo gonfiato del 53% da uno
 > zero in archivio; la bombola di decompressione che diventava ossigeno puro
 > (PPO2 di picco da 1.06 a **1.62**); il profilo stampato sul libretto con

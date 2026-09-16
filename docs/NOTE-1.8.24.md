@@ -1,10 +1,11 @@
-## MyDiveLog 1.8.24 — sedici numeri che mentivano
+## MyDiveLog 1.8.24 — diciotto numeri che mentivano
 
-Questa versione non aggiunge niente. Chiude **sedici difetti** trovati in due
-giorni di riletture avversariali, e hanno tutti la stessa forma: *un dato
-plausibile e falso*. Non errori che si vedono, non schermate vuote, non
-messaggi rossi — numeri giusti nella loro casella e sbagliati rispetto alla
-realtà, o alla casella accanto.
+Questa versione non aggiunge niente. Chiude **diciotto difetti** — sedici
+trovati in due giorni di riletture avversariali, uno saltato fuori rigenerando
+il sito, e uno segnalato da chi usa l'applicazione. Hanno tutti la stessa
+forma: *un dato plausibile e falso*. Non errori che si vedono, non schermate
+vuote, non messaggi rossi — numeri giusti nella loro casella e sbagliati
+rispetto alla realtà, o alla casella accanto.
 
 Sono elencati per quello che cambiano a chi si immerge, non per dove stanno nel
 codice.
