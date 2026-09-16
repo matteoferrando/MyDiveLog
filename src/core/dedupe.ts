@@ -881,10 +881,16 @@ export function mergeDive(
      *
      * `libdivecomputer` è una sorgente diversa dalle altre, e non per la
      * qualità della libreria — che legge questi formati da vent'anni — ma per
-     * quello che sappiamo NOI di questa applicazione: nessun computer di terzi
-     * è mai stato collegato a questo ponte. I due driver scritti in casa hanno
-     * letto centinaia di immersioni con l'apparecchio in mano; questa strada
-     * zero.
+     * quello che sappiamo NOI di questa applicazione: dei 356 modelli che quella
+     * strada dichiara, **quelli che qualcuno ha davvero acceso si contano su una
+     * mano** (l'elenco sta in `core/ble/provati.ts`). I due driver scritti in
+     * casa hanno letto centinaia di immersioni con l'apparecchio in mano.
+     *
+     * E non è una prudenza teorica: il 17 settembre 2026, nello stesso
+     * messaggio, un Mares Quad Ci ha scaricato per intero e un Aqualung i330R si
+     * è fermato a metà consegnando quaranta immersioni su un protocollo che il
+     * trasporto stava leggendo male. *Un modello provato non è una famiglia
+     * provata.*
      *
      * Senza questa riga il confronto dei canali basta a farla vincere: i dati
      * decompressivi valgono due punti, e un profilo che porta un `ceiling` o un

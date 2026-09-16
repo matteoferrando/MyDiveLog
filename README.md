@@ -622,28 +622,59 @@ La funzionalità cargo **`computer-esterni`** compila
 modelli, 110 dei quali parlano Bluetooth LE**. Il sorgente è vendorizzato in
 `src-tauri/vendor/`, si compila da sé, e non serve né bindgen né autoconf.
 
+**È accesa in ogni build dal 25 agosto 2026**, pacchetti pubblicati compresi.
+Chi lavora solo sull'interfaccia può saltare i centoquindici file C:
+
 ```sh
-cargo build --features computer-esterni    # dentro src-tauri/
+cargo build --no-default-features    # dentro src-tauri/, senza libdivecomputer
 ```
 
-**È spenta di sua iniziativa**, ed è una funzionalità di sviluppo: non entra nei
-pacchetti che si pubblicano.
+> ► **QUESTO PARAGRAFO HA DETTO IL CONTRARIO PER TRE SETTIMANE.** Fino al 17
+> settembre 2026 qui c'era scritto, in grassetto, «è spenta di sua iniziativa…
+> non entra nei pacchetti che si pubblicano», mentre `Cargo.toml` la accendeva
+> per difetto dal 25 agosto — con accanto un riquadro che lo diceva. Due righe
+> dello stesso progetto che si contraddicevano, e quella sbagliata era **qui**,
+> cioè nella pagina che si legge per prima.
+>
+> L'aveva segnalata una verifica esterna il 16 settembre, e l'avevo messa fra
+> «le indicazioni che non sono difetti». Era vero che non è un difetto del
+> programma; non era una ragione per lasciarla scritta. *Un documento che afferma
+> un fatto va rimisurato come il fatto.*
 
-Due ragioni. La prima, piccola: centoquindici file C prima di ogni build pulita
-non li deve pagare chi lavora su una schermata. La seconda, che pesa di più:
-**nessun computer subacqueo di terzi è mai stato collegato a questo codice.** La
-catena è scritta per intero — trasporto, scarico, traduzione nel modello
+### Il primo computer di terzi ha scaricato davvero, e il secondo no
+
+**17 settembre 2026, Mares Quad Ci.** È il primo computer subacqueo di un'altra
+marca che ha consegnato immersioni attraverso libdivecomputer in questa
+applicazione, e la notizia è arrivata da chi lo possiede. Fino a quel giorno qui
+c'era scritto che nessun apparecchio di terzi fosse mai stato collegato a questo
+codice: era vero, ed era scritto apposta perché lo era.
+
+**Lo stesso messaggio diceva che un Aqualung i330R si fermava a metà**, e il
+difetto era nostro: quel computer manda pacchetti che dichiarano la propria
+lunghezza, uno da 101 byte era stato spezzato dalla radio, e il trasporto — che
+leggeva una notifica per volta — ne consegnava 96. Chiuso nella 1.8.27.
+
+Da cui la regola che governa questa pagina e il selettore: **un modello provato
+non è una famiglia provata, e nemmeno una libreria provata.** Nel selettore,
+sotto ogni modello che passa da libdivecomputer, c'è scritto «via
+libdivecomputer, **mai provato** su questo modello» — e la frase si toglie un
+modello per volta, quando qualcuno lo accende e racconta com'è andata. L'elenco
+di quelli accesi davvero sta in
+[`src/core/ble/provati.ts`](src/core/ble/provati.ts), con la data e da dove
+arriva la notizia.
+
+La catena è scritta per intero — trasporto, scarico, traduzione nel modello
 canonico, ponte sul Bluetooth, selettore di marca e modello — e tutto quello che
 si può inchiodare senza hardware è inchiodato: il trasporto contro un flusso
 finto, l'accorpamento dei campioni, la traduzione contro immersioni sintetiche.
-Il resto è una promessa finché qualcuno non accende un computer vero e guarda
-cosa succede.
+Il resto resta una promessa, un modello per volta.
 
-Per questo, nel selettore, i modelli che passerebbero di lì lo dichiarano: «via
-libdivecomputer, mai provato su questo modello». Accendere la funzionalità prima
-di quella prova vorrebbe dire offrire un pulsante «Scarica» che potrebbe non
-funzionare — e in un logbook una lettura sbagliata non dà errore: dà un profilo
-plausibile e falso.
+La protezione che rende accettabile spedirla accesa: in
+[`core/dedupe.ts`](src/core/dedupe.ts) un profilo arrivato da questa strada
+**non può sostituire** quello di un driver provato sul campo. Il danno peggiore
+possibile è quindi un'immersione nuova sbagliata, che si vede e si corregge —
+non un'immersione giusta sovrascritta in silenzio. E in un logbook la differenza
+conta: una lettura sbagliata non dà errore, dà un profilo plausibile e falso.
 
 ### Le due implementazioni danno gli stessi numeri, e lo sappiamo
 

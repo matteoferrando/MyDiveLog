@@ -32,11 +32,17 @@
 //! la stessa `src/` produce due binari diversi e leggere il codice non basta a
 //! dire quale dei due si ha in mano.
 //!
-//! COSA MANCA DAVVERO, al 25 agosto 2026: **la prova con un computer vero.**
+//! COSA MANCA DAVVERO, al 17 settembre 2026: **la prova con un computer vero,
+//! un modello per volta.** Il primo c'è stato — un Mares Quad Ci, scaricato da
+//! chi lo possiede — e lo stesso giorno un Aqualung i330R si è fermato a metà
+//! per un difetto del nostro trasporto. *Un modello provato non è una famiglia
+//! provata.*
+//!
 //! Tutta la catena si compila e si prova a pezzi — il trasporto contro un
-//! flusso finto, la traduzione contro immersioni sintetiche — ma nessun
-//! apparecchio di terzi è mai stato collegato. Finché non succede, il selettore
-//! lo dichiara sotto ogni modello: «mai provato su questo modello».
+//! flusso finto, la traduzione contro immersioni sintetiche — e degli altri 355
+//! modelli non sappiamo niente. Il selettore lo dichiara sotto ognuno di quelli
+//! che nessuno ha acceso: «mai provato su questo modello». L'elenco di quelli
+//! provati sta in `src/core/ble/provati.ts`.
 
 use serde::Serialize;
 

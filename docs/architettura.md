@@ -166,13 +166,18 @@ modelli, 110 dei quali parlano Bluetooth LE — con il sorgente vendorizzato in
 `src-tauri/vendor/`, che si compila da sé senza bindgen né autoconf. **Dal 25
 agosto 2026 è accesa di sua iniziativa**, pacchetti pubblicati compresi.
 
-Quello che l'accensione non cambia, e che va detto per primo: **nessun computer
-subacqueo di terzi è mai stato collegato a questo codice.** Il trasporto è
-provato contro un flusso finto, l'accorpamento dei campioni e la traduzione
-contro immersioni sintetiche, ma il primo apparecchio vero non è ancora
-esistito. Il selettore lo dichiara sotto ogni modello che passerebbe di lì —
-«via libdivecomputer, mai provato su questo modello» — e quella riga si toglie
-quando smette di essere vera, non prima.
+Quello che l'accensione non cambia, e che va detto per primo: **un modello
+provato non è una famiglia provata.** Il 17 settembre 2026 il primo apparecchio
+di terzi ha scaricato davvero — un Mares Quad Ci, e la notizia è arrivata da chi
+lo possiede — e lo stesso messaggio diceva che un Aqualung i330R si fermava a
+metà, per un difetto nostro nel trasporto. Uno su due, nello stesso giorno.
+
+Quindi: il trasporto resta provato contro un flusso finto, l'accorpamento dei
+campioni e la traduzione contro immersioni sintetiche, e il selettore dichiara
+«via libdivecomputer, mai provato su questo modello» sotto ogni modello che
+nessuno ha ancora acceso. La riga si toglie **un modello per volta**, quando
+qualcuno lo accende e racconta com'è andata: l'elenco di quelli provati sta in
+`src/core/ble/provati.ts`, con la data e da dove arriva la notizia.
 
 La protezione che rende accettabile spedirla sta dove stanno le altre decisioni
 sui dati: in `core/dedupe.ts` un profilo arrivato da questa strada **non può
