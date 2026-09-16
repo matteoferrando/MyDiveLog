@@ -63,7 +63,7 @@ import {
 } from '../../core/ble/types';
 import { TauriBleTransport, permessoNegato } from '../../storage/ble';
 import { causaDelGuasto, conDettaglio, dettaglioLeggibile } from '../../core/ble/causaGuasto';
-import { esporta } from '../esporta';
+import { esporta, frasePosizione } from '../esporta';
 import { suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
 import { useLingua, useTraduciStabile } from '../lingua';
@@ -2553,7 +2553,7 @@ export function BleDownload() {
                           righe.join('\n'),
                           'text/plain;charset=utf-8',
                         );
-                        setSalvataggio(`${t('Salvato')} ${t(dove.dove)}.`);
+                        setSalvataggio(`${t('Salvato')} ${frasePosizione(dove, t)}.`);
                       } catch (err) {
                         // `conDettaglio` e non l'errore crudo: la prima
                         // versione di questa riga metteva a schermo il
@@ -2599,7 +2599,7 @@ export function BleDownload() {
                           JSON.stringify(stato.grezzi, null, 1),
                           'application/json',
                         );
-                        setSalvataggio(`${t('Salvato')} ${t(dove.dove)}.`);
+                        setSalvataggio(`${t('Salvato')} ${frasePosizione(dove, t)}.`);
                       } catch (err) {
                         setSalvataggio(
                           conDettaglio(

@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { conNumeri } from '../../core/numerazione';
 import { localeCorrente } from '../../core/locale';
-import { esporta } from '../esporta';
+import { esporta, frasePosizione } from '../esporta';
 import { suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
 import { RigaLingua, useLingua } from '../lingua';
@@ -147,7 +147,9 @@ export function SyncPage() {
    * esportate» è sbagliato, e il pezzo che sa quale nome sta usando è chi compone
    * la frase, non chi la mostra.
    */
-  const [exported, setExported] = useState<{ quante: string; omitted: string[]; dove: string } | null>(null);
+  const [exported, setExported] = useState<{ quante: string; omitted: string[]; posizione: string } | null>(
+    null,
+  );
   const [url, setUrl] = useState(syncCredentials?.url ?? '');
   const [token, setToken] = useState(syncCredentials?.authToken ?? '');
   const [testing, setTesting] = useState(false);
@@ -221,7 +223,7 @@ export function SyncPage() {
    * preciso, e in una copia dimenticata un export fallito diventa una promessa
    * scartata, cioè un pulsante che sembra non fare niente.
    */
-  const scarica = (lavoro: () => Promise<{ quante: string; omitted: string[]; dove: string }>) => {
+  const scarica = (lavoro: () => Promise<{ quante: string; omitted: string[]; posizione: string }>) => {
     void (async () => {
       setExporting(true);
       setExported(null);
@@ -757,7 +759,7 @@ export function SyncPage() {
                     return {
                       quante: `${imm(result.dives, t)} ${t('esportate')}`,
                       omitted: result.omitted,
-                      dove: dove.dove,
+                      posizione: frasePosizione(dove, t),
                     };
                   })
                 }
@@ -776,7 +778,7 @@ export function SyncPage() {
                     return {
                       quante: `${imm(result.dives, t)} ${t('esportate')}`,
                       omitted: result.omitted,
-                      dove: dove.dove,
+                      posizione: frasePosizione(dove, t),
                     };
                   })
                 }
@@ -817,7 +819,11 @@ export function SyncPage() {
                       csv,
                       'text/csv;charset=utf-8',
                     );
-                    return { quante: `${imm(righe, t)} ${t('esportate')}`, omitted: [], dove: dove.dove };
+                    return {
+                      quante: `${imm(righe, t)} ${t('esportate')}`,
+                      omitted: [],
+                      posizione: frasePosizione(dove, t),
+                    };
                   })
                 }
               >
@@ -846,7 +852,7 @@ export function SyncPage() {
                       omitted: senzaCoordinate.length
                         ? [`${t('siti senza coordinate')}: ${senzaCoordinate.join(', ')}`]
                         : [],
-                      dove: dove.dove,
+                      posizione: frasePosizione(dove, t),
                     };
                   })
                 }
@@ -859,7 +865,7 @@ export function SyncPage() {
         {exported && (
           <div className="notice" style={{ marginTop: 12 }}>
             <b>
-              {exported.quante}, {t(exported.dove)}.
+              {exported.quante}, {exported.posizione}.
             </b>{' '}
             {exported.omitted.length > 0 && (
               <>
@@ -1220,7 +1226,7 @@ function BackupCard() {
          */
         const dove = await esporta(backupFileName(), JSON.stringify(file), 'application/json');
         setEsito(
-          `${t('Backup scritto')} ${t(dove.dove)}: ${imm(file.summary.dives, t)}, ${file.summary.samples.toLocaleString(localeCorrente())} ${t('campioni')}, ${file.summary.settings.length} ${t('impostazioni')}.`,
+          `${t('Backup scritto')} ${frasePosizione(dove, t)}: ${imm(file.summary.dives, t)}, ${file.summary.samples.toLocaleString(localeCorrente())} ${t('campioni')}, ${file.summary.settings.length} ${t('impostazioni')}.`,
         );
       } catch (err) {
         setErrore(err instanceof Error ? err.message : String(err));

@@ -21,7 +21,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { testoAvvertenza } from '../../core/analysis/avvertenze';
 import { InputNumerico } from './InputNumerico';
-import { esporta } from '../esporta';
+import { esporta, frasePosizione } from '../esporta';
 import {
   DEFAULT_DECO,
   afterSurfaceInterval,
@@ -1158,7 +1158,7 @@ export function DecoPlanner({
                       tableText,
                       'text/plain;charset=utf-8',
                     );
-                    setSalvataggio(`${t('Salvato')} ${t(dove.dove)}.`);
+                    setSalvataggio(`${t('Salvato')} ${frasePosizione(dove, t)}.`);
                   } catch (err) {
                     // Il guscio c'era già; mancava il filtro. `esporta` chiama il
                     // guscio nativo, e i suoi errori arrivano con il nome del

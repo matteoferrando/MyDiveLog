@@ -33,22 +33,60 @@ import { describe, expect, it } from 'vitest';
 const LIB = readFileSync('src-tauri/src/lib.rs', 'utf8');
 
 /**
- * I comandi dentro il `generate_handler!` che segue un dato `#[cfg(...)]`.
+ * I comandi dentro il `generate_handler!` di una data condizione.
  *
- * Si cerca la condizione ESATTA e si prende il blocco fino alla parentesi
- * quadra chiusa. Se un domani qualcuno riscrive quella condizione, questo test
- * non trova più il blocco e diventa rosso — che è il comportamento giusto: una
- * condizione cambiata è esattamente il momento in cui qualcuno deve guardare.
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► PER MESI QUESTA FUNZIONE HA MISURATO macOS QUANDO LE SI CHIEDEVA iOS. ◄
+ *
+ * Cercava la condizione con `indexOf` e poi il primo `generate_handler![` dopo
+ * di lei. Ma `#[cfg(target_os = "ios")]` in `lib.rs` compare **quattro volte**,
+ * e la prima sta in cima al file, sopra `esporta_nei_documenti`: da lì il primo
+ * `generate_handler!` che si incontra è quello di **macOS**, ottanta righe più
+ * in basso. Quindi ogni riga che diceva «iOS» chiedeva conto del gestore
+ * sbagliato, e passava — perché i due gestori si somigliano abbastanza.
+ *
+ * *Un controllo che guarda il posto sbagliato non è un controllo che passa: è
+ * un controllo che non c'è* — ed è il difetto che questo file è nato per
+ * impedire, commesso dal file stesso. Si è visto il 16 settembre 2026
+ * aggiungendo una riga su un comando che su iOS c'è e su macOS no: è diventata
+ * rossa sulla piattaforma giusta per il motivo sbagliato.
+ *
+ * ► ADESSO SI ANCORA AL GESTORE, NON ALLA CONDIZIONE. ◄ Si cerca
+ * `#[cfg(...)]` **immediatamente seguito** da `let builder =
+ * builder.invoke_handler(`: è l'unica forma in cui un attributo governa
+ * davvero un gestore. Un `cfg` su una funzione, su un modulo o dentro un
+ * commento non la ha, e quindi non può più essere scambiato per uno.
+ *
+ * E i commenti si tolgono prima di cercare, che in questo progetto è la quinta
+ * volta: *una guardia che legge il sorgente come testo finisce per trovare il
+ * commento che la descrive.* Il commento che racconta questo difetto contiene
+ * `#[cfg(target_os = "ios")]` per iscritto.
  */
+function senzaCommenti(sorgente: string): string {
+  return sorgente.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+}
+
+const CODICE = senzaCommenti(LIB);
+
 function comandiPer(condizione: string): string[] {
-  const i = LIB.indexOf(`#[cfg(${condizione})]`);
-  expect(i, `nessun gestore con la condizione ${condizione}`).toBeGreaterThan(-1);
-  const dopo = LIB.slice(i);
-  // Il primo `]` del testo NON è quello giusto: è la parentesi che chiude
-  // `#[cfg(...)]`. Si cerca a partire dall'apertura del macro, o si finisce a
-  // leggere un blocco vuoto e a credere che non ci sia nessun comando.
+  const ancora = `#[cfg(${condizione})]`;
+  const gestore = 'let builder = builder.invoke_handler(tauri::generate_handler![';
+  let i = -1;
+  for (let da = 0; ;) {
+    const trovato = CODICE.indexOf(ancora, da);
+    if (trovato === -1) break;
+    // Fra l'attributo e il gestore ci può stare solo spazio bianco: se c'è
+    // altro, quell'attributo governa qualcos'altro.
+    const dopo = CODICE.slice(trovato + ancora.length);
+    if (dopo.trimStart().startsWith(gestore)) {
+      i = trovato;
+      break;
+    }
+    da = trovato + ancora.length;
+  }
+  expect(i, `nessun GESTORE con la condizione ${condizione}`).toBeGreaterThan(-1);
+  const dopo = CODICE.slice(i);
   const apre = dopo.indexOf('generate_handler![');
-  expect(apre, `dopo ${condizione} non c’è nessun generate_handler!`).toBeGreaterThan(-1);
   const blocco = dopo.slice(apre + 'generate_handler!['.length, dopo.indexOf(']', apre));
   return blocco
     .split('\n')
@@ -107,6 +145,38 @@ describe('i comandi Rust registrati, piattaforma per piattaforma', () => {
     // La riga che è già sparita una volta dopo essere stata scritta.
     expect(LIB).toContain('#[cfg(any(desktop, target_os = "android"))]\nmod ritorno_accesso');
   });
+
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► L'ESPORTAZIONE DI UN FILE, SUI DUE TELEFONI. ◄
+   *
+   * Segnalazione dal campo del 15 settembre 2026, Samsung Android: *«premendo
+   * "Esporta PDF" compare "PDF salvato dove il sistema mette i download", ma il
+   * file non compare né in Download né in Recenti né cercando tutti i PDF.»*
+   *
+   * Il file non c'era. Dentro una WebView il click su `<a download>` non
+   * scarica niente e non lancia nessun errore — quindi l'interfaccia annuncia
+   * un file che non esiste. `esporta_nei_documenti` è la via d'uscita, ed era
+   * registrata **solo su iOS**: su Android il comando non c'era proprio, e il
+   * lato TypeScript nemmeno lo chiamava.
+   *
+   * Vale per tutti e due i telefoni e per nessuno dei due computer: là la
+   * WebView è collegata al gestore di scarichi del sistema e il download
+   * funziona davvero.
+   */
+  it.each(PIATTAFORME.filter((p) => p.nome === 'iOS' || p.nome === 'Android'))(
+    '$nome sa scrivere un file fuori dall’applicazione',
+    ({ cfg }) => {
+      expect(comandiPer(cfg)).toContain('esporta_nei_documenti');
+    },
+  );
+
+  it.each(PIATTAFORME.filter((p) => p.nome === 'macOS' || p.nome === 'Windows'))(
+    '$nome non ne ha bisogno: là il download del browser funziona',
+    ({ cfg }) => {
+      expect(comandiPer(cfg)).not.toContain('esporta_nei_documenti');
+    },
+  );
 
   /*
    * Il portachiavi è di Apple e la dipendenza `keyring` è dichiarata solo là:

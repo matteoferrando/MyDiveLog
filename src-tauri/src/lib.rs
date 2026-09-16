@@ -148,6 +148,30 @@ fn esporta_nei_documenti(app: tauri::AppHandle, nome: String, contenuto: String)
         let _ = std::fs::remove_file(&temporaneo);
         format!("scrittura fallita: {e}")
     })?;
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► SI RILEGGE PRIMA DI DIRE CHE C'È. ◄
+     *
+     * Questa funzione esiste per non dare una falsa conferma — c'è scritto
+     * nella sua docstring. Fino a qui però aveva **dedotto** il successo: nessuna
+     * chiamata era fallita, quindi il file c'è. È il ragionamento che il
+     * progetto rifiuta ovunque: *un esito zero dice che il comando non è morto,
+     * non che abbia fatto quello che doveva.*
+     *
+     * Un `metadata` costa una syscall e trasforma «ho scritto» in «c'è, e pesa
+     * quanto deve». Il caso che prende è reale: una quota che si esaurisce fra
+     * la scrittura e la rinomina, o un filesystem montato in sola lettura che
+     * accetta la `create` e perde il contenuto.
+     */
+    let scritti = std::fs::metadata(&destinazione)
+        .map_err(|e| format!("scritto ma non rileggibile: {e}"))?
+        .len();
+    let attesi = contenuto.as_bytes().len() as u64;
+    if scritti != attesi {
+        return Err(format!(
+            "scrittura incompleta: sul disco ci sono {scritti} byte invece di {attesi}"
+        ));
+    }
     Ok(destinazione.to_string_lossy().into_owned())
 }
 
@@ -445,11 +469,16 @@ pub fn run() {
      * dichiarata solo per macOS e iOS. Il lato TypeScript se lo aspetta e ripiega
      * sull'archivio locale dicendolo.
      *
-     * `ritorno_accesso` c'è su Windows, che è `desktop`, e NON su Android, che
-     * non lo è. Conseguenza da dire e non da nascondere: **su Android l'accesso
-     * con Google e con Apple non torna indietro**, perché non c'è né la porta
-     * locale del desktop né lo schema URL di iOS. Il logbook funziona lo stesso,
-     * senza account, che è come lo usa la maggioranza.
+     * `ritorno_accesso` **c'è anche su Android**, e questo commento diceva il
+     * contrario — «c'è su Windows e NON su Android» — mentre la riga sotto lo
+     * registrava. *Un commento che descrive un caso e un corpo che ne descrive
+     * un altro è la stessa trappola descritta in `piattaforma.ts` a proposito
+     * di `suMac`.* Corretto il 16 settembre 2026, leggendo questo blocco per
+     * un'altra ragione.
+     *
+     * Quello che invece **non c'è** su Android è `segreti`: il portachiavi è di
+     * Apple, e `keyring` è una dipendenza dichiarata solo per macOS e iOS. Il
+     * lato TypeScript se lo aspetta e ripiega sull'archivio locale dicendolo.
      */
     #[cfg(all(desktop, not(target_os = "macos")))]
     let builder = builder.invoke_handler(tauri::generate_handler![
@@ -461,8 +490,27 @@ pub fn run() {
         schermo::tieni_acceso_lo_schermo
     ]);
 
+    /*
+     * ► E SU ANDROID `esporta_nei_documenti` NON C'ERA, ed è costato un PDF. ◄
+     *
+     * Segnalazione dal campo del 15 settembre 2026, Samsung Android:
+     * *«premendo "Esporta PDF" compare "PDF salvato dove il sistema mette i
+     * download", ma il file non compare né in Download né in Recenti né
+     * cercando tutti i PDF.»*
+     *
+     * Il file non c'era. Dentro una WebView il click su `<a download>` non
+     * scarica niente e non lancia nessun errore — è scritto in cima a
+     * `ui/esporta.ts`, dove il difetto è raccontato al passato perché era stato
+     * chiuso **su iOS soltanto**. Il ramo di questo comando faceva la stessa
+     * cosa: `#[cfg(target_os = "ios")]` e nient'altro.
+     *
+     * Qui dentro non c'è una riga che sia di Apple: è `std::fs` più la cartella
+     * che Tauri risolve per la piattaforma. Non c'era per omissione, non per
+     * un motivo.
+     */
     #[cfg(target_os = "android")]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        esporta_nei_documenti,
         ritorno_accesso::apri_ritorno_accesso,
         computer_esterni::elenca_computer_supportati,
         computer_esterni::riconosci_computer_esterno,

@@ -27,7 +27,7 @@
  * niente.
  */
 
-import { inApp, suIOS } from '../piattaforma';
+import { inApp, suComputer, suIOS } from '../piattaforma';
 
 /**
  * Le due destinazioni possibili di un'esportazione, **come chiavi del
@@ -46,14 +46,66 @@ import { inApp, suIOS } from '../piattaforma';
  */
 export const DOVE_SU_IPHONE = 'nell’app File, in «Sul mio iPhone → MyDiveLog»';
 export const DOVE_NEI_DOWNLOAD = 'dove il sistema mette i download';
-/** Tutte e due, per la prova che le confronta col dizionario. */
-export const DESTINAZIONI = [DOVE_SU_IPHONE, DOVE_NEI_DOWNLOAD] as const;
+/**
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► ANDROID, E UNA SEGNALAZIONE DAL CAMPO CHE DICE ESATTAMENTE COSA SUCCEDEVA. ◄
+ *
+ * *«Premendo "Esporta PDF" compare "PDF salvato dove il sistema mette i
+ * download", ma il file non compare né in Download né in Recenti né cercando
+ * tutti i PDF.»* — Samsung Android, 15 settembre 2026.
+ *
+ * Il file non c'era. La frase in cima a questo file racconta il difetto —
+ * dentro una WebView il click su `<a download>` **non scarica niente e non
+ * lancia nessun errore**, quindi il `try` arriva in fondo e l'interfaccia
+ * annuncia un file che non esiste — e lo racconta al passato, perché era stato
+ * chiuso. *Chiuso su iOS soltanto.* Il ramo diceva `inApp() && suIOS()`, e la
+ * WebView di Android si comportava come quella di Apple: stessa bugia, stesso
+ * pulsante, altro telefono.
+ *
+ * *Una lezione imparata dentro un percorso protegge quel percorso: finché non
+ * la si scrive anche nell'altro, il secondo resta com'era.* È la terza volta
+ * che questa frase serve in due giorni — il segnalibro del Bluetooth, l'offerta
+ * di ripartire, e adesso questa.
+ *
+ * ► PERCHÉ QUI IL PERCORSO SI MOSTRA E SU IPHONE NO. ◄ Su iPhone la
+ * destinazione ha un nome che una persona può seguire: app File → Sul mio
+ * iPhone → MyDiveLog. Su Android la cartella dell'applicazione non ha un nome
+ * del genere, e «Download» è proprio il posto sbagliato in cui l'utente ha già
+ * cercato. L'unica risposta utile è **il percorso esatto**, che il lato Rust
+ * restituisce già.
+ */
+export const DOVE_SU_ANDROID = 'nella cartella dei documenti dell’app';
+/** Tutte e tre, per la prova che le confronta col dizionario. */
+export const DESTINAZIONI = [DOVE_SU_IPHONE, DOVE_NEI_DOWNLOAD, DOVE_SU_ANDROID] as const;
 
 export interface EsitoEsportazione {
   /** Frase pronta da mostrare: «nell'app File, cartella MyDiveLog» o «nei Download». */
   dove: string;
-  /** Percorso completo, quando esiste. Solo per il diario tecnico. */
+  /** Percorso completo, quando esiste. */
   percorso?: string;
+  /**
+   * Se il percorso va DETTO a chi guarda, e non solo tenuto per il diario.
+   *
+   * Vero solo dove la destinazione non ha un nome che una persona possa
+   * seguire — cioè su Android. Su iPhone il percorso è roba tipo
+   * `/var/mobile/Containers/Data/Application/…`: non aiuta a trovare niente e
+   * sembra un errore.
+   */
+  mostraPercorso?: boolean;
+}
+
+/**
+ * La coda della frase: dove è finito il file, e — dove serve — con che percorso.
+ *
+ * ► ESISTE PERCHÉ I POSTI CHE LA COMPONGONO SONO OTTO. ◄ Facevano tutti
+ * `t(esito.dove)` e basta: aggiungere il percorso avrebbe voluto dire scriverlo
+ * otto volte e dimenticarlo in uno. Il commento qui sopra su `DOVE_SU_IPHONE`
+ * dice già che questa frase viene interpolata in sei punti diversi — adesso
+ * l'interpolazione la fa una funzione sola.
+ */
+export function frasePosizione(esito: EsitoEsportazione, t: (s: string) => string): string {
+  const dove = t(esito.dove);
+  return esito.mostraPercorso && esito.percorso ? `${dove}: ${esito.percorso}` : dove;
 }
 
 /**
@@ -67,10 +119,22 @@ export async function esporta(
   contenuto: string,
   tipo = 'application/xml;charset=utf-8',
 ): Promise<EsitoEsportazione> {
-  if (inApp() && suIOS()) {
+  /*
+   * ► DENTRO L'APPLICAZIONE SI SCRIVE, FUORI SI SCARICA. ◄
+   *
+   * La condizione era `inApp() && suIOS()`, e la WebView di Android si comporta
+   * come quella di Apple — vedi `DOVE_SU_ANDROID`. Il criterio giusto non è
+   * «quale sistema», è **«c'è una finestra del browser che sa scaricare?»**: nel
+   * browser sì, dentro l'applicazione no. Sul Mac e su Windows il download
+   * funziona perché lì la WebView è collegata al gestore di scarichi del
+   * sistema, ed è il motivo per cui `suComputer()` resta fuori da questo ramo.
+   */
+  if (inApp() && !suComputer()) {
     const { invoke } = await import('@tauri-apps/api/core');
     const percorso = await invoke<string>('esporta_nei_documenti', { nome, contenuto });
-    return { dove: DOVE_SU_IPHONE, percorso };
+    return suIOS()
+      ? { dove: DOVE_SU_IPHONE, percorso }
+      : { dove: DOVE_SU_ANDROID, percorso, mostraPercorso: true };
   }
 
   const blob = new Blob([contenuto], { type: tipo });

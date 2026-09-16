@@ -72,6 +72,9 @@ describe('le destinazioni di un’esportazione', () => {
     for (const voce of readdirSync(radice, { recursive: true, withFileTypes: true })) {
       if (!voce.isFile() || !/\.tsx?$/.test(voce.name)) continue;
       const percorso = join(voce.parentPath, voce.name);
+      // `ui/esporta.ts` è il posto in cui la destinazione si legge di mestiere:
+      // è lui che la traduce e le attacca il percorso.
+      if (percorso.endsWith('ui/esporta.ts')) continue;
       const sorgente = readFileSync(percorso, 'utf8');
       for (const m of sorgente.matchAll(LETTURA_DOVE)) {
         const prima = sorgente.slice(Math.max(0, m.index - 40), m.index);
@@ -88,16 +91,83 @@ describe('le destinazioni di un’esportazione', () => {
     return fuori;
   })();
 
-  it('sono undici punti, o questa prova sta guardando un campo che non si chiama più così', () => {
+  /**
+   * I punti che compongono la frase della destinazione passando da
+   * `frasePosizione`.
+   *
+   * ► PERCHÉ IL CONTEGGIO SI È SPOSTATO QUI. ◄ Fino al 16 settembre 2026 gli
+   * otto punti facevano `t(esito.dove)` ognuno per conto suo, e questa prova
+   * contava quelle letture. Poi la segnalazione dal Samsung ha aggiunto un
+   * secondo pezzo alla frase — il percorso, che su Android è l'unica risposta
+   * utile — e otto copie da aggiornare a mano sono otto occasioni di
+   * dimenticarne una. Adesso la frase la compone una funzione sola.
+   *
+   * La guardia resta la stessa domanda, posta al posto nuovo: *chi mostra la
+   * destinazione la fa passare dal dizionario?*
+   */
+  const composizioni = (() => {
+    const radice = fileURLToPath(new URL('../src/', import.meta.url));
+    const fuori: string[] = [];
+    for (const voce of readdirSync(radice, { recursive: true, withFileTypes: true })) {
+      if (!voce.isFile() || !/\.tsx?$/.test(voce.name)) continue;
+      const percorso = join(voce.parentPath, voce.name);
+      if (percorso.endsWith('ui/esporta.ts')) continue;
+      const sorgente = readFileSync(percorso, 'utf8');
+      for (const m of sorgente.matchAll(/frasePosizione\s*\(/g)) {
+        const riga = sorgente.slice(0, m.index).split('\n').length;
+        fuori.push(`${percorso.slice(radice.length)}:${riga}`);
+      }
+    }
+    return fuori;
+  })();
+
+  it('sono otto punti, o questa prova sta guardando un nome che non esiste più', () => {
     /*
-     * ► LA GUARDIA DELLA GUARDIA. ◄ Tutto quello che sta qui sotto poggia sul
-     * nome del campo. Rinominato `dove` in qualunque altra cosa, l'estrazione
-     * non aggancerebbe più niente e ogni controllo passerebbe su un insieme
-     * vuoto — che è il modo più silenzioso di perdere una guardia, ed è
-     * esattamente ciò che faceva la versione precedente di questa prova.
+     * ► LA GUARDIA DELLA GUARDIA. ◄ Tutto quello che sta qui sotto poggia su
+     * due nomi: il campo `dove` e la funzione `frasePosizione`. Rinominato uno
+     * dei due, l'estrazione non aggancerebbe più niente e ogni controllo
+     * passerebbe su un insieme vuoto — che è il modo più silenzioso di perdere
+     * una guardia, ed è esattamente ciò che faceva la versione precedente di
+     * questa prova.
      */
-    expect(letture.length, 'nessuna lettura di «.dove» trovata').toBeGreaterThanOrEqual(11);
-    expect(letture.filter((l) => l.stato === 'tradotta').length).toBeGreaterThanOrEqual(7);
+    expect(composizioni.length, 'nessuna chiamata a «frasePosizione» trovata').toBeGreaterThanOrEqual(8);
+    // E qui sotto si pretende che sia ZERO: il conteggio della guardia della
+    // guardia è quello delle chiamate, non delle letture.
+    expect(letture.length).toBe(0);
+  });
+
+  it('e la funzione che compone la frase traduce davvero', () => {
+    // Il punto unico in cui la destinazione diventa testo: se qui sparisse
+    // `t()`, tutte e otto le frasi uscirebbero in italiano insieme.
+    const sorgente = readFileSync('src/ui/esporta.ts', 'utf8');
+    const corpo = /export function frasePosizione\([\s\S]*?\n\}/.exec(sorgente);
+    expect(corpo, 'la funzione che compone la frase non c’è più').not.toBeNull();
+    expect(corpo![0]).toMatch(/\bt\(\s*esito\.dove\s*\)/);
+  });
+
+  it('nessuno legge la destinazione grezza fuori dal file che la compone', () => {
+    /*
+     * ► LA REGOLA ADESSO È UNA RIGA. ◄ `EsitoEsportazione.dove` è una chiave
+     * del dizionario, non una frase: chi la legge deve tradurla **e** deve
+     * aggiungere il percorso dove serve. Tutte e due le cose le fa
+     * `frasePosizione`, quindi fuori da `ui/esporta.ts` quel campo non si legge
+     * proprio.
+     *
+     * Senza questa riga, un nono punto scritto a mano come `t(esito.dove)`
+     * sarebbe tradotto correttamente e **perderebbe il percorso in silenzio** —
+     * cioè tornerebbe esattamente alla frase inutile della segnalazione dal
+     * Samsung: «PDF salvato nella cartella dei documenti dell'app», senza dire
+     * quale.
+     *
+     * Il campo `posizione` di `SyncPage` si chiama così apposta: lì dentro c'è
+     * la frase GIÀ composta, ed è un'altra cosa. *Un nome per ogni significato,
+     * o una guardia che cerca un nome non sa più cosa sta guardando.*
+     */
+    const fuori = letture.map((l) => l.punto);
+    expect(
+      fuori,
+      `leggono la destinazione grezza invece di chiamare frasePosizione:\n  ${fuori.join('\n  ')}`,
+    ).toEqual([]);
   });
 
   it('nessuna mostra la destinazione senza passare dal dizionario', () => {
@@ -107,6 +177,11 @@ describe('le destinazioni di un’esportazione', () => {
      * sistema mette i download»*. Si controlla sul sorgente e non montando i
      * componenti perché i punti sono sparsi in sei file, e montarli tutti
      * costerebbe cento volte tanto coprendo meno.
+     *
+     * Vale ancora, e adesso copre soprattutto le letture NUOVE: chi aggiungesse
+     * un nono punto scrivendo `t(esito.dove)` a mano invece di chiamare
+     * `frasePosizione` non sbaglierebbe la traduzione ma perderebbe il
+     * percorso, che su Android è l'unica risposta utile.
      */
     const nude = letture.filter((l) => l.stato === 'nuda').map((l) => l.punto);
     expect(nude, `mostrano la destinazione senza tradurla:\n  ${nude.join('\n  ')}`).toEqual([]);

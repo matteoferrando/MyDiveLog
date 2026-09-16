@@ -48,7 +48,7 @@ import { barometric, planDeco, type DecoResult } from '../../core/analysis/deco'
 import { pianoPdf } from '../../core/export/pdf';
 import { conDettaglio } from '../../core/ble/causaGuasto';
 import { frase } from '../../core/frase';
-import { esporta } from '../esporta';
+import { esporta, frasePosizione } from '../esporta';
 import { foglioDelPiano } from '../../core/export/planSheet';
 import { useDiveLog } from '../state';
 import { InputNumerico } from '../components/InputNumerico';
@@ -297,7 +297,7 @@ export function Planner() {
         pianoPdf(foglio),
         'application/pdf',
       );
-      setEsitoPdf(`${t('PDF salvato')} ${t(esito.dove)}.`);
+      setEsitoPdf(`${t('PDF salvato')} ${frasePosizione(esito, t)}.`);
     } catch (err) {
       setEsitoPdf(
         conDettaglio(

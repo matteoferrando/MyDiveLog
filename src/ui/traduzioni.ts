@@ -1947,6 +1947,7 @@ export const INGLESE: Record<string, string> = {
   // ── Le destinazioni di un'esportazione: vedi `ui/esporta.ts`.
   'nell’app File, in «Sul mio iPhone → MyDiveLog»': 'in the Files app, under “On My iPhone → MyDiveLog”',
   'dove il sistema mette i download': 'wherever your system puts downloads',
+  'nella cartella dei documenti dell’app': 'in the app’s documents folder',
 
   // ── Da dove si esporta, per ogni formato: vedi `ui/pages/ImportPage.tsx`.
   'Shearwater Cloud Desktop → Export → UDDF': 'Shearwater Cloud Desktop → Export → UDDF',
