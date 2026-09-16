@@ -24,6 +24,7 @@ import { StatTile, TabellaEquivalente, useWidth } from './Charts';
 import { useLingua } from '../lingua';
 import { plural, type Traduci } from '../format';
 import { profonditaMedia } from '../../core/profondita';
+import { pressioneDiSuperficie } from '../../core/units';
 
 /**
  * Coppie che vale la pena confrontare: dalla tecnica alla ricreativa larga.
@@ -236,7 +237,11 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
           </p>
           <TissueBars
             state={m.tissuesEnd}
-            surfaceBar={dive.surfacePressureBar ?? 1.01325}
+            /* Dalla regola e non con `?? 1.01325`: quel ripiego non intercetta lo
+                zero, e con superficie zero i sedici compartimenti uscivano TUTTI
+                sopra il valore M — comp #1 al 248%, #5 al 328% — cioè un grafico
+                tutto rosso su un'immersione tranquilla. Vedi `units.ts`. */
+            surfaceBar={pressioneDiSuperficie(dive.surfacePressureBar)}
             gfHigh={actual.high}
             leading={m.leadingCompartment}
           />

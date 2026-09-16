@@ -31,7 +31,7 @@ import {
   type Salinity,
   type Sample,
 } from '../model';
-import { ambientAta, ambientBar, end as endDepth, mod } from '../units';
+import { ambientAta, ambientBar, end as endDepth, mod, pressioneDiSuperficie } from '../units';
 import * as A from './avvertenze';
 import { exposureOfProfile } from './oxygen';
 
@@ -136,6 +136,31 @@ export function computeMetrics(dive: Dive): DiveMetrics {
 
   const phases = detectPhases(samples, maxDepth, dive.durationS);
   const salinity = dive.salinity ?? 'salt';
+  /*
+   * ► LA PRESSIONE DI SUPERFICIE PASSA DALLA REGOLA, e qui non ci passava. ◄
+   *
+   * `units.ts` dichiara che ce n'è una sola e che «la chiamano tutti»: filtra i
+   * valori impossibili e ricade sull'atmosfera standard. Questo file la saltava e
+   * passava `dive.surfacePressureBar` grezzo ad `ambientAta`/`ambientBar`.
+   *
+   * Misurato su un UDDF con `<surfacepressure>0</surfacepressure>` — quattro
+   * lettori possono produrre quello zero, e `shearwaterPnf` lo fa con una
+   * divisione per mille su un campo azzerato — 20 m × 40 min, 12 L, 200→80 bar:
+   *
+   *     con lo zero:        avgAta NaN, consumo 18.8 L/min
+   *     senza il campo:     avgAta 2.894, consumo 12.3 L/min
+   *
+   * **Il consumo usciva gonfiato del 53%, e nessuna avvertenza scattava**: la
+   * guardia più sotto chiede `Number.isFinite(avgBar)`, e con superficie zero
+   * `avgBar` è finito — solo sbagliato. Quel numero finisce in `measuredRmv()` e
+   * da lì nel pianificatore, cioè decide quanti bar servono per un'immersione.
+   *
+   * Il commento che c'era qui sotto affermava che «il caso 0 non si verifica più
+   * da quando `pressioneDiSuperficie` filtra a monte»: nessun filtro a monte
+   * esisteva. *Una difesa dichiarata e mai scritta è peggio di nessuna difesa,
+   * perché chi legge smette di cercarla.*
+   */
+  const superficieBar = pressioneDiSuperficie(dive.surfacePressureBar);
 
   // La profondità media viene dal profilo se c'è, altrimenti dal valore
   // dichiarato dal formato sorgente. Se non c'è nessuno dei due resta ignota:
@@ -148,11 +173,11 @@ export function computeMetrics(dive: Dive): DiveMetrics {
     : dive.avgDepth;
   const avgAta = hasProfile
     ? round(
-        timeWeightedMean(samples, (s) => ambientAta(s.depth, salinity, dive.surfacePressureBar)),
+        timeWeightedMean(samples, (s) => ambientAta(s.depth, salinity, superficieBar)),
         3,
       )
     : avgDepth !== undefined
-      ? round(ambientAta(avgDepth, salinity, dive.surfacePressureBar), 3)
+      ? round(ambientAta(avgDepth, salinity, superficieBar), 3)
       : undefined;
   /*
    * L'RMV SI CALCOLA SUI BAR, NON SUGLI ATA LOCALI. È la convenzione che
@@ -174,11 +199,11 @@ export function computeMetrics(dive: Dive): DiveMetrics {
    */
   const avgBar = hasProfile
     ? round(
-        timeWeightedMean(samples, (s) => ambientBar(s.depth, salinity, dive.surfacePressureBar)),
+        timeWeightedMean(samples, (s) => ambientBar(s.depth, salinity, superficieBar)),
         3,
       )
     : avgDepth !== undefined
-      ? round(ambientBar(avgDepth, salinity, dive.surfacePressureBar), 3)
+      ? round(ambientBar(avgDepth, salinity, superficieBar), 3)
       : undefined;
 
   // LE VELOCITÀ VERTICALI SI MISURANO SUL PROFILO PIÙ FITTO DISPONIBILE.
@@ -241,7 +266,7 @@ export function computeMetrics(dive: Dive): DiveMetrics {
     caveats.push({ testo: A.CONSUMO_A_MANO });
   }
 
-  const oxygen = analyseOxygen(dive, samples, maxDepth, salinity);
+  const oxygen = analyseOxygen(dive, samples, maxDepth, salinity, superficieBar);
   // Sul profilo più fitto disponibile: un tratto di cinque secondi su un passo di
   // dieci non esiste proprio, e questa è la metrica che vive lì.
   const finalAscent = analyseFinalAscent(ratesSamples);
@@ -985,9 +1010,12 @@ function analyseGas(dive: Dive, samples: Sample[], avgBar: number | undefined, c
    * che sparisce senza dire perché, dentro un modulo il cui principio dichiarato
    * è che un dato mancante si spiega. `Number.isFinite` copre tutti e due.
    *
-   * (Il caso `0` non si verifica più da quando `pressioneDiSuperficie` filtra a
-   * monte; questa riga resta perché *una difesa che dipende da un'altra difesa
-   * non è una difesa*, e perché `NaN` può arrivare anche da un profilo strano.)
+   * (Il caso `0` **non si verificava affatto più**: la frase stava qui dal 15
+   * settembre e dichiarava un filtro a monte che nessuno aveva scritto. Dal 16
+   * settembre esiste davvero — `computeMetrics` fa passare la pressione da
+   * `pressioneDiSuperficie()` prima di usarla — ma questa riga resta comunque,
+   * perché *una difesa che dipende da un'altra difesa non è una difesa* e
+   * perché `NaN` può arrivare anche da un profilo strano.)
    */
   if (!Number.isFinite(avgBar) && hasTankPressure && hasCylinderVolume) {
     caveats.push({ testo: A.SENZA_MEDIA_NIENTE_RMV });
@@ -1084,7 +1112,22 @@ function tankPressureFromSamples(samples: Sample[], nCylinders: number) {
 // Ossigeno / narcosi
 // ---------------------------------------------------------------------------
 
-function analyseOxygen(dive: Dive, samples: Sample[], maxDepth: number, salinity: 'salt' | 'fresh') {
+/*
+ * ► LA PRESSIONE DI SUPERFICIE ARRIVA DA FUORI, E NON SI RICALCOLA QUI. ◄
+ *
+ * `computeMetrics` l'ha già fatta passare da `pressioneDiSuperficie()`. Se
+ * questa funzione la rileggesse da `dive.surfacePressureBar` sarebbero due
+ * copie della stessa regola — cioè una regola e la sua versione vecchia — e il
+ * giorno in cui il filtro cambia, la PPO2 di picco e l'END resterebbero al
+ * valore di prima senza che niente diventi rosso.
+ */
+function analyseOxygen(
+  dive: Dive,
+  samples: Sample[],
+  maxDepth: number,
+  salinity: 'salt' | 'fresh',
+  superficieBar: number,
+) {
   const measured = samples.map((s) => s.ppo2).filter((v): v is number => v !== undefined && v > 0);
   let maxPpo2 = measured.length ? Math.max(...measured) : undefined;
   // La PPO2 minima ha senso solo se MISURATA: su circuito aperto ricostruirla dal
@@ -1097,10 +1140,7 @@ function analyseOxygen(dive: Dive, samples: Sample[], maxDepth: number, salinity
     for (const s of samples) {
       const mix = dive.cylinders[s.gasIndex ?? 0]?.mix ?? dive.cylinders[0]?.mix;
       if (!mix) continue;
-      const p =
-        mix.o2 *
-        ambientAta(s.depth, salinity, dive.surfacePressureBar) *
-        (dive.surfacePressureBar ?? 1.01325);
+      const p = mix.o2 * ambientAta(s.depth, salinity, superficieBar) * superficieBar;
       if (p > peak) peak = p;
     }
     if (peak > 0) maxPpo2 = round(peak, 2);
@@ -1113,7 +1153,7 @@ function analyseOxygen(dive: Dive, samples: Sample[], maxDepth: number, salinity
   // corretto nei due pianificatori, e senza di essa in quota l'END dichiarata è
   // più bassa del vero.
   const endM = trimix
-    ? round(endDepth(trimix.mix, maxDepth, salinity, { surfaceBar: dive.surfacePressureBar }), 1)
+    ? round(endDepth(trimix.mix, maxDepth, salinity, { surfaceBar: superficieBar }), 1)
     : undefined;
 
   // CNS e OTU calcolati da NOI dal profilo, con le tabelle NOAA. Il computer ne
@@ -1125,7 +1165,7 @@ function analyseOxygen(dive: Dive, samples: Sample[], maxDepth: number, salinity
           samples,
           (sample: Sample) => dive.cylinders[sample.gasIndex ?? 0]?.mix ?? dive.cylinders[0]?.mix,
           salinity,
-          dive.surfacePressureBar,
+          superficieBar,
         )
       : undefined;
 
