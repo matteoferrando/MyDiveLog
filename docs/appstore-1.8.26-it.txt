@@ -1,0 +1,19 @@
+Quattro correzioni trovate da una revisione indipendente del codice. Nessuna di loro dava un errore: sono cose che succedevano in silenzio.
+
+TUTTE O NESSUNA
+
+Ogni immersione che entra in archivio sono tre scritture: il riepilogo, il profilo e l'eventuale secondo profilo. Dovevano essere una cosa sola, e non lo erano: il motore di database non tiene una connessione sola, e il comando che apriva la transazione finiva su una connessione diversa da quello che scriveva.
+
+Cosa cambia: se l'applicazione viene chiusa dal sistema mentre sta salvando — su un telefono succede quando serve memoria — adesso o l'immersione è in archivio intera, col suo profilo, o non c'è affatto. Prima poteva restare un'immersione senza il suo profilo, e su un dispositivo senza account quel profilo non tornava più. Vale anche per la cancellazione e per lo svuotamento dell'archivio.
+
+LA SINCRONIZZAZIONE NON ACCORCIA PIÙ UN PROFILO
+
+Quando la stessa immersione è stata scaricata da due computer, l'applicazione tiene due profili. I due viaggiavano insieme: se il principale doveva salire, saliva anche il secondo, sopra a un secondo profilo più ricco già presente sull'altro dispositivo. Misurato: un profilo alternativo di 100 campioni ridotto a 5, senza un avviso.
+
+Adesso i due si decidono da soli e possono andare in direzioni opposte. E il secondo profilo scende anche quando è l'unico che c'è: prima, su un'immersione senza profilo principale, non arrivava mai.
+
+IL CARICO DI AZOTO SUBITO DOPO L'IMPORTAZIONE
+
+Dopo aver importato, la scheda della saturazione diceva «serve un profilo campionato» accanto a un profilo che c'era; bastava chiudere e riaprire l'applicazione e il numero compariva. Il carico residuo, il GF99 e l'intervallo di superficie non si calcolano da una sola immersione: nascono dalla catena fra un'immersione e l'altra, e quel passaggio mancava proprio nelle due strade dell'importazione.
+
+Ogni correzione ha una prova, e ogni prova è stata rimessa alla prova rimettendo il difetto: 2.829 controlli automatici, più 140 sul motore nativo.

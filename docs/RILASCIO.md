@@ -171,9 +171,30 @@ curl -s "https://itunes.apple.com/lookup?id=6804439480&country=it&t=$(date +%s)"
 
 ## I negozi, che restano a mano
 
-**App Store.** `npm run ios:negozio` produce l'`.ipa` firmato
-*Apple Distribution*. Il caricamento lo fa Transporter, e la versione si crea e
-si invia su App Store Connect.
+**App Store (iPhone).** `npm run ios:negozio` produce l'`.ipa` firmato
+*Apple Distribution*, e in coda `scripts/nomina-ipa.mjs` gli dà il nome della
+versione — `MyDiveLog-1.8.25.ipa`. Il caricamento lo fa Transporter, e la
+versione si crea e si invia su App Store Connect.
+
+> **► PERCHÉ IL NOME, E PERCHÉ IL CONTROLLO CHE VIENE PRIMA.** Xcode esporta
+> sempre `MyDiveLog.ipa`, senza numero: **due `.ipa` con lo stesso nome e
+> versioni diverse sono indistinguibili nel momento esatto in cui, dentro
+> Transporter, bisogna sceglierne uno** — e un pacchetto sbagliato caricato in
+> un negozio non si ritira, si pubblica una versione nuova.
+>
+> Prima di rinominare, lo script confronta il `CFBundleShortVersionString` che
+> sta **dentro** il pacchetto con `package.json`, e se non combaciano si ferma
+> senza rinominare: è il difetto del 7 settembre in cima a questo documento,
+> preso nell'unico punto in cui si può ancora prendere. *Un file che si chiama
+> 1.8.25 e dentro dice 1.8.24 è peggio di uno senza numero: il nome sbagliato è
+> una bugia, l'assenza del nome è una scomodità.*
+
+**Mac App Store.** `bash scripts/pubblica-mac-negozio.sh` produce
+`src-tauri/target/negozio/MyDiveLog-<versione>-mac-app-store.pkg`. **Non è il
+`.dmg` e non si possono scambiare**: il `.dmg` è firmato Developer ID, non è
+sandboxato e ha l'aggiornatore dentro — caricarlo verrebbe rifiutato; il `.pkg`
+è sandboxato, firmato con la chiave dell'installer, e senza il codice
+dell'aggiornamento. Si carica con Transporter come l'`.ipa`.
 
 **Google Play.** L'`.aab` esce dal workflow. Il caricamento e la pubblicazione si
 fanno sulla Play Console.
@@ -189,9 +210,18 @@ Connect e un service account su Play. È mezz'ora una volta sola, e da lì in
 avanti sono due comandi. Finché non si fa, questi due passi sono a mano e vanno
 scritti qui perché nessuno li dia per fatti.
 
-I testi sono pronti e versionati: `docs/appstore-1.8.24-it.txt`,
-`docs/appstore-1.8.24-en.txt`, `docs/play-1.8.24-it.txt` (496 caratteri, il
-limite è 500), `docs/play-1.8.24-en.txt`.
+I testi sono pronti e versionati: `docs/appstore-<versione>-it.txt`,
+`docs/appstore-<versione>-en.txt`, `docs/play-<versione>-it.txt` (il limite è
+500 caratteri), `docs/play-<versione>-en.txt`.
+
+> **► I NEGOZI NON VANNO ALLO STESSO PASSO DEL SITO, ED È UNA SCELTA.** Sul
+> sito si pubblica quando c'è qualcosa da pubblicare; nei negozi ogni versione
+> costa una revisione, e saltarne una è legittimo — la **1.8.23** e la
+> **1.8.24** sono state saltate apposta su Apple. Quello che conviene fare ogni
+> volta non è allinearli, è **misurare dove stanno**: `src-tauri/target/negozio/`
+> tiene tutti i `.pkg` costruiti e il più alto dice a che versione è fermo il
+> Mac App Store. *Saltare una versione è una decisione; non sapere quale sia
+> l'ultima caricata è un'altra cosa.*
 
 ---
 

@@ -1,8 +1,39 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **16 settembre 2026, pomeriggio** — **2 805 prove in 168 file** più
-**135 prove Rust** del ponte, tipi, lint e formato a **0 errori**, e la suite
-verde anche a **UTC+14 e UTC−11**.
+Aggiornato: **16 settembre 2026, sera** — **2 829 prove in 170 file** più
+**140 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
+a **UTC+14 e UTC−11**.
+
+> ## ► LA 1.8.26: LA VERIFICA ESTERNA È CHIUSA TUTTA. ◄
+>
+> Nove problemi riprodotti da una revisione indipendente sulla 1.8.24, **nove
+> chiusi**, nello stesso giorno. Questi sono gli ultimi quattro, e hanno in
+> comune che **nessuno dava un errore**.
+>
+> **1 — «Tutte o nessuna» era scritto e non era vero.** `putDives` mandava
+> `BEGIN`, gli inserimenti e `COMMIT` come chiamate separate su un **pool**
+> SQLx: `BEGIN` apriva una transazione su una connessione che tornava subito nel
+> pool, gli inserimenti arrivavano altrove in auto-commit. Adesso c'è un comando
+> Rust (`src-tauri/src/archivio.rs`) che tiene la connessione dall'inizio alla
+> fine; l'SQL resta in TypeScript. Vale anche per `deleteDive` e `clear`.
+>
+> **2 e 7 — I due profili avevano una direzione sola.** Il piano aveva una lista
+> per i profili, quindi il secondo saliva o scendeva con il principale — sopra a
+> uno più ricco dall'altra parte (misurato: 100 campioni ridotti a 5). Adesso
+> quattro liste e due decisioni separate; e il secondo profilo scende anche
+> quando è l'unico che c'è.
+>
+> **9 — La catena dei tessuti non si ripassava dopo l'import.** Le tre righe
+> c'erano in tre posti su cinque e mancavano nelle due strade dell'import.
+> Adesso è una funzione sola, `ripassaLaCatena`, chiamata da tutti e cinque.
+>
+> ► **DIECI MUTAZIONI, DIECI GUARDIE ROSSE — E UNA VERDE.** Un
+> `PRAGMA foreign_keys = ON` che avevo scritto con accanto il commento su perché
+> fosse indispensabile: togliendolo la prova è rimasta verde, perché SQLx le
+> chiavi esterne le accende da sé. Riga tolta, prova riscritta sulla proprietà.
+> *Una guardia che non si è mai vista rossa non è una guardia.*
+>
+> Il numero è nei quattro file. Nei negozi va **questa**, non la 1.8.25.
 
 > ## ► LA 1.8.25 È PUBBLICATA. ◄
 >

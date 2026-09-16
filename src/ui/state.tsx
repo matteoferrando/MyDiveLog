@@ -667,6 +667,50 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
     [store, trash, traduci],
   );
 
+  /**
+   * Ripassa la CATENA e rimette a schermo l'archivio come è adesso.
+   *
+   * ════════════════════════════════════════════════════════════════════════
+   * ► PERCHÉ NON BASTA SALVARE LE RIGHE CHE SONO CAMBIATE. ◄
+   *
+   * `computeMetrics` sa tutto di una singola immersione e niente di quelle
+   * intorno: il GF99, il carico residuo di azoto e l'intervallo di superficie
+   * nascono dalla **catena**, che va da un'immersione all'altra in ordine di
+   * tempo. Un'immersione nuova non cambia solo la propria riga: cambia quelle
+   * che la seguono, che erano state calcolate quando lei non c'era — cioè più
+   * pulite del vero.
+   *
+   * ► IL DIFETTO CHE QUESTA FUNZIONE CHIUDE, trovato da una verifica esterna il
+   * 16 settembre 2026. ◄ Queste tre righe c'erano già in tre posti su cinque —
+   * l'avvio, l'inserimento a mano, il ripristino da backup — e **mancavano
+   * nelle due strade dell'import**, quella da file e quella dal Bluetooth. Cioè
+   * proprio dove le immersioni arrivano a decine.
+   *
+   * Misurato nell'interfaccia: subito dopo l'import le statistiche dicevano
+   * «30 immersioni con profilo» e il GF99 rispondeva *«serve un profilo
+   * campionato»*; dopo un ricaricamento della pagina, **senza dati nuovi**,
+   * compariva **84% su 30 immersioni**. *Il numero non era sbagliato: era
+   * assente, e il messaggio ne dava la colpa alla cosa sbagliata* — mandava a
+   * cercare un profilo che c'era.
+   *
+   * ► ED È UNA FUNZIONE SOLA PERCHÉ ERANO CINQUE COPIE. ◄ Tre uguali e due
+   * mancanti: è la forma in cui questo difetto si presenta sempre. *Due copie
+   * della stessa regola sono una regola e la sua versione vecchia*; cinque sono
+   * quattro occasioni di dimenticarsene.
+   *
+   * Non è costosa come sembra: `repairArchive` riscrive solo ciò che cambia, e
+   * chi la chiama ha appena fatto qualcosa di molto più lento — leggere dei
+   * file, parlare col Bluetooth, aprire un backup.
+   */
+  const ripassaLaCatena = useCallback(async (s: DiveStore): Promise<Dive[]> => {
+    const list = await s.listDives();
+    // Un guasto nella riparazione non deve buttare via l'import appena
+    // riuscito: in quel caso si mostra l'archivio com'è, senza i numeri nuovi.
+    const healed = await repairArchive(s, list).catch(() => ({ dives: list }));
+    setDives(healed.dives);
+    return healed.dives;
+  }, []);
+
   const importFiles = useCallback(
     async (files: File[]): Promise<ImportOutcome[]> => {
       const outcomes: ImportOutcome[] = [];
@@ -736,12 +780,18 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       const previous = new Map(dives.map((d) => [d.id, d]));
       const changed = current.filter((d) => previous.get(d.id) !== d);
       if (store && changed.length) await store.putDives(changed);
-      // In memoria la lista torna senza profili: è la ragione per cui l'app resta
-      // istantanea con migliaia di immersioni.
-      setDives(current.map(stripForList));
+      /*
+       * In memoria la lista torna senza profili: è la ragione per cui l'app
+       * resta istantanea con migliaia di immersioni. E ci torna **dopo il
+       * ripasso della catena**, non prima: senza, le immersioni appena
+       * importate comparivano in elenco con la saturazione vuota, e quelle che
+       * le seguono restavano coi numeri di quando non c'erano.
+       */
+      if (store) await ripassaLaCatena(store);
+      else setDives(current.map(stripForList));
       return outcomes;
     },
-    [dives, store, scartaCancellate, traduci],
+    [dives, store, scartaCancellate, traduci, ripassaLaCatena],
   );
 
   /**
@@ -776,7 +826,10 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         const previous = new Map(dives.map((d) => [d.id, d]));
         const changed = report.dives.filter((d) => previous.get(d.id) !== d);
         if (store && changed.length) await store.putDives(changed);
-        setDives(report.dives.map(stripForList));
+        // Come in `importFiles`: la catena si ripassa, o il GF99 delle
+        // immersioni appena scaricate resta muto fino al riavvio.
+        if (store) await ripassaLaCatena(store);
+        else setDives(report.dives.map(stripForList));
         return {
           fileName: origine,
           ok: true,
@@ -803,7 +856,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         };
       }
     },
-    [dives, store, scartaCancellate, traduci],
+    [dives, store, scartaCancellate, traduci, ripassaLaCatena],
   );
 
   /*
@@ -939,9 +992,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
        * è già quello che gira all'avvio e dopo una sincronizzazione.
        */
       if (store) {
-        const list = await store.listDives();
-        const healed = await repairArchive(store, list).catch(() => ({ dives: list }));
-        setDives(healed.dives);
+        await ripassaLaCatena(store);
       } else {
         setDives((prev) => {
           const stripped = stripForList(updated);
@@ -952,7 +1003,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       }
       return { merged };
     },
-    [dives, store],
+    [dives, store, ripassaLaCatena],
   );
 
   /**
@@ -1373,9 +1424,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         // entrerebbe con le sue metriche vecchie e resterebbe così fino al
         // riavvio successivo. Le correzioni vengono anche rispinte al prossimo
         // giro, perché cambiano l'impronta del riepilogo.
-        const list = await store.listDives();
-        const healed = await repairArchive(store, list).catch(() => ({ dives: list }));
-        setDives(healed.dives);
+        await ripassaLaCatena(store);
         // Le impostazioni condivise possono essere arrivate dall'altro
         // dispositivo: senza rileggerle, la pagina mostrerebbe le vecchie fino al
         // riavvio.
@@ -1401,7 +1450,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [store, syncCredentials, traduci, rileggiImpostazioni],
+    [store, syncCredentials, traduci, rileggiImpostazioni, ripassaLaCatena],
   );
 
   /*
@@ -1626,9 +1675,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
 
       // Rilettura e riparazione: le metriche e la catena dei tessuti vanno
       // ricalcolate sull'archivio come è adesso, non come era nel file.
-      const list = await store.listDives();
-      const healed = await repairArchive(store, list).catch(() => ({ dives: list }));
-      setDives(healed.dives);
+      await ripassaLaCatena(store);
 
       /*
        * Si rilegge TUTTO quello che vive anche in memoria, `decoPlans` compreso.
@@ -1647,7 +1694,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         settings: Object.keys(plan.settings).length,
       };
     },
-    [dives, store, trash, rileggiImpostazioni],
+    [dives, store, trash, rileggiImpostazioni, ripassaLaCatena],
   );
 
   const saveGasInput = useCallback(

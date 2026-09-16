@@ -274,6 +274,24 @@ describe('i comandi Rust registrati, piattaforma per piattaforma', () => {
     },
   );
 
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► LA SCRITTURA INDIVISIBILE SERVE OVUNQUE, perché l'archivio c'è ovunque. ◄
+   *
+   * `tutte_o_nessuna` è la transazione vera che `tauri-plugin-sql` non sa fare:
+   * il plugin tiene un POOL, e `BEGIN` su una connessione qualunque non lega
+   * niente a quelle dopo. Misurato da una verifica esterna il 16 settembre 2026
+   * — `BEGIN`, `INSERT`, `ROLLBACK` rispondono tutti «Ok» e la riga resta.
+   *
+   * Qui non c'è niente di specifico di una piattaforma: SQLite è l'archivio di
+   * tutte e cinque. Se il comando mancasse da un gestore, su quella piattaforma
+   * `putDives` risponderebbe «comando sconosciuto» **mentre si salva
+   * un'immersione appena scaricata** — cioè nel momento peggiore possibile.
+   */
+  it.each(PIATTAFORME)('$nome scrive in modo indivisibile', ({ cfg }) => {
+    expect(comandiPer(cfg)).toContain('archivio::tutte_o_nessuna');
+  });
+
   it.each(PIATTAFORME.filter((p) => p.nome === 'macOS' || p.nome === 'Windows'))(
     '$nome non ne ha bisogno: là il download del browser funziona',
     ({ cfg }) => {

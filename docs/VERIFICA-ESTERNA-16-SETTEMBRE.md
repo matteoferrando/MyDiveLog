@@ -1,8 +1,10 @@
-# La verifica esterna del 16 settembre — cosa è chiuso e cosa no
+# La verifica esterna del 16 settembre — tutti e nove chiusi
 
 Una revisione indipendente ha letto il progetto alla **1.8.24** (commit
 `13a5947`) e ha riprodotto **nove problemi**, otto con prove locali e uno dal
-codice nativo. Ha confrontato 332 file sorgente a fine lavoro senza trovare
+codice nativo. **Sono chiusi tutti e nove**, nello stesso giorno: quattro la
+mattina, uno il pomeriggio insieme a una segnalazione dal campo, quattro la
+sera. Ha confrontato 332 file sorgente a fine lavoro senza trovare
 differenze: non ha toccato niente.
 
 *Le sue prove sono buone. Due di loro mi hanno preso in fallo su cose che
@@ -69,49 +71,74 @@ Android** e usate solo dal lato Rust: nessuna capacità le espone alla WebView.
 > un difetto sopravvive a una correzione.* La chiusura vera è il messaggio di
 > chi l'ha segnalato.
 
-## Aperti, in ordine di quanto pesano
+## Chiusi la sera, nella 1.8.26 — gli ultimi quattro
 
-### 1 — P1: la transazione SQLite non è atomica
+*Commit `__COMMIT__`. Ognuno con la sua prova, e ognuna **mutata**: dieci
+mutazioni, dieci guardie rosse — e un'undicesima che è rimasta verde e ha fatto
+correggere la prova invece del codice.*
 
-`src/storage/sqlite.ts:207–216`. `putDives()` manda `BEGIN`, gli inserimenti e
-`COMMIT`/`ROLLBACK` come chiamate separate; il plugin le esegue su un **pool**
-SQLx, che non le lega alla stessa connessione. La verifica l'ha riprodotto con
-lo stesso `Pool<Sqlite>` e SQLx 0.8.6: `BEGIN` → inserimento → `ROLLBACK`
-rispondono tutti successo, e la riga resta.
+### 1 — P1: la transazione SQLite non era una transazione
 
-*«Tutte o nessuna» è scritto e non è vero.* Serve una transazione vera in Rust
-che possieda una connessione per tutta l'operazione, esposta come **un solo
-comando** al frontend. È l'intervento più grosso dei nove e va provato con un
-guasto simulato fra riepilogo e campioni.
+`putDives()` mandava `BEGIN`, gli inserimenti e `COMMIT` come chiamate separate,
+e `tauri-plugin-sql` non tiene una connessione: tiene un **pool** SQLx. `BEGIN`
+apriva una transazione su una connessione che tornava subito nel pool — dove
+SQLx annulla da sé le transazioni rimaste aperte — gli inserimenti arrivavano
+altrove in auto-commit, e `COMMIT` non trovava niente da chiudere. Tre risposte
+«Ok» e la riga resta.
 
-### 2 — P1: la sincronizzazione può accorciare un profilo già salvato
+**Cosa fa adesso.** Un comando Rust nuovo — `src-tauri/src/archivio.rs`,
+`tutte_o_nessuna` — riceve l'elenco delle istruzioni e le esegue dentro una
+transazione che possiede la sua connessione dall'inizio alla fine. L'SQL resta
+in TypeScript: di là non si sa niente di immersioni. Registrato su **tutte e
+cinque** le piattaforme, perché l'archivio SQLite c'è su tutte.
 
-`src/sync/plan.ts:88–92`, `src/sync/turso.ts:1130–1148`. Il piano confronta
-prima il profilo principale e guarda l'alternativo solo negli `else if`; il
-trasferimento scrive entrambi nella stessa direzione. Misurato: remoto con
-10 principali e **100 alternativi**, locale con 20 e 5 → dopo la
-sincronizzazione l'alternativo remoto scende a **5**.
+Vale anche per `deleteDive` e `clear`, che avevano lo stesso difetto e che
+nessuno aveva guardato **perché non nominavano nessuna transazione**.
 
-Serve una decisione per ciascun profilo, separata, con la garanzia che nessuno
-dei due venga degradato.
+> ► **UNA PROVA CHE MISURA IL DIFETTO.**
+> `begin_e_rollback_sul_pool_non_annullano_niente` esegue la sequenza vecchia su
+> un archivio vero e pretende che la riga resti. Se un giorno diventasse rossa
+> vorrebbe dire che SQLx è cambiato e che quel modulo si può togliere; finché è
+> verde, toglierlo rimette il difetto.
 
-### 7 — P2: il profilo alternativo da solo non scende
+> ► **E UNA GUARDIA CHE MI HA PRESO IN FALLO.** Avevo aggiunto un
+> `PRAGMA foreign_keys = ON` con accanto un commento su perché fosse
+> indispensabile. Togliendolo, la prova che doveva difenderlo **è rimasta
+> verde**: le chiavi esterne le accende SQLx da sé su ogni connessione. La riga
+> è stata tolta e la prova riscritta perché misuri la **proprietà** — un profilo
+> senza la sua immersione viene respinto — invece della riga. Stesso trattamento
+> alla riga gemella in `sqlite.ts`, che accendeva i vincoli su una connessione a
+> caso. *Una guardia che non si è mai vista rossa non è una guardia.*
 
-`src/sync/turso.ts:951–958`. Quando il riepilogo è già allineato il ciclo legge
-il principale e fa `continue` se è vuoto: non arriva mai all'alternativo, anche
-se il piano ha chiesto proprio quello. Misurato: 100 campioni alternativi sul
-remoto, zero in locale dopo la sincronizzazione.
+### 2 — P1: la sincronizzazione accorciava un profilo salvato
 
-### 9 — P2: la catena dei tessuti manca subito dopo l'importazione
+Sopra il secondo profilo c'era scritto *«viaggia con il principale, non per
+conto suo»*. Era vero, ed era il difetto: piano e trasporto avevano **una lista
+sola** per i profili, quindi una direzione sola — e i due profili possono averne
+due diverse. Con remoto a 10 principali e 100 alternativi e locale a 20 e 5,
+l'alternativo remoto scendeva **da 100 a 5**.
 
-`src/ui/state.tsx:738–741`, `778–779`. L'import da file e quello via Bluetooth
-salvano e aggiornano l'elenco senza il ricalcolo che l'avvio fa. Misurato
-nell'interfaccia: subito dopo l'import le statistiche dicono «30/30 immersioni
-con profilo» e il GF99 dice «serve un profilo campionato»; dopo un ricaricamento,
-senza dati nuovi, compare **84% su 30 immersioni**.
+Adesso il piano ha quattro liste (`pushSamples`, `pullSamples`,
+`pushAltSamples`, `pullAltSamples`) e due decisioni prese da due `if` separati,
+non da una catena di `else if` in cui la seconda non partiva mai.
 
-*Il numero non è sbagliato: è assente, e il messaggio ne dà la colpa alla cosa
-sbagliata.*
+### 7 — P2: il profilo alternativo da solo non scendeva
+
+Il ciclo che scarica i profili su immersioni già allineate leggeva il principale
+e faceva `continue` se era vuoto: **non arrivava mai alla riga del secondo**. Il
+ramo di *carico* questa lezione l'aveva già imparata; quello di *scarico* no —
+*una lezione imparata dentro un percorso protegge quel percorso.*
+
+### 9 — P2: la catena dei tessuti non si ripassava dopo l'import
+
+Le tre righe che la ricalcolano c'erano in **tre posti su cinque** — l'avvio,
+l'inserimento a mano, il ripristino da backup — e mancavano nelle **due strade
+dell'import**, cioè dove le immersioni arrivano a decine. Subito dopo
+un'importazione il GF99 diceva «serve un profilo campionato» accanto a un
+profilo che c'era; dopo un ricaricamento, senza dati nuovi, compariva 84%.
+
+Adesso la regola è una funzione sola — `ripassaLaCatena` — chiamata da tutti e
+cinque i posti. *Cinque copie sono quattro occasioni di dimenticarsene.*
 
 ## Il resto della verifica
 

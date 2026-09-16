@@ -22,6 +22,78 @@ interface SqlDatabase {
   select<T>(query: string, bindValues?: unknown[]): Promise<T>;
 }
 
+/**
+ * Il nome con cui l'archivio si apre, **in un posto solo**.
+ *
+ * Era scritto dentro `init`, e bastava finché lo leggeva solo `Database.load`.
+ * Adesso lo legge anche il comando `tutte_o_nessuna`, perché è la CHIAVE con cui
+ * `tauri-plugin-sql` ritrova il pool da cui prendere la connessione: due
+ * stringhe diverse non aprirebbero due archivi — il comando risponderebbe
+ * «archivio non aperto» e la scrittura non partirebbe. *Una costante che due
+ * parti devono pronunciare uguale non può stare scritta in due posti.*
+ */
+const ARCHIVIO = 'sqlite:mydivelog.db';
+
+/** Un'istruzione e i suoi valori. Lo specchio di `Passo` in `src-tauri/src/archivio.rs`. */
+interface Passo {
+  sql: string;
+  valori: unknown[];
+}
+
+/**
+ * Le istruzioni per scrivere un blocco di immersioni, in ordine.
+ *
+ * ► FUNZIONE DEL MODULO E NON METODO, per una ragione sola: **si prova senza un
+ * archivio**. La regola che conta qui è l'ORDINE — prima il riepilogo, poi i
+ * profili, immersione per immersione — e l'ordine è quello che la chiave
+ * esterna pretende: un profilo il cui `dives(id)` non esiste ancora viene
+ * respinto. Una prova che debba aprire SQLite per misurare un ordine misura
+ * dieci cose e ne dichiara una.
+ *
+ * L'SQL sta qui e non in Rust: di là si sa eseguire una transazione, non cosa
+ * sia un'immersione.
+ */
+function passiPerDives(dives: Dive[]): Passo[] {
+  const passi: Passo[] = [];
+  for (const dive of dives) {
+    const summary: DiveSummary = stripSamples(dive);
+    passi.push({
+      sql: `INSERT INTO dives (id, start_time, duration_s, max_depth, site, mode, source, doc)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           start_time = excluded.start_time,
+           duration_s = excluded.duration_s,
+           max_depth  = excluded.max_depth,
+           site       = excluded.site,
+           mode       = excluded.mode,
+           source     = excluded.source,
+           doc        = excluded.doc`,
+      valori: [
+        dive.id,
+        dive.startTime,
+        dive.durationS,
+        dive.maxDepth,
+        dive.site?.name ?? null,
+        dive.mode,
+        dive.source.format,
+        JSON.stringify(summary),
+      ],
+    });
+    for (const [table, samples] of [
+      ['dive_samples', dive.samples],
+      ['dive_alt_samples', dive.altSamples],
+    ] as const) {
+      if (!samples || !samples.length) continue;
+      passi.push({
+        sql: `INSERT INTO ${table} (dive_id, count, doc) VALUES (?, ?, ?)
+           ON CONFLICT(dive_id) DO UPDATE SET count = excluded.count, doc = excluded.doc`,
+        valori: [dive.id, samples.length, JSON.stringify(samples)],
+      });
+    }
+  }
+  return passi;
+}
+
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS dives (
      id           TEXT PRIMARY KEY,
@@ -115,7 +187,7 @@ export class SqliteStore implements DiveStore {
   async init(): Promise<void> {
     if (this.db) return;
     const { default: Database } = await import('@tauri-apps/plugin-sql');
-    this.db = (await Database.load('sqlite:mydivelog.db')) as unknown as SqlDatabase;
+    this.db = (await Database.load(ARCHIVIO)) as unknown as SqlDatabase;
     /*
      * ════════════════════════════════════════════════════════════════════════
      * ► UN ARCHIVIO SCRITTO DA UNA VERSIONE PIÙ NUOVA NON SI APRE ALLA CIECA. ◄
@@ -146,7 +218,22 @@ export class SqliteStore implements DiveStore {
     }
     for (const stmt of SCHEMA) await this.db.execute(stmt);
     await this.db.execute(`PRAGMA user_version = ${VERSIONE_ARCHIVIO}`);
-    await this.db.execute('PRAGMA foreign_keys = ON');
+    /*
+     * ► E QUI C'ERA UN `PRAGMA foreign_keys = ON` CHE NON ACCENDEVA NIENTE. ◄
+     *
+     * Le chiavi esterne valgono **per connessione**, e il plugin non tiene una
+     * connessione: tiene un pool. Questa riga le accendeva su quella che il
+     * pool aveva passato in quel momento, e su nessun'altra — cioè quasi mai su
+     * quella che poi scriveva. Era lo stesso difetto del `BEGIN` qui sotto,
+     * nello stesso file, arrivato per la stessa strada e mai notato perché non
+     * produceva niente di visibile.
+     *
+     * Non è stata sostituita: è stata tolta, perché **SQLx accende le chiavi
+     * esterne da sé su ogni connessione che apre**. Il vincolo quindi vale, e
+     * chi lo garantisce è dichiarato invece che ripetuto. La prova che lo tiene
+     * è in Rust — `le_chiavi_esterne_valgono_dentro_la_transazione` — e misura
+     * la proprietà: un profilo senza il suo riepilogo viene respinto.
+     */
   }
 
   // Stessa frase di `IndexedDbStore`, e non è una svista: vedi il commento
@@ -226,74 +313,92 @@ export class SqliteStore implements DiveStore {
    * profilo. Su un dispositivo con l'account la sincronizzazione lo ripesca; su
    * uno senza, quel profilo non c'è più e niente lo dice.
    *
-   * L'ordine scelto era già quello giusto — prima il riepilogo, poi i profili —
-   * e questo riquadro non lo cambia: aggiunge solo che il pezzo o è tutto
-   * dentro o è tutto fuori.
+   * ══════════════════════════════════════════════════════════════════════════
+   * ► E QUI C'ERA UN `BEGIN` CHE NON APRIVA NIENTE. ◄
+   *
+   * IL DIFETTO MISURATO DA UNA VERIFICA ESTERNA IL 16 SETTEMBRE 2026. Questo
+   * metodo faceva:
+   *
+   *     await this.sql.execute('BEGIN');
+   *     …gli inserimenti…
+   *     await this.sql.execute('COMMIT');
+   *
+   * Sembra una transazione e non lo è. `tauri-plugin-sql` non tiene una
+   * connessione: tiene un **pool**, e ogni `execute` ne prende una qualunque, la
+   * usa e la restituisce. `BEGIN` apriva una transazione su una connessione che
+   * tornava subito nel pool — dove SQLx annulla da sé le transazioni rimaste
+   * aperte — gli inserimenti arrivavano altrove in auto-commit, e `COMMIT` non
+   * trovava niente da chiudere. Riprodotto con SQLx 0.8.6: `BEGIN`, `INSERT`,
+   * `ROLLBACK` rispondono tutti **Ok** e la riga resta.
+   *
+   * *«Tutte o nessuna» era scritto qui sopra, e non era vero.* Tre risposte
+   * senza errore su un'operazione che non stava succedendo: è la forma di
+   * difetto che questo progetto insegue ovunque — un esito zero dice che il
+   * comando non è morto, non che abbia fatto quello che doveva.
+   *
+   * ► LA CURA STA IN RUST, e non per gusto. ◄ Da qui una transazione vera non
+   * si può scrivere: il plugin espone `execute` e `select`, e nessuno dei due
+   * permette di dire «queste istruzioni sulla stessa connessione». La
+   * connessione la si può tenere solo dall'altra parte. `tutte_o_nessuna`
+   * (`src-tauri/src/archivio.rs`) riceve l'elenco e lo esegue dentro una
+   * transazione che possiede la sua connessione dall'inizio alla fine.
+   *
+   * **L'SQL resta qui**, dove è sempre stato: di là non si sa niente di
+   * immersioni e di profili.
    */
   async putDives(dives: Dive[]): Promise<void> {
-    await this.sql.execute('BEGIN');
-    try {
-      await this.scriviDives(dives);
-      await this.sql.execute('COMMIT');
-    } catch (err) {
-      // `ROLLBACK` può fallire a sua volta — per esempio se la transazione è
-      // già stata annullata dal motore — e il guasto da riportare è il primo,
-      // non il secondo: il secondo è una conseguenza.
-      await this.sql.execute('ROLLBACK').catch(() => undefined);
-      throw err;
-    }
+    await this.tutteONessuna(passiPerDives(dives));
   }
 
-  private async scriviDives(dives: Dive[]): Promise<void> {
-    for (const dive of dives) {
-      const summary: DiveSummary = stripSamples(dive);
-      await this.sql.execute(
-        `INSERT INTO dives (id, start_time, duration_s, max_depth, site, mode, source, doc)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-           start_time = excluded.start_time,
-           duration_s = excluded.duration_s,
-           max_depth  = excluded.max_depth,
-           site       = excluded.site,
-           mode       = excluded.mode,
-           source     = excluded.source,
-           doc        = excluded.doc`,
-        [
-          dive.id,
-          dive.startTime,
-          dive.durationS,
-          dive.maxDepth,
-          dive.site?.name ?? null,
-          dive.mode,
-          dive.source.format,
-          JSON.stringify(summary),
-        ],
-      );
-      for (const [table, samples] of [
-        ['dive_samples', dive.samples],
-        ['dive_alt_samples', dive.altSamples],
-      ] as const) {
-        if (!samples || !samples.length) continue;
-        await this.sql.execute(
-          `INSERT INTO ${table} (dive_id, count, doc) VALUES (?, ?, ?)
-           ON CONFLICT(dive_id) DO UPDATE SET count = excluded.count, doc = excluded.doc`,
-          [dive.id, samples.length, JSON.stringify(samples)],
-        );
-      }
-    }
+  /**
+   * Un elenco di istruzioni, eseguite tutte insieme o per niente.
+   *
+   * ► SI PASSA DAL COMANDO E NON DAL PLUGIN, ed è tutto il punto. ◄ Un elenco
+   * vuoto non parte nemmeno: chiamare il motore per non fare niente non è un
+   * errore, ma è un giro a vuoto che si vede nei log e fa dubitare.
+   */
+  private async tutteONessuna(passi: Passo[]): Promise<void> {
+    if (!passi.length) return;
+    // Il guardiano di `init`: se l'archivio non è pronto la frase che esce è
+    // quella scritta per una persona, non «archivio non aperto» dal Rust.
+    void this.sql;
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('tutte_o_nessuna', { archivio: ARCHIVIO, passi });
   }
 
+  /**
+   * Cancella un'immersione: il riepilogo e i suoi due profili.
+   *
+   * ► ANCHE QUESTA È UNA SOLA COSA, e prima erano tre. ◄ Non nominava nessuna
+   * transazione, quindi nessuno l'aveva guardata quando è saltato fuori il
+   * difetto del `BEGIN` — ma tre `DELETE` separati hanno lo stesso problema
+   * visto dall'altro verso: l'applicazione che muore in mezzo lascia in archivio
+   * i profili di un'immersione che non c'è più. Sono righe che nessuna query
+   * troverà mai, e che restano lì a occupare spazio senza che niente le nomini.
+   */
   async deleteDive(id: string): Promise<void> {
-    await this.sql.execute('DELETE FROM dive_samples WHERE dive_id = ?', [id]);
-    await this.sql.execute('DELETE FROM dive_alt_samples WHERE dive_id = ?', [id]);
-    await this.sql.execute('DELETE FROM dives WHERE id = ?', [id]);
+    await this.tutteONessuna([
+      { sql: 'DELETE FROM dive_samples WHERE dive_id = ?', valori: [id] },
+      { sql: 'DELETE FROM dive_alt_samples WHERE dive_id = ?', valori: [id] },
+      { sql: 'DELETE FROM dives WHERE id = ?', valori: [id] },
+    ]);
   }
 
+  /**
+   * Svuota l'archivio.
+   *
+   * Quattro cancellazioni, e l'ordine conta: i profili prima dei riepiloghi, o
+   * la chiave esterna si lamenta. Tutte o nessuna per la stessa ragione delle
+   * altre due: un archivio svuotato a metà è peggio di uno pieno, perché sembra
+   * che il resto sia stato cancellato apposta.
+   */
   async clear(): Promise<void> {
-    await this.sql.execute('DELETE FROM dive_alt_samples');
-    await this.sql.execute('DELETE FROM dive_samples');
-    await this.sql.execute('DELETE FROM dives');
-    await this.sql.execute('DELETE FROM settings');
+    await this.tutteONessuna([
+      { sql: 'DELETE FROM dive_alt_samples', valori: [] },
+      { sql: 'DELETE FROM dive_samples', valori: [] },
+      { sql: 'DELETE FROM dives', valori: [] },
+      { sql: 'DELETE FROM settings', valori: [] },
+    ]);
   }
 
   async getSetting<T>(key: string): Promise<T | undefined> {

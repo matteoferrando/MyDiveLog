@@ -439,6 +439,21 @@ fn verifica_misura(scritti: u64, contenuto: &str) -> Result<(), String> {
 mod computer_esterni;
 
 /*
+ * ► «TUTTE O NESSUNA» ERA SCRITTO E NON ERA VERO. ◄
+ *
+ * `storage/sqlite.ts` mandava `BEGIN`, gli inserimenti e `COMMIT` come chiamate
+ * separate, e `tauri-plugin-sql` non tiene una connessione: tiene un POOL. Una
+ * verifica esterna l'ha riprodotto il 16 settembre 2026 — tre risposte «Ok» e la
+ * riga resta dopo il `ROLLBACK`.
+ *
+ * Una transazione vera si può scrivere solo da questa parte, perché solo da
+ * questa parte si può tenere la connessione. Il modulo non sa niente di
+ * immersioni: sa solo eseguire un elenco di istruzioni tutte insieme o per
+ * niente. Su TUTTE le piattaforme, perché l'archivio SQLite c'è su tutte.
+ */
+mod archivio;
+
+/*
  * Il ponte fra libdivecomputer e il nostro Bluetooth. Esiste solo quando la
  * funzionalità è accesa: senza, non c'è niente a cui fare da ponte.
  */
@@ -695,6 +710,7 @@ pub fn run() {
 
     #[cfg(target_os = "macos")]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        archivio::tutte_o_nessuna,
         segreti::segreto_leggi,
         segreti::segreto_scrivi,
         segreti::segreto_cancella,
@@ -711,6 +727,7 @@ pub fn run() {
     // dall'accesso arriva dallo schema URL.
     #[cfg(target_os = "ios")]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        archivio::tutte_o_nessuna,
         segreti::segreto_leggi,
         segreti::segreto_scrivi,
         segreti::segreto_cancella,
@@ -752,6 +769,7 @@ pub fn run() {
      */
     #[cfg(all(desktop, not(target_os = "macos")))]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        archivio::tutte_o_nessuna,
         ritorno_accesso::apri_ritorno_accesso,
         computer_esterni::elenca_computer_supportati,
         computer_esterni::riconosci_computer_esterno,
@@ -780,6 +798,7 @@ pub fn run() {
      */
     #[cfg(target_os = "android")]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        archivio::tutte_o_nessuna,
         esporta_nei_documenti,
         ritorno_accesso::apri_ritorno_accesso,
         computer_esterni::elenca_computer_supportati,

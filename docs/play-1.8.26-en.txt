@@ -1,0 +1,7 @@
+Four fixes found by an independent review of the code. None produced an error: they happened silently.
+
+• All-or-nothing saving: if the system kills the app mid-save, the dive is in the logbook whole with its profile, or not at all. Before, it could be left without its profile.
+
+• Sync no longer shortens an already-saved profile (measured: 100 samples cut to 5).
+
+• After an import, nitrogen loading now shows up straight away, with no need to reopen the app.

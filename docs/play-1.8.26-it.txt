@@ -1,0 +1,7 @@
+Quattro correzioni trovate da una revisione indipendente del codice. Nessuna dava un errore: succedevano in silenzio.
+
+• Salvataggio indivisibile: se l'app viene chiusa dal sistema mentre salva, l'immersione è in archivio intera col suo profilo, o non c'è. Prima poteva restare senza profilo.
+
+• La sincronizzazione non accorcia più un profilo già salvato (misurato: 100 campioni ridotti a 5).
+
+• Dopo un'importazione il carico di azoto compare subito, senza dover riaprire l'app.

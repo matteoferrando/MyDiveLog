@@ -1,6 +1,6 @@
 [package]
 name = "mydivelog"
-version = "1.8.25"
+version = "1.8.26"
 description = "Logbook subacqueo multi-computer"
 authors = ["Matteo Ferrando"]
 edition = "2021"
@@ -25,6 +25,23 @@ cc = { version = "1", optional = true }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+
+# La transazione vera, che il plugin non sa fare.
+#
+# ► PERCHÉ SQLX COMPARE QUI, visto che è già nell'albero. ◄ Perché `src/archivio.rs`
+# deve NOMINARE i suoi tipi: prende il `Pool<Sqlite>` che `tauri-plugin-sql`
+# tiene nel suo stato, ne acquisisce una connessione e ci apre sopra una
+# transazione. Senza questa riga quei tipi non hanno un nome in questo crate.
+#
+# La versione è la stessa che il plugin si porta dietro, e non è un caso: due
+# copie di SQLx nel grafo darebbero due tipi `Pool<Sqlite>` diversi, e il pool
+# preso dal plugin non entrerebbe nella nostra funzione. `Cargo.lock` dice
+# 0.8.6 da tutte e due le parti.
+#
+# `default-features = false` perché di SQLx qui serve una fetta sola —
+# l'adattatore SQLite e il runtime asincrono, che sono esattamente quelli che il
+# plugin accende già.
+sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio"] }
 
 # Il Bluetooth verso i computer subacquei.
 #

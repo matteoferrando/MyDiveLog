@@ -604,6 +604,211 @@ describe('secondo profilo attraverso la sincronizzazione', () => {
     await syncArchive(fresh, sql);
     expect(await fresh.getAltSamples('a')).toHaveLength(0);
   });
+  /*
+   * ══════════════════════════════════════════════════════════════════════════
+   * ► «VIAGGIA INSIEME AL PRINCIPALE» ERA VERO, ED ERA IL DIFETTO. ◄
+   *
+   * La prova qui sopra si chiama così, e misura una cosa giusta: i due profili
+   * devono arrivare tutti e due. Quello che non misurava è **in che
+   * direzione**. Il piano aveva una lista sola per i profili e il trasporto,
+   * per ogni id che ci trovava, mandava tutti e due dalla stessa parte: se
+   * l'immersione era in quella lista per via del PRINCIPALE, saliva anche il
+   * secondo — sopra a un secondo profilo remoto più ricco.
+   *
+   * Misurato da una verifica esterna il 16 settembre 2026: remoto con 10
+   * campioni principali e **100 alternativi**, locale con 20 e 5; dopo la
+   * sincronizzazione l'alternativo remoto scendeva **a 5**.
+   *
+   * *Un profilo salvato, accorciato dalla sincronizzazione, senza un avviso.* È
+   * il difetto peggiore di tutta la famiglia: non perde un file che non c'era,
+   * accorcia un dato che c'era.
+   */
+  describe('► e ognuno dei due va dove deve andare ◄', () => {
+    it('il secondo profilo remoto più ricco NON viene accorciato da uno locale più povero', async () => {
+      const sql = sqliteExecutor();
+      // Il dispositivo che ha il secondo profilo fitto.
+      const primo = memoryStore([dive('a', { samples: profile(10), altSamples: profile(100) })]);
+      await syncArchive(primo, sql);
+
+      // L'altro: principale più ricco, secondo più povero. Il piano deve dire
+      // «sali» per uno e «scendi» per l'altro, sulla stessa immersione.
+      const secondo = memoryStore([dive('a', { samples: profile(20), altSamples: profile(5) })]);
+      await syncArchive(secondo, sql);
+
+      const conta = (tabella: string) =>
+        (
+          sql.db.prepare(`SELECT count FROM ${tabella} WHERE dive_id = ?`).get('a') as
+            { count: number } | undefined
+        )?.count ?? 0;
+
+      expect(conta('dive_samples'), 'il principale sale: 20').toBe(20);
+      expect(conta('dive_alt_samples'), 'il secondo NON scende a 5').toBe(100);
+      expect(await secondo.getSamples('a')).toHaveLength(20);
+      expect(await secondo.getAltSamples('a'), 'e quello ricco scende qui').toHaveLength(100);
+    });
+
+    it('e lo stesso al contrario: il principale scende, il secondo sale', async () => {
+      // La metà che impedisce di «correggere» facendo salire sempre o scendere
+      // sempre: le due direzioni convivono anche scambiate.
+      const sql = sqliteExecutor();
+      const primo = memoryStore([dive('a', { samples: profile(100), altSamples: profile(10) })]);
+      await syncArchive(primo, sql);
+
+      const secondo = memoryStore([dive('a', { samples: profile(5), altSamples: profile(50) })]);
+      await syncArchive(secondo, sql);
+
+      expect(await secondo.getSamples('a'), 'il principale ricco scende').toHaveLength(100);
+      expect(await secondo.getAltSamples('a'), 'e il suo secondo resta').toHaveLength(50);
+      const conta = (
+        sql.db.prepare('SELECT count FROM dive_alt_samples WHERE dive_id = ?').get('a') as
+          { count: number } | undefined
+      )?.count;
+      expect(conta, 'il secondo sale: 50').toBe(50);
+    });
+
+    it('e nemmeno quando SCENDE il riepilogo: il secondo profilo locale resta', async () => {
+      /*
+       * ► L'ALTRO RAMO, e senza questa prova non lo toccava niente. ◄
+       *
+       * Quando il riepilogo remoto è più recente, i profili scendono dentro il
+       * ciclo che scarica i riepiloghi — un pezzo di codice diverso da quello
+       * delle due prove qui sopra, e con lo stesso difetto: il secondo profilo
+       * stava DENTRO l'`if` del principale, quindi scendeva ogni volta che
+       * scendeva l'altro. Un secondo profilo locale più ricco veniva scritto
+       * sopra da quello remoto più povero, senza che nessuno l'avesse chiesto.
+       */
+      const sql = sqliteExecutor();
+      const remoto = memoryStore([
+        dive('a', {
+          notes: 'ritoccata sull’altro dispositivo',
+          updatedAt: '2026-08-01T00:00:00Z',
+          samples: profile(50),
+          altSamples: profile(5),
+        }),
+      ]);
+      await syncArchive(remoto, sql);
+
+      const locale = memoryStore([
+        dive('a', {
+          updatedAt: '2026-01-01T00:00:00Z',
+          samples: profile(10),
+          altSamples: profile(100),
+        }),
+      ]);
+      await syncArchive(locale, sql);
+
+      expect(await locale.getSamples('a'), 'il principale remoto è più ricco: scende').toHaveLength(50);
+      expect(await locale.getAltSamples('a'), 'il secondo NON viene accorciato a 5').toHaveLength(100);
+      const conta = (
+        sql.db.prepare('SELECT count FROM dive_alt_samples WHERE dive_id = ?').get('a') as
+          { count: number } | undefined
+      )?.count;
+      expect(conta, 'e sale, perché è lui il più ricco').toBe(100);
+    });
+
+    it('e non si ricarica un secondo profilo che nessuno ha chiesto', async () => {
+      /*
+       * ► PERCHÉ QUESTA PROVA CONTA IL TRAFFICO E NON I CAMPIONI. ◄
+       *
+       * Lo scarico viene PRIMA del carico: quando il piano chiede di far
+       * scendere il secondo profilo, al momento di salire l'archivio locale ha
+       * già quello ricco, e rimandarlo su non perde niente. Il difetto quindi
+       * non si vede più contando i campioni — si vede contando le scritture.
+       *
+       * E non è pedanteria: quella è una scrittura in rete per immersione, a
+       * ogni sincronizzazione, su un database remoto a pagamento. Su un archivio
+       * di duemila immersioni è la differenza fra una sincronizzazione e
+       * un'attesa.
+       *
+       * *Quello che non è stato deciso non si tocca* vale anche quando toccarlo
+       * non farebbe danno: è la regola che rende il difetto impossibile, non la
+       * fortuna dell'ordine in cui girano i due rami.
+       */
+      const sql = sqliteExecutor();
+      const scritture: string[] = [];
+      const spia = { ...sql, execute: (q: string, a?: unknown[]) => (scritture.push(q), sql.execute(q, a)) };
+
+      const primo = memoryStore([dive('a', { samples: profile(10), altSamples: profile(100) })]);
+      await syncArchive(primo, sql);
+
+      const secondo = memoryStore([dive('a', { samples: profile(20), altSamples: profile(5) })]);
+      scritture.length = 0;
+      await syncArchive(secondo, spia);
+
+      const suiSecondi = scritture.filter((q) => /INSERT INTO dive_alt_samples/i.test(q));
+      expect(suiSecondi, 'il secondo profilo non doveva salire: non è cambiato').toEqual([]);
+      // E il principale invece sì, o la prova passerebbe anche non caricando niente.
+      expect(scritture.filter((q) => /INSERT INTO dive_samples/i.test(q))).toHaveLength(1);
+    });
+
+    it('e il giro dopo non si muove più niente', async () => {
+      /*
+       * L'idempotenza è la proprietà che questo file difende dall'inizio: un
+       * piano che non si chiude fa rimpallare le stesse immersioni fra due
+       * dispositivi per sempre, una richiesta di rete per immersione a ogni
+       * giro. Separare le liste poteva romperla, ed è il primo posto in cui
+       * guardare.
+       */
+      const sql = sqliteExecutor();
+      const primo = memoryStore([dive('a', { samples: profile(10), altSamples: profile(100) })]);
+      await syncArchive(primo, sql);
+      const secondo = memoryStore([dive('a', { samples: profile(20), altSamples: profile(5) })]);
+      await syncArchive(secondo, sql);
+
+      expect(await syncArchive(secondo, sql)).toMatchObject({
+        pushed: 0,
+        pulled: 0,
+        pushedProfiles: 0,
+        pulledProfiles: 0,
+      });
+      expect(await syncArchive(primo, sql)).toMatchObject({ pushedProfiles: 0 });
+    });
+  });
+
+  /*
+   * ══════════════════════════════════════════════════════════════════════════
+   * ► IL SECONDO PROFILO DA SOLO NON SCENDEVA MAI. ◄
+   *
+   * Nel ramo che scarica i profili su immersioni il cui riepilogo era già
+   * allineato, il ciclo leggeva il principale e faceva `continue` se era vuoto:
+   * **non arrivava mai alla riga del secondo**, anche quando era proprio quello
+   * che il piano aveva chiesto. Misurato: 100 campioni alternativi sul remoto,
+   * zero in locale dopo la sincronizzazione, e il piano che li richiedeva a ogni
+   * giro senza che niente lo segnalasse.
+   *
+   * Il caso non è di scuola: ci si arriva importando via libdivecomputer sopra
+   * un'immersione già in archivio senza profilo — la guardia «una sorgente mai
+   * verificata non scalza un profilo verificato» fa perdere il confronto al
+   * profilo in arrivo, che finisce fra i secondi. Il ramo di CARICO questa
+   * lezione l'aveva già imparata; quello di scarico no. *Una lezione imparata
+   * dentro un percorso protegge quel percorso.*
+   */
+  describe('► il secondo profilo da solo, senza un principale che lo trascini ◄', () => {
+    it('scende anche quando l’immersione non ha nessun profilo principale', async () => {
+      const sql = sqliteExecutor();
+      const primo = memoryStore([dive('a', { altSamples: profile(100) })]);
+      await syncArchive(primo, sql);
+
+      // Stesso riepilogo, nessun profilo: il piano chiede solo il secondo.
+      const secondo = memoryStore([dive('a')]);
+      const report = await syncArchive(secondo, sql);
+
+      expect(await secondo.getAltSamples('a'), 'prima ne scendevano zero').toHaveLength(100);
+      expect(await secondo.getSamples('a'), 'e un principale non si inventa').toHaveLength(0);
+      expect(report.pulledProfiles).toBe(1);
+    });
+
+    it('e il giro dopo il piano non lo chiede più', async () => {
+      // La coda del difetto: finché non scendeva, il piano lo richiedeva a ogni
+      // sincronizzazione — un giro di rete per sempre, senza che niente lo dica.
+      const sql = sqliteExecutor();
+      const primo = memoryStore([dive('a', { altSamples: profile(100) })]);
+      await syncArchive(primo, sql);
+      const secondo = memoryStore([dive('a')]);
+      await syncArchive(secondo, sql);
+      expect(await syncArchive(secondo, sql)).toMatchObject({ pulledProfiles: 0 });
+    });
+  });
 });
 
 /**

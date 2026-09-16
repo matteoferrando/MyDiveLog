@@ -862,6 +862,19 @@ export async function syncArchive(
   const daScaricare = new Set(plan.pull);
   const profiliDaScaricare = new Set(plan.pullSamples);
   /*
+   * ► IL SECONDO PROFILO HA UN INSIEME SUO, perché ha una direzione sua. ◄
+   *
+   * Prima le due liste del piano erano una, e qui ogni id trovato faceva
+   * scendere **tutti e due** i profili. Con una lista sola la direzione è una
+   * sola, e i due profili possono averne due diverse: il principale più ricco di
+   * qua, il secondo più ricco di là — che è il caso normale quando la stessa
+   * immersione è stata scaricata da due computer su due dispositivi.
+   *
+   * Misurato il 16 settembre 2026: 100 campioni alternativi sul remoto ridotti a
+   * 5 da una sincronizzazione che «saliva» per via del profilo principale.
+   */
+  const altDaScaricare = new Set(plan.pullAltSamples);
+  /*
    * I profili che non sono scesi. Vedi `SyncReport.profileErrors`: non fermano
    * la sincronizzazione, e non restano in silenzio.
    */
@@ -932,14 +945,29 @@ export async function syncArchive(
         if (fusa !== grezza) daRimandareSu.push(fusa);
         return fusa;
       });
-      // I profili arrivano solo per le immersioni che li hanno da scaricare.
+      /*
+       * I profili arrivano solo per le immersioni che li hanno da scaricare, e
+       * **ognuno dei due per conto suo**: il secondo era dentro l'`if` del
+       * primo, quindi scendeva quando scendeva l'altro — anche se il piano non
+       * l'aveva chiesto, e anche quando quello locale era più ricco.
+       *
+       * Un profilo che non si chiede non si tocca: lasciandolo indefinito,
+       * `putDives` non scrive la sua riga e quello che c'è in archivio resta.
+       */
       for (const dive of dives) {
+        let sceso = false;
         if (profiliDaScaricare.has(dive.id)) {
           dive.samples = await pullSamples(sql, dive.id, 'dive_samples', profileErrors);
-          if (dive.samples.length) pulledProfiles++;
-          const alt = await pullSamples(sql, dive.id, 'dive_alt_samples', profileErrors);
-          if (alt.length) dive.altSamples = alt;
+          sceso ||= dive.samples.length > 0;
         }
+        if (altDaScaricare.has(dive.id)) {
+          const alt = await pullSamples(sql, dive.id, 'dive_alt_samples', profileErrors);
+          if (alt.length) {
+            dive.altSamples = alt;
+            sceso = true;
+          }
+        }
+        if (sceso) pulledProfiles++;
       }
       await store.putDives(dives);
       pulled += dives.length;
@@ -947,15 +975,46 @@ export async function syncArchive(
     }
   }
 
-  // Profili mancanti su immersioni il cui riepilogo era già allineato.
-  for (const id of plan.pullSamples) {
-    if (daScaricare.has(id)) continue;
-    const samples = await pullSamples(sql, id, 'dive_samples', profileErrors);
-    if (!samples.length) continue;
+  /*
+   * Profili mancanti su immersioni il cui riepilogo era già allineato.
+   *
+   * ══════════════════════════════════════════════════════════════════════════
+   * ► E QUI IL SECONDO PROFILO DA SOLO NON SCENDEVA MAI. ◄
+   *
+   * Il ciclo girava su `plan.pullSamples`, leggeva il profilo principale e
+   * faceva `continue` se era vuoto — quindi **non arrivava mai alla riga del
+   * secondo**, anche quando era proprio quello che il piano aveva chiesto.
+   * Misurato da una verifica esterna il 16 settembre 2026: 100 campioni
+   * alternativi sul remoto, zero in locale dopo la sincronizzazione, e il piano
+   * che li richiedeva a ogni giro senza che niente lo segnalasse.
+   *
+   * *Il caso non è di scuola*: ci si arriva importando via libdivecomputer sopra
+   * un'immersione già in archivio senza profilo — la guardia «una sorgente mai
+   * verificata non scalza un profilo verificato» fa perdere il confronto al
+   * profilo in arrivo, che finisce fra i secondi. È lo stesso caso che il ramo
+   * di CARICO aveva già dovuto imparare, e che qui, nel ramo di scarico,
+   * nessuno aveva riportato — *una lezione imparata dentro un percorso protegge
+   * quel percorso.*
+   *
+   * Adesso si gira sull'unione delle due liste, si scarica solo quello che il
+   * piano ha chiesto, e si scrive se è sceso almeno uno dei due.
+   */
+  const soloProfili = new Set(
+    [...plan.pullSamples, ...plan.pullAltSamples].filter((id) => !daScaricare.has(id)),
+  );
+  for (const id of soloProfili) {
     const dive = localById.get(id);
     if (!dive) continue;
-    const alt = await pullSamples(sql, id, 'dive_alt_samples', profileErrors);
-    await store.putDives([{ ...dive, samples, ...(alt.length ? { altSamples: alt } : {}) }]);
+    const samples = profiliDaScaricare.has(id)
+      ? await pullSamples(sql, id, 'dive_samples', profileErrors)
+      : [];
+    const alt = altDaScaricare.has(id) ? await pullSamples(sql, id, 'dive_alt_samples', profileErrors) : [];
+    if (!samples.length && !alt.length) continue;
+    // Il profilo che non è sceso NON si nomina: `putDives` non scrive la riga
+    // che non riceve, e quello che c'è in archivio resta dov'è.
+    await store.putDives([
+      { ...dive, ...(samples.length ? { samples } : {}), ...(alt.length ? { altSamples: alt } : {}) },
+    ]);
     pulledProfiles++;
   }
 
@@ -1127,41 +1186,55 @@ export async function syncArchive(
     ]);
   }
 
-  for (const id of plan.pushSamples) {
-    const samples = await store.getSamples(id);
+  /*
+   * ► OGNI PROFILO SALE SOLO SE È LUI CHE DEVE SALIRE. ◄
+   *
+   * Qui c'era scritto, sul secondo profilo: *«viaggia con il principale, non per
+   * conto suo»*. Era vero, ed era il difetto. Il ciclo girava su un'unica lista
+   * e caricava tutti e due i profili che trovava in archivio: se il piano aveva
+   * messo quell'id fra quelli da caricare **per via del principale**, saliva
+   * anche il secondo — sopra a un secondo profilo remoto che poteva essere più
+   * ricco.
+   *
+   * Misurato da una verifica esterna il 16 settembre 2026: remoto con 10
+   * campioni principali e **100 alternativi**, locale con 20 e 5. Dopo la
+   * sincronizzazione l'alternativo remoto era sceso **da 100 a 5**. Un profilo
+   * salvato, accorciato dalla sincronizzazione, senza un avviso.
+   *
+   * Adesso i due profili hanno due liste nel piano e due decisioni distinte, e
+   * questo ciclo gira sull'unione: carica il principale se sta fra i
+   * principali, il secondo se sta fra i secondi. *Quello che non è stato
+   * deciso non si tocca.*
+   *
+   * Resta vero quello che il commento di prima difendeva, ed è il motivo per
+   * cui il ciclo non salta un'immersione col solo secondo profilo: `planSync`
+   * mette un'immersione fra quelle da caricare anche quando ha solo
+   * `altSamples`, e ci si arriva importando via libdivecomputer sopra
+   * un'immersione già in archivio senza profilo.
+   */
+  const profiliDaCaricare = new Set(plan.pushSamples);
+  const altDaCaricare = new Set(plan.pushAltSamples);
+  for (const id of new Set([...plan.pushSamples, ...plan.pushAltSamples])) {
+    const samples = profiliDaCaricare.has(id) ? await store.getSamples(id) : [];
     if (samples.length) {
       await sql.execute(
         `INSERT INTO dive_samples (dive_id, count, doc) VALUES (?, ?, ?)
          ON CONFLICT(dive_id) DO UPDATE SET count = excluded.count, doc = excluded.doc`,
         [id, samples.length, JSON.stringify(samples)],
       );
+      // `sample_count` sul riepilogo deve restare coerente, altrimenti il piano
+      // successivo ricaricherebbe lo stesso profilo all'infinito. Il secondo non
+      // ne ha bisogno: `alt_count` è una sottoquery sulla sua tabella, quindi
+      // non può scollarsi da quello che c'è davvero.
+      await sql.execute('UPDATE dives SET sample_count = ? WHERE id = ?', [samples.length, id]);
     }
-    // Il secondo profilo viaggia con il principale, non per conto suo: è ciò che
-    // permette all'altro dispositivo di ricalcolare le metriche senza peggiorarle.
-    const alt = await store.getAltSamples(id);
+    const alt = altDaCaricare.has(id) ? await store.getAltSamples(id) : [];
     if (alt.length) {
       await sql.execute(
         `INSERT INTO dive_alt_samples (dive_id, count, doc) VALUES (?, ?, ?)
          ON CONFLICT(dive_id) DO UPDATE SET count = excluded.count, doc = excluded.doc`,
         [id, alt.length, JSON.stringify(alt)],
       );
-    }
-    /*
-     * ► IL PROFILO PRINCIPALE PUÒ NON ESSERCI, E IL SECONDO SÌ. ◄ Qui c'era un
-     * `if (!samples.length) continue` in testa al ciclo, e con lui saltava anche
-     * il secondo profilo. Non è un caso di scuola: `planSync` mette
-     * un'immersione fra quelle da caricare anche quando ha solo `altSamples`, e
-     * ci si arriva importando via libdivecomputer sopra un'immersione già in
-     * archivio senza profilo — la guardia «una sorgente mai verificata non
-     * scalza un profilo verificato» fa perdere il confronto al profilo in
-     * arrivo, che finisce fra i secondi. Risultato: l'unico profilo di
-     * quell'immersione restava su un dispositivo solo, **e il piano lo chiedeva
-     * a ogni giro senza che niente lo segnalasse.**
-     */
-    if (samples.length) {
-      // `sample_count` sul riepilogo deve restare coerente, altrimenti il piano
-      // successivo ricaricherebbe lo stesso profilo all'infinito.
-      await sql.execute('UPDATE dives SET sample_count = ? WHERE id = ?', [samples.length, id]);
     }
     if (samples.length || alt.length) {
       pushedProfiles++;

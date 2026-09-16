@@ -55,10 +55,35 @@ export interface SyncPlan {
   push: string[];
   /** Immersioni la cui versione remota va scaricata. */
   pull: string[];
-  /** Profili da caricare (il remoto non li ha o ne ha meno). */
+  /** Profili PRINCIPALI da caricare (il remoto non li ha o ne ha meno). */
   pushSamples: string[];
-  /** Profili da scaricare. */
+  /** Profili PRINCIPALI da scaricare. */
   pullSamples: string[];
+  /**
+   * SECONDI profili da caricare e da scaricare, **in liste loro**.
+   *
+   * ════════════════════════════════════════════════════════════════════════
+   * ► PERCHÉ NON BASTAVANO LE DUE DI SOPRA. ◄
+   *
+   * Prima il secondo profilo viaggiava dentro le stesse due liste, e il
+   * trasporto, per ogni id che ci trovava, mandava **tutti e due** i profili
+   * nella stessa direzione. Con una lista sola la direzione è una sola, e i due
+   * profili possono averne due diverse: il principale più ricco qui, il secondo
+   * più ricco là. È il caso normale di questo archivio — la stessa immersione
+   * scaricata da due computer su due dispositivi.
+   *
+   * Misurato da una verifica esterna il 16 settembre 2026: remoto con 10
+   * campioni principali e **100 alternativi**, locale con 20 e 5. Il piano
+   * diceva «sali» per via del principale, e salendo il secondo profilo remoto
+   * **scendeva da 100 a 5**. Un profilo salvato, accorciato dalla
+   * sincronizzazione, in silenzio.
+   *
+   * *Due decisioni diverse non stanno in una lista sola.* Da cui queste due, e
+   * da cui il fatto che in `planSync` i due profili si decidono con due `if`
+   * separati e non con una catena di `else if`.
+   */
+  pushAltSamples: string[];
+  pullAltSamples: string[];
   /** Quante immersioni erano già allineate. */
   unchanged: number;
 }
@@ -67,13 +92,23 @@ export function planSync(local: SyncFingerprint[], remote: SyncFingerprint[]): S
   const byIdRemote = new Map(remote.map((r) => [r.id, r]));
   const byIdLocal = new Map(local.map((l) => [l.id, l]));
 
-  const plan: SyncPlan = { push: [], pull: [], pushSamples: [], pullSamples: [], unchanged: 0 };
+  const plan: SyncPlan = {
+    push: [],
+    pull: [],
+    pushSamples: [],
+    pullSamples: [],
+    pushAltSamples: [],
+    pullAltSamples: [],
+    unchanged: 0,
+  };
 
   for (const l of local) {
     const r = byIdRemote.get(l.id);
     if (!r) {
       plan.push.push(l.id);
-      if (l.sampleCount > 0 || (l.altSampleCount ?? 0) > 0) plan.pushSamples.push(l.id);
+      // Un'immersione che là non c'è: sale quello che c'è, ognuno per sé.
+      if (l.sampleCount > 0) plan.pushSamples.push(l.id);
+      if ((l.altSampleCount ?? 0) > 0) plan.pushAltSamples.push(l.id);
       continue;
     }
 
@@ -87,15 +122,35 @@ export function planSync(local: SyncFingerprint[], remote: SyncFingerprint[]): S
     // quando la stessa immersione è entrata da due fonti diverse.
     if (l.sampleCount > r.sampleCount) plan.pushSamples.push(l.id);
     else if (r.sampleCount > l.sampleCount) plan.pullSamples.push(l.id);
-    // Il secondo profilo si decide da sé, con lo stesso criterio.
-    else if ((l.altSampleCount ?? 0) > (r.altSampleCount ?? 0)) plan.pushSamples.push(l.id);
-    else if ((r.altSampleCount ?? 0) > (l.altSampleCount ?? 0)) plan.pullSamples.push(l.id);
+
+    /*
+     * ► IL SECONDO PROFILO SI DECIDE DA SÉ, E QUI C'ERA SCRITTO CHE LO FACEVA
+     *   MENTRE NON LO FACEVA. ◄
+     *
+     * Le quattro righe erano una catena sola di `else if`: bastava che il
+     * profilo principale fosse diverso perché la decisione sul secondo **non
+     * venisse mai presa**. Il commento diceva «con lo stesso criterio», e il
+     * criterio non partiva.
+     *
+     * Misurato il 16 settembre 2026: remoto 10 principali e **100 alternativi**,
+     * locale 20 e 5. Vinceva il principale locale, e il trasporto — che allora
+     * mandava tutti e due i profili nella direzione decisa dall'unica lista —
+     * **portava l'alternativo remoto da 100 a 5**.
+     *
+     * Un `if` nuovo, non un ramo in coda: le due decisioni non si escludono, e
+     * possono benissimo avere direzioni opposte. È esattamente quello che la
+     * testa di questo file promette di riepilogo e profilo — *due decisioni
+     * indipendenti* — applicato una volta in più, dove mancava.
+     */
+    if ((l.altSampleCount ?? 0) > (r.altSampleCount ?? 0)) plan.pushAltSamples.push(l.id);
+    else if ((r.altSampleCount ?? 0) > (l.altSampleCount ?? 0)) plan.pullAltSamples.push(l.id);
   }
 
   for (const r of remote) {
     if (byIdLocal.has(r.id)) continue;
     plan.pull.push(r.id);
-    if (r.sampleCount > 0 || (r.altSampleCount ?? 0) > 0) plan.pullSamples.push(r.id);
+    if (r.sampleCount > 0) plan.pullSamples.push(r.id);
+    if ((r.altSampleCount ?? 0) > 0) plan.pullAltSamples.push(r.id);
   }
 
   return plan;

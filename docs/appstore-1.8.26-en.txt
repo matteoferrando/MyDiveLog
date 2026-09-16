@@ -1,0 +1,19 @@
+Four fixes found by an independent review of the code. None of them ever produced an error: they were things that happened silently.
+
+ALL OR NOTHING
+
+Every dive that enters the logbook is three writes: the summary, the profile and the optional second profile. They were meant to be a single unit, and they were not: the database engine does not hold a single connection, and the command opening the transaction ended up on a different connection from the one doing the writing.
+
+What changes: if the app is killed by the system while saving — on a phone that happens when memory runs short — the dive is now either in the logbook whole, with its profile, or not there at all. Before, you could be left with a dive without its profile, and on a device with no account that profile never came back. The same applies to deleting a dive and to clearing the logbook.
+
+SYNC NO LONGER SHORTENS A SAVED PROFILE
+
+When the same dive has been downloaded from two computers, the app keeps two profiles. The two travelled together: if the main one had to go up, the second went with it, over a richer second profile already on the other device. Measured: an alternate profile of 100 samples cut down to 5, with no warning.
+
+Now each is decided on its own, and they can go in opposite directions. And the second profile is also downloaded when it is the only one there: before, on a dive with no main profile, it never arrived.
+
+NITROGEN LOADING RIGHT AFTER AN IMPORT
+
+After importing, the saturation card said "a sampled profile is needed" next to a profile that was right there; closing and reopening the app made the number appear. Residual loading, GF99 and the surface interval are not computed from a single dive: they come from the chain between one dive and the next, and that step was missing in exactly the two import paths.
+
+Every fix has a test, and every test was put to the test by putting the defect back: 2,829 automated checks, plus 140 on the native engine.
