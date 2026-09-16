@@ -148,6 +148,109 @@ describe('i comandi Rust registrati, piattaforma per piattaforma', () => {
 
   /*
    * ════════════════════════════════════════════════════════════════════════
+   * ► REGISTRARE UN COMANDO NON LO COMPILA, E SONO DUE GESTI. ◄
+   *
+   * IL DIFETTO MISURATO IL 16 SETTEMBRE 2026, dalla CI e non da qui.
+   *
+   * `esporta_nei_documenti` era stato aggiunto al gestore di Android, ma la
+   * funzione portava ancora `#[cfg(target_os = "ios")]`. La compilazione per
+   * Android e' morta con *«cannot find macro
+   * `__tauri_command_name_esporta_nei_documenti` in this scope»* — e tutto il
+   * resto era verde: `cargo check` sul Mac non compila mai il bersaglio
+   * Android, e le prove qui sopra leggono l'ELENCO dei gestori, non per quali
+   * bersagli la funzione esiste.
+   *
+   * *Un elenco giusto che nomina una funzione che su quel bersaglio non c'e' e'
+   * esattamente la specie di difetto che questo file e' nato per prendere: non
+   * c'e' niente di malformato, c'e' qualcosa di assente.*
+   *
+   * Si guarda il `#[cfg]` della funzione **e quello del suo modulo**: bastano
+   * l'uno o l'altro a togliere il comando dalla compilazione.
+   */
+  /** Vero se una condizione `cfg` comprende un dato `target_os`. */
+  function ammette(condizione: string, os: string): boolean {
+    const desktop = os === 'macos' || os === 'windows' || os === 'linux';
+    const val = (e: string): boolean => {
+      e = e.trim();
+      if (e === 'desktop') return desktop;
+      if (e === 'mobile') return !desktop;
+      const uguale = /^target_os\s*=\s*"([^"]+)"$/.exec(e);
+      if (uguale) return uguale[1] === os;
+      const fn = /^(any|all|not)\s*\(([\s\S]*)\)$/.exec(e);
+      if (!fn) return true; // condizione che non sappiamo leggere: non si accusa
+      const parti: string[] = [];
+      let prof = 0;
+      let corrente = '';
+      for (const c of fn[2]) {
+        if (c === '(') prof++;
+        if (c === ')') prof--;
+        if (c === ',' && prof === 0) {
+          parti.push(corrente);
+          corrente = '';
+        } else corrente += c;
+      }
+      if (corrente.trim()) parti.push(corrente);
+      if (fn[1] === 'any') return parti.some(val);
+      if (fn[1] === 'all') return parti.every(val);
+      return !val(parti[0]);
+    };
+    return val(condizione);
+  }
+
+  /** Il `#[cfg(...)]` attaccato a una dichiarazione, se c'e'. */
+  function cfgDi(regex: RegExp): string | undefined {
+    const m = regex.exec(CODICE);
+    if (!m) return undefined;
+    const prima = CODICE.slice(Math.max(0, m.index - 300), m.index);
+    const attributi = [...prima.matchAll(/#\[cfg\(([\s\S]*?)\)\]/g)];
+    const ultimo = attributi[attributi.length - 1];
+    if (!ultimo) return undefined;
+    // Fra l'attributo e la dichiarazione possono esserci solo altri attributi e
+    // spazio: se c'e' altro, quel `cfg` governa qualcos'altro.
+    const dopo = prima.slice(ultimo.index + ultimo[0].length);
+    if (dopo.replace(/#\[[^\]]*\]/g, '').trim() !== '') return undefined;
+    return ultimo[1];
+  }
+
+  it.each(PIATTAFORME)('$nome: ogni comando che registra e compilato per lei', ({ nome, cfg }) => {
+    const OS: Record<string, string> = {
+      macOS: 'macos',
+      iOS: 'ios',
+      Windows: 'windows',
+      Android: 'android',
+    };
+    const os = OS[nome];
+    const fuori: string[] = [];
+    for (const comando of comandiPer(cfg)) {
+      const [modulo, locale] = comando.includes('::') ? comando.split('::') : [undefined, comando];
+      if (modulo) {
+        const suo = cfgDi(new RegExp(`\\bmod\\s+${modulo}\\s*;`));
+        if (suo && !ammette(suo, os)) fuori.push(`${comando}: il modulo ha #[cfg(${suo})]`);
+        continue;
+      }
+      const suo = cfgDi(new RegExp(`\\bfn\\s+${locale}\\s*\\(`));
+      if (suo && !ammette(suo, os)) fuori.push(`${locale}: la funzione ha #[cfg(${suo})]`);
+    }
+    expect(fuori, `registrati per ${nome} ma non compilati per lei:\n  ${fuori.join('\n  ')}`).toEqual([]);
+  });
+
+  it('l interprete delle condizioni cfg sa fare il suo mestiere', () => {
+    // ► LA GUARDIA DELLA GUARDIA. Se `ammette` dicesse sempre vero, la prova
+    //   qui sopra passerebbe su qualunque cosa.
+    expect(ammette('target_os = "ios"', 'ios')).toBe(true);
+    expect(ammette('target_os = "ios"', 'android')).toBe(false);
+    expect(ammette('any(target_os = "ios", target_os = "android")', 'android')).toBe(true);
+    expect(ammette('any(target_os = "ios", target_os = "android")', 'macos')).toBe(false);
+    expect(ammette('any(desktop, target_os = "android")', 'android')).toBe(true);
+    expect(ammette('any(desktop, target_os = "android")', 'ios')).toBe(false);
+    expect(ammette('all(desktop, not(target_os = "macos"))', 'windows')).toBe(true);
+    expect(ammette('all(desktop, not(target_os = "macos"))', 'macos')).toBe(false);
+    expect(ammette('desktop', 'ios')).toBe(false);
+    expect(ammette('desktop', 'macos')).toBe(true);
+  });
+
+  /*
+   * ════════════════════════════════════════════════════════════════════════
    * ► L'ESPORTAZIONE DI UN FILE, SUI DUE TELEFONI. ◄
    *
    * Segnalazione dal campo del 15 settembre 2026, Samsung Android: *«premendo

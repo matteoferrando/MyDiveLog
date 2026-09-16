@@ -78,11 +78,30 @@ mod segreti {
 /// si vuole. E soprattutto: questa funzione o scrive o restituisce un errore,
 /// quindi l'interfaccia può dichiarare il successo solo quando c'è stato.
 ///
-/// Compilato SOLO su iOS. Su macOS `document_dir()` è `~/Documents`, cioè una
-/// cartella dell'utente in cui un'applicazione non deve scrivere senza che
-/// nessuno gliel'abbia chiesto: là il download del browser è la strada giusta e
-/// funziona.
-#[cfg(target_os = "ios")]
+/// Compilato sui due TELEFONI, e non sui computer. Su macOS `document_dir()` è
+/// `~/Documents`, cioè una cartella dell'utente in cui un'applicazione non deve
+/// scrivere senza che nessuno gliel'abbia chiesto: là il download del browser è
+/// la strada giusta e funziona.
+///
+/// ════════════════════════════════════════════════════════════════════════════
+/// ► E QUESTO `#[cfg]` DICEVA SOLO `ios` MENTRE IL GESTORE DI ANDROID LA
+///   REGISTRAVA GIÀ. ◄
+///
+/// Il 16 settembre 2026, al primo giro utile, la compilazione per Android è
+/// morta con *«cannot find macro `__tauri_command_name_esporta_nei_documenti`
+/// in this scope»*. **Registrare un comando non lo compila**: sono due gesti, e
+/// io ne avevo fatto uno solo.
+///
+/// Nessuna prova di questo progetto poteva vederlo.
+/// `tests/gestoriPerPiattaforma.test.ts` legge l'ELENCO dei gestori, non per
+/// quali bersagli la funzione esiste; e `cargo check` sul Mac non compila mai
+/// il bersaglio Android. L'ha trovato la CI, che è il posto giusto perché è
+/// l'unico che compila davvero per quel bersaglio — ed è il motivo per cui il
+/// workflow delle altre piattaforme esiste.
+///
+/// *Adesso la prova c'è: un comando registrato per una piattaforma deve avere
+/// un `#[cfg]` che quella piattaforma la comprende.*
+#[cfg(any(target_os = "ios", target_os = "android"))]
 #[tauri::command]
 fn esporta_nei_documenti(app: tauri::AppHandle, nome: String, contenuto: String) -> Result<String, String> {
     use tauri::Manager;
