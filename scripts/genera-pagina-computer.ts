@@ -32,6 +32,7 @@
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
+import { format, resolveConfig } from 'prettier';
 import { fileURLToPath } from 'node:url';
 
 import { MODELLI_SENZA_BLE, marchePerDiffusione } from '../src/core/ble/catalogo';
@@ -328,8 +329,45 @@ function pagina(lingua: Lingua): string {
   // Lo scambio di lingua nel menu e nel piede punta alla gemella VERA.
   const file = lingua === 'it' ? 'en/supported-computers.html' : 'computer-supportati.html';
   h = h.replace(/href="\/(en\/)?(help|aiuto)\.html"(\s*)>(English|Italiano)</g, `href="/${file}"$3>$4<`);
-  // Il «sei qui» del menu: nessuna voce corrisponde, quindi non lo porta nessuno.
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► IL «SEI QUI» DEL MENU, E UN COMMENTO CHE AVEVA SMESSO DI ESSERE VERO. ◄
+   *
+   * Qui c'era scritto: «nessuna voce corrisponde, quindi non lo porta
+   * nessuno», e la riga sotto toglieva `aria-current="page"` dalla pagina
+   * modello senza rimetterlo da nessuna parte.
+   *
+   * Era vero quando il menu non aveva una voce «Computer». Poi la voce è
+   * stata aggiunta — è proprio questa pagina — e la riga ha continuato a fare
+   * quello che faceva: **ogni `npm run sito:computer` cancellava il segno
+   * della pagina corrente su tutte e due le lingue.** Chi usa uno screen
+   * reader perdeva l'unica cosa che dice in che punto del sito si trova.
+   *
+   * Il file in archivio era giusto perché il segno c'era stato rimesso a
+   * mano; il generatore lo rifaceva sparire al giro dopo. *Trovato il 16
+   * settembre 2026 rigenerando il sito per la 1.8.24, e trovato da
+   * `tests/sitoNavigazione.test.ts`, che è diventata rossa: la guardia c'era
+   * ed era quella giusta.*
+   *
+   * Adesso il segno non si toglie: si **sposta** sulla voce che corrisponde
+   * davvero. Toglierlo da dov'era resta necessario — la pagina modello ne ha
+   * uno suo, e due «sei qui» sono peggio di nessuno.
+   */
   h = h.replace(/\s*aria-current="page"/, '');
+  const voce = lingua === 'it' ? 'computer-supportati.html' : 'supported-computers.html';
+  const prima = h;
+  h = h.replace(new RegExp(`(<a href="${voce}")(>)`), '$1 aria-current="page"$2');
+  if (h === prima) {
+    /*
+     * Se la voce non si trova, la pagina uscirebbe senza nessun «sei qui» e
+     * nessuno se ne accorgerebbe fino alla prossima rilettura. *Un generatore
+     * che produce in silenzio qualcosa di diverso da quello che dichiara è
+     * peggio di un generatore che si ferma.*
+     */
+    throw new Error(
+      `la voce «${voce}» non è nel menu della pagina modello: il segno «sei qui» non ha dove andare`,
+    );
+  }
   // Il corpo.
   h = h.replace(
     /<main class="documento">[\s\S]*?<\/main>/,
@@ -340,8 +378,25 @@ function pagina(lingua: Lingua): string {
   return h;
 }
 
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► SI SCRIVE GIÀ FORMATTATO, e prima no. ◄
+ *
+ * `sito/*.html` non è nel `.prettierignore`, quindi il formattatore lo governa;
+ * il testo che questo generatore compone invece va a capo dove capita. Il
+ * risultato era che **ogni `npm run sito:computer` lasciava l'albero con
+ * `npm run format:check` rosso**, e il diff di una riga di catalogo vero usciva
+ * mescolato a cinquanta righe di riavvolgimento.
+ *
+ * Due comandi da lanciare nell'ordine giusto sono un comando che qualcuno
+ * dimenticherà. Formattando qui, `sito:computer` è idempotente: lanciarlo due
+ * volte di fila non produce nessun cambiamento, ed è la proprietà che rende
+ * leggibile il diff del giro dopo.
+ */
 for (const lingua of ['it', 'en'] as const) {
   const dove = `${RADICE}sito/${lingua === 'it' ? 'computer-supportati.html' : 'en/supported-computers.html'}`;
-  writeFileSync(dove, pagina(lingua));
+  const config = await resolveConfig(dove);
+  const formattata = await format(pagina(lingua), { ...config, filepath: dove });
+  writeFileSync(dove, formattata);
   console.log(`scritta ${dove}`);
 }

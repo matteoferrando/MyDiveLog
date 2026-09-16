@@ -906,29 +906,6 @@
       </footer>
     </div>
     <script>
-      (function () {
-        const campo = document.getElementById('cerca');
-        if (!campo) return;
-        const marche = [...document.querySelectorAll('.marca')];
-        const niente = document.querySelector('.niente-trovato');
-        campo.addEventListener('input', function () {
-          const q = campo.value.trim().toLowerCase();
-          let visti = 0;
-          for (const sezione of marche) {
-            let quante = 0;
-            for (const voce of sezione.querySelectorAll('.computer')) {
-              const ok = !q || voce.dataset.cerca.includes(q);
-              voce.hidden = !ok;
-              if (ok) quante++;
-            }
-            sezione.hidden = quante === 0;
-            visti += quante;
-          }
-          niente.hidden = visti > 0;
-        });
-      })();
-    </script>
-    <script>
       /*
         ► IL MENU A SCOMPARSA, E PERCHÉ IL PULSANTE LO ACCENDE LO SCRIPT. ◄
 
@@ -985,6 +962,29 @@
         const largo = window.matchMedia('(min-width: 861px)');
         largo.addEventListener('change', (e) => {
           if (e.matches) mostra(false);
+        });
+      })();
+    </script>
+    <script>
+      (function () {
+        const campo = document.getElementById('cerca');
+        if (!campo) return;
+        const marche = [...document.querySelectorAll('.marca')];
+        const niente = document.querySelector('.niente-trovato');
+        campo.addEventListener('input', function () {
+          const q = campo.value.trim().toLowerCase();
+          let visti = 0;
+          for (const sezione of marche) {
+            let quante = 0;
+            for (const voce of sezione.querySelectorAll('.computer')) {
+              const ok = !q || voce.dataset.cerca.includes(q);
+              voce.hidden = !ok;
+              if (ok) quante++;
+            }
+            sezione.hidden = quante === 0;
+            visti += quante;
+          }
+          niente.hidden = visti > 0;
         });
       })();
     </script>
