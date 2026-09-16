@@ -266,7 +266,7 @@ function ElencoModelli({
                       ? /*
                          * ► «MAI PROVATO» SI TOGLIE UN MODELLO PER VOLTA. ◄
                          *
-                         * Dal 17 settembre 2026 qualche modello di questa strada
+                         * Dal 16 settembre 2026 qualche modello di questa strada
                          * è stato acceso davvero — il primo è un Mares Quad Ci —
                          * e continuare a scrivergli sotto «mai provato» sarebbe
                          * una cosa falsa, nella direzione che fa perdere fiducia

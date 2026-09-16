@@ -167,7 +167,7 @@ modelli, 110 dei quali parlano Bluetooth LE — con il sorgente vendorizzato in
 agosto 2026 è accesa di sua iniziativa**, pacchetti pubblicati compresi.
 
 Quello che l'accensione non cambia, e che va detto per primo: **un modello
-provato non è una famiglia provata.** Il 17 settembre 2026 il primo apparecchio
+provato non è una famiglia provata.** Il 16 settembre 2026 il primo apparecchio
 di terzi ha scaricato davvero — un Mares Quad Ci, e la notizia è arrivata da chi
 lo possiede — e lo stesso messaggio diceva che un Aqualung i330R si fermava a
 metà, per un difetto nostro nel trasporto. Uno su due, nello stesso giorno.

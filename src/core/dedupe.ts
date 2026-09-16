@@ -886,7 +886,7 @@ export function mergeDive(
      * mano** (l'elenco sta in `core/ble/provati.ts`). I due driver scritti in
      * casa hanno letto centinaia di immersioni con l'apparecchio in mano.
      *
-     * E non è una prudenza teorica: il 17 settembre 2026, nello stesso
+     * E non è una prudenza teorica: il 16 settembre 2026, nello stesso
      * messaggio, un Mares Quad Ci ha scaricato per intero e un Aqualung i330R si
      * è fermato a metà consegnando quaranta immersioni su un protocollo che il
      * trasporto stava leggendo male. *Un modello provato non è una famiglia

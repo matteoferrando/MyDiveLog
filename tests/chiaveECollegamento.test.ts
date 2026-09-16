@@ -2,7 +2,7 @@
  * LA CHIAVE BUTTATA PER UN GUASTO CHE NON LA RIGUARDA.
  *
  * ════════════════════════════════════════════════════════════════════════════
- * Dal diario di un Aqualung i330R, 17 settembre 2026, secondo tentativo:
+ * Dal diario di un Aqualung i330R, 16 settembre 2026, secondo tentativo:
  *
  *     collegamento non riuscito dopo 3 tentativi:
  *     collegamento non riuscito: Timeout during execution of Connect

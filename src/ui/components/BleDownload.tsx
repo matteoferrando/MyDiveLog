@@ -1335,7 +1335,7 @@ export function BleDownload() {
         /*
          * ► MA NON QUANDO IL COLLEGAMENTO NON SI È NEMMENO APERTO. ◄
          *
-         * Aggiunto il 17 settembre 2026, leggendo il diario di un i330R. Il
+         * Aggiunto il 16 settembre 2026, leggendo il diario di un i330R. Il
          * secondo tentativo era morto così:
          *
          *     collegamento non riuscito dopo 3 tentativi:

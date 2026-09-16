@@ -1,6 +1,6 @@
 ## MyDiveLog 1.8.27 — il primo computer vero, e il secondo che si è fermato
 
-Il 17 settembre 2026, nello stesso messaggio, due notizie.
+Il 16 settembre 2026, nello stesso messaggio, due notizie.
 
 ### Un Mares Quad Ci ha scaricato davvero
 

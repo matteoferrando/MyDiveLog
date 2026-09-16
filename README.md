@@ -643,7 +643,7 @@ cargo build --no-default-features    # dentro src-tauri/, senza libdivecomputer
 
 ### Il primo computer di terzi ha scaricato davvero, e il secondo no
 
-**17 settembre 2026, Mares Quad Ci.** È il primo computer subacqueo di un'altra
+**16 settembre 2026, Mares Quad Ci.** È il primo computer subacqueo di un'altra
 marca che ha consegnato immersioni attraverso libdivecomputer in questa
 applicazione, e la notizia è arrivata da chi lo possiede. Fino a quel giorno qui
 c'era scritto che nessun apparecchio di terzi fosse mai stato collegato a questo

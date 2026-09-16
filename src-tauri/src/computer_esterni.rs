@@ -32,7 +32,7 @@
 //! la stessa `src/` produce due binari diversi e leggere il codice non basta a
 //! dire quale dei due si ha in mano.
 //!
-//! COSA MANCA DAVVERO, al 17 settembre 2026: **la prova con un computer vero,
+//! COSA MANCA DAVVERO, al 16 settembre 2026: **la prova con un computer vero,
 //! un modello per volta.** Il primo c'è stato — un Mares Quad Ci, scaricato da
 //! chi lo possiede — e lo stesso giorno un Aqualung i330R si è fermato a metà
 //! per un difetto del nostro trasporto. *Un modello provato non è una famiglia

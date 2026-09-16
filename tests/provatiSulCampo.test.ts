@@ -2,7 +2,7 @@
  * «MAI PROVATO SU QUESTO MODELLO» HA SMESSO DI ESSERE VERO PER UNO.
  *
  * ════════════════════════════════════════════════════════════════════════════
- * Il 17 settembre 2026, da una persona che usa l'applicazione: *«Su Mares Quad
+ * Il 16 settembre 2026, da una persona che usa l'applicazione: *«Su Mares Quad
  * Ci funziona adesso.»* È il primo computer subacqueo di terzi che ha davvero
  * consegnato immersioni attraverso libdivecomputer in questo progetto.
  *
@@ -46,6 +46,35 @@ describe('l’elenco di quelli provati davvero', () => {
     for (const p of PROVATI_VIA_LDC) {
       expect(p.quando, `${p.modello}: manca la data`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(p.come.length, `${p.modello}: manca da dove arriva`).toBeGreaterThan(10);
+    }
+  });
+
+  it('e nessuna data è ancora di là da venire', () => {
+    /*
+     * ► QUESTA PROVA NASCE DA UN ERRORE VERO, IL 16 SETTEMBRE 2026. ◄ La riga
+     * del Quad Ci è stata scritta con `quando: '2026-09-17'` — il giorno dopo.
+     * Nessuno l'aveva misurato: l'avevo dedotto, e insieme a quella riga sono
+     * finiti «17 settembre 2026» in ventuno punti fra README, note di rilascio,
+     * architettura e commenti. Il computer del Mac e le date dei commit
+     * dicevano 16: le tre fonti non erano state confrontate.
+     *
+     * Una data futura è il tipo di sbaglio che non si vede mai da solo, perché
+     * diventa vera da sé il giorno dopo — e da quel momento non c'è più niente
+     * da trovare. *Un fatto che si corregge da solo col tempo non è meno falso
+     * mentre lo scriviamo.*
+     *
+     * Il confronto è con `Date.now()` e non con la data scritta a schermo,
+     * perché l'ora assoluta non dipende dal fuso: la catena gira anche a UTC+14
+     * e a UTC−11, e questa prova deve dire la stessa cosa in tutti e tre.
+     */
+    const adesso = Date.now();
+    for (const p of PROVATI_VIA_LDC) {
+      const quando = Date.parse(p.quando);
+      expect(
+        quando <= adesso,
+        `«${p.marca} ${p.modello}» dice di essere stato provato il ${p.quando}, ` +
+          `che non è ancora arrivato: adesso è ${new Date(adesso).toISOString()}`,
+      ).toBe(true);
     }
   });
 

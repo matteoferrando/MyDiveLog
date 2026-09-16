@@ -31,7 +31,7 @@
 //! `ImmersioneLdc`. Da lì in poi la palla passa a
 //! `src/core/ble/esterni.ts`.
 //!
-//! IL PRIMO COMPUTER VERO È ARRIVATO IL 17 SETTEMBRE 2026, ed era un Mares
+//! IL PRIMO COMPUTER VERO È ARRIVATO IL 16 SETTEMBRE 2026, ed era un Mares
 //! Quad Ci. Per tre settimane qui c'è stato scritto che «nessun apparecchio di
 //! terzi è mai stato collegato a questo codice», e finché è stato vero andava
 //! scritto; adesso non lo è più.
@@ -348,7 +348,7 @@ pub enum Riassemblaggio {
     /// **La lunghezza la dichiara il pacchetto**, e allora non si indovina.
     ///
     /// ════════════════════════════════════════════════════════════════════════
-    /// ► LA SEGNALAZIONE DEL 17 SETTEMBRE 2026, DA UN AQUALUNG i330R. ◄
+    /// ► LA SEGNALAZIONE DEL 16 SETTEMBRE 2026, DA UN AQUALUNG i330R. ◄
     ///
     /// Quaranta immersioni arrivate, poi:
     ///
@@ -4616,7 +4616,7 @@ mod prove {
 
     /*
      * ════════════════════════════════════════════════════════════════════════
-     * ► LA SEGNALAZIONE DEL 17 SETTEMBRE 2026, DA UN AQUALUNG i330R. ◄
+     * ► LA SEGNALAZIONE DEL 16 SETTEMBRE 2026, DA UN AQUALUNG i330R. ◄
      *
      * Quaranta immersioni arrivate, poi «Invalid packet length (96)» da
      * `pelagic_i330r.c:214`, che è `if (length + 5 > transferred)`. Il pacchetto

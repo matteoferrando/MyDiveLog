@@ -167,6 +167,6 @@ describe('«nessun apparecchio di terzi è mai stato collegato» — deve portar
       'Nessun computer subacqueo di terzi è mai stato collegato a questo codice, e il primo apparecchio vero non è ancora esistito.';
     expect(FRASI.some((f) => f.test(finto))).toBe(true);
     expect(DATATA.test(finto), 'e non è datata').toBe(false);
-    expect(DATATA.test(`Fino al 17 settembre 2026 ${finto}`), 'questa invece sì').toBe(true);
+    expect(DATATA.test(`Fino al 16 settembre 2026 ${finto}`), 'questa invece sì').toBe(true);
   });
 });

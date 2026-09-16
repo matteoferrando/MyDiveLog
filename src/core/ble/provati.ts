@@ -2,7 +2,7 @@
  * I computer di terzi che **qualcuno ha acceso davvero**.
  *
  * ════════════════════════════════════════════════════════════════════════════
- * ► PERCHÉ QUESTO FILE È NATO IL 17 SETTEMBRE 2026. ◄
+ * ► PERCHÉ QUESTO FILE È NATO IL 16 SETTEMBRE 2026. ◄
  *
  * Per tre settimane, sotto ogni modello che passa da libdivecomputer, il
  * selettore ha scritto *«via libdivecomputer, mai provato su questo modello»*.
@@ -42,7 +42,7 @@ export const PROVATI_VIA_LDC: readonly ProvaSulCampo[] = [
   {
     marca: 'Mares',
     modello: 'Quad Ci',
-    quando: '2026-09-17',
+    quando: '2026-09-16',
     come: 'segnalazione di chi usa l’applicazione: scarico riuscito',
   },
 ];

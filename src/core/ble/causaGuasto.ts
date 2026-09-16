@@ -143,7 +143,7 @@ export const COLLEGAMENTO_NON_APERTO = 'collegamento non riuscito dopo';
  * prima — quindi non può essere la causa, e buttarla costa sei cifre da
  * ridigitare in cambio di niente.
  *
- * Trovato il 17 settembre 2026 nel diario di un Aqualung i330R: tre
+ * Trovato il 16 settembre 2026 nel diario di un Aqualung i330R: tre
  * `Timeout during execution of Connect` di fila, e subito sotto «chiave
  * dimenticata».
  */

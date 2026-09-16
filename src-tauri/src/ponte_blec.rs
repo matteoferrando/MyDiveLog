@@ -3482,7 +3482,7 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
     ///
     /// Il perché della politica sta tutto in
     /// `Riassemblaggio::LunghezzaDichiarata`, insieme alla segnalazione del
-    /// 17 settembre 2026 che l'ha resa necessaria.
+    /// 16 settembre 2026 che l'ha resa necessaria.
     const PELAGIC_LUNGHEZZA_DICHIARATA: [&str; 3] = ["DSX", "i330R", "i330R Console"];
 
     /// Come vanno rimesse insieme le notifiche per questo computer.
@@ -6014,7 +6014,7 @@ mod prove {
     #[test]
     fn la_famiglia_pelagic_legge_la_lunghezza_dal_pacchetto() {
         /*
-         * ► LA SEGNALAZIONE DEL 17 SETTEMBRE 2026. ◄ Un i330R: quaranta
+         * ► LA SEGNALAZIONE DEL 16 SETTEMBRE 2026. ◄ Un i330R: quaranta
          * immersioni arrivate, poi «Invalid packet length (96)». Il pacchetto
          * dichiarava 101 byte e la radio l'aveva spezzato in due; con una
          * notifica per lettura, libdivecomputer ne ha visti 96.

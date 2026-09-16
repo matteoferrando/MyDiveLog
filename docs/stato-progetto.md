@@ -1,8 +1,29 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **17 settembre 2026** — **2 839 prove in 173 file** più **149 prove
+Aggiornato: **16 settembre 2026** — **2 845 prove in 174 file** più **149 prove
 Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche a **UTC+14 e
 UTC−11**.
+
+> ## ► VENTUNO VOLTE «17 SETTEMBRE», E OGGI È IL 16. ◄
+>
+> La riga del Quad Ci in `provati.ts` è nata con `quando: '2026-09-17'`, e da lì
+> la data sbagliata è passata in **ventuno punti**: README, nota di rilascio
+> `v1.8.27`, `architettura.md`, `Cargo.toml`, i commenti del trasporto, del
+> ponte, di `dedupe.ts` e quattro file di prove. Non era stata misurata: era
+> stata dedotta. L'orologio del Mac diceva **16 settembre 2026** e le date dei
+> commit pure — le tre fonti non erano mai state confrontate fra loro.
+>
+> È lo sbaglio che si cancella da solo: il giorno dopo diventa vero, e da quel
+> momento non c'è più niente da trovare. Per questo adesso c'è una guardia —
+> *«e nessuna data è ancora di là da venire»*, in `tests/provatiSulCampo.test.ts`
+> — che confronta ogni `quando` con `Date.now()` (l'istante assoluto, non la
+> data scritta a schermo, così dice la stessa cosa anche a UTC+14 e UTC−11).
+> Rimesso il difetto con `2026-09-20`, va rossa e dice quale riga e di quanto.
+> *Una data che non è ancora arrivata non è una notizia arrivata.*
+>
+> **Non tocca i pacchetti**: i binari della 1.8.27 sono quelli del tag, e i
+> testi per i negozi non portano date. Resta da correggere, se vuoi, il **17**
+> scritto nella nota di rilascio già pubblicata su GitHub.
 
 > ## ► LA 1.8.27 È PUBBLICATA — E IL PRIMO COMPUTER DI TERZI HA SCARICATO DAVVERO. ◄
 >

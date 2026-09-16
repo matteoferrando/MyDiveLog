@@ -2,7 +2,7 @@
  * L'ELENCO DEI PELAGIC IN RUST DEVE ESSERE QUELLO DEL CATALOGO.
  *
  * ════════════════════════════════════════════════════════════════════════════
- * Il 17 settembre 2026, da un Aqualung i330R: quaranta immersioni arrivate, poi
+ * Il 16 settembre 2026, da un Aqualung i330R: quaranta immersioni arrivate, poi
  *
  *     libdivecomputer, errore: Invalid packet length (96). [pelagic_i330r.c:214]
  *
