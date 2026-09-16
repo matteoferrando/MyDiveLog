@@ -62,3 +62,27 @@ rimasta verde — e quella ha fatto correggere la prova, non il codice.
 
 In tutto **2 829 controlli automatici in 170 file**, più **140** sul motore
 nativo.
+
+### Impronte SHA-256
+
+| Pacchetto | SHA-256 | byte |
+|---|---|---|
+| `MyDiveLog-macOS-arm64.dmg` | `42590d6d2d6b86cf0f753dbf6e8935c7f561491d9fbb0e3614cce981aa95c140` | 4.530.771 |
+| `MyDiveLog-Windows-setup.exe` | `6a8669cd89778ff60c9d24fa546f977769178430ff3e8babd0e911249f03932c` | 3.262.484 |
+| `MyDiveLog-Windows-portatile.exe` | `a28036d9c502bd6e2b9fe89ae9634a2e0ae61bf6b2b56e8c270315aae1914ac1` | 7.522.816 |
+| `MyDiveLog-Android-arm64.apk` | `53af341d11741d3dbfcd02a1bae5d32a5b9e702d62340123dbe1f94457e953da` | 11.131.966 |
+| `MyDiveLog-Linux-amd64.deb` | `a7f49a58f22b08cd1b4bfde5c31f4895cb387327c8c05120c238b49ec4eb798b` | 3.826.114 |
+
+*Calcolate sui file allegati a questa release, non su una compilazione
+precedente. Il `.deb` e l'`.apk` vengono dal workflow, e i loro due controlli
+hanno risposto giusto.*
+
+> **Su Windows e Android il giro completo non l'ha provato nessuno.** Il codice
+> del motore è lo stesso del Mac e dell'iPhone, con tutte le prove dietro, ma
+> finestra, Bluetooth, archivio e stampa su quelle due piattaforme non sono mai
+> stati percorsi a mano. Su Linux sì, meno il Bluetooth, che vuole un
+> adattatore.
+>
+> Vale anche per il selettore di destinazione arrivato con la 1.8.25: la
+> compilazione per Android è verde e dentro l'APK ci sono le classi che servono,
+> ma **il selettore che si apre su un telefono non l'ha visto nessuno**.
