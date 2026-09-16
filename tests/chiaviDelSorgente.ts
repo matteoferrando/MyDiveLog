@@ -39,6 +39,63 @@
 const APERTURA = /(?:\bfrase\s*\(\s*(?:t|traduci)\s*,\s*|\b(?:t|traduci)\s*\(\s*)(['"`])/g;
 
 /**
+ * Il sorgente senza i commenti, e la quarta volta che questa lezione si ripete.
+ *
+ * ► COS'È SUCCESSO. ◄ Il 16 settembre 2026 `dizionario.test.ts` è diventata
+ * rossa segnalando che la frase **«letterale»** non aveva una voce. Nessuno
+ * l'aveva mai passata a `t()`: stava dentro un commento che SPIEGAVA questa
+ * estrazione, e diceva testualmente che la guardia vede solo i `t('letterale')`.
+ * *La prova ha letto la propria descrizione e l'ha scambiata per codice.*
+ *
+ * In questo progetto è la quarta volta, sempre nella stessa forma: una guardia
+ * che legge il sorgente come testo finisce per trovare il commento che la
+ * descrive. È già costato una prova rossa su una carta corretta
+ * (`capitoliDelTelefono`), una regola di ordinamento cercata dentro il commento
+ * che la spiegava, e una verifica sulle traduzioni che cercava la forma storica
+ * del difetto invece del difetto.
+ *
+ * ► E NON È SOLO RUMORE. ◄ Il verso opposto è peggio e non si vede: un commento
+ * che contenga `t('Salva')` fa passare per coperta una frase che nessuno ha
+ * tradotto. Tolti i commenti, l'estrazione guarda il codice e basta.
+ *
+ * Le stringhe non si toccano: `//` dentro un indirizzo web è un caso normale in
+ * questo progetto, e tagliare lì dentro produrrebbe chiavi mozzate — cioè
+ * esattamente il difetto che `chiaviDi` esiste per non avere.
+ */
+function senzaCommenti(sorgente: string): string {
+  let fuori = '';
+  let apice = '';
+  for (let i = 0; i < sorgente.length; i++) {
+    const c = sorgente[i];
+    if (apice) {
+      fuori += c;
+      if (c === '\\') {
+        fuori += sorgente[i + 1] ?? '';
+        i += 1;
+      } else if (c === apice) apice = '';
+      continue;
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      apice = c;
+      fuori += c;
+      continue;
+    }
+    if (c === '/' && sorgente[i + 1] === '*') {
+      const fine = sorgente.indexOf('*/', i + 2);
+      i = fine < 0 ? sorgente.length : fine + 1;
+      continue;
+    }
+    if (c === '/' && sorgente[i + 1] === '/') {
+      const fine = sorgente.indexOf('\n', i);
+      i = fine < 0 ? sorgente.length : fine - 1;
+      continue;
+    }
+    fuori += c;
+  }
+  return fuori;
+}
+
+/**
  * Legge il letterale a mano invece di fidarsi di un'espressione regolare fino
  * alle virgolette di chiusura: le frasi di questo progetto contengono apostrofi
  * sfuggiti (`\'`) e virgolette dentro virgolette, e una regolare avida o pigra
@@ -46,15 +103,27 @@ const APERTURA = /(?:\bfrase\s*\(\s*(?:t|traduci)\s*,\s*|\b(?:t|traduci)\s*\(\s*
  * non ci sono per un motivo che non ha niente a che fare col dizionario.
  */
 export function chiaviDi(sorgente: string): string[] {
+  /*
+   * ► IL CODICE SENZA COMMENTI SI CALCOLA UNA VOLTA SOLA, e la prima stesura
+   *   lo calcolava per cercare e poi leggeva dall'originale. ◄
+   *
+   * Gli indici delle due stringhe non coincidono — togliendo i commenti tutto
+   * quello che viene dopo si sposta all'indietro — quindi la ricerca trovava
+   * l'apertura nel posto giusto e il testo veniva letto da qualche centinaio
+   * di caratteri più in là. Il risultato erano chiavi come « attorno all» e
+   * mezzo commento sull'aggiornatore: *non un difetto trovato, un difetto
+   * inventato dall'estrazione stessa.*
+   */
+  const codice = senzaCommenti(sorgente);
   const fuori: string[] = [];
-  for (const m of sorgente.matchAll(APERTURA)) {
+  for (const m of codice.matchAll(APERTURA)) {
     const apice = m[1];
     let i = (m.index ?? 0) + m[0].length;
     let testo = '';
-    while (i < sorgente.length) {
-      const c = sorgente[i];
+    while (i < codice.length) {
+      const c = codice[i];
       if (c === '\\') {
-        const dopo = sorgente[i + 1];
+        const dopo = codice[i + 1];
         testo += dopo === 'n' ? '\n' : dopo === 't' ? '\t' : dopo;
         i += 2;
         continue;
