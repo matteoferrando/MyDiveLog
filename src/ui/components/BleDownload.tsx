@@ -28,7 +28,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fusoDelDispositivo } from '../../core/oraAParete';
 import { downloadFromComputer, type DownloadOutcome } from '../../core/ble/download';
-import { segnalibroDaSalvare, perchéNonSiSalva } from '../../core/ble/segnalibroDaSalvare';
+import {
+  segnalibroDaSalvare,
+  perchéNonSiSalva,
+  offertaDiRipartire,
+  perchéNonSiOffre,
+} from '../../core/ble/segnalibroDaSalvare';
 import { frase } from '../../core/frase';
 import { DRIVERS, recognise, type RecognisedDevice } from '../../core/ble/registry';
 import type { VoceCatalogo } from '../../core/ble/catalogo';
@@ -175,7 +180,14 @@ type Stato =
  * computer, che non cambia mentre si scarica — quindi si tiene la prima vista;
  * `quante` invece cresce, e racconta quanto lontano si è arrivati.
  */
-type PuntoRaggiunto = { impronta: string; quante: number };
+/**
+ * Il punto più avanti raggiunto in una serie di tentativi.
+ *
+ * `salvate` non è un dettaglio contabile: è la differenza fra un'offerta che
+ * fa risparmiare tempo e una che cancella delle immersioni. Vedi
+ * `ripartiDaQui`.
+ */
+type PuntoRaggiunto = { impronta: string; quante: number; salvate: boolean; tutteTradotte: boolean };
 
 /** Byte → base64, senza dipendenze e senza far esplodere lo stack sui blocchi grandi. */
 function byteInBase64(b: Uint8Array): string {
@@ -1560,6 +1572,23 @@ export function BleDownload() {
         ? {
             impronta: insiste?.raccolto?.impronta ?? piuRecente,
             quante: Math.max(dives.length, insiste?.raccolto?.quante ?? 0),
+            /*
+             * ► «ARRIVATE» E «SALVATE» SONO DUE COSE DIVERSE ANCHE QUI. ◄
+             *
+             * È la stessa distinzione che il segnalibro automatico fa ottanta
+             * righe più su, e che l'offerta manuale non faceva. Basta che UN
+             * tentativo abbia scritto in archivio: `piuRecente` è la prima
+             * impronta dello stream, cioè l'immersione più recente, quindi un
+             * tentativo che ha salvato ha salvato anche lei.
+             */
+            salvate: (insiste?.raccolto?.salvate ?? false) || salvateInArchivio,
+            /*
+             * `tutteTradotte` invece NON si accumula: appartiene al tentativo
+             * che ha stabilito `impronta`, perché è una frase su quella
+             * impronta — «il record più recente è diventato un'immersione». Un
+             * tentativo successivo parla di un altro giro di lettura.
+             */
+            tutteTradotte: insiste?.raccolto ? insiste.raccolto.tutteTradotte : tutteTradotte,
           }
         : insiste?.raccolto;
 
@@ -1673,9 +1702,42 @@ export function BleDownload() {
        * che si può accettare per sbaglio quando non serve è peggio di nessuna
        * offerta: qui accettarla vuol dire smettere di cercare delle
        * immersioni.
+       *
+       * ════════════════════════════════════════════════════════════════════
+       * ► E LA TERZA CONDIZIONE, CHE MANCAVA: **SALVATE**. ◄
+       *
+       * IL DIFETTO MISURATO IL 16 SETTEMBRE 2026. La condizione era
+       * `grezzo && raccolto`, cioè «c'è stato un guasto e qualcosa era
+       * arrivato». *Arrivato* — non entrato in archivio. Il segnalibro
+       * automatico, ottanta righe più su, questa distinzione la fa da sé e c'è
+       * scritto perché: disco pieno, `importDives` fallisce, l'utente legge
+       * «sono arrivate ma non si sono potute salvare».
+       *
+       * Sulla stessa schermata, sotto quel messaggio, compariva il riquadro
+       * che propone di ripartire da lì. Accettandolo il segnalibro si sposta
+       * sull'immersione più recente — che in archivio **non c'è** — e il
+       * prossimo scarico dice «niente di nuovo». Quelle immersioni non
+       * tornano più, e nessuno ha visto un errore.
+       *
+       * *È esattamente il difetto già chiuso il 15 settembre sul segnalibro
+       * automatico, sopravvissuto nell'offerta manuale che sta accanto.* Una
+       * lezione imparata dentro un percorso protegge quel percorso: finché non
+       * la si scrive anche nell'altro, il secondo resta com'era. Questa volta
+       * l'«altro» era a ottanta righe di distanza, nella stessa funzione.
        */
+      const offribile = raccolto
+        ? {
+            impronta: raccolto.impronta,
+            completo: false,
+            salvate: raccolto.salvate,
+            tutteTradotte: raccolto.tutteTradotte,
+          }
+        : undefined;
+      if (grezzo && offribile && !offertaDiRipartire(offribile)) {
+        diarioIntero.push(perchéNonSiOffre(offribile));
+      }
       const ripartiDaQui =
-        grezzo && raccolto
+        grezzo && raccolto && offribile && offertaDiRipartire(offribile)
           ? {
               chiave: chiaveSegnalibro,
               impronta: raccolto.impronta,

@@ -463,6 +463,28 @@ export function SyncPage() {
             </ul>
           </div>
         )}
+        {/*
+         * ► E I PROFILI CHE NON SONO SCESI, per la stessa ragione esatta. ◄
+         *
+         * Un profilo che non arriva assomiglia in tutto e per tutto a
+         * un'immersione che il profilo non ce l'ha — e senza profilo non ci
+         * sono velocità di risalita, né assetto, né tetto, né saturazione. Il
+         * documento remoto è rotto, quindi il giro dopo rifallisce uguale: se
+         * non lo dice qui, non lo dice mai nessuno.
+         */}
+        {report && report.profileErrors.length > 0 && (
+          <div className="notice notice-error" role="alert" style={{ marginTop: 12 }}>
+            <b>{t('Questi profili non sono scesi.')}</b>{' '}
+            {t(
+              'Le immersioni sì, ma senza il grafico: il documento remoto è illeggibile, e riprovare non lo ripara. Riscaricale dal computer subacqueo, oppure reimporta il file di origine su questo dispositivo.',
+            )}
+            <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+              {report.profileErrors.map((e) => (
+                <li key={e}>{e}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/*

@@ -88,3 +88,49 @@ export function perchéNonSiSalva(e: EsitoPerSegnalibro): string {
   if (!e.impronta) return 'segnalibro non salvato: il computer non ha dato un’impronta su cui fermarsi';
   return '';
 }
+
+/**
+ * QUANDO SI PUÒ OFFRIRE DI RIPARTIRE DA QUI — l'altra faccia della stessa regola.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► COS'È L'OFFERTA. ◄ Quando uno scarico si rompe a metà dopo aver portato a
+ * casa qualcosa, la schermata propone: «vuoi che il prossimo scarico riparta da
+ * qui invece di ricominciare dalla più recente?». Accettare **sposta il
+ * segnalibro**, con tutte le conseguenze descritte in cima a questo file.
+ *
+ * ► PERCHÉ NON BASTA `segnalibroDaSalvare`. ◄ Perché `completo` qui è falso per
+ * costruzione: l'offerta esiste proprio perché lo scarico NON è arrivato in
+ * fondo. È l'unica condizione che cade, e cade perché è chi guarda a prendersi
+ * la responsabilità di quel salto — consapevolmente, leggendo quante immersioni
+ * sono entrate.
+ *
+ * Tutte le altre restano, e una in particolare mancava.
+ *
+ * ► IL DIFETTO MISURATO IL 16 SETTEMBRE 2026. ◄ La condizione nella schermata
+ * era «c'è stato un guasto e qualcosa era arrivato». *Arrivato* — non entrato
+ * in archivio. Con il disco pieno, `importDives` fallisce e la stessa schermata
+ * scrive «sono arrivate ma non si sono potute salvare»; **sotto quel messaggio
+ * compariva il riquadro che propone di ripartire da lì.** Accettandolo, il
+ * segnalibro si sposta su un'immersione che in archivio non c'è, e il prossimo
+ * scarico dice «niente di nuovo».
+ *
+ * *È lo stesso difetto che questo file è nato per chiudere il 15 settembre,
+ * sopravvissuto nell'offerta manuale che stava a ottanta righe di distanza —
+ * dentro la stessa funzione.* Il `if` era uno solo, quindi nessuno l'ha
+ * cercato: la regola era una, ma il posto dove si applicava era due.
+ */
+export function offertaDiRipartire(e: EsitoPerSegnalibro): boolean {
+  return Boolean(e.impronta) && e.salvate && e.tutteTradotte;
+}
+
+/**
+ * Perché l'offerta non si fa. Stesse parole della funzione sorella, meno la
+ * riga sulla lista incompleta — che qui è la premessa, non un ostacolo.
+ */
+export function perchéNonSiOffre(e: EsitoPerSegnalibro): string {
+  if (!e.salvate) return "ripartenza non offerta: l'archivio non ha confermato la scrittura";
+  if (!e.tutteTradotte)
+    return 'ripartenza non offerta: almeno un record del computer non è diventato un’immersione';
+  if (!e.impronta) return 'ripartenza non offerta: il computer non ha dato un’impronta su cui fermarsi';
+  return '';
+}

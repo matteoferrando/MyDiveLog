@@ -259,6 +259,23 @@ export interface SyncReport {
    * assomiglia in tutto e per tutto a un'impostazione che non è mai cambiata.
    */
   settingsErrors: string[];
+  /**
+   * I profili che NON sono scesi, con il perché.
+   *
+   * ► ESISTE PER LA STESSA IDENTICA RAGIONE DI `settingsErrors` QUI SOPRA. ◄
+   *
+   * `pullSamples` incontrava un documento illeggibile — JSON troncato, una
+   * scrittura interrotta, un campo che non è un elenco — e restituiva un elenco
+   * vuoto con un commento che diceva «il piano successivo riprova». Riprovare
+   * riprovava: e rifalliva, allo stesso modo, per sempre. Fuori, la
+   * sincronizzazione si dichiarava **riuscita** a ogni giro, e l'immersione
+   * restava in archivio senza profilo.
+   *
+   * *Un profilo che non scende assomiglia in tutto e per tutto a
+   * un'immersione che il profilo non ce l'ha* — che è la frase già scritta
+   * accanto alle impostazioni, e valeva parola per parola anche qui.
+   */
+  profileErrors: string[];
   /** Cancellazioni spedite, e cancellazioni altrui applicate qui. */
   deletionsPushed: number;
   deletionsApplied: number;
@@ -844,6 +861,11 @@ export async function syncArchive(
    */
   const daScaricare = new Set(plan.pull);
   const profiliDaScaricare = new Set(plan.pullSamples);
+  /*
+   * I profili che non sono scesi. Vedi `SyncReport.profileErrors`: non fermano
+   * la sincronizzazione, e non restano in silenzio.
+   */
+  const profileErrors: string[] = [];
   if (plan.pull.length) {
     for (const chunk of chunks(plan.pull, PUSH_CHUNK)) {
       const { rows } = await sql.execute(
@@ -913,9 +935,9 @@ export async function syncArchive(
       // I profili arrivano solo per le immersioni che li hanno da scaricare.
       for (const dive of dives) {
         if (profiliDaScaricare.has(dive.id)) {
-          dive.samples = await pullSamples(sql, dive.id);
+          dive.samples = await pullSamples(sql, dive.id, 'dive_samples', profileErrors);
           if (dive.samples.length) pulledProfiles++;
-          const alt = await pullSamples(sql, dive.id, 'dive_alt_samples');
+          const alt = await pullSamples(sql, dive.id, 'dive_alt_samples', profileErrors);
           if (alt.length) dive.altSamples = alt;
         }
       }
@@ -928,11 +950,11 @@ export async function syncArchive(
   // Profili mancanti su immersioni il cui riepilogo era già allineato.
   for (const id of plan.pullSamples) {
     if (daScaricare.has(id)) continue;
-    const samples = await pullSamples(sql, id);
+    const samples = await pullSamples(sql, id, 'dive_samples', profileErrors);
     if (!samples.length) continue;
     const dive = localById.get(id);
     if (!dive) continue;
-    const alt = await pullSamples(sql, id, 'dive_alt_samples');
+    const alt = await pullSamples(sql, id, 'dive_alt_samples', profileErrors);
     await store.putDives([{ ...dive, samples, ...(alt.length ? { altSamples: alt } : {}) }]);
     pulledProfiles++;
   }
@@ -1165,6 +1187,7 @@ export async function syncArchive(
     settingsPushedKeys: settings.pushedKeys,
     settingsPulledKeys: settings.pulledKeys,
     settingsErrors: settings.errors,
+    profileErrors,
     pushed,
     pulled,
     pushedProfiles,
@@ -1174,19 +1197,38 @@ export async function syncArchive(
   };
 }
 
+/**
+ * Il profilo di un'immersione dal remoto.
+ *
+ * ► UN PROFILO ILLEGGIBILE NON FA FALLIRE LA SINCRONIZZAZIONE, MA LO DICE. ◄
+ *
+ * Qui c'era `catch { return [] }` con scritto accanto che «il piano successivo
+ * riprova». Riprovare riprovava: e rifalliva uguale, a ogni giro, perché il
+ * documento remoto è rotto e nessuno lo ripara. Intanto la sincronizzazione si
+ * dichiarava riuscita e l'immersione restava senza profilo — e senza profilo
+ * non ci sono velocità di risalita, né assetto, né tetto, né saturazione.
+ *
+ * Non fallire resta giusto: un documento rotto su un'immersione non deve
+ * fermare le altre cinquanta. Tacere no. `errori` porta fuori il fatto, e chi
+ * chiama lo mette nel rapporto.
+ */
 async function pullSamples(
   sql: SqlExecutor,
   diveId: string,
   table: 'dive_samples' | 'dive_alt_samples' = 'dive_samples',
+  errori?: string[],
 ): Promise<Sample[]> {
   const { rows } = await sql.execute(`SELECT doc FROM ${table} WHERE dive_id = ?`, [diveId]);
   if (!rows.length) return [];
   try {
     const parsed = JSON.parse(String(rows[0].doc));
-    return Array.isArray(parsed) ? (parsed as Sample[]) : [];
-  } catch {
-    // Un profilo illeggibile non deve far fallire tutta la sincronizzazione:
-    // l'immersione resta, senza profilo, e il piano successivo riprova.
+    if (Array.isArray(parsed)) return parsed as Sample[];
+    // Un documento che c'è e non è un elenco è rotto quanto uno che non si
+    // analizza: `JSON.parse` non solleva niente e il silenzio era lo stesso.
+    errori?.push(`${diveId} (${table}): il documento remoto non è un elenco di campioni`);
+    return [];
+  } catch (err) {
+    errori?.push(`${diveId} (${table}): ${err instanceof Error ? err.message : 'documento illeggibile'}`);
     return [];
   }
 }
@@ -1398,10 +1440,64 @@ export async function testConnection(
  */
 export type GenereErroreSync = 'rete' | 'token' | 'altro';
 
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► «CONTIENE LA PAROLA TOKEN» NON VUOL DIRE «È UN PROBLEMA DI TOKEN». ◄
+ *
+ * IL DIFETTO MISURATO IL 16 SETTEMBRE 2026. La regola era
+ * `/401|403|unauthor|token/i` sul testo del messaggio, e quel testo può essere
+ * qualunque cosa:
+ *
+ *   `SyntaxError: Unexpected token '<', "<html>..." is not valid JSON`
+ *
+ * — il messaggio che si ottiene quando il database risponde una pagina HTML
+ * invece che JSON, cioè un guasto del server o un proxy di mezzo. Contiene
+ * «token», quindi diventava: **«La chiave del tuo database è scaduta. Fai
+ * "Esci" e rientra.»** Chi lo legge esce dall'account, rientra, e il guasto è
+ * ancora lì — solo che adesso ha anche perso la sessione.
+ *
+ * E `401` senza confini di parola sta dentro un identificativo qualunque:
+ * `dive 1401 non trovata` era un errore di credenziali.
+ *
+ * *Chi sbaglia strada nel consigliare fa danni peggiori di chi non consiglia
+ * niente* — è la frase già scritta sotto, a proposito della strada
+ * dell'account, e vale anche per il genere.
+ *
+ * ► SI GUARDA PRIMA IL DATO STRUTTURATO. ◄ Il client libSQL mette il codice
+ * sull'errore (`code`, `status`): un numero non è una parola dentro una frase,
+ * e non si confonde. Il testo resta come ripiego, con le espressioni strette:
+ * confini di parola sui numeri, e per «token» le forme che parlano davvero di
+ * autenticazione — mai il `Unexpected token` di un JSON che non si analizza.
+ */
+const CODICI_TOKEN = new Set([401, 403]);
+
 export function genereErroreSync(err: unknown): GenereErroreSync {
   const raw = err instanceof Error ? err.message : String(err);
-  if (/failed to fetch|network|fetch failed|ENOTFOUND|EAI_AGAIN/i.test(raw)) return 'rete';
-  if (/401|403|unauthor|token/i.test(raw)) return 'token';
+
+  // Il codice, quando c'è: il client libSQL lo espone come `status` numerico o
+  // come `code` testuale (`UNAUTHORIZED`, `SERVER_ERROR`, …).
+  const oggetto = err as { status?: unknown; code?: unknown } | null;
+  const stato = typeof oggetto?.status === 'number' ? oggetto.status : undefined;
+  const codice = typeof oggetto?.code === 'string' ? oggetto.code.toUpperCase() : undefined;
+  if (stato !== undefined && CODICI_TOKEN.has(stato)) return 'token';
+  if (codice === 'UNAUTHORIZED' || codice === 'FORBIDDEN') return 'token';
+  if (codice === 'ENOTFOUND' || codice === 'EAI_AGAIN' || codice === 'ECONNREFUSED') return 'rete';
+
+  if (/failed to fetch|network error|fetch failed|ENOTFOUND|EAI_AGAIN/i.test(raw)) return 'rete';
+  /*
+   * Un `Unexpected token` di `JSON.parse` esce di qui prima di tutto: è la
+   * forma esatta che scatenava il consiglio sbagliato, e nessuna delle regole
+   * qui sotto la riconoscerebbe da sé.
+   */
+  if (/unexpected token/i.test(raw)) return 'altro';
+  if (/\b(401|403)\b/.test(raw)) return 'token';
+  if (/unauthoriz|unauthentic|forbidden|\bJWT\b/i.test(raw)) return 'token';
+  // «token» conta solo quando la frase dice che è QUEL token a non andare.
+  if (/\b(auth|access|api)[ _-]?token\b/i.test(raw)) return 'token';
+  if (/\btoken\b[^.]{0,30}\b(expired|invalid|revoked|rejected|missing|malformed)\b/i.test(raw))
+    return 'token';
+  if (/\b(expired|invalid|revoked|rejected|missing|malformed)\b[^.]{0,30}\btoken\b/i.test(raw))
+    return 'token';
   return 'altro';
 }
 

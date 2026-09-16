@@ -1743,6 +1743,7 @@ export const INGLESE: Record<string, string> = {
   'Prima scarica, poi carica. Niente viene cancellato.': 'Pulls first, then pushes. Nothing is deleted.',
   'Prova la connessione': 'Test the connection',
   'Queste impostazioni non si sono allineate.': 'These settings did not sync.',
+  'Questi profili non sono scesi.': 'These profiles did not come down.',
   'Resta su questo dispositivo: va solo a Turso.': 'Stays on this device: it only goes to Turso.',
   restano: 'stay',
   'Restano fuori': 'Left out',
@@ -2475,6 +2476,8 @@ export const INGLESE: Record<string, string> = {
   "Passa un'immersione a seguire una parete a quota costante e guarda il profilo dopo: il grafico è il giudice.":
     'Spend a dive following a wall at constant depth and look at the profile after: the graph is the judge.',
   'Velocità di risalita dentro il limite': 'Ascent rate within the limit',
+  'Le immersioni sì, ma senza il grafico: il documento remoto è illeggibile, e riprovare non lo ripara. Riscaricale dal computer subacqueo, oppure reimporta il file di origine su questo dispositivo.':
+    'The dives did, but without the graph: the remote document is unreadable, and retrying will not repair it. Download them again from the dive computer, or re-import the original file on this device.',
   'Le immersioni con almeno mezzo minuto fuori limite restano sotto il {0} che questo logbook considera accettabile. La fascia finale è quella che conta di più: è lì che si guadagna o si perde il margine.':
     'Dives with at least half a minute over the limit stay below the {0} this logbook considers acceptable. The final stretch is the one that matters most: that is where the margin is won or lost.',
   'Velocità di risalita sotto controllo': 'Ascent rate under control',
