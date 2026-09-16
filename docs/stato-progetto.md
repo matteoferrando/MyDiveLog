@@ -4,12 +4,23 @@ Aggiornato: **16 settembre 2026, pomeriggio** — **2 805 prove in 168 file** pi
 **135 prove Rust** del ponte, tipi, lint e formato a **0 errori**, e la suite
 verde anche a **UTC+14 e UTC−11**.
 
-> ## ► LA 1.8.25 È PRONTA E NON È ANCORA PUBBLICATA. ◄
+> ## ► LA 1.8.25 È PUBBLICATA. ◄
 >
-> Il numero è nei quattro file, la catena è verde, le note e i testi dei negozi
-> sono scritti (`docs/RELEASE-v1.8.25.md`, `docs/NOTE-1.8.25.md`,
-> `docs/{appstore,play}-1.8.25-{it,en}.txt`). **Manca la pubblicazione**, che
-> segue `docs/RILASCIO.md` dal passo 2.
+> Release **`v1.8.25`** del 16 settembre 2026, 12:10 UTC, con **nove allegati
+> contati** — `gh release view v1.8.25 --json assets -q '.assets|length'` → 9.
+> Il `.dmg` è notarizzato e pinzato (*«The staple and validate action worked!»*,
+> `spctl` accepted), e `latest.json` porta tutte e due le piattaforme
+> (`darwin-aarch64`, `windows-x86_64`).
+>
+> **Verificato sulla cosa consegnata, non sull'esito del comando:** i quattro
+> pulsanti del sito restituiscono i byte esatti degli allegati — dmg 4 521 110,
+> apk 11 112 006, deb 3 818 044, setup 3 257 536. Il sito non è cambiato e non
+> è stato ripubblicato: i pulsanti seguono `releases/latest` da soli, e
+> `npm run sito:online` chiude con *«il sito pubblicato è quello sul disco»*.
+>
+> **Restano i due negozi**, e restano a mano: l'`.aab` 1.8.25 è in
+> `../consegna/1.8.25/`, l'`.ipa` va costruito con `npm run ios:negozio`. Testi
+> pronti in `docs/{appstore,play}-1.8.25-{it,en}.txt`.
 >
 > Due cose, tutte e due arrivate **da chi usa l'applicazione**, dallo stesso
 > Samsung a un giorno di distanza.
@@ -33,10 +44,17 @@ verde anche a **UTC+14 e UTC−11**.
 > `ui/state.tsx`.
 >
 > ► **QUELLO CHE NON È MISURATO, e va detto prima e non dopo.** Qui non c'è un
-> telefono Android e sul Mac non c'è l'NDK: il ramo Android è verde sulle prove
-> e — quando il workflow gira — sulla compilazione della CI, **non su un
-> apparecchio**. È esattamente la condizione in cui ieri un difetto è
-> sopravvissuto alla propria correzione.
+> telefono Android e sul Mac non c'è l'NDK. Quello che è stato misurato: la
+> compilazione per Android sulla CI (verde), e — aperto l'APK — le classi dei
+> due plugin davvero dentro il dex (`DialogPlugin`, `FsPlugin`,
+> `saveFileDialog`, `getFileDescriptor`) e `esporta_nei_documenti` dentro
+> `libmydivelog_lib.so`. **Il selettore che si apre davvero, no.** È esattamente
+> la condizione in cui stamattina un difetto è sopravvissuto alla propria
+> correzione, e la chiusura vera è il messaggio di chi l'ha segnalato.
+>
+> *Per togliere questo punto cieco servirebbe l'NDK sul Mac: da lì
+> `cargo check --target aarch64-linux-android` girerebbe in locale invece che
+> solo in CI. È una decisione da prendere, non un fatto compiuto.*
 >
 > Sei mutazioni provate, sei guardie rosse. Il dettaglio in `docs/NOTE-1.8.25.md`.
 
