@@ -167,6 +167,25 @@ curl -s "https://itunes.apple.com/lookup?id=6804439480&country=it&t=$(date +%s)"
 > in questo progetto è già successo tre volte, sempre con la versione dei
 > negozi.
 
+> ► **E QUESTO PASSO HA APPENA PAGATO.** Il 16 settembre 2026, subito dopo aver
+> creato la release della 1.8.26: `gh release view` diceva l'allegato
+> `uploaded` e con la misura giusta, l'URL diretto
+> `releases/download/v1.8.26/MyDiveLog-Linux-amd64.deb` rispondeva **200 con
+> 3 826 114 byte** — e `releases/latest/download/…`, che è quello del pulsante
+> del sito, rispondeva **500 con 160 KB di pagina d'errore**. Tre tentativi di
+> fila, uguali.
+>
+> Cioè: la release era a posto, l'allegato era a posto, e **il pulsante del
+> sito dava errore a chiunque**. Si è risolto da sé in un paio di minuti — è un
+> ritardo dell'alias `latest` di GitHub dopo il caricamento — ma l'unico modo
+> per saperlo era scaricare **dall'indirizzo che usa il sito**, non da quello
+> che nomina la versione.
+>
+> *Se questo passo lo si fosse saltato, «la release è creata» sarebbe passato
+> per «il download funziona».* Se succede di nuovo: aspettare un paio di minuti
+> e rimisurare; se resta, togliere e rimettere l'allegato con
+> `gh release delete-asset` e `gh release upload`.
+
 ---
 
 ## I negozi, che restano a mano

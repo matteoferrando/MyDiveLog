@@ -4,7 +4,31 @@ Aggiornato: **16 settembre 2026, sera** — **2 829 prove in 170 file** più
 **140 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**.
 
-> ## ► LA 1.8.26: LA VERIFICA ESTERNA È CHIUSA TUTTA. ◄
+> ## ► LA 1.8.26 È PUBBLICATA, E LA VERIFICA ESTERNA È CHIUSA TUTTA. ◄
+>
+> Release **`v1.8.26`**, **nove allegati contati**, `.dmg` notarizzato e pinzato,
+> `latest.json` con tutte e due le piattaforme. I quattro pulsanti del sito
+> restituiscono i byte esatti — dmg 4 530 771, apk 11 131 966, deb 3 826 114,
+> setup 3 262 484. Il sito non è cambiato: `sito:online` chiude con *«il sito
+> pubblicato è quello sul disco»*.
+>
+> ► **E LA VERIFICA FINALE HA PRESO UN GUASTO VERO.** Subito dopo la creazione,
+> `releases/latest/download/MyDiveLog-Linux-amd64.deb` — l'indirizzo del
+> pulsante del sito — rispondeva **500** con una pagina d'errore, mentre
+> l'allegato risultava `uploaded` e l'URL con il numero di versione rispondeva
+> 200. Si è risolto da sé in un paio di minuti (è un ritardo dell'alias `latest`
+> di GitHub), ma per quei minuti *«Scarica per Linux» dava errore a chiunque*.
+> Scritto in `docs/RILASCIO.md`: **«la release è creata» non è «il download
+> funziona»**, e l'unico modo per saperlo è scaricare dall'indirizzo che usa il
+> sito.
+>
+> **Da caricare a mano**, tutto in `../consegna/1.8.26/` e tutto col numero nel
+> nome: `MyDiveLog-1.8.26.ipa` (App Store),
+> `MyDiveLog-1.8.26-mac-app-store.pkg` (Mac App Store),
+> `MyDiveLog-1.8.26-play.aab` (Google Play). Testi in
+> `docs/{appstore,play}-1.8.26-{it,en}.txt`.
+
+> ## ► COSA CHIUDE LA 1.8.26. ◄
 >
 > Nove problemi riprodotti da una revisione indipendente sulla 1.8.24, **nove
 > chiusi**, nello stesso giorno. Questi sono gli ultimi quattro, e hanno in
