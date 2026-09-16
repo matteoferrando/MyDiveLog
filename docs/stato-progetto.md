@@ -1,46 +1,52 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **16 settembre 2026, mattina** — **2 755 prove in 164 file** più
+Aggiornato: **16 settembre 2026, mezzogiorno** — **2 774 prove in 165 file** più
 **135 prove Rust** del ponte, tipi, lint e formato a **0 errori**, e la suite
 verde anche a **UTC+14 e UTC−11**.
 
-> **► LA 1.8.24 È PRONTA E NON È PUBBLICATA. ◄** Il numero è nei quattro file e
-> la catena è verde. Rispetto alla 1.8.23 non aggiunge niente: chiude
-> **diciotto difetti** — i sedici rimasti aperti dopo le revisioni
-> avversariali del 15 settembre, uno saltato fuori rigenerando il sito, e uno
-> **segnalato da chi usa l'applicazione**. Ognuno misurato prima di essere
-> corretto e ognuno con una prova **mutata**: si rimette il difetto e si
-> guarda la prova diventare rossa.
+> ## ► LA 1.8.24 È PUBBLICATA. ◄
 >
-> Tutti, per quello che cambiano a chi si immerge, stanno in
-> **`docs/NOTE-1.8.24.md`**. I più grossi: il consumo gonfiato del 53% da uno
-> zero in archivio; la bombola di decompressione che diventava ossigeno puro
-> (PPO2 di picco da 1.06 a **1.62**); il profilo stampato sul libretto con
-> quindici punti su trentuno fuori dal riquadro; il 31 febbraio accettato come
-> data certa; lo stesso tuffo scaricato in due fusi che diventava due
-> immersioni su tutti i dispositivi.
+> Release **`v1.8.24`** del 16 settembre 2026, 10:40 UTC, con **nove allegati
+> contati** — `gh release view v1.8.24 --json assets -q '.assets|length'` → 9.
+> Il `.dmg` è notarizzato e pinzato (*«The staple and validate action worked»*,
+> `spctl` accepted), l'APK e l'AAB sono firmati con la chiave del proprietario
+> (*firmati: 1 apk, 1 aab*), il `.deb` non ha traccia dell'aggiornatore dentro,
+> e `latest.json` porta tutte e due le piattaforme.
 >
-> **I passi da fare a mano stanno in `rilascio-1.8.24.md`** nel progetto, con i
-> comandi pronti. Le schermate dei negozi e del sito sono quelle rigenerate per
-> la 1.8.23 e **restano valide**: questa versione non tocca l'interfaccia.
+> **Verificato sulla cosa consegnata, non sull'esito del comando:** i quattro
+> pulsanti del sito restituiscono i byte esatti degli allegati — dmg 4 521 208,
+> apk 10 376 618, deb 3 816 910, setup 3 257 539.
 >
-> **Costruito e verificato da qui:** il pacchetto web (`dist/`), il sito
-> (`sito:computer`, `sito:versiona`, `sito:controlla` puliti) e — nuovo — il
-> **pacchetto Linux `.deb`**, con gli stessi comandi del workflow e le sue due
-> verifiche: nessuna traccia dell'aggiornatore nel binario, libdivecomputer
-> dentro.
+> **Il sito è ripubblicato e misurato**: `npm run sito:online` confronta dodici
+> pagine col disco e chiude con *«titoli, foglio di stile, intestazioni, testo e
+> rimandi: il sito pubblicato è quello sul disco»*. Le immagini della vetrina
+> combaciano byte per byte: non c'è più in giro l'interfaccia con l'hamburger.
 >
-> **Non costruibile da qui, e il motivo è uno solo per tre piattaforme:**
-> Windows, Android e Linux li fa GitHub Actions su `altre-piattaforme.yml`, e
-> **i ventisei commit non sono su GitHub** — `gh` non è nemmeno installato nel
-> contenitore. macOS e iOS li fa il Mac del proprietario, con il suo materiale
-> di firma. *Il primo comando della lista è quindi `git push origin main`.*
+> **Restano i due negozi**, e restano a mano: l'`.ipa` 1.8.24 è pronto e firmato
+> *Apple Distribution*, l'`.aab` è in `consegna/1.8.24/`. Su questo Mac non c'è
+> nessuna credenziale che una riga di comando possa usare — vedi il fondo di
+> **`docs/RILASCIO.md`**, che è il documento operativo da oggi.
 >
-> ► **E rigenerando il sito è saltato fuori un diciassettesimo difetto**, che la
-> guardia ha preso da sola: `genera-pagina-computer.ts` cancellava
-> `aria-current="page"` a ogni giro, perché accanto c'era un commento —
-> «nessuna voce corrisponde» — che aveva smesso di essere vero il giorno in cui
-> al menu è stata aggiunta la voce «Computer».
+> Chiude **diciotto difetti**: i sedici delle revisioni del 15 settembre, uno
+> saltato fuori rigenerando il sito, e uno **segnalato da chi usa
+> l'applicazione**. Ognuno misurato prima di essere corretto, ognuno con una
+> prova **mutata**.
+>
+> ► **E LA CI HA PRESO UN DICIANNOVESIMO, che da qui non si poteva vedere.**
+> Android è morto con *«cannot find macro
+> `__tauri_command_name_esporta_nei_documenti`»*: il comando era registrato nel
+> gestore di Android ma la funzione portava ancora `#[cfg(target_os = "ios")]`.
+> **Registrare un comando non lo compila: sono due gesti.** `cargo check` sul
+> Mac non compila mai il bersaglio Android, e la prova sui gestori leggeva
+> l'elenco e non per quali bersagli la funzione esiste. Adesso lo controlla, con
+> un interprete di `cfg` che ha la sua guardia della guardia.
+>
+> ► **LE CARTELLE SONO STATE RIORDINATE IL 16 SETTEMBRE.** Le diciassette
+> `consegna-1.8.x/`, `da-caricare-su-*/` e `_transfer/` alla radice non ci sono
+> più: sono in `_da-cancellare/`, con un LEGGIMI che dice di ognuna perché si
+> può buttare. **I riferimenti a quei percorsi più in basso in questo documento
+> sono storia**, e vanno letti come tale. La mappa di adesso sta in
+> `../LEGGIMI.md`, la procedura in `docs/RILASCIO.md`.
 
 > **► LA 1.8.23 ERA PRONTA E NON È STATA PUBBLICATA. ◄** Il numero era nei quattro file,
 > le schermate dei negozi e del sito sono rigenerate, la catena è verde. Porta
