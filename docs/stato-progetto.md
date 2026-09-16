@@ -1,8 +1,38 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **16 settembre 2026, sera** — **2 829 prove in 170 file** più
-**140 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
-a **UTC+14 e UTC−11**.
+Aggiornato: **17 settembre 2026** — **2 839 prove in 173 file** più **149 prove
+Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche a **UTC+14 e
+UTC−11**.
+
+> ## ► 17 SETTEMBRE: IL PRIMO COMPUTER DI TERZI HA SCARICATO DAVVERO. ◄
+>
+> *«Su Mares Quad Ci funziona adesso.»* È il primo computer subacqueo di
+> un'altra marca che consegna immersioni attraverso libdivecomputer in questa
+> applicazione. Per tre settimane `Cargo.toml` e `trasporto_ldc.rs` hanno detto
+> che «il primo apparecchio vero non è ancora esistito»: era vero, ed è stato
+> giusto scriverlo. Adesso non lo è più, e i due commenti sono stati rimisurati.
+> *Un commento che afferma un fatto va rimisurato come il fatto.*
+>
+> L'etichetta «mai provato su questo modello» si toglie **un modello per
+> volta**: l'elenco di quelli accesi davvero sta in `src/core/ble/provati.ts`,
+> con la data e da dove arriva la notizia.
+>
+> ► **E LO STESSO MESSAGGIO DICEVA CHE UN AQUALUNG i330R SI FERMAVA A METÀ.**
+> Quaranta immersioni arrivate, poi «Invalid packet length (96)». Il difetto era
+> nostro: quel computer manda pacchetti che dichiarano la propria lunghezza, uno
+> da 101 byte era stato spezzato dalla radio, e il trasporto — che leggeva una
+> notifica per volta — ne consegnava 96. Adesso c'è
+> `Riassemblaggio::LunghezzaDichiarata`, che la lunghezza la legge dal pacchetto
+> invece di indovinarla dalla dimensione delle notifiche.
+>
+> *Un modello provato non è una famiglia provata*, e lo si è visto lo stesso
+> giorno, dallo stesso programma.
+>
+> Chiuse anche: due pacchetti attaccati non si incollano più (era il difetto
+> peggiore, perché non dava nessun errore), e la chiave di accoppiamento non si
+> butta più quando il collegamento non si è nemmeno aperto.
+>
+> Sette mutazioni, sette guardie rosse. Il dettaglio in `docs/NOTE-1.8.27.md`.
 
 > ## ► LA 1.8.26 È PUBBLICATA, E LA VERIFICA ESTERNA È CHIUSA TUTTA. ◄
 >

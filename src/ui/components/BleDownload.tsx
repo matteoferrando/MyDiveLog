@@ -62,7 +62,12 @@ import {
   type DownloadEvent,
 } from '../../core/ble/types';
 import { TauriBleTransport, permessoNegato } from '../../storage/ble';
-import { causaDelGuasto, conDettaglio, dettaglioLeggibile } from '../../core/ble/causaGuasto';
+import {
+  causaDelGuasto,
+  conDettaglio,
+  dettaglioLeggibile,
+  ilCollegamentoNonSiEAperto,
+} from '../../core/ble/causaGuasto';
 import { annullata, esporta, frasePosizione, NON_SCELTO } from '../esporta';
 import { suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
@@ -1327,11 +1332,36 @@ export function BleDownload() {
          * guasto era un altro, è digitare sei cifre una volta in più; il
          * costo di tenerla è un computer che non si scarica mai più.
          */
-        if (conservato) {
+        /*
+         * ► MA NON QUANDO IL COLLEGAMENTO NON SI È NEMMENO APERTO. ◄
+         *
+         * Aggiunto il 17 settembre 2026, leggendo il diario di un i330R. Il
+         * secondo tentativo era morto così:
+         *
+         *     collegamento non riuscito dopo 3 tentativi:
+         *     collegamento non riuscito: Timeout during execution of Connect
+         *
+         * e la riga dopo diceva «chiave dimenticata, la prossima volta si
+         * riparte dal PIN». Ma **la chiave non era mai stata presentata**: il
+         * computer non aveva risposto alla radio, e quello che succede dopo il
+         * collegamento — dove la chiave si usa — non era mai cominciato.
+         *
+         * Il ragionamento qui sopra regge per uno scarico fallito: lì la chiave
+         * è una delle cause possibili, e sei cifre da ridigitare valgono meno di
+         * un computer che non si scarica più. Su un collegamento che non si apre
+         * quel beneficio è **zero** — la chiave non può essere la causa — e resta
+         * solo il costo.
+         *
+         * *Una cura che non può curare questo guasto, applicata a questo guasto,
+         * non è prudenza: è un fastidio.*
+         */
+        if (conservato && !ilCollegamentoNonSiEAperto(grezzo)) {
           dimenticaAccoppiamento(device.id);
           diario.push(
             'lo scarico è fallito con una chiave conservata: chiave dimenticata, la prossima volta si riparte dal PIN',
           );
+        } else if (conservato) {
+          diario.push('il collegamento non si è aperto: la chiave conservata non c’entra e si tiene');
         }
         /*
          * ► E LO STESSO PER IL METODO. ◄ Un metodo conservato ha funzionato

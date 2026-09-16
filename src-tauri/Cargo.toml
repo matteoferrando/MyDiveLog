@@ -1,6 +1,6 @@
 [package]
 name = "mydivelog"
-version = "1.8.26"
+version = "1.8.27"
 description = "Logbook subacqueo multi-computer"
 authors = ["Matteo Ferrando"]
 edition = "2021"
@@ -170,14 +170,24 @@ custom-protocol = ["tauri/custom-protocol"]
 #     toglierebbe a chi riceve il binario la possibilità di rifarlo identico, ed
 #     è esattamente la proprietà su cui poggia tutto il ragionamento.
 #
-# ► E QUELLO CHE RESTA VERO ANCHE ORA CHE È ACCESA. ◄
+# ► IL PRIMO APPARECCHIO VERO È ESISTITO: 17 SETTEMBRE 2026, MARES QUAD CI. ◄
 #
-# Nessun computer subacqueo di terzi è mai stato collegato a questo codice. Il
-# trasporto è provato contro un flusso finto, l'accorpamento dei campioni e la
-# traduzione contro immersioni sintetiche, ma il primo apparecchio vero non è
-# ancora esistito. Il selettore lo dichiara sotto ogni modello — «via
-# libdivecomputer, mai provato su questo modello» — e non è una formula di
-# cortesia: è la verità, e va tolta solo quando smette di esserlo.
+# Fino a ieri qui c'era scritto: «nessun computer subacqueo di terzi è mai stato
+# collegato a questo codice… il primo apparecchio vero non è ancora esistito».
+# Era vero, ed è stato vero per tre settimane. Ha smesso di esserlo quando una
+# persona ha scaricato il suo Mares Quad Ci e ha scritto «funziona adesso».
+#
+# *Un commento che afferma un fatto va rimisurato come il fatto.* Questo è il
+# giorno in cui si rimisura.
+#
+# Quello che resta vero: **un modello provato non è una famiglia provata.** Lo
+# stesso giorno, dallo stesso programma, un Aqualung i330R si è fermato a metà —
+# e il difetto era nostro, nel trasporto, su un pacchetto spezzato dalla radio.
+# Il selettore continua a dichiararlo sotto ogni modello che nessuno ha ancora
+# acceso — «via libdivecomputer, mai provato su questo modello» — e la frase va
+# tolta **un modello per volta**, quando qualcuno lo accende e lo dice. L'elenco
+# di quelli provati sta in `src/core/ble/provati.ts`, con la data e da dove
+# arriva la notizia.
 #
 # La protezione che rende accettabile spedirla: in `core/dedupe.ts` un profilo
 # arrivato da questa strada NON può sostituire quello di un driver provato sul

@@ -39,6 +39,7 @@
 import { useId, useMemo, useState } from 'react';
 import { cercaModelli, marchePerDiffusione, type VoceCatalogo } from '../../core/ble/catalogo';
 import { esitoPer } from '../../core/ble/scelta';
+import { provatoViaLdc } from '../../core/ble/provati';
 import { useLingua } from '../lingua';
 
 export function ScegliComputer({
@@ -262,7 +263,26 @@ function ElencoModelli({
                   {esito.tipo === 'mai-via-radio'
                     ? t('solo importando il file')
                     : esito.tipo === 'si-scarica-ldc'
-                      ? t('via libdivecomputer, mai provato su questo modello')
+                      ? /*
+                         * ► «MAI PROVATO» SI TOGLIE UN MODELLO PER VOLTA. ◄
+                         *
+                         * Dal 17 settembre 2026 qualche modello di questa strada
+                         * è stato acceso davvero — il primo è un Mares Quad Ci —
+                         * e continuare a scrivergli sotto «mai provato» sarebbe
+                         * una cosa falsa, nella direzione che fa perdere fiducia
+                         * a chi invece potrebbe fidarsi.
+                         *
+                         * Ma non si generalizza alla famiglia né alla libreria:
+                         * lo stesso giorno, dalla stessa strada, un Aqualung
+                         * i330R si è fermato a metà. L'elenco in
+                         * `core/ble/provati.ts` cresce di una riga quando
+                         * qualcuno accende un apparecchio e racconta com'è
+                         * andata, e di nessuna quando ci sembra che dovrebbe
+                         * funzionare.
+                         */
+                        provatoViaLdc(m.marca, m.modello)
+                        ? t('via libdivecomputer, provato su questo modello')
+                        : t('via libdivecomputer, mai provato su questo modello')
                       : t('non ancora via Bluetooth')}
                 </span>
               )}

@@ -115,6 +115,44 @@ export function causaDelGuasto(err: unknown): BleUnavailable['reason'] {
 }
 
 /**
+ * La frase con cui il ponte annuncia che **il collegamento non si è aperto**.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► È UNA FRASE NOSTRA, E QUI LA DIFFERENZA CONTA. ◄
+ *
+ * In testa a questo file c'è scritto perché leggere una stringa è fragile:
+ * basta che la libreria a monte cambi una parola. Questa non viene da una
+ * libreria — la scrive `ponte_blec.rs`, riga per riga, ed è quindi l'unico caso
+ * in cui il testo è un'interfaccia fra due metà dello stesso programma invece
+ * che un dettaglio di qualcun altro.
+ *
+ * Perché regga, la costante è **esportata** e una prova
+ * (`chiaveECollegamento.test.ts`) legge il sorgente Rust e pretende che quella
+ * frase ci sia ancora. Il giorno che la si riscrive di là, la prova diventa
+ * rossa di qua: è il minimo per non avere due verità.
+ */
+export const COLLEGAMENTO_NON_APERTO = 'collegamento non riuscito dopo';
+
+/**
+ * Se il guasto è che **la radio non ha mai aperto il collegamento**.
+ *
+ * ► PERCHÉ SERVE SAPERLO. ◄ Dopo uno scarico fallito la chiave di accoppiamento
+ * conservata si butta, ed è giusto: una chiave che non vale più bloccherebbe
+ * quel computer per sempre (vedi `BleDownload.tsx`). Ma se il collegamento non
+ * si è aperto, **la chiave non è mai stata presentata** — si usa dopo, non
+ * prima — quindi non può essere la causa, e buttarla costa sei cifre da
+ * ridigitare in cambio di niente.
+ *
+ * Trovato il 17 settembre 2026 nel diario di un Aqualung i330R: tre
+ * `Timeout during execution of Connect` di fila, e subito sotto «chiave
+ * dimenticata».
+ */
+export function ilCollegamentoNonSiEAperto(err: unknown): boolean {
+  const testo = err instanceof Error ? err.message : String(err ?? '');
+  return testo.includes(COLLEGAMENTO_NON_APERTO);
+}
+
+/**
  * Il dettaglio tecnico ripulito, oppure NIENTE.
  *
  * Restituire la stringa vuota è deliberato, ed è la parte che decide: quando il

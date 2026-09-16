@@ -1,0 +1,19 @@
+Il primo computer subacqueo di terzi che scarica davvero, e le correzioni che la stessa segnalazione ha reso possibili.
+
+UN MARES QUAD CI HA SCARICATO DAVVERO
+
+È il primo computer di un'altra marca che consegna immersioni attraverso libdivecomputer in questa applicazione. Fino a ieri, sotto ogni modello di quella strada, il selettore scriveva «mai provato su questo modello»: era la verità, ed era scritta apposta perché lo era.
+
+Adesso sotto il Quad Ci c'è scritto «provato su questo modello», e sotto tutti gli altri no. L'etichetta si toglie un modello per volta, quando qualcuno lo accende e racconta com'è andata.
+
+UN AQUALUNG i330R SI FERMAVA A METÀ
+
+Quaranta immersioni arrivate, poi un errore di protocollo. Il computer manda pacchetti che dichiarano la propria lunghezza, e uno di quelli — 101 byte — era stato spezzato in due dalla radio: l'applicazione ne consegnava solo il primo pezzo, perché leggeva una notifica per volta e non aveva modo di sapere che il pacchetto continuava.
+
+Adesso la lunghezza si legge dal pacchetto invece di indovinarla. Vale per Aqualung i330R, i330R Console e Apeks DSX. E due pacchetti arrivati attaccati non vengono più incollati insieme: era il difetto peggiore dei due, perché non dava nessun errore e si vedeva solo molto dopo, come dati che non si tengono insieme.
+
+UNA CHIAVE CHE VENIVA BUTTATA PER NIENTE
+
+Quando uno scarico fallisce, il codice di accoppiamento conservato si dimentica: se non valesse più, terrebbe quel computer bloccato per sempre. Ma se il collegamento non si è nemmeno aperto, la chiave — che si usa dopo — non può essere la causa, e ridigitare sei cifre non serve a niente. Adesso in quel caso resta dov'è.
+
+Ogni correzione ha una prova, e ogni prova è stata rimessa alla prova rimettendo il difetto: 2.839 controlli automatici, più 149 sul motore nativo.

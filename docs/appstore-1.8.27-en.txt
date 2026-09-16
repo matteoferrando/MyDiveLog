@@ -1,0 +1,19 @@
+The first third-party dive computer that actually downloaded, and the fixes the same report made possible.
+
+A MARES QUAD CI ACTUALLY DOWNLOADED
+
+It is the first computer from another brand to deliver dives through libdivecomputer in this app. Until yesterday, under every model on that path, the picker said "never tested on this model": that was the truth, and it was written precisely because it was.
+
+Now the Quad Ci says "tested on this model", and none of the others do. The label comes off one model at a time, when somebody turns one on and says how it went.
+
+AN AQUALUNG i330R STOPPED HALFWAY
+
+Forty dives came through, then a protocol error. The computer sends packets that declare their own length, and one of them — 101 bytes — had been split in two by the radio: the app delivered only the first piece, because it read one notification at a time and had no way to know the packet continued.
+
+Now the length is read from the packet instead of being guessed. This covers Aqualung i330R, i330R Console and Apeks DSX. And two packets arriving back to back are no longer glued together: that was the worse of the two defects, because it produced no error at all and only showed up much later, as data that does not hold together.
+
+A KEY THAT WAS BEING THROWN AWAY FOR NOTHING
+
+When a download fails, the stored pairing code is forgotten: if it were no longer valid it would keep that computer locked out forever. But if the connection never even opened, the key — which is used afterwards — cannot be the cause, and retyping six digits achieves nothing. It now stays where it is.
+
+Every fix has a test, and every test was put to the test by putting the defect back: 2,839 automated checks, plus 149 on the native engine.

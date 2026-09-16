@@ -1,0 +1,7 @@
+The first computer from another brand to actually download, and the fixes the same report made possible.
+
+• A Mares Quad Ci delivered dives: that model no longer says "never tested". The label comes off one model at a time.
+
+• Aqualung i330R, i330R Console and Apeks DSX: a packet split by the radio made downloads stop halfway. The length is now read from the packet.
+
+• If the connection never opens, the stored pairing code is no longer thrown away.

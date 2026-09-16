@@ -31,12 +31,21 @@
 //! `ImmersioneLdc`. Da lì in poi la palla passa a
 //! `src/core/ble/esterni.ts`.
 //!
-//! MANCA LA PROVA CON UN COMPUTER VERO, e va detto ogni volta perché è l'unica
-//! cosa che manca e la più facile da dimenticare: nessun apparecchio di terzi è
-//! mai stato collegato a questo codice. Quello che si può inchiodare senza —
-//! il trasporto contro un flusso finto, l'accorpamento dei campioni, la
-//! traduzione — è inchiodato; il resto è una promessa finché qualcuno non
-//! accende un Mares e guarda cosa succede.
+//! IL PRIMO COMPUTER VERO È ARRIVATO IL 17 SETTEMBRE 2026, ed era un Mares
+//! Quad Ci. Per tre settimane qui c'è stato scritto che «nessun apparecchio di
+//! terzi è mai stato collegato a questo codice», e finché è stato vero andava
+//! scritto; adesso non lo è più.
+//!
+//! Quello che resta vero, e che vale la pena scrivere al suo posto: **un
+//! modello provato non è una famiglia provata**, e lo si è visto lo stesso
+//! giorno. Un Aqualung i330R, dallo stesso programma, si è fermato a metà — e
+//! il difetto era di qui dentro, su un pacchetto che la radio aveva spezzato e
+//! che questo file consegnava a metà. Vedi `Riassemblaggio::LunghezzaDichiarata`.
+//!
+//! Quello che si può inchiodare senza un apparecchio — il trasporto contro un
+//! flusso finto, l'accorpamento dei campioni, la traduzione — è inchiodato; il
+//! resto resta una promessa, un modello per volta, finché qualcuno non lo
+//! accende e racconta cosa è successo.
 
 #![cfg(feature = "computer-esterni")]
 
@@ -336,15 +345,114 @@ pub enum Riassemblaggio {
     /// la fine del messaggio. È una regola del trasporto e non del protocollo,
     /// ed è per questo che si può applicare senza sapere cosa c'è dentro.
     PacchettoIntero,
+    /// **La lunghezza la dichiara il pacchetto**, e allora non si indovina.
+    ///
+    /// ════════════════════════════════════════════════════════════════════════
+    /// ► LA SEGNALAZIONE DEL 17 SETTEMBRE 2026, DA UN AQUALUNG i330R. ◄
+    ///
+    /// Quaranta immersioni arrivate, poi:
+    ///
+    /// ```text
+    /// libdivecomputer, errore: Invalid packet length (96). [pelagic_i330r.c:214]
+    /// ```
+    ///
+    /// Quella riga, nel sorgente, è `if (length + 5 > transferred)`: il
+    /// pacchetto dichiarava 96 byte di carico — 101 in tutto — e il nostro
+    /// trasporto ne aveva consegnati meno. Il diario dice anche la dimensione
+    /// delle notifiche, *«da 6 a 101 byte»*: il pacchetto pieno è proprio 101, e
+    /// quella volta la radio l'aveva spezzato in due.
+    ///
+    /// La politica in uso era `UnaNotifica`, che una notifica per lettura la
+    /// consegna e basta. Finché ogni pacchetto sta in una notifica va bene —
+    /// quaranta immersioni sono passate così. Nell'istante in cui uno si spezza,
+    /// libdivecomputer ne vede il primo pezzo e lo rifiuta.
+    ///
+    /// ► E `PacchettoIntero` NON ERA LA RISPOSTA. ◄ Quella unisce «finché ogni
+    /// notifica arriva piena», che è una regola del TRASPORTO: vera quando a
+    /// spezzare è l'MTU, muta quando a spezzare è qualcos'altro. Su un pacchetto
+    /// da 101 byte che è anche il più grande mai visto, aspetterebbe 250 ms un
+    /// frammento che non arriva mai; e se nel frattempo arriva il pacchetto
+    /// *dopo*, lo incolla al primo e i suoi byte si perdono in silenzio — che è
+    /// il difetto peggiore dei due, perché non dà nessun errore.
+    ///
+    /// ► QUI LA REGOLA È DEL PROTOCOLLO, ED È SCRITTA NEL PACCHETTO. ◄
+    /// L'inquadramento della famiglia Pelagic è
+    /// `CD <bandiera> <comando> <checksum> <lunghezza>` e poi il carico: il
+    /// totale è **`lunghezza + 5`**. Non è dedotto dal sorgente della libreria,
+    /// è misurato su cinque pacchetti del diario di quel giorno, quattro
+    /// scritture e una notifica:
+    ///
+    /// ```text
+    /// cd 40 fa f6 09 …  14 byte    0x09 + 5 = 14
+    /// cd 80 fa 92 10 …  21 byte    0x10 + 5 = 21
+    /// cd 80 fb 94 06 …  11 byte    0x06 + 5 = 11
+    /// cd 00 0d be 09 …  14 byte    0x09 + 5 = 14
+    /// cd c0 fa 94 02 01 00  7 byte 0x02 + 5 = 7
+    /// ```
+    ///
+    /// Quindi: si legge l'intestazione, si aspetta finché i byte dichiarati non
+    /// ci sono tutti, e si consegna **esattamente quel pacchetto** — il resto,
+    /// se è arrivato attaccato, resta in cassa per la lettura dopo. Nessuna
+    /// attesa quando il pacchetto è già intero, nessun incollamento quando non
+    /// lo è.
+    ///
+    /// *Dove il protocollo dice la lunghezza, indovinarla è una scelta — ed è
+    /// la scelta sbagliata.*
+    LunghezzaDichiarata,
+}
+
+/// Il byte con cui comincia ogni pacchetto della famiglia Pelagic.
+const INIZIO_PACCHETTO: u8 = 0xCD;
+/// `CD <bandiera> <comando> <checksum> <lunghezza>`: cinque byte prima del carico.
+const INTESTAZIONE: usize = 5;
+
+/// Quanto è lungo, in tutto, il pacchetto che comincia qui — quando si può già
+/// saperlo.
+///
+/// `None` ha due significati diversi e va bene che li abbia tutti e due, perché
+/// portano allo stesso gesto — consegnare quello che c'è: o l'intestazione non è
+/// ancora arrivata tutta, o il primo byte non è quello d'inizio e allora siamo
+/// fuori sincronia. Nel secondo caso la diagnosi giusta la dà libdivecomputer,
+/// che risponde «Unexpected packet start byte» e dice *quale* byte ha trovato:
+/// tenersi i byte qui dentro per «riallinearsi» nasconderebbe l'unica
+/// informazione utile.
+fn confine_dichiarato(avanzo: &VecDeque<u8>) -> Option<usize> {
+    if avanzo.len() < INTESTAZIONE || avanzo.front() != Some(&INIZIO_PACCHETTO) {
+        return None;
+    }
+    Some(avanzo[INTESTAZIONE - 1] as usize + INTESTAZIONE)
+}
+
+/// Se del pacchetto cominciato manca ancora un pezzo.
+///
+/// Un avanzo che non comincia per `CD` non è un pacchetto a metà: è un avanzo
+/// fuori sincronia, e aspettare dei frammenti per lui vorrebbe dire fermarsi
+/// 250 ms per ogni lettura fino alla fine dello scarico.
+fn manca_un_pezzo(avanzo: &VecDeque<u8>) -> bool {
+    match avanzo.front() {
+        None => false,
+        Some(&primo) if primo != INIZIO_PACCHETTO => false,
+        // Intestazione incompleta: non si sa quanto manca, ma si sa che manca.
+        Some(_) => match confine_dichiarato(avanzo) {
+            None => true,
+            Some(quanto) => avanzo.len() < quanto,
+        },
+    }
 }
 
 impl Riassemblaggio {
     /// L'altra politica. Serve al giro dei tentativi: quando la scelta fatta
     /// per un modello non funziona, l'unica altra cosa da provare è questa.
+    ///
+    /// Per `LunghezzaDichiarata` l'altra è `UnaNotifica`, cioè il comportamento
+    /// di prima: se leggere la lunghezza dal pacchetto non funziona, vuol dire
+    /// che quell'apparecchio non ha l'inquadramento che crediamo, e l'unica
+    /// cosa onesta che resta è consegnare quello che arriva.
     pub fn altro(self) -> Self {
         match self {
             Self::UnaNotifica => Self::PacchettoIntero,
             Self::PacchettoIntero => Self::UnaNotifica,
+            Self::LunghezzaDichiarata => Self::UnaNotifica,
         }
     }
 }
@@ -882,6 +990,53 @@ impl FlussoByte for FlussoBle {
                             self.avanzo.extend(pezzo);
                         }
                     }
+                    /*
+                     * ► E QUI LA LUNGHEZZA NON SI INDOVINA: LA DICE IL PACCHETTO. ◄
+                     *
+                     * Stessa attesa del ramo di sopra — un frammento vale
+                     * `ATTESA_FRAMMENTO`, e se non arriva si conta — ma la
+                     * condizione d'uscita è un fatto invece di una regola
+                     * empirica: si smette quando i byte dichiarati ci sono
+                     * tutti. Vedi `Riassemblaggio::LunghezzaDichiarata` per la
+                     * segnalazione che l'ha resa necessaria.
+                     *
+                     * Il caso che il ramo di sopra non sa distinguere e questo
+                     * sì: un pacchetto **intero** che è anche il più grande mai
+                     * visto. Là si aspetterebbe un seguito che non esiste, qui
+                     * si esce subito perché il conto torna.
+                     */
+                    if self.riassemblaggio == Riassemblaggio::LunghezzaDichiarata {
+                        while manca_un_pezzo(&self.avanzo) {
+                            self.raccogli_subito();
+                            if self.arrivate.is_empty() {
+                                let inizio_pausa = std::time::Instant::now();
+                                let esito_attesa = self.aspetta(ATTESA_FRAMMENTO);
+                                let quanto = inizio_pausa.elapsed();
+                                if let Err(motivo) = esito_attesa {
+                                    self.avanzo.clear();
+                                    return Err(motivo);
+                                }
+                                if self.arrivate.is_empty() {
+                                    /*
+                                     * Il pacchetto resta a metà e si consegna
+                                     * com'è: libdivecomputer risponderà «Invalid
+                                     * packet length», che è la verità. Quello
+                                     * che cambia rispetto a prima è che adesso
+                                     * **il diario lo sa**: `frammenti_mancati`
+                                     * sale, e il numero che prima diceva zero
+                                     * davanti a un pacchetto spezzato smette di
+                                     * dire zero.
+                                     */
+                                    self.frammenti_mancati += 1;
+                                    break;
+                                }
+                                self.pausa_colmata = self.pausa_colmata.max(quanto);
+                            }
+                            let Some(pezzo) = self.arrivate.pop_front() else { break };
+                            self.notifica_piena = self.notifica_piena.max(pezzo.len());
+                            self.avanzo.extend(pezzo);
+                        }
+                    }
                 }
                 None => {
                     /*
@@ -900,7 +1055,27 @@ impl FlussoByte for FlussoBle {
                 }
             }
         }
-        let quanti = quanti.min(self.avanzo.len());
+        /*
+         * ► SI CONSEGNA UN PACCHETTO, NON TUTTO QUELLO CHE C'È. ◄
+         *
+         * `quanti` qui vale quasi sempre la dimensione del buffer di chi legge —
+         * `pelagic_i330r.c` ne chiede 260 — quindi senza questo confine due
+         * pacchetti arrivati attaccati verrebbero consegnati insieme. Chi li
+         * riceve legge la lunghezza del PRIMO, prende quei byte e butta il
+         * resto: il secondo pacchetto sparisce **senza un errore**, e il sintomo
+         * arriva molto più tardi, sotto forma di dati che non si tengono
+         * insieme.
+         *
+         * Per le altre due politiche non cambia niente: là il confine non c'è, e
+         * `None` lascia il conto com'era.
+         */
+        let disponibile = match self.riassemblaggio {
+            Riassemblaggio::LunghezzaDichiarata => {
+                confine_dichiarato(&self.avanzo).unwrap_or(usize::MAX).min(self.avanzo.len())
+            }
+            _ => self.avanzo.len(),
+        };
+        let quanti = quanti.min(disponibile);
         Ok(self.avanzo.drain(..quanti).collect())
     }
 
@@ -4419,6 +4594,206 @@ mod prove {
             unito.leggi(100, Duration::from_millis(50)).unwrap(),
             vec![0xf7, 1, 2, 3, 0x14, 4, 5, 6]
         );
+    }
+
+    /// Un pacchetto della famiglia Pelagic: `CD <bandiera> <comando> <crc> <len>`.
+    ///
+    /// Il checksum qui è finto e non importa: questo livello la lunghezza la
+    /// legge e il checksum no — lo verifica `pelagic_i330r.c`, che è dall'altra
+    /// parte. Mettercelo vero farebbe credere che la prova misuri anche quello.
+    fn pacchetto_pelagic(comando: u8, carico: &[u8]) -> Vec<u8> {
+        let mut p = vec![0xCD, 0x80, comando, 0x00, carico.len() as u8];
+        p.extend_from_slice(carico);
+        p
+    }
+
+    fn flusso_pelagic() -> (std::sync::mpsc::Sender<Vec<u8>>, FlussoBle) {
+        let (manda, ricevi) = channel();
+        let flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())))
+            .con_riassemblaggio(Riassemblaggio::LunghezzaDichiarata);
+        (manda, flusso)
+    }
+
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► LA SEGNALAZIONE DEL 17 SETTEMBRE 2026, DA UN AQUALUNG i330R. ◄
+     *
+     * Quaranta immersioni arrivate, poi «Invalid packet length (96)» da
+     * `pelagic_i330r.c:214`, che è `if (length + 5 > transferred)`. Il pacchetto
+     * dichiarava 96 byte di carico — 101 in tutto — e il trasporto ne aveva
+     * consegnati meno: la radio l'aveva spezzato in due e la politica in uso,
+     * «una notifica per lettura», non li rimette insieme.
+     *
+     * Il numero 96 non è scelto a caso: è quello del diario.
+     */
+    #[test]
+    fn il_pacchetto_spezzato_in_due_notifiche_arriva_intero() {
+        let intero = pacchetto_pelagic(0x0d, &vec![0xAB; 96]);
+        assert_eq!(intero.len(), 101, "è il pacchetto pieno del diario");
+
+        let (manda, mut flusso) = flusso_pelagic();
+        manda.send(intero[..96].to_vec()).unwrap();
+        manda.send(intero[96..].to_vec()).unwrap();
+
+        // 260 è quello che chiede `pelagic_i330r.c`: MAXPACKET + 5.
+        let letto = flusso.leggi(260, Duration::from_millis(50)).unwrap();
+        assert_eq!(letto, intero, "il pacchetto va consegnato tutto, in una lettura sola");
+    }
+
+    #[test]
+    fn e_con_la_politica_di_prima_ne_arrivavano_novantasei() {
+        /*
+         * ► LA MISURA DEL DIFETTO. ◄ La stessa identica radio, con la politica
+         * che c'era: la lettura consegna 96 byte davanti a un pacchetto che ne
+         * dichiara 101, ed è esattamente il numero che l'utente ha letto nel
+         * suo diario. Se un giorno questa diventasse verde con 101, vorrebbe
+         * dire che `UnaNotifica` ha smesso di essere «una notifica».
+         */
+        let intero = pacchetto_pelagic(0x0d, &vec![0xAB; 96]);
+        let (manda, ricevi) = channel();
+        let mut flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())));
+        manda.send(intero[..96].to_vec()).unwrap();
+        manda.send(intero[96..].to_vec()).unwrap();
+
+        let letto = flusso.leggi(260, Duration::from_millis(50)).unwrap();
+        assert_eq!(letto.len(), 96, "è il «Invalid packet length (96)» del 17 settembre");
+        assert_eq!(letto[4], 96, "e la lunghezza che il pacchetto dichiarava era 96");
+    }
+
+    #[test]
+    fn due_pacchetti_attaccati_non_si_incollano() {
+        /*
+         * ► IL DANNO PEGGIORE DEI DUE, perché non dà nessun errore. ◄
+         *
+         * Chi riceve legge la lunghezza del PRIMO pacchetto, prende quei byte e
+         * butta il resto. Il secondo sparisce in silenzio, e il sintomo compare
+         * molto dopo come dati che non si tengono insieme — nel diario del
+         * 17 settembre, dodici avvisi «Profiles are not continuous» di fila.
+         */
+        let primo = pacchetto_pelagic(0x0d, &[1, 2, 3]);
+        let secondo = pacchetto_pelagic(0x0d, &[4, 5]);
+        let mut insieme = primo.clone();
+        insieme.extend_from_slice(&secondo);
+
+        let (manda, mut flusso) = flusso_pelagic();
+        manda.send(insieme).unwrap();
+
+        assert_eq!(flusso.leggi(260, Duration::from_millis(50)).unwrap(), primo);
+        assert_eq!(
+            flusso.leggi(260, Duration::from_millis(50)).unwrap(),
+            secondo,
+            "il secondo non si butta: resta in cassa per la lettura dopo"
+        );
+    }
+
+    #[test]
+    fn un_pacchetto_intero_non_si_tira_dietro_quello_dopo() {
+        /*
+         * ► IL CASO CHE `PacchettoIntero` SBAGLIA, e per cui questa politica
+         *   esiste invece di riusare quella. ◄
+         *
+         * Quella unisce «finché ogni notifica arriva piena», dove «piena» vuol
+         * dire «grande come la più grande vista finora». Un pacchetto completo
+         * da 101 byte che è anche il più grande soddisfa la condizione: si
+         * aspetta un seguito che non esiste, e se nel frattempo arriva il
+         * pacchetto DOPO, se lo tira dentro.
+         *
+         * Le due metà di questa prova sono la stessa radio con l'unica
+         * differenza che conta.
+         */
+        let grande = pacchetto_pelagic(0x0d, &vec![0xAB; 96]);
+        let piccolo = pacchetto_pelagic(0xfa, &[0x01, 0x00]);
+
+        let (manda, ricevi) = channel();
+        let mut vecchia = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())))
+            .con_riassemblaggio(Riassemblaggio::PacchettoIntero);
+        manda.send(grande.clone()).unwrap();
+        manda.send(piccolo.clone()).unwrap();
+        let incollato = vecchia.leggi(260, Duration::from_millis(50)).unwrap();
+        assert_eq!(
+            incollato.len(),
+            grande.len() + piccolo.len(),
+            "con la regola del trasporto i due si incollano: {incollato:?}"
+        );
+
+        let (manda, mut nuova) = flusso_pelagic();
+        manda.send(grande.clone()).unwrap();
+        manda.send(piccolo.clone()).unwrap();
+        assert_eq!(nuova.leggi(260, Duration::from_millis(50)).unwrap(), grande);
+        assert_eq!(nuova.leggi(260, Duration::from_millis(50)).unwrap(), piccolo);
+    }
+
+    #[test]
+    fn fuori_sincronia_si_consegna_e_si_lascia_dire_alla_libreria() {
+        /*
+         * Un avanzo che non comincia per `CD` non è un pacchetto a metà: è un
+         * avanzo fuori sincronia. Tenerselo qui per «riallinearsi» vorrebbe dire
+         * fermarsi ad aspettare frammenti a ogni lettura fino alla fine dello
+         * scarico, e nascondere l'unica informazione utile — che
+         * `pelagic_i330r.c` dà per intero: «Unexpected packet start byte (%02x)»,
+         * col byte che ha trovato.
+         */
+        let (manda, mut flusso) = flusso_pelagic();
+        manda.send(vec![0x11, 0x22, 0x33]).unwrap();
+        assert_eq!(
+            flusso.leggi(260, Duration::from_millis(50)).unwrap(),
+            vec![0x11, 0x22, 0x33]
+        );
+    }
+
+    #[test]
+    fn il_frammento_che_non_arriva_adesso_si_conta() {
+        /*
+         * ► IL NUMERO CHE DICEVA ZERO DAVANTI A UN PACCHETTO SPEZZATO. ◄
+         *
+         * Il diario del 17 settembre riporta «pacchetti lasciati a metà: 0»
+         * mentre un pacchetto era stato lasciato a metà per davvero. Non era una
+         * bugia del contatore: era che con «una notifica per lettura» il codice
+         * che lo incrementa **non gira affatto**.
+         *
+         * Adesso gira, quindi il diario della prossima segnalazione dirà una
+         * cosa vera. Il pacchetto a metà si consegna lo stesso — la diagnosi
+         * giusta è quella di libdivecomputer — ma non passa più inosservato da
+         * questa parte.
+         */
+        let intero = pacchetto_pelagic(0x0d, &vec![0xAB; 96]);
+        let (manda, mut flusso) = flusso_pelagic();
+        manda.send(intero[..96].to_vec()).unwrap();
+
+        let letto = flusso.leggi(260, Duration::from_millis(50)).unwrap();
+        assert_eq!(letto.len(), 96, "si consegna quello che c'è");
+        assert_eq!(flusso.misure_frammenti().0, 1, "e si scrive che mancava qualcosa");
+    }
+
+    #[test]
+    fn la_lunghezza_dichiarata_si_legge_dal_quinto_byte() {
+        /*
+         * ► LA GUARDIA DELLA GUARDIA. ◄ Tutto il resto poggia su una regola
+         * sola: totale = `pacchetto[4] + 5`. Non è dedotta dal sorgente della
+         * libreria, è misurata sui pacchetti veri del diario del 17 settembre —
+         * quattro scritture e una notifica, tutte con la stessa aritmetica.
+         */
+        for (byte, atteso) in [
+            (vec![0xcd, 0x40, 0xfa, 0xf6, 0x09], 14usize),
+            (vec![0xcd, 0x80, 0xfa, 0x92, 0x10], 21),
+            (vec![0xcd, 0x80, 0xfb, 0x94, 0x06], 11),
+            (vec![0xcd, 0x00, 0x0d, 0xbe, 0x09], 14),
+            (vec![0xcd, 0xc0, 0xfa, 0x94, 0x02], 7),
+        ] {
+            let avanzo: VecDeque<u8> = byte.into_iter().collect();
+            assert_eq!(confine_dichiarato(&avanzo), Some(atteso));
+            assert!(manca_un_pezzo(&avanzo), "l'intestazione da sola non basta mai");
+        }
+
+        // E i due casi in cui non si sa: intestazione incompleta, e byte
+        // d'inizio sbagliato. Portano allo stesso gesto per ragioni opposte.
+        let corta: VecDeque<u8> = vec![0xcd, 0x40].into_iter().collect();
+        assert_eq!(confine_dichiarato(&corta), None);
+        assert!(manca_un_pezzo(&corta), "manca, ma non si sa quanto");
+
+        let storta: VecDeque<u8> = vec![0x11, 0x22, 0x33, 0x44, 0x55].into_iter().collect();
+        assert_eq!(confine_dichiarato(&storta), None);
+        assert!(!manca_un_pezzo(&storta), "fuori sincronia non si aspetta niente");
     }
 
     #[test]

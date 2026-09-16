@@ -671,6 +671,7 @@ ma il profilo le chiede",
                 match self.riassemblaggio {
                     Riassemblaggio::UnaNotifica => "singole",
                     Riassemblaggio::PacchettoIntero => "unite",
+                    Riassemblaggio::LunghezzaDichiarata => "a lunghezza",
                 }
             )
         }
@@ -739,10 +740,17 @@ ma il profilo le chiede",
     /// servizio; e sono pochi abbastanza da restare leggibili nel diario.
     const MAX_TENTATIVI: usize = 8;
 
-    fn nome_riassemblaggio(r: Riassemblaggio) -> &'static str {
+    /// Come si chiama questa politica nel diario.
+    ///
+    /// `pub` come `riassemblaggio_per`, e per la stessa ragione: una prova la
+    /// legge. Una politica senza nome nel diario è una politica che non si può
+    /// leggere in una segnalazione, e le segnalazioni sono l'unico posto da cui
+    /// questo progetto vede gli apparecchi che non ha.
+    pub fn nome_riassemblaggio(r: Riassemblaggio) -> &'static str {
         match r {
             Riassemblaggio::UnaNotifica => "notifiche una per volta",
             Riassemblaggio::PacchettoIntero => "notifiche unite",
+            Riassemblaggio::LunghezzaDichiarata => "notifiche unite fino alla lunghezza dichiarata",
         }
     }
 
@@ -3459,12 +3467,34 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
     const MARES_PACCHETTO_INTERO: [&str; 5] =
         ["Puck Air 2", "Sirius", "Quad Ci", "Puck 4", "Puck Lite"];
 
+    /// La famiglia Pelagic, che la lunghezza del pacchetto la scrive dentro.
+    ///
+    /// ════════════════════════════════════════════════════════════════════════
+    /// ► TRE NOMI, E SONO TUTTI QUELLI DELLA FAMIGLIA. ◄
+    ///
+    /// Sono le tre voci con `famiglia: 'pelagic_i330r'` in
+    /// `src/core/ble/catalogoGenerato.ts`, che è generato dai descrittori di
+    /// libdivecomputer: Apeks DSX, Aqualung i330R e i330R Console. Tutti e tre
+    /// parlano l'inquadramento `CD <bandiera> <comando> <checksum> <lunghezza>`
+    /// di `pelagic_i330r.c`, e una prova legge il catalogo e pretende che questo
+    /// elenco sia ancora completo: il giorno che ne compare un quarto, diventa
+    /// rossa prima che qualcuno se ne accorga con un computer in mano.
+    ///
+    /// Il perché della politica sta tutto in
+    /// `Riassemblaggio::LunghezzaDichiarata`, insieme alla segnalazione del
+    /// 17 settembre 2026 che l'ha resa necessaria.
+    const PELAGIC_LUNGHEZZA_DICHIARATA: [&str; 3] = ["DSX", "i330R", "i330R Console"];
+
     /// Come vanno rimesse insieme le notifiche per questo computer.
     pub fn riassemblaggio_per(marca: &str, prodotto: &str) -> Riassemblaggio {
         if marca.eq_ignore_ascii_case("Mares")
             && MARES_PACCHETTO_INTERO.iter().any(|m| m.eq_ignore_ascii_case(prodotto))
         {
             Riassemblaggio::PacchettoIntero
+        } else if (marca.eq_ignore_ascii_case("Aqualung") || marca.eq_ignore_ascii_case("Apeks"))
+            && PELAGIC_LUNGHEZZA_DICHIARATA.iter().any(|m| m.eq_ignore_ascii_case(prodotto))
+        {
+            Riassemblaggio::LunghezzaDichiarata
         } else {
             Riassemblaggio::UnaNotifica
         }
@@ -5979,6 +6009,52 @@ mod prove {
         // Un'altra marca con lo stesso nome di modello non conta: la marca fa
         // parte della domanda.
         assert_eq!(riassemblaggio_per("Cressi", "Sirius"), Riassemblaggio::UnaNotifica);
+    }
+
+    #[test]
+    fn la_famiglia_pelagic_legge_la_lunghezza_dal_pacchetto() {
+        /*
+         * ► LA SEGNALAZIONE DEL 17 SETTEMBRE 2026. ◄ Un i330R: quaranta
+         * immersioni arrivate, poi «Invalid packet length (96)». Il pacchetto
+         * dichiarava 101 byte e la radio l'aveva spezzato in due; con una
+         * notifica per lettura, libdivecomputer ne ha visti 96.
+         *
+         * L'elenco dei tre nomi è controllato contro il catalogo da
+         * `famigliaPelagic.test.ts`: qui si prova la funzione — che guardi la
+         * marca, e che non si faccia ingannare dalle maiuscole.
+         */
+        assert_eq!(
+            riassemblaggio_per("Aqualung", "i330R"),
+            Riassemblaggio::LunghezzaDichiarata
+        );
+        assert_eq!(
+            riassemblaggio_per("aqualung", "I330R CONSOLE"),
+            Riassemblaggio::LunghezzaDichiarata
+        );
+        assert_eq!(riassemblaggio_per("Apeks", "DSX"), Riassemblaggio::LunghezzaDichiarata);
+
+        // L'altro Aqualung in catalogo è un Oceanic Atom 2, che parla un altro
+        // inquadramento: leggergli la lunghezza dal quinto byte non avrebbe
+        // senso.
+        assert_eq!(riassemblaggio_per("Aqualung", "i200C"), Riassemblaggio::UnaNotifica);
+        // E la marca fa parte della domanda anche qui.
+        assert_eq!(riassemblaggio_per("Cressi", "DSX"), Riassemblaggio::UnaNotifica);
+    }
+
+    #[test]
+    fn e_le_tre_politiche_hanno_un_nome_ciascuna_nel_diario() {
+        /*
+         * Una politica senza nome nel diario è una politica che non si può
+         * leggere in una segnalazione — e le segnalazioni sono l'unico posto da
+         * cui questo progetto vede gli apparecchi che non ha.
+         */
+        let nomi = [
+            nome_riassemblaggio(Riassemblaggio::UnaNotifica),
+            nome_riassemblaggio(Riassemblaggio::PacchettoIntero),
+            nome_riassemblaggio(Riassemblaggio::LunghezzaDichiarata),
+        ];
+        assert_eq!(nomi.len(), nomi.iter().collect::<std::collections::HashSet<_>>().len());
+        assert!(nomi.iter().all(|n| !n.is_empty()));
     }
 
     #[test]
