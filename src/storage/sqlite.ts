@@ -67,6 +67,32 @@ const SCHEMA = [
  */
 export const VERSIONE_ARCHIVIO = 1;
 
+/**
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► «NON C'È UN ARCHIVIO NATIVO» E «C'È E NON VA APERTO» SONO DUE COSE DIVERSE. ◄
+ *
+ * `getStore()` ripiega su IndexedDB quando SQLite non parte, e fa bene: meglio
+ * un'applicazione che funziona che un'applicazione che non si apre. Ma
+ * ripiegava su **qualunque** errore, compreso il rifiuto qui sotto — quello che
+ * dice «questo archivio l'ha scritto una versione più recente, non lo tocco».
+ *
+ * La conseguenza non era un'app che non parte: era **un'app che parte
+ * sull'archivio sbagliato.** Il logbook appariva vuoto o diverso, le immersioni
+ * nuove finivano in un secondo deposito, e il giorno che SQLite tornava
+ * disponibile quelle sembravano sparite. *Il difetto non è il ripiego: è il
+ * cambio silenzioso della fonte dei dati.*
+ *
+ * Trovato da una verifica esterna il 16 settembre 2026.
+ *
+ * Questo errore ha un tipo suo apposta perché `getStore()` possa distinguerlo
+ * da tutti gli altri e **rilanciarlo** invece di nasconderlo: un archivio che
+ * c'è e non si può aprire è una cosa che la persona deve sapere, non un
+ * dettaglio da console.
+ */
+export class ArchivioDaNonAprire extends Error {
+  readonly archivioEsiste = true;
+}
+
 export class SqliteStore implements DiveStore {
   readonly kind = 'sqlite' as const;
   /** Come in `IndexedDbStore`: la frase è la chiave, e si traduce a schermo. */
@@ -112,7 +138,7 @@ export class SqliteStore implements DiveStore {
     const [{ user_version: versione }] =
       await this.db.select<{ user_version: number }[]>('PRAGMA user_version');
     if (versione > VERSIONE_ARCHIVIO) {
-      throw new Error(
+      throw new ArchivioDaNonAprire(
         this.t(
           'Questo archivio è stato scritto da una versione più recente di MyDiveLog. Aggiorna l’applicazione: aprirlo così rischierebbe di perdere i dati che questa versione non conosce.',
         ),

@@ -970,6 +970,51 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
    *
    * Un elenco solo, una scrittura sola, nessuna chiusura da cui leggere.
    */
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► RILEGGERE QUELLO CHE VIVE ANCHE IN MEMORIA, IN UN POSTO SOLO. ◄
+   *
+   * Le impostazioni condivise stanno su disco E in uno stato di React. Dopo
+   * un'operazione che riscrive il disco — una sincronizzazione che scarica, un
+   * ripristino da backup — lo stato va riallineato, o lo schermo continua a
+   * mostrare quello di prima **fino al riavvio**, e una modifica fatta da
+   * quella schermata riscrive sul disco un valore già superato.
+   *
+   * ► PERCHÉ UNA FUNZIONE E NON DUE ELENCHI. ◄ Perché erano due elenchi, e
+   * come sempre uno dei due era più corto. Dopo la sincronizzazione se ne
+   * rileggevano sette; dopo il ripristino tre. **`subacqueo` non era in
+   * nessuno dei due**: chi ripristinava un backup vedeva a schermo il nome di
+   * prima mentre sul disco c'era quello del file, e il libretto usciva col
+   * nome sbagliato.
+   *
+   * Trovato da una verifica esterna il 16 settembre 2026, montando il provider
+   * vero: disco `{nome: "Dopo"}`, schermo `{nome: "Prima"}`.
+   *
+   * *Due copie della stessa regola sono una regola e la sua versione vecchia.*
+   * Da qui in avanti ce n'è una: chi aggiunge un'impostazione condivisa la
+   * aggiunge qui, e la vedono tutte e due le strade.
+   */
+  const rileggiImpostazioni = useCallback(async (s: DiveStore) => {
+    const [gas, savedGear, deco, piani, segnalibri, obiettivo, periodoSalvato, chi] = await Promise.all([
+      s.getSetting<GasPlanInput>('gasPlan'),
+      s.getSetting<unknown>('gear'),
+      s.getSetting<unknown>('decoPlan'),
+      s.getSetting<SavedDecoPlan[]>('decoPlans'),
+      s.getSetting<Record<string, DownloadMarker>>(BLE_MARKERS_KEY),
+      s.getSetting<GoalId>('goal'),
+      s.getSetting<PeriodId>('period'),
+      s.getSetting<Subacqueo>('subacqueo'),
+    ]);
+    if (gas?.depthM) setGasInputState(gas);
+    if (savedGear) setGearState(migrateGear(savedGear as never));
+    if (deco) setDecoInputState(deco);
+    if (piani) setDecoPlans(piani);
+    if (segnalibri) setBleMarkers(segnalibri);
+    if (obiettivo) setGoalIdState(obiettivo);
+    if (periodoSalvato) setPeriodState(periodoSalvato);
+    if (chi) setSubacqueoState(chi);
+  }, []);
+
   const removeDives = useCallback(
     async (ids: string[]) => {
       if (!store || !ids.length) {
@@ -979,10 +1024,29 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
       const daCancellare = dives.filter((d) => ids.includes(d.id));
       const nuovi: TrashedDive[] = [];
       for (const dive of daCancellare) {
-        // Il profilo va salvato PRIMA di cancellare: dopo non c'è più da leggere.
+        /*
+         * ══════════════════════════════════════════════════════════════════
+         * ► SE LA COPIA NON SI PUÒ FARE, NON SI CANCELLA. ◄
+         *
+         * Il profilo va salvato PRIMA di cancellare: dopo non c'è più da
+         * leggere. Fin qui era giusto — ma le due letture avevano un
+         * `.catch(() => [])` ciascuna, e un elenco vuoto **è indistinguibile
+         * da un'immersione senza profilo**. Con un errore di lettura
+         * transitorio il cestino riceveva la scheda senza i campioni e la
+         * cancellazione andava avanti lo stesso: *«ripristina dal cestino»
+         * restituiva un'immersione senza profilo, e il profilo non c'era più
+         * da nessuna parte.*
+         *
+         * Trovato da una verifica esterna il 16 settembre 2026, montando il
+         * provider vero con un archivio che rifiuta la lettura.
+         *
+         * Adesso l'errore sale. Chi chiama lo mostra, e l'immersione resta
+         * dov'è: *un'operazione che non si può disfare non si comincia se non
+         * si è potuta preparare.*
+         */
         const [samples, altSamples] = await Promise.all([
-          store.getSamples(dive.id).catch(() => [] as Sample[]),
-          store.getAltSamples(dive.id).catch(() => [] as Sample[]),
+          store.getSamples(dive.id),
+          store.getAltSamples(dive.id),
         ]);
         const { samples: _s, altSamples: _a, ...doc } = dive;
         nuovi.push({
@@ -1310,24 +1374,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
          * mostrare la finestra di prima, cioè numeri che non corrispondono più
          * a niente. L'elenco qui deve restare allineato a `SHARED_SETTINGS`.
          */
-        if (report.settingsPulled > 0) {
-          const [gas, savedGear, deco, piani, segnalibri, obiettivo, periodoSalvato] = await Promise.all([
-            store.getSetting<GasPlanInput>('gasPlan'),
-            store.getSetting<unknown>('gear'),
-            store.getSetting<unknown>('decoPlan'),
-            store.getSetting<SavedDecoPlan[]>('decoPlans'),
-            store.getSetting<Record<string, DownloadMarker>>(BLE_MARKERS_KEY),
-            store.getSetting<GoalId>('goal'),
-            store.getSetting<PeriodId>('period'),
-          ]);
-          if (gas?.depthM) setGasInputState(gas);
-          if (savedGear) setGearState(migrateGear(savedGear as never));
-          if (deco) setDecoInputState(deco);
-          if (piani) setDecoPlans(piani);
-          if (segnalibri) setBleMarkers(segnalibri);
-          if (obiettivo) setGoalIdState(obiettivo);
-          if (periodoSalvato) setPeriodState(periodoSalvato);
-        }
+        if (report.settingsPulled > 0) await rileggiImpostazioni(store);
         return report;
       } catch (err) {
         throw new Error(describeSyncError(err));
@@ -1339,7 +1386,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [store, syncCredentials, traduci],
+    [store, syncCredentials, traduci, rileggiImpostazioni],
   );
 
   /*
@@ -1576,14 +1623,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
        * manifestava al riavvio successivo — staccata dalla sua causa, cioè nel
        * modo in cui è più difficile capire cos'è successo.
        */
-      const [savedGear, savedGas, savedPlans] = await Promise.all([
-        store.getSetting<unknown>('gear'),
-        store.getSetting<GasPlanInput>('gasPlan'),
-        store.getSetting<SavedDecoPlan[]>('decoPlans'),
-      ]);
-      setGearState(migrateGear(savedGear as never));
-      if (savedGas?.depthM) setGasInputState(savedGas);
-      if (savedPlans) setDecoPlans(savedPlans);
+      await rileggiImpostazioni(store);
 
       return {
         added: plan.added.length,
@@ -1592,7 +1632,7 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
         settings: Object.keys(plan.settings).length,
       };
     },
-    [dives, store, trash],
+    [dives, store, trash, rileggiImpostazioni],
   );
 
   const saveGasInput = useCallback(

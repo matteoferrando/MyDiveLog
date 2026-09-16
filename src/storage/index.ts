@@ -8,7 +8,7 @@
 
 import { comeSta, type Traduci } from '../core/traduci';
 import { IndexedDbStore } from './indexeddb';
-import { SqliteStore } from './sqlite';
+import { ArchivioDaNonAprire, SqliteStore } from './sqlite';
 import type { DiveStore } from './types';
 
 export type { DiveStore, DiveSummary } from './types';
@@ -39,7 +39,20 @@ export async function getStore(t: Traduci = comeSta): Promise<DiveStore> {
       instance = store;
       return store;
     } catch (err) {
-      // Meglio un'app che funziona con IndexedDB che un'app che non parte.
+      /*
+       * ► SI RIPIEGA QUANDO L'ARCHIVIO NATIVO NON C'È, NON QUANDO C'È E NON SI
+       *   PUÒ APRIRE. ◄
+       *
+       * Vedi `ArchivioDaNonAprire` in `sqlite.ts`. Prima si ripiegava su
+       * qualunque errore, e il caso peggiore era proprio quello che il rifiuto
+       * esiste per prendere: un archivio scritto da una versione più recente
+       * faceva partire l'applicazione su IndexedDB, vuoto, e le immersioni
+       * nuove finivano in un secondo deposito.
+       *
+       * *Meglio un'app che funziona con IndexedDB che un'app che non parte —
+       * ma non quando la stessa persona ha già un archivio pieno accanto.*
+       */
+      if (err instanceof ArchivioDaNonAprire) throw err;
       console.warn('SQLite non disponibile, ripiego su IndexedDB:', err);
     }
   }

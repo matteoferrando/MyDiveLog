@@ -88,7 +88,18 @@ GOOGLE_CLIENT_DESKTOP = "883995552043-fcsjcnlb5o6ih7af686bk0j7pls9k5bi.apps.goog
 # lascia passare quando il contatore non risponde (scelta dichiarata in
 # `limite.ts`) e che le segnalazioni non scadono, era una via di riempimento a
 # costo zero.
-ORIGINI_AMMESSE = "https://mydivelog.site,https://www.mydivelog.site,http://localhost:1420,http://localhost:5173,tauri://localhost"
+# ► `http://tauri.localhost` NON È UN REFUSO, ed è l'origine di due piattaforme
+#   su quattro. ◄
+#
+# Tauri 2 usa `tauri://localhost` su macOS e iOS, e `http://tauri.localhost`
+# su **Windows e Android**. Qui c'era solo la prima: una richiesta di accesso
+# da una build nativa Windows o Android riceveva **403 «origine non ammessa»**
+# al preflight, quindi accesso e rinnovo della chiave del database non
+# potevano funzionare — mentre sul Mac andava tutto.
+#
+# *Un difetto che si vede solo sulle due piattaforme che in questa casa non
+# ci sono.* Trovato da una verifica esterna il 16 settembre 2026.
+ORIGINI_AMMESSE = "https://mydivelog.site,https://www.mydivelog.site,http://localhost:1420,http://localhost:5173,tauri://localhost,http://tauri.localhost"
 
 # Dove finiscono le segnalazioni dal modulo del sito.
 #
