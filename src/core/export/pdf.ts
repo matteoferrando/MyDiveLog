@@ -48,6 +48,7 @@ import { formatDuration } from '../units';
 import { temperaturaMinimaC } from '../temperatura';
 import type { FoglioPiano } from './planPrint';
 import { profonditaMedia } from '../profondita';
+import { perData } from '../oraAParete';
 
 /** A4 in punti tipografici, arrotondato: il PDF misura tutto in questa unità. */
 const LARGHEZZA = 595;
@@ -491,7 +492,7 @@ export interface PdfOptions {
  * byte. Vedi la nota in testa a questo modulo.
  */
 export function schedePdf(dives: Dive[], samplesById: Map<string, Sample[]>, opts: PdfOptions = {}): string {
-  const ordinate = [...dives].sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
+  const ordinate = [...dives].sort(perData((d) => d.startTime));
   const pagine = ordinate.map((d) => contenutoPagina(d, samplesById.get(d.id) ?? d.samples ?? [], opts));
   return assembla(pagine.length ? pagine : ['']);
 }

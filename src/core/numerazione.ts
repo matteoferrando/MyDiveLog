@@ -40,6 +40,7 @@
  */
 
 import type { Dive } from './model';
+import { perData } from './oraAParete';
 
 /**
  * Da identificativo a numero progressivo, contando dalla più vecchia.
@@ -58,13 +59,27 @@ export function numeriProgressivi(dives: Dive[], precedenti = 0): Map<string, nu
    * senza un criterio di spareggio l'ordine dipenderebbe da come l'archivio è
    * stato letto. Il numero cambierebbe da un avvio all'altro, sulla stessa
    * immersione, senza che nessuno abbia toccato niente.
+   *
+   * ► E LO SPAREGGIO NON VENIVA MAI RAGGIUNTO CON UNA DATA ILLEGGIBILE. ◄
+   *
+   * Il confronto era `Date.parse(a) - Date.parse(b)` dietro un `if (ta !== tb)`.
+   * Con una data che `Date.parse` non capisce il risultato è `NaN`, e
+   * `NaN !== NaN` è **vero**: il ramo dello spareggio non partiva mai, e la
+   * funzione restituiva `NaN` al motore. Per la specifica del linguaggio un
+   * comparatore che restituisce `NaN` rende l'ordinamento **indefinito**.
+   *
+   * Misurato il 16 settembre 2026: le stesse quattro immersioni, passate in
+   * tre ordini diversi, ricevevano **tre numerazioni diverse** — cioè
+   * esattamente la cosa che il criterio di spareggio esisteva per impedire, e
+   * su un numero che si scrive sul libretto a valore legale.
+   *
+   * *Un controllo che non si accende non è un controllo che passa: è un
+   * controllo che non c'è.* `perData` (in `oraAParete.ts`) non restituisce mai
+   * `NaN` e mette in fondo quelle senza data, dove lo spareggio per
+   * identificativo le ordina in modo stabile.
    */
-  const ordinate = [...dives].sort((a, b) => {
-    const ta = Date.parse(a.startTime);
-    const tb = Date.parse(b.startTime);
-    if (ta !== tb) return ta - tb;
-    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-  });
+  const perOrario = perData<Dive>((d) => d.startTime);
+  const ordinate = [...dives].sort((a, b) => perOrario(a, b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
   const numeri = new Map<string, number>();
   ordinate.forEach((d, i) => numeri.set(d.id, precedenti + i + 1));

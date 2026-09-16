@@ -16,6 +16,7 @@
  */
 
 import type { Dive } from '../model';
+import { perData } from '../oraAParete';
 
 export type PeriodId = '6m' | '12m' | '24m' | 'all';
 
@@ -81,7 +82,7 @@ export interface Scope {
  */
 export function applyPeriod(dives: Dive[], id: PeriodId, now: number = Date.now()): Scope {
   const period = periodOf(id);
-  const sorted = [...dives].sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
+  const sorted = [...dives].sort(perData((d) => d.startTime));
   if (period.months === undefined) {
     return {
       period,

@@ -27,6 +27,7 @@
 
 import type { GasMix, Salinity, Sample } from '../model';
 import { ambientBar } from '../units';
+import { perData } from '../oraAParete';
 
 /**
  * Limiti NOAA per **singola esposizione**, minuti al 100%.
@@ -284,7 +285,7 @@ export function oxygenLoad(
 ): OxygenLoad {
   const withData = dives
     .filter((d) => d.metrics?.cnsPct !== undefined || d.metrics?.otu !== undefined)
-    .sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
+    .sort(perData((d) => d.startTime));
 
   const byDay = new Map<string, typeof withData>();
   for (const d of withData) {

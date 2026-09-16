@@ -105,3 +105,61 @@ export type Fuso = (oraAParete: number) => number;
 export function fusoDelDispositivo(oraAParete: number): number {
   return -new Date(oraAParete).getTimezoneOffset();
 }
+
+/**
+ * L'ISTANTE DI UN TESTO, O NIENTE — E UN CONFRONTO CHE NON RESTITUISCE MAI `NaN`.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► IL DIFETTO MISURATO IL 16 SETTEMBRE 2026. ◄
+ *
+ * `Date.parse` di un testo che non è una data restituisce `NaN`, e undici
+ * ordinamenti di questo progetto facevano `Date.parse(a) - Date.parse(b)`.
+ * Un comparatore che restituisce `NaN` non è «un comparatore che sbaglia»: per
+ * la specifica del linguaggio il risultato dell'ordinamento è **indefinito**,
+ * cioè dipende dall'algoritmo del motore e dall'ordine in cui gli elementi
+ * gli arrivano.
+ *
+ * In `numerazione.ts` il danno si vede tutto: lì il confronto per orario ha un
+ * secondo criterio — l'identificativo — messo apposta perché «il numero non
+ * cambi da un avvio all'altro sulla stessa immersione». Con una data
+ * illeggibile il primo confronto restituiva `NaN` e **lo spareggio non veniva
+ * mai raggiunto**. Misurato: le stesse quattro immersioni, passate in tre
+ * ordini diversi, ricevevano tre numerazioni diverse.
+ *
+ * *Il numero progressivo è quello che si scrive sul libretto a valore legale.*
+ *
+ * ► LE IMMERSIONI SENZA DATA VANNO IN FONDO, e non è indifferente. ◄ Una
+ * senza data non ha un posto nella sequenza cronologica: mettendola in mezzo
+ * sposterebbe il numero di tutte quelle dopo. In fondo, i numeri di quelle
+ * datate restano quelli, e l'ordine fra le indatabili lo decide comunque un
+ * criterio stabile scelto da chi chiama.
+ */
+export function istanteDi(quando: string | undefined | null): number | undefined {
+  if (!quando) return undefined;
+  const t = Date.parse(quando);
+  return Number.isFinite(t) ? t : undefined;
+}
+
+/**
+ * Un comparatore cronologico stabile, da dare a `sort`.
+ *
+ * `verso` decide solo l'ordine fra le date: **le voci senza data restano in
+ * fondo in tutti e due i versi**, perché «non so quando» non è né recente né
+ * vecchio. A parità — stessa data, o nessuna delle due — restituisce 0, e
+ * quindi lascia decidere allo spareggio di chi chiama.
+ */
+export function perData<T>(
+  quando: (x: T) => string | undefined,
+  verso: 'crescente' | 'decrescente' = 'crescente',
+): (a: T, b: T) => number {
+  const segno = verso === 'crescente' ? 1 : -1;
+  return (a, b) => {
+    const ta = istanteDi(quando(a));
+    const tb = istanteDi(quando(b));
+    if (ta === undefined || tb === undefined) {
+      if (ta === tb) return 0;
+      return ta === undefined ? 1 : -1;
+    }
+    return ta === tb ? 0 : segno * (ta < tb ? -1 : 1);
+  };
+}

@@ -773,7 +773,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
            * una riga lunga il doppio dello schermo.
            */
           sommario={
-            scartiDiAnalisi(dive.cylinders).length > 0
+            scartiDiAnalisi(dive.cylinders, dive).length > 0
               ? t('l’analisi non coincide con l’etichetta')
               : dive.cylinders.length === 0
                 ? t('nessuna bombola registrata')
@@ -835,7 +835,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
            * percentuali» non dice niente a nessuno, «trentasette metri invece
            * di quaranta» dice tutto.
            */}
-          {scartiDiAnalisi(dive.cylinders).map((s) => (
+          {scartiDiAnalisi(dive.cylinders, dive).map((s) => (
             <div key={s.bombola} className="notice" style={{ marginTop: 12 }}>
               <b>
                 {t('Bombola')} {s.bombola + 1}

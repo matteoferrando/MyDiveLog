@@ -28,6 +28,7 @@ import { frase } from '../frase';
 import { CHAIN_BREAK_HOURS, entryStateFor } from './tissues';
 import { cnsAfterSurface } from './oxygen';
 import { cnsMostrato } from '../units';
+import { perData } from '../oraAParete';
 
 export type NoteLevel = 'critical' | 'warning' | 'info' | 'good';
 
@@ -69,7 +70,7 @@ export function nextDiveBriefing(
 ): NextDiveBriefing {
   const notes: NextDiveNote[] = [];
 
-  const sorted = [...dives].sort((a, b) => Date.parse(b.startTime) - Date.parse(a.startTime));
+  const sorted = [...dives].sort(perData((d) => d.startTime, 'decrescente'));
   const last = sorted[0];
   const lastEnd = last ? Date.parse(last.startTime) + last.durationS * 1000 : undefined;
   const hoursSinceLast = lastEnd !== undefined ? (now - lastEnd) / 3600_000 : undefined;
@@ -191,16 +192,31 @@ export function nextDiveBriefing(
     });
   }
 
-  // La nota verde vale solo se NON c'è nient'altro da dire.
-  //
-  // Prima guardava solo le note critiche e di avviso, e finiva sopra a quelle
-  // informative per via della priorità: la stessa schermata diceva, in
-  // quest'ordine, «nessun carico residuo» e «hai ancora 0.10 bar di azoto in più
-  // del normale». Adesso la condizione è che non ci sia proprio nulla, e il testo
-  // dice quello che sa: niente residuo e niente da leggere.
-  const somethingToSay = notes.some(
-    (x) => x.level !== 'info' || x.id === 'residual' || x.id === 'residual-cns',
-  );
+  /*
+   * La nota verde vale solo se NON c'è nient'altro da dire.
+   *
+   * ► LA CONDIZIONE DICEVA UNA COSA E IL COMMENTO NE DICEVA UN'ALTRA. ◄
+   *
+   * Il commento diceva «adesso la condizione è che non ci sia proprio nulla».
+   * La condizione invece contava soltanto le note non informative più le due
+   * del residuo, quindi `no-dives`, `rusty` e `focus` — tutte e tre `info` —
+   * non la facevano scattare. E la nota verde ha priorità 30, mentre `focus`
+   * ne ha 40 e `rusty` 55: finiva **sopra** a loro.
+   *
+   * Misurato il 16 settembre 2026 su un archivio con un piano di
+   * miglioramento attivo: la schermata diceva, in quest'ordine, «Niente in
+   * circolo — nessuna nota da leggere» e subito sotto «Su cosa lavorare:
+   * …». *Una schermata che si contraddice a due righe di distanza insegna a
+   * non leggerla.*
+   *
+   * È la stessa forma del difetto che il commento racconta di aver chiuso la
+   * volta prima, con l'azoto residuo. Chiuderlo per una lista di eccezioni
+   * invece che per la regola intera vuol dire riaprirlo alla nota successiva
+   * che qualcuno aggiunge — ed è successo.
+   *
+   * Adesso la condizione è quella che il testo promette: nessun'altra nota.
+   */
+  const somethingToSay = notes.length > 0;
   if (!somethingToSay) {
     notes.push({
       id: 'clear',

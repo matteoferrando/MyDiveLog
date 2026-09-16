@@ -40,6 +40,7 @@ import {
   type TissueState,
   FRAZIONE_N2_ARIA,
 } from './buhlmann';
+import { perData } from './../oraAParete';
 
 /** Oltre questo intervallo il residuo è trascurabile e la catena riparte da zero. */
 export const CHAIN_BREAK_HOURS = 24;
@@ -309,7 +310,7 @@ export async function chainArchive(
 ): Promise<{ dives: Dive[]; updated: Dive[]; report: ChainReport }> {
   const report: ChainReport = { computed: 0, reused: 0, withoutProfile: 0 };
   const byId = new Map(dives.map((d) => [d.id, d]));
-  const order = [...dives].sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
+  const order = [...dives].sort(perData((d) => d.startTime));
   const updated: Dive[] = [];
 
   let previous: { state: TissueState; endTimeMs: number } | undefined;

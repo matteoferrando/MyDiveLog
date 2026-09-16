@@ -44,6 +44,7 @@ import { istanteDaOraAParete } from '../oraAParete';
 import { computeMetrics } from '../analysis/metrics';
 import { diveIdFor } from '../dedupe';
 import type { Cylinder, Dive, DiveMode, GasMix, Sample } from '../model';
+import { perData } from '../oraAParete';
 
 /**
  * Un'immersione come la consegna il guscio Rust.
@@ -355,7 +356,7 @@ export function immersioniDaLdc(imm: ImmersioneLdc[], ctx: ContestoEsterno): Div
   return imm
     .map((i) => immersioneDaLdc(i, ctx))
     .filter((d): d is Dive => d !== undefined)
-    .sort((a, b) => Date.parse(b.startTime) - Date.parse(a.startTime));
+    .sort(perData((d) => d.startTime, 'decrescente'));
 }
 
 /**

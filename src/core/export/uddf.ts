@@ -25,6 +25,7 @@ import { barToPascal, cToKelvin, mixName } from '../units';
 import { temperaturaMinimaC } from '../temperatura';
 import { profonditaMedia } from '../profondita';
 import { firmaVuota } from '../firma';
+import { perData } from '../oraAParete';
 
 export interface UddfExportOptions {
   /** Nome del generatore scritto nel file. */
@@ -218,7 +219,7 @@ function sampleXml(s: Sample, dive: Dive, idDive: string): string {
 
 export function exportUddf(dives: Dive[], options: UddfExportOptions = {}): UddfExportResult {
   const { generator = 'MyDiveLog', now = new Date().toISOString(), includeProfiles = true } = options;
-  const sorted = [...dives].sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
+  const sorted = [...dives].sort(perData((d) => d.startTime));
 
   /*
    * ► IL SITO SI COSTRUISCE SU TUTTE LE IMMERSIONI CHE LO NOMINANO, NON SULLA PRIMA. ◄

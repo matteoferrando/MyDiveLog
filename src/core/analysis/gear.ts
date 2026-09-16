@@ -337,8 +337,11 @@ export function weightingBySuit(
       suit: r.nome,
       dives: r.kg.length,
       medianKg: Math.round(median(r.kg) * 10) / 10,
-      minKg: Math.min(...r.kg),
-      maxKg: Math.max(...r.kg),
+      // Arrotondati come la mediana accanto: la zavorra totale è una somma di
+      // pesi decimali, e la coda della virgola mobile usciva a schermo —
+      // «6.699999999999999–9.5 kg» accanto a una mediana scritta «8.1».
+      minKg: Math.round(Math.min(...r.kg) * 10) / 10,
+      maxKg: Math.round(Math.max(...r.kg) * 10) / 10,
       medianTrimMpm: r.trim.length ? Math.round(median(r.trim) * 10) / 10 : undefined,
       trimBasis: r.trim.length,
       withBackplate: r.piastre,

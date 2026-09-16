@@ -62,6 +62,7 @@ import { descriviFirma, firmaPath, firmaVuota } from '../firma';
 import { profonditaMedia } from '../profondita';
 import { inOrdineDiTempo } from '../campioni';
 import { temperaturaMinimaC } from '../temperatura';
+import { perData } from '../oraAParete';
 
 // ---------------------------------------------------------------------------
 // Escape
@@ -396,7 +397,7 @@ export function logbookHtml(
     subacqueo,
   } = opts;
 
-  const ordinate = [...dives].sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime));
+  const ordinate = [...dives].sort(perData((d) => d.startTime));
 
   const pagine = ordinate.map((dive, i) =>
     paginaImmersione(dive, samplesById.get(dive.id) ?? dive.samples ?? [], {

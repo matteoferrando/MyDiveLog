@@ -338,8 +338,20 @@ export function zavorraPerMutaEAcqua(
       salinity: g.sal,
       dives: g.dives.length,
       medianKg: arrotonda(mediana(kg)) ?? 0,
-      minKg: Math.min(...kg),
-      maxKg: Math.max(...kg),
+      /*
+       * ► ARROTONDATI COME LA MEDIANA CHE STA LORO ACCANTO. ◄
+       *
+       * La zavorra totale è una somma di pesi decimali — cintura, piastra,
+       * tasche — e la somma in virgola mobile lascia la coda: a schermo usciva
+       * **«6.699999999999999–9.5 kg»** accanto a una mediana scritta «8.1».
+       * Tre numeri sulla stessa riga, uno dei quali con sedici cifre.
+       *
+       * Non è un problema di formattazione da spostare a valle: il numero che
+       * si mostra è questo, e chi lo legge deve poterlo confrontare con la
+       * mediana senza chiedersi se la differenza è vera.
+       */
+      minKg: arrotonda(Math.min(...kg)) ?? 0,
+      maxKg: arrotonda(Math.max(...kg)) ?? 0,
       withBackplate: g.dives.filter((d) => piastraDellImmersione(d, inventario)).length,
       medianTrimMpm: arrotonda(mediana(trim)),
       trimBasis: trim.length,

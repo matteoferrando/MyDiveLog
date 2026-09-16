@@ -27,6 +27,7 @@
  */
 
 import type { Dive, Sample } from '../core/model';
+import { perData } from '../core/oraAParete';
 
 /** Chiave locale del cestino. Non è fra le `SHARED_SETTINGS`: non si sincronizza. */
 export const TRASH_KEY = 'trash';
@@ -121,5 +122,5 @@ export function trashedIds(items: TrashedDive[]): Set<string> {
 
 /** Il più recente per primo: nel cestino si cerca quello appena buttato. */
 export function sortTrash(items: TrashedDive[]): TrashedDive[] {
-  return [...items].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  return [...items].sort(perData((x) => x.at, 'decrescente'));
 }

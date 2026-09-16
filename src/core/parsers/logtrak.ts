@@ -45,6 +45,7 @@ import {
   type UwatecDive,
 } from './uwatecSmart';
 import type { DiveParser, ParseInput, ParseResult } from './types';
+import { perData } from '../oraAParete';
 
 export const logtrakParser: DiveParser = {
   format: 'logtrak',
@@ -101,9 +102,7 @@ export const logtrakParser: DiveParser = {
      * conserva: `core/numerazione.ts`. L'ordinamento resta perché serve a
      * leggere il file in ordine, non più a numerare.
      */
-    const ordered = [...root.dives].sort(
-      (a, b) => Date.parse(a.startTime ?? '') - Date.parse(b.startTime ?? ''),
-    );
+    const ordered = [...root.dives].sort(perData((d) => d.startTime));
 
     const dives: Dive[] = [];
     let profileFailures = 0;

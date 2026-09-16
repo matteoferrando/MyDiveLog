@@ -38,8 +38,8 @@
  * dice, e decide chi era lì con l'analizzatore in mano.
  */
 
-import type { AnalisiGas, Cylinder, GasMix } from './model';
-import { mod } from './units';
+import type { AnalisiGas, Cylinder, GasMix, Salinity } from './model';
+import { mod, pressioneDiSuperficie } from './units';
 import { comeSta, type Traduci } from './traduci';
 
 /**
@@ -79,7 +79,32 @@ export function discorda(mix: GasMix, analisi: AnalisiGas): boolean {
  * guarda per decidere se importa: «due punti percentuali» non dice niente,
  * «quaranta metri invece di trentasette» dice tutto.
  */
-export function scartiDiAnalisi(cylinders: readonly Cylinder[] | undefined): ScartoAnalisi[] {
+export function scartiDiAnalisi(
+  cylinders: readonly Cylinder[] | undefined,
+  /*
+   * ► DOVE SI IMMERGE, perché una MOD senza acqua e senza quota è un numero
+   *   di un altro posto. ◄
+   *
+   * `units.ts` dichiara che la pressione di superficie «arriva fin qui» e che
+   * senza di lei «MOD, PPO2, END, EAD e CNS» parlano di un'immersione al
+   * livello del mare in acqua salata. Questa funzione la saltava: chiamava
+   * `mod(c.mix)` nudo mentre il chiamante — la scheda dell'immersione — ha
+   * `dive.salinity` e `dive.surfacePressureBar` a portata di mano.
+   *
+   * Misurato il 16 settembre 2026 su EAN32 in un lago a 2000 m (0.795 bar,
+   * acqua dolce): l'avviso diceva **29.6 m** dove la MOD vera è **33.3 m**. Il
+   * numero è prudente, ed è comunque sbagliato — ma soprattutto è l'unico
+   * numero di quella schermata che non teneva conto della quota, quindi
+   * contraddiceva i tre riquadri accanto sulla stessa pagina.
+   *
+   * *È esattamente il difetto già chiuso nei due pianificatori, nello stesso
+   * file, per le stesse funzioni.* Questa volta si presentava dentro l'avviso
+   * che nomina la MOD proprio perché è «il numero con cui si decide».
+   */
+  dove: { salinity?: Salinity; surfacePressureBar?: number } = {},
+): ScartoAnalisi[] {
+  const salinity = dove.salinity ?? 'salt';
+  const superficieBar = pressioneDiSuperficie(dove.surfacePressureBar);
   const out: ScartoAnalisi[] = [];
   (cylinders ?? []).forEach((c, i) => {
     if (!c.analisi || !c.mix) return;
@@ -88,8 +113,13 @@ export function scartiDiAnalisi(cylinders: readonly Cylinder[] | undefined): Sca
       bombola: i,
       o2Dichiarato: c.mix.o2,
       o2Analizzato: c.analisi.o2,
-      modDichiarata: mod(c.mix),
-      modAnalizzata: mod({ o2: c.analisi.o2, he: c.analisi.he ?? c.mix.he ?? 0 }),
+      modDichiarata: mod(c.mix, 1.4, salinity, superficieBar),
+      modAnalizzata: mod(
+        { o2: c.analisi.o2, he: c.analisi.he ?? c.mix.he ?? 0 },
+        1.4,
+        salinity,
+        superficieBar,
+      ),
     });
   });
   return out;
