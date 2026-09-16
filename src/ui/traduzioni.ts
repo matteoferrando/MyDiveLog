@@ -1947,7 +1947,9 @@ export const INGLESE: Record<string, string> = {
   // ── Le destinazioni di un'esportazione: vedi `ui/esporta.ts`.
   'nell’app File, in «Sul mio iPhone → MyDiveLog»': 'in the Files app, under “On My iPhone → MyDiveLog”',
   'dove il sistema mette i download': 'wherever your system puts downloads',
-  'nella cartella dei documenti dell’app': 'in the app’s documents folder',
+  'dove l’hai scelto tu': 'wherever you chose to put it',
+  'Non hai scelto dove salvare: non è stato scritto niente.':
+    'You didn’t choose where to save it, so nothing was written.',
 
   // ── Da dove si esporta, per ogni formato: vedi `ui/pages/ImportPage.tsx`.
   'Shearwater Cloud Desktop → Export → UDDF': 'Shearwater Cloud Desktop → Export → UDDF',
@@ -2389,6 +2391,14 @@ export const INGLESE: Record<string, string> = {
   'Nome e brevetto finiscono sul PDF del libretto, che è l’unico posto dove servono. Non sono obbligatori.':
     'Your name and certification appear on the printed logbook, which is the only place they are needed. Neither is required.',
   'Nome e cognome': 'Full name',
+  // ── La numerazione che riparte dalla carta: vedi `ui/pages/ProfiloPage.tsx`.
+  'Immersioni fatte prima di questo archivio': 'Dives made before this logbook',
+  'Non c’è ancora niente in archivio: la prima sarà la #{0}.':
+    'Nothing on file yet: the first one will be #{0}.',
+  'In archivio ci sono {0} immersioni: numerate dalla #{1} alla #{2}.':
+    'There are {0} dives on file, numbered #{1} to #{2}.',
+  'Se hai un logbook di carta alle spalle, scrivi qui quante immersioni contiene: il numero riparte da lì su tutto — elenco, schede, PDF e libretto.':
+    'If you have a paper logbook behind you, put its dive count here: numbering picks up from there everywhere — list, details, PDFs and the printed logbook.',
   'Servono alle lettere a) e b) del libretto delle immersioni previsto dall’art. 12, comma 8 della legge 70/2026, che ammette espressamente il formato digitale.':
     'They fill letters a) and b) of the dive logbook required by art. 12(8) of Italian law 70/2026, which expressly allows the digital form.',
   'Firma della guida': 'Guide’s signature',

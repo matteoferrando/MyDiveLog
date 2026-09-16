@@ -63,7 +63,7 @@ import {
 } from '../../core/ble/types';
 import { TauriBleTransport, permessoNegato } from '../../storage/ble';
 import { causaDelGuasto, conDettaglio, dettaglioLeggibile } from '../../core/ble/causaGuasto';
-import { esporta, frasePosizione } from '../esporta';
+import { annullata, esporta, frasePosizione, NON_SCELTO } from '../esporta';
 import { suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
 import { useLingua, useTraduciStabile } from '../lingua';
@@ -2560,6 +2560,16 @@ export function BleDownload() {
                         // messaggio così com'era, e `nomiInterniAValle` l'ha
                         // presa in venti secondi. *Una guardia che prende chi
                         // l'ha scritta è una guardia che funziona.*
+                        /*
+                         * ► ANNULLARE NON È FALLIRE. ◄ Su Android il file lo si salva dove lo
+                         * sceglie chi guarda: se chiude il selettore senza scegliere, non c'è un
+                         * guasto da raccontare. Mandarlo a controllare lo spazio libero sarebbe un
+                         * modo più lento di dirgli una cosa falsa.
+                         */
+                        if (annullata(err)) {
+                          setSalvataggio(t(NON_SCELTO));
+                          return;
+                        }
                         setSalvataggio(
                           conDettaglio(
                             `${t('Non si è potuto salvare')}. ` +
@@ -2601,6 +2611,16 @@ export function BleDownload() {
                         );
                         setSalvataggio(`${t('Salvato')} ${frasePosizione(dove, t)}.`);
                       } catch (err) {
+                        /*
+                         * ► ANNULLARE NON È FALLIRE. ◄ Su Android il file lo si salva dove lo
+                         * sceglie chi guarda: se chiude il selettore senza scegliere, non c'è un
+                         * guasto da raccontare. Mandarlo a controllare lo spazio libero sarebbe un
+                         * modo più lento di dirgli una cosa falsa.
+                         */
+                        if (annullata(err)) {
+                          setSalvataggio(t(NON_SCELTO));
+                          return;
+                        }
                         setSalvataggio(
                           conDettaglio(
                             `${t('Non si è potuto salvare')}. ` +

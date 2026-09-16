@@ -21,7 +21,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { testoAvvertenza } from '../../core/analysis/avvertenze';
 import { InputNumerico } from './InputNumerico';
-import { esporta, frasePosizione } from '../esporta';
+import { annullata, esporta, frasePosizione, NON_SCELTO } from '../esporta';
 import {
   DEFAULT_DECO,
   afterSurfaceInterval,
@@ -1164,6 +1164,16 @@ export function DecoPlanner({
                     // guscio nativo, e i suoi errori arrivano con il nome del
                     // guscio attaccato davanti — che è il caso per cui
                     // `dettaglioLeggibile` è stata scritta.
+                    /*
+                     * ► ANNULLARE NON È FALLIRE. ◄ Su Android il file lo si salva dove lo
+                     * sceglie chi guarda: se chiude il selettore senza scegliere, non c'è un
+                     * guasto da raccontare. Mandarlo a controllare lo spazio libero sarebbe un
+                     * modo più lento di dirgli una cosa falsa.
+                     */
+                    if (annullata(err)) {
+                      setSalvataggio(t(NON_SCELTO));
+                      return;
+                    }
                     setSalvataggio(
                       conDettaglio(
                         `${t('Non si è potuto salvare')}. ` +

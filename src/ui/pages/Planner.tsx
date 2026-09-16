@@ -48,7 +48,7 @@ import { barometric, planDeco, type DecoResult } from '../../core/analysis/deco'
 import { pianoPdf } from '../../core/export/pdf';
 import { conDettaglio } from '../../core/ble/causaGuasto';
 import { frase } from '../../core/frase';
-import { esporta, frasePosizione } from '../esporta';
+import { annullata, esporta, frasePosizione, NON_SCELTO } from '../esporta';
 import { foglioDelPiano } from '../../core/export/planSheet';
 import { useDiveLog } from '../state';
 import { InputNumerico } from '../components/InputNumerico';
@@ -299,6 +299,16 @@ export function Planner() {
       );
       setEsitoPdf(`${t('PDF salvato')} ${frasePosizione(esito, t)}.`);
     } catch (err) {
+      /*
+       * ► ANNULLARE NON È FALLIRE. ◄ Su Android il file lo si salva dove lo
+       * sceglie chi guarda: se chiude il selettore senza scegliere, non c'è un
+       * guasto da raccontare. Mandarlo a controllare lo spazio libero sarebbe un
+       * modo più lento di dirgli una cosa falsa.
+       */
+      if (annullata(err)) {
+        setEsitoPdf(t(NON_SCELTO));
+        return;
+      }
       setEsitoPdf(
         conDettaglio(
           `${t('Il PDF non è stato salvato: il piano non è cambiato.')} ` +

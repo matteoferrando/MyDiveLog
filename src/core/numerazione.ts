@@ -43,13 +43,37 @@ import type { Dive } from './model';
 import { perData } from './oraAParete';
 
 /**
+ * Lo scarto, ridotto a un numero che si può sommare.
+ *
+ * ► ESISTE PERCHÉ IL VALORE ARRIVA DA UNA CASELLA DI TESTO. ◄ Chi lo scrive
+ * sta rispondendo a «quante immersioni avevi fatto prima»; quello che arriva
+ * qui può essere `NaN` (casella svuotata), un numero negativo (un meno
+ * digitato), `35.5` (un incollaggio), o un milione (una cifra in più tenuta
+ * premuta). Nessuno di questi è un errore da segnalare — sono tutti modi in cui
+ * una casella si comporta — ma tutti e quattro, sommati a un indice, danno un
+ * numero d'immersione che non vuol dire niente.
+ *
+ * Sta DENTRO `numeriProgressivi` e non al punto di immissione: i punti di
+ * immissione si moltiplicano, e il giorno che ne nasce un secondo *due copie
+ * della stessa regola sono una regola e la sua versione vecchia*. Qui invece
+ * non c'è strada che lo salti.
+ */
+export function scartoDiNumerazione(valore: number | undefined): number {
+  if (typeof valore !== 'number' || !Number.isFinite(valore)) return 0;
+  return Math.max(0, Math.min(99_999, Math.trunc(valore)));
+}
+
+/**
  * Da identificativo a numero progressivo, contando dalla più vecchia.
  *
  * @param dives l'archivio, in qualunque ordine. Le immersioni nel cestino non
  *   devono essere qui dentro: se ci sono, contano.
  * @param precedenti quante immersioni ci sono state PRIMA di questo archivio.
  *   Serve a chi ha un logbook di carta alle spalle: con 40, la prima registrata
- *   è la 41. Zero per chi ha registrato tutto da sempre.
+ *   è la 41. Zero per chi ha registrato tutto da sempre. Lo si imposta in
+ *   Profilo → Dati per il LogBook, e viaggia con la sincronizzazione perché è
+ *   un fatto sulla persona (vedi `Subacqueo.immersioniPrecedenti`). Qualunque
+ *   cosa arrivi passa da `scartoDiNumerazione`.
  */
 export function numeriProgressivi(dives: Dive[], precedenti = 0): Map<string, number> {
   /*
@@ -82,7 +106,8 @@ export function numeriProgressivi(dives: Dive[], precedenti = 0): Map<string, nu
   const ordinate = [...dives].sort((a, b) => perOrario(a, b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
   const numeri = new Map<string, number>();
-  ordinate.forEach((d, i) => numeri.set(d.id, precedenti + i + 1));
+  const scarto = scartoDiNumerazione(precedenti);
+  ordinate.forEach((d, i) => numeri.set(d.id, scarto + i + 1));
   return numeri;
 }
 

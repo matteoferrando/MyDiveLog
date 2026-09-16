@@ -1,0 +1,5 @@
+Two fixes, both reported by people using the app.
+
+• On Android exports went into the app's private folder: invisible to file managers and deleted on uninstall. The app now opens the system picker and you choose where to save — Downloads, Drive, SD card. If you cancel, nothing is written and it says so.
+
+• Numbering: in Profile you can say how many dives your paper logbook holds, and numbers pick up from there everywhere — list, dive details, PDFs, printed logbook.

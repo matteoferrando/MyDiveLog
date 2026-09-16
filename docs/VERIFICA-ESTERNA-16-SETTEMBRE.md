@@ -29,6 +29,46 @@ Ognuno con la sua prova, e ognuna **mutata**.
 > *Una guardia che non si è mai vista rossa non è una guardia. Questa si era
 > vista verde su un difetto messo lì apposta, ed è peggio.*
 
+## Chiuso nel pomeriggio, e non da qui — il 5
+
+### 5 — P1: su Android il file finiva dove nessuno poteva vederlo
+
+`document_dir()` su Android è `getExternalFilesDir(DIRECTORY_DOCUMENTS)`, cioè
+`/storage/emulated/0/Android/data/<pacchetto>/files/Documents`: una cartella
+**dell'applicazione**. Da Android 11 nessun gestore di file può entrare in
+`Android/data` — la vede solo un PC collegato via USB — e alla disinstallazione
+se ne va con l'applicazione. Per un PDF è un fastidio; **per un backup è la
+negazione del backup**: una copia che muore con l'applicazione non è una copia.
+
+► **LA CONFERMA NON È ARRIVATA DALLA VERIFICA, È ARRIVATA DA CHI USA IL
+PROGRAMMA.** Poche ore dopo, dallo stesso Samsung della segnalazione del 15:
+
+> *«Purtroppo il pdf non si genera ancora anche se è cambiato il messaggio.
+> Forse perché si genera in una cartella che non risulta visibile se non da
+> pc.»*
+
+La seconda frase è la diagnosi esatta, e l'ha scritta una persona che non ha
+mai visto questo codice. La correzione della mattina aveva smesso di mentire
+senza ancora consegnare niente: *il file c'era, e non era raggiungibile.*
+
+**Cosa fa adesso.** Il motore apre il selettore di sistema
+(`ACTION_CREATE_DOCUMENT`, lo Storage Access Framework): chi esporta sceglie
+Download, Drive, la scheda SD. Il file finisce in una cartella vera, sopravvive
+alla disinstallazione, e — non ultimo — chi ha premuto sa dov'è, perché l'ha
+scelto lui. E se chiude il selettore senza scegliere, non si scrive niente e lo
+si dice: `EsportazioneAnnullata` è un terzo esito, non un successo e non un
+guasto.
+
+Due dipendenze nuove, `tauri-plugin-dialog` e `tauri-plugin-fs`, **solo per
+Android** e usate solo dal lato Rust: nessuna capacità le espone alla WebView.
+
+> **► QUELLO CHE ANCORA NON È MISURATO.** Qui non c'è un telefono Android, e la
+> catena di compilazione locale non ha l'NDK: questa correzione è verde sulle
+> prove e sulla compilazione della CI, non su un apparecchio. *Le due
+> segnalazioni di ieri e di oggi dicono che è esattamente la condizione in cui
+> un difetto sopravvive a una correzione.* La chiusura vera è il messaggio di
+> chi l'ha segnalato.
+
 ## Aperti, in ordine di quanto pesano
 
 ### 1 — P1: la transazione SQLite non è atomica
@@ -54,17 +94,6 @@ sincronizzazione l'alternativo remoto scende a **5**.
 
 Serve una decisione per ciascun profilo, separata, con la garanzia che nessuno
 dei due venga degradato.
-
-### 5 — P1: il backup Android sparisce disinstallando l'app
-
-`document_dir()` su Android è `getExternalFilesDir(DIRECTORY_DOCUMENTS)`, cioè
-una cartella **dell'applicazione**: disinstallando, i file se ne vanno con lei.
-
-*Questa è la coda del difetto chiuso stamattina.* La correzione della 1.8.24 ha
-smesso di mentire e scrive il file davvero — ma lo scrive lì. Per un PDF è un
-fastidio; **per un backup è la negazione del backup**: una copia che muore con
-l'applicazione non è una copia. Serve il selettore di sistema (Storage Access
-Framework) o la condivisione, e la conferma che il file resti dov'è.
 
 ### 7 — P2: il profilo alternativo da solo non scende
 

@@ -1,8 +1,44 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **16 settembre 2026, mezzogiorno** — **2 774 prove in 165 file** più
+Aggiornato: **16 settembre 2026, pomeriggio** — **2 805 prove in 168 file** più
 **135 prove Rust** del ponte, tipi, lint e formato a **0 errori**, e la suite
 verde anche a **UTC+14 e UTC−11**.
+
+> ## ► LA 1.8.25 È PRONTA E NON È ANCORA PUBBLICATA. ◄
+>
+> Il numero è nei quattro file, la catena è verde, le note e i testi dei negozi
+> sono scritti (`docs/RELEASE-v1.8.25.md`, `docs/NOTE-1.8.25.md`,
+> `docs/{appstore,play}-1.8.25-{it,en}.txt`). **Manca la pubblicazione**, che
+> segue `docs/RILASCIO.md` dal passo 2.
+>
+> Due cose, tutte e due arrivate **da chi usa l'applicazione**, dallo stesso
+> Samsung a un giorno di distanza.
+>
+> **1 — Su Android il file c'era e non era raggiungibile.** La correzione della
+> 1.8.24 aveva smesso di mentire e scriveva davvero, ma dentro
+> `getExternalFilesDir(DIRECTORY_DOCUMENTS)`: da Android 11 nessun gestore di
+> file può entrare in `Android/data`, e la disinstallazione la porta via. *«Forse
+> perché si genera in una cartella che non risulta visibile se non da pc»* — la
+> diagnosi l'ha scritta lui, ed era giusta. Adesso si apre il **selettore di
+> sistema** (`ACTION_CREATE_DOCUMENT`) e la destinazione la sceglie chi esporta;
+> se chiude il selettore senza scegliere, non si scrive niente **e lo si dice**.
+> Chiude il difetto **5** della verifica esterna.
+>
+> **2 — La numerazione riparte da dove finisce il logbook di carta.** *«Ho
+> scaricato 148 immersioni e l'ultima mi compare #148 ma in realtà sarebbe la
+> #183.»* Il motore sapeva già contare da un numero diverso da zero; mancava il
+> filo. Ora c'è la casella in `Profilo → Dati per il LogBook`, il valore sta in
+> `subacqueo` (quindi **viaggia con la sincronizzazione**: telefono e computer
+> numerano allo stesso modo) ed entra in un punto solo, il `useMemo` di
+> `ui/state.tsx`.
+>
+> ► **QUELLO CHE NON È MISURATO, e va detto prima e non dopo.** Qui non c'è un
+> telefono Android e sul Mac non c'è l'NDK: il ramo Android è verde sulle prove
+> e — quando il workflow gira — sulla compilazione della CI, **non su un
+> apparecchio**. È esattamente la condizione in cui ieri un difetto è
+> sopravvissuto alla propria correzione.
+>
+> Sei mutazioni provate, sei guardie rosse. Il dettaglio in `docs/NOTE-1.8.25.md`.
 
 > ## ► LA 1.8.24 È PUBBLICATA. ◄
 >

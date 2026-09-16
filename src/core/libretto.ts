@@ -46,6 +46,35 @@ export interface Subacqueo {
   nome?: string;
   /** Il brevetto posseduto: livello e organizzazione, come sta scritto sul cartellino. */
   brevetto?: string;
+  /**
+   * Quante immersioni c'erano PRIMA di questo archivio.
+   *
+   * ════════════════════════════════════════════════════════════════════════
+   * ► LA SEGNALAZIONE DEL 16 SETTEMBRE 2026. ◄
+   *
+   *   *«Dovresti inserire la possibilità di cambiare la numerazione delle
+   *    immersioni. Ad esempio io ho scaricato dal mio computer 148 immersioni e
+   *    l'ultima mi compare immersione #148 ma in realtà sarebbe la #183.»*
+   *
+   * Trentacinque immersioni fatte prima che quel computer entrasse in acqua, o
+   * prima che questo archivio esistesse: stanno su un logbook di carta, e il
+   * numero che il subacqueo usa per citare la propria immersione a qualcun
+   * altro è quello. Un'applicazione che mostra #148 dove il suo proprietario
+   * scrive #183 non ha un numero in meno: ne ha uno SBAGLIATO, e lo stampa su
+   * un documento che si controfirma.
+   *
+   * ► PERCHÉ STA QUI E NON FRA LE IMPOSTAZIONI DELL'ARCHIVIO. ◄ Perché è un
+   * fatto sulla PERSONA — quante immersioni ha fatto prima — e non
+   * sull'archivio. Da cui la conseguenza che conta: `subacqueo` è una
+   * impostazione condivisa, quindi lo scarto viaggia con la sincronizzazione e
+   * il telefono e il computer numerano allo stesso modo. Se stesse nelle
+   * impostazioni locali, la stessa immersione avrebbe due numeri diversi su due
+   * dispositivi della stessa persona — cioè il difetto che `core/numerazione.ts`
+   * esiste per impedire, ricreato da un'altra parte.
+   *
+   * Zero, o assente, per chi ha registrato tutto da sempre.
+   */
+  immersioniPrecedenti?: number;
 }
 
 /** Una delle tredici voci, con la lettera che le dà la legge. */

@@ -28,6 +28,8 @@ import { useLingua } from '../lingua';
 import { campoModificato } from '../modificato';
 import { Brevetti } from '../components/Brevetti';
 import { CERT_LEVEL_LABEL, etichettaBrevetto, sortCertifications } from '../../core/analysis/gear';
+import { scartoDiNumerazione } from '../../core/numerazione';
+import { frase } from '../../core/frase';
 
 export function ProfiloPage() {
   const { t } = useLingua();
@@ -75,9 +77,21 @@ export function ProfiloPage() {
  * esattamente il punto: un documento da mostrare a qualcuno.
  */
 function LibrettoCard() {
-  const { subacqueo, saveSubacqueo, gear } = useDiveLog();
+  const { subacqueo, saveSubacqueo, gear, dives } = useDiveLog();
   const { t } = useLingua();
   const [nome, setNome] = useState(subacqueo.nome ?? '');
+  /*
+   * Lo scarto si tiene come TESTO finché è sotto le dita.
+   *
+   * Un `number` di React su una casella numerica non permette lo stato «vuota»:
+   * cancellando l'ultima cifra il valore diventa `NaN` e la casella si
+   * ripopolerebbe di zero sotto il dito di chi sta scrivendo. Si normalizza
+   * quando si esce dalla casella, non mentre si digita — `scartoDiNumerazione`
+   * fa comunque da rete all'altro capo, dentro `numeriProgressivi`.
+   */
+  const [precedenti, setPrecedenti] = useState(
+    subacqueo.immersioniPrecedenti ? String(subacqueo.immersioniPrecedenti) : '',
+  );
 
   /*
    * ► IL BREVETTO NON SI SCRIVE PIÙ A MANO. ◄
@@ -147,8 +161,27 @@ function LibrettoCard() {
   // discreto — un pulsante «Salva» che non spariva più dopo aver salvato — ma la
   // causa è identica: normalizzare da un lato solo del confronto.
   const nomeSporco = campoModificato(nome, subacqueo.nome);
-  const salvaNome = () => {
-    void saveSubacqueo({ ...subacqueo, nome: nome.trim() || undefined });
+  const scarto = scartoDiNumerazione(Number(precedenti));
+  const precedentiSporco = scarto !== (subacqueo.immersioniPrecedenti ?? 0);
+  /*
+   * ► UNA SCRITTURA SOLA PER I DUE CAMPI, e non è pignoleria. ◄
+   *
+   * `saveSubacqueo` riceve l'oggetto INTERO: due chiamate di fila, ognuna che
+   * parte dal `subacqueo` che aveva in mano quando è stata creata, si
+   * sovrascrivono a vicenda e l'ultima vince portandosi dietro il valore
+   * vecchio dell'altro campo. Con un `await` di mezzo — e c'è — è il caso
+   * normale, non quello raro.
+   */
+  const salva = () => {
+    // La casella si mette in ordine quando si esce: «35.5» diventa «35», «-2»
+    // diventa vuoto. Vedere il proprio valore corretto è l'unico modo per
+    // sapere che è stato corretto.
+    setPrecedenti(scarto === 0 ? '' : String(scarto));
+    void saveSubacqueo({
+      ...subacqueo,
+      nome: nome.trim() || undefined,
+      immersioniPrecedenti: scarto || undefined,
+    });
   };
   const salvaBrevetto = (scelto: string) => {
     void saveSubacqueo({ ...subacqueo, brevetto: scelto || undefined });
@@ -165,7 +198,7 @@ function LibrettoCard() {
       <div className="grid grid-2" style={{ marginBottom: 12 }}>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">{t('Nome e cognome')}</span>
-          <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} onBlur={salvaNome} />
+          <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} onBlur={salva} />
         </label>
         <label className="stack" style={{ gap: 4, fontSize: 12 }}>
           <span className="muted">{t('Brevetto')}</span>
@@ -189,8 +222,53 @@ function LibrettoCard() {
           </select>
         </label>
       </div>
-      {nomeSporco && (
-        <button className="btn" onClick={salvaNome}>
+      {/*
+        ════════════════════════════════════════════════════════════════════
+        ► LA NUMERAZIONE CHE RIPARTE DA DOVE FINISCE LA CARTA. ◄
+
+        Segnalazione del 16 settembre 2026: *«ho scaricato dal mio computer 148
+        immersioni e l'ultima mi compare immersione #148 ma in realtà sarebbe la
+        #183»*. Trentacinque immersioni su un logbook di carta, e nessun modo di
+        dirlo all'applicazione.
+
+        ► PERCHÉ LA RIGA SOTTO LA CASELLA È LA META' DELLA FUNZIONE. ◄ Chiedere
+        «quante immersioni prima?» è ambiguo di suo: si scrive 35 o 36? il
+        numero dell'ultima di carta o quello della prima nuova? Invece di
+        spiegarlo con una frase, la casella MOSTRA il risultato — «numerate
+        dalla #36 alla #183» — e chi guarda smette di ragionare e confronta col
+        proprio libretto. Una riga che si aggiorna vale tre righe di
+        istruzioni.
+      */}
+      <label className="stack" style={{ gap: 4, fontSize: 12, maxWidth: 320, marginBottom: 4 }}>
+        <span className="muted">{t('Immersioni fatte prima di questo archivio')}</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={99999}
+          step={1}
+          value={precedenti}
+          placeholder="0"
+          onChange={(e) => setPrecedenti(e.target.value)}
+          onBlur={salva}
+        />
+      </label>
+      <p className="muted" style={{ fontSize: 11, margin: '0 0 10px' }}>
+        {dives.length === 0
+          ? frase(t, 'Non c’è ancora niente in archivio: la prima sarà la #{0}.', scarto + 1)
+          : frase(
+              t,
+              'In archivio ci sono {0} immersioni: numerate dalla #{1} alla #{2}.',
+              dives.length,
+              scarto + 1,
+              scarto + dives.length,
+            )}{' '}
+        {t(
+          'Se hai un logbook di carta alle spalle, scrivi qui quante immersioni contiene: il numero riparte da lì su tutto — elenco, schede, PDF e libretto.',
+        )}
+      </p>
+      {(nomeSporco || precedentiSporco) && (
+        <button className="btn" onClick={salva}>
           {t('Salva')}
         </button>
       )}

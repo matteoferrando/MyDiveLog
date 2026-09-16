@@ -1,0 +1,21 @@
+Two changes, both reported by people using the app.
+
+ON ANDROID YOU NOW CHOOSE WHERE THE FILE GOES
+
+In the previous version "Export PDF" wrote the file inside the app's private folder — the one no file manager can open since Android 11, and that uninstalling takes away with it. The file was there and could not be reached.
+
+Now the app opens the system picker and asks where: Downloads, Drive, the SD card. The file lands in a real folder, survives an uninstall, and you know where it is because you picked it. If you close the picker without choosing, nothing is written and the app says so: cancelling is neither success nor failure.
+
+This covers every export: dive PDF, plan PDF, backup, UDDF, CSV, KML.
+
+Nothing changes on iPhone: there the app's folder is already visible in the Files app, under "On My iPhone → MyDiveLog".
+
+NUMBERING PICKS UP WHERE YOUR PAPER LOGBOOK ENDS
+
+"I downloaded 148 dives from my computer and the last one shows as #148, but it should really be #183."
+
+Profile → Logbook details has a new field: "Dives made before this logbook". Put in how many your paper logbook holds, and the result appears right below — "There are 148 dives on file, numbered #36 to #183" — so there is no guessing whether to type 35 or 36.
+
+The new number applies everywhere: list, dive details, PDFs, printed logbook, CSV, UDDF. And it travels with sync, because it is a fact about you and not about a device: phone and computer number the same way.
+
+If you have logged everything from the start, there is nothing to change.

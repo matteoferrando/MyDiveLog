@@ -10,7 +10,7 @@ import { schedePdf } from '../../core/export/pdf';
 import { frase } from '../../core/frase';
 import { conNumeri } from '../../core/numerazione';
 import { temperaturaMinimaC } from '../../core/temperatura';
-import { esporta, frasePosizione } from '../esporta';
+import { annullata, esporta, frasePosizione, NON_SCELTO } from '../esporta';
 import { conDettaglio } from '../../core/ble/causaGuasto';
 import { descriviFirma, firmaPath, firmaVuota } from '../../core/firma';
 import { RiquadroFirma } from '../components/FirmaGuida';
@@ -124,6 +124,16 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
        * left on device» è informazione vera per chi la sa leggere, e sparisce
        * da sé quando porta con sé il nome di un livello interno.
        */
+      /*
+       * ► ANNULLARE NON È FALLIRE. ◄ Su Android il file lo si salva dove lo
+       * sceglie chi guarda: se chiude il selettore senza scegliere, non c'è un
+       * guasto da raccontare. Mandarlo a controllare lo spazio libero sarebbe un
+       * modo più lento di dirgli una cosa falsa.
+       */
+      if (annullata(err)) {
+        setEsitoPdf(t(NON_SCELTO));
+        return;
+      }
       setEsitoPdf(
         conDettaglio(
           `${t('Il PDF non è stato salvato: l’immersione in archivio non è stata toccata.')} ` +

@@ -60,23 +60,70 @@ mod segreti {
     }
 }
 
-/// L'esportazione di un file su iOS, dove `<a download>` non fa niente.
+/// L'esportazione di un file dai due telefoni, dove `<a download>` non fa niente.
 ///
 /// IL PROBLEMA, che è peggio di quanto sembri. Sul desktop tutte le
 /// esportazioni — backup JSON, UDDF, byte grezzi del computer subacqueo, foglio
 /// del piano — passano da un `<a download>` con un URL `blob:`. Dentro la
-/// WKWebView di iOS quel click non scarica niente E NON LANCIA NESSUN ERRORE:
-/// il lato TypeScript non ha modo di accorgersene, quindi finiva per scrivere
-/// «Backup scritto» quando non era stato scritto niente. Su una funzione che
-/// esiste per rimettere in piedi l'archivio dopo un disastro, una falsa
-/// conferma è il difetto peggiore possibile.
+/// WebView dei telefoni quel click non scarica niente E NON LANCIA NESSUN
+/// ERRORE: il lato TypeScript non ha modo di accorgersene, quindi finiva per
+/// scrivere «Backup scritto» quando non era stato scritto niente. Su una
+/// funzione che esiste per rimettere in piedi l'archivio dopo un disastro, una
+/// falsa conferma è il difetto peggiore possibile.
 ///
-/// LA CURA. Si scrive nella cartella Documenti dell'applicazione. Con
-/// `UIFileSharingEnabled` e `LSSupportsOpeningDocumentsInPlace` — già in
-/// `Info.ios.plist` — quella cartella compare nell'app File sotto «Sul mio
-/// iPhone → MyDiveLog», da dove il file si sposta, si condivide e si manda dove
-/// si vuole. E soprattutto: questa funzione o scrive o restituisce un errore,
-/// quindi l'interfaccia può dichiarare il successo solo quando c'è stato.
+/// LA CURA È DIVERSA SUI DUE TELEFONI, e non per capriccio: è che i due sistemi
+/// rispondono in modo diverso alla domanda «dov'è il file adesso».
+///
+///  · **iPhone** — si scrive nella cartella Documenti dell'applicazione. Con
+///    `UIFileSharingEnabled` e `LSSupportsOpeningDocumentsInPlace` — già in
+///    `Info.ios.plist` — quella cartella compare nell'app File sotto «Sul mio
+///    iPhone → MyDiveLog», da dove il file si sposta, si condivide e si manda
+///    dove si vuole. La destinazione ha un nome che una persona può seguire.
+///
+///  · **Android** — si CHIEDE dove, con il selettore di sistema. Vedi il
+///    blocco qui sotto: è la correzione del 16 settembre 2026 e ha una storia.
+///
+/// ════════════════════════════════════════════════════════════════════════════
+/// ► LA CARTELLA DOVE IL FILE C'ERA E NESSUNO POTEVA VEDERLO. ◄
+///
+/// Il 15 settembre 2026 una segnalazione da un Samsung: *«premendo "Esporta
+/// PDF" compare "PDF salvato dove il sistema mette i download", ma il file non
+/// compare né in Download né in Recenti né cercando tutti i PDF.»* La causa era
+/// quella raccontata qui sopra — il ramo nativo esisteva **solo per iOS** — e il
+/// 15 sera è stata chiusa: Android passa da qui, il file si scrive davvero, e
+/// il messaggio mostra il percorso.
+///
+/// Il giorno dopo la stessa persona ha riprovato con la versione nuova:
+///
+///   *«Purtroppo il pdf non si genera ancora anche se è cambiato il messaggio.
+///    Forse perché si genera in una cartella che non risulta visibile se non da
+///    pc.»*
+///
+/// Aveva ragione, e la seconda frase è la diagnosi esatta. Su Android
+/// `document_dir()` di Tauri non è una cartella dell'utente: è
+/// `getExternalFilesDir(DIRECTORY_DOCUMENTS)`, cioè
+/// `/storage/emulated/0/Android/data/<pacchetto>/files/Documents`. Da Android 11
+/// **nessun gestore di file può entrare in `Android/data`** — la vede solo un PC
+/// collegato via USB — e alla disinstallazione dell'applicazione quella cartella
+/// viene cancellata insieme a tutto quello che contiene.
+///
+/// Quindi la correzione del 15 aveva smesso di mentire ma non aveva ancora
+/// consegnato niente: *il file c'era, e non era raggiungibile*. Un backup che si
+/// può leggere solo attaccando il telefono a un computer non è un backup, è un
+/// promemoria di dove sarebbe potuto essere.
+///
+/// ► LA STRADA GIUSTA SU ANDROID È CHIEDERE. ◄ `ACTION_CREATE_DOCUMENT` —
+/// lo Storage Access Framework, quello che il selettore di sistema apre — è
+/// l'unico modo con cui un'applicazione senza permessi speciali scrive in una
+/// cartella dell'utente. Costa un tocco in più e restituisce tre cose che qui
+/// dentro non si potevano avere: una cartella VERA (Download, Drive, la scheda
+/// SD), un file che sopravvive alla disinstallazione, e — non ultimo — la
+/// certezza che chi ha premuto sa dov'è finito, perché l'ha scelto lui.
+///
+/// E se chiude il selettore senza scegliere, **non si scrive niente e lo si
+/// dice**. È la stessa regola di sempre, applicata al caso nuovo: non si
+/// annuncia un file che non c'è, nemmeno quando la ragione per cui non c'è è
+/// che l'utente ha cambiato idea.
 ///
 /// Compilato sui due TELEFONI, e non sui computer. Su macOS `document_dir()` è
 /// `~/Documents`, cioè una cartella dell'utente in cui un'applicazione non deve
@@ -103,9 +150,26 @@ mod segreti {
 /// un `#[cfg]` che quella piattaforma la comprende.*
 #[cfg(any(target_os = "ios", target_os = "android"))]
 #[tauri::command]
-fn esporta_nei_documenti(app: tauri::AppHandle, nome: String, contenuto: String) -> Result<String, String> {
-    use tauri::Manager;
-
+async fn esporta_nei_documenti(
+    app: tauri::AppHandle,
+    nome: String,
+    tipo: String,
+    contenuto: String,
+) -> Result<Esportato, String> {
+    /*
+     * ► ASINCRONA, E NON PER FARE BELLA FIGURA. ◄
+     *
+     * Su Android questa funzione aspetta la risposta di un'ACTIVITY di sistema:
+     * il selettore si apre, l'utente sceglie, e il risultato torna sul thread
+     * principale. Un comando SINCRONO di Tauri può essere eseguito proprio lì,
+     * e un'attesa bloccante sul thread principale mentre il risultato deve
+     * arrivare sullo stesso thread è la definizione di stallo: l'applicazione
+     * si pianterebbe con il selettore aperto e nessuno potrebbe più toccarla.
+     *
+     * Dichiarandola `async` gira sul runtime asincrono, e l'attesa vera sta
+     * dentro `spawn_blocking`, cioè su un thread che può permettersi di
+     * fermarsi.
+     */
     // Il nome arriva dal lato TypeScript: prima di usarlo come percorso si
     // riduce a un nome di file e basta. Non è difesa da un attacco — il
     // chiamante siamo noi — è difesa da un nome che contiene una data scritta
@@ -117,6 +181,42 @@ fn esporta_nei_documenti(app: tauri::AppHandle, nome: String, contenuto: String)
     if pulito.is_empty() {
         return Err("nome del file vuoto".into());
     }
+    scrivi_fuori(&app, pulito, tipo, contenuto).await
+}
+
+/// Dove è finito il file — o il fatto che non ci sia finito.
+///
+/// ► PERCHÉ NON BASTA PIÙ UNA STRINGA. ◄ Prima questa funzione restituiva il
+/// percorso, e «percorso» voleva dire «scritto». Con il selettore di Android
+/// esiste un terzo esito che non è né un percorso né un errore: l'utente ha
+/// chiuso il selettore. Non è un guasto — non c'è niente da riprovare e niente
+/// da controllare — ma non è nemmeno un successo, e riportarlo come una delle
+/// due cose sarebbe la solita bugia in una forma nuova.
+///
+/// Tre campi, e il lato TypeScript li legge tutti e tre.
+#[cfg(any(target_os = "ios", target_os = "android"))]
+#[derive(serde::Serialize)]
+struct Esportato {
+    /// Il percorso sul disco, quando ce n'è uno da mostrare. Su Android la
+    /// destinazione è un `content://…` che non significa niente per nessuno:
+    /// là resta vuoto, e la frase dice «dove l'hai scelto tu».
+    percorso: Option<String>,
+    /// Il nome con cui il file è stato salvato.
+    nome: Option<String>,
+    /// Vero quando il selettore si è chiuso senza una destinazione. **Niente è
+    /// stato scritto**, e non è un errore.
+    annullato: bool,
+}
+
+/// iPhone: la cartella Documenti dell'applicazione, che l'app File mostra.
+#[cfg(target_os = "ios")]
+async fn scrivi_fuori(
+    app: &tauri::AppHandle,
+    pulito: String,
+    _tipo: String,
+    contenuto: String,
+) -> Result<Esportato, String> {
+    use tauri::Manager;
 
     let cartella = app
         .path()
@@ -138,7 +238,7 @@ fn esporta_nei_documenti(app: tauri::AppHandle, nome: String, contenuto: String)
      * c'è più e quello nuovo è troncato. L'unica copia della giornata resta
      * mezza, e nessuno lo sa.
      *
-     * La docstring di questa funzione dice che «una falsa conferma è il difetto
+     * La docstring del comando dice che «una falsa conferma è il difetto
      * peggiore che ci possa essere». Un backup troncato al posto di uno intero
      * è la stessa cosa scritta sul disco.
      *
@@ -172,8 +272,8 @@ fn esporta_nei_documenti(app: tauri::AppHandle, nome: String, contenuto: String)
      * ► SI RILEGGE PRIMA DI DIRE CHE C'È. ◄
      *
      * Questa funzione esiste per non dare una falsa conferma — c'è scritto
-     * nella sua docstring. Fino a qui però aveva **dedotto** il successo: nessuna
-     * chiamata era fallita, quindi il file c'è. È il ragionamento che il
+     * nella docstring del comando. Fino a qui però aveva **dedotto** il successo:
+     * nessuna chiamata era fallita, quindi il file c'è. È il ragionamento che il
      * progetto rifiuta ovunque: *un esito zero dice che il comando non è morto,
      * non che abbia fatto quello che doveva.*
      *
@@ -185,13 +285,140 @@ fn esporta_nei_documenti(app: tauri::AppHandle, nome: String, contenuto: String)
     let scritti = std::fs::metadata(&destinazione)
         .map_err(|e| format!("scritto ma non rileggibile: {e}"))?
         .len();
+    verifica_misura(scritti, &contenuto)?;
+    Ok(Esportato {
+        percorso: Some(destinazione.to_string_lossy().into_owned()),
+        nome: Some(pulito),
+        annullato: false,
+    })
+}
+
+/// Android: si chiede dove, e si scrive lì.
+///
+/// Tre passaggi, e il secondo è l'unico che non si poteva fare prima:
+///
+///  1. si apre il selettore di sistema (`ACTION_CREATE_DOCUMENT`) con il nome
+///     già proposto e il tipo del file, così l'elenco parte dalla cartella
+///     giusta;
+///  2. quello che torna è un `content://…`, non un percorso: per scriverci
+///     serve un descrittore dal ContentResolver, ed è quello che
+///     `tauri_plugin_fs` sa chiedere ad Android. È l'unico motivo per cui quel
+///     plugin è fra le dipendenze — dal lato interfaccia non è raggiungibile,
+///     perché nessuna capacità gli dà il permesso;
+///  3. si scrive, si forza sul disco, e **si rilegge la misura** dal descrittore
+///     stesso: `fstat` sul file aperto, che è l'unica verifica possibile quando
+///     non c'è un percorso da riaprire.
+#[cfg(target_os = "android")]
+async fn scrivi_fuori(
+    app: &tauri::AppHandle,
+    pulito: String,
+    tipo: String,
+    contenuto: String,
+) -> Result<Esportato, String> {
+    use std::io::Write;
+    use tauri_plugin_dialog::DialogExt;
+    use tauri_plugin_fs::{FsExt, OpenOptions};
+
+    /*
+     * Il tipo arriva dal chiamante («application/pdf», «application/json», …).
+     * Il parametro va tolto: `application/xml;charset=utf-8` in un Intent non
+     * corrisponde a nessun filtro e il selettore si apre su un elenco vuoto.
+     * `parseFiltersOption` del plugin accetta sia un'estensione sia un tipo
+     * MIME intero — si passa il tipo, che è quello che sappiamo per certo.
+     */
+    let tipo = tipo.split(';').next().unwrap_or("").trim().to_owned();
+    let tipo = if tipo.contains('/') { tipo } else { "application/octet-stream".to_owned() };
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.dialog()
+        .file()
+        .set_file_name(&pulito)
+        .add_filter("MyDiveLog", &[tipo.as_str()])
+        .save_file(move |scelto| {
+            // Il plugin chiama questa chiusura da un thread suo. Se il canale è
+            // già chiuso non c'è niente da fare e niente da dire: vuol dire che
+            // dall'altra parte non aspetta più nessuno.
+            let _ = tx.send(scelto);
+        });
+
+    let scelto = tauri::async_runtime::spawn_blocking(move || rx.recv().ok())
+        .await
+        .map_err(|e| format!("il selettore non ha risposto: {e}"))?
+        .flatten();
+
+    /*
+     * ► NIENTE SCELTO = NIENTE SCRITTO, E LO SI DICE. ◄
+     *
+     * Il plugin riduce a `None` sia «l'utente ha chiuso il selettore» sia «il
+     * selettore non è partito»: la sua implementazione per Android non
+     * distingue i due casi. Per fortuna la frase che serve è vera in tutti e
+     * due — *non hai scelto dove salvare, quindi non è stato scritto niente* —
+     * e non pretende di sapere perché.
+     *
+     * Quello che NON si fa: ripiegare sulla cartella privata dell'applicazione.
+     * Sarebbe scrivere dove l'utente non guarda dopo che ha detto di no, cioè
+     * il difetto di partenza rimesso in piedi con un'altra scusa.
+     */
+    let Some(destinazione) = scelto else {
+        return Ok(Esportato { percorso: None, nome: None, annullato: true });
+    };
+
+    let mut opzioni = OpenOptions::new();
+    opzioni.write(true).create(true).truncate(true);
+    let mut file = app
+        .fs()
+        .open(destinazione, opzioni)
+        .map_err(|e| format!("scrittura fallita: {e}"))?;
+    file.write_all(contenuto.as_bytes()).map_err(|e| format!("scrittura fallita: {e}"))?;
+    file.flush().map_err(|e| format!("scrittura fallita: {e}"))?;
+    /*
+     * `sync_all` sul descrittore del ContentResolver: gli stessi byte in cache
+     * e lo stesso telefono che può spegnersi, con l'aggravante che qui il file
+     * lo sta scrivendo un'altra applicazione per conto nostro. Se il sistema
+     * rifiuta la sincronizzazione — succede su alcuni fornitori di documenti —
+     * non è un motivo per dichiarare fallita una scrittura riuscita: la misura
+     * qui sotto è la verifica che conta.
+     */
+    let _ = file.sync_all();
+    /*
+     * ► SI RILEGGE LA MISURA DAL DESCRITTORE, QUANDO C'È UNA MISURA DA
+     *   LEGGERE. ◄
+     *
+     * Non c'è un percorso da riaprire — la destinazione è un `content://…` — ma
+     * `fstat` sul file aperto dà la stessa risposta: quanti byte ci sono
+     * davvero. È la verifica che trasforma «ho scritto» in «c'è, e pesa quanto
+     * deve», la stessa dell'altro telefono.
+     *
+     * ► E L'`if`, CHE NON È UNA SCAPPATOIA. ◄ Non tutti i fornitori di
+     * documenti di Android restituiscono un file: Drive, per esempio,
+     * restituisce una PIPE, perché i byte li sta mandando in rete mentre
+     * arrivano. Su una pipe `fstat` risponde zero — non perché la scrittura sia
+     * fallita, ma perché la domanda non ha senso — e pretendere la misura
+     * dichiarerebbe fallita ogni esportazione verso il cloud. *Un controllo che
+     * non si può fare non va simulato: va dichiarato dove si può fare.* Su una
+     * pipe restano `write_all` e `flush`, che sono andati a buon fine e che
+     * significano «consegnati al fornitore»; su un file vero c'è la misura.
+     */
+    let stato = file.metadata().map_err(|e| format!("scritto ma non rileggibile: {e}"))?;
+    if stato.is_file() {
+        verifica_misura(stato.len(), &contenuto)?;
+    }
+    Ok(Esportato { percorso: None, nome: Some(pulito), annullato: false })
+}
+
+/// I byte sul disco devono essere quelli che dovevano andarci.
+///
+/// Una riga sola, in comune fra i due telefoni, perché *due copie della stessa
+/// regola sono una regola e la sua versione vecchia*.
+#[cfg(any(target_os = "ios", target_os = "android"))]
+fn verifica_misura(scritti: u64, contenuto: &str) -> Result<(), String> {
     let attesi = contenuto.as_bytes().len() as u64;
     if scritti != attesi {
         return Err(format!(
             "scrittura incompleta: sul disco ci sono {scritti} byte invece di {attesi}"
         ));
     }
-    Ok(destinazione.to_string_lossy().into_owned())
+    Ok(())
 }
 
 /*
@@ -396,6 +623,30 @@ pub fn run() {
      * nostra che sarebbe indistinguibile da una finta.
      */
     let builder = builder.plugin(tauri_plugin_opener::init());
+
+    /*
+     * ► SU ANDROID DUE PLUGIN IN PIÙ, E SERVONO A UNA COSA SOLA. ◄
+     *
+     * Il selettore di sistema che chiede dove salvare un file
+     * (`ACTION_CREATE_DOCUMENT`), e il descrittore per scrivere sul
+     * `content://…` che quel selettore restituisce. Sono le due metà della
+     * correzione raccontata sopra `esporta_nei_documenti`: senza la prima non
+     * si può scegliere una cartella vera, senza la seconda non si può scriverci.
+     *
+     * ► NON APRONO NIENTE VERSO L'INTERFACCIA. ◄ Tutt'e due si usano dal lato
+     * Rust, dentro `scrivi_fuori`, e nessuna capacità in `capabilities/` dà
+     * alla WebView il permesso di chiamarne i comandi: il sistema dei permessi
+     * di Tauri non li concede per il fatto che il plugin ci sia. In particolare
+     * `tauri_plugin_fs` — che se raggiungibile sarebbe un accesso al filesystem
+     * aperto dalla pagina — resta muto a qualunque richiesta arrivi da lì.
+     *
+     * Solo su Android: sui due computer il download del browser funziona e su
+     * iPhone la cartella Documenti è già visibile nell'app File. Dichiararli per
+     * bersaglio significa che altrove questi crate non vengono nemmeno
+     * compilati.
+     */
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(tauri_plugin_fs::init()).plugin(tauri_plugin_dialog::init());
 
     /*
      * Su iOS il ritorno dall'accesso passa da uno schema URL, perché una porta

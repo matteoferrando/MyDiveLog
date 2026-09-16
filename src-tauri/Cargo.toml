@@ -1,6 +1,6 @@
 [package]
 name = "mydivelog"
-version = "1.8.24"
+version = "1.8.25"
 description = "Logbook subacqueo multi-computer"
 authors = ["Matteo Ferrando"]
 edition = "2021"
@@ -101,6 +101,34 @@ tauri-plugin-deep-link = "2"
 # smettono di arrivare e lo scarico muore. `objc2` è già nell'albero (lo usa
 # wry), quindi questa dipendenza non aggiunge codice da compilare.
 objc2 = "0.6"
+
+# ► SOLO SU ANDROID: CHIEDERE DOVE SALVARE, E SAPERCI SCRIVERE. ◄
+#
+# Il 16 settembre 2026, da un Samsung: *«il pdf non si genera ancora anche se è
+# cambiato il messaggio. Forse perché si genera in una cartella che non risulta
+# visibile se non da pc.»* Aveva ragione: su Android `document_dir()` è
+# `getExternalFilesDir(DIRECTORY_DOCUMENTS)`, dentro `Android/data/<pacchetto>`,
+# dove da Android 11 nessun gestore di file può entrare e che la disinstallazione
+# porta via. Il file c'era e non era raggiungibile.
+#
+# `dialog` apre il selettore di sistema — `ACTION_CREATE_DOCUMENT`, lo Storage
+# Access Framework — che è l'unico modo con cui un'applicazione senza permessi
+# speciali scrive in una cartella dell'utente. `fs` serve a una funzione sola:
+# quel selettore restituisce un `content://…` e non un percorso, e il
+# descrittore per scriverci lo si chiede ad Android tramite `app.fs().open()`.
+#
+# ► PER BERSAGLIO, E NON GLOBALI. ◄ Sui computer il download del browser
+# funziona e su iPhone la cartella Documenti compare già nell'app File: là
+# questi due crate non servono e non vengono compilati. Il `dialog`, in
+# particolare, sul desktop si tirerebbe dietro `rfd` e le finestre native di
+# sistema — codice che non ha nessuna ragione di stare in questo binario.
+#
+# Nessuno dei due è raggiungibile dall'interfaccia: si usano da `scrivi_fuori`
+# in `lib.rs`, e nessuna capacità in `capabilities/` concede i loro permessi
+# alla WebView.
+[target.'cfg(target_os = "android")'.dependencies]
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
 
 [features]
 # Attivato automaticamente da `tauri build`.

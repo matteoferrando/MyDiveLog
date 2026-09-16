@@ -4,9 +4,9 @@
  * IL DIFETTO CHE QUESTO FILE CHIUDE. Ogni esportazione — backup JSON, UDDF,
  * byte grezzi del computer subacqueo, foglio del piano — aveva la sua copia
  * privata dello stesso helper: crea un `Blob`, crea un `<a download>`, clicca,
- * revoca l'URL. Sul desktop funziona. Dentro la WKWebView di iOS quel click
- * **non scarica niente e non lancia nessun errore**: non c'è modo, dal lato
- * JavaScript, di accorgersi che è andata male.
+ * revoca l'URL. Sul desktop funziona. Dentro la WebView di un telefono quel
+ * click **non scarica niente e non lancia nessun errore**: non c'è modo, dal
+ * lato JavaScript, di accorgersi che è andata male.
  *
  * La conseguenza non era un file mancante, era una BUGIA: `download()` non può
  * fallire, quindi il `try` che lo avvolgeva arrivava sempre in fondo e
@@ -15,97 +15,140 @@
  * è il difetto peggiore che ci possa essere: costruisce fiducia in una copia
  * che non esiste.
  *
- * COSA FA ADESSO. Una funzione sola, che RESTITUISCE dove è finito il file
- * oppure lancia. Su iOS scrive nella cartella Documenti dell'applicazione, che
- * grazie a `UIFileSharingEnabled` e `LSSupportsOpeningDocumentsInPlace`
- * (`src-tauri/Info.ios.plist`) compare nell'app File sotto «Sul mio iPhone →
- * MyDiveLog»: da lì il file si sposta, si condivide, si manda per email. Altrove
- * resta il download del browser, che è la strada giusta e funziona.
+ * COSA FA ADESSO. Una funzione sola, che RESTITUISCE dove è finito il file,
+ * oppure lancia, oppure dice che non è stato scritto niente perché nessuno ha
+ * scelto dove. Tre esiti e non due — il terzo è arrivato con il selettore di
+ * Android, e il commento su `EsportazioneAnnullata` racconta perché non poteva
+ * essere ridotto agli altri due.
  *
- * Il valore di ritorno serve al chiamante per dire dov'è finito il file, che su
- * iPhone non è ovvio: senza quella frase l'utente cerca in Download e non trova
- * niente.
+ * Sui telefoni si passa dal motore Rust; sui computer e nel browser resta il
+ * download, che è la strada giusta e funziona.
  */
 
 import { inApp, suComputer, suIOS } from '../piattaforma';
 
 /**
- * Le due destinazioni possibili di un'esportazione, **come chiavi del
- * dizionario**.
+ * Le destinazioni possibili di un'esportazione, **come chiavi del dizionario**.
  *
  * ► PERCHÉ COSTANTI. ◄ Perché questa frase viene interpolata dentro un'altra
- * frase tradotta, in sei punti diversi — «PDF salvato {dove}» — e nessuno dei
- * sei poteva tradurla: `t()` vuole una stringa letterale per essere vista dalla
- * guardia del dizionario, e qui arriva una variabile. Con l'applicazione in
- * inglese si leggeva *«PDF saved dove il sistema mette i download»* e *«Backup
- * written dove il sistema mette i download: 42 dives»*.
+ * frase tradotta, in dieci punti diversi — «PDF salvato {dove}» — e nessuno dei
+ * dieci poteva tradurla: `t()` vuole una stringa letterale per essere vista
+ * dalla guardia del dizionario, e qui arriva una variabile. Con l'applicazione
+ * in inglese si leggeva *«PDF saved dove il sistema mette i download»* e
+ * *«Backup written dove il sistema mette i download: 42 dives»*.
  *
  * Esportate, una prova può scorrerle tutte e pretendere la voce inglese — la
- * stessa cura di `core/ble/avanzamentoTesti.ts` e `core/analysis/avvertenze.ts`,
- * che è il quarto caso della stessa forma in una settimana.
+ * stessa cura di `core/ble/avanzamentoTesti.ts` e `core/analysis/avvertenze.ts`.
  */
 export const DOVE_SU_IPHONE = 'nell’app File, in «Sul mio iPhone → MyDiveLog»';
 export const DOVE_NEI_DOWNLOAD = 'dove il sistema mette i download';
 /**
  * ════════════════════════════════════════════════════════════════════════════
- * ► ANDROID, E UNA SEGNALAZIONE DAL CAMPO CHE DICE ESATTAMENTE COSA SUCCEDEVA. ◄
+ * ► ANDROID: DUE SEGNALAZIONI DALLA STESSA PERSONA, A UN GIORNO DI DISTANZA. ◄
  *
- * *«Premendo "Esporta PDF" compare "PDF salvato dove il sistema mette i
- * download", ma il file non compare né in Download né in Recenti né cercando
- * tutti i PDF.»* — Samsung Android, 15 settembre 2026.
+ * **15 settembre 2026.** *«Premendo "Esporta PDF" compare "PDF salvato dove il
+ * sistema mette i download", ma il file non compare né in Download né in
+ * Recenti né cercando tutti i PDF.»*
  *
- * Il file non c'era. La frase in cima a questo file racconta il difetto —
- * dentro una WebView il click su `<a download>` **non scarica niente e non
- * lancia nessun errore**, quindi il `try` arriva in fondo e l'interfaccia
- * annuncia un file che non esiste — e lo racconta al passato, perché era stato
- * chiuso. *Chiuso su iOS soltanto.* Il ramo diceva `inApp() && suIOS()`, e la
- * WebView di Android si comportava come quella di Apple: stessa bugia, stesso
- * pulsante, altro telefono.
+ * Il file non c'era. La frase in cima a questo file racconta il difetto — il
+ * click su `<a download>` dentro una WebView non scarica niente e non lancia
+ * niente — e lo raccontava **al passato**, perché era stato chiuso. *Chiuso su
+ * iOS soltanto:* il ramo diceva `inApp() && suIOS()`, e la WebView di Android
+ * si comportava come quella di Apple. *Una lezione imparata dentro un percorso
+ * protegge quel percorso: finché non la si scrive anche nell'altro, il secondo
+ * resta com'era.*
  *
- * *Una lezione imparata dentro un percorso protegge quel percorso: finché non
- * la si scrive anche nell'altro, il secondo resta com'era.* È la terza volta
- * che questa frase serve in due giorni — il segnalibro del Bluetooth, l'offerta
- * di ripartire, e adesso questa.
+ * **16 settembre 2026**, stessa persona, versione nuova:
  *
- * ► PERCHÉ QUI IL PERCORSO SI MOSTRA E SU IPHONE NO. ◄ Su iPhone la
- * destinazione ha un nome che una persona può seguire: app File → Sul mio
- * iPhone → MyDiveLog. Su Android la cartella dell'applicazione non ha un nome
- * del genere, e «Download» è proprio il posto sbagliato in cui l'utente ha già
- * cercato. L'unica risposta utile è **il percorso esatto**, che il lato Rust
- * restituisce già.
+ *   *«Purtroppo il pdf non si genera ancora anche se è cambiato il messaggio.
+ *    Forse perché si genera in una cartella che non risulta visibile se non da
+ *    pc.»*
+ *
+ * La seconda frase è la diagnosi esatta, ed è arrivata da chi usa il programma
+ * e non da qui. Il file adesso si scriveva davvero — ma in
+ * `/storage/emulated/0/Android/data/<pacchetto>/files/Documents`, che è quello
+ * che `document_dir()` vale su Android: da Android 11 **nessun gestore di file
+ * può entrare in `Android/data`** (la vede solo un PC collegato via USB) e la
+ * disinstallazione dell'applicazione la porta via. Avevamo smesso di mentire
+ * senza ancora consegnare niente.
+ *
+ * ► ORA SI CHIEDE DOVE. ◄ Il motore apre il selettore di sistema
+ * (`ACTION_CREATE_DOCUMENT`, lo Storage Access Framework): l'utente sceglie
+ * Download, Drive, la scheda SD, quello che vuole. Da cui questa frase: la
+ * destinazione non va più DESCRITTA, perché chi ha premuto l'ha appena scelta —
+ * ed è l'unico caso in cui l'applicazione può dire dov'è il file con la
+ * certezza di non sbagliare.
  */
-export const DOVE_SU_ANDROID = 'nella cartella dei documenti dell’app';
+export const DOVE_SCELTO_DA_TE = 'dove l’hai scelto tu';
 /** Tutte e tre, per la prova che le confronta col dizionario. */
-export const DESTINAZIONI = [DOVE_SU_IPHONE, DOVE_NEI_DOWNLOAD, DOVE_SU_ANDROID] as const;
+export const DESTINAZIONI = [DOVE_SU_IPHONE, DOVE_NEI_DOWNLOAD, DOVE_SCELTO_DA_TE] as const;
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► IL TERZO ESITO: NON SCRITTO, E NON È UN GUASTO. ◄
+ *
+ * Con il selettore di Android esiste un caso che prima non poteva esistere:
+ * l'utente apre il selettore e lo chiude. Non c'è un file, e non c'è niente che
+ * sia andato storto.
+ *
+ * Ridurlo agli altri due sarebbe sbagliato in tutte e due le direzioni:
+ * dichiarare «PDF salvato» sarebbe la bugia che questo file esiste per
+ * impedire; dichiarare «il PDF non è stato salvato, controlla lo spazio libero
+ * e riprova» manderebbe a cercare un guasto che non c'è, il che è un modo più
+ * lento di mentire.
+ *
+ * Quindi un tipo suo, che i chiamanti riconoscono con `annullata()` e a cui
+ * rispondono con una riga sola. *La regola sta qui; i dieci punti che la usano
+ * la instradano soltanto.*
+ */
+export class EsportazioneAnnullata extends Error {
+  readonly annullata = true;
+  constructor() {
+    super(NON_SCELTO);
+  }
+}
+
+/** La frase da mostrare quando il selettore si è chiuso senza una scelta. */
+export const NON_SCELTO = 'Non hai scelto dove salvare: non è stato scritto niente.';
+
+/** Vero se l'esportazione è stata annullata, e non fallita. */
+export function annullata(err: unknown): err is EsportazioneAnnullata {
+  return err instanceof EsportazioneAnnullata;
+}
 
 export interface EsitoEsportazione {
-  /** Frase pronta da mostrare: «nell'app File, cartella MyDiveLog» o «nei Download». */
+  /** Frase pronta da mostrare: «nell'app File…», «nei Download», «dove l'hai scelto tu». */
   dove: string;
-  /** Percorso completo, quando esiste. */
-  percorso?: string;
   /**
-   * Se il percorso va DETTO a chi guarda, e non solo tenuto per il diario.
+   * Percorso completo, quando esiste.
    *
-   * Vero solo dove la destinazione non ha un nome che una persona possa
-   * seguire — cioè su Android. Su iPhone il percorso è roba tipo
-   * `/var/mobile/Containers/Data/Application/…`: non aiuta a trovare niente e
-   * sembra un errore.
+   * Su iPhone c'è ma NON si mostra: `/var/mobile/Containers/Data/Application/…`
+   * non aiuta a trovare niente e sembra un errore. Su Android non c'è affatto —
+   * la destinazione è un `content://…` che non significa niente per nessuno.
+   * Resta perché è l'unica cosa che una segnalazione dal campo può citare.
    */
-  mostraPercorso?: boolean;
+  percorso?: string;
+  /** Il nome con cui il file è stato salvato. */
+  nome?: string;
 }
 
 /**
- * La coda della frase: dove è finito il file, e — dove serve — con che percorso.
+ * La coda della frase: dove è finito il file.
  *
- * ► ESISTE PERCHÉ I POSTI CHE LA COMPONGONO SONO OTTO. ◄ Facevano tutti
- * `t(esito.dove)` e basta: aggiungere il percorso avrebbe voluto dire scriverlo
- * otto volte e dimenticarlo in uno. Il commento qui sopra su `DOVE_SU_IPHONE`
- * dice già che questa frase viene interpolata in sei punti diversi — adesso
- * l'interpolazione la fa una funzione sola.
+ * ► ESISTE PERCHÉ I POSTI CHE LA COMPONGONO SONO DIECI. ◄ Facevano tutti
+ * `t(esito.dove)` e basta: il giorno in cui la frase ha dovuto dire qualcosa in
+ * più — ed è successo — avrebbe voluto dire scriverlo dieci volte e
+ * dimenticarlo in uno.
  */
 export function frasePosizione(esito: EsitoEsportazione, t: (s: string) => string): string {
-  const dove = t(esito.dove);
-  return esito.mostraPercorso && esito.percorso ? `${dove}: ${esito.percorso}` : dove;
+  return t(esito.dove);
+}
+
+/** Quello che il comando Rust risponde. Vedi `Esportato` in `src-tauri/src/lib.rs`. */
+interface EsitoNativo {
+  percorso?: string | null;
+  nome?: string | null;
+  annullato: boolean;
 }
 
 /**
@@ -113,6 +156,7 @@ export function frasePosizione(esito: EsitoEsportazione, t: (s: string) => strin
  *
  * @throws se la scrittura fallisce. È il punto di tutto: prima non poteva
  * fallire, e quindi non poteva nemmeno riuscire in modo verificabile.
+ * @throws {EsportazioneAnnullata} se il selettore si è chiuso senza una scelta.
  */
 export async function esporta(
   nome: string,
@@ -123,7 +167,7 @@ export async function esporta(
    * ► DENTRO L'APPLICAZIONE SI SCRIVE, FUORI SI SCARICA. ◄
    *
    * La condizione era `inApp() && suIOS()`, e la WebView di Android si comporta
-   * come quella di Apple — vedi `DOVE_SU_ANDROID`. Il criterio giusto non è
+   * come quella di Apple — vedi `DOVE_SCELTO_DA_TE`. Il criterio giusto non è
    * «quale sistema», è **«c'è una finestra del browser che sa scaricare?»**: nel
    * browser sì, dentro l'applicazione no. Sul Mac e su Windows il download
    * funziona perché lì la WebView è collegata al gestore di scarichi del
@@ -131,10 +175,20 @@ export async function esporta(
    */
   if (inApp() && !suComputer()) {
     const { invoke } = await import('@tauri-apps/api/core');
-    const percorso = await invoke<string>('esporta_nei_documenti', { nome, contenuto });
-    return suIOS()
-      ? { dove: DOVE_SU_IPHONE, percorso }
-      : { dove: DOVE_SU_ANDROID, percorso, mostraPercorso: true };
+    /*
+     * Il tipo va fino in fondo, e su Android non è un dettaglio: il selettore
+     * di sistema lo usa per decidere da quale cartella partire e con che
+     * estensione salvare. Senza, un PDF finisce come «application/octet-stream»
+     * e l'elenco dei PDF del telefono non lo trova — cioè di nuovo un file che
+     * c'è e non si vede.
+     */
+    const esito = await invoke<EsitoNativo>('esporta_nei_documenti', { nome, tipo, contenuto });
+    if (esito.annullato) throw new EsportazioneAnnullata();
+    return {
+      dove: suIOS() ? DOVE_SU_IPHONE : DOVE_SCELTO_DA_TE,
+      percorso: esito.percorso ?? undefined,
+      nome: esito.nome ?? undefined,
+    };
   }
 
   const blob = new Blob([contenuto], { type: tipo });
@@ -146,5 +200,5 @@ export async function esporta(
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  return { dove: DOVE_NEI_DOWNLOAD };
+  return { dove: DOVE_NEI_DOWNLOAD, nome };
 }

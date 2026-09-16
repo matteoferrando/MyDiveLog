@@ -1071,8 +1071,23 @@ export function DiveLogProvider({ children }: { children: ReactNode }) {
   /*
    * Una volta sola per tutto l'archivio, non una volta per riga: con duemila
    * immersioni un conteggio per riga sarebbe quadratico, e si vedrebbe.
+   *
+   * ► LO SCARTO ENTRA QUI, IN UN PUNTO SOLO. ◄ Segnalazione del 16 settembre
+   * 2026: *«ho scaricato dal mio computer 148 immersioni e l'ultima mi compare
+   * immersione #148 ma in realtà sarebbe la #183»*. Il motore sapeva già
+   * contare da un numero diverso da zero — `numeriProgressivi` ha il parametro
+   * dal giorno in cui è nata — e non c'era modo di dirglielo.
+   *
+   * Passandolo QUI, dove la mappa si costruisce una volta per tutta
+   * l'applicazione, il numero nuovo arriva insieme a tutto il resto: l'elenco,
+   * la scheda, il PDF, il libretto, la stampa. Nessuna delle pagine sa che
+   * esiste uno scarto, ed è la ragione per cui non se lo può dimenticare
+   * nessuna.
    */
-  const numeri = useMemo(() => numeriProgressivi(dives), [dives]);
+  const numeri = useMemo(
+    () => numeriProgressivi(dives, subacqueo.immersioniPrecedenti),
+    [dives, subacqueo.immersioniPrecedenti],
+  );
 
   /**
    * Due schede in una.

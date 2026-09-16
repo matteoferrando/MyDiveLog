@@ -16,7 +16,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { conNumeri, numeriProgressivi } from '../src/core/numerazione';
+import { conNumeri, numeriProgressivi, scartoDiNumerazione } from '../src/core/numerazione';
 import type { Dive } from '../src/core/model';
 
 function imm(id: string, startTime: string, extra: Partial<Dive> = {}): Dive {
@@ -129,5 +129,88 @@ describe('il numero è la posizione nel logbook', () => {
     expect(conNumeri([dive], numeri)[0].number).toBe(1);
     // L'originale non viene toccato: la numerazione è una vista, non un dato.
     expect(dive.number).toBe(977);
+  });
+});
+
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► LE 148 CHE ERANO 183. ◄
+ *
+ * Segnalazione del 16 settembre 2026, dalla stessa persona che il giorno prima
+ * aveva trovato il PDF che non c'era:
+ *
+ *   *«Dovresti inserire la possibilità di cambiare la numerazione delle
+ *    immersioni. Ad esempio io ho scaricato dal mio computer 148 immersioni e
+ *    l'ultima mi compare immersione #148 ma in realtà sarebbe la #183.»*
+ *
+ * Il motore sapeva già contare da un numero diverso da zero: `numeriProgressivi`
+ * ha il parametro `precedenti` dal giorno in cui è nata, e la prova qui sopra —
+ * «chi ha un logbook di carta alle spalle parte da dove è arrivato» — lo
+ * misurava già. Quello che mancava era **il modo di dirglielo**: nessuna
+ * casella nell'interfaccia, e il valore nessuno lo passava.
+ *
+ * *Una funzione giusta che nessuno può chiamare non è una funzione: è una
+ * funzione in attesa.* È lo stesso difetto del gestore che registra un comando
+ * non compilato, visto dall'altro capo.
+ */
+describe('lo scarto per chi ha un logbook di carta alle spalle', () => {
+  it('il caso esatto della segnalazione: 148 scaricate, l’ultima è la 183', () => {
+    const archivio = Array.from({ length: 148 }, (_, i) =>
+      imm(`d${String(i).padStart(3, '0')}`, new Date(Date.UTC(2020, 0, 1 + i, 9)).toISOString()),
+    );
+    const numeri = numeriProgressivi(archivio, 35);
+    expect(numeri.get('d000'), 'la prima registrata').toBe(36);
+    expect(numeri.get('d147'), 'l’ultima registrata').toBe(183);
+    // E il totale non cambia: lo scarto sposta i numeri, non aggiunge righe.
+    expect(numeri.size).toBe(148);
+  });
+
+  it('senza scarto tutto resta com’era, e non è una formalità', () => {
+    // Chi ha registrato tutto da sempre non deve accorgersi che questa
+    // possibilità esiste. Il valore assente e il valore zero sono la stessa
+    // cosa, e devono restarlo: `immersioniPrecedenti` è opzionale.
+    const archivio = [imm('a', '2024-01-01T08:00:00.000Z'), imm('b', '2024-01-02T08:00:00.000Z')];
+    expect([...numeriProgressivi(archivio).values()]).toEqual([1, 2]);
+    expect([...numeriProgressivi(archivio, 0).values()]).toEqual([1, 2]);
+    expect([...numeriProgressivi(archivio, undefined).values()]).toEqual([1, 2]);
+  });
+});
+
+/*
+ * ► IL VALORE ARRIVA DA UNA CASELLA, E UNA CASELLA SA DIRE DI TUTTO. ◄
+ *
+ * `NaN` quando la si svuota, un negativo quando scappa un meno, un decimale da
+ * un incollaggio, un milione da una cifra tenuta premuta. Nessuno di questi è
+ * un errore da segnalare — sono modi in cui una casella si comporta — ma tutti
+ * e quattro, sommati a un indice, danno un numero d'immersione che non vuol
+ * dire niente: `#NaN`, `#-1`, `#36.5`.
+ *
+ * La rete sta DENTRO `numeriProgressivi` e non al punto di immissione, perché
+ * i punti di immissione si moltiplicano e quella funzione è una sola.
+ */
+describe('lo scarto si ripulisce da sé', () => {
+  it.each([
+    ['la casella svuotata', Number.NaN, 0],
+    ['un meno scappato', -5, 0],
+    ['un decimale incollato', 35.7, 35],
+    ['un valore assente', undefined, 0],
+    ['una cifra tenuta premuta', 9_999_999, 99_999],
+    // Un infinito non è un tetto da applicare: non è un conteggio. Vale come
+    // la casella vuota, che è la risposta onesta a «quante ne hai fatte».
+    ['un infinito', Number.POSITIVE_INFINITY, 0],
+    ['il caso normale', 35, 35],
+  ])('%s → %s', (_caso, dato, atteso) => {
+    expect(scartoDiNumerazione(dato as number | undefined)).toBe(atteso);
+  });
+
+  it('e nessun numero d’immersione può uscire NaN da qui', () => {
+    // ► LA GUARDIA DELLA GUARDIA: se `scartoDiNumerazione` non venisse
+    //   applicata dentro `numeriProgressivi`, questa riga darebbe `NaN` — e
+    //   `NaN` su un numero che si scrive sul libretto a valore legale è
+    //   peggio di un numero assente, perché sembra un guasto del programma
+    //   invece che un dato da correggere.
+    const numeri = numeriProgressivi([imm('a', '2024-01-01T08:00:00.000Z')], Number.NaN);
+    expect(numeri.get('a')).toBe(1);
+    expect(Number.isNaN(numeri.get('a'))).toBe(false);
   });
 });

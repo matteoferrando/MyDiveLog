@@ -1,0 +1,21 @@
+Due cose, tutte e due segnalate da chi usa l'applicazione.
+
+SU ANDROID IL FILE ADESSO LO SCEGLI TU
+
+Nella versione precedente «Esporta PDF» scriveva il file dentro la cartella privata dell'applicazione — quella che da Android 11 nessun gestore di file può aprire e che la disinstallazione porta via. Il file c'era e non era raggiungibile.
+
+Adesso l'applicazione apre il selettore di sistema e chiede dove: Download, Drive, la scheda SD. Il file finisce in una cartella vera, sopravvive alla disinstallazione, e sai dov'è perché l'hai scelto tu. Se chiudi il selettore senza scegliere, non viene scritto niente e l'applicazione lo dice: annullare non è né riuscire né fallire.
+
+Vale per tutte le esportazioni: PDF della scheda, PDF del piano, backup, UDDF, CSV, KML.
+
+Su iPhone non cambia niente: là la cartella dell'applicazione si vede già nell'app File, sotto «Sul mio iPhone → MyDiveLog».
+
+LA NUMERAZIONE RIPARTE DA DOVE FINISCE IL TUO LOGBOOK DI CARTA
+
+«Ho scaricato dal computer 148 immersioni e l'ultima mi compare #148, ma in realtà sarebbe la #183.»
+
+In Profilo → Dati per il LogBook c'è una casella nuova: «Immersioni fatte prima di questo archivio». Ci si scrive quante ne contiene il logbook di carta, e sotto compare subito il risultato — «In archivio ci sono 148 immersioni: numerate dalla #36 alla #183» — così non c'è da indovinare se scrivere 35 o 36.
+
+Il numero nuovo vale ovunque: elenco, scheda, PDF, libretto, CSV, UDDF. E viaggia con la sincronizzazione, perché è un fatto su di te e non su un dispositivo: il telefono e il computer numerano allo stesso modo.
+
+Chi ha registrato tutto da sempre non deve toccare niente.

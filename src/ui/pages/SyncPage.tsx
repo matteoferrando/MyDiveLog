@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { conNumeri } from '../../core/numerazione';
 import { localeCorrente } from '../../core/locale';
-import { esporta, frasePosizione } from '../esporta';
+import { annullata, esporta, frasePosizione, NON_SCELTO } from '../esporta';
 import { suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
 import { RigaLingua, useLingua } from '../lingua';
@@ -231,6 +231,16 @@ export function SyncPage() {
       try {
         setExported(await lavoro());
       } catch (err) {
+        /*
+         * ► ANNULLARE NON È FALLIRE. ◄ Su Android il file lo si salva dove lo
+         * sceglie chi guarda: se chiude il selettore senza scegliere, non c'è un
+         * guasto da raccontare. Mandarlo a controllare lo spazio libero sarebbe un
+         * modo più lento di dirgli una cosa falsa.
+         */
+        if (annullata(err)) {
+          setError(t(NON_SCELTO));
+          return;
+        }
         setError(err instanceof Error ? err.message : String(err));
       } finally {
         setExporting(false);
@@ -1229,6 +1239,16 @@ function BackupCard() {
           `${t('Backup scritto')} ${frasePosizione(dove, t)}: ${imm(file.summary.dives, t)}, ${file.summary.samples.toLocaleString(localeCorrente())} ${t('campioni')}, ${file.summary.settings.length} ${t('impostazioni')}.`,
         );
       } catch (err) {
+        /*
+         * ► ANNULLARE NON È FALLIRE. ◄ Su Android il backup lo si salva dove lo
+         * sceglie chi guarda: se chiude il selettore senza scegliere, non c'è un
+         * guasto da raccontare — ma non c'è nemmeno un backup, e va detto nel
+         * posto dove si legge «Backup scritto», non fra gli errori.
+         */
+        if (annullata(err)) {
+          setEsito(t(NON_SCELTO));
+          return;
+        }
         setErrore(err instanceof Error ? err.message : String(err));
       } finally {
         setLavoro('idle');

@@ -1,0 +1,5 @@
+Due correzioni, tutte e due segnalate da chi usa l'app.
+
+• Su Android le esportazioni finivano nella cartella privata dell'app: invisibile ai gestori di file e cancellata disinstallando. Ora l'app apre il selettore di sistema e chiedi tu dove salvare — Download, Drive, scheda SD. Se annulli, non scrive niente e lo dice.
+
+• Numerazione: in Profilo puoi dire quante immersioni contiene il tuo logbook di carta, e i numeri ripartono da lì ovunque — elenco, schede, PDF, libretto.

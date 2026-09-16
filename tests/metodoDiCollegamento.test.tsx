@@ -51,7 +51,19 @@ const finto = vi.hoisted(() => ({
   esportato: null as { nome: string; contenuto: string } | null,
 }));
 
-vi.mock('../src/ui/esporta', () => ({
+vi.mock('../src/ui/esporta', async (originale) => ({
+  /*
+   * ► IL FINTO PARTE DAL VERO. ◄ Prima questo doppio elencava a mano i due
+   * nomi che servivano, e il giorno in cui `ui/esporta.ts` ne ha esportato un
+   * terzo — `annullata`, per distinguere «ha chiuso il selettore» da «è andata
+   * storta» — questo file è morto con «No "annullata" export is defined on the
+   * mock», in una prova che del selettore non sa niente.
+   *
+   * `importOriginal` tiene il resto del modulo com'è e sostituisce la sola
+   * funzione che qui va intercettata: un doppio che non deve essere aggiornato
+   * ogni volta che il vero cresce.
+   */
+  ...(await originale<typeof import('../src/ui/esporta')>()),
   esporta: (nome: string, contenuto: string) => {
     finto.esportato = { nome, contenuto };
     return Promise.resolve({ dove: 'in una cartella finta' });
