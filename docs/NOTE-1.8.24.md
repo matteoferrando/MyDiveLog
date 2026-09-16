@@ -78,6 +78,19 @@ consiglio perdeva la sessione e si teneva il guasto.
 offriva di far ripartire il prossimo scarico da lì. Accettando, quelle
 immersioni non sarebbero tornate mai più.
 
+### E una segnalata da chi la usa
+
+**Su Android «Esporta PDF» diceva «PDF salvato» e non salvava niente.** Dentro
+la finestra dell'applicazione il download del browser non funziona e non dà
+errore, quindi la conferma compariva su un file che non esisteva — ed era
+proprio il difetto che questa applicazione aveva già chiuso una volta, sui
+telefoni di Apple soltanto. Adesso il file si scrive davvero, e il messaggio
+dice **in che cartella**: «la cartella dell'app» senza il percorso non aiuta a
+trovare niente.
+
+*Grazie a chi l'ha segnalato.* Una falsa conferma su un'esportazione non perde
+un file: costruisce fiducia in un file che non c'è.
+
 ### Piccole
 
 Il minimo e il massimo della zavorra non erano arrotondati come la mediana in
@@ -88,4 +101,4 @@ nessuna nota da leggere» finiva sopra alle note da leggere.
 
 Ogni correzione ha una prova che è stata **mutata**: si rimette il difetto e si
 guarda la prova diventare rossa. Una guardia che non si è mai vista rossa non è
-una guardia. Le prove sono 2755 su 164 file, più 135 sul lato Rust.
+una guardia. Le prove sono 2 769 su 165 file, più 135 sul lato Rust.
