@@ -42,8 +42,7 @@ const immersione = (extra: Partial<Dive> = {}): Dive =>
   }) as Dive;
 
 /** Il lato che ha scritto per ultimo è sempre `base`. */
-const sincronizza = (vincitore: Dive, perdente: Dive) =>
-  mergeDive(vincitore, perdente, undefined, true);
+const sincronizza = (vincitore: Dive, perdente: Dive) => mergeDive(vincitore, perdente, undefined, true);
 const importa = (base: Dive, altro: Dive) => mergeDive(base, altro, undefined, false);
 
 describe('la lapide di un campo svuotato sopravvive alla fusione', () => {
@@ -171,8 +170,6 @@ describe('l’identificativo non dipende da dove sei quando scarichi', () => {
       ...dalMacInItalia,
       computer: { model: 'Perdix', deviceId: 'ABC123', diveId: '7' },
     };
-    expect(diveIdFor(conIndice)).toBe(
-      diveIdFor({ ...conIndice, startTime: '2026-01-01T00:00:00.000Z' }),
-    );
+    expect(diveIdFor(conIndice)).toBe(diveIdFor({ ...conIndice, startTime: '2026-01-01T00:00:00.000Z' }));
   });
 });

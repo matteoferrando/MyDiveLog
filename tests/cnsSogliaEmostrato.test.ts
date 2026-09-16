@@ -42,8 +42,7 @@ const BASE: GasPlanInput = {
   startBar: 300,
 };
 
-const pianoDa = (bottomMin: number) =>
-  planGas({ ...BASE, bottomMin, totalMin: bottomMin + 10 });
+const pianoDa = (bottomMin: number) => planGas({ ...BASE, bottomMin, totalMin: bottomMin + 10 });
 
 /**
  * Il tempo di fondo più lungo che lascia il CNS PIENO sotto `soglia`.
@@ -82,9 +81,7 @@ describe('pianificatore: la soglia del CNS guarda il numero mostrato', () => {
       expect(pieno).toBeLessThan(soglia);
       expect(cnsMostrato(pieno)).toBeGreaterThanOrEqual(soglia);
 
-      const avviso = piano.warnings.find(
-        (w) => w.testo === A.CNS_ALTO || w.testo === A.CNS_ALTO_CON_MINUTI,
-      );
+      const avviso = piano.warnings.find((w) => w.testo === A.CNS_ALTO || w.testo === A.CNS_ALTO_CON_MINUTI);
       expect(avviso, `a ${pieno}% mostrato come ${cnsMostrato(pieno)}% l'avviso deve esserci`).toBeDefined();
 
       // ► IL CUORE. ◄ Il numero scritto nell'avviso è quello su cui l'avviso ha
@@ -106,8 +103,8 @@ describe('pianificatore: la soglia del CNS guarda il numero mostrato', () => {
       passo += 0.5;
     }
     expect(cnsMostrato(piano.oxygen.cnsPercent)).toBeLessThan(80);
-    expect(
-      piano.warnings.some((w) => w.testo === A.CNS_ALTO || w.testo === A.CNS_ALTO_CON_MINUTI),
-    ).toBe(false);
+    expect(piano.warnings.some((w) => w.testo === A.CNS_ALTO || w.testo === A.CNS_ALTO_CON_MINUTI)).toBe(
+      false,
+    );
   });
 });

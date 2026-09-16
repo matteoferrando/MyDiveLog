@@ -1,7 +1,8 @@
 # MyDiveLog — stato del progetto
 
 Aggiornato: **16 settembre 2026, mattina** — **2 755 prove in 164 file** più
-**135 prove Rust** del ponte, tipi, lint e formato a **0 errori**.
+**135 prove Rust** del ponte, tipi, lint e formato a **0 errori**, e la suite
+verde anche a **UTC+14 e UTC−11**.
 
 > **► LA 1.8.24 È PRONTA E NON È PUBBLICATA. ◄** Il numero è nei quattro file e
 > la catena è verde. Rispetto alla 1.8.23 non aggiunge niente: chiude **i
@@ -17,10 +18,27 @@ Aggiornato: **16 settembre 2026, mattina** — **2 755 prove in 164 file** più
 > data certa; lo stesso tuffo scaricato in due fusi che diventava due
 > immersioni su tutti i dispositivi.
 >
-> **Tutto quello che va fatto a mano resta quello della 1.8.23**, con il numero
-> cambiato: vedi `rilascio-1.8.23.md` nel progetto. Le schermate dei negozi e
-> del sito sono quelle rigenerate per la 1.8.23 e **restano valide** — questa
-> versione non tocca l'interfaccia.
+> **I passi da fare a mano stanno in `rilascio-1.8.24.md`** nel progetto, con i
+> comandi pronti. Le schermate dei negozi e del sito sono quelle rigenerate per
+> la 1.8.23 e **restano valide**: questa versione non tocca l'interfaccia.
+>
+> **Costruito e verificato da qui:** il pacchetto web (`dist/`), il sito
+> (`sito:computer`, `sito:versiona`, `sito:controlla` puliti) e — nuovo — il
+> **pacchetto Linux `.deb`**, con gli stessi comandi del workflow e le sue due
+> verifiche: nessuna traccia dell'aggiornatore nel binario, libdivecomputer
+> dentro.
+>
+> **Non costruibile da qui, e il motivo è uno solo per tre piattaforme:**
+> Windows, Android e Linux li fa GitHub Actions su `altre-piattaforme.yml`, e
+> **i ventisei commit non sono su GitHub** — `gh` non è nemmeno installato nel
+> contenitore. macOS e iOS li fa il Mac del proprietario, con il suo materiale
+> di firma. *Il primo comando della lista è quindi `git push origin main`.*
+>
+> ► **E rigenerando il sito è saltato fuori un diciassettesimo difetto**, che la
+> guardia ha preso da sola: `genera-pagina-computer.ts` cancellava
+> `aria-current="page"` a ogni giro, perché accanto c'era un commento —
+> «nessuna voce corrisponde» — che aveva smesso di essere vero il giorno in cui
+> al menu è stata aggiunta la voce «Computer».
 
 > **► LA 1.8.23 ERA PRONTA E NON È STATA PUBBLICATA. ◄** Il numero era nei quattro file,
 > le schermate dei negozi e del sito sono rigenerate, la catena è verde. Porta
