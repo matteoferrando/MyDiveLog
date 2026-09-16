@@ -2067,6 +2067,11 @@ export const INGLESE: Record<string, string> = {
   'Preso il': 'Issued on',
   'Pressione di esercizio': 'Working pressure',
   'Primo livello (fino a 18 m)': 'Entry level (to 18 m)',
+  // Le tre forme corte: si usano quando accanto c'è la profondità dichiarata
+  // dalla didattica, e il tipico dello scalino diventa un numero di troppo.
+  'Primo livello': 'Entry level',
+  Avanzato: 'Advanced',
+  Profondo: 'Deep',
   'Primo quartile': 'First quartile',
   'Profili caricati': 'Profiles pushed',
   'Profili scaricati': 'Profiles pulled',

@@ -24,6 +24,7 @@
 import { useMemo, useState } from 'react';
 import {
   CERT_LEVEL_LABEL,
+  CERT_LEVEL_NOME,
   RUOLO_LABEL,
   haDecompressione,
   haMiscele,
@@ -481,9 +482,16 @@ function SchedaBrevetto({
  * una profondità per questo brevetto» è un'informazione, mentre un campo vuoto
  * senza spiegazione sembra un difetto dell'applicazione.
  */
-function FattiDelBrevetto({ voce, didattica }: { voce: BrevettoCatalogo; didattica: Didattica }) {
+export function FattiDelBrevetto({ voce, didattica }: { voce: BrevettoCatalogo; didattica: Didattica }) {
   const { t } = useLingua();
-  const pezzi: string[] = [t(CERT_LEVEL_LABEL[voce.livello])];
+  /*
+   * Il nome dello scalino SENZA i metri tipici quando la didattica i suoi li
+   * dichiara: due numeri diversi sulla stessa riga — «Primo livello (fino a
+   * 18 m) · 20 m» — si leggono come un errore, non come due fatti. Vedi
+   * `CERT_LEVEL_NOME` in `core/analysis/gear.ts`.
+   */
+  const scalino = voce.profonditaM === undefined ? CERT_LEVEL_LABEL : CERT_LEVEL_NOME;
+  const pezzi: string[] = [t(scalino[voce.livello])];
   if (voce.profonditaM !== undefined) pezzi.push(`${voce.profonditaM} m`);
   if (voce.decompressione) pezzi.push(t('con decompressione'));
   if (voce.ruolo) pezzi.push(t(RUOLO_LABEL[voce.ruolo]));

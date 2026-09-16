@@ -1,6 +1,6 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **16 settembre 2026, notte** — **2 862 prove in 178 file** più
+Aggiornato: **16 settembre 2026, notte** — **2 865 prove in 179 file** più
 **149 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**.
 
@@ -17,6 +17,15 @@ a **UTC+14 e UTC−11**.
 > CMAS e FIPSAS: il primo livello autonomo dichiara **20 m** contro 18, il
 > gradino profondo **40** contro 42. Una prova lo scrive, così nessuno
 > «semplifica» facendo puntare l'una all'altra.
+>
+> **E la didattica nuova ha fatto vedere un difetto vecchio.** La scheda sotto
+> la tendina diceva *«Primo livello (fino a 18 m) · 20 m»*: il tipico dello
+> scalino e la profondità dichiarata, uno accanto all'altra, che a occhio si
+> leggono come una contraddizione dell'applicazione. Capitava anche a CMAS One
+> Star (20 sotto un «fino a 18») e a FIPSAS 3° Grado (42 sotto un «fino a 40»),
+> da sempre: si è visto solo mettendo davanti agli occhi una didattica nuova.
+> Adesso dove la didattica dichiara i suoi metri il numero è **uno solo**, e una
+> prova attraversa tutto il catalogo per garantirlo.
 >
 > I numeri vengono dalle pagine ufficiali `fias.it`, lette stanotte. Dove la
 > federazione tace qui non c'è niente: Minisub e Junior (7 e 9 anni) non

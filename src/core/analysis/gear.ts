@@ -201,6 +201,39 @@ export const RUOLO_LABEL: Record<RuoloBrevetto, string> = {
   istruttore: 'Istruttore',
 };
 
+/**
+ * Lo stesso scalino, ma senza i metri tipici fra parentesi.
+ *
+ * ► PERCHÉ DUE ELENCHI E NON UNO. ◄ `CERT_LEVEL_LABEL` porta un numero dentro —
+ * «Primo livello (fino a 18 m)» — ed è giusto che lo porti: quando una persona
+ * sceglie il livello a mano, per un brevetto che nel catalogo non c'è, quel
+ * numero è l'unico riferimento che ha.
+ *
+ * Ma quando la didattica il suo numero lo dichiara, i due finiscono sulla
+ * stessa riga e si contraddicono a occhio. Con la FIAS aggiunta il 16 settembre
+ * 2026 la scheda diceva: *«Primo livello (fino a 18 m) · 20 m»*. Sono due fatti
+ * veri — 18 è il tipico dello scalino, 20 è quello che dichiara FIAS — ma messi
+ * così sembrano un errore dell'applicazione, e chi legge non sa a quale credere.
+ * Non succede solo a FIAS: CMAS One Star dice 20, FIPSAS 3° Grado dice 42 sotto
+ * un «fino a 40».
+ *
+ * Quindi: dove la profondità arriva dalla didattica si usa questo elenco e il
+ * numero è uno solo; dove non arriva si usa l'altro, e il tipico dello scalino
+ * resta l'unica indicazione disponibile.
+ *
+ * `intro`, `nitrox` e `tech` sono identici nei due elenchi: la loro parentesi
+ * non contiene metri ma un fatto che vale comunque — «solo con guida» non è un
+ * numero da cui dissentire.
+ */
+export const CERT_LEVEL_NOME: Record<CertLevel, string> = {
+  intro: 'Introduttivo (solo con guida)',
+  base: 'Primo livello',
+  advanced: 'Avanzato',
+  deep: 'Profondo',
+  nitrox: 'Nitrox / miscele',
+  tech: 'Tecnico (decompressione)',
+};
+
 const SCALA_RUOLI: RuoloBrevetto[] = ['soccorso', 'guida', 'assistente', 'istruttore'];
 
 export interface Certification {
