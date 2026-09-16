@@ -1,0 +1,7 @@
+A fixes-only release, every one measured on real data.
+
+• Export PDF on Android said "saved" without saving anything: the file is now really written, and the message says which folder.
+• Gas consumption (L/min) was off by up to 53% on some files: surface pressure was not being filtered.
+• Peak PPO2 was wrong when the computer does not hand over a gas mix.
+• February 31st is no longer a valid date.
+• The same dive downloaded in two time zones no longer becomes two dives.

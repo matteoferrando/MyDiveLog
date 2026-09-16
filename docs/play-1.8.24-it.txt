@@ -1,0 +1,7 @@
+Versione di sole correzioni, tutte misurate su dati veri.
+
+• Esporta PDF su Android diceva «salvato» senza salvare niente: ora il file si scrive davvero e il messaggio dice in che cartella.
+• Consumo in L/min sbagliato fino al 53% su certi file: la pressione di superficie non veniva filtrata.
+• PPO2 di picco sbagliata quando il computer non consegna una miscela.
+• Il 31 febbraio non è più una data valida.
+• Lo stesso tuffo scaricato in due fusi non diventa più due immersioni.

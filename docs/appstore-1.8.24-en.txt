@@ -1,0 +1,29 @@
+This release adds nothing: it closes eighteen defects, each one measured on real data before being fixed.
+
+THE NUMBERS THAT DECIDE
+
+• Gas consumption in litres per minute came out inflated by up to 53% when a file declares an impossible surface pressure — a zero that four importers can produce. That value feeds the planner and decides how many bar you need.
+
+• On the same dive all sixteen Bühlmann compartments came out above the M-value, the first at 248%: a red chart on a quiet twenty-metre dive.
+
+• Peak PPO2 could be off by half a bar when the computer does not hand over one of the gas mixes: the decompression cylinder was read as pure oxygen.
+
+• CNS exposure decided on one number and displayed another: "80%" with no warning at all, "100%" classified as mere caution.
+
+THE PROFILE AND THE DATES
+
+• The profile printed on the logbook sheet could be a credible, wrong drawing when samples arrive out of order. The same applied to the on-screen chart and to the description VoiceOver reads in place of it.
+
+• February 31st entered the archive as a certain date, shifted forward by three days.
+
+• A dive's sequential number was not always the same: with an unreadable date in the archive it could change between launches.
+
+SYNC
+
+• A field you cleared by hand and a cylinder you removed by hand came back from the other device, for good.
+
+• The same dive downloaded in two different time zones — phone on the boat, Mac at home — became two dives on every device, with no warning.
+
+• An unreadable profile on the server vanished in silence while sync reported success. It now says so.
+
+Every fix has a test that was itself tested, by putting the defect back: 2,769 automated checks, plus 135 on the dive-computer reading engine.

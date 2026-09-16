@@ -1,0 +1,29 @@
+Questa versione non aggiunge funzioni: chiude diciotto difetti, ognuno misurato su dati veri prima di essere corretto.
+
+I NUMERI CHE DECIDONO
+
+• Il consumo in litri al minuto usciva gonfiato fino al 53% quando un file dichiara una pressione di superficie impossibile — uno zero che quattro lettori possono produrre. Quel valore finisce nel pianificatore e decide quanti bar servono.
+
+• Sulla stessa immersione i sedici compartimenti di Bühlmann uscivano tutti oltre il valore M, il primo al 248%: un grafico rosso su un'uscita tranquilla a venti metri.
+
+• La PPO2 di picco poteva sbagliare di mezzo bar quando il computer non consegna una delle miscele: la bombola di decompressione veniva letta come ossigeno puro.
+
+• L'esposizione CNS decideva su un numero e ne mostrava un altro: «80%» senza nessun avviso, «100%» classificato come semplice prudenza.
+
+IL PROFILO E LE DATE
+
+• Il profilo stampato sul libretto poteva essere un disegno credibile e sbagliato quando i campioni arrivano fuori ordine. Vale anche per il grafico a schermo e per la descrizione che VoiceOver legge al posto del grafico.
+
+• Il 31 febbraio entrava in archivio come data certa, spostata in avanti di tre giorni.
+
+• Il numero progressivo dell'immersione non era sempre lo stesso: con una data illeggibile in archivio poteva cambiare da un avvio all'altro.
+
+LA SINCRONIZZAZIONE
+
+• Un campo svuotato a mano e una bombola tolta a mano tornavano indietro dall'altro dispositivo, per sempre.
+
+• Lo stesso tuffo scaricato in due fusi orari diversi — col telefono in barca e col Mac a casa — diventava due immersioni su tutti i dispositivi, senza un avviso.
+
+• Un profilo illeggibile sul server spariva in silenzio mentre la sincronizzazione si dichiarava riuscita. Adesso lo dice.
+
+Ogni correzione ha una prova che è stata rimessa alla prova rimettendo il difetto: 2 769 controlli automatici, più 135 sul motore di lettura dei computer subacquei.
