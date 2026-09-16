@@ -1,9 +1,28 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **16 settembre 2026, notte** — **2 692 prove in 157 file** più
-**134 prove Rust** del ponte, tipi, lint e formato a **0 errori**.
+Aggiornato: **16 settembre 2026, mattina** — **2 755 prove in 164 file** più
+**135 prove Rust** del ponte, tipi, lint e formato a **0 errori**.
 
-> **► LA 1.8.23 È PRONTA E NON È PUBBLICATA. ◄** Il numero è nei quattro file,
+> **► LA 1.8.24 È PRONTA E NON È PUBBLICATA. ◄** Il numero è nei quattro file e
+> la catena è verde. Rispetto alla 1.8.23 non aggiunge niente: chiude **i
+> sedici difetti rimasti aperti** dopo le revisioni avversariali del 15
+> settembre, ognuno misurato prima di essere corretto e ognuno con una prova
+> **mutata** — si rimette il difetto e si guarda la prova diventare rossa.
+>
+> I sedici, per quello che cambiano a chi si immerge, stanno in
+> **`docs/NOTE-1.8.24.md`**. I più grossi: il consumo gonfiato del 53% da uno
+> zero in archivio; la bombola di decompressione che diventava ossigeno puro
+> (PPO2 di picco da 1.06 a **1.62**); il profilo stampato sul libretto con
+> quindici punti su trentuno fuori dal riquadro; il 31 febbraio accettato come
+> data certa; lo stesso tuffo scaricato in due fusi che diventava due
+> immersioni su tutti i dispositivi.
+>
+> **Tutto quello che va fatto a mano resta quello della 1.8.23**, con il numero
+> cambiato: vedi `rilascio-1.8.23.md` nel progetto. Le schermate dei negozi e
+> del sito sono quelle rigenerate per la 1.8.23 e **restano valide** — questa
+> versione non tocca l'interfaccia.
+
+> **► LA 1.8.23 ERA PRONTA E NON È STATA PUBBLICATA. ◄** Il numero era nei quattro file,
 > le schermate dei negozi e del sito sono rigenerate, la catena è verde. Porta
 > **l'interfaccia del telefono rifatta da capo** — barra in basso con Importa al
 > centro, capitoli che si aprono ognuno col numero che produce, indice laterale
