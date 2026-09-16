@@ -4,7 +4,19 @@ Aggiornato: **17 settembre 2026** — **2 839 prove in 173 file** più **149 pro
 Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche a **UTC+14 e
 UTC−11**.
 
-> ## ► 17 SETTEMBRE: IL PRIMO COMPUTER DI TERZI HA SCARICATO DAVVERO. ◄
+> ## ► LA 1.8.27 È PUBBLICATA — E IL PRIMO COMPUTER DI TERZI HA SCARICATO DAVVERO. ◄
+>
+> Release **`v1.8.27`**, **nove allegati contati**, `.dmg` notarizzato e pinzato
+> (`stapler validate` e `spctl`: *Notarized Developer ID*), `latest.json` con
+> tutte e due le piattaforme. I quattro pulsanti del sito restituiscono i byte
+> esatti — dmg 4 531 589, apk 11 133 302, deb 3 827 242, setup 3 264 192. Il
+> sito non è cambiato.
+>
+> **Nei negozi va questa, non la 1.8.26**: se quella non è ancora stata
+> caricata, si salta. Tutto in `../consegna/1.8.27/`, col numero nel nome —
+> `MyDiveLog-1.8.27.ipa`, `MyDiveLog-1.8.27-mac-app-store.pkg`,
+> `MyDiveLog-1.8.27-play.aab`.
+>
 >
 > *«Su Mares Quad Ci funziona adesso.»* È il primo computer subacqueo di
 > un'altra marca che consegna immersioni attraverso libdivecomputer in questa
