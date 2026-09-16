@@ -43,6 +43,7 @@ import {
   type TooltipState,
 } from './Charts';
 import { useLingua } from '../lingua';
+import { inOrdineDiTempo } from '../../core/campioni';
 import { plural, type Traduci } from '../format';
 
 /**
@@ -86,7 +87,17 @@ export function DepthProfile({
   const { t } = useLingua();
   const uid = useId();
 
-  const samples = dive.samples ?? [];
+  /*
+   * ► IN ORDINE DI TEMPO, e prima non lo erano. ◄
+   *
+   * `maxT` veniva da `samples[samples.length - 1].t`, cioè dall'ULTIMO
+   * CAMPIONE DEL FILE, e l'ascissa dava per scontato che il primo istante
+   * fosse zero. Nessuno garantisce né l'una né l'altra cosa: un orologio che
+   * salta indietro a metà immersione, o un lettore che consegna i blocchi
+   * nell'ordine del documento, bastano. È lo stesso difetto del profilo
+   * stampato sul libretto, trovato lo stesso giorno. Vedi `core/campioni.ts`.
+   */
+  const samples = inOrdineDiTempo(dive.samples ?? []);
   // Il PERCHÉ non sta più a schermo: succede quando il formato di origine porta
   // solo i dati di sintesi (LogTRAK sulle immersioni inserite a mano, certi CSV,
   // le esportazioni parziali). È un'informazione per chi scrive il codice, non
@@ -103,7 +114,13 @@ export function DepthProfile({
   const plotW = Math.max(10, width - pad.left - pad.right);
   const plotH = height - pad.top - pad.bottom;
 
-  const maxT = samples[samples.length - 1].t || 1;
+  // L'origine dei tempi è il PRIMO ISTANTE, non lo zero: un profilo che comincia
+  // a t = 120 s — capita con i lettori che tengono il tempo assoluto — altrimenti
+  // partirebbe staccato dal bordo sinistro e finirebbe fuori dal riquadro a
+  // destra. E l'ultimo istante è l'ultimo DOPO l'ordinamento, non l'ultimo che il
+  // file aveva scritto.
+  const t0 = samples[0].t;
+  const maxT = samples[samples.length - 1].t - t0 || 1;
   const maxDepth = Math.max(dive.maxDepth, ...samples.map((s) => s.depth));
   // Poco margine sopra il massimo: con 1.06 un'immersione a 29 m si prendeva un
   // asse fino a 40, e il profilo sembrava schiacciato in cima.
@@ -111,7 +128,7 @@ export function DepthProfile({
   const yMax = depthTicks[depthTicks.length - 1];
 
   // Parametro `istante` e non `t`: `t` è la funzione che traduce.
-  const px = (istante: number) => pad.left + (istante / maxT) * plotW;
+  const px = (istante: number) => pad.left + ((istante - t0) / maxT) * plotW;
   const py = (d: number) => pad.top + (d / yMax) * plotH; // invertito: 0 in alto
 
   // Nessun `useMemo` qui, e non è una dimenticanza: questo codice sta DOPO un
@@ -497,12 +514,20 @@ export function MiniSeries({
   const { t } = useLingua();
   const uid = useId();
 
-  const points = samples
+  /*
+   * ► LO STESSO ORDINE DEL PROFILO, perché condividono l'ascissa. ◄ Questi
+   * grafici stanno incolonnati sotto il profilo e il cursore è condiviso: se
+   * uno dei due leggesse gli istanti in un ordine diverso, il cursore
+   * indicherebbe due momenti diversi nella stessa colonna di pixel. Vedi
+   * `core/campioni.ts`.
+   */
+  const inOrdine = inOrdineDiTempo(samples);
+  const points = inOrdine
     .map((s, i) => ({ t: s.t, v: pick(s, i) }))
     .filter((p): p is { t: number; v: number } => p.v !== undefined && Number.isFinite(p.v));
 
   const otherPoints = compare
-    ? samples
+    ? inOrdine
         .map((s, i) => ({ t: s.t, v: compare.pick(s, i) }))
         .filter((p): p is { t: number; v: number } => p.v !== undefined && Number.isFinite(p.v))
     : [];
@@ -512,7 +537,8 @@ export function MiniSeries({
   const pad = { top: 10, right: 14, bottom: 14, left: GUTTER };
   const plotW = Math.max(10, width - pad.left - pad.right);
   const plotH = height - pad.top - pad.bottom;
-  const maxT = samples[samples.length - 1].t || 1;
+  const t0 = inOrdine[0].t;
+  const maxT = inOrdine[inOrdine.length - 1].t - t0 || 1;
 
   // La scala comprende entrambe le curve: due grafici con assi diversi
   // sovrapposti sarebbero un modo elegante di mentire.
@@ -535,7 +561,7 @@ export function MiniSeries({
   const yHi = ticks[ticks.length - 1];
 
   // Parametro `istante` e non `t`: `t` è la funzione che traduce.
-  const px = (istante: number) => pad.left + (istante / maxT) * plotW;
+  const px = (istante: number) => pad.left + ((istante - t0) / maxT) * plotW;
   const py = (v: number) => pad.top + plotH - ((v - yLo) / (yHi - yLo || 1)) * plotH;
 
   const line = points
@@ -843,7 +869,10 @@ export function annuncioCampione(s: Sample, t: Traduci = comeSta): string {
  * grafico — altrimenti descrive un disegno diverso da quello che sta accanto.
  */
 export function riassuntoProfilo(dive: Dive, t: Traduci = comeSta): string {
-  const samples = dive.samples ?? [];
+  // Gli stessi campioni del disegno, nello stesso ordine: questa frase la legge
+  // uno screen reader al posto del grafico, e deve descrivere il grafico che sta
+  // accanto — non una sua versione con gli istanti mescolati.
+  const samples = inOrdineDiTempo(dive.samples ?? []);
   if (samples.length < 2) return t('Immersione senza profilo campionato.');
 
   const durataS = samples[samples.length - 1].t - samples[0].t;

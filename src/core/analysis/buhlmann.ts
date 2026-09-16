@@ -23,6 +23,7 @@
 
 import type { GasMix, Salinity, Sample } from '../model';
 import { ambientBar, depthFromAbsoluteBar, pressioneDiSuperficie } from '../units';
+import { inOrdineDiTempo } from '../campioni';
 
 /**
  * L'ARIA, e la frazione di azoto che contiene.
@@ -407,13 +408,16 @@ export function runProfile(
    * `computeMetrics` sulla stessa scheda dava la profondità media giusta in
    * tutti e quattro i casi — perché ordina.
    *
-   * L'ordinamento è per tempo e POI per profondità: due campioni allo stesso
-   * istante — capitano nei file fatti a mano, dove l'ora si scrive al minuto —
-   * senza un secondo criterio si disporrebbero come li ha letti il lettore, e
-   * il risultato cambierebbe da un avvio all'altro senza che nessuno abbia
+   * L'ordinamento vive in `core/campioni.ts`, in un posto solo: era scritto
+   * qui e in `metrics.ts` in due modi diversi — là per solo tempo, qui anche
+   * per profondità — e due copie della stessa regola sono una regola e la sua
+   * versione vecchia. Il secondo criterio serve perché due campioni allo
+   * stesso istante capitano nei file fatti a mano, dove l'ora si scrive al
+   * minuto, e senza di esso si disporrebbero come li ha letti il lettore: il
+   * risultato cambierebbe da un avvio all'altro senza che nessuno abbia
    * toccato niente.
    */
-  samples = [...clean].sort((a, b) => a.t - b.t || a.depth - b.depth);
+  samples = inOrdineDiTempo(clean);
 
   let state = initial ?? surfacedTissues(surfacePressureBar);
   let gf99Max = 0;

@@ -32,6 +32,7 @@ import {
   type Sample,
 } from '../model';
 import { ambientAta, ambientBar, end as endDepth, mod, pressioneDiSuperficie } from '../units';
+import { inOrdineDiTempo } from '../campioni';
 import * as A from './avvertenze';
 import { exposureOfProfile } from './oxygen';
 
@@ -115,8 +116,11 @@ const HOLDING_MIN_DEPTH_M = 1.5;
 export const DEEP_STOP_MIN_DEPTH_M = 20;
 
 export function computeMetrics(dive: Dive): DiveMetrics {
-  const samples = (dive.samples ?? []).filter((s) => Number.isFinite(s.depth) && s.t >= 0);
-  samples.sort((a, b) => a.t - b.t);
+  // L'ordine è la regola di `core/campioni.ts`, che è una sola: qui si ordinava
+  // per solo tempo e in `buhlmann.ts` anche per profondità, quindi le due metà
+  // dell'analisi della stessa immersione potevano vedere due profili diversi
+  // quando due campioni cadono nello stesso istante.
+  const samples = inOrdineDiTempo((dive.samples ?? []).filter((s) => s.t >= 0));
 
   const caveats: Avvertenza[] = [];
   const hasProfile = samples.length >= 3;
@@ -217,8 +221,7 @@ export function computeMetrics(dive: Dive): DiveMetrics {
   // Il profilo principale resta quello con più canali (tetto, NDL, TTS, CNS), che
   // serve a tutto il resto: qui si cambia soltanto la base su cui si misurano le
   // velocità, e `quality.ratesIntervalS` dice quale è stata usata.
-  const alt = (dive.altSamples ?? []).filter((x) => Number.isFinite(x.depth) && x.t >= 0);
-  alt.sort((a, b) => a.t - b.t);
+  const alt = inOrdineDiTempo((dive.altSamples ?? []).filter((x) => x.t >= 0));
   const altIntervalS =
     alt.length >= 3 ? (alt[alt.length - 1].t - alt[0].t) / Math.max(1, alt.length - 1) : Infinity;
   const useAlt = alt.length >= 3 && altIntervalS < intervalS - 0.01;

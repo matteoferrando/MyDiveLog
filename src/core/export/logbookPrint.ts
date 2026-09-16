@@ -60,6 +60,7 @@ import { zavorraTotaleKg, type Equipment } from '../analysis/gear';
 import { libretto, type Subacqueo } from '../libretto';
 import { descriviFirma, firmaPath, firmaVuota } from '../firma';
 import { profonditaMedia } from '../profondita';
+import { inOrdineDiTempo } from '../campioni';
 import { temperaturaMinimaC } from '../temperatura';
 
 // ---------------------------------------------------------------------------
@@ -223,7 +224,22 @@ export interface ProfiloSvgOptions {
  * qualcuno controfirma è esattamente ciò che non si può fare.
  */
 export function diveProfileSvg(samples: Sample[], opts: ProfiloSvgOptions = {}): string {
-  const punti = samples.filter((s) => Number.isFinite(s?.t) && Number.isFinite(s?.depth));
+  /*
+   * ► IN ORDINE DI TEMPO, e prima non lo erano. ◄
+   *
+   * `t0` veniva dal PRIMO CAMPIONE DEL FILE, non dal primo istante. Su un
+   * profilo di 31 punti col blocco di risalita scritto per primo — l'ordine
+   * che un lettore può consegnare, e che `runProfile` ha imparato a
+   * sopportare il 15 settembre 2026 — **quindici punti su trentuno finivano
+   * fuori dal riquadro**, con ascisse negative, e quello che restava dentro
+   * era un disegno plausibile e falso. Su un foglio che qualcuno controfirma.
+   *
+   * La funzione qui sotto si rifiuta già di inventare un profilo quando i
+   * campioni non bastano, e per lo stesso motivo: *un disegno sbagliato è
+   * peggio di un disegno assente — il posto dove manca si vede, il posto dove
+   * mente no.* Vedi `core/campioni.ts`.
+   */
+  const punti = inOrdineDiTempo(samples);
   if (punti.length < 2) return '';
 
   const W = opts.width ?? 660;
