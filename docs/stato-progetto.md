@@ -1,8 +1,57 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **16 settembre 2026** — **2 845 prove in 174 file** più **149 prove
-Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche a **UTC+14 e
-UTC−11**.
+Aggiornato: **16 settembre 2026, notte** — **2 859 prove in 178 file** più
+**149 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
+a **UTC+14 e UTC−11**.
+
+> ## ► SEI DIFETTI DELL'INTERFACCIA DESKTOP, MISURATI SULLA BUILD VERA. ◄
+>
+> Il giro è nato da una frase di chi usa l'applicazione — *«chiediamo il menu
+> lingua in due parti»* — e si è fatto guardando l'applicazione con un browser
+> senza testa, non leggendo il codice: novantuno schermate, un inventario dei
+> comandi di ogni pagina, le geometrie misurate a 720, 800, 1024, 1280, 1440 e
+> 1728 px, e il contrasto di ogni testo in chiaro e in scuro.
+>
+> **1. Ogni campo e ogni tendina del desktop aveva il vestito di fabbrica, dal
+> 13 settembre.** In `styles.css` la regola che veste i campi era una sola per
+> `select`, `input` e `textarea`; dentro l'elenco dei selettori è stata infilata
+> la regola della freccia del `select` (`df03688`, la 1.8.23) e la virgola se
+> l'è tirato dentro. Da allora l'elenco dichiarava solo `padding-right: 26px` e
+> le dichiarazioni vere restavano al solo `textarea`. Misura: tendine alte
+> **19 px** con bordo `2px inset` grigio e spigoli vivi, accanto a pulsanti alti
+> 36 px. Dopo: **34 px**, bordo e raggio dell'applicazione. Sul telefono si
+> vedeva meno perché lì i campi li ingrandisce la regola dei 16 px di iOS.
+>
+> **2. I bersagli erano a norma solo sul telefono.** Le misure stavano dentro
+> `@media (pointer: coarse), (max-width: 700px)`: col mouse non scattava
+> nessuna delle due, e restavano caselle **13×13** e data-pulsante **58×20**,
+> sotto il minimo di 24×24 di WCAG 2.2 AA. Adesso la data è 62×28 per tutti e la
+> casella 18×18 col mouse (24 col dito), con l'eccezione di spaziatura
+> verificata a numeri: 58 px verso la riga sotto, 99 verso la data.
+>
+> **3. La lingua si chiedeva in due posti.** Coppia IT/EN nella barra e riga
+> «Lingua» in Impostazioni, visibili insieme sul desktop. Resta la riga.
+>
+> **4. Tre sorgenti non erano testo.** `Brevetti.tsx`, `gearStats.ts` e
+> `dedupe.ts` contenevano byte di controllo battuti dentro le stringhe come
+> separatori: `grep` rispondeva «binary file matches» senza la riga e `git diff`
+> «Binary files differ». Tre file — fra cui il cuore della deduplica —
+> invisibili a ogni ricerca e illeggibili in ogni revisione. I valori a runtime
+> non cambiano di un bit: cambia come sono scritti.
+>
+> **5. Dodici pulsanti chiamati tutti «Apri».** Nelle tabelle di brevetti e
+> attrezzatura il nome accessibile era la sola parola «Apri». Ora porta il
+> soggetto; il testo visibile resta «Apri».
+>
+> **6. Due regole di stile vestivano un assistente che non c'è più**
+> (`.streaming`, `.ai-meta`): due classi su 126 senza nessuno che le indossi.
+>
+> **Quattro guardie nuove, ognuna vista rossa rimettendo il difetto**:
+> `vestitoDeiCampi`, `sorgentiDiTesto` (che ha trovato da sola gli altri due
+> file con i byte di controllo), `nomiDeiPulsanti`, `cssSenzaPadrone`.
+>
+> Restano da guardare con l'applicazione vera aperta sul Mac: il trascinamento
+> della finestra con la barra del titolo trasparente, e il menu nativo.
 
 > ## ► VENTUNO VOLTE «17 SETTEMBRE», E OGGI È IL 16. ◄
 >
