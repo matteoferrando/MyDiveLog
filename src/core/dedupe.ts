@@ -592,9 +592,40 @@ const isAir = (mix: GasMix) => Math.abs(mix.o2 - 0.21) < 0.005 && (mix.he ?? 0) 
 function mergeCylinders(
   base: Dive['cylinders'],
   incoming: Dive['cylinders'],
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► QUANTE BOMBOLE CI SONO LO DECIDE CHI HA SCRITTO PER ULTIMO. ◄
+   *
+   * IL DIFETTO MISURATO IL 16 SETTEMBRE 2026. Questa funzione non riceveva
+   * `stessaScheda` e trattava sempre i due lati come due LETTURE dello stesso
+   * tuffo: una bombola in più dall'altra parte è «uno stage che il primo
+   * computer non vedeva», quindi si aggiunge.
+   *
+   * In sincronizzazione i due lati sono la stessa scheda su due dispositivi, e
+   * una bombola in meno da una parte non è una lettura più povera: **è una
+   * bombola che una persona ha tolto.** Toglierla sul Mac, sincronizzare, e
+   * ritrovarsela: ricaricata sul remoto e ridiscesa su tutti gli altri, per
+   * sempre. È parola per parola il difetto delle note svuotate e delle
+   * etichette tolte, già chiuso due volte in questo stesso file — e rimasto
+   * aperto qui perché il parametro non arrivava fin qui.
+   *
+   * *E non è un'etichetta.* Misurato su un'immersione con una stage tolta a
+   * mano: la stage torna senza pressioni, il volume totale in bombola
+   * raddoppia, e il consumo dichiarato passa da **2.2 a 4.5 L/min**. Quel
+   * numero entra in `measuredRmv()` e da lì nel pianificatore.
+   *
+   * I CAMPI delle bombole che restano si completano lo stesso, anche fra
+   * dispositivi: è la regola di `CAMPI_MISURATI` — una macchina non cancella,
+   * e un volume che arriva dall'altro lato riempie un buco senza togliere
+   * niente a nessuno.
+   */
+  stessaScheda: boolean,
 ): { cylinders: Dive['cylinders']; changed: boolean } {
   if (!incoming.length) return { cylinders: base, changed: false };
-  if (!base.length) return { cylinders: incoming, changed: true };
+  // Nessuna bombola sul vincitore: fra due fonti è un buco da riempire, fra due
+  // dispositivi è «le ho tolte tutte», che è una frase e va rispettata.
+  if (!base.length)
+    return stessaScheda ? { cylinders: base, changed: false } : { cylinders: incoming, changed: true };
 
   let changed = false;
   const out = base.map((cyl, i) => {
@@ -646,8 +677,9 @@ function mergeCylinders(
     }
     return merged;
   });
-  // Bombole in più nell'altra fonte (uno stage che il primo computer non vedeva).
-  if (incoming.length > base.length) {
+  // Bombole in più nell'altra fonte (uno stage che il primo computer non
+  // vedeva) — ma solo fra FONTI: vedi `stessaScheda` nella firma.
+  if (!stessaScheda && incoming.length > base.length) {
     out.push(...incoming.slice(base.length));
     changed = true;
   }
@@ -971,28 +1003,70 @@ export function mergeDive(
    * Fra due FONTI diverse la distinzione non si applica: là nessuno ha tolto
    * niente, e i due lati si completano come hanno sempre fatto.
    */
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► IL REGISTRO DEGLI SVUOTAMENTI SI FONDE PRIMA, e prima non era così. ◄
+   *
+   * IL DIFETTO MISURATO IL 16 SETTEMBRE 2026, e sono due difetti incastrati
+   * uno dentro l'altro.
+   *
+   * **Il primo.** La lapide si toglieva da sé guardando `out`, cioè la scheda
+   * DOPO la fusione. Ma la fusione può appena aver riportato il campo dal lato
+   * perdente: a quel punto il campo «adesso ha un valore», la lapide veniva
+   * cancellata, e il gesto della persona spariva dall'archivio. Non era un
+   * dato perso una volta — era un dato che **non si poteva più togliere**: al
+   * giro dopo non c'era più niente che dicesse «questo l'ho tolto io».
+   *
+   * *«Se il campo adesso ha un valore, qualcuno l'ha riscritto dopo» era vero
+   * finché l'unico modo di avere un valore era che qualcuno lo scrivesse. La
+   * fusione è l'altro modo, ed è quello che stiamo eseguendo.*
+   *
+   * **Il secondo.** La lapide valeva solo `stessaScheda`. Fra due FONTI il
+   * campo tornava comunque — e la giustificazione scritta qui, «là nessuno ha
+   * tolto niente», guardava la fonte invece della scheda. La lapide non dice
+   * «questa fonte non ha il dato»: dice **«io questo dato l'ho tolto»**, ed è
+   * una frase su questa immersione, non sul file da cui è arrivata. Chi
+   * cancella il nome di un compagno e poi reimporta l'UDDF se lo ritrovava
+   * scritto.
+   *
+   * *Un buco senza lapide si riempie ancora, ed è tutto il punto: la
+   * distinzione non è fra sincronizzazione e importazione, è fra «non ce
+   * l'ho» e «l'ho tolto».*
+   *
+   * Adesso le lapidi si decidono **dai due lati in ingresso**, prima che
+   * qualcosa si muova, e ognuno dei due la porta solo se il campo da lui è
+   * davvero vuoto: una lapide accanto a un valore, sullo stesso lato, vuol
+   * dire che quel lato l'ha riscritto dopo, e lì sì che la lapide cade.
+   */
+  const haValore = (d: Dive, campo: string) => {
+    const v = d[campo as keyof Dive];
+    return v !== undefined && v !== null && v !== '';
+  };
+  const svuotati: Record<string, string> = { ...(incoming.svuotatiIl ?? {}) };
+  for (const [campo, quando] of Object.entries(base.svuotatiIl ?? {}))
+    if (!svuotati[campo] || quando > svuotati[campo]) svuotati[campo] = quando;
+  /*
+   * ► UNA LAPIDE CADE QUANDO IL VINCITORE QUEL CAMPO CE L'HA SCRITTO, e il
+   *   vincitore è `base`, non `out`. ◄
+   *
+   * Prima guardava `out`, cioè la scheda DOPO la fusione — e la fusione può
+   * appena aver riportato il campo dall'altro lato. A quel punto «adesso ha un
+   * valore» era vero, la lapide veniva cancellata, e il gesto della persona
+   * spariva dall'archivio. Non un dato perso una volta: un dato che **non si
+   * poteva più togliere**.
+   *
+   * `base` è chi ha scritto per ultimo, quindi un valore suo è più recente del
+   * gesto dell'altro lato: lì la lapide è vecchia e deve cadere, altrimenti si
+   * avrebbe un valore a schermo con accanto una lapide che dice «tolto», e
+   * ogni completamento legittimo rifiutato per sempre.
+   */
+  for (const campo of Object.keys(svuotati)) if (haValore(base, campo)) delete svuotati[campo];
+
   CAMPI_SCRITTI_A_MANO.forEach((k) => {
-    if (stessaScheda && out.svuotatiIl?.[k]) return;
+    if (svuotati[k]) return;
     takeIfEmpty(k);
   });
 
-  /*
-   * Il registro degli svuotamenti si fonde: ogni lato ne conosce solo i propri, e
-   * un campo tolto sul Mac deve restare tolto anche quando vince l'iPhone per
-   * un'altra ragione. Quando lo stesso campo compare da tutte e due le parti
-   * vale il gesto più recente, che è la stessa regola di tutto il resto.
-   *
-   * E una voce si toglie da sé: se il campo adesso ha un valore, qualcuno l'ha
-   * riscritto dopo, e tenere la lapide farebbe rifiutare il prossimo
-   * completamento legittimo.
-   */
-  const svuotati: Record<string, string> = { ...(incoming.svuotatiIl ?? {}) };
-  for (const [campo, quando] of Object.entries(out.svuotatiIl ?? {}))
-    if (!svuotati[campo] || quando > svuotati[campo]) svuotati[campo] = quando;
-  for (const campo of Object.keys(svuotati)) {
-    const valore = out[campo as keyof Dive];
-    if (valore !== undefined && valore !== null && valore !== '') delete svuotati[campo];
-  }
   const primaSvuotati = JSON.stringify(out.svuotatiIl ?? {});
   if (JSON.stringify(svuotati) !== primaSvuotati) {
     out.svuotatiIl = Object.keys(svuotati).length ? svuotati : undefined;
@@ -1154,7 +1228,7 @@ export function mergeDive(
   // respirate ma nessuna pressione, perché non ha il trasmettitore. Prendendo il
   // blocco intero da una parte sola, il consumo diventava incalcolabile pur
   // avendo tutti i dati necessari in casa.
-  const mergedCylinders = mergeCylinders(out.cylinders ?? [], incoming.cylinders ?? []);
+  const mergedCylinders = mergeCylinders(out.cylinders ?? [], incoming.cylinders ?? [], stessaScheda);
   if (mergedCylinders.changed) {
     out.cylinders = mergedCylinders.cylinders;
     changed = true;
@@ -1303,6 +1377,8 @@ export function diveIdFor(d: {
   startTime: string;
   maxDepth: number;
   durationS: number;
+  /** Lo scostamento da UTC dell'immersione, quando lo si conosce. Vedi sotto. */
+  utcOffsetMinutes?: number;
   computer?: { model?: string; deviceId?: string; diveId?: string };
 }): string {
   const c = d.computer;
@@ -1335,7 +1411,42 @@ export function diveIdFor(d: {
    * somiglianza, che è la strada che quella funzione esiste per coprire.
    */
   if (c?.diveId && c.deviceId) return stableId(['dc', c.model, c.deviceId, c.diveId]);
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► LA FIRMA USA L'ORA CHE IL COMPUTER TI HA MOSTRATO, NON L'ISTANTE UTC. ◄
+   *
+   * IL DIFETTO MISURATO IL 16 SETTEMBRE 2026, ed è un duplicato permanente su
+   * tutti i dispositivi, senza un avviso.
+   *
+   * La maggior parte dei computer il fuso non lo dichiara. Per quelli,
+   * `ble/esterni.ts` applica **il fuso del dispositivo che sta scaricando** —
+   * un ripiego ragionevole, e scritto lì accanto. Ma vuol dire che lo stesso
+   * tuffo, scaricato dal Mac in Italia e dal telefono in Egitto, produce due
+   * `startTime` diversi di un'ora, quindi due minuti diversi, quindi **due
+   * identificativi diversi**. La sincronizzazione li vede come due immersioni,
+   * e da lì in poi ce ne sono due su tutti e due i dispositivi.
+   *
+   * E capita esattamente a chi viaggia per immergersi: si scarica in barca col
+   * telefono e a casa col Mac.
+   *
+   * L'ora a parete — quella che leggevi sul polso — è l'unico istante che non
+   * dipende da chi sta leggendo il file:
+   *
+   *   - computer che dichiara il fuso: l'istante più il fuso dichiarato;
+   *   - computer che non lo dichiara: l'istante è l'ora a parete convertita col
+   *     fuso di chi scarica, e risommandolo si torna all'ora a parete — la
+   *     stessa su tutti i dispositivi, qualunque fuso abbiano;
+   *   - nessun fuso da nessuna parte: `startTime` è già l'ora a parete.
+   *
+   * ► SUGLI ARCHIVI GIÀ ESISTENTI VALE LA STESSA COSA DETTA QUI SOPRA. ◄ Gli
+   * identificativi scritti ieri restano quelli; un'immersione che arriva oggi
+   * con un identificativo nuovo non combacia più per chiave, e allora
+   * `findBestMatch` la riconosce per somiglianza — che è la strada che quella
+   * funzione esiste per coprire.
+   */
+  const fuso = d.utcOffsetMinutes ?? 0;
+  const oraAParete = new Date(d.startTime).getTime() + fuso * 60_000;
   // Arrotonda al minuto: gli export ricalcolano a volte i secondi.
-  const minute = Math.floor(new Date(d.startTime).getTime() / 60_000);
+  const minute = Math.floor(oraAParete / 60_000);
   return stableId(['sig', minute, Math.round(d.maxDepth * 10), Math.round(d.durationS / 60)]);
 }
