@@ -52,3 +52,41 @@ Chi ha registrato tutto da sempre non deve toccare niente.
 riprovare e di dirmi che la prima correzione non bastava. Una segnalazione che
 arriva due volte vale più di dieci riletture: la seconda diceva esattamente
 dove guardare.*
+
+---
+
+Ogni correzione ha una prova, e ogni prova è stata rimessa alla prova
+rimettendo il difetto — **sei mutazioni, sei guardie rosse**. In tutto
+**2 805 controlli automatici in 168 file**, più **135** sul motore di lettura
+dei computer subacquei.
+
+### Impronte SHA-256
+
+| Pacchetto | SHA-256 | byte |
+|---|---|---|
+| `MyDiveLog-macOS-arm64.dmg` | `0b7341a2d60666262882afb298867ae72dc76da99a1739dbc4aa0b6ded33c19b` | 4.521.110 |
+| `MyDiveLog-Windows-setup.exe` | `b4c6534c1f36b2a4a872ed2154d42b46bb004259e663ede2ecc8dd9818eab8ad` | 3.257.536 |
+| `MyDiveLog-Windows-portatile.exe` | `9346417db466a856d15164f5e7b64d12774c8cfa8b9a05e948d12b57a6f4b951` | 7.507.456 |
+| `MyDiveLog-Android-arm64.apk` | `f854306877d4fb0e395bf097964f87a690e64245c6c14edc3d02bb25a4008c36` | 11.112.006 |
+| `MyDiveLog-Linux-amd64.deb` | `424d1423b581f518d7276a07a730b5a56758d3c648b6f2ac9bb49470ce013549` | 3.818.044 |
+
+*Calcolate sui file allegati a questa release, non su una compilazione
+precedente. Il `.deb` e l'`.apk` non li ha costruiti nessun Mac: vengono dal
+workflow, e i loro due controlli hanno risposto giusto — «nessuna traccia
+dell'aggiornatore nel binario» per Linux, l'APK firmato con la chiave del
+proprietario per Android.*
+
+> **► LA PARTE ANDROID NON È STATA PROVATA SU UN TELEFONO.** Qui non ce n'è
+> uno, e sul Mac non c'è l'NDK. Quello che è stato misurato: la compilazione
+> per Android sulla CI, e il fatto che dentro l'APK ci siano davvero le classi
+> dei due plugin (`DialogPlugin`, `FsPlugin`, `saveFileDialog`,
+> `getFileDescriptor`) e il comando nel binario nativo. *Il selettore che si
+> apre davvero, no.* Se lo provi e qualcosa non va, scrivilo dal modulo di
+> segnalazione dentro l'applicazione: è così che sono arrivate tutte e due le
+> cose corrette qui.
+
+> **Su Windows e Android il giro completo non l'ha provato nessuno.** Il codice
+> del motore è lo stesso del Mac e dell'iPhone, con tutte le prove dietro, ma
+> finestra, Bluetooth, archivio e stampa su quelle due piattaforme non sono mai
+> stati percorsi a mano. Su Linux sì, meno il Bluetooth, che vuole un
+> adattatore.
