@@ -1364,7 +1364,17 @@ export function mergeDive(
  * Reimportare lo stesso file produce lo stesso id, quindi il reimport è idempotente.
  */
 export function stableId(parts: (string | number | undefined)[]): string {
-  const input = parts.map((p) => (p === undefined ? '' : String(p))).join('');
+  /*
+   * ► IL SEPARATORE SI SCRIVE `\u0001`, E IL SUO VALORE NON SI TOCCA. ◄
+   *
+   * Questo carattere entra nell'hash: cambiarlo cambierebbe l'identificativo di
+   * OGNI immersione già in archivio, e il prossimo import le vedrebbe tutte
+   * come nuove — cioè un logbook raddoppiato. Quindi qui si cambia solo COME è
+   * scritto: fino al 16 settembre 2026 c'era il byte 0x01 battuto nel sorgente,
+   * e `git diff` rispondeva «Binary files differ» su uno dei file più delicati
+   * del progetto. L'escape produce lo stesso identico carattere.
+   */
+  const input = parts.map((p) => (p === undefined ? '' : String(p))).join('\u0001');
   let h1 = 0x811c9dc5;
   let h2 = 0x01000193;
   for (let i = 0; i < input.length; i++) {

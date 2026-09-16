@@ -317,7 +317,16 @@ export function zavorraPerMutaEAcqua(
     if (!(zavorraTotaleKg(d, inventario) > 0)) continue;
     const sal: RigaZavorra['salinity'] =
       d.salinity === 'salt' ? 'salt' : d.salinity === 'fresh' ? 'fresh' : 'unknown';
-    const k = `${normalizzaNome(nome)} ${sal}`;
+    /*
+     * ► IL SEPARATORE SI SCRIVE `\u0000`, NON SI BATTE. ◄ Serve un carattere
+     * che in un nome di muta non possa comparire — altrimenti «Stagna\ufeffx» e
+     * «Stagna» + «x» finirebbero nella stessa riga — e il carattere zero è
+     * quello. Ma battuto nel sorgente rende il file «binario» per `grep` e per
+     * `git diff`: la ricerca lo salta in silenzio e la revisione non lo legge.
+     * Con l'escape il valore è identico e il file resta testo.
+     * Vedi `tests/sorgentiDiTesto.test.ts`.
+     */
+    const k = `${normalizzaNome(nome)}\u0000${sal}`;
     const g = per.get(k) ?? { nome, sal, dives: [] };
     g.dives.push(d);
     per.set(k, g);

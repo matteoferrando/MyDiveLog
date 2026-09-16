@@ -370,7 +370,15 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
               placeholder={t('Cerca sito, compagno, note…')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              style={{ minWidth: 200 }}
+              /*
+               * 220 e non 200: il segnaposto italiano «Cerca sito, compagno,
+               * note…» vuole 193 px di testo, e con i 9 px di riempimento per
+               * lato — arrivati il 16 settembre 2026 insieme al vestito dei
+               * campi — dentro un campo da 200 ne restavano 182. Si leggeva
+               * «Cerca sito, compagno, no». Le due misure sono state prese a
+               * schermo su Chromium a 1280 px, non contate a occhio.
+               */
+              style={{ minWidth: 220 }}
             />
             <label>
               {/* Lo `<span>` non è decorativo: sul telefono gli dà una larghezza fissa,
@@ -714,7 +722,19 @@ function NextDive({ dives }: { dives: Dive[] }) {
             <b>{t('Prima della prossima immersione')}</b>
             <span className="muted">{t('niente in scadenza, niente in circolo')}</span>
           </span>
-          <button style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => setOpen(true)}>
+          {/*
+           * `aria-expanded` anche qui, come su `CartaApribile`: il pulsante
+           * apre e chiude un pezzo di pagina, e chi lo sente annunciare deve
+           * sapere se adesso è aperto o chiuso. Il componente che lo fa bene
+           * esiste da settimane — questi due pulsanti erano scritti a mano e la
+           * regola non li aveva raggiunti. *Una regola scritta in un solo
+           * componente non è una regola del progetto.*
+           */}
+          <button
+            style={{ fontSize: 11, padding: '3px 8px' }}
+            aria-expanded={false}
+            onClick={() => setOpen(true)}
+          >
             {t('Apri')}
           </button>
         </div>
@@ -736,7 +756,11 @@ function NextDive({ dives }: { dives: Dive[] }) {
             {t('Quello che scade, dal più urgente.')}
           </p>
         </div>
-        <button style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => setOpen((v) => !v)}>
+        <button
+          style={{ fontSize: 11, padding: '3px 8px' }}
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
           {open ? t('Riduci') : t('Apri tutto')}
         </button>
       </div>

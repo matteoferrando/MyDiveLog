@@ -245,7 +245,22 @@ export function Gear() {
                         )}
                       </td>
                       <td className="cella-azione" style={{ textAlign: 'right' }}>
-                        <button style={{ fontSize: 11, padding: '3px 8px' }}>{t('Apri')}</button>
+                        {/*
+                         * ► IL NOME DELLA RIGA STA DENTRO IL PULSANTE. ◄ Con
+                         * la sola parola «Apri», una tabella di dodici righe
+                         * dà a chi usa un lettore di schermo dodici pulsanti
+                         * identici, e l'unico modo di sapere quale si sta per
+                         * premere è tornare indietro a leggere la riga. Il
+                         * testo visibile resta «Apri», che accanto alla riga
+                         * si capisce da solo; il nome accessibile dice anche
+                         * di che cosa.
+                         */}
+                        <button
+                          style={{ fontSize: 11, padding: '3px 8px' }}
+                          aria-label={`${t('Apri')} ${a.name || t('senza nome')}`}
+                        >
+                          {t('Apri')}
+                        </button>
                       </td>
                     </tr>
                   );

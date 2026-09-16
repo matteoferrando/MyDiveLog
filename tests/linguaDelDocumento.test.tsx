@@ -29,7 +29,7 @@ import { readFileSync } from 'node:fs';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 
-import { CambiaLingua, ProvvedituraLingua, useLingua } from '../src/ui/lingua';
+import { ProvvedituraLingua, RigaLingua, useLingua } from '../src/ui/lingua';
 import { LOCALE_DELLA_LINGUA, localeCorrente, registraLocale } from '../src/core/locale';
 
 /** Finge un sistema che parla `tag`: è l'unica cosa che decide la lingua iniziale. */
@@ -128,30 +128,56 @@ describe('la lingua di partenza', () => {
   });
 });
 
-describe('il pulsante che cambia lingua', () => {
-  it('sposta anche la lingua del documento, e resta d’accordo con aria-pressed', () => {
+describe('il comando che cambia lingua', () => {
+  /*
+   * ► ERA LA COPPIA IT/EN DELLA BARRA, ED È LA RIGA DI IMPOSTAZIONI. ◄
+   *
+   * Il 16 settembre 2026 la coppia in alto è stata tolta: era il secondo
+   * comando per la stessa cosa, e sul desktop i due si vedevano insieme. Questa
+   * prova è rimasta dov'era e ha cambiato soggetto, perché la proprietà da
+   * difendere non era del pulsante — è che il comando, QUALUNQUE sia, sposti
+   * anche `<html lang>` e resti d'accordo con quello che mostra.
+   *
+   * Il difetto originale era proprio una coppia che si contraddiceva: EN
+   * premuto e documento dichiarato in italiano, cioè uno screen reader che
+   * legge l'inglese con la fonetica italiana e nessun modo di accorgersene
+   * guardando lo schermo.
+   */
+  it('sposta anche la lingua del documento, e resta d’accordo con quello che mostra', () => {
     sistemaIn('it-IT');
     const { host, smonta } = monta(
       <ProvvedituraLingua>
-        <CambiaLingua />
+        <RigaLingua />
         <Spia />
       </ProvvedituraLingua>,
     );
-    const bottoni = [...host.querySelectorAll('button')];
-    const en = bottoni.find((b) => b.textContent === 'EN')!;
+    const tendina = host.querySelector('select')!;
     expect(document.documentElement.lang).toBe('it');
+    expect(tendina.value).toBe('it');
 
-    act(() => en.click());
+    act(() => {
+      tendina.value = 'en';
+      tendina.dispatchEvent(new Event('change', { bubbles: true }));
+    });
 
     expect(document.documentElement.lang).toBe('en');
-    /*
-     * Il pulsante premuto e la lingua dichiarata devono raccontare la stessa
-     * storia: il difetto originale era proprio una coppia che si contraddiceva —
-     * EN premuto e documento in italiano — e chi la leggeva con uno screen
-     * reader non aveva modo di uscirne.
-     */
-    expect(en.getAttribute('aria-pressed')).toBe('true');
+    expect(tendina.value).toBe('en');
     expect(host.querySelector('p')?.dataset.lingua).toBe('en');
     smonta();
+  });
+
+  it('e nella barra non ne è rimasta una seconda copia', async () => {
+    /*
+     * Una guardia contro il ritorno del doppione: se qualcuno rimettesse in
+     * `App.tsx` un secondo comando per la lingua, questa riga se ne accorge.
+     * Si legge il sorgente e non il DOM montato, perché montare tutta
+     * l'applicazione qui vorrebbe dire portarsi dietro archivio, rotte e
+     * dizionario per rispondere a una domanda che sta in una riga di testo.
+     */
+    const { readFileSync } = await import('node:fs');
+    const app = readFileSync('src/ui/App.tsx', 'utf8');
+    expect(app, 'la coppia IT/EN nella barra era il doppione della riga in Impostazioni').not.toMatch(
+      /<CambiaLingua\s*\/>/,
+    );
   });
 });

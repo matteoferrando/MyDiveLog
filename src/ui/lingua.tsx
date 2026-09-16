@@ -207,33 +207,6 @@ export function useLingua(): Contesto {
 }
 
 /**
- * Il pulsante che cambia lingua.
- *
- * DUE SIGLE E NON UNA BANDIERA. Una bandiera dice «paese», non «lingua»: la
- * bandiera inglese esclude chi legge inglese e non è britannico, e la scelta di
- * quale bandiera usare per l'inglese è una discussione che non vale la pena
- * avere. `IT` e `EN` non hanno questo problema.
- */
-export function CambiaLingua() {
-  const { lingua, cambia } = useLingua();
-  return (
-    <div className="lingua" role="group" aria-label={lingua === 'it' ? 'Lingua' : 'Language'}>
-      {(['it', 'en'] as const).map((l) => (
-        <button
-          key={l}
-          onClick={() => cambia(l)}
-          aria-pressed={lingua === l}
-          className={lingua === l ? 'attiva' : undefined}
-          title={l === 'it' ? 'Italiano' : 'English'}
-        >
-          {l.toUpperCase()}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/**
  * La lingua come riga di impostazione, e non come interruttore nella barra.
  *
  * ► PERCHÉ NE È NATA UNA SECONDA VERSIONE, il 15 settembre 2026. ◄
@@ -249,11 +222,11 @@ export function CambiaLingua() {
  * destra, alta quanto il resto. È il posto dove chiunque abbia usato un
  * telefono va a cercarla.
  *
- * ► E NON È UN DOPPIONE DELLA COPPIA IN ALTO. ◄ Le due chiamano la stessa
- * `cambia()` dello stesso contesto: la regola è una, e sta in questo file. Sono
- * due APPIGLI, come il menu e la scorciatoia da tastiera per la stessa voce.
- * La coppia in alto sopravvive solo sopra i 700 px, dove nella barra c'è posto
- * e un puntatore la raggiunge senza costare niente.
+ * ► ED È RIMASTA L'UNICA. ◄ Fino al 16 settembre 2026 sopra i 700 px c'era
+ * anche la coppia IT/EN nella barra, e le due si vedevano insieme: stessa
+ * `cambia()`, due vestiti diversi, sulla stessa schermata. Era la prima cosa
+ * che chi usa l'applicazione ha segnalato guardando il desktop. Adesso il
+ * comando è uno, e sta dove si cercano le impostazioni.
  *
  * ► I NOMI DELLE LINGUE NON SI TRADUCONO. ◄ «Italiano» e «English», sempre
  * così, in tutte e due le lingue dell'interfaccia. È la regola di ogni sistema

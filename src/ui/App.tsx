@@ -38,7 +38,7 @@ import { imm } from './format';
 import { Logbook } from './pages/Logbook';
 import { CLAIM, Mark } from './components/Mark';
 import { useDiveLog } from './state';
-import { CambiaLingua, useLingua } from './lingua';
+import { useLingua } from './lingua';
 import { BARRA, GRUPPI_ALTRO, ProvvedituraNavigazione, TABS, type Vista } from './navigazione';
 import { contenitoreCheScorre } from './memoriaDellElenco';
 import { ProvvedituraCapitoli, useCapitoli } from './components/capitoli';
@@ -507,21 +507,23 @@ export function App() {
         </nav>
         <span className="topbar-spacer" />
         {/*
-         * IL CAMBIO LINGUA STA NELLA BARRA, ma solo dove nella barra c'è posto.
+         * ► LA LINGUA SI CAMBIA IN UN POSTO SOLO, E NON È QUI. ◄
          *
-         * Chi apre l'app e non capisce la lingua non sa che «Impostazioni» vuol
-         * dire impostazioni: due sigle in un angolo si riconoscono senza saper
-         * leggere niente di quello che c'è attorno, e sul desktop non costano
-         * niente a nessuno.
+         * Fino al 16 settembre 2026 in questo angolo c'era la coppia IT/EN, e
+         * in Impostazioni c'era la riga «Lingua»: due comandi per la stessa
+         * cosa, con due vestiti diversi, visibili insieme sulla stessa
+         * schermata del desktop. Chi usa l'applicazione l'ha detto guardandola:
+         * *«chiediamo la lingua in due parti»*.
          *
-         * Sotto i 700 px questa copia è nascosta dal CSS e NON ne compare più
-         * un'altra nel menu: dal 15 settembre 2026 la lingua è una riga di
-         * Impostazioni come le altre (vedi `RigaLingua` in `lingua.tsx`). Nel
-         * menu a comparsa era l'elemento più forte dello schermo — due caselle,
-         * una piena del colore d'accento, sotto nove voci tutte uguali — cioè il
-         * comando più raro dell'applicazione disegnato come il più importante.
+         * La difesa della coppia era che due sigle si riconoscono senza saper
+         * leggere il resto — ma sul telefono quella coppia non c'è già più da un
+         * giorno, quindi era una difesa che valeva per metà degli schermi. E la
+         * riga di Impostazioni è il posto dove chiunque abbia usato un telefono
+         * o un computer va a cercarla: è lì, prima di tutte le altre.
+         *
+         * *Due appigli per lo stesso comando sono un appiglio e la sua vecchia
+         * versione.* Resta `RigaLingua` in `lingua.tsx`.
          */}
-        <CambiaLingua />
       </header>
 
       {/*

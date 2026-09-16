@@ -422,20 +422,6 @@ body {
 }
 
 @media (max-width: 700px) {
-  /*
-   * SUL TELEFONO IL CAMBIO LINGUA NON STA PIÙ QUI.
-   *
-   * In alto non ci stava: marchio, sigle e hamburger insieme portavano la barra
-   * a 412 px su uno schermo da 390, e il documento intero cominciava a
-   * trascinarsi di lato — su OGNI pagina, perché la barra c'è sempre. Scese nel
-   * menu, le due caselle erano diventate la cosa più forte dello schermo. Ora
-   * sono una riga di Impostazioni come le altre (`RigaLingua` in `lingua.tsx`),
-   * che è dove chiunque abbia usato un telefono va a cercarle.
-   */
-  .topbar > .lingua {
-    display: none;
-  }
-
   .barra-basso {
     display: flex;
     /* `0 0 auto`: la barra si prende la sua altezza e non cede un pixel. Senza,
@@ -784,61 +770,13 @@ body {
 }
 
 /*
- * IL CAMBIO LINGUA NELLA BARRA: due pulsanti attaccati, piccoli.
+ * ► QUI C'ERA IL VESTITO DELLA COPPIA IT/EN DELLA BARRA. ◄
  *
- * Piccoli di proposito, e da oggi soltanto sul desktop. Non è un comando che si
- * usa più di una volta nella vita dell'installazione, e nella barra in alto
- * occupa lo spazio che sul telefono serviva al marchio. Restano però alti 30 px
- * e larghi 32: sotto quella misura il puntatore sbaglia bersaglio, e sbagliare
- * bersaglio qui vuol dire ritrovarsi l'applicazione in una lingua che non si
- * voleva.
- *
- * Sono attaccati con un bordo unico attorno invece che due pulsanti separati:
- * la coppia si legge come un interruttore a due posizioni — che è quello che è —
- * e non come due comandi indipendenti che potrebbero essere attivi entrambi.
- *
- * Sul telefono la lingua è invece una riga di Impostazioni (`.riga-impostazione`
- * qui sotto): stessa funzione, peso giusto.
+ * Tolto il 16 settembre 2026 insieme al componente: la lingua si cambia nella
+ * riga di Impostazioni qui sotto, e in nessun altro posto. Un foglio di stile
+ * che continua a vestire un elemento che non esiste più è la stessa cosa di un
+ * commento che afferma un fatto vecchio — solo che nessuno lo legge mai.
  */
-.lingua {
-  display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  flex: 0 0 auto;
-  margin-right: 8px;
-}
-
-.lingua button {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  min-width: 32px;
-  min-height: 30px;
-  padding: 0 6px;
-  cursor: pointer;
-}
-
-.lingua button + button {
-  border-left: 1px solid var(--border);
-}
-
-.lingua button:hover {
-  color: var(--text-primary);
-  background: var(--surface-2);
-}
-
-/* La lingua attiva è piena, non solo in grassetto: `aria-pressed` lo dice a chi
-   usa un lettore di schermo, ma a occhio serve un contrasto vero. */
-.lingua button.attiva {
-  background: var(--accent-solid);
-  color: #fff;
-}
 
 /*
  * UNA RIGA DI IMPOSTAZIONE: il nome a sinistra, quello che fa a destra.
@@ -1363,55 +1301,75 @@ tbody tr.clickable:hover {
 }
 
 /*
- * Le caselle di spunta su uno schermo che si tocca.
+ * I BERSAGLI: 24×24, CON IL DITO E ANCHE CON IL MOUSE.
  *
- * Quella di sistema misura circa 13×13 px: con un mouse è un bersaglio scomodo,
- * con un dito è una lotteria — e nel logbook la casella sbagliata significa
- * cancellare o modificare in blocco l'immersione sbagliata. Le linee guida
- * parlano di 44 px di bersaglio; qui si allarga il quadrato a 18 px e si tiene
- * il resto con il padding della cella, che sul telefono porta l'area toccabile
- * oltre i 40.
+ * ► PERCHÉ ADESSO NON C'È PIÙ UNA CONDIZIONE DAVANTI. ◄ Queste regole sono
+ * nate dentro `@media (pointer: coarse), (max-width: 700px)`, con scritto che
+ * «le due condizioni valgono insieme: chi ha un dito, e chi ha uno schermo
+ * stretto». Erano due condizioni che descrivono lo stesso schermo: il telefono.
+ * Sul desktop — puntatore fine, finestra larga — non scattava nessuna delle
+ * due, e il 16 settembre 2026 la misura l'ha detto senza margini: caselle di
+ * spunta **13×13 px** e data-pulsante **58×20**, cioè sotto il minimo di 24×24
+ * che WCAG 2.2 chiede in AA, nella stessa applicazione dove a 390 px erano già
+ * tutte a norma da settimane. *Una lezione imparata dentro un percorso protegge
+ * solo quel percorso.*
  *
- * `pointer: coarse` e non una larghezza di finestra: quello che conta è il
- * dito, non i pixel. Un iPad in split view resta un dito; una finestra stretta
- * sul portatile resta un mouse.
+ * Il minimo di WCAG non parla di dita: parla di bersagli. Un mouse su un
+ * portatile, un trackpad con la mano che trema, uno schermo esterno a 4K dove
+ * 13 px sono mezzo millimetro — sono tutti casi in cui il quadratino che
+ * seleziona l'immersione da cancellare in blocco va sbagliato. Quindi la
+ * misura è una sola, per tutti, e resta nel media query soltanto il respiro in
+ * più fra una riga e l'altra, che serve al dito e non al puntatore.
  */
+input[type='checkbox'],
+input[type='radio'] {
+  /*
+   * DICIOTTO CON IL MOUSE, VENTIQUATTRO CON IL DITO (più sotto).
+   *
+   * Il minimo di WCAG 2.2 AA è 24×24, **oppure** un bersaglio più piccolo con
+   * 24 px liberi attorno: è l'eccezione di spaziatura. Nel logbook vale, e non
+   * a occhio — misurato a 1280 px sulla build vera: **58 px** fra il centro di
+   * una casella e quella della riga sotto, **99 px** fra la casella e la
+   * data-pulsante della sua riga.
+   *
+   * Perché non 24 anche col mouse: la casella detta l'altezza della riga, e la
+   * misura lo dice — con la casella a 24 px la riga passa da **58 a 64 px**. Su
+   * un archivio di centinaia di immersioni sono righe perse su ogni schermata,
+   * in cambio di un guadagno che con un puntatore che si vede non c'è. I 13 px
+   * di fabbrica invece erano scomodi davvero, e sotto il minimo senza avere
+   * nemmeno l'eccezione dalla sua parte.
+   */
+  width: 18px;
+  height: 18px;
+}
+
 /*
- * I BERSAGLI TATTILI, e perché non basta il puntatore grosso.
- *
- * `pointer: coarse` non scatta su un desktop ridotto a larghezza telefono, ed è
- * lì che l'harness misura: 13×13 px per le caselle di selezione del logbook e
- * 58×20 per la data-pulsante, contro il minimo di 24×24 che WCAG 2.2 chiede in
- * AA. La data è anche l'unico modo di aprire un'immersione da tastiera, quindi
- * è l'unico bersaglio che conta davvero. Le due condizioni valgono insieme: chi
- * ha un dito, e chi ha uno schermo stretto.
+ * L'area sensibile cresce senza spostare il testo: il riempimento allarga il
+ * bersaglio DENTRO la cella e il margine negativo lo riporta al suo posto, così
+ * la colonna non si allarga e il testo non si sposta. La data-pulsante è anche
+ * l'unico modo di aprire un'immersione da tastiera.
  */
+.cell-link {
+  display: inline-block;
+  min-height: 24px;
+  padding: 4px 2px;
+  margin: -4px -2px;
+}
+
 @media (pointer: coarse), (max-width: 700px) {
+  /* Col dito il quadrato va portato a 24: l'eccezione di spaziatura vale per
+     un puntatore che si vede, non per un polpastrello da un centimetro. */
   input[type='checkbox'],
   input[type='radio'] {
-    /* 24×24 è il minimo WCAG 2.2 AA, e una casella di selezione in una tabella
-       che si può cancellare in blocco è proprio il bersaglio da non sbagliare. */
     width: 24px;
     height: 24px;
   }
 
+  /* Il respiro fra una riga e l'altra serve al dito: due bersagli a norma
+     appiccicati restano due bersagli che si sbagliano. */
   tbody td:first-child {
     padding-top: 12px;
     padding-bottom: 12px;
-  }
-
-  /*
-   * L'area sensibile cresce senza spostare il testo: il riempimento negativo
-   * allarga il bersaglio dentro la cella invece di allargare la colonna.
-   */
-  .cell-link {
-    display: inline-block;
-    min-height: 24px;
-    /* Il riempimento allarga il bersaglio DENTRO la cella; il margine negativo
-       lo riporta al suo posto, così la colonna non si allarga e il testo non si
-       sposta. */
-    padding: 4px 2px;
-    margin: -4px -2px;
   }
 }
 
@@ -1797,11 +1755,44 @@ button.btn-danger {
   color: var(--critical);
 }
 
+/*
+ * ► I CAMPI DELL'APPLICAZIONE, e la virgola che li aveva persi tutti. ◄
+ *
+ * Questo blocco è nato per vestire allo stesso modo tutti i campi: stesso
+ * carattere dei pulsanti, stesso raggio, stesso bordo, stesso fondo. Il 13
+ * settembre 2026 (`df03688`, la 1.8.23) fra l'ultima riga dell'elenco e la
+ * parentesi è stata infilata la regola della freccia — commento compreso — e
+ * la virgola dopo `input[type='password']` si è tirata dentro il `select {`
+ * della regola nuova. Da quel giorno l'elenco intero dichiarava una cosa sola,
+ * `padding-right: 26px`, e le dichiarazioni vere restavano attaccate al solo
+ * `textarea`.
+ *
+ * Il risultato non dava nessun errore: ogni campo e ogni menu a tendina del
+ * DESKTOP tornava al vestito di fabbrica del motore — bordo `2px inset`
+ * grigio, spigoli vivi, carattere a 13,333 px e 19 px di altezza in tutto —
+ * accanto a pulsanti alti 36 px disegnati con cura. Sul telefono si vedeva
+ * meno, perché lì i campi li ingrandisce la regola dei 16 px. *Una regola che
+ * non si applica più non si lamenta: bisogna misurarla.*
+ *
+ * Il commento dentro `textarea` che diceva «vedi la regola qui sotto per il
+ * solo select» è rimasto per tre settimane a raccontare una cosa che il codice
+ * non faceva più. È lo stesso difetto del README e di `Cargo.toml`.
+ */
 select,
 input[type='text'],
 input[type='number'],
 input[type='search'],
 input[type='password'],
+textarea {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
 /*
  * ► LA FRECCIA DI UN `<select>` STA DENTRO IL SUO PADDING. ◄
  *
@@ -1818,18 +1809,6 @@ input[type='password'],
  */
 select {
   padding-right: 26px;
-}
-
-textarea {
-  font: inherit;
-  font-size: 13px;
-  padding: 6px 9px;
-  /* Vedi la regola qui sotto per il solo `select`: la freccia del sistema sta
-     DENTRO il padding destro, e su un menu stretto si mangia l'ultima lettera. */
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-strong);
-  background: var(--surface-1);
-  color: var(--text-primary);
 }
 
 textarea {
