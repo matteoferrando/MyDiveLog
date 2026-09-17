@@ -2149,7 +2149,15 @@ function TimeSplitBar({ plan }: { plan: GasPlan }) {
     { label: t('soste'), min: plan.split.stopsMin, fill: 'var(--seq-100)' },
   ].filter((p) => p.min > 0);
 
-  const height = 58;
+  /*
+   * 62 e non 58: sotto la barra ci sono due righe di etichette, e la seconda
+   * — la percentuale — finiva con la coda delle lettere **un pixel fuori dal
+   * riquadro**, tagliata senza puntini e senza che niente lo segnalasse. Un
+   * `<text>` in un SVG non ha overflow: o ci sta, o sparisce un pezzo. Si è
+   * visto misurando l'applicazione IN INGLESE, dove le stesse etichette sono
+   * più corte e il grafico si dispone diversamente.
+   */
+  const height = 62;
   const barH = 26;
   let x = 0;
 
@@ -2189,9 +2197,11 @@ function TimeSplitBar({ plan }: { plan: GasPlan }) {
               {w > 40 && (
                 <text
                   x={left + w / 2}
-                  y={barH + 30}
+                  y={barH + 32}
                   textAnchor="middle"
-                  fontSize={10}
+                  /* 11 e non 10: è la misura minima del testo nei grafici, la
+                     stessa di `.axis-label`. */
+                  fontSize={11}
                   fill="var(--text-muted)"
                 >
                   {Math.round((p.min / total) * 100)}%
@@ -2419,10 +2429,19 @@ function PressureTimeline({
           height={Math.max(0, pad.top + barH - yBar(plan.reserveBar))}
           fill="var(--series-2-wash)"
         />
+        {/*
+          DENTRO LA FASCIA, non nel margine a destra. Stava a
+          `width - pad.right + 4`, cioè contava su uno spazio che in italiano
+          bastava per «riserva» e in inglese no: misurato, «reserve» usciva di
+          2 px dal riquadro e veniva tagliato. La fascia è larga tutto il
+          grafico: l'etichetta ci sta dentro, allineata a destra, come quella
+          della sosta di sicurezza nel profilo.
+        */}
         <text
           className="axis-label"
-          x={width - pad.right + 4}
-          y={yBar(plan.reserveBar) + 10}
+          x={width - pad.right - 4}
+          y={yBar(plan.reserveBar) + 12}
+          textAnchor="end"
           fill="var(--series-2)"
         >
           {t('riserva')}
