@@ -121,10 +121,18 @@ a **UTC+14 e UTC−11**.
 > del crate invece della barra: è la stessa cosa che esegue, ed è comunque una
 > misura e non una deduzione.
 >
-> **Resta il trascinamento della finestra.** Con la barra del titolo trasparente
-> non c'è nessuna zona dichiarata `data-tauri-drag-region`: a occhio la finestra
-> si sposta, ma l'unica prova è una mano che la trascina per un punto vuoto
-> della barra.
+> **E il trascinamento della finestra funziona.** Provato a mano il 17 settembre
+> 2026, che per questa domanda è l'unica prova che esista: uno script che sposta
+> una finestra la sposta comunque, e non dice niente su quello che succede sotto
+> un dito. Con la barra del titolo trasparente macOS continua a considerare
+> quella striscia afferrabile anche se il contenuto ci sta sopra.
+>
+> *Una cosa da sapere per dopo:* non c'è nessuna zona dichiarata
+> `data-tauri-drag-region`. Finché nella barra resta spazio vuoto fra le schede
+> e il bordo destro, si trascina; il giorno in cui qualcosa di cliccabile la
+> occupasse tutta, la finestra si bloccherebbe **senza nessun errore** — e
+> nessuna prova automatica può accorgersene, perché il trascinamento di una
+> finestra non esiste dentro un browser.
 
 > ## ► VENTUNO VOLTE «17 SETTEMBRE», E OGGI È IL 16. ◄
 >
