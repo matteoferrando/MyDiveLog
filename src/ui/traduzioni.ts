@@ -547,8 +547,8 @@ export const INGLESE: Record<string, string> = {
   'Tre alla volta: fare tutto insieme non funziona.': 'Three at a time: all at once does not work.',
   'Una valutazione tace finché non ha almeno sei immersioni con il dato che le serve.':
     'A rule stays quiet until it has six dives with the data it needs.',
-  'Importa un file dal tuo computer subacqueo — o scrivila a mano, se arrivi da un libretto di carta.':
-    'Import a file from your dive computer — or write it by hand, if you are coming from a paper logbook.',
+  'Importa un file dal tuo computer subacqueo, o scrivi a mano la prima se arrivi da un libretto di carta.':
+    'Import a file from your dive computer, or write the first one by hand if you are coming from a paper logbook.',
   'Vai a Importa': 'Go to Import',
   'Vai a Statistiche': 'Go to Statistics',
 
@@ -1908,6 +1908,8 @@ export const INGLESE: Record<string, string> = {
   'Impostazioni condivise': 'Shared settings',
   'Impostazioni di Sistema → Privacy e sicurezza → Bluetooth.':
     'System Settings → Privacy & Security → Bluetooth.',
+  'Impostazioni → App → MyDiveLog → Autorizzazioni → Dispositivi nelle vicinanze.':
+    'Settings → Apps → MyDiveLog → Permissions → Nearby devices.',
   'Impostazioni → MyDiveLog → Bluetooth.': 'Settings → MyDiveLog → Bluetooth.',
   'Inserita a mano': 'Entered by hand',
   Istruttore: 'Instructor',
@@ -2095,6 +2097,7 @@ export const INGLESE: Record<string, string> = {
   Scaricate: 'Pulled',
   'Scegli file': 'Choose files',
   'Scegli i file dall’app File': 'Pick files from the Files app',
+  'Scegli i file da questo telefono': 'Pick files from this phone',
   'Sceso più del previsto sul primo livello.': 'Deeper than planned on the first level.',
   Sconosciuto: 'Unknown',
   'Scubapro via Bluetooth': 'Scubapro over Bluetooth',

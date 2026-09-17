@@ -10,7 +10,7 @@
 import { useRef, useState } from 'react';
 import { ACCEPTED_EXTENSIONS, PARSERS } from '../../core/parsers';
 import { imm, plural } from '../format';
-import { suIOS } from '../../piattaforma';
+import { suAndroid, suIOS } from '../../piattaforma';
 import { accettaFile } from '../accettaFile';
 import { useDiveLog, type ImportOutcome } from '../state';
 import { BleDownload } from '../components/BleDownload';
@@ -223,15 +223,30 @@ export function ImportPage({ onDone }: { onDone: () => void }) {
         }}
       >
         {/*
-         * Su iPhone non si trascina niente, e «dal disco» non vuol dire niente.
+         * Su un telefono non si trascina niente, e «dal disco» non vuol dire
+         * niente.
          *
-         * Il campo file sotto funziona benissimo su iOS — apre l'app File e la
-         * libreria foto — ma la frase invitava a un gesto impossibile e
-         * nominava un posto che sull'iPhone non esiste. Un invito che non si
-         * può accettare fa sembrare rotta la funzione, non il testo.
+         * Il campo file sotto funziona benissimo ovunque — su iOS apre l'app
+         * File e la libreria foto, su Android il selettore di sistema — ma la
+         * frase invitava a un gesto impossibile e nominava un posto che sul
+         * telefono non esiste. *Un invito che non si può accettare fa sembrare
+         * rotta la funzione, non il testo.*
+         *
+         * ► E PER TRE SETTIMANE LA CORREZIONE HA COPERTO SOLO METÀ DEI TELEFONI.
+         * ◄ La condizione era `suIOS()`, quindi su Android — che è un telefono
+         * esattamente quanto l'altro — restava la frase del desktop, con
+         * l'invito a trascinare e il disco che non c'è. Si è visto il 18
+         * settembre guardando l'archivio vuoto sul telefono, cioè la prima
+         * schermata che vede chi installa l'applicazione.
          */}
         <p style={{ margin: '0 0 12px', fontWeight: 600 }}>
-          {t(suIOS() ? 'Scegli i file dall’app File' : 'Trascina qui i file, o scegli dal disco')}
+          {t(
+            suIOS()
+              ? 'Scegli i file dall’app File'
+              : suAndroid()
+                ? 'Scegli i file da questo telefono'
+                : 'Trascina qui i file, o scegli dal disco',
+          )}
         </p>
         <p className="muted" style={{ margin: '0 0 16px', fontSize: 12 }}>
           {t('Puoi sceglierne più di uno: le immersioni doppie vengono unite.')}

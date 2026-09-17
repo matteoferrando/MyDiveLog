@@ -277,14 +277,14 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
            * l'applicazione: è il posto per dire cosa fare adesso.» Qui sotto
            * c'erano 230 caratteri su quattro righe centrate che spiegavano tre
            * cose — importa, puoi caricarne più di uno, i doppioni si uniscono,
-           * e se non hai un file scrivila a mano — mentre i due pulsanti qui
+           * e se non hai un file la scrivi a mano — mentre i due pulsanti qui
            * accanto dicono già le due strade.
            *
            * *Una regola scritta in un file e disattesa dal file accanto non è
            * una regola: è un'intenzione.*
            */}
           {t(
-            'Importa un file dal tuo computer subacqueo — o scrivila a mano, se arrivi da un libretto di carta.',
+            'Importa un file dal tuo computer subacqueo, o scrivi a mano la prima se arrivi da un libretto di carta.',
           )}
         </Vuoto>
         {/*

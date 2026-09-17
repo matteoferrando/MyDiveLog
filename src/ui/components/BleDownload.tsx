@@ -69,7 +69,7 @@ import {
   ilCollegamentoNonSiEAperto,
 } from '../../core/ble/causaGuasto';
 import { annullata, esporta, frasePosizione, NON_SCELTO } from '../esporta';
-import { suIOS } from '../../piattaforma';
+import { suAndroid, suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
 import { useLingua, useTraduciStabile } from '../lingua';
 import type { DownloadMarker } from '../../core/ble/types';
@@ -1884,10 +1884,26 @@ export function BleDownload() {
         <div className="notice" role="status">
           <b>{t('Ancora niente.')}</b>{' '}
           {t('Controlla: il computer è in modalità collegamento? È vicino? Il permesso Bluetooth è dato?')}{' '}
+          {/*
+            ► TRE PIATTAFORME, E LA STRADA ERA SCRITTA PER DUE. ◄ Il ramo `else`
+            diceva la strada di macOS, e su Android la diceva anche a chi ha in
+            mano un telefono: «Impostazioni di Sistema → Privacy e sicurezza»
+            non esiste lì. E il permesso non si chiama nemmeno Bluetooth: da
+            Android 12 il gruppo è «Dispositivi nelle vicinanze», ed è quello
+            che va cercato. *Una strada sbagliata è peggio di nessuna strada:
+            chi la segue conclude che il permesso c'è già e che rotta è l'app.*
+
+            La strada è quella che documenta Google (Impostazioni → App →
+            l'app → Autorizzazioni); su qualche telefono il costruttore la
+            sposta di un passo, ma il nome del permesso resta e basta a
+            trovarlo.
+          */}
           {t(
             suIOS()
               ? 'Impostazioni → MyDiveLog → Bluetooth.'
-              : 'Impostazioni di Sistema → Privacy e sicurezza → Bluetooth.',
+              : suAndroid()
+                ? 'Impostazioni → App → MyDiveLog → Autorizzazioni → Dispositivi nelle vicinanze.'
+                : 'Impostazioni di Sistema → Privacy e sicurezza → Bluetooth.',
           )}{' '}
           {t('Un permesso negato lo diremmo con un messaggio: qui la ricerca sta girando davvero.')}
         </div>
