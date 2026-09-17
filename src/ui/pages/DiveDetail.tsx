@@ -344,11 +344,17 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
           }
         />
         <StatTile
-          label={t('Oscillazione a quota tenuta')}
+          /*
+           * «Oscillazione in quota» e non «Oscillazione a quota tenuta»: il
+           * titolo andava a capo su due righe sul telefono, e la nota qui sotto
+           * ripeteva le stesse due parole. Due righe e una ripetizione per dire
+           * una cosa che si dice in tre parole.
+           */
+          label={t('Oscillazione in quota')}
           value={m?.bottomVerticalTravelMpm !== undefined ? m.bottomVerticalTravelMpm.toFixed(1) : '—'}
           note={
             m?.bottomVerticalTravelMpm !== undefined
-              ? `m/min ${t('su')} ${formatDuration(m.holdingS ?? 0)} ${t('di quota tenuta')}`
+              ? `m/min · ${formatDuration(m.holdingS ?? 0)} ${t('in quota')}`
               : t('serve un profilo campionato')
           }
         />
@@ -548,7 +554,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
               <div key={o.text} className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
                 <span className={`dot ${SEVERITY_CLASS[o.severity]}`} style={{ marginTop: 6 }} />
                 <span style={{ flex: 1, fontSize: 13 }}>
-                  <span className="muted" style={{ fontSize: 11, fontWeight: 650, marginRight: 6 }}>
+                  <span className="muted" style={{ fontSize: 12, fontWeight: 650, marginRight: 6 }}>
                     {/* `SEVERITY_TEXT` vive in `format.ts`: si traduce al disegno. */}
                     {t(SEVERITY_TEXT[o.severity])}
                   </span>
@@ -1459,9 +1465,20 @@ function CartaFirma({ dive, onSalva }: { dive: Dive; onSalva: (d: Dive) => void 
   return (
     <div className="card" ref={rif}>
       <h2>{t('Firma della guida')}</h2>
-      <p className="card-sub">
-        {t('È la lettera o) del libretto: l’unica delle tredici che non è un dato ma un gesto.')}
-      </p>
+      {/*
+       * ► QUI C'ERA UN SOTTOTITOLO CHE NON SERVIVA A NIENTE. ◄
+       *
+       * Diceva: «È la lettera o) del libretto: l'unica delle tredici che non è
+       * un dato ma un gesto.» È vero, è perfino interessante, e non aiuta
+       * NESSUNO a fare la cosa per cui esiste questa carta — far firmare la
+       * guida. Chi la legge sta in barca con il telefono in mano; il titolo
+       * dice già tutto e il pulsante dice il resto.
+       *
+       * *Una frase che spiega perché abbiamo scritto una cosa non è
+       * documentazione per chi la usa: è un commento, e i commenti stanno nel
+       * codice.* La lettera o) e l'articolo di legge sono scritti in testa a
+       * `FirmaGuida.tsx`, dove servono a chi tiene in piedi il programma.
+       */}
 
       {firmata && !aperto && (
         <div className="stack" style={{ gap: 8 }}>

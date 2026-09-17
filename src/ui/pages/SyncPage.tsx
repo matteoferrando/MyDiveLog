@@ -631,7 +631,7 @@ export function SyncPage() {
             {/* Il token non è nel codice dell'applicazione e non passa da
              * nessun nostro servizio: dal campo va al negozio dei segreti di
              * questo dispositivo, e da lì solo a Turso. */}
-            <span className="muted" style={{ fontSize: 11 }}>
+            <span className="muted" style={{ fontSize: 12 }}>
               {t('Resta su questo dispositivo: va solo a Turso.')}
             </span>
           </label>
@@ -646,7 +646,7 @@ export function SyncPage() {
            * la risposta alla domanda che si fa proprio adesso chi sta per
            * incollarne uno: «e sull'altro dispositivo?».
            */}
-          <p className="muted" style={{ fontSize: 11, margin: 0 }}>
+          <p className="muted" style={{ fontSize: 12, margin: 0 }}>
             <b>{t('Il token non viaggia con le immersioni.')}</b>{' '}
             {t('Su ogni altro dispositivo va incollato di nuovo, qui.')}
           </p>
@@ -1015,7 +1015,7 @@ function DoveStannoLeCredenziali() {
   const { secretPlace } = useDiveLog();
   const { t } = useLingua();
   return (
-    <p className="muted" style={{ fontSize: 11, marginTop: 12, marginBottom: 0 }}>
+    <p className="muted" style={{ fontSize: 12, marginTop: 12, marginBottom: 0 }}>
       <b>{secretPlace === 'keychain' ? t('Portachiavi di sistema.') : t('Archivio locale, in chiaro.')}</b>{' '}
       {secretPlace === 'keychain'
         ? t('Le legge solo questa app, e non finiscono nei backup.')
@@ -1128,7 +1128,7 @@ function AccountCard() {
               }}
             />
           </div>
-          <p className="muted" style={{ fontSize: 11, marginTop: 10, marginBottom: 0 }}>
+          <p className="muted" style={{ fontSize: 12, marginTop: 10, marginBottom: 0 }}>
             {t('Uscire smette solo di sincronizzare. Le immersioni di questo dispositivo')}{' '}
             <b>{t('restano')}</b> {t('in tutti e due i casi.')}
           </p>
@@ -1190,7 +1190,7 @@ function AccountCard() {
        * in tre colonne strette accanto ai due pulsanti, cioè la frase più
        * importante della carta nella forma più faticosa da leggere. */}
       {!accountAttivo && (
-        <p className="muted" style={{ fontSize: 11, margin: '10px 0 0' }}>
+        <p className="muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
           {t('Si apre il browser di sistema: la password la scrivi al fornitore, non a noi.')}{' '}
           <b>{t('Le immersioni non passano dal servizio di accesso')}</b>:{' '}
           {t('viaggiano fra questa app e il tuo database.')}
@@ -1480,7 +1480,7 @@ function BackupCard() {
 
       {/* Il senso di un backup è che stia ALTROVE: sullo stesso disco
        * dell'archivio non protegge da niente. */}
-      <p className="muted" style={{ fontSize: 11, marginTop: 12, marginBottom: 0 }}>
+      <p className="muted" style={{ fontSize: 12, marginTop: 12, marginBottom: 0 }}>
         {t('L’archivio vive')} {t(storeLocation)}. {t('Il backup è una copia da tenere altrove.')}
       </p>
     </CartaApribile>
@@ -1601,7 +1601,7 @@ function TrashCard() {
                       {dateShort(item.dive.startTime, item.dive.utcOffsetMinutes)}
                     </span>
                   </div>
-                  <div className="muted" style={{ fontSize: 11 }}>
+                  <div className="muted" style={{ fontSize: 12 }}>
                     {item.dive.maxDepth.toFixed(1)} m · {formatDuration(item.dive.durationS)} ·{' '}
                     {item.samples?.length
                       ? `${item.samples.length} ${t('campioni conservati')}`
@@ -1618,13 +1618,13 @@ function TrashCard() {
                 <td style={{ textAlign: 'right' }}>
                   <span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
                     <button
-                      style={{ fontSize: 11, padding: '3px 8px' }}
+                      style={{ fontSize: 12, padding: '3px 8px' }}
                       onClick={() => void restoreDive(item.dive.id)}
                     >
                       {t('Rimetti a posto')}
                     </button>
                     <BottoneConferma
-                      style={{ fontSize: 11, padding: '3px 8px' }}
+                      style={{ fontSize: 12, padding: '3px 8px' }}
                       etichetta={t('Elimina')}
                       conferma={t('Sì, cancella')}
                       domanda={t(
@@ -1759,7 +1759,7 @@ function AggiornamentoCard() {
             <button className="btn btn-primary" onClick={installa}>
               {t('Installa e riavvia')}
             </button>
-            <span className="muted" style={{ fontSize: 11, alignSelf: 'center' }}>
+            <span className="muted" style={{ fontSize: 12, alignSelf: 'center' }}>
               {t('L’applicazione si chiude e si riapre da sola.')}
             </span>
           </div>

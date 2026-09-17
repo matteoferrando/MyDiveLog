@@ -208,7 +208,7 @@ function RigaBombola({
         sarebbe mai nel dizionario. Va tradotta là, se e quando si tradurrà.
       */}
       {notaSigla && (
-        <p className="muted" style={{ fontSize: 11, margin: '8px 0 0' }}>
+        <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
           {notaSigla}
         </p>
       )}
@@ -678,7 +678,7 @@ export function ModificaImmersione({
         formula stanno in `core/cylinders.ts`, e la nota sotto il campo dice da
         quale delle due viene il numero.
       */}
-      <p className="muted" style={{ fontSize: 11, margin: '0 0 10px' }}>
+      <p className="muted" style={{ fontSize: 12, margin: '0 0 10px' }}>
         {t('Scrivi una sigla —')} <b>S80</b>, <b>S40</b>, <b>D12</b> —{' '}
         {t("e i litri d'acqua si compilano da soli.")}
       </p>
@@ -730,7 +730,7 @@ export function ModificaImmersione({
           value={draft.rmvLpmManual ?? ''}
           onChange={(e) => tocca({ rmvLpmManual: numero(e.target.value) })}
         />
-        <span className="muted" style={{ fontSize: 11 }}>
+        <span className="muted" style={{ fontSize: 12 }}>
           {calcolabile
             ? t(
                 'Le bombole hanno volume e pressioni: il consumo lo calcola l’app, e questo valore resta scritto qui accanto senza sostituirlo.',
@@ -826,7 +826,7 @@ export function ModificaImmersione({
         una piastra d'acciaio da 3 kg su «2 kg di zavorra» fanno cinque, e una
         tabella che conta due racconta il contrario di quello che succede in acqua.
       */}
-      <p className="muted" style={{ fontSize: 11, margin: '0 0 14px' }}>
+      <p className="muted" style={{ fontSize: 12, margin: '0 0 14px' }}>
         {(() => {
           const totale = (draft.weightKg ?? 0) + (draft.gear?.backplateKg ?? 0);
           return draft.gear?.backplateKg

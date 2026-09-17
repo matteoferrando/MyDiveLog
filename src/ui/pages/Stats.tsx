@@ -108,7 +108,7 @@ const SERIES_META: Record<
     blurb: 'Litri al minuto riportati alla superficie. Solo dove il volume della bombola è noto.',
   },
   trim: {
-    label: 'Oscillazione a quota tenuta',
+    label: 'Oscillazione in quota',
     unit: 'm/min',
     reference: 2,
     referenceLabel: 'buon assetto',
@@ -492,7 +492,7 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               recuperano, né in giornata né fra un giorno e l'altro. Il tratto
               finale è misurato punto a punto e non su finestra mobile: dura pochi
               secondi, ed è esattamente il motivo per cui di solito non si vede. */}
-          <p className="muted" style={{ fontSize: 11, marginTop: 12, marginBottom: 0 }}>
+          <p className="muted" style={{ fontSize: 12, marginTop: 12, marginBottom: 0 }}>
             {t('Il CNS si dimezza ogni 90 minuti in superficie; le OTU non recuperano mai.')}
           </p>
         </CartaApribile>
@@ -606,10 +606,8 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
              cui nessuno viene informato è una funzione che non c'è, e una
              promessa che parla solo di clic resta falsa anche dopo che la
              tastiera funziona. */
-          <p className="muted" style={{ fontSize: 11, marginTop: 8, marginBottom: 0 }}>
-            {t(
-              'Clicca un punto per aprire l’immersione. Da tastiera: Tab sul grafico, frecce per scegliere, Invio per aprire.',
-            )}
+          <p className="muted" style={{ fontSize: 12, marginTop: 8, marginBottom: 0 }}>
+            {t('Clicca un punto per aprire l’immersione — o Tab, frecce, Invio.')}
           </p>
         )}
       </div>
@@ -913,12 +911,12 @@ function DisciplineRow({
           />
           <span>{t(label)}</span>
           {verdict !== undefined && (
-            <span className="muted" style={{ fontSize: 11 }}>
+            <span className="muted" style={{ fontSize: 12 }}>
               {t(verdict ? 'nei limiti' : 'da guardare')}
             </span>
           )}
         </div>
-        <div className="muted" style={{ fontSize: 11, marginLeft: 15 }}>
+        <div className="muted" style={{ fontSize: 12, marginLeft: 15 }}>
           {measurable ? `${t('su')} ${basis}` : `${t('nessuna immersione verificabile')}: ${basis}`}
         </div>
       </td>
@@ -1049,7 +1047,7 @@ function Correlations({
                 onPick={onOpen}
                 height={210}
               />
-              <p className="muted" style={{ fontSize: 11, margin: '4px 0 0' }}>
+              <p className="muted" style={{ fontSize: 12, margin: '4px 0 0' }}>
                 {t(s.hint)} {`${t('su')} ${imm(s.points.length, t)}.`}
               </p>
             </div>
@@ -1163,7 +1161,7 @@ function Distributions({ dives }: { dives: Dive[] }) {
               height={150}
               labelEvery={1}
             />
-            <p className="muted" style={{ fontSize: 11, margin: '4px 0 0' }}>
+            <p className="muted" style={{ fontSize: 12, margin: '4px 0 0' }}>
               {b.note}
             </p>
           </div>
@@ -1644,7 +1642,7 @@ function Condizioni({ dives }: { dives: Dive[] }) {
       {/* Le condizioni non arrivano da sole: col mare agitato si esce dai posti
           riparati, e quindi cambiano anche il sito, la profondità e la
           temperatura. La tabella dice che una differenza c'è, non da dove viene. */}
-      <p className="muted" style={{ fontSize: 11, margin: 0 }}>
+      <p className="muted" style={{ fontSize: 12, margin: 0 }}>
         {t(
           'Nessuna di queste righe dice una causa: col mare agitato cambiano anche sito, profondità e temperatura.',
         )}
@@ -1800,7 +1798,7 @@ function MedianTile({
         {extra ? ` · ${extra}` : ''}
       </div>
       {trend && trend.direction !== 'flat' && (
-        <div className="row" style={{ gap: 5, marginTop: 4, fontSize: 11 }}>
+        <div className="row" style={{ gap: 5, marginTop: 4, fontSize: 12 }}>
           <span className={`dot ${better ? 'dot-good' : 'dot-warning'}`} />
           <span className="muted">
             {trend.firstHalf.toFixed(digits)} → {trend.secondHalf.toFixed(digits)} {t('nel periodo')}
@@ -1949,9 +1947,7 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
         </span>
       </div>
       <p className="card-sub">
-        {t(
-          'Non è una mappa: sotto non c’è cartografia. È la disposizione dei siti, con la bolla grande quanto le immersioni fatte lì.',
-        )}
+        {t('Non una mappa: la disposizione dei siti, con la bolla grande quanto le immersioni fatte lì.')}
       </p>
       <div className="chart" ref={ref}>
         <svg
@@ -2058,10 +2054,8 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
           Subsurface, il GPS dei Garmin e i log Shearwater dalla versione 17 in
           su. Chi non le vede non ha sbagliato niente, gli manca il formato — ma
           a schermo quell'elenco non aiuta nessuno a fare qualcosa. */}
-      <p className="muted" style={{ fontSize: 11, margin: '6px 0 0' }}>
-        {t(
-          'Clicca una bolla per aprire un’immersione fatta lì. Da tastiera: Tab sulla mappa, frecce per scegliere il sito, Invio per aprire.',
-        )}
+      <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
+        {t('Clicca una bolla per aprire un’immersione fatta lì — o Tab, frecce, Invio.')}
       </p>
     </CartaApribile>
   );

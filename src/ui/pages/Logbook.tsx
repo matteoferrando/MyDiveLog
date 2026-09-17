@@ -582,22 +582,41 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                   >
                     {dateShort(d.startTime, d.utcOffsetMinutes)}
                   </button>
-                  <div className="muted" style={{ fontSize: 11 }}>
+                  <div className="muted" style={{ fontSize: 12 }}>
                     {timeShort(d.startTime, d.utcOffsetMinutes)}
                   </div>
                 </td>
                 <td className="cella-sito">
                   <div style={{ fontWeight: 550 }}>{d.title || d.site?.name || '—'}</div>
                   {d.title && d.site?.name && (
-                    <div className="muted" style={{ fontSize: 11 }}>
+                    <div className="muted" style={{ fontSize: 12 }}>
                       {d.site.name}
                     </div>
                   )}
-                  <div className="muted" style={{ fontSize: 11 }}>
-                    {/* `modeLabel` sta in `core`: la sua etichetta italiana si traduce
-                        qui, dove viene disegnata. */}
-                    {[d.buddy, d.mode !== 'oc' ? t(modeLabel(d)) : null].filter(Boolean).join(' · ') || ' '}
-                  </div>
+                  {/*
+                   * ► QUI C'ERA UNO SPAZIO FINTO, e sul telefono si vedeva. ◄
+                   *
+                   * La riga del compagno finiva con `|| '\u00a0'`: senza compagno
+                   * restava uno spazio unificatore, cioè una riga vuota alta 16 px,
+                   * messa lì per tenere allineate le righe della tabella. Sul
+                   * desktop non serviva — l'altezza della riga la detta la cella
+                   * della data, che porta data e ora su due righe — e sul telefono,
+                   * dove la riga diventa una scheda, quello spazio diventava un buco
+                   * fra il nome del sito e i numeri. *Uno spazio messo per allineare
+                   * qualcosa che si allinea da sé è solo un buco.*
+                   */}
+                  {(() => {
+                    // `modeLabel` sta in `core`: la sua etichetta italiana si
+                    // traduce qui, dove viene disegnata.
+                    const sotto = [d.buddy, d.mode !== 'oc' ? t(modeLabel(d)) : null]
+                      .filter(Boolean)
+                      .join(' · ');
+                    return sotto ? (
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        {sotto}
+                      </div>
+                    ) : null;
+                  })()}
                 </td>
                 <td className="num tabular" data-col="Max">
                   {d.maxDepth.toFixed(1)} m
@@ -614,7 +633,7 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
                 <td className="muted" data-col="Gas">
                   {d.cylinders[0] ? mixName(d.cylinders[0].mix) : t(mixLabel(d))}
                 </td>
-                <td className="muted cella-origine" data-col={t('Origine')} style={{ fontSize: 11 }}>
+                <td className="muted cella-origine" data-col={t('Origine')} style={{ fontSize: 12 }}>
                   {/* Tutte le fonti, non solo la prima: un'immersione fusa da tre
                       file compariva come proveniente da una sola, e la scheda
                       dell'immersione diceva il contrario. */}
@@ -731,7 +750,7 @@ function NextDive({ dives }: { dives: Dive[] }) {
            * componente non è una regola del progetto.*
            */}
           <button
-            style={{ fontSize: 11, padding: '3px 8px' }}
+            style={{ fontSize: 12, padding: '3px 8px' }}
             aria-expanded={false}
             onClick={() => setOpen(true)}
           >
@@ -757,7 +776,7 @@ function NextDive({ dives }: { dives: Dive[] }) {
           </p>
         </div>
         <button
-          style={{ fontSize: 11, padding: '3px 8px' }}
+          style={{ fontSize: 12, padding: '3px 8px' }}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
         >

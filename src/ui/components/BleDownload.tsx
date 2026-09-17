@@ -1929,7 +1929,7 @@ export function BleDownload() {
                 {t('l’ultima volta')} ({dateShort(m.at)}) {t('sono arrivate')} {imm(m.dives, t)}.{' '}
                 {t('Al prossimo collegamento prendo solo quelle più recenti.')}
               </span>
-              <button style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => void forgetBleMarker(k)}>
+              <button style={{ fontSize: 12, padding: '3px 8px' }} onClick={() => void forgetBleMarker(k)}>
                 {t('Dimentica')}
               </button>
             </div>
@@ -2668,7 +2668,7 @@ export function BleDownload() {
                 </button>
               )}
               {salvataggio && (
-                <span className="muted" style={{ fontSize: 11, alignSelf: 'center' }}>
+                <span className="muted" style={{ fontSize: 12, alignSelf: 'center' }}>
                   {salvataggio}
                 </span>
               )}
@@ -2684,7 +2684,7 @@ export function BleDownload() {
              */}
             <pre
               style={{
-                fontSize: 11,
+                fontSize: 12,
                 maxHeight: 300,
                 overflow: 'auto',
                 whiteSpace: 'pre-wrap',

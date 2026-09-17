@@ -610,7 +610,7 @@ export function MiniSeries({
         <span>
           {label} <span className="muted">({unit})</span>
           {compare && otherPoints.length > 1 && (
-            <span className="muted" style={{ marginLeft: 8, fontSize: 11 }}>
+            <span className="muted" style={{ marginLeft: 8, fontSize: 12 }}>
               — {t('tratteggiato')}: {compare.label}
             </span>
           )}

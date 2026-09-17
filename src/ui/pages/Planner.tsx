@@ -620,7 +620,7 @@ export function Planner() {
                 onChange={(e) => set('tankL', Math.min(60, Math.max(1, Number(e.target.value) || 1)))}
                 style={{ width: 74 }}
               />
-              <span className="muted" style={{ fontSize: 11 }}>
+              <span className="muted" style={{ fontSize: 12 }}>
                 {input.startBar * input.tankL} L {t('di gas')}
               </span>
             </div>
@@ -630,7 +630,7 @@ export function Planner() {
                   key={bombola.label}
                   onClick={() => set('tankL', bombola.litres)}
                   aria-pressed={input.tankL === bombola.litres}
-                  style={{ fontSize: 11, padding: '3px 7px' }}
+                  style={{ fontSize: 12, padding: '3px 7px' }}
                 >
                   {bombola.label}
                 </button>
@@ -1008,7 +1008,7 @@ export function Planner() {
         {/* La media dell'intera immersione è quella che il computer scrive a
             fine immersione: è il numero con cui si verifica il piano dopo
             averlo eseguito, e per questo sta accanto alla velocità ricavata. */}
-        <p className="muted" style={{ fontSize: 11, margin: '10px 0 0' }}>
+        <p className="muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
           {t('La risalita non si imposta: si ricava.')}{' '}
           {plan.plannedAscentRateMpm === undefined ? '—' : `${plan.plannedAscentRateMpm.toFixed(1)} m/min`},{' '}
           {t('contro i')} {LIMITS.ascentRateDeepMpm} m/min {t('raccomandati')}.
@@ -1236,7 +1236,7 @@ export function Planner() {
          * le formule del manuale (tempo × ATA medi × consumo), ma metterla
          * riga per riga è un'aggiunta nostra e va dichiarata.
          */}
-        <p className="muted" style={{ fontSize: 11, marginTop: 10, marginBottom: 0 }}>
+        <p className="muted" style={{ fontSize: 12, marginTop: 10, marginBottom: 0 }}>
           {t('La colonna dei bar non fa parte della tabella di risalita che insegnano i corsi: è in più.')}
         </p>
       </CartaApribile>
@@ -1524,7 +1524,7 @@ export function Planner() {
                     <div className="row" style={{ gap: 7 }}>
                       <span className={`dot ${c.fits ? 'dot-good' : 'dot-critical'}`} />
                       <span style={{ fontWeight: 550 }}>{t(c.label)}</span>
-                      <span className="muted" style={{ fontSize: 11, fontWeight: 650 }}>
+                      <span className="muted" style={{ fontSize: 12, fontWeight: 650 }}>
                         {c.fits ? t('ci sta') : t('non ci sta')}
                       </span>
                     </div>
@@ -1552,7 +1552,7 @@ export function Planner() {
         </div>
         {/* Rosso non vuol dire vietato: vuol dire che se succede il piano
             cambia, e va saputo prima di entrare in acqua. */}
-        <p className="muted" style={{ fontSize: 11, marginTop: 10, marginBottom: 0 }}>
+        <p className="muted" style={{ fontSize: 12, marginTop: 10, marginBottom: 0 }}>
           {t('Il pallino rosso: quello scenario consuma la riserva.')}
         </p>
       </CartaApribile>
@@ -1774,7 +1774,7 @@ function MixField({ mix, onChange }: { mix: GasMix; onChange: (m: GasMix) => voi
             key={p.label}
             onClick={() => onChange(p.mix)}
             aria-pressed={p.mix.o2 === mix.o2 && p.mix.he === mix.he}
-            style={{ fontSize: 11, padding: '3px 7px' }}
+            style={{ fontSize: 12, padding: '3px 7px' }}
           >
             {t(p.label)}
           </button>
@@ -1930,7 +1930,7 @@ function PressureBudget({ plan }: { plan: GasPlan }) {
           </g>
         ))}
       </svg>
-      <p className="muted" style={{ fontSize: 11, margin: '6px 0 0' }}>
+      <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
         {t('Utilizzabile')} {plan.usableBar} bar ({plan.usableL} L) {t('sui')} {start} {t('di partenza')}.
         {plan.input.turnRule !== 'none' &&
           ` ${t('Ogni')} ${plan.input.turnRule === 'thirds' ? t('terzo') : t('metà')} ${t('vale')} ${Math.round(step)} bar.`}
@@ -2673,7 +2673,7 @@ function SosteCard({ soste, plan }: { soste: DecoResult; plan: GasPlan }) {
         </div>
       ))}
 
-      <p className="muted" style={{ fontSize: 11, margin: '10px 0 0' }}>
+      <p className="muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
         {t('Con la modalità')} <b>{t('Tecnica')}</b>{' '}
         {t('aggiungi un gas di deco, più livelli e il bailout da ogni quota.')}
       </p>

@@ -433,7 +433,7 @@ function ComparisonTable({ left, right, onOpen }: { left: Dive; right: Dive; onO
                       verdetto, disallineando l'unica colonna che si legge in
                       verticale. */}
                   {verdetto !== undefined && (
-                    <span style={{ display: 'block', fontSize: 11, fontWeight: 550 }}>{verdetto}</span>
+                    <span style={{ display: 'block', fontSize: 12, fontWeight: 550 }}>{verdetto}</span>
                   )}
                 </td>
               </tr>

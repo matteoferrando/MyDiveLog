@@ -143,7 +143,7 @@ export function Brevetti() {
                       <td className="cella-titolo">
                         <div style={{ fontWeight: 550 }}>{c.name || t('senza nome')}</div>
                         {(c.number || c.instructor) && (
-                          <div className="muted" style={{ fontSize: 11 }}>
+                          <div className="muted" style={{ fontSize: 12 }}>
                             {[c.number, c.instructor].filter(Boolean).join(' · ')}
                           </div>
                         )}
@@ -157,11 +157,11 @@ export function Brevetti() {
                             invece che al posto del livello: un istruttore che
                             non ha il Profondo resta un istruttore senza il
                             Profondo, e il Coach deve poterlo sapere. */}
-                        {c.ruolo && <div style={{ fontSize: 11 }}>{t(RUOLO_LABEL[c.ruolo])}</div>}
+                        {c.ruolo && <div style={{ fontSize: 12 }}>{t(RUOLO_LABEL[c.ruolo])}</div>}
                       </td>
                       <td className="muted tabular" style={{ fontSize: 12 }} data-eti={t('Profondità')}>
                         {c.profonditaM !== undefined ? `${c.profonditaM} m` : '—'}
-                        {c.decompressione && <div style={{ fontSize: 11 }}>{t('con decompressione')}</div>}
+                        {c.decompressione && <div style={{ fontSize: 12 }}>{t('con decompressione')}</div>}
                       </td>
                       <td className="muted" style={{ fontSize: 12 }} data-eti={t('Data')}>
                         {c.issuedOn ? dateShort(c.issuedOn) : '—'}
@@ -178,7 +178,7 @@ export function Brevetti() {
                          * di che cosa.
                          */}
                         <button
-                          style={{ fontSize: 11, padding: '3px 8px' }}
+                          style={{ fontSize: 12, padding: '3px 8px' }}
                           aria-label={`${t('Apri')} ${c.name || t('senza nome')}`}
                         >
                           {t('Apri')}

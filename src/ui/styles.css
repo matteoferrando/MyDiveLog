@@ -468,17 +468,26 @@ body {
   }
 
   .barra-basso .voce-nome {
-    font-size: 10px;
-    font-weight: 600;
     /*
-     * Il nome NON va a capo e NON sfora: si stringe.
+     * ► UNDICI, E DIECI SOLO DOVE NON CI STANNO. ◄
      *
-     * A 320 px (iPhone SE) ogni voce ha 62 px, e «Statistiche» a 10 px ne
-     * occupa quasi altrettanti. Andando a capo la barra crescerebbe di una riga
-     * solo su quel telefono; sforando, tornerebbe lo scorrimento laterale che è
-     * già costato una giornata. I puntini sono il male minore, e compaiono solo
-     * dove la parola non ci sta davvero.
+     * Erano 10 px: la misura più piccola di tutta l'applicazione toccava
+     * proprio i cinque nomi della navigazione, cioè le parole che si leggono
+     * più spesso e spesso di sfuggita, con il telefono in una mano.
+     *
+     * Il vincolo che li aveva portati a 10 è vero e resta scritto: a 320 px
+     * ogni voce ha 62 px e «Statistiche» ne vuole quasi altrettanti. Ma 320 px
+     * è l'iPhone SE di prima generazione; da 360 in su — cioè ogni telefono in
+     * commercio — ce ne sono 72 e a 11 px la parola ci sta. Quindi 11 di
+     * regola, e 10 solo sotto i 360.
+     *
+     * Il nome NON va a capo e NON sfora: si stringe. Andando a capo la barra
+     * crescerebbe di una riga; sforando, tornerebbe lo scorrimento laterale che
+     * è già costato una giornata. I puntini sono il male minore, e compaiono
+     * solo dove la parola non ci sta davvero.
      */
+    font-size: 11px;
+    font-weight: 600;
     max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
@@ -912,12 +921,26 @@ body {
   padding: 16px 18px;
 }
 
+/*
+ * ► UN TITOLO DI CARTA DEVE LEGGERSI COME UN TITOLO. ◄
+ *
+ * Misurato il 17 settembre 2026 sulla scheda di un'immersione: il titolo di una
+ * carta stava a **14 px**, cioè esattamente la misura del testo normale e un
+ * pixel sopra quella della tabella. Restava solo il grassetto a distinguerlo, e
+ * su una pagina con dodici carte l'occhio non trovava più gli appigli: tutto
+ * uguale, tutto medio-grigio-piccolo.
+ *
+ * La scala che ne esce è una scala vera — 12 nota, 14 testo, 16 titolo di
+ * carta, 20 titolo di pagina — con un passo che si vede senza doverlo cercare.
+ * I due pixel in più non costano niente in altezza: una carta ne ha uno solo,
+ * di titolo.
+ */
 .card h2,
 .card h3 {
-  margin: 0 0 2px;
-  font-size: 14px;
+  margin: 0 0 4px;
+  font-size: 16px;
   font-weight: 650;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
 }
 
 .card-sub {
@@ -983,6 +1006,21 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
 }
 
+/*
+ * La deroga per gli schermi davvero stretti.
+ *
+ * Sta FUORI dal blocco dei 700 px — e non annidata dentro — perché l'ordine
+ * delle regole del telefono è sorvegliato da una prova (`contrast.test.ts`)
+ * che legge il foglio dall'alto in basso: un media query dentro un altro
+ * spezzava quella lettura. Una regola annidata che nessuno si aspetta è un
+ * modo di rompere una guardia senza toccarla.
+ */
+@media (max-width: 359px) {
+  .barra-basso .voce-nome {
+    font-size: 10px;
+  }
+}
+
 /* ------------------------------------------------------------------ tiles */
 
 /*
@@ -1013,10 +1051,29 @@ body {
   padding: 12px 14px;
   min-width: 0;
   overflow-wrap: anywhere;
+  /*
+   * ► IL CONTENUTO STA IN MEZZO, e non appeso in alto. ◄
+   *
+   * Le tessere vivono in una griglia: quelle sulla stessa riga prendono tutte
+   * l'altezza della più alta. Con il contenuto appeso in alto, una tessera con
+   * l'etichetta corta accanto a una con l'etichetta su due righe mostrava un
+   * buco in fondo — e sulla scheda di un'immersione, a 393 px, succedeva a
+   * quattro tessere su sei: «Consumo di superficie · 17.0 · L/min» finiva con
+   * quaranta pixel di niente sotto.
+   *
+   * Centrando, lo spazio in più si divide sopra e sotto e la tessera resta
+   * equilibrata qualunque sia il vicino. Non si toglie spazio a nessuno: si
+   * toglie il buco.
+   */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .tile-label {
-  font-size: 11px;
+  /* 12: è l'etichetta che dice cosa sia il numero grande qui sotto, e su un
+     telefono a 11 px si legge peggio del numero che spiega. */
+  font-size: 12px;
   color: var(--text-muted);
   text-transform: none;
   margin-bottom: 2px;
@@ -1030,7 +1087,7 @@ body {
 }
 
 .tile-note {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-secondary);
   margin-top: 2px;
 }
@@ -1053,7 +1110,9 @@ table {
 th {
   text-align: left;
   font-weight: 600;
-  font-size: 11px;
+  /* 12 e non 11: sono le etichette che dicono cosa sono le colonne, e a 11 px
+     grigie sparivano sotto i numeri che intestano. */
+  font-size: 12px;
   color: var(--text-muted);
   padding: 6px 14px 6px 0;
   border-bottom: 1px solid var(--grid);
@@ -2087,8 +2146,17 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * Gli assi a 11 px e non a 10.
+ *
+ * Dieci pixel su uno schermo da telefono sono il limite sotto cui un numero si
+ * indovina invece di leggerlo — e su questa applicazione gli assi portano metri
+ * e minuti, cioè la sola scala che dà significato al disegno. Undici è ancora
+ * piccolo, ma è leggibile; se un asse diventa affollato si diradano le tacche,
+ * non si rimpicciolisce il numero.
+ */
 .axis-label {
-  font-size: 10px;
+  font-size: 11px;
   fill: var(--text-muted);
 }
 
@@ -2288,6 +2356,37 @@ h1.page-title {
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+}
+
+/*
+ * ► I TRE PULSANTI DELLA SCHEDA, QUANDO NON CI STANNO. ◄
+ *
+ * Sulla scheda di un'immersione la riga delle azioni porta «← Logbook»,
+ * «Esporta PDF» e «Modifica dati». A 393 px vogliono 458 px: uno dei tre va a
+ * capo, e quello che va a capo resta là sotto da solo, spaiato — la classica
+ * riga che sembra un errore di impaginazione invece di una scelta.
+ *
+ * Qui il capo si decide invece di subirlo: il ritorno prende una riga tutta
+ * sua (`flex-basis: 100%`), ma `max-width: max-content` gli lascia la sua
+ * larghezza vera, così resta un collegamento e non diventa un pulsantone. Le
+ * due azioni vere si dividono la riga sotto in parti uguali. Due righe piene
+ * si leggono come una forma; una riga e mezza no.
+ */
+@media (max-width: 700px) {
+  .page-title-row > .row {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .page-title-row > .row > .btn-quiet {
+    flex: 0 0 100%;
+    max-width: max-content;
+  }
+
+  .page-title-row > .row > .btn:not(.btn-quiet) {
+    flex: 1 1 0;
+    justify-content: center;
+  }
 }
 
 .tabular {

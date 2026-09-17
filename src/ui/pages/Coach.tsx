@@ -168,7 +168,7 @@ export function Coach() {
               <span className="label">
                 {t(i.label)}
                 {i.note && (
-                  <div className="muted" style={{ fontSize: 11 }}>
+                  <div className="muted" style={{ fontSize: 12 }}>
                     {t(i.note)}
                   </div>
                 )}
@@ -179,7 +179,7 @@ export function Coach() {
                   / {t(i.lowerIsBetter ? 'non oltre' : 'almeno')} {formatHave(i.need, i.unit, t)}
                 </span>
               </span>
-              <span className="muted" style={{ fontSize: 11, width: 56, textAlign: 'right' }}>
+              <span className="muted" style={{ fontSize: 12, width: 56, textAlign: 'right' }}>
                 {t(i.met ? 'ok' : 'da fare')}
               </span>
             </div>
@@ -192,7 +192,7 @@ export function Coach() {
          * corrente, e ogni agenzia ha i suoi. Vero, ma è una spiegazione da
          * manuale: a chi legge basta sapere a chi chiedere.
          */}
-        <p className="muted" style={{ fontSize: 11, marginTop: 14, marginBottom: 0 }}>
+        <p className="muted" style={{ fontSize: 12, marginTop: 14, marginBottom: 0 }}>
           {t('Sono riferimenti, non i requisiti di un corso: quelli chiedili all’istruttore.')}
         </p>
       </CartaApribile>

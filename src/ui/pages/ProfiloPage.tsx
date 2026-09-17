@@ -253,7 +253,7 @@ function LibrettoCard() {
           onBlur={salva}
         />
       </label>
-      <p className="muted" style={{ fontSize: 11, margin: '0 0 10px' }}>
+      <p className="muted" style={{ fontSize: 12, margin: '0 0 10px' }}>
         {dives.length === 0
           ? frase(t, 'Non c’è ancora niente in archivio: la prima sarà la #{0}.', scarto + 1)
           : frase(
@@ -273,20 +273,20 @@ function LibrettoCard() {
         </button>
       )}
       {scelte.length === 0 && !fuoriElenco && (
-        <p className="muted" style={{ fontSize: 11, margin: '0 0 10px' }}>
+        <p className="muted" style={{ fontSize: 12, margin: '0 0 10px' }}>
           {t('La tendina si riempie con i brevetti che registri qui sotto.')}
         </p>
       )}
       {fuoriElenco && (
-        <p className="muted" style={{ fontSize: 11, margin: '0 0 10px' }}>
+        <p className="muted" style={{ fontSize: 12, margin: '0 0 10px' }}>
           {t(
             'Il brevetto scelto è scritto a mano e non è fra quelli registrati. Continua a valere sul libretto; se lo aggiungi qui sotto, resta legato al tuo elenco.',
           )}
         </p>
       )}
-      <p className="muted" style={{ fontSize: 11, margin: '10px 0 0' }}>
+      <p className="muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
         {t(
-          'Servono alle lettere a) e b) del libretto delle immersioni previsto dall’art. 12, comma 8 della legge 70/2026, che ammette espressamente il formato digitale.',
+          'Servono al libretto delle immersioni previsto dalla legge 70/2026, che ammette il formato digitale.',
         )}
       </p>
     </div>

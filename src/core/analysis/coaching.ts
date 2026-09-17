@@ -1824,7 +1824,7 @@ function readinessFor(goal: Goal, agg: Aggregates, storico: Storico, t: Traduci)
         }),
         note: 'Serve un valore noto e stabile: la pianificazione del gas si basa su questo.',
       },
-      criterioMisura(t('Oscillazione a quota tenuta'), agg.avgTrim, BENCHMARK.trimGood, 'm/min', {
+      criterioMisura(t('Oscillazione in quota'), agg.avgTrim, BENCHMARK.trimGood, 'm/min', {
         lowerIsBetter: true,
       }),
       criterioPercentuale(
@@ -1904,7 +1904,7 @@ function readinessFor(goal: Goal, agg: Aggregates, storico: Storico, t: Traduci)
       criterioMisura(t('Consumo di superficie'), agg.avgRmv, BENCHMARK.rmvGood, 'L/min', {
         lowerIsBetter: true,
       }),
-      criterioMisura(t('Oscillazione a quota tenuta'), agg.avgTrim, BENCHMARK.trimGood, 'm/min', {
+      criterioMisura(t('Oscillazione in quota'), agg.avgTrim, BENCHMARK.trimGood, 'm/min', {
         lowerIsBetter: true,
       }),
       criterioPercentuale(

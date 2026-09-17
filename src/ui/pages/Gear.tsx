@@ -167,7 +167,7 @@ export function Gear() {
                         {/* `EQUIPMENT_LABEL` e `SERVICE_LABEL` sono costanti del
                             cuore dell'applicazione: restano italiane lì e si
                             traducono qui, al disegno. */}
-                        <div className="muted" style={{ fontSize: 11 }}>
+                        <div className="muted" style={{ fontSize: 12 }}>
                           {t(EQUIPMENT_LABEL[a.kind])}
                           {a.sizeL ? ` · ${a.sizeL} L` : ''}
                           {a.workingBar ? ` · ${a.workingBar} bar` : ''}
@@ -198,7 +198,7 @@ export function Gear() {
                           <>
                             {uso.get(a.id)?.dives}
                             {uso.get(a.id)?.divesSinceService !== undefined && (
-                              <div className="muted" style={{ fontSize: 11 }}>
+                              <div className="muted" style={{ fontSize: 12 }}>
                                 {uso.get(a.id)?.divesSinceService} {t('dall’ultima')}
                               </div>
                             )}
@@ -216,7 +216,7 @@ export function Gear() {
                           <>
                             {dateShort(a.lastServiceOn)}
                             {f.monthsSince !== undefined && (
-                              <div style={{ fontSize: 11 }}>
+                              <div style={{ fontSize: 12 }}>
                                 {f.monthsSince === 0
                                   ? t('questo mese')
                                   : `${plural(f.monthsSince, 'mese', 'mesi', t)} ${t('fa')}`}
@@ -233,7 +233,7 @@ export function Gear() {
                           <>
                             {dateShort(f.nextOn)}
                             {f.monthsToNext !== undefined && (
-                              <div style={{ fontSize: 11 }}>
+                              <div style={{ fontSize: 12 }}>
                                 {f.monthsToNext >= 0
                                   ? `${t('fra')} ${plural(f.monthsToNext, 'mese', 'mesi', t)}`
                                   : `${plural(-f.monthsToNext, 'mese', 'mesi', t)} ${t('indietro')}`}
@@ -256,7 +256,7 @@ export function Gear() {
                          * di che cosa.
                          */}
                         <button
-                          style={{ fontSize: 11, padding: '3px 8px' }}
+                          style={{ fontSize: 12, padding: '3px 8px' }}
                           aria-label={`${t('Apri')} ${a.name || t('senza nome')}`}
                         >
                           {t('Apri')}
@@ -375,7 +375,7 @@ export function Gear() {
                       {r.medianTrimMpm !== undefined ? (
                         <>
                           {r.medianTrimMpm.toFixed(1)} m/min
-                          <div className="muted" style={{ fontSize: 11 }}>
+                          <div className="muted" style={{ fontSize: 12 }}>
                             {t(
                               r.medianTrimMpm <= LIMITS.goodTrimMpm
                                 ? 'quota tenuta bene'
@@ -571,7 +571,7 @@ function SchedaAttrezzo({
            * d'acciaio a casa. Sull'immersione il valore proposto resta
            * modificabile, ed è per questo che qui si dice «proposti».
            */}
-          <p className="muted" style={{ fontSize: 11, margin: '0 0 12px' }}>
+          <p className="muted" style={{ fontSize: 12, margin: '0 0 12px' }}>
             {pesoDelGav(d) !== undefined
               ? `${t('Questo GAV aggiunge')} ${pesoDelGav(d)} kg. ${t('Vengono proposti come piastra sulle immersioni in cui lo scegli, e li puoi cambiare lì.')}`
               : t('La somma viene proposta come piastra sulle immersioni fatte con questo GAV.')}

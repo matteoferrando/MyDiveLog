@@ -241,7 +241,7 @@ export function RiquadroFirma({
           </button>
         )}
       </div>
-      <p className="muted" style={{ fontSize: 11, margin: 0 }}>
+      <p className="muted" style={{ fontSize: 12, margin: 0 }}>
         {t(
           'È il segno di una persona raccolto su questo dispositivo, con nome e data accanto: l’equivalente della penna sul foglio. Non è una firma elettronica qualificata.',
         )}

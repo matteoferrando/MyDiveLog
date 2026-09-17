@@ -192,7 +192,7 @@ export function ScegliComputer({
                    * serviva sceglierlo gli dice dove cercare.
                    */}
                   {automatica && (
-                    <span className="muted" style={{ fontSize: 11 }}>
+                    <span className="muted" style={{ fontSize: 12 }}>
                       {t('di solito riconosciuto da solo')}
                     </span>
                   )}
@@ -259,7 +259,7 @@ function ElencoModelli({
                * sta mettendo il piede.
                */}
               {esito.tipo !== 'si-scarica' && (
-                <span className="muted" style={{ fontSize: 11 }}>
+                <span className="muted" style={{ fontSize: 12 }}>
                   {esito.tipo === 'mai-via-radio'
                     ? t('solo importando il file')
                     : esito.tipo === 'si-scarica-ldc'

@@ -202,7 +202,7 @@ export const INGLESE: Record<string, string> = {
   'Densità impostata': 'Density set',
   Dettagli: 'Details',
   'di piastra': 'of backplate',
-  'di quota tenuta': 'of held depth',
+  'in quota': 'holding',
   'di ridiscese': 'of yo-yo',
   'di zavorra': 'of lead',
   discesa: 'descent',
@@ -259,7 +259,7 @@ export const INGLESE: Record<string, string> = {
   'ora locale del sito': 'local time at the site',
   Origine: 'Source',
   'Orologio dell’ossigeno (CNS)': 'Oxygen clock (CNS)',
-  'Oscillazione a quota tenuta': 'Depth wobble while holding',
+  'Oscillazione in quota': 'Depth wobble',
   'Passo di campionamento': 'Sampling interval',
   'positiva in risalita': 'positive going up',
   'PDF salvato': 'PDF saved',
@@ -320,9 +320,9 @@ export const INGLESE: Record<string, string> = {
   // chiavi — senza la parte da tastiera — sono state tolte perché nessuno le
   // interroga più, e una voce che nessuno interroga diventa una traduzione da
   // aggiornare per sempre.
-  'Clicca un punto per aprire l’immersione. Da tastiera: Tab sul grafico, frecce per scegliere, Invio per aprire.':
+  'Clicca un punto per aprire l’immersione — o Tab, frecce, Invio.':
     'Click a point to open the dive. By keyboard: Tab to the chart, arrows to pick, Enter to open.',
-  'Clicca una bolla per aprire un’immersione fatta lì. Da tastiera: Tab sulla mappa, frecce per scegliere il sito, Invio per aprire.':
+  'Clicca una bolla per aprire un’immersione fatta lì — o Tab, frecce, Invio.':
     'Click a bubble to open a dive done there. By keyboard: Tab to the map, arrows to pick the site, Enter to open.',
   'Disposizione dei siti di immersione': 'How the dive sites sit',
   'Frecce per scegliere un sito, Inizio e Fine agli estremi, Invio per aprire un’immersione fatta lì.':
@@ -402,7 +402,7 @@ export const INGLESE: Record<string, string> = {
     'No row here states a cause: in rough seas the site, depth and temperature change too.',
   'nessuna immersione verificabile': 'no dive can be checked',
   'non indicata': 'not given',
-  'Non è una mappa: sotto non c’è cartografia. È la disposizione dei siti, con la bolla grande quanto le immersioni fatte lì.':
+  'Non una mappa: la disposizione dei siti, con la bolla grande quanto le immersioni fatte lì.':
     'Not a map: there is no cartography under it. It is how the sites sit relative to each other, bubble size by dives there.',
   'Ogni punto è un’immersione: cliccala per aprirla, o scegli il punto con le frecce e premi Invio. La retta è la tendenza, r è la correlazione — 0 nessuna, ±1 perfetta. È una correlazione, non una causa.':
     'Each point is a dive: click to open it, or pick it with the arrow keys and press Enter. The line is the trend, r is the correlation — 0 none, ±1 perfect. A correlation, not a cause.',
@@ -2405,11 +2405,9 @@ export const INGLESE: Record<string, string> = {
     'There are {0} dives on file, numbered #{1} to #{2}.',
   'Se hai un logbook di carta alle spalle, scrivi qui quante immersioni contiene: il numero riparte da lì su tutto — elenco, schede, PDF e libretto.':
     'If you have a paper logbook behind you, put its dive count here: numbering picks up from there everywhere — list, details, PDFs and the printed logbook.',
-  'Servono alle lettere a) e b) del libretto delle immersioni previsto dall’art. 12, comma 8 della legge 70/2026, che ammette espressamente il formato digitale.':
-    'They fill letters a) and b) of the dive logbook required by art. 12(8) of Italian law 70/2026, which expressly allows the digital form.',
+  'Servono al libretto delle immersioni previsto dalla legge 70/2026, che ammette il formato digitale.':
+    'They fill the dive logbook required by Italian law 70/2026, which allows the digital form.',
   'Firma della guida': 'Guide’s signature',
-  'È la lettera o) del libretto: l’unica delle tredici che non è un dato ma un gesto.':
-    'It is letter o) of the logbook: the only one of the thirteen that is a gesture, not a datum.',
   'Fai firmare': 'Get it signed',
   'Rifai la firma': 'Sign again',
   'La firma raccolta per questa immersione': 'The signature collected for this dive',

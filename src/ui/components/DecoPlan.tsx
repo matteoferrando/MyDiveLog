@@ -580,7 +580,7 @@ export function DecoPlanner({
                         <td className="num tabular">{g.runtimeMin.toFixed(0)}</td>
                         <td className="num tabular">{g.decoMin}</td>
                         <td className="num tabular">{g.gf99EndPct.toFixed(0)}%</td>
-                        <td className="tabular" style={{ fontSize: 11 }}>
+                        <td className="tabular" style={{ fontSize: 12 }}>
                           {g.stops.map((x) => `${x.depthM}/${x.minutes}`).join(' · ') || t('in curva')}
                         </td>
                       </tr>
@@ -630,7 +630,7 @@ export function DecoPlanner({
                       value={gas.role}
                       aria-label={`${t('Ruolo di')} ${gasLabel(gas)}`}
                       onChange={(e) => setGas(i, { role: e.target.value as PlanGas['role'] })}
-                      style={{ fontSize: 11, marginTop: 2 }}
+                      style={{ fontSize: 12, marginTop: 2 }}
                     >
                       <option value="bottom">{t('fondo')}</option>
                       <option value="travel">{t('transito')}</option>
@@ -663,7 +663,7 @@ export function DecoPlanner({
                       max={150}
                       onChange={(v) => setGas(i, { switchDepthM: v })}
                     />
-                    <div className="muted" style={{ fontSize: 10 }}>
+                    <div className="muted" style={{ fontSize: 12 }}>
                       m
                     </div>
                   </td>
@@ -688,7 +688,7 @@ export function DecoPlanner({
                   <td style={{ textAlign: 'right' }}>
                     {gases.length > 1 && (
                       <button
-                        style={{ fontSize: 11, padding: '3px 8px' }}
+                        style={{ fontSize: 12, padding: '3px 8px' }}
                         onClick={() => setGases((p) => p.filter((_, k) => k !== i))}
                       >
                         {t('Togli')}
@@ -1190,7 +1190,7 @@ export function DecoPlanner({
               {t('Scarica')}
             </button>
             {salvataggio && (
-              <span className="muted" style={{ fontSize: 11, alignSelf: 'center' }}>
+              <span className="muted" style={{ fontSize: 12, alignSelf: 'center' }}>
                 {salvataggio}
               </span>
             )}
@@ -1489,7 +1489,7 @@ export function DecoPlanner({
                 </td>
                 <td className="num tabular">{buhlmann.firstStopM ?? '—'}</td>
                 <td className="num tabular">{buhlmann.decoMin}</td>
-                <td className="tabular" style={{ fontSize: 11 }}>
+                <td className="tabular" style={{ fontSize: 12 }}>
                   {buhlmann.stops.map((x) => `${x.depthM}/${x.minutes}`).join(' · ') || t('in curva')}
                 </td>
               </tr>
@@ -1499,7 +1499,7 @@ export function DecoPlanner({
                 </td>
                 <td className="num tabular">{vpm.firstStopM ?? '—'}</td>
                 <td className="num tabular">{vpm.decoMin}</td>
-                <td className="tabular" style={{ fontSize: 11 }}>
+                <td className="tabular" style={{ fontSize: 12 }}>
                   {vpm.stops.map((x) => `${x.depthM}/${x.minutes}`).join(' · ') || t('in curva')}
                 </td>
               </tr>
@@ -1557,13 +1557,13 @@ export function DecoPlanner({
                     <td style={{ textAlign: 'right' }}>
                       <span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
                         <button
-                          style={{ fontSize: 11, padding: '3px 8px' }}
+                          style={{ fontSize: 12, padding: '3px 8px' }}
                           onClick={() => onLoadPlan?.(p.state)}
                         >
                           {t('Carica')}
                         </button>
                         <button
-                          style={{ fontSize: 11, padding: '3px 8px', color: 'var(--critical)' }}
+                          style={{ fontSize: 12, padding: '3px 8px', color: 'var(--critical)' }}
                           onClick={() => void onDeletePlan?.(p.name)}
                         >
                           {t('Elimina')}
@@ -1605,7 +1605,7 @@ export function DecoPlanner({
                         nome di un gas («Perso Ossigeno») restano in italiano, e va
                         bene così — il nome del gas non si traduce comunque. */}
                     <div style={{ fontWeight: 550 }}>{t(c.label)}</div>
-                    <div className="muted" style={{ fontSize: 11 }}>
+                    <div className="muted" style={{ fontSize: 12 }}>
                       {t(c.description)}
                     </div>
                   </td>

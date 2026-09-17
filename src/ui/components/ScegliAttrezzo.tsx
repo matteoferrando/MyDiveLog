@@ -104,12 +104,12 @@ export function ScegliAttrezzo({
         </button>
       )}
       {svuota && (
-        <span className="muted" style={{ fontSize: 11 }}>
+        <span className="muted" style={{ fontSize: 12 }}>
           {t('verrà tolto da tutte le immersioni scelte')}
         </span>
       )}
       {combacia && (
-        <span className="muted" style={{ fontSize: 11 }}>
+        <span className="muted" style={{ fontSize: 12 }}>
           {t('in inventario')}
           {combacia.serial ? ` · ${t('matricola')} ${combacia.serial}` : ''}
         </span>
