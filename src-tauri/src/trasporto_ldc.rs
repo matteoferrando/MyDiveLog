@@ -4656,7 +4656,7 @@ mod prove {
         manda.send(intero[96..].to_vec()).unwrap();
 
         let letto = flusso.leggi(260, Duration::from_millis(50)).unwrap();
-        assert_eq!(letto.len(), 96, "è il «Invalid packet length (96)» del 17 settembre");
+        assert_eq!(letto.len(), 96, "è il «Invalid packet length (96)» del 16 settembre");
         assert_eq!(letto[4], 96, "e la lunghezza che il pacchetto dichiarava era 96");
     }
 
@@ -4668,7 +4668,7 @@ mod prove {
          * Chi riceve legge la lunghezza del PRIMO pacchetto, prende quei byte e
          * butta il resto. Il secondo sparisce in silenzio, e il sintomo compare
          * molto dopo come dati che non si tengono insieme — nel diario del
-         * 17 settembre, dodici avvisi «Profiles are not continuous» di fila.
+         * 16 settembre, dodici avvisi «Profiles are not continuous» di fila.
          */
         let primo = pacchetto_pelagic(0x0d, &[1, 2, 3]);
         let secondo = pacchetto_pelagic(0x0d, &[4, 5]);
@@ -4746,7 +4746,7 @@ mod prove {
         /*
          * ► IL NUMERO CHE DICEVA ZERO DAVANTI A UN PACCHETTO SPEZZATO. ◄
          *
-         * Il diario del 17 settembre riporta «pacchetti lasciati a metà: 0»
+         * Il diario del 16 settembre riporta «pacchetti lasciati a metà: 0»
          * mentre un pacchetto era stato lasciato a metà per davvero. Non era una
          * bugia del contatore: era che con «una notifica per lettura» il codice
          * che lo incrementa **non gira affatto**.
@@ -4770,7 +4770,7 @@ mod prove {
         /*
          * ► LA GUARDIA DELLA GUARDIA. ◄ Tutto il resto poggia su una regola
          * sola: totale = `pacchetto[4] + 5`. Non è dedotta dal sorgente della
-         * libreria, è misurata sui pacchetti veri del diario del 17 settembre —
+         * libreria, è misurata sui pacchetti veri del diario del 16 settembre —
          * quattro scritture e una notifica, tutte con la stessa aritmetica.
          */
         for (byte, atteso) in [

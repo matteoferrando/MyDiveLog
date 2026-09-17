@@ -1,0 +1,21 @@
+The interface looked at instead of imagined, and one more federation among the certifications.
+
+THE FIELDS HAD BEEN WEARING THE FACTORY LOOK FOR THREE WEEKS
+
+Every text field and every dropdown — logbook search, filters, the new dive form, the planner, settings — was drawn by the engine and not by the app: inset grey border, square corners, and on a computer 19 pixels tall next to buttons 36 pixels tall.
+
+Our fault, and datable: in 1.8.23 one style rule was slipped inside another one's selector list, and a comma carried off the declarations for every field. No error anywhere, the stylesheet stayed valid. The fields now have the border, corners and background of the rest of the app, in dark theme too.
+
+THE TARGETS WERE ONLY COMPLIANT ON THE PHONE
+
+Logbook checkboxes measured 13×13 pixels with a mouse, and the date that opens a dive 58×20: below the guideline minimum, in the same app where the phone had been fine for weeks. The date is now 62×28 for everyone, and the checkbox grows without stealing rows from the list.
+
+THE LANGUAGE, IN ONE PLACE ONLY
+
+There were two controls for the same thing, visible together on a computer: the IT/EN pair in the top bar and the "Language" row in Settings. The second one stays — it is where anybody goes to look for it.
+
+FIAS AMONG THE CERTIFICATION AGENCIES
+
+At an instructor's request. 17 certifications, from the ARA line to the technical line, with the figures from the federation's official pages: it is not an alias of FIPSAS, because the two scales do not match — 20 metres against 18 for the first autonomous level, 40 against 42 for deep. And the certification card no longer shows two different depths on the same line.
+
+Every fix has a test, and every test was put to the test by putting the defect back: 2,865 automated checks, plus 149 on the native engine.

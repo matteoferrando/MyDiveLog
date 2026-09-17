@@ -12,7 +12,7 @@
  * che si contraddicevano per tre settimane — e quella sbagliata stava nella
  * pagina che si legge per prima.
  *
- * **Il secondo, il 17 settembre.** Cinque file dicevano che «nessun computer
+ * **Il secondo, il 16 settembre.** Cinque file dicevano che «nessun computer
  * subacqueo di terzi è mai stato collegato a questo codice». Era vero, ed era
  * scritto apposta perché lo era; ha smesso di esserlo quando una persona ha
  * scaricato il suo Mares Quad Ci.
@@ -109,7 +109,7 @@ describe('«nessun apparecchio di terzi è mai stato collegato» — deve portar
    * Questo fatto non sta in nessun file: sta nel mondo, e lo cambia una persona
    * che accende un computer. Non si può derivare, quindi si pretende l'unica
    * cosa che rende un'affermazione del genere onesta nel tempo: **che sia
-   * datata**. «Fino al 17 settembre qui c'era scritto…» invecchia bene; «nessun
+   * datata**. «Fino al 16 settembre qui c'era scritto…» invecchia bene; «nessun
    * apparecchio è mai stato collegato» no.
    *
    * La prova si accende solo quando qualcuno HA collegato qualcosa: finché

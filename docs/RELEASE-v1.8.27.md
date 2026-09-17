@@ -42,7 +42,7 @@ vedeva solo molto dopo, come dati che non si tengono insieme.
 Quando uno scarico fallisce, il codice di accoppiamento conservato si dimentica:
 se quella chiave non valesse più, terrebbe quel computer bloccato per sempre.
 
-Ma nel diario del 17 settembre il secondo tentativo non era nemmeno arrivato a
+Ma nel diario del 16 settembre il secondo tentativo non era nemmeno arrivato a
 collegarsi — tre volte «tempo scaduto» sulla radio — e la chiave, che si usa
 *dopo* il collegamento, è stata buttata lo stesso. Sei cifre da ridigitare in
 cambio di niente.

@@ -1,4 +1,4 @@
-# 1.8.27 — la segnalazione del 17 settembre, letta riga per riga
+# 1.8.27 — la segnalazione del 16 settembre, letta riga per riga
 
 *Un messaggio, due notizie opposte, e tre difetti nostri.*
 

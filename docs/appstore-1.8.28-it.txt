@@ -1,0 +1,21 @@
+L'interfaccia guardata invece che immaginata, e una federazione in più fra i brevetti.
+
+I CAMPI AVEVANO IL VESTITO DI FABBRICA, E DA TRE SETTIMANE
+
+Ogni casella di testo e ogni menu a tendina — la ricerca del logbook, i filtri, il modulo della nuova immersione, il pianificatore, le impostazioni — era disegnato dal motore e non dall'applicazione: bordo grigio incassato, angoli vivi, e sul computer alto 19 pixel accanto a pulsanti alti 36.
+
+Colpa nostra, e databile: nella 1.8.23 una regola di stile è finita dentro l'elenco di un'altra, e una virgola si è portata via le dichiarazioni di tutti i campi. Nessun errore da nessuna parte, il foglio restava valido. Adesso i campi hanno bordo, angoli e fondo del resto dell'applicazione, anche in tema scuro.
+
+I BERSAGLI ERANO A NORMA SOLO SUL TELEFONO
+
+Le caselle di spunta del logbook misuravano 13×13 pixel con il mouse, e la data che apre l'immersione 58×20: sotto il minimo delle linee guida, nella stessa applicazione dove sul telefono erano a posto da settimane. Adesso la data è 62×28 per tutti e la casella cresce, senza rubare righe all'elenco.
+
+LA LINGUA IN UN POSTO SOLO
+
+C'erano due comandi per la stessa cosa, visibili insieme sul computer: la coppia IT/EN nella barra e la riga «Lingua» in Impostazioni. Resta la seconda, che è dove chiunque va a cercarla.
+
+FIAS FRA LE DIDATTICHE DEI BREVETTI
+
+Su richiesta di un istruttore. 17 brevetti, dalla linea ARA alla linea tecnica, con i numeri delle pagine ufficiali della federazione: non è un alias di FIPSAS, perché le due scale non coincidono — 20 metri contro 18 per il primo livello, 40 contro 42 per il profondo. E la scheda del brevetto non mostra più due profondità diverse sulla stessa riga.
+
+Ogni correzione ha una prova, e ogni prova è stata rimessa alla prova rimettendo il difetto: 2.865 controlli automatici, più 149 sul motore nativo.

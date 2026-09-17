@@ -1,0 +1,9 @@
+The interface looked at instead of imagined, and one more federation among the certifications.
+
+• Text fields and dropdowns had been wearing the engine's factory look for three weeks — our fault, since 1.8.23. They now look like the rest of the app, in dark theme too.
+
+• Logbook checkboxes and dates: bigger targets with a mouse as well.
+
+• The language is changed in one place only, in Settings.
+
+• FIAS among the agencies: 17 certifications, with the federation's official figures.

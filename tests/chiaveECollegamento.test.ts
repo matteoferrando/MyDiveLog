@@ -29,7 +29,7 @@ import { readFileSync } from 'node:fs';
 import { COLLEGAMENTO_NON_APERTO, ilCollegamentoNonSiEAperto } from '../src/core/ble/causaGuasto';
 
 describe('quando il collegamento non si apre, la chiave non c’entra', () => {
-  it('riconosce il guasto del 17 settembre', () => {
+  it('riconosce il guasto del 16 settembre', () => {
     const vero =
       'collegamento non riuscito dopo 3 tentativi: collegamento non riuscito: Timeout during execution of Connect';
     expect(ilCollegamentoNonSiEAperto(new Error(vero))).toBe(true);
