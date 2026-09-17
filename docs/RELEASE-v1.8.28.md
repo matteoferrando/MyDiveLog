@@ -74,3 +74,16 @@ più.
 Ogni correzione ha una prova, e ogni prova è stata rimessa alla prova rimettendo
 il difetto: **2 865 controlli automatici in 179 file**, più **149** sul motore
 nativo.
+
+### Impronte SHA-256
+
+Calcolate sui file allegati a questa release, non su una compilazione
+precedente: due compilazioni non danno lo stesso byte.
+
+| Pacchetto | SHA-256 | byte |
+|---|---|---|
+| `MyDiveLog-macOS-arm64.dmg` | `4ccef33701196c75bbb396a9bf70d6265ff6ecc2e8c4aecebb3b260eba945e1b` | 4.531.560 |
+| `MyDiveLog-Windows-setup.exe` | `81b4285ae7473356dca3fa66abe0f37004fadcb0509ce53a686d01e6ccd402e6` | 3.263.877 |
+| `MyDiveLog-Windows-portatile.exe` | `106b3d9263a0c7b5fa0c133907b800700f96afe63418d358ae5498e962efd5e4` | 7.523.840 |
+| `MyDiveLog-Android-arm64.apk` | `450e84fd1ff514b3f33aacccd49a86274299d7a929c9b7762d18f2ecece62fc8` | 11.133.366 |
+| `MyDiveLog-Linux-amd64.deb` | `3427db8bd787d8dfeed91aabb1d8846c7b862a10bfabdd100e71cf3e1775dddc` | 3.827.384 |
