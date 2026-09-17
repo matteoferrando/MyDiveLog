@@ -1,8 +1,33 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **16 settembre 2026, notte** — **2 865 prove in 179 file** più
+Aggiornato: **17 settembre 2026** — **2 865 prove in 179 file** più
 **149 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**.
+
+> ## ► LA 1.8.28 È PUBBLICATA. ◄
+>
+> Release **`v1.8.28`**, **nove allegati contati**, `.dmg` notarizzato e pinzato
+> (`status: Accepted`, *«The staple and validate action worked!»*, `spctl`:
+> *Notarized Developer ID*). `latest.json` pubblicato dice 1.8.28 e porta
+> **darwin-aarch64 e windows-x86_64**, tutti e due firmati. Dal workflow:
+> *«firmati: 1 apk, 1 aab»* e *«nessuna traccia dell'aggiornatore nel binario»*
+> per Linux.
+>
+> I quattro pulsanti del sito restituiscono i byte esatti — dmg **4 531 560**,
+> setup **3 263 877**, apk **11 133 366**, deb **3 827 384**.
+>
+> **Il sito è cambiato per la prima volta da settimane**: le quattordici
+> fotografie della vetrina mostravano campi col bordo di fabbrica e la coppia
+> IT/EN nella barra, cioè un'applicazione che non esiste più. Rigenerate dalla
+> build di oggi e pubblicate; `sito:online` chiude con *«il sito pubblicato è
+> quello sul disco»*.
+>
+> **Il rubinetto Homebrew è alla 1.8.28** — e qui una correzione a me stesso:
+> ieri sera avevo scritto che era fermo alla 1.8.18. Era ferma la **copia
+> locale**, vecchia di sei commit; il tap pubblicato stava alla 1.8.27. *Misurare
+> il disco e chiamarlo «il mondo» è lo stesso errore delle date.*
+>
+> Nei negozi va questa, e tutto sta in `../consegna/1.8.28/`.
 
 > ## ► LA FIAS ERA LA FEDERAZIONE ITALIANA CHE MANCAVA. ◄
 >
