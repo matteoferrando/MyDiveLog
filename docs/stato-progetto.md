@@ -105,8 +105,26 @@ a **UTC+14 e UTC−11**.
 > `vestitoDeiCampi`, `sorgentiDiTesto` (che ha trovato da sola gli altri due
 > file con i byte di controllo), `nomiDeiPulsanti`, `cssSenzaPadrone`.
 >
-> Restano da guardare con l'applicazione vera aperta sul Mac: il trascinamento
-> della finestra con la barra del titolo trasparente, e il menu nativo.
+> **Il menu nativo: risolto misurando il codice che compila, il 17 settembre.**
+> Restava il dubbio che, non dichiarando nessun menu, l'applicazione si
+> ritrovasse senza la voce **Modifica** — e quindi senza ⌘C e ⌘V dentro i campi
+> di testo, che è il modo peggiore di sembrare rotti. La risposta sta in
+> `tauri 2.11.5`, la versione che finisce davvero nel pacchetto:
+> `enable_macos_default_menu` vale `true` di suo, questo progetto non lo
+> disattiva da nessuna parte, e in `app.rs` c'è
+> `if self.menu.is_none() && self.enable_macos_default_menu { Menu::default(…) }`.
+> Quel menu di riserva contiene un sottomenu **Edit** con `undo`, `redo`, `cut`,
+> `copy`, `paste`, `select_all`. Nessuna riga da scrivere.
+>
+> *Non si è potuto leggere il menu dell'applicazione in esecuzione* — `osascript`
+> su questo Mac non ha il permesso di assistenza — quindi si è letta la sorgente
+> del crate invece della barra: è la stessa cosa che esegue, ed è comunque una
+> misura e non una deduzione.
+>
+> **Resta il trascinamento della finestra.** Con la barra del titolo trasparente
+> non c'è nessuna zona dichiarata `data-tauri-drag-region`: a occhio la finestra
+> si sposta, ma l'unica prova è una mano che la trascina per un punto vuoto
+> della barra.
 
 > ## ► VENTUNO VOLTE «17 SETTEMBRE», E OGGI È IL 16. ◄
 >
