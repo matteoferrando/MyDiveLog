@@ -895,7 +895,7 @@ function DisciplineRow({
   return (
     <tr>
       <td>
-        <div className="row" style={{ gap: 7 }}>
+        <div className="row" style={{ gap: 8 }}>
           <span
             className={`dot ${verdict === undefined ? '' : verdict ? 'dot-good' : 'dot-warning'}`}
             style={verdict === undefined ? { background: 'var(--axis)' } : undefined}
@@ -916,7 +916,7 @@ function DisciplineRow({
             </span>
           )}
         </div>
-        <div className="muted" style={{ fontSize: 12, marginLeft: 15 }}>
+        <div className="muted" style={{ fontSize: 12, marginLeft: 16 }}>
           {measurable ? `${t('su')} ${basis}` : `${t('nessuna immersione verificabile')}: ${basis}`}
         </div>
       </td>
@@ -1048,7 +1048,16 @@ function Correlations({
                 height={210}
               />
               <p className="muted" style={{ fontSize: 12, margin: '4px 0 0' }}>
-                {t(s.hint)} {`${t('su')} ${imm(s.points.length, t)}.`}
+                {/*
+                  ► «assetto. su 30 immersioni» — una frase che ricomincia in
+                  minuscolo dopo il punto. ◄ La spiegazione porta il punto perché
+                  altrove sta da sola; qui le si attaccava il denominatore, e il
+                  risultato era una riga che sembra tagliata male. Il punto si
+                  toglie al momento di unire, e il denominatore arriva col punto
+                  centrato — che è come l'applicazione lega un dato alla sua base
+                  in ogni altro punto: «17.2 L/min · su 30 immersioni».
+                */}
+                {t(s.hint).replace(/\.$/, '')} · {t('su')} {imm(s.points.length, t)}
               </p>
             </div>
           );
@@ -1798,7 +1807,7 @@ function MedianTile({
         {extra ? ` · ${extra}` : ''}
       </div>
       {trend && trend.direction !== 'flat' && (
-        <div className="row" style={{ gap: 5, marginTop: 4, fontSize: 12 }}>
+        <div className="row" style={{ gap: 8, marginTop: 4, fontSize: 12 }}>
           <span className={`dot ${better ? 'dot-good' : 'dot-warning'}`} />
           <span className="muted">
             {trend.firstHalf.toFixed(digits)} → {trend.secondHalf.toFixed(digits)} {t('nel periodo')}
@@ -2030,7 +2039,14 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
                 {(active || site.dives.length === maxDives) && (
                   <text
                     x={px(site.lon)}
-                    y={py(site.lat) - r - 5}
+                    /*
+                      `Math.max` e non il valore nudo: una bolla vicina al bordo
+                      superiore metteva la propria etichetta a `y` negativo, e il
+                      testo veniva tagliato dal riquadro — misurato, «Moregallo
+                      (8)» usciva di 10 px sopra. Undici è il corpo del carattere:
+                      sotto quella soglia esce il tratto alto delle maiuscole.
+                    */
+                    y={Math.max(11, py(site.lat) - r - 5)}
                     textAnchor="middle"
                     fontSize={11}
                     fontWeight={active ? 700 : 550}

@@ -60,7 +60,7 @@ export function PeriodPicker() {
             {t(scope.period.description)}
           </p>
         </div>
-        <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
+        <div className="scelta-periodo">
           {PERIODS.map((p) => (
             <button
               key={p.id}

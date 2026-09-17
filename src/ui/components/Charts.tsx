@@ -1318,7 +1318,17 @@ export function TimeSeriesChart({
               opacity={0.5}
             />
             {referenceLabel && (
-              <text x={width - pad.right + 4} y={py(reference) + 3} fontSize={10} fill="var(--text-muted)">
+              /*
+                DENTRO IL RIQUADRO, E A SINISTRA COME NELL'ALTRO GRAFICO.
+                Stava nel margine destro — `width - pad.right + 4` — contando su
+                uno spazio che non c'è: misurato a tre larghezze diverse, la
+                parola «obiettivo» usciva di **4 px** dal riquadro, e un `<text>`
+                fuori dal viewBox viene tagliato senza puntini e senza che nulla
+                lo segnali. Sopra la linea e a sinistra è anche la posizione che
+                usa già `MiniChart`: due grafici che dicono la stessa cosa nello
+                stesso modo.
+              */
+              <text className="axis-label" x={pad.left + 2} y={py(reference) - 4} textAnchor="start">
                 {referenceLabel}
               </text>
             )}
@@ -1990,7 +2000,10 @@ export function CurveChart({
             stroke="var(--axis)"
             strokeWidth={1}
           />
-          <text className="axis-label" x={width - pad.right} y={height - 2} textAnchor="end">
+          {/* `height - 4` e non `- 2`: a due pixel dal fondo la coda delle
+              lettere con discendente usciva dal riquadro — misurato, «L/min» e
+              «m» tagliati di un pixel sulla scheda Gas. */}
+          <text className="axis-label" x={width - pad.right} y={height - 4} textAnchor="end">
             {xLabel}
           </text>
         </g>

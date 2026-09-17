@@ -41,7 +41,7 @@ import {
 } from '../../core/analysis/deco';
 import { DEFAULT_VPM, MAX_CRITICAL_VOLUME_ITERATIONS, planVpm, type VpmStop } from '../../core/analysis/vpm';
 import type { Dive } from '../../core/model';
-import { dateShort } from '../format';
+import { dateShort, litri } from '../format';
 import { OTU_DAILY_TDI } from '../../core/analysis/oxygen';
 import type { GasMix, Salinity } from '../../core/model';
 import { withFraction, cnsMostrato } from '../../core/units';
@@ -688,7 +688,7 @@ export function DecoPlanner({
                   <td style={{ textAlign: 'right' }}>
                     {gases.length > 1 && (
                       <button
-                        style={{ fontSize: 12, padding: '3px 8px' }}
+                        className="pastiglia"
                         onClick={() => setGases((p) => p.filter((_, k) => k !== i))}
                       >
                         {t('Togli')}
@@ -1270,7 +1270,7 @@ export function DecoPlanner({
                   .map((u) => (
                     <tr key={u.gasIndex}>
                       <td>{gasLabel(gases[u.gasIndex])}</td>
-                      <td className="num tabular">{u.litres}</td>
+                      <td className="num tabular">{litri(u.litres)}</td>
                       <td
                         className="num tabular"
                         style={{ color: u.insufficient ? 'var(--critical)' : undefined }}
@@ -1428,14 +1428,14 @@ export function DecoPlanner({
                           className="tabular"
                           style={{ color: u.insufficient ? 'var(--critical)' : undefined }}
                         >
-                          {u.bar ?? u.litres}{' '}
+                          {u.bar ?? litri(u.litres)}{' '}
                           <small style={{ fontSize: 14 }}>{u.bar !== undefined ? 'bar' : 'L'}</small>
                         </span>
                       }
                       note={
                         u.startBar !== undefined
                           ? `${u.startBar} ${t('bar a bordo')}`
-                          : `${u.litres} ${t('litri')}`
+                          : `${litri(u.litres)} ${t('litri')}`
                       }
                     />
                   ))}
@@ -1556,14 +1556,12 @@ export function DecoPlanner({
                     <td className="num tabular muted">{dateShort(p.savedAt)}</td>
                     <td style={{ textAlign: 'right' }}>
                       <span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
-                        <button
-                          style={{ fontSize: 12, padding: '3px 8px' }}
-                          onClick={() => onLoadPlan?.(p.state)}
-                        >
+                        <button className="pastiglia" onClick={() => onLoadPlan?.(p.state)}>
                           {t('Carica')}
                         </button>
                         <button
-                          style={{ fontSize: 12, padding: '3px 8px', color: 'var(--critical)' }}
+                          className="pastiglia"
+                          style={{ color: 'var(--critical)' }}
                           onClick={() => void onDeletePlan?.(p.name)}
                         >
                           {t('Elimina')}

@@ -269,11 +269,22 @@ export function Logbook({ onOpen }: { onOpen: (id: string) => void }) {
           azione={{ vista: 'import', etichetta: 'Vai a Importa' }}
           secondaria={{ etichetta: 'Scrivila a mano', onClick: () => setScriviAMano(true) }}
         >
+          {/*
+           * ► DUE FRASI DIVENTATE UNA, e il componente lo diceva già. ◄
+           *
+           * In testa a `Vuoto.tsx` c'è scritto: «Il testo è corto di proposito.
+           * Una pagina vuota non è il posto per spiegare come funziona
+           * l'applicazione: è il posto per dire cosa fare adesso.» Qui sotto
+           * c'erano 230 caratteri su quattro righe centrate che spiegavano tre
+           * cose — importa, puoi caricarne più di uno, i doppioni si uniscono,
+           * e se non hai un file scrivila a mano — mentre i due pulsanti qui
+           * accanto dicono già le due strade.
+           *
+           * *Una regola scritta in un file e disattesa dal file accanto non è
+           * una regola: è un'intenzione.*
+           */}
           {t(
-            'Importa un file dal tuo computer subacqueo per iniziare. Puoi caricarne più di uno: le immersioni doppie vengono unite.',
-          )}{' '}
-          {t(
-            "Se hai un libretto di carta o un computer che non si collega, l'immersione la scrivi tu: data, durata, profondità, e il resto quando vuoi.",
+            'Importa un file dal tuo computer subacqueo — o scrivila a mano, se arrivi da un libretto di carta.',
           )}
         </Vuoto>
         {/*
@@ -749,11 +760,7 @@ function NextDive({ dives }: { dives: Dive[] }) {
            * regola non li aveva raggiunti. *Una regola scritta in un solo
            * componente non è una regola del progetto.*
            */}
-          <button
-            style={{ fontSize: 12, padding: '3px 8px' }}
-            aria-expanded={false}
-            onClick={() => setOpen(true)}
-          >
+          <button className="pastiglia" aria-expanded={false} onClick={() => setOpen(true)}>
             {t('Apri')}
           </button>
         </div>
@@ -775,11 +782,7 @@ function NextDive({ dives }: { dives: Dive[] }) {
             {t('Quello che scade, dal più urgente.')}
           </p>
         </div>
-        <button
-          style={{ fontSize: 12, padding: '3px 8px' }}
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-        >
+        <button className="pastiglia" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
           {open ? t('Riduci') : t('Apri tutto')}
         </button>
       </div>

@@ -178,7 +178,7 @@ export function Brevetti() {
                          * di che cosa.
                          */}
                         <button
-                          style={{ fontSize: 12, padding: '3px 8px' }}
+                          className="pastiglia"
                           aria-label={`${t('Apri')} ${c.name || t('senza nome')}`}
                         >
                           {t('Apri')}

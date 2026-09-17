@@ -280,18 +280,45 @@ describe('bersagli e ritagli dello schermo', () => {
    * già state violate: l'ordine delle regole (quattro volte) e le variabili
    * della safe area (esistevano solo per due lati su quattro).
    */
-  it('le caselle piccole del pianificatore valgono solo dove c’è un mouse', () => {
+  it('nessuna regola rimpicciolisce una casella sotto la misura dell’applicazione', () => {
     /*
-     * `.planner-check input { width: 16px }` stava DOPO il blocco
-     * `@media (pointer: coarse)` che le porta a 24×24, con la stessa
-     * specificità: vinceva, e ogni casella dell'app tornava a 16 px proprio sul
-     * telefono. Ora la regola è dentro una condizione esplicita, che è
-     * verificabile invece che dipendere dalla posizione nel file.
+     * ► QUESTA PROVA È CAMBIATA IL 17 SETTEMBRE, e il perché vale più di quello
+     * che controlla. ◄
+     *
+     * Prima guardava che `.planner-check input { width: 16px }` stesse dentro
+     * `@media (pointer: fine)`: una regola nata quando le caselle di fabbrica
+     * erano 13 px, per impedire che quelle del pianificatore salissero a 24
+     * anche col mouse. Il 16 settembre la misura di base è passata a **18 per
+     * tutti**, e da quel momento l'eccezione ha smesso di proteggere e ha
+     * cominciato a togliere: tre caselle del pianificatore misuravano 16×16
+     * dove tutte le altre erano 18. La prova era verde, perché controllava che
+     * la regola fosse al posto giusto — non che facesse ancora la cosa giusta.
+     *
+     * *Una prova che difende la posizione di una regola invece della proprietà
+     * che la regola serviva a ottenere sopravvive alla propria ragione.* Adesso
+     * difende la proprietà: nessuna casella dell'applicazione è più piccola
+     * del minimo che l'applicazione si è data.
      */
-    const i = css.indexOf('.planner-check input {\n    width: 16px');
-    expect(i, 'la regola a 16 px non è più dove ci si aspetta').toBeGreaterThan(-1);
-    const media = css.lastIndexOf('@media', i);
-    expect(css.slice(media, media + 60)).toContain('pointer: fine');
+    const MINIMO = 18;
+    const senzaCommenti = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const piccole: string[] = [];
+    for (const m of senzaCommenti.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const selettore = m[1].trim();
+      if (!/checkbox|radio|-check input/.test(selettore)) continue;
+      for (const w of m[2].matchAll(/(?:width|height):\s*(\d+)px/g)) {
+        if (Number(w[1]) < MINIMO) piccole.push(`${selettore} → ${w[0]}`);
+      }
+    }
+    expect(
+      piccole,
+      `caselle sotto i ${MINIMO} px che l'applicazione si è data: un bersaglio più piccolo del proprio standard è un'eccezione che nessuno sa di avere`,
+    ).toEqual([]);
+
+    // E la misura di base deve esistere davvero, fuori da ogni media query:
+    // una guardia che non trova nessuna regola è verde per sempre.
+    expect(senzaCommenti, 'la misura di base delle caselle non c’è più').toMatch(
+      /input\[type='checkbox'\],\s*\n?\s*input\[type='radio'\]\s*\{[^}]*width:\s*18px/,
+    );
   });
 
   it('la safe area è dichiarata per tutti e quattro i lati', () => {

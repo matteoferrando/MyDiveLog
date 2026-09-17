@@ -53,7 +53,7 @@ import { foglioDelPiano } from '../../core/export/planSheet';
 import { useDiveLog } from '../state';
 import { InputNumerico } from '../components/InputNumerico';
 import { useLingua } from '../lingua';
-import { imm, plural } from '../format';
+import { imm, litri, plural } from '../format';
 
 /**
  * I gradient factor della modalità ricreativa: 40/85.
@@ -185,6 +185,8 @@ export function Planner() {
     return out;
   }, [input]);
 
+  // Il valore esatto: ad arrotondarlo è `litri()` nel punto in cui si disegna
+  // (il perché per esteso sta in `ui/format.ts`).
   const startL = shown.startBar * shown.tankL;
 
   // Ricreativa o tecnica: è la prima decisione, e cambia il significato di tutto
@@ -417,7 +419,7 @@ export function Planner() {
          * sua ragione scritta sotto dice cosa fare — e cosa fare è a un minuto
          * di distanza, una qualsiasi immersione in archivio.
          */}
-        <div className="row" style={{ gap: 6, marginTop: 12, justifyContent: 'flex-end' }}>
+        <div className="card-azioni">
           <button className="btn" disabled={senzaArchivio} onClick={() => void esportaPdfPiano()}>
             {t('Esporta PDF')}
           </button>
@@ -487,7 +489,7 @@ export function Planner() {
                       key={label}
                       onClick={() => set('rmvLpm', v)}
                       aria-pressed={Math.abs(input.rmvLpm - v) < 0.05}
-                      style={{ fontSize: 12, padding: '4px 8px' }}
+                      className="pastiglia"
                     >
                       {t(label)}
                     </button>
@@ -621,16 +623,30 @@ export function Planner() {
                 style={{ width: 74 }}
               />
               <span className="muted" style={{ fontSize: 12 }}>
-                {input.startBar * input.tankL} L {t('di gas')}
+                {/*
+                 * ► ARROTONDATO, perché la virgola mobile si vedeva. ◄
+                 *
+                 * `18.1 * 220` in JavaScript fa **3982.0000000000005**, e quel
+                 * numero finiva a schermo tale e quale: una bombola da 18,1 L a
+                 * 220 bar dichiarava tredici decimali di gas. Non è un errore
+                 * di calcolo — sono i binari della virgola mobile — ma chi
+                 * legge vede un'applicazione rotta, e ha ragione lui: un
+                 * volume di gas si scrive in litri interi.
+                 *
+                 * Trovato guardando una schermata, non da una prova: nessun
+                 * controllo automatico guarda quanti decimali ha un numero
+                 * disegnato.
+                 */}
+                {litri(input.startBar * input.tankL)} L {t('di gas')}
               </span>
             </div>
-            <div className="row" style={{ gap: 5, marginTop: 6, flexWrap: 'wrap' }}>
+            <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
               {TANK_PRESETS.map((bombola) => (
                 <button
                   key={bombola.label}
                   onClick={() => set('tankL', bombola.litres)}
                   aria-pressed={input.tankL === bombola.litres}
-                  style={{ fontSize: 12, padding: '3px 7px' }}
+                  className="pastiglia"
                 >
                   {bombola.label}
                 </button>
@@ -927,8 +943,8 @@ export function Planner() {
                   {plan.deco.requiredBar} <small style={{ fontSize: 13, fontWeight: 500 }}>bar</small>
                 </div>
                 <div className="tile-note">
-                  {plan.deco.minutes.toFixed(0)} {t('min di sosta')} = {plan.deco.litres} L, ×1.5 ={' '}
-                  {plan.deco.requiredL} L. {t('Si passa a')} {mixName(plan.deco.mix)} {t('da')}{' '}
+                  {plan.deco.minutes.toFixed(0)} {t('min di sosta')} = {litri(plan.deco.litres)} L, ×1.5 ={' '}
+                  {litri(plan.deco.requiredL)} L. {t('Si passa a')} {mixName(plan.deco.mix)} {t('da')}{' '}
                   {plan.deco.switchDepthM.toFixed(1)} m.
                 </div>
               </div>
@@ -1070,7 +1086,13 @@ export function Planner() {
           }
           note={
             input.reserveRule === 'rockBottom'
-              ? `${plan.reserveL} L ${t('per riportare')} ${plural(shown.divers, 'persona', 'persone', t)} ${t('in superficie da')} ${shown.depthM} m`
+              ? frase(
+                  t,
+                  '{0} L per {1} da {2} m',
+                  litri(plan.reserveL),
+                  plural(shown.divers, 'persona', 'persone', t),
+                  shown.depthM,
+                )
               : t('scelta da te, indipendente dalla profondità')
           }
         />
@@ -1104,7 +1126,7 @@ export function Planner() {
               {plan.expectedEndBar} <small style={{ fontSize: 14, fontWeight: 500 }}>bar</small>
             </span>
           }
-          note={`${t('se tutto va come previsto')} (${plan.plannedL} L)`}
+          note={`${t('se tutto va come previsto')} (${litri(plan.plannedL)} L)`}
         />
         <StatTile
           label={t('Fondo consentito dal gas')}
@@ -1153,7 +1175,7 @@ export function Planner() {
         sommario={`${shown.startBar} bar × ${shown.tankL} L`}
       >
         <p className="card-sub">
-          {shown.startBar} bar × {shown.tankL} L = {startL} L {t('a bordo')}.{' '}
+          {shown.startBar} bar × {shown.tankL} L = {litri(startL)} L {t('a bordo')}.{' '}
           {input.reserveRule === 'rockBottom' ? t('Il gas minimo') : t('La riserva')}{' '}
           {t('non è disponibile: resta ferma se qualcosa va storto.')}
         </p>
@@ -1241,7 +1263,7 @@ export function Planner() {
         </p>
       </CartaApribile>
 
-      <div className="grid grid-2-fill">
+      <div className="carte-affiancate">
         <CartaApribile
           chiave="gas-profondita"
           titolo={t('Se scendi più giù')}
@@ -1381,16 +1403,16 @@ export function Planner() {
               note={`${t('a 1.4 bar')} · ${plan.modDecoM.toFixed(1)} m ${t('a 1.6 in deco')}`}
             />
             <StatTile
-              label={t('Miscela migliore per questa profondità')}
+              label={t('Miscela migliore')}
               value={<span className="tabular">EAN{Math.round(plan.bestMixO2 * 100)}</span>}
               /* Fg = 1.4 / pressione assoluta alla massima, troncato in giù:
                  arrotondare per eccesso sforerebbe la PPO2 di un soffio. */
-              note={`${t('nitrox: la sigla è la percentuale di ossigeno')} · ${t('per 1.4 bar a')} ${shown.depthM} m`}
+              note={`${t('EAN = % di ossigeno')} · ${t('per 1.4 bar a')} ${shown.depthM} m`}
             />
             <StatTile
               label={t('Azoto e narcosi')}
               value={<span className="tabular">{plan.ppn2AtDepth.toFixed(2)} ata</span>}
-              note={`END ${plan.endM.toFixed(0)} m · ${t('accettabile fino a 5.21 atmosfere assolute')}`}
+              note={`END ${plan.endM.toFixed(0)} m · ${t('fino a 5.21 ata')}`}
             />
           </div>
         </CartaApribile>
@@ -1426,7 +1448,7 @@ export function Planner() {
                 note={
                   similar.byDurationToo
                     ? `${t('intorno ai')} ${shown.depthM} m ${t('e ai')} ${Math.round(plan.totalRuntimeMin)} min`
-                    : `${t('intorno ai')} ${shown.depthM} m — ${t('troppo poche per filtrare sulla durata')}`
+                    : `${t('intorno ai')} ${shown.depthM} m · ${t('poche per la durata')}`
                 }
               />
               <StatTile
@@ -1521,7 +1543,7 @@ export function Planner() {
                       scrive «— non ci sta» a parole da sempre. Era questa
                       schermata a essere l'eccezione.
                     */}
-                    <div className="row" style={{ gap: 7 }}>
+                    <div className="row" style={{ gap: 8 }}>
                       <span className={`dot ${c.fits ? 'dot-good' : 'dot-critical'}`} />
                       <span style={{ fontWeight: 550 }}>{t(c.label)}</span>
                       <span className="muted" style={{ fontSize: 12, fontWeight: 650 }}>
@@ -1768,13 +1790,13 @@ function MixField({ mix, onChange }: { mix: GasMix; onChange: (m: GasMix) => voi
           He
         </span>
       </div>
-      <div className="row" style={{ gap: 5, marginTop: 6, flexWrap: 'wrap' }}>
+      <div className="row" style={{ gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
         {MIX_PRESETS.map((p) => (
           <button
             key={p.label}
             onClick={() => onChange(p.mix)}
             aria-pressed={p.mix.o2 === mix.o2 && p.mix.he === mix.he}
-            style={{ fontSize: 12, padding: '3px 7px' }}
+            className="pastiglia"
           >
             {t(p.label)}
           </button>
@@ -1931,7 +1953,8 @@ function PressureBudget({ plan }: { plan: GasPlan }) {
         ))}
       </svg>
       <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
-        {t('Utilizzabile')} {plan.usableBar} bar ({plan.usableL} L) {t('sui')} {start} {t('di partenza')}.
+        {t('Utilizzabile')} {plan.usableBar} bar ({litri(plan.usableL)} L) {t('sui')} {start}{' '}
+        {t('di partenza')}.
         {plan.input.turnRule !== 'none' &&
           ` ${t('Ogni')} ${plan.input.turnRule === 'thirds' ? t('terzo') : t('metà')} ${t('vale')} ${Math.round(step)} bar.`}
       </p>
@@ -2022,7 +2045,7 @@ function AscentSchematic({ plan }: { plan: GasPlan }) {
                   fontWeight={650}
                   fill="var(--text-primary)"
                 >
-                  {s.phase.litres} L
+                  {litri(s.phase.litres)} L
                 </text>
               )}
               {w > 34 && (
@@ -2045,7 +2068,7 @@ function AscentSchematic({ plan }: { plan: GasPlan }) {
           m ↓ · {total.toFixed(0)} {t('min di risalita')}
         </text>
         <text className="axis-label" x={width - pad.right} y={height - 3} textAnchor="end">
-          {plan.reserveL} L {t('in totale')}
+          {litri(plan.reserveL)} L {t('in totale')}
         </text>
       </svg>
     </div>
@@ -2090,7 +2113,7 @@ function PhaseTable({ phases, total, tankL }: { phases: GasPhase[]; total: numbe
                 {p.divers}
               </td>
               <td className="tabular" style={{ textAlign: 'right', fontWeight: 600 }}>
-                {p.litres}
+                {litri(p.litres)}
               </td>
             </tr>
           ))}
@@ -2100,7 +2123,7 @@ function PhaseTable({ phases, total, tankL }: { phases: GasPhase[]; total: numbe
               {t('su una bombola da')} {tankL} L
             </td>
             <td className="tabular" style={{ textAlign: 'right', fontWeight: 700 }}>
-              {total} L · {Math.ceil(total / tankL)} bar
+              {litri(total)} L · {Math.ceil(total / tankL)} bar
             </td>
           </tr>
         </tbody>
@@ -2274,7 +2297,7 @@ function ProfileChart({ plan }: { plan: GasPlan }) {
                   fontWeight={650}
                   fill="var(--text-primary)"
                 >
-                  {s.phase.litres} L
+                  {litri(s.phase.litres)} L
                 </text>
               )}
               {w > 44 && (
@@ -2533,7 +2556,7 @@ function ScheduleTable({
                   {p.bar} bar
                 </td>
                 <td className="num tabular muted" style={{ textAlign: 'right' }}>
-                  {p.litres} L
+                  {litri(p.litres)} L
                 </td>
                 <td className="muted" style={{ fontSize: 12 }}>
                   {/* `frase()` e non `t()`: l'etichetta delle soste con lo stage è un
@@ -2619,7 +2642,7 @@ function SosteCard({ soste, plan }: { soste: DecoResult; plan: GasPlan }) {
           label={t('Gas necessario')}
           value={
             <span className="tabular" style={{ color: gas?.insufficient ? 'var(--critical)' : undefined }}>
-              {gas?.bar !== undefined ? `${Math.round(gas.bar)} bar` : `${Math.round(gas?.litres ?? 0)} L`}
+              {gas?.bar !== undefined ? `${Math.round(gas.bar)} bar` : `${litri(gas?.litres ?? 0)} L`}
             </span>
           }
           note={

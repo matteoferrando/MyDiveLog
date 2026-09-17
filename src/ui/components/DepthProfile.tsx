@@ -307,8 +307,9 @@ export function DepthProfile({
           </linearGradient>
         </defs>
 
-        {/* Fascia della sosta di sicurezza: contesto, non dato — quindi tenue e
-            con l'etichetta, perché una banda colorata senza spiegazione è rumore. */}
+        {/* Fascia della sosta di sicurezza: contesto, non dato — quindi tenue.
+            L'etichetta che la spiega — una banda colorata senza spiegazione è
+            rumore — sta più in basso, disegnata dopo la curva: il perché è lì. */}
         <g aria-hidden="true">
           <rect
             x={pad.left}
@@ -318,15 +319,6 @@ export function DepthProfile({
             fill="var(--series-3)"
             opacity={0.07}
           />
-          <text
-            className="axis-label"
-            x={width - pad.right - 4}
-            y={py(lo) - 4}
-            textAnchor="end"
-            opacity={0.7}
-          >
-            {t('sosta di sicurezza')} {lo}–{hi} m
-          </text>
         </g>
 
         {/* Griglia orizzontale e verticale, in tono recessivo. */}
@@ -382,6 +374,34 @@ export function DepthProfile({
           strokeLinejoin="round"
           strokeLinecap="round"
         />
+
+        {/*
+          ► L'ETICHETTA DELLA FASCIA STA QUI, DOPO LA CURVA, E CON L'ALONE. ◄
+          Era disegnata insieme al rettangolo, cioè PRIMA del profilo, e in un
+          SVG chi è disegnato dopo copre chi è disegnato prima. La fascia della
+          sosta di sicurezza sta fra 2,5 e 7,5 metri, che è esattamente dove
+          passa la risalita finale: la riga blu ci finiva sopra e si mangiava
+          l'ultima parola — «sosta di sicurezza 2.5–7.5 m» senza la «m».
+          Spostarla dopo non basta da sola, perché sotto ci resterebbe comunque
+          la curva: `paint-order: stroke` disegna prima un contorno spesso del
+          colore del fondo e poi le lettere sopra, cioè un alone che stacca il
+          testo da qualunque cosa ci passi sotto. È la stessa cosa che fa una
+          carta nautica con le quote sopra le isobate.
+        */}
+        <text
+          className="axis-label"
+          aria-hidden="true"
+          x={width - pad.right - 4}
+          y={py(lo) - 4}
+          textAnchor="end"
+          opacity={0.85}
+          stroke="var(--surface-1)"
+          strokeWidth={3}
+          strokeLinejoin="round"
+          paintOrder="stroke"
+        >
+          {t('sosta di sicurezza')} {lo}–{hi} m
+        </text>
 
         {/* Segnalibri: l'unico contenuto del profilo messo lì dal subacqueo. */}
         {dive.events?.map((e) => (

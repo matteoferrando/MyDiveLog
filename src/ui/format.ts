@@ -84,6 +84,28 @@ export const int = (v: number) => v.toLocaleString(localeCorrente());
 
 export const pct = (v: number | undefined) => (v === undefined ? '—' : `${Math.round(v * 100)}%`);
 
+/**
+ * I litri di gas, come si scrivono.
+ *
+ * ═════════════════════════════════════════════════════════════════════════════
+ * ► PERCHÉ ESISTE. ◄ Un volume di gas nasce quasi sempre da una moltiplicazione
+ * (bar × litri di bombola) o da una somma di consumi, e in virgola mobile
+ * `200 * 18.1` fa `3982.0000000000005`. Il valore è giusto; la sua FORMA no. A
+ * schermo quella coda dice a chi legge che l'applicazione non sa contare il gas
+ * che si porta sott'acqua, ed è un'impressione che non si recupera spiegando
+ * l'IEEE 754.
+ *
+ * ► PERCHÉ L'ARROTONDAMENTO STA QUI E NON NEL CONTO. ◄ Perché nel conto i
+ * decimali servono: la riserva, il bilancio e i minuti di fondo si sommano fra
+ * loro, e arrotondare a monte sposta il risultato. Qui si arrotonda soltanto
+ * quello che viene DISEGNATO — l'ultimo passo, dove nessuno riusa il numero.
+ *
+ * ► PERCHÉ AL LITRO INTERO. ◄ Perché mezzo litro di gas non lo misura nessun
+ * manometro, e un piano che promette 2598,7 L promette una precisione che
+ * l'attrezzatura non ha.
+ */
+export const litri = (v: number) => int(Math.round(v));
+
 export const SEVERITY_CLASS: Record<Severity, string> = {
   critical: 'dot-critical',
   serious: 'dot-serious',

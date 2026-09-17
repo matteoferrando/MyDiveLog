@@ -229,8 +229,22 @@ function TwoProfiles({
         ))}
         <path d={path(left.samples)} fill="none" stroke="var(--series-1)" strokeWidth={2} />
         <path d={path(right.samples)} fill="none" stroke="var(--series-2)" strokeWidth={2} />
-        {[0, maxT / 2, maxT].map((t) => (
-          <text key={t} className="axis-label" x={x(t)} y={height - 8} textAnchor="middle">
+        {/*
+          L'ANCORAGGIO CAMBIA AGLI ESTREMI, e non è pignoleria: un `<text>` in un
+          SVG non ha overflow, viene TAGLIATO dal riquadro senza puntini e senza
+          che nulla lo segnali. Con tutte e tre le tacche centrate, l'ultima —
+          disegnata sul bordo destro del grafico — usciva di **4 px** misurati,
+          a ogni larghezza: «54:00» perdeva mezzo zero. La prima, centrata sullo
+          zero, sarebbe uscita a sinistra per la stessa ragione.
+        */}
+        {[0, maxT / 2, maxT].map((t, i) => (
+          <text
+            key={t}
+            className="axis-label"
+            x={x(t)}
+            y={height - 8}
+            textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}
+          >
             {formatDuration(Math.round(t))}
           </text>
         ))}
@@ -332,12 +346,12 @@ function ComparisonTable({ left, right, onOpen }: { left: Dive; right: Dive; onO
           <tr>
             <th>{t('Misura')}</th>
             <th style={{ textAlign: 'right' }}>
-              <button className="linklike" onClick={() => onOpen(left.id)}>
+              <button className="cell-link" onClick={() => onOpen(left.id)}>
                 {dateShort(left.startTime, left.utcOffsetMinutes)}
               </button>
             </th>
             <th style={{ textAlign: 'right' }}>
-              <button className="linklike" onClick={() => onOpen(right.id)}>
+              <button className="cell-link" onClick={() => onOpen(right.id)}>
                 {dateShort(right.startTime, right.utcOffsetMinutes)}
               </button>
             </th>

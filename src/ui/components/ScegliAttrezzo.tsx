@@ -93,7 +93,7 @@ export function ScegliAttrezzo({
       {nuovo && (
         <button
           type="button"
-          className="btn btn-small"
+          className="pastiglia"
           style={{ alignSelf: 'flex-start' }}
           onClick={() => {
             const id = onAggiungiAllInventario(kind, testo.trim());

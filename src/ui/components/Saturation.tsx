@@ -397,7 +397,7 @@ function compartmentNote(n: number | undefined, t: Traduci = (s) => s): string {
     n <= 3
       ? t('tessuto velocissimo: immersione corta e profonda')
       : n <= 6
-        ? t('tessuto veloce: il caso più comune in ricreativa')
+        ? t('tessuto veloce')
         : n <= 10
           ? t('tessuto medio: immersione lunga, o ripetitiva')
           : t('tessuto lento: esposizione prolungata o più giorni di fila');

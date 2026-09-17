@@ -169,11 +169,132 @@ describe('i bersagli, anche con il mouse', () => {
     expect(colDito.map((r) => r.dichiarazioni).join('\n')).toMatch(/width:\s*24px/);
   });
 
+  it('il riassunto di una sezione apribile è un bersaglio, non una riga di testo', () => {
+    /*
+     * Cinque `<details>` nell'applicazione, nessuna regola addosso: vestito di
+     * fabbrica, **18 px** di altezza misurati sulla build vera, col mouse e col
+     * dito. La lezione delle caselle di spunta e delle date-pulsante non li
+     * aveva raggiunti perché nessuno li aveva mai misurati: le sonde contavano
+     * `button, a, input, select`, e `summary` non è nessuno di quelli.
+     */
+    const suo = vestito('summary');
+    expect(suo, 'summary non ha regole di base: ha il vestito di fabbrica').not.toBe('');
+    expect(suo, 'sotto i 24 px il riassunto è sotto il minimo di WCAG 2.2 AA').toMatch(/min-height:\s*24px/);
+    const colDito = TUTTE.filter(
+      (r) => /pointer:\s*coarse/.test(r.dentro) && r.selettori.includes('summary'),
+    );
+    expect(colDito.length, 'nessuna regola alza il riassunto per chi tocca lo schermo').toBeGreaterThan(0);
+    expect(colDito.map((r) => r.dichiarazioni).join('\n')).toMatch(/min-height:\s*44px/);
+  });
+
   it('la data-pulsante del logbook è alta almeno 24 px per tutti', () => {
     // È l'unico modo di aprire un'immersione da tastiera: se è alta 20 px, il
     // bersaglio più importante del logbook è sotto il minimo.
     const cella = vestito('.cell-link');
     expect(cella, '.cell-link non ha regole di base: era dentro un media query').not.toBe('');
     expect(cella).toMatch(/min-height:\s*24px/);
+  });
+});
+
+/*
+ * ═════════════════════════════════════════════════════════════════════════════
+ * ► L'ALTEZZA DEI CONTROLLI È UNA MISURA DICHIARATA, NON UN RISULTATO. ◄
+ *
+ * Misurato sulla build vera il 17 settembre 2026, a 1280 px, su nove schede: un
+ * pulsante 35,5 px, un campo di testo 33,5, un menu a tendina 31. Tre altezze
+ * per tre cose che stanno nella stessa riga di filtri. Nessuna era sbagliata:
+ * ognuna usciva dal proprio riempimento e dal proprio carattere. È il motivo
+ * per cui nessuno le aveva mai viste — *sono numeri che nascono da soli, e
+ * nascere da soli non li mette d'accordo.*
+ *
+ * Sul telefono la differenza cambiava di segno e diventava anche un problema di
+ * accessibilità: i campi salgono a 16 px di carattere (l'unico modo di non far
+ * ingrandire la pagina a Safari) e arrivavano a 38 px, i menu a 35, e i
+ * pulsanti restavano a 35,5 — sotto i 44 px che iOS chiede a un bersaglio da
+ * premere col dito, nella stessa schermata dove la barra in basso era già a 44.
+ *
+ * Questa prova non misura pixel: guarda che l'altezza arrivi DAL TOKEN. Una
+ * misura scritta a mano su un solo controllo è esattamente il modo in cui le
+ * tre altezze erano nate.
+ */
+describe('l’altezza dei controlli', () => {
+  /** I controlli che stanno uno accanto all’altro e devono venire alti uguale. */
+  const CONTROLLI = [
+    'button.btn',
+    'label.btn',
+    'select',
+    "input[type='text']",
+    "input[type='number']",
+    "input[type='search']",
+    "input[type='password']",
+    'textarea',
+  ];
+
+  it('il token esiste fuori da ogni media query, se no il desktop non è protetto', () => {
+    const radice = vestito(':root');
+    expect(radice, 'nessuna regola di base su :root').not.toBe('');
+    expect(radice, 'manca --h-controllo').toMatch(/--h-controllo:\s*\d+px/);
+    expect(radice, 'manca --h-pastiglia').toMatch(/--h-pastiglia:\s*\d+px/);
+  });
+
+  it('e col dito cresce, senza che nessun controllo debba saperlo', () => {
+    const colDito = TUTTE.filter((r) => /pointer:\s*coarse/.test(r.dentro) && r.selettori.includes(':root'))
+      .map((r) => r.dichiarazioni)
+      .join('\n');
+    expect(colDito, 'il token non cresce col dito: i pulsanti restano sotto i 44 px').toMatch(
+      /--h-controllo:\s*44px/,
+    );
+    expect(colDito).toMatch(/--h-pastiglia:\s*\d+px/);
+  });
+
+  it.each(CONTROLLI)('%s prende l’altezza dal token', (sel) => {
+    const suo = vestito(sel);
+    expect(suo, `${sel} non riceve nessuna regola di base`).not.toBe('');
+    expect(suo, `${sel} non dichiara min-height: la sua altezza è un risultato, non una misura`).toMatch(
+      /min-height:\s*var\(--h-controllo\)/,
+    );
+  });
+
+  it('la pastiglia ha la sua, e viene anche lei dal token', () => {
+    expect(vestito('.pastiglia')).toMatch(/min-height:\s*var\(--h-pastiglia\)/);
+  });
+
+  it('nessun controllo si tiene un’altezza tutta sua scritta a mano', () => {
+    /*
+     * Il pulsante di Apple aveva `min-height: 44px` fisso: giusto col dito,
+     * sbagliato col mouse, dove accanto al pulsante di Google — alto 35,5 —
+     * faceva una riga con 8,5 px di scarto. Un numero scritto a mano su un solo
+     * controllo è un secondo sistema di misura che nessuno sa di avere.
+     */
+    /*
+     * ► SI GUARDANO LE REGOLE GENERICHE, NON QUELLE DI UN POSTO PRECISO. ◄ Un
+     * selettore con un combinatore — `.catalogo-computer .modelli .btn` — dice
+     * «il pulsante LÌ DENTRO», ed è il modo legittimo di dare a una riga di
+     * elenco la misura che quella riga chiede: nell'elenco dei computer i
+     * pulsanti sono 44 px anche col mouse, perché sono righe fra righe e
+     * sbagliare riga significa parlare al dispositivo di qualcun altro.
+     *
+     * Un selettore SENZA combinatore — `button.btn.bottone-apple` — parla
+     * invece del controllo in quanto tale, ovunque si trovi: lì una misura
+     * scritta a mano è un secondo sistema di misura che nessuno sa di avere, ed
+     * è esattamente com'era nato lo scarto di 8,5 px con il pulsante di Google.
+     *
+     * La differenza è nella forma del selettore e non in un elenco di nomi
+     * permessi, che invecchierebbe da solo.
+     */
+    const generico = (s: string) => !/[\s>+~]/.test(s.trim());
+    const colpevoli: string[] = [];
+    for (const r of TUTTE) {
+      const misura = /min-height:\s*(\d+)px/.exec(r.dichiarazioni);
+      if (!misura) continue;
+      const tocca = r.selettori.filter(
+        (s) => generico(s) && (/\bbtn\b|bottone-apple|pastiglia/.test(s) || CONTROLLI.includes(s)),
+      );
+      if (tocca.length) colpevoli.push(`${tocca.join(', ')} → ${misura[0]}`);
+    }
+    expect(
+      colpevoli,
+      'altezze scritte a mano su un controllo: usa var(--h-controllo) o var(--h-pastiglia)',
+    ).toEqual([]);
   });
 });

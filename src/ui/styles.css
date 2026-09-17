@@ -79,6 +79,44 @@
 
   --radius: 10px;
   --radius-sm: 6px;
+
+  /*
+   * ► L'ALTEZZA DEI CONTROLLI, UNA SOLA E SCRITTA IN UN POSTO SOLO. ◄
+   *
+   * Misurato sulla build vera il 17 settembre 2026, a 1280 px, sulle nove
+   * schede: un pulsante era alto **35,5 px**, un campo di testo **33,5**, un
+   * menu a tendina **31**. Tre altezze per tre cose che stanno una accanto
+   * all'altra nella stessa riga di filtri. Nessuna era sbagliata di suo —
+   * ognuna usciva dal proprio riempimento e dal proprio carattere — e proprio
+   * per questo nessuno le aveva mai viste come un difetto: *sono numeri che
+   * nascono da soli, e nascere da soli non li mette d'accordo.*
+   *
+   * Sul telefono era peggio e in direzione opposta: i campi salgono a 16 px di
+   * carattere (è l'unico modo di non far ingrandire la pagina a Safari) e
+   * arrivavano a 38 px, i menu a 35, **mentre i pulsanti restavano a 35,5** —
+   * cioè sotto i 44 px che iOS chiede a un bersaglio che si preme col dito,
+   * nella stessa schermata in cui le voci della barra in basso erano già a 44.
+   *
+   * Da qui in avanti l'altezza è una misura dichiarata, non un risultato:
+   * 36 px col puntatore, 44 col dito.
+   */
+  --h-controllo: 36px;
+  /*
+   * La pastiglia: il pulsantino accanto a un dato — «Apri», «×», «12 L»,
+   * «Mediana». Esisteva già, scritto a mano tredici volte con tre riempimenti
+   * diversi (`3px 7px`, `3px 8px`, `4px 8px`): 26 px in un punto e 28 in un
+   * altro, per la stessa identica cosa. Adesso è una classe sola.
+   */
+  --h-pastiglia: 28px;
+  /*
+   * ► IL RESPIRO FRA UNA CARTA E L'ALTRA. ◄ Stava scritto due volte con due
+   * numeri: 20 px fra le carte impilate nella pagina, 14 fra quelle dentro
+   * una griglia — perché la griglia ereditava il passo delle TESSERE, che
+   * sono un'altra cosa e stanno giustamente più strette. Misurato sulla
+   * scheda Gas a 1180 px: dieci carte a 20 px di distanza e in mezzo
+   * quattro a 14, che a occhio è solo una pagina che non tiene il tempo.
+   */
+  --ritmo-carte: 20px;
   --shadow: 0 1px 2px rgba(11, 11, 11, 0.05), 0 8px 24px rgba(11, 11, 11, 0.04);
 
   --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -889,7 +927,7 @@ body {
   padding-top: 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--ritmo-carte);
 }
 
 /* ------------------------------------------------------------------ cards */
@@ -988,16 +1026,29 @@ body {
  * la regola «rock bottom» — quindi la regola deve valere da sé, senza che
  * nessuno si ricordi di contarle.
  */
-.grid-2-fill {
+/*
+ * DUE CARTE AFFIANCATE — e non una griglia qualsiasi.
+ *
+ * Era `.grid .grid-2-fill`, cioè prendeva il passo di `.grid`, che è 14 px: il
+ * passo delle TESSERE, che sono riquadri piccoli e vanno giustamente strette.
+ * Qui dentro però ci sono carte, e una carta accanto a un'altra deve respirare
+ * come le carte impilate sopra e sotto: misurato sulla scheda Gas, dieci
+ * distanze da 20 px e quattro da 14 nel mezzo. Il nome adesso dice che cosa
+ * contiene, e il passo arriva dal token della pagina.
+ */
+.carte-affiancate {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ritmo-carte);
 }
 
-.grid-2-fill > :last-child:nth-child(odd) {
+/* Dispari: l'ultima si prende tutta la riga invece di lasciare un buco. */
+.carte-affiancate > :last-child:nth-child(odd) {
   grid-column: 1 / -1;
 }
 
 @media (max-width: 760px) {
-  .grid-2-fill {
+  .carte-affiancate {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -1052,22 +1103,25 @@ body {
   min-width: 0;
   overflow-wrap: anywhere;
   /*
-   * ► IL CONTENUTO STA IN MEZZO, e non appeso in alto. ◄
+   * ► ETICHETTA IN ALTO, NUMERO ALLINEATO, NOTA IN FONDO. ◄
    *
    * Le tessere vivono in una griglia: quelle sulla stessa riga prendono tutte
-   * l'altezza della più alta. Con il contenuto appeso in alto, una tessera con
-   * l'etichetta corta accanto a una con l'etichetta su due righe mostrava un
-   * buco in fondo — e sulla scheda di un'immersione, a 393 px, succedeva a
-   * quattro tessere su sei: «Consumo di superficie · 17.0 · L/min» finiva con
-   * quaranta pixel di niente sotto.
+   * l'altezza della più alta, e prima il contenuto restava appeso in alto —
+   * con il buco in fondo a quelle con la nota corta. Sulla scheda di
+   * un'immersione, a 393 px, succedeva a quattro tessere su sei.
    *
-   * Centrando, lo spazio in più si divide sopra e sotto e la tessera resta
-   * equilibrata qualunque sia il vicino. Non si toglie spazio a nessuno: si
-   * toglie il buco.
+   * Centrare le sistemava tutte ma ne rompeva un'altra, e si è visto solo
+   * guardando una fila da quattro su iPad: **i numeri non erano più
+   * allineati**, perché ogni tessera centrava il proprio blocco a un'altezza
+   * diversa. In una fila di numeri l'allineamento è la prima cosa che si legge.
+   *
+   * Così: il blocco parte dall'alto — etichette e quindi numeri sulla stessa
+   * linea — e la nota si stacca in fondo con `margin-top: auto`. Lo spazio in
+   * più finisce dove non si vede, fra il numero e la nota, invece che sotto la
+   * nota dove diventa un buco.
    */
   display: flex;
   flex-direction: column;
-  justify-content: center;
 }
 
 .tile-label {
@@ -1087,6 +1141,9 @@ body {
 }
 
 .tile-note {
+  /* In fondo alla tessera, qualunque altezza le tocchi dalla griglia. */
+  margin-top: auto;
+  padding-top: 2px;
   font-size: 12px;
   color: var(--text-secondary);
   margin-top: 2px;
@@ -1097,6 +1154,29 @@ body {
   font-weight: 650;
   letter-spacing: -0.03em;
   line-height: 1;
+}
+
+/*
+ * ► IL PIEDE DI UNA CARTA, per l'azione che chiude il discorso. ◄
+ *
+ * «Esporta PDF» nel pianificatore sta su una riga sua, staccato dai pulsanti
+ * della modalità: è una scelta, e ha la sua ragione scritta accanto — la
+ * modalità cambia quello che vedi, l'esportazione porta fuori quello che hai
+ * già visto. Ma un pulsante solo, allineato a destra in mezzo al bianco,
+ * **sembra andato a capo per sbaglio**: la ragione è giusta e la forma diceva
+ * il contrario.
+ *
+ * Una riga di chiusura con un filo sopra si legge per quello che è: il piede
+ * della carta, dove stanno le azioni. È la stessa forma che ha qualunque
+ * pannello che chi guarda abbia già visto altrove.
+ */
+.card-azioni {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
 
 /* ------------------------------------------------------------------ table */
@@ -1403,6 +1483,37 @@ input[type='radio'] {
 }
 
 /*
+ * ► E LA STESSA MISURA VALE PER `<summary>`, che nessuno aveva mai guardato. ◄
+ *
+ * L'applicazione ha cinque sezioni apribili scritte col `<details>` del
+ * browser — «Avanzate: collegare un database a mano», «3 esercizi»,
+ * «Risalita, soste e limite di PPO2». Nessuna regola le vestiva, quindi
+ * avevano il vestito di fabbrica: misurate sulla build vera, **18 px** di
+ * altezza col mouse e 18 col dito. Sotto il minimo di 24×24 di WCAG 2.2 AA in
+ * tutti e due i casi, e a un quarto dei 44 che iOS chiede a un bersaglio da
+ * premere col polpastrello — nella stessa applicazione dove le caselle di
+ * spunta e le date-pulsante erano già a norma da settimane. *Una lezione
+ * imparata dentro un percorso protegge solo quel percorso.*
+ *
+ * Niente `display: flex` per centrare il testo: su WebKit il triangolino del
+ * sistema sparisce quando `summary` smette di essere un `list-item`, e quel
+ * triangolino è il segno che i lettori di schermo e le persone conoscono. Si
+ * cresce col riempimento, che non tocca il marcatore.
+ */
+summary {
+  cursor: pointer;
+  min-height: 24px;
+  padding: 3px 0;
+}
+
+@media (pointer: coarse), (max-width: 700px) {
+  summary {
+    min-height: 44px;
+    padding: 12px 0;
+  }
+}
+
+/*
  * L'area sensibile cresce senza spostare il testo: il riempimento allarga il
  * bersaglio DENTRO la cella e il margine negativo lo riporta al suo posto, così
  * la colonna non si allarga e il testo non si sposta. La data-pulsante è anche
@@ -1416,6 +1527,18 @@ input[type='radio'] {
 }
 
 @media (pointer: coarse), (max-width: 700px) {
+  /*
+   * I 44 px di iOS non sono un arrotondamento verso l'alto: sono la misura che
+   * Apple dà per un bersaglio premuto col polpastrello, e Google ne chiede 48
+   * di area (che con il respiro fra le righe ci sta). Sotto quella soglia non
+   * è che si sbaglia ogni tanto: si sbaglia con le mani bagnate, in barca, che
+   * è esattamente dove questa applicazione viene aperta.
+   */
+  :root {
+    --h-controllo: 44px;
+    --h-pastiglia: 32px;
+  }
+
   /* Col dito il quadrato va portato a 24: l'eccezione di spaziatura vale per
      un puntatore che si vede, non per un polpastrello da un centimetro. */
   input[type='checkbox'],
@@ -1771,7 +1894,11 @@ label.btn {
   font: inherit;
   font-size: 13px;
   font-weight: 550;
-  padding: 7px 14px;
+  /* Il riempimento verticale è quello che sta comodo; a decidere l'altezza è
+     `min-height`, perché un pulsante con un'icona dentro e uno con solo testo
+     devono venire alti uguale anche se il loro contenuto non lo è. */
+  padding: 6px 14px;
+  min-height: var(--h-controllo);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-strong);
   background: var(--surface-1);
@@ -1779,7 +1906,8 @@ label.btn {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  justify-content: center;
+  gap: 8px;
 }
 
 button.btn:hover,
@@ -1815,6 +1943,35 @@ button.btn-danger {
 }
 
 /*
+ * ═════════════════════════════════════════════════════════════════════════════
+ * ► LA PASTIGLIA: il pulsantino che sta accanto a un dato. ◄
+ *
+ * «Apri» di fianco a un brevetto, la «×» che toglie una riga, «12 L» sotto il
+ * campo della bombola, «Mediana» sotto il consumo misurato. È sempre stata la
+ * stessa cosa, e non è mai esistita: era scritta a mano in tredici punti, con
+ * `style={{ fontSize: 12, padding: '3px 8px' }}` — tranne in tre, dove il
+ * riempimento era `3px 7px` o `4px 8px`. Misurate sulla build: **26 px** in un
+ * posto, **28** in un altro. Nessuno l'ha mai notato guardando una schermata
+ * per volta, e infatti il difetto è uscito contando le altezze, non guardando.
+ *
+ * *Tredici copie della stessa regola sono una regola e dodici sue versioni
+ * vecchie.* Adesso è una classe, e cambiarla è cambiarla.
+ */
+.pastiglia {
+  font-size: 12px;
+  font-weight: 500;
+  /* Il riempimento verticale è zero: l'altezza la dà `min-height`, e il testo
+     lo centra il flex. Così la pastiglia è alta uguale che dentro ci sia una
+     parola, un numero o il segno di moltiplicazione. */
+  padding: 0 10px;
+  min-height: var(--h-pastiglia);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/*
  * ► I CAMPI DELL'APPLICAZIONE, e la virgola che li aveva persi tutti. ◄
  *
  * Questo blocco è nato per vestire allo stesso modo tutti i campi: stesso
@@ -1846,6 +2003,9 @@ textarea {
   font: inherit;
   font-size: 13px;
   padding: 6px 9px;
+  /* Stessa altezza dei pulsanti: un campo e un pulsante affiancati in una riga
+     di filtri si leggono come un pezzo solo o come due cose storte. */
+  min-height: var(--h-controllo);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-strong);
   background: var(--surface-1);
@@ -1901,6 +2061,71 @@ textarea {
   input[type='datetime-local'],
   textarea {
     font-size: 16px;
+  }
+}
+
+/*
+ * ═════════════════════════════════════════════════════════════════════════════
+ * ► LA SCELTA DEL PERIODO: quattro pulsanti che sul telefono andavano a caso.
+ *
+ * Erano una `.row` con `justify-content: flex-end`. Largo, i quattro stanno in
+ * fila a destra del titolo e va benissimo. Stretto, vanno a capo due e due — e
+ * siccome ciascuno è largo quanto la sua parola, le due file restano allineate
+ * a destra e sfrangiate a sinistra, sospese in mezzo a una carta in cui tutto
+ * il resto è allineato a sinistra. Non è rotto: sembra un incidente.
+ *
+ * Sul telefono diventano una griglia due per due a tutta larghezza. È la stessa
+ * scelta, disegnata come una scelta.
+ */
+.scelta-periodo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 700px) {
+  .scelta-periodo {
+    /* `width: 100%` in un contenitore flex è anche la base su cui si decide
+       dove spezzare la riga: il gruppo si prende una riga sua e la riempie,
+       senza dover scrivere `flex-basis` da nessuna parte. */
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+}
+
+/*
+ * ═════════════════════════════════════════════════════════════════════════════
+ * ► UN GRUPPO DI AZIONI: sul telefono si incolonna a tutta larghezza. ◄
+ *
+ * Erano `.row` con `flex-wrap: wrap`, cioè pulsanti larghi quanto la propria
+ * scritta che a schermo stretto vanno a capo dove capita. Misurato a 393 px:
+ * «Sign in with Apple» 172 px sopra «Accedi con Google» 162 — due pulsanti
+ * sfalsati di dieci pixel, uno sotto l'altro; e «Salva credenziali» 154 accanto
+ * a «Prova la connessione» 185, con 130 px vuoti in fondo alla riga.
+ *
+ * Nel caso dell'accesso non è nemmeno solo estetica: la linea guida 4.8
+ * dell'App Store chiede che «Sign in with Apple» sia offerto in modo
+ * EQUIVALENTE agli altri, e due pulsanti di larghezza diversa sono due offerte
+ * diverse. A tutta larghezza sono la stessa offerta — ed è anche il modo in cui
+ * un accesso si disegna su un telefono.
+ */
+.azioni {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+@media (max-width: 700px) {
+  .azioni {
+    flex-direction: column;
+    align-items: stretch;
+    /* Come sopra: in colonna `wrap` aprirebbe una seconda colonna larga quanto
+       il pulsante più largo, e `stretch` la imporrebbe a tutti. */
+    flex-wrap: nowrap;
   }
 }
 
@@ -2373,17 +2598,63 @@ h1.page-title {
  * si leggono come una forma; una riga e mezza no.
  */
 @media (max-width: 700px) {
+  /*
+   * ► E IL PRIMO TENTATIVO NON FUNZIONAVA, anche se sembrava giusto. ◄
+   *
+   * L'idea era `flex: 0 0 100%` sul ritorno più `max-width: max-content` per
+   * lasciargli la larghezza vera: la base al 100% avrebbe spinto gli altri a
+   * capo, il max-width l'avrebbe stretto. Nel flexbox non succede — il
+   * `max-width` entra nella misura IPOTETICA su cui si decide dove spezzare la
+   * riga, quindi l'elemento si stringe e gli altri gli si rimettono accanto.
+   * Lo si è visto solo fotografando: la riga era tornata identica a prima.
+   * *Una regola che non si è vista fare il suo lavoro è un'ipotesi.*
+   *
+   * Adesso il gruppo si incolonna e le due azioni vere — esporta e modifica —
+   * stanno in una riga loro, ciascuna a metà. Il ritorno resta un collegamento
+   * allineato a sinistra, largo quanto la sua parola.
+   */
+  /*
+   * ► E NEMMENO IL SECONDO TENTATIVO BASTAVA. ◄ Incolonnare il gruppo delle
+   * azioni non serve a niente finché il gruppo è largo quanto lo spazio che
+   * avanza accanto al titolo. Misurato a 393 px sulla build: la riga delle
+   * azioni era larga **255** invece di 357, i due pulsanti ne prendevano 123
+   * l'uno, e «Modifica dati« ci andava a capo dentro — un pulsante alto 53 px
+   * accanto a uno da 44, e mezzo schermo vuoto a destra. Il titolo e le azioni
+   * devono incolonnarsi INSIEME, non solo le azioni fra loro.
+   */
+  .page-title-row {
+    flex-direction: column;
+    align-items: stretch;
+    row-gap: 10px;
+    /*
+     * ► E QUESTA È LA STESSA TRAPPOLA DI `.filters`, il 15 settembre. ◄
+     * Senza `nowrap`, a 320 px la scheda Suggerimenti apriva una seconda
+     * colonna larga quanto il `<select>` dell'obiettivo — che prende la
+     * misura dall'opzione più lunga, «Subacquea Tecnica Avanzato» — e
+     * `stretch` imponeva quella larghezza anche al titolo: misurato,
+     * contenitore **280**, figli **342**, con la pagina che scappava di
+     * lato. La lezione era già scritta trenta righe più in basso, su un
+     * altro selettore, e non mi ha protetto qui: *una lezione imparata
+     * dentro un percorso protegge solo quel percorso.* Adesso c'è una
+     * prova che la cerca dappertutto — `colonnaCheAllarga.test.ts`.
+     */
+    flex-wrap: nowrap;
+  }
+
   .page-title-row > .row {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
     row-gap: 8px;
+    /* `.row` porta `flex-wrap: wrap` dalla sua regola di base: in colonna è la
+       trappola descritta qui sopra. */
+    flex-wrap: nowrap;
   }
 
   .page-title-row > .row > .btn-quiet {
-    flex: 0 0 100%;
-    max-width: max-content;
+    align-self: flex-start;
   }
 
-  .page-title-row > .row > .btn:not(.btn-quiet) {
+  .azioni-scheda > .btn {
     flex: 1 1 0;
     justify-content: center;
   }
@@ -2482,11 +2753,21 @@ h1.page-title {
  * lampeggiante che nessuno ha progettato per quel posto.
  */
 
-/* Pulsante di un gruppo di scelta: quello attivo si distingue per riempimento,
- * non solo per colore del testo. */
+/*
+ * Pulsante di un gruppo di scelta: quello attivo si distingue per riempimento,
+ * non solo per colore del testo.
+ *
+ * ► IL BORDO BLU È ARRIVATO IL 17 SETTEMBRE 2026. ◄ Il riempimento da solo
+ * non bastava: `--surface-3` su `--surface-1` è una differenza di pochi punti
+ * di grigio, e in una fila di quattro — «Ultimi 6 mesi / 12 / 24 / Tutto
+ * l'archivio» — bisognava cercare quale fosse acceso invece di vederlo. Il
+ * colore sta nel BORDO e non nel testo di proposito: `--accent-solid` scritto
+ * su `--surface-1` sul tema scuro sta a 3,52:1, cioè sotto il minimo per un
+ * testo; per un bordo il minimo è 3:1 e lo passa in tutti e due i temi.
+ */
 button.btn[aria-pressed='true'] {
   background: var(--surface-3);
-  border-color: var(--border-strong);
+  border-color: var(--accent-solid);
   color: var(--text-primary);
   font-weight: 600;
 }
@@ -2541,22 +2822,23 @@ button[aria-pressed='true'] {
 }
 
 /*
- * 16 px SOLO dove c'è un mouse, altrimenti vince la regola dei 24.
+ * ► QUI STAVA UN'ECCEZIONE DA 16 px, e adesso non serve più. ◄
  *
- * Questa regola stava dopo il blocco `@media (pointer: coarse)` che porta le
- * caselle a 24×24, ha la stessa specificità, e a pari peso vince l'ultima
- * scritta: tutte le caselle del pianificatore, dell'attrezzatura, delle
- * impostazioni e dello scarico Bluetooth tornavano a 16 px sul telefono —
- * cioè proprio dove il bersaglio conta. È la quarta volta che questo foglio
- * inciampa nell'ordine delle regole; qui si è messa una condizione esplicita
- * invece di fidarsi della posizione.
+ * Nata quando le caselle di fabbrica erano 13 px: serviva a impedire che le
+ * caselle del pianificatore venissero portate a 24 anche col mouse, e la
+ * condizione esplicita `(pointer: fine) and (min-width: 701px)` era la
+ * risposta giusta a un difetto di ordine delle regole.
+ *
+ * Il 16 settembre la misura di base è passata a 18 px per tutti — «il minimo
+ * di WCAG non parla di dita, parla di bersagli» — e da quel giorno questa
+ * eccezione ha smesso di proteggere qualcosa e ha cominciato a togliere: tre
+ * caselle del pianificatore erano **16×16** dove tutte le altre
+ * dell'applicazione erano 18, misurate sulla build vera il 17 settembre. Una
+ * regola scritta contro un valore che non c'è più non difende niente: resta
+ * solo un'eccezione che nessuno sa di avere.
+ *
+ * Tolta: adesso valgono i 18 di tutti col puntatore e i 24 col dito.
  */
-@media (pointer: fine) and (min-width: 701px) {
-  .planner-check input {
-    width: 16px;
-    height: 16px;
-  }
-}
 
 .planner-check input {
   margin-top: 2px;
@@ -2731,15 +3013,23 @@ button:focus-visible {
    nostre sparirebbe: il nero è la versione che funziona in tutti e due i temi
    senza diventare due pulsanti diversi da mantenere.
 
-   44px di altezza minima è la dimensione minima di un bersaglio tattile su iOS:
-   questa stessa pagina si apre sull'iPhone, dove il pulsante si preme col dito
-   e non col cursore. */
+   L'altezza invece NON è più una misura sua: la prende da `--h-controllo`, che
+   sul telefono vale 44 px — il minimo di un bersaglio tattile su iOS, e questa
+   stessa pagina si apre sull'iPhone — e col puntatore vale 36 come ogni altro
+   pulsante. Il perché sta due righe sotto. */
 button.btn.bottone-apple {
   background: #000;
   color: #fff;
   border-color: #000;
-  min-height: 44px;
-  padding: 7px 16px;
+  /*
+   * ERA `min-height: 44px` FISSO, e accanto al pulsante di Google — alto 35,5
+   * — faceva una riga con due pulsanti di altezze diverse: misurato, 8,5 px di
+   * scarto. I 44 px restano dove servono (col dito), perché adesso sono il
+   * valore che il token prende sul telefono; col puntatore scende a 36 come
+   * tutti gli altri, e la riga torna dritta.
+   */
+  min-height: var(--h-controllo);
+  padding: 6px 16px;
   /* Il carattere di sistema: su Mac e iPhone è San Francisco, che è quello che
      Apple mostra nei propri esempi. Altrove si ripiega sul carattere della
      pagina, che è quanto di più vicino ci sia. */

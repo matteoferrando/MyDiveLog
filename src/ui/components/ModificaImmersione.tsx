@@ -307,7 +307,7 @@ function RigaBombola({
       </details>
       <div className="row" style={{ marginTop: 8 }}>
         <span className="topbar-spacer" />
-        <button type="button" className="btn btn-small" onClick={onRimuovi}>
+        <button type="button" className="pastiglia" onClick={onRimuovi}>
           {t('Togli questa bombola')}
         </button>
       </div>
@@ -694,7 +694,7 @@ export function ModificaImmersione({
       ))}
       <button
         type="button"
-        className="btn btn-small"
+        className="pastiglia"
         style={{ marginBottom: 14 }}
         onClick={() =>
           tocca({ cylinders: [...draft.cylinders, { id: nuovoId(), mix: { o2: 0.21, he: 0 } }] })

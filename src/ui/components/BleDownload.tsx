@@ -1929,7 +1929,7 @@ export function BleDownload() {
                 {t('l’ultima volta')} ({dateShort(m.at)}) {t('sono arrivate')} {imm(m.dives, t)}.{' '}
                 {t('Al prossimo collegamento prendo solo quelle più recenti.')}
               </span>
-              <button style={{ fontSize: 12, padding: '3px 8px' }} onClick={() => void forgetBleMarker(k)}>
+              <button className="pastiglia" onClick={() => void forgetBleMarker(k)}>
                 {t('Dimentica')}
               </button>
             </div>

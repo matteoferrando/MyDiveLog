@@ -606,7 +606,7 @@ export function SyncPage() {
         </p>
 
         <div style={{ display: 'grid', gap: 12, maxWidth: 620 }}>
-          <label style={{ display: 'grid', gap: 5, fontSize: 12, color: 'var(--text-secondary)' }}>
+          <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--text-secondary)' }}>
             {t('Indirizzo del database')}
             <input
               type="text"
@@ -618,7 +618,7 @@ export function SyncPage() {
             />
           </label>
 
-          <label style={{ display: 'grid', gap: 5, fontSize: 12, color: 'var(--text-secondary)' }}>
+          <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--text-secondary)' }}>
             {t('Token di accesso')}
             <input
               type="password"
@@ -651,7 +651,7 @@ export function SyncPage() {
             {t('Su ogni altro dispositivo va incollato di nuovo, qui.')}
           </p>
 
-          <div className="row">
+          <div className="azioni">
             <button className="btn btn-primary" onClick={() => void save()} disabled={!dirty}>
               {configured ? t('Aggiorna credenziali') : t('Salva credenziali')}
             </button>
@@ -1134,7 +1134,7 @@ function AccountCard() {
           </p>
         </>
       ) : (
-        <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+        <div className="azioni">
           {/*
            * APPLE PER PRIMO, e non è cortesia: la linea guida 4.8 dell'App
            * Store vuole che Sign in with Apple sia offerto in modo equivalente
@@ -1617,14 +1617,11 @@ function TrashCard() {
                 </td>
                 <td style={{ textAlign: 'right' }}>
                   <span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
-                    <button
-                      style={{ fontSize: 12, padding: '3px 8px' }}
-                      onClick={() => void restoreDive(item.dive.id)}
-                    >
+                    <button className="pastiglia" onClick={() => void restoreDive(item.dive.id)}>
                       {t('Rimetti a posto')}
                     </button>
                     <BottoneConferma
-                      style={{ fontSize: 12, padding: '3px 8px' }}
+                      className="pastiglia"
                       etichetta={t('Elimina')}
                       conferma={t('Sì, cancella')}
                       domanda={t(

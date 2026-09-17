@@ -384,13 +384,21 @@ export function NewDive({
               onChange={(e) => set('utcOffsetMinutes', Math.round((num(e.target.value) ?? 0) * 60))}
             />
           </Campo>
-          <div style={{ gridColumn: 'span 2' }}>
+          {/*
+            `alignSelf` e non un margine: il suggerimento deve stare all'altezza
+            del campo accanto, e quell'altezza cambia con la lingua e con la
+            larghezza. Qui c'era un `marginTop: 22` — l'altezza dell'etichetta
+            del campo misurata a occhio una volta sola, che in inglese o su uno
+            schermo stretto non è più quella. Uno spazio messo per allineare
+            qualcosa che si allinea da sé è solo un buco.
+          */}
+          <div style={{ gridColumn: 'span 2', alignSelf: 'center' }}>
             {/*
               Senza scarto l'orario viene letto nel fuso di QUESTO dispositivo, e
               due immersioni della stessa giornata fatta lontano possono finire
               in ordine sbagliato nella catena delle ripetitive.
             */}
-            <p className="planner-hint" style={{ marginTop: 22 }}>
+            <p className="planner-hint" style={{ margin: 0 }}>
               {t("Serve a mettere l'immersione nell'ora giusta del posto.")}
             </p>
           </div>

@@ -256,7 +256,7 @@ export function Gear() {
                          * di che cosa.
                          */}
                         <button
-                          style={{ fontSize: 12, padding: '3px 8px' }}
+                          className="pastiglia"
                           aria-label={`${t('Apri')} ${a.name || t('senza nome')}`}
                         >
                           {t('Apri')}

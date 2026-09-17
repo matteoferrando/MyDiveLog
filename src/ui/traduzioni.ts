@@ -141,8 +141,6 @@ export const INGLESE: Record<string, string> = {
   giorno: 'day',
   'I filtri le nascondono, ma verranno modificate anche loro.':
     'The filters hide them, but they will be changed too.',
-  'Importa un file dal tuo computer subacqueo per iniziare. Puoi caricarne più di uno: le immersioni doppie vengono unite.':
-    'Import a file from your dive computer to start. You can load several: duplicate dives are merged.',
   'in archivio. Prova ad allargare la ricerca.': 'in your logbook. Try widening the search.',
   'in più': 'more',
   'La zavorra deve essere un numero:': 'Weight must be a number:',
@@ -549,6 +547,8 @@ export const INGLESE: Record<string, string> = {
   'Tre alla volta: fare tutto insieme non funziona.': 'Three at a time: all at once does not work.',
   'Una valutazione tace finché non ha almeno sei immersioni con il dato che le serve.':
     'A rule stays quiet until it has six dives with the data it needs.',
+  'Importa un file dal tuo computer subacqueo — o scrivila a mano, se arrivi da un libretto di carta.':
+    'Import a file from your dive computer — or write it by hand, if you are coming from a paper logbook.',
   'Vai a Importa': 'Go to Import',
   'Vai a Statistiche': 'Go to Statistics',
 
@@ -869,7 +869,6 @@ export const INGLESE: Record<string, string> = {
   'In litri e, dove la bombola è nota, in bar. La riserva non è compresa.':
     'In litres and, where the cylinder is known, in bar. Reserve not included.',
   'in mare': 'in salt water',
-  'in superficie da': 'to the surface from',
   'in totale': 'in total',
   'in tutto': 'in all',
   'In uso': 'In use',
@@ -946,7 +945,7 @@ export const INGLESE: Record<string, string> = {
   Minuto: 'Minute',
   'minuto di margine': 'minute of margin',
   Miscela: 'Mix',
-  'Miscela migliore per questa profondità': 'Best mix for this depth',
+  'Miscela migliore': 'Best mix',
   Modello: 'Model',
   'modello a bolle': 'bubble model',
   'Modello decompressivo': 'Deco model',
@@ -983,9 +982,9 @@ export const INGLESE: Record<string, string> = {
   'Ossigeno, percento': 'Oxygen, percent',
   'O₂ di partenza': 'O₂ start pressure',
   'Passo fra le soste': 'Stop spacing',
+  'EAN = % di ossigeno': 'EAN = oxygen %',
   'per 1.4 bar a': 'for 1.4 bar at',
   'Per pianificare (75°)': 'For planning (75th)',
-  'per riportare': 'to bring',
   'Per sapere se bastano a': 'To find out whether that is enough at',
   percento: 'percent',
   persona: 'diver',
@@ -1124,7 +1123,7 @@ export const INGLESE: Record<string, string> = {
   transito: 'travel',
   Tratto: 'Leg',
   'tre volte su quattro consumi meno di così': 'three dives out of four use less',
-  'troppo poche per filtrare sulla durata': 'too few to filter on duration too',
+  'poche per la durata': 'too few to filter on duration',
   'Ultima sosta': 'Last stop',
   'Un terzo all’andata, uno al ritorno, uno di margine.': 'One third out, one back, one spare.',
   'Una riga per tratto, con il runtime a fine tratto: è il numero da scrivere sulla lavagnetta.':
@@ -1217,7 +1216,7 @@ export const INGLESE: Record<string, string> = {
     'Move the sliders and see if the dive would have stayed no-deco. Gradient factors move the ceiling, not GF99.',
   'tessuto lento: esposizione prolungata o più giorni di fila': 'slow tissue: long exposure or days in a row',
   'tessuto medio: immersione lunga, o ripetitiva': 'medium tissue: long dive, or repetitive',
-  'tessuto veloce: il caso più comune in ricreativa': 'fast tissue: the usual recreational case',
+  'tessuto veloce': 'fast tissue',
   'tessuto velocissimo: immersione corta e profonda': 'very fast tissue: short and deep dive',
   'Valore M': 'M-value',
   'valore M': 'M-value',
@@ -2996,8 +2995,8 @@ export const INGLESE: Record<string, string> = {
   'Tabelle NOAA. Il CNS si dimezza ogni 90 minuti in superficie, l’ossigeno sui polmoni (OTU) no.':
     'NOAA tables. CNS halves every 90 minutes on the surface, lung oxygen (OTU) does not.',
   'Giornata peggiore, ossigeno sui polmoni (OTU)': 'Worst day, lung oxygen (OTU)',
-  'nitrox: la sigla è la percentuale di ossigeno': 'nitrox: the number is the oxygen percentage',
-  'accettabile fino a 5.21 atmosfere assolute': 'acceptable up to 5.21 atmospheres absolute',
+  'fino a 5.21 ata': 'up to 5.21 ata',
+  '{0} L per {1} da {2} m': '{0} L for {1} from {2} m',
   'Le cinque lettere fanno START: il controllo da fare in superficie insieme al compagno.':
     'The five letters spell START: the check to run on the surface with your buddy.',
   'S — Sicurezza': 'S — Drill',
@@ -3014,8 +3013,6 @@ export const INGLESE: Record<string, string> = {
     'These are sample values, not yours. Replace them with the dive you are planning: the plan is worth as much as the numbers you give it.',
 
   // --- il logbook, la scheda dell’immersione e l’attrezzatura ---
-  "Se hai un libretto di carta o un computer che non si collega, l'immersione la scrivi tu: data, durata, profondità, e il resto quando vuoi.":
-    'If you keep a paper logbook, or your computer will not connect, write the dive yourself: date, duration, depth, and the rest whenever you like.',
   'Salvataggio in corso…': 'Saving…',
   'Il PDF non è stato salvato: l’immersione in archivio non è stata toccata.':
     'The PDF was not saved: the dive in your logbook was not touched.',

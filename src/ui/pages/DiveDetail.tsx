@@ -282,19 +282,21 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
            * strada che contiene l'altra non è una scelta da offrire: è la
            * strada.*
            */}
-          <button className="btn" onClick={() => void esportaPdf()}>
-            {t('Esporta PDF')}
-          </button>
-          {/*
-           * Chiudere con modifiche non salvate CHIEDE conferma.
-           *
-           * Il pulsante si chiama «Chiudi», non «Annulla», e la bozza vive nella
-           * scheda: chiuderla la cancellava in silenzio, senza avviso e senza
-           * ritorno. Verificato con l'app in mano — nota e titolo appena scritti
-           * sparivano, e sparivano anche solo cambiando pagina. Con la scheda
-           * pulita il pulsante resta quello di prima, senza domande inutili.
-           */}
-          {controlloModifica()}
+          <div className="row azioni-scheda">
+            <button className="btn" onClick={() => void esportaPdf()}>
+              {t('Esporta PDF')}
+            </button>
+            {/*
+             * Chiudere con modifiche non salvate CHIEDE conferma.
+             *
+             * Il pulsante si chiama «Chiudi», non «Annulla», e la bozza vive nella
+             * scheda: chiuderla la cancellava in silenzio, senza avviso e senza
+             * ritorno. Verificato con l'app in mano — nota e titolo appena scritti
+             * sparivano, e sparivano anche solo cambiando pagina. Con la scheda
+             * pulita il pulsante resta quello di prima, senza domande inutili.
+             */}
+            {controlloModifica()}
+          </div>
         </div>
       </div>
 
@@ -549,7 +551,7 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
         <div className="card">
           <h2>{t('Debrief')}</h2>
           <p className="card-sub">{t('Cosa dice il profilo di questa immersione.')}</p>
-          <div className="stack" style={{ gap: 7 }}>
+          <div className="stack" style={{ gap: 8 }}>
             {observations.map((o) => (
               <div key={o.text} className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
                 <span className={`dot ${SEVERITY_CLASS[o.severity]}`} style={{ marginTop: 6 }} />

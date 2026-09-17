@@ -251,7 +251,7 @@ export function Coach() {
           <p className="card-sub">{t('Quello che già funziona, con i numeri che lo dicono.')}</p>
           <div className="stack" style={{ gap: 10 }}>
             {plan.strengths.map((f) => (
-              <div key={f.id} className="row" style={{ gap: 9, alignItems: 'flex-start' }}>
+              <div key={f.id} className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
                 <span className="dot dot-good" style={{ marginTop: 6 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 550, fontSize: 13 }}>{f.headline}</div>
