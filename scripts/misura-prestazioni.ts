@@ -88,7 +88,9 @@ for (const n of [500, 2000, 10000]) {
   console.log(`\n══ archivio da ${n} immersioni (con profilo da 240 campioni)`);
   const a0 = performance.now();
   const dives = archivio(n, true);
-  console.log(`  ${'costruzione + computeMetrics di tutte'.padEnd(42)} ${(performance.now() - a0).toFixed(0).padStart(7)} ms`);
+  console.log(
+    `  ${'costruzione + computeMetrics di tutte'.padEnd(42)} ${(performance.now() - a0).toFixed(0).padStart(7)} ms`,
+  );
   cronometra('aggregate (tutto l archivio)', () => aggregate(dives));
   cronometra('aggregate (finestra 12 mesi)', () => aggregate(dives, Date.now(), 12));
   const agg = aggregate(dives);

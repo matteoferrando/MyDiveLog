@@ -1,8 +1,16 @@
 # File generati o non nostri.
 node_modules
 dist
+dist-dev
 src-tauri/target
 package-lock.json
+
+# La cartella di misura: script usa-e-getta scritti per rispondere a una
+# domanda — fuzz, cronometri, mutazioni — e poi buttati. Non sono codice del
+# progetto e non sono in git; ma `prettier --check .` guarda anche loro, e un
+# file di scarto mal formattato faceva fallire la catena di rilascio per una
+# ragione che col progetto non c'entra niente.
+.misure
 
 # Dati di prova esportati dai computer subacquei: sono byte da parsare, non
 # codice, e riformattarli vorrebbe dire cambiare i casi di prova.
