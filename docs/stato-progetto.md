@@ -1,8 +1,201 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **17 settembre 2026** — **2 865 prove in 179 file** più
+Aggiornato: **18 settembre 2026** — **2 884 prove in 183 file** più
 **149 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
-a **UTC+14 e UTC−11**.
+a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
+`server/` e `vite.config.ts`.
+
+> ## ► LA 1.8.29 È PUBBLICATA. ◄
+>
+> Release **`v1.8.29`**, **nove allegati contati**, `.dmg` notarizzato e pinzato
+> (`status: Accepted`, *«The staple and validate action worked!»*, `spctl`:
+> *Notarized Developer ID*). `latest.json` pubblicato dice 1.8.29 e porta
+> **darwin-aarch64 e windows-x86_64**, tutti e due firmati. Dal workflow:
+> *«firmati: 1 apk, 1 aab»* e *«nessuna traccia dell'aggiornatore nel binario»*
+> per Linux.
+>
+> I byte, letti **dall'indirizzo che usano i pulsanti del sito** e non da quello
+> che nomina la versione: dmg **4 531 066**, setup **3 263 728**, portatile
+> **7 523 840**, apk **11 133 158**, deb **3 827 112**, `latest.json`
+> **1 268**. Tutti `200` al primo tentativo: stavolta l'alias `latest` non ha
+> avuto il ritardo del 16 settembre.
+>
+> **Le impronte combaciano su due fonti.** Quelle nelle note del rilascio sono
+> calcolate qui sui file allegati; quattro delle cinque coincidono con quelle
+> che il workflow ha calcolato sulla propria macchina, senza sapere di questa
+> misura. E cask e PKGBUILD prendono la loro dall'API di GitHub — cioè dal file
+> che GitHub sta davvero servendo — e pretendono che combaci con quello
+> costruito qui: `ac7293ac…` per il `.dmg`, `f04c9e30…` per il `.deb`.
+>
+> **Il sito è stato ripubblicato.** Le quattordici fotografie della vetrina
+> mostravano controlli di tre altezze diverse e numeri con la coda di virgola,
+> cioè un'applicazione che non esiste più. Rigenerate dalla build della 1.8.29;
+> `sito:online` chiude con *«il sito pubblicato è quello sul disco»*. Il foglio
+> di stile non è cambiato, quindi `sito:versiona` ha riscritto **zero** pagine:
+> l'impronta nell'indirizzo è ancora `3b387641`.
+>
+> Nei negozi va questa, e tutto sta in `../consegna/1.8.29/`.
+
+> ## ► L'APP STORE SERVE LA 1.8.27, ED È STATO MISURATO OGGI. ◄
+>
+> L'API di Apple, interrogata il 18 settembre a rilascio finito: **versione
+> 1.8.27, pubblicata il 17 settembre alle 16:31 UTC**. Ieri qui c'era scritto
+> che dichiarava ancora la 1.8.22 e che la 1.8.27 era in revisione — la
+> revisione è passata mentre si lavorava ad altro.
+>
+> *È la quarta volta che la riga sui negozi va rimisurata invece che ricordata:
+> una riga che nessuno rimisura diventa la fonte da cui si deduce il mondo.*
+
+> ## ► IL DEBUG A TAPPETO: quattro guardie che non guardavano. ◄
+>
+> Commit **`857b888`**. Il racconto per esteso sta in
+> **`claude/debug-18-settembre.md`**; qui il nocciolo, che non sono i difetti ma
+> il motivo per cui erano invisibili.
+>
+> **1. Tre zone del progetto stavano fuori dal controllo dei tipi.** Nove
+> programmi in `scripts/` (fra cui `generate-demo-data.ts`, dentro
+> `npm run play`), **gli otto file del Worker in `server/`** — scambio del
+> codice con Apple e Google, sessioni, limite di frequenza, Turso — e
+> `vite.config.ts`. Il Worker è il codice più delicato del progetto e nessun
+> `tsc` lo aveva mai guardato: wrangler lo pubblica con esbuild, che traspila
+> senza controllare. Controllato ora con le opzioni rigide è **pulito**. Negli
+> script invece c'era un errore vero: `perche-non-unite.ts` filtrava su
+> `d.deletedAt`, un campo che il modello non ha mai avuto.
+>
+> **2. `Infinity` usciva dal nucleo e arrivava a schermo.** Con la bombola a
+> zero litri il pianificatore tecnico scriveva «EAN32 1.719 **Infinity** 220».
+> Ed è già la prima proprietà di `proprieta.test.ts` — *«nessun NaN e nessun
+> Infinity in nessun campo, da nessuna parte»* — verde da settimane, perché il
+> suo generatore scriveva `tankL: intero(10, 24)`: **una bombola da zero da lì
+> dentro non usciva mai.** *Una proprietà il cui generatore non può raggiungere
+> il caso che la rompe non è mai stata provata.*
+>
+> **3. La catena di rilascio misurava il pacchetto sbagliato.** `RILASCIO.md`
+> non costruiva prima di provare, e `bundle.test.ts` misura `dist/`: su un
+> albero pulito quelle prove **non giravano affatto**, sulla macchina di chi
+> pubblica giravano sulla build del rilascio PRECEDENTE. Provato nei due
+> ordini: prove-prima 5 su 6 saltate, build-prima 6 su 6 verdi. *Una misura
+> fatta sull'oggetto sbagliato è peggio di una misura non fatta: la prima
+> chiude la domanda.*
+>
+> **4. Il dizionario aveva tre voci senza nessuna frase dietro.** Due morte
+> davvero; la terza — «lettura della memoria del computer» — la scrive
+> `ponte_blec.rs` e attraversa il ponte: cercandola solo in `src/` risultava
+> morta, e toglierla avrebbe spento la traduzione della barra di avanzamento di
+> ogni scarico Bluetooth. *Una guardia che guarda metà del progetto propone di
+> cancellare l'altra metà.*
+>
+> **Il lato Rust:** zero `unwrap`, zero `expect`, zero `panic!`, zero `unsafe`
+> fuori dal confine FFI. Ma **clippy non era mai stato lanciato**: 19
+> segnalazioni, tre delle quali codice morto. Fra queste
+> `INTERVALLO_MISURATO` — i 60 ms misurati sull'Aladin e sul Puck 4 che
+> giustificano i 250 ms di attesa di un frammento — che **nessuno leggeva**.
+> Adesso è un `const _: () = assert!(...)`: chi riabbassa l'attesa non compila.
+>
+> **E il debito sulle prestazioni è chiuso con dei numeri**, fino a diecimila
+> immersioni, riproducibili con `npm run prestazioni`: tutto lineare tranne
+> l'import, sei millisecondi per immersione importata su diecimila in archivio.
+>
+> **Quello che è risultato pulito:** 40 000 piani di gas e 6 000 di
+> decompressione generati a caso fuori scala senza un solo NaN, infinito o
+> eccezione; dieci profili degeneri attraverso `computeMetrics` senza un
+> graffio; zero errori e zero avvisi in console su tre configurazioni × tutte
+> le schede × chiaro, scuro e inglese; nessun segreto nei file tracciati.
+
+> ## ► LA NOTTE DELLA GRAFICA: tredici difetti che si vedevano solo contando. ◄
+>
+> Commit **`0b3f533`**, su `origin/main`. Il racconto per esteso sta in
+> **`claude/grafica-18-settembre.md`**; qui il nocciolo.
+>
+> Una revisione di grafica, proporzioni e responsive su iPhone, Android, Mac,
+> Windows e Linux, fatta **misurando invece che guardando**: 120 viste — dodici
+> larghezze per dieci schede — più il tema scuro. Nessuno dei difetti trovati
+> rompeva qualcosa, ed è esattamente il motivo per cui erano ancora lì.
+>
+> **1. L'altezza dei controlli era un risultato, non una misura.** A 1280 px:
+> pulsante **35,5**, campo di testo **33,5**, menu a tendina **31**. Tre altezze
+> per tre cose che stanno nella stessa riga di filtri. Nessuna sbagliata di suo
+> — ognuna usciva dal proprio riempimento — e proprio per questo nessuno le
+> aveva mai viste: *sono numeri che nascono da soli, e nascere da soli non li
+> mette d'accordo.* Sul telefono la differenza diventava accessibilità: campi a
+> 38, pulsanti fermi a 35,5, cioè **sotto i 44 px che iOS chiede a un bersaglio
+> premuto col dito**, nella stessa schermata dove la barra in basso era già a
+> 44. Adesso l'altezza è dichiarata in un posto solo — `--h-controllo`, 36 col
+> puntatore e 44 col dito — e **misurato dopo, ogni pulsante, campo e tendina
+> dell'applicazione è 36 sul desktop e 44 sul telefono, senza eccezioni**.
+>
+> **2. La pastiglia esisteva in tredici copie e in tre misure.** «Apri», «×»,
+> «12 L», «Mediana»: lo stesso pulsantino scritto a mano tredici volte, con
+> tre riempimenti diversi. 26 px in un posto, 28 in un altro. Adesso è una
+> classe.
+>
+> **3. Cinque classi nel markup non vestivano niente.** `linklike` sui pulsanti
+> che aprono le immersioni confrontate — il nome dice che dovevano sembrare
+> collegamenti, e invece erano due pulsanti grigi con la cornice — e
+> `btn-small` su tre pulsanti che qualcuno voleva piccoli. È lo specchio di
+> `cssSenzaPadrone` ed è il più subdolo dei due: **il CSS morto non fa niente,
+> una classe inventata fa credere che quel pezzo sia stato disegnato.**
+>
+> **4. I litri di gas portavano la coda della virgola mobile.**
+> «3982.0000000000005 L di gas». Il valore è giusto, la forma no, e **non
+> l'aveva preso nessuna prova perché tutte controllano i numeri e quel numero
+> era corretto**: il difetto stava solo in quello che veniva disegnato.
+>
+> **5. Una colonna che si allarga, per la seconda volta in tre giorni.**
+> Incolonnare `.page-title-row` sul telefono ha rimesso in piedi la trappola
+> chiusa il 15 settembre su `.filters`: a 320 px, contenitore **280**, figli
+> **342**. La lezione era scritta trenta righe più in basso **nello stesso
+> file** e non ha protetto niente. *Una lezione imparata dentro un percorso
+> protegge solo quel percorso.*
+>
+> **E altre nove:** il riassunto di un `<details>` era un bersaglio da 18 px col
+> mouse e col dito; tre caselle del pianificatore erano 16×16 dove le altre
+> erano 18, per un'eccezione scritta contro un valore che non esiste più (e con
+> lei se n'è andata la prova che ne difendeva la **posizione** invece della
+> proprietà); il pulsante di Apple aveva 44 px a mano accanto a uno da 35,5;
+> quattro etichette uscivano dai grafici e venivano tagliate senza che nulla lo
+> segnalasse; «sosta di sicurezza 2.5–7.5 m» perdeva l'ultima parola sotto la
+> risalita; dieci carte a 20 px di distanza e quattro a 14; undici spaziature
+> fuori scala; una frase che ricominciava in minuscolo dopo il punto.
+>
+> **Le misure dopo:** zero elementi fuori dal riquadro, zero testi tagliati,
+> zero scorrimenti orizzontali, zero righe con controlli di altezze diverse,
+> zero code della virgola, zero etichette tagliate nei grafici — su tutte e 120
+> le viste.
+>
+> **Le guardie:** otto mutazioni, otto rossi, verde dopo il ripristino.
+> *Una guardia che non si è vista diventare rossa è un'ipotesi.*
+
+> ## ► E L'ARCHIVIO VUOTO, che è la prima schermata di chiunque. ◄
+>
+> Commit **`c6d8c9e`**. Guardare l'applicazione **senza dati dentro** è la cosa
+> che chi sviluppa non fa mai, perché ha sempre un archivio pieno.
+>
+> **«Trascina qui i file, o scegli dal disco», su un telefono Android.** La
+> correzione esisteva già da tre settimane, con scritto accanto il perché —
+> *un invito che non si può accettare fa sembrare rotta la funzione, non il
+> testo* — ma la condizione era `suIOS()`, e **Android è un telefono
+> esattamente quanto l'altro**: lì restava la frase del desktop, col gesto
+> impossibile e il disco che non c'è. Adesso ha la sua, verificata facendo
+> aprire la build a un agente Android vero.
+>
+> **E la strada del permesso Bluetooth era scritta per due piattaforme su tre.**
+> Il ramo `else` dava quella di macOS anche a chi ha in mano un Android, dove
+> quel percorso non esiste — e dove il permesso non si chiama nemmeno
+> Bluetooth: da Android 12 il gruppo è **Dispositivi nelle vicinanze**. *Una
+> strada sbagliata è peggio di nessuna strada: chi la segue e non trova niente
+> conclude che il permesso c'è già e che rotta è l'applicazione.*
+
+> ## ► E MISURARE IN UNA LINGUA SOLA È MISURARE MEZZA APPLICAZIONE. ◄
+>
+> Commit **`6e55bda`**. Tutte le misure della notte erano in **italiano**;
+> l'applicazione però ne parla due, e in inglese le frasi cambiano lunghezza.
+> Rifatte le stesse sonde con la lingua cambiata dal menu, a 320, 393 e 1180 px:
+> **«reserve»** usciva di due pixel dal grafico delle pressioni (in italiano
+> «riserva» ci stava), e le **percentuali sotto la barra delle fasi** stavano un
+> pixel fuori dal riquadro, che era alto 58 per un contenuto da 58,3.
+>
+> **Dopo: zero in tutte e due le lingue.**
 
 > ## ► LA 1.8.28 È PUBBLICATA. ◄
 >
