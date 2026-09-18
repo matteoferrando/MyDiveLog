@@ -25,5 +25,5 @@
       "@storage/*": ["src/storage/*"]
     }
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests", "scripts", "server", "vite.config.ts"]
 }

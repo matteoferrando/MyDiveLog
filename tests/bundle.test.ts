@@ -17,7 +17,7 @@
  * `dist/` mancante direbbe «il bundle è troppo grosso», che è falso.
  */
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -97,8 +97,47 @@ function eagerChunks() {
   return chunks().filter((c) => href.includes(c.name));
 }
 
-// `dist/` assente: la build non è ancora stata fatta, non c'è niente da misurare.
-describe.skipIf(!existsSync(join(DIST, 'index.html')))('bilancio del bundle', () => {
+/**
+ * ═════════════════════════════════════════════════════════════════════════════
+ * ► SI SALTA ANCHE QUANDO `dist/` È PIÙ VECCHIA DEI SORGENTI. ◄
+ *
+ * `dist/` assente è sempre stato un motivo per saltare: non c'è niente da
+ * misurare. Il 18 settembre 2026 è saltato fuori il caso peggiore, che non era
+ * coperto: `dist/` **c'è ma è di ieri**. Allora queste prove girano, passano, e
+ * dichiarano verde il bilancio di un pacchetto che non è quello che si sta per
+ * pubblicare — *una misura fatta sull'oggetto sbagliato è peggio di una misura
+ * non fatta, perché la prima chiude la domanda.*
+ *
+ * E il caso c'era per davvero: fino a oggi la catena di `docs/RILASCIO.md`
+ * faceva `tsc --noEmit` e poi le prove, senza costruire. Su un albero pulito
+ * `dist/` è ignorato da git e non esiste, quindi il bilancio del bundle **non
+ * girava affatto**; sulla macchina di chi pubblica c'era la build del rilascio
+ * precedente, e girava sulla sbagliata. Adesso la catena costruisce per prima
+ * cosa, e questa condizione è la rete: se qualcuno la riordina, il bilancio si
+ * toglie di mezzo invece di mentire.
+ */
+const distVecchia = (): boolean => {
+  if (!existsSync(join(DIST, 'index.html'))) return true;
+  const quando = statSync(join(DIST, 'index.html')).mtimeMs;
+  let piuRecente = 0;
+  const giro = (radice: string) => {
+    for (const voce of readdirSync(radice)) {
+      if (voce.startsWith('.')) continue;
+      const percorso = join(radice, voce);
+      const st = statSync(percorso);
+      if (st.isDirectory()) giro(percorso);
+      else piuRecente = Math.max(piuRecente, st.mtimeMs);
+    }
+  };
+  try {
+    giro('src');
+  } catch {
+    return false;
+  }
+  return piuRecente > quando;
+};
+
+describe.skipIf(distVecchia())('bilancio del bundle', () => {
   it('la build è divisa in più pezzi, non in un file solo', () => {
     const c = chunks();
     // Uno per pagina pigra, più ingresso, react, xml e le dipendenze asincrone:
@@ -142,5 +181,36 @@ describe.skipIf(!existsSync(join(DIST, 'index.html')))('bilancio del bundle', ()
     expect(kb(gzip), `primo avvio = ${kb(gzip)} kB gzip\n${dettaglio}`).toBeLessThanOrEqual(
       MAX_EAGER_GZIP_KB,
     );
+  });
+});
+
+/*
+ * ═════════════════════════════════════════════════════════════════════════════
+ * ► E QUESTA PROVA NON SI SALTA MAI, perché è quella che tiene in piedi tutte
+ * le altre di questo file. ◄
+ *
+ * Le prove qui sopra misurano `dist/`. Se la catena di rilascio non costruisce
+ * prima di lanciarle, misurano il vuoto (e si saltano) o la build precedente (e
+ * mentono). La condizione non sta nel codice: sta in un documento, ed è il
+ * genere di cosa che si riordina senza pensarci. *Un documento che tiene in
+ * piedi una prova va controllato come il codice.*
+ */
+describe('la catena di rilascio misura il pacco che sta pubblicando', () => {
+  it('docs/RILASCIO.md costruisce prima di lanciare le prove', () => {
+    const doc = readFileSync('docs/RILASCIO.md', 'utf8');
+    const dalla = doc.indexOf('## 1.');
+    const alla = doc.indexOf('## 2.');
+    expect(dalla, 'in RILASCIO.md non c’è più la sezione 1').toBeGreaterThan(-1);
+    expect(alla, 'in RILASCIO.md non c’è più la sezione 2').toBeGreaterThan(dalla);
+    const catena = doc.slice(dalla, alla);
+
+    const iCostruzione = catena.indexOf('npm run build');
+    const iProve = catena.indexOf('vitest run');
+    expect(iCostruzione, 'la catena di rilascio non costruisce').toBeGreaterThan(-1);
+    expect(iProve, 'la catena di rilascio non lancia le prove').toBeGreaterThan(-1);
+    expect(
+      iCostruzione,
+      'la catena lancia le prove PRIMA di costruire: il bilancio del bundle misurerebbe la build vecchia, o nessuna',
+    ).toBeLessThan(iProve);
   });
 });

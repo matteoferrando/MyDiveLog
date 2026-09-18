@@ -149,7 +149,22 @@ if (!percorso) {
 }
 
 const file = JSON.parse(readFileSync(percorso, 'utf8')) as { dives: Dive[] };
-const tutte = (file.dives ?? []).filter((d) => !d.deletedAt);
+/*
+ * ► QUI C'ERA `.filter((d) => !d.deletedAt)`, e `deletedAt` NON ESISTE. ◄
+ *
+ * Nel modello un'immersione non porta nessun segno di cancellazione: il
+ * cestino è un elenco di identificativi a parte, locale, che non si
+ * sincronizza (`storage/trash.ts`) — e un backup contiene solo le immersioni
+ * vive. Il filtro quindi non toglieva niente: `undefined` è falso, la
+ * condizione era sempre vera.
+ *
+ * Non ha mai fatto danni, ed è il punto: **`tsc` non l'ha mai visto**, perché
+ * `tsconfig.json` includeva `src` e `tests` e non `scripts`. Nove programmi
+ * TypeScript — fra cui `generate-demo-data.ts`, che sta dentro `npm run play`
+ * — stavano fuori dal controllo dei tipi. Adesso ci sono dentro, e una prova
+ * controlla che non ne resti fuori nessuno.
+ */
+const tutte = file.dives ?? [];
 if (!tutte.length) {
   console.error('Il backup non contiene immersioni.');
   process.exit(1);

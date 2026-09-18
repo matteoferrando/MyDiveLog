@@ -1269,10 +1269,34 @@ export function planDeco(
 
   const gasUsage: GasUsage[] = gases.map((g, i) => {
     const litres = Math.round(litresByGas.get(i) ?? 0);
-    // `g.tankL === 0` è una bombola VUOTA, non una bombola sconosciuta: trattarla
-    // come sconosciuta faceva dichiarare che il gas bastava. Solo `undefined`
-    // significa «non lo so».
-    const bar = g.tankL === undefined ? undefined : g.tankL > 0 ? Math.ceil(litres / g.tankL) : Infinity;
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► QUI USCIVA `Infinity`, E FINIVA A SCHERMO. ◄
+     *
+     * Una bombola da zero litri non è una bombola sconosciuta — questo resta
+     * vero, e il gas NON deve risultare sufficiente. Ma la strada scelta era
+     * `litres / 0`, cioè `Infinity`, e quel valore usciva dal nucleo e
+     * attraversava tutta l'interfaccia: misurato sulla build vera il 18
+     * settembre 2026, scrivendo `0` nel campo della bombola del gas di fondo,
+     * la tabella dei gas del pianificatore tecnico diceva
+     *
+     *     EAN32   1.719   Infinity   220
+     *
+     * ► PERCHÉ `proprieta.test.ts` NON L'AVEVA MAI VISTO. ◄ Perché la sua
+     * prima proprietà è proprio «nessun NaN e nessun Infinity in nessun campo,
+     * da nessuna parte», e il generatore dei casi scriveva
+     * `tankL: intero(10, 24)`. *Una proprietà il cui generatore non può
+     * raggiungere il caso che la rompe non è mai stata provata.* Adesso il
+     * generatore passa ogni tanto da una bombola da zero, e da una senza
+     * pressione.
+     *
+     * ► LA FORMA GIUSTA. ◄ «Quanti bar servono» con una bombola da zero litri
+     * non ha risposta: nessuna pressione ci sta dentro. Quindi il numero è
+     * `undefined` — *non lo sappiamo dire* — e i tre punti che lo disegnano
+     * ripiegano già da soli sui litri o su un trattino. Che il gas non basti
+     * si dice a parte, dove si è sempre detto: `insufficient`.
+     */
+    const bar = g.tankL === undefined || g.tankL <= 0 ? undefined : Math.ceil(litres / g.tankL);
     return {
       gasIndex: i,
       mix: g.mix,
@@ -1281,7 +1305,10 @@ export function planDeco(
       bar,
       tankL: g.tankL,
       startBar: g.startBar,
-      insufficient: bar !== undefined && bar > (g.startBar ?? 0),
+      insufficient:
+        (bar !== undefined && bar > (g.startBar ?? 0)) ||
+        // La bombola c'è ma non contiene niente, e del gas ne serve: non basta.
+        (g.tankL !== undefined && g.tankL <= 0 && litres > 0),
     };
   });
 

@@ -199,6 +199,64 @@ describe('tutto quello che passa da t() ha la sua voce', () => {
     ).toEqual([]);
   });
 
+  /*
+   * ════════════════════════════════════════════════════════════════════════
+   * ► E IL CONTRARIO: una voce del dizionario senza nessuna frase dietro. ◄
+   *
+   * È lo specchio del controllo qui sopra, ed è lo stesso specchio che
+   * `cssSenzaPadrone` fa a `classiSenzaVestito`. Una voce morta non rompe
+   * niente: nessuno la chiede mai, quindi la sua traduzione non compare mai.
+   * Il danno è a chi legge il dizionario — che è anche la descrizione più
+   * completa di quello che l'applicazione dice — e il giorno che qualcuno
+   * scrive in italiano una frase che per caso coincide con una voce vecchia,
+   * si ritrova addosso una traduzione inglese scritta per un altro posto.
+   *
+   * Trovate così il 18 settembre 2026, due su 2193: «Letto dal computer» e
+   * «scartata: data, durata o profondità non interpretabili.».
+   *
+   * ► PERCHÉ CERCA NEL TESTO E NON SOLO FRA LE CHIAVI DI `t()`. ◄ Perché
+   * molte frasi non compaiono mai dentro un `t()`: nascono come costanti
+   * (`PERIODS`, `GOALS`, le regole di `coaching.ts`) e si traducono al disegno.
+   * Quelle costanti stanno comunque nel sorgente, quindi la ricerca per testo
+   * le trova; cercare solo le chiamate le dichiarerebbe morte tutte.
+   */
+  it('nessuna voce del dizionario è rimasta senza la sua frase', () => {
+    /*
+     * ► SI GUARDA ANCHE IL RUST, e non è un dettaglio. ◄ Alcune frasi che la
+     * persona legge non nascono in TypeScript: «lettura della memoria del
+     * computer» la scrive `ponte_blec.rs`, attraversa il ponte dentro un
+     * `DownloadEvent` e si traduce al disegno con `frase()`. Cercandola solo
+     * in `src/` risultava morta, e toglierla dal dizionario avrebbe rimesso in
+     * inglese… anzi, in italiano, la barra di avanzamento di ogni scarico
+     * Bluetooth. *Una guardia che guarda metà del progetto propone di
+     * cancellare l'altra metà.*
+     *
+     * Le virgolette scappate tornano quelle che sono: nel sorgente una frase
+     * con l'apostrofo dritto si scrive `'\''` dentro gli apici, quindi
+     * cercarla così com'è nel dizionario non la troverebbe mai — e
+     * «Fissa la pressione di risalita… anche se "c'era ancora tempo"»
+     * risulterebbe morta mentre è viva in `coaching.ts`.
+     */
+    const rust: string[] = [];
+    for (const voce of readdirSync(join(radice, 'src-tauri', 'src'), {
+      recursive: true,
+      withFileTypes: true,
+    })) {
+      if (voce.isFile() && voce.name.endsWith('.rs')) rust.push(join(voce.parentPath, voce.name));
+    }
+    expect(rust.length, 'nessun sorgente Rust letto: il giro delle cartelle è rotto').toBeGreaterThan(2);
+
+    const tutto = [...files, ...rust]
+      .map((f) => readFileSync(f, 'utf8'))
+      .join('\n')
+      .replace(/\\(['"`])/g, '$1');
+    const orfane = Object.keys(INGLESE).filter((chiave) => !tutto.includes(chiave));
+    expect(
+      orfane,
+      'voci del dizionario che nessun sorgente nomina: toglile, o la traduzione è per una frase che non esiste',
+    ).toEqual([]);
+  });
+
   it('nessuna chiave è costruita interpolando un valore', () => {
     /*
       `t(`Consumo ${x} L/min`)` è il difetto che ha tenuto novantuno frasi fuori

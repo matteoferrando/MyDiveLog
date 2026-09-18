@@ -577,6 +577,24 @@ const ATTESA_FRAMMENTO_VERA: Duration = Duration::from_millis(250);
 const ATTESA_FRAMMENTO: Duration =
     if cfg!(test) { Duration::from_millis(5) } else { ATTESA_FRAMMENTO_VERA };
 
+/// ► «DUECENTOCINQUANTA, CIOÈ QUATTRO INTERVALLI MISURATI», adesso lo controlla
+/// il compilatore. ◄
+///
+/// `INTERVALLO_MISURATO` esiste per giustificare questo tetto — sta scritto nel
+/// suo commento — e fino al 18 settembre 2026 **nessuno lo leggeva**: era una
+/// costante morta, che clippy segnalava come tale, e la relazione fra i due
+/// numeri viveva soltanto in una frase. *Un fatto scritto in un commento non si
+/// rimisura da solo.* Il giorno che qualcuno riabbassasse l'attesa a cento
+/// millisecondi per «renderla più reattiva», la frase continuerebbe a dire
+/// quattro e nessuno se ne accorgerebbe fino al prossimo pacchetto consegnato a
+/// metà — a un protocollo che non ha checksum.
+///
+/// Adesso non compila.
+const _: () = assert!(
+    ATTESA_FRAMMENTO_VERA.as_millis() >= 4 * INTERVALLO_MISURATO.as_millis(),
+    "l'attesa di un frammento deve coprire almeno quattro intervalli di connessione misurati"
+);
+
 #[cfg(test)]
 mod prove_dei_tetti {
     use super::*;
@@ -2082,6 +2100,12 @@ pub struct EsitoScarico {
 
 impl EsitoScarico {
     /// Per chi non ha niente da salvare a metà: o tutto, o l'errore.
+    ///
+    /// `#[cfg(test)]` perché è vero: l'applicazione non la chiama da nessuna
+    /// parte — quando uno scarico si rompe a metà, quello che è arrivato si
+    /// tiene. Senza l'attributo era codice morto nella libreria e vivo solo
+    /// nelle prove, cioè una funzione che *sembrava* far parte del prodotto.
+    #[cfg(test)]
     pub fn in_risultato(self) -> Result<Vec<ImmersioneGrezza>, String> {
         match self.guasto {
             Some(motivo) => Err(motivo),
@@ -2495,6 +2519,13 @@ impl CollegamentoLdc {
 
     /// Come `scarica_tutto`, ma butta via quello che è arrivato se poi si è
     /// rotto qualcosa. La usano le prove, dove non c'è niente da salvare.
+    ///
+    /// `#[cfg(test)]` perché è vero, e vale la pena che si veda: l'applicazione
+    /// chiama sempre `scarica_tutto` con l'elenco di quello che ha già e con il
+    /// riferimento per l'avanzamento. Le otto prove che passano di qui provano
+    /// quindi una firma che in produzione non viene mai usata — è una
+    /// scorciatoia da prove, e adesso lo dichiara.
+    #[cfg(test)]
     pub fn scarica(&self, descrittore: &Descrittore) -> Result<Vec<ImmersioneGrezza>, String> {
         // Le prove che usano questa scorciatoia non hanno nessuno a cui
         // raccontare l'avanzamento: quelle che lo guardano chiamano `scarica_tutto`.

@@ -219,7 +219,6 @@ export const INGLESE: Record<string, string> = {
   'Integrazione aria': 'Air integration',
   'la distanza fra le due curve è quella differenza.': 'the gap between the two curves is that difference.',
   'Lette dal log del computer, non inserite a mano.': 'Read from the computer log, not typed in.',
-  'Letto dal computer': 'From the computer',
 
   // --- i sommari delle sezioni che si aprono, nella scheda di un'immersione ---
   // «Debrief» resta «Debrief»: è la parola che si usa in inglese e in italiano a
@@ -2275,7 +2274,6 @@ export const INGLESE: Record<string, string> = {
   'Restano i dati di riepilogo.': 'The summary data is left.',
   'Riconosciuto uno sfasamento di': 'Recognised a clock offset of',
   'righe scartate: data o durata non interpretabili.': 'rows discarded: date or duration unreadable.',
-  'scartata: data, durata o profondità non interpretabili.': 'discarded: date, duration or depth unreadable.',
   'scartata: durata o profondità mancanti.': 'discarded: duration or depth missing.',
   'senza profondità media: consumo non calcolabile.': 'has no average depth: RMV cannot be worked out.',
   'Servizio di accesso non raggiungibile:': 'Sign-in service unreachable:',

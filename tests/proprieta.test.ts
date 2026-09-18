@@ -150,12 +150,37 @@ function generaCaso(seme: number): Caso {
   }
   if (o2 + he > 1) he = 1 - o2;
 
+  /*
+   * ► LA BOMBOLA DA ZERO, e perché è arrivata solo il 18 settembre 2026. ◄
+   *
+   * Qui c'era `tankL: intero(10, 24)` e basta: una bombola vera, sempre. La
+   * prima proprietà di questo file dice «nessun NaN e nessun Infinity in
+   * nessun campo, da nessuna parte», ed è stata verde per settimane mentre
+   * `planDeco` produceva `Infinity` — perché lo produceva SOLO con una
+   * bombola da zero litri, e da qui dentro una bombola da zero litri non
+   * usciva mai. *Una proprietà il cui generatore non può raggiungere il caso
+   * che la rompe non è mai stata provata.*
+   *
+   * Zero litri si scrive per davvero nell'applicazione: il campo della
+   * bombola è di testo, si svuota, e il pianificatore tecnico scriveva
+   * «EAN32 1.719 Infinity 220» nella tabella dei gas. Zero bar anche: è la
+   * bombola che c'è ma è scarica.
+   */
+  const tankBizzarra = () => (r() < 0.12 ? 0 : intero(10, 24));
+  const barBizzarri = () => (r() < 0.1 ? 0 : intero(150, 232));
+
   const gases: PlanGas[] = [
-    { mix: { o2, he }, role: 'bottom', tankL: intero(10, 24), startBar: intero(150, 232) },
+    { mix: { o2, he }, role: 'bottom', tankL: tankBizzarra(), startBar: barBizzarri() },
   ];
   if (r() < 0.65)
-    gases.push({ mix: { o2: scegli([0.4, 0.5, 0.5, 0.8]), he: 0 }, role: 'deco', tankL: 11, startBar: 200 });
-  if (r() < 0.45) gases.push({ mix: { o2: 1, he: 0 }, role: 'deco', tankL: 11, startBar: 200 });
+    gases.push({
+      mix: { o2: scegli([0.4, 0.5, 0.5, 0.8]), he: 0 },
+      role: 'deco',
+      tankL: tankBizzarra(),
+      startBar: barBizzarri(),
+    });
+  if (r() < 0.45)
+    gases.push({ mix: { o2: 1, he: 0 }, role: 'deco', tankL: tankBizzarra(), startBar: barBizzarri() });
 
   const gfLow = intero(10, 90) / 100;
   const gfHigh = Math.min(0.95, Math.max(gfLow, intero(50, 95) / 100));

@@ -23,9 +23,23 @@ consegnato a tutti.
 ## 1. La catena verde, tutta
 
 ```
-npx tsc --noEmit && npx eslint . && npx vitest run && npx prettier --check .
+npm run build && npx eslint . && npx vitest run && npx prettier --check .
 cd src-tauri && cargo test --lib
 ```
+
+> **► PERCHÉ `npm run build` STA PRIMA, dal 18 settembre 2026.** Fa `tsc --noEmit`
+> e poi costruisce, quindi il controllo dei tipi c'è ancora. Ma soprattutto
+> mette in `dist/` **la build di adesso**, e `tests/bundle.test.ts` misura
+> quella.
+>
+> *Prima non era così.* Le prove del bilancio del bundle — pezzi separati,
+> nessun pezzo oltre la soglia, una pagina pigra per ogni scheda pesante — si
+> saltano da sole quando `dist/` non c'è (`describe.skipIf`). Con la catena
+> scritta com'era, su un albero pulito `dist/` è ignorato da git e non esiste:
+> **quelle prove non giravano affatto**. E quando `dist/` c'era, era la build
+> del rilascio PRECEDENTE: la catena dichiarava verde il bilancio di un
+> pacchetto che non stava pubblicando. *Una misura fatta sull'oggetto sbagliato
+> è peggio di una misura non fatta: la prima chiude la domanda.*
 
 Se lavori su una macchina e pubblichi da un'altra, **si rilancia sulla macchina
 che pubblica**: la cartella è un'altra e `node_modules` pure.

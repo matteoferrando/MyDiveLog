@@ -130,7 +130,24 @@ const IMMERSIONE = {
 } as unknown as Dive;
 
 /** La scheda dell'immersione con un archivio finto attorno. */
-function schedaCon(dive: Dive): { host: HTMLElement; salva: Mock } {
+/*
+ * ► PERCHÉ È `async`, dal 18 settembre 2026. ◄
+ *
+ * `DiveDetail` mostra subito il riassunto e carica i profili da una PROMESSA.
+ * Montandola dentro un `act` sincrono, quella promessa si risolve dopo — su un
+ * microtask — e React lo diceva a ogni giro: *«An update to DiveDetail inside a
+ * test was not wrapped in act(...)»*, sei volte per esecuzione della suite.
+ *
+ * Non era rumore da zittire. Voleva dire che le asserzioni giravano sulla
+ * scheda **prima** che i profili arrivassero, cioè su uno stato intermedio che
+ * nessun utente vede. Qui non cambiava l'esito — la firma è un dato della
+ * scheda, non del profilo — ma *una prova che guarda uno stato diverso da
+ * quello che guarda la persona è verde per una ragione sua.*
+ *
+ * Il giro a vuoto dentro `act` svuota la coda dei microtask: da qui in poi la
+ * scheda è quella finita.
+ */
+async function schedaCon(dive: Dive): Promise<{ host: HTMLElement; salva: Mock }> {
   const salva = vi.fn(async () => {});
   finto.valore = {
     dives: [dive],
@@ -143,14 +160,15 @@ function schedaCon(dive: Dive): { host: HTMLElement; salva: Mock } {
     numeri: new Map([[dive.id, 1]]),
   };
   const { host } = monta(<DiveDetail id={dive.id} onBack={() => {}} />);
+  await act(async () => {});
   return { host, salva };
 }
 
 // ---------------------------------------------------------------------------
 
 describe('si esce dal riquadro della firma senza firmare', () => {
-  it('su un’immersione mai firmata, annullare non salva niente e richiude', () => {
-    const { host, salva } = schedaCon(IMMERSIONE);
+  it('su un’immersione mai firmata, annullare non salva niente e richiude', async () => {
+    const { host, salva } = await schedaCon(IMMERSIONE);
     premi(bottone(host, 'Fai firmare'));
     expect(riquadro(host)).toBeTruthy();
 
@@ -163,14 +181,14 @@ describe('si esce dal riquadro della firma senza firmare', () => {
     expect(bottone(host, 'Fai firmare')).toBeTruthy();
   });
 
-  it('i tratti disegnati e poi abbandonati non finiscono da nessuna parte', () => {
+  it('i tratti disegnati e poi abbandonati non finiscono da nessuna parte', async () => {
     /*
      * L'errore facile è chiudere lasciando lo stato del riquadro dov'era: alla
      * riapertura si ritroverebbero i tratti di chi aveva rinunciato, e basterebbe
      * un «Salva la firma» dato per buono per attribuire all'immersione una firma
      * che nessuno ha voluto dare.
      */
-    const { host } = schedaCon(IMMERSIONE);
+    const { host } = await schedaCon(IMMERSIONE);
     premi(bottone(host, 'Fai firmare'));
     disegna(riquadro(host), [
       { x: 10, y: 10 },
@@ -187,14 +205,14 @@ describe('si esce dal riquadro della firma senza firmare', () => {
     expect(bottone(host, 'Salva la firma').disabled).toBe(true);
   });
 
-  it('su un’immersione GIÀ firmata, annullare non porta via la firma', () => {
+  it('su un’immersione GIÀ firmata, annullare non porta via la firma', async () => {
     /*
      * ► È l'errore opposto, ed è peggiore di quello di partenza. ◄ Una via
      * d'uscita che per chiudere svuota il campo trasformerebbe un ripensamento
      * nella perdita della lettera o) — un'immersione che risultava controfirmata
      * e che di colpo non lo è più, senza che nessuno l'abbia chiesto.
      */
-    const { host, salva } = schedaCon({ ...IMMERSIONE, firmaGuida: FIRMA });
+    const { host, salva } = await schedaCon({ ...IMMERSIONE, firmaGuida: FIRMA });
     premi(bottone(host, 'Rifai la firma'));
     premi(bottone(host, 'Annulla'));
 

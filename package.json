@@ -45,7 +45,8 @@
     "cask": "node scripts/genera-cask.mjs",
     "aggiornamento:verifica": "tsx scripts/verifica-aggiornamento.ts",
     "larghezza:verifica": "node scripts/misura-larghezza.mjs",
-    "scroll:misura": "node scripts/misura-scroll.mjs"
+    "scroll:misura": "node scripts/misura-scroll.mjs",
+    "prestazioni": "tsx scripts/misura-prestazioni.ts"
   },
   "dependencies": {
     "@garmin/fitsdk": "^21.171.0",
