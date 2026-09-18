@@ -5,6 +5,10 @@ dist
 # Non va confusa con `dist/`: quella si pubblica, questa contiene quattro
 # computer subacquei che non esistono e non deve uscire di qui.
 dist-ble
+# La build di sviluppo — `vite build --mode development --outDir dist-dev` —
+# che serve a far parlare gli avvisi di React con un browser senza testa.
+# Non si pubblica: è grande il triplo e non è minificata.
+dist-dev
 dist-ssr
 .vite
 coverage
