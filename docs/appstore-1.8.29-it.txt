@@ -1,0 +1,21 @@
+Le proporzioni contate invece che guardate: 120 viste su dodici larghezze, dall'iPhone SE al desktop, in tema chiaro e scuro e in due lingue.
+
+OGNI CONTROLLO HA LA STESSA ALTEZZA
+
+Misurato a 1280 pixel: un pulsante era alto 35,5, un campo di testo 33,5, un menu a tendina 31. Tre altezze per tre cose che stanno nella stessa riga di filtri — nessuna sbagliata di suo, ognuna nata dal proprio riempimento, e proprio per questo mai viste.
+
+Sul telefono la differenza diventava un problema vero: i campi salivano a 38 pixel e i pulsanti restavano a 35,5, cioè sotto i 44 che iOS chiede a un bersaglio da premere col dito. Adesso è una misura dichiarata: 36 col puntatore, 44 col dito, per ogni pulsante, campo e menu. Anche i riquadri apribili, che erano bersagli alti diciotto pixel.
+
+NUMERI CHE UN'APPLICAZIONE NON DEVE SCRIVERE
+
+Con una bombola da zero litri la tabella dei gas diceva «EAN32 1.719 Infinity 220». E sotto il campo della bombola si leggeva «3982.0000000000005 L di gas»: il valore era giusto — in binario 220 × 18,1 fa esattamente quello — ma chi legge non vede i binari, vede un'applicazione che non sa contare il gas che si porta sott'acqua.
+
+LA SCHEDA DELL'IMMERSIONE, SUL TELEFONO
+
+«Esporta PDF» e «Modifica dati» stavano su metà schermo, con il secondo che andava a capo dentro il pulsante. Adesso prendono metà larghezza ciascuno, alti uguale. E la scelta del periodo — 6, 12, 24 mesi, tutto l'archivio — è una griglia due per due a tutta larghezza, con il periodo acceso che si distingue per il bordo blu invece che per tre punti di grigio.
+
+QUATTRO ETICHETTE DEI GRAFICI VENIVANO TAGLIATE
+
+Un testo dentro un disegno non ha i puntini di sospensione: o ci sta, o sparisce un pezzo, e non lo segnala niente. E «sosta di sicurezza 2.5-7.5 m» perdeva l'ultima parola sotto la riga della risalita: adesso è disegnata sopra la curva, con l'alone, come le quote di una carta nautica.
+
+Ogni correzione ha una prova, e ogni prova è stata rimessa alla prova rimettendo il difetto: 2.884 controlli automatici in 183 file, più 149 sul motore nativo. Nessuno saltato.

@@ -1,0 +1,9 @@
+Le proporzioni contate invece che guardate: 120 viste su dodici larghezze, in due lingue.
+
+• Ogni pulsante, campo e menu ha la stessa altezza: 36 col mouse, 44 col dito. Sul telefono erano sotto la misura che iOS chiede.
+
+• Il pianificatore non scrive più numeri impossibili: niente «Infinity» né code della virgola nei litri di gas.
+
+• Su Android non si chiede più di trascinare i file, e il permesso Bluetooth ha la strada giusta.
+
+• Quattro etichette dei grafici non vengono più tagliate.

@@ -1,0 +1,9 @@
+Proportions counted instead of eyeballed: 120 views across twelve widths, in two languages.
+
+• Every button, field and dropdown is the same height: 36 with a mouse, 44 with a finger. On the phone buttons were below the size iOS asks for.
+
+• The planner no longer prints impossible numbers: no "Infinity", no floating-point tails in gas litres.
+
+• On Android it no longer asks you to drag files, and the Bluetooth permission path is the right one.
+
+• Four chart labels are no longer clipped.

@@ -1,0 +1,21 @@
+Proportions counted instead of eyeballed: 120 views across twelve widths, from the iPhone SE to the desktop, in light and dark theme and in two languages.
+
+EVERY CONTROL IS THE SAME HEIGHT
+
+Measured at 1280 pixels: a button was 35.5 tall, a text field 33.5, a dropdown 31. Three heights for three things that sit in the same filter row — none wrong on its own, each born of its own padding, and for exactly that reason never noticed.
+
+On the phone the difference became a real problem: fields rose to 38 pixels while buttons stayed at 35.5, below the 44 iOS asks for a touch target. It is now a declared measurement: 36 with a pointer, 44 with a finger, for every button, field and dropdown. Including the expandable panels, which were targets eighteen pixels tall.
+
+NUMBERS AN APP SHOULD NOT PRINT
+
+With a zero-litre cylinder the gas table said "EAN32 1,719 Infinity 220". And under the cylinder field it read "3982.0000000000005 L of gas": the value was correct — in binary 220 × 18.1 is exactly that — but the reader does not see binary, they see an app that cannot count the gas they carry underwater.
+
+THE DIVE CARD, ON THE PHONE
+
+"Export PDF" and "Edit data" sat on half the screen, with the second one wrapping inside its own button. They now take half the width each, the same height. And the period picker — 6, 12, 24 months, the whole archive — is a two-by-two grid at full width, with the selected period marked by a blue border instead of three points of grey.
+
+FOUR CHART LABELS WERE BEING CLIPPED
+
+Text inside a drawing has no ellipsis: either it fits, or a piece disappears, and nothing says so. And "safety stop 2.5-7.5 m" was losing its last word under the ascent line: it is now drawn above the curve, with a halo, like the depths on a nautical chart.
+
+Every fix has a test, and every test was put to the test by putting the defect back: 2,884 automated checks across 183 files, plus 149 on the native engine. None skipped.
