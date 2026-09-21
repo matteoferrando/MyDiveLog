@@ -1514,6 +1514,98 @@ summary {
 }
 
 /*
+ * ► IL CURSORE: L'ULTIMO BERSAGLIO RIMASTO SOTTO MISURA. ◄
+ *
+ * I due cursori dei gradient factor, nella scheda dell'immersione, avevano il
+ * vestito di fabbrica del motore: una pallina di 16 px su una pista di 4,
+ * dentro un controllo alto 16 — misurato il 18 settembre 2026, nella stessa
+ * applicazione dove ogni altro controllo è 36 col puntatore e 44 col dito. Col
+ * dito bagnato, in barca, era il comando più difficile da prendere dell'app.
+ *
+ * ► IL BERSAGLIO È L'INTERO CONTROLLO, NON LA PALLINA. ◄ Si preme in qualunque
+ * punto della pista e il valore salta lì, quindi l'altezza viene dal token come
+ * per tutti gli altri controlli; la pallina cresce solo quanto serve a vederla
+ * e ad afferrarla: 20 col puntatore, 28 col dito, che è la misura del cursore
+ * di sistema di Apple.
+ *
+ * ► IL BLU È `--series-1`, come per ogni segno disegnato su una superficie. ◄
+ * `--accent-solid` è il blu dei pulsanti pieni e sul tema scuro sta a 3.18:1
+ * sulla superficie, appena sopra la soglia; `--series-1` è ridefinito per tema
+ * apposta. Pallina e parte riempita sono dello stesso blu: le separa l'anello
+ * del colore della carta, come nei cursori di sistema.
+ *
+ * ► LA PARTE RIEMPITA LA DISEGNA LO SFONDO DELLA PISTA. ◄ WebKit e Chromium non
+ * hanno un pezzo per il riempimento (Firefox sì, `::-moz-range-progress`), quindi
+ * è un gradiente che si ferma al CENTRO della pallina: la pallina percorre la
+ * pista meno la sua larghezza, e fermare il blu a `--frazione` × 100% lo farebbe
+ * uscire da sotto la pallina di mezza pallina verso gli estremi. `--frazione`
+ * la scrive il componente, da 0 a 1. La parte vuota è del colore dei bordi
+ * forti: un contorno disegnato sopra tutta la pista, come c'era nella prima
+ * prova, finiva anche sul blu e ci lasciava un filo più chiaro sul tema scuro.
+ */
+input[type='range'] {
+  --pista: 6px;
+  --pallina: 20px;
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: var(--h-controllo);
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: var(--pista);
+  border-radius: calc(var(--pista) / 2);
+  background: linear-gradient(
+    to right,
+    var(--series-1) 0,
+    var(--series-1) calc(var(--pallina) / 2 + (100% - var(--pallina)) * var(--frazione, 0)),
+    var(--border-strong) calc(var(--pallina) / 2 + (100% - var(--pallina)) * var(--frazione, 0))
+  );
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  width: var(--pallina);
+  height: var(--pallina);
+  /* La pallina è figlia della pista: senza questo margine starebbe appoggiata
+     sul bordo alto della pista invece di esserne attraversata a metà. */
+  margin-top: calc((var(--pista) - var(--pallina)) / 2);
+  border-radius: 50%;
+  background: var(--series-1);
+  border: 2px solid var(--surface-1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+input[type='range']::-moz-range-track {
+  height: var(--pista);
+  border-radius: calc(var(--pista) / 2);
+  background: var(--border-strong);
+}
+
+input[type='range']::-moz-range-progress {
+  height: var(--pista);
+  border-radius: calc(var(--pista) / 2);
+  background: var(--series-1);
+}
+
+input[type='range']::-moz-range-thumb {
+  box-sizing: border-box;
+  width: var(--pallina);
+  height: var(--pallina);
+  border-radius: 50%;
+  background: var(--series-1);
+  border: 2px solid var(--surface-1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/*
  * L'area sensibile cresce senza spostare il testo: il riempimento allarga il
  * bersaglio DENTRO la cella e il margine negativo lo riporta al suo posto, così
  * la colonna non si allarga e il testo non si sposta. La data-pulsante è anche
@@ -1545,6 +1637,11 @@ summary {
   input[type='radio'] {
     width: 24px;
     height: 24px;
+  }
+
+  /* E la pallina del cursore a 28, la misura di quella di sistema su iPhone. */
+  input[type='range'] {
+    --pallina: 28px;
   }
 
   /* Il respiro fra una riga e l'altra serve al dito: due bersagli a norma

@@ -362,6 +362,9 @@ function GfSlider({
         max={max}
         step={5}
         value={value}
+        // Fin dove arriva il blu: WebKit e Chromium non disegnano la parte
+        // riempita, la disegna lo sfondo della pista (vedi `styles.css`).
+        style={{ ['--frazione' as string]: String((value - min) / (max - min)) }}
         onChange={(e) => onChange(Number(e.target.value))}
       />
     </label>

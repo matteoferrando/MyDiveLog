@@ -217,6 +217,73 @@ describe('i bersagli, anche con il mouse', () => {
  * misura scritta a mano su un solo controllo è esattamente il modo in cui le
  * tre altezze erano nate.
  */
+describe('il cursore, cioè la pista e la pallina', () => {
+  /*
+   * ► IL DIFETTO, misurato il 18 settembre 2026. ◄ I due cursori dei gradient
+   * factor avevano il vestito di fabbrica: pallina di 16 px, pista di 4,
+   * controllo alto 16, accanto a controlli alti 36 col mouse e 44 col dito.
+   * Era l'ultimo bersaglio dell'app sotto misura, e il più difficile da
+   * prendere col dito bagnato.
+   *
+   * Sul cursore c'è una trappola in più rispetto agli altri campi: WebKit e
+   * Chromium ignorano larghezza e altezza della pallina finché la pallina
+   * stessa non rinuncia al suo aspetto (`appearance: none` SUL PEZZO, non solo
+   * sul campo). Senza, il foglio di stile dice 20 e lo schermo mostra 16 — e
+   * nessun controllo lo segnala.
+   */
+  const CURSORE = "input[type='range']";
+  const PALLINA_WEBKIT = "input[type='range']::-webkit-slider-thumb";
+  const PISTA_WEBKIT = "input[type='range']::-webkit-slider-runnable-track";
+  const PALLINA_MOZ = "input[type='range']::-moz-range-thumb";
+  const px = (testo: string, nome: string) =>
+    Number(new RegExp(`${nome}:\\s*(\\d+)px`).exec(testo)?.[1] ?? NaN);
+
+  it('il campo rinuncia all’aspetto di fabbrica, e anche la sua pallina', () => {
+    expect(vestito(CURSORE)).toMatch(/(^|[\s;])appearance:\s*none/);
+    expect(vestito(CURSORE)).toMatch(/-webkit-appearance:\s*none/);
+    expect(vestito(PALLINA_WEBKIT), 'senza, WebKit e Chromium ignorano la misura della pallina').toMatch(
+      /-webkit-appearance:\s*none/,
+    );
+  });
+
+  it('la pallina è di 20 px col mouse e prende la misura da una variabile sola', () => {
+    expect(
+      px(vestito(CURSORE), '--pallina'),
+      'sotto i 20 px è la pallina di fabbrica',
+    ).toBeGreaterThanOrEqual(20);
+    for (const sel of [PALLINA_WEBKIT, PALLINA_MOZ]) {
+      expect(vestito(sel), sel).toMatch(/width:\s*var\(--pallina\)/);
+      expect(vestito(sel), sel).toMatch(/height:\s*var\(--pallina\)/);
+    }
+  });
+
+  it('e col dito sale a 28, la misura del cursore di sistema su iPhone', () => {
+    const colDito = TUTTE.filter((r) => /pointer:\s*coarse/.test(r.dentro) && r.selettori.includes(CURSORE))
+      .map((r) => r.dichiarazioni)
+      .join('\n');
+    expect(px(colDito, '--pallina')).toBeGreaterThanOrEqual(28);
+  });
+
+  it('la pallina sta a metà della pista, non appoggiata sopra', () => {
+    expect(vestito(PALLINA_WEBKIT)).toMatch(
+      /margin-top:\s*calc\(\(var\(--pista\) - var\(--pallina\)\) \/ 2\)/,
+    );
+  });
+
+  it('il blu si ferma al centro della pallina, e il valore lo scrive il componente', () => {
+    /*
+     * La pallina percorre la pista MENO la propria larghezza. Un blu fermato a
+     * `--frazione` × 100% uscirebbe da sotto la pallina di mezza pallina verso
+     * gli estremi: a 20 px, dieci pixel di blu dalla parte sbagliata.
+     */
+    expect(vestito(PISTA_WEBKIT)).toContain(
+      'calc(var(--pallina) / 2 + (100% - var(--pallina)) * var(--frazione, 0))',
+    );
+    const componente = readFileSync('src/ui/components/Saturation.tsx', 'utf8');
+    expect(componente).toMatch(/'--frazione' as string\]:\s*String\(\(value - min\) \/ \(max - min\)\)/);
+  });
+});
+
 describe('l’altezza dei controlli', () => {
   /** I controlli che stanno uno accanto all’altro e devono venire alti uguale. */
   const CONTROLLI = [
@@ -227,6 +294,7 @@ describe('l’altezza dei controlli', () => {
     "input[type='number']",
     "input[type='search']",
     "input[type='password']",
+    "input[type='range']",
     'textarea',
   ];
 
