@@ -1,9 +1,58 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **21 settembre 2026** — **2 884 prove in 183 file** più
+Aggiornato: **21 settembre 2026** — **2 918 prove in 187 file** più
 **149 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
+
+> ## ► PRONTO PER LA 1.8.30: LE QUATTRO DECISIONI APERTE, CHIUSE. ◄
+>
+> Il 21 settembre, con la 1.8.29 in revisione da Apple. **Niente di questo è
+> pubblicato**: sta su `main`, e la 1.8.30 si fa quando lo decide il
+> proprietario.
+>
+> **1. Le lingue nei pacchetti Apple.** I pacchetti non dichiaravano nessuna
+> lingua — niente `.lproj`, la regione di sviluppo di fabbrica di Tauri — e
+> l'App Store elencava l'app come solo inglese. Prima di correggere si è
+> misurato cosa cambiava davvero, con una WebView sul simulatore iOS 26 e sul
+> Mac in tre varianti dello stesso pacchetto: **l'interfaccia no**
+> (`navigator.language` risponde `it-IT` in tutte e tre — l'ipotesi che l'app
+> partisse in inglese sugli iPhone italiani era plausibile, ed era falsa), **i
+> pezzi disegnati dal sistema sì**: senza dichiarazione UIKit scrive
+> Cancel/Done/Copy/Paste, con `it` dichiarato Annulla/Fine/Copia/Incolla.
+> Adesso `CFBundleLocalizations` e le cartelle `lingue/{en,it}.lproj`, col
+> perché del Bluetooth tradotto — il pannello del permesso era in italiano
+> anche per chi ha il telefono in inglese. Misurato dentro l'`.ipa` e il `.pkg`
+> costruiti, firma ancora valida.
+>
+> **2. Clippy a zero e nella catena**, con `-D warnings`: senza, clippy stampa,
+> esce con zero e la catena resta verde. I dieci argomenti di `scarica()` sono
+> diventati una `RichiestaScarico` coi campi nominati — `marca` e `prodotto`
+> erano due `String` una dopo l'altra, e scambiarle compilava.
+>
+> **3. Il cursore dei gradient factor**, l'ultimo bersaglio sotto misura:
+> controllo 36 e 44 dal token, pallina 20 e 28, il blu che si ferma al centro
+> della pallina. Misurato su Chromium, sul WebKit del Mac e sul simulatore.
+>
+> **4. `noUncheckedIndexedAccess` acceso.** 1 680 errori in 1 319 punti,
+> guardati uno per uno: dove l'indice sta nei limiti per costruzione un `!` sul
+> punto di accesso, **dove può uscirne sei comportamenti corretti**, ognuno con
+> una prova vista rossa — il più serio un varint di SQLite letto oltre la fine
+> di un file troncato, che inventava colonne vuote e righe di NULL invece di
+> rifiutare il file.
+>
+> **E due difetti in più, trovati per strada**: la velocità verticale e la
+> linea della decompressione della scheda davano ancora per scontato l'ordine
+> del file. Su un profilo col blocco di risalita scritto per primo, 88 punti su
+> 91 della velocità erano di un altro istante.
+>
+> Catena sul Mac: build, eslint, prettier e clippy a zero, **2 918 prove in 187
+> file** più 149 Rust, verdi anche a UTC+14 e UTC−11.
+>
+> **Visti e lasciati aperti, con la misura:** i tessuti salvati in un backup
+> con meno di sedici compartimenti arrivano al grafico e ai pianificatori senza
+> controllo; le etichette del bailout scorrono con un gas di ruolo «bailout»,
+> che però dalla pagina non si può creare.
 
 > ## ► LA 1.8.29 È IN REVISIONE DA APPLE, SU IPHONE E SU MAC. ◄
 >
