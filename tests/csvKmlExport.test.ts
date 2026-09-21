@@ -33,7 +33,7 @@ function immersione(over: Partial<Dive> = {}): Dive {
     id: 'a1',
     number: 7,
     startTime: '2026-06-14T10:38:00.000Z',
-    durationS: samples[samples.length - 1].t,
+    durationS: samples[samples.length - 1]!.t,
     maxDepth: Math.max(...samples.map((s) => s.depth)),
     minTempC: 14.5,
     mode: 'oc',
@@ -117,8 +117,8 @@ describe('esportazione CSV', () => {
     // In `GasMix` l'ossigeno dell'aria è 0.21. In un foglio, «0,21» accanto a una
     // colonna che si chiama «O2 (%)» è una trappola: si legge come 0,21 per cento.
     const csv = esportaCsv([immersione()], { separatore: ',' }).csv;
-    const colonne = righe(csv)[1].split(',');
-    const iO2 = righe(csv)[0].split(',').indexOf('O2 (%)');
+    const colonne = righe(csv)[1]!.split(',');
+    const iO2 = righe(csv)[0]!.split(',').indexOf('O2 (%)');
     expect(colonne[iO2]).toBe('21');
   });
 

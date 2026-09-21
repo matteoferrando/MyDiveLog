@@ -51,7 +51,9 @@ beforeAll(async () => {
 const chiave = () => ({ servicesId: SERVICES, teamId: TEAM, keyId: KEY, chiaveP8 });
 
 function pezzi(jwt: string) {
-  const [testa, corpo] = jwt.split('.');
+  const parti = jwt.split('.');
+  const testa = parti[0]!;
+  const corpo = parti[1]!;
   const leggi = (p: string) => JSON.parse(new TextDecoder().decode(byte(p))) as Record<string, unknown>;
   return { testa: leggi(testa), corpo: leggi(corpo) };
 }
@@ -110,7 +112,10 @@ describe('il segreto del client, che ci firmiamo da soli', () => {
      * risponderebbe `invalid_client` senza spiegare niente.
      */
     const segreto = await segretoClientApple(chiave(), ADESSO);
-    const [testa, corpo, firma] = segreto.split('.');
+    const parti = segreto.split('.');
+    const testa = parti[0];
+    const corpo = parti[1];
+    const firma = parti[2]!;
     expect(byte(firma)).toHaveLength(64);
     expect(
       await crypto.subtle.verify(
@@ -152,12 +157,12 @@ describe('lo scambio del codice con Apple', () => {
   it('riuscito, restituisce il solo token d’identità', async () => {
     const { chiamate, fetchImpl } = rete(200, { id_token: 'identita', refresh_token: 'non-serve' });
     expect(await scambiaCodiceApple(scambio, fetchImpl)).toBe('identita');
-    expect(chiamate[0].client_id).toBe(SERVICES);
-    expect(chiamate[0].client_secret).toBe('un.segreto.firmato');
-    expect(chiamate[0].grant_type).toBe('authorization_code');
+    expect(chiamate[0]!.client_id).toBe(SERVICES);
+    expect(chiamate[0]!.client_secret).toBe('un.segreto.firmato');
+    expect(chiamate[0]!.grant_type).toBe('authorization_code');
     // Il punto di ritorno è quello REGISTRATO — il Worker — non la destinazione
     // dentro l'app: Apple lo riconfronta e rifiuta se differisce.
-    expect(chiamate[0].redirect_uri).toBe('https://mydivelog.site/accesso-apple/ritorno');
+    expect(chiamate[0]!.redirect_uri).toBe('https://mydivelog.site/accesso-apple/ritorno');
   });
 
   it('NON manda nessun `code_verifier`: PKCE nel giro web di Apple non c’è', async () => {
@@ -165,7 +170,7 @@ describe('lo scambio del codice con Apple', () => {
     // accanto a quello di Google si chiede subito dove sia finito.
     const { chiamate, fetchImpl } = rete(200, { id_token: 'x' });
     await scambiaCodiceApple(scambio, fetchImpl);
-    expect('code_verifier' in chiamate[0]).toBe(false);
+    expect('code_verifier' in chiamate[0]!).toBe(false);
   });
 
   it('un rifiuto di Apple diventa `null`, senza portarsi dietro il dettaglio', async () => {

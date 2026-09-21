@@ -125,7 +125,7 @@ afterEach(smonta);
 async function descrizioneDeiCompartimenti(superficie: number | undefined): Promise<string> {
   const d = immersione(superficie);
   const { dives } = await chainArchive([d], async () => d.samples!);
-  const scheda = dives[0];
+  const scheda = dives[0]!;
   if (!scheda.metrics?.tissuesEnd) throw new Error('la catena dei tessuti non ha prodotto nulla');
   host = document.createElement('div');
   document.body.appendChild(host);

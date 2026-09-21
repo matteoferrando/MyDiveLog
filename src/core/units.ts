@@ -398,13 +398,15 @@ export function wallClockToIso(raw: string): string | undefined {
 
   const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(text);
   if (m) {
-    const [, y, mo, d, h, mi, s] = m;
+    // Il match è riuscito: data, ore e minuti non sono opzionali, i secondi sì.
+    const [, y, mo, d, h, mi, s] = m as unknown as [string, string, string, string, string, string, string?];
     return isoFromParts(+y, +mo, +d, +h, +mi, s ? +s : 0);
   }
   // Solo la data.
   const onlyDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
   if (onlyDate) {
-    const [, y, mo, d] = onlyDate;
+    // Il match è riuscito, e i tre gruppi della data non sono opzionali.
+    const [, y, mo, d] = onlyDate as unknown as [string, string, string, string];
     return isoFromParts(+y, +mo, +d, 0, 0, 0);
   }
   return undefined;

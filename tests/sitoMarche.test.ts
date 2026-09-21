@@ -42,7 +42,7 @@ const MARCHE_VERE = new Set<string>([
 const marcheDelNastro = (html: string): string[] => {
   const nastro = /<div class="marche-nastro">([\s\S]*?)<\/div>/.exec(html);
   expect(nastro, 'il nastro delle marche deve esistere').toBeTruthy();
-  return [...nastro![1].matchAll(/<li>([^<]+)<\/li>/g)].map((m) => m[1].trim());
+  return [...nastro![1]!.matchAll(/<li>([^<]+)<\/li>/g)].map((m) => m[1]!.trim());
 };
 
 describe('il nastro delle marche dice il vero', () => {

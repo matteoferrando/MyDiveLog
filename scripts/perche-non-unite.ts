@@ -199,7 +199,7 @@ const offsets = [0, ...stimati.map((c) => c.offsetMs)];
 
 for (let i = 0; i < delGiorno.length; i++) {
   for (let j = i + 1; j < delGiorno.length; j++) {
-    confronta(delGiorno[i], delGiorno[j], offsets);
+    confronta(delGiorno[i]!, delGiorno[j]!, offsets);
   }
 }
 console.log('');

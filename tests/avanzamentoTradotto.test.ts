@@ -65,7 +65,7 @@ describe('le etichette fisse del ponte Rust', () => {
    * italiano senza che niente si lamenti.
    */
   const RUST = readFileSync('src-tauri/src/ponte_blec.rs', 'utf8');
-  const dalRust = [...RUST.matchAll(/label:\s*"([^"]+)"\.into\(\)/g)].map((m) => m[1]);
+  const dalRust = [...RUST.matchAll(/label:\s*"([^"]+)"\.into\(\)/g)].map((m) => m[1]!);
 
   it('sono almeno due, o questa prova sta guardando il posto sbagliato', () => {
     // ► LA GUARDIA DELLA GUARDIA. ◄ Se l'espressione regolare smettesse di

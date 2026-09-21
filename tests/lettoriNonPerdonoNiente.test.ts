@@ -12,7 +12,7 @@ import { parseFile } from '../src/core/parsers';
 import type { Dive } from '../src/core/model';
 
 const leggi = async (nome: string, testo: string): Promise<Dive> =>
-  (await parseFile({ fileName: nome, text: testo })).dives[0];
+  (await parseFile({ fileName: nome, text: testo })).dives[0]!;
 
 const SSRF = (dentro: string, campioni: string, eventi = '') => `<divelog program='subsurface' version='3'>
 <settings/><divesites><site uuid='11' name='Punta Chiappa'/></divesites><dives>

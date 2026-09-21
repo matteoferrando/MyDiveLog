@@ -413,7 +413,7 @@ export function parseTankSize(text: string | undefined): number | undefined {
 export function modelFromFileName(name: string | undefined): string | undefined {
   if (!name) return undefined;
   const m = /^([A-Za-z][A-Za-z0-9 ]*?)\s*\[/.exec(name.trim());
-  return m ? m[1].trim() : undefined;
+  return m ? m[1]!.trim() : undefined;
 }
 
 function readSite(row: SqlRow, native: PnfLog | undefined): Dive['site'] {
@@ -626,7 +626,7 @@ export function parseTemperature(text: string | undefined): number | undefined {
   if (!text) return undefined;
   const m = /(-?\d+(?:[.,]\d+)?)/.exec(text);
   if (!m) return undefined;
-  const v = Number(m[1].replace(',', '.'));
+  const v = Number(m[1]!.replace(',', '.'));
   if (!Number.isFinite(v)) return undefined;
   return /f\b|fahrenheit/i.test(text) ? Math.round((((v - 32) * 5) / 9) * 10) / 10 : v;
 }

@@ -45,6 +45,11 @@ export default tseslint.config(
       'public/**',
       'screenshots/**',
       '_transfer/**',
+      // Le misure e le sonde usa e getta di una sessione di lavoro: stanno
+      // fuori da git e da prettier, e devono stare fuori anche da qui — uno
+      // script di prova lasciato lì dentro faceva fallire `eslint .` su
+      // codice che non è del progetto.
+      '.misure/**',
     ],
   },
 

@@ -35,7 +35,7 @@ import {
  * aggettivo travestito.
  */
 function numeriDichiarati(file: string): number[] {
-  const testa = readFileSync(new URL(file, import.meta.url), 'utf8').split('*/')[0];
+  const testa = readFileSync(new URL(file, import.meta.url), 'utf8').split('*/')[0]!;
   return [...testa.matchAll(/\b(\d{2,4})\b/g)].map((m) => Number(m[1]));
 }
 
@@ -91,8 +91,8 @@ describe('il catalogo', () => {
 describe('l’ordine delle marche', () => {
   it('mette per prima quella che i subacquei hanno davvero, non quella con più modelli', () => {
     const marche = marchePerDiffusione();
-    expect(marche[0].marca).toBe('Shearwater');
-    expect(marche[1].marca).toBe('Suunto');
+    expect(marche[0]!.marca).toBe('Shearwater');
+    expect(marche[1]!.marca).toBe('Suunto');
   });
 
   it('Suunto viene prima di Ratio, che è il contrario del numero di modelli', () => {

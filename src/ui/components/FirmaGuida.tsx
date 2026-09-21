@@ -128,7 +128,7 @@ export function RiquadroFirma({
     setTratti((t) => {
       if (t.length === 0) return t;
       const ultimi = t.slice(0, -1);
-      return [...ultimi, [...t[t.length - 1], p]];
+      return [...ultimi, [...t[t.length - 1]!, p]];
     });
   };
 

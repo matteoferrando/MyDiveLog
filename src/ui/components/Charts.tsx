@@ -417,7 +417,7 @@ export function useCursoreDiScelta<T>(
    * lettura di `.at` su `undefined` e la pagina bianca.
    */
   const corrente = attivo && indice >= 0 && indice < punti.length ? indice : -1;
-  const punto = corrente >= 0 ? punti[corrente] : null;
+  const punto = corrente >= 0 ? punti[corrente]! : null;
 
   const onKeyDown = (evt: React.KeyboardEvent<SVGSVGElement>) => {
     if (!attivo) return;
@@ -554,9 +554,10 @@ export function quartili(valori: number[]): Quartili | undefined {
     const pos = p * (v.length - 1);
     const basso = Math.floor(pos);
     const alto = Math.ceil(pos);
-    return v[basso] + (v[alto] - v[basso]) * (pos - basso);
+    // `p` sta fra 0 e 1, quindi `basso` e `alto` cadono fra il primo e l'ultimo indice.
+    return v[basso]! + (v[alto]! - v[basso]!) * (pos - basso);
   };
-  return { min: v[0], q1: a(0.25), mediana: a(0.5), q3: a(0.75), max: v[v.length - 1] };
+  return { min: v[0]!, q1: a(0.25), mediana: a(0.5), q3: a(0.75), max: v[v.length - 1]! };
 }
 
 /** Media aritmetica; `undefined` su un elenco vuoto, che è diverso da zero. */
@@ -675,9 +676,9 @@ export function riassuntoSerie(
   const ordinati = [...punti].sort((a, b) => a.at - b.at);
   const valori = ordinati.map((p) => p.value);
   const q = quartili(valori)!;
-  const ultimo = ordinati[ordinati.length - 1];
+  const ultimo = ordinati[ordinati.length - 1]!;
   const parti = [
-    `${plural(punti.length, 'rilevazione', 'rilevazioni', t)} ${t('dal')} ${dataLunga(ordinati[0].at)} ${t('al')} ${dataLunga(ultimo.at)}.`,
+    `${plural(punti.length, 'rilevazione', 'rilevazioni', t)} ${t('dal')} ${dataLunga(ordinati[0]!.at)} ${t('al')} ${dataLunga(ultimo.at)}.`,
     `${t('Mediana')} ${formato(q.mediana)} ${unita}, ${t('da')} ${formato(q.min)} ${t('a')} ${formato(q.max)}; ${t('ultimo valore')} ${formato(ultimo.value)}.`,
   ];
   // Le due metà invece della retta dei minimi quadrati: la pendenza di una retta
@@ -818,8 +819,8 @@ export function riassuntoCurva(
 ): string {
   if (punti.length < 2) return t('Dati insufficienti per disegnare la curva.');
   const ordinati = [...punti].sort((a, b) => a.x - b.x);
-  const primo = ordinati[0];
-  const ultimo = ordinati[ordinati.length - 1];
+  const primo = ordinati[0]!;
+  const ultimo = ordinati[ordinati.length - 1]!;
   const ys = ordinati.map((p) => p.y);
   const q = quartili(ys)!;
   const verso = versoTendenza(primo.y, ultimo.y, q.max - q.min);
@@ -937,11 +938,13 @@ export function ColumnChart({
   const plotH = height - pad.top - pad.bottom;
   const max = Math.max(1, ...data.map((d) => d.value));
   const ticks = niceTicks(0, max, 3);
-  const yMax = ticks[ticks.length - 1];
+  // `niceTicks` dà sempre almeno due tacche.
+  const yMax = ticks[ticks.length - 1]!;
   const band = data.length ? plotW / data.length : plotW;
   // Marca sottile: mai più di 24px e mai tutta la banda, il resto è aria.
   const barW = Math.max(3, Math.min(24, band - Math.max(2, band * 0.3)));
-  const peak = data.reduce((a, b) => (b.value > a.value ? b : a), data[0]);
+  // Su una serie vuota il massimo non c'è, e l'etichetta del picco non si disegna.
+  const peak = data.length > 0 ? data.reduce((a, b) => (b.value > a.value ? b : a)) : undefined;
   // Un'etichetta ogni quanto: serve almeno ~46px per non farle collidere.
   const labelStep = labelEvery ?? Math.max(1, Math.ceil(46 / Math.max(1, band)));
 
@@ -1230,8 +1233,9 @@ export function TimeSeriesChart({
   const lo = Math.min(...values, reference ?? Infinity);
   const hi = Math.max(...values, reference ?? -Infinity);
   const ticks = niceTicks(Math.max(0, lo - (hi - lo) * 0.15), hi + (hi - lo) * 0.15 || hi + 1, 3);
-  const yLo = ticks[0];
-  const yHi = ticks[ticks.length - 1];
+  // `niceTicks` dà sempre almeno due tacche.
+  const yLo = ticks[0]!;
+  const yHi = ticks[ticks.length - 1]!;
 
   const px = (at: number) => pad.left + ((at - minX) / spanX) * plotW;
   const py = (v: number) => pad.top + plotH - ((v - yLo) / (yHi - yLo || 1)) * plotH;
@@ -1239,7 +1243,7 @@ export function TimeSeriesChart({
   const path = points
     .map((p, i) => `${i === 0 ? 'M' : 'L'}${px(p.at).toFixed(1)} ${py(p.value).toFixed(1)}`)
     .join(' ');
-  const last = points[points.length - 1];
+  const last = points[points.length - 1]!;
   // Oltre ~24 punti i pallini si toccano e la linea sembra tratteggiata: li
   // nascondiamo, ma il bersaglio invisibile per il tooltip resta su ognuno.
   const showDots = points.length <= 24;
@@ -1493,6 +1497,9 @@ export function roundedRightBar(x: number, y: number, w: number, h: number, r: n
  * cadrebbe fuori dall'area di disegno e la curva uscirebbe dal grafico. È un
  * errore silenzioso e si vede solo guardando il risultato — motivo per cui
  * `tests/charts.test.ts` lo verifica.
+ *
+ * E le tacche sono SEMPRE almeno due, anche con estremi non finiti o
+ * coincidenti: i grafici leggono la prima e l'ultima senza controllarle.
  */
 export function niceTicks(lo: number, hi: number, count = 4): number[] {
   if (!Number.isFinite(lo) || !Number.isFinite(hi)) return [0, 1];
@@ -1608,10 +1615,11 @@ export function ScatterChart({
 
   const xTicks = niceTicks(Math.min(...points.map((p) => p.x)), Math.max(...points.map((p) => p.x)), 4);
   const yTicks = niceTicks(Math.min(...points.map((p) => p.y)), Math.max(...points.map((p) => p.y)), 3);
-  const xLo = xTicks[0];
-  const xHi = xTicks[xTicks.length - 1];
-  const yLo = yTicks[0];
-  const yHi = yTicks[yTicks.length - 1];
+  // `niceTicks` dà sempre almeno due tacche.
+  const xLo = xTicks[0]!;
+  const xHi = xTicks[xTicks.length - 1]!;
+  const yLo = yTicks[0]!;
+  const yHi = yTicks[yTicks.length - 1]!;
 
   const px = (v: number) => pad.left + ((v - xLo) / (xHi - xLo || 1)) * plotW;
   const py = (v: number) => pad.top + plotH - ((v - yLo) / (yHi - yLo || 1)) * plotH;
@@ -1864,8 +1872,9 @@ export function CurveChart({
   const yTicks = niceTicks(Math.min(0, ...ys), Math.max(...ys), 3);
   const xLo = Math.min(...xs);
   const xHi = Math.max(...xs);
-  const yLo = yTicks[0];
-  const yHi = yTicks[yTicks.length - 1];
+  // `niceTicks` dà sempre almeno due tacche.
+  const yLo = yTicks[0]!;
+  const yHi = yTicks[yTicks.length - 1]!;
 
   const px = (v: number) => pad.left + ((v - xLo) / (xHi - xLo || 1)) * plotW;
   const py = (v: number) => pad.top + plotH - ((v - yLo) / (yHi - yLo || 1)) * plotH;
@@ -1874,12 +1883,12 @@ export function CurveChart({
   const area = `${line} L${px(xHi).toFixed(1)},${py(yLo).toFixed(1)} L${px(xLo).toFixed(1)},${py(yLo).toFixed(1)} Z`;
   const nearest = (clientX: number, box: DOMRect) => {
     const x = clientX - box.left;
-    let best = points[0];
+    let best = points[0]!;
     for (const p of points) if (Math.abs(px(p.x) - x) < Math.abs(px(best.x) - x)) best = p;
     return best;
   };
   const at = (x: number) => {
-    let best = points[0];
+    let best = points[0]!;
     for (const p of points) if (Math.abs(p.x - x) < Math.abs(best.x - x)) best = p;
     return best;
   };
@@ -2030,6 +2039,7 @@ export function campionaCurva(punti: { x: number; y: number }[], quanti = 6): { 
   if (ordinati.length <= quanti) return ordinati;
   const passo = (ordinati.length - 1) / (quanti - 1);
   const out: { x: number; y: number }[] = [];
-  for (let i = 0; i < quanti; i++) out.push(ordinati[Math.round(i * passo)]);
+  // Con `quanti` intero e almeno 2 l'indice va da 0 a `ordinati.length - 1`: l'unica chiamata passa 6.
+  for (let i = 0; i < quanti; i++) out.push(ordinati[Math.round(i * passo)]!);
   return out;
 }

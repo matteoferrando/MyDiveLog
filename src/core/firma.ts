@@ -75,14 +75,15 @@ export interface FirmaGuida {
  */
 export function semplifica(tratto: Tratto, sogliaPx = 0.5): Tratto {
   if (tratto.length <= 2) return tratto.map(arrotonda);
-  const fuori: Tratto = [arrotonda(tratto[0])];
+  // Da qui in poi i punti sono almeno tre, e `fuori` non è mai vuoto.
+  const fuori: Tratto = [arrotonda(tratto[0]!)];
   for (let i = 1; i < tratto.length - 1; i++) {
-    const ultimo = fuori[fuori.length - 1];
-    const dx = tratto[i].x - ultimo.x;
-    const dy = tratto[i].y - ultimo.y;
-    if (Math.hypot(dx, dy) >= sogliaPx) fuori.push(arrotonda(tratto[i]));
+    const ultimo = fuori[fuori.length - 1]!;
+    const dx = tratto[i]!.x - ultimo.x;
+    const dy = tratto[i]!.y - ultimo.y;
+    if (Math.hypot(dx, dy) >= sogliaPx) fuori.push(arrotonda(tratto[i]!));
   }
-  fuori.push(arrotonda(tratto[tratto.length - 1]));
+  fuori.push(arrotonda(tratto[tratto.length - 1]!));
   return fuori;
 }
 

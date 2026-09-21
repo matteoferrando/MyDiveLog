@@ -37,8 +37,8 @@ describe('l’analisi contro l’etichetta', () => {
   it('due punti percentuali sono il gas, e vanno detti', () => {
     const scarti = scartiDiAnalisi([bombola(0.32, { o2: 0.3 })]);
     expect(scarti).toHaveLength(1);
-    expect(scarti[0].o2Dichiarato).toBeCloseTo(0.32, 3);
-    expect(scarti[0].o2Analizzato).toBeCloseTo(0.3, 3);
+    expect(scarti[0]!.o2Dichiarato).toBeCloseTo(0.32, 3);
+    expect(scarti[0]!.o2Analizzato).toBeCloseTo(0.3, 3);
   });
 
   it('PIÙ ossigeno del dichiarato è il caso pericoloso, e sembra il contrario', () => {
@@ -51,7 +51,7 @@ describe('l’analisi contro l’etichetta', () => {
      * l'applicazione ne mostrava 39.5. Il subacqueo poteva scendere sei metri
      * più giù del limite reale credendo di essere dentro.
      */
-    const [s] = scartiDiAnalisi([bombola(0.28, { o2: 0.32 })]);
+    const s = scartiDiAnalisi([bombola(0.28, { o2: 0.32 })])[0]!;
     expect(s.modAnalizzata).toBeLessThan(s.modDichiarata);
     expect(s.modAnalizzata).toBeCloseTo(33.3, 0);
     expect(s.modDichiarata).toBeCloseTo(39.5, 0);
@@ -62,13 +62,13 @@ describe('l’analisi contro l’etichetta', () => {
     // Dichiarato 32%, analizzato 30%: la MOD vera è più profonda di quella
     // mostrata. Va detto lo stesso — cambia l'esposizione all'ossigeno — ma non
     // è un limite superato.
-    const [s] = scartiDiAnalisi([bombola(0.32, { o2: 0.3 })]);
+    const s = scartiDiAnalisi([bombola(0.32, { o2: 0.3 })])[0]!;
     expect(s.modAnalizzata).toBeGreaterThan(s.modDichiarata);
     expect(descriviScarto(s)).toContain('prudenti');
   });
 
   it('la frase nomina la MOD, non solo la percentuale', () => {
-    const [s] = scartiDiAnalisi([bombola(0.32, { o2: 0.3 })]);
+    const s = scartiDiAnalisi([bombola(0.32, { o2: 0.3 })])[0]!;
     const frase = descriviScarto(s);
     expect(frase).toContain('30%');
     expect(frase).toContain('32%');
@@ -93,7 +93,7 @@ describe('l’analisi contro l’etichetta', () => {
   it('nomina la bombola giusta quando ce ne sono più di una', () => {
     const scarti = scartiDiAnalisi([bombola(0.32, { o2: 0.32 }), bombola(0.5, { o2: 0.32 })]);
     expect(scarti).toHaveLength(1);
-    expect(scarti[0].bombola).toBe(1);
+    expect(scarti[0]!.bombola).toBe(1);
   });
 
   it('la tolleranza è dichiarata e non sepolta in un confronto', () => {

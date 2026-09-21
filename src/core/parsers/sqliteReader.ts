@@ -61,7 +61,8 @@ function readHeader(bytes: Uint8Array): DbInfo {
   return {
     pageSize,
     encoding: view.getUint32(56) || 1,
-    reservedSpace: bytes[20],
+    // `isSqlite` qui sopra vuole almeno cento byte: il ventunesimo c'è.
+    reservedSpace: bytes[20]!,
   };
 }
 
@@ -76,8 +77,19 @@ function readVarint(bytes: Uint8Array, at: number): { value: number; length: num
     value = value * 128 + (b & 0x7f);
     if ((b & 0x80) === 0) return { value, length: i + 1 };
   }
-  // Nono byte: contribuisce tutti gli 8 bit.
-  return { value: value * 256 + bytes[at + 8], length: 9 };
+  /*
+   * Nono byte: contribuisce tutti gli 8 bit — e va controllato come gli altri
+   * otto. Non lo era: su un varint di nove byte che arrivava alla fine del buffer
+   * `bytes[at + 8]` valeva `undefined` e il valore usciva NaN, senza un errore.
+   * Misurato il 21 settembre 2026 su file costruiti apposta: nell'intestazione di
+   * un record un tipo seriale NaN diventava una colonna di testo vuoto, e una
+   * dimensione d'intestazione NaN una riga tutta NULL. Dati inventati da un file
+   * troncato, invece del rifiuto che il ciclo qui sopra riserva allo stesso caso
+   * un byte prima. La prova sta in `tests/indici-lettori.test.ts`.
+   */
+  const nono = bytes[at + 8];
+  if (nono === undefined) throw new Error('Varint troncato: file corrotto o incompleto.');
+  return { value: value * 256 + nono, length: 9 };
 }
 
 /**
@@ -404,7 +416,8 @@ export function parseSchema(sql: string): TableSchema {
     }
     const m = /^("([^"]+)"|`([^`]+)`|\[([^\]]+)\]|([A-Za-z_][\w$]*))/.exec(trimmed);
     if (!m) continue;
-    const col = m[2] ?? m[3] ?? m[4] ?? m[5];
+    // Una delle quattro alternative ha fatto match: se non è una delle prime tre, è l'ultima.
+    const col = m[2] ?? m[3] ?? m[4] ?? m[5]!;
     columns.push(col);
     const rest = trimmed.slice(m[0].length).trim();
     types.set(col, rest);

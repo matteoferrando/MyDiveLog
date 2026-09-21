@@ -26,7 +26,7 @@ function archivio(iniziale: Record<string, string> = {}): Storage & { dentro: Re
     clear: () => {
       for (const k of Object.keys(dentro)) delete dentro[k];
     },
-    getItem: (k: string) => (k in dentro ? dentro[k] : null),
+    getItem: (k: string) => (k in dentro ? dentro[k]! : null),
     key: () => null,
     removeItem: (k: string) => {
       delete dentro[k];

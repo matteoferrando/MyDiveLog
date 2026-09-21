@@ -55,7 +55,7 @@ function file(radice: string, estensioni: string[]): string[] {
 describe('il foglio di stile non veste nessuno che non esista', () => {
   it('ogni classe del CSS è nominata da qualche parte', () => {
     const css = readFileSync('src/ui/styles.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-    const classi = new Set([...css.matchAll(/\.([a-zA-Z][\w-]*)/g)].map((m) => m[1]));
+    const classi = new Set([...css.matchAll(/\.([a-zA-Z][\w-]*)/g)].map((m) => m[1]!));
 
     const pezzi = [...file('src', ['.ts', '.tsx', '.html']), ...file('scripts', ['.mjs']), 'index.html'].map(
       (p) => {

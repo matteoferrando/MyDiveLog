@@ -308,10 +308,12 @@ export interface WeightingRow {
   withBackplate: number;
 }
 
+// Mai chiamata con un elenco vuoto: ogni riga nasce con un peso dentro, e
+// `trim` si controlla prima di chiederne la mediana.
 const median = (values: number[]): number => {
   const s = [...values].sort((a, b) => a - b);
   const mid = Math.floor(s.length / 2);
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+  return s.length % 2 ? s[mid]! : (s[mid - 1]! + s[mid]!) / 2;
 };
 
 /**

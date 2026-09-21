@@ -207,8 +207,9 @@ export class SqliteStore implements DiveStore {
      * qui mancava, ed è il ramo che gira su Mac e iPhone, cioè dove sta
      * l'archivio vero delle persone.
      */
+    // Una riga sempre: `PRAGMA user_version` la restituisce anche su un archivio appena creato, con 0.
     const [{ user_version: versione }] =
-      await this.db.select<{ user_version: number }[]>('PRAGMA user_version');
+      await this.db.select<[{ user_version: number }]>('PRAGMA user_version');
     if (versione > VERSIONE_ARCHIVIO) {
       throw new ArchivioDaNonAprire(
         this.t(
@@ -256,7 +257,7 @@ export class SqliteStore implements DiveStore {
   async getDive(id: string): Promise<Dive | undefined> {
     const rows = await this.sql.select<{ doc: string }[]>('SELECT doc FROM dives WHERE id = ?', [id]);
     if (!rows.length) return undefined;
-    const dive = JSON.parse(rows[0].doc) as Dive;
+    const dive = JSON.parse(rows[0]!.doc) as Dive;
     dive.samples = await this.getSamples(id);
     const alt = await this.getAltSamples(id);
     if (alt.length) dive.altSamples = alt;
@@ -267,7 +268,7 @@ export class SqliteStore implements DiveStore {
     const rows = await this.sql.select<{ doc: string }[]>('SELECT doc FROM dive_samples WHERE dive_id = ?', [
       id,
     ]);
-    return rows.length ? (JSON.parse(rows[0].doc) as Sample[]) : [];
+    return rows.length ? (JSON.parse(rows[0]!.doc) as Sample[]) : [];
   }
 
   /**
@@ -281,7 +282,7 @@ export class SqliteStore implements DiveStore {
       'SELECT doc FROM dive_alt_samples WHERE dive_id = ?',
       [id],
     );
-    return rows.length ? (JSON.parse(rows[0].doc) as Sample[]) : [];
+    return rows.length ? (JSON.parse(rows[0]!.doc) as Sample[]) : [];
   }
 
   async sampleCounts(): Promise<Map<string, number>> {
@@ -405,7 +406,7 @@ export class SqliteStore implements DiveStore {
     const rows = await this.sql.select<{ value: string }[]>('SELECT value FROM settings WHERE key = ?', [
       key,
     ]);
-    return rows.length ? (JSON.parse(rows[0].value) as T) : undefined;
+    return rows.length ? (JSON.parse(rows[0]!.value) as T) : undefined;
   }
 
   async setSetting<T>(key: string, value: T): Promise<void> {

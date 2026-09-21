@@ -77,7 +77,7 @@ describe('il sito', () => {
       const html = readFileSync(pagina, 'utf8');
       const richiami = [...html.matchAll(/href="((?:\.\.\/)?stile\.css)(\?v=[0-9a-f]+)?"/g)];
       expect(richiami.length, pagina).toBe(1);
-      expect(richiami[0][2], `${pagina}: lancia \`npm run sito:versiona\``).toBe(`?v=${impronta}`);
+      expect(richiami[0]![2], `${pagina}: lancia \`npm run sito:versiona\``).toBe(`?v=${impronta}`);
     }
   });
 });

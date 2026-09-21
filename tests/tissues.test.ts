@@ -45,7 +45,7 @@ function dive(id: string, startTime: string, depthM: number, bottomMin: number):
   const base: Dive = {
     id,
     startTime,
-    durationS: samples[samples.length - 1].t,
+    durationS: samples[samples.length - 1]!.t,
     maxDepth: depthM,
     cylinders: [{ mix: { o2: 0.21, he: 0 } }],
     source: { format: 'uddf', file: 'test', importedAt: startTime },
@@ -72,14 +72,14 @@ describe('carico residuo', () => {
     // mezza giornata e il test misurerebbe la finzione invece del modello.
     const first = dive('a', '2026-06-01T09:00:00Z', 30, 25);
     const chained = await chainArchive([first], load([first]));
-    const loaded = chained.dives[0].metrics!.tissuesEnd!;
+    const loaded = chained.dives[0]!.metrics!.tissuesEnd!;
     const endMs = Date.parse(first.startTime) + first.durationS * 1000;
     const gaps = [30, 60, 180, 600].map((min) => {
       const next = dive('b', new Date(endMs + min * 60_000).toISOString(), 20, 20);
       return entryState(next, { state: loaded, endTimeMs: endMs }).residualN2Bar;
     });
-    for (let i = 1; i < gaps.length; i++) expect(gaps[i]).toBeLessThan(gaps[i - 1]);
-    expect(gaps[gaps.length - 1]).toBeLessThan(gaps[0] / 2);
+    for (let i = 1; i < gaps.length; i++) expect(gaps[i]).toBeLessThan(gaps[i - 1]!);
+    expect(gaps[gaps.length - 1]).toBeLessThan(gaps[0]! / 2);
   });
 
   it('oltre le ventiquattro ore la catena si spezza da sola', () => {
@@ -163,12 +163,12 @@ describe('la catena sull’archivio', () => {
     const endA = Date.parse(a.startTime) + a.durationS * 1000;
     const b = dive('b', new Date(endA + 45 * 60_000).toISOString(), 30, 35);
     const solaB = await chainArchive([b], load([b]));
-    const senzaResiduo = solaB.dives[0].metrics!.gf99Pct!;
-    expect(solaB.dives[0].metrics!.residualN2Bar).toBeUndefined();
+    const senzaResiduo = solaB.dives[0]!.metrics!.gf99Pct!;
+    expect(solaB.dives[0]!.metrics!.residualN2Bar).toBeUndefined();
 
     // La stessa `b`, ma ora preceduta da `a`: il residuo va ricalcolato anche se
     // il suo GF99 era già stato scritto e sembrava a posto.
-    const conA = await chainArchive([a, solaB.dives[0]], load([a, b]));
+    const conA = await chainArchive([a, solaB.dives[0]!], load([a, b]));
     const dopo = conA.dives.find((d) => d.id === 'b')!.metrics!;
     expect(conA.report.computed).toBe(2);
     expect(dopo.surfaceIntervalMin).toBe(45);
@@ -226,7 +226,7 @@ describe('la catena sull’archivio', () => {
   it('needsRecompute non chiede di rifare quello che è già giusto', async () => {
     const a = dive('a', '2026-06-01T09:00:00Z', 30, 30);
     const r = await chainArchive([a], load([a]));
-    expect(needsRecompute(r.dives[0], entryState(r.dives[0], undefined))).toBe(false);
+    expect(needsRecompute(r.dives[0]!, entryState(r.dives[0]!, undefined))).toBe(false);
   });
 });
 
@@ -267,9 +267,9 @@ describe('la curva di un piano', () => {
 
   it('i campioni coprono esattamente la durata dichiarata', () => {
     const s = segmentsToSamples(segments);
-    expect(s[s.length - 1].t).toBe(29 * 60);
-    expect(s[0].depth).toBe(0);
-    expect(s[s.length - 1].depth).toBe(0);
+    expect(s[s.length - 1]!.t).toBe(29 * 60);
+    expect(s[0]!.depth).toBe(0);
+    expect(s[s.length - 1]!.depth).toBe(0);
   });
 
   it('il limite in curva cala con la profondità', () => {
@@ -308,17 +308,17 @@ describe('curva e obbligo lungo l’immersione', () => {
     const atteso = Math.ceil(profondo.durationS / 60);
     expect(tl.length).toBeGreaterThan(atteso - 3);
     expect(tl.length).toBeLessThan(atteso + 3);
-    expect(tl[0].t).toBe(0);
+    expect(tl[0]!.t).toBe(0);
   });
 
   it('il tempo in curva si consuma scendendo e non torna indietro sul fondo', () => {
     const tl = decoTimeline(profondo, profondo.samples!);
     const fondo = tl.filter((p) => p.depthM > 35);
     for (let i = 1; i < fondo.length; i++) {
-      expect(fondo[i].ndlMin).toBeLessThanOrEqual(fondo[i - 1].ndlMin);
+      expect(fondo[i]!.ndlMin).toBeLessThanOrEqual(fondo[i - 1]!.ndlMin);
     }
     // E all'inizio, in superficie, il limite è al massimo consentito.
-    expect(tl[0].ndlMin).toBe(99);
+    expect(tl[0]!.ndlMin).toBe(99);
   });
 
   it('un’immersione bassa resta in curva per tutta la durata', () => {
@@ -342,8 +342,8 @@ describe('curva e obbligo lungo l’immersione', () => {
     // dritto senza fermarsi: il modello dice che sei arrivato in superficie con
     // quasi dieci metri di obbligo sopra la testa. Aspettarsi zero qui sarebbe
     // aspettarsi che il modello perdoni una risalita che non perdona.
-    expect(tl[tl.length - 1].ceilingM).toBeGreaterThan(5);
-    expect(tl[tl.length - 1].gf99).toBeGreaterThan(150);
+    expect(tl[tl.length - 1]!.ceilingM).toBeGreaterThan(5);
+    expect(tl[tl.length - 1]!.gf99).toBeGreaterThan(150);
   });
 
   it('il tempo di risalita cresce col carico e torna a zero in superficie', () => {
@@ -356,14 +356,14 @@ describe('curva e obbligo lungo l’immersione', () => {
      * prova: se un giorno smettesse di convergere, `toBeGreaterThan(undefined)`
      * darebbe un errore di tipo confuso invece di dire cos'è successo.
      */
-    expect(alFondo[0].ttsMin).toBeTypeOf('number');
-    expect(alFondo[alFondo.length - 1].ttsMin).toBeGreaterThan(alFondo[0].ttsMin!);
+    expect(alFondo[0]!.ttsMin).toBeTypeOf('number');
+    expect(alFondo[alFondo.length - 1]!.ttsMin).toBeGreaterThan(alFondo[0]!.ttsMin!);
     // In superficie il conto è zero per definizione: non c'è più niente da
     // risalire. Un metro sopra la superficie, invece, il TTS è ancora quello
     // dell'obbligo che ti porti dietro — ed è il caso di questo profilo, che
     // risale dritto e finisce a un metro di quota.
     const inSuperficie = decoTimeline(basso, basso.samples!);
-    expect(inSuperficie[inSuperficie.length - 1].ttsMin).toBe(0);
+    expect(inSuperficie[inSuperficie.length - 1]!.ttsMin).toBe(0);
   });
 
   it('il carico residuo entra: la ripetitiva parte con meno curva', async () => {
@@ -380,10 +380,10 @@ describe('curva e obbligo lungo l’immersione', () => {
     // vede quando cominciano a comandare loro.
     const ultimoAlFondo = (tl: typeof pulita) => {
       const fondo = tl.filter((p) => p.depthM > 25);
-      return fondo[fondo.length - 1].ndlMin;
+      return fondo[fondo.length - 1]!.ndlMin;
     };
     expect(ultimoAlFondo(ripetitiva)).toBeLessThanOrEqual(ultimoAlFondo(pulita));
-    const gf = (tl: typeof pulita) => tl[tl.length - 1].gf99;
+    const gf = (tl: typeof pulita) => tl[tl.length - 1]!.gf99;
     expect(gf(ripetitiva)).toBeGreaterThan(gf(pulita));
   });
 

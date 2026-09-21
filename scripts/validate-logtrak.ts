@@ -69,9 +69,9 @@ for (const raw of file.dives ?? []) {
     let area = 0;
     for (let i = 1; i < trimmed.length; i++) {
       area +=
-        (((trimmed[i].depth ?? 0) + (trimmed[i - 1].depth ?? 0)) / 2) * (trimmed[i].t - trimmed[i - 1].t);
+        (((trimmed[i]!.depth ?? 0) + (trimmed[i - 1]!.depth ?? 0)) / 2) * (trimmed[i]!.t - trimmed[i - 1]!.t);
     }
-    const span = trimmed.length > 1 ? trimmed[trimmed.length - 1].t - trimmed[0].t : 0;
+    const span = trimmed.length > 1 ? trimmed[trimmed.length - 1]!.t - trimmed[0]!.t : 0;
 
     rows.push({
       date,
@@ -102,7 +102,7 @@ const stat = (label: string, values: (number | null)[], unit: string, tolerance:
     return;
   }
   const worst = Math.max(...xs.map(Math.abs));
-  const median = xs[Math.floor(xs.length / 2)];
+  const median = xs[Math.floor(xs.length / 2)]!;
   const verdict = worst <= tolerance ? 'ok' : 'DA VERIFICARE';
   console.log(
     `  ${label.padEnd(26)} mediana ${median.toFixed(2).padStart(7)} ${unit}   scostamento massimo ${worst

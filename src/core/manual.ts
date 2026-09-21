@@ -216,7 +216,8 @@ export function validateManualDive(input: Partial<ManualDiveInput>): string[] {
 export function localToUtcIso(localDateTime: string, utcOffsetMinutes?: number): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(localDateTime.trim());
   if (!m) return '';
-  const [, y, mo, d, h, mi, sec] = m;
+  // Il match è riuscito: data, ore e minuti non sono opzionali, i secondi sì.
+  const [, y, mo, d, h, mi, sec] = m as unknown as [string, string, string, string, string, string, string?];
   const asUtc = Date.UTC(+y, +mo - 1, +d, +h, +mi, sec ? +sec : 0);
   if (utcOffsetMinutes === undefined) {
     // Il fuso del dispositivo, chiesto alla data GIUSTA: `getTimezoneOffset`
@@ -233,7 +234,8 @@ export function localToUtcIso(localDateTime: string, utcOffsetMinutes?: number):
 export function deviceOffsetMinutes(localDateTime: string): number | undefined {
   const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})/.exec(localDateTime.trim());
   if (!m) return undefined;
-  const [, y, mo, d, h, mi] = m;
+  // Il match è riuscito, e nessuno dei cinque gruppi è opzionale.
+  const [, y, mo, d, h, mi] = m as unknown as [string, string, string, string, string, string];
   return -new Date(+y, +mo - 1, +d, +h, +mi).getTimezoneOffset();
 }
 

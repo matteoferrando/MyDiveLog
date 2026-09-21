@@ -297,9 +297,9 @@ describe('contesto del piano di decompressione', () => {
     // quello che questo test vuole misurare.
     const curva = [{ depthM: 18, minutes: 35 }];
     const larghi: DecoSettings = { ...DEFAULT_DECO, gfLow: 0.45, gfHigh: 0.95 };
-    const conSosta = planDeco(curva, [gases[0]], larghi);
+    const conSosta = planDeco(curva, [gases[0]!], larghi);
     expect(conSosta.noDeco).toBe(true);
-    const c = JSON.parse(decoPlanContext(conSosta, curva, [gases[0]], larghi, [], 'x'));
+    const c = JSON.parse(decoPlanContext(conSosta, curva, [gases[0]!], larghi, [], 'x'));
     expect(c.soste.every((s: { obbligatoria: boolean }) => s.obbligatoria === false)).toBe(true);
     expect(c.risultato.sostaDiSicurezzaMin).toBe(3);
   });

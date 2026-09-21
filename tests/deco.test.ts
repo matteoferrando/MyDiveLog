@@ -118,24 +118,24 @@ describe('coerenza interna della tabella', () => {
 
   it('il runtime di ogni riga cresce', () => {
     for (let i = 1; i < r.segments.length; i++) {
-      expect(r.segments[i].runtimeMin).toBeGreaterThanOrEqual(r.segments[i - 1].runtimeMin);
+      expect(r.segments[i]!.runtimeMin).toBeGreaterThanOrEqual(r.segments[i - 1]!.runtimeMin);
     }
   });
 
   it('le soste risalgono, non scendono', () => {
     for (let i = 1; i < r.stops.length; i++) {
-      expect(r.stops[i].depthM).toBeLessThan(r.stops[i - 1].depthM);
+      expect(r.stops[i]!.depthM).toBeLessThan(r.stops[i - 1]!.depthM);
     }
   });
 
   it('l’ultima sosta è quella impostata e nessuna è più bassa', () => {
-    expect(r.stops[r.stops.length - 1].depthM).toBe(6);
+    expect(r.stops[r.stops.length - 1]!.depthM).toBe(6);
     for (const s of r.stops) expect(s.depthM).toBeGreaterThanOrEqual(6);
   });
 
   it('il CNS progressivo non diminuisce mai', () => {
     for (let i = 1; i < r.segments.length; i++) {
-      expect(r.segments[i].cnsTotal).toBeGreaterThanOrEqual(r.segments[i - 1].cnsTotal);
+      expect(r.segments[i]!.cnsTotal).toBeGreaterThanOrEqual(r.segments[i - 1]!.cnsTotal);
     }
   });
 
@@ -190,7 +190,7 @@ describe('quando deve rifiutarsi di essere ottimista', () => {
   it('dichiara il gas insufficiente invece di far finta di niente', () => {
     const piccola: PlanGas = { ...TX2135, tankL: 7, startBar: 150 };
     const r = planDeco([{ depthM: 45, minutes: 30 }], [piccola, EAN50, OXY], { gfLow: 0.3, gfHigh: 0.8 });
-    expect(r.gasUsage[0].insufficient).toBe(true);
+    expect(r.gasUsage[0]!.insufficient).toBe(true);
     expect(r.warnings.some((w) => w.level === 'critical')).toBe(true);
   });
 
@@ -198,7 +198,7 @@ describe('quando deve rifiutarsi di essere ottimista', () => {
     const tx1860: PlanGas = { mix: { o2: 0.18, he: 0.6 }, role: 'bottom', tankL: 24, startBar: 200 };
     const r = planDeco([{ depthM: 50, minutes: 25 }], [tx1860, EAN50, OXY], { gfLow: 0.3, gfHigh: 0.8 });
     expect(r.icd.length).toBeGreaterThan(0);
-    expect(r.icd[0].n2RiseBar).toBeGreaterThan(r.icd[0].heDropBar / 5);
+    expect(r.icd[0]!.n2RiseBar).toBeGreaterThan(r.icd[0]!.heDropBar / 5);
   });
 
   it('non segnala controdiffusione dove non ce n’è', () => {
@@ -298,7 +298,7 @@ describe('quota e ripetitive', () => {
     const surf = barometric(2000);
     // «Appena arrivato» significa tessuti ancora in equilibrio col livello del
     // mare, cioè più carichi di quanto la quota consenta.
-    expect(appena.n2[0]).toBeGreaterThan(acclimatato.n2[0]);
+    expect(appena.n2[0]).toBeGreaterThan(acclimatato.n2[0]!);
     // NON si controlla il GF99: a duemila metri i tessuti del livello del mare
     // stanno a 0.75 bar contro 0.79 di ambiente, cioè non sono sovrasaturi e il
     // GF99 è zero per entrambi. È lo stesso equivoco del carico residuo fra due
@@ -326,7 +326,7 @@ describe('quota e ripetitive', () => {
   });
 
   it('al livello del mare l’acclimatazione non cambia niente', () => {
-    expect(tissuesAtAltitude(0, 0).n2[0]).toBeCloseTo(tissuesAtAltitude(0, 48).n2[0], 6);
+    expect(tissuesAtAltitude(0, 0).n2[0]).toBeCloseTo(tissuesAtAltitude(0, 48).n2[0]!, 6);
   });
 
   it('una ripetitiva ha più decompressione della stessa immersione fatta da pulita', () => {
@@ -533,8 +533,8 @@ describe('la sosta di sicurezza, che è una scelta e non un obbligo', () => {
     // impone niente, e il piano finiva in superficie senza tre minuti di gas.
     const r = planDeco([{ depthM: 12, minutes: 50 }], [AIR], GF);
     expect(r.safetyStopMin).toBe(3);
-    expect(r.gasUsage[0].litres).toBeGreaterThan(
-      planDeco([{ depthM: 12, minutes: 50 }], [AIR], { ...GF, safetyStop: null }).gasUsage[0].litres,
+    expect(r.gasUsage[0]!.litres).toBeGreaterThan(
+      planDeco([{ depthM: 12, minutes: 50 }], [AIR], { ...GF, safetyStop: null }).gasUsage[0]!.litres,
     );
   });
 
@@ -547,7 +547,7 @@ describe('la sosta di sicurezza, che è una scelta e non un obbligo', () => {
     for (const s of r.stops) expect(s.mandatory).toBe(true);
     // Le soste restano in ordine decrescente, senza gradini intrusi.
     for (let i = 1; i < r.stops.length; i++) {
-      expect(r.stops[i].depthM).toBeLessThan(r.stops[i - 1].depthM);
+      expect(r.stops[i]!.depthM).toBeLessThan(r.stops[i - 1]!.depthM);
     }
   });
 
@@ -589,12 +589,12 @@ describe('la giornata, non l’immersione', () => {
   it('la prima immersione non cambia mai: è la seconda a pagare', () => {
     const corta = giornata(45);
     const lunga = giornata(240);
-    expect(corta[0].decoMin).toBe(lunga[0].decoMin);
-    expect(corta[1].decoMin).toBeGreaterThan(lunga[1].decoMin);
+    expect(corta[0]!.decoMin).toBe(lunga[0]!.decoMin);
+    expect(corta[1]!.decoMin).toBeGreaterThan(lunga[1]!.decoMin);
   });
 
   it('più lunga è la pausa, meno costa la seconda', () => {
-    const deco = (si: number) => giornata(si)[1].decoMin;
+    const deco = (si: number) => giornata(si)[1]!.decoMin;
     expect(deco(45)).toBeGreaterThan(deco(90));
     expect(deco(90)).toBeGreaterThan(deco(240));
   });
@@ -606,8 +606,8 @@ describe('la giornata, non l’immersione', () => {
       GF,
     );
     expect(serie).toHaveLength(1);
-    expect(serie[0].decoMin).toBe(singola.decoMin);
-    expect(serie[0].runtimeMin).toBeCloseTo(singola.runtimeMin, 3);
+    expect(serie[0]!.decoMin).toBe(singola.decoMin);
+    expect(serie[0]!.runtimeMin).toBeCloseTo(singola.runtimeMin, 3);
   });
 
   it('la catena passa i tessuti, non li ricalcola da pulito', () => {
@@ -615,7 +615,7 @@ describe('la giornata, non l’immersione', () => {
     // Se la seconda ripartisse da tessuti puliti farebbe la stessa deco di
     // un'immersione isolata: è esattamente l'errore che questa funzione evita.
     const isolata = planDeco([{ depthM: 24, minutes: 45 }], [air24], GF);
-    expect(g[1].decoMin).toBeGreaterThan(isolata.decoMin);
+    expect(g[1]!.decoMin).toBeGreaterThan(isolata.decoMin);
   });
 });
 
@@ -705,7 +705,7 @@ describe('difetti trovati dalla revisione', () => {
     expect(ppo2Fondo).toBeLessThan(2);
 
     // E con tre soli gas non deve più cadere.
-    const tre = [gases[0], gases[1], gases[2]];
+    const tre = [gases[0]!, gases[1]!, gases[2]!];
     expect(() => decoContingencies([{ depthM: 60, minutes: 20, gasIndex: 2 }], tre, {})).not.toThrow();
   });
 
@@ -730,11 +730,11 @@ describe('difetti trovati dalla revisione', () => {
     // `0` era falsy e passava per «bombola sconosciuta».
     const vuota: PlanGas = { mix: { o2: 0.21, he: 0 }, role: 'bottom', tankL: 0, startBar: 0 };
     const r = planDeco([{ depthM: 40, minutes: 25 }], [vuota], GF);
-    expect(r.gasUsage[0].insufficient).toBe(true);
+    expect(r.gasUsage[0]!.insufficient).toBe(true);
     expect(r.warnings.some((w) => w.level === 'critical')).toBe(true);
     // Mentre «non lo so» resta «non lo so».
     const ignota: PlanGas = { mix: { o2: 0.21, he: 0 }, role: 'bottom' };
-    expect(planDeco([{ depthM: 40, minutes: 25 }], [ignota], GF).gasUsage[0].insufficient).toBe(false);
+    expect(planDeco([{ depthM: 40, minutes: 25 }], [ignota], GF).gasUsage[0]!.insufficient).toBe(false);
   });
 
   it('la somma delle soste stampate fa il totale stampato', () => {
@@ -796,8 +796,8 @@ describe('difetti di calcolo trovati nella revisione', () => {
       ...GF,
       surfacePressureBar: barometric(2000),
     });
-    expect(mare.gasUsage[0].bar).toBeGreaterThan(118);
-    expect(mare.gasUsage[0].bar).toBeLessThan(132);
+    expect(mare.gasUsage[0]!.bar).toBeGreaterThan(118);
+    expect(mare.gasUsage[0]!.bar).toBeLessThan(132);
     /*
      * IN QUOTA LA DECOMPRESSIONE SI ALLUNGA: quello è il fatto fisico, ed è il
      * primo a essere chiesto. Misurato: 14 minuti d'obbligo al mare, 23 a 2000
@@ -822,8 +822,8 @@ describe('difetti di calcolo trovati nella revisione', () => {
      * chiederebbe **150 bar** invece di 120, cioè un quarto in più.
      */
     expect(quota.decoMin).toBeGreaterThan(mare.decoMin);
-    expect(quota.gasUsage[0].bar!).toBeLessThan(mare.gasUsage[0].bar! * 1.05);
-    expect(quota.gasUsage[0].bar!).toBeLessThan(140);
+    expect(quota.gasUsage[0]!.bar!).toBeLessThan(mare.gasUsage[0]!.bar! * 1.05);
+    expect(quota.gasUsage[0]!.bar!).toBeLessThan(140);
   });
 
   /**

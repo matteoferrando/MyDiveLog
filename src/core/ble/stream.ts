@@ -315,7 +315,9 @@ export class ByteStream {
     const out = new Uint8Array(Math.min(n, this.size));
     let off = 0;
     while (off < out.length) {
-      const head = this.chunks[this.testa];
+      // `size` è la somma dei pezzi da `testa` in poi, nessuno vuoto (`push` scarta le notifiche
+      // vuote): finché mancano byte, il pezzo in testa c'è.
+      const head = this.chunks[this.testa]!;
       const need = out.length - off;
       if (head.length <= need) {
         out.set(head, off);

@@ -434,8 +434,8 @@ export function orarioDaChiave(chiave: string | undefined): number | undefined {
 /** Modello e seriale dentro una chiave, se ci sono. */
 export function identitaDaChiave(chiave: string): { modello?: number; seriale?: string } {
   const pezzi = chiave.split(':');
-  const testa = pezzi.length >= 2 ? pezzi[0] : '';
-  const seriale = pezzi.length >= 3 ? pezzi[1] : '';
+  const testa = pezzi.length >= 2 ? pezzi[0]! : '';
+  const seriale = pezzi.length >= 3 ? pezzi[1]! : '';
   return {
     modello: /^[0-9a-f]{1,2}$/i.test(testa) ? parseInt(testa, 16) : undefined,
     seriale: /^\d+$/.test(seriale) ? seriale : undefined,
@@ -503,11 +503,12 @@ export const uwatecDriver: DiveComputerDriver = {
      * Nessuna stretta di mano: su BLE `uwatec_smart_handshake` esce subito.
      * Il primo byte che il computer riceve è già il comando «chi sei».
      */
-    const modello = (await bus.chiedi(CMD_MODEL, 1, signal))[0];
+    // `chiedi` restituisce esattamente i byte chiesti, o solleva: qui uno, e c'è.
+    const modello = (await bus.chiedi(CMD_MODEL, 1, signal))[0]!;
     trace(`modello: 0x${modello.toString(16)} (${uwatecModelName(modello)})`);
 
-    const hardware = (await bus.chiedi(CMD_HARDWARE, 1, signal))[0];
-    const software = (await bus.chiedi(CMD_SOFTWARE, 1, signal))[0];
+    const hardware = (await bus.chiedi(CMD_HARDWARE, 1, signal))[0]!;
+    const software = (await bus.chiedi(CMD_SOFTWARE, 1, signal))[0]!;
     const seriale = u32le(await bus.chiedi(CMD_SERIAL, 4, signal));
     const orologio = u32le(await bus.chiedi(CMD_DEVTIME, 4, signal));
 
@@ -1038,7 +1039,7 @@ export function tagliaRecord(
   // L'ordine in cui erano scritti in memoria, PRIMA di riordinarli per data.
   let cronologico = true;
   for (let i = 1; i < buoni.length; i++) {
-    if (buoni[i].orario < buoni[i - 1].orario) cronologico = false;
+    if (buoni[i]!.orario < buoni[i - 1]!.orario) cronologico = false;
   }
 
   trace?.(
@@ -1104,7 +1105,7 @@ function costruisci(
    * niente: è il caso del record troncato, per cui `Math.max` era stato
    * scritto.
    */
-  const durationS = d.durationS || (samples.length ? samples[samples.length - 1].t : 0);
+  const durationS = d.durationS || (samples.length ? samples[samples.length - 1]!.t : 0);
 
   /*
    * Senza profondità E senza durata non è un'immersione: è un record vuoto.

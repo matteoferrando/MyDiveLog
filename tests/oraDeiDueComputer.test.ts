@@ -205,8 +205,8 @@ describe('la rete di sicurezza: due coppie che concordano al secondo', () => {
      */
     const report = mergeImports([ALADIN_1, ALADIN_2], [PEREGRINE_1, PEREGRINE_2], '2026-08-24T09:06:24.668Z');
     expect(report.clockOffsets.length).toBe(1);
-    expect(Math.round(report.clockOffsets[0].offsetMs / 1000)).toBe(-3566);
-    expect(report.clockOffsets[0].pairs).toBe(2);
+    expect(Math.round(report.clockOffsets[0]!.offsetMs / 1000)).toBe(-3566);
+    expect(report.clockOffsets[0]!.pairs).toBe(2);
     expect(report.added).toBe(0);
     expect(report.merged).toBe(2);
     expect(report.dives).toHaveLength(2);

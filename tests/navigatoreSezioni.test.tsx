@@ -170,7 +170,7 @@ describe('l’indice laterale', () => {
     );
     act(() => (punti(host)[4] as HTMLButtonElement).click());
     expect(statoDiApertura('c4'), 'l’indice ha portato davanti a un riquadro chiuso').toBe(true);
-    expect(punti(host)[4].getAttribute('aria-current')).toBe('true');
+    expect(punti(host)[4]!.getAttribute('aria-current')).toBe('true');
   });
 
   it('il capitolo aperto dall’indice si disegna davvero aperto', () => {
@@ -183,9 +183,9 @@ describe('l’indice laterale', () => {
     fingiLarghezza(false);
     const host = monta(pagina(7));
     const corpi = () => [...host.querySelectorAll('.carta-apribile [id]')];
-    expect(corpi()[3].hasAttribute('hidden')).toBe(true);
+    expect(corpi()[3]!.hasAttribute('hidden')).toBe(true);
     act(() => (punti(host)[3] as HTMLButtonElement).click());
-    expect(corpi()[3].hasAttribute('hidden'), 'la mappa dice aperto, il riquadro è chiuso').toBe(false);
+    expect(corpi()[3]!.hasAttribute('hidden'), 'la mappa dice aperto, il riquadro è chiuso').toBe(false);
   });
 
   it('premere un punto mostra il nome del capitolo e il suo numero', () => {
@@ -195,7 +195,7 @@ describe('l’indice laterale', () => {
     // React ascolta `focusin` alla radice, non `focus`: un `focus` che non
     // rimbalza non arriva a `onFocus` e la prova misurerebbe il nulla.
     act(() => {
-      punti(host)[2].dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+      punti(host)[2]!.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
     });
     const nome = host.querySelector('.navigatore-nome');
     expect(nome?.textContent).toContain('Capitolo 2');

@@ -48,7 +48,7 @@ describe('inquadramento SLIP', () => {
   it('un pacchetto corto sta in una notifica sola, e dichiara «una»', () => {
     const f = slipFrames(Uint8Array.from([1, 2, 3]));
     expect(f).toHaveLength(1);
-    expect([...f[0]]).toEqual([1, 0, 1, 2, 3, END]);
+    expect([...f[0]!]).toEqual([1, 0, 1, 2, 3, END]);
   });
 
   it('i byte speciali si raddoppiano PRIMA di contare le notifiche', () => {
@@ -60,17 +60,17 @@ describe('inquadramento SLIP', () => {
      * di ascoltare a metà.
      */
     const f = slipFrames(Uint8Array.from([END, ESC]));
-    expect([...f[0]]).toEqual([1, 0, ESC, 0xdc, ESC, 0xdd, END]);
+    expect([...f[0]!]).toEqual([1, 0, ESC, 0xdc, ESC, 0xdd, END]);
   });
 
   it('sopra i diciotto byte utili passa a due notifiche, numerate da zero', () => {
     const f = slipFrames(new Uint8Array(20));
     expect(f).toHaveLength(2);
-    expect(f[0][0]).toBe(2);
-    expect(f[0][1]).toBe(0);
-    expect(f[1][1]).toBe(1);
+    expect(f[0]![0]).toBe(2);
+    expect(f[0]![1]).toBe(0);
+    expect(f[1]![1]).toBe(1);
     // Nessun byte perso: 20 di carico + il separatore = 21 utili in due notifiche.
-    expect(f[0].length - 2 + (f[1].length - 2)).toBe(21);
+    expect(f[0]!.length - 2 + (f[1]!.length - 2)).toBe(21);
   });
 
   it('il decodificatore ricompone un pacchetto sparso su più notifiche', () => {
@@ -115,7 +115,7 @@ describe('decompressione', () => {
         }
         spingi(run); // bit alto spento: è una sequenza di zeri
       } else {
-        spingi(0x100 | bytes[i]);
+        spingi(0x100 | bytes[i]!);
         i++;
       }
     }
@@ -125,7 +125,7 @@ describe('decompressione', () => {
     while (bits.length % 72 !== 0) spingi(0);
     const out = new Uint8Array(bits.length / 8);
     bits.forEach((b, k) => {
-      if (b) out[k >> 3] |= 0x80 >> (k & 7);
+      if (b) out[k >> 3]! |= 0x80 >> (k & 7);
     });
     return out;
   }
@@ -154,7 +154,7 @@ describe('decompressione', () => {
      */
     const originale = new Uint8Array(80).map((_, i) => (i * 7) & 0xff);
     const cifrato = originale.slice();
-    for (let i = cifrato.length - 1; i >= 32; i--) cifrato[i] ^= cifrato[i - 32];
+    for (let i = cifrato.length - 1; i >= 32; i--) cifrato[i]! ^= cifrato[i - 32]!;
     expect([...decompressXor(cifrato)]).toEqual([...originale]);
   });
 
@@ -187,8 +187,8 @@ describe('manifesto', () => {
   it('legge indirizzo e impronta', () => {
     const m = parseManifest(pagina([voce(0x1234, [1, 2, 3, 4])]));
     expect(m.entries).toHaveLength(1);
-    expect(m.entries[0].address).toBe(0x1234);
-    expect([...m.entries[0].fingerprint]).toEqual([1, 2, 3, 4]);
+    expect(m.entries[0]!.address).toBe(0x1234);
+    expect([...m.entries[0]!.fingerprint]).toEqual([1, 2, 3, 4]);
   });
 
   it('le cancellate si saltano ma si CONTANO', () => {
@@ -286,7 +286,7 @@ describe('scarico completo dal finto Peregrine', () => {
   it('le immersioni scaricate hanno data, profondità e provenienza giuste', async () => {
     const t = trasporto([logPnfSintetico(1_750_000_000, 234)]);
     const out = await downloadFromComputer(t, fakeDevice({ name: 'Peregrine' }), shearwaterDriver);
-    const d = out.dives[0];
+    const d = out.dives[0]!;
     expect(d.startTime).toBe(new Date(1_750_000_000_000).toISOString());
     expect(d.maxDepth).toBeCloseTo(23.4, 1);
     expect(d.source.format).toBe('shearwater-ble');
@@ -305,7 +305,7 @@ describe('scarico completo dal finto Peregrine', () => {
     const a = await downloadFromComputer(t, fakeDevice({ name: 'Peregrine' }), shearwaterDriver);
     const t2 = trasporto([logPnfSintetico(1_750_000_000, 234)]);
     const b = await downloadFromComputer(t2, fakeDevice({ name: 'Peregrine' }), shearwaterDriver);
-    expect(a.dives[0].id).toBe(b.dives[0].id);
+    expect(a.dives[0]!.id).toBe(b.dives[0]!.id);
   });
 
   it('l’immersione scaricata porta l’impronta del profilo', async () => {
@@ -332,7 +332,7 @@ describe('scarico completo dal finto Peregrine', () => {
     );
     expect(out.dives).toHaveLength(1);
     expect(improntaPnf(raw)).toBeTruthy();
-    expect(out.dives[0].computer?.profileFingerprint).toBe(improntaPnf(raw));
+    expect(out.dives[0]!.computer?.profileFingerprint).toBe(improntaPnf(raw));
   });
 
   it('lo scarico completo restituisce il segnalibro della PIÙ RECENTE', async () => {

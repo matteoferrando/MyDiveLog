@@ -155,7 +155,7 @@ describe('il confine fra i due elenchi', () => {
      * svuotarlo non si propaga, ed è il difetto da cui nasce questo file.
      */
     const sorgente = readFileSync('src/ui/components/ModificaImmersione.tsx', 'utf8');
-    const scrivibili = new Set([...sorgente.matchAll(/tocca\(\{\s*([A-Za-z]+)/g)].map((m) => m[1]));
+    const scrivibili = new Set([...sorgente.matchAll(/tocca\(\{\s*([A-Za-z]+)/g)].map((m) => m[1]!));
     expect(scrivibili.size, 'nessun `tocca({...})` trovato: la scheda è cambiata').toBeGreaterThan(8);
     const misurati = new Set<string>(CAMPI_MISURATI);
     const aMano = new Set<string>(CAMPI_SCRITTI_A_MANO);

@@ -1607,7 +1607,7 @@ export function Planner() {
             ],
           ].map(([letter, text]) => (
             <div key={letter} className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
-              <span style={{ fontWeight: 700, minWidth: 78, fontSize: 13 }}>{t(letter)}</span>
+              <span style={{ fontWeight: 700, minWidth: 78, fontSize: 13 }}>{t(letter!)}</span>
               <span className="secondary" style={{ fontSize: 13 }}>
                 {text}
               </span>
@@ -2404,7 +2404,9 @@ function PressureTimeline({
         onPointerMove={(e) => {
           const box = e.currentTarget.getBoundingClientRect();
           const at = ((e.clientX - box.left - pad.left) / plotW) * total;
-          let best = schedule[0];
+          // `pressureSchedule` parte sempre dal minuto zero: `planGas` rende la durata
+          // un numero finito e mai negativo.
+          let best = schedule[0]!;
           for (const p of schedule) if (Math.abs(p.runMin - at) < Math.abs(best.runMin - at)) best = p;
           setTip({
             x: x(best.runMin),

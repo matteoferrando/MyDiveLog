@@ -1435,13 +1435,13 @@ export function measuredRmv(dives: Dive[]): MeasuredRmv {
     .filter((v): v is number => v !== undefined && Number.isFinite(v) && v > 0)
     .sort((a, b) => a - b);
   if (!values.length) return { n: 0 };
-  const at = (q: number) => values[Math.min(values.length - 1, Math.floor(q * values.length))];
+  const at = (q: number) => values[Math.min(values.length - 1, Math.floor(q * values.length))]!;
   const mid = Math.floor(values.length / 2);
-  const median = values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+  const median = values.length % 2 ? values[mid]! : (values[mid - 1]! + values[mid]!) / 2;
   return {
     median: round1(median),
     p75: round1(at(0.75)),
-    max: round1(values[values.length - 1]),
+    max: round1(values[values.length - 1]!),
     n: values.length,
   };
 }
@@ -1537,11 +1537,12 @@ export function similarDives(
   if (!pool.length) return { n: 0, belowReserve: 0, byDurationToo: false };
   const ends = pool.map((d) => d.metrics!.endPressureBar as number).sort((a, b) => a - b);
   const durations = pool.map((d) => d.durationS / 60).sort((a, b) => a - b);
-  const mid = <T>(v: T[]) => v[Math.floor(v.length / 2)];
+  // `ends` e `durations` hanno un elemento per immersione di `pool`, che qui non è vuoto.
+  const mid = <T>(v: T[]) => v[Math.floor(v.length / 2)]!;
   return {
     n: pool.length,
     medianEndBar: Math.round(mid(ends)),
-    minEndBar: Math.round(ends[0]),
+    minEndBar: Math.round(ends[0]!),
     medianDurationMin: Math.round(mid(durations)),
     belowReserve: ends.filter((b) => b < LIMITS.minReserveBar).length,
     byDurationToo,
@@ -1569,5 +1570,5 @@ export function usualDepthRatio(dives: Dive[]): number | undefined {
     .filter((v): v is number => v !== undefined && v > 0.2 && v <= 1)
     .sort((a, b) => a - b);
   if (ratios.length < 5) return undefined;
-  return Math.round(ratios[Math.floor(ratios.length / 2)] * 100) / 100;
+  return Math.round(ratios[Math.floor(ratios.length / 2)]! * 100) / 100;
 }

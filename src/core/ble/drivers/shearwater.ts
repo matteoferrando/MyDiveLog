@@ -169,7 +169,7 @@ export class SlipDecoder {
       );
     }
     for (let i = 2; i < frame.length; i++) {
-      const c = frame[i];
+      const c = frame[i]!;
       if (c === END) {
         if (this.escaped) {
           throw new ShearwaterProtocolError('Separatore SLIP dentro una sequenza di escape.');
@@ -271,15 +271,17 @@ export function decompressLre(data: Uint8Array, out: number[]): { final: boolean
  * Traduzione di `shearwater_common_decompress_xor`.
  */
 export function decompressXor(data: Uint8Array): Uint8Array {
-  for (let i = 32; i < data.length; i++) data[i] ^= data[i - 32];
+  for (let i = 32; i < data.length; i++) data[i]! ^= data[i - 32]!;
   return data;
 }
 
 // ------------------------------------------------------------------ trasporto
 
-const u16be = (d: Uint8Array, i: number) => (d[i] << 8) | d[i + 1];
+// Le tre chiamate stanno dentro un controllo di lunghezza: il ciclo di `parseManifest`, che
+// legge solo record interi da 32 byte, e `rsp.length < 5` in `logbookBase`.
+const u16be = (d: Uint8Array, i: number) => (d[i]! << 8) | d[i + 1]!;
 const u32be = (d: Uint8Array, i: number) =>
-  ((d[i] << 24) >>> 0) + (d[i + 1] << 16) + (d[i + 2] << 8) + d[i + 3];
+  ((d[i]! << 24) >>> 0) + (d[i + 1]! << 16) + (d[i + 2]! << 8) + d[i + 3]!;
 
 /**
  * Un comando e la sua risposta.
@@ -325,10 +327,10 @@ async function transfer(
       `Intestazione di risposta inattesa: ${[...risposta.slice(0, 4)].map((b) => b.toString(16).padStart(2, '0')).join(' ')}.`,
     );
   }
-  const length = risposta[2] - 1;
+  const length = risposta[2]! - 1;
   if (length < 0 || length + 4 !== risposta.length) {
     throw new ShearwaterProtocolError(
-      `Lunghezza dichiarata ${risposta[2] - 1} ma il pacchetto ne porta ${risposta.length - 4}.`,
+      `Lunghezza dichiarata ${risposta[2]! - 1} ma il pacchetto ne porta ${risposta.length - 4}.`,
     );
   }
   return risposta.subarray(4);
@@ -347,7 +349,7 @@ async function rdbi(
   const req = Uint8Array.from([RDBI_REQUEST, (id >> 8) & 0xff, id & 0xff]);
   const res = await transfer(link, decoder, req, timeoutMs, trace, signal);
   if (res.length === 3 && res[0] === NAK && res[1] === RDBI_REQUEST) {
-    trace?.(`  il computer dice che 0x${id.toString(16)} non ce l'ha (codice 0x${res[2].toString(16)})`);
+    trace?.(`  il computer dice che 0x${id.toString(16)} non ce l'ha (codice 0x${res[2]!.toString(16)})`);
     return undefined;
   }
   if (res.length < 3 || res[0] !== RDBI_RESPONSE || res[1] !== req[1] || res[2] !== req[2]) {
@@ -640,7 +642,7 @@ export const shearwaterDriver: DiveComputerDriver = {
     const out: DownloadedRecord[] = [];
     for (let i = 0; i < voci.length; i++) {
       if (signal.aborted) break;
-      const v = voci[i];
+      const v = voci[i]!;
       const key = esadecimale(v.fingerprint);
       try {
         const bytes = await downloadRange(
@@ -792,7 +794,7 @@ function buildDive(
    */
   const daiCampioni = samples.length ? Math.max(...samples.map((s) => s.depth)) : 0;
   const maxDepth = Math.max(log.maxDepth ?? 0, daiCampioni);
-  const durationS = Math.max(log.durationS ?? 0, samples.length ? samples[samples.length - 1].t : 0);
+  const durationS = Math.max(log.durationS ?? 0, samples.length ? samples[samples.length - 1]!.t : 0);
 
   const cylinders: Cylinder[] = log.gases.length
     ? log.gases.map((mix: GasMix, i) => ({

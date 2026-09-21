@@ -40,18 +40,18 @@ describe('UDDF', () => {
     const { dives, warnings } = await parseFile({ fileName: 'test.uddf', text: toUddf(synth) });
     expect(warnings.filter((w) => w.includes('scartata'))).toHaveLength(0);
     expect(dives).toHaveLength(1);
-    const d = dives[0];
+    const d = dives[0]!;
 
     expect(d.maxDepth).toBeCloseTo(maxDepth, 1);
     expect(d.durationS).toBe(synth.spec.durationS);
     // Kelvin → Celsius.
     expect(d.minTempC).toBeCloseTo(synth.spec.minTempC, 0);
     // Pascal → bar.
-    expect(d.cylinders[0].startBar).toBe(synth.spec.startBar);
+    expect(d.cylinders[0]!.startBar).toBe(synth.spec.startBar);
     // Metri cubi → litri.
-    expect(d.cylinders[0].sizeL).toBeCloseTo(synth.spec.tankSizeL, 1);
+    expect(d.cylinders[0]!.sizeL).toBeCloseTo(synth.spec.tankSizeL, 1);
     // Frazione, non percentuale.
-    expect(d.cylinders[0].mix.o2).toBeCloseTo(synth.spec.o2, 3);
+    expect(d.cylinders[0]!.mix.o2).toBeCloseTo(synth.spec.o2, 3);
     expect(d.site?.name).toBe(synth.spec.siteName);
     expect(d.samples?.length).toBe(synth.samples.length);
     // La pressione nei campioni è in bar, non in Pascal.
@@ -64,19 +64,19 @@ describe('Subsurface', () => {
   it('interpreta le unità nella stringa e i tempi mm:ss', async () => {
     const { dives } = await parseFile({ fileName: 'test.ssrf', text: toSubsurface(synth) });
     expect(dives).toHaveLength(1);
-    const d = dives[0];
+    const d = dives[0]!;
     expect(d.maxDepth).toBeCloseTo(maxDepth, 1);
     // duration='42:00 min' sono 42 minuti, non 42 secondi né 42 minuti e 0 secondi male interpretati.
     expect(d.durationS).toBe(synth.spec.durationS);
-    expect(d.cylinders[0].sizeL).toBeCloseTo(synth.spec.tankSizeL, 1);
-    expect(d.cylinders[0].mix.o2).toBeCloseTo(synth.spec.o2, 2);
+    expect(d.cylinders[0]!.sizeL).toBeCloseTo(synth.spec.tankSizeL, 1);
+    expect(d.cylinders[0]!.mix.o2).toBeCloseTo(synth.spec.o2, 2);
     expect(d.tags).toContain('nitrox');
     expect(d.computer?.model).toBe('Shearwater Peregrine');
   });
 
   it('riporta avanti i valori omessi nei campioni delta-codificati', async () => {
     const { dives } = await parseFile({ fileName: 'test.ssrf', text: toSubsurface(synth) });
-    const samples = dives[0].samples!;
+    const samples = dives[0]!.samples!;
     // Nel fixture la temperatura è scritta solo quando cambia di un grado:
     // senza carry-forward la maggior parte dei campioni sarebbe senza temperatura.
     const withTemp = samples.filter((s) => s.tempC !== undefined).length;
@@ -90,16 +90,16 @@ describe('Shearwater XML', () => {
   it('legge i mezzi PSI, i millibar e i millisecondi', async () => {
     const { dives } = await parseFile({ fileName: 'sw.xml', text: toShearwaterXml(synth) });
     expect(dives).toHaveLength(1);
-    const d = dives[0];
+    const d = dives[0]!;
     expect(d.maxDepth).toBeCloseTo(maxDepth, 0);
     expect(d.durationS).toBe(synth.spec.durationS);
     // startSurfacePressure in millibar → ~1.013 bar, non 1013.
     expect(d.surfacePressureBar).toBeCloseTo(1.013, 2);
     // Mezzi PSI → bar: se il fattore 2 mancasse, sarebbe ~110 invece di ~220.
-    expect(d.cylinders[0].startBar).toBeGreaterThan(synth.spec.startBar - 3);
-    expect(d.cylinders[0].startBar).toBeLessThan(synth.spec.startBar + 3);
+    expect(d.cylinders[0]!.startBar).toBeGreaterThan(synth.spec.startBar - 3);
+    expect(d.cylinders[0]!.startBar).toBeLessThan(synth.spec.startBar + 3);
     // currentTime in millisecondi → i campioni non devono finire a 25.000 secondi.
-    expect(d.samples![d.samples!.length - 1].t).toBe(synth.spec.durationS);
+    expect(d.samples![d.samples!.length - 1]!.t).toBe(synth.spec.durationS);
     expect(d.computer?.gfHigh).toBe(85);
   });
 
@@ -107,8 +107,8 @@ describe('Shearwater XML', () => {
     const metric = await parseFile({ fileName: 'm.xml', text: toShearwaterXml(synth, { imperial: false }) });
     const imperial = await parseFile({ fileName: 'i.xml', text: toShearwaterXml(synth, { imperial: true }) });
     // Lo stesso profilo scritto in piedi e in metri deve dare la stessa profondità.
-    expect(imperial.dives[0].maxDepth).toBeCloseTo(metric.dives[0].maxDepth, 0);
-    expect(imperial.dives[0].minTempC!).toBeCloseTo(metric.dives[0].minTempC!, 0);
+    expect(imperial.dives[0]!.maxDepth).toBeCloseTo(metric.dives[0]!.maxDepth, 0);
+    expect(imperial.dives[0]!.minTempC!).toBeCloseTo(metric.dives[0]!.minTempC!, 0);
   });
 
   it('ricava la scala dei tempi dal passo fra campioni', () => {
@@ -178,16 +178,16 @@ describe('Garmin FIT', () => {
     const { dives, warnings } = await parseFit({ fileName: 'dive.fit', bytes: toFit(synth) });
     expect(warnings.filter((w) => w.includes('Nessuna immersione'))).toHaveLength(0);
     expect(dives).toHaveLength(1);
-    const d = dives[0];
+    const d = dives[0]!;
     expect(d.maxDepth).toBeCloseTo(maxDepth, 0);
     expect(d.durationS).toBe(synth.spec.durationS);
     expect(d.mode).toBe('oc');
-    expect(d.cylinders[0].mix.o2).toBeCloseTo(synth.spec.o2, 2);
+    expect(d.cylinders[0]!.mix.o2).toBeCloseTo(synth.spec.o2, 2);
     // La pressione non sta nei record: va agganciata dai messaggi tank_update.
     const pressures = d.samples!.map((s) => s.pressureBar?.[0]).filter((p): p is number => p !== undefined);
     expect(pressures.length).toBeGreaterThan(synth.samples.length * 0.9);
     // Il volume bombola non esiste nel FIT: viene dedotto da tank_summary.
-    expect(d.cylinders[0].sizeL).toBeCloseTo(synth.spec.tankSizeL, 0);
+    expect(d.cylinders[0]!.sizeL).toBeCloseTo(synth.spec.tankSizeL, 0);
   });
 });
 
@@ -196,10 +196,10 @@ describe('CSV di riepilogo', () => {
     const two = [synthesise(), synthesise({ startTime: new Date('2026-06-15T09:10:00Z'), maxDepth: 18 })];
     const { dives, warnings } = await parseFile({ fileName: 'logbook.csv', text: toCsv(two) });
     expect(dives).toHaveLength(2);
-    expect(dives[0].site?.name).toBe(synth.spec.siteName);
-    expect(dives[0].maxDepth).toBeCloseTo(maxDepth, 1);
-    expect(dives[0].buddy).toBe('Marco');
-    expect(dives[0].cylinders[0].mix.o2).toBeCloseTo(synth.spec.o2, 2);
+    expect(dives[0]!.site?.name).toBe(synth.spec.siteName);
+    expect(dives[0]!.maxDepth).toBeCloseTo(maxDepth, 1);
+    expect(dives[0]!.buddy).toBe('Marco');
+    expect(dives[0]!.cylinders[0]!.mix.o2).toBeCloseTo(synth.spec.o2, 2);
     // Deve dire chiaramente che senza profilo alcune metriche non ci sono.
     expect(warnings.some((w) => w.includes('senza profilo'))).toBe(true);
   });
@@ -239,7 +239,7 @@ describe('coerenza fra formati', () => {
       parseFit({ fileName: 'd.fit', bytes: toFit(synth) }),
     ]);
 
-    const dives = results.map((r) => r.dives[0]);
+    const dives = results.map((r) => r.dives[0]!);
     for (const d of dives) {
       expect(d.maxDepth).toBeCloseTo(maxDepth, 0);
       expect(d.durationS).toBeCloseTo(synth.spec.durationS, -1);
@@ -258,7 +258,7 @@ describe('coerenza fra formati', () => {
       parseFit({ fileName: 'd.fit', bytes: toFit(synth) }),
     ]);
     for (const r of results) {
-      const rmv = r.dives[0].metrics!.rmvLpm;
+      const rmv = r.dives[0]!.metrics!.rmvLpm;
       expect(rmv, `${r.format} dovrebbe calcolare il consumo`).toBeDefined();
       expect(rmv!).toBeGreaterThan(synth.spec.rmvLpm - 3);
       expect(rmv!).toBeLessThan(synth.spec.rmvLpm + 3);
@@ -269,7 +269,7 @@ describe('coerenza fra formati', () => {
     // Il formato non ha un campo per i litri: la scelta corretta è dirlo,
     // non inventare un valore plausibile.
     const { dives } = await parseFile({ fileName: 'c.xml', text: toShearwaterXml(synth) });
-    const m = dives[0].metrics!;
+    const m = dives[0]!.metrics!;
     expect(m.rmvLpm).toBeUndefined();
     expect(m.sacBarPerMin).toBeDefined();
     expect(m.quality.hasTankPressure).toBe(true);
@@ -313,7 +313,7 @@ describe('confini dei file, difetti della revisione', () => {
       uddf('2026-06-14T10:38:00', '<diveduration>1200</diveduration><greatestdepth>30</greatestdepth>'),
     );
     expect(r.dives).toHaveLength(1);
-    expect(r.dives[0].startTime).toContain('2026-06-14');
+    expect(r.dives[0]!.startTime).toContain('2026-06-14');
   });
 
   it('quando durata e profondità sono dedotte dai campioni lo dichiara', async () => {
@@ -331,7 +331,7 @@ describe('confini dei file, difetti della revisione', () => {
     const r = await parse(
       uddf('2026-06-14T10:38:00', '<diveduration>1200</diveduration><greatestdepth>30</greatestdepth>'),
     );
-    expect(r.dives[0].computer?.model).toBeUndefined();
+    expect(r.dives[0]!.computer?.model).toBeUndefined();
     expect(r.warnings.some((w) => w.includes('QualcheProgramma'))).toBe(true);
   });
 });

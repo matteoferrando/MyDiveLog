@@ -233,7 +233,7 @@ describe('le istruzioni non promettono campi che non esistono', () => {
    * una parola generica, il test fallisce e lo obbliga a scegliere: o è un campo
    * e deve esistere, o è una parola e va scritta senza apici.
    */
-  const nomiCitati = [...SYSTEM.matchAll(/`([A-Za-z][A-Za-z0-9_.]*)`/g)].map((m) => m[1]);
+  const nomiCitati = [...SYSTEM.matchAll(/`([A-Za-z][A-Za-z0-9_.]*)`/g)].map((m) => m[1]!);
 
   it('trova dei nomi da controllare (se no il test non prova niente)', () => {
     expect(nomiCitati.length).toBeGreaterThan(3);

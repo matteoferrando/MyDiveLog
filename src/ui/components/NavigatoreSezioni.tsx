@@ -98,7 +98,7 @@ export function NavigatoreSezioni() {
       const soglia = contenitore.getBoundingClientRect().top + contenitore.clientHeight / 8;
       let trovato = 0;
       for (let i = 0; i < capitoli.length; i++) {
-        if (capitoli[i].nodo.getBoundingClientRect().top <= soglia) trovato = i;
+        if (capitoli[i]!.nodo.getBoundingClientRect().top <= soglia) trovato = i;
       }
       setCorrente(trovato);
     };

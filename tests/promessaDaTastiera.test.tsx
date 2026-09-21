@@ -73,7 +73,7 @@ const metriche = (rmv: number, oscillazione: number): Dive['metrics'] =>
 /** Nove immersioni, tre per sito, tutte con consumo e oscillazione misurati. */
 function archivio(): Dive[] {
   return Array.from({ length: 9 }, (_, i) => {
-    const sito = SITI[i % SITI.length];
+    const sito = SITI[i % SITI.length]!;
     return {
       id: `imm-${i}`,
       startTime: new Date(ORA - (i + 1) * 5 * GIORNO).toISOString(),
@@ -113,8 +113,8 @@ function montaStatistiche(aperte: string[]) {
       period: periodOf('12m'),
       dives,
       excluded: 0,
-      from: dives[dives.length - 1].startTime,
-      to: dives[0].startTime,
+      from: dives[dives.length - 1]!.startTime,
+      to: dives[0]!.startTime,
     },
     gear: { equipment: [], sets: [] },
   };

@@ -101,7 +101,7 @@ describe('il CSV che l’applicazione esporta, l’applicazione lo rilegge', () 
     expect(csv.split('\n')[0]).toMatch(/^﻿?sep=/);
     const r = await parseFile({ fileName: 'mio.csv', text: csv });
     expect(r.dives).toHaveLength(1);
-    expect(r.dives[0].site?.name).toBe('Punta Mesco');
+    expect(r.dives[0]!.site?.name).toBe('Punta Mesco');
   });
 
   it('e una formula nel nome del sito esce disinnescata', () => {
@@ -144,7 +144,7 @@ describe('numeri che non sono numeri', () => {
     ].join('\n');
     const r = await parseFile({ fileName: 'x.csv', text: csv });
     expect(r.dives).toHaveLength(1);
-    expect(r.dives[0].maxDepth).toBe(30.5);
+    expect(r.dives[0]!.maxDepth).toBe(30.5);
     expect(r.warnings.join(' ')).toContain('scartate');
   });
 
@@ -159,7 +159,7 @@ describe('numeri che non sono numeri', () => {
     // motore si difende, l'esposizione all'ossigeno no (CNS 70% invece di 11%).
     const csv = ['Date;Time;Duration;Max Depth;O2;He', '2026-06-14;10:38;40;30;3200;0'].join('\n');
     const r = await parseFile({ fileName: 'x.csv', text: csv });
-    expect(r.dives[0].cylinders[0].mix.o2).toBe(0.21);
+    expect(r.dives[0]!.cylinders[0]!.mix.o2).toBe(0.21);
   });
 });
 
@@ -241,8 +241,8 @@ describe('l’ora che il file dichiara è l’ora che si mostra', () => {
       </dive></repetitiongroup></profiledata></uddf>`;
     const r = await parseFile({ fileName: 'x.uddf', text: uddf });
     expect(r.dives).toHaveLength(1);
-    expect(r.dives[0].startTime).toBe('2026-06-14T08:38:00.000Z');
-    expect(r.dives[0].utcOffsetMinutes).toBe(120);
+    expect(r.dives[0]!.startTime).toBe('2026-06-14T08:38:00.000Z');
+    expect(r.dives[0]!.utcOffsetMinutes).toBe(120);
   });
 
   it('e un file senza fuso non se ne inventa uno', async () => {
@@ -253,7 +253,7 @@ describe('l’ora che il file dichiara è l’ora che si mostra', () => {
       <informationafterdive><greatestdepth>30</greatestdepth><diveduration>2400</diveduration></informationafterdive>
       </dive></repetitiongroup></profiledata></uddf>`;
     const r = await parseFile({ fileName: 'x.uddf', text: uddf });
-    expect(r.dives[0].utcOffsetMinutes).toBeUndefined();
+    expect(r.dives[0]!.utcOffsetMinutes).toBeUndefined();
   });
 });
 

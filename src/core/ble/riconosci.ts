@@ -97,18 +97,18 @@ export function proponi(
     .map((c) => catalogo.find((v) => v.marca === c.marca && v.modello === c.modello))
     .filter((v): v is VoceCatalogo => v !== undefined);
   if (voci.length === 0) return { tipo: 'niente' };
-  if (voci.length === 1) return { tipo: 'modello', voce: voci[0] };
+  if (voci.length === 1) return { tipo: 'modello', voce: voci[0]! };
 
   const nomeNudo = nudo(pulito);
   const perNome = voci.filter((v) => nudo(v.modello) !== '' && nomeNudo.includes(nudo(v.modello)));
   if (perNome.length > 0) {
     const lunghezza = Math.max(...perNome.map((v) => nudo(v.modello).length));
     const migliori = perNome.filter((v) => nudo(v.modello).length === lunghezza);
-    if (migliori.length === 1) return { tipo: 'modello', voce: migliori[0] };
+    if (migliori.length === 1) return { tipo: 'modello', voce: migliori[0]! };
   }
 
   const perNumero = voci.filter((v) => porta_il_numero(pulito, v));
-  if (perNumero.length === 1) return { tipo: 'modello', voce: perNumero[0] };
+  if (perNumero.length === 1) return { tipo: 'modello', voce: perNumero[0]! };
 
   return { tipo: 'scelta', voci };
 }

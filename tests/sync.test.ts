@@ -147,7 +147,7 @@ function profile(n: number, everyS = 10): Sample[] {
 }
 
 /** Impronta di un'immersione con il profilo attaccato (fuori dallo store). */
-const fp = (d: Dive): SyncFingerprint => localFingerprints([d], new Map())[0];
+const fp = (d: Dive): SyncFingerprint => localFingerprints([d], new Map())[0]!;
 
 // ---------------------------------------------------------------------------
 // Pianificazione
@@ -274,7 +274,7 @@ describe('syncArchive contro un SQLite vero', () => {
     expect(report.pulled).toBe(0);
 
     const { rows } = await sql.execute('SELECT COUNT(*) AS n FROM dives');
-    expect(Number(rows[0].n)).toBe(3);
+    expect(Number(rows[0]!.n)).toBe(3);
     const s = await sql.execute('SELECT dive_id, count FROM dive_samples ORDER BY dive_id');
     expect(s.rows.map((r) => [r.dive_id, Number(r.count)])).toEqual([
       ['a', 150],
@@ -284,7 +284,7 @@ describe('syncArchive contro un SQLite vero', () => {
     // Il documento salvato NON contiene il profilo: sta nella sua tabella, e
     // duplicarlo raddoppierebbe il traffico a ogni sincronizzazione.
     const doc = await sql.execute("SELECT doc FROM dives WHERE id = 'a'");
-    expect(JSON.parse(String(doc.rows[0].doc)).samples).toBeUndefined();
+    expect(JSON.parse(String(doc.rows[0]!.doc)).samples).toBeUndefined();
   });
 
   it('la seconda sincronizzazione di fila non fa niente', async () => {
@@ -390,7 +390,7 @@ describe('syncArchive contro un SQLite vero', () => {
     // Anche il database condiviso tiene la versione fusa: un terzo dispositivo
     // che arrivasse adesso non riceverebbe una scheda amputata.
     const { rows } = await sql.execute("SELECT doc FROM dives WHERE id = 'a'");
-    const remoto = JSON.parse(String(rows[0].doc));
+    const remoto = JSON.parse(String(rows[0]!.doc));
     expect(remoto.notes).toBe('corrente forte in uscita');
     expect(remoto.buddy).toBe('Marco');
 
@@ -540,7 +540,7 @@ describe('syncArchive contro un SQLite vero', () => {
     const report = await syncArchive(store, sql);
 
     const { rows } = await sql.execute('SELECT COUNT(*) AS n FROM dives');
-    expect(Number(rows[0].n)).toBe(2);
+    expect(Number(rows[0]!.n)).toBe(2);
     expect(report.pulled).toBe(1); // torna indietro
     expect((await store.listDives()).map((d) => d.id).sort()).toEqual(['a', 'b']);
   });
@@ -842,7 +842,7 @@ describe('cancellazioni fra due dispositivi', () => {
     // Non deve essere riscaricata: è questo il difetto che c'era.
     expect((await uno.listDives()).map((d) => d.id)).toEqual(['b']);
     const remote = await sql.execute("SELECT COUNT(*) AS n FROM dives WHERE id = 'a'");
-    expect(Number(remote.rows[0].n)).toBe(0);
+    expect(Number(remote.rows[0]!.n)).toBe(0);
 
     // E sull'altro dispositivo sparisce alla prima sincronizzazione utile.
     const secondo = await syncArchive(due, sql);
@@ -857,7 +857,7 @@ describe('cancellazioni fra due dispositivi', () => {
     await uno.setSetting(TOMBSTONE_KEY, [{ id: 'a', at: new Date().toISOString() }]);
     await syncArchive(uno, sql);
     const s = await sql.execute("SELECT COUNT(*) AS n FROM dive_samples WHERE dive_id = 'a'");
-    expect(Number(s.rows[0].n)).toBe(0);
+    expect(Number(s.rows[0]!.n)).toBe(0);
   });
 
   it('le lapidi non scadono fra una sincronizzazione e l’altra', async () => {
@@ -937,7 +937,7 @@ describe('► la lapide revocata, e il rimpallo che non finiva mai ◄', () => {
     const report = await syncArchive(a, sql);
     expect(report.deletionsPushed).toBe(1);
     const remoto = await sql.execute("SELECT COUNT(*) AS n FROM deletions WHERE id = 'x'");
-    expect(Number(remoto.rows[0].n)).toBe(1);
+    expect(Number(remoto.rows[0]!.n)).toBe(1);
   });
 });
 
@@ -1013,7 +1013,7 @@ describe('il cestino ferma la sincronizzazione in entrambi i versi', () => {
     expect((await uno.listDives()).map((d) => d.id)).toEqual(['b']);
     expect(report.deletionsPushed).toBe(0);
     const remote = await sql.execute("SELECT COUNT(*) AS n FROM dives WHERE id = 'a'");
-    expect(Number(remote.rows[0].n)).toBe(1);
+    expect(Number(remote.rows[0]!.n)).toBe(1);
   });
 
   it('svuotato il cestino la lapide nasce e allora sì che si propaga', async () => {
@@ -1027,7 +1027,7 @@ describe('il cestino ferma la sincronizzazione in entrambi i versi', () => {
     const report = await syncArchive(uno, sql);
     expect(report.deletionsPushed).toBe(1);
     const remote = await sql.execute("SELECT COUNT(*) AS n FROM dives WHERE id = 'a'");
-    expect(Number(remote.rows[0].n)).toBe(0);
+    expect(Number(remote.rows[0]!.n)).toBe(0);
   });
 });
 
@@ -1142,7 +1142,7 @@ describe('difetti trovati dalla revisione', () => {
     expect((await uno.listDives()).map((d) => d.id).sort()).toEqual(['a', 'b']);
     // E la lapide se n'è andata anche dal remoto, così non torna dall'altro capo.
     const remote = await sql.execute('SELECT COUNT(*) AS n FROM deletions');
-    expect(Number(remote.rows[0].n)).toBe(0);
+    expect(Number(remote.rows[0]!.n)).toBe(0);
   });
 
   it('le lapidi già note al remoto non si rispediscono a ogni giro', async () => {
@@ -1257,7 +1257,7 @@ describe('attrezzatura e brevetti attraverso la sincronizzazione', () => {
 
     const lassu = (await mac.getSetting<{ equipment: { name: string }[] }>('gear'))!;
     expect(lassu.equipment).toHaveLength(1);
-    expect(lassu.equipment[0].name).toBe('Muta 7 mm');
+    expect(lassu.equipment[0]!.name).toBe('Muta 7 mm');
   });
 });
 
@@ -1277,14 +1277,14 @@ describe('segnalibri di scarico fra due dispositivi', () => {
     await syncArchive(telefono, sql);
 
     const qui = (await telefono.getSetting<Record<string, { fingerprint: string }>>(MARKERS))!;
-    expect(qui['uwatec:63034502'].fingerprint).toBe('117');
+    expect(qui['uwatec:63034502']!.fingerprint).toBe('117');
   });
 
   it('fra due segnalibri dello stesso computer vince quello scaricato più tardi', () => {
     const vecchio = { 'uwatec:1': { fingerprint: '100', at: '2026-08-01T00:00:00Z', dives: 100 } };
     const nuovo = { 'uwatec:1': { fingerprint: '117', at: '2026-08-20T00:00:00Z', dives: 117 } };
-    expect(fondiSegnalibri(vecchio, nuovo).value['uwatec:1'].fingerprint).toBe('117');
-    expect(fondiSegnalibri(nuovo, vecchio).value['uwatec:1'].fingerprint).toBe('117');
+    expect(fondiSegnalibri(vecchio, nuovo).value['uwatec:1']!.fingerprint).toBe('117');
+    expect(fondiSegnalibri(nuovo, vecchio).value['uwatec:1']!.fingerprint).toBe('117');
     // Il verso in cui il locale è già avanti deve chiedere di RISALIRE, non di
     // scendere: altrimenti il segnalibro buono non lascerebbe mai il Mac.
     expect(fondiSegnalibri(nuovo, vecchio).changedRemotely).toBe(true);
@@ -1295,7 +1295,7 @@ describe('segnalibri di scarico fra due dispositivi', () => {
     const altrove = { 'uwatec:1': { fingerprint: '117', at: '2026-08-20T00:00:00Z', dives: 117 } };
     const dimenticato = { 'uwatec:1': { fingerprint: '', at: '2026-08-21T00:00:00Z', dives: 0 } };
     const fusi = fondiSegnalibri(dimenticato, altrove);
-    expect(fusi.value['uwatec:1'].fingerprint).toBe('');
+    expect(fusi.value['uwatec:1']!.fingerprint).toBe('');
     expect(fusi.changedRemotely).toBe(true);
   });
 
@@ -1518,7 +1518,7 @@ describe('il timbro del documento fuso', () => {
     await syncArchive(mac, sql);
 
     const { rows } = await sql.execute('SELECT doc FROM dives WHERE id = ?', ['d1']);
-    const remoto = JSON.parse(String(rows[0].doc)) as Dive;
+    const remoto = JSON.parse(String(rows[0]!.doc)) as Dive;
     // La fusione è avvenuta davvero — senza questa riga la prova passerebbe
     // anche se il percorso che si vuole difendere non fosse mai stato percorso.
     expect(remoto.site?.name).toBe('Punta Mesco');

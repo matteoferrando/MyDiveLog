@@ -366,11 +366,12 @@ export function parseTankSize(size: string | null | undefined): number | undefin
      */
     return parseCylinderSpec(String(size))?.sizeL;
   }
-  const value = Number(m[2].replace(',', '.'));
+  // Entrambi i gruppi sono obbligatori nell'espressione: dopo il match ci sono.
+  const value = Number(m[2]!.replace(',', '.'));
   if (!Number.isFinite(value) || value <= 0) return undefined;
   // Le bombole imperiali sono dichiarate in piedi cubi di gas a pressione di
   // lavoro (207 bar per una alluminio da 80): il volume d'acqua è un'altra cosa.
-  if (/^c/i.test(m[1])) return round1((value * 28.316846592) / 206.8);
+  if (/^c/i.test(m[1]!)) return round1((value * 28.316846592) / 206.8);
   return round1(value);
 }
 

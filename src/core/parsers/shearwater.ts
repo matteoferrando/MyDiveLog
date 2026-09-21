@@ -223,7 +223,7 @@ function readLog(
     (samples.length ? Math.max(...samples.map((s) => s.depth)) : undefined);
   const durationS =
     normaliseDuration(num(child(log, 'maxTime')), samples) ??
-    (samples.length ? samples[samples.length - 1].t : undefined);
+    (samples.length ? samples[samples.length - 1]!.t : undefined);
 
   if (durationS && profiloTroncato(durationS, samples)) {
     warnings.push(
@@ -296,8 +296,8 @@ function readLog(
       .map((s) => s.pressureBar?.[i])
       .filter((p): p is number => p !== undefined && p > 0);
     if (values.length >= 2) {
-      cyl.startBar = Math.round(values[0]);
-      cyl.endBar = Math.round(values[values.length - 1]);
+      cyl.startBar = Math.round(values[0]!);
+      cyl.endBar = Math.round(values[values.length - 1]!);
     }
   });
 
@@ -320,12 +320,12 @@ export function detectTimeScale(raw: (number | undefined)[]): number | null {
   if (values.length < 3) return 1;
   const deltas: number[] = [];
   for (let i = 1; i < values.length; i++) {
-    const d = values[i] - values[i - 1];
+    const d = values[i]! - values[i - 1]!;
     if (d > 0) deltas.push(d);
   }
   if (deltas.length === 0) return 1;
   deltas.sort((a, b) => a - b);
-  const median = deltas[Math.floor(deltas.length / 2)];
+  const median = deltas[Math.floor(deltas.length / 2)]!;
 
   const plausibleIntervals = [1, 2, 5, 10, 15, 20, 30, 60];
   for (const divisor of [1, 1000]) {
@@ -362,7 +362,7 @@ export function detectTimeScale(raw: (number | undefined)[]): number | null {
 function normaliseDuration(maxTime: number | undefined, samples: Sample[]): number | undefined {
   if (maxTime === undefined || maxTime <= 0) return undefined;
   if (samples.length === 0) return maxTime;
-  const lastT = samples[samples.length - 1].t;
+  const lastT = samples[samples.length - 1]!.t;
   if (lastT <= 0) return maxTime;
   const ratio = lastT / maxTime;
   if (ratio > 30 && ratio < 90) return Math.round(maxTime * 60); // maxTime in minuti
@@ -380,7 +380,7 @@ function normaliseDuration(maxTime: number | undefined, samples: Sample[]): numb
  */
 function profiloTroncato(durationS: number, samples: Sample[]): boolean {
   if (samples.length === 0) return false;
-  const ultimo = samples[samples.length - 1];
+  const ultimo = samples[samples.length - 1]!;
   // Trenta secondi di tolleranza: molti computer smettono di registrare poco
   // prima dell'emersione, e quello non è un file troncato.
   return ultimo.t < durationS - 30 && ultimo.depth > 2;

@@ -92,7 +92,7 @@ describe('le tredici lettere', () => {
     expect(voci.find((v) => v.lettera === 'b')?.valore).toBeNull();
     expect(voci.find((v) => v.lettera === 'm')?.valore).toBeNull();
     // Uno spazio non è un nome.
-    expect(libretto(IMMERSIONE, { nome: '   ' })[0].valore).toBeNull();
+    expect(libretto(IMMERSIONE, { nome: '   ' })[0]!.valore).toBeNull();
   });
 
   it('il tipo di autorespiratore è il TIPO, e l’apnea non ne ha uno', () => {
@@ -120,6 +120,6 @@ describe('le tredici lettere', () => {
 
   it('passa dal dizionario: le etichette non sono scritte a mano nella stampa', () => {
     const voci = libretto(IMMERSIONE, CHI, (frase) => frase.toUpperCase());
-    expect(voci[0].etichetta).toBe('GENERALITÀ DEL SUBACQUEO');
+    expect(voci[0]!.etichetta).toBe('GENERALITÀ DEL SUBACQUEO');
   });
 });

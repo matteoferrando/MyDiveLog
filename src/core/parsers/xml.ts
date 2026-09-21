@@ -162,8 +162,9 @@ export function durationValue(raw: string | undefined): number | undefined {
   }
   const nums = parts.map(Number);
   if (nums.some((n) => !Number.isFinite(n))) return undefined;
-  if (nums.length === 2) return nums[0] * 60 + nums[1];
-  return nums[0] * 3600 + nums[1] * 60 + nums[2];
+  // Una parte sola è uscita qui sopra: ne restano almeno due, e se non sono due sono almeno tre.
+  if (nums.length === 2) return nums[0]! * 60 + nums[1]!;
+  return nums[0]! * 3600 + nums[1]! * 60 + nums[2]!;
 }
 
 /**
@@ -258,12 +259,14 @@ function tagliaAllUltimo(text: string, elemento: string): string | undefined {
   for (let m = token.exec(testa); m; m = token.exec(testa)) {
     const nome = m[1];
     if (!nome) continue; // commento, CDATA, istruzione, DOCTYPE
+    // Qui ha fatto match l'ultima alternativa: insieme al nome c'è il gruppo 2, che
+    // `[^>]*` non fa mai mancare.
     if (m[0].startsWith('</')) {
       // Chiude il corrispondente più vicino: un documento malformato in mezzo
       // non deve far esplodere il salvataggio.
       const i = pila.lastIndexOf(nome);
       if (i >= 0) pila.length = i;
-    } else if (!m[2].trimEnd().endsWith('/')) {
+    } else if (!m[2]!.trimEnd().endsWith('/')) {
       pila.push(nome);
     }
   }

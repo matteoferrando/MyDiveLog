@@ -58,7 +58,7 @@ export const PERIODS: Period[] = [
 export const DEFAULT_PERIOD: PeriodId = '12m';
 
 export function periodOf(id: PeriodId): Period {
-  return PERIODS.find((p) => p.id === id) ?? PERIODS[1];
+  return PERIODS.find((p) => p.id === id) ?? PERIODS[1]!;
 }
 
 export interface Scope {

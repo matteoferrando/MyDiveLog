@@ -67,10 +67,10 @@ function classiNelMarkup(sorgente: string): Set<string> {
   const metti = (grezzo: string) => {
     for (const c of grezzo.split(/\s+/)) if (/^[a-zA-Z][\w-]*$/.test(c)) fuori.add(c);
   };
-  for (const m of sorgente.matchAll(/className="([^"]*)"/g)) metti(m[1]);
-  for (const m of sorgente.matchAll(/className=\{'([^']*)'\}/g)) metti(m[1]);
+  for (const m of sorgente.matchAll(/className="([^"]*)"/g)) metti(m[1]!);
+  for (const m of sorgente.matchAll(/className=\{'([^']*)'\}/g)) metti(m[1]!);
   for (const m of sorgente.matchAll(/className=\{`([^`]*)`\}/g)) {
-    for (const pezzo of m[1].split(/\$\{[^}]*\}/)) metti(pezzo);
+    for (const pezzo of m[1]!.split(/\$\{[^}]*\}/)) metti(pezzo);
   }
   return fuori;
 }

@@ -241,7 +241,7 @@ describe('le istruzioni «da dove si esporta»', () => {
       blocco,
       'l’elenco HOWTO non si trova più: questa prova sta guardando il posto sbagliato',
     ).not.toBeNull();
-    const voci = [...blocco![1].matchAll(/:\s*'([^']+)'/g)].map((m) => m[1]);
+    const voci = [...blocco![1]!.matchAll(/:\s*'([^']+)'/g)].map((m) => m[1]!);
     expect(voci.length, 'nessuna voce trovata: la ricerca non aggancia più niente').toBeGreaterThanOrEqual(7);
     const senzaVoce = voci.filter((v) => EN[v] === undefined);
     expect(senzaVoce, `istruzioni senza traduzione: ${senzaVoce.join(' | ')}`).toEqual([]);
@@ -307,7 +307,7 @@ describe('gli errori e gli avvisi dell’inserimento a mano', () => {
      */
     const dichiarate = [
       ...SORGENTE.matchAll(/^export const [A-Z_]+ =\s*(?:\n\s*)?'((?:[^'\\]|\\.)*)'/gm),
-    ].map((m) => m[1].replace(/\\(.)/g, '$1'));
+    ].map((m) => m[1]!.replace(/\\(.)/g, '$1'));
     expect(
       dichiarate.length,
       'nessuna costante trovata: la ricerca non aggancia più niente',

@@ -89,9 +89,9 @@ describe('la documentazione racconta il programma che c’è', () => {
     const versioni = new Map<string, Map<string, string[]>>();
     for (const [dove, testo] of file) {
       for (const m of testo.matchAll(/uses:\s*([\w.-]+\/[\w.-]+)@([\w.-]+)/g)) {
-        const perAzione = versioni.get(m[1]) ?? new Map<string, string[]>();
-        perAzione.set(m[2], [...(perAzione.get(m[2]) ?? []), dove]);
-        versioni.set(m[1], perAzione);
+        const perAzione = versioni.get(m[1]!) ?? new Map<string, string[]>();
+        perAzione.set(m[2]!, [...(perAzione.get(m[2]!) ?? []), dove]);
+        versioni.set(m[1]!, perAzione);
       }
     }
     expect(versioni.size, 'nessuna azione trovata nei workflow: la prova non misura niente').toBeGreaterThan(
@@ -132,7 +132,7 @@ describe('la documentazione racconta il programma che c’è', () => {
     const titolo = /^## Accesso[^\n]*/m.exec(README)?.[0] ?? '';
     expect(titolo, 'non c’è più una sezione «Accesso» nel README').not.toBe('');
     for (const f of fornitori) {
-      const nome = f[0].toUpperCase() + f.slice(1);
+      const nome = f[0]!.toUpperCase() + f.slice(1);
       // Nel TITOLO, non solo da qualche parte nel testo: chi scorre l'indice
       // deve vedere che il suo modo di accedere c'è. È esattamente il punto in
       // cui Apple si era persa.

@@ -51,7 +51,7 @@ describe('inflate', () => {
 
   it('rifiuta un CRC sbagliato', () => {
     const gz = new Uint8Array(zlib.gzipSync(Buffer.from('immersione')));
-    gz[gz.length - 5] ^= 0xff;
+    gz[gz.length - 5]! ^= 0xff;
     expect(() => gunzip(gz)).toThrow(/CRC32/);
   });
 

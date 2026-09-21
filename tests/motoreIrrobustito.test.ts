@@ -16,7 +16,7 @@ import { AIR, type Dive, type Sample } from '../src/core/model';
 const scheda = (samples: Sample[], over: Partial<Dive> = {}): Dive => ({
   id: 'x',
   startTime: '2026-06-14T10:00:00.000Z',
-  durationS: samples[samples.length - 1].t,
+  durationS: samples[samples.length - 1]!.t,
   maxDepth: Math.max(...samples.map((s) => s.depth)),
   mode: 'oc',
   salinity: 'salt',
@@ -118,7 +118,7 @@ describe('una miscela impossibile', () => {
   it('e il passo singolo non produce più NaN nei tessuti', () => {
     const dopo = step(surfacedTissues(), 5, { o2: Number.NaN, he: 0 }, 10);
     expect(dopo.n2.every((v) => Number.isFinite(v))).toBe(true);
-    expect(dopo.n2[0]).toBeGreaterThan(surfacedTissues().n2[0]);
+    expect(dopo.n2[0]).toBeGreaterThan(surfacedTissues().n2[0]!);
   });
 });
 
@@ -132,7 +132,7 @@ describe('una pressione di superficie impossibile', () => {
     expect(surfacedTissues(0).n2[0]).toBeGreaterThan(0.7);
     expect(surfacedTissues(Number.NaN).n2[0]).toBeGreaterThan(0.7);
     // E una quota vera resta una quota vera: 2000 m sono 0.795 bar.
-    expect(surfacedTissues(0.795).n2[0]).toBeLessThan(surfacedTissues(1.01325).n2[0]);
+    expect(surfacedTissues(0.795).n2[0]).toBeLessThan(surfacedTissues(1.01325).n2[0]!);
   });
 });
 

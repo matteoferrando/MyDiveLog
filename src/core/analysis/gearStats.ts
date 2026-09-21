@@ -66,7 +66,7 @@ export function nomiErogatori(d: Dive): string[] {
  */
 export function nomeBombola(d: Dive): string | undefined {
   if (d.cylinders.length !== 1) return undefined;
-  const c = d.cylinders[0];
+  const c = d.cylinders[0]!;
   if (c.sizeL === undefined) return undefined;
   const materiale =
     c.material === 'steel'
@@ -88,7 +88,7 @@ const mediana = (v: number[]): number | undefined => {
   if (!v.length) return undefined;
   const s = [...v].sort((a, b) => a - b);
   const m = Math.floor(s.length / 2);
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  return s.length % 2 ? s[m] : (s[m - 1]! + s[m]!) / 2;
 };
 const arrotonda = (v: number | undefined, cifre = 1) =>
   v === undefined ? undefined : Math.round(v * 10 ** cifre) / 10 ** cifre;
@@ -113,7 +113,16 @@ const MESI = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ot
  * diverse. Quindi il giro si chiude.
  */
 export function stagioneTesto(mesi: number[]): string {
-  const presenti = [...new Set(mesi)].sort((a, b) => a - b);
+  /*
+   * Solo i mesi veri, da 1 a 12. Quando `Date.parse` non legge la data,
+   * `meseLocale` ripiega sulle sue cifre, e da una data illeggibile escono 0,
+   * 13 o `NaN`: `MESI` lì non ha niente, e la stagione usciva `undefined` — o
+   * «undefined–mag», a schermo. Un mese che non esiste non dice niente sulla
+   * stagione, quindi resta fuori dal conto.
+   */
+  const presenti = [...new Set(mesi)]
+    .filter((m) => Number.isInteger(m) && m >= 1 && m <= 12)
+    .sort((a, b) => a - b);
   if (!presenti.length) return '—';
   if (presenti.length === 12) return 'tutto l’anno';
   // Il buco più lungo fra due mesi consecutivi (in senso circolare) è il periodo
@@ -121,17 +130,17 @@ export function stagioneTesto(mesi: number[]): string {
   let buco = -1;
   let dopo = 0;
   for (let i = 0; i < presenti.length; i++) {
-    const a = presenti[i];
-    const b = presenti[(i + 1) % presenti.length];
+    const a = presenti[i]!;
+    const b = presenti[(i + 1) % presenti.length]!;
     const salto = (b - a + 12) % 12;
     if (salto > buco) {
       buco = salto;
       dopo = (i + 1) % presenti.length;
     }
   }
-  const inizio = presenti[dopo];
-  const fine = presenti[(dopo - 1 + presenti.length) % presenti.length];
-  return inizio === fine ? MESI[inizio - 1] : `${MESI[inizio - 1]}–${MESI[fine - 1]}`;
+  const inizio = presenti[dopo]!;
+  const fine = presenti[(dopo - 1 + presenti.length) % presenti.length]!;
+  return inizio === fine ? MESI[inizio - 1]! : `${MESI[inizio - 1]}–${MESI[fine - 1]}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -248,7 +257,8 @@ export function mutaFuoriAbitudine(dives: Dive[], minBase = 3): FuoriAbitudine[]
   for (const { d, nome, t } of utili) {
     const m = conteggi.get(fascia(t));
     if (!m) continue;
-    const solita = [...m.values()].sort((a, b) => b.n - a.n)[0];
+    // Ogni fascia entra in `conteggi` con la muta che l'ha aperta: non è mai vuota.
+    const solita = [...m.values()].sort((a, b) => b.n - a.n)[0]!;
     if (normalizzaNome(solita.nome) === normalizzaNome(nome)) continue;
     // L'abitudine deve reggersi da sola: `minBase` si applica alle immersioni
     // con la muta SOLITA, non al totale della fascia.

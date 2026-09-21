@@ -33,7 +33,7 @@ const BOMBOLA_CONTESTATA = [
 
 describe('la MOD dell’analisi guarda l’acqua e la quota', () => {
   it('al mare dice quello che ha sempre detto', () => {
-    const [s] = scartiDiAnalisi(BOMBOLA_CONTESTATA);
+    const s = scartiDiAnalisi(BOMBOLA_CONTESTATA)[0]!;
     expect(s.modDichiarata).toBeCloseTo(mod({ o2: 0.32, he: 0 }), 3);
   });
 
@@ -44,11 +44,11 @@ describe('la MOD dell’analisi guarda l’acqua e la quota', () => {
      * e la funzione ne dichiarava 29.6 dove sono 33.3. Prudente, e comunque
      * l'unico numero della schermata che non teneva conto della quota.
      */
-    const [lago] = scartiDiAnalisi(BOMBOLA_CONTESTATA, {
+    const lago = scartiDiAnalisi(BOMBOLA_CONTESTATA, {
       salinity: 'fresh',
       surfacePressureBar: 0.795,
-    });
-    const [mare] = scartiDiAnalisi(BOMBOLA_CONTESTATA);
+    })[0]!;
+    const mare = scartiDiAnalisi(BOMBOLA_CONTESTATA)[0]!;
     expect(lago.modDichiarata).toBeGreaterThan(mare.modDichiarata + 3);
     expect(lago.modDichiarata).toBeCloseTo(mod({ o2: 0.32, he: 0 }, 1.4, 'fresh', 0.795), 3);
     // E anche quella analizzata, che è il numero che l'avviso nomina per primo.
@@ -56,8 +56,8 @@ describe('la MOD dell’analisi guarda l’acqua e la quota', () => {
   });
 
   it('una pressione impossibile in archivio non la fa diventare un altro numero', () => {
-    const [zero] = scartiDiAnalisi(BOMBOLA_CONTESTATA, { surfacePressureBar: 0 });
-    const [niente] = scartiDiAnalisi(BOMBOLA_CONTESTATA);
+    const zero = scartiDiAnalisi(BOMBOLA_CONTESTATA, { surfacePressureBar: 0 })[0]!;
+    const niente = scartiDiAnalisi(BOMBOLA_CONTESTATA)[0]!;
     expect(zero.modDichiarata).toBe(niente.modDichiarata);
   });
 });
@@ -99,18 +99,18 @@ describe('la zavorra: minimo e massimo arrotondati come la mediana', () => {
 
   it('c’è una riga, altrimenti non sto misurando niente', () => {
     expect(righe).toHaveLength(1);
-    expect(righe[0].dives).toBe(3);
+    expect(righe[0]!.dives).toBe(3);
   });
 
   it('nessuno dei tre numeri ha più di un decimale', () => {
     // Prima: «6.699999999999999–9.5 kg» accanto a una mediana scritta «8».
-    for (const v of [righe[0].minKg, righe[0].medianKg, righe[0].maxKg]) {
+    for (const v of [righe[0]!.minKg, righe[0]!.medianKg, righe[0]!.maxKg]) {
       expect(Number.isFinite(v)).toBe(true);
       expect(v).toBe(Math.round(v * 10) / 10);
     }
     // `1.4 + 5.3` fa 6.699999999999999, ed è quello che usciva a schermo.
     expect(1.4 + 5.3).not.toBe(6.7);
-    expect(righe[0].minKg).toBe(6.7);
+    expect(righe[0]!.minKg).toBe(6.7);
   });
 });
 

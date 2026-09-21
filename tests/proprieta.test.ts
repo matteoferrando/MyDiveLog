@@ -123,7 +123,7 @@ interface Caso {
 function generaCaso(seme: number): Caso {
   const r = generatore(seme);
   const intero = (a: number, b: number) => a + Math.floor(r() * (b - a + 1));
-  const scegli = <T>(xs: T[]): T => xs[intero(0, xs.length - 1)];
+  const scegli = <T>(xs: T[]): T => xs[intero(0, xs.length - 1)]!;
 
   const levels: PlanLevel[] = [];
   let quota = intero(6, 90);
@@ -131,7 +131,7 @@ function generaCaso(seme: number): Caso {
     levels.push({ depthM: quota, minutes: intero(5, 60) });
     quota = Math.max(6, quota - intero(3, 25));
   }
-  const massima = levels[0].depthM;
+  const massima = levels[0]!.depthM;
 
   // La miscela di fondo segue la profondità, come farebbe chi pianifica: l'elio
   // compare quando serve, e l'ossigeno scende solo insieme all'elio — un EAN15
@@ -200,7 +200,7 @@ function generaCaso(seme: number): Caso {
   if (ccr) {
     const setpoint = scegli([0.7, 1.0, 1.3]);
     for (const l of levels) l.setpointBar = setpoint;
-    gases[0].setpointBar = setpoint;
+    gases[0]!.setpointBar = setpoint;
     if (r() < 0.5) {
       gases.push({
         mix: massima > 45 ? { o2: 0.18, he: 0.45 } : { o2: 0.21, he: 0 },
@@ -296,7 +296,7 @@ function campioniDi(c: Caso): Sample[] {
   const out: Sample[] = [{ t: 0, depth: 0 }];
   let t = 0;
   for (const l of c.levels) {
-    const partenza = out[out.length - 1].depth;
+    const partenza = out[out.length - 1]!.depth;
     const transito = Math.max(10, Math.round((Math.abs(l.depthM - partenza) / 18) * 60));
     for (let k = 10; k <= transito; k += 10)
       out.push({ t: t + k, depth: partenza + (l.depthM - partenza) * (k / transito) });
@@ -304,7 +304,7 @@ function campioniDi(c: Caso): Sample[] {
     for (let k = 10; k <= l.minutes * 60; k += 10) out.push({ t: t + k, depth: l.depthM });
     t += l.minutes * 60;
   }
-  const ultima = out[out.length - 1].depth;
+  const ultima = out[out.length - 1]!.depth;
   const risalita = Math.max(10, Math.round((ultima / 9) * 60));
   for (let k = 10; k <= risalita; k += 10)
     out.push({ t: t + k, depth: Math.max(0, ultima * (1 - k / risalita)) });
@@ -316,7 +316,7 @@ function immersioneDi(c: Caso, campioni: Sample[]): Dive {
   return {
     id: 'proprieta',
     startTime: '2026-01-01T10:00:00Z',
-    durationS: campioni[campioni.length - 1].t,
+    durationS: campioni[campioni.length - 1]!.t,
     maxDepth: Math.max(...c.levels.map((l) => l.depthM)),
     cylinders: c.gases.map((g) => ({ mix: g.mix })),
     source: { format: 'uddf', file: 'proprieta', importedAt: '2026-01-01T10:00:00Z' },
@@ -330,7 +330,7 @@ function immersioneDi(c: Caso, campioni: Sample[]): Dive {
 
 /** Il caso tradotto per il VPM, che ragiona per livelli con una miscela ciascuno. */
 function livelliVpm(c: Caso): VpmLevel[] {
-  return c.levels.map((l) => ({ depthM: l.depthM, minutes: l.minutes, mix: c.gases[0].mix }));
+  return c.levels.map((l) => ({ depthM: l.depthM, minutes: l.minutes, mix: c.gases[0]!.mix }));
 }
 
 /** I gas di deco nella forma che il VPM si aspetta: miscela e quota di cambio. */
@@ -368,11 +368,11 @@ describe('il telaio', () => {
     expect(casi.some((c) => !c.ccr)).toBe(true);
     expect(casi.some((c) => c.gases.some((g) => g.role === 'deco'))).toBe(true);
     expect(casi.some((c) => !c.gases.some((g) => g.role === 'deco'))).toBe(true);
-    expect(casi.some((c) => c.gases[0].mix.he > 0)).toBe(true);
+    expect(casi.some((c) => c.gases[0]!.mix.he > 0)).toBe(true);
     expect(casi.some((c) => c.settings.salinity === 'fresh')).toBe(true);
     expect(casi.some((c) => (c.settings.surfacePressureBar ?? 1) < 0.95)).toBe(true);
     expect(casi.some((c) => c.levels.length >= 3)).toBe(true);
-    expect(Math.max(...casi.map((c) => c.levels[0].depthM))).toBeGreaterThan(80);
+    expect(Math.max(...casi.map((c) => c.levels[0]!.depthM))).toBeGreaterThan(80);
   });
 
   it('il rilevatore di numeri non finiti trova un NaN sepolto in fondo a un oggetto', () => {
@@ -474,8 +474,8 @@ describe('1. nessun NaN e nessun Infinity in nessun campo', () => {
       const guastiDopo = nonFiniti(dopo);
       if (guastiDopo.length) return `desaturate: ${guastiDopo.join(', ')}`;
       for (let i = 0; i < dopo.he.length; i++) {
-        if (dopo.he[i] < 0) return `elio negativo nel compartimento ${i + 1}: ${dopo.he[i]}`;
-        if (dopo.he[i] > r.finalTissues.he[i] + 1e-12)
+        if (dopo.he[i]! < 0) return `elio negativo nel compartimento ${i + 1}: ${dopo.he[i]}`;
+        if (dopo.he[i]! > r.finalTissues.he[i]! + 1e-12)
           return `l'elio del compartimento ${i + 1} è cresciuto in superficie`;
       }
       const dueSettimane = desaturate(r.finalTissues, 14 * 24 * 60, superficie);
@@ -539,10 +539,10 @@ describe('2. niente valori negativi, e la tabella è internamente coerente', () 
     perOgniCaso(300, (c) => {
       const r = planDeco(c.levels, c.gases, c.settings);
       for (let i = 1; i < r.stops.length; i++) {
-        if (r.stops[i].depthM > r.stops[i - 1].depthM) {
-          return `sosta a ${r.stops[i].depthM} m dopo una a ${r.stops[i - 1].depthM} m`;
+        if (r.stops[i]!.depthM > r.stops[i - 1]!.depthM) {
+          return `sosta a ${r.stops[i]!.depthM} m dopo una a ${r.stops[i - 1]!.depthM} m`;
         }
-        if (r.stops[i].runtimeMin < r.stops[i - 1].runtimeMin)
+        if (r.stops[i]!.runtimeMin < r.stops[i - 1]!.runtimeMin)
           return 'runtime che torna indietro fra due soste';
       }
       // Nessuna sosta più profonda del fondo, e nessuna sotto l'ultima quota
@@ -550,8 +550,8 @@ describe('2. niente valori negativi, e la tabella è internamente coerente', () 
       const massima = Math.max(...c.levels.map((l) => l.depthM));
       const primaTroppoGiu = r.stops.find((s) => s.depthM > massima + 0.01);
       if (primaTroppoGiu) return `sosta a ${primaTroppoGiu.depthM} m su un'immersione a ${massima} m`;
-      if (r.firstStopM !== undefined && r.stops.length && r.firstStopM < r.stops[0].depthM - 0.01) {
-        return `firstStopM ${r.firstStopM} più bassa della prima sosta in tabella ${r.stops[0].depthM}`;
+      if (r.firstStopM !== undefined && r.stops.length && r.firstStopM < r.stops[0]!.depthM - 0.01) {
+        return `firstStopM ${r.firstStopM} più bassa della prima sosta in tabella ${r.stops[0]!.depthM}`;
       }
       return undefined;
     });
@@ -681,14 +681,14 @@ describe('3. gradient factor più stretti non possono costare meno', () => {
         { low: 0.2, high: 0.6 },
       ]);
       for (let i = 1; i < ipotesi.length; i++) {
-        if (ipotesi[i].maxCeilingM < ipotesi[i - 1].maxCeilingM - 1e-9) {
+        if (ipotesi[i]!.maxCeilingM < ipotesi[i - 1]!.maxCeilingM - 1e-9) {
           return (
-            `tetto ${ipotesi[i - 1].maxCeilingM} m con ${ipotesi[i - 1].gfLow}/${ipotesi[i - 1].gfHigh} ` +
-            `e ${ipotesi[i].maxCeilingM} m con ${ipotesi[i].gfLow}/${ipotesi[i].gfHigh}`
+            `tetto ${ipotesi[i - 1]!.maxCeilingM} m con ${ipotesi[i - 1]!.gfLow}/${ipotesi[i - 1]!.gfHigh} ` +
+            `e ${ipotesi[i]!.maxCeilingM} m con ${ipotesi[i]!.gfLow}/${ipotesi[i]!.gfHigh}`
           );
         }
-        if (ipotesi[i].decoMinutes < ipotesi[i - 1].decoMinutes) {
-          return `minuti di obbligo ${ipotesi[i - 1].decoMinutes} → ${ipotesi[i].decoMinutes} stringendo i GF`;
+        if (ipotesi[i]!.decoMinutes < ipotesi[i - 1]!.decoMinutes) {
+          return `minuti di obbligo ${ipotesi[i - 1]!.decoMinutes} → ${ipotesi[i]!.decoMinutes} stringendo i GF`;
         }
       }
       return undefined;
@@ -722,7 +722,7 @@ describe('4. più giù o più a lungo non può costare meno', () => {
       // baco vero, che sta scritto per esteso in fondo al file.
       if (gasAlFondo(base) !== gasAlFondo(piuGiu)) return undefined;
       return piuGiu.decoMin < base.decoMin
-        ? `${c.levels[0].depthM} m → ${c.levels[0].depthM + 6} m: obbligo da ${base.decoMin} a ${piuGiu.decoMin} minuti`
+        ? `${c.levels[0]!.depthM} m → ${c.levels[0]!.depthM + 6} m: obbligo da ${base.decoMin} a ${piuGiu.decoMin} minuti`
         : undefined;
     });
   });
@@ -734,7 +734,7 @@ describe('4. più giù o più a lungo non può costare meno', () => {
       const piuLungo = planDeco(lungo, c.gases, c.settings);
       if (!converge(base) || !converge(piuLungo)) return undefined;
       return piuLungo.decoMin < base.decoMin
-        ? `${c.levels[0].minutes} → ${c.levels[0].minutes + 10} min: obbligo da ${base.decoMin} a ${piuLungo.decoMin} minuti`
+        ? `${c.levels[0]!.minutes} → ${c.levels[0]!.minutes + 10} min: obbligo da ${base.decoMin} a ${piuLungo.decoMin} minuti`
         : undefined;
     });
   });
@@ -743,13 +743,15 @@ describe('4. più giù o più a lungo non può costare meno', () => {
     perOgniCaso(250, (c, seme) => {
       const r = generatore(seme * 31 + 5);
       const intervallo = 20 + Math.floor(r() * 200);
-      const [prima, seconda] = planSeries(
+      const serie = planSeries(
         [
           { levels: c.levels, gases: c.gases, surfaceIntervalMin: 0 },
           { levels: c.levels, gases: c.gases, surfaceIntervalMin: intervallo },
         ],
         c.settings,
       );
+      const prima = serie[0]!;
+      const seconda = serie[1]!;
       if (!converge(prima) || !converge(seconda)) return undefined;
       // Solo su immersioni eseguibili. Sopra le due ore di decompressione il
       // profilo è saturo, il modello lavora ai suoi estremi e l'ancora dei
@@ -948,11 +950,11 @@ describe('7. impostazioni degeneri: o un risultato sensato, o un errore esplicit
       const intero = (a: number, b: number) => a + Math.floor(r() * (b - a + 1));
       const impostazioni: Record<string, number> = {};
       for (let k = 0, quanti = intero(1, 3); k < quanti; k++) {
-        impostazioni[CAMPI_DEGENERI[intero(0, CAMPI_DEGENERI.length - 1)]] =
-          VALORI_DEGENERI[intero(0, VALORI_DEGENERI.length - 1)];
+        impostazioni[CAMPI_DEGENERI[intero(0, CAMPI_DEGENERI.length - 1)]!] =
+          VALORI_DEGENERI[intero(0, VALORI_DEGENERI.length - 1)]!;
       }
-      const profondita = [12, 30, 45, 70][intero(0, 3)];
-      const minuti = [8, 25, 45][intero(0, 2)];
+      const profondita = [12, 30, 45, 70][intero(0, 3)]!;
+      const minuti = [8, 25, 45][intero(0, 2)]!;
       const descrizione = `${profondita} m × ${minuti} min con ${JSON.stringify(impostazioni)}`;
       try {
         const res = planDeco(
@@ -1145,11 +1147,11 @@ describe('9. VPM e Bühlmann restano entrambi plausibili sullo stesso profilo', 
       const massima = Math.max(...c.levels.map((l) => l.depthM));
       let somma = 0;
       for (let i = 0; i < vpm.stops.length; i++) {
-        const s = vpm.stops[i];
+        const s = vpm.stops[i]!;
         if (s.minutes <= 0) return `sosta di ${s.minutes} minuti a ${s.depthM} m`;
         if (s.depthM <= 0) return `sosta alla quota ${s.depthM} m`;
         if (s.depthM > massima + 0.01) return `sosta a ${s.depthM} m su un'immersione a ${massima} m`;
-        if (i > 0 && s.depthM > vpm.stops[i - 1].depthM) return 'le soste non salgono';
+        if (i > 0 && s.depthM > vpm.stops[i - 1]!.depthM) return 'le soste non salgono';
         somma += s.minutes;
       }
       if (Math.abs(somma - vpm.decoMin) > 0.01) return `decoMin ${vpm.decoMin} ≠ somma delle soste ${somma}`;

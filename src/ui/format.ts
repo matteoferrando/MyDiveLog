@@ -245,14 +245,15 @@ export function descriviFinestra(
  */
 export function etichettaSecchio(label: string, t: Traduci): string {
   const oltre = /^oltre (.+)$/.exec(label);
-  if (oltre) return frase(t, 'oltre {0}', oltre[1]);
+  if (oltre) return frase(t, 'oltre {0}', oltre[1]!);
   const fino = /^fino a (.+)$/.exec(label);
-  if (fino) return frase(t, 'fino a {0}', fino[1]);
+  if (fino) return frase(t, 'fino a {0}', fino[1]!);
   return label;
 }
 
 export function etichettaMese(label: string, t: Traduci): string {
-  const [mese, ...resto] = label.split(' ');
+  // `split` con un separatore dà sempre almeno un pezzo, anche su una stringa vuota.
+  const [mese, ...resto] = label.split(' ') as [string, ...string[]];
   const tradotto = t(mese);
   return resto.length ? `${tradotto} ${resto.join(' ')}` : tradotto;
 }

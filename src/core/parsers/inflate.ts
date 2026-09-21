@@ -42,11 +42,12 @@ export function gunzip(bytes: Uint8Array): Uint8Array {
   if (bytes[0] !== 0x1f || bytes[1] !== 0x8b) throw new InflateError('Magic gzip assente.');
   if (bytes[2] !== 8) throw new InflateError(`Metodo di compressione ${bytes[2]} non previsto.`);
 
-  const flags = bytes[3];
+  // I diciotto byte controllati in testa coprono l'intestazione fissa: 3, 10 e 11 ci sono.
+  const flags = bytes[3]!;
   let pos = 10;
   if (flags & 0x04) {
     // FEXTRA
-    const extraLen = bytes[pos] | (bytes[pos + 1] << 8);
+    const extraLen = bytes[pos]! | (bytes[pos + 1]! << 8);
     pos += 2 + extraLen;
   }
   if (flags & 0x08) pos = skipZeroTerminated(bytes, pos); // FNAME
@@ -81,8 +82,9 @@ function skipZeroTerminated(bytes: Uint8Array, from: number): number {
   return i + 1;
 }
 
+// Le due chiamate stanno dopo il controllo `trailer + 8 > bytes.length`: i quattro byte ci sono.
 const readU32LE = (b: Uint8Array, at: number) =>
-  (b[at] | (b[at + 1] << 8) | (b[at + 2] << 16) | (b[at + 3] << 24)) >>> 0;
+  (b[at]! | (b[at + 1]! << 8) | (b[at + 2]! << 16) | (b[at + 3]! << 24)) >>> 0;
 
 // ---------------------------------------------------------------------------
 // DEFLATE (RFC 1951)
@@ -121,15 +123,17 @@ interface Huffman {
 
 function buildHuffman(lengths: Uint8Array | number[], n: number): Huffman {
   const counts = new Int32Array(16);
-  for (let i = 0; i < n; i++) counts[lengths[i]]++;
+  // `n` è la lunghezza di `lengths` in tutte le chiamate di questo file, e una lunghezza di
+  // codice sta sempre sotto 16: tre bit, oppure un simbolo < 16 dell'albero dei codici.
+  for (let i = 0; i < n; i++) counts[lengths[i]!]!++;
   counts[0] = 0;
 
   const offsets = new Int32Array(16);
-  for (let l = 1; l < 16; l++) offsets[l] = offsets[l - 1] + counts[l - 1];
+  for (let l = 1; l < 16; l++) offsets[l] = offsets[l - 1]! + counts[l - 1]!;
 
   const symbols = new Int32Array(n);
   for (let i = 0; i < n; i++) {
-    if (lengths[i]) symbols[offsets[lengths[i]]++] = i;
+    if (lengths[i]) symbols[offsets[lengths[i]!]!++] = i;
   }
   return { counts, symbols };
 }
@@ -145,7 +149,7 @@ class BitReader {
   bits(n: number): number {
     while (this.bitCount < n) {
       if (this.pos >= this.data.length) throw new InflateError('Flusso DEFLATE troncato.');
-      this.bitBuf |= this.data[this.pos++] << this.bitCount;
+      this.bitBuf |= this.data[this.pos++]! << this.bitCount;
       this.bitCount += 8;
     }
     const value = this.bitBuf & ((1 << n) - 1);
@@ -162,7 +166,7 @@ class BitReader {
 
   byteAt(i: number): number {
     if (i >= this.data.length) throw new InflateError('Flusso DEFLATE troncato.');
-    return this.data[i];
+    return this.data[i]!;
   }
 
   get bytePos(): number {
@@ -184,8 +188,10 @@ class BitReader {
     let index = 0;
     for (let len = 1; len < 16; len++) {
       code |= this.bits(1);
-      const count = table.counts[len];
-      if (code - first < count) return table.symbols[index + (code - first)];
+      const count = table.counts[len]!;
+      // `code` non scende mai sotto `first`, e qui `code - first < count`: l'indice cade fra i
+      // simboli contati fino a questa lunghezza, che `buildHuffman` ha scritto tutti.
+      if (code - first < count) return table.symbols[index + (code - first)]!;
       index += count;
       first = (first + count) << 1;
       code <<= 1;
@@ -296,7 +302,8 @@ export function inflateRawTracked(
         const hdist = reader.bits(5) + 1;
         const hclen = reader.bits(4) + 4;
         const codeLengths = new Uint8Array(19);
-        for (let i = 0; i < hclen; i++) codeLengths[CODE_LENGTH_ORDER[i]] = reader.bits(3);
+        // `hclen` vale al massimo 15 + 4 = 19, quanto la tabella dell'ordine.
+        for (let i = 0; i < hclen; i++) codeLengths[CODE_LENGTH_ORDER[i]!] = reader.bits(3);
         const codeTable = buildHuffman(codeLengths, 19);
 
         const lengths = new Uint8Array(hlit + hdist);
@@ -307,7 +314,7 @@ export function inflateRawTracked(
             lengths[i++] = sym;
           } else if (sym === 16) {
             if (i === 0) throw new InflateError('Ripetizione senza lunghezza precedente.');
-            const prev = lengths[i - 1];
+            const prev = lengths[i - 1]!;
             const repeat = 3 + reader.bits(2);
             for (let r = 0; r < repeat && i < lengths.length; r++) lengths[i++] = prev;
           } else if (sym === 17) {
@@ -331,17 +338,19 @@ export function inflateRawTracked(
         } else {
           const li = sym - 257;
           if (li >= LENGTH_BASE.length) throw new InflateError(`Codice di lunghezza ${sym} non valido.`);
-          const length = LENGTH_BASE[li] + reader.bits(LENGTH_EXTRA[li]);
+          // Le tabelle delle basi e dei bit extra hanno la stessa lunghezza, controllata qui sopra.
+          const length = LENGTH_BASE[li]! + reader.bits(LENGTH_EXTRA[li]!);
           const di = reader.decode(distance);
           if (di >= DIST_BASE.length) throw new InflateError(`Codice di distanza ${di} non valido.`);
-          const dist = DIST_BASE[di] + reader.bits(DIST_EXTRA[di]);
+          const dist = DIST_BASE[di]! + reader.bits(DIST_EXTRA[di]!);
           if (dist > len) throw new InflateError('Riferimento indietro oltre l’inizio dei dati.');
           ensure(length);
           // Copia byte per byte di proposito: quando `dist < length` la copia
           // DEVE leggere i byte appena scritti (è così che DEFLATE codifica le
           // ripetizioni), e `copyWithin` con intervalli sovrapposti non lo fa.
+          // `from` resta sempre `dist` byte dietro `len`, e `dist <= len` è controllato sopra.
           let from = len - dist;
-          for (let i = 0; i < length; i++) out[len++] = out[from++];
+          for (let i = 0; i < length; i++) out[len++] = out[from++]!;
         }
       }
     } else {
@@ -374,6 +383,6 @@ function crc32Table(): Uint32Array {
 export function crc32(bytes: Uint8Array): number {
   const table = crc32Table();
   let c = 0xffffffff;
-  for (let i = 0; i < bytes.length; i++) c = table[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  for (let i = 0; i < bytes.length; i++) c = table[(c ^ bytes[i]!) & 0xff]! ^ (c >>> 8);
   return (c ^ 0xffffffff) >>> 0;
 }

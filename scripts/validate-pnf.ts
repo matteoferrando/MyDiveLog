@@ -43,6 +43,16 @@ const rows = db
   l.data_bytes_1 as blob, l.data_bytes_3 as hdr from log_data l order by l.created_unixtime`,
   )
   .all() as RigaLog[];
+/*
+ * UN DATABASE SENZA LOG SI DICE, non si attraversa. Prima lo script arrivava in
+ * fondo — «log verificati senza scostamenti: 0/0» — e cadeva sull'esempio
+ * dell'ultimo log con un `TypeError` su `undefined`, che non dice a nessuno che
+ * il file era semplicemente vuoto.
+ */
+if (rows.length === 0) {
+  console.error('Nessun log nel database: non c’è niente da verificare.');
+  process.exit(1);
+}
 
 let ok = 0;
 const problems: string[] = [];
@@ -113,7 +123,8 @@ console.log(
 if (problems.length) console.log('PROBLEMI:\n' + problems.slice(0, 25).join('\n'));
 console.log('\nimpostazioni distinte trovate:');
 for (const [k, n] of settingsSeen) console.log(`  ×${n}`, k);
-const one = decodePnfBlob(new Uint8Array(rows[rows.length - 1].blob));
+// Il database senza log è uscito in testa: l'ultimo c'è.
+const one = decodePnfBlob(new Uint8Array(rows[rows.length - 1]!.blob));
 console.log(
   '\nesempio ultimo log:',
   JSON.stringify(

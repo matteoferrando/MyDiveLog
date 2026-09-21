@@ -106,7 +106,7 @@ describe('la segnalazione si salva', () => {
     expect(r.status).toBe(200);
     const righe = salvate(kv);
     expect(righe).toHaveLength(1);
-    expect(righe[0].testo).toBe(UNA.testo);
+    expect(righe[0]!.testo).toBe(UNA.testo);
   });
 
   it('una senza testo non scrive niente', async () => {
@@ -134,10 +134,10 @@ describe('la copia nel foglio', () => {
     await worker.fetch(invio(UNA), env);
 
     expect(chiamate).toHaveLength(1);
-    expect(chiamate[0].indirizzo).toBe(CONFIG.FOGLIO_SEGNALAZIONI);
-    expect(chiamate[0].corpo.gettone).toBe(CONFIG.FOGLIO_GETTONE);
-    expect(chiamate[0].corpo.testo).toBe(UNA.testo);
-    expect(salvate(kv)[0].foglio).toBe(true);
+    expect(chiamate[0]!.indirizzo).toBe(CONFIG.FOGLIO_SEGNALAZIONI);
+    expect(chiamate[0]!.corpo.gettone).toBe(CONFIG.FOGLIO_GETTONE);
+    expect(chiamate[0]!.corpo.testo).toBe(UNA.testo);
+    expect(salvate(kv)[0]!.foglio).toBe(true);
   });
 
   it('► un 200 che NON dice «ok» non è una copia riuscita ◄', async () => {
@@ -152,7 +152,7 @@ describe('la copia nel foglio', () => {
     const r = await worker.fetch(invio(UNA), env);
 
     expect(r.status).toBe(200); // la segnalazione è salvata: questo resta vero
-    expect(salvate(kv)[0].foglio).toBe(false);
+    expect(salvate(kv)[0]!.foglio).toBe(false);
   });
 
   it('se il foglio è irraggiungibile la segnalazione resta salvata e in coda', async () => {
@@ -161,7 +161,7 @@ describe('la copia nel foglio', () => {
     const r = await worker.fetch(invio(UNA), env);
 
     expect(r.status).toBe(200);
-    const riga = salvate(kv)[0];
+    const riga = salvate(kv)[0]!;
     expect(riga.testo).toBe(UNA.testo);
     expect(riga.foglio).toBe(false);
   });
@@ -172,7 +172,7 @@ describe('la copia nel foglio', () => {
     await worker.fetch(invio(UNA), env);
 
     expect(chiamate).toHaveLength(0);
-    expect(salvate(kv)[0].foglio).toBe(false);
+    expect(salvate(kv)[0]!.foglio).toBe(false);
   });
 
   it('la data che va nel foglio è quella della segnalazione, non quella della copia', async () => {
@@ -182,6 +182,6 @@ describe('la copia nel foglio', () => {
     const { env, kv } = ambiente(CONFIG);
     const chiamate = foglioFinto(() => new Response('ok'));
     await worker.fetch(invio(UNA), env);
-    expect(chiamate[0].corpo.quando).toBe(salvate(kv)[0].quando);
+    expect(chiamate[0]!.corpo.quando).toBe(salvate(kv)[0]!.quando);
   });
 });

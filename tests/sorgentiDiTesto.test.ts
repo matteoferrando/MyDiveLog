@@ -65,7 +65,7 @@ describe('i sorgenti sono testo', () => {
         quanti += 1;
         const dati = readFileSync(file);
         for (let i = 0; i < dati.length; i += 1) {
-          const b = dati[i];
+          const b = dati[i]!;
           if (b < 32 && !AMMESSI.has(b)) {
             const riga = dati.subarray(0, i).toString('utf8').split('\n').length;
             colpevoli.push(`${file}:${riga} byte 0x${b.toString(16).padStart(2, '0')}`);

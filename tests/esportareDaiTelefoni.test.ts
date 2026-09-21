@@ -125,7 +125,7 @@ describe('dentro l’applicazione il file si SCRIVE, non si scarica', () => {
     const esito = await esporta('MyDiveLog.pdf', '%PDF-1.4', 'application/pdf');
 
     expect(invocazioni).toHaveLength(1);
-    expect(invocazioni[0].comando).toBe('esporta_nei_documenti');
+    expect(invocazioni[0]!.comando).toBe('esporta_nei_documenti');
     expect(click, 'nessun click: il download del browser qui non funziona').toBe(0);
     expect(esito.dove).toBe(DOVE_SCELTO_DA_TE);
     expect(esito.dove).not.toBe(DOVE_NEI_DOWNLOAD);
@@ -141,7 +141,7 @@ describe('dentro l’applicazione il file si SCRIVE, non si scarica', () => {
     piattaforma.inApp = true;
     piattaforma.suAndroid = true;
     return esporta('MyDiveLog.pdf', '%PDF-1.4', 'application/pdf').then(() => {
-      expect(invocazioni[0].argomenti).toMatchObject({
+      expect(invocazioni[0]!.argomenti).toMatchObject({
         nome: 'MyDiveLog.pdf',
         tipo: 'application/pdf',
       });
@@ -359,7 +359,7 @@ describe('le dipendenze del selettore', () => {
     for (const crate of ['tauri-plugin-dialog', 'tauri-plugin-fs']) {
       const dove = sezioni.filter((s) => new RegExp(`^${crate}\\s*=`, 'm').test(s));
       expect(dove, `«${crate}» dichiarata in ${dove.length} sezioni`).toHaveLength(1);
-      expect(dove[0].split('\n')[0]).toContain('target_os = "android"');
+      expect(dove[0]!.split('\n')[0]).toContain('target_os = "android"');
     }
   });
 });

@@ -38,6 +38,7 @@ import {
   type DecoSettings,
   type PlanGas,
   type PlanLevel,
+  type SegmentKind,
 } from '../../core/analysis/deco';
 import { DEFAULT_VPM, MAX_CRITICAL_VOLUME_ITERATIONS, planVpm, type VpmStop } from '../../core/analysis/vpm';
 import type { Dive } from '../../core/model';
@@ -136,6 +137,8 @@ export function DecoPlanner({
   // punto per punto la sosta più lunga fra i due.
   const [model, setModel] = useState<DecoPlanState['model']>(saved?.model ?? 'buhlmann');
   const [conservatism, setConservatism] = useState(saved?.conservatism ?? DEFAULT_VPM.conservatism);
+  // Mai vuoto, e `levels[0]` più sotto ci conta: si parte da un livello, «Togli»
+  // compare solo quando ce n'è più d'uno, e lo stato salvato si scrive da qui.
   const [levels, setLevels] = useState<PlanLevel[]>(
     saved?.levels ?? [{ depthM: seed.depthM, minutes: seed.bottomMin }],
   );
@@ -228,6 +231,10 @@ export function DecoPlanner({
    * motore le esegue: consumo per bombola, CNS, avvisi e contingenze si calcolano
    * sulla tabella scelta, non su quella di Bühlmann. Senza questo passaggio la
    * pagina mostrerebbe le soste di un modello e il gas di un altro.
+   *
+   * I `gasIndex` che ne escono — tratti, soste, consumi — sono posizioni in
+   * questo stesso `gases`, che `planDeco` ha già letto per calcolare ogni riga:
+   * per questo le tabelle più sotto lo rileggono con `!`.
    */
   const plan = useMemo(() => {
     if (model === 'buhlmann') return buhlmann;
@@ -515,7 +522,7 @@ export function DecoPlanner({
           <button
             onClick={() =>
               setSecond((p) =>
-                p ? null : { depthM: Math.max(6, levels[0].depthM - 10), minutes: 40, surfaceMin: 90 },
+                p ? null : { depthM: Math.max(6, levels[0]!.depthM - 10), minutes: 40, surfaceMin: 90 },
               )
             }
           >
@@ -573,7 +580,7 @@ export function DecoPlanner({
                           <b>{i === 0 ? t('Prima') : t('Seconda')}</b>{' '}
                           <span className="muted">
                             {i === 0
-                              ? `${levels[0].depthM} m × ${levels[0].minutes} min`
+                              ? `${levels[0]!.depthM} m × ${levels[0]!.minutes} min`
                               : `${second.depthM} m × ${second.minutes} min, ${t('dopo')} ${second.surfaceMin} min`}
                           </span>
                         </td>
@@ -1097,7 +1104,7 @@ export function DecoPlanner({
                   <td className="num tabular" style={{ fontWeight: 650 }}>
                     {seg.runtimeMin.toFixed(0)}
                   </td>
-                  <td>{gasLabel(gases[seg.gasIndex])}</td>
+                  <td>{gasLabel(gases[seg.gasIndex]!)}</td>
                   <td
                     className="num tabular"
                     style={{
@@ -1235,7 +1242,7 @@ export function DecoPlanner({
                     <td className="num tabular">{s.minutes}</td>
                     <td className="num tabular">{s.runtimeMin}</td>
                     <td>
-                      {gasLabel(gases[s.gasIndex])}
+                      {gasLabel(gases[s.gasIndex]!)}
                       {!s.mandatory && <span className="muted"> · {t('sicurezza, non obbligatoria')}</span>}
                     </td>
                   </tr>
@@ -1269,7 +1276,7 @@ export function DecoPlanner({
                   .filter((u) => u.litres > 0)
                   .map((u) => (
                     <tr key={u.gasIndex}>
-                      <td>{gasLabel(gases[u.gasIndex])}</td>
+                      <td>{gasLabel(gases[u.gasIndex]!)}</td>
                       <td className="num tabular">{litri(u.litres)}</td>
                       <td
                         className="num tabular"
@@ -1422,7 +1429,10 @@ export function DecoPlanner({
                   .map((u) => (
                     <StatTile
                       key={u.gasIndex}
-                      label={`${t('Ti serve')} ${gasLabel(gases[u.gasIndex])}`}
+                      /* `bailoutPlan` numera un sottoinsieme di `gases`, mai più lungo: l'indice
+                         sta dentro. Ma con un gas di ruolo «bailout» (che qui non si crea) toglie
+                         il diluente, e allora l'etichetta sarebbe quella del gas accanto. */
+                      label={`${t('Ti serve')} ${gasLabel(gases[u.gasIndex]!)}`}
                       value={
                         <span
                           className="tabular"
@@ -1644,7 +1654,7 @@ export function DecoPlanner({
  * Restano in italiano nella costante e si traducono al disegno con `t(...)`: è una
  * tabella di costanti, non deve rinascere a ogni render.
  */
-const KIND_LABEL: Record<string, string> = {
+const KIND_LABEL: Record<SegmentKind, string> = {
   descent: 'discesa',
   level: 'fondo',
   ascent: 'risalita',

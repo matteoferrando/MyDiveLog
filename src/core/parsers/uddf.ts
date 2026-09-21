@@ -197,7 +197,7 @@ function readDive(
       .filter(Boolean) as string[];
     let mix = refs.map((r) => mixes.get(r)).find(Boolean);
     if (!mix && mixIds.length) {
-      mix = mixes.get(mixIds[0]);
+      mix = mixes.get(mixIds[0]!);
       linkFallbackUsed = true;
     }
     const volumeM3 = num(child(tank, 'tankvolume'));
@@ -234,7 +234,7 @@ function readDive(
   if (cylinders.length === 0 && mixIds.length) {
     // Stessa ragione della riga sopra: si sa che gas era, non come la chiamava
     // chi l'ha respirata.
-    const first = mixes.get(mixIds[0])!;
+    const first = mixes.get(mixIds[0]!)!;
     cylinders.push({ mix: { o2: first.o2, he: first.he } });
   }
   if (cylinders.length === 0) cylinders.push({ mix: AIR });
@@ -380,7 +380,7 @@ function readDive(
   // sono dedotti, ed è tutto quello che serve per non fidarsene.
   const declaredDuration = num(child(after, 'diveduration'));
   const declaredDepth = num(child(after, 'greatestdepth'));
-  const durationS = declaredDuration ?? (samples.length ? samples[samples.length - 1].t : 0);
+  const durationS = declaredDuration ?? (samples.length ? samples[samples.length - 1]!.t : 0);
   const maxDepth = declaredDepth ?? (samples.length ? Math.max(...samples.map((s) => s.depth)) : 0);
   if (declaredDuration === undefined && declaredDepth === undefined && samples.length > 2) {
     warnings.push(

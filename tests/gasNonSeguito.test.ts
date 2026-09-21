@@ -88,7 +88,7 @@ describe('e quando non serve, sta zitta', () => {
   });
 
   it('con una bombola sola nemmeno', () => {
-    expect(avvertenze(scheda([DUE_BOMBOLE[0]]))).not.toContain('non dice quando hai cambiato');
+    expect(avvertenze(scheda([DUE_BOMBOLE[0]!]))).not.toContain('non dice quando hai cambiato');
   });
 
   it('e una stage portata e non toccata non conta come respirata', () => {
@@ -98,7 +98,7 @@ describe('e quando non serve, sta zitta', () => {
      * Avvisare qui sarebbe rumore, e un'avvertenza che compare quando non serve
      * insegna a non leggerle.
      */
-    const intatta: Cylinder[] = [DUE_BOMBOLE[0], { mix: EAN33, sizeL: 7, startBar: 200, endBar: 200 }];
+    const intatta: Cylinder[] = [DUE_BOMBOLE[0]!, { mix: EAN33, sizeL: 7, startBar: 200, endBar: 200 }];
     expect(avvertenze(scheda(intatta))).not.toContain('non dice quando hai cambiato');
   });
 

@@ -214,7 +214,7 @@ function readDive(
   const durationS =
     durationValue(attr(node, 'duration')) ??
     durationValue(attr(dc, 'duration')) ??
-    (samples.length ? samples[samples.length - 1].t : undefined);
+    (samples.length ? samples[samples.length - 1]!.t : undefined);
 
   if (!maxDepth || !durationS) {
     warnings.push(`${t('Immersione del')} ${date} ${t('scartata: durata o profondità mancanti.')}`);

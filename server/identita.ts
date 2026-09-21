@@ -87,7 +87,8 @@ export async function verificaTokenIdentita(
   const adesso = opzioni.adesso ?? Math.floor(Date.now() / 1000);
   const pezzi = token.split('.');
   if (pezzi.length !== 3) return null;
-  const [intestazione, corpo, firma] = pezzi;
+  // Tre pezzi per la riga sopra: il tipo di `split` non lo sa, lo sappiamo noi.
+  const [intestazione, corpo, firma] = pezzi as [string, string, string];
 
   let kid: string;
   try {

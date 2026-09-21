@@ -162,7 +162,7 @@ describe('la versione delle formule', () => {
 
     const { store } = memoryStore([vecchia], { d1: samples });
     const { dives } = await repairArchive(store, [vecchia]);
-    expect(dives[0].metrics?.quality.formulaV).toBe(VERSIONE_METRICHE);
+    expect(dives[0]!.metrics?.quality.formulaV).toBe(VERSIONE_METRICHE);
   });
 
   /*
@@ -208,8 +208,8 @@ describe('riparazione', () => {
     const { store, written } = memoryStore([broken, fine], { d1: samples, d2: samples });
     const { report, dives } = await repairArchive(store, [broken, fine]);
 
-    expect(dives[0].metrics?.rmvLpm).toBeGreaterThan(5);
-    expect(dives[0].metrics?.endPressureBar).toBe(60);
+    expect(dives[0]!.metrics?.rmvLpm).toBeGreaterThan(5);
+    expect(dives[0]!.metrics?.endPressureBar).toBe(60);
     // Entrambe vengono toccate, ma per motivi diversi: `d1` per il consumo,
     // `d2` perché il carico di azoto non era mai stato calcolato. La riparazione
     // dichiara i due motivi separatamente invece di confonderli.
@@ -218,9 +218,9 @@ describe('riparazione', () => {
     expect(report.reasons['carico di azoto non ancora calcolato']).toBe(2);
     // Una sola scrittura, con dentro tutte e due.
     expect(written).toHaveLength(1);
-    expect(written[0].map((d) => d.id).sort()).toEqual(['d1', 'd2']);
+    expect(written[0]!.map((d) => d.id).sort()).toEqual(['d1', 'd2']);
     // I campioni non finiscono nel riepilogo: stanno nella loro tabella.
-    for (const d of written[0]) expect(d.samples).toBeUndefined();
+    for (const d of written[0]!) expect(d.samples).toBeUndefined();
   });
 
   it('non scrive niente su un archivio già coerente e già analizzato', async () => {
@@ -267,9 +267,9 @@ describe('profili caricati prima di una fusione', () => {
     const incoming = [dive({ id: 'x', startTime: '2026-07-11T09:59:00Z' })];
     const hydrated = await hydrateForMerge(store, [stored, far], incoming);
 
-    expect(hydrated[0].samples).toHaveLength(300);
+    expect(hydrated[0]!.samples).toHaveLength(300);
     // L'immersione del 2020 non c'entra con l'import: non si carica.
-    expect(hydrated[1].samples).toBeUndefined();
+    expect(hydrated[1]!.samples).toBeUndefined();
   });
 
   it('senza questo passaggio la fusione perderebbe il profilo migliore', async () => {
@@ -286,11 +286,11 @@ describe('profili caricati prima di una fusione', () => {
     const { store } = memoryStore([storedSummary], { d1: rich(300) });
 
     const naive = mergeImports([storedSummary], [denseNoDeco], '2026-08-17T00:00:00Z');
-    expect(naive.dives[0].samples?.[0].ndlS).toBeUndefined(); // profilo povero: deco perso
+    expect(naive.dives[0]!.samples?.[0]!.ndlS).toBeUndefined(); // profilo povero: deco perso
 
     const hydrated = await hydrateForMerge(store, [storedSummary], [denseNoDeco]);
     const correct = mergeImports(hydrated, [denseNoDeco], '2026-08-17T00:00:00Z');
-    expect(correct.dives[0].samples?.[0].ndlS).toBe(600); // il profilo con la deco resta
+    expect(correct.dives[0]!.samples?.[0]!.ndlS).toBe(600); // il profilo con la deco resta
   });
 
   it('carica anche il SECONDO profilo, non solo il principale', async () => {
@@ -301,8 +301,8 @@ describe('profili caricati prima di una fusione', () => {
 
     const hydrated = await hydrateForMerge(store, [stored], [dive({ id: 'x' })]);
 
-    expect(hydrated[0].samples?.length).toBe(300);
-    expect(hydrated[0].altSamples?.length).toBe(750);
+    expect(hydrated[0]!.samples?.length).toBe(300);
+    expect(hydrated[0]!.altSamples?.length).toBe(750);
   });
 
   it('senza il secondo profilo la fusione lo sostituisce con uno più rado', async () => {
@@ -329,7 +329,7 @@ describe('profili caricati prima di una fusione', () => {
     });
 
     const hydrated = await hydrateForMerge(store, [stored], [intermedio]);
-    const fusa = mergeImports(hydrated, [intermedio], '2026-08-17T00:00:00Z').dives[0];
+    const fusa = mergeImports(hydrated, [intermedio], '2026-08-17T00:00:00Z').dives[0]!;
 
     expect(fusa.samples).toHaveLength(300); // il principale, coi dati deco, resta
     expect(fusa.altSamples).toHaveLength(750); // e il secondo, il più fitto, pure
@@ -355,7 +355,7 @@ describe('profili caricati prima di una fusione', () => {
 
     const hydrated = await hydrateForMerge(store, [stored], [incomingShearwater]);
     const merged = mergeImports(hydrated, [incomingShearwater], '2026-08-17T00:00:00Z');
-    const d = merged.dives[0];
+    const d = merged.dives[0]!;
     expect(d.computer?.model).toBe('Shearwater Peregrine');
     expect(d.otherComputers?.map((c) => c.model)).toEqual(['Scubapro Aladin Sport Matrix']);
   });
@@ -373,7 +373,7 @@ describe('profili caricati prima di una fusione', () => {
       [dive({ id: 'd1', notes: 'nota nuova', samples: profile(300) })],
       'x',
     );
-    expect(merged.dives[0].otherComputers?.map((c) => c.model)).toEqual(['Scubapro Aladin Sport Matrix']);
+    expect(merged.dives[0]!.otherComputers?.map((c) => c.model)).toEqual(['Scubapro Aladin Sport Matrix']);
   });
 });
 
@@ -400,7 +400,7 @@ describe('riparazione dei computer duplicati', () => {
     const { store, written } = memoryStore([coherent], { d1: samples });
     const { report, dives } = await repairArchive(store, [coherent]);
     expect(report.repaired).toBe(1);
-    expect(dives[0].otherComputers).toBeUndefined();
+    expect(dives[0]!.otherComputers).toBeUndefined();
     expect(written).toHaveLength(1);
     expect(written[0]).toHaveLength(1);
   });
@@ -436,10 +436,10 @@ describe('secondo profilo: il meglio dei due computer', () => {
       samples: sparse(240),
       source: { format: 'shearwater-cloud', file: 'b.db', importedAt: 'x' },
     });
-    const merged = mergeImports([fromAladin], [fromPeregrine], '2026-08-17T00:00:00Z').dives[0];
+    const merged = mergeImports([fromAladin], [fromPeregrine], '2026-08-17T00:00:00Z').dives[0]!;
 
     // Il principale è quello con i canali decompressivi…
-    expect(merged.samples?.[0].ndlS).toBe(600);
+    expect(merged.samples?.[0]!.ndlS).toBe(600);
     expect(merged.samples).toHaveLength(240);
     // …e il fitto resta come secondo profilo.
     expect(merged.altSamples).toHaveLength(600);
@@ -474,17 +474,18 @@ describe('secondo profilo: il meglio dei due computer', () => {
       samples: sparse(60),
       source: { format: 'csv', file: 'c.csv', importedAt: 'x' },
     });
-    const merged = mergeImports([rich], [poor], 'x').dives[0];
+    const merged = mergeImports([rich], [poor], 'x').dives[0]!;
     // Il profilo con i canali deco vince, ma solo se è anche utile: qui il fitto
     // resta come secondo perché ha un passo minore.
     expect(merged.altSamples?.length).toBe(600);
     // E l'inverso non accade: nessun secondo profilo più rado di quello mostrato.
-    const back = mergeImports([poor], [rich], 'x').dives[0];
+    const back = mergeImports([poor], [rich], 'x').dives[0]!;
     const altInterval = back.altSamples
-      ? (back.altSamples[back.altSamples.length - 1].t - back.altSamples[0].t) / (back.altSamples.length - 1)
+      ? (back.altSamples[back.altSamples.length - 1]!.t - back.altSamples[0]!.t) /
+        (back.altSamples.length - 1)
       : Infinity;
     const mainInterval =
-      (back.samples![back.samples!.length - 1].t - back.samples![0].t) / (back.samples!.length - 1);
+      (back.samples![back.samples!.length - 1]!.t - back.samples![0]!.t) / (back.samples!.length - 1);
     expect(altInterval).toBeLessThan(mainInterval);
   });
 
@@ -503,8 +504,8 @@ describe('secondo profilo: il meglio dei due computer', () => {
     // rado — ma l'assetto NON viene ricalcolato, che è la cosa che questo test
     // protegge: misurato sul profilo più rado uscirebbe più basso di quanto è.
     expect(report.reasons['velocità misurate sul profilo rado mentre esiste quello fitto']).toBeUndefined();
-    expect(dives[0].metrics?.bottomVerticalTravelMpm).toBe(metrics.bottomVerticalTravelMpm);
-    expect(dives[0].metrics?.gf99Pct).toBeGreaterThan(0);
+    expect(dives[0]!.metrics?.bottomVerticalTravelMpm).toBe(metrics.bottomVerticalTravelMpm);
+    expect(dives[0]!.metrics?.gf99Pct).toBeGreaterThan(0);
     expect(
       written[0]?.every((d) => d.metrics?.bottomVerticalTravelMpm === metrics.bottomVerticalTravelMpm),
     ).toBe(true);
@@ -517,8 +518,8 @@ describe('secondo profilo: il meglio dei due computer', () => {
     const stored = { ...withBoth, metrics: stale, samples: undefined, altSamples: undefined } as Dive;
     const { store } = memoryStore([stored], { d1: sparse(240) }, { d1: dense(600) });
     const { dives } = await repairArchive(store, [stored]);
-    expect(dives[0].metrics?.quality.ratesFromAlt).toBe(true);
-    expect(dives[0].metrics?.bottomVerticalTravelMpm).toBeGreaterThan(
+    expect(dives[0]!.metrics?.quality.ratesFromAlt).toBe(true);
+    expect(dives[0]!.metrics?.bottomVerticalTravelMpm).toBeGreaterThan(
       (stale.bottomVerticalTravelMpm ?? 0) * 1.1,
     );
   });
@@ -549,7 +550,7 @@ describe('pulizia di ciò che arriva dalla rete', () => {
   it('toglie dall’elenco il computer che è già quello principale', () => {
     const cleaned = normaliseDive(dive({ computer: peregrine, otherComputers: [peregrine, aladin] }));
     expect(cleaned.otherComputers).toHaveLength(1);
-    expect(cleaned.otherComputers![0].model).toMatch(/Aladin/);
+    expect(cleaned.otherComputers![0]!.model).toMatch(/Aladin/);
   });
 
   it('deduplica l’elenco anche contro se stesso', () => {

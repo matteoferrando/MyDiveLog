@@ -150,7 +150,7 @@ export function synthesise(overrides: Partial<SyntheticSpec> = {}): Synthetic {
     profile.push({ t, depth, litres });
   }
 
-  const totalLitres = profile[profile.length - 1].litres;
+  const totalLitres = profile[profile.length - 1]!.litres;
   const RESERVE_BAR = 60; // resta sopra la riserva di 50 bar
   let tankSizeL = spec.tankSizeL;
   if (spec.startBar - totalLitres / tankSizeL < RESERVE_BAR) {
@@ -176,12 +176,12 @@ export function synthesise(overrides: Partial<SyntheticSpec> = {}): Synthetic {
     };
   });
 
-  const endBar = samples[samples.length - 1].bar;
+  const endBar = samples[samples.length - 1]!.bar;
   let area = 0;
   for (let i = 1; i < samples.length; i++) {
-    area += ((samples[i].depth + samples[i - 1].depth) / 2) * (samples[i].t - samples[i - 1].t);
+    area += ((samples[i]!.depth + samples[i - 1]!.depth) / 2) * (samples[i]!.t - samples[i - 1]!.t);
   }
-  const avgDepth = area / (samples[samples.length - 1].t || 1);
+  const avgDepth = area / (samples[samples.length - 1]!.t || 1);
 
   return { spec, samples, endBar: Math.round(endBar), avgDepth: Math.round(avgDepth * 100) / 100 };
 }
@@ -439,7 +439,7 @@ export function toFit(s: Synthetic): Uint8Array {
   const write = (mesgNum: number, fields: Record<string, unknown>) =>
     encoder.onMesg(mesgNum, fields as never);
 
-  write(Profile.MesgNum.FILE_ID, {
+  write(Profile.MesgNum.FILE_ID!, {
     type: 'activity',
     manufacturer: 'garmin',
     product: 3258,
@@ -447,21 +447,21 @@ export function toFit(s: Synthetic): Uint8Array {
     timeCreated: start,
   });
 
-  write(Profile.MesgNum.DEVICE_INFO, {
+  write(Profile.MesgNum.DEVICE_INFO!, {
     timestamp: start,
     manufacturer: 'garmin',
     product: 3258,
     serialNumber: 3900000001,
   });
 
-  write(Profile.MesgNum.DIVE_SETTINGS, {
+  write(Profile.MesgNum.DIVE_SETTINGS!, {
     messageIndex: 0,
     waterType: 'salt',
     gfLow: 30,
     gfHigh: 85,
   });
 
-  write(Profile.MesgNum.DIVE_GAS, {
+  write(Profile.MesgNum.DIVE_GAS!, {
     messageIndex: 0,
     oxygenContent: Math.round(spec.o2 * 100),
     heliumContent: Math.round(spec.he * 100),
@@ -474,7 +474,7 @@ export function toFit(s: Synthetic): Uint8Array {
 
   for (const w of samples) {
     const at = new Date(start.getTime() + w.t * 1000);
-    write(Profile.MesgNum.RECORD, {
+    write(Profile.MesgNum.RECORD!, {
       timestamp: at,
       // L'SDK applica scale e offset: qui passiamo metri e Celsius.
       depth: w.depth,
@@ -485,7 +485,7 @@ export function toFit(s: Synthetic): Uint8Array {
       ndlTime: w.ndlS,
       cnsLoad: Math.min(99, Math.round((w.t / 60) * 0.4)),
     });
-    write(Profile.MesgNum.TANK_UPDATE, {
+    write(Profile.MesgNum.TANK_UPDATE!, {
       timestamp: at,
       sensor: SENSOR,
       pressure: w.bar,
@@ -493,7 +493,7 @@ export function toFit(s: Synthetic): Uint8Array {
   }
 
   const litresUsed = (spec.startBar - s.endBar) * spec.tankSizeL;
-  write(Profile.MesgNum.TANK_SUMMARY, {
+  write(Profile.MesgNum.TANK_SUMMARY!, {
     timestamp: new Date(start.getTime() + spec.durationS * 1000),
     sensor: SENSOR,
     startPressure: spec.startBar,
@@ -501,7 +501,7 @@ export function toFit(s: Synthetic): Uint8Array {
     volumeUsed: litresUsed,
   });
 
-  write(Profile.MesgNum.DIVE_SUMMARY, {
+  write(Profile.MesgNum.DIVE_SUMMARY!, {
     timestamp: new Date(start.getTime() + spec.durationS * 1000),
     referenceMesg: 'session',
     referenceIndex: 0,
@@ -512,7 +512,7 @@ export function toFit(s: Synthetic): Uint8Array {
     bottomTime: spec.durationS,
   });
 
-  write(Profile.MesgNum.SESSION, {
+  write(Profile.MesgNum.SESSION!, {
     messageIndex: 0,
     timestamp: new Date(start.getTime() + spec.durationS * 1000),
     startTime: start,
@@ -523,7 +523,7 @@ export function toFit(s: Synthetic): Uint8Array {
     maxDepth: Math.max(...samples.map((w) => w.depth)),
   });
 
-  write(Profile.MesgNum.ACTIVITY, {
+  write(Profile.MesgNum.ACTIVITY!, {
     timestamp: new Date(start.getTime() + spec.durationS * 1000),
     totalTimerTime: spec.durationS,
     numSessions: 1,
@@ -591,29 +591,29 @@ export function encodeUwatecSmart(spec: UwatecFixtureSpec): Uint8Array {
   // il campione, quindi tutto ciò che deve comparire nel primo campione va emesso
   // prima. Invertendo l'ordine, il primo campione uscirebbe senza temperatura.
   if (rawTemp.length) {
-    body.push(0xf3, (rawTemp[0] >> 8) & 0xff, rawTemp[0] & 0xff);
+    body.push(0xf3, (rawTemp[0]! >> 8) & 0xff, rawTemp[0]! & 0xff);
   }
-  body.push(0xf1, (rawDepth[0] >> 8) & 0xff, rawDepth[0] & 0xff);
+  body.push(0xf1, (rawDepth[0]! >> 8) & 0xff, rawDepth[0]! & 0xff);
 
-  let prevDepth = rawDepth[0];
-  let prevTemp = rawTemp.length ? rawTemp[0] : 0;
+  let prevDepth = rawDepth[0]!;
+  let prevTemp = rawTemp.length ? rawTemp[0]! : 0;
   for (let i = 1; i < rawDepth.length; i++) {
     if (rawTemp.length) {
-      const dt = rawTemp[i] - prevTemp;
+      const dt = rawTemp[i]! - prevTemp;
       if (dt !== 0) {
         if (dt >= -8 && dt <= 7)
           body.push(0xb0 | (dt & 0x0f)); // 1011dddd, 4 bit con segno
-        else body.push(0xf3, (rawTemp[i] >> 8) & 0xff, rawTemp[i] & 0xff);
-        prevTemp = rawTemp[i];
+        else body.push(0xf3, (rawTemp[i]! >> 8) & 0xff, rawTemp[i]! & 0xff);
+        prevTemp = rawTemp[i]!;
       }
     }
-    const dd = rawDepth[i] - prevDepth;
+    const dd = rawDepth[i]! - prevDepth;
     if (dd >= -64 && dd <= 63) {
       body.push(dd & 0x7f); // 0ddddddd, 7 bit con segno
     } else {
-      body.push(0xf1, (rawDepth[i] >> 8) & 0xff, rawDepth[i] & 0xff);
+      body.push(0xf1, (rawDepth[i]! >> 8) & 0xff, rawDepth[i]! & 0xff);
     }
-    prevDepth = rawDepth[i];
+    prevDepth = rawDepth[i]!;
   }
 
   const total = 84 + body.length;
@@ -627,7 +627,7 @@ export function encodeUwatecSmart(spec: UwatecFixtureSpec): Uint8Array {
   view.setInt8(16, Math.round(spec.utcOffsetMinutes / 15));
 
   const maxDepth = Math.max(...spec.depths);
-  const area = spec.depths.slice(1).reduce((a, d, i) => a + ((d + spec.depths[i]) / 2) * 4, 0);
+  const area = spec.depths.slice(1).reduce((a, d, i) => a + ((d + spec.depths[i]!) / 2) * 4, 0);
   const span = (spec.depths.length - 1) * 4;
   view.setUint16(22, Math.round(maxDepth * headerPerM), true);
   view.setUint16(24, Math.round((span ? area / span : 0) * headerPerM), true);
@@ -635,7 +635,7 @@ export function encodeUwatecSmart(spec: UwatecFixtureSpec): Uint8Array {
   if (spec.temps?.length) {
     view.setInt16(28, Math.round(Math.max(...spec.temps) * 10), true);
     view.setInt16(30, Math.round(Math.min(...spec.temps) * 10), true);
-    view.setInt16(32, Math.round(spec.temps[0] * 10), true);
+    view.setInt16(32, Math.round(spec.temps[0]! * 10), true);
   }
   view.setUint32(68, salt ? 0x0010_0000 : 0, true);
   out.set(body, 84);
@@ -735,7 +735,7 @@ export function depthSeries(s: Synthetic): number[] {
     }
     const before = s.samples.filter((x) => x.t <= t).pop();
     const after = s.samples.find((x) => x.t > t);
-    if (!before) out.push(s.samples[0].depth);
+    if (!before) out.push(s.samples[0]!.depth);
     else if (!after) out.push(before.depth);
     else {
       const f = (t - before.t) / (after.t - before.t);
@@ -887,7 +887,7 @@ export function encodePnf(overrides: Partial<PnfFixtureSpec> = {}): Uint8Array {
       r[9] = spec.hePercent;
       r[10] = spec.minutes?.[i] ?? 0;
       r[12] = 0x10; // circuito aperto
-      const temp = Array.isArray(spec.tempC) ? spec.tempC[i] : spec.tempC;
+      const temp = Array.isArray(spec.tempC) ? spec.tempC[i]! : spec.tempC;
       r[14] = temp < 0 ? 256 + temp : temp;
       r[23] = spec.cnsPct?.[i] ?? 0;
       if (spec.tank1Bar?.[i] !== undefined) {

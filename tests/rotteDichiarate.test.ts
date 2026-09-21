@@ -40,12 +40,12 @@ const SORGENTE = leggi('../server/worker.ts');
 
 /** I percorsi che `worker.ts` serve davvero, letti dai suoi confronti. */
 function rotteDelWorker(): string[] {
-  return [...SORGENTE.matchAll(/percorso === '([^']+)'/g)].map((m) => m[1]);
+  return [...SORGENTE.matchAll(/percorso === '([^']+)'/g)].map((m) => m[1]!);
 }
 
 /** I percorsi che la configurazione nomina come codice, cioè fra apici inversi. */
 function rotteDichiarate(): string[] {
-  return [...CONFIGURAZIONE.matchAll(/`(\/[A-Za-z0-9._/-]*)`/g)].map((m) => m[1]);
+  return [...CONFIGURAZIONE.matchAll(/`(\/[A-Za-z0-9._/-]*)`/g)].map((m) => m[1]!);
 }
 
 describe('le rotte nominate nella configurazione esistono', () => {

@@ -166,7 +166,7 @@ describe('il giro completo su un archivio nuovo', () => {
       { name: 'tutto.uddf', text: multiUddf(dives) },
       // Le stesse prime tre, da un altro programma: devono fondersi, non sommarsi.
       { name: 'parziale.ssrf', text: multiSubsurface(dives.slice(0, 3)) },
-      { name: 'singola.xml', text: toShearwaterXml(dives[3], { diveNumber: 4 }) },
+      { name: 'singola.xml', text: toShearwaterXml(dives[3]!, { diveNumber: 4 }) },
       // Il CSV non ha profilo: aggiunge campi, non immersioni.
       { name: 'vecchio.csv', text: toCsv(dives.slice(0, 2)) },
     ]);

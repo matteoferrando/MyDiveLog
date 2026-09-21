@@ -36,9 +36,9 @@ describe('lo scambio del codice con Google', () => {
     );
 
     expect(token).toBe('identita');
-    expect(chiamate[0].client_secret).toBe('segreto-del-desktop');
-    expect(chiamate[0].code_verifier).toBe('verif-1');
-    expect(chiamate[0].grant_type).toBe('authorization_code');
+    expect(chiamate[0]!.client_secret).toBe('segreto-del-desktop');
+    expect(chiamate[0]!.code_verifier).toBe('verif-1');
+    expect(chiamate[0]!.grant_type).toBe('authorization_code');
   });
 
   it('col client iOS NON manda nessun campo `client_secret`', async () => {
@@ -49,7 +49,7 @@ describe('lo scambio del codice con Google', () => {
      */
     const { chiamate, fetchImpl } = rete(200, { id_token: 'identita' });
     await scambiaCodiceGoogle({ ...base, clientId: IOS }, fetchImpl);
-    expect('client_secret' in chiamate[0]).toBe(false);
+    expect('client_secret' in chiamate[0]!).toBe(false);
   });
 
   it('il verificatore PKCE viaggia sempre, con o senza segreto', async () => {
@@ -64,7 +64,7 @@ describe('lo scambio del codice con Google', () => {
   it('il punto di ritorno è quello della prima richiesta', async () => {
     const { chiamate, fetchImpl } = rete(200, { id_token: 'x' });
     await scambiaCodiceGoogle({ ...base, clientId: IOS }, fetchImpl);
-    expect(chiamate[0].redirect_uri).toBe('http://127.0.0.1:51000/accesso');
+    expect(chiamate[0]!.redirect_uri).toBe('http://127.0.0.1:51000/accesso');
   });
 
   it('un rifiuto di Google diventa `null`, non un messaggio da rigirare', async () => {

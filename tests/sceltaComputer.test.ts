@@ -151,7 +151,7 @@ describe('Garmin, e la risposta che nessuno vedeva', () => {
      */
     const trovati = cercaModelli('g2');
     expect(trovati.length).toBeGreaterThan(1);
-    expect(esitoPer(trovati[0]).tipo).toBe('si-scarica');
+    expect(esitoPer(trovati[0]!).tipo).toBe('si-scarica');
     expect(trovati.some((m) => m.marca === 'Garmin')).toBe(true);
     const primoGarmin = trovati.findIndex((m) => m.marca === 'Garmin');
     const ultimoScaricabile = trovati.map((m) => esitoPer(m).tipo).lastIndexOf('si-scarica');

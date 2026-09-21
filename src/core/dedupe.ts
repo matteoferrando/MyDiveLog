@@ -280,8 +280,8 @@ export function inferClockOffsets(
     while (i < deltas.length) {
       let j = i;
       let sum = 0;
-      while (j < deltas.length && deltas[j] - deltas[i] <= finestra) {
-        sum += deltas[j];
+      while (j < deltas.length && deltas[j]! - deltas[i]! <= finestra) {
+        sum += deltas[j]!;
         j++;
       }
       const count = j - i;
@@ -443,7 +443,8 @@ export function mergeImports(
   for (const dive of incoming) {
     const sameId = byId.get(dive.id);
     if (sameId !== undefined) {
-      const before = result[sameId];
+      // `byId` porta solo posizioni di `result`, che nel ciclo cresce e non si accorcia mai.
+      const before = result[sameId]!;
       const after = mergeDive(before, dive, now);
       if (after === before) {
         duplicates++;
@@ -456,7 +457,7 @@ export function mergeImports(
 
     const idx = findBestMatch(result, dive, candidates);
     if (idx >= 0) {
-      const after = mergeDive(result[idx], dive, now);
+      const after = mergeDive(result[idx]!, dive, now);
       if (after === result[idx]) duplicates++;
       else {
         result[idx] = after;
@@ -506,8 +507,8 @@ export function findBestMatch(pool: Dive[], dive: Dive, offsets: number[]): numb
   let bestResidual = Number.POSITIVE_INFINITY;
   for (let i = 0; i < pool.length; i++) {
     for (const offset of offsets) {
-      if (!likelySame(pool[i], dive, offset)) continue;
-      const residual = Math.abs(epoch(pool[i]) - (epoch(dive) + offset));
+      if (!likelySame(pool[i]!, dive, offset)) continue;
+      const residual = Math.abs(epoch(pool[i]!) - (epoch(dive) + offset));
       if (residual < bestResidual) {
         bestResidual = residual;
         bestIdx = i;
@@ -689,7 +690,7 @@ function mergeCylinders(
 /** Passo medio fra campioni, secondi. `Infinity` se non è un profilo. */
 function intervalOf(samples: Sample[]): number {
   if (samples.length < 3) return Infinity;
-  return (samples[samples.length - 1].t - samples[0].t) / (samples.length - 1);
+  return (samples[samples.length - 1]!.t - samples[0]!.t) / (samples.length - 1);
 }
 
 /**

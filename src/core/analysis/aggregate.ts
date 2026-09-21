@@ -231,7 +231,7 @@ export function medianOf(values: number[]): number | undefined {
   if (!values.length) return undefined;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
 
 /**
@@ -265,7 +265,7 @@ export function aggregate(dives: Dive[], now: number = Date.now(), finestraMesi?
   // dodici resta in tutti e due i casi perché il numeratore, `divesLast12m`,
   // conta solo gli ultimi 365 giorni: dividerlo per ventiquattro darebbe una
   // frequenza dimezzata per costruzione.
-  const oldest = sorted.length ? at(sorted[0]) : now;
+  const oldest = sorted.length ? at(sorted[0]!) : now;
   const spanMonths =
     finestraMesi === undefined
       ? Math.max(1, Math.min(12, (now - oldest) / (30.44 * DAY)))
@@ -605,7 +605,8 @@ function byMonth(dives: Dive[], now: number): Bucket[] {
   const MONTHS = MESI_ABBREVIATI;
   for (let i = 23; i >= 0; i--) {
     const key = chiaveMese(ultimo - i);
-    const [y, mo] = key.split('-');
+    // `chiaveMese` scrive sempre «anno-mese»: i pezzi sono due.
+    const [y, mo] = key.split('-') as [string, string];
     out.push({ key, label: `${MONTHS[+mo - 1]} ${y.slice(2)}`, value: counts.get(key) ?? 0 });
   }
   return out;
@@ -625,7 +626,7 @@ function byDepthBand(dives: Dive[]): Bucket[] {
   return DEPTH_BANDS.map((band, i) => ({
     key: String(i),
     label: band.label,
-    value: dives.filter((d) => d.maxDepth < band.max && (i === 0 || d.maxDepth >= DEPTH_BANDS[i - 1].max))
+    value: dives.filter((d) => d.maxDepth < band.max && (i === 0 || d.maxDepth >= DEPTH_BANDS[i - 1]!.max))
       .length,
   })).filter((b, i) => b.value > 0 || i < 5);
 }
@@ -698,7 +699,7 @@ function mean(v: number[]): number | undefined {
 
 function maxBy<T>(items: T[], pick: (t: T) => number): T | undefined {
   if (items.length === 0) return undefined;
-  return items.reduce((best, cur) => (pick(cur) > pick(best) ? cur : best), items[0]);
+  return items.reduce((best, cur) => (pick(cur) > pick(best) ? cur : best), items[0]!);
 }
 
 function round(v: number, digits = 1): number {
@@ -788,8 +789,8 @@ export interface HistogramBin {
 export function histogram(values: number[], edges: number[], unit = ''): HistogramBin[] {
   const bins: HistogramBin[] = [];
   for (let i = 0; i < edges.length; i++) {
-    const from = i === 0 ? -Infinity : edges[i];
-    const to = i + 1 < edges.length ? edges[i + 1] : Infinity;
+    const from = i === 0 ? -Infinity : edges[i]!;
+    const to = i + 1 < edges.length ? edges[i + 1]! : Infinity;
     bins.push({
       from,
       to,
@@ -805,7 +806,7 @@ export function histogram(values: number[], edges: number[], unit = ''): Histogr
   for (const v of values) {
     if (!Number.isFinite(v)) continue;
     const idx = bins.findIndex((b) => v >= b.from && v < b.to);
-    if (idx >= 0) bins[idx].count++;
+    if (idx >= 0) bins[idx]!.count++;
   }
   return bins;
 }
@@ -860,11 +861,13 @@ export function settingsPeriods(dives: Dive[]): SettingsPeriod[] {
       gf99DelPeriodo.push([]);
     }
     const gf99 = d.metrics?.gf99Pct;
-    if (gf99 !== undefined) gf99DelPeriodo[gf99DelPeriodo.length - 1].push(gf99);
+    // `gf99DelPeriodo` cresce insieme a `out`, e il primo giro passa sempre dal
+    // ramo che apre un periodo: qui ce n'è almeno uno, e gli indici coincidono.
+    if (gf99 !== undefined) gf99DelPeriodo[gf99DelPeriodo.length - 1]!.push(gf99);
   }
   // Media del GF99 per periodo, calcolata sulle immersioni che lo riportano.
   out.forEach((period, i) => {
-    period.avgGf99 = mean(gf99DelPeriodo[i]);
+    period.avgGf99 = mean(gf99DelPeriodo[i]!);
   });
   return out;
 }
@@ -917,7 +920,7 @@ export function quartilesOf(
 ): { p25: number; p50: number; p75: number; n: number } | undefined {
   if (values.length < 5) return undefined;
   const v = [...values].sort((a, b) => a - b);
-  const at = (q: number) => v[Math.min(v.length - 1, Math.floor(q * v.length))];
+  const at = (q: number) => v[Math.min(v.length - 1, Math.floor(q * v.length))]!;
   // Il p50 passa da `medianOf` e non dall'elemento centrale: con un numero pari
   // di valori l'elemento centrale non è la mediana, e l'archivio finiva per
   // mostrare due «mediane» diverse (5.6 nei quartili, 5.4 nelle pagine) per la

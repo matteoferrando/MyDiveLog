@@ -159,9 +159,9 @@ describe('sul telefono parte chiuso, e dice cosa c’è dentro', () => {
       </>,
     );
     const bottoni = [...host.querySelectorAll('button')];
-    act(() => bottoni[0].click());
-    expect(bottoni[0].getAttribute('aria-expanded')).toBe('true');
-    expect(bottoni[1].getAttribute('aria-expanded')).toBe('false');
+    act(() => bottoni[0]!.click());
+    expect(bottoni[0]!.getAttribute('aria-expanded')).toBe('true');
+    expect(bottoni[1]!.getAttribute('aria-expanded')).toBe('false');
   });
 });
 

@@ -77,7 +77,7 @@ for (let i = 0; i < TOTAL; i++) {
     synthesise({
       startTime,
       ...(() => {
-        const site = isLake ? SITES.find((x) => x.name === 'Moregallo')! : SITES[i % SITES.length];
+        const site = isLake ? SITES.find((x) => x.name === 'Moregallo')! : SITES[i % SITES.length]!;
         return { siteName: site.name, lat: site.lat, lon: site.lon };
       })(),
       maxDepth: isDeep ? 38 + (i % 3) * 2 : 20 + (i % 5) * 3,
@@ -103,7 +103,8 @@ writeFileSync(join(OUT, 'shearwater-cloud-export.uddf'), multiUddf(recent, 31));
 writeFileSync(join(OUT, 'subsurface-archivio.ssrf'), multiSubsurface(dives.slice(0, 30)));
 writeFileSync(
   join(OUT, 'shearwater-peregrine.xml'),
-  toShearwaterXml(dives[dives.length - 1], { diveNumber: TOTAL, gf: { low: 20, high: 85 } }),
+  // `dives` ha le TOTAL immersioni generate qui sopra, quarantotto: le tre scelte qui ci sono.
+  toShearwaterXml(dives[dives.length - 1]!, { diveNumber: TOTAL, gf: { low: 20, high: 85 } }),
 );
 /*
  * UNA SECONDA IMMERSIONE SHEARWATER, con gradient factor DIVERSI.
@@ -122,9 +123,9 @@ writeFileSync(
   // Dentro gli ultimi dodici mesi: il periodo predefinito delle statistiche è
   // «ultimi 12 mesi», e un'immersione più vecchia verrebbe filtrata via prima
   // di arrivare alla carta — che quindi resterebbe invisibile lo stesso.
-  toShearwaterXml(dives[35], { diveNumber: 36, gf: { low: 45, high: 95 } }),
+  toShearwaterXml(dives[35]!, { diveNumber: 36, gf: { low: 45, high: 95 } }),
 );
-writeFileSync(join(OUT, 'garmin-descent.fit'), toFit(dives[dives.length - 2]));
+writeFileSync(join(OUT, 'garmin-descent.fit'), toFit(dives[dives.length - 2]!));
 writeFileSync(join(OUT, 'vecchio-logbook.csv'), toCsv(dives.slice(0, 18)));
 
 console.log(`Scritti 6 file in ${OUT}:`);

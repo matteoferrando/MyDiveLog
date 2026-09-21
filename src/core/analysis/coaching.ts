@@ -1925,7 +1925,7 @@ function readinessFor(goal: Goal, agg: Aggregates, storico: Storico, t: Traduci)
           "Tutti i criteri di riferimento sono soddisfatti. Il passo successivo è una verifica in acqua con l'istruttore, non un altro numero.",
         )
       : missing.length === 1
-        ? frase(t, 'Manca un criterio: {0}.', missing[0].label.toLowerCase())
+        ? frase(t, 'Manca un criterio: {0}.', missing[0]!.label.toLowerCase())
         : frase(
             t,
             'Mancano {0} criteri su {1}. I più vicini: {2}.',
@@ -1986,7 +1986,7 @@ export function buildPlan(
   storico?: Storico,
   t: Traduci = comeSta,
 ): Plan {
-  const goal = GOALS.find((g) => g.id === goalId) ?? GOALS[2];
+  const goal = GOALS.find((g) => g.id === goalId) ?? GOALS[2]!;
   /*
    * ════════════════════════════════════════════════════════════════════════
    * ► UNA REGOLA CHE ESPLODE DEVE FARE RUMORE, NON SPARIRE. ◄

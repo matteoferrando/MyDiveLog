@@ -189,8 +189,8 @@ describe('zavorra e piastra', () => {
       base({ suit: 'stagna', weightKg: 2, gear: { backplateKg: 3 } }),
       base({ suit: 'stagna', weightKg: 2, gear: { backplateKg: 3 } }),
     ]);
-    expect(righe[0].medianKg).toBe(5);
-    expect(righe[0].withBackplate).toBe(2);
+    expect(righe[0]!.medianKg).toBe(5);
+    expect(righe[0]!.withBackplate).toBe(2);
   });
 });
 
@@ -340,8 +340,8 @@ describe('statistiche sulle condizioni', () => {
     ];
     const g = perVisibilita(dives);
     expect(g).toHaveLength(2);
-    expect(g[0].etichetta).toContain('da 3 a 5');
-    expect(g[1].etichetta).toContain('da 25 a 40');
+    expect(g[0]!.etichetta).toContain('da 3 a 5');
+    expect(g[1]!.etichetta).toContain('da 25 a 40');
   });
 
   it('i denominatori contano le immersioni col dato, non quelle in tabella', () => {
@@ -412,7 +412,7 @@ describe('i campi nuovi sopravvivono alla fusione e alla stampa', () => {
     expect(dive.guide).toBe('Marco');
     expect(dive.conditions).toEqual({ weather: 'rainy', waves: 'rough' });
     expect(dive.gear?.backplateKg).toBe(3);
-    expect(dive.gear?.regulators?.[0].name).toBe('Apeks XTX50');
+    expect(dive.gear?.regulators?.[0]!.name).toBe('Apeks XTX50');
     // La fascia resta una fascia: senza `visibilityMaxM` «da 5 a 10 m» sarebbe
     // diventata «5 m», cioè una stima trasformata in misura.
     expect(dive.visibilityMaxM).toBe(10);

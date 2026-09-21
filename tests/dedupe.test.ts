@@ -100,7 +100,7 @@ describe('id stabile', () => {
     const synth = synthesise();
     const first = await parseFile({ fileName: 'a.uddf', text: toUddf(synth) });
     const second = await parseFile({ fileName: 'a.uddf', text: toUddf(synth) });
-    expect(first.dives[0].id).toBe(second.dives[0].id);
+    expect(first.dives[0]!.id).toBe(second.dives[0]!.id);
   });
 });
 
@@ -133,10 +133,10 @@ describe('merge degli import', () => {
   it('non sovrascrive le note scritte a mano con un reimport', async () => {
     const synth = synthesise();
     const { dives } = await parseFile({ fileName: 'a.xml', text: toShearwaterXml(synth) });
-    const stored = { ...dives[0], notes: 'Annotazione mia', buddy: 'Marco' };
+    const stored = { ...dives[0]!, notes: 'Annotazione mia', buddy: 'Marco' };
     const report = mergeImports([stored], dives);
-    expect(report.dives[0].notes).toBe('Annotazione mia');
-    expect(report.dives[0].buddy).toBe('Marco');
+    expect(report.dives[0]!.notes).toBe('Annotazione mia');
+    expect(report.dives[0]!.buddy).toBe('Marco');
   });
 
   it('preferisce il profilo più fitto', async () => {
@@ -147,7 +147,7 @@ describe('merge degli import', () => {
 
     const report = mergeImports(a.dives, b.dives);
     expect(report.dives).toHaveLength(1);
-    expect(report.dives[0].samples!.length).toBe(b.dives[0].samples!.length);
+    expect(report.dives[0]!.samples!.length).toBe(b.dives[0]!.samples!.length);
   });
 
   it('mantiene distinte due immersioni della stessa giornata', async () => {
@@ -200,7 +200,7 @@ describe('scelta del profilo fra due computer', () => {
       source: { format: 'shearwater-cloud', file: 'b.db', importedAt: 'x' },
     });
     expect(merged.samples).toHaveLength(240);
-    expect(merged.samples?.[0].ttsS).toBe(120);
+    expect(merged.samples?.[0]!.ttsS).toBe(120);
   });
 
   it('e non lo perde quando le fonti arrivano nell’ordine opposto', () => {
@@ -607,10 +607,10 @@ describe('nessun campo si perde nella fusione', () => {
     // Perdendo la seconda si perde proprio l'informazione che conta: che i due
     // numeri non coincidono, e che la MOD mostrata finora era più profonda.
     const fusa = mergeDive(scarna, piena, '2026-08-25T00:00:00.000Z');
-    expect(fusa.cylinders[0].analisi?.o2).toBe(0.305);
-    expect(fusa.cylinders[0].analisi?.chi).toBe('Diving del Golfo');
+    expect(fusa.cylinders[0]!.analisi?.o2).toBe(0.305);
+    expect(fusa.cylinders[0]!.analisi?.chi).toBe('Diving del Golfo');
     // …e non ha sovrascritto la dichiarazione.
-    expect(fusa.cylinders[0].mix.o2).toBe(0.32);
+    expect(fusa.cylinders[0]!.mix.o2).toBe(0.32);
   });
 
   it('non sovrascrive un’analisi già presente con quella dell’altra scheda', () => {
@@ -619,6 +619,6 @@ describe('nessun campo si perde nella fusione', () => {
       cylinders: [{ mix: { o2: 0.32, he: 0 }, analisi: { o2: 0.318, chi: 'io' } }],
     };
     const fusa = mergeDive(mia, piena, '2026-08-25T00:00:00.000Z');
-    expect(fusa.cylinders[0].analisi?.chi).toBe('io');
+    expect(fusa.cylinders[0]!.analisi?.chi).toBe('io');
   });
 });

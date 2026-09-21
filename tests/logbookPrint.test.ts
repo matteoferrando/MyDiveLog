@@ -46,7 +46,7 @@ function immersione(over: Partial<Dive> = {}): Dive {
     id: 'abc123',
     number: 42,
     startTime: '2026-06-14T10:38:00.000Z',
-    durationS: samples.length ? samples[samples.length - 1].t : 2400,
+    durationS: samples.length ? samples[samples.length - 1]!.t : 2400,
     maxDepth: samples.length ? Math.max(...samples.map((s) => s.depth)) : 28,
     minTempC: 14.5,
     airTempC: 27,
@@ -265,12 +265,12 @@ describe('stampa del logbook — il profilo', () => {
   it('il profilo ha l’asse invertito e un punto per campione', () => {
     const samples = profilo(24, 12);
     const svg = diveProfileSvg(samples, { width: 400, height: 200 });
-    const punti = /points="([^"]+)"/.exec(svg)?.[1].trim().split(/\s+/) ?? [];
+    const punti = /points="([^"]+)"/.exec(svg)?.[1]!.trim().split(/\s+/) ?? [];
     expect(punti).toHaveLength(12);
 
     // Y cresce verso il basso: il campione più profondo ha la Y più grande.
     const y = punti.map((p) => Number(p.split(',')[1]));
-    const iPiuProfondo = samples.reduce((a, s, i) => (s.depth > samples[a].depth ? i : a), 0);
+    const iPiuProfondo = samples.reduce((a, s, i) => (s.depth > samples[a]!.depth ? i : a), 0);
     expect(y[iPiuProfondo]).toBe(Math.max(...y));
     expect(y[0]).toBe(Math.min(...y)); // il primo campione è in superficie
     // La profondità massima è etichettata sul disegno.
@@ -283,7 +283,7 @@ describe('stampa del logbook — il profilo', () => {
     const picco = (svg: string) =>
       Math.max(
         .../points="([^"]+)"/
-          .exec(svg)![1]
+          .exec(svg)![1]!
           .trim()
           .split(/\s+/)
           .map((p) => Number(p.split(',')[1])),

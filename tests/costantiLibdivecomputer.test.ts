@@ -66,7 +66,7 @@ beforeAll(() => {
 function valoriEnum(nome: string): string[] {
   const m = intestazione.match(new RegExp(`typedef enum ${nome}\\s*\\{([^}]*)\\}`));
   if (!m) throw new Error(`enum ${nome} non trovato in parser.h`);
-  return m[1]
+  return m[1]!
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/[^\n]*/g, '')
     .split(',')
@@ -231,7 +231,7 @@ describe('le costanti del ponte combaciano con parser.h', () => {
      */
     const m = intestazione.match(/typedef struct dc_tank_t \{([\s\S]*?)\} dc_tank_t;/);
     expect(m).not.toBeNull();
-    const nomi = [...m![1].matchAll(/^\s*[\w ]+\s+(\w+);/gm)].map((x) => x[1]);
+    const nomi = [...m![1]!.matchAll(/^\s*[\w ]+\s+(\w+);/gm)].map((x) => x[1]);
     expect(nomi).toEqual([
       'gasmix',
       'type',

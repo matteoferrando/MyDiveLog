@@ -122,16 +122,21 @@ async function main() {
      * è l'unica in cui esistono azoto residuo e GF99 senza residuo.
      */
     const conProfilo = dives.filter((d) => (d.samples?.length ?? 0) > 0);
-    const ricca = conProfilo.reduce(
+    /*
+     * Su un archivio vuoto le due restano `undefined`, e il ciclo qui sotto lo dice. Dentro le
+     * funzioni `a` c'è sempre: la chiamata avviene solo su un elenco non vuoto, e allora il
+     * valore di partenza è il suo primo elemento.
+     */
+    const ricca = conProfilo.reduce<Dive | undefined>(
       (a, b) =>
-        Object.values(b).filter((v) => v != null).length > Object.values(a).filter((v) => v != null).length
+        Object.values(b).filter((v) => v != null).length > Object.values(a!).filter((v) => v != null).length
           ? b
           : a,
       conProfilo[0] ?? dives[0],
     );
-    const povera = dives.reduce(
+    const povera = dives.reduce<Dive | undefined>(
       (a, b) =>
-        Object.values(b).filter((v) => v != null).length < Object.values(a).filter((v) => v != null).length
+        Object.values(b).filter((v) => v != null).length < Object.values(a!).filter((v) => v != null).length
           ? b
           : a,
       dives[0],

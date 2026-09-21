@@ -795,11 +795,11 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
               ? t('l’analisi non coincide con l’etichetta')
               : dive.cylinders.length === 0
                 ? t('nessuna bombola registrata')
-                : `${mixName(dive.cylinders[0].mix)}${
+                : `${mixName(dive.cylinders[0]!.mix)}${
                     dive.cylinders.length > 1 ? ` +${dive.cylinders.length - 1}` : ''
                   } · ${
-                    dive.cylinders[0].startBar !== undefined && dive.cylinders[0].endBar !== undefined
-                      ? frase(t, '{0} bar usati', dive.cylinders[0].startBar - dive.cylinders[0].endBar)
+                    dive.cylinders[0]!.startBar !== undefined && dive.cylinders[0]!.endBar !== undefined
+                      ? frase(t, '{0} bar usati', dive.cylinders[0]!.startBar - dive.cylinders[0]!.endBar)
                       : t('pressioni non registrate')
                   }`
           }
@@ -1203,7 +1203,7 @@ const COMPUTER_MODE: Record<string, string> = {
 /** Passo medio fra i campioni mostrati, arrotondato. */
 function stepOf(samples: { t: number }[]): number | string {
   if (samples.length < 2) return '—';
-  return Math.round((samples[samples.length - 1].t - samples[0].t) / (samples.length - 1));
+  return Math.round((samples[samples.length - 1]!.t - samples[0]!.t) / (samples.length - 1));
 }
 
 function Row({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -1274,12 +1274,12 @@ function DecoTimelineCard({
   const cursor = { t: cursorT, onChange: setCursorT };
 
   // Il valore del computer all'istante più vicino: i due campionamenti non
-  // coincidono, e interpolare darebbe una precisione che non c'è.
+  // coincidono, e interpolare darebbe una precisione che non c'è. Senza campioni
+  // un valore non c'è, e chi chiama legge `undefined`.
   const nearest = (t: number) =>
-    (dive.samples ?? []).reduce(
-      (a, b) => (Math.abs(b.t - t) < Math.abs(a.t - t) ? b : a),
-      (dive.samples ?? [])[0],
-    );
+    dive.samples?.length
+      ? dive.samples.reduce((a, b) => (Math.abs(b.t - t) < Math.abs(a.t - t) ? b : a))
+      : undefined;
   const hasComputer = (pick: (s: Sample) => number | undefined) =>
     (dive.samples ?? []).some((s) => pick(s) !== undefined);
 

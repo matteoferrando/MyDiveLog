@@ -62,8 +62,8 @@ describe('saturazione dei tessuti', () => {
     // Il primo compartimento (4 minuti) è oltre metà strada verso la saturazione,
     // il sedicesimo (635 minuti) si è appena mosso.
     const target = (amb - 0.0627) * 0.79;
-    const fast = (after10.n2[0] - 0.751) / (target - 0.751);
-    const slow = (after10.n2[15] - 0.751) / (target - 0.751);
+    const fast = (after10.n2[0]! - 0.751) / (target - 0.751);
+    const slow = (after10.n2[15]! - 0.751) / (target - 0.751);
     expect(fast).toBeGreaterThan(0.8);
     expect(slow).toBeLessThan(0.05);
   });
@@ -76,7 +76,7 @@ describe('saturazione dei tessuti', () => {
     // dell'azoto, perché l'emitempo è tre volte più corto.
     const targetHe = (amb - 0.0627) * 0.35;
     const targetN2 = (amb - 0.0627) * 0.44;
-    expect(loaded.he[4] / targetHe).toBeGreaterThan((loaded.n2[4] - 0.751) / (targetN2 - 0.751));
+    expect(loaded.he[4]! / targetHe).toBeGreaterThan((loaded.n2[4]! - 0.751) / (targetN2 - 0.751));
   });
 });
 
@@ -106,7 +106,7 @@ describe('limiti di non decompressione del modello nudo', () => {
 
   it('più profondo significa sempre meno tempo', () => {
     const limits = [15, 18, 21, 24, 27, 30, 35, 40].map((d) => noDecoLimitMin(d, AIR, { gfHigh: 1 }));
-    for (let i = 1; i < limits.length; i++) expect(limits[i]).toBeLessThan(limits[i - 1]);
+    for (let i = 1; i < limits.length; i++) expect(limits[i]).toBeLessThan(limits[i - 1]!);
   });
 
   it('il nitrox allunga il limite, e di quanto lo dice l’EAD', () => {
@@ -169,7 +169,7 @@ describe('coefficienti ZH-L16C', () => {
         n2: Array.from({ length: 16 }, (_, k) => (k === i ? loaded : 0)),
         he: new Array(16).fill(0),
       };
-      const atteso = ((loaded - amb) / (amb / B[i] + A[i] - amb)) * 100;
+      const atteso = ((loaded - amb) / (amb / B[i]! + A[i]! - amb)) * 100;
       const { percent, leading } = gf99(state, amb);
       expect(leading).toBe(i);
       expect(percent).toBeCloseTo(atteso, 1);
@@ -186,7 +186,7 @@ describe('coefficienti ZH-L16C', () => {
       n2: Array.from({ length: 16 }, (_, k) => (k === 4 ? 2.5 : 0)),
       he: new Array(16).fill(0),
     };
-    const conB = ((2.5 - amb) / (amb / B[4] + B_VARIANT_A5 - amb)) * 100;
+    const conB = ((2.5 - amb) / (amb / B[4]! + B_VARIANT_A5 - amb)) * 100;
     expect(gf99(state, amb).percent).toBeGreaterThan(conB + 1);
   });
 });

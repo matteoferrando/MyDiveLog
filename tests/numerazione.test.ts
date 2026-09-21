@@ -126,7 +126,7 @@ describe('il numero è la posizione nel logbook', () => {
     // un istruttore cita un'immersione che nel tuo archivio non esiste.
     const dive = imm('a', '2024-01-01T08:00:00.000Z', { number: 977 } as Partial<Dive>);
     const numeri = numeriProgressivi([dive]);
-    expect(conNumeri([dive], numeri)[0].number).toBe(1);
+    expect(conNumeri([dive], numeri)[0]!.number).toBe(1);
     // L'originale non viene toccato: la numerazione è una vista, non un dato.
     expect(dive.number).toBe(977);
   });

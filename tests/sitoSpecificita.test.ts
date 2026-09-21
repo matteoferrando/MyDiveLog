@@ -130,11 +130,11 @@ function regole(css: string): Regola[] {
   let m: RegExpExecArray | null;
   let ordine = 0;
   while ((m = rx.exec(css)) !== null) {
-    const testa = m[1].trim();
+    const testa = m[1]!.trim();
     if (!testa || testa.startsWith('@')) continue;
     for (const ramo of testa.split(',')) {
       const selettore = ramo.trim();
-      if (selettore) fuori.push({ selettore, corpo: m[2], ordine });
+      if (selettore) fuori.push({ selettore, corpo: m[2]!, ordine });
     }
     ordine += 1;
   }
@@ -227,7 +227,10 @@ function albero(html: string, dove: string): Elemento[] {
   const fuori: Elemento[] = [];
   const pila: Nodo[] = [];
   for (const m of pulito.matchAll(/<(\/?)([a-zA-Z][\w-]*)((?:"[^"]*"|[^">])*)(\/?)>/g)) {
-    const [, chiusura, nomeGrezzo, attributi, autochiusa] = m;
+    const chiusura = m[1];
+    const nomeGrezzo = m[2]!;
+    const attributi = m[3]!;
+    const autochiusa = m[4];
     const tag = nomeGrezzo.toLowerCase();
     if (chiusura) {
       const i = pila.map((n) => n.tag).lastIndexOf(tag);
@@ -270,7 +273,7 @@ function colpisce(selettore: string, e: Elemento): boolean {
     .filter(Boolean);
   const compounds = pezzi.filter((x) => x !== '>');
   if (compounds.some((c) => c.includes('+') || c.includes('~'))) return false;
-  if (!compoundColpisce(compounds[compounds.length - 1], e)) return false;
+  if (!compoundColpisce(compounds[compounds.length - 1]!, e)) return false;
 
   // I combinatori, nell'ordine in cui separano i compound.
   const sequenza: ('>' | ' ')[] = [];
@@ -284,13 +287,13 @@ function colpisce(selettore: string, e: Elemento): boolean {
     const combinatore = sequenza[i];
     if (combinatore === '>') {
       const padre = risalita[risalita.length - 1];
-      if (!padre || !compoundColpisce(compounds[i], padre)) return false;
+      if (!padre || !compoundColpisce(compounds[i]!, padre)) return false;
       risalita = risalita.slice(0, -1);
     } else {
       const trovato = risalita
         .map((n, k) => [n, k] as const)
         .reverse()
-        .find(([n]) => compoundColpisce(compounds[i], n));
+        .find(([n]) => compoundColpisce(compounds[i]!, n));
       if (!trovato) return false;
       risalita = risalita.slice(0, trovato[1]);
     }
@@ -443,7 +446,7 @@ describe('la specificità sul foglio del sito', () => {
     // una sola regola per tutte e tre, e questa prova difende che resti una.
     const minori = regole(soloBase(CSS)).filter((r) => r.selettore === '.scheda-piattaforma.minore');
     expect(minori.length, 'la regola delle schede minori non è una sola').toBe(1);
-    expect(minori[0].corpo).toMatch(/flex:\s*1 1 \d+px/);
+    expect(minori[0]!.corpo).toMatch(/flex:\s*1 1 \d+px/);
   });
 });
 
@@ -540,7 +543,7 @@ describe('la vetrina dell’apertura', () => {
     // due metri più su in questo stesso file.*
     const riposo = regole(soloBase(CSS)).filter((r) => r.selettore === '.scena-poi');
     expect(riposo.length, '`.scena-poi` non ha più una regola fuori dalle media query').toBe(1);
-    expect(riposo[0].corpo, '`.scena-poi` ritaglia a riposo: il livello resta separato').not.toMatch(
+    expect(riposo[0]!.corpo, '`.scena-poi` ritaglia a riposo: il livello resta separato').not.toMatch(
       /clip-path:\s*inset/,
     );
   });
@@ -663,7 +666,7 @@ describe('la vetrina dell’apertura', () => {
       const html = readFileSync(join(SITO, pagina), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
       const vetrina = /<div class="vetrina-apertura">([\s\S]*?)<div class="scena-file"/.exec(html);
       const quadri = vetrina
-        ? [...vetrina[1].matchAll(/<picture[^>]*>([\s\S]*?)<\/picture>/g)].map((m) => m[1])
+        ? [...vetrina[1]!.matchAll(/<picture[^>]*>([\s\S]*?)<\/picture>/g)].map((m) => m[1]!)
         : [];
 
       it('ha due schermate: quella da cui si parte e quella a cui si arriva', () => {
@@ -676,7 +679,7 @@ describe('la vetrina dell’apertura', () => {
         // ne resta una: la prima è un fotogramma, la seconda è il risultato.
         const alt = quadri.map((q) => /alt="([^"]*)"/.exec(q)![1]);
         expect(alt[0], 'la prima schermata ha un alt: ne verrebbero letti due').toBe('');
-        expect(alt[1].length, 'la seconda schermata non ha un alt che descriva').toBeGreaterThan(40);
+        expect(alt[1]!.length, 'la seconda schermata non ha un alt che descriva').toBeGreaterThan(40);
       });
 
       it('su una colonna sola non si scaricano nemmeno', () => {
@@ -692,7 +695,7 @@ describe('la vetrina dell’apertura', () => {
         // niente di visibile**: la pagina apparirebbe identica a chiunque la
         // guardi, e il telefono ricomincerebbe a pagarla.
         for (const q of quadri) {
-          const src = /<img[\s\S]*?src="([^"]+)"/.exec(q)![1];
+          const src = /<img[\s\S]*?src="([^"]+)"/.exec(q)![1]!;
           expect(src.startsWith('data:image/'), `un src della scena è \`${src}\``).toBe(true);
           expect(src.length).toBeLessThan(200);
           expect(q).toMatch(/media="\(min-width: 1001px\)"/);
@@ -708,7 +711,7 @@ describe('la vetrina dell’apertura', () => {
           (r) => r.selettore === '.vetrina-apertura' && /display:\s*none/.test(r.corpo),
         );
         expect(nascosta, 'sotto i 1000 px la vetrina non è nascosta').toBeDefined();
-        const soglie = [...vetrina![1].matchAll(/media="\(min-width: (\d+)px\)"/g)].map((m) => Number(m[1]));
+        const soglie = [...vetrina![1]!.matchAll(/media="\(min-width: (\d+)px\)"/g)].map((m) => Number(m[1]));
         expect(soglie.length).toBe(2);
         expect(new Set(soglie).size, 'le due `source` hanno soglie diverse').toBe(1);
         expect(soglie[0]).toBe(1001);
@@ -722,14 +725,16 @@ describe('la vetrina dell’apertura', () => {
           /width="(\d+)"\s+height="(\d+)"/.exec(q.replace(/\s+/g, ' '))!.slice(1, 3).join('×'),
         );
         expect(misure[0], `misure diverse: ${misure.join(' e ')}`).toBe(misure[1]);
-        const [l, h] = misure[0].split('×').map(Number);
+        const lati = misure[0]!.split('×').map(Number);
+        const l = lati[0]!;
+        const h = lati[1];
         // Alta e non larga: una 16:10 in una colonna alta lascia mezza colonna
         // vuota, e non c'è CSS che chiuda quel vuoto.
         expect(h, `la scena è ${l}×${h}, non è alta`).toBeGreaterThan(l);
       });
 
       it('sono nella lingua della pagina, e sono le due giuste', () => {
-        const srcset = [...vetrina![1].matchAll(/srcset="([^"]+)"/g)].map((m) => m[1]);
+        const srcset = [...vetrina![1]!.matchAll(/srcset="([^"]+)"/g)].map((m) => m[1]);
         expect(srcset.length).toBe(2);
         for (const x of srcset) expect(x).toContain(pagina.startsWith('en/') ? '-en.jpg' : '-it.jpg');
         expect(srcset[0], 'la prima non è la schermata di importazione').toContain('vetrina-importa-');
@@ -742,7 +747,7 @@ describe('la vetrina dell’apertura', () => {
         expect(striscia![1], 'le etichette non sono aria-hidden: verrebbero lette').toContain(
           'aria-hidden="true"',
         );
-        const nomi = [...striscia![1].matchAll(/<span>([^<]+)<\/span>/g)].map((m) => m[1]);
+        const nomi = [...striscia![1]!.matchAll(/<span>([^<]+)<\/span>/g)].map((m) => m[1]!);
         expect(nomi.length).toBe(5);
         // Ogni formato che vola deve essere un formato che il programma legge
         // davvero, e la scheda «Importa da quello che hai già» è dove sta scritto.
@@ -756,7 +761,7 @@ describe('la vetrina dell’apertura', () => {
         // guardia debole: è una riga che non guarda niente.*
         const restoDellaPagina = html.replace(striscia![0], '');
         for (const n of nomi) {
-          const radice = n.split(' ')[0];
+          const radice = n.split(' ')[0]!;
           expect(
             restoDellaPagina.includes(radice),
             `\`${n}\` vola in apertura ma non è scritto da nessun’altra parte della pagina`,
@@ -849,7 +854,7 @@ describe('le schede delle piattaforme', () => {
 
       it('i gruppi sono due, e il secondo ha tutte e tre le piattaforme', () => {
         expect(gruppi.length, 'i gruppi di schede non sono due').toBe(2);
-        const ultimo = gruppi[1];
+        const ultimo = gruppi[1]!;
         for (const nome of ['Windows', 'Android', 'Linux']) {
           expect(ultimo, `${nome} non è nel secondo gruppo`).toContain(`>${nome}<`);
         }
@@ -860,7 +865,9 @@ describe('le schede delle piattaforme', () => {
         // Una scheda con una classe in più è una scheda con una forma in più, e
         // tre risposte alla stessa domanda devono avere la stessa forma. `larga`
         // era la forma della scheda che stava da sola: non deve tornare.
-        const classi = [...gruppi[1].matchAll(/class="(scheda-piattaforma[^"]*)"/g)].map((m) => m[1].trim());
+        const classi = [...gruppi[1]!.matchAll(/class="(scheda-piattaforma[^"]*)"/g)].map((m) =>
+          m[1]!.trim(),
+        );
         expect(classi.length).toBe(3);
         expect(new Set(classi).size, `classi diverse fra le tre schede: ${classi.join(' | ')}`).toBe(1);
         expect(classi[0]).not.toContain('larga');
@@ -881,14 +888,14 @@ describe('le schede delle piattaforme', () => {
         // Una tabella in cui le colonne non hanno le stesse righe non si legge
         // in orizzontale, e leggerla in orizzontale è tutto il motivo per cui è
         // una tabella.
-        const sezione = /<section id="altre-piattaforme">([\s\S]*?)<\/section>/.exec(html)![1];
+        const sezione = /<section id="altre-piattaforme">([\s\S]*?)<\/section>/.exec(html)![1]!;
         const colonne = [...sezione.matchAll(/<dl class="dati-piattaforma">([\s\S]*?)<\/dl>/g)].map((m) =>
-          [...m[1].matchAll(/<dt>([^<]+)<\/dt>/g)].map((d) => d[1].trim()),
+          [...m[1]!.matchAll(/<dt>([^<]+)<\/dt>/g)].map((d) => d[1]!.trim()),
         );
         expect(colonne.length, 'le colonne delle piattaforme non sono tre').toBe(3);
         expect(colonne[1]).toEqual(colonne[0]);
         expect(colonne[2]).toEqual(colonne[0]);
-        expect(colonne[0].length).toBeGreaterThanOrEqual(3);
+        expect(colonne[0]!.length).toBeGreaterThanOrEqual(3);
       });
 
       it('ogni riquadro tiene il suo titolo vero, anche con l’icona', () => {

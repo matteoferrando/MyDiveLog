@@ -86,4 +86,25 @@ describe('il controllo dei tipi non lascia fuori nessuno', () => {
       'sorgenti TypeScript che nessun tsc guarda: aggiungi la loro cartella a "include" nel tsconfig',
     ).toEqual([]);
   });
+
+  it('e gli accessi per indice si controllano: `noUncheckedIndexedAccess` resta acceso', () => {
+    /*
+     * ► ACCESO IL 21 SETTEMBRE 2026, dopo tre settimane di «va deciso». ◄ Senza,
+     * `a[i]` ha il tipo dell'elemento anche quando l'elemento non c'è, e
+     * `undefined` prosegue: in aritmetica diventa NaN, in un'operazione bit a
+     * bit zero, e nessuno lo vede. Accendendolo sono saltati fuori 1 680
+     * punti; quasi tutti erano dentro un controllo di lunghezza e oggi lo
+     * dicono con un `!`, ma sei no — fra cui un varint di SQLite letto oltre la
+     * fine del file e un piano di decompressione che cadeva su un indice di gas
+     * inesistente.
+     *
+     * Spegnerlo di nuovo è una riga, e nessuna prova diventerebbe rossa: il
+     * codice di oggi compila anche senza. Diventerebbe invisibile il codice di
+     * domani. Per questo la riga è difesa qui.
+     */
+    const conf = JSON.parse(readFileSync('tsconfig.json', 'utf8')) as {
+      compilerOptions?: { noUncheckedIndexedAccess?: boolean };
+    };
+    expect(conf.compilerOptions?.noUncheckedIndexedAccess).toBe(true);
+  });
 });

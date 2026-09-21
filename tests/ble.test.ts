@@ -189,8 +189,8 @@ describe('riconoscere un computer dall’annuncio', () => {
       [driver],
     );
     expect(out.map((r) => r.device.id)).toEqual(['b', 'a']);
-    expect(out[0].driver).toBe(driver);
-    expect(out[1].driver).toBeUndefined();
+    expect(out[0]!.driver).toBe(driver);
+    expect(out[1]!.driver).toBeUndefined();
   });
 
   it('un driver che esplode nel riconoscimento non fa sparire gli altri', () => {
@@ -201,7 +201,7 @@ describe('riconoscere un computer dall’annuncio', () => {
       },
     } as unknown as DiveComputerDriver;
     const buono = { id: 'buono', matches: nameStartsWith('peregrine') } as unknown as DiveComputerDriver;
-    expect(recognise([dev('Peregrine')], [rotto, buono])[0].driver).toBe(buono);
+    expect(recognise([dev('Peregrine')], [rotto, buono])[0]!.driver).toBe(buono);
   });
 });
 
@@ -227,7 +227,7 @@ function driverFinto(over: Partial<DiveComputerDriver> = {}): DiveComputerDriver
       emit({ kind: 'identified', model: 'Finto 1', serial: 'SN-1' });
       await link.write(bytes(0x10));
       const testa = await link.read(2, 300);
-      const totale = testa[1];
+      const totale = testa[1]!;
       emit({ kind: 'counted', total: totale });
       const out: DownloadedRecord[] = [];
       for (let i = 0; i < totale; i++) {
@@ -265,7 +265,7 @@ function driverFinto(over: Partial<DiveComputerDriver> = {}): DiveComputerDriver
 /** Tre immersioni: `0x10` dice quante ce ne sono, `0x20 n` dà la n-esima. */
 const rispondiTre: FakeResponder = (cmd) => {
   if (cmd[0] === 0x10) return bytes(0x10, 3);
-  if (cmd[0] === 0x20) return bytes(20 + cmd[1], 0, 0, 0);
+  if (cmd[0] === 0x20) return bytes(20 + cmd[1]!, 0, 0, 0);
   return undefined;
 };
 

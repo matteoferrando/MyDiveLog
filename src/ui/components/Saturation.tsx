@@ -65,6 +65,8 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
         : undefined,
     [dive, samples, entry.state, low, high],
   );
+  // Vuoto, oppure una riga per coppia di `PRESETS` nello stesso ordine (`whatIfGf`
+  // le mappa una a una): la tabella più sotto ne rilegge l'etichetta per posizione.
   const presets = useMemo(
     () =>
       samples.length > 2
@@ -318,7 +320,7 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
                     <b className="tabular">
                       {r.gfLow}/{r.gfHigh}
                     </b>{' '}
-                    <span className="muted">{t(PRESETS[i].label)}</span>
+                    <span className="muted">{t(PRESETS[i]!.label)}</span>
                   </td>
                   <td className="num tabular">{r.maxCeilingM > 0 ? `${r.maxCeilingM.toFixed(0)} m` : '—'}</td>
                   <td className="num tabular">{r.decoMinutes > 0 ? r.decoMinutes : '—'}</td>

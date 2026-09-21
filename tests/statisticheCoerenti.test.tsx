@@ -533,7 +533,7 @@ describe('attività mese per mese', () => {
   it('senza fuso dichiarato l’ultima colonna resta il mese di adesso', () => {
     const dives = [immersione({ id: 'd', startTime: '2026-08-31T22:30:00Z' })];
     const a = aggregate(dives, ADESSO);
-    expect(a.byMonth[23].key).toBe('2026-08');
+    expect(a.byMonth[23]!.key).toBe('2026-08');
     expect(a.byMonth.find((b) => b.key === '2026-08')?.value).toBe(1);
   });
 
@@ -544,7 +544,7 @@ describe('attività mese per mese', () => {
     ];
     const a = aggregate(dives, ADESSO);
     // Al massimo un mese oltre quello di adesso: un fuso sposta ore, non anni.
-    expect(a.byMonth[23].key).toBe('2026-09');
+    expect(a.byMonth[23]!.key).toBe('2026-09');
     expect(a.byMonth.find((b) => b.key === '2026-08')?.value).toBe(1);
   });
 });
@@ -573,11 +573,11 @@ describe('confronto fra due immersioni', () => {
     const celle = [...riga.querySelectorAll('td')].map((c) => c.textContent ?? '');
     const n = (s: string) => Number((s.match(/-?\d+(?:\.\d+)?/) ?? ['NaN'])[0]);
 
-    expect(n(celle[1])).toBe(45);
-    expect(n(celle[2])).toBe(45.1);
-    expect(n(celle[3])).toBe(0.1);
+    expect(n(celle[1]!)).toBe(45);
+    expect(n(celle[2]!)).toBe(45.1);
+    expect(n(celle[3]!)).toBe(0.1);
     // L'invariante, non il caso: la terza colonna è la sottrazione delle altre due.
-    expect(n(celle[3])).toBe(Math.round((n(celle[2]) - n(celle[1])) * 10) / 10);
+    expect(n(celle[3]!)).toBe(Math.round((n(celle[2]!) - n(celle[1]!)) * 10) / 10);
     vista.smonta();
   });
 });

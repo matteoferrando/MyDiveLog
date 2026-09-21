@@ -104,7 +104,7 @@ function cellaDifferenza(host: HTMLElement, etichetta: string): Element {
   if (!riga) throw new Error(`nessuna riga «${etichetta}»`);
   const celle = [...riga.querySelectorAll('td')];
   if (celle.length !== 4) throw new Error(`la riga «${etichetta}» non ha quattro celle`);
-  return celle[3];
+  return celle[3]!;
 }
 
 /** Il numero della differenza, per quello che è: un numero col suo segno. */

@@ -68,7 +68,7 @@ describe('aggregate', () => {
     expect(a.count).toBe(12);
     expect(a.withProfile).toBe(12);
     expect(a.daysSinceLastDive).toBe(5);
-    expect(a.topSites[0].dives).toBe(12);
+    expect(a.topSites[0]!.dives).toBe(12);
     expect(a.byMonth).toHaveLength(24);
     expect(a.rmv.length).toBe(12);
     expect(a.avgRmv).toBeGreaterThan(10);
@@ -124,7 +124,7 @@ describe('piano di miglioramento', () => {
   it('mette la violazione del tetto deco al primo posto', () => {
     // Profilo che sale sopra il tetto: violazione deliberata.
     const dives = archive(10);
-    dives[0].samples = [
+    dives[0]!.samples = [
       { t: 0, depth: 0 },
       { t: 60, depth: 40 },
       { t: 1500, depth: 40, ceiling: 12, inDeco: true },
@@ -132,10 +132,10 @@ describe('piano di miglioramento', () => {
       { t: 1900, depth: 4, ceiling: 9, inDeco: true },
       { t: 2100, depth: 0 },
     ];
-    dives[0].metrics = computeMetrics(dives[0]);
+    dives[0]!.metrics = computeMetrics(dives[0]!);
     const plan = buildPlan(dives, aggregate(dives, NOW), 'tec');
-    expect(plan.focus[0].id).toBe('ceiling-violation');
-    expect(plan.focus[0].severity).toBe('critical');
+    expect(plan.focus[0]!.id).toBe('ceiling-violation');
+    expect(plan.focus[0]!.severity).toBe('critical');
   });
 
   it('segnala una pausa lunga', () => {
@@ -229,7 +229,7 @@ describe("preparazione all'obiettivo", () => {
 describe('debrief di una singola immersione', () => {
   it('ordina le osservazioni per gravità', () => {
     const dives = archive(1, { ascentRateMpm: 25, safetyStopS: 0, rmvLpm: 30 });
-    const obs = debriefDive(dives[0]);
+    const obs = debriefDive(dives[0]!);
     expect(obs.length).toBeGreaterThan(1);
     const order = ['critical', 'serious', 'warning', 'good'];
     const indices = obs.map((o) => order.indexOf(o.severity));
@@ -238,12 +238,12 @@ describe('debrief di una singola immersione', () => {
 
   it("riconosce un'immersione ben eseguita", () => {
     const dives = archive(1, { ascentRateMpm: 8, safetyStopS: 300, rmvLpm: 15, wobbleM: 0.2 });
-    const obs = debriefDive(dives[0]);
+    const obs = debriefDive(dives[0]!);
     expect(obs.every((o) => o.severity === 'good')).toBe(true);
   });
 
   it('non produce nulla senza metriche', () => {
-    const dive = { ...archive(1)[0] };
+    const dive = { ...archive(1)[0]! };
     delete dive.metrics;
     expect(debriefDive(dive)).toHaveLength(0);
   });
@@ -299,7 +299,7 @@ describe('analisi aggiuntive sull’archivio', () => {
   it('l’istogramma tiene aperto l’ultimo intervallo', () => {
     const bins = histogram([1, 4, 7, 25, 40], [0, 3, 6, 9]);
     expect(bins.map((b) => b.count)).toEqual([1, 1, 1, 2]);
-    expect(bins[bins.length - 1].label).toMatch(/^oltre 9/);
+    expect(bins[bins.length - 1]!.label).toMatch(/^oltre 9/);
   });
 
   it('riconosce i periodi con impostazioni diverse del computer', () => {
@@ -327,7 +327,7 @@ describe('analisi aggiuntive sull’archivio', () => {
     const periods = settingsPeriods(dives);
     expect(periods).toHaveLength(2);
     expect(periods[0]).toMatchObject({ label: 'GF 45/95', dives: 2, from: '2025-05-31', to: '2025-07-05' });
-    expect(periods[0].avgGf99).toBeCloseTo(69, 0);
+    expect(periods[0]!.avgGf99).toBeCloseTo(69, 0);
     expect(periods[1]).toMatchObject({ label: 'GF 20/85', dives: 1 });
   });
 
@@ -358,11 +358,11 @@ describe('analisi aggiuntive sull’archivio', () => {
       dive({ startTime: '2026-08-01T00:30:00Z', utcOffsetMinutes: -300, minTempC: 28 }),
     ]);
     // Col mese UTC gennaio avrebbe 12 e febbraio solo 14.
-    expect(months[0].value).toBeUndefined();
+    expect(months[0]!.value).toBeUndefined();
     expect(months[1]).toMatchObject({ label: 'feb', value: 13 });
     // Col mese UTC luglio sarebbe vuoto e agosto varrebbe 28.
     expect(months[6]).toMatchObject({ label: 'lug', value: 28 });
-    expect(months[7].value).toBeUndefined();
+    expect(months[7]!.value).toBeUndefined();
     /*
      * ► UN MESE SENZA IMMERSIONI NON HA TEMPERATURA ZERO. ◄ Questa riga diceva
      * `0`, e quello zero non era neutro: chi legge la serie filtrava
@@ -371,8 +371,8 @@ describe('analisi aggiuntive sull’archivio', () => {
      * esiste. L'assenza adesso si dice con `undefined`, che uno zero non può
      * confondere.
      */
-    expect(months[3].value).toBeUndefined();
-    expect(months[3].value).not.toBe(0);
+    expect(months[3]!.value).toBeUndefined();
+    expect(months[3]!.value).not.toBe(0);
   });
 });
 

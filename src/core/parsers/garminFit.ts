@@ -132,7 +132,8 @@ export async function parseFit(input: ParseInput, t: Traduci = comeSta): Promise
 
     const maxDepth = summary?.maxDepth ?? Math.max(...samples.map((s) => s.depth));
     const durationS = Math.round(
-      (session.totalTimerTime ?? session.totalElapsedTime ?? samples[samples.length - 1].t) || 0,
+      // `samples` ha le righe di `own`, e con meno di due la sessione è già stata saltata.
+      (session.totalTimerTime ?? session.totalElapsedTime ?? samples[samples.length - 1]!.t) || 0,
     );
     if (!maxDepth || !durationS) return;
 
@@ -272,13 +273,14 @@ function pressureAt(tank: TankStream, at: number): number | undefined {
   if (r.length === 0) return undefined;
   let lo = 0;
   let hi = r.length - 1;
-  if (at < r[0].at) return undefined;
+  if (at < r[0]!.at) return undefined;
+  // `lo` e `hi` restano fra 0 e l'ultima lettura, e `mid` sta fra i due.
   while (lo < hi) {
     const mid = Math.ceil((lo + hi) / 2);
-    if (r[mid].at <= at) lo = mid;
+    if (r[mid]!.at <= at) lo = mid;
     else hi = mid - 1;
   }
-  return Math.round(r[lo].bar * 10) / 10;
+  return Math.round(r[lo]!.bar * 10) / 10;
 }
 
 // ---------------------------------------------------------------------------
@@ -338,8 +340,9 @@ function siteFromRecords(records: FitRecord[]): { name: string; lat?: number; lo
 export const semicirclesToDegrees = (v: number) => (v * 180) / 2 ** 31;
 
 function syntheticSession(records: FitRecord[]): FitSession {
-  const first = records[0];
-  const last = records[records.length - 1];
+  // La sola chiamata avviene dopo `records.some(...)` vero: almeno un record c'è.
+  const first = records[0]!;
+  const last = records[records.length - 1]!;
   return {
     sport: 'diving',
     startTime: first.timestamp,

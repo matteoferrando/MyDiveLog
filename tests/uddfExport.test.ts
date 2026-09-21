@@ -28,7 +28,7 @@ function dive(over: Partial<Dive> = {}): Dive {
   const base: Dive = {
     id: 'abc123',
     startTime: '2026-06-14T10:38:00.000Z',
-    durationS: samples[samples.length - 1].t,
+    durationS: samples[samples.length - 1]!.t,
     maxDepth: Math.max(...samples.map((s) => s.depth)),
     avgDepth: 18.4,
     minTempC: 14.5,
@@ -56,19 +56,19 @@ describe('export UDDF', () => {
   it('produce un file che il nostro parser rilegge', async () => {
     const back = await roundTrip([dive()]);
     expect(back).toHaveLength(1);
-    const d = back[0];
+    const d = back[0]!;
     expect(d.maxDepth).toBeCloseTo(30, 1);
     expect(d.durationS).toBe(590);
     expect(d.startTime.slice(0, 16)).toBe('2026-06-14T10:38');
   });
 
   it('le unità sopravvivono al giro: bar, gradi, litri', async () => {
-    const [d] = await roundTrip([dive()]);
+    const d = (await roundTrip([dive()]))[0]!;
     // Pascal → bar.
-    expect(d.cylinders[0].startBar).toBeCloseTo(200, 0);
-    expect(d.cylinders[0].endBar).toBeCloseTo(70, 0);
+    expect(d.cylinders[0]!.startBar).toBeCloseTo(200, 0);
+    expect(d.cylinders[0]!.endBar).toBeCloseTo(70, 0);
     // Metri cubi → litri.
-    expect(d.cylinders[0].sizeL).toBeCloseTo(12, 1);
+    expect(d.cylinders[0]!.sizeL).toBeCloseTo(12, 1);
     // Kelvin → Celsius.
     expect(d.minTempC).toBeCloseTo(14.5, 1);
     expect(d.airTempC).toBeCloseTo(27, 1);
@@ -97,17 +97,17 @@ describe('export UDDF', () => {
 
   it('il profilo torna campione per campione', async () => {
     const original = dive();
-    const [d] = await roundTrip([original]);
+    const d = (await roundTrip([original]))[0]!;
     expect(d.samples?.length).toBe(original.samples!.length);
-    const first = d.samples![10];
-    expect(first.t).toBe(original.samples![10].t);
-    expect(first.depth).toBeCloseTo(original.samples![10].depth, 1);
-    expect(first.tempC).toBeCloseTo(original.samples![10].tempC!, 1);
-    expect(first.pressureBar?.[0]).toBeCloseTo(original.samples![10].pressureBar![0]!, 0);
+    const first = d.samples![10]!;
+    expect(first.t).toBe(original.samples![10]!.t);
+    expect(first.depth).toBeCloseTo(original.samples![10]!.depth, 1);
+    expect(first.tempC).toBeCloseTo(original.samples![10]!.tempC!, 1);
+    expect(first.pressureBar?.[0]).toBeCloseTo(original.samples![10]!.pressureBar![0]!, 0);
   });
 
   it('sito, coordinate e note sopravvivono, compresi i caratteri da sfuggire', async () => {
-    const [d] = await roundTrip([dive()]);
+    const d = (await roundTrip([dive()]))[0]!;
     expect(d.site?.name).toBe('Punta Chiappa');
     expect(d.site?.lat).toBeCloseTo(44.3167, 3);
     expect(d.site?.lon).toBeCloseTo(9.15, 3);

@@ -373,15 +373,15 @@ export function bestGasAt(
   const available = (g: PlanGas) => (g.tankL ?? 0) * (g.startBar ?? 0);
   const escluso = (g: PlanGas) => g.role === 'bailout' || (chiuso && g.role === 'deco');
   for (let i = 0; i < gases.length; i++) {
-    if (escluso(gases[i])) continue;
+    if (escluso(gases[i]!)) continue;
     // Un gas di loop non ha MOD nel senso del circuito aperto: la pressione
     // parziale la fa il setpoint, non la frazione della bombola. Escluderlo dalla
     // sua MOD teorica mandava il piano a cercarne un altro proprio quando il
     // diluente andava benissimo.
-    const loopGas = gases[i].setpointBar !== undefined;
-    if (!loopGas && switchDepthOf(gases[i], s) + 0.01 < depthM) continue;
-    const o2 = gases[i].mix.o2;
-    const vol = available(gases[i]);
+    const loopGas = gases[i]!.setpointBar !== undefined;
+    if (!loopGas && switchDepthOf(gases[i]!, s) + 0.01 < depthM) continue;
+    const o2 = gases[i]!.mix.o2;
+    const vol = available(gases[i]!);
     // A parità di miscela vince la bombola più capiente.
     //
     // Sembra un dettaglio e non lo è: nel bailout da un rebreather il diluente e
@@ -409,12 +409,16 @@ export function bestGasAt(
     // 54 m ne davano 115. Tre metri più giù, mezz'ora di deco in meno, su un
     // piano ineseguibile perché quella bombola sta appesa di lato.
     const eligible: number[] = [];
-    for (let i = 0; i < gases.length; i++) if (!escluso(gases[i])) eligible.push(i);
+    for (let i = 0; i < gases.length; i++) if (!escluso(gases[i]!)) eligible.push(i);
     const pool = eligible.length ? eligible : gases.map((_, i) => i);
-    let fallback = pool[0];
+    // Senza nessun gas non c'è nemmeno un meno peggio: -1, come `findIndex`.
+    // Prima usciva `undefined` da una funzione che promette un numero.
+    if (!pool.length) return -1;
+    let fallback = pool[0]!;
     for (const i of pool) {
-      const a = gases[i];
-      const b = gases[fallback];
+      // Gli indici di `pool` vengono tutti da `gases`.
+      const a = gases[i]!;
+      const b = gases[fallback]!;
       if (a.mix.o2 < b.mix.o2 || (a.mix.o2 === b.mix.o2 && available(a) > available(b))) fallback = i;
     }
     return fallback;
@@ -599,6 +603,14 @@ export function planDeco(
       ...l,
       depthM: Math.min(l.depthM, MAX_PLANNABLE_DEPTH_M),
       minutes: Math.min(l.minutes, MAX_PLANNABLE_MINUTES),
+      /*
+       * Un indice che non punta a nessun gas torna alla scelta automatica, come
+       * fa `decoContingencies` con il gas perduto. Arrivava intatto fino ad
+       * `advance`: misurato il 21 settembre 2026, un livello con `gasIndex: 5`
+       * e un gas solo — o con -1, 1.5, `NaN` — faceva cadere il piano con
+       * «Cannot read properties of undefined» invece di farlo uscire.
+       */
+      gasIndex: l.gasIndex !== undefined && gases[l.gasIndex] ? l.gasIndex : undefined,
     }));
   if (levels.length && !usable.length) {
     warnings.push({ level: 'critical', testo: A.NESSUN_LIVELLO });
@@ -635,7 +647,10 @@ export function planDeco(
     if (!(minutes > 0)) return;
     const meanM = (fromM + toM) / 2;
     const deepM = Math.max(fromM, toM);
-    const gas = gases[gasIndex];
+    // Ogni indice che arriva qui e in `switchTo` punta a un gas: quelli dei livelli
+    // sono passati dal filtro di `usable`, gli altri vengono da `bestGasAt` o da
+    // un `findIndex` controllato, su un elenco che qui non è vuoto.
+    const gas = gases[gasIndex]!;
     const breathed = breathedAt(meanM, gas, setpointBar, s);
     state = step(state, ambientBar(meanM, s.salinity, s.surfacePressureBar), breathed, minutes);
 
@@ -707,8 +722,8 @@ export function planDeco(
   /** Cambio gas: registra la controdiffusione se il salto la produce. */
   const switchTo = (depthM: number, fromIndex: number, toIndex: number) => {
     if (fromIndex === toIndex) return;
-    const before = breathedAt(depthM, gases[fromIndex], levelSetpoint, s);
-    const after = breathedAt(depthM, gases[toIndex], levelSetpoint, s);
+    const before = breathedAt(depthM, gases[fromIndex]!, levelSetpoint, s);
+    const after = breathedAt(depthM, gases[toIndex]!, levelSetpoint, s);
     const n2Rise =
       ppn2At(after, depthM, s.salinity, s.surfacePressureBar) -
       ppn2At(before, depthM, s.salinity, s.surfacePressureBar);
@@ -718,8 +733,8 @@ export function planDeco(
     if (heDrop > 0 && n2Rise > heDrop / 5) {
       icd.push({
         atDepthM: round1(depthM),
-        fromLabel: label(gases[fromIndex]),
-        toLabel: label(gases[toIndex]),
+        fromLabel: label(gases[fromIndex]!),
+        toLabel: label(gases[toIndex]!),
         n2RiseBar: round2(n2Rise),
         heDropBar: round2(heDrop),
       });
@@ -730,7 +745,7 @@ export function planDeco(
   };
 
   // --- discesa e livelli ---------------------------------------------------
-  let levelSetpoint = usable[0].setpointBar;
+  let levelSetpoint = usable[0]!.setpointBar;
   let currentDepth = s.startDepthM ?? 0;
   /*
    * Il gas di partenza è quello con cui si ENTRA in acqua, non quello del fondo.
@@ -745,16 +760,16 @@ export function planDeco(
       g.role === 'travel' && g.setpointBar === undefined && switchDepthOf(g, s) + 0.01 > (s.startDepthM ?? 0),
   );
   let gasIndex =
-    usable[0].gasIndex ??
-    (usable[0].depthM > (s.startDepthM ?? 0) && transitoIniziale >= 0
+    usable[0]!.gasIndex ??
+    (usable[0]!.depthM > (s.startDepthM ?? 0) && transitoIniziale >= 0
       ? transitoIniziale
-      : bestGasAt(usable[0].depthM, gases, s, usable[0].setpointBar !== undefined));
+      : bestGasAt(usable[0]!.depthM, gases, s, usable[0]!.setpointBar !== undefined));
 
   let tessutiAlPrimoLivello: TissueState | undefined;
   let discesaAlPrimoLivelloMin = 0;
 
   for (let i = 0; i < usable.length; i++) {
-    const level = usable[i];
+    const level = usable[i]!;
     levelSetpoint = level.setpointBar;
     // Il transito si respira con il gas buono per il punto PIÙ PROFONDO del
     // tragitto, non con quello del livello di arrivo: salendo da 40 a 20 metri si
@@ -790,7 +805,7 @@ export function planDeco(
           )
         : -1;
     if (transito >= 0) {
-      const finoA = Math.min(level.depthM, switchDepthOf(gases[transito], s));
+      const finoA = Math.min(level.depthM, switchDepthOf(gases[transito]!, s));
       if (finoA > currentDepth + 0.01) {
         if (transito !== gasIndex) switchTo(currentDepth, gasIndex, transito);
         gasIndex = transito;
@@ -1173,7 +1188,7 @@ export function planDeco(
      * cambio, il ciclo esterno spezza comunque lì (`cambio`), e una gamba più
      * corta non può che essere più sicura di quella provata qui.
      */
-    const gasGamba = gases[bestGasAt(currentDepth, gases, s, levelSetpoint !== undefined)];
+    const gasGamba = gases[bestGasAt(currentDepth, gases, s, levelSetpoint !== undefined)]!;
     const target = finDoveSiSale(state, currentDepth, s, gfAt, (q) =>
       breathedAt(q, gasGamba, levelSetpoint, s),
     ).quota;
@@ -1321,11 +1336,11 @@ export function planDeco(
   // stampato sul foglio da portare in acqua. `noDecoLimitMin` risponde alla
   // domanda della tabella — quanto si può stare partendo puliti — che qui è
   // l'altra domanda.
-  const firstDepth = usable[0].depthM;
+  const firstDepth = usable[0]!.depthM;
   const firstMix = breathedAt(
     firstDepth,
-    gases[usable[0].gasIndex ?? bestGasAt(firstDepth, gases, s, usable[0].setpointBar !== undefined)],
-    usable[0].setpointBar,
+    gases[usable[0]!.gasIndex ?? bestGasAt(firstDepth, gases, s, usable[0]!.setpointBar !== undefined)]!,
+    usable[0]!.setpointBar,
     s,
   );
   /*
@@ -1491,12 +1506,12 @@ export function planDeco(
           ? {
               level: 'critical',
               testo: A.GAS_INSUFFICIENTE,
-              valori: [label(gases[u.gasIndex]), u.bar ?? 0, u.startBar ?? 0],
+              valori: [label(gases[u.gasIndex]!), u.bar ?? 0, u.startBar ?? 0],
             }
           : {
               level: 'critical',
               testo: A.GAS_BOMBOLA_VUOTA,
-              valori: [label(gases[u.gasIndex]), u.litres],
+              valori: [label(gases[u.gasIndex]!), u.litres],
             },
       );
     }
@@ -1946,8 +1961,8 @@ export function bailoutPlan(
     // primo — che risalendo è anche il più profondo, quindi il più oneroso.
     const ascent = full.segments.filter((seg) => seg.runtimeMin > full.bottomRuntimeMin + 1e-9);
     const reached = ascent.filter((seg) => seg.toM <= start + 0.01);
-    if (reached.length) atFailure = reached[0].tissues;
-    else if (ascent.length) atFailure = ascent[0].tissues;
+    if (reached.length) atFailure = reached[0]!.tissues;
+    else if (ascent.length) atFailure = ascent[0]!.tissues;
   }
   // Chi porta una bombola di bailout non respira il diluente.
   //
@@ -2009,7 +2024,7 @@ export function planSeries(series: SeriesDive[], settings: Partial<DecoSettings>
   let tissues = s.initial;
 
   for (let i = 0; i < series.length; i++) {
-    const d = series[i];
+    const d = series[i]!;
     const initial =
       i === 0
         ? tissues
@@ -2165,12 +2180,13 @@ export function decoTableText(
     L.push(`Nessuna sosta obbligata: il piano resta in curva (limite ${result.ndlMin.toFixed(0)} min).`);
     L.push('');
   }
+  // `result` è il piano di questi stessi `gases`: i suoi indici di gas puntano qui.
   if (result.stops.length) {
     L.push('SOSTE');
     L.push('quota   min   runtime  gas');
     for (const st of result.stops) {
       L.push(
-        `${pad(`${st.depthM} m`, 5)}  ${pad(st.minutes, 4)}  ${pad(st.runtimeMin, 7)}  ${label(gases[st.gasIndex])}` +
+        `${pad(`${st.depthM} m`, 5)}  ${pad(st.minutes, 4)}  ${pad(st.runtimeMin, 7)}  ${label(gases[st.gasIndex]!)}` +
           (st.mandatory ? '' : '   (sicurezza, non obbligatoria)'),
       );
     }
@@ -2188,7 +2204,7 @@ export function decoTableText(
   for (const u of result.gasUsage.filter((x) => x.litres > 0)) {
     const bar = u.bar !== undefined ? `${u.bar} bar` : `${u.litres} L`;
     const su = u.startBar !== undefined ? ` su ${u.startBar}` : '';
-    L.push(`  ${label(gases[u.gasIndex]).padEnd(10)} ${bar}${su}${u.insufficient ? '   ⚠ NON BASTA' : ''}`);
+    L.push(`  ${label(gases[u.gasIndex]!).padEnd(10)} ${bar}${su}${u.insufficient ? '   ⚠ NON BASTA' : ''}`);
   }
   if (result.ccr) {
     L.push(

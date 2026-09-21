@@ -130,7 +130,7 @@ function fintoAladin(memoria: Uint8Array[], traccia: Traccia, quirk: Quirk = {})
     // Il pacchetto è `[lunghezza+1, comando, ...dati]`, e la lunghezza conta il
     // comando: un firmware vero scarta quello che non torna.
     const dichiarata = comando[0];
-    const codice = comando[1];
+    const codice = comando[1]!;
     const dati = comando.subarray(2);
     if (dichiarata !== dati.length + 1) {
       throw new Error(`lunghezza dichiarata ${dichiarata} ma il pacchetto ne porta ${dati.length + 1}`);
@@ -490,7 +490,7 @@ describe('scarico completo', () => {
     await downloadFromComputer(t, dispositivo, uwatecDriver, { onEvent: (e) => eventi.push(e) });
     const avanzamenti = eventi.filter((e) => e.kind === 'progress');
     expect(avanzamenti.length).toBeGreaterThan(0);
-    const ultimo = avanzamenti[avanzamenti.length - 1];
+    const ultimo = avanzamenti[avanzamenti.length - 1]!;
     expect(ultimo.done).toBe(ultimo.total);
   });
 
@@ -519,7 +519,7 @@ describe('scarico incrementale', () => {
     // Il filtro l'ha fatto il COMPUTER: qui non si è scartato niente a mano.
     expect(traccia.improntaChiesta).toBe(orarioDi(MEDIA));
     expect(esito.dives).toHaveLength(1);
-    expect(esito.dives[0].startTime.slice(0, 10)).toBe('2026-07-11');
+    expect(esito.dives[0]!.startTime.slice(0, 10)).toBe('2026-07-11');
   });
 
   it('con niente di nuovo si chiude subito, e non è un errore', async () => {

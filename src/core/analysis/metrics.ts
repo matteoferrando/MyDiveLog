@@ -125,7 +125,7 @@ export function computeMetrics(dive: Dive): DiveMetrics {
   const caveats: Avvertenza[] = [];
   const hasProfile = samples.length >= 3;
   const intervalS = hasProfile
-    ? (samples[samples.length - 1].t - samples[0].t) / Math.max(1, samples.length - 1)
+    ? (samples[samples.length - 1]!.t - samples[0]!.t) / Math.max(1, samples.length - 1)
     : 0;
 
   if (!hasProfile) {
@@ -223,7 +223,7 @@ export function computeMetrics(dive: Dive): DiveMetrics {
   // velocità, e `quality.ratesIntervalS` dice quale è stata usata.
   const alt = inOrdineDiTempo((dive.altSamples ?? []).filter((x) => x.t >= 0));
   const altIntervalS =
-    alt.length >= 3 ? (alt[alt.length - 1].t - alt[0].t) / Math.max(1, alt.length - 1) : Infinity;
+    alt.length >= 3 ? (alt[alt.length - 1]!.t - alt[0]!.t) / Math.max(1, alt.length - 1) : Infinity;
   const useAlt = alt.length >= 3 && altIntervalS < intervalS - 0.01;
   const ratesSamples = useAlt ? alt : samples;
   const ratesIntervalS = useAlt ? altIntervalS : intervalS;
@@ -347,8 +347,8 @@ function detectPhases(samples: Sample[], maxDepth: number, durationS: number): D
     };
   }
   const threshold = maxDepth * PHASE_THRESHOLD;
-  let descentEndS = samples[0].t;
-  let ascentStartS = samples[samples.length - 1].t;
+  let descentEndS = samples[0]!.t;
+  let ascentStartS = samples[samples.length - 1]!.t;
 
   for (const s of samples) {
     if (s.depth >= threshold) {
@@ -357,18 +357,18 @@ function detectPhases(samples: Sample[], maxDepth: number, durationS: number): D
     }
   }
   for (let i = samples.length - 1; i >= 0; i--) {
-    if (samples[i].depth >= threshold) {
-      ascentStartS = samples[i].t;
+    if (samples[i]!.depth >= threshold) {
+      ascentStartS = samples[i]!.t;
       break;
     }
   }
   if (ascentStartS < descentEndS) ascentStartS = descentEndS;
 
-  const last = samples[samples.length - 1].t;
+  const last = samples[samples.length - 1]!.t;
   return {
     descentEndS,
     ascentStartS,
-    descentS: descentEndS - samples[0].t,
+    descentS: descentEndS - samples[0]!.t,
     bottomS: ascentStartS - descentEndS,
     ascentS: Math.max(0, last - ascentStartS),
   };
@@ -400,11 +400,12 @@ export function windowedRates(samples: Sample[], windowS: number): (number | und
   const rates: (number | undefined)[] = new Array(samples.length).fill(undefined);
   const minWindow = windowS * 0.8;
   let j = 0;
+  // `j` resta sempre dietro a `i`: il ciclo interno si ferma a `i - 1`.
   for (let i = 1; i < samples.length; i++) {
-    while (j < i - 1 && samples[i].t - samples[j + 1].t >= windowS) j++;
-    const dt = samples[i].t - samples[j].t;
+    while (j < i - 1 && samples[i]!.t - samples[j + 1]!.t >= windowS) j++;
+    const dt = samples[i]!.t - samples[j]!.t;
     if (dt < minWindow) continue;
-    rates[i] = ((samples[j].depth - samples[i].depth) / dt) * 60;
+    rates[i] = ((samples[j]!.depth - samples[i]!.depth) / dt) * 60;
   }
   return rates;
 }
@@ -418,8 +419,8 @@ function analyseVerticalRates(samples: Sample[], phases: DivePhases): RateResult
   for (let i = 1; i < samples.length; i++) {
     const rate = rates[i];
     if (rate === undefined || rate <= 0) continue;
-    const slice = samples[i].t - samples[i - 1].t;
-    const depth = samples[i].depth;
+    const slice = samples[i]!.t - samples[i - 1]!.t;
+    const depth = samples[i]!.depth;
     if (depth <= SURFACE_M) continue;
 
     if (rate > maxAscent) maxAscent = rate;
@@ -454,7 +455,7 @@ function analyseVerticalRates(samples: Sample[], phases: DivePhases): RateResult
 
   // Medie di fase: sulla distanza netta percorsa, che è ciò che il subacqueo
   // percepisce come "quanto veloce sono scesa/risalito".
-  const first = samples[0];
+  const first = samples[0]!;
   if (phases.descentS > 0) {
     /*
      * ════════════════════════════════════════════════════════════════════════
@@ -487,8 +488,8 @@ function analyseVerticalRates(samples: Sample[], phases: DivePhases): RateResult
   }
   const ascentSamples = samples.filter((s) => s.t >= phases.ascentStartS);
   if (phases.ascentS > 30 && ascentSamples.length > 1) {
-    const from = ascentSamples[0].depth;
-    const to = ascentSamples[ascentSamples.length - 1].depth;
+    const from = ascentSamples[0]!.depth;
+    const to = ascentSamples[ascentSamples.length - 1]!.depth;
     out.ascentRateMpm = round(((from - to) / phases.ascentS) * 60, 1);
   }
 
@@ -523,8 +524,8 @@ function analyseVerticalRates(samples: Sample[], phases: DivePhases): RateResult
   };
 
   for (let i = 1; i < samples.length; i++) {
-    const prev = samples[i - 1];
-    const cur = samples[i];
+    const prev = samples[i - 1]!;
+    const cur = samples[i]!;
     const r = transit[i];
     const holding =
       r !== undefined && Math.abs(r) <= TRANSIT_THRESHOLD_MPM && cur.depth >= HOLDING_MIN_DEPTH_M;
@@ -577,9 +578,9 @@ function trattoPiuLungo(
   let quanti = 0;
   let quotaMedia: number | undefined;
   for (let i = 1; i < samples.length; i++) {
-    const s = samples[i];
+    const s = samples[i]!;
     if (s.t < daS) continue;
-    const dt = s.t - samples[i - 1].t;
+    const dt = s.t - samples[i - 1]!.t;
     if (dentro(s)) {
       fuori = 0;
       corrente += dt;
@@ -743,9 +744,9 @@ function analyseStops(
    */
   const sottoIlTetto = (s: Sample) => s.inDeco === true || (s.ceiling ?? 0) > 0;
   for (let i = 1; i < samples.length; i++) {
-    const s = samples[i];
+    const s = samples[i]!;
     if (s.t < phases.ascentStartS || s.depth < bandLo || s.depth > bandHi || sottoIlTetto(s)) {
-      if (s.t >= phases.ascentStartS) fuoriProfonda += s.t - samples[i - 1].t;
+      if (s.t >= phases.ascentStartS) fuoriProfonda += s.t - samples[i - 1]!.t;
       if (fuoriProfonda > LIMITS.safetyStopToleranceS) {
         run = 0;
         runDepthSum = 0;
@@ -755,7 +756,7 @@ function analyseStops(
       continue;
     }
     fuoriProfonda = 0;
-    run += s.t - samples[i - 1].t;
+    run += s.t - samples[i - 1]!.t;
     runDepthSum += s.depth;
     runSamples++;
     if (run > best) {
@@ -810,7 +811,7 @@ function analyseShape(
   let descending = false;
   let countThisDescent = false;
   for (let i = 1; i < samples.length; i++) {
-    const delta = samples[i].depth - samples[i - 1].depth;
+    const delta = samples[i]!.depth - samples[i - 1]!.depth;
     if (delta < 0) {
       ascended += -delta;
       descending = false;
@@ -827,7 +828,7 @@ function analyseShape(
     }
   }
 
-  const half = samples[samples.length - 1].t / 2;
+  const half = samples[samples.length - 1]!.t / 2;
   const first = samples.filter((s) => s.t <= half);
   const second = samples.filter((s) => s.t > half);
   const mean = (list: Sample[]) => (list.length ? list.reduce((a, s) => a + s.depth, 0) / list.length : 0);
@@ -889,8 +890,8 @@ function analyseDeco(samples: Sample[]) {
   let margine: number | undefined;
 
   for (let i = 1; i < samples.length; i++) {
-    const s = samples[i];
-    const dt = s.t - samples[i - 1].t;
+    const s = samples[i]!;
+    const dt = s.t - samples[i - 1]!.t;
     /*
      * ► IL TETTO È IL TETTO. UNA SOSTA PROPOSTA NON LO È. ◄
      *
@@ -924,7 +925,7 @@ function analyseDeco(samples: Sample[]) {
       if (s.depth < ceiling - 0.3) ceilingViolationS += dt;
     }
   }
-  const cns = samples.length ? samples[samples.length - 1].cns : undefined;
+  const cns = samples.length ? samples[samples.length - 1]!.cns : undefined;
   return {
     decoS: Math.round(decoS),
     ceilingViolationS: Math.round(ceilingViolationS),
@@ -1216,7 +1217,7 @@ function analyseFinalAscent(samples: Sample[]): {
   // finale, qualunque cosa sia successa prima.
   let last = -1;
   for (let i = samples.length - 1; i >= 0; i--) {
-    if (samples[i].depth > SURFACE_M) {
+    if (samples[i]!.depth > SURFACE_M) {
       last = i;
       break;
     }
@@ -1230,10 +1231,10 @@ function analyseFinalAscent(samples: Sample[]): {
   // Con il confronto non stretto si attraversava la sosta piatta e si finiva a
   // risalire dal fondo, misurando tutt'altra cosa.
   let start = last;
-  while (start > 0 && samples[start - 1].depth > samples[start].depth) start--;
+  while (start > 0 && samples[start - 1]!.depth > samples[start]!.depth) start--;
 
-  const fromM = samples[start].depth;
-  const seconds = surfaced.t - samples[start].t;
+  const fromM = samples[start]!.depth;
+  const seconds = surfaced.t - samples[start]!.t;
   if (!(seconds > 0) || fromM <= SURFACE_M) return {};
   return {
     finalAscentRateMpm: round((fromM / seconds) * 60, 1),
@@ -1249,9 +1250,9 @@ function timeWeightedMean(samples: Sample[], pick: (s: Sample) => number): numbe
   let area = 0;
   let span = 0;
   for (let i = 1; i < samples.length; i++) {
-    const dt = samples[i].t - samples[i - 1].t;
+    const dt = samples[i]!.t - samples[i - 1]!.t;
     if (dt <= 0) continue;
-    area += ((pick(samples[i]) + pick(samples[i - 1])) / 2) * dt;
+    area += ((pick(samples[i]!) + pick(samples[i - 1]!)) / 2) * dt;
     span += dt;
   }
   return span > 0 ? area / span : pick(samples[0] ?? ({ depth: 0, t: 0 } as Sample));

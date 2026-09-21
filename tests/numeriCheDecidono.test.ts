@@ -27,7 +27,7 @@ function risalitaA(mpm: number): Dive {
   return {
     id: 'x',
     startTime: '2026-06-14T10:00:00Z',
-    durationS: samples[samples.length - 1].t,
+    durationS: samples[samples.length - 1]!.t,
     maxDepth: 30,
     mode: 'oc',
     cylinders: [{ mix: { o2: 0.21, he: 0 }, sizeL: 12, startBar: 200, endBar: 70 }],

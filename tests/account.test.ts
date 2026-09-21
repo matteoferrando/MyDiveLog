@@ -31,7 +31,7 @@ function rete(risposte: Array<{ stato: number; dati: unknown }>) {
       autorizzazione: h.Authorization,
       corpo: init.body ? JSON.parse(String(init.body)) : undefined,
     });
-    const r = risposte[Math.min(i++, risposte.length - 1)];
+    const r = risposte[Math.min(i++, risposte.length - 1)]!;
     return { ok: r.stato >= 200 && r.stato < 300, status: r.stato, json: async () => r.dati } as Response;
   }) as unknown as typeof fetch;
   return { chiamate, fetchImpl };
@@ -69,7 +69,7 @@ describe('accesso', () => {
      * Se un giorno qui ricomparisse un `idToken`, vorrebbe dire che lo scambio
      * è tornato dentro l'app — e con lui il segreto del client desktop.
      */
-    expect(chiamate[0].corpo).toEqual({ provider: 'google', ...RITORNO });
+    expect(chiamate[0]!.corpo).toEqual({ provider: 'google', ...RITORNO });
   });
 
   it('l’email arriva dal servizio e si porta fino all’interfaccia', async () => {
@@ -248,8 +248,8 @@ describe('cancellazione dell’account', () => {
   it('passa dalla sessione e non tocca l’archivio locale', async () => {
     const { chiamate, fetchImpl } = rete([{ stato: 200, dati: { cancellato: true } }]);
     await cancellaAccount(opz(fetchImpl), 'sess-1');
-    expect(chiamate[0].metodo).toBe('DELETE');
-    expect(chiamate[0].autorizzazione).toBe('Bearer sess-1');
+    expect(chiamate[0]!.metodo).toBe('DELETE');
+    expect(chiamate[0]!.autorizzazione).toBe('Bearer sess-1');
   });
 });
 

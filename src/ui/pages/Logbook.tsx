@@ -1058,7 +1058,7 @@ function BulkEdit({
    * cambiata. Due alla volta è l'unico gesto che si può spiegare in una riga e
    * annullare in una.
    */
-  const dueScelte = scelte.length === 2 ? ([scelte[0], scelte[1]] as const) : undefined;
+  const dueScelte = scelte.length === 2 ? ([scelte[0]!, scelte[1]!] as const) : undefined;
   const unisci = () => {
     if (!dueScelte) return;
     void (async () => {

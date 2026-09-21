@@ -69,7 +69,7 @@ describe('costruzione del backup', () => {
     // È l'unica cosa che non si può ricostruire: le migliaia di campioni.
     const a = dive('a', '2026-06-01T09:00:00Z');
     const file = await buildBackup(fakeStore([a]), new Date('2026-08-18T10:00:00Z'));
-    expect(file.dives[0].samples?.length).toBe(a.samples!.length);
+    expect(file.dives[0]!.samples?.length).toBe(a.samples!.length);
     expect(file.summary.samples).toBe(a.samples!.length);
     expect(file.summary.withProfile).toBe(1);
   });
@@ -210,7 +210,7 @@ describe('piano del ripristino', () => {
     const f = await buildBackup(fakeStore([{ ...completa, notes: 'la nota del backup' }]));
     const p = planRestore(f, [completa], 'merge');
     expect(p.merged).toHaveLength(1);
-    expect(p.merged[0].notes).toBe('la nota del backup');
+    expect(p.merged[0]!.notes).toBe('la nota del backup');
   });
 
   it('ricostruendo da zero, vince il file', async () => {
@@ -218,7 +218,7 @@ describe('piano del ripristino', () => {
     const f = await buildBackup(fakeStore([vecchia]));
     const locale: Dive = { ...vecchia, notes: 'aggiunte dopo il backup' };
     const p = planRestore(f, [locale], 'replace');
-    expect(p.merged[0].notes).toBeUndefined();
+    expect(p.merged[0]!.notes).toBeUndefined();
   });
 
   it('conta quelle che esistono solo qui: sono quelle che si perdono', async () => {
@@ -298,7 +298,7 @@ describe('il giro chiuso', () => {
     // tutto l'archivio con la data di adesso a ogni ripristino.
     expect(secondo.merged).toHaveLength(0);
     expect(secondo.onlyLocal).toBe(0);
-    expect(dopoIlPrimo[0].samples?.length).toBe(originali[0].samples!.length);
+    expect(dopoIlPrimo[0]!.samples?.length).toBe(originali[0]!.samples!.length);
   });
 });
 
@@ -385,7 +385,7 @@ describe('nessuna impostazione resta fuori dalle liste bianche', () => {
       for (const m of testo.matchAll(
         /setSetting(?:<[^>]*>)?\(\s*(`[^`]*`|'[^']*'|"[^"]*"|[A-Za-z_$][\w$]*)/g,
       )) {
-        const grezzo = m[1];
+        const grezzo = m[1]!;
         if (grezzo.startsWith("'") || grezzo.startsWith('"')) {
           fuori.add(grezzo.slice(1, -1));
         } else if (grezzo.startsWith('`')) {

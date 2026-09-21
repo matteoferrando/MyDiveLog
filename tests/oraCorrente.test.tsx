@@ -68,13 +68,13 @@ describe('l’ora in cima al logbook', () => {
     // È il caso del difetto, raccontato in numeri: la finestra resta aperta e
     // l'ora deve muoversi con l'orologio, non con i render.
     const { letture, smonta } = monta();
-    const inizio = letture[0];
+    const inizio = letture[0]!;
 
     act(() => {
       vi.advanceTimersByTime(6 * 3600_000);
     });
 
-    const adesso = letture[letture.length - 1];
+    const adesso = letture[letture.length - 1]!;
     expect(Math.round((adesso - inizio) / 3600_000)).toBe(6);
     smonta();
   });
@@ -84,7 +84,7 @@ describe('l’ora in cima al logbook', () => {
     // secondo piano si aspetterebbe fino a un minuto per vedere un numero
     // giusto — e il minuto lo si passa a guardare un numero falso.
     const { letture, smonta } = monta(60_000);
-    const inizio = letture[0];
+    const inizio = letture[0]!;
 
     // Si sposta l'orologio SENZA far scattare il battito: sotto il passo.
     act(() => {
@@ -92,7 +92,7 @@ describe('l’ora in cima al logbook', () => {
       document.dispatchEvent(new Event('visibilitychange'));
     });
 
-    expect(letture[letture.length - 1] - inizio).toBe(30_000);
+    expect(letture[letture.length - 1]! - inizio).toBe(30_000);
     smonta();
   });
 

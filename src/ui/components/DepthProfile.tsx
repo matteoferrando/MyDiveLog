@@ -119,13 +119,14 @@ export function DepthProfile({
   // partirebbe staccato dal bordo sinistro e finirebbe fuori dal riquadro a
   // destra. E l'ultimo istante è l'ultimo DOPO l'ordinamento, non l'ultimo che il
   // file aveva scritto.
-  const t0 = samples[0].t;
-  const maxT = samples[samples.length - 1].t - t0 || 1;
+  const t0 = samples[0]!.t;
+  const maxT = samples[samples.length - 1]!.t - t0 || 1;
   const maxDepth = Math.max(dive.maxDepth, ...samples.map((s) => s.depth));
   // Poco margine sopra il massimo: con 1.06 un'immersione a 29 m si prendeva un
   // asse fino a 40, e il profilo sembrava schiacciato in cima.
   const depthTicks = niceTicks(0, maxDepth * 1.02, 4);
-  const yMax = depthTicks[depthTicks.length - 1];
+  // `niceTicks` dà sempre almeno due tacche.
+  const yMax = depthTicks[depthTicks.length - 1]!;
 
   // Parametro `istante` e non `t`: `t` è la funzione che traduce.
   const px = (istante: number) => pad.left + ((istante - t0) / maxT) * plotW;
@@ -220,7 +221,7 @@ export function DepthProfile({
       return;
     } else return;
     evt.preventDefault(); // altrimenti le frecce scorrono la pagina sotto il grafico
-    sync.onChange(samples[Math.min(samples.length - 1, Math.max(0, prossimo))].t);
+    sync.onChange(samples[Math.min(samples.length - 1, Math.max(0, prossimo))]!.t);
   };
 
   const [lo, hi] = LIMITS.safetyStopBandM;
@@ -557,8 +558,9 @@ export function MiniSeries({
   const pad = { top: 10, right: 14, bottom: 14, left: GUTTER };
   const plotW = Math.max(10, width - pad.left - pad.right);
   const plotH = height - pad.top - pad.bottom;
-  const t0 = inOrdine[0].t;
-  const maxT = inOrdine[inOrdine.length - 1].t - t0 || 1;
+  // `points` viene da `inOrdine`: se i punti sono almeno due, lo sono anche i campioni.
+  const t0 = inOrdine[0]!.t;
+  const maxT = inOrdine[inOrdine.length - 1]!.t - t0 || 1;
 
   // La scala comprende entrambe le curve: due grafici con assi diversi
   // sovrapposti sarebbero un modo elegante di mentire.
@@ -577,8 +579,9 @@ export function MiniSeries({
   // sprecato a mostrare numeri che non esistono.
   const lowBound = dataLo >= 0 ? Math.max(0, dataLo - span * 0.1) : dataLo - span * 0.1;
   const ticks = niceTicks(lowBound, dataHi + span * 0.1, 3);
-  const yLo = ticks[0];
-  const yHi = ticks[ticks.length - 1];
+  // `niceTicks` dà sempre almeno due tacche.
+  const yLo = ticks[0]!;
+  const yHi = ticks[ticks.length - 1]!;
 
   // Parametro `istante` e non `t`: `t` è la funzione che traduce.
   const px = (istante: number) => pad.left + ((istante - t0) / maxT) * plotW;
@@ -587,14 +590,14 @@ export function MiniSeries({
   const line = points
     .map((p, i) => `${i === 0 ? 'M' : 'L'}${px(p.t).toFixed(1)} ${py(p.v).toFixed(1)}`)
     .join(' ');
-  const area = `${line} L${px(points[points.length - 1].t).toFixed(1)} ${py(yLo)} L${px(points[0].t).toFixed(1)} ${py(yLo)} Z`;
+  const area = `${line} L${px(points[points.length - 1]!.t).toFixed(1)} ${py(yLo)} L${px(points[0]!.t).toFixed(1)} ${py(yLo)} Z`;
   const otherLine = otherPoints
     .map((p, i) => `${i === 0 ? 'M' : 'L'}${px(p.t).toFixed(1)} ${py(p.v).toFixed(1)}`)
     .join(' ');
 
   const cursorPoint =
     sync?.t != null
-      ? points.reduce((a, b) => (Math.abs(b.t - sync.t!) < Math.abs(a.t - sync.t!) ? b : a), points[0])
+      ? points.reduce((a, b) => (Math.abs(b.t - sync.t!) < Math.abs(a.t - sync.t!) ? b : a), points[0]!)
       : null;
 
   // Stesse regole del profilo: un passo è un campione, Maiusc salta di un minuto,
@@ -614,7 +617,7 @@ export function MiniSeries({
       return;
     } else return;
     evt.preventDefault();
-    sync.onChange(points[Math.min(points.length - 1, Math.max(0, prossimo))].t);
+    sync.onChange(points[Math.min(points.length - 1, Math.max(0, prossimo))]!.t);
   };
 
   // `label` e `unit` arrivano già nella lingua giusta da chi disegna il grafico:
@@ -637,7 +640,7 @@ export function MiniSeries({
         </span>
         {/* Etichetta diretta sull'ultimo valore, invece di farlo cercare nell'asse. */}
         <span className="mini-last tabular">
-          {cursorPoint ? cursorPoint.v.toFixed(digits) : points[points.length - 1].v.toFixed(digits)}
+          {cursorPoint ? cursorPoint.v.toFixed(digits) : points[points.length - 1]!.v.toFixed(digits)}
         </span>
       </div>
       <svg
@@ -661,7 +664,7 @@ export function MiniSeries({
           const istante = ((evt.clientX - rect.left - pad.left) / plotW) * maxT;
           const p = points.reduce(
             (a, b) => (Math.abs(b.t - istante) < Math.abs(a.t - istante) ? b : a),
-            points[0],
+            points[0]!,
           );
           sync?.onChange(p.t);
           setTip({
@@ -795,7 +798,7 @@ export function MiniSeries({
 
 function nearest(samples: Sample[], t: number): Sample | undefined {
   if (samples.length === 0) return undefined;
-  let best = samples[0];
+  let best = samples[0]!;
   let bestDist = Math.abs(best.t - t);
   for (const s of samples) {
     const d = Math.abs(s.t - t);
@@ -811,7 +814,7 @@ function nearest(samples: Sample[], t: number): Sample | undefined {
 function indiceVicino(samples: Sample[], t: number): number {
   let best = 0;
   for (let i = 1; i < samples.length; i++) {
-    if (Math.abs(samples[i].t - t) < Math.abs(samples[best].t - t)) best = i;
+    if (Math.abs(samples[i]!.t - t) < Math.abs(samples[best]!.t - t)) best = i;
   }
   return best;
 }
@@ -819,7 +822,7 @@ function indiceVicino(samples: Sample[], t: number): number {
 function indiceVicinoA(punti: { t: number }[], t: number): number {
   let best = 0;
   for (let i = 1; i < punti.length; i++) {
-    if (Math.abs(punti[i].t - t) < Math.abs(punti[best].t - t)) best = i;
+    if (Math.abs(punti[i]!.t - t) < Math.abs(punti[best]!.t - t)) best = i;
   }
   return best;
 }
@@ -827,7 +830,7 @@ function indiceVicinoA(punti: { t: number }[], t: number): number {
 /** Indice del campione più profondo: il punto da cui parte l'esplorazione. */
 function indiceMassimo(samples: Sample[]): number {
   let best = 0;
-  for (let i = 1; i < samples.length; i++) if (samples[i].depth > samples[best].depth) best = i;
+  for (let i = 1; i < samples.length; i++) if (samples[i]!.depth > samples[best]!.depth) best = i;
   return best;
 }
 
@@ -843,7 +846,7 @@ function indiceEstremo(punti: { t: number; v: number }[]): number {
   const centro = quartili(punti.map((p) => p.v))!.mediana;
   let best = 0;
   for (let i = 1; i < punti.length; i++) {
-    if (Math.abs(punti[i].v - centro) > Math.abs(punti[best].v - centro)) best = i;
+    if (Math.abs(punti[i]!.v - centro) > Math.abs(punti[best]!.v - centro)) best = i;
   }
   return best;
 }
@@ -852,7 +855,7 @@ function indiceEstremo(punti: { t: number; v: number }[]): number {
 function passoCampioniS(punti: { t: number }[]): number {
   if (punti.length < 2) return 10;
   const passi: number[] = [];
-  for (let i = 1; i < punti.length; i++) passi.push(punti[i].t - punti[i - 1].t);
+  for (let i = 1; i < punti.length; i++) passi.push(punti[i]!.t - punti[i - 1]!.t);
   return Math.max(1, quartili(passi)!.mediana);
 }
 
@@ -895,7 +898,7 @@ export function riassuntoProfilo(dive: Dive, t: Traduci = comeSta): string {
   const samples = inOrdineDiTempo(dive.samples ?? []);
   if (samples.length < 2) return t('Immersione senza profilo campionato.');
 
-  const durataS = samples[samples.length - 1].t - samples[0].t;
+  const durataS = samples[samples.length - 1]!.t - samples[0]!.t;
   const piuProfondo = samples.reduce((a, b) => (b.depth > a.depth ? b : a));
   const parti = [
     `${t('Profilo di')} ${Math.round(durataS / 60)} ${t('minuti su')} ${samples.length} ${t('campioni')}.`,
@@ -912,8 +915,8 @@ export function riassuntoProfilo(dive: Dive, t: Traduci = comeSta): string {
       (b.ceiling ?? b.stopDepth ?? 0) > (a.ceiling ?? a.stopDepth ?? 0) ? b : a,
     );
     parti.push(
-      `${t('Tetto di decompressione presente dal minuto')} ${Math.round(conTetto[0].t / 60)} ${t('al minuto')} ` +
-        `${Math.round(conTetto[conTetto.length - 1].t / 60)}, ${t('il più profondo')} ` +
+      `${t('Tetto di decompressione presente dal minuto')} ${Math.round(conTetto[0]!.t / 60)} ${t('al minuto')} ` +
+        `${Math.round(conTetto[conTetto.length - 1]!.t / 60)}, ${t('il più profondo')} ` +
         `${(piuAlto.ceiling ?? piuAlto.stopDepth ?? 0).toFixed(1)} m.`,
     );
   } else {
@@ -942,12 +945,13 @@ function mediaPesata(samples: Sample[]): number {
   let area = 0;
   let tempo = 0;
   for (let i = 1; i < samples.length; i++) {
-    const dt = samples[i].t - samples[i - 1].t;
+    const dt = samples[i]!.t - samples[i - 1]!.t;
     if (dt <= 0) continue;
-    area += ((samples[i].depth + samples[i - 1].depth) / 2) * dt;
+    area += ((samples[i]!.depth + samples[i - 1]!.depth) / 2) * dt;
     tempo += dt;
   }
-  return tempo > 0 ? area / tempo : samples[0].depth;
+  // `samples[0]` c'è: l'unica chiamata, `riassuntoProfilo`, esce prima sotto i due campioni.
+  return tempo > 0 ? area / tempo : samples[0]!.depth;
 }
 
 /**
@@ -966,12 +970,12 @@ export function riassuntoMiniSerie(
   if (punti.length === 0) return `${etichetta}: ${t('nessun valore registrato.')}`;
   const min = punti.reduce((a, b) => (b.v < a.v ? b : a));
   const max = punti.reduce((a, b) => (b.v > a.v ? b : a));
-  const durataMin = Math.round((punti[punti.length - 1].t - punti[0].t) / 60);
+  const durataMin = Math.round((punti[punti.length - 1]!.t - punti[0]!.t) / 60);
   return (
     `${etichetta} ${t('in')} ${unita}, ${plural(punti.length, 'rilevazione', 'rilevazioni', t)} ${t('su')} ${durataMin} ${t('minuti')}. ` +
     `${t('Minimo')} ${min.v.toFixed(digits)} ${t('al minuto')} ${Math.round(min.t / 60)}, ` +
     `${t('massimo')} ${max.v.toFixed(digits)} ${t('al minuto')} ${Math.round(max.t / 60)}. ` +
-    `${t('Valore finale')} ${punti[punti.length - 1].v.toFixed(digits)}.`
+    `${t('Valore finale')} ${punti[punti.length - 1]!.v.toFixed(digits)}.`
   );
 }
 

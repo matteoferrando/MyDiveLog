@@ -82,7 +82,7 @@ describe('il piano di miglioramento passa dal dizionario', () => {
   it('l’inglese porta gli stessi segnaposti dell’italiano', () => {
     const storte = chiavi
       .filter((k) => k in INGLESE)
-      .map((k) => ({ it: k, en: INGLESE[k], a: segnapostiDi(k), b: segnapostiDi(INGLESE[k]) }))
+      .map((k) => ({ it: k, en: INGLESE[k], a: segnapostiDi(k), b: segnapostiDi(INGLESE[k]!) }))
       .filter((x) => x.a.join(',') !== x.b.join(','));
     expect(storte, `segnaposti diversi:\n${storte.map((x) => `${x.it}\n${x.en}`).join('\n\n')}`).toEqual([]);
   });

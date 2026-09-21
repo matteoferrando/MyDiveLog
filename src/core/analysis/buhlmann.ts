@@ -167,19 +167,24 @@ export function step(state: TissueState, ambientBarValue: number, mix: GasMix, m
 
   const n2 = new Array(COMPARTMENTS);
   const he = new Array(COMPARTMENTS);
+  // Sedici compartimenti: le tabelle per costruzione (vedi `N2_HALF`), gli stati
+  // perché nascono da `surfacedTissues` o da questo stesso ciclo. Uno stato letto
+  // dall'archivio va controllato prima di arrivare qui: per la catena lo fa
+  // `usableTissues`, in `tissues.ts`.
   for (let i = 0; i < COMPARTMENTS; i++) {
-    n2[i] = state.n2[i] + (piN2 - state.n2[i]) * (1 - Math.pow(2, -minutes / N2_HALF[i]));
-    he[i] = state.he[i] + (piHe - state.he[i]) * (1 - Math.pow(2, -minutes / HE_HALF[i]));
+    n2[i] = state.n2[i]! + (piN2 - state.n2[i]!) * (1 - Math.pow(2, -minutes / N2_HALF[i]!));
+    he[i] = state.he[i]! + (piHe - state.he[i]!) * (1 - Math.pow(2, -minutes / HE_HALF[i]!));
   }
   return { n2, he };
 }
 
 /** Coefficienti combinati: pesati sulle pressioni parziali dei due inerti. */
 function coefficients(state: TissueState, i: number): { total: number; a: number; b: number } {
-  const total = state.n2[i] + state.he[i];
-  if (total <= 0) return { total: 0, a: N2_A[i], b: N2_B[i] };
-  const a = (N2_A[i] * state.n2[i] + HE_A[i] * state.he[i]) / total;
-  const b = (N2_B[i] * state.n2[i] + HE_B[i] * state.he[i]) / total;
+  // `i` è sempre un indice di compartimento, 0..15: chi chiama cicla su `COMPARTMENTS`.
+  const total = state.n2[i]! + state.he[i]!;
+  if (total <= 0) return { total: 0, a: N2_A[i]!, b: N2_B[i]! };
+  const a = (N2_A[i]! * state.n2[i]! + HE_A[i]! * state.he[i]!) / total;
+  const b = (N2_B[i]! * state.n2[i]! + HE_B[i]! * state.he[i]!) / total;
   return { total, a, b };
 }
 
@@ -243,8 +248,8 @@ export function compartments(state: TissueState, ambientBarValue: number, gf = 1
     return {
       index: i + 1,
       halfTimeMin,
-      n2: state.n2[i],
-      he: state.he[i],
+      n2: state.n2[i]!,
+      he: state.he[i]!,
       total,
       mValue,
       limit: ambientBarValue + gradient * gf,
@@ -426,8 +431,8 @@ export function runProfile(
   let firstStopM = 0;
 
   for (let i = 1; i < samples.length; i++) {
-    const prev = samples[i - 1];
-    const cur = samples[i];
+    const prev = samples[i - 1]!;
+    const cur = samples[i]!;
     const minutes = (cur.t - prev.t) / 60;
     if (!(minutes > 0)) continue;
     const meanDepth = (prev.depth + cur.depth) / 2;

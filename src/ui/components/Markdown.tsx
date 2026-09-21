@@ -55,8 +55,8 @@ function render(text: string): ReactNode[] {
     const heading = /^(#{1,4})\s+(.*)$/.exec(line);
     if (heading) {
       flushAll();
-      const level = heading[1].length;
-      const content = inline(heading[2]);
+      const level = heading[1]!.length;
+      const content = inline(heading[2]!);
       // Le intestazioni delle analisi partono da ## : le mappiamo su h3/h4 per
       // non competere con il titolo della carta che le contiene.
       out.push(level <= 2 ? <h3 key={key++}>{content}</h3> : <h4 key={key++}>{content}</h4>);
@@ -70,7 +70,7 @@ function render(text: string): ReactNode[] {
         flushList();
         list = { ordered: false, items: [] };
       }
-      list.items.push(bullet[1]);
+      list.items.push(bullet[1]!);
       continue;
     }
 
@@ -81,7 +81,7 @@ function render(text: string): ReactNode[] {
         flushList();
         list = { ordered: true, items: [] };
       }
-      list.items.push(numbered[1]);
+      list.items.push(numbered[1]!);
       continue;
     }
 

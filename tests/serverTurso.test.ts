@@ -36,7 +36,7 @@ function rete(risposte: Array<{ stato: number; dati: unknown }>) {
       autorizzazione: intestazioni.Authorization ?? null,
       corpo: opzioni.body ? JSON.parse(String(opzioni.body)) : undefined,
     });
-    const r = risposte[Math.min(i++, risposte.length - 1)];
+    const r = risposte[Math.min(i++, risposte.length - 1)]!;
     return {
       ok: r.stato >= 200 && r.stato < 300,
       status: r.stato,
@@ -72,9 +72,9 @@ describe('assicurare il database', () => {
     ]);
     const db = await assicuraDatabase(cfg(fetchImpl), 'abc');
     expect(db.url).toBe('libsql://mdl-abc-org.turso.io');
-    expect(chiamate[0].metodo).toBe('POST');
-    expect(chiamate[0].corpo).toEqual({ name: 'mdl-abc', group: 'default' });
-    expect(chiamate[0].autorizzazione).toBe('Bearer token-organizzazione-segretissimo');
+    expect(chiamate[0]!.metodo).toBe('POST');
+    expect(chiamate[0]!.corpo).toEqual({ name: 'mdl-abc', group: 'default' });
+    expect(chiamate[0]!.autorizzazione).toBe('Bearer token-organizzazione-segretissimo');
   });
 
   it('SE ESISTE GIÀ non è un errore: è il risultato voluto', async () => {
@@ -151,9 +151,9 @@ describe('token del database', () => {
     // La scadenza è la differenza fra questo servizio e un token eterno
     // incollato a mano: se sparisse dalla richiesta, non se ne accorgerebbe
     // nessuno finché non sfugge un token.
-    expect(chiamate[0].url).toContain('/databases/mdl-abc/auth/tokens');
-    expect(chiamate[0].url).toContain('expiration=2h');
-    expect(chiamate[0].url).toContain('authorization=full-access');
+    expect(chiamate[0]!.url).toContain('/databases/mdl-abc/auth/tokens');
+    expect(chiamate[0]!.url).toContain('expiration=2h');
+    expect(chiamate[0]!.url).toContain('authorization=full-access');
   });
 
   it('una risposta senza jwt è un errore, non un token vuoto', async () => {
@@ -166,7 +166,7 @@ describe('cancellazione dell’account', () => {
   it('cancella il database', async () => {
     const { chiamate, fetchImpl } = rete([{ stato: 200, dati: { database: 'mdl-abc' } }]);
     await cancellaDatabase(cfg(fetchImpl), 'mdl-abc');
-    expect(chiamate[0].metodo).toBe('DELETE');
+    expect(chiamate[0]!.metodo).toBe('DELETE');
   });
 
   it('un database che non c’è più conta come cancellato', async () => {
@@ -196,6 +196,6 @@ describe('le due forme della durata non devono divergere', () => {
     const unita: Record<string, number> = { h: 3600, m: 60, d: 86400 };
     const m = /^(\d+)([hmd])$/.exec(DURATA_TOKEN_DB);
     expect(m, 'formato della durata non riconosciuto').not.toBeNull();
-    expect(Number(m![1]) * unita[m![2]]).toBe(DURATA_TOKEN_DB_S);
+    expect(Number(m![1]) * unita[m![2]!]!).toBe(DURATA_TOKEN_DB_S);
   });
 });

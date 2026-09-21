@@ -132,7 +132,7 @@ export class FakeBleLink implements BleLink {
       let i = 0;
       const passo = () => {
         if (this.chiusoDaNoi || i >= pezzi.length) return;
-        this.stream.push(pezzi[i++]);
+        this.stream.push(pezzi[i++]!);
         setTimeout(passo, 0);
       };
       setTimeout(passo, 0);
@@ -347,7 +347,7 @@ export function fintoPeregrine(logs: Uint8Array[], seriale = '988B023F'): FakeRe
   const comprimi = (bytes: Uint8Array) => {
     // XOR prima (è il rovescio del disfacimento), poi RLE.
     const x = bytes.slice();
-    for (let i = x.length - 1; i >= 32; i--) x[i] ^= x[i - 32];
+    for (let i = x.length - 1; i >= 32; i--) x[i]! ^= x[i - 32]!;
     const bits: number[] = [];
     const spingi = (v: number) => {
       for (let i = 8; i >= 0; i--) bits.push((v >> i) & 1);
@@ -362,15 +362,16 @@ export function fintoPeregrine(logs: Uint8Array[], seriale = '988B023F'): FakeRe
         }
         spingi(run);
       } else {
-        spingi(0x100 | x[i]);
+        spingi(0x100 | x[i]!);
         i++;
       }
     }
     spingi(0);
     while (bits.length % 72 !== 0) spingi(0);
     const out = new Uint8Array(bits.length / 8);
+    // `bits` è lungo un multiplo di 72, quindi di 8: `k >> 3` sta dentro `out`.
     bits.forEach((b, k) => {
-      if (b) out[k >> 3] |= 0x80 >> (k & 7);
+      if (b) out[k >> 3]! |= 0x80 >> (k & 7);
     });
     return out;
   };
@@ -395,7 +396,10 @@ export function fintoPeregrine(logs: Uint8Array[], seriale = '988B023F'): FakeRe
     const cmd = payload[0];
 
     if (cmd === 0x22) {
-      const id = (payload[1] << 8) | payload[2];
+      // Senza i due byte dell'identificativo è «fuori limite» come uno sconosciuto: la risposta
+      // di sempre, che prima usciva perché i byte mancanti contavano zero.
+      if (payload.length < 3) return incapsula([0x7f, 0x22, 0x31]);
+      const id = (payload[1]! << 8) | payload[2]!;
       const dati =
         id === 0x8010
           ? // Il seriale è TESTO: otto caratteri ASCII col seriale scritto in
@@ -412,22 +416,34 @@ export function fintoPeregrine(logs: Uint8Array[], seriale = '988B023F'): FakeRe
                 ? [0, 0x80, 0x00, 0x00, 0x00] // formato nuovo
                 : null;
       if (!dati) return incapsula([0x7f, 0x22, 0x31]);
-      return incapsula([0x62, payload[1], payload[2], ...dati]);
+      return incapsula([0x62, payload[1]!, payload[2]!, ...dati]);
     }
 
     if (cmd === 0x35) {
-      compresso = (payload[1] & 0x10) !== 0;
-      const addr = ((payload[3] << 24) >>> 0) + (payload[4] << 16) + (payload[5] << 8) + payload[6];
+      /*
+       * Un indirizzo che non è il manifesto né un'immersione di questo finto — o un comando
+       * troppo corto per portarne uno — si rifiuta col NAK «fuori limite», lo stesso che il
+       * finto dà a un identificativo che non conosce. Prima `logs[i]` arrivava indefinito a
+       * `comprimi`, e il finto cadeva con un `TypeError` dentro la scrittura del driver: un
+       * guasto del finto che sembrava del driver.
+       */
+      if (payload.length < 7) return incapsula([0x7f, 0x35, 0x31]);
+      compresso = (payload[1]! & 0x10) !== 0;
+      const addr = ((payload[3]! << 24) >>> 0) + (payload[4]! << 16) + (payload[5]! << 8) + payload[6]!;
       if (addr === 0xe0000000) corrente = manifesto();
       else {
         const i = (addr - 0x80000000) / 0x40 - 1;
-        corrente = comprimi(logs[i]);
+        const log = logs[i];
+        if (!log) return incapsula([0x7f, 0x35, 0x31]);
+        corrente = comprimi(log);
       }
       return incapsula([0x75, 0x10, 0x00, 0x02]);
     }
 
     if (cmd === 0x36) {
-      const block = payload[1];
+      // Senza numero di blocco risponde col blocco 0, vuoto: gli stessi byte di prima, quando il
+      // byte mancante contava zero.
+      const block = payload[1] ?? 0;
       if (!corrente) return incapsula([0x7f, 0x36, 0x22]);
       /*
        * Blocchi da 63 byte: piccoli apposta, così ogni risposta attraversa più
@@ -454,12 +470,13 @@ export function fintoPeregrine(logs: Uint8Array[], seriale = '988B023F'): FakeRe
       return incapsula([0x77, 0x00]);
     }
 
-    return incapsula([0x7f, cmd, 0x11]);
+    // Un pacchetto senza comando riceve il NAK col codice 0: in byte, lo stesso di prima.
+    return incapsula([0x7f, cmd ?? 0, 0x11]);
   };
 
   return (frame: Uint8Array): Uint8Array[] | undefined => {
     for (let i = 2; i < frame.length; i++) {
-      const c = frame[i];
+      const c = frame[i]!;
       if (c === SLIP_END) {
         if (inArrivo.length) {
           const p = inArrivo;

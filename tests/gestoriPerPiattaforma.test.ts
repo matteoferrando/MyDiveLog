@@ -181,7 +181,7 @@ describe('i comandi Rust registrati, piattaforma per piattaforma', () => {
       const parti: string[] = [];
       let prof = 0;
       let corrente = '';
-      for (const c of fn[2]) {
+      for (const c of fn[2]!) {
         if (c === '(') prof++;
         if (c === ')') prof--;
         if (c === ',' && prof === 0) {
@@ -192,7 +192,7 @@ describe('i comandi Rust registrati, piattaforma per piattaforma', () => {
       if (corrente.trim()) parti.push(corrente);
       if (fn[1] === 'any') return parti.some(val);
       if (fn[1] === 'all') return parti.every(val);
-      return !val(parti[0]);
+      return !val(parti[0]!);
     };
     return val(condizione);
   }
@@ -219,7 +219,7 @@ describe('i comandi Rust registrati, piattaforma per piattaforma', () => {
       Windows: 'windows',
       Android: 'android',
     };
-    const os = OS[nome];
+    const os = OS[nome]!;
     const fuori: string[] = [];
     for (const comando of comandiPer(cfg)) {
       const [modulo, locale] = comando.includes('::') ? comando.split('::') : [undefined, comando];

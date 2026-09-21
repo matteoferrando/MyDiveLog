@@ -285,7 +285,8 @@ const LARGHEZZE: Record<string, number> = {
 /** Larghezza di un testo in punti tipografici, al corpo dato. */
 export function larghezzaTesto(valore: string, corpo: number): number {
   let mille = 0;
-  for (const carattere of valore) mille += LARGHEZZE[carattere] ?? LARGHEZZE.n;
+  // La `n` sta nella tabella qui sopra: è la larghezza di ripiego per i caratteri che mancano.
+  for (const carattere of valore) mille += LARGHEZZE[carattere] ?? LARGHEZZE.n!;
   return (mille / 1000) * corpo;
 }
 
@@ -830,7 +831,7 @@ export function pianoPdf(f: FoglioPiano, opts: PdfOptions = {}): string {
       grigio(c, 0.45);
       for (let i = 0; i < quante; i++) {
         const testo = s.colonne[i] ?? '';
-        if (destra.has(i)) scriviADestra(c, x(i) + finali[i], y, testo, 8.5);
+        if (destra.has(i)) scriviADestra(c, x(i) + finali[i]!, y, testo, 8.5);
         else scrivi(c, x(i), y, testo, 8.5);
       }
       grigio(c, 0);
@@ -851,7 +852,7 @@ export function pianoPdf(f: FoglioPiano, opts: PdfOptions = {}): string {
       }
       for (let i = 0; i < quante; i++) {
         const testo = r[i] ?? '';
-        if (destra.has(i)) scriviADestra(c, x(i) + finali[i], y, testo, 9, forte);
+        if (destra.has(i)) scriviADestra(c, x(i) + finali[i]!, y, testo, 9, forte);
         else scrivi(c, x(i), y, accorcia(testo, 60), 9, forte);
       }
       y -= 13;

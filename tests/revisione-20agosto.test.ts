@@ -104,7 +104,7 @@ describe('il cambio gas avviene alla MOD, non alla prima sosta più in alto', ()
 
   it('e il GF99 all’uscita cresce con la profondità, come deve', () => {
     const gf = [29, 30, 31, 32].map((d) => planDeco([{ depthM: d, minutes: 10 }], gases, s).gf99EndPct);
-    for (let i = 1; i < gf.length; i++) expect(gf[i]).toBeGreaterThanOrEqual(gf[i - 1]);
+    for (let i = 1; i < gf.length; i++) expect(gf[i]).toBeGreaterThanOrEqual(gf[i - 1]!);
   });
 
   it('quotaDiCambioTra trova la più profonda per strada, e niente quando non ce n’è', () => {
@@ -178,7 +178,7 @@ describe('la deduplica non inghiotte un’immersione intera', () => {
   });
 
   it('lo stesso computer con due identificativi interni diversi mette il veto', () => {
-    const a = crociera[7];
+    const a = crociera[7]!;
     expect(likelySame(a, notturna, -5.5 * 3600_000)).toBe(false);
   });
 
@@ -340,13 +340,13 @@ describe('CSV: l’unità dichiarata nell’intestazione vale per tutta la colon
 
   it('converte profondità, temperatura e pressioni', () => {
     const r = csvParser.parse({ fileName: 'a.csv', text: imperiale });
-    const d = r.dives[0];
+    const d = r.dives[0]!;
     expect(d.maxDepth).toBeCloseTo(29.9, 1);
     expect(d.avgDepth).toBeCloseTo(16.5, 1);
     expect(d.minTempC).toBeCloseTo(11.1, 1);
-    expect(d.cylinders[0].startBar).toBe(207);
-    expect(d.cylinders[0].endBar).toBe(48);
-    expect(d.cylinders[0].sizeL).toBe(11.1);
+    expect(d.cylinders[0]!.startBar).toBe(207);
+    expect(d.cylinders[0]!.endBar).toBe(48);
+    expect(d.cylinders[0]!.sizeL).toBe(11.1);
   });
 
   it('e lo dichiara, invece di convertire in silenzio', () => {
@@ -356,7 +356,7 @@ describe('CSV: l’unità dichiarata nell’intestazione vale per tutta la colon
 
   it('l’unità scritta nella cella vince su quella della colonna', () => {
     const misto = ['Date,Time,Max Depth (ft),Duration (min)', '2026-03-14,10:05,12 m,47'].join('\n');
-    expect(csvParser.parse({ fileName: 'a.csv', text: misto }).dives[0].maxDepth).toBe(12);
+    expect(csvParser.parse({ fileName: 'a.csv', text: misto }).dives[0]!.maxDepth).toBe(12);
   });
 });
 
@@ -430,7 +430,7 @@ describe('il gas di transito e la PPO2 minima', () => {
 
   it('la discesa parte sul gas di transito e cambia alla sua MOD', () => {
     const p = planDeco([{ depthM: 80, minutes: 20 }], [ipossica, transito, EAN50, OSSIGENO], DEFAULT_DECO);
-    const primo = p.segments[0];
+    const primo = p.segments[0]!;
     expect(primo.kind).toBe('descent');
     expect(primo.gasIndex).toBe(1);
     expect(primo.toM).toBeCloseTo(switchDepthOf(transito, DEFAULT_DECO), 0);
@@ -478,8 +478,8 @@ describe('l’ossigeno si accumula per giornata del LUOGO', () => {
       tuffo('2026-03-12T04:00:00Z'),
     ]);
     expect(load.days).toHaveLength(1);
-    expect(load.days[0].date).toBe('2026-03-12');
-    expect(load.days[0].otu).toBe(320);
+    expect(load.days[0]!.date).toBe('2026-03-12');
+    expect(load.days[0]!.otu).toBe(320);
     expect(load.daysOverOtu300).toBe(1);
   });
 });

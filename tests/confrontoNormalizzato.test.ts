@@ -97,7 +97,7 @@ const PROFILO = sorgente('src/ui/pages/ProfiloPage.tsx');
 function dichiarazione(sorgente: string, dove: string, nome: string): string {
   const m = new RegExp(`\\bconst ${nome} =([\\s\\S]*?);\\n`).exec(sorgente);
   if (!m) throw new Error(`in ${dove} non c'è più una const «${nome}»`);
-  return m[1];
+  return m[1]!;
 }
 
 describe('il digitato si confronta col salvato passando dalla regola', () => {

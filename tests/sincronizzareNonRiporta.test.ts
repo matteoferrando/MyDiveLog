@@ -122,7 +122,7 @@ describe('una bombola tolta a mano', () => {
     const senzaVolume = immersione({
       cylinders: [{ mix: AIR, startBar: 200, endBar: 80 } as never],
     });
-    expect(sincronizza(senzaVolume, unaSola).cylinders[0].sizeL).toBe(12);
+    expect(sincronizza(senzaVolume, unaSola).cylinders[0]!.sizeL).toBe(12);
   });
 
   it('togliere TUTTE le bombole è una frase, e va rispettata fra dispositivi', () => {

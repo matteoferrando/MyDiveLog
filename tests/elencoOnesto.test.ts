@@ -55,7 +55,7 @@ function campiDi(interfaccia: string): string[] {
   const inizio = sorgente.indexOf(`export interface ${interfaccia} {`);
   if (inizio < 0) throw new Error(`interfaccia ${interfaccia} non trovata in model.ts`);
   const corpo = sorgente.slice(inizio, sorgente.indexOf('\n}', inizio));
-  const campi = [...corpo.matchAll(/^ {2}([A-Za-z_][A-Za-z0-9_]*)\??:/gm)].map((m) => m[1]);
+  const campi = [...corpo.matchAll(/^ {2}([A-Za-z_][A-Za-z0-9_]*)\??:/gm)].map((m) => m[1]!);
   if (campi.length < 3) throw new Error(`lettura di ${interfaccia} sospetta: ${campi.length} campi`);
   return campi;
 }
@@ -264,9 +264,9 @@ describe('l’elenco delle perdite dell’export UDDF', () => {
     const mancanti: string[] = [];
     for (const campo of campiDi('Dive')) if (!(campo in piena)) mancanti.push(`Dive.${campo}`);
     for (const campo of campiDi('Sample'))
-      if (!(campo in piena.samples![0])) mancanti.push(`Sample.${campo}`);
+      if (!(campo in piena.samples![0]!)) mancanti.push(`Sample.${campo}`);
     for (const campo of campiDi('Cylinder')) {
-      if (!(campo in piena.cylinders[0])) mancanti.push(`Cylinder.${campo}`);
+      if (!(campo in piena.cylinders[0]!)) mancanti.push(`Cylinder.${campo}`);
     }
     for (const campo of campiDi('DiveSite')) if (!(campo in piena.site!)) mancanti.push(`DiveSite.${campo}`);
     expect(mancanti, 'campi del modello non coperti dalla scheda di prova in questo file').toEqual([]);
@@ -274,7 +274,7 @@ describe('l’elenco delle perdite dell’export UDDF', () => {
 
   it('ogni campo che non sopravvive al giro è dichiarato', async () => {
     const { xml, perdite } = exportUddf([piena], { now: '2026-09-15T00:00:00Z' });
-    const [dopo] = (await parseFile({ fileName: 'piena.uddf', text: xml })).dives;
+    const dopo = (await parseFile({ fileName: 'piena.uddf', text: xml })).dives[0]!;
     expect(dopo, 'il file non si rilegge nemmeno').toBeDefined();
 
     const dichiarati = new Set(perdite.flatMap((p) => p.campi));
@@ -310,7 +310,7 @@ describe('l’elenco delle perdite dell’export UDDF', () => {
      * cui bisognerebbe contare.
      */
     const { xml, perdite } = exportUddf([piena], { now: '2026-09-15T00:00:00Z' });
-    const [dopo] = (await parseFile({ fileName: 'piena.uddf', text: xml })).dives;
+    const dopo = (await parseFile({ fileName: 'piena.uddf', text: xml })).dives[0]!;
 
     const bugie = perdite
       .flatMap((p) => p.campi)

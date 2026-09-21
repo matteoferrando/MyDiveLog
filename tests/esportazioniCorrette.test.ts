@@ -101,7 +101,7 @@ describe('UDDF: una bombola senza trasmettitore', () => {
   });
 
   it('e rileggendo il file la principale resta senza pressione, non a zero', async () => {
-    const [d] = await giro([conUnSoloTrasmettitore()]);
+    const d = (await giro([conUnSoloTrasmettitore()]))[0]!;
     const principale = (d.samples ?? []).map((s) => s.pressureBar?.[0]);
     const stage = (d.samples ?? []).map((s) => s.pressureBar?.[1]);
     expect(principale.every((v) => v === undefined || v === null)).toBe(true);
@@ -235,7 +235,7 @@ describe('UDDF: gli identificativi dentro il documento', () => {
       immersione({ id: 'b', startTime: '2026-06-15T10:00:00.000Z', cylinders: dueBombole }),
       immersione({ id: 'c', startTime: '2026-06-16T10:00:00.000Z', cylinders: dueBombole }),
     ]);
-    const ids = [...xml.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+    const ids = [...xml.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]!);
     const doppi = ids.filter((v, i) => ids.indexOf(v) !== i);
     expect(doppi).toEqual([]);
     // Sei bombole in tre immersioni: se fossero ancora `cyl-0..1` sarebbero due.
@@ -276,7 +276,7 @@ describe('UDDF: due bombole dello stesso gas', () => {
     });
 
   it('la prima resta la prima dopo il giro', async () => {
-    const [d] = await giro([sidemount(0)]);
+    const d = (await giro([sidemount(0)]))[0]!;
     expect((d.samples ?? []).map((s) => s.gasIndex)).toEqual(Array(9).fill(0));
   });
 
@@ -352,12 +352,14 @@ describe('UDDF: la sigla della bombola non si inventa al reimport', () => {
      * nessuno aveva scritto, e con un 31.5% analizzato diceva «EAN32» mentre
      * `o2` valeva 0.315.
      */
-    const [d] = await giro([
-      immersione({
-        cylinders: [{ mix: AIR, sizeL: 12, startBar: 200, endBar: 80, description: 'D12 lungo' }],
-      }),
-    ]);
-    expect(d.cylinders[0].description).toBeUndefined();
+    const d = (
+      await giro([
+        immersione({
+          cylinders: [{ mix: AIR, sizeL: 12, startBar: 200, endBar: 80, description: 'D12 lungo' }],
+        }),
+      ])
+    )[0]!;
+    expect(d.cylinders[0]!.description).toBeUndefined();
   });
 
   it('e nemmeno leggendo un file scritto da altri', async () => {
@@ -374,8 +376,8 @@ describe('UDDF: la sigla della bombola non si inventa al reimport', () => {
 </dive></repetitiongroup></profiledata></uddf>`;
     const { dives } = await parseFile({ fileName: 'sigla.uddf', text: xml });
     // La sigla direbbe 32 mentre il gas ne ha 31.5: due numeri per la stessa bombola.
-    expect(dives[0].cylinders[0].description).toBeUndefined();
-    expect(dives[0].cylinders[0].mix.o2).toBeCloseTo(0.315, 3);
+    expect(dives[0]!.cylinders[0]!.description).toBeUndefined();
+    expect(dives[0]!.cylinders[0]!.mix.o2).toBeCloseTo(0.315, 3);
   });
 });
 
@@ -394,9 +396,9 @@ describe('CSV: la data e l’ora sono quelle del sito', () => {
 
   const colonne = (csv: string) => {
     const righe = csv.replace(/^﻿/, '').split('\r\n');
-    const intestazione = righe[1].split(';');
-    const dati = righe[2].split(';');
-    return (nome: string) => dati[intestazione.indexOf(nome)];
+    const intestazione = righe[1]!.split(';');
+    const dati = righe[2]!.split(';');
+    return (nome: string) => dati[intestazione.indexOf(nome)]!;
   };
 
   it('il giorno del foglio è il giorno dell’immersione, non quello di Greenwich', () => {
@@ -427,7 +429,7 @@ describe('CSV in ingresso: le unità dichiarate nell’intestazione', () => {
   const conUnita = `Date,Time,Duration,Max Depth (ft),Weight (lbs),Visibility (ft)\n${RIGA}`;
   const senzaUnita = `Date,Time,Duration,Max Depth,Weight,Visibility\n${RIGA}`;
 
-  const leggi = (testo: string): Dive => csvParser.parse({ fileName: 'a.csv', text: testo }).dives[0];
+  const leggi = (testo: string): Dive => csvParser.parse({ fileName: 'a.csv', text: testo }).dives[0]!;
 
   it('libbre e piedi vengono convertiti, non copiati', () => {
     /*
@@ -490,7 +492,7 @@ function testiDelPdf(pdf: string): { testo: string; x: number; y: number; corpo:
     corpo: Number(m[1]),
     x: Number(m[2]),
     y: Number(m[3]),
-    testo: m[4],
+    testo: m[4]!,
   }));
 }
 

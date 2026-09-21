@@ -471,7 +471,7 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
               <div className="mini-title">
                 <span>{t('OTU per giornata di immersione')}</span>
                 <span className="mini-last">
-                  {`${a.oxygen.days[a.oxygen.days.length - 1].otu} ${t('l’ultima')}`}
+                  {`${a.oxygen.days[a.oxygen.days.length - 1]!.otu} ${t('l’ultima')}`}
                 </span>
               </div>
               <ColumnChart
@@ -637,7 +637,7 @@ export function Stats({ onOpen }: { onOpen: (id: string) => void }) {
              sarebbe falso — le immersioni ci sono, manca il sito. */
           sommario={
             a.topSites.length
-              ? `${a.topSites[0].name} · ${imm(a.topSites[0].dives, t)}`
+              ? `${a.topSites[0]!.name} · ${imm(a.topSites[0]!.dives, t)}`
               : t('nessun sito registrato')
           }
         >
@@ -1680,7 +1680,7 @@ function SettingsHistory({ dives }: { dives: Dive[] }) {
          esiste per avvisare quando una tendenza del GF99 attraversa un cambio di
          impostazioni. `periods.length >= 2` è garantito dall'uscita anticipata qui
          sopra, quindi «0 cambi» non può comparire. */
-      sommario={frase(t, '{0} cambi, ora {1}', periods.length - 1, periods[periods.length - 1].label)}
+      sommario={frase(t, '{0} cambi, ora {1}', periods.length - 1, periods[periods.length - 1]!.label)}
     >
       <p className="card-sub">
         {t('Il GF99 all’uscita dipende da queste impostazioni: tienine conto quando confronti due periodi.')}
@@ -1790,7 +1790,7 @@ function MedianTile({
 
   const sorted = [...points].map((p) => p.value).sort((x, y) => x - y);
   const mid = Math.floor(sorted.length / 2);
-  const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  const median = sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
   // La direzione la decide il nucleo, che sa già per quali misure "più basso" sia
   // meglio: ricalcolarla qui sarebbe una seconda verità che può contraddire la
   // prima — l'errore che l'audit del pianificatore ha appena punito.
@@ -1827,7 +1827,7 @@ function MedianTile({
 function gfLabel(dives: Dive[], t: Traduci): string | undefined {
   const periods = settingsPeriods(dives);
   if (periods.length === 0) return undefined;
-  const last = periods[periods.length - 1].label;
+  const last = periods[periods.length - 1]!.label;
   return periods.length > 1 ? `${last} (${t('cambiati nel periodo')})` : `${last} ${t('impostati')}`;
 }
 
@@ -1882,7 +1882,8 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
    * cosa e lo schermo ne fa un'altra.
    */
   const daOvest = [...list].sort((a, b) => a.lon - b.lon);
-  const cursore = useCursoreDiScelta(daOvest, (s) => s.dives[0].id, onOpen);
+  // Un sito nasce con l'immersione che lo porta nell'elenco: `dives[0]` c'è sempre.
+  const cursore = useCursoreDiScelta(daOvest, (s) => s.dives[0]!.id, onOpen);
 
   if (withCoords < 2) return null;
 
@@ -1905,7 +1906,8 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
   const px = (lon: number) => width / 2 + ((lon * kx - cx) / span) * size;
   const py = (lat: number) => height / 2 - ((lat - cy) / span) * size;
   const maxDives = Math.max(...list.map((s) => s.dives.length));
-  const piuFrequentato = list.reduce((a, b) => (b.dives.length > a.dives.length ? b : a), list[0]);
+  // Almeno due siti: `withCoords` è `list.length`, e sotto i due si è usciti prima.
+  const piuFrequentato = list.reduce((a, b) => (b.dives.length > a.dives.length ? b : a), list[0]!);
 
   /* Il sito detto come lo dice l'etichetta sul disegno: nome e quante. */
   const etichettaSito = (sito: (typeof list)[number]) => `${sito.name}, ${imm(sito.dives.length, t)}`;
@@ -2015,7 +2017,7 @@ function SitesMap({ dives, onOpen }: { dives: Dive[]; onOpen: (id: string) => vo
                      ha scelto. */
                   onPointerCancel={() => setHover(null)}
                   onClick={() => {
-                    if (eraAttivo.current) onOpen(site.dives[0].id);
+                    if (eraAttivo.current) onOpen(site.dives[0]!.id);
                   }}
                 />
                 {/* L'anello della bolla scelta dalle frecce: il contorno del

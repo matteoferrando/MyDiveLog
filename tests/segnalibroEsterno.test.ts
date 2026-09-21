@@ -137,19 +137,19 @@ describe('quello che il computer dichiara vale più di quello che deduce il tele
 
   it('il fuso dichiarato dal computer vince su quello del telefono', () => {
     const fusoDelTelefono = () => 60; // l'ora legale italiana
-    const [imm] = immersioniDaLdc([conFuso(180)], { ...CTX, fuso: fusoDelTelefono });
+    const imm = immersioniDaLdc([conFuso(180)], { ...CTX, fuso: fusoDelTelefono })[0]!;
     expect(imm.utcOffsetMinutes).toBe(180);
     // E l'ora a parete resta quella: è l'istante assoluto a spostarsi.
     expect(imm.startTime).toBe('2026-09-14T07:00:00.000Z');
   });
 
   it('senza quello del computer resta quello del telefono, che è il ripiego di prima', () => {
-    const [imm] = immersioniDaLdc([conFuso(undefined)], { ...CTX, fuso: () => 120 });
+    const imm = immersioniDaLdc([conFuso(undefined)], { ...CTX, fuso: () => 120 })[0]!;
     expect(imm.utcOffsetMinutes).toBe(120);
   });
 
   it('e senza né l’uno né l’altro non se ne inventa nessuno', () => {
-    const [imm] = immersioniDaLdc([conFuso(undefined)], CTX);
+    const imm = immersioniDaLdc([conFuso(undefined)], CTX)[0]!;
     expect(imm.utcOffsetMinutes).toBeUndefined();
   });
 });

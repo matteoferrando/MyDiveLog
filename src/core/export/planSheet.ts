@@ -69,7 +69,7 @@ export function foglioDelPiano(ctx: {
       [
         'Durata totale',
         soste?.segments.length
-          ? `${formatRuntime(soste.segments[soste.segments.length - 1].runtimeMin)} — soste comprese`
+          ? `${formatRuntime(soste.segments[soste.segments.length - 1]!.runtimeMin)} — soste comprese`
           : formatRuntime(plan.totalRuntimeMin),
       ],
       ['Miscela', mixName(i.mix)],
@@ -137,7 +137,8 @@ export function foglioDelPiano(ctx: {
          */
         String(Math.round(seg.runtimeMin)),
         seg.fromM === seg.toM ? `${m1(seg.toM)} m` : `${m1(seg.fromM)} → ${m1(seg.toM)} m`,
-        seg.kind === 'stop' && !obbligatoriaA.get(seg.toM) ? 'sosta di sicurezza' : AZIONE[seg.kind],
+        // `AZIONE` ha una voce per ciascuno dei cinque `SegmentKind`.
+        seg.kind === 'stop' && !obbligatoriaA.get(seg.toM) ? 'sosta di sicurezza' : AZIONE[seg.kind]!,
         formatRuntime(minuti),
         `${Math.round(litri)} L`,
       ];

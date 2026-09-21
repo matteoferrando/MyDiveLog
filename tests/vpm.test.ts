@@ -201,10 +201,10 @@ describe('monotonie che devono valere sempre', () => {
     const times = [0, 1, 2, 3, 4, 5].map(
       (conservatism) => planVpm([{ depthM: 45, minutes: 30, mix: AIR }], gases, { conservatism }).decoMin,
     );
-    for (let i = 1; i < times.length; i++) expect(times[i]).toBeGreaterThan(times[i - 1]);
+    for (let i = 1; i < times.length; i++) expect(times[i]).toBeGreaterThan(times[i - 1]!);
     // Fra il nominale e il massimo ci deve essere una differenza sostanziale: se
     // fosse di due minuti la manopola sarebbe finta.
-    expect(times[5]).toBeGreaterThan(times[0] * 1.4);
+    expect(times[5]).toBeGreaterThan(times[0]! * 1.4);
   });
 
   it('un gas di decompressione ricco accorcia la decompressione', () => {
@@ -265,10 +265,10 @@ describe('la forma della tabella, che è ciò che distingue il VPM', () => {
 
   it('la tabella è ordinata dal profondo verso la superficie, sul passo dichiarato', () => {
     for (let i = 1; i < vpm.stops.length; i++) {
-      expect(vpm.stops[i].depthM).toBeLessThan(vpm.stops[i - 1].depthM);
-      expect(vpm.stops[i - 1].depthM - vpm.stops[i].depthM).toBe(DEFAULT_VPM.stopIntervalM);
+      expect(vpm.stops[i]!.depthM).toBeLessThan(vpm.stops[i - 1]!.depthM);
+      expect(vpm.stops[i - 1]!.depthM - vpm.stops[i]!.depthM).toBe(DEFAULT_VPM.stopIntervalM);
     }
-    expect(vpm.stops[vpm.stops.length - 1].depthM).toBe(DEFAULT_VPM.lastStopM);
+    expect(vpm.stops[vpm.stops.length - 1]!.depthM).toBe(DEFAULT_VPM.lastStopM);
     expect(vpm.stops.every((s) => s.minutes >= 1 && Number.isInteger(s.minutes))).toBe(true);
     expect(vpm.decoMin).toBe(vpm.stops.reduce((sum, s) => sum + s.minutes, 0));
   });
@@ -276,7 +276,7 @@ describe('la forma della tabella, che è ciò che distingue il VPM', () => {
   it("l'ultima sosta a 6 metri è rispettata e non ne compaiono di più basse", () => {
     const r = planVpm(profile, [{ mix: EAN50, switchDepthM: 21 }], { lastStopM: 6 });
     expect(r.stops.every((s) => s.depthM >= 6)).toBe(true);
-    expect(r.stops[r.stops.length - 1].depthM).toBe(6);
+    expect(r.stops[r.stops.length - 1]!.depthM).toBe(6);
   });
 
   it('il cambio gas avviene alla quota dichiarata e non prima', () => {
@@ -547,8 +547,8 @@ describe('ripetitive: le proprietà che devono valere comunque', () => {
 
   it("la penalità cala man mano che l'intervallo cresce", () => {
     const serie = [15, 30, 60, 120, 240, 480].map(dopo);
-    for (let i = 1; i < serie.length; i++) expect(serie[i]).toBeLessThanOrEqual(serie[i - 1]);
-    expect(serie[serie.length - 1]).toBeLessThan(serie[0]);
+    for (let i = 1; i < serie.length; i++) expect(serie[i]).toBeLessThanOrEqual(serie[i - 1]!);
+    expect(serie[serie.length - 1]).toBeLessThan(serie[0]!);
   });
 
   it('dopo settimane di superficie la ripetitiva torna identica a quella da pulita', () => {
@@ -575,7 +575,7 @@ describe('ripetitive: le proprietà che devono valere comunque', () => {
       expect(stato.nuclei.maxActualGradient.every((g) => g >= 0)).toBe(true);
     }
     // Ogni tuffo della giornata è più caro del precedente, ma la serie non esplode.
-    for (let i = 1; i < serie.length; i++) expect(serie[i]).toBeGreaterThanOrEqual(serie[i - 1]);
+    for (let i = 1; i < serie.length; i++) expect(serie[i]).toBeGreaterThanOrEqual(serie[i - 1]!);
     expect(serie[2]).toBeLessThan(pulita.decoMin * 6);
   });
 
@@ -610,7 +610,7 @@ describe('ripetitive: le proprietà che devono valere comunque', () => {
           surfaceIntervalMin: 60,
         }).decoMin,
     );
-    for (let i = 1; i < serie.length; i++) expect(serie[i]).toBeGreaterThan(serie[i - 1]);
+    for (let i = 1; i < serie.length; i++) expect(serie[i]).toBeGreaterThan(serie[i - 1]!);
   });
 
   it('i nuclei tornano sempre, anche quando non ci sono soste', () => {
@@ -682,7 +682,7 @@ describe('quota: le proprietà che devono valere comunque', () => {
 
   it('più si sale, più lunga è la decompressione', () => {
     const serie = [0, 1000, 2000, 3000].map((a) => at(a, 72));
-    for (let i = 1; i < serie.length; i++) expect(serie[i]).toBeGreaterThan(serie[i - 1]);
+    for (let i = 1; i < serie.length; i++) expect(serie[i]).toBeGreaterThan(serie[i - 1]!);
   });
 
   it('chi è appena salito decomprime più a lungo di chi è acclimatato', () => {
@@ -692,16 +692,16 @@ describe('quota: le proprietà che devono valere comunque', () => {
 
   it('la penalità di chi è appena salito si esaurisce con le ore passate in quota', () => {
     const serie = [0, 1, 3, 12, 48].map((h) => at(2000, h));
-    for (let i = 1; i < serie.length; i++) expect(serie[i]).toBeLessThanOrEqual(serie[i - 1]);
-    expect(serie[serie.length - 1]).toBeLessThan(serie[0]);
+    for (let i = 1; i < serie.length; i++) expect(serie[i]).toBeLessThanOrEqual(serie[i - 1]!);
+    expect(serie[serie.length - 1]).toBeLessThan(serie[0]!);
   });
 
   it('la quota gonfia i nuclei: raggi critici più grandi del nominale', () => {
     const mare = planVpm(LEVELS, [], { conservatism: 0 });
     const monte = planVpm(LEVELS, [], { conservatism: 0, altitudeM: 3000, hoursAtAltitude: 0 });
     for (let i = 0; i < 16; i++) {
-      expect(monte.nuclei.critRadiusN2[i]).toBeGreaterThan(mare.nuclei.critRadiusN2[i]);
-      expect(monte.nuclei.critRadiusHe[i]).toBeGreaterThan(mare.nuclei.critRadiusHe[i]);
+      expect(monte.nuclei.critRadiusN2[i]).toBeGreaterThan(mare.nuclei.critRadiusN2[i]!);
+      expect(monte.nuclei.critRadiusHe[i]).toBeGreaterThan(mare.nuclei.critRadiusHe[i]!);
     }
   });
 

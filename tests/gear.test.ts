@@ -238,8 +238,8 @@ describe('zavorra ricavata dalle immersioni', () => {
       conMuta('d', 'stagna', undefined),
     ]);
     expect(rows).toHaveLength(1);
-    expect(rows[0].suit).toBe('umida 5 mm');
-    expect(rows[0].dives).toBe(2);
+    expect(rows[0]!.suit).toBe('umida 5 mm');
+    expect(rows[0]!.dives).toBe(2);
   });
 
   it('tace sotto il minimo, perché una immersione non è una configurazione', () => {
@@ -252,12 +252,12 @@ describe('zavorra ricavata dalle immersioni', () => {
       conMuta('b', 'stagna', 10),
       conMuta('c', 'stagna', 9),
     ]);
-    expect(rows[0].medianKg).toBe(9);
-    expect(rows[0].minKg).toBe(8);
-    expect(rows[0].maxKg).toBe(10);
+    expect(rows[0]!.medianKg).toBe(9);
+    expect(rows[0]!.minKg).toBe(8);
+    expect(rows[0]!.maxKg).toBe(10);
     // Il profilo sintetico produce un assetto misurabile: la base deve dirlo.
-    expect(rows[0].trimBasis).toBe(3);
-    expect(rows[0].medianTrimMpm).toBeGreaterThan(0);
+    expect(rows[0]!.trimBasis).toBe(3);
+    expect(rows[0]!.medianTrimMpm).toBeGreaterThan(0);
   });
 });
 
@@ -287,7 +287,7 @@ describe('configurazione contata sui log', () => {
     expect(byLabel['Bombole non registrate']).toBe(1);
     expect(byLabel['Rebreather a circuito chiuso']).toBe(1);
     // In ordine di frequenza: è così che si legge.
-    expect(rows[0].dives).toBeGreaterThanOrEqual(rows[rows.length - 1].dives);
+    expect(rows[0]!.dives).toBeGreaterThanOrEqual(rows[rows.length - 1]!.dives);
   });
 });
 
@@ -367,24 +367,24 @@ describe('migrazione dalla lista unica', () => {
     ]);
     expect(certifications).toHaveLength(0);
     expect(equipment).toHaveLength(2);
-    expect(equipment[0].name).toContain('Certificato medico');
-    expect(equipment[0].service).toBe('none');
-    expect(equipment[0].notes).toContain('2027-01-15');
-    expect(equipment[1].name).toContain('Assicurazione');
+    expect(equipment[0]!.name).toContain('Certificato medico');
+    expect(equipment[0]!.service).toBe('none');
+    expect(equipment[0]!.notes).toContain('2027-01-15');
+    expect(equipment[1]!.name).toContain('Assicurazione');
     // La scadenza derivata dall'intervallo finisce nelle note, non sparisce.
-    expect(equipment[1].notes).toContain('2027-01-01');
+    expect(equipment[1]!.notes).toContain('2027-01-01');
   });
 
   it('un tipo sconosciuto finisce in «altro» invece di far cadere tutto', () => {
     const { equipment } = migrateGear([vecchio({ kind: 'boh', name: 'Qualcosa' })]);
-    expect(equipment[0].kind).toBe('other');
-    expect(equipment[0].name).toBe('Qualcosa');
+    expect(equipment[0]!.kind).toBe('other');
+    expect(equipment[0]!.name).toBe('Qualcosa');
   });
 
   it('conserva id e timbro della sincronizzazione', () => {
     const { equipment } = migrateGear([vecchio({ id: 'stabile', savedAt: '2026-08-01T10:00:00Z' })]);
-    expect(equipment[0].id).toBe('stabile');
-    expect(equipment[0].savedAt).toBe('2026-08-01T10:00:00Z');
+    expect(equipment[0]!.id).toBe('stabile');
+    expect(equipment[0]!.savedAt).toBe('2026-08-01T10:00:00Z');
   });
 });
 
@@ -449,6 +449,6 @@ describe('la muta scritta a mano conta come la muta scelta dall’elenco', () =>
       imm({ suit: 'Muta Umida 5mm' }), // senza zavorra: nell'inventario sì, nella zavorra no
     ];
     expect(equipmentUsage(dives, [muta]).get('m1')?.dives).toBe(3);
-    expect(weightingBySuit(dives)[0].dives).toBe(2);
+    expect(weightingBySuit(dives)[0]!.dives).toBe(2);
   });
 });

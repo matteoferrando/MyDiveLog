@@ -330,8 +330,8 @@ describe('il giro dei modi di collegarsi', () => {
       );
       // Due riprove uguali, poi si cambia: al terzo giro il metodo non è più
       // stato annunciato, quindi il giro finisce senza altri metodi da provare.
-      expect(finto.chiamate[1].tentativo, 'la prima riprova è sullo STESSO metodo').toBe(0);
-      expect(finto.chiamate[2].tentativo, 'la seconda pure').toBe(0);
+      expect(finto.chiamate[1]!.tentativo, 'la prima riprova è sullo STESSO metodo').toBe(0);
+      expect(finto.chiamate[2]!.tentativo, 'la seconda pure').toBe(0);
       expect(giri).toBeGreaterThan(2);
     } finally {
       smonta();
@@ -343,9 +343,9 @@ describe('il giro dei modi di collegarsi', () => {
     try {
       await avvia(host);
       await lasciaProvare((g) => [g + 1, 8]);
-      expect(finto.chiamate[1].tentativo).toBe(1);
-      expect(finto.chiamate[2].tentativo).toBe(2);
-      expect(finto.chiamate[3].tentativo).toBe(3);
+      expect(finto.chiamate[1]!.tentativo).toBe(1);
+      expect(finto.chiamate[2]!.tentativo).toBe(2);
+      expect(finto.chiamate[3]!.tentativo).toBe(3);
     } finally {
       smonta();
     }
@@ -403,7 +403,7 @@ describe('il giro dei modi di collegarsi', () => {
     const { host, smonta } = await apri();
     try {
       await avvia(host);
-      expect(finto.chiamate[0].tentativo).toBeUndefined();
+      expect(finto.chiamate[0]!.tentativo).toBeUndefined();
       await lasciaProvare((g) => [g + 1, 8]);
       const quanti = finto.chiamate.length;
 
@@ -411,7 +411,7 @@ describe('il giro dei modi di collegarsi', () => {
         premi(host, 'Riprova con un altro modo').dispatchEvent(new MouseEvent('click', { bubbles: true }));
       });
       expect(finto.chiamate).toHaveLength(quanti + 1);
-      expect(finto.chiamate[quanti].tentativo).toBe(TENTATIVI_AUTOMATICI + 1);
+      expect(finto.chiamate[quanti]!.tentativo).toBe(TENTATIVI_AUTOMATICI + 1);
     } finally {
       smonta();
     }
@@ -451,8 +451,8 @@ describe('il giro dei modi di collegarsi', () => {
       await act(async () => {
         premi(host, 'Scarica').dispatchEvent(new MouseEvent('click', { bubbles: true }));
       });
-      expect(finto.chiamate[1].metodo).toBe(CHIAVE);
-      expect(finto.chiamate[1].tentativo).toBeUndefined();
+      expect(finto.chiamate[1]!.metodo).toBe(CHIAVE);
+      expect(finto.chiamate[1]!.tentativo).toBeUndefined();
     } finally {
       smonta();
     }
@@ -474,7 +474,7 @@ describe('il giro dei modi di collegarsi', () => {
       expect(metodoConservato('dev-mares')).toBeUndefined();
       // E siccome non ha funzionato, l'applicazione passa da sola al modo dopo.
       expect(finto.chiamate).toHaveLength(2);
-      expect(finto.chiamate[1].tentativo).toBe(1);
+      expect(finto.chiamate[1]!.tentativo).toBe(1);
     } finally {
       smonta();
     }
@@ -487,7 +487,7 @@ describe('il giro dei modi di collegarsi', () => {
     const { host, smonta } = await apri();
     try {
       await avvia(host);
-      expect(finto.chiamate[0].metodo).toBe(CHIAVE);
+      expect(finto.chiamate[0]!.metodo).toBe(CHIAVE);
       await metodo(2, 4);
       await scambio(0);
       await act(async () => finto.fallisci!(new Error('niente')));
@@ -522,8 +522,8 @@ describe('il giro dei modi di collegarsi', () => {
       // Il tentativo che parte da solo è già «riprova»: non deve rimandare giù
       // il modo conservato, o chiederebbe due cose opposte nella stessa
       // chiamata.
-      expect(finto.chiamate[1].tentativo).toBe(1);
-      expect(finto.chiamate[1].metodo).toBeUndefined();
+      expect(finto.chiamate[1]!.tentativo).toBe(1);
+      expect(finto.chiamate[1]!.metodo).toBeUndefined();
     } finally {
       smonta();
     }
@@ -649,7 +649,7 @@ describe('il giro dei modi di collegarsi', () => {
 
       expect(finto.chiamate, 'due immersioni su quarantacinque non sono un lavoro finito').toHaveLength(2);
       expect(
-        finto.chiamate[1].tentativo,
+        finto.chiamate[1]!.tentativo,
         'e si riprova con lo STESSO modo, che ha appena dimostrato di funzionare',
       ).toBe(0);
       // E quel modo si conserva: le due immersioni sono passate da lì. È
@@ -743,7 +743,7 @@ describe('il giro dei modi di collegarsi', () => {
         );
       });
       expect(finto.salvati).toHaveLength(1);
-      expect((finto.salvati[0].m as { fingerprint: string }).fingerprint).toBe('aa11');
+      expect((finto.salvati[0]!.m as { fingerprint: string }).fingerprint).toBe('aa11');
       // L'offerta sparisce: un pulsante che resta premibile dopo aver fatto il
       // suo mestiere fa premere due volte, e la seconda non si sa cosa fa.
       expect(ce(host, 'Considera già prese le più vecchie')).toBe(false);
@@ -1048,7 +1048,7 @@ describe('il giro dei modi di collegarsi', () => {
       await act(async () => finto.finisci!([immersione(), immersione()]));
 
       expect(finto.salvati).toHaveLength(1);
-      expect((finto.salvati[0].m as { fingerprint: string }).fingerprint).toBe('aa11');
+      expect((finto.salvati[0]!.m as { fingerprint: string }).fingerprint).toBe('aa11');
     } finally {
       smonta();
     }
@@ -1065,7 +1065,7 @@ describe('il giro dei modi di collegarsi', () => {
     const { host, smonta } = await apri();
     try {
       await avvia(host);
-      expect(finto.chiamate[0].segnalibro).toBe('cc33');
+      expect(finto.chiamate[0]!.segnalibro).toBe('cc33');
     } finally {
       smonta();
     }

@@ -38,13 +38,13 @@ function montaPortachiavi(
   const chiavi: Record<string, string> = { ...(opts.iniziale ?? {}) };
   const invoke = vi.fn(async (cmd: string, args: Record<string, string>) => {
     if (!opts.disponibile) throw new Error('comando non registrato');
-    if (cmd === 'segreto_leggi') return chiavi[args.chiave] ?? null;
+    if (cmd === 'segreto_leggi') return chiavi[args.chiave!] ?? null;
     if (cmd === 'segreto_scrivi') {
-      chiavi[args.chiave] = args.valore;
+      chiavi[args.chiave!] = args.valore!;
       return null;
     }
     if (cmd === 'segreto_cancella') {
-      delete chiavi[args.chiave];
+      delete chiavi[args.chiave!];
       return null;
     }
     throw new Error(`comando sconosciuto: ${cmd}`);

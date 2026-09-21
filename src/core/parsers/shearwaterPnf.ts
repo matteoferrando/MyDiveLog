@@ -215,10 +215,10 @@ export function improntaPnf(data: Uint8Array): string | undefined {
   let record = 0;
   for (let offset = 0; offset + RECORD <= data.length; offset += RECORD) {
     if (isZero(data, offset, RECORD)) continue;
-    if (!TIPI_CAMPIONE.includes(data[offset])) continue;
+    if (!TIPI_CAMPIONE.includes(data[offset]!)) continue;
     record++;
     for (let i = offset; i < offset + RECORD; i++) {
-      h ^= data[i];
+      h ^= data[i]!;
       h = Math.imul(h, 0x01000193) >>> 0;
     }
   }
@@ -252,7 +252,8 @@ export function decodePnfBlob(blob: Uint8Array): PnfLog {
    * primo test e fallisce il secondo — per caso, non per progetto. Con un byte
    * diverso avrebbe potuto combaciare.
    */
-  const declared = (blob[0] | (blob[1] << 8) | (blob[2] << 16) | (blob[3] << 24)) >>> 0;
+  // `isPnfBlob` qui sopra vuole più di 22 byte: i primi quattro ci sono.
+  const declared = (blob[0]! | (blob[1]! << 8) | (blob[2]! << 16) | (blob[3]! << 24)) >>> 0;
   /*
    * E LA DIMENSIONE SI CONTROLLA PRIMA, non dopo.
    *
@@ -284,7 +285,7 @@ export function decodePnf(data: Uint8Array): PnfLog {
   // interpretare.
   for (let offset = 0; offset + RECORD <= data.length; offset += RECORD) {
     if (isZero(data, offset, RECORD)) continue;
-    const type = data[offset];
+    const type = data[offset]!;
     if (type >= TYPE.openingBase && type <= TYPE.openingBase + 9) {
       opening[type - TYPE.openingBase] = offset;
     } else if (type >= TYPE.closingBase && type <= TYPE.closingBase + 9) {
@@ -506,7 +507,7 @@ export function decodePnf(data: Uint8Array): PnfLog {
       // Pressioni della terza e quarta bombola: il campione precedente le
       // completa, non ne aggiunge uno nuovo.
       if (logVersion !== undefined && logVersion >= 13 && samples.length) {
-        const last = samples[samples.length - 1];
+        const last = samples[samples.length - 1]!;
         const extra: (number | undefined)[] = [];
         for (let i = 0; i < 2; i++) {
           const rawP = u16(data, offset + 1 + i * 2);
@@ -552,7 +553,8 @@ export function decodePnf(data: Uint8Array): PnfLog {
   const gases: GasMix[] = [];
   for (let i = 0; i < 10; i++) {
     const enabled = (enabledMask & (1 << i)) !== 0;
-    const o2 = gasO2[i];
+    // `gasO2` ha dieci voci, spinte una per una nel ciclo delle miscele qui sopra.
+    const o2 = gasO2[i]!;
     const he = gasHe[i] ?? 0;
     if (!o2 && !he) continue;
     const used = usedGases.includes(o2 * 100 + he);
@@ -574,8 +576,8 @@ export function decodePnf(data: Uint8Array): PnfLog {
     const values = samples.map((s) => s.pressureBar?.[i]).filter((v): v is number => v !== undefined);
     if (!values.length) continue;
     while (tanks.length <= i) tanks.push({});
-    tanks[i].startBar = values[0];
-    tanks[i].endBar = values[values.length - 1];
+    tanks[i]!.startBar = values[0];
+    tanks[i]!.endBar = values[values.length - 1];
   }
 
   // --- chiusura e blocco finale -------------------------------------------
@@ -638,17 +640,17 @@ function int8(d: Uint8Array, i: number | undefined): number | undefined {
 
 function u16(d: Uint8Array, i: number | undefined): number | undefined {
   if (i === undefined || i < 0 || i + 1 >= d.length) return undefined;
-  return (d[i] << 8) | d[i + 1];
+  return (d[i]! << 8) | d[i + 1]!;
 }
 
 function u24(d: Uint8Array, i: number | undefined): number | undefined {
   if (i === undefined || i < 0 || i + 2 >= d.length) return undefined;
-  return (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+  return (d[i]! << 16) | (d[i + 1]! << 8) | d[i + 2]!;
 }
 
 function u32(d: Uint8Array, i: number | undefined): number | undefined {
   if (i === undefined || i < 0 || i + 3 >= d.length) return undefined;
-  return ((d[i] << 24) | (d[i + 1] << 16) | (d[i + 2] << 8) | d[i + 3]) >>> 0;
+  return ((d[i]! << 24) | (d[i + 1]! << 16) | (d[i + 2]! << 8) | d[i + 3]!) >>> 0;
 }
 
 function i32(d: Uint8Array, i: number | undefined): number | undefined {

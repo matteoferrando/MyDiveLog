@@ -178,8 +178,8 @@ export const csvParser: DiveParser = {
     const lines = inizio > 0 ? tutte.slice(inizio) : tutte;
     if (lines.length < 2) return { format: 'csv', dives: [], warnings: [t('CSV senza righe di dati.')] };
 
-    const delim = detectDelimiter(lines[0]);
-    const rawHeaders = splitRow(lines[0], delim);
+    const delim = detectDelimiter(lines[0]!);
+    const rawHeaders = splitRow(lines[0]!, delim);
     const fields = rawHeaders.map((h) => resolveField(normalise(h)));
     // Vedi `unitaDellIntestazione`: «Max Depth (ft)» dice l'unità una volta sola,
     // in cima alla colonna, e ogni cella sotto la eredita.
@@ -208,7 +208,7 @@ export const csvParser: DiveParser = {
     const scartate: number[] = [];
 
     for (let ln = 1; ln < lines.length; ln++) {
-      const cells = splitRow(lines[ln], delim);
+      const cells = splitRow(lines[ln]!, delim);
       const row: Record<string, string> = {};
       fields.forEach((f, i) => {
         if (!f || cells[i] === undefined || cells[i] === '') return;
@@ -580,7 +580,8 @@ export function parseNumber(raw: string | undefined): number | undefined {
   const testo = raw.trim();
   const m = /^[^\d+-]*([+-]?(?:\d[\d.,]*)(?:[eE][+-]?\d+)?)/.exec(testo);
   if (!m) return undefined;
-  const grezzo = m[1];
+  // Il gruppo 1 non è opzionale: dopo un match riuscito c'è.
+  const grezzo = m[1]!;
   // Accetta sia "18.3" sia "18,3", ma non confonde "1,234" con "1.234".
   const normalised =
     grezzo.includes(',') && !grezzo.includes('.') ? grezzo.replace(',', '.') : grezzo.replace(/,/g, '');
@@ -629,8 +630,9 @@ export function parseDurationCell(raw: string | undefined): number | undefined {
     const parts = clean.split(':').map((p) => Number(p.replace(/[^\d]/g, '')));
     if (parts.some((n) => !Number.isFinite(n))) return undefined;
     // Su un logbook "45:30" sono 45 minuti e 30 secondi.
-    if (parts.length === 2) return parts[0] * 60 + parts[1];
-    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    // Con un `:` dentro, `split` dà almeno due parti; quando non sono due, sono almeno tre.
+    if (parts.length === 2) return parts[0]! * 60 + parts[1]!;
+    return parts[0]! * 3600 + parts[1]! * 60 + parts[2]!;
   }
   const v = parseNumber(clean);
   return v === undefined ? undefined : Math.round(v * 60);
@@ -648,13 +650,15 @@ export function parseDateTime(dateRaw: string | undefined, timeRaw?: string): st
 
   const isoMatch = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(raw);
   if (isoMatch) {
-    const [, y, mo, d, h, mi, s] = isoMatch;
+    // Il match è riuscito: anno, mese e giorno non sono opzionali, l'ora sì.
+    const [, y, mo, d, h, mi, s] = isoMatch as unknown as [string, string, string, string, ...string[]];
     return build(+y, +mo, +d, h ? +h : undefined, mi ? +mi : undefined, s ? +s : undefined, timeRaw);
   }
 
   const euMatch = /^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(raw);
   if (euMatch) {
-    const [, a, b, yRaw, h, mi, s] = euMatch;
+    // Il match è riuscito: i tre numeri della data non sono opzionali, l'ora sì.
+    const [, a, b, yRaw, h, mi, s] = euMatch as unknown as [string, string, string, string, ...string[]];
     const year = yRaw.length === 2 ? 2000 + +yRaw : +yRaw;
     // Convenzione europea: giorno prima del mese. Ma se il SECONDO numero non può
     // essere un mese mentre il primo sì, la riga è americana e leggerla
@@ -686,8 +690,9 @@ function build(
   if (h === undefined && timeRaw) {
     const t = /^(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(timeRaw.trim());
     if (t) {
-      hh = +t[1];
-      mm = +t[2];
+      // Ore e minuti non sono opzionali nell'espressione: dopo il match ci sono.
+      hh = +t[1]!;
+      mm = +t[2]!;
       ss = t[3] ? +t[3] : 0;
     }
   }

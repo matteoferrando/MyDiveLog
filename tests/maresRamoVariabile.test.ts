@@ -59,7 +59,7 @@ beforeAll(() => {
 function modelliDiIssirius(): string[] {
   const m = iconhd.match(/#define ISSIRIUS\(model\)([\s\S]*?)\n\n/);
   expect(m, 'la macro ISSIRIUS non c’è più in mares_iconhd.c').not.toBeNull();
-  return [...m![1].matchAll(/\(model\)\s*==\s*(\w+)/g)].map((x) => x[1]);
+  return [...m![1]!.matchAll(/\(model\)\s*==\s*(\w+)/g)].map((x) => x[1]!);
 }
 
 /** Il valore di un `#define NOME 0xNN` in `mares_iconhd.c`. */
@@ -74,14 +74,14 @@ function prodottiConNumero(numero: number): string[] {
   const righe = [
     ...descrittori.matchAll(/\{"Mares",\s*"([^"]+)",\s*DC_FAMILY_MARES_ICONHD\s*,\s*(0x[0-9A-Fa-f]+)/g),
   ];
-  return righe.filter((r) => Number(r[2]) === numero).map((r) => r[1]);
+  return righe.filter((r) => Number(r[2]) === numero).map((r) => r[1]!);
 }
 
 /** L'elenco che il ponte Rust tiene scritto a mano. */
 function elencoDelRust(): string[] {
   const m = rust.match(/const MARES_PACCHETTO_INTERO: \[&str; \d+\] =\s*\[([^\]]*)\]/);
   expect(m, 'l’elenco MARES_PACCHETTO_INTERO non c’è più nel ponte').not.toBeNull();
-  return [...m![1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+  return [...m![1]!.matchAll(/"([^"]+)"/g)].map((x) => x[1]!);
 }
 
 describe('l’elenco dei Mares a pacchetto intero', () => {

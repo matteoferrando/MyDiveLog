@@ -68,7 +68,7 @@ describe('► il registratore dello scambio ◄', () => {
     expect(riga, 'e soprattutto l’ULTIMO').toContain('25 26 27');
     // E il byte scritto davvero è passato intero al collegamento sotto: un
     // involucro che registra bene e scrive male sarebbe il peggiore dei due.
-    expect([...finto.scritte[0]]).toEqual([...comando]);
+    expect([...finto.scritte[0]!]).toEqual([...comando]);
   });
 
   it('registra tutte e due le strade di lettura, non solo una', async () => {
@@ -102,9 +102,9 @@ describe('► il registratore dello scambio ◄', () => {
     await new Promise((r) => setTimeout(r, 12));
     await link.write(new Uint8Array([2]));
 
-    const tempi = righe.map((r) => Number.parseFloat(r.trim().split(' ')[0]));
+    const tempi = righe.map((r) => Number.parseFloat(r.trim().split(' ')[0]!));
     expect(tempi).toHaveLength(2);
-    expect(tempi[1], 'il secondo comando è dopo il primo').toBeGreaterThan(tempi[0]);
+    expect(tempi[1], 'il secondo comando è dopo il primo').toBeGreaterThan(tempi[0]!);
   });
 
   it('uno svuotamento a vuoto non sporca il file', async () => {

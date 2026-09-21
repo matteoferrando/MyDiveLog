@@ -238,7 +238,7 @@ describe('un file di Shearwater Cloud che non si legge', () => {
     });
     expect(esito.dives).toHaveLength(0);
     expect(esito.warnings).toHaveLength(1);
-    senzaNomiInterni(esito.warnings[0], 'gli avvisi dell’import');
+    senzaNomiInterni(esito.warnings[0]!, 'gli avvisi dell’import');
     expect(esito.warnings[0]).toContain('Riesporta');
     expect(esito.warnings[0]).toContain('niente è stato aggiunto');
   });

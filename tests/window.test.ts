@@ -67,12 +67,12 @@ describe('finestra temporale', () => {
   });
 
   it('ordina le immersioni dalla più vecchia, come si aspettano le tendenze', () => {
-    const shuffled = [archive[5], archive[0], archive[3]];
+    const shuffled = [archive[5]!, archive[0]!, archive[3]!];
     const scope = applyPeriod(shuffled, 'all', NOW);
     expect(scope.dives.map((d) => d.startTime)).toEqual([
-      archive[0].startTime,
-      archive[3].startTime,
-      archive[5].startTime,
+      archive[0]!.startTime,
+      archive[3]!.startTime,
+      archive[5]!.startTime,
     ]);
   });
 

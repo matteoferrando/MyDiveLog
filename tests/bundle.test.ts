@@ -92,7 +92,7 @@ function chunks() {
 function eagerChunks() {
   const html = readFileSync(join(DIST, 'index.html'), 'utf8');
   const href = [...html.matchAll(/(?:src|href)="(\/assets\/[^"]+\.js)"/g)].map((m) =>
-    m[1].replace('/assets/', ''),
+    m[1]!.replace('/assets/', ''),
   );
   return chunks().filter((c) => href.includes(c.name));
 }

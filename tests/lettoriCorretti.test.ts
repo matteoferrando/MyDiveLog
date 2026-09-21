@@ -37,7 +37,7 @@ const base = (over: Partial<Dive> = {}): Dive => {
 const giroUddf = async (d: Dive): Promise<Dive> => {
   const { xml } = exportUddf([d], { now: '2026-09-15T00:00:00Z' });
   const back = await parseFile({ fileName: 'giro.uddf', text: xml });
-  return back.dives[0];
+  return back.dives[0]!;
 };
 
 describe('UDDF: le pressioni bombola nel profilo', () => {
@@ -74,7 +74,7 @@ describe('UDDF: le pressioni bombola nel profilo', () => {
       { t: 2400, depth: 0, pressureBar: [120, 160], gasIndex: 1 },
     ];
     const dopo = await giroUddf(base({ samples }));
-    const ultimo = dopo.samples![dopo.samples!.length - 1];
+    const ultimo = dopo.samples![dopo.samples!.length - 1]!;
     expect(ultimo.pressureBar?.[0]).toBeCloseTo(120, 0);
     expect(ultimo.pressureBar?.[1]).toBeCloseTo(160, 0);
   });
@@ -101,7 +101,7 @@ describe('UDDF: la CNS oltre il 100%', () => {
   <informationafterdive><greatestdepth>30</greatestdepth><diveduration>1200</diveduration></informationafterdive>
 </dive></repetitiongroup></profiledata></uddf>`;
     const { dives } = await parseFile({ fileName: 'cns.uddf', text: xml });
-    expect(dives[0].samples?.map((s) => s.cns)).toEqual([98, 100, 120]);
+    expect(dives[0]!.samples?.map((s) => s.cns)).toEqual([98, 100, 120]);
   });
 });
 
@@ -128,8 +128,8 @@ describe('UDDF: la miscela scritta in percentuale', () => {
   <informationafterdive><greatestdepth>40</greatestdepth><diveduration>3600</diveduration></informationafterdive>
 </dive></repetitiongroup></profiledata></uddf>`;
     const { dives } = await parseFile({ fileName: 'percentuale.uddf', text: xml });
-    const d = dives[0];
-    expect(d.cylinders[0].mix.o2).toBeCloseTo(0.21, 3);
+    const d = dives[0]!;
+    expect(d.cylinders[0]!.mix.o2).toBeCloseTo(0.21, 3);
     /*
      * E il rovescio, che è quello che conta: con `o2 = 21` i tessuti non
      * caricavano affatto e **GF99, tetto e minuti di obbligo uscivano tutti e
@@ -142,8 +142,8 @@ describe('UDDF: la miscela scritta in percentuale', () => {
 
   it('e una frazione vera resta una frazione', async () => {
     const dopo = await giroUddf(base());
-    expect(dopo.cylinders[0].mix.o2).toBeCloseTo(0.21, 3);
-    expect(dopo.cylinders[1].mix.o2).toBeCloseTo(0.5, 3);
+    expect(dopo.cylinders[0]!.mix.o2).toBeCloseTo(0.21, 3);
+    expect(dopo.cylinders[1]!.mix.o2).toBeCloseTo(0.5, 3);
   });
 });
 
@@ -161,7 +161,7 @@ describe('UDDF: il voto', () => {
   </informationafterdive>
 </dive></repetitiongroup></profiledata></uddf>`;
     const { dives } = await parseFile({ fileName: 'voto.uddf', text: xml });
-    expect(dives[0].rating).toBe(4);
-    expect(dives[0].visibilityM).toBe(12);
+    expect(dives[0]!.rating).toBe(4);
+    expect(dives[0]!.visibilityM).toBe(12);
   });
 });

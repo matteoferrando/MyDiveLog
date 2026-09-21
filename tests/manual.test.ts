@@ -148,8 +148,8 @@ describe('profilo quadro', () => {
     const { dive } = buildManualDive(base({ durationMin: 42, maxDepthM: 31.5, avgDepthM: 18.2 }));
     const q = squareProfile(dive);
     expect(q[0]).toEqual({ t: 0, depth: 0 });
-    expect(q[q.length - 1].t).toBe(42 * 60);
-    expect(q[q.length - 1].depth).toBe(0);
+    expect(q[q.length - 1]!.t).toBe(42 * 60);
+    expect(q[q.length - 1]!.depth).toBe(0);
     expect(Math.max(...q.map((s) => s.depth))).toBeCloseTo(18.2, 5);
   });
 
@@ -162,7 +162,7 @@ describe('profilo quadro', () => {
     const { dive } = buildManualDive(base({ durationMin: 3, maxDepthM: 40, avgDepthM: 40 }));
     const q = squareProfile(dive);
     expect(q.every((s) => Number.isFinite(s.depth) && s.depth >= 0)).toBe(true);
-    for (let i = 1; i < q.length; i++) expect(q[i].t).toBeGreaterThan(q[i - 1].t);
+    for (let i = 1; i < q.length; i++) expect(q[i]!.t).toBeGreaterThan(q[i - 1]!.t);
   });
 });
 
@@ -190,7 +190,7 @@ describe('la catena dei tessuti non si spezza più', () => {
     // È la regola di tutto il progetto: un numero ricostruito non si confonde
     // con uno misurato, e chi lo mostra deve poterlo dire.
     return chainArchive([senzaProfilo('a', '2026-06-14T07:00:00.000Z')], async () => []).then(({ dives }) => {
-      expect(dives[0].metrics?.tissuesEstimated).toBe(true);
+      expect(dives[0]!.metrics?.tissuesEstimated).toBe(true);
     });
   });
 
@@ -210,8 +210,8 @@ describe('la catena dei tessuti non si spezza più', () => {
     };
     vera.metrics = computeMetrics(vera);
     const { dives } = await chainArchive([vera], async () => []);
-    expect(dives[0].metrics?.tissuesEstimated).toBeUndefined();
-    expect(dives[0].metrics?.gf99Pct).toBeGreaterThan(0);
+    expect(dives[0]!.metrics?.tissuesEstimated).toBeUndefined();
+    expect(dives[0]!.metrics?.gf99Pct).toBeGreaterThan(0);
   });
 
   it('il buco che c’era prima: senza la stima la ripetitiva risultava più pulita del vero', async () => {
@@ -225,7 +225,7 @@ describe('la catena dei tessuti non si spezza più', () => {
     const conCatena = await chainArchive([prima, dopo], async () => []);
     const daSola = await chainArchive([dopo], async () => []);
     const conResiduo = conCatena.dives.find((d) => d.id === 'b')!.metrics!.gf99Pct!;
-    const pulita = daSola.dives[0].metrics!.gf99Pct!;
+    const pulita = daSola.dives[0]!.metrics!.gf99Pct!;
     expect(conResiduo).toBeGreaterThan(pulita);
   });
 });

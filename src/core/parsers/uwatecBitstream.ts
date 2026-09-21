@@ -192,7 +192,10 @@ export class LettoreDiBit {
     if (indice >= this.byte.length) throw new Error('flusso finito a metà di un record');
     const dentro = 7 - (this.bit & 7);
     this.bit++;
-    return (this.byte[indice] >> dentro) & 1;
+    // Sotto zero `bit` non va: parte da `daByte * 8`, che in ogni chiamata è la lunghezza di
+    // un'intestazione, e torna indietro al più di un byte (`salta(grezzo - 1)`) dopo averne
+    // letti due. Oltre la fine, il controllo qui in testa.
+    return (this.byte[indice]! >> dentro) & 1;
   }
 
   /** `quanti` bit come un numero, il primo letto è il più significativo. */

@@ -19,6 +19,7 @@ import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { isSqlite, parseColumns, parseSchema, readSqliteTables } from '../src/core/parsers/sqliteReader';
+import type { SqlRow } from '../src/core/parsers/sqliteReader';
 
 const dir = mkdtempSync(join(tmpdir(), 'mydivelog-sqlite-'));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -69,7 +70,7 @@ describe('tipi di valore', () => {
     });
     const t = readSqliteTables(bytes).get('t')!;
     expect(t.rows).toHaveLength(2);
-    const [a, b] = t.rows;
+    const [a, b] = t.rows as [SqlRow, SqlRow];
     expect(a.i_null).toBeNull();
     expect(a.i_1).toBe(7);
     expect(a.i_2).toBe(300);
@@ -148,7 +149,7 @@ describe('pagine di overflow', () => {
       },
       512,
     );
-    const got = readSqliteTables(bytes).get('t')!.rows[0].a as Uint8Array;
+    const got = readSqliteTables(bytes).get('t')!.rows[0]!.a as Uint8Array;
     expect(got.length).toBe(blob.length);
     const firstDiff = [...got].findIndex((v, i) => v !== blob[i]);
     expect(firstDiff, `primo byte diverso all'indice ${firstDiff}`).toBe(-1);
@@ -166,7 +167,7 @@ describe('pagine di overflow', () => {
         pageSize,
       );
       const t = readSqliteTables(bytes).get('t')!;
-      const got = t.rows[0].a as Uint8Array;
+      const got = t.rows[0]!.a as Uint8Array;
       expect(got.length, `pagina ${pageSize}`).toBe(blob.length);
       expect(
         got.every((v, j) => v === blob[j]),
@@ -215,10 +216,10 @@ describe('alberi B su più livelli', () => {
     const t = readSqliteTables(bytes).get('dives')!;
     expect(t.rows).toHaveLength(2000);
     // Ordine per rowid: le righe devono tornare nell'ordine di inserimento.
-    expect(t.rows[0].n).toBe(1);
-    expect(t.rows[1999].n).toBe(2000);
-    expect(t.rows[1234].site).toBe('Sito numero 1235');
-    expect(t.rows[1234].depth as number).toBeCloseTo(123.5, 6);
+    expect(t.rows[0]!.n).toBe(1);
+    expect(t.rows[1999]!.n).toBe(2000);
+    expect(t.rows[1234]!.site).toBe('Sito numero 1235');
+    expect(t.rows[1234]!.depth as number).toBeCloseTo(123.5, 6);
   });
 });
 

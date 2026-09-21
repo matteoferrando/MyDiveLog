@@ -174,7 +174,8 @@ export function reduceProfile(samples: Sample[], points = PROFILE_POINTS): Sampl
     const slice = samples.slice(i, i + bucket);
     const deepest = slice.reduce((a, b) => (b.depth > a.depth ? b : a));
     const shallowest = slice.reduce((a, b) => (b.depth < a.depth ? b : a));
-    const first = slice[0];
+    // `i` sta dentro `samples`, quindi la fetta non è mai vuota.
+    const first = slice[0]!;
     // In ordine di tempo, senza duplicati.
     for (const s of [first, shallowest, deepest].sort((a, b) => a.t - b.t)) {
       if (out[out.length - 1]?.t !== s.t) out.push(s);
@@ -234,7 +235,7 @@ function profileTable(reduced: Sample[], originali: number) {
   const valori = COLONNE_PROFILO.map((c) => reduced.map((s) => c.leggi(s)));
   // Le prime due non si tolgono mai: senza tempo e profondità non c'è profilo,
   // e una colonna di zeri è comunque un dato.
-  const tenute = COLONNE_PROFILO.map((_, i) => i < 2 || valori[i].some((v) => v !== null));
+  const tenute = COLONNE_PROFILO.map((_, i) => i < 2 || valori[i]!.some((v) => v !== null));
   const scartate = COLONNE_PROFILO.filter((_, i) => !tenute[i]).map((c) => c.nome);
 
   return {
@@ -1109,13 +1110,15 @@ export function decoPlanContext(
       profonditaM: s.depthM,
       minuti: s.minutes,
       runtimeMin: s.runtimeMin,
-      gas: gasLabel(gases[s.gasIndex]),
+      // `result` viene da `planDeco` su queste stesse miscele, e `planDeco` non scrive un tratto
+      // con una miscela che non ha: prima di scriverlo ne legge la composizione.
+      gas: gasLabel(gases[s.gasIndex]!),
       obbligatoria: s.mandatory,
     })),
     gas: result.gasUsage
       .filter((u) => u.litres > 0)
       .map((u) => ({
-        nome: gasLabel(gases[u.gasIndex]),
+        nome: gasLabel(gases[u.gasIndex]!),
         litri: u.litres,
         bar: u.bar ?? null,
         barABordo: u.startBar ?? null,

@@ -16,8 +16,8 @@ export function nonPiuAvanti(a: string | undefined, b: string): boolean {
   const nb = b.split('.').map(Number);
   if (na.length !== 3 || nb.length !== 3 || [...na, ...nb].some(Number.isNaN)) return false;
   for (let i = 0; i < 3; i++) {
-    if (na[i] < nb[i]) return true;
-    if (na[i] > nb[i]) return false;
+    if (na[i]! < nb[i]!) return true;
+    if (na[i]! > nb[i]!) return false;
   }
   return true;
 }

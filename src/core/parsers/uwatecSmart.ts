@@ -253,7 +253,7 @@ export function profiloImpronta(bytes: Uint8Array, headerSize: number): string |
   // possono avere la stessa impronta nemmeno se l'hash collidesse.
   let h = 0x811c9dc5;
   for (let i = 0; i < campioni.length; i++) {
-    h ^= campioni[i];
+    h ^= campioni[i]!;
     h = Math.imul(h, 0x01000193) >>> 0;
   }
   return `${campioni.length.toString(36)}-${h.toString(16).padStart(8, '0')}`;
@@ -548,7 +548,7 @@ export function decodeUwatecSmart(bytes: Uint8Array, opts: DecodeOptions = {}): 
  */
 export function uwatecSamplesToCanonical(samples: UwatecSample[]): Sample[] {
   if (samples.length === 0) return [];
-  const t0 = samples[0].t;
+  const t0 = samples[0]!.t;
   return samples.map((s) => {
     const out: Sample = { t: s.t - t0, depth: s.depth ?? 0 };
     if (s.tempC !== undefined) out.tempC = s.tempC;

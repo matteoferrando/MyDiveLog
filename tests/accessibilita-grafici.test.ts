@@ -585,7 +585,7 @@ describe('i punti che aprono un’immersione si raggiungono anche da tastiera', 
       const vista = monta(nodo);
       const tappe = [...vista.host.querySelectorAll('[tabindex]')];
       expect(tappe.map((el) => el.tagName.toLowerCase())).toEqual(['svg']);
-      expect(tappe[0].getAttribute('tabindex')).toBe('0');
+      expect(tappe[0]!.getAttribute('tabindex')).toBe('0');
       vista.unmount();
     }
   });

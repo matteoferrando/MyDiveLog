@@ -91,7 +91,8 @@ export const OTU_DAILY_MAX = 850;
  */
 export function cnsPercentPerMinute(ppo2: number, table = CNS_SINGLE_LIMITS): number {
   if (!Number.isFinite(ppo2) || ppo2 < CNS_FLOOR_PPO2) return 0;
-  const row = table.find(([p]) => ppo2 <= p + 1e-9) ?? table[table.length - 1];
+  // Le due tabelle NOAA qui sopra non sono vuote: l'ultima riga c'è sempre.
+  const row = table.find(([p]) => ppo2 <= p + 1e-9) ?? table[table.length - 1]!;
   return 100 / row[1];
 }
 
@@ -175,8 +176,8 @@ export function exposureOfProfile(
   if (samples.length < 2) return { ...EMPTY };
   const segments: { ppo2: number; minutes: number }[] = [];
   for (let i = 1; i < samples.length; i++) {
-    const prev = samples[i - 1];
-    const cur = samples[i];
+    const prev = samples[i - 1]!;
+    const cur = samples[i]!;
     const minutes = (cur.t - prev.t) / 60;
     if (!(minutes > 0)) continue;
     // La PPO2 letta dal computer ha la precedenza su quella ricostruita: su un

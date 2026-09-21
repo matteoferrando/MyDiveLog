@@ -115,7 +115,7 @@ export function unificaSerialiDellaStessaImmersione(dive: Dive): Dive | null {
     }
     // Il seriale più corto vince: è quello che l'apparecchio dice di sé, non
     // quello che ci ha scritto intorno un'applicazione.
-    const u = uniti[gia];
+    const u = uniti[gia]!;
     const corto = (c.serial?.length ?? 0) < (u.serial?.length ?? 0) ? c.serial : u.serial;
     const fuso = { ...fondiComputer(u, c), serial: corto };
     // `deviceId` segue il seriale: è la chiave con cui si ritrova il computer.
@@ -251,7 +251,7 @@ export async function repairArchive(
   const out = [...dives];
 
   for (let i = 0; i < out.length; i++) {
-    let dive = out[i];
+    let dive = out[i]!;
 
     // Computer duplicati: correzione indipendente dalle metriche, e senza bisogno
     // di leggere il profilo. Prima l'unificazione dei seriali scritti in due modi
@@ -323,7 +323,8 @@ export async function repairArchive(
       if (at >= 0) updated[at] = dive;
       else updated.push(dive);
     }
-    for (let i = 0; i < out.length; i++) out[i] = chained.dives[i];
+    // `chainArchive` restituisce `dives.map(...)` del suo ingresso, cioè di `out`: stessa lunghezza.
+    for (let i = 0; i < out.length; i++) out[i] = chained.dives[i]!;
   }
 
   if (updated.length) await store.putDives(updated);
@@ -391,7 +392,7 @@ export async function hydrateForMerge(store: DiveStore, existing: Dive[], incomi
   const near = (t: number) => times.some((x) => Math.abs(x - t) <= WINDOW_MS);
   const out = [...existing];
   for (let i = 0; i < out.length; i++) {
-    const dive = out[i];
+    const dive = out[i]!;
     const serve = !dive.samples?.length && (counts.get(dive.id) ?? 0) > 0;
     const serveAlt = !dive.altSamples?.length && (altCounts.get(dive.id) ?? 0) > 0;
     if (!serve && !serveAlt) continue;

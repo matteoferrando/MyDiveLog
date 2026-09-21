@@ -185,7 +185,7 @@ describe('cosa finisce sul foglio, prima di diventare HTML', () => {
 
   it('con le soste, la durata totale è quella dello schedule', () => {
     const f = contesto('rec');
-    const durata = f.sezioni[0].righe?.find((r) => r[0] === 'Durata totale')?.[1] ?? '';
+    const durata = f.sezioni[0]!.righe?.find((r) => r[0] === 'Durata totale')?.[1] ?? '';
     expect(durata).toMatch(/soste comprese/);
     /*
      * E deve COINCIDERE con l'ultima riga dello schedule, non con la risalita

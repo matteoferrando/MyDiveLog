@@ -78,18 +78,18 @@ describe('log nativo Shearwater', () => {
       }),
     );
     const s = log.samples;
-    expect(s[0].ndlS).toBe(99 * 60);
-    expect(s[0].ceiling).toBeUndefined();
-    expect(s[0].inDeco).toBe(false);
-    expect(s[1].ndlS).toBe(12 * 60);
-    expect(s[2].inDeco).toBe(true);
-    expect(s[2].ceiling).toBe(6);
-    expect(s[2].stopTimeS).toBe(4 * 60);
-    expect(s[2].ndlS).toBeUndefined();
-    expect(s[2].ttsS).toBe(9 * 60);
-    expect(s[4].ceiling).toBe(3);
-    expect(s[5].inDeco).toBe(false);
-    expect(s[5].ndlS).toBe(25 * 60);
+    expect(s[0]!.ndlS).toBe(99 * 60);
+    expect(s[0]!.ceiling).toBeUndefined();
+    expect(s[0]!.inDeco).toBe(false);
+    expect(s[1]!.ndlS).toBe(12 * 60);
+    expect(s[2]!.inDeco).toBe(true);
+    expect(s[2]!.ceiling).toBe(6);
+    expect(s[2]!.stopTimeS).toBe(4 * 60);
+    expect(s[2]!.ndlS).toBeUndefined();
+    expect(s[2]!.ttsS).toBe(9 * 60);
+    expect(s[4]!.ceiling).toBe(3);
+    expect(s[5]!.inDeco).toBe(false);
+    expect(s[5]!.ndlS).toBe(25 * 60);
   });
 
   it('legge il CNS e la miscela respirata', () => {
@@ -105,9 +105,9 @@ describe('log nativo Shearwater', () => {
     const bar = [200, 150, 90];
     const log = decodePnf(encodePnf({ depths: [10, 20, 5], tank1Bar: bar }));
     const read = log.samples.map((s) => s.pressureBar?.[0]);
-    read.forEach((v, i) => expect(v).toBeCloseTo(bar[i], 0));
-    expect(log.tanks[0].startBar).toBeCloseTo(200, 0);
-    expect(log.tanks[0].endBar).toBeCloseTo(90, 0);
+    read.forEach((v, i) => expect(v).toBeCloseTo(bar[i]!, 0));
+    expect(log.tanks[0]!.startBar).toBeCloseTo(200, 0);
+    expect(log.tanks[0]!.endBar).toBeCloseTo(90, 0);
   });
 
   it('ignora i codici di errore del trasmettitore invece di leggerli come pressione', () => {
@@ -137,7 +137,7 @@ describe('log nativo Shearwater', () => {
     expect(isPnfBlob(blob)).toBe(true);
     const log = decodePnfBlob(blob);
     expect(log.samples).toHaveLength(4);
-    expect(log.samples[2].depth).toBe(25);
+    expect(log.samples[2]!.depth).toBe(25);
   });
 
   it('rifiuta un blob troncato invece di restituire mezzo profilo', () => {

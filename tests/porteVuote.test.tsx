@@ -206,9 +206,9 @@ describe('logbook con l’archivio vuoto', () => {
     });
 
     expect(salvate).toHaveLength(1);
-    expect(salvate[0].durationS).toBe(42 * 60);
+    expect(salvate[0]!.durationS).toBe(42 * 60);
     // La virgola decimale arriva intera: è il motivo per cui i campi sono di testo.
-    expect(salvate[0].maxDepth).toBeCloseTo(28.5, 3);
+    expect(salvate[0]!.maxDepth).toBeCloseTo(28.5, 3);
     vista.smonta();
   });
 });

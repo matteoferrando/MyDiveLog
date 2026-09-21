@@ -56,7 +56,7 @@ function uddfConSosta(kind: string): string {
 
 function minutiInDeco(xml: string): number {
   const res = uddfParser.parse({ fileName: 'p.uddf', text: xml });
-  const d = res.dives[0];
+  const d = res.dives[0]!;
   return computeMetrics({ ...d, samples: d.samples }).decoS;
 }
 
@@ -202,7 +202,7 @@ function shearwaterCon(tetto: number, primaSosta: number): string {
 }
 
 function decoDaShearwater(xml: string): number {
-  const d = shearwaterParser.parse({ fileName: 'p.xml', text: xml }).dives[0];
+  const d = shearwaterParser.parse({ fileName: 'p.xml', text: xml }).dives[0]!;
   return computeMetrics({ ...d, samples: d.samples }).decoS;
 }
 

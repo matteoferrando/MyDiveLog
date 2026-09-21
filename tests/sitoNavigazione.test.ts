@@ -64,7 +64,7 @@ function navigazione(html: string): string {
   // perché — ed è successo, con dodici prove rosse su «nessun <nav>».
   const dentro = /<nav class="navigazione"[^>]*>([\s\S]*?)<\/nav>/.exec(senzaCommenti(html));
   if (!dentro) throw new Error('nessun <nav class="navigazione"> nella pagina');
-  return dentro[1];
+  return dentro[1]!;
 }
 
 function leggi(file: string): string {
@@ -182,11 +182,11 @@ function vociDi(blocco: string): string[] {
   // successo mentre si scriveva questa prova, con un piede da nove voci letto
   // come otto.
   return [...senzaCommenti(blocco).matchAll(/<(a|button)\b([^>]*)>([\s\S]*?)<\/\1\s*>/g)].map((m) => {
-    const testo = m[3]
+    const testo = m[3]!
       .replace(/<[^>]+>/g, '')
       .replace(/\s+/g, ' ')
       .trim();
-    const href = /href="([^"]*)"/.exec(m[2])?.[1] ?? '(pulsante)';
+    const href = /href="([^"]*)"/.exec(m[2]!)?.[1] ?? '(pulsante)';
     return `${testo} → ${href}`;
   });
 }
@@ -194,7 +194,7 @@ function vociDi(blocco: string): string[] {
 function piede(html: string): string {
   const dentro = /<footer class="piede">([\s\S]*?)<\/footer>/.exec(senzaCommenti(html));
   if (!dentro) throw new Error('nessun <footer class="piede"> nella pagina');
-  return dentro[1];
+  return dentro[1]!;
 }
 
 const homeDi = (file: string) => (file.startsWith('en/') ? 'en/index.html' : 'index.html');
@@ -206,8 +206,10 @@ describe('le stesse voci su tutte le pagine', () => {
     const casa = vociDi(navigazione(leggi(homeDi(file))));
     expect(qui.length).toBe(casa.length);
     for (let i = 0; i < casa.length; i++) {
-      const [etichetta, dove] = qui[i].split(' → ');
-      const [etichettaCasa, doveCasa] = casa[i].split(' → ');
+      const [etichetta, dove] = qui[i]!.split(' → ');
+      const voceCasa = casa[i]!.split(' → ');
+      const etichettaCasa = voceCasa[0];
+      const doveCasa = voceCasa[1]!;
       expect(etichetta, `${file}: voce ${i + 1}`).toBe(etichettaCasa);
       // Le due voci che devono differire: «Segnala» e lo scambio di lingua.
       if (doveCasa === '(pulsante)') expect(dove, `${file}: Segnala`).toMatch(/^\/(en\/)?#segnala$/);
@@ -222,8 +224,8 @@ describe('le stesse voci su tutte le pagine', () => {
     const casa = vociDi(piede(leggi(homeDi(file))));
     expect(qui.length, `${file}: voci nel piede`).toBe(casa.length);
     for (let i = 0; i < casa.length; i++) {
-      const [etichetta, dove] = qui[i].split(' → ');
-      const [etichettaCasa, doveCasa] = casa[i].split(' → ');
+      const [etichetta, dove] = qui[i]!.split(' → ');
+      const [etichettaCasa, doveCasa] = casa[i]!.split(' → ');
       expect(etichetta, `${file}: voce ${i + 1}`).toBe(etichettaCasa);
       if (doveCasa === '(pulsante)') expect(dove, `${file}: Segnala`).toMatch(/^\/(en\/)?#segnala$/);
       else expect(dove, `${file}: voce ${i + 1} «${etichetta}»`).toBe(doveCasa);
@@ -254,7 +256,7 @@ describe('i collegamenti esterni', () => {
       const html = senzaCommenti(leggi(file));
       let contati = 0;
       for (const m of html.matchAll(/<a\b([^>]*)>/g)) {
-        const attributi = m[1];
+        const attributi = m[1]!;
         const href = /href="([^"]*)"/.exec(attributi)?.[1] ?? '';
         if (!esterno(href) || scaricamento(href)) continue;
         contati++;
@@ -276,7 +278,7 @@ describe('i collegamenti esterni', () => {
     const html = senzaCommenti(leggi(file));
     let contati = 0;
     for (const m of html.matchAll(/<a\b([^>]*)>/g)) {
-      const href = /href="([^"]*)"/.exec(m[1])?.[1] ?? '';
+      const href = /href="([^"]*)"/.exec(m[1]!)?.[1] ?? '';
       if (!scaricamento(href)) continue;
       contati++;
       expect(m[1], `${file}: ${href}`).not.toMatch(/target="_blank"/);
@@ -315,7 +317,7 @@ describe('il menu a scomparsa', () => {
     expect(pulsante![1], `${file}: manca \`aria-expanded\``).toMatch(/aria-expanded="false"/);
     // `aria-controls` deve puntare a un `id` che esiste, o è una promessa a
     // vuoto fatta proprio a chi legge con la voce.
-    const controlla = /aria-controls="([^"]*)"/.exec(pulsante![1])?.[1];
+    const controlla = /aria-controls="([^"]*)"/.exec(pulsante![1]!)?.[1];
     expect(controlla, `${file}: manca \`aria-controls\``).toBeDefined();
     expect(html, `${file}: \`aria-controls\` punta a un id che non c'è`).toContain(
       `<nav class="navigazione" id="${controlla}"`,

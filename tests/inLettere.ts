@@ -52,8 +52,8 @@ export function inLettere(n: number): string {
   if (!Number.isInteger(n) || n < 0 || n > 99) {
     throw new Error(`inLettere sa contare da zero a novantanove, non ${n}`);
   }
-  if (n < 20) return UNITA[n];
-  const d = DECINE[Math.floor(n / 10)];
+  if (n < 20) return UNITA[n]!;
+  const d = DECINE[Math.floor(n / 10)]!;
   const u = n % 10;
   if (u === 0) return d;
   // «ventuno», non «ventiuno»: davanti a uno e otto la decina perde la vocale.

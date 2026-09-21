@@ -339,9 +339,9 @@ describe('parser Shearwater Cloud', () => {
     expect(d.buddy).toBe('Miriam');
     expect(d.weightKg).toBe(8);
     expect(d.suit).toBe('Wet Suit');
-    expect(d.cylinders[0].sizeL).toBe(15);
-    expect(d.cylinders[0].startBar).toBe(200);
-    expect(d.cylinders[0].endBar).toBe(50);
+    expect(d.cylinders[0]!.sizeL).toBe(15);
+    expect(d.cylinders[0]!.startBar).toBe(200);
+    expect(d.cylinders[0]!.endBar).toBe(50);
     expect(d.computer?.model).toBe('Shearwater Peregrine');
     expect(d.computer?.serial).toBe('A1B2C3D4');
     expect(d.annotations?.['Carico di lavoro']).toBe('Light');
@@ -436,7 +436,7 @@ function profileWithMean(maxDepth: number, targetMean: number, steps: number): n
 function logtrakFor(dives: SwDive[], offsetHours: number[]): string {
   const specs: UwatecFixtureSpec[] = dives.map((d, i) => {
     const clockMs = Date.parse(`${d.clock.replace(' ', 'T')}Z`);
-    const offset = offsetHours[i] ?? offsetHours[0];
+    const offset = offsetHours[i] ?? offsetHours[0]!;
     const depths = profileWithMean(d.depth, d.avgDepth, Math.round(d.durationS / 4));
     return {
       // LogTRAK salva UTC: la lettura dell'orologio meno il fuso.
@@ -462,14 +462,14 @@ describe('deduplica fra fonti con orologi sfasati', () => {
 
     const offsets = inferClockOffsets(lt, sw);
     expect(offsets.length).toBeGreaterThanOrEqual(1);
-    expect(offsets[0].offsetMs / 3_600_000).toBeCloseTo(-1, 1);
+    expect(offsets[0]!.offsetMs / 3_600_000).toBeCloseTo(-1, 1);
 
     const rep = mergeImports(lt, sw);
     // Nessuna immersione nuova: sono le stesse, riconosciute nonostante lo scarto.
     expect(rep.added).toBe(0);
     expect(rep.merged).toBe(SW.length);
     expect(rep.dives).toHaveLength(SW.length);
-    expect(rep.clockOffsets[0].pairs).toBeGreaterThanOrEqual(3);
+    expect(rep.clockOffsets[0]!.pairs).toBeGreaterThanOrEqual(3);
   });
 
   it('gestisce due sfasamenti diversi nello stesso lotto', () => {
@@ -651,8 +651,8 @@ describe('la stessa immersione da Shearwater Cloud e dal Bluetooth', () => {
   };
 
   it('le due strade datano lo stesso tuffo a tre ore di distanza', async () => {
-    const [cloud] = daCloud();
-    const [ble] = await dalBluetooth();
+    const cloud = daCloud()[0]!;
+    const ble = (await dalBluetooth())[0]!;
     expect(Date.parse(ble.startTime) - Date.parse(cloud.startTime)).toBe(3 * 3600 * 1000);
     // Profondità e durata invece coincidono: è solo l'orario a divergere, ed è
     // il solo criterio che senza impronta resta a decidere.
@@ -661,8 +661,8 @@ describe('la stessa immersione da Shearwater Cloud e dal Bluetooth', () => {
   });
 
   it('portano la stessa impronta del profilo', async () => {
-    const [cloud] = daCloud();
-    const [ble] = await dalBluetooth();
+    const cloud = daCloud()[0]!;
+    const ble = (await dalBluetooth())[0]!;
     expect(cloud.computer?.profileFingerprint).toBeTruthy();
     expect(ble.computer?.profileFingerprint).toBe(cloud.computer?.profileFingerprint);
   });

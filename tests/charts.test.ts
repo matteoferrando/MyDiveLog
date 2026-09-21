@@ -45,7 +45,7 @@ describe('niceTicks', () => {
       [15, 24],
       [3.2, 9.8],
       [180, 220],
-    ]) {
+    ] as [number, number][]) {
       const ticks = niceTicks(lo, hi, 3);
       expect(ticks[0]).toBeLessThanOrEqual(lo);
       expect(ticks[ticks.length - 1]).toBeGreaterThanOrEqual(hi);
@@ -54,7 +54,7 @@ describe('niceTicks', () => {
 
   it('è crescente e senza duplicati', () => {
     const ticks = niceTicks(0, 47, 4);
-    for (let i = 1; i < ticks.length; i++) expect(ticks[i]).toBeGreaterThan(ticks[i - 1]);
+    for (let i = 1; i < ticks.length; i++) expect(ticks[i]).toBeGreaterThan(ticks[i - 1]!);
   });
 
   it('non esplode sui casi degeneri', () => {
@@ -211,7 +211,7 @@ describe('riassuntoSerie', () => {
   });
 
   it('resta ordinato anche se i punti arrivano in disordine', () => {
-    const disordinati = [punti[3], punti[0], punti[2], punti[1]];
+    const disordinati = [punti[3]!, punti[0]!, punti[2]!, punti[1]!];
     expect(riassuntoSerie(disordinati, { unita: 'L/min' })).toBe(riassuntoSerie(punti, { unita: 'L/min' }));
   });
 
@@ -242,7 +242,7 @@ describe('aggregaPerPeriodo', () => {
     }));
     const righe = aggregaPerPeriodo(punti);
     expect(righe.map((r) => r.periodo)).toEqual(['2023', '2024', '2025']);
-    expect(righe[0].conteggio).toBe(12);
+    expect(righe[0]!.conteggio).toBe(12);
   });
 });
 
@@ -297,8 +297,8 @@ describe('campionaCurva', () => {
     const punti = Array.from({ length: 10 }, (_, i) => ({ x: i, y: i * i }));
     const scelti = campionaCurva(punti, 6);
     expect(scelti).toHaveLength(6);
-    expect(scelti[0].x).toBe(0);
-    expect(scelti[scelti.length - 1].x).toBe(9);
+    expect(scelti[0]!.x).toBe(0);
+    expect(scelti[scelti.length - 1]!.x).toBe(9);
     expect(scelti.map((p) => p.x)).toEqual([0, 2, 4, 5, 7, 9]);
   });
 

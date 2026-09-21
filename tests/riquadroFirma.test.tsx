@@ -91,9 +91,9 @@ function disegna(svg: SVGSVGElement, punti: { x: number; y: number }[]) {
   (svg as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = () => {};
   const evento = (tipo: string, p: { x: number; y: number }) =>
     new MouseEvent(tipo, { bubbles: true, clientX: p.x, clientY: p.y });
-  act(() => void svg.dispatchEvent(evento('pointerdown', punti[0])));
+  act(() => void svg.dispatchEvent(evento('pointerdown', punti[0]!)));
   for (const p of punti.slice(1)) act(() => void svg.dispatchEvent(evento('pointermove', p)));
-  act(() => void svg.dispatchEvent(evento('pointerup', punti[punti.length - 1])));
+  act(() => void svg.dispatchEvent(evento('pointerup', punti[punti.length - 1]!)));
 }
 
 const riquadro = (host: HTMLElement) =>

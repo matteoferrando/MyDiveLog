@@ -101,14 +101,14 @@ describe('quello che deve essere indivisibile parte come una chiamata sola', () 
 
     expect(alPlugin, 'nessuna istruzione deve passare dal plugin').toEqual([]);
     expect(alMotore).toHaveLength(1);
-    expect(alMotore[0].comando).toBe('tutte_o_nessuna');
+    expect(alMotore[0]!.comando).toBe('tutte_o_nessuna');
   });
 
   it('e l’elenco arriva intero: il riepilogo e i due profili di ogni immersione', async () => {
     const store = await archivioPronto();
     await store.putDives([imm('a', 3, 2), imm('b')]);
 
-    const passi = alMotore[0].argomenti.passi as { sql: string; valori: unknown[] }[];
+    const passi = alMotore[0]!.argomenti.passi as { sql: string; valori: unknown[] }[];
     // a: riepilogo + profilo + secondo profilo; b: solo riepilogo.
     expect(passi).toHaveLength(4);
     expect(passi.filter((p) => p.sql.includes('INSERT INTO dives'))).toHaveLength(2);
@@ -123,10 +123,10 @@ describe('quello che deve essere indivisibile parte come una chiamata sola', () 
     const store = await archivioPronto();
     await store.putDives([imm('a', 3, 2)]);
 
-    const passi = alMotore[0].argomenti.passi as { sql: string }[];
-    expect(passi[0].sql).toContain('INSERT INTO dives');
-    expect(passi[1].sql).toContain('dive_samples');
-    expect(passi[2].sql).toContain('dive_alt_samples');
+    const passi = alMotore[0]!.argomenti.passi as { sql: string }[];
+    expect(passi[0]!.sql).toContain('INSERT INTO dives');
+    expect(passi[1]!.sql).toContain('dive_samples');
+    expect(passi[2]!.sql).toContain('dive_alt_samples');
   });
 
   it('un elenco vuoto non chiama nessuno', async () => {
@@ -144,7 +144,7 @@ describe('quello che deve essere indivisibile parte come una chiamata sola', () 
     // «archivio non aperto» e non scriverebbe niente.
     const store = await archivioPronto();
     await store.putDives([imm('a')]);
-    expect(alMotore[0].argomenti.archivio).toBe('sqlite:mydivelog.db');
+    expect(alMotore[0]!.argomenti.archivio).toBe('sqlite:mydivelog.db');
   });
 });
 
@@ -161,7 +161,7 @@ describe('le altre due che nessuno aveva guardato', () => {
 
     expect(alPlugin).toEqual([]);
     expect(alMotore).toHaveLength(1);
-    const passi = alMotore[0].argomenti.passi as { sql: string; valori: unknown[] }[];
+    const passi = alMotore[0]!.argomenti.passi as { sql: string; valori: unknown[] }[];
     expect(passi.map((p) => p.sql.match(/FROM (\w+)/)?.[1])).toEqual([
       'dive_samples',
       'dive_alt_samples',
@@ -175,7 +175,7 @@ describe('le altre due che nessuno aveva guardato', () => {
     await store.clear();
 
     expect(alPlugin).toEqual([]);
-    const passi = alMotore[0].argomenti.passi as { sql: string }[];
+    const passi = alMotore[0]!.argomenti.passi as { sql: string }[];
     expect(passi.map((p) => p.sql.match(/FROM (\w+)/)?.[1])).toEqual([
       'dive_alt_samples',
       'dive_samples',

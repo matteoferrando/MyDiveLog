@@ -78,7 +78,7 @@ describe('gas minimo per la risalita d’emergenza', () => {
     expect(plan.reserveBar).toBeGreaterThanOrEqual(62);
     expect(plan.reserveBar).toBeLessThanOrEqual(70);
     // Ogni fase dichiara le proprie ipotesi: è ciò che rende il numero controllabile.
-    const problema = plan.reserve[0];
+    const problema = plan.reserve[0]!;
     expect(problema.minutes).toBe(1);
     expect(problema.divers).toBe(2);
     expect(problema.meanAta).toBeCloseTo(4, 1);
@@ -229,25 +229,25 @@ describe('geometria della risalita disegnata', () => {
     const plan = planGas(input({ depthM: 30, stopDepthM: 5, stopMin: 3, ascentRateMpm: 9 }));
     const segs = ascentGeometry(plan);
     expect(segs).toHaveLength(4);
-    expect(segs[0].fromM).toBe(30);
-    expect(segs[0].toM).toBe(30); // gestione del problema: si resta giù
-    expect(segs[1].fromM).toBe(30);
-    expect(segs[1].toM).toBeCloseTo(5, 1);
-    expect(segs[2].fromM).toBeCloseTo(5, 1);
-    expect(segs[2].toM).toBeCloseTo(5, 1);
-    expect(segs[3].toM).toBe(0);
+    expect(segs[0]!.fromM).toBe(30);
+    expect(segs[0]!.toM).toBe(30); // gestione del problema: si resta giù
+    expect(segs[1]!.fromM).toBe(30);
+    expect(segs[1]!.toM).toBeCloseTo(5, 1);
+    expect(segs[2]!.fromM).toBeCloseTo(5, 1);
+    expect(segs[2]!.toM).toBeCloseTo(5, 1);
+    expect(segs[3]!.toM).toBe(0);
   });
 
   it('i tempi sono contigui e sommano la durata della risalita', () => {
     const plan = planGas(input({ depthM: 40, extraStopMin: 8 }));
     const segs = ascentGeometry(plan);
     for (let i = 1; i < segs.length; i++) {
-      expect(segs[i].startMin).toBeCloseTo(segs[i - 1].endMin, 6);
+      expect(segs[i]!.startMin).toBeCloseTo(segs[i - 1]!.endMin, 6);
       // Nessun salto di profondità fra una fase e la successiva.
-      expect(segs[i].fromM).toBeCloseTo(segs[i - 1].toM, 6);
+      expect(segs[i]!.fromM).toBeCloseTo(segs[i - 1]!.toM, 6);
     }
     const total = plan.reserve.reduce((a, ph) => a + ph.minutes, 0);
-    expect(segs[segs.length - 1].endMin).toBeCloseTo(total, 6);
+    expect(segs[segs.length - 1]!.endMin).toBeCloseTo(total, 6);
   });
 
   it('non manda mai la profondità sotto zero', () => {
@@ -603,9 +603,9 @@ describe('tempo alla profondità massima e piano delle pressioni', () => {
       }),
     );
     const schedule = pressureSchedule(plan);
-    expect(schedule[0].runMin).toBe(0);
-    expect(schedule[0].bar).toBe(220);
-    const last = schedule[schedule.length - 1];
+    expect(schedule[0]!.runMin).toBe(0);
+    expect(schedule[0]!.bar).toBe(220);
+    const last = schedule[schedule.length - 1]!;
     expect(last.runMin).toBeCloseTo(plan.totalRuntimeMin, 1);
     // L'ultima riga coincide con l'uscita prevista, a un bar di arrotondamento.
     expect(Math.abs(last.bar - plan.expectedEndBar)).toBeLessThanOrEqual(1);
@@ -624,10 +624,10 @@ describe('tempo alla profondità massima e piano delle pressioni', () => {
       }),
     );
     const s = pressureSchedule(plan, 1);
-    for (let i = 1; i < s.length; i++) expect(s[i].bar).toBeLessThanOrEqual(s[i - 1].bar);
+    for (let i = 1; i < s.length; i++) expect(s[i]!.bar).toBeLessThanOrEqual(s[i - 1]!.bar);
     // Il consumo al minuto sul tratto profondo è maggiore che su quello basso.
-    const deep = s[3].bar - s[4].bar;
-    const shallow = s[13].bar - s[14].bar;
+    const deep = s[3]!.bar - s[4]!.bar;
+    const shallow = s[13]!.bar - s[14]!.bar;
     expect(deep).toBeGreaterThan(shallow);
   });
 
@@ -807,12 +807,12 @@ describe('schedule di contingenza', () => {
   it('ogni scenario peggiore esce con meno gas, quello migliore con più', () => {
     const list = contingencies(base());
     const byLabel = Object.fromEntries(list.map((c) => [c.label, c]));
-    expect(byLabel['Fondo più lungo'].endBarDelta).toBeLessThan(0);
-    expect(byLabel['Più profondo'].endBarDelta).toBeLessThan(0);
-    expect(byLabel['Più lungo e più profondo'].endBarDelta).toBeLessThan(
-      byLabel['Fondo più lungo'].endBarDelta,
+    expect(byLabel['Fondo più lungo']!.endBarDelta).toBeLessThan(0);
+    expect(byLabel['Più profondo']!.endBarDelta).toBeLessThan(0);
+    expect(byLabel['Più lungo e più profondo']!.endBarDelta).toBeLessThan(
+      byLabel['Fondo più lungo']!.endBarDelta,
     );
-    expect(byLabel['Fondo più corto'].endBarDelta).toBeGreaterThan(0);
+    expect(byLabel['Fondo più corto']!.endBarDelta).toBeGreaterThan(0);
   });
 
   it('perdere il gas di deco costa gas di fondo', () => {
@@ -858,7 +858,7 @@ describe('coerenza fra tabella delle pressioni e totali del piano', () => {
 
   const lastBar = (plan: ReturnType<typeof planGas>) => {
     const rows = pressureSchedule(plan);
-    return rows[rows.length - 1].bar;
+    return rows[rows.length - 1]!.bar;
   };
 
   it('l’ultima riga vale l’uscita prevista quando il compagno consuma più di te', () => {
@@ -925,7 +925,7 @@ describe('difetti di calcolo trovati nella revisione', () => {
     // La fase porta la sua miscela: è il campo che impedisce a chi legge le fasi
     // di doverla indovinare.
     expect(stop!.mix.o2).toBe(1);
-    expect(plan.planned[0].mix.o2).toBeCloseTo(0.21, 6);
+    expect(plan.planned[0]!.mix.o2).toBeCloseTo(0.21, 6);
     // A 6 m l'ossigeno puro sta a 1.62 bar: i 18 minuti di sosta stanno TUTTI
     // sopra 1.6. Col gas di fondo erano zero.
     expect(plan.oxygen.minutesAbove16).toBeCloseTo(18, 1);

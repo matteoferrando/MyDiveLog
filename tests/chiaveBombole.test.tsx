@@ -117,21 +117,21 @@ describe('la sigla della bombola resta sulla bombola giusta', () => {
       expect(campi).toHaveLength(3);
 
       // La seconda bombola diventa una S80: la nota dice da dove escono i litri.
-      scriviEdEsci(campi[1], 'S80');
-      const nota = riga(campi[1]).textContent ?? '';
+      scriviEdEsci(campi[1]!, 'S80');
+      const nota = riga(campi[1]!).textContent ?? '';
       expect(nota).toContain('alluminio 80 cuft');
 
       // Via la prima. Le altre due scalano di un posto.
-      togli(riga(sigle(host)[0]));
+      togli(riga(sigle(host)[0]!));
 
       const rimaste = sigle(host);
       expect(rimaste.map((c) => c.value)).toEqual(['S80', 'terza']);
       // La nota sta con la S80, che è l'unica bombola di cui parla…
-      expect(riga(rimaste[0]).textContent ?? '').toContain('alluminio 80 cuft');
+      expect(riga(rimaste[0]!).textContent ?? '').toContain('alluminio 80 cuft');
       // …e NON è passata alla bombola che le è scivolata sotto. Si cerca
       // «cuft», che compare solo nella nota: «alluminio» da solo è anche una
       // voce della tendina del materiale, presente in ogni riga.
-      expect(riga(rimaste[1]).textContent ?? '').not.toContain('cuft');
+      expect(riga(rimaste[1]!).textContent ?? '').not.toContain('cuft');
     } finally {
       smonta();
     }

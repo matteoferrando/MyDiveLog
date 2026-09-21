@@ -76,8 +76,9 @@ function equilibriumN2(surfaceBar: number): number {
 export function residualLoadBar(state: TissueState, surfaceBar: number): number {
   const eq = equilibriumN2(surfaceBar);
   let worst = 0;
+  // `n2` e `he` hanno sempre la stessa lunghezza: nascono insieme in `surfacedTissues` e `step`.
   for (let i = 0; i < state.n2.length; i++) {
-    const excess = state.n2[i] + state.he[i] - eq;
+    const excess = state.n2[i]! + state.he[i]! - eq;
     if (excess > worst) worst = excess;
   }
   return Math.round(worst * 1000) / 1000;
@@ -482,7 +483,7 @@ export function segmentsToSamples(segments: PlanSegment[], stepS = 10): Sample[]
     // L'ultimo campione del tratto deve stare esattamente alla fine: senza questo
     // un tratto di 4.5 minuti con passo di 10 s perderebbe gli ultimi secondi, e
     // su una sosta lunga l'errore si accumula.
-    const last = out[out.length - 1];
+    const last = out[out.length - 1]!;
     if (last.t < t + total) out.push({ t: t + total, depth: seg.toM });
     t += total;
   }
@@ -539,10 +540,10 @@ export function curveOfPlan(
   if (result.maxCeilingM > 0) {
     let state = surfacedTissues(surfacePressureBar);
     for (let i = 1; i < samples.length; i++) {
-      const minutes = (samples[i].t - samples[i - 1].t) / 60;
+      const minutes = (samples[i]!.t - samples[i - 1]!.t) / 60;
       if (!(minutes > 0)) continue;
       state = stepAt(
-        (samples[i - 1].depth + samples[i].depth) / 2,
+        (samples[i - 1]!.depth + samples[i]!.depth) / 2,
         state,
         mix,
         minutes,
@@ -550,7 +551,7 @@ export function curveOfPlan(
         surfacePressureBar,
       );
       if (ceilingM(state, gfHigh, salinity, surfacePressureBar) > 0) {
-        leaves = Math.round((samples[i].t / 60) * 10) / 10;
+        leaves = Math.round((samples[i]!.t / 60) * 10) / 10;
         break;
       }
     }
@@ -716,17 +717,17 @@ export function decoTimeline(
     });
   };
 
-  emit(samples[0].t, samples[0].depth, mixOf(samples[0]));
-  nextEmit = samples[0].t + stepS;
+  emit(samples[0]!.t, samples[0]!.depth, mixOf(samples[0]!));
+  nextEmit = samples[0]!.t + stepS;
 
   for (let i = 1; i < samples.length; i++) {
-    const minutes = (samples[i].t - samples[i - 1].t) / 60;
+    const minutes = (samples[i]!.t - samples[i - 1]!.t) / 60;
     if (!(minutes > 0)) continue;
-    const meanDepth = (samples[i - 1].depth + samples[i].depth) / 2;
-    state = step(state, ambientBar(meanDepth, salinity, surface), mixOf(samples[i]), minutes);
-    if (samples[i].t >= nextEmit || i === samples.length - 1) {
-      emit(samples[i].t, samples[i].depth, mixOf(samples[i]));
-      nextEmit = samples[i].t + stepS;
+    const meanDepth = (samples[i - 1]!.depth + samples[i]!.depth) / 2;
+    state = step(state, ambientBar(meanDepth, salinity, surface), mixOf(samples[i]!), minutes);
+    if (samples[i]!.t >= nextEmit || i === samples.length - 1) {
+      emit(samples[i]!.t, samples[i]!.depth, mixOf(samples[i]!));
+      nextEmit = samples[i]!.t + stepS;
     }
   }
   return out;

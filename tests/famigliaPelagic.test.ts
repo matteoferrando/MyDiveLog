@@ -29,7 +29,7 @@ function elencoInRust(): string[] {
   const rust = readFileSync('src-tauri/src/ponte_blec.rs', 'utf8');
   const m = /const PELAGIC_LUNGHEZZA_DICHIARATA: \[&str; \d+\] =\s*\[([^\]]*)\]/.exec(rust);
   expect(m, 'la costante non si trova più: è stata rinominata?').not.toBeNull();
-  return [...m![1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+  return [...m![1]!.matchAll(/"([^"]+)"/g)].map((x) => x[1]!);
 }
 
 describe('la famiglia Pelagic, in Rust e nel catalogo', () => {

@@ -95,8 +95,8 @@ describe('la zavorra è sempre il totale, piastra compresa', () => {
       [GAV],
     );
     expect(righe).toHaveLength(1);
-    expect(righe[0].medianKg).toBe(3.5);
-    expect(righe[0].withBackplate).toBe(2);
+    expect(righe[0]!.medianKg).toBe(3.5);
+    expect(righe[0]!.withBackplate).toBe(2);
   });
 
   it('e senza inventario quelle stesse immersioni restano fuori, invece di valere zero', () => {
@@ -207,8 +207,8 @@ describe('muta e temperatura', () => {
       imm({ suit: 'Umida 5mm', minTempC: 13, startTime: '2026-03-10T10:00:00.000Z' }),
     ]);
     expect(fuori).toHaveLength(1);
-    expect(fuori[0].suit).toBe('Umida 5mm');
-    expect(fuori[0].solita).toBe('Stagna');
+    expect(fuori[0]!.suit).toBe('Umida 5mm');
+    expect(fuori[0]!.solita).toBe('Stagna');
   });
 });
 
@@ -275,7 +275,7 @@ describe('consumo per attrezzo', () => {
     ]);
     const erogatori = t.find((x) => x.titolo === 'Erogatore')!;
     expect(erogatori.righe.map((r) => r.etichetta)).toEqual(['A', 'B']);
-    expect(erogatori.righe[0].medianRmvLpm).toBe(15);
+    expect(erogatori.righe[0]!.medianRmvLpm).toBe(15);
   });
 
   /*

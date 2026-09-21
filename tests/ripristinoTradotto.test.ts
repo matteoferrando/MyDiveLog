@@ -189,7 +189,7 @@ describe('chi disegna il ripristino passa la traduzione', () => {
         else if (sorgente[i] === ')') livello -= 1;
         i += 1;
       }
-      chiamate.push({ nome: m[1], argomenti: sorgente.slice(m.index + m[0].length, i - 1) });
+      chiamate.push({ nome: m[1]!, argomenti: sorgente.slice(m.index + m[0].length, i - 1) });
     }
     expect(chiamate.length, 'nessuna chiamata trovata: la prova sta guardando il posto sbagliato').toBe(2);
     const senzaTraduzione = chiamate.filter((c) => !/,\s*t\s*$/.test(c.argomenti)).map((c) => c.nome);

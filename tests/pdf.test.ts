@@ -52,9 +52,9 @@ function xrefTorna(pdf: string): boolean {
   );
   if (!pdf.startsWith('xref', inizio)) return false;
   const righe = pdf.slice(inizio).split('\n');
-  const quanti = Number(righe[1].split(' ')[1]);
+  const quanti = Number(righe[1]!.split(' ')[1]);
   for (let i = 1; i < quanti; i += 1) {
-    const offset = Number(righe[1 + i + 1].slice(0, 10));
+    const offset = Number(righe[1 + i + 1]!.slice(0, 10));
     if (!pdf.startsWith(`${i} 0 obj`, offset)) return false;
   }
   return true;

@@ -21,11 +21,11 @@ function luminance(hex: string): number {
   const h = hex.replace('#', '');
   const parts = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
   const lin = parts.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+  return 0.2126 * lin[0]! + 0.7152 * lin[1]! + 0.0722 * lin[2]!;
 }
 
 function contrast(a: string, b: string): number {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
   return (hi + 0.05) / (lo + 0.05);
 }
 
@@ -40,7 +40,7 @@ function palette(startsWith: string): Record<string, string> {
   expect(from, `blocco ${startsWith} non trovato`).toBeGreaterThan(-1);
   const block = css.slice(from, css.indexOf('\n}', from));
   const out: Record<string, string> = {};
-  for (const m of block.matchAll(/(--[a-z0-9-]+):\s*(#[0-9a-fA-F]{6})/g)) out[m[1]] = m[2];
+  for (const m of block.matchAll(/(--[a-z0-9-]+):\s*(#[0-9a-fA-F]{6})/g)) out[m[1]!] = m[2]!;
   return out;
 }
 
@@ -84,7 +84,7 @@ describe('contrasto della tavolozza', () => {
         '--warning-text',
       ])('%s è leggibile su tutte le superfici (4.5:1)', (token) => {
         for (const bg of SURFACES) {
-          const ratio = contrast(tema[token], tema[bg]);
+          const ratio = contrast(tema[token]!, tema[bg]!);
           expect(
             ratio,
             `${token} ${tema[token]} su ${bg} ${tema[bg]} = ${ratio.toFixed(2)}:1`,
@@ -104,7 +104,7 @@ describe('contrasto della tavolozza', () => {
         '%s si distingue come indicatore grafico (3:1)',
         (token) => {
           for (const bg of SURFACES) {
-            const ratio = contrast(tema[token], tema[bg]);
+            const ratio = contrast(tema[token]!, tema[bg]!);
             expect(
               ratio,
               `${token} ${tema[token]} su ${bg} ${tema[bg]} = ${ratio.toFixed(2)}:1`,
@@ -115,7 +115,7 @@ describe('contrasto della tavolozza', () => {
 
       it('--good-text è testo, quindi va oltre 4.5:1', () => {
         for (const bg of SURFACES) {
-          expect(contrast(tema['--good-text'], tema[bg])).toBeGreaterThanOrEqual(4.5);
+          expect(contrast(tema['--good-text']!, tema[bg]!)).toBeGreaterThanOrEqual(4.5);
         }
       });
     });
@@ -303,9 +303,9 @@ describe('bersagli e ritagli dello schermo', () => {
     const senzaCommenti = css.replace(/\/\*[\s\S]*?\*\//g, '');
     const piccole: string[] = [];
     for (const m of senzaCommenti.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-      const selettore = m[1].trim();
+      const selettore = m[1]!.trim();
       if (!/checkbox|radio|-check input/.test(selettore)) continue;
-      for (const w of m[2].matchAll(/(?:width|height):\s*(\d+)px/g)) {
+      for (const w of m[2]!.matchAll(/(?:width|height):\s*(\d+)px/g)) {
         if (Number(w[1]) < MINIMO) piccole.push(`${selettore} → ${w[0]}`);
       }
     }

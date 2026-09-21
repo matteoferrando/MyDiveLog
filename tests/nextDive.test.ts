@@ -29,7 +29,7 @@ function dive(startTime: string, depthM = 30, bottomMin = 30): Dive {
   const base: Dive = {
     id: `d${startTime}`,
     startTime,
-    durationS: samples[samples.length - 1].t,
+    durationS: samples[samples.length - 1]!.t,
     maxDepth: depthM,
     cylinders: [{ mix: { o2: 0.21, he: 0 } }],
     source: { format: 'uddf', file: 't', importedAt: startTime },
@@ -71,8 +71,8 @@ describe('ordine delle note', () => {
 
   it('un archivio vuoto manda all’import', () => {
     const b = nextDiveBriefing([], undefined, NOW);
-    expect(b.notes[0].id).toBe('no-dives');
-    expect(b.notes[0].goTo).toBe('import');
+    expect(b.notes[0]!.id).toBe('no-dives');
+    expect(b.notes[0]!.goTo).toBe('import');
   });
 });
 

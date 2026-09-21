@@ -102,7 +102,7 @@ describe('i parser danno lo stesso istante in ogni fuso', () => {
   it('e lo stesso identificativo, che è ciò da cui dipende il database condiviso', () => {
     const ids = ZONES.map((tz) => {
       process.env.TZ = tz;
-      return subsurfaceParser.parse({ fileName: 'a.ssrf', text: toSubsurface(synth) }).dives[0].id;
+      return subsurfaceParser.parse({ fileName: 'a.ssrf', text: toSubsurface(synth) }).dives[0]!.id;
     });
     expect(new Set(ids).size).toBe(1);
   });

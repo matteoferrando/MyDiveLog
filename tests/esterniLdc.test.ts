@@ -133,7 +133,7 @@ describe('i campioni', () => {
       }),
       { marca: 'Shearwater', modello: 'Perdix 2', importedAt: IMPORTATA },
     )!;
-    expect(d.samples![0].pressureBar).toEqual([203, undefined]);
+    expect(d.samples![0]!.pressureBar).toEqual([203, undefined]);
   });
 });
 
@@ -219,13 +219,13 @@ describe('il cambio gas che il computer ha registrato', () => {
     )!;
     expect(d.cylinders).toHaveLength(2);
     expect(d.cylinders[0]).toMatchObject({ sizeL: 15, startBar: 220 });
-    expect(d.cylinders[1].mix).toEqual({ o2: 0.8, he: 0 });
+    expect(d.cylinders[1]!.mix).toEqual({ o2: 0.8, he: 0 });
     // La bombola inventata NON dichiara un volume che nessuno ha misurato.
-    expect(d.cylinders[1].sizeL).toBeUndefined();
-    expect(d.cylinders[1].startBar).toBeUndefined();
+    expect(d.cylinders[1]!.sizeL).toBeUndefined();
+    expect(d.cylinders[1]!.startBar).toBeUndefined();
     expect(d.samples!.map((s) => s.gasIndex)).toEqual([0, 1]);
     // E la pressione della bombola vera resta dov'era.
-    expect(d.samples![0].pressureBar).toEqual([220]);
+    expect(d.samples![0]!.pressureBar).toEqual([220]);
   });
 
   it('una miscela programmata e mai respirata NON diventa una bombola', () => {
@@ -331,7 +331,7 @@ describe('quello che non arriva e quello che si assume', () => {
       modello: 'Geo 4.0',
       importedAt: IMPORTATA,
     })!;
-    expect(d.cylinders[0].mix).toEqual({ o2: 0.21, he: 0 });
+    expect(d.cylinders[0]!.mix).toEqual({ o2: 0.21, he: 0 });
   });
 
   it('la provenienza è dichiarata, perché spiega i campi vuoti', () => {
@@ -435,7 +435,7 @@ describe('i difetti del 25 agosto', () => {
     )!;
     expect(d.cylinders.length).toBe(2);
     expect(d.cylinders[1]).toMatchObject({ sizeL: 12, startBar: 220, endBar: 90 });
-    expect(d.samples![0].pressureBar).toEqual([undefined, 220]);
+    expect(d.samples![0]!.pressureBar).toEqual([undefined, 220]);
     // E il consumo si calcola, che è il punto di tutto quanto sopra.
     expect(d.metrics?.quality.hasTankPressure).toBe(true);
     expect(d.metrics?.sacBarPerMin).toBeGreaterThan(0);
@@ -453,7 +453,7 @@ describe('i difetti del 25 agosto', () => {
       }),
       { marca: 'Suunto', modello: 'D5', importedAt: IMPORTATA },
     )!;
-    expect(d.samples![0].pressureBar).toEqual([200]);
+    expect(d.samples![0]!.pressureBar).toEqual([200]);
   });
 
   it('la profondità media e la temperatura del computer non si buttano', () => {
@@ -575,7 +575,7 @@ describe('un profilo di libdivecomputer non scalza uno verificato', () => {
 
     const fuso = mergeDive(inArchivio, arrivo);
     expect(fuso.samples).toEqual(inArchivio.samples);
-    expect(fuso.samples![0].ndlS).toBeUndefined();
+    expect(fuso.samples![0]!.ndlS).toBeUndefined();
   });
 
   it('e nemmeno quello di un file importato', () => {
@@ -590,7 +590,7 @@ describe('un profilo di libdivecomputer non scalza uno verificato', () => {
     // prima lettura resterebbe congelata per sempre.
     const prima = immersione('libdivecomputer', profilo(200, false));
     const meglio = immersione('libdivecomputer', profilo(200, true));
-    expect(mergeDive(prima, meglio).samples![0].ndlS).toBe(600);
+    expect(mergeDive(prima, meglio).samples![0]!.ndlS).toBe(600);
   });
 
   it('e un profilo verificato scalza ancora uno di libdivecomputer', () => {
@@ -599,7 +599,7 @@ describe('un profilo di libdivecomputer non scalza uno verificato', () => {
     // secondo.
     const inArchivio = immersione('libdivecomputer', profilo(200, false));
     const arrivo = immersione('shearwater-ble', profilo(200, true));
-    expect(mergeDive(inArchivio, arrivo).samples![0].ndlS).toBe(600);
+    expect(mergeDive(inArchivio, arrivo).samples![0]!.ndlS).toBe(600);
   });
 });
 

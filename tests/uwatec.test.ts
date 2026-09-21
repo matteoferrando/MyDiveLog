@@ -124,18 +124,18 @@ describe('decodifica del blob Uwatec', () => {
     const d = decodeUwatecSmart(bytes, { model: 0x17 });
     expect(d.samples).toHaveLength(PROFILE.length);
     d.samples.forEach((s, i) => {
-      expect(s.depth, `campione ${i}`).toBeCloseTo(PROFILE[i], 1);
+      expect(s.depth, `campione ${i}`).toBeCloseTo(PROFILE[i]!, 1);
     });
     // Passo fisso di 4 secondi, non dichiarato nel formato.
     expect(d.intervalS).toBe(4);
-    expect(d.samples[1].t - d.samples[0].t).toBe(4);
+    expect(d.samples[1]!.t - d.samples[0]!.t).toBe(4);
   });
 
   it('ricostruisce la temperatura', () => {
     const d = decodeUwatecSmart(bytes, { model: 0x17 });
     d.samples.forEach((s, i) => {
       // Il sensore quantizza a 0.4 °C: è la risoluzione del formato, non un errore.
-      expect(s.tempC!, `campione ${i}`).toBeCloseTo(TEMPS[i], 0);
+      expect(s.tempC!, `campione ${i}`).toBeCloseTo(TEMPS[i]!, 0);
     });
   });
 
@@ -159,7 +159,7 @@ describe('decodifica del blob Uwatec', () => {
     const d = decodeUwatecSmart(bytes, { model: 0x17 });
     let area = 0;
     for (let i = 1; i < d.samples.length; i++) {
-      area += ((d.samples[i].depth! + d.samples[i - 1].depth!) / 2) * 4;
+      area += ((d.samples[i]!.depth! + d.samples[i - 1]!.depth!) / 2) * 4;
     }
     const mean = area / ((d.samples.length - 1) * 4);
     expect(d.avgDepth!).toBeCloseTo(mean, 0);
@@ -168,10 +168,10 @@ describe('decodifica del blob Uwatec', () => {
   it('legge la miscela dal record MISC', () => {
     const d = decodeUwatecSmart(bytes, { model: 0x17 });
     expect(d.gasMixes).toHaveLength(1);
-    expect(d.gasMixes[0].o2).toBeCloseTo(0.21, 2);
-    expect(d.gasMixes[0].he).toBe(0);
+    expect(d.gasMixes[0]!.o2).toBeCloseTo(0.21, 2);
+    expect(d.gasMixes[0]!.he).toBe(0);
     // Le pressioni del record MISC usano la scala /128 bar.
-    expect(d.gasMixes[0].startBar!).toBeCloseTo(240, 0);
+    expect(d.gasMixes[0]!.startBar!).toBeCloseTo(240, 0);
   });
 
   it("gestisce l'acqua dolce", () => {
@@ -199,7 +199,7 @@ describe('decodifica del blob Uwatec', () => {
     joined.set(b, a.length);
     const parts = splitUwatecRecords(joined);
     expect(parts).toHaveLength(2);
-    expect(parts[0].length).toBe(a.length);
+    expect(parts[0]!.length).toBe(a.length);
   });
 
   it('copre i modelli Scubapro moderni', () => {
@@ -208,11 +208,11 @@ describe('decodifica del blob Uwatec', () => {
     // computer verrebbero letti dall'offset sbagliato.
     for (const model of [0x17, 0x25, 0x28, 0x31, 0x32, 0x34, 0x50, 0x51]) {
       expect(UWATEC_MODELS[model], `modello 0x${model.toString(16)}`).toBeDefined();
-      expect(UWATEC_MODELS[model].size).toBe(84);
+      expect(UWATEC_MODELS[model]!.size).toBe(84);
     }
     // I Galileo usano 152 byte: confonderli è l'errore più facile del formato.
     for (const model of [0x11, 0x15, 0x19, 0x20, 0x22, 0x24, 0x26]) {
-      expect(UWATEC_MODELS[model].size).toBe(152);
+      expect(UWATEC_MODELS[model]!.size).toBe(152);
     }
   });
 });
@@ -232,8 +232,8 @@ describe('ritaglio della superficie', () => {
       { t: 28, depth: 0 },
     ];
     const trimmed = trimSurface(samples);
-    expect(trimmed[0].t).toBe(4);
-    expect(trimmed[trimmed.length - 1].t).toBe(20);
+    expect(trimmed[0]!.t).toBe(4);
+    expect(trimmed[trimmed.length - 1]!.t).toBe(20);
   });
 
   it('non tocca un profilo che non risale mai in superficie', () => {
@@ -272,13 +272,13 @@ describe('parser LogTRAK', () => {
     expect(dives).toHaveLength(2);
     expect(warnings.filter((w) => w.includes('illeggibile'))).toHaveLength(0);
 
-    const d = dives[0];
+    const d = dives[0]!;
     expect(d.maxDepth).toBeCloseTo(Math.max(...PROFILE), 1);
     expect(d.samples!.length).toBeGreaterThan(10);
     // Il volume della bombola viene dal JSON: è ciò che sblocca i L/min.
-    expect(d.cylinders[0].sizeL).toBe(15);
-    expect(d.cylinders[0].startBar).toBe(240);
-    expect(d.cylinders[0].mix.o2).toBeCloseTo(0.21, 2);
+    expect(d.cylinders[0]!.sizeL).toBe(15);
+    expect(d.cylinders[0]!.startBar).toBe(240);
+    expect(d.cylinders[0]!.mix.o2).toBeCloseTo(0.21, 2);
     expect(d.metrics!.rmvLpm).toBeDefined();
     expect(d.weightKg).toBe(8);
     expect(d.visibilityM).toBe(12);
@@ -318,11 +318,11 @@ describe('parser LogTRAK', () => {
     const noProfile = toLogtrak([spec], { withProfile: false });
     const { dives, warnings } = await parseFile({ fileName: 'manuale.logtrak', text: noProfile });
     expect(dives).toHaveLength(1);
-    expect(dives[0].samples).toHaveLength(0);
-    expect(dives[0].metrics!.avgDepth).toBeUndefined();
-    expect(dives[0].metrics!.rmvLpm).toBeUndefined();
+    expect(dives[0]!.samples).toHaveLength(0);
+    expect(dives[0]!.metrics!.avgDepth).toBeUndefined();
+    expect(dives[0]!.metrics!.rmvLpm).toBeUndefined();
     // Il SAC in bar/min invece si calcola: le pressioni ci sono.
-    expect(dives[0].metrics!.sacBarPerMin).toBeDefined();
+    expect(dives[0]!.metrics!.sacBarPerMin).toBeDefined();
     expect(warnings.join(' ')).toContain('non hanno il profilo');
   });
 
@@ -334,7 +334,7 @@ describe('parser LogTRAK', () => {
       text: JSON.stringify(broken),
     });
     expect(dives).toHaveLength(1);
-    expect(dives[0].maxDepth).toBeGreaterThan(0);
+    expect(dives[0]!.maxDepth).toBeGreaterThan(0);
     expect(warnings.join(' ')).toContain('illeggibile');
   });
 
@@ -362,7 +362,7 @@ describe('parser LogTRAK', () => {
       { ...spec, depths: depthSeries(synth), temps: undefined, startBar: 220, endBar: 70 },
     ]);
     const { dives } = await parseFile({ fileName: 'long.logtrak', text: long });
-    const m = dives[0].metrics!;
+    const m = dives[0]!.metrics!;
     expect(m.quality.sampleIntervalS).toBe(4);
     expect(m.didSafetyStop).toBe(true);
     expect(m.bottomVerticalTravelMpm!).toBeLessThan(2);
@@ -384,7 +384,7 @@ describe('il seriale di LogTRAK', () => {
     const j = JSON.parse(toLogtrak([spec]));
     j.equipment.diveComputers[0].serialNumber = serialNumber;
     j.equipment.diveComputers[0].deviceTypeNumber = deviceTypeNumber;
-    return logtrakParser.parse({ fileName: 'x.logtrak', text: JSON.stringify(j) }).dives[0];
+    return logtrakParser.parse({ fileName: 'x.logtrak', text: JSON.stringify(j) }).dives[0]!;
   };
 
   it('perde la coda quando è esattamente il numero di tipo', () => {

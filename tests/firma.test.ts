@@ -57,7 +57,7 @@ describe('la semplificazione dei tratti', () => {
     // Il primo e l'ultimo non si perdono mai: sono dove la penna appoggia e dove si stacca.
     expect(magro[0]).toEqual({ x: 10, y: 20 });
     // 10 + 99 x 0.05 = 14.95, arrotondato a un decimo.
-    expect(magro[magro.length - 1].x).toBe(15);
+    expect(magro[magro.length - 1]!.x).toBe(15);
   });
 
   it('un tratto di due punti resta di due punti', () => {

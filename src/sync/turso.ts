@@ -1294,7 +1294,7 @@ async function pullSamples(
   const { rows } = await sql.execute(`SELECT doc FROM ${table} WHERE dive_id = ?`, [diveId]);
   if (!rows.length) return [];
   try {
-    const parsed = JSON.parse(String(rows[0].doc));
+    const parsed = JSON.parse(String(rows[0]!.doc));
     if (Array.isArray(parsed)) return parsed as Sample[];
     // Un documento che c'è e non è un elenco è rotto quanto uno che non si
     // analizza: `JSON.parse` non solleva niente e il silenzio era lo stesso.

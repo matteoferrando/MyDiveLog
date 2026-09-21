@@ -145,7 +145,7 @@ for (const o of orfane)
 
 if (scarti.length) {
   const ordinati = [...scarti].sort((a, b) => a - b);
-  const mediana = ordinati[Math.floor(ordinati.length / 2)];
+  const mediana = ordinati[Math.floor(ordinati.length / 2)]!;
   console.log('');
   console.log(`Scarto di orario, mediana: ${mediana >= 0 ? '+' : ''}${Math.round(mediana)} s`);
   /*
@@ -162,7 +162,7 @@ if (scarti.length) {
         ' Uno dei due lati considera il contatore del computer come UTC e l’altro come ora locale.',
     );
   } else if (Math.abs(mediana) > 120) {
-    const spread = ordinati[ordinati.length - 1] - ordinati[0];
+    const spread = ordinati[ordinati.length - 1]! - ordinati[0]!;
     console.log(
       `  → non è un numero tondo di ore e gli scarti coprono ${Math.round(spread)} s:` +
         ' assomiglia alla deriva dell’orologio del computer, non a un errore di interpretazione.',

@@ -249,7 +249,7 @@ export function diveProfileSvg(samples: Sample[], opts: ProfiloSvgOptions = {}):
   const plotW = W - pad.left - pad.right;
   const plotH = H - pad.top - pad.bottom;
 
-  const t0 = punti[0].t;
+  const t0 = punti[0]!.t;
   const tMax = Math.max(...punti.map((s) => s.t)) - t0;
   if (tMax <= 0) return '';
 
@@ -266,7 +266,7 @@ export function diveProfileSvg(samples: Sample[], opts: ProfiloSvgOptions = {}):
   const area = [
     `M ${sv(x(t0))},${sv(ySuperficie)}`,
     `L ${coordinate.join(' L ')}`,
-    `L ${sv(x(punti[punti.length - 1].t))},${sv(ySuperficie)}`,
+    `L ${sv(x(punti[punti.length - 1]!.t))},${sv(ySuperficie)}`,
     'Z',
   ].join(' ');
 
@@ -308,7 +308,7 @@ export function diveProfileSvg(samples: Sample[], opts: ProfiloSvgOptions = {}):
   // Il punto più profondo, marcato ed etichettato: è il numero che chi sfoglia un
   // logbook cerca per primo, e trovarlo sul disegno invece che solo in tabella
   // evita di dover leggere due volte lo stesso foglio.
-  const piuProfondo = punti.reduce((a, b) => (b.depth > a.depth ? b : a), punti[0]);
+  const piuProfondo = punti.reduce((a, b) => (b.depth > a.depth ? b : a), punti[0]!);
   const xp = x(piuProfondo.t);
   const yp = y(piuProfondo.depth);
   parti.push(`<circle class="picco" cx="${sv(xp)}" cy="${sv(yp)}" r="2.5" />`);

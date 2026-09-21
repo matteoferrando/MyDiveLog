@@ -513,6 +513,9 @@ export function planVpm(
   );
   const s: VpmSettings = { ...asked, surfacePressureBar };
 
+  // Ogni array per compartimento di questo piano ha `COMPARTMENTS` voci — nasce
+  // da qui, da `step` o come copia di uno di questi — e i cicli contano fino a
+  // lì: gli indici `[i]` qui sotto stanno dentro per costruzione.
   const zeros = () => new Array<number>(COMPARTMENTS).fill(0);
   const amb = (depthM: number) => ambientBar(depthM, s.salinity, s.surfacePressureBar);
   const depthOf = (absBar: number) => depthFromAbsoluteBar(absBar, s.salinity, s.surfacePressureBar);
@@ -534,7 +537,7 @@ export function planVpm(
     CONSERVATISM_FACTORS.length - 1,
     Math.max(0, Math.round(s.conservatism)),
   );
-  const factor = CONSERVATISM_FACTORS[conservatismLevel];
+  const factor = CONSERVATISM_FACTORS[conservatismLevel]!;
   const critN2 = new Array<number>(COMPARTMENTS).fill(CRITICAL_RADIUS_N2_M * factor);
   const critHe = new Array<number>(COMPARTMENTS).fill(CRITICAL_RADIUS_HE_M * factor);
 
@@ -547,19 +550,20 @@ export function planVpm(
     // immersione in poi — una sorpresa che nessuno si aspetta.
     const rescale = previous.conservatismFactor > 0 ? factor / previous.conservatismFactor : 1;
     const si = s.surfaceIntervalMin ?? 0;
+    // I nuclei sono il blocco restituito da `planVpm`: sedici voci per campo, vedi `nucleiOut`.
     for (let i = 0; i < COMPARTMENTS; i++) {
       critN2[i] = repetitiveRadius(
-        previous.critRadiusN2[i] * rescale,
-        previous.maxActualGradient[i],
-        previous.initialGradientN2[i],
-        previous.adjustedCrushN2[i],
+        previous.critRadiusN2[i]! * rescale,
+        previous.maxActualGradient[i]!,
+        previous.initialGradientN2[i]!,
+        previous.adjustedCrushN2[i]!,
         si,
       );
       critHe[i] = repetitiveRadius(
-        previous.critRadiusHe[i] * rescale,
-        previous.maxActualGradient[i],
-        previous.initialGradientHe[i],
-        previous.adjustedCrushHe[i],
+        previous.critRadiusHe[i]! * rescale,
+        previous.maxActualGradient[i]!,
+        previous.initialGradientHe[i]!,
+        previous.adjustedCrushHe[i]!,
         si,
       );
     }
@@ -572,9 +576,9 @@ export function planVpm(
     const arrival = tissuesAtAltitude(s.altitudeM, 0);
     const hours = s.hoursAtAltitude ?? 0;
     for (let i = 0; i < COMPARTMENTS; i++) {
-      const gradient = arrival.n2[i] + arrival.he[i] + OTHER_GASES_BAR - s.surfacePressureBar;
-      critN2[i] = altitudeRadius(critN2[i], gradient, hours);
-      critHe[i] = altitudeRadius(critHe[i], gradient, hours);
+      const gradient = arrival.n2[i]! + arrival.he[i]! + OTHER_GASES_BAR - s.surfacePressureBar;
+      critN2[i] = altitudeRadius(critN2[i]!, gradient, hours);
+      critHe[i] = altitudeRadius(critHe[i]!, gradient, hours);
     }
   }
 
@@ -626,7 +630,7 @@ export function planVpm(
   }
 
   // --- scelta del gas ------------------------------------------------------
-  const bottomMix = usable[usable.length - 1].mix;
+  const bottomMix = usable[usable.length - 1]!.mix;
   /**
    * La miscela respirata a una quota in risalita: la più ricca di ossigeno fra
    * quelle dichiarate utilizzabili lì. Come in Baker il cambio avviene ALLA quota
@@ -674,7 +678,7 @@ export function planVpm(
     return { state, minutes };
   };
 
-  const tension = (state: TissueState, i: number) => state.n2[i] + state.he[i] + OTHER_GASES_BAR;
+  const tension = (state: TissueState, i: number) => state.n2[i]! + state.he[i]! + OTHER_GASES_BAR;
 
   // --- pressione di schiacciamento ------------------------------------------
   /**
@@ -745,16 +749,16 @@ export function planVpm(
       if (gradient <= IMPERM_GRADIENT_BAR || Number.isNaN(onsetAmb[i])) {
         // Ramo permeabile: il gas entra ed esce dal nucleo, e lo schiacciamento è
         // semplicemente il gradiente. Elio e azoto si comportano allo stesso modo.
-        maxCrushN2[i] = Math.max(maxCrushN2[i], gradient);
-        maxCrushHe[i] = Math.max(maxCrushHe[i], gradient);
+        maxCrushN2[i] = Math.max(maxCrushN2[i]!, gradient);
+        maxCrushHe[i] = Math.max(maxCrushHe[i]!, gradient);
       } else {
         maxCrushN2[i] = Math.max(
-          maxCrushN2[i],
-          impermeableCrush(critN2[i], endAmb, onsetAmb[i], onsetTension[i]),
+          maxCrushN2[i]!,
+          impermeableCrush(critN2[i]!, endAmb, onsetAmb[i]!, onsetTension[i]!),
         );
         maxCrushHe[i] = Math.max(
-          maxCrushHe[i],
-          impermeableCrush(critHe[i], endAmb, onsetAmb[i], onsetTension[i]),
+          maxCrushHe[i]!,
+          impermeableCrush(critHe[i]!, endAmb, onsetAmb[i]!, onsetTension[i]!),
         );
       }
     }
@@ -783,8 +787,8 @@ export function planVpm(
       return { regen, adjCrush: maxCrushBar * ratio };
     };
     for (let i = 0; i < COMPARTMENTS; i++) {
-      const n2 = one(maxCrushN2[i], critN2[i]);
-      const he = one(maxCrushHe[i], critHe[i]);
+      const n2 = one(maxCrushN2[i]!, critN2[i]!);
+      const he = one(maxCrushHe[i]!, critHe[i]!);
       regenN2[i] = n2.regen;
       adjCrushN2[i] = n2.adjCrush;
       regenHe[i] = he.regen;
@@ -800,10 +804,10 @@ export function planVpm(
   const initialGradients = () => {
     const numerator = 2 * GAMMA * (GAMMA_C - GAMMA);
     for (let i = 0; i < COMPARTMENTS; i++) {
-      initialGradN2[i] = numerator / (regenN2[i] * GAMMA_C) / PA_PER_BAR;
-      initialGradHe[i] = numerator / (regenHe[i] * GAMMA_C) / PA_PER_BAR;
-      allowGradN2[i] = initialGradN2[i];
-      allowGradHe[i] = initialGradHe[i];
+      initialGradN2[i] = numerator / (regenN2[i]! * GAMMA_C) / PA_PER_BAR;
+      initialGradHe[i] = numerator / (regenHe[i]! * GAMMA_C) / PA_PER_BAR;
+      allowGradN2[i] = initialGradN2[i]!;
+      allowGradHe[i] = initialGradHe[i]!;
     }
   };
 
@@ -819,11 +823,11 @@ export function planVpm(
   const toleratedBar = (state: TissueState, gradN2: number[], gradHe: number[]): number => {
     let worst = 0;
     for (let i = 0; i < COMPARTMENTS; i++) {
-      const load = state.n2[i] + state.he[i];
+      const load = state.n2[i]! + state.he[i]!;
       const gradient =
         load > 0
-          ? (gradHe[i] * state.he[i] + gradN2[i] * state.n2[i]) / load
-          : Math.min(gradHe[i], gradN2[i]);
+          ? (gradHe[i]! * state.he[i]! + gradN2[i]! * state.n2[i]!) / load
+          : Math.min(gradHe[i]!, gradN2[i]!);
       const tolerated = Math.max(0, load + OTHER_GASES_BAR - gradient);
       if (tolerated > worst) worst = tolerated;
     }
@@ -861,8 +865,8 @@ export function planVpm(
       return (2 * GAMMA) / rEnd / PA_PER_BAR;
     };
     for (let i = 0; i < COMPARTMENTS; i++) {
-      decoGradN2[i] = one(allowGradN2[i]);
-      decoGradHe[i] = one(allowGradHe[i]);
+      decoGradN2[i] = one(allowGradN2[i]!);
+      decoGradHe[i] = one(allowGradHe[i]!);
     }
   };
 
@@ -882,10 +886,10 @@ export function planVpm(
     const inspiredN2 = (s.surfacePressureBar - WATER_VAPOUR_BAR) * FRAZIONE_N2_ARIA;
     const out = zeros();
     for (let i = 0; i < COMPARTMENTS; i++) {
-      const n2 = state.n2[i];
-      const he = state.he[i];
-      const kN2 = TIME_CONSTANT.n2[i];
-      const kHe = TIME_CONSTANT.he[i];
+      const n2 = state.n2[i]!;
+      const he = state.he[i]!;
+      const kN2 = TIME_CONSTANT.n2[i]!;
+      const kHe = TIME_CONSTANT.he[i]!;
       if (n2 > inspiredN2) {
         out[i] = (he / kHe + (n2 - inspiredN2) / kN2) / (he + n2 - inspiredN2);
       } else if (he + n2 >= inspiredN2 && he > 1e-9 && Math.abs(kN2 - kHe) > 1e-12) {
@@ -925,9 +929,9 @@ export function planVpm(
       return (b + Math.sqrt(disc)) / 2 / PA_PER_BAR;
     };
     for (let i = 0; i < COMPARTMENTS; i++) {
-      const phase = decoPhaseVolumeTime + surfacePhase[i];
-      allowGradN2[i] = one(initialGradN2[i], adjCrushN2[i], phase);
-      allowGradHe[i] = one(initialGradHe[i], adjCrushHe[i], phase);
+      const phase = decoPhaseVolumeTime + surfacePhase[i]!;
+      allowGradN2[i] = one(initialGradN2[i]!, adjCrushN2[i]!, phase);
+      allowGradHe[i] = one(initialGradHe[i]!, adjCrushHe[i]!, phase);
     }
   };
 
@@ -937,7 +941,7 @@ export function planVpm(
   let runtime = 0;
 
   for (let i = 0; i < usable.length; i++) {
-    const lv = usable[i];
+    const lv = usable[i]!;
     const goingDown = lv.depthM > depth;
     const rate = goingDown ? s.descentRateMpm : s.ascentRateMpm;
     const travelMin = Math.abs(lv.depthM - depth) / rate;
@@ -1000,11 +1004,11 @@ export function planVpm(
       const pAmb = amb(target);
       let safe = true;
       for (let i = 0; i < COMPARTMENTS; i++) {
-        const load = trial.n2[i] + trial.he[i];
+        const load = trial.n2[i]! + trial.he[i]!;
         const gradient =
           load > 0
-            ? (allowGradHe[i] * trial.he[i] + allowGradN2[i] * trial.n2[i]) / load
-            : Math.min(allowGradHe[i], allowGradN2[i]);
+            ? (allowGradHe[i]! * trial.he[i]! + allowGradN2[i]! * trial.n2[i]!) / load
+            : Math.min(allowGradHe[i]!, allowGradN2[i]!);
         if (load + OTHER_GASES_BAR > pAmb + gradient) {
           safe = false;
           break;
@@ -1048,7 +1052,7 @@ export function planVpm(
       const pAmb = amb(depthM);
       for (let i = 0; i < COMPARTMENTS; i++) {
         const gradient = tension(state, i) - pAmb;
-        if (gradient > maxActualGradient[i]) maxActualGradient[i] = gradient;
+        if (gradient > maxActualGradient[i]!) maxActualGradient[i] = gradient;
       }
     };
 
@@ -1131,8 +1135,8 @@ export function planVpm(
     let converged = false;
     const phase = zeros();
     for (let i = 0; i < COMPARTMENTS; i++) {
-      phase[i] = schedule.decoPhaseMin + surfacePhase[i];
-      if (Math.abs(phase[i] - lastPhase[i]) <= 1) converged = true;
+      phase[i] = schedule.decoPhaseMin + surfacePhase[i]!;
+      if (Math.abs(phase[i]! - lastPhase[i]!) <= 1) converged = true;
     }
     if (converged) break;
     relaxGradients(schedule.decoPhaseMin, surfacePhase);

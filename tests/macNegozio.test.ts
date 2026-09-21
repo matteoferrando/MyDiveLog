@@ -88,7 +88,7 @@ describe('il minimo di sistema dichiarato per macOS', () => {
      */
     const minimo = String(CONFIGURAZIONE.bundle?.macOS?.minimumSystemVersion ?? '');
     expect(minimo).toMatch(/^\d+\.\d+$/);
-    const [grande, piccolo] = minimo.split('.').map(Number);
+    const [grande, piccolo] = minimo.split('.').map(Number) as [number, number];
     expect(grande * 100 + piccolo).toBeGreaterThanOrEqual(1200);
   });
 });

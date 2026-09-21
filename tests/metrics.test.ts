@@ -11,7 +11,7 @@ function makeDive(samples: Sample[], overrides: Partial<Dive> = {}): Dive {
   return {
     id: 'test',
     startTime: '2026-06-14T10:38:00.000Z',
-    durationS: samples[samples.length - 1].t,
+    durationS: samples[samples.length - 1]!.t,
     maxDepth,
     mode: 'oc',
     cylinders: [{ mix: AIR, sizeL: 12, startBar: 200, endBar: 70 }],
@@ -226,7 +226,7 @@ describe('consumo gas', () => {
     ]) {
       const synth = synthesise(spec);
       const { dives } = await parseFile({ fileName: 'x.uddf', text: toUddf(synth) });
-      const letto = dives[0].metrics!.rmvLpm!;
+      const letto = dives[0]!.metrics!.rmvLpm!;
       const scarto = Math.abs(letto - spec.rmvLpm) / spec.rmvLpm;
       expect(scarto, `chiesto ${spec.rmvLpm} L/min, riletto ${letto.toFixed(3)}`).toBeLessThan(0.01);
     }
@@ -287,10 +287,10 @@ describe('esposizione all’ossigeno', () => {
     // l'inizio della seconda: il 20% residuo diventa 10, più il nuovo 20.
     const load = oxygenLoad([dive('2026-06-14T10:00:00Z', 20, 40), dive('2026-06-14T12:10:00Z', 20, 40)]);
     expect(load.days).toHaveLength(1);
-    expect(load.days[0].otu).toBe(80);
-    expect(load.days[0].peakCnsPercent).toBe(30);
+    expect(load.days[0]!.otu).toBe(80);
+    expect(load.days[0]!.peakCnsPercent).toBe(30);
     // La somma nuda sarebbe 40: è la sovrastima che il dimezzamento evita.
-    expect(load.days[0].dailyCnsPercent).toBe(40);
+    expect(load.days[0]!.dailyCnsPercent).toBe(40);
   });
 
   it('conta le giornate oltre la dose TDI', () => {
