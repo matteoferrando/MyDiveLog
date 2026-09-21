@@ -16,6 +16,7 @@ import { descriviFirma, firmaPath, firmaVuota } from '../../core/firma';
 import { RiquadroFirma } from '../components/FirmaGuida';
 import { DepthProfile, MiniSeries } from '../components/DepthProfile';
 import { RATE_WINDOW_S, windowedRates } from '../../core/analysis/metrics';
+import { inOrdineDiTempo } from '../../core/campioni';
 import { StatTile } from '../components/Charts';
 import { useDiveLog } from '../state';
 import { SaturationCard } from '../components/Saturation';
@@ -231,7 +232,11 @@ export function DiveDetail({ id, onBack }: { id: string; onBack: () => void }) {
   // Velocità verticale sulla stessa finestra di 30 s con cui vengono contate le
   // violazioni: il grafico e il giudizio devono venire dal medesimo calcolo,
   // altrimenti la scheda dice "8 m/min di picco" e la curva ne mostra 14.
-  const rates = windowedRates(samples, RATE_WINDOW_S);
+  //
+  // E NELL'ORDINE DEL TEMPO, lo stesso in cui `MiniSeries` chiede il valore `i`:
+  // sui campioni come stanno nel file i due indici non si corrispondono, e il
+  // grafico mostrava la velocità di un altro istante.
+  const rates = windowedRates(inOrdineDiTempo(samples), RATE_WINDOW_S);
   const hasPressure = samples.some((s) => s.pressureBar?.some((p) => p !== undefined));
 
   return (

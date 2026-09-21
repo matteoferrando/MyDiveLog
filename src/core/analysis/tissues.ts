@@ -41,6 +41,7 @@ import {
   FRAZIONE_N2_ARIA,
 } from './buhlmann';
 import { perData } from './../oraAParete';
+import { inOrdineDiTempo } from '../campioni';
 
 /** Oltre questo intervallo il residuo è trascurabile e la catena riparte da zero. */
 export const CHAIN_BREAK_HOURS = 24;
@@ -672,6 +673,15 @@ export function decoTimeline(
     stepS?: number;
   } = {},
 ): DecoPoint[] {
+  /*
+   * ► IN ORDINE DI TEMPO, COME `runProfile`. ◄ Qui i tessuti si integrano da un
+   * campione al successivo: sui campioni come stanno nel file — col blocco di
+   * risalita scritto per primo, per dire — l'intervallo usciva negativo e la
+   * linea tornava indietro nel tempo. Misurato il 21 settembre 2026: 9 punti che
+   * partivano dal minuto 25 invece di 46 dal minuto zero. Vedi
+   * `tests/schedaFuoriOrdine.test.tsx`.
+   */
+  samples = inOrdineDiTempo(samples);
   if (samples.length < 2) return [];
   const { low, high } = options.gf ?? gfOf(dive);
   const surface = surfaceOf(dive);

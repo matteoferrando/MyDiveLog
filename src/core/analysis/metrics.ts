@@ -395,6 +395,12 @@ interface RateResult {
  * non esiste una velocità sostenuta da misurare, e calcolarla su due campioni
  * adiacenti trasformerebbe il rumore del sensore in picchi inesistenti — a 2 s
  * di campionamento, ±15 cm di rumore diventano 9 m/min.
+ *
+ * ► I CAMPIONI VANNO DATI IN ORDINE DI TEMPO, e il valore `i` è quello del
+ * campione `i` DI QUESTO ELENCO. ◄ `computeMetrics` li ordina prima; la scheda
+ * dell'immersione li passava come stavano nel file, mentre il grafico chiede il
+ * valore `i` del campione `i` in ordine di tempo — su un file fuori ordine, 88
+ * punti su 91 mostravano la velocità di un altro istante.
  */
 export function windowedRates(samples: Sample[], windowS: number): (number | undefined)[] {
   const rates: (number | undefined)[] = new Array(samples.length).fill(undefined);
