@@ -1,9 +1,47 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **18 settembre 2026** — **2 884 prove in 183 file** più
+Aggiornato: **21 settembre 2026** — **2 884 prove in 183 file** più
 **149 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
+
+> ## ► LA 1.8.29 È IN REVISIONE DA APPLE, SU IPHONE E SU MAC. ◄
+>
+> **Inviata il 21 settembre 2026**, sulle due schede. Lo dice il proprietario,
+> che è l'unica fonte: App Store Connect non si interroga da qui. La parola è
+> «inviata» e non «caricata» — la build è dentro una versione ed è in coda.
+> Restano due affermazioni da misurare, **approvata** e **pubblicata**, e la
+> seconda si misura in una riga, con l'anti-cache sempre:
+>
+> `curl -s "https://itunes.apple.com/lookup?id=6804439480&country=it&t=$(date +%s)"`
+>
+> Il 21 settembre risponde ancora **1.8.27 del 17 settembre**, che è il
+> comportamento giusto. *Il Mac App Store non ha un `lookup` che lo distingua:
+> il suo esito lo sa solo chi è dentro App Store Connect.*
+>
+> **Misurato lo stesso giorno, sul resto.** Repository pulito e allineato a
+> `origin`; i controlli di GitHub verdi su tutti i commit del rilascio;
+> **nessuna segnalazione aperta** su GitHub; il tap di Homebrew si è portato da
+> solo alla 1.8.29 il 18 alle 11:18 UTC, e i suoi giri successivi chiudono
+> verdi. Google Play è l'unico canale fermo: la domanda di accesso alla
+> produzione è del 15 settembre, e l'esito sta in Play Console.
+>
+> **E due cose trovate guardando la scheda pubblica**, che nessuna delle
+> revisioni sul codice poteva vedere perché non stanno nel codice:
+>
+> 1. **Per Apple l'applicazione è solo in inglese.** Il `lookup` dichiara
+>    `languageCodesISO2A: EN`, e il perché sta dentro i due pacchetti
+>    consegnati: **nessuna cartella `.lproj`**, `CFBundleDevelopmentRegion` che
+>    vale `en` sull'iPhone e `English` sul Mac, nessun `CFBundleLocalizations`.
+>    È il valore di fabbrica di Tauri e nessuno l'aveva mai letto. Si corregge
+>    nel pacchetto, quindi dalla prossima versione.
+> 2. **La scheda, al contrario, è solo in italiano**: la vetrina americana
+>    risponde con la stessa descrizione italiana. È la localizzazione che manca
+>    dal 28 agosto, e si aggiunge da App Store Connect.
+>
+> *Le due metà si guardano allo specchio: il pacchetto dice inglese, la scheda
+> dice italiano, e chi legge la scheda nella propria lingua trova il contrario
+> di quello che c'è.*
 
 > ## ► LA 1.8.29 È PUBBLICATA. ◄
 >
