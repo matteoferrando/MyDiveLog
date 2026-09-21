@@ -24,7 +24,7 @@ consegnato a tutti.
 
 ```
 npm run build && npx eslint . && npx vitest run && npx prettier --check .
-cd src-tauri && cargo test --lib
+cd src-tauri && cargo clippy --all-targets -- -D warnings && cargo test --lib
 ```
 
 > **► PERCHÉ `npm run build` STA PRIMA, dal 18 settembre 2026.** Fa `tsc --noEmit`
@@ -40,6 +40,20 @@ cd src-tauri && cargo test --lib
 > del rilascio PRECEDENTE: la catena dichiarava verde il bilancio di un
 > pacchetto che non stava pubblicando. *Una misura fatta sull'oggetto sbagliato
 > è peggio di una misura non fatta: la prima chiude la domanda.*
+
+> **► E CLIPPY, dal 21 settembre 2026, con ogni avviso trattato da errore.**
+> Fino al 18 non era mai stato lanciato: diciannove segnalazioni, tre delle
+> quali codice morto — fra cui la costante misurata che giustifica l'attesa di
+> un frammento Bluetooth, e che nessuno leggeva. Rimesse a zero, restano a zero
+> solo perché `-D warnings` trasforma ogni avviso in un errore: senza, clippy
+> parla e la catena resta verde, cioè è un controllo che non sa dire di no.
+> `--all-targets` perché le prove sono codice come il resto.
+>
+> **Il giorno che si aggiorna Rust**, clippy porta regole nuove e la catena può
+> diventare rossa senza che il codice sia cambiato. È giusto così: è l'unico
+> modo di accorgersene. Si corregge, oppure si spegne quella regola in quel
+> punto con `#[allow(clippy::…)]` **e il motivo scritto accanto** — un `allow`
+> senza motivo, fra sei mesi, è indistinguibile da una svista.
 
 Se lavori su una macchina e pubblichi da un'altra, **si rilancia sulla macchina
 che pubblica**: la cartella è un'altra e `node_modules` pure.

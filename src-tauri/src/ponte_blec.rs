@@ -1676,6 +1676,16 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         }
     }
 
+    /// Chiede le sei cifre e ASPETTA la risposta; `None` è la rinuncia.
+    ///
+    /// Un nome per il tipo, e non per estetica: scritto per esteso compariva
+    /// identico in tre firme, e tre copie della stessa firma sono tre posti in
+    /// cui una può cambiare da sola senza che le altre se ne accorgano.
+    pub type ChiediPin = Box<dyn FnMut() -> Option<String> + Send>;
+
+    /// Dove va il codice di accesso appena rilasciato dal computer.
+    pub type ConservaCodice = Box<dyn FnMut(&[u8]) + Send>;
+
     /// Gli stessi accessori, più le tre cose che riguardano l'accoppiamento.
     ///
     /// ► PERCHÉ UN INVOLUCRO E NON TRE METODI IN PIÙ SU `AccessoriDelPonte`. ◄
@@ -1688,19 +1698,19 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
     pub struct AccessoriConSegreti {
         dentro: Box<dyn AccessoriBle>,
         /// Chiede le sei cifre e ASPETTA. `None` = rinuncia.
-        chiedi_pin: Box<dyn FnMut() -> Option<String> + Send>,
+        chiedi_pin: ChiediPin,
         /// Il codice conservato da uno scarico precedente, se c'è.
         codice: Option<Vec<u8>>,
         /// Dove va il codice appena rilasciato dal computer.
-        conserva: Box<dyn FnMut(&[u8]) + Send>,
+        conserva: ConservaCodice,
     }
 
     impl AccessoriConSegreti {
         pub fn nuovo(
             dentro: Box<dyn AccessoriBle>,
-            chiedi_pin: Box<dyn FnMut() -> Option<String> + Send>,
+            chiedi_pin: ChiediPin,
             codice: Option<Vec<u8>>,
-            conserva: Box<dyn FnMut(&[u8]) + Send>,
+            conserva: ConservaCodice,
         ) -> Self {
             Self { dentro, chiedi_pin, codice, conserva }
         }
@@ -1833,9 +1843,9 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         /// che parte va, invece di lasciarlo cadere.
         pub fn con_segreti(
             self,
-            chiedi_pin: Box<dyn FnMut() -> Option<String> + Send>,
+            chiedi_pin: ChiediPin,
             codice: Option<Vec<u8>>,
-            conserva: Box<dyn FnMut(&[u8]) + Send>,
+            conserva: ConservaCodice,
         ) -> Self {
             let PonteBle {
                 entrata,
@@ -3592,20 +3602,45 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         }
     }
 
+    /// Quello che il comando chiede a uno scarico, con i nomi.
+    ///
+    /// ► PERCHÉ UNA STRUTTURA E NON DIECI ARGOMENTI. ◄ Clippy li contava, ma la
+    /// ragione vera è un'altra: `marca` e `prodotto` sono due `String` una dopo
+    /// l'altra, e `codice_accesso`, `metodo` e `segnalibro` tre `Option<String>`
+    /// separate solo da un numero. Passati per posizione, scambiarne due
+    /// compila e parte: cerca il prodotto fra le marche, o usa un segnalibro
+    /// come codice di accesso. Con i campi nominati quello scambio non si può
+    /// nemmeno scrivere.
+    pub struct RichiestaScarico {
+        pub dispositivo: String,
+        pub nome: Option<String>,
+        pub marca: String,
+        pub prodotto: String,
+        pub codice_accesso: Option<String>,
+        pub tentativo: Option<usize>,
+        pub metodo: Option<String>,
+        pub segnalibro: Option<String>,
+        pub registra: bool,
+    }
+
     /// Il giro completo, come lo vede il comando.
     pub async fn scarica(
         app: tauri::AppHandle,
-        dispositivo: String,
-        nome: Option<String>,
-        marca: String,
-        prodotto: String,
-        codice_accesso: Option<String>,
-        tentativo: Option<usize>,
-        metodo: Option<String>,
-        segnalibro: Option<String>,
-        registra: bool,
+        richiesta: RichiestaScarico,
     ) -> Result<EsitoEsterno, String> {
         use tauri::Emitter;
+
+        let RichiestaScarico {
+            dispositivo,
+            nome,
+            marca,
+            prodotto,
+            codice_accesso,
+            tentativo,
+            metodo,
+            segnalibro,
+            registra,
+        } = richiesta;
 
         if SCARICO_IN_CORSO.swap(true, Ordering::SeqCst) {
             return Err("uno scarico è già in corso: aspetta che finisca prima di avviarne un altro".into());
@@ -3870,6 +3905,12 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
 /// `DownloadEvent`.
 #[cfg(feature = "computer-esterni")]
 #[tauri::command]
+// ► DIECI ARGOMENTI, E RESTANO DIECI. ◄ I parametri di un comando Tauri sono il
+// contratto con JavaScript: ognuno è una chiave dell'oggetto passato a
+// `invoke()`, e arrivano per nome, non per posizione — quindi lo scambio che
+// clippy teme qui non si può fare. Raggrupparli cambierebbe il contratto da tutte
+// e due le parti per far contento un conteggio.
+#[allow(clippy::too_many_arguments)]
 pub async fn scarica_da_computer_esterno(
     app: tauri::AppHandle,
     dispositivo: String,
@@ -3884,19 +3925,21 @@ pub async fn scarica_da_computer_esterno(
 ) -> Result<dentro::EsitoEsterno, String> {
     dentro::scarica(
         app,
-        dispositivo,
-        nome,
-        marca,
-        prodotto,
-        codice_accesso,
-        tentativo,
-        metodo,
-        segnalibro,
-        // ► ASSENTE VUOL DIRE SPENTO. ◄ Il banco di prova è per chi scrive
-        // driver: farlo pagare a ogni scarico — migliaia di righe accumulate in
-        // memoria — per una cosa che serve una volta ogni tanto sarebbe far
-        // pagare a tutti il lavoro di uno.
-        registra.unwrap_or(false),
+        dentro::RichiestaScarico {
+            dispositivo,
+            nome,
+            marca,
+            prodotto,
+            codice_accesso,
+            tentativo,
+            metodo,
+            segnalibro,
+            // ► ASSENTE VUOL DIRE SPENTO. ◄ Il banco di prova è per chi scrive
+            // driver: farlo pagare a ogni scarico — migliaia di righe accumulate
+            // in memoria — per una cosa che serve una volta ogni tanto sarebbe
+            // far pagare a tutti il lavoro di uno.
+            registra: registra.unwrap_or(false),
+        },
     )
     .await
 }
@@ -3932,6 +3975,7 @@ pub fn rispondi_codice_pin(_pin: Option<String>) {}
 /// libdivecomputer, quindi non c'è nessun protocollo in più da parlare.
 #[cfg(not(feature = "computer-esterni"))]
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // lo stesso contratto, vedi sopra
 pub async fn scarica_da_computer_esterno(
     _dispositivo: String,
     _nome: Option<String>,
@@ -5889,6 +5933,7 @@ mod prove {
     }
 
     #[test]
+    #[allow(non_snake_case)] // il maiuscolo è l'enfasi: è lo stile dei nomi delle prove
     fn il_banco_di_prova_registra_TUTTO_lo_scambio_con_i_tempi() {
         /*
          * ════════════════════════════════════════════════════════════════════

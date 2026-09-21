@@ -240,6 +240,10 @@ pub trait FlussoByte: Send {
 
 // --------------------------------------------------------------- il flusso BLE
 
+/// Come si scrivono i byte verso il computer: riesce, o dice con un nome perché
+/// non è riuscito. Un nome per il tipo perché compariva identico in due firme.
+pub type ScritturaBle = Box<dyn FnMut(&[u8]) -> Result<(), GuastoScrittura> + Send>;
+
 /// Il flusso vero: notifiche in entrata da un canale, scritture verso il runtime.
 ///
 /// Non conosce `tauri-plugin-blec` per scelta — riceve una chiusura che scrive.
@@ -251,7 +255,7 @@ pub struct FlussoBle {
     arrivate: VecDeque<Vec<u8>>,
     /// Quel che resta della notifica consegnata a metà.
     avanzo: VecDeque<u8>,
-    scrittura: Box<dyn FnMut(&[u8]) -> Result<(), GuastoScrittura> + Send>,
+    scrittura: ScritturaBle,
     /// Gli accessori del Bluetooth che non sono byte: nome e lettura di una
     /// caratteristica. Vedi `AccessoriBle`.
     accessori: Option<Box<dyn AccessoriBle>>,
@@ -691,7 +695,7 @@ pub trait AccessoriBle: Send {
 impl FlussoBle {
     pub fn nuovo(
         entrata: Receiver<Vec<u8>>,
-        scrittura: Box<dyn FnMut(&[u8]) -> Result<(), GuastoScrittura> + Send>,
+        scrittura: ScritturaBle,
     ) -> Self {
         Self {
             entrata,
@@ -3331,7 +3335,7 @@ pub fn traduci(
             (unsafe {
                 dc_parser_get_field(parser, CAMPO_GAS, i, &mut mix as *mut GasMix as *mut c_void)
             } == DC_STATUS_SUCCESS)
-                .then(|| GasLdc { o2: mix.ossigeno, he: mix.elio })
+                .then_some(GasLdc { o2: mix.ossigeno, he: mix.elio })
         });
         let ignote = immersione.gas.iter().filter(|g| g.o2 <= 0.0).count();
         if ignote > 0 {
@@ -4659,7 +4663,7 @@ mod prove {
      */
     #[test]
     fn il_pacchetto_spezzato_in_due_notifiche_arriva_intero() {
-        let intero = pacchetto_pelagic(0x0d, &vec![0xAB; 96]);
+        let intero = pacchetto_pelagic(0x0d, &[0xAB; 96]);
         assert_eq!(intero.len(), 101, "è il pacchetto pieno del diario");
 
         let (manda, mut flusso) = flusso_pelagic();
@@ -4680,7 +4684,7 @@ mod prove {
          * suo diario. Se un giorno questa diventasse verde con 101, vorrebbe
          * dire che `UnaNotifica` ha smesso di essere «una notifica».
          */
-        let intero = pacchetto_pelagic(0x0d, &vec![0xAB; 96]);
+        let intero = pacchetto_pelagic(0x0d, &[0xAB; 96]);
         let (manda, ricevi) = channel();
         let mut flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())));
         manda.send(intero[..96].to_vec()).unwrap();
@@ -4732,7 +4736,7 @@ mod prove {
          * Le due metà di questa prova sono la stessa radio con l'unica
          * differenza che conta.
          */
-        let grande = pacchetto_pelagic(0x0d, &vec![0xAB; 96]);
+        let grande = pacchetto_pelagic(0x0d, &[0xAB; 96]);
         let piccolo = pacchetto_pelagic(0xfa, &[0x01, 0x00]);
 
         let (manda, ricevi) = channel();
@@ -4787,7 +4791,7 @@ mod prove {
          * giusta è quella di libdivecomputer — ma non passa più inosservato da
          * questa parte.
          */
-        let intero = pacchetto_pelagic(0x0d, &vec![0xAB; 96]);
+        let intero = pacchetto_pelagic(0x0d, &[0xAB; 96]);
         let (manda, mut flusso) = flusso_pelagic();
         manda.send(intero[..96].to_vec()).unwrap();
 
@@ -5547,6 +5551,7 @@ mod prove {
     }
 
     #[test]
+    #[allow(non_snake_case)] // il maiuscolo è l'enfasi: è lo stile dei nomi delle prove
     fn una_lettura_RIUSCITA_non_si_scrive_due_volte() {
         /*
          * ► IL ROVESCIO. ◄ Una lettura andata bene la racconta già la notifica

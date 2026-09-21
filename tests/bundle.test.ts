@@ -195,14 +195,19 @@ describe.skipIf(distVecchia())('bilancio del bundle', () => {
  * genere di cosa che si riordina senza pensarci. *Un documento che tiene in
  * piedi una prova va controllato come il codice.*
  */
+/** La sezione 1 di `docs/RILASCIO.md`: la catena, e nient'altro. */
+function laCatena(): string {
+  const doc = readFileSync('docs/RILASCIO.md', 'utf8');
+  const dalla = doc.indexOf('## 1.');
+  const alla = doc.indexOf('## 2.');
+  expect(dalla, 'in RILASCIO.md non c’è più la sezione 1').toBeGreaterThan(-1);
+  expect(alla, 'in RILASCIO.md non c’è più la sezione 2').toBeGreaterThan(dalla);
+  return doc.slice(dalla, alla);
+}
+
 describe('la catena di rilascio misura il pacco che sta pubblicando', () => {
   it('docs/RILASCIO.md costruisce prima di lanciare le prove', () => {
-    const doc = readFileSync('docs/RILASCIO.md', 'utf8');
-    const dalla = doc.indexOf('## 1.');
-    const alla = doc.indexOf('## 2.');
-    expect(dalla, 'in RILASCIO.md non c’è più la sezione 1').toBeGreaterThan(-1);
-    expect(alla, 'in RILASCIO.md non c’è più la sezione 2').toBeGreaterThan(dalla);
-    const catena = doc.slice(dalla, alla);
+    const catena = laCatena();
 
     const iCostruzione = catena.indexOf('npm run build');
     const iProve = catena.indexOf('vitest run');
@@ -212,5 +217,21 @@ describe('la catena di rilascio misura il pacco che sta pubblicando', () => {
       iCostruzione,
       'la catena lancia le prove PRIMA di costruire: il bilancio del bundle misurerebbe la build vecchia, o nessuna',
     ).toBeLessThan(iProve);
+  });
+
+  it('e clippy ci sta dentro, con ogni avviso trattato da errore', () => {
+    /*
+     * ► DAL 21 SETTEMBRE 2026. ◄ Clippy non era mai stato lanciato: il 18 ha
+     * trovato diciannove segnalazioni, fra cui la costante misurata che
+     * giustifica l'attesa di un frammento Bluetooth e che nessuno leggeva.
+     * Rimesse a zero, restano a zero solo se la catena lo pretende.
+     *
+     * E la pretesa è tutta in `-D warnings`: senza, clippy stampa i suoi avvisi,
+     * esce con zero e la catena resta verde — un controllo che non sa dire di
+     * no. Per questo la prova guarda la riga intera e non la sola parola.
+     */
+    expect(laCatena(), 'clippy non è nella catena, o non tratta gli avvisi da errori').toMatch(
+      /cargo clippy --all-targets -- -D warnings/,
+    );
   });
 });
