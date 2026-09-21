@@ -41,7 +41,11 @@
     "shortDescription": "Il meglio dei tuoi computer, in un logbook solo",
     "longDescription": "Logbook delle immersioni che unisce i dati di più computer subacquei prendendo da ognuno quello che registra meglio, e ne ricava statistiche, suggerimenti e pianificazione del gas sul consumo misurato.",
     "macOS": {
-      "minimumSystemVersion": "12.0"
+      "minimumSystemVersion": "12.0",
+      "files": {
+        "Resources/en.lproj/InfoPlist.strings": "lingue/en.lproj/InfoPlist.strings",
+        "Resources/it.lproj/InfoPlist.strings": "lingue/it.lproj/InfoPlist.strings"
+      }
     },
     "iOS": {
       "minimumSystemVersion": "15.0",

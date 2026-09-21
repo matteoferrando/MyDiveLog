@@ -1,0 +1,10 @@
+/*
+  Le frasi dell'Info.plist, in italiano.
+
+  La cartella it.lproj serve a due cose, e la seconda e' quella che si vede:
+  dice al sistema che l'applicazione parla italiano, quindi i pezzi disegnati
+  dal sistema dentro l'app (Annulla, Fine, Copia, Incolla) escono in italiano;
+  e l'App Store elenca le lingue di un'app contando proprio queste cartelle.
+  Il perche' per esteso sta in src-tauri/Info.ios.plist.
+*/
+"NSBluetoothAlwaysUsageDescription" = "MyDiveLog usa il Bluetooth per scaricare le immersioni dal tuo computer subacqueo. Non si collega a nessun altro dispositivo e non manda niente in rete.";

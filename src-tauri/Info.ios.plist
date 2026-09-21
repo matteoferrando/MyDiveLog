@@ -27,6 +27,36 @@
     <string>MyDiveLog usa il Bluetooth per scaricare le immersioni dal tuo computer subacqueo. Non si collega a nessun altro dispositivo e non manda niente in rete.</string>
 
     <!--
+      LE LINGUE DELL'APPLICAZIONE, DICHIARATE AL SISTEMA.
+
+      Fino alla 1.8.29 i pacchetti Apple non ne dichiaravano nessuna: niente
+      cartelle .lproj, e la regione di sviluppo di fabbrica di Tauri, cioè
+      l'inglese. Per il sistema l'applicazione era inglese e basta, con due
+      conseguenze misurate il 21 settembre 2026:
+
+      - l'App Store elencava come lingua l'inglese soltanto
+        (`languageCodesISO2A: EN`), per un'app che parte in italiano;
+      - sul telefono in italiano, i pezzi disegnati dal sistema dentro l'app
+        uscivano in inglese. Provato sul simulatore con una WebView e la
+        lingua di sistema italiana: senza dichiarazione UIKit sceglie `en` e
+        scrive Cancel/Done/Copy/Paste; con `it` dichiarato scrive
+        Annulla/Fine/Copia/Incolla.
+
+      L'interfaccia no: `navigator.language` risponde `it-IT` in tutti e due i
+      casi, e la lingua di partenza la sceglie `src/ui/lingua.tsx`.
+
+      Servono tutte e due le cose: questa chiave, che il sistema legge, e le
+      cartelle `lingue/*.lproj`, che l'App Store conta per fare l'elenco delle
+      lingue. `tests/lingueDelPacchetto.test.ts` pretende che le lingue qui
+      siano le stesse del tipo `Lingua` dell'interfaccia.
+    -->
+    <key>CFBundleLocalizations</key>
+    <array>
+      <string>en</string>
+      <string>it</string>
+    </array>
+
+    <!--
       La dichiarazione sull'esportazione della crittografia.
 
       Senza questa chiave, App Store Connect fa la stessa domanda a OGNI

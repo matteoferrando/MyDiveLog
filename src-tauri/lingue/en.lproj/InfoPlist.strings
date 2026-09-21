@@ -1,0 +1,6 @@
+/*
+  Le frasi dell'Info.plist, in inglese: e' la lingua di chi non ha il
+  telefono in italiano, la stessa scelta che fa l'interfaccia in
+  src/ui/lingua.tsx. Vedi it.lproj/InfoPlist.strings per il perche'.
+*/
+"NSBluetoothAlwaysUsageDescription" = "MyDiveLog uses Bluetooth to download dives from your dive computer. It does not connect to any other device and sends nothing over the network.";
