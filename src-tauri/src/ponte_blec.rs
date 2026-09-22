@@ -2295,24 +2295,24 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         if let Some(crediti) = &profilo.crediti {
             let cronista_crediti = cronista.clone();
             let primo = AtomicBool::new(true);
-            antenna
-                .iscrivi(
-                    profilo.servizio.clone(),
-                    crediti.ascolto.clone(),
-                    Box::new(move |dati: Vec<u8>| {
-                        // Il contenuto non serve — sono i crediti che il
-                        // computer concede a noi — ma la prima volta va
-                        // raccontata: è la prova che il Terminal I/O è vivo.
-                        if primo.swap(false, Ordering::Relaxed) {
-                            cronista_crediti(format!(
-                                "il computer ci concede crediti: [{}]",
-                                anteprima(&dati)
-                            ));
-                        }
-                    }),
-                )
-                .await
-                .map_err(|e| format!("l'ascolto dei crediti non si attiva: {e}"))?;
+            let ai_crediti: Ascolto = Arc::new(move |dati: Vec<u8>| {
+                // Il contenuto non serve — sono i crediti che il computer
+                // concede a noi — ma la prima volta va raccontata: è la prova
+                // che il Terminal I/O è vivo.
+                if primo.swap(false, Ordering::Relaxed) {
+                    cronista_crediti(format!("il computer ci concede crediti: [{}]", anteprima(&dati)));
+                }
+            });
+            iscrivi_con_ritentativi(
+                &antenna,
+                &profilo.servizio,
+                &crediti.ascolto,
+                ai_crediti,
+                &cronista,
+                "l'ascolto dei crediti",
+            )
+            .await
+            .map_err(|e| format!("l'ascolto dei crediti non si attiva: {e}"))?;
         }
 
         let contatori_notifica = contatori.clone();
@@ -2322,162 +2322,165 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         let ricarica = profilo.crediti.as_ref().map(|c| {
             (antenna.clone(), profilo.servizio.clone(), c.concessione.clone())
         });
-        antenna
-            .iscrivi(
-                profilo.servizio.clone(),
-                profilo.notifica.clone(),
-                Box::new(move |dati: Vec<u8>| {
-                    /*
-                     * ► PRIMA DEL PRIMO COMANDO NON ARRIVANO RISPOSTE. ◄ Vedi
-                     * `Contatori::parlato`. Si registrano, si dice la prima
-                     * nel diario — è l'unico segno che il computer stava
-                     * ancora parlando d'altro — e si passano al flusso, che
-                     * per i computer che lo chiedono le butta
-                     * (`FlussoBle::ascolta_prima_di_parlare`). I crediti più
-                     * sotto invece valgono per tutte: il computer li ha spesi
-                     * comunque.
-                     */
-                    if !contatori_notifica.parlato.load(Ordering::SeqCst) {
-                        let quante =
-                            contatori_notifica.prima_di_parlare.fetch_add(1, Ordering::Relaxed) + 1;
-                        if let Ok(mut registro) = scambio_notifica.try_lock() {
-                            registro.incidi(
-                                None,
-                                '<',
-                                format!(
-                                    "prima del primo comando, n.{quante} {} byte [{}]",
-                                    dati.len(),
-                                    tutti_i_byte(&dati)
-                                ),
-                            );
-                        }
-                        if quante == 1 {
-                            cronista_notifica(format!(
-                                "prima del primo comando: {} byte [{}] — il computer parla senza che gli \
+        let alle_notifiche: Ascolto = Arc::new(move |dati: Vec<u8>| {
+            /*
+             * ► PRIMA DEL PRIMO COMANDO NON ARRIVANO RISPOSTE. ◄ Vedi
+             * `Contatori::parlato`. Si registrano, si dice la prima
+             * nel diario — è l'unico segno che il computer stava
+             * ancora parlando d'altro — e si passano al flusso, che
+             * per i computer che lo chiedono le butta
+             * (`FlussoBle::ascolta_prima_di_parlare`). I crediti più
+             * sotto invece valgono per tutte: il computer li ha spesi
+             * comunque.
+             */
+            if !contatori_notifica.parlato.load(Ordering::SeqCst) {
+                let quante =
+                    contatori_notifica.prima_di_parlare.fetch_add(1, Ordering::Relaxed) + 1;
+                if let Ok(mut registro) = scambio_notifica.try_lock() {
+                    registro.incidi(
+                        None,
+                        '<',
+                        format!(
+                            "prima del primo comando, n.{quante} {} byte [{}]",
+                            dati.len(),
+                            tutti_i_byte(&dati)
+                        ),
+                    );
+                }
+                if quante == 1 {
+                    cronista_notifica(format!(
+                        "prima del primo comando: {} byte [{}] — il computer parla senza che gli \
 sia stato chiesto niente, quindi non è una risposta",
-                                dati.len(),
-                                anteprima(&dati)
-                            ));
+                        dati.len(),
+                        anteprima(&dati)
+                    ));
+                }
+            } else {
+                let quante = contatori_notifica.notifiche.fetch_add(1, Ordering::Relaxed) + 1;
+                contatori_notifica.ricevuti.fetch_add(dati.len(), Ordering::Relaxed);
+                /*
+                 * ► LA MISURA CHE MANCAVA. ◄ La dimensione delle notifiche
+                 * è l'MTU negoziato meno tre, e non c'è modo portabile di
+                 * chiederlo al plugin — ma non serve chiederlo: basta
+                 * guardare quanto arriva. È il numero che decide se il
+                 * pacchetto di un Mares del ramo variabile ci sta o si
+                 * spezza, ed è il numero che il 7 settembre 2026 nessuno
+                 * aveva sotto gli occhi mentre cercava di capire perché un
+                 * Quad Ci si fermasse.
+                 */
+                contatori_notifica
+                    .notifica_piu_grande
+                    .fetch_max(dati.len(), Ordering::Relaxed);
+                contatori_notifica
+                    .notifica_piu_piccola
+                    .fetch_min(dati.len(), Ordering::Relaxed);
+                /*
+                 * ► LA REGISTRAZIONE PRENDE LE NOTIFICHE QUI, E CON
+                 * `try_lock`. ◄ Questa callback gira nel runtime e non ha
+                 * il diritto di aspettare nessuno: se il thread dello
+                 * scarico ha il registro in mano proprio adesso, la riga si
+                 * perde. *Una riga persa ogni tanto è il prezzo, e va
+                 * scritto qui perché chi analizzerà il file deve saperlo:
+                 * il conto delle notifiche nel riassunto è quello vero, la
+                 * registrazione può averne una di meno.*
+                 */
+                if let Ok(mut registro) = scambio_notifica.try_lock() {
+                    let da = registro.prima_scrittura;
+                    registro.incidi(
+                        da,
+                        '<',
+                        format!("n.{quante} {} byte [{}]", dati.len(), tutti_i_byte(&dati)),
+                    );
+                }
+                if quante == 1 {
+                    // Da quando è partita la prima scrittura: `try_lock`
+                    // e non `lock`, perché questa callback non ha il
+                    // diritto di aspettare nessuno. Se il thread dello
+                    // scarico ha il registro in mano proprio adesso, si
+                    // perde il ritardo e resta «sconosciuto»: meglio di
+                    // una notifica consegnata in ritardo.
+                    let ritardo = scambio_notifica
+                        .try_lock()
+                        .ok()
+                        .and_then(|s| s.prima_scrittura)
+                        .map(|inizio| inizio.elapsed().as_millis() as u64);
+                    if let Some(ms) = ritardo {
+                        contatori_notifica.prima_notifica_ms.store(ms, Ordering::Relaxed);
+                    }
+                    cronista_notifica(format!(
+                        "prima notifica: {} byte [{}]{}",
+                        dati.len(),
+                        anteprima(&dati),
+                        match ritardo {
+                            Some(ms) => format!(", {ms} ms dopo la prima scrittura"),
+                            None => String::new(),
                         }
-                    } else {
-                        let quante = contatori_notifica.notifiche.fetch_add(1, Ordering::Relaxed) + 1;
-                        contatori_notifica.ricevuti.fetch_add(dati.len(), Ordering::Relaxed);
-                        /*
-                         * ► LA MISURA CHE MANCAVA. ◄ La dimensione delle notifiche
-                         * è l'MTU negoziato meno tre, e non c'è modo portabile di
-                         * chiederlo al plugin — ma non serve chiederlo: basta
-                         * guardare quanto arriva. È il numero che decide se il
-                         * pacchetto di un Mares del ramo variabile ci sta o si
-                         * spezza, ed è il numero che il 7 settembre 2026 nessuno
-                         * aveva sotto gli occhi mentre cercava di capire perché un
-                         * Quad Ci si fermasse.
-                         */
-                        contatori_notifica
-                            .notifica_piu_grande
-                            .fetch_max(dati.len(), Ordering::Relaxed);
-                        contatori_notifica
-                            .notifica_piu_piccola
-                            .fetch_min(dati.len(), Ordering::Relaxed);
-                        /*
-                         * ► LA REGISTRAZIONE PRENDE LE NOTIFICHE QUI, E CON
-                         * `try_lock`. ◄ Questa callback gira nel runtime e non ha
-                         * il diritto di aspettare nessuno: se il thread dello
-                         * scarico ha il registro in mano proprio adesso, la riga si
-                         * perde. *Una riga persa ogni tanto è il prezzo, e va
-                         * scritto qui perché chi analizzerà il file deve saperlo:
-                         * il conto delle notifiche nel riassunto è quello vero, la
-                         * registrazione può averne una di meno.*
-                         */
-                        if let Ok(mut registro) = scambio_notifica.try_lock() {
-                            let da = registro.prima_scrittura;
-                            registro.incidi(
-                                da,
-                                '<',
-                                format!("n.{quante} {} byte [{}]", dati.len(), tutti_i_byte(&dati)),
-                            );
-                        }
-                        if quante == 1 {
-                            // Da quando è partita la prima scrittura: `try_lock`
-                            // e non `lock`, perché questa callback non ha il
-                            // diritto di aspettare nessuno. Se il thread dello
-                            // scarico ha il registro in mano proprio adesso, si
-                            // perde il ritardo e resta «sconosciuto»: meglio di
-                            // una notifica consegnata in ritardo.
-                            let ritardo = scambio_notifica
-                                .try_lock()
-                                .ok()
-                                .and_then(|s| s.prima_scrittura)
-                                .map(|inizio| inizio.elapsed().as_millis() as u64);
-                            if let Some(ms) = ritardo {
-                                contatori_notifica.prima_notifica_ms.store(ms, Ordering::Relaxed);
+                    ));
+                }
+            }
+            if let Some((antenna, servizio, concessione)) = &ricarica {
+                // Un credito consumato per notifica; alla soglia se ne
+                // concedono altri. Lo `spawn` è lecito qui — non
+                // aspetta — ed è l'unico modo di scrivere dal runtime
+                // senza bloccarlo.
+                // Decremento SATURANTE: un firmware che manda una
+                // notifica in più di quelle coperte porterebbe un
+                // `fetch_sub` sotto zero a `usize::MAX`, e da lì la
+                // soglia non si raggiungerebbe mai più.
+                let prima = contatori_notifica
+                    .crediti_rimasti
+                    .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |c| Some(c.saturating_sub(1)))
+                    .unwrap_or(0);
+                if prima.saturating_sub(1) == CREDITI_MINIMI {
+                    let quanti = CREDITI_INIZIALI - CREDITI_MINIMI;
+                    let antenna = antenna.clone();
+                    let servizio = servizio.clone();
+                    let concessione = concessione.clone();
+                    let cronista = cronista_notifica.clone();
+                    let contatori = contatori_notifica.clone();
+                    tauri::async_runtime::spawn(async move {
+                        // I crediti si contano SOLO dopo che la
+                        // scrittura è riuscita: contarli prima
+                        // direbbe 254 mentre il computer ne ha zero,
+                        // e il «tempo scaduto» che seguirebbe non
+                        // avrebbe una causa nel diario.
+                        match antenna
+                            .scrivi(servizio, concessione, vec![quanti as u8], ModoScrittura::ConRisposta)
+                            .await
+                        {
+                            Ok(()) => {
+                                contatori.crediti_rimasti.fetch_add(quanti, Ordering::SeqCst);
                             }
-                            cronista_notifica(format!(
-                                "prima notifica: {} byte [{}]{}",
-                                dati.len(),
-                                anteprima(&dati),
-                                match ritardo {
-                                    Some(ms) => format!(", {ms} ms dopo la prima scrittura"),
-                                    None => String::new(),
-                                }
-                            ));
-                        }
-                    }
-                    if let Some((antenna, servizio, concessione)) = &ricarica {
-                        // Un credito consumato per notifica; alla soglia se ne
-                        // concedono altri. Lo `spawn` è lecito qui — non
-                        // aspetta — ed è l'unico modo di scrivere dal runtime
-                        // senza bloccarlo.
-                        // Decremento SATURANTE: un firmware che manda una
-                        // notifica in più di quelle coperte porterebbe un
-                        // `fetch_sub` sotto zero a `usize::MAX`, e da lì la
-                        // soglia non si raggiungerebbe mai più.
-                        let prima = contatori_notifica
-                            .crediti_rimasti
-                            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |c| Some(c.saturating_sub(1)))
-                            .unwrap_or(0);
-                        if prima.saturating_sub(1) == CREDITI_MINIMI {
-                            let quanti = CREDITI_INIZIALI - CREDITI_MINIMI;
-                            let antenna = antenna.clone();
-                            let servizio = servizio.clone();
-                            let concessione = concessione.clone();
-                            let cronista = cronista_notifica.clone();
-                            let contatori = contatori_notifica.clone();
-                            tauri::async_runtime::spawn(async move {
-                                // I crediti si contano SOLO dopo che la
-                                // scrittura è riuscita: contarli prima
-                                // direbbe 254 mentre il computer ne ha zero,
-                                // e il «tempo scaduto» che seguirebbe non
-                                // avrebbe una causa nel diario.
-                                match antenna
-                                    .scrivi(servizio, concessione, vec![quanti as u8], ModoScrittura::ConRisposta)
-                                    .await
-                                {
-                                    Ok(()) => {
-                                        contatori.crediti_rimasti.fetch_add(quanti, Ordering::SeqCst);
-                                    }
-                                    Err(motivo) => {
-                                        contatori.ricarica_fallita.store(true, Ordering::SeqCst);
-                                        cronista(format!(
-                                            "la ricarica di {quanti} crediti non è riuscita: {motivo}; \
+                            Err(motivo) => {
+                                contatori.ricarica_fallita.store(true, Ordering::SeqCst);
+                                cronista(format!(
+                                    "la ricarica di {quanti} crediti non è riuscita: {motivo}; \
 il computer resta senza crediti e smetterà di mandare dati"
-                                        ));
-                                    }
-                                }
-                            });
+                                ));
+                            }
                         }
-                    }
-                    // Un `send` su un canale non bloccante non ferma il runtime,
-                    // ed è tutto quello che questa callback ha il diritto di
-                    // fare: qualunque attesa qui fermerebbe la consegna delle
-                    // notifiche successive.
-                    if let Ok(posto) = alla_notifica.lock() {
-                        if let Some(mittente) = posto.as_ref() {
-                            let _ = mittente.send(dati);
-                        }
-                    }
-                }),
-            )
-            .await?;
+                    });
+                }
+            }
+            // Un `send` su un canale non bloccante non ferma il runtime,
+            // ed è tutto quello che questa callback ha il diritto di
+            // fare: qualunque attesa qui fermerebbe la consegna delle
+            // notifiche successive.
+            if let Ok(posto) = alla_notifica.lock() {
+                if let Some(mittente) = posto.as_ref() {
+                    let _ = mittente.send(dati);
+                }
+            }
+        });
+        iscrivi_con_ritentativi(
+            &antenna,
+            &profilo.servizio,
+            &profilo.notifica,
+            alle_notifiche,
+            &cronista,
+            "l'ascolto delle notifiche",
+        )
+        .await?;
 
         if let Some(crediti) = &profilo.crediti {
             antenna
@@ -3260,6 +3263,81 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
     const ATTESA_FRA_SERVIZI: Duration = Duration::from_millis(500);
     #[cfg(test)]
     const ATTESA_FRA_SERVIZI: Duration = Duration::from_millis(5);
+
+    /// Quante volte si prova ad attivare l'ascolto di una caratteristica.
+    ///
+    /// ════════════════════════════════════════════════════════════════════════
+    /// ► PERCHÉ L'ISCRIZIONE SI RITENTA, COME IL COLLEGAMENTO. ◄
+    ///
+    /// Iscriversi alle notifiche vuol dire scrivere sul computer il descrittore
+    /// che le accende (il CCCD) e aspettare la conferma. Il plugin la aspetta
+    /// cinque secondi, poi dice «timeout during subscribe», e fino alla 1.8.29
+    /// lo scarico finiva lì: *«le notifiche non si attivano»*, alla prima.
+    ///
+    /// Subsurface ha imparato che quella conferma su Android può arrivare
+    /// **ben oltre il secondo** — mentre il sistema negozia MTU e parametri del
+    /// collegamento — e che a volte la richiesta **si perde in silenzio**; dal
+    /// ramo principale di `qt-ble.cpp` la scrittura del descrittore si ritenta
+    /// tre volte. È la stessa specie del `connect` del 9 settembre 2026: non è
+    /// rotto niente, è andata male una volta.
+    ///
+    /// Ritentare qui non raddoppia niente: il plugin registra chi ascolta
+    /// **solo dopo** un'iscrizione riuscita (`handler.rs`, `subscribe`), quindi
+    /// un tentativo fallito non lascia un ascoltatore in più che riceverebbe
+    /// ogni notifica due volte. Riscrivere il descrittore su un computer che
+    /// l'aveva già acceso non cambia niente per lui.
+    const TENTATIVI_ISCRIZIONE: usize = 3;
+
+    #[cfg(not(test))]
+    const ATTESA_FRA_ISCRIZIONI: Duration = Duration::from_millis(300);
+    #[cfg(test)]
+    const ATTESA_FRA_ISCRIZIONI: Duration = Duration::from_millis(5);
+
+    /// Chi riceve le notifiche, condivisibile fra un tentativo e l'altro.
+    type Ascolto = Arc<dyn Fn(Vec<u8>) + Send + Sync>;
+
+    /// Attiva l'ascolto, riprovando: vedi `TENTATIVI_ISCRIZIONE`.
+    ///
+    /// Il diario dice ogni tentativo andato male e quello riuscito, perché
+    /// «si è attivato al terzo» e «si è attivato» sono due collegamenti
+    /// diversi, e il prossimo che legge deve poterli distinguere.
+    async fn iscrivi_con_ritentativi<A: AntennaBle>(
+        antenna: &A,
+        servizio: &str,
+        caratteristica: &str,
+        arrivata: Ascolto,
+        cronista: &Cronista,
+        che_cosa: &str,
+    ) -> Result<(), String> {
+        let mut numero = 0;
+        loop {
+            numero += 1;
+            let chi = arrivata.clone();
+            match antenna
+                .iscrivi(
+                    servizio.to_string(),
+                    caratteristica.to_string(),
+                    Box::new(move |dati: Vec<u8>| chi(dati)),
+                )
+                .await
+            {
+                Ok(()) => {
+                    if numero > 1 {
+                        cronista(format!("{che_cosa} si è attivato al tentativo n. {numero}"));
+                    }
+                    return Ok(());
+                }
+                Err(motivo) if numero < TENTATIVI_ISCRIZIONE => {
+                    cronista(format!(
+                        "{che_cosa} non si è attivato al tentativo n. {numero}: {motivo}; riprovo fra {} ms",
+                        ATTESA_FRA_ISCRIZIONI.as_millis()
+                    ));
+                    aspetta(ATTESA_FRA_ISCRIZIONI).await;
+                }
+                Err(motivo) => return Err(motivo),
+            }
+        }
+    }
 
     /// Un'attesa che non blocca il runtime.
     ///
@@ -4393,6 +4471,13 @@ mod prove {
         /// Quante volte l'elenco dei servizi deve tornare VUOTO prima di
         /// riempirsi: su iOS la scoperta può non essere ancora finita.
         servizi_vuoti_allinizio: AtomicUsize,
+        /// Quante iscrizioni devono fallire prima che una riesca: la conferma
+        /// del descrittore che non arriva, e il plugin che dopo cinque secondi
+        /// dice «timeout during subscribe». Come il plugin, un'iscrizione
+        /// fallita non registra nessun ascoltatore.
+        iscrizioni_da_fallire: AtomicUsize,
+        /// Quante volte `iscrivi` è stato chiamato, riuscito o no.
+        iscrizioni_chieste: AtomicUsize,
     }
 
     #[derive(Clone)]
@@ -4416,7 +4501,15 @@ mod prove {
                 collegamenti_chiesti: AtomicUsize::new(0),
                 scollegamenti: AtomicUsize::new(0),
                 servizi_vuoti_allinizio: AtomicUsize::new(0),
+                iscrizioni_da_fallire: AtomicUsize::new(0),
+                iscrizioni_chieste: AtomicUsize::new(0),
             }))
+        }
+
+        /// Le prime `quante` iscrizioni falliscono, poi si comporta bene.
+        fn che_non_si_iscrive(self, quante: usize) -> Self {
+            self.0.iscrizioni_da_fallire.store(quante, Ordering::SeqCst);
+            self
         }
 
         /// Fallisce i primi `quanti` collegamenti, poi si comporta bene.
@@ -4518,6 +4611,15 @@ mod prove {
             caratteristica: String,
             arrivata: Box<dyn Fn(Vec<u8>) + Send + Sync>,
         ) -> Result<(), String> {
+            self.0.iscrizioni_chieste.fetch_add(1, Ordering::SeqCst);
+            if self
+                .0
+                .iscrizioni_da_fallire
+                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |q| q.checked_sub(1))
+                .is_ok()
+            {
+                return Err("le notifiche non si attivano: Timeout: subscribe".into());
+            }
             self.0.iscrizioni.lock().unwrap().push(caratteristica.to_lowercase());
             self.0.ascoltatori.lock().unwrap().insert(caratteristica.to_lowercase(), arrivata);
             Ok(())
@@ -4700,6 +4802,73 @@ mod prove {
     }
 
     #[test]
+    fn un_ascolto_che_non_si_attiva_si_ritenta_invece_di_finire_lo_scarico() {
+        /*
+         * ► LA CONFERMA DEL DESCRITTORE CHE NON ARRIVA. ◄ Il plugin aspetta
+         * cinque secondi e dice «timeout during subscribe»; fino alla 1.8.29
+         * lo scarico finiva lì. Subsurface ha visto quella conferma arrivare in
+         * ritardo o perdersi su Android, e la ritenta: qui lo stesso, e le
+         * notifiche devono poi arrivare al flusso come sempre — una volta
+         * sola ciascuna.
+         */
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")])
+            .che_non_si_iscrive(2);
+        let (esito, diario) = prova_ad_aprire(&antenna);
+        let ponte = esito.expect("al terzo tentativo l'ascolto deve attivarsi");
+        assert_eq!(antenna.0.iscrizioni_chieste.load(Ordering::SeqCst), 3);
+        assert!(
+            diario.contiene("l'ascolto delle notifiche non si è attivato al tentativo n. 1"),
+            "{}",
+            diario.testo()
+        );
+        assert!(
+            diario.contiene("l'ascolto delle notifiche si è attivato al tentativo n. 3"),
+            "{}",
+            diario.testo()
+        );
+        let PonteBle { entrata, scrittura, accessori, su_silenzio, .. } = ponte;
+        let mut flusso = FlussoBle::nuovo(entrata, scrittura).con_accessori(accessori, su_silenzio);
+        flusso.scrivi(&[0x01]).expect("la scrittura deve partire");
+        antenna.notifica(&[0xAA, 0xBB]);
+        assert_eq!(flusso.leggi(64, Duration::from_millis(500)).unwrap(), vec![0xAA, 0xBB]);
+        // La lettura a vuoto torna vuota (il `read` la fa diventare «tempo
+        // scaduto» per la libreria): la stessa notifica non torna due volte.
+        assert_eq!(
+            flusso.leggi(64, Duration::from_millis(50)).unwrap(),
+            Vec::<u8>::new(),
+            "una notifica si consegna una volta sola, anche dopo tre iscrizioni"
+        );
+    }
+
+    #[test]
+    fn un_ascolto_che_non_si_attiva_mai_dice_il_motivo_dopo_tre_tentativi() {
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")])
+            .che_non_si_iscrive(99);
+        let (esito, diario) = prova_ad_aprire(&antenna);
+        let Err(errore) = esito else {
+            panic!("senza notifiche lo scarico non può cominciare");
+        };
+        assert!(errore.contains("le notifiche non si attivano"), "{errore}");
+        assert_eq!(antenna.0.iscrizioni_chieste.load(Ordering::SeqCst), 3, "tre, non di più");
+        assert!(diario.contiene("tentativo n. 2"), "{}", diario.testo());
+    }
+
+    #[test]
+    fn anche_l_ascolto_dei_crediti_si_ritenta_e_l_ordine_resta_quello() {
+        // Il Terminal I/O degli OSTC: prima i crediti, poi i dati. Un primo
+        // tentativo andato male sui crediti non deve cambiare l'ordine.
+        let antenna = FintaAntenna::con(vec![telit()]).che_non_si_iscrive(1);
+        let (esito, diario) = prova_ad_aprire(&antenna);
+        assert!(esito.is_ok(), "{}", diario.testo());
+        assert!(diario.contiene("l'ascolto dei crediti si è attivato al tentativo n. 2"), "{}", diario.testo());
+        assert_eq!(
+            antenna.iscrizioni(),
+            vec![TELIT_CREDITI_TX.to_lowercase(), TELIT_DATI_TX.to_lowercase()],
+            "crediti prima, dati dopo"
+        );
+    }
+
+    #[test]
     fn un_collegamento_riuscito_al_primo_colpo_non_racconta_niente() {
         // Il caso normale è la stragrande maggioranza degli scarichi, e non
         // deve pagare niente: né un'attesa, né una riga di diario che
@@ -4711,6 +4880,7 @@ mod prove {
         assert_eq!(antenna.0.scollegamenti.load(Ordering::SeqCst), 0);
         assert!(!diario.contiene("tentativo n."), "{}", diario.testo());
         assert!(!diario.contiene("i servizi sono comparsi"), "{}", diario.testo());
+        assert_eq!(antenna.0.iscrizioni_chieste.load(Ordering::SeqCst), 1);
     }
 
     /// Il ponte già dentro un `FlussoBle` completo, come nello scarico vero.
