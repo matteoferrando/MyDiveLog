@@ -3415,6 +3415,14 @@ la libreria, per questa famiglia, non svuota l'ingresso da sé",
                 ),
             });
             flusso = flusso.con_ascolto_iniziale(SILENZIO_PRIMA_DI_PARLARE, TETTO_PRIMA_DI_PARLARE);
+            /*
+             * E dopo il primo comando, il filtro: un pacchetto Pelagic che
+             * risponde a un altro comando si butta invece di fermare lo
+             * scarico. Stessa famiglia, stessa coda lasciata a metà; vedi
+             * `FlussoBle::con_filtro_del_comando`. Scatta solo con la lunghezza
+             * dichiarata, cioè col primo metodo del giro.
+             */
+            flusso = flusso.con_filtro_del_comando();
         }
         let collegamento = CollegamentoLdc::apri(Box::new(flusso))?;
         emetti(EventoScarico::Progress {

@@ -243,6 +243,12 @@ pub trait FlussoByte: Send {
     fn scartate_prima_di_parlare(&self) -> (usize, usize) {
         (0, 0)
     }
+
+    /// Quanti pacchetti sono stati buttati perché rispondevano a un altro
+    /// comando, e quanti byte portavano. Vedi `FlussoBle::con_filtro_del_comando`.
+    fn pacchetti_estranei(&self) -> (usize, usize) {
+        (0, 0)
+    }
 }
 
 /// Il silenzio che si aspetta prima del primo comando, sui computer che lo
@@ -319,6 +325,13 @@ pub struct FlussoBle {
     ha_parlato: bool,
     /// Le notifiche buttate prima del primo comando: quante, e quanti byte.
     scartate_prima: (usize, usize),
+    /// Se si buttano i pacchetti Pelagic che rispondono a un comando diverso
+    /// dall'ultimo scritto. Vedi `con_filtro_del_comando`.
+    filtro_del_comando: bool,
+    /// Il comando dell'ultimo pacchetto Pelagic scritto, quando il filtro è acceso.
+    ultimo_comando: Option<u8>,
+    /// I pacchetti buttati dal filtro: quanti, e quanti byte.
+    estranei: (usize, usize),
     /**
      * Dove si annotano le letture **andate a vuoto**, per il banco di prova.
      *
@@ -752,6 +765,9 @@ impl FlussoBle {
             ascolto_iniziale: None,
             ha_parlato: false,
             scartate_prima: (0, 0),
+            filtro_del_comando: false,
+            ultimo_comando: None,
+            estranei: (0, 0),
             registratore: None,
         }
     }
@@ -761,6 +777,34 @@ impl FlussoBle {
     /// intanto. Vedi `ascolta_prima_di_parlare`.
     pub fn con_ascolto_iniziale(mut self, silenzio: Duration, tetto: Duration) -> Self {
         self.ascolto_iniziale = Some((silenzio, tetto));
+        self
+    }
+
+    /**
+     * ► UNA RISPOSTA PELAGIC PORTA IL COMANDO A CUI RISPONDE: QUELLE CHE NON
+     *   LO PORTANO SI BUTTANO. ◄
+     *
+     * `pelagic_i330r_recv` pretende che il terzo byte di ogni pacchetto sia il
+     * comando che ha appena mandato, e al primo che non lo è si ferma:
+     * «Unexpected packet command byte». Un pacchetto con un altro comando,
+     * quindi, non può mai essere consegnato con profitto — può solo fermare lo
+     * scarico. È esattamente quello che ha fatto la coda della lettura rimasta
+     * a metà, il 22 settembre 2026.
+     *
+     * L'ascolto prima di parlare copre la coda che arriva PRIMA del primo
+     * comando, ed è il caso che il diario ha mostrato. Questo copre il resto:
+     * una coda più lunga del tetto dell'ascolto, o un pacchetto vecchio che
+     * arriva dopo. Si butta solo un pacchetto **intero** — la lunghezza la dice
+     * lui — e **solo se il comando è diverso**: chi arrivasse con il comando
+     * giusto ma i dati di un'altra lettura resta un caso per la libreria, che
+     * ha il checksum per accorgersene. Ogni pacchetto buttato si conta, e il
+     * diario lo dice.
+     *
+     * Vale solo con `Riassemblaggio::LunghezzaDichiarata`: senza i confini dei
+     * pacchetti non si sa dove comincia il terzo byte di nessuno.
+     */
+    pub fn con_filtro_del_comando(mut self) -> Self {
+        self.filtro_del_comando = true;
         self
     }
 
@@ -894,11 +938,59 @@ impl FlussoBle {
     }
 }
 
+impl FlussoBle {
+    /// Aspetta i frammenti che mancano al pacchetto Pelagic cominciato in
+    /// cassa, finché i byte dichiarati non ci sono tutti.
+    ///
+    /// ► QUI LA LUNGHEZZA NON SI INDOVINA: LA DICE IL PACCHETTO. ◄ Un frammento
+    /// vale `ATTESA_FRAMMENTO`, e se non arriva si conta — ma la condizione
+    /// d'uscita è un fatto invece di una regola empirica: si smette quando i
+    /// byte dichiarati ci sono tutti. Vedi `Riassemblaggio::LunghezzaDichiarata`
+    /// per la segnalazione che l'ha resa necessaria. Il caso che la regola del
+    /// pacchetto pieno non sa distinguere e questo sì: un pacchetto **intero**
+    /// che è anche il più grande mai visto. Là si aspetterebbe un seguito che non
+    /// esiste, qui si esce subito perché il conto torna.
+    fn completa_il_dichiarato(&mut self) -> Result<(), String> {
+        while manca_un_pezzo(&self.avanzo) {
+            self.raccogli_subito();
+            if self.arrivate.is_empty() {
+                let inizio_pausa = std::time::Instant::now();
+                let esito_attesa = self.aspetta(ATTESA_FRAMMENTO);
+                let quanto = inizio_pausa.elapsed();
+                if let Err(motivo) = esito_attesa {
+                    self.avanzo.clear();
+                    return Err(motivo);
+                }
+                if self.arrivate.is_empty() {
+                    /*
+                     * Il pacchetto resta a metà e si consegna com'è:
+                     * libdivecomputer risponderà «Invalid packet length», che è
+                     * la verità. Quello che cambia rispetto a prima è che adesso
+                     * **il diario lo sa**: `frammenti_mancati` sale, e il numero
+                     * che prima diceva zero davanti a un pacchetto spezzato
+                     * smette di dire zero.
+                     */
+                    self.frammenti_mancati += 1;
+                    break;
+                }
+                self.pausa_colmata = self.pausa_colmata.max(quanto);
+            }
+            let Some(pezzo) = self.arrivate.pop_front() else { break };
+            self.notifica_piena = self.notifica_piena.max(pezzo.len());
+            self.avanzo.extend(pezzo);
+        }
+        Ok(())
+    }
+}
+
 impl FlussoByte for FlussoBle {
     fn scrivi(&mut self, dati: &[u8]) -> Result<(), GuastoScrittura> {
         if !self.ha_parlato {
             self.ha_parlato = true;
             self.ascolta_prima_di_parlare();
+        }
+        if self.filtro_del_comando && dati.len() > 2 && dati[0] == INIZIO_PACCHETTO {
+            self.ultimo_comando = Some(dati[2]);
         }
         (self.scrittura)(dati)
     }
@@ -1141,38 +1233,8 @@ impl FlussoByte for FlussoBle {
                      * visto. Là si aspetterebbe un seguito che non esiste, qui
                      * si esce subito perché il conto torna.
                      */
-                    if self.riassemblaggio == Riassemblaggio::LunghezzaDichiarata {
-                        while manca_un_pezzo(&self.avanzo) {
-                            self.raccogli_subito();
-                            if self.arrivate.is_empty() {
-                                let inizio_pausa = std::time::Instant::now();
-                                let esito_attesa = self.aspetta(ATTESA_FRAMMENTO);
-                                let quanto = inizio_pausa.elapsed();
-                                if let Err(motivo) = esito_attesa {
-                                    self.avanzo.clear();
-                                    return Err(motivo);
-                                }
-                                if self.arrivate.is_empty() {
-                                    /*
-                                     * Il pacchetto resta a metà e si consegna
-                                     * com'è: libdivecomputer risponderà «Invalid
-                                     * packet length», che è la verità. Quello
-                                     * che cambia rispetto a prima è che adesso
-                                     * **il diario lo sa**: `frammenti_mancati`
-                                     * sale, e il numero che prima diceva zero
-                                     * davanti a un pacchetto spezzato smette di
-                                     * dire zero.
-                                     */
-                                    self.frammenti_mancati += 1;
-                                    break;
-                                }
-                                self.pausa_colmata = self.pausa_colmata.max(quanto);
-                            }
-                            let Some(pezzo) = self.arrivate.pop_front() else { break };
-                            self.notifica_piena = self.notifica_piena.max(pezzo.len());
-                            self.avanzo.extend(pezzo);
-                        }
-                    }
+                    // La lunghezza dichiarata si completa più sotto, per le
+                    // due strade insieme: vedi `completa_il_dichiarato`.
                 }
                 None => {
                     /*
@@ -1188,6 +1250,28 @@ impl FlussoByte for FlussoBle {
                         ));
                     }
                     return Ok(Vec::new());
+                }
+            }
+        }
+        /*
+         * ► E LA LUNGHEZZA DICHIARATA SI COMPLETA ANCHE QUANDO IL PACCHETTO
+         *   COMINCIA IN CASSA. ◄ Fino al 23 settembre 2026 questo giro stava
+         *   dentro il ramo della cassa vuota: un pacchetto cominciato in coda a
+         *   un altro, nella stessa notifica, restava a metà e si consegnava
+         *   così. Vedi `il_pacchetto_cominciato_in_coda_a_un_altro_si_aspetta_anche_dalla_cassa`.
+         */
+        if self.riassemblaggio == Riassemblaggio::LunghezzaDichiarata {
+            self.completa_il_dichiarato()?;
+            // Il filtro: un pacchetto intero che risponde a un altro comando
+            // si butta, e si torna ad aspettare. Vedi `con_filtro_del_comando`.
+            if let (true, Some(atteso), Some(quanto)) =
+                (self.filtro_del_comando, self.ultimo_comando, confine_dichiarato(&self.avanzo))
+            {
+                if self.avanzo.len() >= quanto && self.avanzo[2] != atteso {
+                    self.avanzo.drain(..quanto);
+                    self.estranei.0 += 1;
+                    self.estranei.1 += quanto;
+                    return self.leggi(quanti, attesa);
                 }
             }
         }
@@ -1239,6 +1323,10 @@ impl FlussoByte for FlussoBle {
 
     fn scartate_prima_di_parlare(&self) -> (usize, usize) {
         self.scartate_prima
+    }
+
+    fn pacchetti_estranei(&self) -> (usize, usize) {
+        self.estranei
     }
 
     fn nome(&mut self) -> Option<String> {
@@ -1662,6 +1750,11 @@ pub struct MisureLettura {
     /// `FlussoBle::ascolta_prima_di_parlare`.
     pub scartate_prima: usize,
     pub byte_scartati_prima: usize,
+    /// I pacchetti buttati perché rispondevano a un altro comando, e i loro
+    /// byte. Come il numero sopra, dice se il filtro serve: zero per sempre
+    /// vuol dire che non è mai scattato. Vedi `FlussoBle::con_filtro_del_comando`.
+    pub estranei: usize,
+    pub byte_estranei: usize,
 }
 
 /// Il posto condiviso dove il trasporto tiene il conto. Come `Guasto`: una
@@ -1764,6 +1857,9 @@ extern "C" fn cb_read(
         let (scartate, byte) = s.flusso.scartate_prima_di_parlare();
         conti.scartate_prima = scartate;
         conti.byte_scartati_prima = byte;
+        let (estranei, byte_estranei) = s.flusso.pacchetti_estranei();
+        conti.estranei = estranei;
+        conti.byte_estranei = byte_estranei;
     }
     match esito {
         Ok(letti) => {
@@ -2777,7 +2873,7 @@ impl CollegamentoLdc {
          * E quando ci sono, sono la prima cosa da sapere — vuol dire che il
          * computer stava ancora parlando di qualcos'altro.
          */
-        let prima = if m.scartate_prima > 0 {
+        let mut prima = if m.scartate_prima > 0 {
             format!(
                 "; arrivate prima del primo comando e buttate: {} notifiche ({} byte)",
                 m.scartate_prima, m.byte_scartati_prima
@@ -2785,6 +2881,12 @@ impl CollegamentoLdc {
         } else {
             String::new()
         };
+        if m.estranei > 0 {
+            prima.push_str(&format!(
+                "; pacchetti che rispondevano a un altro comando, buttati: {} ({} byte)",
+                m.estranei, m.byte_estranei
+            ));
+        }
         Some(format!(
             "letture: {}, di cui {} corte e {} vuote; pacchetti lasciati a metà: {}; pausa più lunga colmata fra due frammenti: {} ms (ci si arrende a {} ms); silenzio più lungo fra un comando e la risposta: {} ms; seconde finestre concesse: {}, di cui utili {}; congelamenti visti: {}{prima}",
             m.letture,
@@ -5150,6 +5252,83 @@ mod prove {
     }
 
     #[test]
+    fn il_pacchetto_cominciato_in_coda_a_un_altro_si_aspetta_anche_dalla_cassa() {
+        /*
+         * ► IL CASO CHE LA CASSA NON SAPEVA FINIRE. ◄
+         *
+         * Una notifica porta un pacchetto intero E l'inizio del successivo — un
+         * ponte che riempie le notifiche con quello che ha nel buffer lo fa — e
+         * il resto del secondo arriva con la notifica dopo. La prima lettura
+         * consegna il primo e tiene l'inizio del secondo in cassa. La seconda
+         * lettura trova la cassa piena e non aspetta niente: prima di questa
+         * prova consegnava il pezzo così com'era, e la libreria rispondeva
+         * «Invalid packet length». Il pacchetto dichiara la sua lunghezza anche
+         * quando comincia in cassa.
+         */
+        let primo = pacchetto_pelagic(0x0d, &[1, 2, 3]);
+        let secondo = pacchetto_pelagic(0x0d, &[4, 5, 6, 7, 8]);
+        let mut notifica_uno = primo.clone();
+        notifica_uno.extend_from_slice(&secondo[..3]);
+        let notifica_due = secondo[3..].to_vec();
+
+        let (manda, mut flusso) = flusso_pelagic();
+        // Tutte e due già arrivate: la differenza fra prima e dopo la
+        // correzione non è l'attesa, è che la seconda lettura GUARDI se il
+        // resto del pacchetto c'è, invece di consegnare la cassa com'è.
+        manda.send(notifica_uno).unwrap();
+        manda.send(notifica_due).unwrap();
+
+        assert_eq!(flusso.leggi(260, Duration::from_millis(500)).unwrap(), primo);
+        assert_eq!(
+            flusso.leggi(260, Duration::from_millis(500)).unwrap(),
+            secondo,
+            "il secondo si aspetta intero anche se è cominciato nella notifica del primo"
+        );
+    }
+
+    #[test]
+    fn col_filtro_un_pacchetto_che_risponde_a_un_altro_comando_si_butta() {
+        /*
+         * La coda di una lettura vecchia che arriva DOPO il primo comando: un
+         * `CMD_READ_FLASH` (0x0D) mentre si aspetta la risposta alla richiesta
+         * d'accesso (0xFA). Senza filtro arriva alla libreria, che si ferma;
+         * col filtro si butta, si conta, e la risposta vera passa.
+         */
+        let domanda = pacchetto_pelagic(0xFA, &[0; 9]);
+        let vecchio = pacchetto_pelagic(0x0D, &[0xAA; 96]);
+        let risposta = pacchetto_pelagic(0xFA, &[1]);
+
+        let (manda, flusso) = flusso_pelagic();
+        let mut flusso = flusso.con_filtro_del_comando();
+        flusso.scrivi(&domanda).unwrap();
+        manda.send(vecchio.clone()).unwrap();
+        manda.send(risposta.clone()).unwrap();
+        assert_eq!(flusso.leggi(260, Duration::from_millis(200)).unwrap(), risposta);
+        assert_eq!(flusso.pacchetti_estranei(), (1, vecchio.len()));
+
+        // Senza filtro, lo stesso pacchetto arriva alla libreria com'è: è la
+        // forma che il 22 settembre ha fermato lo scarico.
+        let (manda, mut senza) = flusso_pelagic();
+        senza.scrivi(&domanda).unwrap();
+        manda.send(vecchio.clone()).unwrap();
+        assert_eq!(senza.leggi(260, Duration::from_millis(200)).unwrap(), vecchio);
+        assert_eq!(senza.pacchetti_estranei(), (0, 0));
+    }
+
+    #[test]
+    fn prima_del_primo_comando_il_filtro_non_sa_cosa_aspettarsi_e_non_butta() {
+        // Senza un comando scritto non c'è niente con cui confrontare: il
+        // filtro tace, e quello che arriva prima di parlare lo gestisce
+        // l'ascolto iniziale, che ha le sue regole.
+        let (manda, flusso) = flusso_pelagic();
+        let mut flusso = flusso.con_filtro_del_comando();
+        let pacchetto = pacchetto_pelagic(0x0D, &[1, 2, 3]);
+        manda.send(pacchetto.clone()).unwrap();
+        assert_eq!(flusso.leggi(260, Duration::from_millis(200)).unwrap(), pacchetto);
+        assert_eq!(flusso.pacchetti_estranei(), (0, 0));
+    }
+
+    #[test]
     fn un_pacchetto_intero_non_si_tira_dietro_quello_dopo() {
         /*
          * ► IL CASO CHE `PacchettoIntero` SBAGLIA, e per cui questa politica
@@ -5524,6 +5703,38 @@ mod prove {
         assert!(
             righe.iter().any(|r| r.contains("invalid access code")),
             "la libreria deve dire perché ha chiesto il PIN: {righe:?}"
+        );
+    }
+
+    #[test]
+    fn col_filtro_la_coda_si_butta_anche_senza_ascolto_e_l_apertura_va_avanti() {
+        /*
+         * Il finto del diario, SENZA l'ascolto iniziale ma col filtro: la coda
+         * arriva dopo la richiesta d'accesso — com'è arrivata davvero, un
+         * millisecondo dopo — e il filtro la butta pacchetto per pacchetto.
+         * Accesso, risveglio e autenticazione passano, come con l'ascolto. Le
+         * due guardie coprono lo stesso difetto da due lati: l'ascolto ciò che
+         * arriva prima di parlare, il filtro ciò che arriva dopo.
+         */
+        let descrittore = trova_descrittore("Aqualung", "i330R").expect("il descrittore dell'i330R deve esistere");
+        let (flusso, comandi) = finto_i330r(vec![coda_del_22_settembre(), coda_del_22_settembre()], false);
+        // La coda del finto parte venti millisecondi dopo l'apertura del
+        // canale: si aspetta che sia partita, così arriva dopo la prima
+        // scrittura come nel diario.
+        std::thread::sleep(Duration::from_millis(5));
+        let collegamento = CollegamentoLdc::apri(Box::new(flusso.con_filtro_del_comando())).unwrap();
+        assert!(collegamento.scarica(&descrittore).is_err(), "il finto rifiuta la calibrazione apposta");
+        assert_eq!(
+            *comandi.lock().unwrap(),
+            vec![(0xFA, 0x40), (0xFA, 0x80), (0x22, 0x40), (0x97, 0x40), (0x27, 0x40)],
+            "accesso, risveglio e autenticazione devono passare"
+        );
+        let misure = collegamento.misure_lettura();
+        assert_eq!((misure.estranei, misure.byte_estranei), (2, 202), "le due code, contate");
+        let riga = collegamento.riga_delle_letture().expect("ci sono state letture");
+        assert!(
+            riga.contains("pacchetti che rispondevano a un altro comando, buttati: 2 (202 byte)"),
+            "il diario deve dirlo: {riga}"
         );
     }
 

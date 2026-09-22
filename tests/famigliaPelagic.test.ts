@@ -67,4 +67,22 @@ describe('la famiglia Pelagic, in Rust e nel catalogo', () => {
       expect(corpo, `${chi} deve chiedere a famiglia_pelagic`).toContain('famiglia_pelagic(marca, prodotto)');
     }
   });
+
+  it('dove si ascolta prima di parlare, dopo si filtra: le due guardie vanno insieme', () => {
+    /*
+     * Il 23 settembre 2026 alla coda del 22 si è aggiunta la seconda metà: il
+     * filtro che butta i pacchetti che rispondono a un altro comando
+     * (`FlussoBle::con_filtro_del_comando`). L'ascolto copre quello che arriva
+     * prima del primo comando, il filtro quello che arriva dopo. Accesi in due
+     * posti diversi, uno dei due si perderebbe al primo riordino: qui si
+     * pretende che stiano nello stesso blocco, quello che chiede
+     * `ascolta_prima_di_parlare`.
+     */
+    const rust = readFileSync('src-tauri/src/ponte_blec.rs', 'utf8');
+    const da = rust.indexOf('if ascolta_prima_di_parlare(marca, prodotto) {');
+    expect(da, 'il blocco che accende l’ascolto non si trova più').toBeGreaterThan(-1);
+    const blocco = rust.slice(da, rust.indexOf('let collegamento = CollegamentoLdc::apri', da));
+    expect(blocco).toContain('con_ascolto_iniziale(');
+    expect(blocco).toContain('con_filtro_del_comando()');
+  });
 });
