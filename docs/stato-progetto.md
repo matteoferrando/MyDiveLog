@@ -1,9 +1,30 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **21 settembre 2026** — **2 918 prove in 187 file** più
+Aggiornato: **22 settembre 2026** — **2 925 prove in 188 file** più
 **149 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
+
+> ## ► LA 1.8.29 È PUBBLICATA SULL'APP STORE. ◄
+>
+> Misurato il 22 settembre sull'API di Apple, con l'anti-cache: **versione
+> 1.8.29, pubblicata il 22 settembre alle 18:55 UTC**, sulla vetrina italiana e
+> su quella americana. Inviata il 21, approvata in un giorno. *Il Mac App Store
+> non ha un `lookup` che lo distingua: quello lo dice App Store Connect.*
+>
+> Per la 1.8.30 si sono aggiunti, lo stesso giorno, **i tre punti lasciati
+> aperti** — tessuti salvati troncati che il grafico disegnava con coordinate
+> NaN e il pianificatore contava vuoti, lo stato del piano riletto senza
+> controllo di forma, gli indici del bailout che etichettavano il diluente al
+> posto della bombola — e **la scheda dei negozi in inglese**, in
+> `docs/SCHEDA-NEGOZI-EN.md`. Commit `ede50b5` e `780c825`.
+>
+> *E una misura che per poco non ne chiudeva un'altra:* il primo giro della
+> suite coi fusi orari estremi ha dato otto prove rosse, con durate da sedici
+> minuti. Il registro di alimentazione del Mac (`pmset -g log`) dice che era
+> andato a dormire a batteria proprio allora — una «Maintenance Sleep» di 939
+> secondi. Rilanciato col Mac sveglio: 2 925 su 2 925 in tutti e due i fusi.
+> *Una prova rossa si guarda prima di crederle, e anche prima di smentirla.*
 
 > ## ► PRONTO PER LA 1.8.30: LE QUATTRO DECISIONI APERTE, CHIUSE. ◄
 >
