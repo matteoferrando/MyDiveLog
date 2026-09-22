@@ -49,7 +49,7 @@
  */
 
 import pw from 'playwright';
-import { vaiA } from './naviga.mjs';
+import { FUSO_DELLE_FOTOGRAFIE, portaInCima as portaSu, vaiA } from './naviga.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { mkdirSync } from 'node:fs';
@@ -106,6 +106,7 @@ for (const app of APPARECCHI) {
     viewport: app.css,
     deviceScaleFactor: app.scala,
     locale: 'it-IT',
+    timezoneId: FUSO_DELLE_FOTOGRAFIE,
     // ► IL TEMA SCURO SI DICHIARA, NON SI SPERA. ◄ L'applicazione non ha un
     // interruttore suo: segue il sistema, con `prefers-color-scheme`. Chromium
     // senza questa riga dichiara «chiaro», e le fotografie uscirebbero nel tema
@@ -120,29 +121,10 @@ for (const app of APPARECCHI) {
   await page.waitForSelector('.card h2', { timeout: 120000 });
   await page.waitForTimeout(1500);
 
-  /**
-   * Porta in cima alla finestra il titolo che dà il nome alla schermata.
-   *
-   * Serve perché **la prima schermata di una scheda di negozio non deve essere
-   * l'intestazione**: senza questo, la fotografia del Logbook mostrava due
-   * riquadri di benvenuto e tre tendine di filtro, e l'elenco delle immersioni
-   * — cioè la cosa che il programma fa — restava sotto il bordo. Una fotografia
-   * che non mostra il contenuto non è sbagliata: è inutile, che è peggio,
-   * perché non se ne accorge nessuno.
-   */
-  const portaInCima = async (testo, margine = 14) => {
-    await page.evaluate(
-      ({ testo, margine }) => {
-        const m = document.querySelector('.main');
-        if (!m) return;
-        const titolo = [...m.querySelectorAll('h1, h2, h3')].find((h) => h.textContent.trim() === testo);
-        if (!titolo) return;
-        m.scrollTop += titolo.getBoundingClientRect().top - m.getBoundingClientRect().top - margine;
-      },
-      { testo, margine },
-    );
-    await page.waitForTimeout(350);
-  };
+  // Il titolo che dà il nome alla schermata, portato in cima: la funzione sta
+  // in `naviga.mjs`, condivisa con le schermate dell'App Store, e se il titolo
+  // non c'è ROMPE invece di fotografare due volte la stessa cosa.
+  const portaInCima = (testo) => portaSu(page, testo);
 
   const scatta = async (nome) => {
     await page.waitForTimeout(300);

@@ -21,6 +21,7 @@
  * telefono si accontenta di 320.
  */
 
+import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -101,8 +102,37 @@ export function rapportoBuono(l, a) {
   return l * 9 === a * 16 || l * 16 === a * 9;
 }
 
-export function controlla() {
-  const file = readdirSync(CARTELLA).filter((f) => f.endsWith('.png'));
+/**
+ * ► DUE FILE CON GLI STESSI BYTE SONO LA STESSA FOTOGRAFIA CON DUE NOMI. ◄
+ *
+ * Successo davvero, il 21 settembre 2026: `telefono-2-immersione.png` e
+ * `telefono-3-profilo.png` avevano lo stesso MD5. Lo script che fotografa
+ * doveva scorrere fino al profilo, sul telefono non trovava il titolo — lì è il
+ * testo di un pulsante, non un `h2` — e tornava senza dire niente; la
+ * fotografia dopo usciva uguale a quella prima. Il controllo dei nomi non
+ * poteva vederlo: i nomi erano diversi, le misure giuste, il conteggio dentro
+ * il massimo. **Quello che mancava era guardare dentro i file.**
+ *
+ * Si confronta l'impronta SHA-256 dei byte interi, non le misure: due
+ * schermate diverse della stessa misura sono la regola, due identiche sono
+ * sempre un guasto di chi le ha scattate.
+ */
+export function gemelle(cartella, file) {
+  const guai = [];
+  const viste = new Map();
+  for (const f of file) {
+    const impronta = createHash('sha256')
+      .update(readFileSync(path.join(cartella, f)))
+      .digest('hex');
+    if (viste.has(impronta))
+      guai.push(`${f}: identica byte per byte a ${viste.get(impronta)} — la stessa fotografia con due nomi`);
+    else viste.set(impronta, f);
+  }
+  return guai;
+}
+
+export function controlla(cartella = CARTELLA) {
+  const file = readdirSync(cartella).filter((f) => f.endsWith('.png'));
   const guai = [];
   const righe = [];
 
@@ -133,7 +163,7 @@ export function controlla() {
     }
 
     for (const f of suoi) {
-      const m = misura(path.join(CARTELLA, f));
+      const m = misura(path.join(cartella, f));
       const g = [];
       if (r.esatte && (m.larghezza !== r.esatte[0] || m.altezza !== r.esatte[1]))
         g.push(`deve essere ${r.esatte[0]}×${r.esatte[1]}`);
@@ -155,6 +185,8 @@ export function controlla() {
     }
     righe.push('');
   }
+
+  guai.push(...gemelle(cartella, file.sort()));
 
   return { righe, guai };
 }

@@ -1,9 +1,74 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **22 settembre 2026** — **2 925 prove in 188 file** più
+Aggiornato: **22 settembre 2026** — **2 944 prove in 191 file** più
 **149 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
+
+> ## ► IL RUOLO «BAILOUT», E LE SCHERMATE DELL'APP STORE IN DUE LINGUE. ◄
+>
+> Il 22 settembre, sera, per la 1.8.30. **Niente di questo è pubblicato**, e
+> le schermate nuove **non sostituiscono niente da sole**: quali caricare lo
+> decide il proprietario.
+>
+> **Il bailout si può dichiarare.** Col circuito chiuso il menu del ruolo offre
+> «bailout» a ogni gas tranne il primo, che è il diluente; a circuito aperto
+> compare solo per un gas che lo è già da uno stato salvato, con una riga che
+> dice che quella bombola resta fuori dal piano. Il nucleo sapeva già cosa
+> farne — fuori dal piano sul loop, e via il diluente dalla risalita
+> d'emergenza — ma la pagina non lo lasciava scegliere, mentre il suggerimento
+> sotto la casella del rebreather ne parlava: *un invito che non si poteva
+> accettare*. Chiude l'ultimo dei «visti e lasciati aperti» del 21 settembre.
+> Quattro prove in `tests/ruoloBailout.test.tsx`, tre viste rosse prima.
+>
+> **Le schermate dell'App Store, rifatte in un comando.** `npm run appstore`
+> costruisce, rigenera l'archivio dimostrativo e fotografa sei scene — logbook,
+> immersione, profilo, statistiche, suggerimenti, gas — su **iPhone 6,9"
+> (1320×2868)** e su **Mac (2880×1800)**, in italiano e in inglese: ventiquattro
+> PNG in `_transfer/appstore/`. Poi `scripts/controlla-appstore.mjs` le misura
+> contro l'elenco chiuso di Apple (una misura, non un rapporto: un 16:10
+> perfetto come 1920×1200 viene rifiutato), la trasparenza — anche quella del
+> blocco `tRNS`, che il tipo di colore non dice —, da una a dieci per
+> apparecchio e lingua, le stesse scene nelle due lingue.
+>
+> Perché: la scheda pubblica, letta dall'API di Apple, ha **dieci schermate
+> fatte dal proprietario sul suo iPhone**, col suo archivio, e hanno ancora il
+> pulsante del menu in alto a destra, che dalla 1.8.23 è una barra in basso. E
+> una localizzazione nuova parte dalle schermate della lingua principale: la
+> scheda inglese le avrebbe mostrate in italiano. La decisione del 27 agosto
+> era di tenere le sue; adesso c'è l'alternativa, tutta o solo in inglese.
+>
+> **E una trovata per strada, su Play.** Le schermate di Play pronte dal 21
+> settembre avevano `telefono-2-immersione.png` e `telefono-3-profilo.png`
+> **identiche byte per byte**, stesso MD5. Lo script doveva scorrere fino al
+> profilo: sul telefono il titolo «Profilo» non è un `h2` ma il testo del
+> pulsante di una carta apribile, non lo trovava, e tornava senza dire niente.
+> Il controllo di Play non poteva vederlo — nomi diversi, misure giuste,
+> conteggio dentro il massimo. Adesso la funzione sta in `scripts/naviga.mjs`,
+> condivisa dai due negozi, trova anche i titoli delle carte e **rompe** se il
+> titolo non c'è o se non arriva in cima; e tutti e due i controlli rifiutano
+> due file con la stessa impronta, anche fra le lingue, dove vorrebbe dire che
+> l'inglese non è arrivato. Rilanciato sulla cartella vera del 21: *«NON VA:
+> telefono-3-profilo.png: identica byte per byte a telefono-2-immersione.png»*.
+> Le immagini di Play sono rigenerate, e **vanno caricate queste** e non
+> quelle del 21.
+>
+> *E le fotografie adesso si scattano in UTC, dichiarato una volta sola per i
+> tre fotografi — sito, Play, App Store.* Sul Mac la scheda dell'immersione
+> scriveva «(UTC+0, ora locale del sito)» accanto all'ora, nel contenitore no:
+> l'archivio dimostrativo registra i siti a UTC+0, e la nota compare quando il
+> fuso dell'apparecchio è un altro. **Lo stesso comando dava immagini diverse
+> secondo la macchina su cui girava.**
+>
+> **Visto e lasciato aperto, con la misura:** sotto i 700 px i titoli delle
+> carte apribili non sono intestazioni, sono il testo di un pulsante. Sulla
+> scheda di un'immersione a 440 px le intestazioni sono 7, a 1440 sono 12:
+> «Profilo», «Bombole e miscele» e le altre tre carte apribili spariscono dalla
+> navigazione per intestazioni di VoiceOver. Lo schema dell'APG per le
+> fisarmoniche mette il pulsante dentro l'intestazione.
+>
+> Catena sul Mac: build, eslint, prettier e clippy a zero, **2 944 prove in
+> 191 file** più 149 Rust, verdi anche a UTC+14 e UTC−11.
 
 > ## ► LA 1.8.29 È PUBBLICATA SULL'APP STORE. ◄
 >
@@ -3796,7 +3861,7 @@ in silenzio.
 | **Rileggere le segnalazioni** | **uno script dal Mac che passa da `wrangler`, non una rotta** | una rotta che restituisce i contatti di chi ha scritto è una superficie nuova su Internet da proteggere; `wrangler` è già autenticato |
 | **Le quattro piattaforme sul sito** | **due gruppi detti a parole, non quattro schede di grandezza diversa** (27 agosto 2026) | la differenza affidata alla dimensione si legge solo se qualcuno la nota; scritta, chi arriva da Windows sa subito che c'è e in che condizioni |
 | **Il marchio Apple sul sito** | **la mela nell'occhiello, non il badge ufficiale** (27 agosto 2026) | **decisione del proprietario, informato che è il contrario di quello che Apple prevede**: il badge «Scarica su App Store» è l'uso consentito a un terzo, la mela come icona di sezione no. È un **tracciato in linea** e non il carattere della mela, che vive nell'area privata di Unicode e su Windows e Android uscirebbe come un rettangolo vuoto |
-| **Le schermate della scheda del negozio** | **restano quelle del proprietario, non si rifanno dal simulatore** (27 agosto 2026) | decisione sua: mostrano un archivio vero |
+| **Le schermate della scheda del negozio** | **restano quelle del proprietario, non si rifanno dal simulatore** (27 agosto 2026) | decisione sua: mostrano un archivio vero. **Dal 22 settembre c'è l'alternativa**, chiesta da lui: `npm run appstore`, dall'archivio dimostrativo, in italiano e in inglese — le sue hanno ancora il menu in alto, e la scheda inglese le avrebbe mostrate in italiano. Quali caricare resta suo |
 | **Le sei classi CSS che nessuno usa** | **non si toccano** (27 agosto 2026) | decisione sua, e non c'è nessun difetto visibile: sono righe morte, non un guasto — al contrario di `.pulsante-attesa`, che descriveva uno stato dell'interfaccia e per questo è stata tolta |
 | **Il sito, a ogni rilascio** | **si ripubblica solo se è cambiato** | i pulsanti puntano a `releases/latest/download/...` e seguono la release da soli |
 | **Il banco di prova per i computer subacquei** | **dentro l'applicazione, dietro una spunta spenta — non un'app a parte** (11 settembre 2026) | un'app a parte avrebbe il suo ciclo di rilascio, il suo permesso Bluetooth, la sua revisione Apple e **un'altra implementazione del collegamento**: registrerebbe lo scambio di se stessa, non quello dell'applicazione che si guasta. La cosa da misurare è esattamente il codice che sbaglia |

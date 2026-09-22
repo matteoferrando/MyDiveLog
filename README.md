@@ -250,6 +250,8 @@ Nessun token è nel codice né nel repository: vivono nel portachiavi di sistema
 | `npm run screenshot` | verifica visiva: apre la build, fotografa ogni vista e fa un giro in inglese |
 | `npm run schermate:ble` | le schermate dello scarico Bluetooth, che nel browser non esistono: compila con un finto computer subacqueo (`VITE_FINTO_BLUETOOTH=1`, cartella `dist-ble/`), fotografa elenco, avanzamento, esito, interruzione e guasti a 390 e 1280 px, e misura il trabocco orizzontale di ogni contenitore. Esce con errore se qualcosa sfora |
 | `node scripts/immagini-sito.mjs` | rigenera le fotografie del sito, in italiano e in inglese |
+| `npm run play` | le immagini della scheda di Google Play — telefono, due tablet, icona e grafica — misurate contro i vincoli di Play, in `_transfer/play/` |
+| `npm run appstore` | le schermate dell'App Store — iPhone 6,9" e Mac, in italiano e in inglese — misurate contro le specifiche di Apple, in `_transfer/appstore/` |
 | `npm run ios:init` | genera il progetto Xcode per iOS (vedi sotto) |
 | `npm run ios:dev -- "iPhone 17 Pro"` | compila e lancia l'app sul simulatore |
 | `npm run ios:build` | pacchetto firmato per un iPhone vero |

@@ -21,7 +21,7 @@
  */
 
 import pw from 'playwright';
-import { vaiA } from './naviga.mjs';
+import { FUSO_DELLE_FOTOGRAFIE, vaiA } from './naviga.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { mkdirSync } from 'node:fs';
@@ -73,6 +73,7 @@ async function giro(locale, suffisso) {
     viewport: { width: 1280, height: 820 },
     deviceScaleFactor: 1.25,
     locale,
+    timezoneId: FUSO_DELLE_FOTOGRAFIE,
   });
   await page.goto('http://localhost:4174/', { waitUntil: 'networkidle' });
   await page.waitForTimeout(400);
@@ -158,6 +159,7 @@ async function giro(locale, suffisso) {
     viewport: { width: 1080, height: 1240 },
     deviceScaleFactor: 1.25,
     locale,
+    timezoneId: FUSO_DELLE_FOTOGRAFIE,
   });
   await scena.goto('http://localhost:4174/', { waitUntil: 'networkidle' });
   await scena.waitForTimeout(400);

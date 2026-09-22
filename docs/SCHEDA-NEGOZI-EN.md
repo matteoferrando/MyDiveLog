@@ -56,8 +56,12 @@ scuba,dive log,logbook,diving,dive computer,uddf,decompression,nitrox,trimix,gas
 **Le schermate.** Una lingua nuova parte con le schermate della lingua principale
 (*«screenshots and the properties for the new language default to those of the
 primary language, except for the description and keywords»*): quindi la scheda
-inglese mostrerebbe l'interfaccia in italiano. Si può lasciare così, oppure fare
-le schermate in inglese dall'archivio dimostrativo, come quelle di Play.
+inglese mostrerebbe l'interfaccia in italiano. **Quelle inglesi sono pronte**,
+dall'archivio dimostrativo come quelle di Play: `npm run appstore` le rifà e le
+misura, e finiscono in `_transfer/appstore/` — `iphone-en-*.png` (1320×2868)
+nel riquadro iPhone 6,9", `mac-en-*.png` (2880×1800) nella scheda del Mac,
+nell'ordine dei numeri. Nella stessa cartella ci sono le italiane, se si
+vogliono sostituire anche quelle di adesso, che hanno ancora il menu in alto.
 
 ---
 
