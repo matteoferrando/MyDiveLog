@@ -5,7 +5,7 @@ tranne le eccezioni elencate qui sotto, che sono **LGPL-2.1-or-later**.
 
 | Cosa | Perché non è MIT |
 |---|---|
-| `src-tauri/vendor/libdivecomputer-0.9.0.tar.gz` | È libdivecomputer, e la sua licenza è la sua. Viene compilata solo con la funzionalità cargo `computer-esterni`. |
+| `src-tauri/vendor/libdivecomputer-0.10.0-devel.tar.gz` | È libdivecomputer — il ramo principale al commit `9e6c3c8`, impacchettato con `make dist`: il perché e il come rifarlo stanno in testa a `src-tauri/build.rs` — e la sua licenza è la sua. Viene compilata solo con la funzionalità cargo `computer-esterni`, che è accesa in tutti i pacchetti pubblicati. |
 
 **L'eccezione era due, ed è tornata una.** `src/core/parsers/uwatecSmart.ts` è
 stato LGPL per qualche ora: un audit riga per riga aveva mostrato che il suo
