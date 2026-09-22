@@ -674,7 +674,32 @@ export function DecoPlanner({
                       <option value="bottom">{t('fondo')}</option>
                       <option value="travel">{t('transito')}</option>
                       <option value="deco">{t('decompressione')}</option>
+                      {/*
+                        ► IL BAILOUT SI SCEGLIE SOLO DOVE SERVE. ◄ Col circuito chiuso: il
+                        nucleo lo tiene fuori dal piano sul loop e, quando c'è, toglie il
+                        diluente dalla risalita d'emergenza — tre litri che a circuito
+                        aperto durano pochi minuti. Fino al 22 settembre 2026 il menu non
+                        lo offriva, mentre il suggerimento sotto la casella del rebreather
+                        ne parlava: un invito che non si poteva accettare.
+
+                        Mai al primo gas, che col circuito chiuso è il diluente: dichiararlo
+                        bailout lascerebbe il loop senza. E a circuito aperto compare solo
+                        se il gas lo è già — da uno stato salvato — per non cambiargli il
+                        ruolo sotto gli occhi.
+                      */}
+                      {(ccr || gas.role === 'bailout') && (
+                        <option value="bailout" disabled={ccr && i === 0}>
+                          {t('bailout')}
+                        </option>
+                      )}
                     </select>
+                    {!ccr && gas.role === 'bailout' && (
+                      <div className="planner-hint" style={{ marginTop: 2 }}>
+                        {t(
+                          'Col circuito aperto il bailout non si usa: questa bombola resta fuori dal piano.',
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="num">
                     <Cell

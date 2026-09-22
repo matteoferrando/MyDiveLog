@@ -1120,6 +1120,9 @@ export const INGLESE: Record<string, string> = {
   Togli: 'Remove',
   Totale: 'Total',
   transito: 'travel',
+  bailout: 'bailout',
+  'Col circuito aperto il bailout non si usa: questa bombola resta fuori dal piano.':
+    'On open circuit bailout does not apply: this cylinder stays out of the plan.',
   Tratto: 'Leg',
   'tre volte su quattro consumi meno di così': 'three dives out of four use less',
   'poche per la durata': 'too few to filter on duration',
