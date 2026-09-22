@@ -18,7 +18,7 @@
 
 import { useId, useMemo, useState } from 'react';
 import type { Dive } from '../../core/model';
-import { entryStateFor, gfOf, whatIfGf } from '../../core/analysis/tissues';
+import { entryStateFor, gfOf, whatIfGf, usableTissues } from '../../core/analysis/tissues';
 import { compartments, N2_HALF, type CompartmentState } from '../../core/analysis/buhlmann';
 import { StatTile, TabellaEquivalente, useWidth } from './Charts';
 import { useLingua } from '../lingua';
@@ -223,7 +223,7 @@ export function SaturationCard({ dive, dives }: { dive: Dive; dives: Dive[] }) {
           );
         })()}
 
-      {m.tissuesEnd && (
+      {usableTissues(m.tissuesEnd) && (
         <>
           <h3 style={{ margin: '18px 0 4px', fontSize: 14 }}>{t('I sedici compartimenti all’uscita')}</h3>
           {/*

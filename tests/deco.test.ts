@@ -636,6 +636,25 @@ describe('bailout da una quota qualunque', () => {
     expect(litri(da9)).toBeLessThan(litri(dalFondo));
   });
 
+  it('gli indici del bailout sono quelli dei gas di chi chiama, anche quando il diluente esce', () => {
+    /*
+     * ► IL DIFETTO, trovato il 21 settembre 2026. ◄ Con una bombola di bailout il
+     * diluente esce dall'elenco dei gas a circuito aperto, e il piano numerava i
+     * gas di QUELL'elenco, più corto di uno: il suo 0 era la bombola di bailout,
+     * il 0 di chi chiama è il diluente. La scheda del pianificatore scriveva
+     * «Ti serve Tx21/35» — il diluente da tre litri — sotto il consumo della
+     * bombola da undici, e «Ti serve» la bombola sotto quello dell'EAN50.
+     */
+    const b = bailoutPlan(levels, gases, CCR)!;
+    const usati = b.gasUsage.filter((u) => u.litres > 0);
+    expect(usati.length).toBeGreaterThan(1);
+    for (const u of usati) expect(gases[u.gasIndex]!.mix, `gasIndex ${u.gasIndex}`).toEqual(u.mix);
+    // Il diluente non si respira a circuito aperto quando c'è una bombola di bailout.
+    expect(usati.map((u) => u.gasIndex)).not.toContain(0);
+    for (const s of b.stops) expect(gases[s.gasIndex]!.role, `sosta a ${s.depthM} m`).not.toBe('bottom');
+    for (const s of b.segments) expect(gases[s.gasIndex], `tratto a ${s.toM} m`).toBeDefined();
+  });
+
   it('senza quota indicata si intende dal fondo, come prima', () => {
     const a = bailoutPlan(levels, gases, CCR)!;
     const b = bailoutPlan(levels, gases, CCR, 60)!;

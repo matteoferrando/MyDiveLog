@@ -41,6 +41,7 @@ import {
   type SegmentKind,
 } from '../../core/analysis/deco';
 import { DEFAULT_VPM, MAX_CRITICAL_VOLUME_ITERATIONS, planVpm, type VpmStop } from '../../core/analysis/vpm';
+import { usableTissues } from '../../core/analysis/tissues';
 import type { Dive } from '../../core/model';
 import { dateShort, litri } from '../format';
 import { OTU_DAILY_TDI } from '../../core/analysis/oxygen';
@@ -88,6 +89,35 @@ export interface DecoPlanState {
   second?: { depthM: number; minutes: number; surfaceMin: number } | null;
   /** Quota da cui provare il bailout, invece che dal fondo. */
   bailFrom?: number | null;
+}
+
+/**
+ * ► LO STATO SALVATO SI RILEGGE CON UN CONTROLLO DI FORMA. ◄
+ *
+ * Arriva dall'archivio — anche da un backup, da un'altra versione, dall'altro
+ * dispositivo — ed entrava qui così com'era. Misurato il 22 settembre 2026: con
+ * un elenco di livelli vuoto la pagina disegnava un piano senza livelli, «zero
+ * minuti, il piano resta in curva»; con dentro qualcosa che non è un livello
+ * cadeva al primo disegno; con un elenco di gas vuoto, un piano senza miscele.
+ * Il componente conta su almeno un livello e almeno un gas: se lo stato
+ * salvato non li ha, si riparte da quelli del seme, come la prima volta.
+ */
+function livelliSalvati(salvati: unknown): PlanLevel[] | undefined {
+  if (!Array.isArray(salvati) || salvati.length === 0) return undefined;
+  const buoni = salvati.every((l: unknown) => {
+    const x = l as Partial<PlanLevel> | null;
+    return !!x && Number.isFinite(x.depthM) && Number.isFinite(x.minutes);
+  });
+  return buoni ? (salvati as PlanLevel[]) : undefined;
+}
+
+function gasSalvati(salvati: unknown): PlanGas[] | undefined {
+  if (!Array.isArray(salvati) || salvati.length === 0) return undefined;
+  const buoni = salvati.every((g: unknown) => {
+    const x = g as Partial<PlanGas> | null;
+    return !!x && !!x.mix && Number.isFinite(x.mix.o2) && Number.isFinite(x.mix.he);
+  });
+  return buoni ? (salvati as PlanGas[]) : undefined;
 }
 
 export function DecoPlanner({
@@ -140,10 +170,10 @@ export function DecoPlanner({
   // Mai vuoto, e `levels[0]` più sotto ci conta: si parte da un livello, «Togli»
   // compare solo quando ce n'è più d'uno, e lo stato salvato si scrive da qui.
   const [levels, setLevels] = useState<PlanLevel[]>(
-    saved?.levels ?? [{ depthM: seed.depthM, minutes: seed.bottomMin }],
+    livelliSalvati(saved?.levels) ?? [{ depthM: seed.depthM, minutes: seed.bottomMin }],
   );
   const [gases, setGases] = useState<PlanGas[]>(
-    saved?.gases ?? [
+    gasSalvati(saved?.gases) ?? [
       { mix: seed.mix, role: 'bottom', tankL: seed.tankL, startBar: seed.startBar },
       { mix: { o2: 0.5, he: 0 }, role: 'deco', ...STAGE },
     ],
@@ -159,11 +189,13 @@ export function DecoPlanner({
   );
 
   // Le immersioni dell'archivio da cui si può ripartire: servono i tessuti finali,
-  // che ci sono solo dove il profilo è stato analizzato.
+  // che ci sono solo dove il profilo è stato analizzato — e che siano tessuti:
+  // uno stato salvato con meno di sedici compartimenti partirebbe da
+  // compartimenti vuoti, cioè sottostimerebbe il carico della ripetitiva.
   const repeatable = useMemo(
     () =>
       [...dives]
-        .filter((d) => d.metrics?.tissuesEnd)
+        .filter((d) => usableTissues(d.metrics?.tissuesEnd))
         .sort((a, b) => b.startTime.localeCompare(a.startTime))
         .slice(0, 12),
     [dives],
@@ -1429,9 +1461,9 @@ export function DecoPlanner({
                   .map((u) => (
                     <StatTile
                       key={u.gasIndex}
-                      /* `bailoutPlan` numera un sottoinsieme di `gases`, mai più lungo: l'indice
-                         sta dentro. Ma con un gas di ruolo «bailout» (che qui non si crea) toglie
-                         il diluente, e allora l'etichetta sarebbe quella del gas accanto. */
+                      /* `bailoutPlan` restituisce gli indici di `gases`, anche quando il
+                         diluente esce dall'elenco a circuito aperto: fino al 22 settembre 2026
+                         erano quelli dell'elenco più corto, e l'etichetta era del gas accanto. */
                       label={`${t('Ti serve')} ${gasLabel(gases[u.gasIndex]!)}`}
                       value={
                         <span

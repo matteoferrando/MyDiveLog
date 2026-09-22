@@ -1979,19 +1979,36 @@ export function bailoutPlan(
   const closedCircuit =
     usable.some((l) => l.setpointBar !== undefined) || gases.some((g) => g.setpointBar !== undefined);
   const hasBailout = gases.some((g) => g.role === 'bailout');
-  const openCircuit: PlanGas[] = gases
-    .filter((g) => !(closedCircuit && hasBailout && (g.role === 'bottom' || g.setpointBar !== undefined)))
-    .map((g) => ({
-      ...g,
-      role: g.role === 'bailout' ? 'bottom' : g.role,
-      setpointBar: undefined,
-    }));
+  const openCircuit: PlanGas[] = [];
+  /** Per ogni gas dell'elenco a circuito aperto, il suo indice in `gases`. */
+  const daDove: number[] = [];
+  gases.forEach((g, i) => {
+    if (closedCircuit && hasBailout && (g.role === 'bottom' || g.setpointBar !== undefined)) return;
+    openCircuit.push({ ...g, role: g.role === 'bailout' ? 'bottom' : g.role, setpointBar: undefined });
+    daDove.push(i);
+  });
 
-  return planDeco([{ depthM: start, minutes: 0 }], openCircuit, {
+  const piano = planDeco([{ depthM: start, minutes: 0 }], openCircuit, {
     ...settings,
     initial: atFailure,
     startDepthM: start,
   });
+  /*
+   * ► GLI INDICI TORNANO QUELLI DI CHI HA CHIAMATO. ◄ Il piano numera i gas
+   * dell'elenco a circuito aperto, che senza il diluente è più corto di uno: il
+   * suo 0 era la bombola di bailout, e per chi chiama lo 0 è il diluente. La
+   * scheda del pianificatore scriveva «Ti serve Tx21/35» — il diluente da tre
+   * litri — sotto il consumo della bombola da undici. Misurato il 22 settembre
+   * 2026; vedi `tests/deco.test.ts`, «gli indici del bailout».
+   */
+  // Ogni indice del piano punta a `openCircuit`, che ha la lunghezza di `daDove`.
+  const indietro = (k: number) => daDove[k]!;
+  return {
+    ...piano,
+    segments: piano.segments.map((s) => ({ ...s, gasIndex: indietro(s.gasIndex) })),
+    stops: piano.stops.map((s) => ({ ...s, gasIndex: indietro(s.gasIndex) })),
+    gasUsage: piano.gasUsage.map((u) => ({ ...u, gasIndex: indietro(u.gasIndex) })),
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -202,8 +202,16 @@ export interface TissueMetrics {
  * predecessore sbagliato. Il segnale è l'intervallo di superficie o il carico
  * d'ingresso che non corrispondono più.
  */
-/** Tessuti utilizzabili: sedici compartimenti, tutti numeri veri. */
-function usableTissues(state: TissueState | undefined): boolean {
+/**
+ * Tessuti utilizzabili: sedici compartimenti, tutti numeri veri.
+ *
+ * Esportata perché la stessa domanda se la deve fare chiunque rilegga dei
+ * tessuti salvati, non solo la catena: il grafico della saturazione e il
+ * pianificatore li prendevano come venivano, e con uno stato troncato a otto
+ * compartimenti il primo disegnava coordinate NaN e il secondo contava vuoti i
+ * compartimenti mancanti — cioè sottostimava il carico di una ripetitiva.
+ */
+export function usableTissues(state: TissueState | undefined): state is TissueState {
   return (
     !!state &&
     Array.isArray(state.n2) &&
