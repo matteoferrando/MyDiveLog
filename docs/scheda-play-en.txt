@@ -1,0 +1,27 @@
+MyDiveLog is the logbook for divers who dive with more than one computer, or have changed computers over the years.
+
+When two computers recorded the same dive, it becomes one entry
+Not two duplicates to sort out by hand: one dive that keeps the best of each source. The profile with the most detail, the temperature from whichever computer logged it, the gases from whichever recorded them. Matching doesn't trust the clock alone — it compares the shape of the profile — because every dive computer's clock drifts its own way.
+
+Import what you already have
+UDDF, Shearwater (XML and Cloud archive), Garmin FIT, LogTRAK, Subsurface, CSV. Formats are recognized by their content, not by the file extension: just drop the files in. Dives without a file — a rental computer, a dead battery, a paper logbook — can be added by hand.
+
+Download over Bluetooth
+From the dive computer straight to your phone, with no cable and no desktop program. With a bookmark: from the second connection on, it only fetches the new dives.
+
+It really reads your profiles
+Bühlmann ZH-L16C with gradient factors, oxygen exposure from the NOAA tables, NDL and deco obligation minute by minute, all sixteen compartments drawn. Every figure says how many dives it is based on: no estimates passed off as measurements.
+
+Statistics that mean something
+RMV, buoyancy, consistency, wetsuit by water temperature, weight by water type. And suggestions for improving, with the numbers underneath, so you can disagree.
+
+Plan before you go in
+Gas and decompression: pressure schedule, reserve, emergency scenarios, multi-level, gas switches at MOD, Bühlmann-GF and VPM-B, CCR. Even on recreational dives, the stops are calculated when the plan goes into deco.
+
+Your logbook stays yours
+It lives on your device. No ads, no usage tracking, no subscription. Signing in with Apple or Google is only needed to keep several devices in sync, and it's optional: without it, the app works exactly the same. Leave whenever you like, with UDDF, CSV or KML.
+
+Open source, MIT license.
+
+Important
+MyDiveLog is a tool for logging, analysis and planning. It is not a dive computer, it does not replace yours, and it must not be used in the water to make decisions. Plan your dives within your own training and limits.
