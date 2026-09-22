@@ -2182,7 +2182,7 @@ export function BleDownload() {
                     </div>
                     {/*
                      * IL SELETTORE SI APRE SOTTO LA RIGA DEL DISPOSITIVO, non
-                     * altrove. Sono 105 modelli: aperti in un'altra schermata si
+                     * altrove. Sono 115 modelli: aperti in un'altra schermata si
                      * perde di vista A QUALE dei dispositivi trovati si sta
                      * dando un nome, e in una barca con tre computer accesi non è
                      * un dettaglio.

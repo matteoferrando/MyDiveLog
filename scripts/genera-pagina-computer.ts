@@ -125,10 +125,24 @@ ${g.modelli.map((m) => riga(m, lingua)).join('\n')}
     .join('\n');
 }
 
-const CONTENUTO: Record<Lingua, (elenco: string, quanti: number, marche: number) => string> = {
-  it: (voci, quanti, marche) => `<main class="documento">
+/**
+ * La riga sotto il titolo: i due conti separati, perché la pagina ha due
+ * risposte e il numero in testa non può rispondere per tutte e due.
+ */
+const SOTTOTITOLO: Record<Lingua, (viaBluetooth: number, dalFile: number, marche: number) => string> = {
+  it: (bt, file, marche) =>
+    `${bt} via Bluetooth${file > 0 ? `, ${file} dal file` : ''}, ${marche} marche — e cosa succede davvero con ciascuno`,
+  en: (bt, file, marche) =>
+    `${bt} over Bluetooth${file > 0 ? `, ${file} from a file` : ''}, ${marche} brands — and what actually happens with each`,
+};
+
+const CONTENUTO: Record<
+  Lingua,
+  (elenco: string, viaBluetooth: number, dalFile: number, marche: number) => string
+> = {
+  it: (voci, bt, file, marche) => `<main class="documento">
         <h1>I computer che si scaricano</h1>
-        <p class="data">${quanti} modelli, ${marche} marche — e cosa succede davvero con ciascuno</p>
+        <p class="data">${SOTTOTITOLO.it(bt, file, marche)}</p>
 
         <div class="evidenza">
           <p>
@@ -191,9 +205,9 @@ ${voci}
           tutto e salva in un formato che leggiamo nativamente.
         </p>
       </main>`,
-  en: (voci, quanti, marche) => `<main class="documento">
+  en: (voci, bt, file, marche) => `<main class="documento">
         <h1>Dive computers that download</h1>
-        <p class="data">${quanti} models, ${marche} brands — and what actually happens with each</p>
+        <p class="data">${SOTTOTITOLO.en(bt, file, marche)}</p>
 
         <div class="evidenza">
           <p>
@@ -293,18 +307,51 @@ const RICERCA = `
       </script>
 `;
 
+/**
+ * Quanti si scaricano via Bluetooth e quanti passano da un file.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * ► QUI C'ERA UNA SOMMA SOLA, E DICEVA IL FALSO DI OTTO. ◄
+ *
+ * Fino al 23 settembre 2026 il numero era `modelli del catalogo +
+ * MODELLI_SENZA_BLE`, e la descrizione della pagina lo chiamava «i computer
+ * subacquei che MyDiveLog scarica via Bluetooth». Gli otto di
+ * `MODELLI_SENZA_BLE` sono i Garmin Descent: stanno nel catalogo perché chi li
+ * cerca trovi una risposta, e la risposta — scritta da questa stessa pagina,
+ * riga per riga — è «Solo dal file». *La pagina diceva 123 in testa e otto
+ * volte «no» più sotto*, e la pagina iniziale e l'aiuto ripetevano il 123 (il
+ * 113, prima della libreria nuova).
+ *
+ * Adesso i due conti si fanno con la stessa decisione che scrive le righe —
+ * `ESITI[esitoPer(voce, true).tipo].classe` — quindi una voce non può essere
+ * contata «via Bluetooth» e scritta «Solo dal file», né il contrario.
+ */
+function conti(): { viaBluetooth: number; dalFile: number; marche: number } {
+  const voci: VoceCatalogo[] = [
+    ...marchePerDiffusione().flatMap((m) => m.modelli as readonly VoceCatalogo[]),
+    ...MODELLI_SENZA_BLE,
+  ];
+  const viaBluetooth = voci.filter((v) => ESITI[esitoPer(v, true).tipo].classe === 'bluetooth').length;
+  return {
+    viaBluetooth,
+    dalFile: voci.length - viaBluetooth,
+    marche: new Set(voci.map((v) => v.marca)).size,
+  };
+}
+
 function pagina(lingua: Lingua): string {
   const modello = readFileSync(`${RADICE}sito/${lingua === 'it' ? 'aiuto.html' : 'en/help.html'}`, 'utf8');
-  const marche = marchePerDiffusione();
-  const quanti = marche.reduce((n, m) => n + m.modelli.length, 0) + MODELLI_SENZA_BLE.length;
-  const quanteMarche = new Set([...marche.map((m) => m.marca), ...MODELLI_SENZA_BLE.map((m) => m.marca)])
-    .size;
+  const { viaBluetooth, dalFile, marche: quanteMarche } = conti();
 
   const titolo = lingua === 'it' ? 'Computer supportati — MyDiveLog' : 'Supported dive computers — MyDiveLog';
   const descrizione =
     lingua === 'it'
-      ? `I ${quanti} computer subacquei che MyDiveLog scarica via Bluetooth, e cosa succede davvero con ciascuno.`
-      : `The ${quanti} dive computers MyDiveLog downloads over Bluetooth, and what actually happens with each.`;
+      ? `I ${viaBluetooth} computer subacquei che MyDiveLog scarica via Bluetooth, ` +
+        (dalFile > 0 ? `più ${dalFile} che si importano da un file, ` : '') +
+        'e cosa succede davvero con ciascuno.'
+      : `The ${viaBluetooth} dive computers MyDiveLog downloads over Bluetooth, ` +
+        (dalFile > 0 ? `plus ${dalFile} that are imported from a file, ` : '') +
+        'and what actually happens with each.';
   const qui = lingua === 'it' ? '/computer-supportati' : '/en/supported-computers';
   const gemella = lingua === 'it' ? '/en/supported-computers' : '/computer-supportati';
 
@@ -371,7 +418,7 @@ function pagina(lingua: Lingua): string {
   // Il corpo.
   h = h.replace(
     /<main class="documento">[\s\S]*?<\/main>/,
-    CONTENUTO[lingua](elenco(lingua), quanti, quanteMarche),
+    CONTENUTO[lingua](elenco(lingua), viaBluetooth, dalFile, quanteMarche),
   );
   // La ricerca, subito prima della chiusura del corpo.
   h = h.replace(/(\n\s*)<\/body>/, `${RICERCA}$1</body>`);

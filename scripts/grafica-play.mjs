@@ -43,6 +43,8 @@ import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
+import { modelliViaBluetooth } from './lib/conta-modelli.mjs';
+
 const RADICE = fileURLToPath(new URL('..', import.meta.url));
 const USCITA = path.join(RADICE, '_transfer/play');
 mkdirSync(USCITA, { recursive: true });
@@ -116,7 +118,7 @@ const PAGINA = `<!doctype html>
     <h1>MyDive<span>Log</span></h1>
     <p>Il logbook subacqueo che unisce i dati di tutti i tuoi computer, li analizza e tiene i campi che la legge chiede.</p>
     <div class="righe">
-      <div class="riga">105 modelli via Bluetooth</div>
+      <div class="riga">${modelliViaBluetooth(RADICE)} modelli via Bluetooth</div>
       <div class="riga">Archivio sul tuo dispositivo</div>
       <div class="riga">Software libero</div>
     </div>

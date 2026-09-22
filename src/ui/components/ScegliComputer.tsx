@@ -15,9 +15,11 @@
  * ════════════════════════════════════════════════════════════════════════════
  * ► LE TRE RISPOSTE, E PERCHÉ NESSUNA È «NIENTE». ◄
  *
- * Il catalogo ha 105 modelli e i driver ne leggono 22. Un elenco che ne mostra
- * 105 e ne onora 22 insegna due cose sbagliate: che l'app è rotta, e che
- * segnalarlo non serve. Quindi ogni scelta dice cosa succede — si scarica
+ * Il catalogo ha 115 modelli e i driver scritti in casa ne leggono 22. Un
+ * elenco che ne mostra 115 e ne onora 22 insegna due cose sbagliate: che l'app
+ * è rotta, e che segnalarlo non serve. (I numeri li conta `scelta.ts`, con una
+ * prova; qui sono un esempio, e fino alla libreria nuova dicevano 105.)
+ * Quindi ogni scelta dice cosa succede — si scarica
  * adesso, non ancora, oppure mai via radio (Garmin) — e nel secondo e terzo
  * caso dice anche la strada che funziona OGGI, cioè l'esportazione
  * dall'applicazione del costruttore e l'importazione qui.
