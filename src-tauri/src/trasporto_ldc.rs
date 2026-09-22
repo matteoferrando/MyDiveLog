@@ -236,7 +236,34 @@ pub trait FlussoByte: Send {
     fn proroghe(&self) -> (usize, usize, usize) {
         (0, 0, 0)
     }
+
+    /// Quante notifiche sono arrivate PRIMA del primo comando e sono state
+    /// buttate, e quanti byte portavano. Vedi `FlussoBle::ascolta_prima_di_parlare`.
+    /// Zero è la risposta onesta di chi non ascolta prima di parlare.
+    fn scartate_prima_di_parlare(&self) -> (usize, usize) {
+        (0, 0)
+    }
 }
+
+/// Il silenzio che si aspetta prima del primo comando, sui computer che lo
+/// chiedono. Vedi `FlussoBle::ascolta_prima_di_parlare`.
+///
+/// ► TRECENTO MILLISECONDI NON SONO NOSTRI: SONO DI LIBDIVECOMPUTER. ◄ È la
+/// pausa che la libreria stessa fa all'apertura di `shearwater_common.c` e di
+/// `deepsix_excursion.c` — `dc_iostream_sleep (…, 300)` e subito dopo
+/// `dc_iostream_purge`, sotto il commento *«Make sure everything is in a sane
+/// state»*. Qui si aspetta **trecento millisecondi di silenzio** e non trecento
+/// millisecondi e basta: una pausa fissa taglierebbe a metà un computer che sta
+/// ancora svuotando la coda, e il resto arriverebbe dopo lo svuotamento.
+pub const SILENZIO_PRIMA_DI_PARLARE: Duration = Duration::from_millis(300);
+
+/// Oltre questo si parla comunque.
+///
+/// Un computer che dopo tre secondi sta ancora mandando dati non sta svuotando
+/// una coda: sta parlando con qualcun altro — un'altra applicazione collegata
+/// allo stesso apparecchio — e aspettare non lo zittisce. A quel punto decide
+/// libdivecomputer, che al primo pacchetto estraneo si ferma e lo dice.
+pub const TETTO_PRIMA_DI_PARLARE: Duration = Duration::from_secs(3);
 
 // --------------------------------------------------------------- il flusso BLE
 
@@ -283,6 +310,15 @@ pub struct FlussoBle {
     /// Quante volte l'attesa ha sforato la scadenza tanto da rivelare un
     /// congelamento del processo.
     congelamenti: usize,
+    /// Il silenzio da aspettare prima del primo comando, e il tetto oltre cui
+    /// si parla comunque. `None` per chi non ne ha bisogno. Vedi
+    /// `ascolta_prima_di_parlare`.
+    ascolto_iniziale: Option<(Duration, Duration)>,
+    /// Se il primo comando è già partito: l'ascolto iniziale si fa una volta
+    /// sola, prima di quello, e mai più.
+    ha_parlato: bool,
+    /// Le notifiche buttate prima del primo comando: quante, e quanti byte.
+    scartate_prima: (usize, usize),
     /**
      * Dove si annotano le letture **andate a vuoto**, per il banco di prova.
      *
@@ -713,8 +749,82 @@ impl FlussoBle {
             proroghe: 0,
             proroghe_utili: 0,
             congelamenti: 0,
+            ascolto_iniziale: None,
+            ha_parlato: false,
+            scartate_prima: (0, 0),
             registratore: None,
         }
+    }
+
+    /// Lo stesso flusso, che prima del primo comando aspetta `silenzio` di
+    /// quiete — al massimo per `tetto` — e butta tutto quello che arriva
+    /// intanto. Vedi `ascolta_prima_di_parlare`.
+    pub fn con_ascolto_iniziale(mut self, silenzio: Duration, tetto: Duration) -> Self {
+        self.ascolto_iniziale = Some((silenzio, tetto));
+        self
+    }
+
+    /**
+     * PRIMA DI PARLARE SI ASCOLTA, E QUELLO CHE ARRIVA SI BUTTA.
+     *
+     * ════════════════════════════════════════════════════════════════════════
+     * ► IL DIARIO DEL 22 SETTEMBRE 2026, DA UN AQUALUNG i330R. ◄
+     *
+     *     scrittura n. 1: 14 byte [cd 40 fa f6 09 00 00 00 …], senza conferma
+     *     prima notifica: 101 byte [cd a0 0d 82 60 aa aa aa …], 1 ms dopo la prima scrittura
+     *     libdivecomputer, errore: Unexpected packet command byte (0d). [pelagic_i330r.c:207]
+     *
+     * La scrittura è la richiesta d'accesso (`CMD_ACCESS_REQUEST`, `0xFA`), e
+     * la risposta che `pelagic_i330r_recv` aspetta porta lo stesso comando. È
+     * arrivato invece un pacchetto di `CMD_READ_FLASH` (`0x0D`): novantasei byte
+     * di memoria, tutti `0xAA`, con un checksum **giusto** — `0x82` è quello
+     * che si calcola su quei byte. Non era rumore: era un pezzo di memoria
+     * intero, che nessuno in quel collegamento aveva chiesto.
+     *
+     * E non poteva essere una risposta a noi: **un millisecondo** è meno di un
+     * giro di radio — su BLE una scrittura parte al primo evento di
+     * collegamento, e la risposta al più presto a quello dopo. Quel pacchetto
+     * era già in viaggio. Le notifiche in tutto sono state due, poi silenzio:
+     * è la coda di una lettura rimasta a metà, che il computer ha svuotato
+     * appena gli si è riaperto il canale.
+     *
+     * ► E LA LIBRERIA NON SVUOTA, PER QUESTA FAMIGLIA. ◄ Quasi tutti i backend
+     * di libdivecomputer all'apertura fanno `dc_iostream_purge`, sotto il
+     * commento *«Make sure everything is in a sane state»* — Shearwater e Deep
+     * Six anche con trecento millisecondi di sonno prima. `pelagic_i330r.c`
+     * no: nemmeno una chiamata. E il suo `recv` si ferma al primo pacchetto
+     * col comando sbagliato, senza cercare quello giusto dopo.
+     *
+     * Quindi lo si fa qui, nel solo punto in cui è certo che niente di quello
+     * che arriva sia nostro: **prima del primo comando**. Si aspetta un
+     * silenzio vero — non un tempo fisso, che taglierebbe a metà una coda
+     * ancora in uscita — e si butta tutto. Poi si parla.
+     *
+     * Solo per chi lo chiede: la famiglia Pelagic, che è quella in cui si è
+     * visto. Per le altre non c'è una misura, e un'attesa in più su cento
+     * modelli mai provati è un cambiamento che nessuno ha chiesto.
+     */
+    fn ascolta_prima_di_parlare(&mut self) {
+        let Some((silenzio, tetto)) = self.ascolto_iniziale else { return };
+        let fine = std::time::Instant::now() + tetto;
+        self.raccogli_subito();
+        loop {
+            while let Some(notifica) = self.arrivate.pop_front() {
+                self.scartate_prima.0 += 1;
+                self.scartate_prima.1 += notifica.len();
+            }
+            let rimasto = fine.saturating_duration_since(std::time::Instant::now());
+            if rimasto.is_zero() {
+                break;
+            }
+            match self.entrata.recv_timeout(silenzio.min(rimasto)) {
+                Ok(notifica) => self.arrivate.push_back(notifica),
+                // Silenzio per tutto il tempo chiesto, o tetto raggiunto: si
+                // parla. Un canale chiuso lo dirà la scrittura, con parole sue.
+                Err(RecvTimeoutError::Timeout) | Err(RecvTimeoutError::Disconnected) => break,
+            }
+        }
+        self.avanzo.clear();
     }
 
     /// Lo stesso flusso, che annota le letture a vuoto sul banco di prova.
@@ -786,6 +896,10 @@ impl FlussoBle {
 
 impl FlussoByte for FlussoBle {
     fn scrivi(&mut self, dati: &[u8]) -> Result<(), GuastoScrittura> {
+        if !self.ha_parlato {
+            self.ha_parlato = true;
+            self.ascolta_prima_di_parlare();
+        }
         (self.scrittura)(dati)
     }
 
@@ -1121,6 +1235,10 @@ impl FlussoByte for FlussoBle {
 
     fn proroghe(&self) -> (usize, usize, usize) {
         (self.proroghe, self.proroghe_utili, self.congelamenti)
+    }
+
+    fn scartate_prima_di_parlare(&self) -> (usize, usize) {
+        self.scartate_prima
     }
 
     fn nome(&mut self) -> Option<String> {
@@ -1495,6 +1613,16 @@ pub struct MisureLettura {
     /// Quante volte l'attesa ha sforato la scadenza tanto da rivelare che il
     /// processo era fermo — cioè sospeso dal sistema operativo.
     pub congelamenti: usize,
+    /// Le notifiche arrivate PRIMA del primo comando e buttate, e i loro byte.
+    ///
+    /// ► È IL NUMERO CHE DICE SE L'ASCOLTO INIZIALE SERVE. ◄ Se su un i330R
+    /// resta sempre zero, la coda lasciata a metà del 22 settembre 2026 è stata
+    /// un caso, e trecento millisecondi in più a ogni scarico sono un costo
+    /// senza ritorno. Se sale, ogni volta che sale è uno scarico che prima si
+    /// sarebbe fermato alla richiesta d'accesso. Vedi
+    /// `FlussoBle::ascolta_prima_di_parlare`.
+    pub scartate_prima: usize,
+    pub byte_scartati_prima: usize,
 }
 
 /// Il posto condiviso dove il trasporto tiene il conto. Come `Guasto`: una
@@ -1594,6 +1722,9 @@ extern "C" fn cb_read(
         conti.proroghe = proroghe;
         conti.proroghe_utili = utili;
         conti.congelamenti = congelamenti;
+        let (scartate, byte) = s.flusso.scartate_prima_di_parlare();
+        conti.scartate_prima = scartate;
+        conti.byte_scartati_prima = byte;
     }
     match esito {
         Ok(letti) => {
@@ -2506,8 +2637,22 @@ impl CollegamentoLdc {
         if m.letture == 0 {
             return None;
         }
+        /*
+         * Le notifiche buttate prima di parlare si dicono SOLO quando ci sono:
+         * sono un evento, non un conto che ogni scarico deve portarsi dietro.
+         * E quando ci sono, sono la prima cosa da sapere — vuol dire che il
+         * computer stava ancora parlando di qualcos'altro.
+         */
+        let prima = if m.scartate_prima > 0 {
+            format!(
+                "; arrivate prima del primo comando e buttate: {} notifiche ({} byte)",
+                m.scartate_prima, m.byte_scartati_prima
+            )
+        } else {
+            String::new()
+        };
         Some(format!(
-            "letture: {}, di cui {} corte e {} vuote; pacchetti lasciati a metà: {}; pausa più lunga colmata fra due frammenti: {} ms (ci si arrende a {} ms); silenzio più lungo fra un comando e la risposta: {} ms; seconde finestre concesse: {}, di cui utili {}; congelamenti visti: {}",
+            "letture: {}, di cui {} corte e {} vuote; pacchetti lasciati a metà: {}; pausa più lunga colmata fra due frammenti: {} ms (ci si arrende a {} ms); silenzio più lungo fra un comando e la risposta: {} ms; seconde finestre concesse: {}, di cui utili {}; congelamenti visti: {}{prima}",
             m.letture,
             m.letture_corte,
             m.letture_vuote,
@@ -4774,6 +4919,288 @@ mod prove {
             flusso.leggi(260, Duration::from_millis(50)).unwrap(),
             vec![0x11, 0x22, 0x33]
         );
+    }
+
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * ► IL DIARIO DEL 22 SETTEMBRE 2026, DA UN AQUALUNG i330R. ◄
+     *
+     *     scrittura n. 1: 14 byte [cd 40 fa f6 09 00 00 00 …], senza conferma
+     *     prima notifica: 101 byte [cd a0 0d 82 60 aa aa aa …], 1 ms dopo la prima scrittura
+     *     libdivecomputer, errore: Unexpected packet command byte (0d). [pelagic_i330r.c:207]
+     *
+     * La richiesta d'accesso è partita, e la prima cosa arrivata è stata un
+     * pacchetto di lettura della memoria che nessuno aveva chiesto: la coda di
+     * una lettura rimasta a metà, che il computer ha svuotato appena gli si è
+     * riaperto il canale. Il racconto intero sta su
+     * `FlussoBle::ascolta_prima_di_parlare`; qui ci sono le prove, e la prima
+     * è che i byte del diario siano davvero quello che si dice che siano.
+     */
+
+    /// Il checksum dei pacchetti Pelagic, lo stesso di `pelagic_i330r.c`.
+    ///
+    /// Qui serve VERO, al contrario di `pacchetto_pelagic`: dall'altra parte
+    /// delle prove che seguono c'è la libreria, e la libreria lo verifica.
+    fn checksum_pelagic(dati: &[u8]) -> u8 {
+        let mut c: u32 = 0;
+        for &x in dati {
+            let a = c ^ x as u32;
+            let b = (a >> 7) ^ ((a >> 4) ^ a);
+            c = ((b << 4) & 0xFF) ^ ((b << 1) & 0xFF);
+        }
+        (c & 0xFF) as u8
+    }
+
+    /// Un pacchetto Pelagic intero, col checksum giusto.
+    fn pacchetto_i330r(bandiera: u8, comando: u8, carico: &[u8]) -> Vec<u8> {
+        let mut p = vec![0xCD, bandiera, comando, 0x00, carico.len() as u8];
+        p.extend_from_slice(carico);
+        p[3] = checksum_pelagic(&p);
+        p
+    }
+
+    /// La coda della lettura rimasta a metà: novantasei byte di `0xAA`.
+    fn coda_del_22_settembre() -> Vec<u8> {
+        pacchetto_i330r(0xA0, 0x0D, &[0xAA; 96])
+    }
+
+    #[test]
+    fn i_byte_del_diario_sono_una_lettura_della_memoria_intera_e_non_rumore() {
+        /*
+         * ► LA MISURA PRIMA DELLA DIAGNOSI. ◄ Se il pacchetto arrivato fosse
+         * spazzatura della radio, buttarlo sarebbe coprire un guasto. Non lo è:
+         * il checksum `0x82` del diario è ESATTAMENTE quello che si calcola su
+         * `CD A0 0D · 60` più novantasei `0xAA`. Un pacchetto di
+         * `CMD_READ_FLASH` intero, arrivato in una conversazione che non ne
+         * aveva chiesto nessuno.
+         *
+         * E la nostra scrittura è la richiesta d'accesso, byte per byte: lo
+         * stesso `f6` del diario.
+         */
+        let coda = coda_del_22_settembre();
+        assert_eq!(&coda[..8], &[0xcd, 0xa0, 0x0d, 0x82, 0x60, 0xaa, 0xaa, 0xaa]);
+        assert_eq!(coda.len(), 101, "le notifiche del diario erano da 101 byte");
+        let richiesta = pacchetto_i330r(0x40, 0xFA, &[0; 9]);
+        assert_eq!(&richiesta[..8], &[0xcd, 0x40, 0xfa, 0xf6, 0x09, 0x00, 0x00, 0x00]);
+        assert_eq!(richiesta.len(), 14, "la scrittura del diario era da 14 byte");
+    }
+
+    /// Il codice di accesso conservato da uno scarico precedente: con questo
+    /// `pelagic_i330r_init` salta il PIN e va dritto alla richiesta d'accesso,
+    /// come nel diario.
+    struct ChiaveConservata;
+
+    impl AccessoriBle for ChiaveConservata {
+        fn nome(&mut self) -> Option<String> {
+            None
+        }
+        fn leggi_caratteristica(&mut self, _uuid: [u8; 16]) -> Result<Vec<u8>, String> {
+            Err("il finto non ha caratteristiche da leggere".into())
+        }
+        fn codice_accesso(&mut self) -> Option<Vec<u8>> {
+            Some(vec![0x5A; 16])
+        }
+    }
+
+    /// I comandi che il finto ha ricevuto, come `(comando, bandiera)`.
+    type Comandi = Arc<Mutex<Vec<(u8, u8)>>>;
+
+    /**
+     * Un i330R finto, quanto basta per arrivare in fondo all'apertura:
+     * richiesta d'accesso, risveglio, autenticazione. Alla calibrazione dice di
+     * no, e la prova si ferma lì — tutto quello che si prova sta prima.
+     *
+     * Due cose del finto vengono dal diario e non sono decorazioni:
+     *
+     *  - **la coda esce da sola**, venti millisecondi dopo l'apertura del
+     *    canale, senza aspettare nessun comando: nel diario è arrivata un
+     *    millisecondo dopo la prima scrittura, cioè prima che la scrittura
+     *    potesse arrivare al computer;
+     *  - **ogni risposta arriva un giro di radio dopo la domanda**, e mai nello
+     *    stesso istante. È quello che mette la coda davanti alla risposta vera,
+     *    come è successo.
+     */
+    fn finto_i330r(coda: Vec<Vec<u8>>, ascolta: bool) -> (FlussoBle, Comandi) {
+        let (manda, ricevi) = channel::<Vec<u8>>();
+        let comandi: Comandi = Arc::new(Mutex::new(Vec::new()));
+
+        let manda_coda = manda.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(20));
+            for pacchetto in coda {
+                let _ = manda_coda.send(pacchetto);
+            }
+        });
+
+        let visti = comandi.clone();
+        let scrittura: ScritturaBle = Box::new(move |dati: &[u8]| {
+            let (bandiera, comando) = (dati[1], dati[2]);
+            visti.lock().unwrap().push((comando, bandiera));
+            let risposte = match (comando, bandiera) {
+                // Richiesta d'accesso, prima e seconda metà: RSP_READY e RSP_DONE.
+                (0xFA, 0x40) => vec![pacchetto_i330r(0xC0, 0xFA, &[1])],
+                (0xFA, 0x80) => vec![pacchetto_i330r(0xC0, 0xFA, &[2])],
+                // Il risveglio restituisce sedici byte di identità; il modello
+                // sta nei byte 12 e 13, e 0x4744 è l'i330R del catalogo.
+                (0x22, _) => {
+                    let mut id = [0u8; 16];
+                    id[12] = 0x47;
+                    id[13] = 0x44;
+                    vec![pacchetto_i330r(0x80, 0x22, &id), pacchetto_i330r(0xC0, 0x22, &[2])]
+                }
+                (0x97, _) => vec![pacchetto_i330r(0xC0, 0x97, &[1])],
+                // Tutto il resto: un rifiuto, che ferma la libreria qui.
+                _ => vec![pacchetto_i330r(0xC0, comando, &[9])],
+            };
+            let manda = manda.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(80));
+                for pacchetto in risposte {
+                    let _ = manda.send(pacchetto);
+                }
+            });
+            Ok(())
+        });
+
+        let mut flusso = FlussoBle::nuovo(ricevi, scrittura)
+            .con_accessori(Box::new(ChiaveConservata), Box::new(|| Ripiego::Esaurito))
+            .con_riassemblaggio(Riassemblaggio::LunghezzaDichiarata);
+        if ascolta {
+            flusso = flusso.con_ascolto_iniziale(SILENZIO_PRIMA_DI_PARLARE, TETTO_PRIMA_DI_PARLARE);
+        }
+        (flusso, comandi)
+    }
+
+    #[test]
+    fn la_coda_di_una_lettura_a_meta_fermava_la_richiesta_d_accesso() {
+        /*
+         * ► LA MISURA DEL DIFETTO, sulla libreria vera. ◄ Senza ascolto
+         * iniziale il finto rifà il diario: un comando solo — la richiesta
+         * d'accesso — e la libreria che si ferma sul primo pacchetto della
+         * coda. Se un giorno questa diventasse verde con più di un comando,
+         * vorrebbe dire che `pelagic_i330r.c` ha imparato a saltare i pacchetti
+         * estranei, e l'ascolto iniziale andrebbe riconsiderato.
+         */
+        let descrittore = trova_descrittore("Aqualung", "i330R").expect("il descrittore dell'i330R deve esistere");
+        let (flusso, comandi) = finto_i330r(vec![coda_del_22_settembre(), coda_del_22_settembre()], false);
+        let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+        assert!(collegamento.scarica(&descrittore).is_err());
+        assert_eq!(*comandi.lock().unwrap(), vec![(0xFA, 0x40)], "si ferma alla richiesta d'accesso");
+        let righe = collegamento.righe_della_libreria();
+        assert!(
+            righe.iter().any(|r| r.contains("pelagic_i330r.c:") && r.contains("(0d)")),
+            "la libreria deve dire il comando estraneo che ha trovato, come nel diario: {righe:?}"
+        );
+    }
+
+    #[test]
+    fn con_l_ascolto_iniziale_la_coda_si_butta_e_l_apertura_va_avanti() {
+        /*
+         * Lo stesso finto, la stessa coda, con l'ascolto che il ponte accende
+         * per la famiglia Pelagic. La coda arriva mentre si aspetta il
+         * silenzio, si butta, e la richiesta d'accesso trova la sua risposta:
+         * dopo passano il risveglio e l'autenticazione, e la libreria si
+         * ferma solo dove il finto dice di no apposta, alla calibrazione.
+         */
+        let descrittore = trova_descrittore("Aqualung", "i330R").expect("il descrittore dell'i330R deve esistere");
+        let (flusso, comandi) = finto_i330r(vec![coda_del_22_settembre(), coda_del_22_settembre()], true);
+        let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+        assert!(collegamento.scarica(&descrittore).is_err(), "il finto rifiuta la calibrazione apposta");
+        assert_eq!(
+            *comandi.lock().unwrap(),
+            vec![(0xFA, 0x40), (0xFA, 0x80), (0x22, 0x40), (0x97, 0x40), (0x27, 0x40)],
+            "accesso, risveglio e autenticazione devono passare"
+        );
+        let righe = collegamento.righe_della_libreria();
+        assert!(
+            !righe.iter().any(|r| r.contains("Unexpected packet command byte")),
+            "nessun pacchetto estraneo deve arrivare alla libreria: {righe:?}"
+        );
+        let misure = collegamento.misure_lettura();
+        assert_eq!((misure.scartate_prima, misure.byte_scartati_prima), (2, 202));
+        let riga = collegamento.riga_delle_letture().expect("ci sono state letture");
+        assert!(
+            riga.contains("arrivate prima del primo comando e buttate: 2 notifiche (202 byte)"),
+            "il diario deve dirlo, o la prossima segnalazione non saprà che è successo: {riga}"
+        );
+    }
+
+    #[test]
+    fn l_ascolto_iniziale_si_fa_una_volta_sola() {
+        /*
+         * Prima del primo comando niente è una risposta; DOPO, tutto può
+         * esserlo. Buttare anche prima del secondo comando vorrebbe dire
+         * buttare risposte vere — e su un protocollo che risponde in ritardo,
+         * la risposta al primo comando.
+         */
+        let (manda, ricevi) = channel();
+        let mut flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())))
+            .con_ascolto_iniziale(Duration::from_millis(20), Duration::from_secs(1));
+        manda.send(vec![0xde, 0xad]).unwrap();
+        flusso.scrivi(&[1]).unwrap();
+        assert_eq!(flusso.scartate_prima_di_parlare(), (1, 2));
+
+        manda.send(vec![0xbe, 0xef]).unwrap();
+        flusso.scrivi(&[2]).unwrap();
+        assert_eq!(
+            flusso.leggi(10, Duration::from_millis(50)).unwrap(),
+            vec![0xbe, 0xef],
+            "dopo il primo comando niente si butta più"
+        );
+        assert_eq!(flusso.scartate_prima_di_parlare(), (1, 2));
+    }
+
+    #[test]
+    fn senza_ascolto_iniziale_non_si_butta_niente() {
+        // Le altre famiglie restano com'erano: nessuna misura dice che ne
+        // abbiano bisogno, e un'attesa in più non è gratis.
+        let (manda, ricevi) = channel();
+        let mut flusso = FlussoBle::nuovo(ricevi, Box::new(|_| Ok(())));
+        manda.send(vec![0xde, 0xad]).unwrap();
+        let prima = std::time::Instant::now();
+        flusso.scrivi(&[1]).unwrap();
+        assert!(prima.elapsed() < Duration::from_millis(15), "nessuna attesa: {:?}", prima.elapsed());
+        assert_eq!(flusso.leggi(10, Duration::from_millis(50)).unwrap(), vec![0xde, 0xad]);
+        assert_eq!(flusso.scartate_prima_di_parlare(), (0, 0));
+    }
+
+    #[test]
+    fn un_computer_che_non_smette_di_parlare_non_blocca_il_primo_comando() {
+        /*
+         * ► IL TETTO. ◄ Un computer che parla senza sosta non sta svuotando una
+         * coda: sta parlando con qualcun altro. Aspettare il silenzio lì
+         * vorrebbe dire aspettare per sempre, e un'applicazione ferma senza
+         * dire niente è indistinguibile da una bloccata. Al tetto si parla
+         * comunque, e il resto lo decide la libreria.
+         */
+        let (manda, ricevi) = channel();
+        let scritte = Arc::new(Mutex::new(0usize));
+        let contate = scritte.clone();
+        let mut flusso = FlussoBle::nuovo(
+            ricevi,
+            Box::new(move |_| {
+                *contate.lock().unwrap() += 1;
+                Ok(())
+            }),
+        )
+        .con_ascolto_iniziale(Duration::from_millis(60), Duration::from_millis(200));
+        let chiacchierone = std::thread::spawn(move || {
+            for _ in 0..100 {
+                if manda.send(vec![0xaa; 20]).is_err() {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        });
+        let prima = std::time::Instant::now();
+        flusso.scrivi(&[1]).unwrap();
+        let passato = prima.elapsed();
+        assert!(passato >= Duration::from_millis(200), "il silenzio non c'è mai stato: si aspetta fino al tetto");
+        assert!(passato < Duration::from_millis(800), "e non oltre: {passato:?}");
+        assert_eq!(*scritte.lock().unwrap(), 1, "al tetto il comando parte comunque");
+        assert!(flusso.scartate_prima_di_parlare().0 >= 5, "{:?}", flusso.scartate_prima_di_parlare());
+        drop(flusso);
+        let _ = chiacchierone.join();
     }
 
     #[test]

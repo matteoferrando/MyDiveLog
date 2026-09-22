@@ -81,6 +81,7 @@ mod dentro {
     use crate::trasporto_ldc::{
         traduci, trova_descrittore, AccessoriBle, Avanzamento, CollegamentoLdc, Contesto,
         FlussoBle, GuastoScrittura, ImmersioneLdc, Riassemblaggio, Ripiego,
+        SILENZIO_PRIMA_DI_PARLARE, TETTO_PRIMA_DI_PARLARE,
     };
 
     // --------------------------------------------------- quel che il GATT dice
@@ -1625,7 +1626,24 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
 
     /// I contatori che la callback delle notifiche tocca dal runtime.
     struct Contatori {
+        /// Le notifiche arrivate DOPO il primo comando, cioè le risposte. Vedi
+        /// `parlato`.
         notifiche: AtomicUsize,
+        /// Se il primo comando è partito.
+        ///
+        /// ► PRIMA DI QUELLO, NIENTE DI QUELLO CHE ARRIVA È UNA RISPOSTA. ◄ Il
+        /// 22 settembre 2026 un Aqualung i330R ha mandato due pacchetti di una
+        /// lettura rimasta a metà appena gli si è riaperto il canale. Contati
+        /// come risposte, avrebbero spento tre cose che esistono apposta per
+        /// il primo scambio: il rinvio sul silenzio (che rinuncia «dopo una
+        /// notifica»), la negoziazione della modalità dopo un rifiuto (che
+        /// cambia solo se «non è mai arrivato niente»), e la riga «il computer
+        /// aveva risposto» del diario. Qui si tengono da parte, e basta.
+        parlato: AtomicBool,
+        /// Quante notifiche sono arrivate prima del primo comando. Serve alla
+        /// riga di diario sulla prima di loro: il conto di quelle buttate lo
+        /// tiene `FlussoBle`, che è chi le butta.
+        prima_di_parlare: AtomicUsize,
         /// Quanti byte sono arrivati finora. Serve all'avanzamento: i
         /// protocolli tipo Uwatec chiedono al computer quanti byte ha e poi li
         /// ricevono tutti in un blocco solo, quindi per minuti non c'è nessun
@@ -1949,6 +1967,8 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         let scollegamento_voluto = Arc::new(AtomicBool::new(false));
         let contatori = Arc::new(Contatori {
             notifiche: AtomicUsize::new(0),
+            parlato: AtomicBool::new(false),
+            prima_di_parlare: AtomicUsize::new(0),
             notifica_piu_grande: AtomicUsize::new(0),
             notifica_piu_piccola: AtomicUsize::new(usize::MAX),
             ricevuti: ricevuti.clone(),
@@ -2247,66 +2267,100 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                 profilo.servizio.clone(),
                 profilo.notifica.clone(),
                 Box::new(move |dati: Vec<u8>| {
-                    let quante = contatori_notifica.notifiche.fetch_add(1, Ordering::Relaxed) + 1;
-                    contatori_notifica.ricevuti.fetch_add(dati.len(), Ordering::Relaxed);
                     /*
-                     * ► LA MISURA CHE MANCAVA. ◄ La dimensione delle notifiche
-                     * è l'MTU negoziato meno tre, e non c'è modo portabile di
-                     * chiederlo al plugin — ma non serve chiederlo: basta
-                     * guardare quanto arriva. È il numero che decide se il
-                     * pacchetto di un Mares del ramo variabile ci sta o si
-                     * spezza, ed è il numero che il 7 settembre 2026 nessuno
-                     * aveva sotto gli occhi mentre cercava di capire perché un
-                     * Quad Ci si fermasse.
+                     * ► PRIMA DEL PRIMO COMANDO NON ARRIVANO RISPOSTE. ◄ Vedi
+                     * `Contatori::parlato`. Si registrano, si dice la prima
+                     * nel diario — è l'unico segno che il computer stava
+                     * ancora parlando d'altro — e si passano al flusso, che
+                     * per i computer che lo chiedono le butta
+                     * (`FlussoBle::ascolta_prima_di_parlare`). I crediti più
+                     * sotto invece valgono per tutte: il computer li ha spesi
+                     * comunque.
                      */
-                    contatori_notifica
-                        .notifica_piu_grande
-                        .fetch_max(dati.len(), Ordering::Relaxed);
-                    contatori_notifica
-                        .notifica_piu_piccola
-                        .fetch_min(dati.len(), Ordering::Relaxed);
-                    /*
-                     * ► LA REGISTRAZIONE PRENDE LE NOTIFICHE QUI, E CON
-                     * `try_lock`. ◄ Questa callback gira nel runtime e non ha
-                     * il diritto di aspettare nessuno: se il thread dello
-                     * scarico ha il registro in mano proprio adesso, la riga si
-                     * perde. *Una riga persa ogni tanto è il prezzo, e va
-                     * scritto qui perché chi analizzerà il file deve saperlo:
-                     * il conto delle notifiche nel riassunto è quello vero, la
-                     * registrazione può averne una di meno.*
-                     */
-                    if let Ok(mut registro) = scambio_notifica.try_lock() {
-                        let da = registro.prima_scrittura;
-                        registro.incidi(
-                            da,
-                            '<',
-                            format!("n.{quante} {} byte [{}]", dati.len(), tutti_i_byte(&dati)),
-                        );
-                    }
-                    if quante == 1 {
-                        // Da quando è partita la prima scrittura: `try_lock`
-                        // e non `lock`, perché questa callback non ha il
-                        // diritto di aspettare nessuno. Se il thread dello
-                        // scarico ha il registro in mano proprio adesso, si
-                        // perde il ritardo e resta «sconosciuto»: meglio di
-                        // una notifica consegnata in ritardo.
-                        let ritardo = scambio_notifica
-                            .try_lock()
-                            .ok()
-                            .and_then(|s| s.prima_scrittura)
-                            .map(|inizio| inizio.elapsed().as_millis() as u64);
-                        if let Some(ms) = ritardo {
-                            contatori_notifica.prima_notifica_ms.store(ms, Ordering::Relaxed);
+                    if !contatori_notifica.parlato.load(Ordering::SeqCst) {
+                        let quante =
+                            contatori_notifica.prima_di_parlare.fetch_add(1, Ordering::Relaxed) + 1;
+                        if let Ok(mut registro) = scambio_notifica.try_lock() {
+                            registro.incidi(
+                                None,
+                                '<',
+                                format!(
+                                    "prima del primo comando, n.{quante} {} byte [{}]",
+                                    dati.len(),
+                                    tutti_i_byte(&dati)
+                                ),
+                            );
                         }
-                        cronista_notifica(format!(
-                            "prima notifica: {} byte [{}]{}",
-                            dati.len(),
-                            anteprima(&dati),
-                            match ritardo {
-                                Some(ms) => format!(", {ms} ms dopo la prima scrittura"),
-                                None => String::new(),
+                        if quante == 1 {
+                            cronista_notifica(format!(
+                                "prima del primo comando: {} byte [{}] — il computer parla senza che gli \
+sia stato chiesto niente, quindi non è una risposta",
+                                dati.len(),
+                                anteprima(&dati)
+                            ));
+                        }
+                    } else {
+                        let quante = contatori_notifica.notifiche.fetch_add(1, Ordering::Relaxed) + 1;
+                        contatori_notifica.ricevuti.fetch_add(dati.len(), Ordering::Relaxed);
+                        /*
+                         * ► LA MISURA CHE MANCAVA. ◄ La dimensione delle notifiche
+                         * è l'MTU negoziato meno tre, e non c'è modo portabile di
+                         * chiederlo al plugin — ma non serve chiederlo: basta
+                         * guardare quanto arriva. È il numero che decide se il
+                         * pacchetto di un Mares del ramo variabile ci sta o si
+                         * spezza, ed è il numero che il 7 settembre 2026 nessuno
+                         * aveva sotto gli occhi mentre cercava di capire perché un
+                         * Quad Ci si fermasse.
+                         */
+                        contatori_notifica
+                            .notifica_piu_grande
+                            .fetch_max(dati.len(), Ordering::Relaxed);
+                        contatori_notifica
+                            .notifica_piu_piccola
+                            .fetch_min(dati.len(), Ordering::Relaxed);
+                        /*
+                         * ► LA REGISTRAZIONE PRENDE LE NOTIFICHE QUI, E CON
+                         * `try_lock`. ◄ Questa callback gira nel runtime e non ha
+                         * il diritto di aspettare nessuno: se il thread dello
+                         * scarico ha il registro in mano proprio adesso, la riga si
+                         * perde. *Una riga persa ogni tanto è il prezzo, e va
+                         * scritto qui perché chi analizzerà il file deve saperlo:
+                         * il conto delle notifiche nel riassunto è quello vero, la
+                         * registrazione può averne una di meno.*
+                         */
+                        if let Ok(mut registro) = scambio_notifica.try_lock() {
+                            let da = registro.prima_scrittura;
+                            registro.incidi(
+                                da,
+                                '<',
+                                format!("n.{quante} {} byte [{}]", dati.len(), tutti_i_byte(&dati)),
+                            );
+                        }
+                        if quante == 1 {
+                            // Da quando è partita la prima scrittura: `try_lock`
+                            // e non `lock`, perché questa callback non ha il
+                            // diritto di aspettare nessuno. Se il thread dello
+                            // scarico ha il registro in mano proprio adesso, si
+                            // perde il ritardo e resta «sconosciuto»: meglio di
+                            // una notifica consegnata in ritardo.
+                            let ritardo = scambio_notifica
+                                .try_lock()
+                                .ok()
+                                .and_then(|s| s.prima_scrittura)
+                                .map(|inizio| inizio.elapsed().as_millis() as u64);
+                            if let Some(ms) = ritardo {
+                                contatori_notifica.prima_notifica_ms.store(ms, Ordering::Relaxed);
                             }
-                        ));
+                            cronista_notifica(format!(
+                                "prima notifica: {} byte [{}]{}",
+                                dati.len(),
+                                anteprima(&dati),
+                                match ritardo {
+                                    Some(ms) => format!(", {ms} ms dopo la prima scrittura"),
+                                    None => String::new(),
+                                }
+                            ));
+                        }
                     }
                     if let Some((antenna, servizio, concessione)) = &ricarica {
                         // Un credito consumato per notifica; alla soglia se ne
@@ -2397,6 +2451,10 @@ il computer resta senza crediti e smetterà di mandare dati"
         let cronista_scrittura = cronista.clone();
         let caratteristica_scrittura = profilo.scrittura.clone();
         let scrittura = Box::new(move |dati: &[u8]| -> Result<(), GuastoScrittura> {
+            // Prima di spedire, non dopo: una risposta velocissima che
+            // arrivasse fra la spedizione e questa riga verrebbe presa per un
+            // pacchetto arrivato prima di parlare.
+            contatori_scrittura.parlato.store(true, Ordering::SeqCst);
             let numero = {
                 let mut s = scambio_scrittura.lock().map_err(|_| "registro dello scambio guasto")?;
                 s.scritture += 1;
@@ -3204,7 +3262,12 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
     /// contiene puntatori del C che non attraversano i thread, quindi tutto —
     /// contesto, descrittore, scarico e traduzione — nasce e muore qui dentro, e
     /// quello che torna indietro è soltanto il modello, che è dati.
-    fn scarica_bloccante(
+    ///
+    /// `pub(super)` per una ragione sola: le prove la chiamano da capo a fondo
+    /// con un'antenna finta (`un_i330r_che_svuota_una_coda_vecchia_si_apre_lo_stesso`),
+    /// perché il punto in cui il flusso viene costruito per un modello si
+    /// prova solo passando da qui.
+    pub(super) fn scarica_bloccante(
         emetti: &dyn Fn(EventoScarico),
         /*
          * ► L'AVANZAMENTO ARRIVA GIÀ CONFEZIONATO DA FUORI, E NON È UN
@@ -3258,10 +3321,20 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
                     .into(),
             });
         }
-        let flusso = FlussoBle::nuovo(entrata, scrittura)
+        let mut flusso = FlussoBle::nuovo(entrata, scrittura)
             .con_accessori(accessori, su_silenzio)
             .con_riassemblaggio(come)
             .con_registratore(Box::new(annota_registrazione));
+        if ascolta_prima_di_parlare(marca, prodotto) {
+            emetti(EventoScarico::Trace {
+                line: format!(
+                    "prima del primo comando si aspettano {} ms di silenzio e si butta quello che arriva: \
+la libreria, per questa famiglia, non svuota l'ingresso da sé",
+                    SILENZIO_PRIMA_DI_PARLARE.as_millis()
+                ),
+            });
+            flusso = flusso.con_ascolto_iniziale(SILENZIO_PRIMA_DI_PARLARE, TETTO_PRIMA_DI_PARLARE);
+        }
         let collegamento = CollegamentoLdc::apri(Box::new(flusso))?;
         emetti(EventoScarico::Progress {
             done: 0,
@@ -3495,19 +3568,35 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
     /// 16 settembre 2026 che l'ha resa necessaria.
     const PELAGIC_LUNGHEZZA_DICHIARATA: [&str; 3] = ["DSX", "i330R", "i330R Console"];
 
+    /// Se il computer è della famiglia `pelagic_i330r`. Vedi `PELAGIC_LUNGHEZZA_DICHIARATA`.
+    fn famiglia_pelagic(marca: &str, prodotto: &str) -> bool {
+        (marca.eq_ignore_ascii_case("Aqualung") || marca.eq_ignore_ascii_case("Apeks"))
+            && PELAGIC_LUNGHEZZA_DICHIARATA.iter().any(|m| m.eq_ignore_ascii_case(prodotto))
+    }
+
     /// Come vanno rimesse insieme le notifiche per questo computer.
     pub fn riassemblaggio_per(marca: &str, prodotto: &str) -> Riassemblaggio {
         if marca.eq_ignore_ascii_case("Mares")
             && MARES_PACCHETTO_INTERO.iter().any(|m| m.eq_ignore_ascii_case(prodotto))
         {
             Riassemblaggio::PacchettoIntero
-        } else if (marca.eq_ignore_ascii_case("Aqualung") || marca.eq_ignore_ascii_case("Apeks"))
-            && PELAGIC_LUNGHEZZA_DICHIARATA.iter().any(|m| m.eq_ignore_ascii_case(prodotto))
-        {
+        } else if famiglia_pelagic(marca, prodotto) {
             Riassemblaggio::LunghezzaDichiarata
         } else {
             Riassemblaggio::UnaNotifica
         }
+    }
+
+    /// Se prima del primo comando si aspetta il silenzio e si butta quello che
+    /// arriva. Vedi `FlussoBle::ascolta_prima_di_parlare`.
+    ///
+    /// Solo la famiglia Pelagic, per due ragioni che valgono solo lì: è
+    /// l'unica in cui lo si è **visto** — l'i330R del 22 settembre 2026 — ed è
+    /// una delle poche in cui libdivecomputer all'apertura non svuota
+    /// l'ingresso da sé. Non dipende dal metodo del giro: la coda lasciata a
+    /// metà dal computer c'è qualunque sia il modo in cui gli si parla.
+    pub fn ascolta_prima_di_parlare(marca: &str, prodotto: &str) -> bool {
+        famiglia_pelagic(marca, prodotto)
     }
 
     /// Se uno scarico è in corso. Il plugin ha UN dispositivo collegato e
@@ -5130,8 +5219,11 @@ mod prove {
     #[test]
     fn i_byte_ricevuti_si_contano_per_poter_mostrare_lavanzamento() {
         let antenna = FintaAntenna::con(vec![seriale("fdcdeaaa-295d-470e-bf15-04217b7aa0a0")]);
-        let (ponte, _) = apri(&antenna);
+        let (mut ponte, _) = apri(&antenna);
 
+        // Prima un comando: quello che arriva prima del primo comando non è
+        // una risposta, e non è avanzamento. Vedi `Contatori::parlato`.
+        (ponte.scrittura)(&[0x01]).unwrap();
         antenna.notifica(&[0; 20]);
         antenna.notifica(&[0; 13]);
 
@@ -5150,6 +5242,8 @@ mod prove {
         let antenna = FintaAntenna::con(vec![seriale("fdcdeaaa-295d-470e-bf15-04217b7aa0a0")]);
         let (mut flusso, diario, riassunto) = apri_flusso(&antenna);
 
+        // Un comando e la sua risposta: vedi `Contatori::parlato`.
+        flusso.scrivi(&[0xc6]).unwrap();
         antenna.notifica(&[0xf7, 0x63]);
         assert_eq!(flusso.leggi(10, Duration::from_millis(200)).unwrap(), vec![0xf7, 0x63]);
 
@@ -5642,6 +5736,159 @@ mod prove {
     }
 
     #[test]
+    fn quello_che_arriva_prima_del_primo_comando_non_e_una_risposta() {
+        /*
+         * ► IL DIARIO DEL 22 SETTEMBRE 2026, LA METÀ CHE STA NEL PONTE. ◄ Un
+         * Aqualung i330R ha mandato due pacchetti di una lettura rimasta a
+         * metà appena gli si è riaperto il canale. Il flusso li butta
+         * (`FlussoBle::ascolta_prima_di_parlare`); qui si prova che il ponte
+         * non li conti come risposte. Contati, avrebbero spento il rinvio sul
+         * silenzio — che rinuncia «dopo una notifica» — proprio nel caso in
+         * cui una risposta non è mai arrivata.
+         */
+        let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")]);
+        let (flusso, diario, riassunto) = apri_flusso(&antenna);
+        let mut flusso = flusso.con_ascolto_iniziale(Duration::from_millis(30), Duration::from_millis(500));
+        antenna.notifica(&[0xcd, 0xa0, 0x0d, 0x82, 0x60, 0xaa]);
+        flusso.scrivi(&[0xc2, 0x8d]).unwrap();
+
+        // Il computer non risponde al comando: il silenzio è un silenzio vero.
+        let letti = flusso.leggi(20, Duration::from_millis(100)).unwrap();
+        assert!(letti.is_empty(), "la coda non deve arrivare alla lettura: {letti:?}");
+        assert_eq!(flusso.scartate_prima_di_parlare(), (1, 6));
+        assert!(
+            diario.contiene("prima del primo comando: 6 byte [cd a0 0d 82 60 aa]"),
+            "la coda va detta nel diario, una volta: {}",
+            diario.testo()
+        );
+        assert!(
+            diario.contiene("rimando le 1 scritture fatte finora (n. 1–1"),
+            "il rinvio sul silenzio deve restare vivo: {}",
+            diario.testo()
+        );
+        assert!(!diario.contiene("prima notifica:"), "la coda non è la prima notifica: {}", diario.testo());
+        assert!(riassunto().contains("nessuna notifica"), "{}", riassunto());
+    }
+
+    /// Il codice di accesso conservato: con questo l'i330R salta il PIN e va
+    /// dritto alla richiesta d'accesso, come nel diario del 22 settembre.
+    struct ChiaveDelI330R;
+
+    impl AccessoriBle for ChiaveDelI330R {
+        fn nome(&mut self) -> Option<String> {
+            None
+        }
+        fn leggi_caratteristica(&mut self, _uuid: [u8; 16]) -> Result<Vec<u8>, String> {
+            Err("il finto non ha caratteristiche da leggere".into())
+        }
+        fn codice_accesso(&mut self) -> Option<Vec<u8>> {
+            Some(vec![0x5A; 16])
+        }
+    }
+
+    /// Un pacchetto Pelagic col checksum VERO: dall'altra parte c'è
+    /// `pelagic_i330r.c`, che lo verifica.
+    fn pacchetto_i330r(bandiera: u8, comando: u8, carico: &[u8]) -> Vec<u8> {
+        let mut p = vec![0xCD, bandiera, comando, 0x00, carico.len() as u8];
+        p.extend_from_slice(carico);
+        let mut c: u32 = 0;
+        for &x in &p {
+            let a = c ^ x as u32;
+            let b = (a >> 7) ^ ((a >> 4) ^ a);
+            c = ((b << 4) & 0xFF) ^ ((b << 1) & 0xFF);
+        }
+        p[3] = (c & 0xFF) as u8;
+        p
+    }
+
+    /// Come risponde l'i330R finto: accesso, risveglio e autenticazione sì, la
+    /// calibrazione no — la prova si ferma lì apposta.
+    fn risposta_i330r(comando: u8, bandiera: u8) -> Vec<Vec<u8>> {
+        match (comando, bandiera) {
+            (0xFA, 0x40) => vec![pacchetto_i330r(0xC0, 0xFA, &[1])],
+            (0xFA, 0x80) => vec![pacchetto_i330r(0xC0, 0xFA, &[2])],
+            (0x22, _) => {
+                let mut id = [0u8; 16];
+                id[12] = 0x47;
+                id[13] = 0x44;
+                vec![pacchetto_i330r(0x80, 0x22, &id), pacchetto_i330r(0xC0, 0x22, &[2])]
+            }
+            (0x97, _) => vec![pacchetto_i330r(0xC0, 0x97, &[1])],
+            _ => vec![pacchetto_i330r(0xC0, comando, &[9])],
+        }
+    }
+
+    #[test]
+    fn un_i330r_che_svuota_una_coda_vecchia_si_apre_lo_stesso() {
+        /*
+         * ► IL DIARIO DEL 22 SETTEMBRE 2026, DA CAPO A FONDO. ◄ Il ponte vero,
+         * il flusso che il ponte costruisce per quel modello, libdivecomputer
+         * vera. Di finto ci sono l'antenna e il computer dall'altra parte, che
+         * fa quello che il diario dice che ha fatto: appena gli si apre il
+         * canale svuota due pacchetti di una lettura rimasta a metà, e poi
+         * risponde ai comandi un giro di radio dopo.
+         *
+         * Prima di questa correzione la libreria si fermava al primo comando
+         * con «Unexpected packet command byte (0d)». Adesso la coda si butta,
+         * il diario lo dice due volte — cosa è arrivato e quanto se n'è
+         * buttato — e l'apertura va avanti fino a dove il finto dice di no.
+         */
+        let antenna = FintaAntenna::con(vec![informativo(), seriale("ca7b0001-f785-4c38-b599-c7c5fbadb034")]);
+        let (mut ponte, diario) = apri(&antenna);
+        ponte.accessori = Box::new(ChiaveDelI330R);
+
+        let computer = {
+            let antenna = antenna.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(20));
+                let coda = pacchetto_i330r(0xA0, 0x0D, &[0xAA; 96]);
+                antenna.notifica(&coda);
+                antenna.notifica(&coda);
+                let mut risposte = 0;
+                for _ in 0..800 {
+                    let scritte = antenna.scritte();
+                    while risposte < scritte.len() {
+                        let (comando, bandiera) = (scritte[risposte].dati[2], scritte[risposte].dati[1]);
+                        risposte += 1;
+                        std::thread::sleep(Duration::from_millis(40));
+                        for pacchetto in risposta_i330r(comando, bandiera) {
+                            antenna.notifica(&pacchetto);
+                        }
+                        if comando == 0x27 {
+                            return;
+                        }
+                    }
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+            })
+        };
+
+        let righe = Arc::new(Mutex::new(Vec::<String>::new()));
+        let raccolte = righe.clone();
+        let emetti = move |evento: EventoScarico| {
+            if let EventoScarico::Trace { line } = evento {
+                raccolte.lock().unwrap().push(line);
+            }
+        };
+        let _ = scarica_bloccante(&emetti, &|_| {}, ponte, "Aqualung", "i330R", &[]);
+        computer.join().unwrap();
+
+        let tutto = format!("{}\n{}", righe.lock().unwrap().join("\n"), diario.testo());
+        assert!(tutto.contains("si aspettano 300 ms di silenzio"), "{tutto}");
+        assert!(
+            tutto.contains("prima del primo comando: 101 byte [cd a0 0d 82 60 aa aa aa …]"),
+            "{tutto}"
+        );
+        assert!(
+            tutto.contains("arrivate prima del primo comando e buttate: 2 notifiche (202 byte)"),
+            "{tutto}"
+        );
+        assert!(!tutto.contains("Unexpected packet command byte"), "{tutto}");
+        let comandi: Vec<u8> = antenna.scritte().iter().map(|s| s.dati[2]).collect();
+        assert_eq!(comandi, vec![0xFA, 0xFA, 0x22, 0x97, 0x27], "accesso, risveglio, autenticazione, calibrazione");
+    }
+
+    #[test]
     fn il_rinvio_sul_silenzio_funziona_quando_il_computer_risponde_alla_seconda() {
         // Lo stesso, con un computer che alla seconda modalità risponde: la
         // lettura deve restituire la risposta, non il vuoto della prima attesa.
@@ -6021,6 +6268,8 @@ mod prove {
          */
         let antenna = FintaAntenna::con(vec![seriale("544e326b-5b72-c6b0-1c46-41c1bc448118")]);
         let (mut flusso, _, riassunto) = apri_flusso(&antenna);
+        // Un comando prima: vedi `Contatori::parlato`.
+        flusso.scrivi(&[0xc2, 0x8d]).unwrap();
         antenna.notifica(&[0xaa; 100]);
         antenna.notifica(&[0xbb; 42]);
         flusso.leggi(200, Duration::from_millis(100)).unwrap();
@@ -6084,6 +6333,29 @@ mod prove {
         assert_eq!(riassemblaggio_per("Aqualung", "i200C"), Riassemblaggio::UnaNotifica);
         // E la marca fa parte della domanda anche qui.
         assert_eq!(riassemblaggio_per("Cressi", "DSX"), Riassemblaggio::UnaNotifica);
+    }
+
+    #[test]
+    fn prima_di_parlare_si_ascolta_solo_sulla_famiglia_pelagic() {
+        /*
+         * ► IL DIARIO DEL 22 SETTEMBRE 2026. ◄ Un i330R ha mandato la coda di
+         * una lettura rimasta a metà appena gli si è riaperto il canale, e
+         * `pelagic_i330r.c` — che all'apertura non svuota l'ingresso — si è
+         * fermato sul primo pacchetto estraneo. Il racconto sta su
+         * `FlussoBle::ascolta_prima_di_parlare`.
+         *
+         * Solo quella famiglia: le altre non hanno una misura, e la maggior
+         * parte dei loro backend svuota da sé.
+         */
+        assert!(ascolta_prima_di_parlare("Aqualung", "i330R"));
+        assert!(ascolta_prima_di_parlare("aqualung", "I330R CONSOLE"));
+        assert!(ascolta_prima_di_parlare("Apeks", "DSX"));
+        // L'altro Aqualung è un Oceanic Atom 2: `oceanic_atom2.c` svuota da sé.
+        assert!(!ascolta_prima_di_parlare("Aqualung", "i200C"));
+        assert!(!ascolta_prima_di_parlare("Scubapro", "Aladin Sport Matrix"));
+        assert!(!ascolta_prima_di_parlare("Mares", "Quad Ci"));
+        assert!(!ascolta_prima_di_parlare("Shearwater", "Peregrine"));
+        assert!(!ascolta_prima_di_parlare("Cressi", "DSX"));
     }
 
     #[test]

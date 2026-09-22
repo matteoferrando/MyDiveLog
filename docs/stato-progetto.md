@@ -1,9 +1,56 @@
 # MyDiveLog — stato del progetto
 
 Aggiornato: **22 settembre 2026** — **2 944 prove in 191 file** più
-**149 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
+**158 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
+
+> ## ► L'i330R E LA CODA DI UNA LETTURA RIMASTA A METÀ. ◄
+>
+> Il 22 settembre, notte, dal diario di uno scarico fallito su un **Aqualung
+> i330R** — con la chiave di accesso già conservata e il metodo che aveva già
+> funzionato. **Niente di questo è pubblicato**: entra nella 1.8.30.
+>
+> **Il fatto.** La prima scrittura è la richiesta d'accesso
+> (`cd 40 fa f6 09 …`, 14 byte). La prima notifica, **un millisecondo dopo**,
+> è un pacchetto di lettura della memoria — `CMD_READ_FLASH`, `0x0D` — con
+> novantasei byte di `0xAA` e il checksum **giusto**: `0x82` è esattamente
+> quello che si calcola su quei byte. Due notifiche in tutto, poi silenzio.
+> `pelagic_i330r.c:207` si ferma al primo pacchetto col comando sbagliato:
+> *«Unexpected packet command byte (0d)»*.
+>
+> **La lettura.** Un millisecondo è meno di un giro di radio: quel pacchetto
+> non poteva rispondere a noi, era già in viaggio. È la coda di una lettura
+> rimasta a metà in un collegamento precedente, che il computer ha svuotato
+> appena gli si è riaperto il canale. E la libreria, per questa famiglia,
+> all'apertura **non svuota l'ingresso**: Shearwater e Deep Six aspettano
+> 300 ms e fanno `dc_iostream_purge`, Oceanic, Mares e Halcyon fanno `purge`;
+> in `pelagic_i330r.c` non ce n'è nemmeno uno.
+>
+> **Il rimedio**, solo per la famiglia Pelagic (DSX, i330R, i330R Console):
+> **prima del primo comando si ascolta** — 300 ms di silenzio, il valore della
+> libreria stessa, al massimo 3 s — e si butta quello che arriva. E il ponte
+> non conta come risposte le notifiche arrivate prima di parlare: contate,
+> avrebbero spento il rinvio sul silenzio e la negoziazione della modalità
+> proprio al primo scambio. Il diario lo dice due volte: il primo pacchetto
+> arrivato prima del primo comando, e quanti se ne sono buttati.
+>
+> **Le prove**, contro la libreria vera: un i330R finto che rifà il diario si
+> ferma alla richiesta d'accesso senza l'ascolto, e con l'ascolto passa
+> accesso, risveglio e autenticazione; lo stesso da capo a fondo attraverso il
+> ponte, con l'antenna finta. Ogni regola vista rossa con una mutazione:
+> l'ascolto spento, ripetuto a ogni comando, senza tetto, il cablaggio per
+> modello tolto, le notifiche di prima contate come risposte.
+>
+> **Visto e lasciato aperto:** dopo il guasto il ritentativo automatico non si
+> è più collegato — tre `Timeout during execution of Connect`, 53 secondi. Era
+> successo anche il 16 settembre. Sembra che l'i330R esca dal Bluetooth quando
+> il collegamento cade: il messaggio finale dice già di spegnerlo e
+> riaccenderlo, ma i 53 secondi prima sono un'attesa senza speranza. Da
+> chiedere a chi ce l'ha in mano, prima di cambiare il ritentativo.
+>
+> Catena: prove Rust **158** (erano 149), clippy a zero, TypeScript
+> invariato nei numeri.
 
 > ## ► IL RUOLO «BAILOUT», E LE SCHERMATE DELL'APP STORE IN DUE LINGUE. ◄
 >

@@ -41,19 +41,30 @@ describe('la famiglia Pelagic, in Rust e nel catalogo', () => {
 
   it('e le marche sono quelle che la funzione guarda', () => {
     /*
-     * `riassemblaggio_per` controlla la marca oltre al modello — «Cressi DSX»
+     * `famiglia_pelagic` controlla la marca oltre al modello — «Cressi DSX»
      * non è un Pelagic. Se un domani la famiglia arrivasse a una terza marca,
      * l'elenco dei nomi resterebbe giusto e la funzione smetterebbe di
      * riconoscerla: è il difetto che questa riga prende.
+     *
+     * ► DAL 22 SETTEMBRE 2026 LE DOMANDE SONO DUE, E LA RISPOSTA UNA. ◄ Come
+     * rimettere insieme le notifiche (`riassemblaggio_per`) e se ascoltare il
+     * silenzio prima del primo comando (`ascolta_prima_di_parlare`): tutte e
+     * due chiedono «è un Pelagic?» a `famiglia_pelagic`. Se una delle due
+     * tornasse a scriversi la domanda da sé, le marche invecchierebbero in un
+     * posto solo — quindi si pretende anche che la chiamino.
      */
     const marche = new Set(MODELLI_BLE.filter((c) => c.famiglia === 'pelagic_i330r').map((c) => c.marca));
     const rust = readFileSync('src-tauri/src/ponte_blec.rs', 'utf8');
-    const funzione = rust.slice(rust.indexOf('pub fn riassemblaggio_per'));
+    const funzione = rust.slice(rust.indexOf('fn famiglia_pelagic'));
     for (const marca of marche) {
       expect(
-        funzione.slice(0, 1200),
+        funzione.slice(0, 400),
         `«${marca}» ha un Pelagic in catalogo ma la funzione non la nomina`,
       ).toContain(`eq_ignore_ascii_case("${marca}")`);
+    }
+    for (const chi of ['pub fn riassemblaggio_per', 'pub fn ascolta_prima_di_parlare']) {
+      const corpo = rust.slice(rust.indexOf(chi), rust.indexOf(chi) + 800);
+      expect(corpo, `${chi} deve chiedere a famiglia_pelagic`).toContain('famiglia_pelagic(marca, prodotto)');
     }
   });
 });
