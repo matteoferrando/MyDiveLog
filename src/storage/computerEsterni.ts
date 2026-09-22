@@ -194,6 +194,13 @@ export interface EsitoScaricoEsterno {
    * sopravvivere per mesi a un apparecchio visto una volta sola.
    */
   registrazione?: string[];
+  /**
+   * Vero quando la chiave di accoppiamento conservata è stata presentata, il
+   * computer non ne ha data una nuova, e non si è aperto. Lo calcola il guscio
+   * Rust, che è l'unico a vedere le tre cose: vedi `EsitoChiave` in
+   * `ponte_blec.rs` e `contaRifiutoDellaChiave` in `accoppiamento.ts`.
+   */
+  chiaveNonAccettata: boolean;
 }
 
 /**
@@ -250,6 +257,8 @@ export async function scaricaDaComputerEsterno({
       immersioni: ImmersioneLdc[];
       guasto?: string;
       registrazione?: string[];
+      chiaveNonAccettata?: boolean;
+      modelloDichiarato?: { marca: string; modello: string };
     }>('scarica_da_computer_esterno', {
       dispositivo,
       nome: nome && nome.trim() !== '' ? nome : null,
@@ -275,9 +284,19 @@ export async function scaricaDaComputerEsterno({
      * ripetere su altri cento modelli il difetto che il 24 agosto 2026 ha
      * fatto entrare due immersioni in archivio quattro volte.
      */
+    /*
+     * ► IL NOME SULLE IMMERSIONI È QUELLO CHE IL COMPUTER HA DICHIARATO. ◄
+     * Quando il guscio lo manda, il computer si è presentato con un modello
+     * diverso da quello scelto e il numero porta a un nome solo: vedi
+     * `modello_dichiarato` in `ponte_blec.rs`. Il nome finisce su ogni
+     * immersione e da lì nel libretto stampato; uno scelto male sarebbe
+     * sbagliato su tutte. Il segnalibro invece resta sotto il nome scelto —
+     * è quello con cui verrà chiesto la prossima volta.
+     */
+    const etichetta = esito.modelloDichiarato ?? { marca, modello };
     const tradotte = immersioniDaLdcConScarti(esito.immersioni, {
-      marca,
-      modello,
+      marca: etichetta.marca,
+      modello: etichetta.modello,
       dispositivo,
       fuso: fusoDelDispositivo,
       importedAt: new Date().toISOString(),
@@ -287,6 +306,9 @@ export async function scaricaDaComputerEsterno({
       scartate: tradotte.scartate,
       guasto: esito.guasto,
       registrazione: esito.registrazione,
+      // Assente vuol dire falso: il guscio lo tace quando non c'è niente da
+      // dire, come fa con il guasto.
+      chiaveNonAccettata: esito.chiaveNonAccettata === true,
     };
   } finally {
     // Si spegne SEMPRE, anche quando lo scarico fallisce: un ascoltatore

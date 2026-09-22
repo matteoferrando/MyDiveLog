@@ -4,10 +4,14 @@
  * ► FILE GENERATO — non modificarlo a mano. ◄
  * Rigeneralo con: node scripts/catalogo-computer.mjs
  *
- * Fonte: libdivecomputer 0.9.0, `src/descriptor.c`, filtrato su
- * `DC_TRANSPORT_BLE`. Su 356 modelli descritti dalla libreria, questi sono
+ * Fonte: libdivecomputer 0.10.0-devel, `src/descriptor.c`, filtrato su
+ * `DC_TRANSPORT_BLE`. Su 358 modelli descritti dalla libreria, questi sono
  * quelli raggiungibili da un telefono: la porta seriale e l'USB su iPhone non
  * esistono, e il Bluetooth classico è riservato ai profili di sistema.
+ *
+ * Descrittori BLE: 116. Sono più delle voci qui sotto perché un nome
+ * commerciale può portare più numeri di modello, e nell'elenco compare una
+ * volta sola.
  *
  * Il perché per esteso sta in testa allo script che lo genera.
  */
@@ -28,7 +32,7 @@ export interface ModelloComputer {
   numeri: readonly number[];
 }
 
-/** 105 modelli, 20 marche. */
+/** 115 modelli, 21 marche. */
 export const MODELLI_BLE: readonly ModelloComputer[] = [
   { marca: 'Apeks', modello: 'DSX', famiglia: 'pelagic_i330r', numeri: [18241] },
   { marca: 'Aqualung', modello: 'i200C', famiglia: 'oceanic_atom2', numeri: [17993, 18249] },
@@ -46,6 +50,7 @@ export const MODELLI_BLE: readonly ModelloComputer[] = [
   { marca: 'Cressi', modello: 'Michelangelo', famiglia: 'cressi_goa', numeri: [5] },
   { marca: 'Cressi', modello: 'Neon', famiglia: 'cressi_goa', numeri: [9] },
   { marca: 'Cressi', modello: 'Nepto', famiglia: 'cressi_goa', numeri: [10] },
+  { marca: 'Cressi', modello: 'Raffaello', famiglia: 'cressi_goa', numeri: [6] },
   { marca: 'Crest', modello: 'CR-4', famiglia: 'deepsix_excursion', numeri: [0] },
   { marca: 'Deep Six', modello: 'Excursion', famiglia: 'deepsix_excursion', numeri: [0] },
   { marca: 'Deepblu', modello: 'Cosmiq+', famiglia: 'deepblu_cosmiq', numeri: [0] },
@@ -54,22 +59,29 @@ export const MODELLI_BLE: readonly ModelloComputer[] = [
   { marca: 'Genesis', modello: 'Centauri', famiglia: 'deepsix_excursion', numeri: [0] },
   { marca: 'Halcyon', modello: 'Symbios Handset', famiglia: 'halcyon_symbios', numeri: [7] },
   { marca: 'Halcyon', modello: 'Symbios HUD', famiglia: 'halcyon_symbios', numeri: [1] },
-  { marca: 'Heinrichs Weikamp', modello: 'OSTC 2', famiglia: 'hw_ostc3', numeri: [17, 19, 27] },
-  { marca: 'Heinrichs Weikamp', modello: 'OSTC 2 TR', famiglia: 'hw_ostc3', numeri: [51] },
-  { marca: 'Heinrichs Weikamp', modello: 'OSTC 4', famiglia: 'hw_ostc3', numeri: [59] },
-  { marca: 'Heinrichs Weikamp', modello: 'OSTC 5', famiglia: 'hw_ostc3', numeri: [59] },
-  { marca: 'Heinrichs Weikamp', modello: 'OSTC Plus', famiglia: 'hw_ostc3', numeri: [19, 26] },
-  { marca: 'Heinrichs Weikamp', modello: 'OSTC Sport', famiglia: 'hw_ostc3', numeri: [18, 19] },
+  { marca: 'Heinrichs Weikamp', modello: 'OSTC 2', famiglia: 'hw_ostc3', numeri: [0] },
+  { marca: 'Heinrichs Weikamp', modello: 'OSTC 2 TR', famiglia: 'hw_ostc3', numeri: [0] },
+  { marca: 'Heinrichs Weikamp', modello: 'OSTC 3', famiglia: 'hw_ostc3', numeri: [0] },
+  { marca: 'Heinrichs Weikamp', modello: 'OSTC 4', famiglia: 'hw_ostc3', numeri: [67] },
+  { marca: 'Heinrichs Weikamp', modello: 'OSTC 5', famiglia: 'hw_ostc3', numeri: [68] },
+  { marca: 'Heinrichs Weikamp', modello: 'OSTC cR', famiglia: 'hw_ostc3', numeri: [0] },
+  { marca: 'Heinrichs Weikamp', modello: 'OSTC Nano', famiglia: 'hw_ostc3', numeri: [0] },
+  { marca: 'Heinrichs Weikamp', modello: 'OSTC Plus', famiglia: 'hw_ostc3', numeri: [0] },
+  { marca: 'Heinrichs Weikamp', modello: 'OSTC Sport', famiglia: 'hw_ostc3', numeri: [0] },
   { marca: 'Mares', modello: 'Genius', famiglia: 'mares_iconhd', numeri: [28] },
   { marca: 'Mares', modello: 'Puck 4', famiglia: 'mares_iconhd', numeri: [53] },
   { marca: 'Mares', modello: 'Puck Air 2', famiglia: 'mares_iconhd', numeri: [45] },
   { marca: 'Mares', modello: 'Puck Lite', famiglia: 'mares_iconhd', numeri: [53] },
   { marca: 'Mares', modello: 'Puck Pro', famiglia: 'mares_iconhd', numeri: [24] },
   { marca: 'Mares', modello: 'Puck Pro +', famiglia: 'mares_iconhd', numeri: [24] },
+  { marca: 'Mares', modello: 'Puck Pro EZ', famiglia: 'mares_iconhd', numeri: [53] },
+  { marca: 'Mares', modello: 'Puck Pro Ultra', famiglia: 'mares_iconhd', numeri: [53] },
   { marca: 'Mares', modello: 'Quad', famiglia: 'mares_iconhd', numeri: [41] },
+  { marca: 'Mares', modello: 'Quad 2', famiglia: 'mares_iconhd', numeri: [50] },
   { marca: 'Mares', modello: 'Quad Air', famiglia: 'mares_iconhd', numeri: [35] },
   { marca: 'Mares', modello: 'Quad Ci', famiglia: 'mares_iconhd', numeri: [49] },
   { marca: 'Mares', modello: 'Sirius', famiglia: 'mares_iconhd', numeri: [47] },
+  { marca: 'Mares', modello: 'Sirius L', famiglia: 'mares_iconhd', numeri: [51] },
   { marca: 'Mares', modello: 'Smart', famiglia: 'mares_iconhd', numeri: [16] },
   { marca: 'Mares', modello: 'Smart Air', famiglia: 'mares_iconhd', numeri: [36] },
   { marca: 'Mares', modello: 'Smart Apnea', famiglia: 'mares_iconhd', numeri: [65552] },
@@ -117,9 +129,11 @@ export const MODELLI_BLE: readonly ModelloComputer[] = [
   { marca: 'Scubapro', modello: 'G3', famiglia: 'uwatec_smart', numeri: [52] },
   { marca: 'Scubapro', modello: 'Luna 2.0', famiglia: 'uwatec_smart', numeri: [81] },
   { marca: 'Scubapro', modello: 'Luna 2.0 AI', famiglia: 'uwatec_smart', numeri: [80] },
+  { marca: 'Seac', modello: 'Tablet', famiglia: 'seac_screen', numeri: [16] },
   { marca: 'Shearwater', modello: 'Nerd 2', famiglia: 'shearwater_petrel', numeri: [7] },
   { marca: 'Shearwater', modello: 'Perdix', famiglia: 'shearwater_petrel', numeri: [5] },
   { marca: 'Shearwater', modello: 'Perdix 2', famiglia: 'shearwater_petrel', numeri: [11] },
+  { marca: 'Shearwater', modello: 'Perdix 3', famiglia: 'shearwater_petrel', numeri: [14] },
   { marca: 'Shearwater', modello: 'Perdix AI', famiglia: 'shearwater_petrel', numeri: [6] },
   { marca: 'Shearwater', modello: 'Peregrine', famiglia: 'shearwater_petrel', numeri: [9] },
   { marca: 'Shearwater', modello: 'Peregrine TX', famiglia: 'shearwater_petrel', numeri: [13] },

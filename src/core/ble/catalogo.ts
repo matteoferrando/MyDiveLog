@@ -4,17 +4,23 @@
  * ════════════════════════════════════════════════════════════════════════════
  * IL PROBLEMA, IN UN NUMERO SOLO.
  *
- * libdivecomputer descrive 356 modelli. Di questi, **110 parlano BLE**, cioè
+ * libdivecomputer descrive 358 modelli. Di questi, **116 parlano BLE**, cioè
  * sono gli unici raggiungibili da un telefono: su iPhone la porta seriale non
  * esiste, l'USB non esiste, e il Bluetooth classico è riservato ai profili di
  * sistema. Già questo taglia due terzi dell'elenco, e nessuno ci perde niente —
  * anzi: mostrare un modello che il telefono non potrà mai contattare vuol dire
  * far scegliere l'utente e dargli la colpa dopo.
  *
- * Quei 110 descrittori diventano **105 voci e 20 marche**, perché un nome
+ * Quei 116 descrittori diventano **115 voci e 21 marche**, perché un nome
  * commerciale può portare più numeri di modello e nell'elenco compare una volta
- * sola. Centocinque voci su uno schermo da telefono sono un elenco che si
+ * sola. Centoquindici voci su uno schermo da telefono sono un elenco che si
  * scorre, non che si legge.
+ *
+ * *(Con libdivecomputer 0.9.0 erano 356, 110, 105 e 20. Il 22 settembre 2026 la
+ * libreria è passata al ramo principale — `build.rs` dice perché — e sono
+ * entrati il Perdix 3, il Quad 2, il Sirius L, i Puck Pro EZ e Ultra, il Cressi
+ * Raffaello, il Seac Tablet e tre OSTC. I numeri qui sopra li controlla
+ * `tests/catalogoComputer.test.ts`, contro l'intestazione del file generato.)*
  *
  * *(Qui c'era scritto «110 modelli e 110 voci»: confondeva i descrittori della
  * libreria con le righe dell'elenco, che sono cinque di meno. Nessuno se n'era
@@ -28,12 +34,12 @@
  * elenca, e quello che verrebbe da usare — l'elenco esce così:
  *
  *      Ratio               25 modelli
- *      Mares               13
- *      Shearwater          11
+ *      Mares               17
+ *      Shearwater          12
  *      Scubapro            11
- *      Heinrichs Weikamp   10
- *      Aqualung             9
- *      Cressi               7
+ *      Heinrichs Weikamp    9
+ *      Aqualung             8
+ *      Cressi               8
  *      Oceanic              5
  *      Suunto               4
  *
@@ -44,7 +50,7 @@
  * subacquei tecnici Shearwater arriva al **79.1%** e Ratio all'1.8%.
  *
  * Cioè: **Ratio ha venticinque modelli e un subacqueo su settanta; Shearwater
- * ne ha undici e uno su due. Suunto è penultima per numero di modelli ed è la
+ * ne ha dodici e uno su due. Suunto è penultima per numero di modelli ed è la
  * seconda marca più diffusa al mondo.** Un elenco ordinato per numero di
  * modelli mette per primo quello che quasi nessuno ha e in fondo quello che ha
  * un utente su cinque.

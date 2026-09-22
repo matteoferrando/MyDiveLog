@@ -58,9 +58,25 @@ describe('i numeri scritti nei commenti', () => {
     const marche = new Set(MODELLI_BLE.map((m) => m.marca)).size;
     expect(numeri, `nell’intestazione non c’è il numero delle voci (${voci})`).toContain(voci);
     expect(numeri, `nell’intestazione non c’è il numero delle marche (${marche})`).toContain(marche);
+    /*
+     * E i due numeri della libreria — quanti modelli descrive, quanti parlano
+     * BLE — si leggono dall'intestazione del file GENERATO, che li scrive lo
+     * script a ogni rigenerazione. Qui fino al 22 settembre 2026 c'era un
+     * `const descrittori = 110` scritto a mano: il giorno dell'aggiornamento
+     * della libreria sarebbe rimasto 110 mentre i descrittori diventavano 116,
+     * e la prova avrebbe continuato a confrontare le voci con un numero vecchio.
+     */
+    const generato = readFileSync(new URL('../src/core/ble/catalogoGenerato.ts', import.meta.url), 'utf8');
+    const totale = Number(/Su (\d+) modelli descritti dalla libreria/.exec(generato)?.[1]);
+    const descrittori = Number(/Descrittori BLE: (\d+)\./.exec(generato)?.[1]);
+    expect(totale, 'il file generato non dice più quanti modelli descrive la libreria').toBeGreaterThan(0);
+    expect(descrittori, 'il file generato non dice più quanti descrittori parlano BLE').toBeGreaterThan(0);
+    expect(numeri, `nell’intestazione non c’è il totale della libreria (${totale})`).toContain(totale);
+    expect(numeri, `nell’intestazione non c’è il numero dei descrittori BLE (${descrittori})`).toContain(
+      descrittori,
+    );
     // E soprattutto: il numero dei descrittori BLE non deve essere usato al
     // posto di quello delle voci. Erano scritti tutti e due come «110».
-    const descrittori = 110;
     expect(descrittori).not.toBe(voci);
   });
 });

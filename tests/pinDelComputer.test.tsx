@@ -42,6 +42,11 @@ const finto = vi.hoisted(() => ({
   fallisci: null as ((e: unknown) => void) | null,
   /** Finisce con delle immersioni in mano E un guasto: lo scarico rotto a metà. */
   aMeta: null as ((v: unknown, guasto: string) => void) | null,
+  /**
+   * Finisce col computer chiuso e la chiave conservata presentata e non
+   * sostituita: il segnale `chiaveNonAccettata` del guscio Rust.
+   */
+  nonAccettata: null as ((guasto: string) => void) | null,
   /** Quante volte lo scarico è stato chiesto: da quando l'app riprova da sola, conta. */
   quante: 0,
 }));
@@ -63,6 +68,7 @@ vi.mock('../src/storage/computerEsterni', () => ({
       // immersioni buone e un guasto, insieme.
       finto.finisci = (v: unknown) => risolvi({ dives: v });
       finto.aMeta = (v: unknown, guasto: string) => risolvi({ dives: v, guasto });
+      finto.nonAccettata = (guasto: string) => risolvi({ dives: [], guasto, chiaveNonAccettata: true });
       finto.fallisci = rifiuta;
     });
   },
@@ -185,6 +191,7 @@ beforeEach(() => {
   finto.finisci = null;
   finto.fallisci = null;
   finto.aMeta = null;
+  finto.nonAccettata = null;
   finto.quante = 0;
   localStorage.clear();
 });
@@ -366,22 +373,80 @@ describe('il codice di accoppiamento', () => {
     }
   });
 
-  it('una chiave che non funziona più si dimentica, invece di bloccare per sempre', async () => {
+  it('una chiave che non apre il computer due volte di fila si dimentica, invece di bloccare per sempre', async () => {
     /*
-     * ► IL VICOLO CIECO CHE QUESTA PROVA CHIUDE. ◄ Con una chiave in mano
-     * `pelagic_i330r_init` **salta del tutto il ramo del PIN**: se quella
-     * chiave non vale più — computer azzerato, oppure accoppiato con il
-     * telefono di qualcun altro — lo scarico fallisce e continuerà a fallire
-     * identico a ogni tentativo. Senza dimenticarla, l'unica uscita sarebbe
-     * disinstallare l'applicazione.
+     * ► IL VICOLO CIECO CHE QUESTA PROVA CHIUDE. ◄ Computer azzerato, o
+     * accoppiato con il telefono di qualcun altro: la chiave conservata non
+     * vale più. Dal ramo principale di libdivecomputer un rifiuto «previsto»
+     * riporta da sé al PIN, ma un computer che rifiuta in un altro modo
+     * — chiudendo, tacendo — fallirebbe identico a ogni tentativo. Il guscio
+     * Rust lo dice con `chiaveNonAccettata`, e alla seconda volta di fila la
+     * chiave si butta.
+     *
+     * Fino al 22 settembre 2026 questa prova fingeva il guasto facendo
+     * LANCIARE lo scarico: ma uno scarico fallito non lancia più dalla 1.8.20,
+     * e la prova sorvegliava un ramo che nella realtà non scattava mai per
+     * questo caso. Adesso il finto finisce come finisce davvero.
      */
     salvaCodiceAccoppiamento('dev-i330r', '0a1b2c3d4e5f60718293a4b5c6d7e8f9');
     const { host, smonta } = await apri();
     try {
       await avvia(host);
       expect(finto.chiamata?.codiceAccesso).toBe('0a1b2c3d4e5f60718293a4b5c6d7e8f9');
-      await act(async () => finto.fallisci!(new Error('il computer ha chiuso il collegamento')));
+      // Il computer ha risposto — al rifiuto — e quindi l'app riprova da sola.
+      await act(async () => finto.emit!({ kind: 'exchange', writes: 1, notifications: 1, bytes: 9 }));
+      await act(async () =>
+        finto.nonAccettata!('il computer non si è aperto (stato -8, errore di protocollo)'),
+      );
+      // La prima volta si tiene: può essere stato il collegamento.
+      expect(codiceAccoppiamento('dev-i330r')).toBe('0a1b2c3d4e5f60718293a4b5c6d7e8f9');
+      expect(finto.quante, 'il computer aveva risposto: si riprova da soli').toBe(2);
+      expect(finto.chiamata?.codiceAccesso).toBe('0a1b2c3d4e5f60718293a4b5c6d7e8f9');
+
+      await act(async () => finto.emit!({ kind: 'exchange', writes: 1, notifications: 1, bytes: 9 }));
+      await act(async () =>
+        finto.nonAccettata!('il computer non si è aperto (stato -8, errore di protocollo)'),
+      );
+      // La seconda di fila: si butta.
       expect(codiceAccoppiamento('dev-i330r')).toBeUndefined();
+    } finally {
+      smonta();
+    }
+  });
+
+  it('un guasto di PRIMA dello scarico non tocca la chiave: non era stata presentata', async () => {
+    /*
+     * Il caso del 16 settembre 2026: il collegamento non si apre, lo scarico
+     * non comincia, e la chiave — che si presenta dopo — non può essere la
+     * causa. Buttarla costerebbe sei cifre in cambio di niente.
+     */
+    salvaCodiceAccoppiamento('dev-i330r', '0a1b2c3d4e5f60718293a4b5c6d7e8f9');
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await act(async () =>
+        finto.fallisci!(
+          new Error(
+            'collegamento non riuscito dopo 3 tentativi: collegamento non riuscito: Timeout during execution of Connect',
+          ),
+        ),
+      );
+      expect(codiceAccoppiamento('dev-i330r')).toBe('0a1b2c3d4e5f60718293a4b5c6d7e8f9');
+    } finally {
+      smonta();
+    }
+  });
+
+  it('uno scarico fallito a metà NON tocca la chiave: il computer l’aveva accettata', async () => {
+    // Quaranta immersioni e poi il collegamento caduto: la chiave ha aperto il
+    // computer, e il guscio non segnala niente. Buttarla qui era il costo che
+    // la regola vecchia faceva pagare a ogni collegamento che perde colpi.
+    salvaCodiceAccoppiamento('dev-i330r', '0a1b2c3d4e5f60718293a4b5c6d7e8f9');
+    const { host, smonta } = await apri();
+    try {
+      await avvia(host);
+      await act(async () => finto.aMeta!([], 'scarico non riuscito (stato -6, errore di ingresso/uscita)'));
+      expect(codiceAccoppiamento('dev-i330r')).toBe('0a1b2c3d4e5f60718293a4b5c6d7e8f9');
     } finally {
       smonta();
     }

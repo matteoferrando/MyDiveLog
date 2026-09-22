@@ -39,8 +39,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-const VERSIONE = '0.9.0';
-const TARBALL = `src-tauri/vendor/libdivecomputer-${VERSIONE}.tar.gz`;
+import {
+  CARTELLA_LDC,
+  TARBALL_LDC,
+  // @ts-expect-error — script `.mjs` senza tipi: la direttiva sta sulla riga del modulo, vedi travasoSegnalazioni.test.ts.
+} from '../scripts/libdivecomputer.mjs';
+
+/*
+ * La versione la dichiara `build.rs` e la legge `scripts/libdivecomputer.mjs`:
+ * qui non se ne scrive una copia. Vedi il commento in testa a quel modulo.
+ */
+const TARBALL: string = TARBALL_LDC;
+const CARTELLA: string = CARTELLA_LDC;
 
 let iconhd = '';
 let descrittori = '';
@@ -49,7 +59,7 @@ let rust = '';
 beforeAll(() => {
   const tmp = mkdtempSync(join(tmpdir(), 'ldc-mares-'));
   execSync(`tar xzf ${TARBALL} -C ${tmp}`);
-  const dentro = join(tmp, `libdivecomputer-${VERSIONE}`, 'src');
+  const dentro = join(tmp, CARTELLA, 'src');
   iconhd = readFileSync(join(dentro, 'mares_iconhd.c'), 'utf8');
   descrittori = readFileSync(join(dentro, 'descriptor.c'), 'utf8');
   rust = readFileSync('src-tauri/src/ponte_blec.rs', 'utf8');

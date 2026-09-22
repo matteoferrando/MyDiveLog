@@ -2,7 +2,7 @@
  * Che cosa promette il selettore, e che cosa mantiene.
  *
  * Il difetto che questi controlli difendono non è tecnico: è una promessa. Un
- * elenco di 105 modelli in cui 83 non fanno niente è un'app che sembra rotta a
+ * elenco di 115 modelli in cui 93 non fanno niente è un'app che sembra rotta a
  * quattro persone su cinque, e il modo in cui si arriva lì è aggiungere modelli
  * al catalogo senza toccare i driver — cioè con una rigenerazione automatica,
  * senza che nessuno se ne accorga.
@@ -10,6 +10,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { cercaModelli, MODELLI_BLE } from '../src/core/ble/catalogo';
+import { NOMI_DEL_PROTOCOLLO_V2, shearwaterDriver } from '../src/core/ble/drivers/shearwater';
+import { fakeDevice } from '../src/core/ble/fake';
 import { DRIVERS } from '../src/core/ble/registry';
 import { esitoPer, FAMIGLIE_CON_DRIVER, modelliScaricabili } from '../src/core/ble/scelta';
 
@@ -67,9 +69,73 @@ describe('la scelta di un modello', () => {
      * errore — è un pulsante «Scarica» che non fa niente.
      */
     const id = new Set(DRIVERS.map((d) => d.id));
-    for (const famiglia of Object.values(FAMIGLIE_CON_DRIVER)) {
-      expect(id).toContain(famiglia);
+    for (const { driverId } of Object.values(FAMIGLIE_CON_DRIVER)) {
+      expect(id).toContain(driverId);
     }
+  });
+
+  it('il Perdix 3 va a libdivecomputer: stessa famiglia del Peregrine, protocollo diverso', () => {
+    /*
+     * ► IL CASO VERO DEL 22 SETTEMBRE 2026. ◄ Aggiornando libdivecomputer è
+     * entrato nel catalogo il Perdix 3, famiglia `shearwater_petrel` come il
+     * Peregrine, ma con il protocollo «V2» — un altro servizio GATT e un'altra
+     * cornice — che il driver di casa non parla. Con la mappa per sole famiglie
+     * sarebbe finito al driver di casa, e l'unico segno sarebbe stato un 22
+     * che diventava 23 nella prova qui sotto.
+     */
+    const perdix3 = MODELLI_BLE.find((m) => m.marca === 'Shearwater' && m.modello === 'Perdix 3')!;
+    expect(perdix3, 'il Perdix 3 è sparito dal catalogo: questa prova va ripensata').toBeDefined();
+    expect(esitoPer(perdix3, true)).toEqual({ tipo: 'si-scarica-ldc' });
+    expect(esitoPer(perdix3, false)).toEqual({ tipo: 'non-ancora' });
+    // E il riconoscimento per nome non se lo prende: «perdix» è l'inizio di
+    // «Perdix 3», ed era esattamente il buco.
+    expect(shearwaterDriver.matches(fakeDevice({ name: 'Perdix 3' }))).toBe(false);
+    expect(shearwaterDriver.matches(fakeDevice({ name: 'Perdix3' }))).toBe(false);
+    // Mentre i fratelli V1 restano suoi.
+    for (const nome of [
+      'Perdix',
+      'Perdix 2',
+      'Perdix AI',
+      'Peregrine',
+      'Peregrine TX',
+      'Petrel 3',
+      'Teric',
+    ]) {
+      expect(shearwaterDriver.matches(fakeDevice({ name: nome })), nome).toBe(true);
+    }
+  });
+
+  it('un modello nuovo in una famiglia di casa non va al driver di casa finché nessuno lo decide', () => {
+    /*
+     * ► LA TRAPPOLA PER LA PROSSIMA RIGENERAZIONE. ◄ Quando libdivecomputer
+     * porterà un Petrel 4 o un G4, questa prova diventa rossa: la voce nuova
+     * compare qui sotto, fra quelle che la famiglia «conosce» ma il driver no.
+     * La risposta giusta non è aggiornare l'elenco atteso e basta — è decidere,
+     * con la documentazione del protocollo aperta, se il driver di casa parla
+     * con lui. Fino ad allora va a libdivecomputer, che è quello che succede.
+     */
+    const fuori = MODELLI_BLE.filter((m) => {
+      const casa = FAMIGLIE_CON_DRIVER[m.famiglia];
+      return casa !== undefined && !m.numeri.every((n) => casa.numeri.includes(n));
+    }).map((m) => `${m.marca} ${m.modello}`);
+    expect(fuori).toEqual(['Shearwater Perdix 3']);
+    for (const nome of fuori) {
+      const voce = MODELLI_BLE.find((m) => `${m.marca} ${m.modello}` === nome)!;
+      expect(esitoPer(voce, true).tipo, nome).toBe('si-scarica-ldc');
+    }
+    // I nomi esclusi dal driver sono proprio quelli delle voci rimaste fuori.
+    expect(NOMI_DEL_PROTOCOLLO_V2.some((n) => n === 'perdix 3')).toBe(true);
+  });
+
+  it('una voce senza numeri non si promette al driver di casa', () => {
+    // Non sapere quale apparecchio è vuol dire non sapere se il driver lo
+    // conosce: meglio la libreria, che lo scopre collegandosi.
+    const senzaNumeri = { marca: 'Shearwater', modello: 'Qualcosa', famiglia: 'shearwater_petrel' };
+    expect(esitoPer(senzaNumeri, true).tipo).toBe('si-scarica-ldc');
+    const numeroNuovo = { ...senzaNumeri, numeri: [99] };
+    expect(esitoPer(numeroNuovo, true).tipo).toBe('si-scarica-ldc');
+    const conosciuto = { ...senzaNumeri, numeri: [9] };
+    expect(esitoPer(conosciuto, true)).toEqual({ tipo: 'si-scarica', driverId: 'shearwater' });
   });
 
   it('Shearwater e Scubapro si scaricano: sono i due driver provati con l’apparecchio in mano', () => {
@@ -77,7 +143,10 @@ describe('la scelta di un modello', () => {
     const marche = new Set(scaricabili.map((m) => m.marca));
     expect(marche).toEqual(new Set(['Shearwater', 'Scubapro']));
     // 11 + 11. Se questo numero cambia senza che sia cambiato un driver, è
-    // cambiato il catalogo e qualcuno deve guardare cosa è entrato.
+    // cambiato il catalogo e qualcuno deve guardare cosa è entrato. Il 22
+    // settembre 2026 è entrato il Perdix 3 e il numero è rimasto 22 — ma solo
+    // perché la regola dei numeri di modello lo manda a libdivecomputer: vedi
+    // la prova sul Perdix 3 qui sopra.
     expect(scaricabili.length).toBe(22);
   });
 
@@ -96,7 +165,7 @@ describe('la scelta di un modello', () => {
   it('la maggioranza dei modelli NON si scarica, e va detto ad alta voce', () => {
     /*
      * Questo controllo non difende il codice: difende la frase che l'app dice
-     * all'utente. Finché è verde, «il selettore riconosce 105 computer» è una
+     * all'utente. Finché è verde, «il selettore riconosce 115 computer» è una
      * bugia — quelli che scarica sono 22 — e nessuna schermata deve lasciarlo
      * intendere.
      */

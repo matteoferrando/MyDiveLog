@@ -288,8 +288,16 @@ describe('un computer senza driver di casa, riconosciuto dal nome', () => {
     const nomi = [...(proposte?.querySelectorAll('ul.modelli button span:first-child') ?? [])].map(
       (s) => s.textContent,
     );
-    expect(nomi).toContain('Mares Genius');
-    expect(nomi).toHaveLength(MARES.length);
+    /*
+     * Dal 22 settembre 2026 i candidati del BlueLink sono SOLO i Mares che il
+     * Bluetooth non ce l'hanno dentro: il Genius, il Quad Ci, il Sirius e i
+     * Puck nuovi hanno un nome loro, e proporli qui vorrebbe dire far
+     * scegliere un modello che l'adattatore non può avere attaccato — con la
+     * lettura dei pacchetti sbagliata. Vedi `MARES_BLE_NATIVI` in
+     * `riconosci.ts`.
+     */
+    expect(nomi).toEqual(['Mares Quad', 'Mares Smart Air']);
+    expect(nomi).not.toContain('Mares Genius');
     // L'elenco intero resta sotto, per chi ha un altro computer.
     expect(vista.host.querySelector('ul.marche')).not.toBeNull();
     vista.smonta();

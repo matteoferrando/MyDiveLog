@@ -79,9 +79,8 @@ mod dentro {
     use std::time::{Duration, Instant};
 
     use crate::trasporto_ldc::{
-        traduci, trova_descrittore, AccessoriBle, Avanzamento, CollegamentoLdc, Contesto,
-        FlussoBle, GuastoScrittura, ImmersioneLdc, Riassemblaggio, Ripiego,
-        SILENZIO_PRIMA_DI_PARLARE, TETTO_PRIMA_DI_PARLARE,
+        trova_descrittore, AccessoriBle, Avanzamento, CollegamentoLdc, FlussoBle, GuastoScrittura,
+        ImmersioneLdc, Riassemblaggio, Ripiego, SILENZIO_PRIMA_DI_PARLARE, TETTO_PRIMA_DI_PARLARE,
     };
 
     // --------------------------------------------------- quel che il GATT dice
@@ -1704,6 +1703,34 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
     /// Dove va il codice di accesso appena rilasciato dal computer.
     pub type ConservaCodice = Box<dyn FnMut(&[u8]) + Send>;
 
+    /// Che cosa è successo alla chiave di accoppiamento durante uno scarico.
+    ///
+    /// ════════════════════════════════════════════════════════════════════════
+    /// ► PERCHÉ SERVE SAPERLO QUI, E NON DEDURLO DAL TESTO DI UN ERRORE. ◄
+    ///
+    /// La chiave conservata si butta quando il computer non l'accetta più —
+    /// azzerato, accoppiato con un altro telefono — perché tenerla vorrebbe
+    /// dire presentarla per sempre. Ma fino al 22 settembre 2026 la decisione
+    /// stava nel ramo `catch` dell'interfaccia, e dalla 1.8.20 uno scarico
+    /// fallito **non lancia più**: torna con il guasto dentro l'esito. Quel ramo
+    /// scattava solo per i guasti di PRIMA dello scarico — collegamento,
+    /// servizi — cioè proprio quelli in cui la chiave non era mai stata
+    /// presentata. *Buttava la chiave quando non c'entrava, e la teneva quando
+    /// c'entrava.*
+    ///
+    /// Qui si sa con certezza quello che l'interfaccia poteva solo indovinare:
+    /// se la chiave è stata presentata, se il computer ne ha data una nuova, se
+    /// ha chiesto il PIN. Vedi `chiave_non_accettata` nell'esito.
+    #[derive(Default, Debug)]
+    pub struct EsitoChiave {
+        /// La chiave CONSERVATA è stata data al backend (`GET_ACCESSCODE`).
+        pub presentata: AtomicBool,
+        /// Il computer ne ha rilasciata una nuova (`SET_ACCESSCODE`).
+        pub rinnovata: AtomicBool,
+        /// Il backend ha chiesto il PIN (`GET_PINCODE`).
+        pub pin_chiesto: AtomicBool,
+    }
+
     /// Gli stessi accessori, più le tre cose che riguardano l'accoppiamento.
     ///
     /// ► PERCHÉ UN INVOLUCRO E NON TRE METODI IN PIÙ SU `AccessoriDelPonte`. ◄
@@ -1721,6 +1748,8 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
         codice: Option<Vec<u8>>,
         /// Dove va il codice appena rilasciato dal computer.
         conserva: ConservaCodice,
+        /// Che cosa è successo alla chiave: vedi `EsitoChiave`.
+        esito: Arc<EsitoChiave>,
     }
 
     impl AccessoriConSegreti {
@@ -1730,7 +1759,13 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
             codice: Option<Vec<u8>>,
             conserva: ConservaCodice,
         ) -> Self {
-            Self { dentro, chiedi_pin, codice, conserva }
+            Self { dentro, chiedi_pin, codice, conserva, esito: Arc::new(EsitoChiave::default()) }
+        }
+
+        /// Il resoconto della chiave, condiviso: lo legge chi ha aperto lo
+        /// scarico, dopo che lo scarico è finito.
+        pub fn esito(&self) -> Arc<EsitoChiave> {
+            self.esito.clone()
         }
     }
 
@@ -1749,10 +1784,17 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
             // quanto si creda, e `pelagic_i330r_init_passcode` rifiuta
             // qualunque carattere che non sia una cifra. Toglierli è la
             // riparazione onesta; toglierne altro sarebbe indovinare.
+            self.esito.pin_chiesto.store(true, Ordering::SeqCst);
             (self.chiedi_pin)().map(|p| p.trim().to_string())
         }
 
         fn codice_accesso(&mut self) -> Option<Vec<u8>> {
+            // «Presentata» vale per la chiave CONSERVATA: quella appena
+            // rilasciata dal computer, ridata dentro lo stesso scarico, non è
+            // una chiave che il computer possa rifiutare per vecchiaia.
+            if self.codice.is_some() && !self.esito.rinnovata.load(Ordering::SeqCst) {
+                self.esito.presentata.store(true, Ordering::SeqCst);
+            }
             self.codice.clone()
         }
 
@@ -1761,6 +1803,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
             // scarico libdivecomputer può richiedere il codice dopo averlo
             // scritto, e rispondere «non ce l'ho» a un codice appena ricevuto
             // rimanderebbe la persona al PIN per niente.
+            self.esito.rinnovata.store(true, Ordering::SeqCst);
             self.codice = Some(codice.to_vec());
             (self.conserva)(codice);
         }
@@ -1864,7 +1907,7 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
             chiedi_pin: ChiediPin,
             codice: Option<Vec<u8>>,
             conserva: ConservaCodice,
-        ) -> Self {
+        ) -> (Self, Arc<EsitoChiave>) {
             let PonteBle {
                 entrata,
                 scrittura,
@@ -1881,10 +1924,12 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                 metodo_indice,
                 metodi_totali,
             } = self;
-            PonteBle {
+            let segreti = AccessoriConSegreti::nuovo(accessori, chiedi_pin, codice, conserva);
+            let esito = segreti.esito();
+            let ponte = PonteBle {
                 entrata,
                 scrittura,
-                accessori: Box::new(AccessoriConSegreti::nuovo(accessori, chiedi_pin, codice, conserva)),
+                accessori: Box::new(segreti),
                 su_silenzio,
                 descrizione,
                 ricevuti,
@@ -1896,8 +1941,23 @@ sbagliato: va aggiunto il servizio giusto all'elenco dei riconosciuti.",
                 metodo,
                 metodo_indice,
                 metodi_totali,
-            }
+            };
+            (ponte, esito)
         }
+    }
+
+    /// Se la chiave conservata va segnalata all'interfaccia come «non accettata».
+    ///
+    /// Presentata, non sostituita, e il computer chiuso: sono le tre cose che
+    /// insieme dicono che la chiave non ha aperto niente. Ognuna da sola no —
+    /// una chiave mai presentata non può essere la causa, una appena
+    /// sostituita è già stata buttata dal computer stesso, e un computer che
+    /// si è aperto l'ha accettata. Sta fuori dal comando perché si prova da
+    /// sola, con i tre interruttori in tutte le posizioni.
+    pub fn chiave_non_accettata(esito: &EsitoChiave, non_aperto: bool) -> bool {
+        non_aperto
+            && esito.presentata.load(Ordering::SeqCst)
+            && !esito.rinnovata.load(Ordering::SeqCst)
     }
 
     /// Da esadecimale a byte, per il codice di accesso conservato.
@@ -3246,6 +3306,32 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         /// una cosa che serve a chi scrive driver.
         #[serde(skip_serializing_if = "Option::is_none")]
         pub registrazione: Option<Vec<String>>,
+        /// Vero quando la chiave di accoppiamento CONSERVATA è stata presentata,
+        /// il computer non se n'è fatta dare una nuova, e non si è aperto.
+        ///
+        /// È l'unico segnale che dice all'interfaccia «questa chiave potrebbe non
+        /// valere più». Non è una prova — il collegamento può essere caduto
+        /// proprio in quell'istante — e per questo l'interfaccia non butta la
+        /// chiave al primo: vedi `rifiutiDellaChiave` in `accoppiamento.ts`.
+        #[serde(skip_serializing_if = "std::ops::Not::not")]
+        pub chiave_non_accettata: bool,
+        /// Se il computer non si è aperto. Serve a calcolare il campo sopra, e
+        /// non attraversa il confine: da solo, all'interfaccia non dice niente
+        /// che il guasto non dica già.
+        #[serde(skip)]
+        pub non_aperto: bool,
+        /// Il modello che il computer ha dichiarato, quando è diverso da quello
+        /// scelto E il suo numero porta a un nome solo. L'interfaccia lo usa per
+        /// dare il nome giusto alle immersioni: vedi `computerEsterni.ts`.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub modello_dichiarato: Option<ModelloDichiarato>,
+    }
+
+    /// Marca e modello come li scrive `descriptor.c`.
+    #[derive(serde::Serialize, Debug, Clone, PartialEq, Eq)]
+    pub struct ModelloDichiarato {
+        pub marca: String,
+        pub modello: String,
     }
 
     /// Il nome dell'evento Tauri. Come `accesso-ritorno`: minuscolo, con trattino.
@@ -3306,11 +3392,6 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
         let descrittore = trova_descrittore(marca, prodotto).ok_or_else(|| {
             format!("libdivecomputer non conosce nessun «{marca} {prodotto}»")
         })?;
-        // Un contesto a parte da quello del collegamento: `traduci` ne vuole uno
-        // e non ha niente a che vedere col Bluetooth — vedi il commento su
-        // `Contesto` in `trasporto_ldc.rs`.
-        let contesto = Contesto::nuovo()?;
-
         // ► LA POLITICA VIENE DAL TENTATIVO, NON PIÙ DEDOTTA QUI. ◄ Il primo
         // tentativo porta quella scelta per il modello; dal secondo in poi è
         // il giro a variarla, e dedurla un'altra volta qui la ribalterebbe.
@@ -3423,8 +3504,57 @@ la libreria, per questa famiglia, non svuota l'ingresso da sé",
          * posti e uno dei due invecchierebbe.
          */
         let esito_scarico = collegamento.scarica_tutto(&descrittore, segnalibro, avanza);
+        let esito_scarico_non_aperto = esito_scarico.non_aperto;
         let guasto_dello_scarico = esito_scarico.guasto;
         let grezze = esito_scarico.immersioni;
+        let tradotte = esito_scarico.tradotte;
+        /*
+         * ► CHI HA DETTO DI ESSERE, IL COMPUTER. ◄ Una riga di diario, e una
+         * seconda quando il modello dichiarato non è quello scelto: le
+         * immersioni sono già state lette col modello dichiarato (vedi
+         * `leggi_dal_dispositivo`), ma chi legge una segnalazione deve sapere
+         * che la scelta era sbagliata — è la prima cosa da correggere, e
+         * senza questa riga nessuno lo vedrebbe. Il seriale non c'è: il diario
+         * si allega alle segnalazioni.
+         */
+        let mut modello_dichiarato = None;
+        if let Some(d) = esito_scarico.dichiarato {
+            emetti(EventoScarico::Trace {
+                line: format!(
+                    "il computer si è presentato: modello {} (0x{:x}), firmware {}",
+                    d.modello, d.modello, d.firmware
+                ),
+            });
+            let scelto = descrittore.modello();
+            if d.modello != scelto {
+                let nomi = crate::trasporto_ldc::nomi_del_modello(&descrittore, d.modello);
+                let detto = match nomi.as_slice() {
+                    [] => "un modello che la libreria non nomina".to_string(),
+                    [(marca, modello)] => format!("{marca} {modello}"),
+                    molti => format!(
+                        "uno fra {}",
+                        molti.iter().map(|(m, n)| format!("{m} {n}")).collect::<Vec<_>>().join(", ")
+                    ),
+                };
+                emetti(EventoScarico::Trace {
+                    line: format!(
+                        "diverso da quello scelto ({scelto}, 0x{scelto:x}): è {detto} — le immersioni si leggono col modello dichiarato"
+                    ),
+                });
+                /*
+                 * ► SI RINOMINA SOLO QUANDO IL NUMERO DICE UN NOME SOLO. ◄
+                 * Il nome del modello finisce su ogni immersione, e da lì nel
+                 * libretto stampato. Uno scelto male è certamente sbagliato; ma
+                 * se il numero dichiarato porta a quattro nomi — i Puck nuovi
+                 * sono tutti 0x35 — sceglierne uno sarebbe sostituire un errore
+                 * certo con uno probabile. Allora resta quello scelto, e il
+                 * diario dice tutto.
+                 */
+                if let [(marca, modello)] = nomi.as_slice() {
+                    modello_dichiarato = Some(ModelloDichiarato { marca: marca.clone(), modello: modello.clone() });
+                }
+            }
+        }
         let coda_del_guasto = match &guasto_dello_scarico {
             None => {
                 dire_le_misure();
@@ -3473,6 +3603,14 @@ la libreria, per questa famiglia, non svuota l'ingresso da sé",
         emetti(EventoScarico::Counted { total: Some(quante) });
 
         let mut immersioni = Vec::with_capacity(quante);
+        /*
+         * ► UNA LETTURA PER OGNI IMMERSIONE, E SE MANCASSE SI DICE. ◄ Le due
+         * liste escono dalla stessa funzione e hanno la stessa lunghezza; se
+         * un giorno non fosse così, l'immersione senza lettura diventa uno
+         * scarto con il suo motivo, invece di sparire in uno `zip` che si
+         * ferma alla più corta.
+         */
+        let mut tradotte = tradotte.into_iter();
         for (indice, grezza) in grezze.into_iter().enumerate() {
             // La chiave è l'impronta, che è quello con cui il computer dice
             // «questa te l'ho già data». Se non ce l'ha, la posizione: serve a
@@ -3483,7 +3621,10 @@ la libreria, per questa famiglia, non svuota l'ingresso da sé",
             } else {
                 grezza.impronta.iter().map(|v| format!("{v:02x}")).collect()
             };
-            match traduci(&contesto, &descrittore, &grezza.dati) {
+            let tradotta = tradotte
+                .next()
+                .unwrap_or_else(|| Err("nessuna lettura per questa immersione".to_string()));
+            match tradotta {
                 Ok(immersione) => {
                     emetti(EventoScarico::Record {
                         done: immersioni.len() + 1,
@@ -3517,21 +3658,36 @@ la libreria, per questa famiglia, non svuota l'ingresso da sé",
             let righe = registrazione();
             if righe.is_empty() { None } else { Some(righe) }
         };
-        Ok(EsitoEsterno { immersioni, guasto: coda_del_guasto, registrazione })
+        Ok(EsitoEsterno {
+            immersioni,
+            guasto: coda_del_guasto,
+            registrazione,
+            // Lo decide chi ha in mano il resoconto della chiave: vedi il
+            // comando qui sotto. Qui si sa solo se il computer si è aperto.
+            chiave_non_accettata: false,
+            non_aperto: esito_scarico_non_aperto,
+            modello_dichiarato,
+        })
     }
 
     /// I Mares che leggono il pacchetto intero con una `dc_iostream_read` sola.
     ///
     /// ════════════════════════════════════════════════════════════════════════
-    /// ► PERCHÉ UN ELENCO DI CINQUE NOMI E NON UNA REGOLA. ◄
+    /// ► PERCHÉ UN ELENCO DI NOMI E NON UNA REGOLA. ◄
     ///
     /// Perché la regola sta in `mares_iconhd.c` e si chiama `ISSIRIUS`, ed è
-    /// un elenco anche là: quattro numeri di modello, che nei descrittori di
-    /// libdivecomputer diventano cinque nomi — il Puck 4 e il Puck Lite sono
-    /// lo stesso apparecchio con due etichette. Riscriverla come «i modelli
-    /// dopo il tale anno» sarebbe indovinare.
+    /// un elenco anche là: sei numeri di modello, che nei descrittori di
+    /// libdivecomputer diventano nove nomi — il Puck 4, il Puck Lite, il Puck
+    /// Pro EZ e il Puck Pro Ultra sono lo stesso numero con quattro etichette.
+    /// Riscriverla come «i modelli dopo il tale anno» sarebbe indovinare.
     ///
-    /// Per questi cinque, e solo per questi, libdivecomputer NON apre il
+    /// ► ERANO CINQUE FINO AL 22 SETTEMBRE 2026. ◄ Con libdivecomputer
+    /// 0.10.0-devel sono entrati il Quad 2 e il Sirius L in `ISSIRIUS`, e il
+    /// Puck Pro EZ e il Puck Pro Ultra fra i descrittori col numero del Puck 4.
+    /// L'ha detto `maresRamoVariabile.test.ts`, rosso al primo giro dopo
+    /// l'aggiornamento del tarball: è esattamente il lavoro per cui esiste.
+    ///
+    /// Per questi, e solo per questi, libdivecomputer NON apre il
     /// livello che rimette insieme i pacchetti (`dc_packet_open`): legge con
     /// una `dc_iostream_read` e si aspetta il pacchetto intero, dal `AA` al
     /// `EA`. Se l'MTU del telefono non lo fa stare in una notifica, il
@@ -3547,8 +3703,17 @@ la libreria, per questa famiglia, non svuota l'ingresso da sé",
     /// controlla che questo elenco sia ancora quello giusto: se un domani
     /// libdivecomputer aggiungesse un modello a `ISSIRIUS`, quella prova
     /// diventa rossa prima che qualcuno se ne accorga con un computer in mano.
-    const MARES_PACCHETTO_INTERO: [&str; 5] =
-        ["Puck Air 2", "Sirius", "Quad Ci", "Puck 4", "Puck Lite"];
+    const MARES_PACCHETTO_INTERO: [&str; 9] = [
+        "Puck Air 2",
+        "Sirius",
+        "Sirius L",
+        "Quad Ci",
+        "Quad 2",
+        "Puck 4",
+        "Puck Lite",
+        "Puck Pro EZ",
+        "Puck Pro Ultra",
+    ];
 
     /// La famiglia Pelagic, che la lunghezza del pacchetto la scrive dentro.
     ///
@@ -3816,7 +3981,7 @@ la libreria, per questa famiglia, non svuota l'ingresso da sé",
                 }
             },
         };
-        let ponte = {
+        let (ponte, esito_chiave) = {
             let per_pin = manda.clone();
             let per_codice = manda.clone();
             ponte.con_segreti(
@@ -3945,7 +4110,11 @@ la libreria, per questa famiglia, non svuota l'ingresso da sé",
         let esito = esito_viene
             .recv()
             .await
-            .unwrap_or_else(|| Err("lo scarico è finito senza dire come".into()));
+            .unwrap_or_else(|| Err("lo scarico è finito senza dire come".into()))
+            .map(|mut esito| {
+                esito.chiave_non_accettata = chiave_non_accettata(&esito_chiave, esito.non_aperto);
+                esito
+            });
 
         finito.store(true, Ordering::Relaxed);
 
@@ -4640,7 +4809,7 @@ mod prove {
         assert_eq!(tentativi[1].riassemblaggio, Riassemblaggio::UnaNotifica);
         assert_eq!(tentativi[0].modo, tentativi[1].modo, "prima si cambia una cosa sola");
 
-        // E su un computer che NON è di quei cinque, il primo tentativo tiene
+        // E su un computer che NON è in quell'elenco, il primo tentativo tiene
         // le notifiche separate: unirle è l'eccezione, non il contrario.
         let altri = vec![informativo(), seriale("fdcdeaaa-295d-470e-bf15-04217b7aa0a0")];
         let tentativi = elenca_tentativi(&altri, "Scubapro", "Aladin Sport Matrix").unwrap();
@@ -5025,6 +5194,57 @@ mod prove {
         segreti.salva_codice_accesso(&[1, 2, 3, 4]);
         assert_eq!(segreti.codice_accesso(), Some(vec![1, 2, 3, 4]), "e adesso c'è");
         assert_eq!(fuori.lock().unwrap().as_slice(), &[vec![1, 2, 3, 4]], "ed è uscito anche di fuori");
+    }
+
+    #[test]
+    fn il_resoconto_della_chiave_dice_cosa_e_successo_e_niente_di_piu() {
+        /*
+         * ► TRE INTERRUTTORI, E SOLO UNA COMBINAZIONE CHE DICE «NON ACCETTATA». ◄
+         *
+         * Presentata, non sostituita, computer chiuso. Ognuna delle altre sette
+         * posizioni ha una ragione per NON segnalare: la chiave mai presentata
+         * non può essere la causa, quella sostituita l'ha già buttata il
+         * computer, e un computer aperto l'ha accettata.
+         */
+        struct Nudi;
+        impl AccessoriBle for Nudi {
+            fn nome(&mut self) -> Option<String> {
+                None
+            }
+            fn leggi_caratteristica(&mut self, _uuid: [u8; 16]) -> Result<Vec<u8>, String> {
+                Err("niente".into())
+            }
+        }
+
+        // Con una chiave conservata: presentarla la segna, e nient'altro.
+        let mut con_chiave =
+            AccessoriConSegreti::nuovo(Box::new(Nudi), Box::new(|| None), Some(vec![7; 16]), Box::new(|_| {}));
+        let esito = con_chiave.esito();
+        assert!(!esito.presentata.load(Ordering::SeqCst), "prima di chiederla non è presentata");
+        assert_eq!(con_chiave.codice_accesso(), Some(vec![7; 16]));
+        assert!(esito.presentata.load(Ordering::SeqCst));
+        assert!(!esito.rinnovata.load(Ordering::SeqCst));
+        assert!(!esito.pin_chiesto.load(Ordering::SeqCst));
+        assert!(chiave_non_accettata(&esito, true), "presentata, non sostituita, computer chiuso");
+        assert!(!chiave_non_accettata(&esito, false), "il computer si è aperto: l'ha accettata");
+
+        // Il PIN chiesto, e una chiave nuova: da lì in poi non c'è più niente da segnalare.
+        let _ = con_chiave.codice_pin();
+        assert!(esito.pin_chiesto.load(Ordering::SeqCst));
+        con_chiave.salva_codice_accesso(&[9; 16]);
+        assert!(esito.rinnovata.load(Ordering::SeqCst));
+        assert!(!chiave_non_accettata(&esito, true), "sostituita: la vecchia l'ha buttata il computer");
+
+        // Senza chiave conservata non si presenta niente, nemmeno dopo averne
+        // ricevuta una nuova: quella non è «conservata», è di questo scarico.
+        let mut senza =
+            AccessoriConSegreti::nuovo(Box::new(Nudi), Box::new(|| None), None, Box::new(|_| {}));
+        let esito = senza.esito();
+        assert_eq!(senza.codice_accesso(), None);
+        senza.salva_codice_accesso(&[3; 16]);
+        assert_eq!(senza.codice_accesso(), Some(vec![3; 16]));
+        assert!(!esito.presentata.load(Ordering::SeqCst), "la chiave di questo scarico non è quella conservata");
+        assert!(!chiave_non_accettata(&esito, true));
     }
 
     #[test]

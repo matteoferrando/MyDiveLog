@@ -519,6 +519,13 @@ const esadecimale = (b: Uint8Array) => [...b].map((x) => x.toString(16).padStart
 /** Testo ASCII da una risposta, senza i riempimenti a zero. */
 const testo = (b: Uint8Array) => new TextDecoder().decode(b).replace(/\0+$/, '').trim() || undefined;
 
+/**
+ * I nomi annunciati dagli Shearwater che parlano il protocollo V2 di
+ * libdivecomputer, e che questo driver (V1) non sa leggere. Esportati perché
+ * la prova che fa girare il catalogo li deve poter nominare.
+ */
+export const NOMI_DEL_PROTOCOLLO_V2 = ['perdix 3', 'perdix3'] as const;
+
 /** Quanto si aspetta una notifica. Generoso: il computer a volte pensa. */
 const TIMEOUT_MS = 6000;
 
@@ -533,7 +540,25 @@ export const shearwaterDriver: DiveComputerDriver = {
     // Le caratteristiche si scoprono: vedi `BleServiceProfile`.
     writeType: 'withoutResponse',
   },
-  matches: nameStartsWith('peregrine', 'perdix', 'petrel', 'teric', 'tern', 'nerd', 'predator'),
+  /*
+   * ► «PERDIX 3» COMINCIA PER «PERDIX», E NON È UNO DEI NOSTRI. ◄
+   *
+   * Il commento qui sopra diceva già che riconoscere il Perdix 3 sarebbe
+   * peggio che ignorarlo — e il riconoscimento per prefisso lo riconosceva lo
+   * stesso: «perdix» è l'inizio di «Perdix 3». Finché libdivecomputer non lo
+   * conosceva non faceva differenza, perché nessuno dei due lo scaricava; dal
+   * 22 settembre 2026 la libreria lo legge (protocollo V2, servizio
+   * `1aa44039-…`), e un Perdix 3 preso da questo driver sarebbe stato un
+   * computer leggibile mandato proprio alla strada che non lo sa leggere.
+   *
+   * Escluso qui, il nome finisce al riconoscimento di libdivecomputer, che lo
+   * conosce per nome esatto (`dc_filter_shearwater`). Con e senza lo spazio,
+   * perché il confronto qui sotto è sui prefissi e non costa niente essere
+   * larghi nel rifiutare.
+   */
+  matches: (device) =>
+    nameStartsWith('peregrine', 'perdix', 'petrel', 'teric', 'tern', 'nerd', 'predator')(device) &&
+    !nameStartsWith(...NOMI_DEL_PROTOCOLLO_V2)(device),
 
   async download(link, { emit, signal, since, trace }) {
     const decoder = new SlipDecoder();

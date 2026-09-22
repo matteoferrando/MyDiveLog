@@ -12,8 +12,30 @@ fn main() {
 }
 
 /// La versione vendorizzata. Cambiarla qui e mettere il tarball accanto.
+///
+/// **È l'unico posto in cui è scritta**: lo script del catalogo e le prove che
+/// leggono il tarball la ricavano da questa riga (`scripts/libdivecomputer.mjs`).
+///
+/// ► DAL 22 SETTEMBRE 2026 NON È UNA VERSIONE RILASCIATA, ED È UNA SCELTA. ◄
+/// È il ramo principale di libdivecomputer al commit `9e6c3c8` (8 settembre
+/// 2026), ottantanove commit dopo la 0.9.0 — che è del 30 giugno 2025 e resta
+/// l'ultima rilasciata. In quei quindici mesi sono entrati il **Perdix 3**
+/// (protocollo V2), il Bluetooth del **Seac Tablet**, dell'**OSTC 3** e
+/// dell'**OSTC cR**, i Mares **Quad 2**, **Sirius L**, **Puck Pro EZ** e **Puck
+/// Pro Ultra**, il Cressi **Raffaello**, l'**i330R che si riaccoppia da solo**
+/// quando la chiave conservata non vale più, e una serie di correzioni ai
+/// lettori delle immersioni. Restare alla 0.9.0 voleva dire promettere «tutti i
+/// computer» sapendo di lasciarne fuori alcuni che la libreria sa già leggere.
+///
+/// Il tarball è fatto con `make dist` dal deposito ufficiale, esattamente come
+/// quelli rilasciati: stessa forma, `configure` già generato, e dentro il file
+/// `revision` col commit intero. Per rifarlo:
+///
+///     git clone https://github.com/libdivecomputer/libdivecomputer.git
+///     cd libdivecomputer && git checkout 9e6c3c8
+///     autoreconf --install && ./configure && make dist
 #[cfg(feature = "computer-esterni")]
-const VERSIONE: &str = "0.9.0";
+const VERSIONE: &str = "0.10.0-devel";
 
 /// Versione minima di iOS per cui compilare la parte C.
 ///
@@ -60,7 +82,7 @@ const ANDROID_API: &str = "26";
 /// lanciare, e in compilazione incrociata sono solo un modo in più di
 /// fallire), e la documentazione pretende `mandoc` installato.
 ///
-/// COSA NON SI PUÒ SPEGNERE. Il trasporto seriale: in `configure.ac` di 0.9.0
+/// COSA NON SI PUÒ SPEGNERE. Il trasporto seriale: in `configure.ac` (0.9.0 e 0.10.0-devel)
 /// `transport_serial` è scritto `"yes"` fisso, senza nessuna opzione che lo
 /// tocchi. Non è un problema — `serial_posix.c` è termios, che sull'SDK di iOS
 /// c'è e compila; il controllo su `IOKit/serial/ioss.h` fallisce da solo
@@ -315,7 +337,10 @@ fn compila_con_cc(sorgenti: &std::path::Path, bersaglio: &str) {
     // intorno alle quattro righe con le chiocciole sono guardie e macro di
     // confronto che non ci riguardano, e ricopiarle a mano vorrebbe dire
     // rifarlo a ogni aggiornamento del tarball.
-    let numeri: Vec<&str> = VERSIONE.split('.').collect();
+    // I tre numeri stanno PRIMA del trattino: «0.10.0-devel» dà 0, 10 e 0. Con
+    // la coda dentro, `DC_VERSION_MICRO` varrebbe «0-devel» e il C non
+    // compilerebbe — ma solo su Windows, che è l'unico a passare di qui.
+    let numeri: Vec<&str> = VERSIONE.split('-').next().unwrap_or(VERSIONE).split('.').collect();
     let modello = std::fs::read_to_string(sorgenti.join("include/libdivecomputer/version.h.in"))
         .expect("FERMO: manca version.h.in dentro il tarball");
     let version = modello
@@ -327,13 +352,19 @@ fn compila_con_cc(sorgenti: &std::path::Path, bersaglio: &str) {
 
     // --- 3. revision.h ------------------------------------------------------
     //
-    // `make` ci mette l'hash di git del sorgente. Noi non partiamo da un
-    // deposito git ma da un tarball rilasciato, quindi la revisione è la
-    // versione: dire «0.9.0» è vero, dire una stringa vuota lascerebbe
-    // `dc_version()` a metà.
+    // `make` ci mette l'hash di git del sorgente, e il tarball fatto con
+    // `make dist` se lo porta dietro nel file `revision`: lo si legge da lì,
+    // perché su un'istantanea del ramo principale il commit è l'unica cosa che
+    // dice davvero quale codice c'è dentro. Se il file mancasse, la versione:
+    // una stringa vuota lascerebbe `dc_version()` a metà.
+    let revisione = std::fs::read_to_string(sorgenti.join("revision"))
+        .map(|r| r.trim().to_string())
+        .ok()
+        .filter(|r| !r.is_empty())
+        .unwrap_or_else(|| VERSIONE.to_string());
     scrivi(
         &generati.join("revision.h"),
-        &format!("#define DC_VERSION_REVISION \"{VERSIONE}\"\n"),
+        &format!("#define DC_VERSION_REVISION \"{revisione}\"\n"),
     );
 
     // --- 4. i file da compilare, letti da Makefile.am -----------------------
@@ -413,7 +444,7 @@ fn sorgenti_da_makefile(makefile: &std::path::Path, windows: bool) -> Vec<String
 
     assert!(
         file.len() > 100,
-        "FERMO: da Makefile.am sono usciti solo {} file C. Erano 118 con libdivecomputer 0.9.0: \
+        "FERMO: da Makefile.am sono usciti solo {} file C. Sono 118 con libdivecomputer 0.10.0-devel: \
          o il tarball è cambiato, o questo lettore ha smesso di capirlo. Meglio fermarsi che \
          consegnare una libreria a cui mancano dei driver senza che nessuno se ne accorga.",
         file.len()
@@ -531,7 +562,8 @@ struct IncrocioApple {
 /// dire a `configure` più di quello che indovina da solo.
 ///
 /// PERCHÉ `--host=aarch64-apple-ios` ANCHE PER IL SIMULATORE. Perché il
-/// `config.sub` che libdivecomputer 0.9.0 si porta dietro rifiuta la tripletta
+/// `config.sub` che il tarball si porta dietro — lo stesso dalla 0.9.0 alla
+/// 0.10.0-devel, `timestamp='2022-01-03'` — rifiuta la tripletta
 /// del simulatore:
 ///
 /// ```text

@@ -34,8 +34,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-const VERSIONE = '0.9.0';
-const TARBALL = `src-tauri/vendor/libdivecomputer-${VERSIONE}.tar.gz`;
+import {
+  CARTELLA_LDC,
+  TARBALL_LDC,
+  // @ts-expect-error — script `.mjs` senza tipi: la direttiva sta sulla riga del modulo, vedi travasoSegnalazioni.test.ts.
+} from '../scripts/libdivecomputer.mjs';
+
+/*
+ * La versione la dichiara `build.rs` e la legge `scripts/libdivecomputer.mjs`:
+ * qui non se ne scrive una copia. Vedi il commento in testa a quel modulo.
+ */
+const TARBALL: string = TARBALL_LDC;
+const CARTELLA: string = CARTELLA_LDC;
 const RUST = 'src-tauri/src/trasporto_ldc.rs';
 
 let intestazione = '';
@@ -50,7 +60,7 @@ function leggiIntestazione(nome: string): string {
 beforeAll(() => {
   const tmp = mkdtempSync(join(tmpdir(), 'ldc-costanti-'));
   execSync(`tar xzf ${TARBALL} -C ${tmp}`);
-  scompattato = join(tmp, `libdivecomputer-${VERSIONE}`);
+  scompattato = join(tmp, CARTELLA);
   intestazione = leggiIntestazione('parser.h');
   rust = readFileSync(RUST, 'utf8');
 });
@@ -220,6 +230,45 @@ describe('le costanti del ponte combaciano con parser.h', () => {
       // passerebbe per qualsiasi occorrenza in duemila righe di commenti.
       expect(rust).toContain('Resta fuori\n/// la scrittura di una caratteristica');
     });
+  });
+
+  it('le maschere degli eventi sono quelle di device.h', () => {
+    /*
+     * `dc_event_type_t` è una maschera di bit: `WAITING` 1, `PROGRESS` 2,
+     * `DEVINFO` 4… Qui fino al 22 settembre 2026 si controllava solo
+     * `DC_EVENT_PROGRESS`, e con una stringa scritta a mano nella prova —
+     * cioè una seconda trascrizione, non un confronto. Adesso i valori si
+     * leggono dall'intestazione del tarball, e ogni `DC_EVENT_*` che il Rust
+     * dichiara deve avere lo stesso scorrimento.
+     */
+    const device = leggiIntestazione('device.h');
+    const veri = new Map(
+      [...device.matchAll(/(DC_EVENT_\w+)\s*=\s*\(1\s*<<\s*(\d+)\)/g)].map((m) => [m[1]!, m[2]!]),
+    );
+    expect(veri.get('DC_EVENT_PROGRESS')).toBe('1');
+    expect(veri.get('DC_EVENT_DEVINFO')).toBe('2');
+    const dichiarati = [...rust.matchAll(/const (DC_EVENT_\w+): c_uint = 1 << (\d+);/g)];
+    expect(dichiarati.map((m) => m[1]).sort()).toEqual(['DC_EVENT_DEVINFO', 'DC_EVENT_PROGRESS']);
+    for (const [, nome, scorrimento] of dichiarati) {
+      expect(scorrimento, nome).toBe(veri.get(nome!));
+    }
+  });
+
+  it('dc_event_devinfo_t ha modello, firmware e seriale, in quest’ordine', () => {
+    // `DcEventDevinfo` si sovrappone alla memoria che passa la libreria: un
+    // ordine diverso darebbe un firmware al posto del modello, e il lettore
+    // delle immersioni NON ne dipende (lo costruisce la libreria), ma il diario
+    // sì — direbbe «diverso da quello scelto» a chi ha scelto giusto.
+    const device = leggiIntestazione('device.h');
+    const m = device.match(/typedef struct dc_event_devinfo_t \{([\s\S]*?)\} dc_event_devinfo_t;/);
+    expect(m).not.toBeNull();
+    const nomi = [...m![1]!.matchAll(/^\s*[\w ]+\s+(\w+);/gm)].map((x) => x[1]);
+    expect(nomi).toEqual(['model', 'firmware', 'serial']);
+    const inizio = rust.indexOf('struct DcEventDevinfo {');
+    expect(inizio).toBeGreaterThan(-1);
+    const corpo = rust.slice(inizio, rust.indexOf('}', inizio));
+    const nostri = [...corpo.matchAll(/^\s*(\w+): c_uint,/gm)].map((x) => x[1]);
+    expect(nostri).toEqual(['model', 'firmware', 'serial']);
   });
 
   it('dc_tank_t ha ancora i campi nell’ordine in cui li leggiamo', () => {

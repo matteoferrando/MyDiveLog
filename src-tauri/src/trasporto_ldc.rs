@@ -1388,15 +1388,52 @@ struct DcIterator {
 ///
 /// I valori sono una maschera di bit — `WAITING`, `PROGRESS`, `DEVINFO`,
 /// `CLOCK`, `VENDOR` — e `dc_device_set_events` vuole l'OR di quelli che
-/// interessano. Qui ne interessa uno solo: gli altri o li sappiamo già dal
-/// nostro lato dello scambio (modello e seriale li legge il protocollo, e il
-/// diario li scrive) o non hanno niente da mostrare a chi guarda.
+/// interessano. Qui ne interessano due: questo, e `DC_EVENT_DEVINFO` qui
+/// sotto. `CLOCK` e `VENDOR` non hanno niente da mostrare a chi guarda, e
+/// `WAITING` nessun backend BLE lo manda.
 ///
 /// Come tutte le costanti copiate da un'intestazione C, è confrontata con
 /// l'intestazione vera da una prova: una trascrizione sbagliata di un enum non
 /// dà errore, dà un numero plausibile — qui iscriverebbe a un evento diverso e
 /// la barra resterebbe ferma senza che niente fallisca.
 const DC_EVENT_PROGRESS: c_uint = 1 << 1;
+
+/// `DC_EVENT_DEVINFO` di `dc_event_type_t`: il computer dice chi è.
+///
+/// ► NON SERVIVA, FINCHÉ NON SI È VISTO A COSA SERVE. ◄ Il commento sopra
+/// diceva, fino al 22 settembre 2026, che modello e seriale «li sappiamo già
+/// dal nostro lato dello scambio». Per i driver scritti in casa è vero; per
+/// libdivecomputer no: il
+/// modello che conoscevamo era quello SCELTO — da un elenco, o proposto dal
+/// nome Bluetooth — e il lettore delle immersioni veniva costruito su quello.
+/// Il 22 settembre 2026 si è visto che Subsurface fa il contrario: costruisce
+/// il lettore sul dispositivo aperto (`dc_parser_new`), cioè sul modello che il
+/// computer ha DICHIARATO con questo evento. Vedi `leggi_dal_dispositivo`.
+///
+/// Confrontata con `device.h` da `tests/costantiLibdivecomputer.test.ts`, come
+/// la sorella qui sopra.
+const DC_EVENT_DEVINFO: c_uint = 1 << 2;
+
+/// `dc_event_devinfo_t`: modello, firmware e numero di serie, come li dichiara
+/// il computer. Tre `unsigned int`, in quest'ordine — confrontato con
+/// l'intestazione dalla stessa prova delle costanti.
+#[repr(C)]
+struct DcEventDevinfo {
+    model: c_uint,
+    firmware: c_uint,
+    serial: c_uint,
+}
+
+/// Quello che il computer ha detto di sé all'inizio dello scarico.
+///
+/// Il **numero di serie non c'è di proposito**: questo valore finisce nel
+/// diario, e il diario si allega alle segnalazioni. Modello e firmware bastano
+/// a capire con che cosa si stava parlando; il seriale identifica la persona.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Dichiarazione {
+    pub modello: u32,
+    pub firmware: u32,
+}
 
 /// `dc_event_progress_t`: quanto della memoria del computer è stato letto.
 ///
@@ -1475,6 +1512,8 @@ extern "C" {
     fn dc_iterator_free(iterator: *mut DcIterator) -> c_int;
     fn dc_descriptor_get_vendor(descriptor: *mut DcDescriptor) -> *const std::ffi::c_char;
     fn dc_descriptor_get_product(descriptor: *mut DcDescriptor) -> *const std::ffi::c_char;
+    fn dc_descriptor_get_type(descriptor: *mut DcDescriptor) -> c_uint;
+    fn dc_descriptor_get_model(descriptor: *mut DcDescriptor) -> c_uint;
     fn dc_descriptor_free(descriptor: *mut DcDescriptor) -> c_int;
 
     fn dc_device_open(
@@ -2111,6 +2150,10 @@ struct DiarioDellaLibreria {
 pub struct Contesto(*mut DcContext, Option<Box<DiarioDellaLibreria>>);
 
 impl Contesto {
+    /// Un contesto muto, per chi traduce byte già arrivati con un descrittore
+    /// (`traduci`). Dal 22 settembre 2026 lo scarico legge col dispositivo
+    /// aperto, sul contesto del collegamento, e questo resta alle prove.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn nuovo() -> Result<Self, String> {
         let mut contesto: *mut DcContext = std::ptr::null_mut();
         if unsafe { dc_context_new(&mut contesto) } != DC_STATUS_SUCCESS {
@@ -2229,6 +2272,17 @@ impl Drop for Contesto {
 /// consegnato quaranta immersioni buone. Vedi `CollegamentoLdc::scarica_tutto`.
 pub struct EsitoScarico {
     pub immersioni: Vec<ImmersioneGrezza>,
+    /// Le stesse immersioni, lette — una per una, nello stesso ordine — col
+    /// lettore che il dispositivo APERTO sa costruire. Vedi
+    /// `leggi_dal_dispositivo` per il perché. Un errore riguarda solo quella.
+    pub tradotte: Vec<Result<ImmersioneLdc, String>>,
+    /// Chi ha detto di essere il computer (`DC_EVENT_DEVINFO`), se l'ha detto.
+    pub dichiarato: Option<Dichiarazione>,
+    /// Vero se `dc_device_open` non è riuscito: il computer non si è aperto, e
+    /// quindi nessuna immersione poteva arrivare. Per i backend con un codice
+    /// di accesso (Pelagic i330R, DSX) vuol dire anche che il codice presentato
+    /// non ha aperto niente — vedi `EsitoChiave` nel ponte.
+    pub non_aperto: bool,
     /// Il guasto, se c'è stato. Non toglie validità alle immersioni sopra.
     pub guasto: Option<String>,
 }
@@ -2437,6 +2491,64 @@ pub fn trova_descrittore(marca: &str, prodotto: &str) -> Option<Descrittore> {
 /// Un descrittore che si libera da solo.
 pub struct Descrittore(*mut DcDescriptor);
 
+impl Descrittore {
+    /// Il numero di modello secondo `descriptor.c`.
+    pub fn modello(&self) -> u32 {
+        // SICUREZZA: il puntatore è valido finché il descrittore vive.
+        unsafe { dc_descriptor_get_model(self.0) }
+    }
+}
+
+/// Marca e nome di TUTTI i descrittori della stessa famiglia di `scelto` che
+/// portano il numero di modello `modello`, nell'ordine di `descriptor.c`.
+///
+/// Serve a dire con che cosa si stava parlando davvero, quando il computer si
+/// dichiara diverso da quello scelto — è la stessa ricerca che fa Subsurface
+/// all'arrivo di `DC_EVENT_DEVINFO` («EVENT_DEVINFO gave us a different
+/// detected product»). **Tutti, e non il primo come fa Subsurface**: più
+/// descrittori possono avere lo stesso numero — Aladin Sport Matrix e H Matrix
+/// sono entrambi 23, i quattro Puck nuovi sono tutti 0x35 — e chi usa questo
+/// elenco per RINOMINARE deve poter vedere che il numero non basta.
+pub fn nomi_del_modello(scelto: &Descrittore, modello: u32) -> Vec<(String, String)> {
+    // SICUREZZA: il puntatore è valido finché `scelto` vive.
+    let famiglia = unsafe { dc_descriptor_get_type(scelto.0) };
+    let mut iteratore: *mut DcIterator = std::ptr::null_mut();
+    if unsafe { dc_descriptor_iterator_new(&mut iteratore, std::ptr::null_mut()) } != DC_STATUS_SUCCESS {
+        return Vec::new();
+    }
+    let leggi = |p: *const std::ffi::c_char| -> String {
+        if p.is_null() {
+            String::new()
+        } else {
+            unsafe { std::ffi::CStr::from_ptr(p) }.to_string_lossy().into_owned()
+        }
+    };
+    let mut trovati = Vec::new();
+    loop {
+        let mut d: *mut DcDescriptor = std::ptr::null_mut();
+        if unsafe { dc_iterator_next(iteratore, &mut d) } != DC_STATUS_SUCCESS {
+            break;
+        }
+        if unsafe { dc_descriptor_get_type(d) } == famiglia && unsafe { dc_descriptor_get_model(d) } == modello {
+            let coppia = (leggi(unsafe { dc_descriptor_get_vendor(d) }), leggi(unsafe { dc_descriptor_get_product(d) }));
+            // Lo stesso nome compare più volte quando il descrittore ha più
+            // trasporti scritti su righe diverse: una volta basta.
+            if !trovati.contains(&coppia) {
+                trovati.push(coppia);
+            }
+        }
+        unsafe { dc_descriptor_free(d) };
+    }
+    unsafe { dc_iterator_free(iteratore) };
+    trovati
+}
+
+/// Il primo di `nomi_del_modello`: quello che direbbe Subsurface.
+#[cfg_attr(not(test), allow(dead_code))]
+pub fn nome_del_modello(scelto: &Descrittore, modello: u32) -> Option<(String, String)> {
+    nomi_del_modello(scelto, modello).into_iter().next()
+}
+
 impl Drop for Descrittore {
     fn drop(&mut self) {
         unsafe { dc_descriptor_free(self.0) };
@@ -2540,6 +2652,8 @@ struct Raccolta<'a> {
     corrente: Avanzamento,
     detto: Option<Avanzamento>,
     quando: std::time::Instant,
+    /// Modello e firmware dichiarati dal computer, da `DC_EVENT_DEVINFO`.
+    dichiarato: Option<Dichiarazione>,
 }
 
 impl Raccolta<'_> {
@@ -2580,26 +2694,46 @@ extern "C" fn raccogli(
     1 // continua
 }
 
-/// I byte letti finora, da `DC_EVENT_PROGRESS`.
+/// I byte letti finora, da `DC_EVENT_PROGRESS`, e chi dice di essere il
+/// computer, da `DC_EVENT_DEVINFO`.
 extern "C" fn avanzamento_della_libreria(
     _dispositivo: *mut DcDevice,
     evento: c_uint,
     dati: *const c_void,
     userdata: *mut c_void,
 ) {
-    // Iscritti a un evento solo, ma la firma è quella generica: un giorno
-    // qualcuno ne aggiungerà un altro e questa riga eviterà che i campi di
-    // `dc_event_devinfo_t` vengano letti come se fossero un progresso.
-    if evento != DC_EVENT_PROGRESS || dati.is_null() || userdata.is_null() {
+    if dati.is_null() || userdata.is_null() {
         return;
     }
-    // SICUREZZA: iscrivendoci a `DC_EVENT_PROGRESS` la libreria passa un
-    // `dc_event_progress_t`, e `userdata` è la stessa `Raccolta` di `raccogli`.
-    let progresso = unsafe { &*(dati as *const DcEventProgress) };
+    // SICUREZZA: `userdata` è la stessa `Raccolta` di `raccogli`, viva per
+    // tutta la durata di `dc_device_foreach`.
     let raccolta = unsafe { &mut *(userdata as *mut Raccolta) };
-    raccolta.corrente.byte_letti = progresso.current;
-    raccolta.corrente.byte_totali = progresso.maximum;
-    raccolta.racconta();
+    /*
+     * ► IL TIPO DELLA STRUTTURA LO DICE L'EVENTO, E SOLO LUI. ◄ Le due
+     * strutture sono entrambe fatte di `unsigned int`: leggere una
+     * `dc_event_devinfo_t` come un progresso non darebbe nessun errore, darebbe
+     * una barra al «modello su firmware» per cento. Per questo ogni ramo
+     * confronta l'evento esatto, e tutto il resto si ignora.
+     */
+    match evento {
+        DC_EVENT_PROGRESS => {
+            // SICUREZZA: con `DC_EVENT_PROGRESS` la libreria passa un
+            // `dc_event_progress_t`.
+            let progresso = unsafe { &*(dati as *const DcEventProgress) };
+            raccolta.corrente.byte_letti = progresso.current;
+            raccolta.corrente.byte_totali = progresso.maximum;
+            raccolta.racconta();
+        }
+        DC_EVENT_DEVINFO => {
+            // SICUREZZA: con `DC_EVENT_DEVINFO` la libreria passa un
+            // `dc_event_devinfo_t`. Il seriale si legge e si lascia lì: vedi
+            // `Dichiarazione`.
+            let info = unsafe { &*(dati as *const DcEventDevinfo) };
+            let _ = info.serial;
+            raccolta.dichiarato = Some(Dichiarazione { modello: info.model, firmware: info.firmware });
+        }
+        _ => {}
+    }
 }
 
 impl CollegamentoLdc {
@@ -2713,6 +2847,9 @@ impl CollegamentoLdc {
         if esito != DC_STATUS_SUCCESS {
             return EsitoScarico {
                 immersioni: Vec::new(),
+                tradotte: Vec::new(),
+                dichiarato: None,
+                non_aperto: true,
                 guasto: Some(format!("il computer non si è aperto ({})", self.spiega(esito))),
             };
         }
@@ -2775,6 +2912,7 @@ impl CollegamentoLdc {
             corrente: Avanzamento::default(),
             detto: None,
             quando: std::time::Instant::now(),
+            dichiarato: None,
         };
         let suo = &mut raccolta as *mut Raccolta as *mut c_void;
         /*
@@ -2786,8 +2924,14 @@ impl CollegamentoLdc {
          * non vale mai più della cosa che racconta.* Va però detto nel diario,
          * o la barra ferma diventerebbe un secondo mistero da spiegare.
          */
-        let iscritto =
-            unsafe { dc_device_set_events(dispositivo, DC_EVENT_PROGRESS, avanzamento_della_libreria, suo) };
+        let iscritto = unsafe {
+            dc_device_set_events(
+                dispositivo,
+                DC_EVENT_PROGRESS | DC_EVENT_DEVINFO,
+                avanzamento_della_libreria,
+                suo,
+            )
+        };
         if iscritto != DC_STATUS_SUCCESS {
             annota(
                 &self.guasto,
@@ -2799,18 +2943,34 @@ impl CollegamentoLdc {
         }
         let esito = unsafe { dc_device_foreach(dispositivo, raccogli, suo) };
         let raccolte = raccolta.immersioni;
+        let dichiarato = raccolta.dichiarato;
         // La causa si legge PRIMA di chiudere: per i backend il cui `close`
         // scrive sul flusso (l'OSTC manda EXIT, Shearwater chiude la
         // sessione), una chiusura su un collegamento già caduto annota un
         // secondo guasto che sovrascriverebbe quello dello scarico — e il
         // messaggio parlerebbe della chiusura invece che di cosa si è rotto.
         let spiegazione = if esito != DC_STATUS_SUCCESS { Some(self.spiega(esito)) } else { None };
+        /*
+         * ► LE IMMERSIONI SI LEGGONO ADESSO, COL DISPOSITIVO ANCORA APERTO. ◄
+         *
+         * Il lettore che il dispositivo sa costruire usa il modello che il
+         * computer ha dichiarato, e non quello che è stato scelto: vedi
+         * `leggi_dal_dispositivo`. Dopo `dc_device_close` il dispositivo non
+         * esiste più, e con lui quel modello. Leggere cento immersioni costa
+         * millisecondi: il collegamento resta aperto un istante in più, e
+         * nessuno scambio col computer avviene in quell'istante — il lettore
+         * lavora sui byte già arrivati.
+         */
+        let tradotte = raccolte.iter().map(|g| leggi_dal_dispositivo(dispositivo, &g.dati)).collect();
         // Il dispositivo si chiude comunque, anche quando lo scarico è fallito:
         // lasciarlo aperto significherebbe un computer che resta occupato.
         unsafe { dc_device_close(dispositivo) };
 
         EsitoScarico {
             immersioni: raccolte,
+            tradotte,
+            dichiarato,
+            non_aperto: false,
             guasto: spiegazione.map(|s| format!("scarico non riuscito ({s})")),
         }
     }
@@ -3018,7 +3178,8 @@ struct Accumulatore {
  *
  * Il commento che stava qui diceva «0 nessuna, 1 NDL, 2 sosta deco, 3 sosta di
  * sicurezza». È un ordine inventato. Quello vero sta in
- * `vendor/libdivecomputer-0.9.0.tar.gz`, `include/libdivecomputer/parser.h`:
+ * `include/libdivecomputer/parser.h` del tarball in `vendor/` (0.9.0 allora,
+ * il ramo principale dal 22 settembre 2026 — l'ordine è rimasto quello):
  *
  *     typedef enum dc_deco_type_t {
  *         DC_DECO_NDL,        // 0
@@ -3061,7 +3222,8 @@ struct Accumulatore {
 /// saturazione plausibile e sbagliata, che in un logbook è il guasto peggiore.
 ///
 /// ► QUANTO COPRE, MISURATO INVECE CHE SPERATO. ◄ Dei 36 parser di
-/// libdivecomputer 0.9.0, **26 mandano `DC_SAMPLE_GASMIX`** — fra cui
+/// libdivecomputer — contati nella 0.9.0 e ricontati nel ramo principale il 22
+/// settembre 2026, stessi numeri — **26 mandano `DC_SAMPLE_GASMIX`** — fra cui
 /// `mares_iconhd` (il Puck 4), `shearwater_predator` e `uwatec_smart` — e
 /// **nessuno** usa soltanto il vecchio evento `SAMPLE_EVENT_GASCHANGE`.
 /// Contati nel sorgente, non dedotti: `grep -l DC_SAMPLE_GASMIX src/*.c`.
@@ -3346,6 +3508,12 @@ pub struct DcParser {
 }
 
 extern "C" {
+    fn dc_parser_new(
+        parser: *mut *mut DcParser,
+        device: *mut DcDevice,
+        data: *const u8,
+        size: usize,
+    ) -> c_int;
     fn dc_parser_new2(
         parser: *mut *mut DcParser,
         context: *mut DcContext,
@@ -3368,12 +3536,19 @@ extern "C" {
     fn dc_parser_destroy(parser: *mut DcParser) -> c_int;
 }
 
-/// Traduce i byte grezzi di UNA immersione nel nostro modello.
+/// Traduce i byte grezzi di UNA immersione nel nostro modello, col lettore
+/// costruito sul DESCRITTORE.
 ///
 /// PERCHÉ QUI E NON IN TYPESCRIPT. Perché i byte grezzi di un computer che non
 /// conosciamo non li sa leggere nessuno tranne libdivecomputer, e farli
 /// attraversare il confine per poi rimandarli indietro sarebbe un giro inutile.
 /// Quello che attraversa il confine è già il modello.
+///
+/// ► NON È PIÙ LA STRADA DELLO SCARICO. ◄ Allo scarico si legge col
+/// dispositivo aperto: vedi `leggi_dal_dispositivo`. Questa resta per chi ha
+/// solo i byte e un descrittore — le prove, e il confronto con le immersioni
+/// esportate — ed è quello che fa anche Subsurface quando importa un file.
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn traduci(
     contesto: &Contesto,
     descrittore: &Descrittore,
@@ -3386,7 +3561,46 @@ pub fn traduci(
     if esito != DC_STATUS_SUCCESS {
         return Err(format!("nessun lettore per questa immersione (stato {esito})"));
     }
+    leggi_col_lettore(parser)
+}
 
+/// Traduce UNA immersione col lettore che il dispositivo aperto sa costruire.
+///
+/// ════════════════════════════════════════════════════════════════════════════
+/// ► IL LETTORE COSTRUITO SUL MODELLO SCELTO LEGGEVA CON GLI OCCHI DI UN ALTRO. ◄
+///
+/// Fino al 22 settembre 2026 le immersioni scaricate si leggevano con
+/// `dc_parser_new2`, cioè con il modello del DESCRITTORE: quello scelto
+/// dall'elenco, o proposto dal nome Bluetooth. Per molte famiglie il modello
+/// decide come si leggono i byte — la disposizione dei campioni dei Mares,
+/// hwOS 3 o hwOS 4 negli OSTC, gli schemi della memoria Pelagic — e il
+/// modello scelto può non essere quello vero: chi ha un Mares dietro un
+/// adattatore BlueLink Pro sceglie fra diciassette nomi, chi ha un Ratio fra
+/// venticinque, e con libdivecomputer aggiornata **tutti gli OSTC fino al Plus
+/// hanno il numero zero**. Un lettore col modello sbagliato non dà errore: dà
+/// un profilo plausibile e falso, che in un logbook è il guasto peggiore.
+///
+/// `dc_parser_new` costruisce il lettore sul DISPOSITIVO, cioè sul modello che
+/// il computer ha dichiarato con `DC_EVENT_DEVINFO` — e tutti i backend BLE
+/// della libreria lo dichiarano, prima della prima immersione. È esattamente
+/// quello che fa Subsurface (`dive_cb` in `core/libdivecomputer.cpp`), che è la
+/// strada su cui i backend vengono provati davvero. *Una strada diversa da
+/// quella del programma su cui la libreria è collaudata è una strada che non
+/// ha collaudato nessuno.*
+fn leggi_dal_dispositivo(dispositivo: *mut DcDevice, dati: &[u8]) -> Result<ImmersioneLdc, String> {
+    let mut parser: *mut DcParser = std::ptr::null_mut();
+    // SICUREZZA: `dispositivo` è aperto — chi chiama lo chiude dopo — e `dati`
+    // vive per tutta la chiamata; il lettore ne tiene una copia sua.
+    let esito = unsafe { dc_parser_new(&mut parser, dispositivo, dati.as_ptr(), dati.len()) };
+    if esito != DC_STATUS_SUCCESS {
+        return Err(format!("nessun lettore per questa immersione (stato {esito})"));
+    }
+    leggi_col_lettore(parser)
+}
+
+/// Il corpo comune delle due traduzioni: prende possesso del lettore, lo usa e
+/// lo distrugge.
+fn leggi_col_lettore(parser: *mut DcParser) -> Result<ImmersioneLdc, String> {
     let mut immersione = ImmersioneLdc::default();
 
     /*
@@ -4010,6 +4224,9 @@ mod prove {
          */
         let esito = EsitoScarico {
             immersioni: vec![ImmersioneGrezza { dati: vec![1, 2, 3], impronta: vec![9] }],
+            tradotte: vec![Err("byte di prova".into())],
+            dichiarato: None,
+            non_aperto: false,
             guasto: Some("il collegamento è caduto".into()),
         };
         assert_eq!(esito.immersioni.len(), 1);
@@ -4020,6 +4237,9 @@ mod prove {
         // la usasse nello scarico vero, questa riga dice cosa costa.
         let perso = EsitoScarico {
             immersioni: vec![ImmersioneGrezza { dati: vec![1], impronta: vec![] }],
+            tradotte: vec![Err("byte di prova".into())],
+            dichiarato: None,
+            non_aperto: false,
             guasto: Some("rotto".into()),
         };
         assert!(perso.in_risultato().is_err(), "in_risultato sceglie l'errore e perde le immersioni");
@@ -4069,6 +4289,69 @@ mod prove {
         impronte.sort();
         impronte.dedup();
         assert_eq!(impronte.len(), 3);
+    }
+
+    #[test]
+    fn il_computer_si_presenta_e_le_immersioni_si_leggono_col_dispositivo_aperto() {
+        /*
+         * ► IL MODELLO DICHIARATO ARRIVA, E OGNI IMMERSIONE HA LA SUA LETTURA. ◄
+         *
+         * Il finto Aladin risponde al comando del modello con 23 — l'Aladin
+         * Sport Matrix — e libdivecomputer lo dichiara con `DC_EVENT_DEVINFO`.
+         * Qui si guarda che la dichiarazione arrivi fino all'esito, e che le
+         * letture fatte col dispositivo aperto siano una per immersione, nello
+         * stesso ordine: la lista che il ponte scorre accanto a quella dei byte.
+         */
+        let descrittore = trova_descrittore("Scubapro", "Aladin Sport Matrix").unwrap();
+        let collegamento =
+            CollegamentoLdc::apri(Box::new(FintoAladin::nuovo(memoria_con(3, 120)))).unwrap();
+        let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+        assert!(esito.guasto.is_none(), "{:?}", esito.guasto);
+        assert_eq!(esito.immersioni.len(), 3);
+        assert_eq!(esito.tradotte.len(), 3, "una lettura per ogni immersione");
+        let dichiarato = esito.dichiarato.expect("il finto Aladin dice il suo modello");
+        assert_eq!(dichiarato.modello, 23);
+        assert_eq!(dichiarato.modello, descrittore.modello(), "scelto e dichiarato coincidono");
+    }
+
+    #[test]
+    fn un_modello_scelto_male_si_vede_e_si_sa_dire_quale_era() {
+        /*
+         * ► LA SCELTA SBAGLIATA, COME SUCCEDE DAVVERO. ◄ Chi ha un Aladin e
+         * sceglie «G2» dall'elenco: il backend Uwatec non guarda il descrittore
+         * — il modello lo chiede al computer — e lo scarico riesce lo stesso.
+         * Fino al 22 settembre 2026 però il LETTORE veniva costruito sul G2, e
+         * niente lo diceva. Adesso la dichiarazione arriva, è diversa dalla
+         * scelta, e `nome_del_modello` sa dire chi è: è la riga che finisce
+         * nel diario.
+         */
+        let g2 = trova_descrittore("Scubapro", "G2").unwrap();
+        assert_ne!(g2.modello(), 23);
+        let collegamento =
+            CollegamentoLdc::apri(Box::new(FintoAladin::nuovo(memoria_con(2, 120)))).unwrap();
+        let esito = collegamento.scarica_tutto(&g2, &[], &|_| {});
+        assert!(esito.guasto.is_none(), "{:?}", esito.guasto);
+        let dichiarato = esito.dichiarato.expect("il modello dichiarato deve arrivare");
+        assert_eq!(dichiarato.modello, 23);
+        assert_ne!(dichiarato.modello, g2.modello());
+        let (marca, modello) = nome_del_modello(&g2, dichiarato.modello).expect("il 23 ha un nome");
+        assert_eq!(marca, "Scubapro");
+        assert!(modello.contains("Matrix"), "il 23 è un Aladin Matrix, non «{modello}»");
+        // Un numero che la famiglia non ha non si inventa un nome.
+        assert!(nome_del_modello(&g2, 0xDEAD).is_none());
+        /*
+         * ► E UN NUMERO NON È SEMPRE UN NOME SOLO. ◄ Il 23 è l'Aladin Sport
+         * Matrix E l'Aladin H Matrix: chi rinomina le immersioni col modello
+         * dichiarato deve vedere che qui il numero non basta, e non
+         * rinominare. Vedi `modello_dichiarato` nel ponte.
+         */
+        let tutti = nomi_del_modello(&g2, 23);
+        assert!(tutti.len() >= 2, "il 23 ha più di un nome: {tutti:?}");
+        let mares = trova_descrittore("Mares", "Quad").unwrap();
+        let puck = nomi_del_modello(&mares, 0x35);
+        assert!(puck.len() >= 4, "i Puck nuovi sono tutti 0x35: {puck:?}");
+        let quad2 = nomi_del_modello(&mares, 0x32);
+        assert_eq!(quad2, vec![("Mares".to_string(), "Quad 2".to_string())], "lo 0x32 è solo il Quad 2");
     }
 
     #[test]
@@ -5122,6 +5405,125 @@ mod prove {
         assert!(
             riga.contains("arrivate prima del primo comando e buttate: 2 notifiche (202 byte)"),
             "il diario deve dirlo, o la prossima segnalazione non saprà che è successo: {riga}"
+        );
+    }
+
+    /// Un i330R che la chiave conservata non la riconosce più: azzerato, o
+    /// accoppiato con un altro telefono. Risponde come dice il commit della
+    /// libreria che ha insegnato a gestirlo (`6026d96`, «Handle an invalid
+    /// access code response»): codice d'errore 13, e un PIN nuovo sul display.
+    struct I330rCheHaCambiatoChiave {
+        valida: [u8; 16],
+        pin: [u8; 6],
+    }
+
+    /// La persona davanti allo schermo: sa leggere il PIN, e la chiave che ha
+    /// in tasca è vecchia.
+    struct ChiInTascaHaUnaChiaveVecchia {
+        pin_chiesti: Arc<Mutex<usize>>,
+        salvata: Arc<Mutex<Option<Vec<u8>>>>,
+    }
+
+    impl AccessoriBle for ChiInTascaHaUnaChiaveVecchia {
+        fn nome(&mut self) -> Option<String> {
+            None
+        }
+        fn leggi_caratteristica(&mut self, _uuid: [u8; 16]) -> Result<Vec<u8>, String> {
+            Err("il finto non ha caratteristiche da leggere".into())
+        }
+        fn codice_pin(&mut self) -> Option<String> {
+            *self.pin_chiesti.lock().unwrap() += 1;
+            Some("482915".into())
+        }
+        fn codice_accesso(&mut self) -> Option<Vec<u8>> {
+            // Quella salvata in questo scarico vale; se non c'è, quella vecchia.
+            Some(self.salvata.lock().unwrap().clone().unwrap_or_else(|| vec![0x5A; 16]))
+        }
+        fn salva_codice_accesso(&mut self, codice: &[u8]) {
+            *self.salvata.lock().unwrap() = Some(codice.to_vec());
+        }
+    }
+
+    #[test]
+    fn una_chiave_che_non_vale_piu_porta_al_pin_e_la_chiave_nuova_apre() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► IL VICOLO CIECO CHE LA 0.9.0 NON SAPEVA APRIRE. ◄
+         *
+         * Con la 0.9.0 una chiave conservata faceva saltare del tutto il ramo
+         * del PIN: il computer rispondeva 13, la libreria diceva «errore di
+         * protocollo» e si fermava — a ogni tentativo, per sempre. Dal ramo
+         * principale il 13 diventa `DC_STATUS_NOACCESS`, e la libreria chiede
+         * il PIN da sé, se ne fa dare una chiave nuova e riprova.
+         *
+         * Qui si percorre quel giro intero attraverso il NOSTRO trasporto: la
+         * richiesta del PIN (`GET_PINCODE`), la chiave nuova da conservare
+         * (`SET_ACCESSCODE`), e la seconda richiesta d'accesso con la chiave
+         * appena arrivata. Il finto si ferma alla calibrazione, come l'altro.
+         */
+        let descrittore = trova_descrittore("Aqualung", "i330R").expect("il descrittore dell'i330R deve esistere");
+        let finto = I330rCheHaCambiatoChiave { valida: [0xA5; 16], pin: [4, 8, 2, 9, 1, 5] };
+        let (manda, ricevi) = channel::<Vec<u8>>();
+        let comandi: Comandi = Arc::new(Mutex::new(Vec::new()));
+        let visti = comandi.clone();
+        let scrittura: ScritturaBle = Box::new(move |dati: &[u8]| {
+            let (bandiera, comando) = (dati[1], dati[2]);
+            let carico = &dati[5..];
+            visti.lock().unwrap().push((comando, bandiera));
+            let risposte = match (comando, bandiera) {
+                (0xFA, 0x40) | (0xFB, 0x40) => vec![pacchetto_i330r(0xC0, comando, &[1])],
+                // La chiave: giusta, o il 13 che fa comparire il PIN nuovo.
+                (0xFA, 0x80) if carico == finto.valida => vec![pacchetto_i330r(0xC0, 0xFA, &[2])],
+                (0xFA, 0x80) => vec![pacchetto_i330r(0xC0, 0xFA, &[13])],
+                // Il PIN giusto vale una chiave nuova.
+                (0xFB, 0x80) if carico == finto.pin => vec![
+                    pacchetto_i330r(0x80, 0xFB, &finto.valida),
+                    pacchetto_i330r(0xC0, 0xFB, &[2]),
+                ],
+                (0x22, _) => {
+                    let mut id = [0u8; 16];
+                    id[12] = 0x47;
+                    id[13] = 0x44;
+                    vec![pacchetto_i330r(0x80, 0x22, &id), pacchetto_i330r(0xC0, 0x22, &[2])]
+                }
+                (0x97, _) => vec![pacchetto_i330r(0xC0, 0x97, &[1])],
+                _ => vec![pacchetto_i330r(0xC0, comando, &[9])],
+            };
+            for r in risposte {
+                let _ = manda.send(r);
+            }
+            Ok(())
+        });
+        let pin_chiesti = Arc::new(Mutex::new(0usize));
+        let salvata = Arc::new(Mutex::new(None));
+        let accessori = ChiInTascaHaUnaChiaveVecchia { pin_chiesti: pin_chiesti.clone(), salvata: salvata.clone() };
+        let flusso = FlussoBle::nuovo(ricevi, scrittura)
+            .con_accessori(Box::new(accessori), Box::new(|| Ripiego::Esaurito))
+            .con_riassemblaggio(Riassemblaggio::LunghezzaDichiarata);
+        let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+
+        assert!(collegamento.scarica(&descrittore).is_err(), "il finto rifiuta la calibrazione apposta");
+        assert_eq!(*pin_chiesti.lock().unwrap(), 1, "il PIN si chiede una volta sola");
+        assert_eq!(salvata.lock().unwrap().as_deref(), Some(&[0xA5u8; 16][..]), "la chiave nuova si conserva");
+        assert_eq!(
+            *comandi.lock().unwrap(),
+            vec![
+                (0xFA, 0x40),
+                (0xFA, 0x80), // la chiave vecchia: 13
+                (0xFB, 0x40),
+                (0xFB, 0x80), // il PIN: la chiave nuova
+                (0xFA, 0x40),
+                (0xFA, 0x80), // la chiave nuova: aperto
+                (0x22, 0x40),
+                (0x97, 0x40),
+                (0x27, 0x40),
+            ],
+            "chiave vecchia, PIN, chiave nuova, risveglio, autenticazione"
+        );
+        let righe = collegamento.righe_della_libreria();
+        assert!(
+            righe.iter().any(|r| r.contains("invalid access code")),
+            "la libreria deve dire perché ha chiesto il PIN: {righe:?}"
         );
     }
 

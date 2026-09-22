@@ -1,9 +1,84 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **22 settembre 2026** — **2 944 prove in 191 file** più
-**158 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
+Aggiornato: **23 settembre 2026** — **2 966 prove in 192 file** più
+**163 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
+
+> ## ► TUTTI I COMPUTER, DALLA 1.8.30: LA LIBRERIA NUOVA, E QUATTRO DIFETTI NOSTRI. ◄
+>
+> La notte fra il 22 e il 23 settembre, su una richiesta sola del proprietario:
+> *far funzionare tutti i computer dalla 1.8.30 in poi*. **Niente di questo è
+> pubblicato**: entra nella 1.8.30, che si pubblica quando lo dice lui.
+>
+> **1. libdivecomputer passa dalla 0.9.0 al ramo principale** (commit
+> `9e6c3c8`, «0.10.0-devel»: ottantanove commit dopo la 0.9.0 del 30 giugno
+> 2025). Il perché sta in testa a `src-tauri/build.rs`: dieci modelli Bluetooth
+> nuovi — **Perdix 3, Quad 2, Sirius L, Puck Pro EZ e Ultra, Raffaello, Seac
+> Tablet, OSTC 3, OSTC cR, OSTC Nano** — e correzioni dentro i backend che già
+> usavamo. Le tre che contano di più: l'**i330R** a cui si presenta un codice
+> che non vale più risponde 13 e mostra un PIN nuovo, e la libreria adesso lo
+> chiede da sé invece di fermarsi; l'**Halcyon** con firmware recente manda uno
+> stato da 36 byte che la 0.9.0 rifiutava con «Unexpected packet length»; i
+> **Mares** non si fermano più su un puntatore di fine profilo storto. Il
+> catalogo passa a **115 voci, 116 descrittori BLE, 21 marche** (da 105, 110 e
+> 20). Verificato che il confine C non si è mosso: l'unione dei campioni resta
+> di 24 byte, gli eventi non sono rinumerati, il campione nuovo
+> `DC_SAMPLE_LOCATION` arriva in coda e si ignora, `version.h` e `revision.h`
+> escono giusti da tutte e due le strade di compilazione. La versione ora sta
+> scritta in un posto solo, `build.rs`, e `scripts/libdivecomputer.mjs` la
+> legge per il catalogo e per le tre prove che prima la ricopiavano.
+>
+> **2. Il Perdix 3 sarebbe finito al driver di casa, che non lo sa leggere.**
+> Stessa famiglia del Peregrine, `shearwater_petrel`, e un altro protocollo:
+> servizio GATT diverso, niente intestazione di due byte, cornice da cinque.
+> La scelta per sola famiglia lo mandava al driver V1, e il riconoscimento per
+> prefisso («perdix») pure. Adesso la famiglia dice QUALE driver e i **numeri di
+> modello** dicono QUALI apparecchi conosce: un numero nuovo va a
+> libdivecomputer finché qualcuno non ha verificato il contrario, e una prova
+> elenca le voci rimaste fuori — oggi solo il Perdix 3 — così la prossima
+> rigenerazione del catalogo obbliga a decidere.
+>
+> **3. Le immersioni si leggono col dispositivo aperto, come in Subsurface.**
+> Lo scarico costruiva il lettore sul modello SCELTO (`dc_parser_new2`); per
+> molte famiglie il modello decide come si leggono i byte, e con la libreria
+> nuova tutti gli OSTC fino al Plus hanno il numero zero. Adesso si legge prima
+> di chiudere, con `dc_parser_new`, sul modello che il computer **dichiara**
+> (`DC_EVENT_DEVINFO`, che tutti i backend BLE mandano). Il diario scrive il
+> modello e il firmware dichiarati — il seriale no, il diario si allega alle
+> segnalazioni — e dice quando la scelta era un'altra; le immersioni prendono il
+> nome dichiarato solo quando il numero porta a **un nome solo** (i quattro Puck
+> nuovi sono tutti 0x35: lì resta quello scelto).
+>
+> **4. La chiave dell'i330R si buttava quando non c'entrava, e si teneva
+> quando c'entrava.** Il ramo che la dimenticava stava nel `catch`, e dalla
+> 1.8.20 uno scarico fallito non lancia più: ci arrivavano solo i guasti di
+> PRIMA dello scarico, quelli in cui la chiave non era mai stata presentata. Un
+> computer azzerato con la 0.9.0 sarebbe rimasto chiuso per sempre. Adesso il
+> guscio Rust dice che cosa è successo — chiave presentata, non sostituita,
+> computer chiuso: `chiaveNonAccettata` — e la chiave si butta alla seconda
+> volta di fila. E il giro del ramo principale — chiave vecchia, 13, PIN,
+> chiave nuova, apertura — è percorso da capo a fondo attraverso il nostro
+> trasporto da un i330R finto, contro la libreria vera.
+>
+> **5. Fra i Mares il nome dice da che parte stare.** `mares_iconhd` decide
+> come leggere i pacchetti dal modello SCELTO — `ISSIRIUS(model) ? VARIABLE :
+> FIXED` — quindi un Mares proposto male non è un'etichetta storta, è uno
+> scarico che non parte. «Puck Pro U», il nome che la libreria elenca per
+> l'Ultra, contiene «Puck Pro», il Puck vecchio a pacchetto fisso. Adesso chi
+> annuncia «Mares bluelink pro» sceglie solo fra i Mares dell'adattatore, chi
+> annuncia un nome suo solo fra i nativi, e un nome troncato trova il modello
+> di cui è l'inizio. In più: la regola del numero per l'Halcyon, e i nomi
+> vecchi dei Cressi («GOA_», «CARESIO_») che Subsurface conosce e i filtri no.
+>
+> **Il sito** è rigenerato — 123 modelli, Seac nel nastro, i termini che
+> puntano al tarball nuovo — ma **non pubblicato**: dice cose vere solo per la
+> 1.8.30.
+>
+> **Quello che da qui non si può verificare, detto.** Nessuno dei modelli
+> nuovi è stato collegato: sono verdi contro la libreria vera e i finti, non
+> contro un apparecchio. La compilazione della libreria nuova per **Windows e
+> Android** si vede solo nel workflow manuale «Windows, Android e Linux».
 
 > ## ► L'i330R E LA CODA DI UNA LETTURA RIMASTA A METÀ. ◄
 >

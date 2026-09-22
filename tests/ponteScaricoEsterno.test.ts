@@ -170,6 +170,52 @@ describe('gli argomenti che attraversano il confine', () => {
     ).toBeNull();
   });
 
+  it('le immersioni prendono il nome che il computer ha dichiarato, quando il guscio lo manda', async () => {
+    /*
+     * Chi ha scelto «Quad» per un Quad 2: il guscio legge le immersioni col
+     * modello dichiarato e manda il nome giusto, perché su ogni immersione — e
+     * nel libretto stampato — finisca quello. Senza, resta quello scelto.
+     */
+    const una = {
+      startMs: Date.parse('2026-09-20T10:00:00.000Z'),
+      durationS: 2400,
+      maxDepth: 25,
+      gas: [{ o2: 0.21, he: 0 }],
+      samples: [
+        { t: 0, depth: 0 },
+        { t: 1200, depth: 25 },
+        { t: 2400, depth: 0 },
+      ],
+    };
+    finto.risposta = () =>
+      Promise.resolve({ immersioni: [una], modelloDichiarato: { marca: 'Mares', modello: 'Quad 2' } });
+    const conNome = await scaricaDaComputerEsterno({
+      dispositivo: 'dev-1',
+      marca: 'Mares',
+      modello: 'Quad',
+      emit: () => {},
+    });
+    expect(conNome.dives[0]!.computer?.model).toBe('Mares Quad 2');
+
+    finto.risposta = () => Promise.resolve({ immersioni: [una] });
+    const senza = await scaricaDaComputerEsterno({
+      dispositivo: 'dev-1',
+      marca: 'Mares',
+      modello: 'Quad',
+      emit: () => {},
+    });
+    expect(senza.dives[0]!.computer?.model).toBe('Mares Quad');
+  });
+
+  it('il guscio chiama il campo come lo legge l’interfaccia', () => {
+    // `rename_all = "camelCase"`: `modello_dichiarato` di là è
+    // `modelloDichiarato` di qua.
+    const ponte = readFileSync('src-tauri/src/ponte_blec.rs', 'utf8');
+    expect(ponte).toContain('pub modello_dichiarato: Option<ModelloDichiarato>,');
+    const ts = readFileSync('src/storage/computerEsterni.ts', 'utf8');
+    expect(ts).toContain('modelloDichiarato?: { marca: string; modello: string };');
+  });
+
   it('la risposta al PIN passa dal comando giusto, cifre o rinuncia che sia', async () => {
     await rispondiCodicePin('482915');
     await rispondiCodicePin(null);

@@ -20,10 +20,15 @@
  * È esattamente la forma di guasto che questo progetto ha già pagato una volta
  * con `DECO_NDL`: **niente si rompe, qualcosa diventa falso.**
  *
- * Il numero qui sotto non è un capriccio: è quanti file ha davvero
- * libdivecomputer 0.9.0. Il giorno che si cambia versione questo test diventa
+ * Il numero qui sotto non è un capriccio: è quanti file ha davvero la
+ * versione vendorizzata. Il giorno che si cambia versione questo test diventa
  * rosso, e va aggiornato GUARDANDO — che è precisamente il momento in cui
- * qualcuno deve guardare.
+ * qualcuno deve guardare. Il 22 settembre 2026, passando dalla 0.9.0 al ramo
+ * principale, è stato guardato e il numero è rimasto 113 per una coincidenza
+ * che vale la pena scrivere: `hw_frog.c` è uscito, assorbito da `hw_ostc3.c`, ed
+ * è entrato `seac_screen_common.c`. Uno in meno e uno in più — contati sui due
+ * `Makefile.am`, non dedotti dal fatto che il numero non si è mosso. *Un
+ * conteggio che non cambia non vuol dire che non sia cambiato niente.*
  *
  * SI LEGGE DAL TARBALL, non dalla copia scompattata dalla build: quella è un
  * artefatto e su un'altra macchina può non esserci. Stessa regola del test
@@ -36,11 +41,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-const VERSIONE = '0.9.0';
-const TARBALL = `src-tauri/vendor/libdivecomputer-${VERSIONE}.tar.gz`;
+import {
+  CARTELLA_LDC,
+  TARBALL_LDC,
+  // @ts-expect-error — script `.mjs` senza tipi: la direttiva sta sulla riga del modulo, vedi travasoSegnalazioni.test.ts.
+} from '../scripts/libdivecomputer.mjs';
+
+/*
+ * La versione la dichiara `build.rs` e la legge `scripts/libdivecomputer.mjs`:
+ * qui non se ne scrive una copia. Vedi il commento in testa a quel modulo.
+ */
+const TARBALL: string = TARBALL_LDC;
+const CARTELLA: string = CARTELLA_LDC;
 const BUILD_RS = 'src-tauri/build.rs';
 
-/** Quanti `.c` ha libdivecomputer 0.9.0, serial escluso. Contati, non stimati. */
+/** Quanti `.c` ha la libdivecomputer vendorizzata, serial escluso. Contati, non stimati. */
 const QUANTI = 113;
 
 let makefile = '';
@@ -48,7 +63,7 @@ let makefile = '';
 beforeAll(() => {
   const tmp = mkdtempSync(join(tmpdir(), 'ldc-sorgenti-'));
   execSync(`tar xzf ${TARBALL} -C ${tmp}`);
-  makefile = readFileSync(join(tmp, `libdivecomputer-${VERSIONE}/src/Makefile.am`), 'utf8');
+  makefile = readFileSync(join(tmp, `${CARTELLA}/src/Makefile.am`), 'utf8');
 });
 
 /**

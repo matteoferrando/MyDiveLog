@@ -46,8 +46,11 @@ import {
   scaricaDaComputerEsterno,
 } from '../../storage/computerEsterni';
 import {
+  azzeraRifiutiDellaChiave,
   codiceAccoppiamento,
+  contaRifiutoDellaChiave,
   dimenticaAccoppiamento,
+  RIFIUTI_PER_DIMENTICARE,
   salvaCodiceAccoppiamento,
 } from '../../core/accoppiamento';
 import { decidiComeInsistere } from '../../core/insistenza';
@@ -62,12 +65,7 @@ import {
   type DownloadEvent,
 } from '../../core/ble/types';
 import { TauriBleTransport, permessoNegato } from '../../storage/ble';
-import {
-  causaDelGuasto,
-  conDettaglio,
-  dettaglioLeggibile,
-  ilCollegamentoNonSiEAperto,
-} from '../../core/ble/causaGuasto';
+import { causaDelGuasto, conDettaglio, dettaglioLeggibile } from '../../core/ble/causaGuasto';
 import { annullata, esporta, frasePosizione, NON_SCELTO } from '../esporta';
 import { suAndroid, suIOS } from '../../piattaforma';
 import { useDiveLog } from '../state';
@@ -1315,53 +1313,56 @@ export function BleDownload() {
           grezzo = esito.guasto;
           guasto = new Error(esito.guasto);
         }
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► LA CHIAVE SI BUTTA QUANDO NON APRE IL COMPUTER, DUE VOLTE DI FILA. ◄
+         *
+         * Qui sotto, nel `catch`, c'era la regola vecchia: «al primo scarico
+         * fallito con una chiave conservata, la chiave si butta». Il 22
+         * settembre 2026 si è visto che da quando uno scarico fallito non
+         * lancia più — la 1.8.20, per non perdere le immersioni già arrivate —
+         * quel ramo scattava solo per i guasti di PRIMA dello scarico:
+         * collegamento, servizi, ponte. Cioè esattamente i casi in cui la
+         * chiave non era mai stata presentata. *Buttava la chiave quando non
+         * c'entrava, e la teneva quando c'entrava.*
+         *
+         * Adesso il guscio Rust dice che cosa è successo davvero —
+         * `chiaveNonAccettata`: presentata, non sostituita, computer chiuso —
+         * e la chiave si butta alla seconda volta di fila. Il perché di «due»
+         * sta in `contaRifiutoDellaChiave`. Un computer che si apre, o che
+         * rilascia una chiave nuova, azzera il conto.
+         */
+        if (conservato && esito.chiaveNonAccettata) {
+          const volte = contaRifiutoDellaChiave(device.id);
+          if (volte >= RIFIUTI_PER_DIMENTICARE) {
+            dimenticaAccoppiamento(device.id);
+            diario.push(
+              `la chiave conservata non ha aperto il computer per ${volte} volte di fila: dimenticata, la prossima volta si riparte dal PIN`,
+            );
+          } else {
+            diario.push(
+              'la chiave conservata è stata presentata e il computer non si è aperto: si tiene per un altro tentativo, e se succede di nuovo si riparte dal PIN',
+            );
+          }
+        } else if (conservato && !esito.guasto) {
+          azzeraRifiutiDellaChiave(device.id);
+        }
       } catch (e) {
         guasto = e;
         grezzo = e instanceof Error ? e.message : String(e);
         /*
-         * ► UNA CHIAVE CHE NON VALE PIÙ SI DIMENTICA, O NON SI ESCE PIÙ. ◄
+         * ► QUI LA CHIAVE NON SI TOCCA, E NON È UNA DIMENTICANZA. ◄
          *
-         * Il computer viene azzerato, o accoppiato con il telefono di
-         * qualcun altro, e la chiave conservata smette di valere. Ma con una
-         * chiave in mano `pelagic_i330r_init` **salta del tutto il ramo del
-         * PIN** e fallisce subito: lo scarico muore identico a ogni
-         * tentativo, per sempre, e l'unica uscita sarebbe disinstallare
-         * l'applicazione.
-         *
-         * Quindi al primo scarico fallito la chiave si butta. Il costo, se il
-         * guasto era un altro, è digitare sei cifre una volta in più; il
-         * costo di tenerla è un computer che non si scarica mai più.
+         * Arriva qui solo un guasto di PRIMA dello scarico — il collegamento
+         * che non si apre, un servizio che non c'è, il ponte occupato — e in
+         * nessuno di questi la chiave è stata presentata: si usa dopo. Fino al
+         * 22 settembre 2026 questo ramo la buttava (con un'eccezione per il
+         * collegamento che non si apre, aggiunta il 16 leggendo il diario di un
+         * i330R); la regola giusta sta sopra, nel `try`, e guarda quello che è
+         * successo invece di indovinarlo dal testo dell'errore.
          */
-        /*
-         * ► MA NON QUANDO IL COLLEGAMENTO NON SI È NEMMENO APERTO. ◄
-         *
-         * Aggiunto il 16 settembre 2026, leggendo il diario di un i330R. Il
-         * secondo tentativo era morto così:
-         *
-         *     collegamento non riuscito dopo 3 tentativi:
-         *     collegamento non riuscito: Timeout during execution of Connect
-         *
-         * e la riga dopo diceva «chiave dimenticata, la prossima volta si
-         * riparte dal PIN». Ma **la chiave non era mai stata presentata**: il
-         * computer non aveva risposto alla radio, e quello che succede dopo il
-         * collegamento — dove la chiave si usa — non era mai cominciato.
-         *
-         * Il ragionamento qui sopra regge per uno scarico fallito: lì la chiave
-         * è una delle cause possibili, e sei cifre da ridigitare valgono meno di
-         * un computer che non si scarica più. Su un collegamento che non si apre
-         * quel beneficio è **zero** — la chiave non può essere la causa — e resta
-         * solo il costo.
-         *
-         * *Una cura che non può curare questo guasto, applicata a questo guasto,
-         * non è prudenza: è un fastidio.*
-         */
-        if (conservato && !ilCollegamentoNonSiEAperto(grezzo)) {
-          dimenticaAccoppiamento(device.id);
-          diario.push(
-            'lo scarico è fallito con una chiave conservata: chiave dimenticata, la prossima volta si riparte dal PIN',
-          );
-        } else if (conservato) {
-          diario.push('il collegamento non si è aperto: la chiave conservata non c’entra e si tiene');
+        if (conservato) {
+          diario.push('lo scarico non è cominciato: la chiave conservata non è stata presentata e si tiene');
         }
         /*
          * ► E LO STESSO PER IL METODO. ◄ Un metodo conservato ha funzionato

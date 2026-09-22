@@ -4,8 +4,10 @@
 //! Shearwater e Scubapro/Uwatec — verificati sul campo su computer veri, e
 //! coprono per intero l'attrezzatura di chi l'ha scritta. Nel momento in cui la
 //! deve usare qualcun altro, due modelli non sono un prodotto: sono una
-//! dimostrazione. libdivecomputer 0.9.0 ne conosce **356**, di cui **110**
-//! parlano Bluetooth LE — che è l'unico trasporto praticabile su un telefono.
+//! dimostrazione. libdivecomputer ne conosce **358** (356 nella 0.9.0), di cui
+//! **116** parlano Bluetooth LE — che è l'unico trasporto praticabile su un
+//! telefono. I numeri veri, a ogni aggiornamento, li scrive
+//! `scripts/catalogo-computer.mjs` in testa al catalogo generato.
 //!
 //! COSA NON SOSTITUISCE. Non il nostro Bluetooth, che resta
 //! `tauri-plugin-blec`: libdivecomputer accetta un flusso di byte fornito da
@@ -163,8 +165,9 @@ mod ponte {
     /// LA TRAPPOLA, E DOVE STA LA GUARDIA. Un descrittore SENZA filtro risponde
     /// «sì» a qualunque nome (`descriptor.c`: `if (descriptor->filter == NULL)
     /// return 1`): preso alla lettera, un paio di cuffie verrebbe riconosciuto
-    /// come ognuno dei modelli senza filtro. Nella 0.9.0 nessun descrittore con
-    /// il Bluetooth è senza filtro, quindi qui non c'è un controllo — sarebbe
+    /// come ognuno dei modelli senza filtro. Né nella 0.9.0 né nel ramo
+    /// principale (verificato il 22 settembre 2026) c'è un descrittore con il
+    /// Bluetooth senza filtro, quindi qui non c'è un controllo — sarebbe
     /// una guardia che nessuna prova può far diventare rossa. La guardia sta
     /// nella prova `ogni_modello_bluetooth_ha_un_filtro_che_distingue`, che
     /// diventa rossa il giorno in cui un aggiornamento della libreria porta un
@@ -316,6 +319,47 @@ mod prove {
         let oceanic = riconosci_computer_esterno("FQ001124".into()).unwrap();
         assert!(oceanic.iter().any(|c| c.modello == "i770R"), "{oceanic:?}");
         assert!(oceanic.iter().all(|c| c.trasporti == vec!["ble".to_string()]), "{oceanic:?}");
+    }
+
+    #[test]
+    fn i_nomi_dei_modelli_entrati_col_ramo_principale_arrivano_alla_loro_famiglia() {
+        /*
+         * ► I NOMI VERI, CONTRO I FILTRI VERI. ◄ Il 22 settembre 2026
+         * libdivecomputer è passata al ramo principale, e con lei dieci modelli
+         * Bluetooth nuovi. Qui si guarda che i nomi che la libreria stessa
+         * elenca nei suoi filtri — `dc_filter_shearwater`, `dc_filter_mares`,
+         * `dc_filter_seac`, `dc_filter_hw`, `dc_filter_cressi` — portino davvero
+         * alla famiglia giusta, e che il modello nuovo sia fra i candidati: a
+         * stringere ci pensa `proponi` in `riconosci.ts`, che ha le sue prove.
+         *
+         * I numeri di serie qui sotto sono inventati: un nome annunciato vero
+         * porta quello del computer di qualcuno, e non va in un repository.
+         */
+        let casi: &[(&str, &str, &str)] = &[
+            ("Perdix 3", "Shearwater", "Perdix 3"),
+            ("Quad2", "Mares", "Quad 2"),
+            ("Sirius L", "Mares", "Sirius L"),
+            ("Puck Pro U", "Mares", "Puck Pro Ultra"),
+            ("Puck", "Mares", "Puck Pro EZ"),
+            ("Tablet000001", "Seac", "Tablet"),
+            ("OSTC nano", "Heinrichs Weikamp", "OSTC Nano"),
+            ("OSTC4-12345", "Heinrichs Weikamp", "OSTC 4"),
+            ("6_1a2b", "Cressi", "Raffaello"),
+            ("a_1a2b", "Cressi", "Nepto"),
+            ("GD000001", "Aqualung", "i330R"),
+        ];
+        for (nome, marca, modello) in casi {
+            let trovati = riconosci_computer_esterno((*nome).into()).unwrap();
+            assert!(
+                trovati.iter().any(|c| c.marca == *marca && c.modello == *modello),
+                "«{nome}» dovrebbe portare fra i candidati {marca} {modello}: {trovati:?}"
+            );
+            assert!(
+                trovati.iter().all(|c| c.marca == *marca
+                    || (*marca == "Aqualung" && ["Oceanic", "Sherwood", "Apeks"].contains(&c.marca.as_str()))),
+                "«{nome}» porta anche fuori dalla famiglia: {trovati:?}"
+            );
+        }
     }
 
     #[test]

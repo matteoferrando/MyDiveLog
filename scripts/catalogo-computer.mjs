@@ -10,9 +10,10 @@
  * non coincidono più — con l'utente che sceglie un modello che il driver non
  * conosce, e un errore che sembra un guasto.
  *
- * La fonte è `src-tauri/vendor/libdivecomputer-0.9.0.tar.gz`, cioè il file
- * versionato, non la copia scompattata dalla build: quella è un artefatto e su
- * un'altra macchina può non esserci.
+ * La fonte è il tarball versionato in `src-tauri/vendor/` — la versione la
+ * dichiara `build.rs`, e la legge `libdivecomputer.mjs` — non la copia
+ * scompattata dalla build: quella è un artefatto e su un'altra macchina può
+ * non esserci.
  *
  * ────────────────────────────────────────────────────────────────────────────
  * SI TIENE SOLO CIÒ CHE PARLA BLE, e non è un dettaglio.
@@ -22,12 +23,15 @@
  * la porta seriale non esiste, l'USB non esiste, e il Bluetooth classico su iOS
  * è riservato ai profili di sistema.
  *
- * Su 356 modelli descritti dalla libreria, quelli che parlano BLE sono 110,
- * che accorpati per nome commerciale diventano 105 voci. Mostrarne 356 in un
- * selettore vorrebbe dire far scegliere a qualcuno un computer che il suo
- * telefono non potrà mai contattare, e dargli la colpa dopo.
+ * Con la 0.10.0-devel: su 358 modelli descritti dalla libreria, quelli che
+ * parlano BLE sono 116, che accorpati per nome commerciale diventano 115 voci
+ * (con la 0.9.0 erano 356, 110 e 105). Mostrarne 358 in un selettore vorrebbe
+ * dire far scegliere a qualcuno un computer che il suo telefono non potrà mai
+ * contattare, e dargli la colpa dopo. I numeri veri, a ogni rigenerazione, li
+ * scrive questo script in testa al file che produce: quelli qui sopra sono una
+ * fotografia, e la prova che conta legge quelli.
  *
- * Attenzione al numero: `grep -c DC_TRANSPORT_BLE` ne conta 124, ma quattordici
+ * Attenzione al numero: `grep -c DC_TRANSPORT_BLE` ne conta 131, ma quindici
  * di quelle righe sono codice C — definizioni e confronti — non descrittori.
  * Il conto giusto è quello che fa questo script, che le righe le sa leggere.
  */
@@ -36,13 +40,13 @@ import { execSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { CARTELLA_LDC, TARBALL_LDC, VERSIONE_LDC } from './libdivecomputer.mjs';
 
-const TARBALL = 'src-tauri/vendor/libdivecomputer-0.9.0.tar.gz';
 const USCITA = 'src/core/ble/catalogoGenerato.ts';
 
 const tmp = mkdtempSync(join(tmpdir(), 'ldc-'));
-execSync(`tar xzf ${TARBALL} -C ${tmp}`);
-const sorgente = readFileSync(join(tmp, 'libdivecomputer-0.9.0/src/descriptor.c'), 'utf8');
+execSync(`tar xzf ${TARBALL_LDC} -C ${tmp}`);
+const sorgente = readFileSync(join(tmp, CARTELLA_LDC, 'src/descriptor.c'), 'utf8');
 
 /*
  * Una riga del descrittore:
@@ -107,10 +111,14 @@ const testa = `/**
  * ► FILE GENERATO — non modificarlo a mano. ◄
  * Rigeneralo con: node scripts/catalogo-computer.mjs
  *
- * Fonte: libdivecomputer 0.9.0, \`src/descriptor.c\`, filtrato su
+ * Fonte: libdivecomputer ${VERSIONE_LDC}, \`src/descriptor.c\`, filtrato su
  * \`DC_TRANSPORT_BLE\`. Su ${totaleDescritti} modelli descritti dalla libreria, questi sono
  * quelli raggiungibili da un telefono: la porta seriale e l'USB su iPhone non
  * esistono, e il Bluetooth classico è riservato ai profili di sistema.
+ *
+ * Descrittori BLE: ${modelli.length}. Sono più delle voci qui sotto perché un nome
+ * commerciale può portare più numeri di modello, e nell'elenco compare una
+ * volta sola.
  *
  * Il perché per esteso sta in testa allo script che lo genera.
  */
