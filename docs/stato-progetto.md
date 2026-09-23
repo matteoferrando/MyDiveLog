@@ -5,11 +5,44 @@ Aggiornato: **23 settembre 2026** — **2 972 prove in 193 file** più
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
 
+> ## ► LA 1.8.30 È PUBBLICATA SU GITHUB E SUL SITO; I NEGOZI ASPETTANO IL CARICAMENTO. ◄
+>
+> Il 23 settembre, mattina, col via del proprietario. Release **`v1.8.30`** con
+> **nove allegati contati**; l'aggiornamento automatico dei desktop legge
+> `latest.json`, che porta Mac e Windows, tutti e due firmati.
+>
+> | Passo | Esito |
+> |---|---|
+> | Numero nei quattro file | 1.8.30 ovunque, `Cargo.lock` compreso |
+> | Catena sulla macchina che pubblica | verde su `5bed393`: 2 972 prove in 193 file, 187 Rust, fusi estremi |
+> | Push prima di tutto | `5bed393..f5b7559`, poi `3bf5ca3` |
+> | Notarizzazione | `status: Accepted`, staple ok, `spctl`: *Notarized Developer ID* |
+> | Workflow 35822553521, su `5bed393` | `firmati: 1 apk, 1 aab`; Linux: *nessuna traccia dell'aggiornatore nel binario* |
+> | `latest.json` | 1.8.30, darwin-aarch64 + windows-x86_64 |
+> | Allegati della release | **9**, tutti `uploaded` |
+> | Byte sui pulsanti, da `releases/latest/download` | dmg 4 540 909 · setup 3 269 848 · apk 11 148 038 · deb 3 833 928 · `latest.json` 1 268, al primo giro |
+> | Sito | pubblicato; `sito:online`: *il sito pubblicato è quello sul disco* |
+> | Homebrew e Arch | cask e PKGBUILD alla 1.8.30, impronta confermata **su due fonti**; il tap aggiornato subito, non fra sei ore |
+>
+> **I pacchetti dei negozi, in `../consegna/1.8.30/`**, guardati dentro e non
+> creduti sul nome: `MyDiveLog-1.8.30.ipa` (1.8.30 / build 1.8.30, minimo iOS
+> 15.0), `MyDiveLog-1.8.30-mac-app-store.pkg` (1.8.30 / build 1.8.30, minimo
+> macOS 12.0, identificativo che combacia col profilo, nessuna quarantena),
+> `MyDiveLog-1.8.30-play.aab` (versionName 1.8.30, versionCode 1008030). I
+> caricamenti li fa il proprietario, con Transporter e sulla Play Console. I
+> testi: `docs/appstore-1.8.30-{it,en}.txt` (1 894 e 1 761 caratteri) e
+> `docs/play-1.8.30-{it,en}.txt` (453 e 434, limite 500). Il banner di Play
+> nuovo, che dice 115 modelli, sta in `_transfer/play/`.
+>
+> **Dove stanno i negozi, misurato oggi:** l'API di Apple dichiara **1.8.29** per
+> l'iPhone, pubblicata il 22 settembre alle 18:55 UTC. La cartella
+> `../consegna/1.8.29/` resta dov'è: buttarla è una decisione del proprietario.
+
 > ## ► TUTTI I COMPUTER, DALLA 1.8.30: LA LIBRERIA NUOVA, E I DIFETTI NOSTRI TROVATI PER STRADA. ◄
 >
 > La notte fra il 22 e il 23 settembre, su una richiesta sola del proprietario:
-> *far funzionare tutti i computer dalla 1.8.30 in poi*. **Niente di questo è
-> pubblicato**: entra nella 1.8.30, che si pubblica quando lo dice lui.
+> *far funzionare tutti i computer dalla 1.8.30 in poi*. Pubblicato con la
+> 1.8.30, la mattina del 23 (vedi sopra).
 >
 > **1. libdivecomputer passa dalla 0.9.0 al ramo principale** (commit
 > `9e6c3c8`, «0.10.0-devel»: ottantanove commit dopo la 0.9.0 del 30 giugno
@@ -169,18 +202,19 @@ a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 > Restano, come storia, le note delle versioni già pubblicate e questo diario.
 >
 > **Il sito** è rigenerato — 115 modelli via Bluetooth più gli 8 dal file,
-> Seac nel nastro, i termini che puntano al tarball nuovo — ma **non
-> pubblicato**: dice cose vere solo per la 1.8.30.
+> Seac nel nastro, i termini che puntano al tarball nuovo — e pubblicato
+> insieme alla 1.8.30.
 >
-> **La 1.8.30 è pronta, e non è pubblicata.** Il numero nei quattro file, le
+> **La 1.8.30, com'era la sera prima di uscire.** Il numero nei quattro file, le
 > note (`docs/NOTE-1.8.30.md`, `docs/RELEASE-v1.8.30.md`) e i testi dei negozi
 > in due lingue (`docs/appstore-1.8.30-*.txt`, `docs/play-1.8.30-*.txt`, i due
 > di Play sotto i 500 caratteri). Il workflow «Windows, Android e Linux» è
 > verde sul commit della libreria nuova, e dentro i binari la tabella dei
 > descrittori è quella nuova — il Raffaello c'è sia nell'eseguibile di Windows
 > sia nella libreria di Android, e i percorsi dei sorgenti compilati dicono
-> `libdivecomputer-0.10.0-devel`. Da fare solo col via del proprietario: la
-> release, i due negozi Apple, Play, il sito, la cask e il PKGBUILD.
+> `libdivecomputer-0.10.0-devel`. Col via del proprietario, il 23 settembre:
+> release, sito, cask e PKGBUILD pubblicati; i due negozi Apple e Play
+> aspettano il caricamento.
 >
 > **Quello che da qui non si può verificare, detto.** Nessuno dei modelli
 > nuovi è stato collegato: sono verdi contro la libreria vera e i finti, non
