@@ -8667,4 +8667,168 @@ mod banco_per_famiglia {
         assert_eq!(c.iter().filter(|x| **x == (0xC0, 0x03)).count(), 3 + 1, "profili a pacchetti da 200");
     }
 
+
+    // ──────────────────────────────────────────────── Divesoft (Freedom, Liberty)
+
+    /// CRC-16 riflesso con partenza e uscita 0xFFFF (X.25): `checksum_crc16r_ccitt`.
+    fn crc16_x25(dati: &[u8]) -> u16 {
+        let mut crc: u16 = 0xFFFF;
+        for &b in dati {
+            crc ^= b as u16;
+            for _ in 0..8 {
+                crc = if crc & 1 != 0 { (crc >> 1) ^ 0x8408 } else { crc >> 1 };
+            }
+        }
+        !crc
+    }
+
+    /// Un'immersione Divesoft: maniglia, impronta (20 byte), testata (64),
+    /// registrazioni.
+    type ImmersioneDivesoft = (u32, [u8; 20], Vec<u8>, Vec<u8>);
+
+    struct StatoDivesoft {
+        immersioni: Vec<ImmersioneDivesoft>,
+        in_arrivo: Vec<u8>,
+        dentro_trama: bool,
+        dopo_esc: bool,
+        messaggi: Vec<u16>,
+    }
+
+    impl StatoDivesoft {
+        fn rispondi(&mut self, tipo: u16, dati: &[u8]) -> (u16, Vec<u8>) {
+            self.messaggi.push(tipo);
+            match tipo {
+                // CONNECT: compressione, protocollo, seriale.
+                2 => {
+                    assert_eq!(&dati[2..], b"libdivecomputer", "il nome del cliente");
+                    let mut v = vec![0u8; 36];
+                    v[2] = 1;
+                    v[4..20].copy_from_slice(b"FREEDOM000012345");
+                    (3, v)
+                }
+                // VERSION: modello 19 (Freedom 4), software 7.2.1.
+                4 => {
+                    let mut v = vec![0u8; 26];
+                    v[0] = 19;
+                    v[3..6].copy_from_slice(&[7, 2, 1]);
+                    v[10..26].copy_from_slice(b"FREEDOM000012345");
+                    (5, v)
+                }
+                // DIVE_LIST, la versione 2 dei record: tutte in una volta.
+                66 => {
+                    let mut v = Vec::new();
+                    for (maniglia, impronta, testa, _) in &self.immersioni {
+                        v.extend_from_slice(&maniglia.to_le_bytes());
+                        v.extend_from_slice(impronta);
+                        v.extend_from_slice(testa);
+                    }
+                    (71, v)
+                }
+                // DIVE_DATA: la testata e le registrazioni.
+                64 => {
+                    let maniglia = u32::from_le_bytes([dati[0], dati[1], dati[2], dati[3]]);
+                    let (_, _, testa, corpo) =
+                        self.immersioni.iter().find(|(m, _, _, _)| *m == maniglia).expect("maniglia nota");
+                    (65, [testa.clone(), corpo.clone()].concat())
+                }
+                altro => panic!("il Divesoft finto non conosce il messaggio {altro}"),
+            }
+        }
+    }
+
+    /// Un messaggio Divesoft in pacchetti da 256 byte, ognuno in una trama HDLC.
+    fn trame_divesoft(sequenza: u8, tipo: u16, dati: &[u8]) -> Vec<u8> {
+        let mut fuori = Vec::new();
+        let pezzi: Vec<&[u8]> = if dati.is_empty() { vec![&[][..]] } else { dati.chunks(256).collect() };
+        for (n, pezzo) in pezzi.iter().enumerate() {
+            let ultimo = n + 1 == pezzi.len();
+            let mut p = vec![((n as u8 & 0x0F) << 4) | (sequenza & 0x0F), if ultimo { 0x40 } else { 0x00 }];
+            p.extend_from_slice(&tipo.to_le_bytes());
+            p.extend_from_slice(&(pezzo.len() as u16).to_le_bytes());
+            p.extend_from_slice(pezzo);
+            let crc = crc16_x25(&p);
+            p.extend_from_slice(&crc.to_le_bytes());
+            fuori.extend(hdlc(&p));
+        }
+        fuori
+    }
+
+    #[test]
+    fn divesoft_scarica_attraverso_il_nostro_trasporto() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► DIVESOFT: MESSAGGI A PIÙ PACCHETTI, IN HDLC DA 244. ◄
+         *
+         * Freedom e Liberty. `divesoft_freedom.c` sta dietro
+         * `dc_hdlc_open(244, 244)` e parla per messaggi: ognuno in pacchetti
+         * da 256 byte al più, numerati, col CRC-16 X.25, e un bit che dice
+         * l'ultimo. Una trama HDLC per pacchetto, più lunga di quasi ogni
+         * notifica: tutte le trame di un'immersione attraversano la radio a
+         * pezzi, e il trasporto le deve consegnare in ordine e intere.
+         */
+        let descrittore = trova_descrittore("Divesoft", "Freedom").expect("il Freedom deve esserci");
+        let immersione = |maniglia: u32, registrazioni: u32| {
+            let mut testa: Vec<u8> = (0..64).map(|i| (i as u8) ^ (maniglia as u8)).collect();
+            testa[20..24].copy_from_slice(&registrazioni.to_le_bytes());
+            let corpo: Vec<u8> = (0..registrazioni * 16).map(|i| (i * 3 + maniglia) as u8).collect();
+            let mut impronta = [0u8; 20];
+            impronta[0] = maniglia as u8;
+            (maniglia, impronta, testa, corpo)
+        };
+        let prima = immersione(0x101, 40);
+        let seconda = immersione(0x102, 3);
+        for misura in [20usize, 182] {
+            let stato = Arc::new(Mutex::new(StatoDivesoft {
+                immersioni: vec![seconda.clone(), prima.clone()],
+                in_arrivo: Vec::new(),
+                dentro_trama: false,
+                dopo_esc: false,
+                messaggi: Vec::new(),
+            }));
+            let (manda, ricevi) = channel::<Vec<u8>>();
+            let dentro = stato.clone();
+            let scrittura: ScritturaBle = Box::new(move |dati: &[u8]| {
+                let mut s = dentro.lock().unwrap();
+                for &b in dati {
+                    if b == 0x7E {
+                        if !s.dentro_trama {
+                            s.dentro_trama = true;
+                            continue;
+                        }
+                        s.dentro_trama = false;
+                        let p = std::mem::take(&mut s.in_arrivo);
+                        let (corpo, crc) = p.split_at(p.len() - 2);
+                        assert_eq!(u16::from_le_bytes([crc[0], crc[1]]), crc16_x25(corpo), "CRC del comando");
+                        assert_eq!(corpo[1] & 0x40, 0x40, "i comandi della libreria stanno in un pacchetto");
+                        let tipo = u16::from_le_bytes([corpo[2], corpo[3]]);
+                        let (risposta, dati) = s.rispondi(tipo, &corpo[6..]);
+                        in_notifiche(&manda, &trame_divesoft(corpo[0], risposta, &dati), misura);
+                        continue;
+                    }
+                    if !s.dentro_trama {
+                        continue;
+                    }
+                    if b == 0x7D {
+                        s.dopo_esc = true;
+                        continue;
+                    }
+                    let c = if s.dopo_esc { b ^ 0x20 } else { b };
+                    s.dopo_esc = false;
+                    s.in_arrivo.push(c);
+                }
+                Ok(())
+            });
+            let collegamento = CollegamentoLdc::apri(Box::new(FlussoBle::nuovo(ricevi, scrittura))).unwrap();
+            let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+            assert!(esito.guasto.is_none(), "notifiche da {misura}: {:?}", esito.guasto);
+            let dichiarato = esito.dichiarato.expect("il Freedom si presenta");
+            assert_eq!((dichiarato.modello, dichiarato.firmware), (19, 0x070201), "notifiche da {misura}");
+            assert_eq!(esito.immersioni.len(), 2, "notifiche da {misura}");
+            assert_eq!(esito.immersioni[0].dati, [seconda.2.clone(), seconda.3.clone()].concat());
+            assert_eq!(esito.immersioni[1].dati, [prima.2.clone(), prima.3.clone()].concat(), "notifiche da {misura}");
+            assert_eq!(esito.immersioni[1].impronta, prima.1.to_vec());
+            assert_eq!(stato.lock().unwrap().messaggi, vec![2, 4, 66, 64, 64]);
+        }
+    }
+
 }
