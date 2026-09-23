@@ -8065,4 +8065,606 @@ mod banco_per_famiglia {
         assert_eq!(s.comandi.last().map(|c| c[0]), Some(0x6A), "e alla fine si esce");
     }
 
+
+    // ─────────────────────────────────────────── Ratio (iX3M, iDive: 25 modelli)
+
+    struct StatoRatio {
+        firmware: u32,
+        /// Le immersioni: numero, intestazione da 0x36 byte, campioni.
+        immersioni: Vec<(u16, Vec<u8>, Vec<Vec<u8>>)>,
+        dimensione_campione: usize,
+        campioni_per_pacchetto: usize,
+        /// L'immersione dell'ultima intestazione chiesta: i campioni sono i suoi.
+        ultima_intestazione: Option<u16>,
+        comandi: Vec<u8>,
+    }
+
+    impl StatoRatio {
+        fn rispondi(&mut self, comando: &[u8]) -> Vec<u8> {
+            match comando {
+                // ID: modello, firmware e seriale, in 0x1A byte.
+                [0x11, 0xED] => {
+                    let mut v = vec![0u8; 0x1A];
+                    v[0..2].copy_from_slice(&0x60u16.to_le_bytes());
+                    v[2..6].copy_from_slice(&self.firmware.to_le_bytes());
+                    v[6..10].copy_from_slice(&0x0001_E240u32.to_le_bytes());
+                    v
+                }
+                // RANGE: il primo e l'ultimo numero.
+                [0x78, 0x8D] => {
+                    let primo = self.immersioni.first().map(|(n, _, _)| *n).unwrap_or(1);
+                    let ultimo = self.immersioni.last().map(|(n, _, _)| *n).unwrap_or(0);
+                    [primo.to_le_bytes(), ultimo.to_le_bytes()].concat()
+                }
+                // HEADER di un'immersione.
+                [0x79, basso, alto] => {
+                    let numero = u16::from_le_bytes([*basso, *alto]);
+                    self.ultima_intestazione = Some(numero);
+                    let (_, testa, _) = self.immersioni.iter().find(|(n, _, _)| *n == numero).expect("numero noto");
+                    testa.clone()
+                }
+                // SAMPLE: dal campione `indice` (da 1), tanti quanti ne stanno
+                // in un pacchetto. Oltre l'ultimo il computer manda riempitivo,
+                // e la libreria lo scarta.
+                [0x7A, basso, alto] => {
+                    let indice = u16::from_le_bytes([*basso, *alto]) as usize;
+                    let numero = self.ultima_intestazione.expect("un'intestazione prima dei campioni");
+                    let (_, _, campioni) = self.immersioni.iter().find(|(n, _, _)| *n == numero).unwrap();
+                    let mut v = Vec::new();
+                    for k in 0..self.campioni_per_pacchetto {
+                        match campioni.get(indice - 1 + k) {
+                            Some(c) => v.extend_from_slice(c),
+                            None => v.extend(std::iter::repeat_n(0xEE, self.dimensione_campione)),
+                        }
+                    }
+                    v
+                }
+                altro => panic!("il Ratio finto non conosce il comando {altro:02x?}"),
+            }
+        }
+    }
+
+    /// Un'immersione Ratio: l'intestazione dice quanti campioni (byte 1-2) e
+    /// porta l'impronta (byte 7-10).
+    fn immersione_ratio(
+        numero: u16,
+        campioni: usize,
+        dimensione: usize,
+        impronta: [u8; 4],
+    ) -> (u16, Vec<u8>, Vec<Vec<u8>>) {
+        let mut testa: Vec<u8> = (0..0x36).map(|i| (i as u8) ^ (numero as u8)).collect();
+        testa[1..3].copy_from_slice(&(campioni as u16).to_le_bytes());
+        testa[7..11].copy_from_slice(&impronta);
+        let corpo = (0..campioni)
+            .map(|c| (0..dimensione).map(|j| (c * 7 + j * 3 + numero as usize) as u8).collect())
+            .collect();
+        (numero, testa, corpo)
+    }
+
+    fn finto_ratio(stato: StatoRatio, misura: usize) -> (FlussoBle, Arc<Mutex<StatoRatio>>) {
+        let stato = Arc::new(Mutex::new(stato));
+        let (manda, ricevi) = channel::<Vec<u8>>();
+        let dentro = stato.clone();
+        let scrittura: ScritturaBle = Box::new(move |dati: &[u8]| {
+            // 55 <lunghezza> <comando> <crc>, una scrittura per comando.
+            assert_eq!(dati[0], 0x55, "inizio del comando: {dati:02x?}");
+            let lunghezza = dati[1] as usize;
+            assert_eq!(dati.len(), lunghezza + 4, "lunghezza dichiarata: {dati:02x?}");
+            let crc = u16::from_be_bytes([dati[lunghezza + 2], dati[lunghezza + 3]]);
+            assert_eq!(crc, crc_ccitt(&dati[..lunghezza + 2]), "CRC del comando");
+            let comando = &dati[2..2 + lunghezza];
+            let mut s = dentro.lock().unwrap();
+            s.comandi.push(comando[0]);
+            let risposta = s.rispondi(comando);
+            // 55 <lunghezza> <comando> <dati> <ACK> <crc>
+            let mut pacchetto = vec![0x55, (risposta.len() + 2) as u8, comando[0]];
+            pacchetto.extend_from_slice(&risposta);
+            pacchetto.push(0x06);
+            let crc = crc_ccitt(&pacchetto);
+            pacchetto.extend_from_slice(&crc.to_be_bytes());
+            in_notifiche(&manda, &pacchetto, misura);
+            Ok(())
+        });
+        (FlussoBle::nuovo(ricevi, scrittura), stato)
+    }
+
+    #[test]
+    fn ratio_scarica_attraverso_il_nostro_trasporto_col_firmware_vecchio_e_con_apos4() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► RATIO: VENTICINQUE MODELLI, UN PROTOCOLLO, DUE FIRMWARE. ◄
+         *
+         * La famiglia più numerosa del catalogo, e una marca italiana. Via BLE
+         * `divesystem_idive.c` sta dietro `dc_packet_open(244, 244)` come il
+         * Seac, con un protocollo a comandi: identità, intervallo dei numeri,
+         * un'intestazione per immersione e i campioni a pacchetti. Col
+         * firmware APOS4 (dalla versione 4) i campioni sono da 0x40 byte e ne
+         * viaggiano tre per pacchetto, con riempitivo dopo l'ultimo — che la
+         * libreria scarta; prima, uno da 0x36. Il timeout della libreria è di
+         * un secondo, il più corto del catalogo.
+         */
+        let descrittore = trova_descrittore("Ratio", "iX3M 2021 GPS Fancy").expect("l'iX3M 2021 deve esserci");
+        for (firmware, dimensione, per_pacchetto) in [(30_200_000u32, 0x36usize, 1usize), (40_100_000, 0x40, 3)] {
+            for misura in [20usize, 182] {
+                let prima = immersione_ratio(41, 7, dimensione, [0x31, 0x32, 0x33, 0x34]);
+                let seconda = immersione_ratio(42, 2, dimensione, [0x41, 0x42, 0x43, 0x44]);
+                let attesa = |(_, testa, campioni): &(u16, Vec<u8>, Vec<Vec<u8>>)| {
+                    let mut v = testa.clone();
+                    for c in campioni {
+                        v.extend_from_slice(c);
+                    }
+                    v
+                };
+                let (flusso, stato) = finto_ratio(
+                    StatoRatio {
+                        firmware,
+                        immersioni: vec![prima.clone(), seconda.clone()],
+                        dimensione_campione: dimensione,
+                        campioni_per_pacchetto: per_pacchetto,
+                        ultima_intestazione: None,
+                        comandi: Vec::new(),
+                    },
+                    misura,
+                );
+                let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+                let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+                let caso = format!("firmware {firmware}, notifiche da {misura}");
+                assert!(esito.guasto.is_none(), "{caso}: {:?}", esito.guasto);
+                let dichiarato = esito.dichiarato.expect("il Ratio si presenta");
+                assert_eq!((dichiarato.modello, dichiarato.firmware), (0x60, firmware), "{caso}");
+                assert_eq!(esito.immersioni.len(), 2, "{caso}");
+                // La più recente per prima.
+                assert_eq!(esito.immersioni[0].dati, attesa(&seconda), "{caso}: la 42, byte per byte");
+                assert_eq!(esito.immersioni[1].dati, attesa(&prima), "{caso}: la 41, byte per byte");
+                assert_eq!(esito.immersioni[1].impronta, vec![0x31, 0x32, 0x33, 0x34]);
+                let s = stato.lock().unwrap();
+                let campioni_chiesti = s.comandi.iter().filter(|c| **c == 0x7A).count();
+                assert_eq!(campioni_chiesti, 7usize.div_ceil(per_pacchetto) + 2usize.div_ceil(per_pacchetto), "{caso}");
+            }
+        }
+    }
+
+
+    // ───────────────────────────────── Heinrichs Weikamp OSTC (nove modelli)
+
+    struct StatoOstc {
+        /// Le immersioni: posizione nel registro, testata da 256 byte, profilo.
+        immersioni: Vec<(u8, Vec<u8>, Vec<u8>)>,
+        /// I byte in arrivo non ancora usati: comandi di un byte, e per `DIVE`
+        /// un byte di argomento che arriva in una scrittura sua.
+        in_arrivo: VecDeque<u8>,
+        /// Se l'eco di un `DIVE` è già partita e si aspetta il suo numero.
+        eco_della_immersione: bool,
+        comandi: Vec<u8>,
+        scrittura_piu_lunga: usize,
+    }
+
+    const OSTC_PRONTO: u8 = 0x4D;
+
+    impl StatoOstc {
+        /// Il registro compatto: 256 voci da 16 byte, 0xFF dove non c'è niente.
+        fn registro_compatto(&self) -> Vec<u8> {
+            let mut r = vec![0xFFu8; 16 * 256];
+            for (posto, testa, _) in &self.immersioni {
+                let voce = &mut r[*posto as usize * 16..(*posto as usize + 1) * 16];
+                voce[0..3].copy_from_slice(&testa[9..12]); // lunghezza del profilo
+                voce[3..13].copy_from_slice(&testa[12..22]); // impronta, dieci byte
+                voce[13..15].copy_from_slice(&testa[80..82]); // numero interno
+                voce[15] = testa[8]; // versione
+            }
+            r
+        }
+
+        /// Consuma i byte arrivati e restituisce quello che il computer risponde.
+        fn consuma(&mut self) -> Vec<u8> {
+            let mut fuori = Vec::new();
+            while let Some(&comando) = self.in_arrivo.front() {
+                match comando {
+                    // INIT: eco e pronto.
+                    0xBB => {
+                        self.in_arrivo.pop_front();
+                        fuori.extend_from_slice(&[0xBB, OSTC_PRONTO]);
+                    }
+                    // HARDWARE2: descrittore (0x0A00, niente di hwOS 4), caratteristiche, modello.
+                    0x60 => {
+                        self.in_arrivo.pop_front();
+                        fuori.extend_from_slice(&[0x60, 0x0A, 0x00, 0x00, 0x00, 0x0A, OSTC_PRONTO]);
+                    }
+                    // IDENTITY: seriale in little-endian, firmware 3.10 in big-endian.
+                    0x69 => {
+                        self.in_arrivo.pop_front();
+                        let mut v = vec![0x20u8; 64];
+                        v[0..2].copy_from_slice(&1234u16.to_le_bytes());
+                        v[2..4].copy_from_slice(&0x030Au16.to_be_bytes());
+                        fuori.push(0x69);
+                        fuori.extend(v);
+                        fuori.push(OSTC_PRONTO);
+                    }
+                    // COMPACT: il registro compatto.
+                    0x6D => {
+                        self.in_arrivo.pop_front();
+                        fuori.push(0x6D);
+                        fuori.extend(self.registro_compatto());
+                        fuori.push(OSTC_PRONTO);
+                    }
+                    // DIVE: l'eco parte subito, poi si aspetta il numero, che
+                    // la libreria scrive solo dopo aver letto l'eco.
+                    0x66 => {
+                        if self.in_arrivo.len() < 2 {
+                            if !self.eco_della_immersione {
+                                self.eco_della_immersione = true;
+                                self.comandi.push(0x66);
+                                fuori.push(0x66);
+                            }
+                            break;
+                        }
+                        self.in_arrivo.pop_front();
+                        self.eco_della_immersione = false;
+                        let posto = self.in_arrivo.pop_front().unwrap();
+                        let (_, testa, profilo) = self
+                            .immersioni
+                            .iter()
+                            .find(|(p, _, _)| *p == posto)
+                            .unwrap_or_else(|| panic!("l'OSTC finto non ha niente al posto {posto}"));
+                        fuori.extend_from_slice(testa);
+                        fuori.extend_from_slice(profilo);
+                        fuori.push(OSTC_PRONTO);
+                        continue;
+                    }
+                    // EXIT: solo l'eco.
+                    0xFF => {
+                        self.in_arrivo.pop_front();
+                        fuori.push(0xFF);
+                    }
+                    altro => panic!("l'OSTC finto non conosce il comando {altro:02x}"),
+                }
+                self.comandi.push(comando);
+            }
+            fuori
+        }
+    }
+
+    /// Un'immersione OSTC: la testata da 256 byte con la lunghezza del profilo
+    /// (byte 9-11), l'impronta (dal 12), il numero interno (80) e la versione
+    /// (8); il profilo comincia con la stessa lunghezza e finisce con FD FD.
+    fn immersione_ostc(numero: u16, dati_profilo: usize) -> (Vec<u8>, Vec<u8>) {
+        let lunghezza = (dati_profilo + 8) as u32;
+        let mut testa: Vec<u8> = (0..256).map(|i| (i as u8).wrapping_mul(3) ^ numero as u8).collect();
+        testa[8] = 0x24;
+        testa[9..12].copy_from_slice(&lunghezza.to_le_bytes()[..3]);
+        testa[80..82].copy_from_slice(&numero.to_le_bytes());
+        let mut profilo = lunghezza.to_le_bytes()[..3].to_vec();
+        profilo.extend((0..dati_profilo).map(|i| (i as u8).wrapping_add(numero as u8) | 0x01));
+        profilo.extend_from_slice(&[0xFD, 0xFD]);
+        (testa, profilo)
+    }
+
+    fn finto_ostc(immersioni: Vec<(u8, Vec<u8>, Vec<u8>)>, misura: usize) -> (FlussoBle, Arc<Mutex<StatoOstc>>) {
+        let stato = Arc::new(Mutex::new(StatoOstc {
+            immersioni,
+            in_arrivo: VecDeque::new(),
+            eco_della_immersione: false,
+            comandi: Vec::new(),
+            scrittura_piu_lunga: 0,
+        }));
+        let (manda, ricevi) = channel::<Vec<u8>>();
+        let dentro = stato.clone();
+        let scrittura: ScritturaBle = Box::new(move |dati: &[u8]| {
+            let mut s = dentro.lock().unwrap();
+            s.scrittura_piu_lunga = s.scrittura_piu_lunga.max(dati.len());
+            s.in_arrivo.extend(dati.iter().copied());
+            let risposta = s.consuma();
+            in_notifiche(&manda, &risposta, misura);
+            Ok(())
+        });
+        (FlussoBle::nuovo(ricevi, scrittura), stato)
+    }
+
+    #[test]
+    fn ostc_scarica_attraverso_il_nostro_trasporto() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► GLI OSTC: ECO, DATI, PRONTO. ◄
+         *
+         * Nove modelli, e tre (OSTC 3, cR, Nano) arrivati via BLE col ramo
+         * principale. `hw_ostc3.c` si mette dietro `dc_packet_open(244, 20)`:
+         * scrive a pezzi da venti, legge a pacchetti da 244, e ogni comando è
+         * un byte che il computer rimanda indietro, i dati, e un byte
+         * «pronto». Il registro compatto sono 4 096 byte in una risposta sola;
+         * l'immersione si chiede con un numero che parte in una scrittura
+         * sua, dopo l'eco. I crediti del modulo Bluetooth non stanno qui: li
+         * conta il ponte, e hanno le loro prove.
+         */
+        let descrittore = trova_descrittore("Heinrichs Weikamp", "OSTC 3").expect("l'OSTC 3 deve esserci");
+        let (testa_a, profilo_a) = immersione_ostc(17, 300);
+        let (testa_b, profilo_b) = immersione_ostc(18, 45);
+        for misura in [20usize, 182] {
+            let (flusso, stato) = finto_ostc(
+                vec![(4, testa_a.clone(), profilo_a.clone()), (5, testa_b.clone(), profilo_b.clone())],
+                misura,
+            );
+            let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+            let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+            assert!(esito.guasto.is_none(), "notifiche da {misura}: {:?}", esito.guasto);
+            let dichiarato = esito.dichiarato.expect("l'OSTC si presenta");
+            assert_eq!((dichiarato.modello, dichiarato.firmware), (0x0A, 0x030A), "notifiche da {misura}");
+            assert_eq!(esito.immersioni.len(), 2, "notifiche da {misura}");
+            // La più recente — il numero interno più alto — per prima.
+            assert_eq!(esito.immersioni[0].dati, [testa_b.clone(), profilo_b.clone()].concat(), "notifiche da {misura}");
+            assert_eq!(esito.immersioni[1].dati, [testa_a.clone(), profilo_a.clone()].concat(), "notifiche da {misura}");
+            assert_eq!(esito.immersioni[0].impronta, testa_b[12..17].to_vec());
+            let s = stato.lock().unwrap();
+            assert!(s.scrittura_piu_lunga <= 20, "scritture da {} byte", s.scrittura_piu_lunga);
+            assert_eq!(s.comandi.first(), Some(&0xBB), "si comincia con INIT");
+            assert_eq!(s.comandi.last(), Some(&0xFF), "e si finisce con EXIT");
+        }
+    }
+
+
+    // ──────────────────────────────────────────────── Halcyon Symbios (HUD, Handset)
+
+    /// CRC-8 col polinomio 0x07, come `checksum_crc8`.
+    fn crc8(dati: &[u8]) -> u8 {
+        let mut crc = 0u8;
+        for &b in dati {
+            crc ^= b;
+            for _ in 0..8 {
+                crc = if crc & 0x80 != 0 { (crc << 1) ^ 0x07 } else { crc << 1 };
+            }
+        }
+        crc
+    }
+
+    struct StatoHalcyon {
+        stato_da: usize,
+        registro: Vec<u8>,
+        immersioni: Vec<(u16, Vec<u8>)>,
+        /// Il trasferimento in corso: i blocchi da mandare e il comando dei blocchi.
+        blocchi: VecDeque<Vec<u8>>,
+        comando_blocchi: u8,
+        comandi: Vec<u8>,
+    }
+
+    impl StatoHalcyon {
+        fn pacchetto(comando: u8, dati: &[u8]) -> Vec<u8> {
+            let mut p = vec![comando | 0x80, 0x06];
+            p.extend_from_slice(dati);
+            let crc = crc8(&p[1..]);
+            p.push(crc);
+            p
+        }
+
+        /// Prepara i blocchi da 200 byte, con il numero di sequenza e il bit
+        /// dell'ultimo.
+        fn prepara(&mut self, dati: &[u8], comando_blocchi: u8) {
+            self.comando_blocchi = comando_blocchi;
+            let pezzi: Vec<&[u8]> = dati.chunks(200).collect();
+            self.blocchi = pezzi
+                .iter()
+                .enumerate()
+                .map(|(n, pezzo)| {
+                    let mut id = (n as u16) + 1;
+                    if n + 1 == pezzi.len() {
+                        id |= 0x8000;
+                    }
+                    [&id.to_le_bytes()[..], pezzo].concat()
+                })
+                .collect();
+        }
+
+        fn rispondi(&mut self, dati: &[u8]) -> Option<Vec<u8>> {
+            let comando = dati[0];
+            self.comandi.push(comando);
+            match comando {
+                // GET_STATUS: seriale, modello, firmware; 36 byte col
+                // protocollo Bluetooth 1.30, 20 prima.
+                0x01 => {
+                    let mut info = vec![0u8; self.stato_da];
+                    info[0..4].copy_from_slice(&0x0000_4D2Cu32.to_le_bytes());
+                    info[5] = 7;
+                    info[16..19].copy_from_slice(&[1, 30, 2]);
+                    Some(Self::pacchetto(0x01, &info))
+                }
+                // LOGBOOK_REQUEST: la lunghezza, poi i blocchi a richiesta.
+                0x04 => {
+                    let registro = self.registro.clone();
+                    self.prepara(&registro, 0x08);
+                    Some(Self::pacchetto(0x04, &(registro.len() as u32).to_le_bytes()))
+                }
+                // DIVELOG_REQUEST: il numero dell'immersione, e la sua somma.
+                0x05 => {
+                    assert_eq!(dati.len(), 4, "numero su due byte e CRC: {dati:02x?}");
+                    assert_eq!(dati[3], crc8(&dati[1..3]), "CRC del numero");
+                    let numero = u16::from_le_bytes([dati[1], dati[2]]);
+                    let immersione = self
+                        .immersioni
+                        .iter()
+                        .find(|(n, _)| *n == numero)
+                        .map(|(_, d)| d.clone())
+                        .expect("numero noto");
+                    self.prepara(&immersione, 0x09);
+                    Some(Self::pacchetto(0x05, &(immersione.len() as u32).to_le_bytes()))
+                }
+                // La richiesta del primo blocco, e gli ACK che chiedono il successivo.
+                0x08 | 0x09 | 0x06 => {
+                    let blocco = self.blocchi.pop_front()?;
+                    Some(Self::pacchetto(self.comando_blocchi, &blocco))
+                }
+                altro => panic!("l'Halcyon finto non conosce il comando {altro:02x}"),
+            }
+        }
+    }
+
+    fn finto_halcyon(stato_da: usize, immersioni: Vec<(u16, [u8; 4], Vec<u8>)>) -> (FlussoBle, Arc<Mutex<StatoHalcyon>>) {
+        // Il registro: voci da 32 byte, il numero dal byte 16, l'impronta dal 20.
+        let mut registro = Vec::new();
+        for (numero, impronta, _) in &immersioni {
+            let mut voce = vec![0u8; 32];
+            voce[16..18].copy_from_slice(&numero.to_le_bytes());
+            voce[20..24].copy_from_slice(impronta);
+            registro.extend(voce);
+        }
+        let stato = Arc::new(Mutex::new(StatoHalcyon {
+            stato_da,
+            registro,
+            immersioni: immersioni.into_iter().map(|(n, _, d)| (n, d)).collect(),
+            blocchi: VecDeque::new(),
+            comando_blocchi: 0,
+            comandi: Vec::new(),
+        }));
+        let (manda, ricevi) = channel::<Vec<u8>>();
+        let dentro = stato.clone();
+        let scrittura: ScritturaBle = Box::new(move |dati: &[u8]| {
+            // Ogni pacchetto della Symbios sta in una notifica sola: la
+            // libreria lo legge tutto in una lettura.
+            if let Some(risposta) = dentro.lock().unwrap().rispondi(dati) {
+                let _ = manda.send(risposta);
+            }
+            Ok(())
+        });
+        (FlussoBle::nuovo(ricevi, scrittura), stato)
+    }
+
+    #[test]
+    fn halcyon_scarica_col_protocollo_bluetooth_vecchio_e_con_l_1_30() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► HALCYON: IL PERCHÉ DI UNA RIGA DELLE NOTE. ◄
+         *
+         * Le note della 1.8.30 dicono che l'Halcyon col protocollo Bluetooth
+         * 1.30 — uno stato da 36 byte invece di 20 — non viene più rifiutato
+         * per la lunghezza. Qui lo si vede: la stessa Symbios finta con tutti e
+         * due gli stati, e lo scarico che arriva in fondo. Il protocollo:
+         * pacchetti col CRC-8, una notifica per pacchetto, e il trasferimento
+         * a blocchi da 200 con numero di sequenza, un ACK per chiedere il
+         * successivo e il bit dell'ultimo.
+         */
+        let descrittore = trova_descrittore("Halcyon", "Symbios Handset").expect("la Symbios deve esserci");
+        let prima: Vec<u8> = (0..450u32).map(|i| (i * 13 + 1) as u8).collect();
+        let seconda: Vec<u8> = (0..120u32).map(|i| (i * 7 + 2) as u8).collect();
+        for stato_da in [20usize, 36] {
+            let (flusso, stato) = finto_halcyon(
+                stato_da,
+                vec![(11, [1, 2, 3, 4], prima.clone()), (12, [5, 6, 7, 8], seconda.clone())],
+            );
+            let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+            let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+            assert!(esito.guasto.is_none(), "stato da {stato_da}: {:?}", esito.guasto);
+            let dichiarato = esito.dichiarato.expect("la Symbios si presenta");
+            assert_eq!((dichiarato.modello, dichiarato.firmware), (7, 0x011E02), "stato da {stato_da}");
+            assert_eq!(esito.immersioni.len(), 2, "stato da {stato_da}");
+            // Il registro si scorre dal fondo: la dodicesima per prima.
+            assert_eq!(esito.immersioni[0].dati, seconda, "stato da {stato_da}");
+            assert_eq!(esito.immersioni[1].dati, prima, "stato da {stato_da}");
+            assert_eq!(esito.immersioni[0].impronta, vec![5, 6, 7, 8]);
+            let acks = stato.lock().unwrap().comandi.iter().filter(|c| **c == 0x06).count();
+            assert_eq!(acks, 1 + 3 + 1, "un ACK per blocco: registro, prima (tre blocchi), seconda");
+        }
+    }
+
+
+    // ───────────────── Deep Six Excursion, Crest CR-4, Genesis Centauri, Scorpena Alpha
+
+    struct StatoDeepSix {
+        /// Le immersioni: numero, testata (la sua misura nel byte 2), profilo.
+        immersioni: Vec<(u16, Vec<u8>, Vec<u8>)>,
+        comandi: Vec<(u8, u8)>,
+    }
+
+    impl StatoDeepSix {
+        fn rispondi(&mut self, gruppo: u8, comando: u8, dati: &[u8]) -> Vec<u8> {
+            self.comandi.push((gruppo, comando));
+            match (gruppo, comando) {
+                (0xB0, 0x28) => Vec::new(),
+                (0xA0, 0x01) => b"HW0001".to_vec(),
+                // Il firmware 6 e oltre usa i comandi nuovi dell'indice.
+                (0xA0, 0x02) => b"D01.62".to_vec(),
+                (0xA0, 0x03) => b"SN:000123456".to_vec(),
+                (0xC0, 0x05) => (self.immersioni.len() as u16).to_le_bytes().to_vec(),
+                (0xC0, 0x06) => {
+                    let ultimo = self.immersioni.last().map(|(n, _, _)| *n).unwrap_or(0);
+                    (ultimo as u32).to_le_bytes().to_vec()
+                }
+                (0xC0, 0x08) => {
+                    let numero = u32::from_le_bytes([dati[0], dati[1], dati[2], dati[3]]) as u16;
+                    let posto = self.immersioni.iter().position(|(n, _, _)| *n == numero).expect("numero noto");
+                    (self.immersioni[posto - 1].0 as u32).to_le_bytes().to_vec()
+                }
+                (0xC0, 0x02) => {
+                    let numero = u16::from_le_bytes([dati[0], dati[1]]);
+                    self.immersioni.iter().find(|(n, _, _)| *n == numero).expect("numero noto").1.clone()
+                }
+                // Il profilo, a pacchetti da 200 dallo scostamento chiesto.
+                (0xC0, 0x03) => {
+                    let numero = u16::from_le_bytes([dati[0], dati[1]]);
+                    let da = u32::from_le_bytes([dati[2], dati[3], dati[4], dati[5]]) as usize;
+                    let profilo = &self.immersioni.iter().find(|(n, _, _)| *n == numero).expect("numero noto").2;
+                    profilo[da..(da + 200).min(profilo.len())].to_vec()
+                }
+                altro => panic!("il Deep Six finto non conosce il comando {altro:02x?}"),
+            }
+        }
+    }
+
+    fn pacchetto_deepsix(gruppo: u8, comando: u8, direzione: u8, dati: &[u8]) -> Vec<u8> {
+        let mut p = vec![gruppo, comando, direzione, dati.len() as u8];
+        p.extend_from_slice(dati);
+        let somma = p.iter().fold(0u8, |a, b| a.wrapping_add(*b)) ^ 0xFF;
+        p.push(somma);
+        p
+    }
+
+    fn immersione_deepsix(numero: u16, profilo: usize) -> (u16, Vec<u8>, Vec<u8>) {
+        let mut testa: Vec<u8> = (0..160).map(|i| (i as u8) ^ (numero as u8)).collect();
+        testa[2] = 160;
+        testa[8..12].copy_from_slice(&(profilo as u32).to_le_bytes());
+        let corpo = (0..profilo).map(|i| (i * 5 + numero as usize) as u8).collect();
+        (numero, testa, corpo)
+    }
+
+    #[test]
+    fn deep_six_scarica_attraverso_il_nostro_trasporto() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► DEEP SIX, CREST, GENESIS, SCORPENA: UN PACCHETTO PER NOTIFICA. ◄
+         *
+         * Quattro marche, un computer solo sotto. `deepsix_excursion.c` legge
+         * **un pacchetto intero per lettura** — gruppo, comando, direzione,
+         * lunghezza, dati, somma — e se una lettura ne consegnasse mezzo, o
+         * due incollati, si fermerebbe sulla lunghezza o sulla somma. È la
+         * forma di trasporto più esigente con la regola «una notifica, una
+         * lettura», ed è quella del nostro `UnaNotifica`.
+         */
+        let descrittore = trova_descrittore("Crest", "CR-4").expect("il CR-4 deve esserci");
+        let prima = immersione_deepsix(30, 530);
+        let seconda = immersione_deepsix(31, 90);
+        let stato = Arc::new(Mutex::new(StatoDeepSix {
+            immersioni: vec![prima.clone(), seconda.clone()],
+            comandi: Vec::new(),
+        }));
+        let (manda, ricevi) = channel::<Vec<u8>>();
+        let dentro = stato.clone();
+        let scrittura: ScritturaBle = Box::new(move |dati: &[u8]| {
+            let lunghezza = dati[3] as usize;
+            assert_eq!(dati.len(), 4 + lunghezza + 1, "pacchetto intero: {dati:02x?}");
+            let somma = dati[..4 + lunghezza].iter().fold(0u8, |a, b| a.wrapping_add(*b)) ^ 0xFF;
+            assert_eq!(dati[4 + lunghezza], somma, "somma del comando");
+            let risposta = dentro.lock().unwrap().rispondi(dati[0], dati[1], &dati[4..4 + lunghezza]);
+            let _ = manda.send(pacchetto_deepsix(dati[0] + 1, dati[1], dati[2], &risposta));
+            Ok(())
+        });
+        let collegamento = CollegamentoLdc::apri(Box::new(FlussoBle::nuovo(ricevi, scrittura))).unwrap();
+        let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+        assert!(esito.guasto.is_none(), "{:?}", esito.guasto);
+        assert_eq!(esito.dichiarato.expect("si presenta").firmware, u16::from_be_bytes(*b"62") as u32);
+        assert_eq!(esito.immersioni.len(), 2);
+        // L'ultima per prima, poi la precedente chiesta col comando nuovo.
+        assert_eq!(esito.immersioni[0].dati, [seconda.1.clone(), seconda.2.clone()].concat());
+        assert_eq!(esito.immersioni[1].dati, [prima.1.clone(), prima.2.clone()].concat());
+        assert_eq!(esito.immersioni[1].impronta, prima.1[12..18].to_vec());
+        let c = stato.lock().unwrap().comandi.clone();
+        assert!(c.contains(&(0xC0, 0x08)), "la precedente si chiede col comando del firmware 6");
+        assert_eq!(c.iter().filter(|x| **x == (0xC0, 0x03)).count(), 3 + 1, "profili a pacchetti da 200");
+    }
+
 }
