@@ -1442,8 +1442,8 @@ export function BleDownload() {
         /*
          * L'ORIGINE DICE DA DOVE PASSA, e non è un dettaglio di etichetta.
          *
-         * Una lettura fatta da libdivecomputer con un modello che qui dentro
-         * non è mai stato provato non è la stessa cosa di una fatta dai driver
+         * Una lettura fatta da libdivecomputer con un modello che nessuno ha
+         * ancora collegato qui non è la stessa cosa di una fatta dai driver
          * di casa, che con l'apparecchio in mano hanno letto cento e passa
          * immersioni a testa. Se un giorno un profilo risultasse storto, la
          * prima domanda sarà «da dove è entrato»: la risposta va scritta

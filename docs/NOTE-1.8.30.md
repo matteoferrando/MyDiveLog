@@ -224,6 +224,24 @@ e un'antenna che accetta tutte e due le modalità vede il firmware scritto una
 volta sola; tolta la regola, lo vede scritto due volte. Il giro dei metodi fra
 un tentativo e l'altro resta com'era.
 
+## 11 — Sotto i modelli, la strada e basta
+
+Sotto ogni modello che passa dalla libreria e che nessuno ha ancora collegato,
+il selettore aggiungeva una frase che lo diceva; l'aiuto del sito la ripeteva in
+due lingue, e il README la citava. Era vera. Il proprietario ha deciso, il 23
+settembre, che non si scrive più da nessuna parte: detta sotto ogni nome, a chi
+sta per collegare il suo computer, non informa — scoraggia.
+
+Adesso sotto quei modelli c'è la strada, «via libdivecomputer», che è un fatto e
+porta l'attribuzione che la LGPL chiede; «provato su questo modello» resta, e si
+aggiunge un modello per volta quando qualcuno lo accende davvero. Le due regole
+stanno insieme: non si scrive il contrario, e non si scrive «provato» dove
+nessuno l'ha acceso. `tests/senzaMaiProvato.test.ts` cerca la frase — anche
+spezzata su due righe, anche in inglese — nel sorgente dell'app e del guscio
+Rust, nel sito, nei due LEGGIMI e nei testi di questa versione. Vista rossa
+rimettendola nell'aiuto; e al primo giro ha trovato da sola un commento che la
+ricerca a mano non aveva visto, perché lì la frase andava a capo.
+
 ---
 
 # Parte seconda — il pianificatore e la scheda

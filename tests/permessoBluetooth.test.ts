@@ -127,12 +127,11 @@ describe('► nessun nome interno arriva sotto gli occhi di chi usa l’app ◄'
      * ► LE DUE ECCEZIONI SONO SCELTE, NON FUGHE. ◄ E vanno scritte qui, o fra
      * sei mesi qualcuno le «sistema» credendo di correggere una svista.
      *
-     *  - **libdivecomputer** compare quattro volte, e tutte e quattro servono:
+     *  - **libdivecomputer** compare in tre voci, e tutte servono:
      *    nell'attribuzione della scheda Riconoscimenti, che la LGPL-2.1
-     *    pretende sia visibile a chi riceve l'app, e nell'etichetta «via
-     *    libdivecomputer, mai provato su questo modello» — che è una
-     *    dichiarazione di onestà sotto un modello che non abbiamo mai provato,
-     *    non un dettaglio sfuggito;
+     *    pretende sia visibile a chi riceve l'app, e nelle etichette «via
+     *    libdivecomputer» sotto i modelli che passano di lì — la strada,
+     *    detta a chi preme, non un dettaglio sfuggito;
      *  - **SQLite** compare nella riga che dice dove stanno i dati.
      *
      * Tutti gli altri devono restare a zero, e oggi lo sono: misurato, non

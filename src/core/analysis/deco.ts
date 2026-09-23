@@ -1301,7 +1301,7 @@ export function planDeco(
      * prima proprietà è proprio «nessun NaN e nessun Infinity in nessun campo,
      * da nessuna parte», e il generatore dei casi scriveva
      * `tankL: intero(10, 24)`. *Una proprietà il cui generatore non può
-     * raggiungere il caso che la rompe non è mai stata provata.* Adesso il
+     * raggiungere il caso che la rompe non sorveglia niente.* Adesso il
      * generatore passa ogni tanto da una bombola da zero, e da una senza
      * pressione.
      *

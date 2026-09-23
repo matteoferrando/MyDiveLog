@@ -162,9 +162,10 @@ mod dentro {
         /// **Su quale computer questa voce è stata verificata davvero.**
         ///
         /// `None` non è un campo dimenticato: è una dichiarazione, e finisce
-        /// nella riga di diario che l'interfaccia mostra. Una voce mai provata
-        /// che si spaccia per provata è peggio di una voce assente, perché
-        /// quando il computer tace nessuno sa se è colpa del profilo.
+        /// nella riga di diario che l'interfaccia mostra. Una voce non
+        /// verificata che si spaccia per verificata è peggio di una voce
+        /// assente, perché quando il computer tace nessuno sa se è colpa del
+        /// profilo.
         verificato_su: Option<&'static str>,
     }
 

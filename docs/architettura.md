@@ -173,11 +173,13 @@ lo possiede — e lo stesso messaggio diceva che un Aqualung i330R si fermava a
 metà, per un difetto nostro nel trasporto. Uno su due, nello stesso giorno.
 
 Quindi: il trasporto resta provato contro un flusso finto, l'accorpamento dei
-campioni e la traduzione contro immersioni sintetiche, e il selettore dichiara
-«via libdivecomputer, mai provato su questo modello» sotto ogni modello che
-nessuno ha ancora acceso. La riga si toglie **un modello per volta**, quando
-qualcuno lo accende e racconta com'è andata: l'elenco di quelli provati sta in
-`src/core/ble/provati.ts`, con la data e da dove arriva la notizia.
+campioni e la traduzione contro immersioni sintetiche, e il selettore scrive
+«via libdivecomputer» sotto ogni modello che passa di lì. «Provato su questo
+modello» si aggiunge **un modello per volta**, quando qualcuno lo accende e
+racconta com'è andata: l'elenco di quelli provati sta in
+`src/core/ble/provati.ts`, con la data e da dove arriva la notizia. Dal 23
+settembre 2026, per decisione del proprietario, sotto gli altri non si scrive
+più niente di negativo, da nessuna parte (`tests/senzaMaiProvato.test.ts`).
 
 La protezione che rende accettabile spedirla sta dove stanno le altre decisioni
 sui dati: in `core/dedupe.ts` un profilo arrivato da questa strada **non può

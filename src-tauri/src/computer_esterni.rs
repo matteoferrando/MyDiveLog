@@ -42,9 +42,9 @@
 //!
 //! Tutta la catena si compila e si prova a pezzi — il trasporto contro un
 //! flusso finto, la traduzione contro immersioni sintetiche — e degli altri 355
-//! modelli non sappiamo niente. Il selettore lo dichiara sotto ognuno di quelli
-//! che nessuno ha acceso: «mai provato su questo modello». L'elenco di quelli
-//! provati sta in `src/core/ble/provati.ts`.
+//! modelli non sappiamo niente. Il selettore scrive «provato su questo modello»
+//! solo sotto quelli che qualcuno ha acceso davvero, e sotto gli altri la
+//! strada e basta; l'elenco sta in `src/core/ble/provati.ts`.
 
 use serde::Serialize;
 

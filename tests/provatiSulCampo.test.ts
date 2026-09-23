@@ -1,19 +1,19 @@
 /**
- * «MAI PROVATO SU QUESTO MODELLO» HA SMESSO DI ESSERE VERO PER UNO.
+ * «PROVATO SU QUESTO MODELLO», E SOLO DOVE QUALCUNO L'HA ACCESO.
  *
  * ════════════════════════════════════════════════════════════════════════════
  * Il 16 settembre 2026, da una persona che usa l'applicazione: *«Su Mares Quad
  * Ci funziona adesso.»* È il primo computer subacqueo di terzi che ha davvero
  * consegnato immersioni attraverso libdivecomputer in questo progetto.
  *
- * Fino a quel messaggio, `Cargo.toml` diceva «il primo apparecchio vero non è
- * ancora esistito» e il selettore scriveva «mai provato» sotto ogni modello.
- * Erano vere tutte e due, e andavano scritte. *Un commento che afferma un fatto
- * va rimisurato come il fatto.*
+ * Fino a quel messaggio `Cargo.toml` diceva «il primo apparecchio vero non è
+ * ancora esistito», ed era vero. *Un commento che afferma un fatto va
+ * rimisurato come il fatto.* Dal 23 settembre 2026 sotto gli altri modelli il
+ * selettore scrive solo la strada, «via libdivecomputer»: decisione del
+ * proprietario, difesa da `senzaMaiProvato.test.ts`.
  *
- * ► E QUESTA PROVA ESISTE PER L'ERRORE OPPOSTO. ◄ Adesso il rischio non è più
- * dire «mai provato» di qualcosa che funziona: è dire «provato» di qualcosa che
- * nessuno ha acceso. Un elenco scritto a mano ci arriva in due modi — un nome
+ * ► E QUESTA PROVA ESISTE PER L'ERRORE OPPOSTO. ◄ Il rischio è dire «provato»
+ * di qualcosa che nessuno ha acceso. Un elenco scritto a mano ci arriva in due modi — un nome
  * digitato storto, e un modello aggiunto perché «è della stessa famiglia» — e
  * tutti e due mettono a schermo una promessa che nessuno ha fatto.
  */
@@ -26,8 +26,8 @@ describe('l’elenco di quelli provati davvero', () => {
   it('nomina solo modelli che esistono nel catalogo', () => {
     /*
      * Un nome storto non darebbe nessun errore: semplicemente non
-     * corrisponderebbe a niente, e l'etichetta resterebbe «mai provato» per
-     * sempre — cioè l'elenco direbbe una cosa e lo schermo un'altra, che è il
+     * corrisponderebbe a niente, e «provato» non comparirebbe mai sotto quel
+     * modello — cioè l'elenco direbbe una cosa e lo schermo un'altra, che è il
      * modo peggiore di sbagliare perché nessuno dei due si lamenta.
      */
     for (const p of PROVATI_VIA_LDC) {
@@ -99,7 +99,7 @@ describe('le due etichette del selettore', () => {
     const { readFileSync } = await import('node:fs');
     const tsx = readFileSync('src/ui/components/ScegliComputer.tsx', 'utf8');
     expect(tsx).toContain("t('via libdivecomputer, provato su questo modello')");
-    expect(tsx).toContain("t('via libdivecomputer, mai provato su questo modello')");
+    expect(tsx).toContain(": t('via libdivecomputer')");
     expect(tsx, 'l’etichetta deve dipendere dall’elenco, non da una costante').toContain(
       'provatoViaLdc(m.marca, m.modello)',
     );

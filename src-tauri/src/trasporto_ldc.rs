@@ -846,7 +846,8 @@ impl FlussoBle {
      *
      * Solo per chi lo chiede: la famiglia Pelagic, che è quella in cui si è
      * visto. Per le altre non c'è una misura, e un'attesa in più su cento
-     * modelli mai provati è un cambiamento che nessuno ha chiesto.
+     * modelli che non l'hanno mai mostrato è un cambiamento che nessuno ha
+     * chiesto.
      */
     fn ascolta_prima_di_parlare(&mut self) {
         let Some((silenzio, tetto)) = self.ascolto_iniziale else { return };
@@ -4192,7 +4193,7 @@ mod prove {
     /// aprire il dispositivo, chiedere modello e seriale, scaricare la memoria,
     /// ritagliare le immersioni — resterebbe codice mai eseguito fino al giorno
     /// in cui qualcuno accende un computer subacqueo davanti a un'app che non ha
-    /// mai provato quella strada. Con un finto dispositivo, invece, il giro
+    /// mai percorso quella strada. Con un finto dispositivo, invece, il giro
     /// completo si percorre a ogni `cargo test`.
     ///
     /// IL PROTOCOLLO, per quel poco che serve qui. Su BLE si scrive
@@ -6534,7 +6535,7 @@ mod prove {
     fn anche_la_primissima_risposta_ha_diritto_a_un_ultimo_istante() {
         /*
          * ► IL CASO CHE COSTA UN METODO INTERO. ◄ Alla prima risposta di una
-         * combinazione mai provata, arrivare un soffio dopo la scadenza non
+         * combinazione nuova, arrivare un soffio dopo la scadenza non
          * vuol dire «questo metodo non funziona»: vuol dire «ci è mancato un
          * soffio». Ma il giro dei metodi legge la lettura vuota come un vicolo
          * cieco, scarta la combinazione e passa alla successiva — cioè butta

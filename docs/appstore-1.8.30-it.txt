@@ -24,4 +24,4 @@ E ANCORA
 
 Il cursore dei gradient factor è a misura di dito. Su iPhone e Mac i pulsanti del sistema dentro l'app parlano italiano. La velocità verticale e la linea della decompressione si disegnano giuste anche con i campioni del file fuori ordine.
 
-2.970 controlli automatici in 192 file, più 187 sul motore nativo. Nessuno saltato.
+2.972 controlli automatici in 193 file, più 187 sul motore nativo. Nessuno saltato.

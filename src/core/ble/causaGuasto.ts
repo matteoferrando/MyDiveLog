@@ -76,8 +76,8 @@ import type { BleUnavailable } from './types';
  *
  * *Nota che `libdivecomputer` e `sqlite` sono in elenco per gli ERRORI, e nel
  * dizionario compaiono lo stesso di proposito: uno nell'attribuzione LGPL e
- * nell'etichetta «mai provato su questo modello», l'altro nella riga che dice
- * dove stanno i dati. Sono scelte, e un test le difende come tali.*
+ * nell'etichetta «via libdivecomputer» sotto i modelli, l'altro nella riga che
+ * dice dove stanno i dati. Sono scelte, e un test le difende come tali.*
  */
 export const NOMI_INTERNI = [
   'btleplug',

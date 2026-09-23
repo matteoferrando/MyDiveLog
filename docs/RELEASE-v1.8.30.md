@@ -81,14 +81,12 @@ metà — non rompe più la pagina né sottostima il carico di una ripetitiva.
 ---
 
 Ogni correzione ha una prova, e ogni prova è stata rimessa alla prova rimettendo
-il difetto: **2 970 controlli automatici in 192 file**, più **187** sul motore
+il difetto: **2 972 controlli automatici in 193 file**, più **187** sul motore
 nativo. Nessuno saltato.
 
-Quello che una prova non può dire, detto: **i modelli nuovi non sono stati
-collegati da nessuno qui**. Sono verdi contro la libreria vera e contro
-computer finti di tutte le sedici famiglie del catalogo; chi li collega per
-primo può scriverlo dalla pagina delle segnalazioni del sito, e da lì il
-modello entra nell’elenco dei provati.
+**Hai uno dei modelli nuovi?** Collegalo e raccontaci com’è andata dalla
+pagina delle segnalazioni del sito: da lì il modello entra nell’elenco dei
+provati, e l’applicazione lo scrive sotto il suo nome.
 
 ### Impronte SHA-256
 

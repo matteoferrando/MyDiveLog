@@ -659,11 +659,10 @@ leggeva una notifica per volta — ne consegnava 96. Chiuso nella 1.8.27.
 Da cui la regola che governa questa pagina e il selettore: **un modello provato
 non è una famiglia provata, e nemmeno una libreria provata.** Nel selettore,
 sotto ogni modello che passa da libdivecomputer, c'è scritto «via
-libdivecomputer, **mai provato** su questo modello» — e la frase si toglie un
-modello per volta, quando qualcuno lo accende e racconta com'è andata. L'elenco
-di quelli accesi davvero sta in
-[`src/core/ble/provati.ts`](src/core/ble/provati.ts), con la data e da dove
-arriva la notizia.
+libdivecomputer»; «provato su questo modello» si aggiunge un modello per volta,
+quando qualcuno lo accende e racconta com'è andata. L'elenco di quelli accesi
+davvero sta in [`src/core/ble/provati.ts`](src/core/ble/provati.ts), con la
+data e da dove arriva la notizia.
 
 La catena è scritta per intero — trasporto, scarico, traduzione nel modello
 canonico, ponte sul Bluetooth, selettore di marca e modello — e tutto quello che

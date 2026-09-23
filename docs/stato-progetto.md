@@ -1,6 +1,6 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **23 settembre 2026** — **2 970 prove in 192 file** più
+Aggiornato: **23 settembre 2026** — **2 972 prove in 193 file** più
 **187 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
@@ -156,6 +156,17 @@ a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 > ogni istruzione lo decide il pool, di volta in volta. La prova adesso separa
 > le due strade, ognuna con un esito certo, e la frase è corretta in tre posti
 > (`archivio.rs`, `sqlite.ts`, `tutteONessuna.test.ts`).
+>
+> **12. Sotto i modelli, la strada e basta.** Decisione del proprietario, 23
+> settembre: la frase che diceva che un modello non era ancora stato provato non
+> si scrive più, da nessuna parte. Sotto i modelli che passano dalla libreria il
+> selettore scrive «via libdivecomputer»; «provato su questo modello» resta, un
+> modello per volta. Tolta dal selettore e dal dizionario, dall'aiuto del sito
+> in due lingue, dal README, dal LEGGIMI di Linux e dai commenti del sorgente.
+> `tests/senzaMaiProvato.test.ts` la cerca in tutto quello che si legge — anche
+> spezzata su due righe, anche in inglese — e al primo giro ne ha trovata una
+> che la ricerca a mano non aveva visto; vista rossa rimettendola nell'aiuto.
+> Restano, come storia, le note delle versioni già pubblicate e questo diario.
 >
 > **Il sito** è rigenerato — 115 modelli via Bluetooth più gli 8 dal file,
 > Seac nel nastro, i termini che puntano al tarball nuovo — ma **non

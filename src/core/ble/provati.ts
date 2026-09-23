@@ -4,20 +4,24 @@
  * ════════════════════════════════════════════════════════════════════════════
  * ► PERCHÉ QUESTO FILE È NATO IL 16 SETTEMBRE 2026. ◄
  *
- * Per tre settimane, sotto ogni modello che passa da libdivecomputer, il
- * selettore ha scritto *«via libdivecomputer, mai provato su questo modello»*.
- * Non era una formula di cortesia: era la verità, e in `Cargo.toml` c'era
- * scritto che andava tolta solo quando avesse smesso di esserlo.
+ * Quel giorno è arrivato il messaggio di una persona: *«Su Mares Quad Ci
+ * funziona adesso.»* Il primo computer di terzi che ha consegnato immersioni
+ * attraverso libdivecomputer in questa applicazione.
  *
- * Quel giorno è arrivato con un messaggio di una persona: *«Su Mares Quad Ci
- * funziona adesso.»*
- *
- * ► E VA TOLTA UN MODELLO PER VOLTA. ◄ Lo stesso messaggio, due righe sotto,
- * diceva che un Aqualung i330R si era fermato a metà — e il difetto era nostro.
+ * ► E «PROVATO» SI AGGIUNGE UN MODELLO PER VOLTA. ◄ Lo stesso messaggio, due
+ * righe sotto, diceva che un Aqualung i330R si era fermato a metà — e il
+ * difetto era nostro.
  * *Un modello provato non è una famiglia provata, e nemmeno una libreria
  * provata.* Questo elenco cresce di una riga quando qualcuno accende un
  * apparecchio e racconta com'è andata, e di nessuna riga quando ci sembra che
  * dovrebbe funzionare.
+ *
+ * ► IL CONTRARIO NON SI SCRIVE. ◄ Dal 23 settembre 2026, per decisione del
+ * proprietario, sotto i modelli che non sono in questo elenco il selettore
+ * scrive solo la strada, «via libdivecomputer». Una frase che dice «non
+ * l'abbiamo provato», ripetuta sotto ogni nome a chi sta per collegare il suo
+ * computer, scoraggia invece di informare; `senzaMaiProvato.test.ts` la vieta
+ * in tutto quello che si legge.
  *
  * ► COSA CONTA COME PROVA. ◄ Un apparecchio vero, acceso, che ha consegnato
  * immersioni. Non una prova automatica contro un flusso finto — quelle ci sono

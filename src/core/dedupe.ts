@@ -910,8 +910,7 @@ export function mergeDive(
      * l'archivio non ha arriva normalmente, con tutto il suo profilo. Impedisce
      * solo di **sostituire** un profilo che c'è già e viene da una strada
      * provata. E non è per sempre: si toglie il giorno in cui questa strada
-     * viene verificata contro un apparecchio vero, insieme all'etichetta «mai
-     * provato su questo modello» nel selettore.
+     * viene verificata contro un apparecchio vero.
      * ════════════════════════════════════════════════════════════════════════
      */
     const nonVerificata = incoming.source?.format === 'libdivecomputer';

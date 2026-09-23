@@ -24,4 +24,4 @@ AND ALSO
 
 The gradient factor slider is finger-sized. On iPhone and Mac the system buttons inside the app follow your language. Vertical speed and the decompression line draw correctly even when the file's samples are out of order.
 
-2,970 automated checks in 192 files, plus 187 on the native engine. None skipped.
+2,972 automated checks in 193 files, plus 187 on the native engine. None skipped.

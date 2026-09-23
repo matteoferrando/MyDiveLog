@@ -541,7 +541,8 @@ describe('un profilo di libdivecomputer non scalza uno verificato', () => {
    *
    * I dati decompressivi valgono DUE punti in `profileChannels`, quindi un
    * profilo che porta un `ceiling` o un `ndlS` vince il confronto e sostituisce
-   * quello che c'era. Con una sorgente mai provata contro un apparecchio vero,
+   * quello che c'era. Con una sorgente che nessun apparecchio vero ha ancora
+   * confermato,
    * quel meccanismo può cancellare il profilo buono del Peregrine — e nessuno
    * lo segnala, perché il risultato resta plausibile.
    *

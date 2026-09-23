@@ -63,7 +63,7 @@ describe('la pagina dei computer supportati', () => {
      * ► DUE CLASSI PER QUATTRO ESITI, E NON È UNA SEMPLIFICAZIONE DI COMODO. ◄
      * Decisione del proprietario, 3 settembre 2026: la pagina risponde a
      * «funziona col mio computer?», che ha due risposte. La distinzione fra
-     * «provato» e «mai provato su questo modello» resta dov'è utile — nell'app,
+     * «provato su questo modello» e tutto il resto resta dov'è utile — nell'app,
      * sotto il nome, nel momento in cui uno sta per collegare l'apparecchio — e
      * `esitoPer` la calcola ancora.
      *

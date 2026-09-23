@@ -46,8 +46,8 @@ compilazione (vedi `altre-piattaforme.yml`). A ogni versione nuova: rigenerare i
 
 **3 settembre 2026, Manjaro, dal proprietario**: si installa, si apre, importa,
 e lo scarico Bluetooth funziona. È la prima volta che MyDiveLog gira su Linux
-con un computer subacqueo davanti — fino a quel giorno il Bluetooth su Linux era
-scritto fra i limiti noti come «mai provato». *Il PKGBUILD è stato scritto a
+con un computer subacqueo davanti — fino a quel giorno il Bluetooth su Linux
+stava fra i limiti noti. *Il PKGBUILD è stato scritto a
 mano quella mattina e ha funzionato al primo colpo; il giorno stesso è passato
 nel generatore.*
 

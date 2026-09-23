@@ -266,17 +266,22 @@ function ElencoModelli({
                     ? t('solo importando il file')
                     : esito.tipo === 'si-scarica-ldc'
                       ? /*
-                         * ► «MAI PROVATO» SI TOGLIE UN MODELLO PER VOLTA. ◄
+                         * ► «PROVATO» SI AGGIUNGE UN MODELLO PER VOLTA, E IL
+                         *   CONTRARIO NON SI SCRIVE. ◄
                          *
                          * Dal 16 settembre 2026 qualche modello di questa strada
                          * è stato acceso davvero — il primo è un Mares Quad Ci —
-                         * e continuare a scrivergli sotto «mai provato» sarebbe
-                         * una cosa falsa, nella direzione che fa perdere fiducia
-                         * a chi invece potrebbe fidarsi.
+                         * e sotto quelli c'è scritto. Sotto gli altri, dal 23
+                         * settembre, c'è solo la strada: il proprietario ha
+                         * deciso che una frase che dice «non l'abbiamo provato»,
+                         * ripetuta sotto ogni nome a chi sta per collegare il
+                         * suo computer, scoraggia invece di informare. Una prova
+                         * (`senzaMaiProvato.test.ts`) la vieta in tutto quello
+                         * che si legge.
                          *
-                         * Ma non si generalizza alla famiglia né alla libreria:
-                         * lo stesso giorno, dalla stessa strada, un Aqualung
-                         * i330R si è fermato a metà. L'elenco in
+                         * «Provato» non si generalizza alla famiglia né alla
+                         * libreria: lo stesso giorno, dalla stessa strada, un
+                         * Aqualung i330R si è fermato a metà. L'elenco in
                          * `core/ble/provati.ts` cresce di una riga quando
                          * qualcuno accende un apparecchio e racconta com'è
                          * andata, e di nessuna quando ci sembra che dovrebbe
@@ -284,7 +289,7 @@ function ElencoModelli({
                          */
                         provatoViaLdc(m.marca, m.modello)
                         ? t('via libdivecomputer, provato su questo modello')
-                        : t('via libdivecomputer, mai provato su questo modello')
+                        : t('via libdivecomputer')
                       : t('non ancora via Bluetooth')}
                 </span>
               )}
