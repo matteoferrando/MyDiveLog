@@ -7067,3 +7067,1002 @@ mod prove_data_e_bombole {
         assert_eq!(nessuna.len(), 2, "due voci illeggibili restano due posti vuoti");
     }
 }
+
+/// ════════════════════════════════════════════════════════════════════════════
+/// ► IL BANCO PER FAMIGLIA: UN COMPUTER FINTO PER OGNI PROTOCOLLO NUOVO. ◄
+///
+/// Qui di computer subacquei ce n'è uno. Per tutti gli altri, la domanda «si
+/// scarica?» ha due metà, e una sola si può misurare da qui: se **il nostro
+/// trasporto** consegna alla libreria quello che la libreria si aspetta —
+/// notifiche intere o spezzate, scritture della misura giusta, l'ordine delle
+/// risposte. L'altra metà — come parla la radio di quel modello — resta un
+/// fatto di chi ce l'ha in mano.
+///
+/// Ogni finto qui sotto parla il protocollo **come lo scrive il sorgente della
+/// libreria**, e passa dal `FlussoBle` vero con la politica che il ponte usa
+/// per quel computer: è la metà misurabile, misurata. *Un finto scritto
+/// leggendo la libreria non prova che la libreria abbia ragione sul computer:
+/// prova che fra lei e noi non si perde niente.*
+#[cfg(test)]
+mod banco_per_famiglia {
+    use super::*;
+    use std::sync::mpsc::{channel, Sender};
+    use std::sync::{Arc, Mutex};
+
+    // ─────────────────────────────────────────────── la codifica SLIP (RFC 1055)
+
+    const END: u8 = 0xC0;
+    const ESC: u8 = 0xDB;
+    const ESC_END: u8 = 0xDC;
+    const ESC_ESC: u8 = 0xDD;
+
+    fn slip(dati: &[u8]) -> Vec<u8> {
+        let mut fuori = Vec::with_capacity(dati.len() + 2);
+        for &b in dati {
+            match b {
+                END => fuori.extend_from_slice(&[ESC, ESC_END]),
+                ESC => fuori.extend_from_slice(&[ESC, ESC_ESC]),
+                _ => fuori.push(b),
+            }
+        }
+        fuori.push(END);
+        fuori
+    }
+
+    fn de_slip(dati: &[u8]) -> Vec<u8> {
+        let mut fuori = Vec::with_capacity(dati.len());
+        let mut dopo_esc = false;
+        for &b in dati {
+            if dopo_esc {
+                fuori.push(match b {
+                    ESC_END => END,
+                    ESC_ESC => ESC,
+                    altro => altro,
+                });
+                dopo_esc = false;
+            } else if b == ESC {
+                dopo_esc = true;
+            } else {
+                fuori.push(b);
+            }
+        }
+        fuori
+    }
+
+    /// Manda una risposta come notifiche della misura data: è la radio che
+    /// decide dove spezzare, non il protocollo.
+    fn in_notifiche(manda: &Sender<Vec<u8>>, byte: &[u8], misura: usize) {
+        for pezzo in byte.chunks(misura) {
+            let _ = manda.send(pezzo.to_vec());
+        }
+    }
+
+    // ──────────────────────────────────── Shearwater Perdix 3, protocollo «V2»
+
+    /// La compressione delle immersioni Shearwater, al contrario: prima lo XOR a
+    /// blocchi di 32, poi la codifica a nove bit — ogni byte un valore col bit
+    /// alto acceso, e uno zero in fondo. Lo scrive `shearwater_common.c`
+    /// (`decompress_xor`, `decompress_lre`); qui si fa l'inverso.
+    ///
+    /// Esce a gruppi di nove byte, perché la libreria decomprime **blocco per
+    /// blocco** e pretende che ogni blocco sia un numero intero di valori.
+    fn comprimi_shearwater(immersione: &[u8]) -> Vec<u8> {
+        let mut xor = immersione.to_vec();
+        for i in (32..xor.len()).rev() {
+            xor[i] ^= immersione[i - 32];
+        }
+        let mut valori: Vec<u16> = xor.iter().map(|&b| 0x100 | b as u16).collect();
+        valori.push(0);
+        while valori.len() % 8 != 0 {
+            valori.push(0);
+        }
+        let mut fuori = Vec::with_capacity(valori.len() * 9 / 8);
+        for gruppo in valori.chunks(8) {
+            let mut bit: u128 = 0;
+            for &v in gruppo {
+                bit = (bit << 9) | v as u128;
+            }
+            for i in (0..9).rev() {
+                fuori.push((bit >> (i * 8)) as u8);
+            }
+        }
+        fuori
+    }
+
+    /// Un Perdix 3 finto: memoria, modello, firmware, e le misure di quello che
+    /// ha visto arrivare.
+    struct StatoPerdix3 {
+        immersioni: Vec<([u8; 4], Vec<u8>)>,
+        /// I byte della trama in arrivo, fino al prossimo `END`.
+        in_arrivo: Vec<u8>,
+        /// Il trasferimento in corso: i byte ancora da mandare e il prossimo blocco.
+        in_uscita: VecDeque<u8>,
+        blocco: u8,
+        /// Quanto è grande un blocco di dati: la libreria lo sa dalla risposta
+        /// all'inizio del trasferimento.
+        blocco_massimo: usize,
+        misura_notifica: usize,
+        richieste: Vec<Vec<u8>>,
+        scrittura_piu_lunga: usize,
+        trame_con_intestazione: usize,
+    }
+
+    const MANIFESTO: u32 = 0xE000_0000;
+    const BASE_REGISTRO: u32 = 0x8000_0000;
+
+    impl StatoPerdix3 {
+        fn manifesto(&self) -> Vec<u8> {
+            let mut m = vec![0u8; 0x600];
+            for (i, (impronta, _)) in self.immersioni.iter().enumerate() {
+                let r = &mut m[i * 0x20..(i + 1) * 0x20];
+                r[0] = 0xA5;
+                r[1] = 0xC4;
+                r[4..8].copy_from_slice(impronta);
+                r[20..24].copy_from_slice(&((i as u32 + 1) * 0x0001_0000).to_be_bytes());
+            }
+            m
+        }
+
+        fn rispondi(&mut self, richiesta: &[u8]) -> Option<Vec<u8>> {
+            match richiesta {
+                // RDBI: seriale in esadecimale, firmware «V99», modello 14, e
+                // il formato del registro (il Petrel Native Format, 0x80000000).
+                [0x22, alto, basso] => {
+                    let dati: Vec<u8> = match u16::from_be_bytes([*alto, *basso]) {
+                        0x8010 => b"0A1B2C3D".to_vec(),
+                        0x8011 => b"V99".to_vec(),
+                        0x8060 => vec![14],
+                        0x8021 => {
+                            let mut v = vec![0u8; 9];
+                            v[1..5].copy_from_slice(&BASE_REGISTRO.to_be_bytes());
+                            v
+                        }
+                        _ => return Some(vec![0x7F, 0x22, 0x31]),
+                    };
+                    Some([&[0x62, *alto, *basso][..], &dati].concat())
+                }
+                // L'inizio di un trasferimento: dove e quanto, e se compresso.
+                [0x35, compressione, 0x34, a3, a2, a1, a0, ..] => {
+                    let indirizzo = u32::from_be_bytes([*a3, *a2, *a1, *a0]);
+                    let dati = if indirizzo == MANIFESTO {
+                        self.manifesto()
+                    } else {
+                        let quale = ((indirizzo - BASE_REGISTRO) >> 16) as usize - 1;
+                        let (_, immersione) = &self.immersioni[quale];
+                        assert_eq!(*compressione, 0x10, "le immersioni si chiedono compresse");
+                        comprimi_shearwater(immersione)
+                    };
+                    self.in_uscita = dati.into();
+                    self.blocco = 1;
+                    let massimo = (self.blocco_massimo as u16).to_be_bytes();
+                    Some(vec![0x75, 0x20, massimo[0], massimo[1]])
+                }
+                // Un blocco. Per la compressione, un numero intero di gruppi di
+                // nove byte: vedi `comprimi_shearwater`.
+                [0x36, blocco, 0x00] => {
+                    assert_eq!(*blocco, self.blocco, "i blocchi si chiedono in ordine");
+                    let quanti = self.in_uscita.len().min(self.blocco_massimo / 9 * 9);
+                    let mut r = vec![0x76, *blocco];
+                    r.extend(self.in_uscita.drain(..quanti));
+                    self.blocco = self.blocco.wrapping_add(1);
+                    Some(r)
+                }
+                [0x37] => Some(vec![0x77, 0x00]),
+                // Lo spegnimento alla chiusura: nessuna risposta.
+                [0x2E, 0x90, 0x20, 0x00] => None,
+                altro => panic!("il Perdix 3 finto non conosce la richiesta {altro:02x?}"),
+            }
+        }
+    }
+
+    /// Il Perdix 3 finto dietro un `FlussoBle` vero, come lo costruisce il
+    /// ponte per Shearwater: una notifica per lettura (`UnaNotifica`), niente
+    /// ascolto prima di parlare.
+    fn finto_perdix3(
+        immersioni: Vec<([u8; 4], Vec<u8>)>,
+        misura_notifica: usize,
+    ) -> (FlussoBle, Arc<Mutex<StatoPerdix3>>) {
+        let (manda, ricevi) = channel::<Vec<u8>>();
+        let stato = Arc::new(Mutex::new(StatoPerdix3 {
+            immersioni,
+            in_arrivo: Vec::new(),
+            in_uscita: VecDeque::new(),
+            blocco: 1,
+            blocco_massimo: 0x400,
+            misura_notifica,
+            richieste: Vec::new(),
+            scrittura_piu_lunga: 0,
+            trame_con_intestazione: 0,
+        }));
+        let dentro = stato.clone();
+        let scrittura: ScritturaBle = Box::new(move |dati: &[u8]| {
+            let mut s = dentro.lock().unwrap();
+            s.scrittura_piu_lunga = s.scrittura_piu_lunga.max(dati.len());
+            // Il V1 su BLE mette due byte davanti a ogni pezzo (quanti pezzi, e
+            // quale): il V2 no. Una trama che comincia senza 0xFF 0x01 è una
+            // trama col formato del Perdix di prima.
+            if s.in_arrivo.is_empty() && dati.first() != Some(&0xFF) {
+                s.trame_con_intestazione += 1;
+            }
+            for &b in dati {
+                if b != END {
+                    s.in_arrivo.push(b);
+                    continue;
+                }
+                if s.in_arrivo.is_empty() {
+                    continue;
+                }
+                let trama = de_slip(&std::mem::take(&mut s.in_arrivo));
+                // FF 01 00 <lunghezza su due byte> <richiesta>
+                assert_eq!(&trama[..3], &[0xFF, 0x01, 0x00], "intestazione V2: {trama:02x?}");
+                let lunghezza = u16::from_be_bytes([trama[3], trama[4]]) as usize;
+                let richiesta = trama[5..5 + lunghezza].to_vec();
+                s.richieste.push(richiesta.clone());
+                if let Some(risposta) = s.rispondi(&richiesta) {
+                    let n = (risposta.len() as u16).to_be_bytes();
+                    let pacchetto = [&[0x01, 0xFF, 0x00, n[0], n[1]][..], &risposta].concat();
+                    in_notifiche(&manda, &slip(&pacchetto), s.misura_notifica);
+                }
+            }
+            Ok(())
+        });
+        (FlussoBle::nuovo(ricevi, scrittura), stato)
+    }
+
+    /// Un'immersione finta, riconoscibile byte per byte.
+    fn registro_finto(semina: u8, quanti: usize, impronta: [u8; 4]) -> Vec<u8> {
+        let mut v: Vec<u8> = (0..quanti).map(|i| (i as u8).wrapping_mul(7).wrapping_add(semina)).collect();
+        // Dove la libreria legge l'impronta: dal byte 12.
+        v[12..16].copy_from_slice(&impronta);
+        // Qualche END ed ESC in mezzo, perché la codifica SLIP li deve
+        // attraversare anche dentro i dati.
+        v[40] = END;
+        v[41] = ESC;
+        v
+    }
+
+    #[test]
+    fn perdix3_scarica_attraverso_il_nostro_trasporto_con_ogni_misura_di_notifica() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► IL PERDIX 3, DA CAPO A FONDO. ◄
+         *
+         * Il modello nuovo più atteso della libreria nuova, e il solo che il
+         * driver di casa avrebbe letto male (vedi `scelta.ts`): con la regola
+         * dei numeri di modello va a libdivecomputer, e qui si misura che da lì
+         * arrivi davvero in fondo. Il protocollo «V2» di `shearwater_common.c`:
+         * niente intestazione di due byte sulle scritture BLE, cornice da
+         * cinque, SLIP sopra, letture fino a 514 byte, immersioni compresse.
+         *
+         * Tre misure di notifica, quelle che i telefoni negoziano davvero: 20
+         * (l'MTU di partenza di Android), 182 (iOS), 509 (un Mac). Una
+         * risposta del Perdix attraversa più notifiche, e una notifica può
+         * contenere la fine di una trama e l'inizio della successiva — che è
+         * il caso in cui un trasporto che unisce o taglia male perde i byte.
+         */
+        let descrittore = trova_descrittore("Shearwater", "Perdix 3").expect("il Perdix 3 deve esserci");
+        assert_eq!(descrittore.modello(), 14);
+        let prima = registro_finto(3, 700, [0x11, 0x22, 0x33, 0x44]);
+        let seconda = registro_finto(9, 1500, [0x55, 0x66, 0x77, 0x88]);
+        for misura in [20usize, 182, 509] {
+            let (flusso, stato) = finto_perdix3(
+                vec![([0xA1, 0xA2, 0xA3, 0xA4], prima.clone()), ([0xB1, 0xB2, 0xB3, 0xB4], seconda.clone())],
+                misura,
+            );
+            let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+            let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+            assert!(esito.guasto.is_none(), "notifiche da {misura}: {:?}", esito.guasto);
+            let dichiarato = esito.dichiarato.expect("il Perdix 3 si presenta");
+            assert_eq!((dichiarato.modello, dichiarato.firmware), (14, 99), "notifiche da {misura}");
+            assert_eq!(esito.immersioni.len(), 2, "notifiche da {misura}");
+            assert_eq!(esito.immersioni[0].dati, prima, "notifiche da {misura}: la prima, byte per byte");
+            assert_eq!(esito.immersioni[1].dati, seconda, "notifiche da {misura}: la seconda, byte per byte");
+            assert_eq!(esito.immersioni[0].impronta, vec![0x11, 0x22, 0x33, 0x44]);
+            let s = stato.lock().unwrap();
+            assert!(
+                s.scrittura_piu_lunga <= 20,
+                "il V2 scrive a pezzi da 20 byte: visto {}",
+                s.scrittura_piu_lunga
+            );
+            assert_eq!(s.trame_con_intestazione, 0, "nessuna trama col formato del Perdix di prima");
+            assert!(
+                s.richieste.iter().any(|r| r.as_slice() == [0x2E, 0x90, 0x20, 0x00]),
+                "alla chiusura il computer si spegne"
+            );
+        }
+    }
+
+    #[test]
+    fn perdix3_appena_azzerato_da_zero_immersioni_e_nessun_errore() {
+        let descrittore = trova_descrittore("Shearwater", "Perdix 3").unwrap();
+        let (flusso, stato) = finto_perdix3(Vec::new(), 182);
+        let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+        let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+        assert!(esito.guasto.is_none(), "{:?}", esito.guasto);
+        assert!(esito.immersioni.is_empty());
+        // Il manifesto si chiede una volta sola: vuoto vuol dire finito.
+        let inizi = stato.lock().unwrap().richieste.iter().filter(|r| r.first() == Some(&0x35)).count();
+        assert_eq!(inizi, 1);
+    }
+
+    // ──────────────────────────────────────── Cressi (Goa, Cartesio, Leonardo 2.0…)
+
+    /// Chi risponde alle letture di caratteristica: la versione dei Cressi via
+    /// BLE non si chiede con un comando, si legge da tre caratteristiche
+    /// (`cressi_goa.c`, «there is no variant of the CMD_VERSION command»).
+    struct CaratteristicheCressi {
+        valori: Vec<([u8; 16], Vec<u8>)>,
+        lette: Arc<Mutex<Vec<[u8; 16]>>>,
+    }
+
+    impl AccessoriBle for CaratteristicheCressi {
+        fn nome(&mut self) -> Option<String> {
+            None
+        }
+        fn leggi_caratteristica(&mut self, uuid: [u8; 16]) -> Result<Vec<u8>, String> {
+            self.lette.lock().unwrap().push(uuid);
+            self.valori
+                .iter()
+                .find(|(u, _)| *u == uuid)
+                .map(|(_, v)| v.clone())
+                .ok_or_else(|| "caratteristica sconosciuta al Cressi finto".to_string())
+        }
+    }
+
+    /// `6E4000xx-B5A3-F393-E0A9-E50E24DC10B8`, il servizio Nordic dei Cressi.
+    fn uuid_cressi(n: u8) -> [u8; 16] {
+        [0x6E, 0x40, 0x00, n, 0xB5, 0xA3, 0xF3, 0x93, 0xE0, 0xA9, 0xE5, 0x0E, 0x24, 0xDC, 0x10, 0xB8]
+    }
+
+    /// Una risposta lunga dei Cressi via BLE: due byte di lunghezza, i dati,
+    /// in pacchetti da 512 (l'ultimo riempito), ogni pacchetto spezzato dalla
+    /// radio nella misura della notifica, e in fondo «EOT xmodem» in una
+    /// notifica sua.
+    fn manda_cressi(manda: &Sender<Vec<u8>>, dati: &[u8], misura: usize) {
+        let mut flusso = (dati.len() as u16).to_le_bytes().to_vec();
+        flusso.extend_from_slice(dati);
+        while flusso.len() % 512 != 0 {
+            flusso.push(0);
+        }
+        for pacchetto in flusso.chunks(512) {
+            in_notifiche(manda, pacchetto, misura);
+        }
+        let _ = manda.send(b"EOT xmodem\0\0\0\0\0\0".to_vec());
+    }
+
+    /// Un registro dei Cressi col formato 4 e oltre (firmware 300): voci da
+    /// quindici byte, il numero dell'immersione nei primi due, l'impronta di
+    /// sei byte dal terzo. La libreria scorre il registro dal fondo.
+    fn voce_cressi(numero: u16, impronta: [u8; 6]) -> Vec<u8> {
+        let mut v = vec![0u8; 15];
+        v[..2].copy_from_slice(&numero.to_le_bytes());
+        v[3..9].copy_from_slice(&impronta);
+        v
+    }
+
+    /// E l'immersione: il numero in testa, la stessa impronta dal quarto byte.
+    fn immersione_cressi(numero: u16, impronta: [u8; 6], quanti: usize) -> Vec<u8> {
+        let mut v: Vec<u8> = (0..quanti).map(|i| (i as u8).wrapping_mul(13).wrapping_add(numero as u8)).collect();
+        v[..2].copy_from_slice(&numero.to_le_bytes());
+        v[4..10].copy_from_slice(&impronta);
+        v
+    }
+
+    type Scritti = Arc<Mutex<Vec<Vec<u8>>>>;
+
+    fn finto_cressi(
+        registro: Vec<u8>,
+        immersioni: Vec<(u16, Vec<u8>)>,
+        misura: usize,
+    ) -> (FlussoBle, Scritti, Arc<Mutex<Vec<[u8; 16]>>>) {
+        let (manda, ricevi) = channel::<Vec<u8>>();
+        let scritti: Scritti = Arc::new(Mutex::new(Vec::new()));
+        let visti = scritti.clone();
+        let scrittura: ScritturaBle = Box::new(move |dati: &[u8]| {
+            visti.lock().unwrap().push(dati.to_vec());
+            match dati {
+                // CMD_LOGBOOK_BLE, con l'argomento zero.
+                [0x02, 0x00] => manda_cressi(&manda, &registro, misura),
+                // CMD_DIVE_BLE, col numero in big-endian.
+                [0x03, alto, basso] => {
+                    let numero = u16::from_be_bytes([*alto, *basso]);
+                    let (_, dati) = immersioni
+                        .iter()
+                        .find(|(n, _)| *n == numero)
+                        .unwrap_or_else(|| panic!("il Cressi finto non ha l'immersione {numero}"));
+                    manda_cressi(&manda, dati, misura);
+                }
+                altro => panic!("il Cressi finto non conosce il comando {altro:02x?}"),
+            }
+            Ok(())
+        });
+        let lette = Arc::new(Mutex::new(Vec::new()));
+        let accessori = CaratteristicheCressi {
+            valori: vec![
+                // Seriale 0x01020304, modello 10, firmware 300 (formato 5).
+                (uuid_cressi(3), vec![0x04, 0x03, 0x02, 0x01, 10]),
+                (uuid_cressi(4), 300u16.to_le_bytes().to_vec()),
+                (uuid_cressi(5), vec![0x00, 0x00]),
+            ],
+            lette: lette.clone(),
+        };
+        let flusso = FlussoBle::nuovo(ricevi, scrittura)
+            .con_accessori(Box::new(accessori), Box::new(|| Ripiego::Esaurito));
+        (flusso, scritti, lette)
+    }
+
+    #[test]
+    fn cressi_scarica_attraverso_il_nostro_trasporto() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► I CRESSI, IL PROTOCOLLO PIÙ STRANO DEL CATALOGO. ◄
+         *
+         * Otto modelli, e la marca che in Italia si vede di più in acqua. Via
+         * BLE `cressi_goa.c` fa tre cose che nessun'altra famiglia fa insieme:
+         * la versione si **legge da tre caratteristiche** invece di chiederla
+         * (il nostro `DC_IOCTL_BLE_CHARACTERISTIC_READ`); le risposte lunghe
+         * arrivano in **pacchetti da 512 byte** che la libreria ricompone
+         * lettura dopo lettura; e la fine è una notifica «EOT xmodem» che deve
+         * arrivare **intera in una lettura sola**. Se il trasporto unisse la
+         * coda di un pacchetto alla fine, o la tagliasse, lo scarico si
+         * fermerebbe su «Unexpected end bytes».
+         *
+         * Ogni comando costa due secondi di attesa voluti dalla libreria
+         * («without this delay, the transfer will fail most of the time»):
+         * per questo le misure sono due e le immersioni una.
+         */
+        let descrittore = trova_descrittore("Cressi", "Goa").expect("il Goa deve esserci");
+        let impronta = [0x21, 0x22, 0x23, 0x24, 0x25, 0x26];
+        let registro = voce_cressi(7, impronta);
+        let immersione = immersione_cressi(7, impronta, 1300);
+        for misura in [20usize, 182] {
+            let (flusso, scritti, lette) = finto_cressi(registro.clone(), vec![(7, immersione.clone())], misura);
+            let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+            let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+            assert!(esito.guasto.is_none(), "notifiche da {misura}: {:?}", esito.guasto);
+            let dichiarato = esito.dichiarato.expect("il Cressi si presenta");
+            assert_eq!((dichiarato.modello, dichiarato.firmware), (10, 300), "notifiche da {misura}");
+            assert_eq!(
+                *lette.lock().unwrap(),
+                vec![uuid_cressi(3), uuid_cressi(4), uuid_cressi(5)],
+                "la versione si legge dalle tre caratteristiche, in ordine"
+            );
+            assert_eq!(*scritti.lock().unwrap(), vec![vec![0x02, 0x00], vec![0x03, 0x00, 0x07]]);
+            assert_eq!(esito.immersioni.len(), 1, "notifiche da {misura}");
+            // La libreria mette davanti all'immersione la versione e la voce
+            // del registro, con due byte che ne dicono la misura: il lettore
+            // ne ha bisogno, e qui si controlla che il resto sia intatto.
+            let dati = &esito.immersioni[0].dati;
+            assert_eq!(&dati[..2], &[9, 15], "notifiche da {misura}");
+            assert_eq!(&dati[2 + 9 + 15..], immersione.as_slice(), "notifiche da {misura}: byte per byte");
+            assert_eq!(esito.immersioni[0].impronta, impronta.to_vec());
+        }
+    }
+
+
+    // ─────────────────────────────────────────────────────────────── Seac Tablet
+
+    /// CRC-16/CCITT come la calcola `checksum.c`: polinomio 0x1021, partenza
+    /// 0xFFFF, niente riflessioni.
+    fn crc_ccitt(dati: &[u8]) -> u16 {
+        let mut crc: u16 = 0xFFFF;
+        for &b in dati {
+            crc ^= (b as u16) << 8;
+            for _ in 0..8 {
+                crc = if crc & 0x8000 != 0 { (crc << 1) ^ 0x1021 } else { crc << 1 };
+            }
+        }
+        crc
+    }
+
+    /// Un record Seac da 64 byte: il numero dell'immersione in testa, il tipo
+    /// nel terzultimo byte, il CRC negli ultimi due (così il CRC del record
+    /// intero fa zero, che è quello che `seac_screen_record_isvalid` guarda).
+    fn record_seac(numero: u32, tipo: u8, riempi: impl Fn(&mut [u8])) -> Vec<u8> {
+        let mut r = vec![0u8; 64];
+        riempi(&mut r);
+        r[..4].copy_from_slice(&numero.to_le_bytes());
+        r[61] = tipo;
+        let crc = crc_ccitt(&r[..62]);
+        r[62..].copy_from_slice(&crc.to_be_bytes());
+        r
+    }
+
+    /// Un'immersione Seac: due record di intestazione — il secondo dice quanti
+    /// campioni seguono — e i campioni, da 64 byte l'uno.
+    fn immersione_seac(numero: u32, campioni: u32) -> Vec<u8> {
+        let mut v = record_seac(numero, 0xCF, |_| {});
+        v.extend(record_seac(numero, 0xC0, |r| r[4..8].copy_from_slice(&campioni.to_le_bytes())));
+        for c in 0..campioni {
+            v.extend(record_seac(numero, 0xAA, |r| {
+                for (j, b) in r.iter_mut().enumerate().skip(4).take(56) {
+                    *b = (j as u32 * 3 + c) as u8;
+                }
+            }));
+        }
+        v
+    }
+
+    /// Un Seac Tablet finto: la memoria del Tablet dall'indirizzo 0x0A0000, e le
+    /// immersioni una dopo l'altra.
+    struct StatoSeac {
+        memoria: Vec<u8>,
+        indirizzi: Vec<(u32, u32)>,
+        comandi: Vec<u16>,
+        scrittura_piu_lunga: usize,
+    }
+
+    const SEAC_INIZIO: u32 = 0x0A_0000;
+
+    impl StatoSeac {
+        fn rispondi(&mut self, comando: u16, dati: &[u8]) -> Vec<u8> {
+            match comando {
+                // Le informazioni: il modello (0x10, il Tablet) e il seriale
+                // nell'hardware, il firmware nel software.
+                0x1833 => {
+                    let mut v = vec![0u8; 256];
+                    v[4..8].copy_from_slice(&0x10u32.to_le_bytes());
+                    v[0x10..0x14].copy_from_slice(&0x0000_2A2Bu32.to_le_bytes());
+                    v
+                }
+                0x1834 => {
+                    let mut v = vec![0u8; 256];
+                    v[0x14..0x18].copy_from_slice(&0x0103u32.to_le_bytes());
+                    v
+                }
+                // Il primo e l'ultimo numero d'immersione.
+                0x1850 => {
+                    let primo = self.indirizzi.first().map(|(n, _)| *n).unwrap_or(1);
+                    let ultimo = self.indirizzi.last().map(|(n, _)| *n).unwrap_or(0);
+                    [primo.to_be_bytes(), ultimo.to_be_bytes()].concat()
+                }
+                0x1851 => {
+                    let numero = u32::from_be_bytes([dati[0], dati[1], dati[2], dati[3]]);
+                    let (_, dove) = self.indirizzi.iter().find(|(n, _)| *n == numero).expect("numero noto");
+                    dove.to_be_bytes().to_vec()
+                }
+                0x1852 => {
+                    let da = u32::from_be_bytes([dati[0], dati[1], dati[2], dati[3]]) - SEAC_INIZIO;
+                    let quanti = u32::from_be_bytes([dati[4], dati[5], dati[6], dati[7]]);
+                    self.memoria[da as usize..(da + quanti) as usize].to_vec()
+                }
+                altro => panic!("il Seac finto non conosce il comando {altro:04x}"),
+            }
+        }
+    }
+
+    fn finto_seac(immersioni: &[(u32, Vec<u8>)], misura: usize) -> (FlussoBle, Arc<Mutex<StatoSeac>>) {
+        let mut memoria = vec![0xFFu8; (0x40_0000 - SEAC_INIZIO) as usize];
+        let mut indirizzi = Vec::new();
+        let mut dove = SEAC_INIZIO + 0x1000;
+        for (numero, dati) in immersioni {
+            let da = (dove - SEAC_INIZIO) as usize;
+            memoria[da..da + dati.len()].copy_from_slice(dati);
+            indirizzi.push((*numero, dove));
+            dove += dati.len() as u32;
+        }
+        let stato = Arc::new(Mutex::new(StatoSeac { memoria, indirizzi, comandi: Vec::new(), scrittura_piu_lunga: 0 }));
+        let (manda, ricevi) = channel::<Vec<u8>>();
+        let dentro = stato.clone();
+        let scrittura: ScritturaBle = Box::new(move |dati: &[u8]| {
+            let mut s = dentro.lock().unwrap();
+            s.scrittura_piu_lunga = s.scrittura_piu_lunga.max(dati.len());
+            // Il byte di risveglio, 0x61: nessuna risposta.
+            if dati == [0x61] {
+                return Ok(());
+            }
+            // 55 <lunghezza> <comando> <dati> <crc>: una scrittura per comando.
+            assert_eq!(dati[0], 0x55, "inizio del comando: {dati:02x?}");
+            let lunghezza = u16::from_be_bytes([dati[1], dati[2]]) as usize;
+            assert_eq!(dati.len(), lunghezza + 1, "lunghezza dichiarata: {dati:02x?}");
+            let crc = u16::from_be_bytes([dati[dati.len() - 2], dati[dati.len() - 1]]);
+            assert_eq!(crc, crc_ccitt(&dati[..dati.len() - 2]), "CRC del comando");
+            let comando = u16::from_be_bytes([dati[3], dati[4]]);
+            s.comandi.push(comando);
+            let risposta = s.rispondi(comando, &dati[5..dati.len() - 2]);
+            let l = (risposta.len() + 7) as u16;
+            let mut pacchetto = vec![0x55, (l >> 8) as u8, l as u8, dati[3], dati[4]];
+            pacchetto.extend_from_slice(&risposta);
+            pacchetto.push(0x09);
+            let crc = crc_ccitt(&pacchetto);
+            pacchetto.extend_from_slice(&crc.to_be_bytes());
+            in_notifiche(&manda, &pacchetto, misura);
+            Ok(())
+        });
+        (FlussoBle::nuovo(ricevi, scrittura), stato)
+    }
+
+    #[test]
+    fn seac_tablet_scarica_attraverso_il_nostro_trasporto() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► IL SEAC TABLET: PACCHETTI DA 244, RISPOSTE DA DUEMILA BYTE. ◄
+         *
+         * Nuovo col ramo principale, e il primo Seac del catalogo. Via BLE
+         * `seac_screen.c` si mette dietro `dc_packet_open(244, 244)`: legge a
+         * pacchetti da 244 e ricompone lui. Le risposte alla lettura della
+         * memoria arrivano a 2 056 byte, cioè da cinque a centotré notifiche a
+         * seconda della radio, ognuna col suo CRC da verificare in fondo —
+         * se il nostro trasporto perdesse, raddoppiasse o riordinasse un
+         * pezzo, il CRC lo direbbe.
+         *
+         * Quattro misure di notifica, compresa una più grande dei pacchetti
+         * della libreria (509 su 244): lì il resto della notifica deve
+         * restare in cassa per la lettura dopo, non andare perso.
+         */
+        let descrittore = trova_descrittore("Seac", "Tablet").expect("il Tablet deve esserci");
+        let quinta = immersione_seac(5, 3);
+        let sesta = immersione_seac(6, 40);
+        for misura in [20usize, 182, 244, 509] {
+            let (flusso, stato) = finto_seac(&[(5, quinta.clone()), (6, sesta.clone())], misura);
+            let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+            let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+            assert!(esito.guasto.is_none(), "notifiche da {misura}: {:?}", esito.guasto);
+            let dichiarato = esito.dichiarato.expect("il Tablet si presenta");
+            assert_eq!((dichiarato.modello, dichiarato.firmware), (0x10, 0x0103), "notifiche da {misura}");
+            assert_eq!(esito.immersioni.len(), 2, "notifiche da {misura}");
+            // La più recente per prima.
+            assert_eq!(esito.immersioni[0].dati, sesta, "notifiche da {misura}: la sesta, byte per byte");
+            assert_eq!(esito.immersioni[1].dati, quinta, "notifiche da {misura}: la quinta, byte per byte");
+            assert_eq!(esito.immersioni[0].impronta, 6u32.to_le_bytes().to_vec());
+            let s = stato.lock().unwrap();
+            assert!(s.scrittura_piu_lunga <= 244, "scritture da {} byte", s.scrittura_piu_lunga);
+            assert!(s.comandi.contains(&0x1852), "la memoria si legge col comando del Tablet");
+        }
+    }
+
+
+    // ──────────────────────────────────── Suunto (EON Steel, EON Core, D5…)
+
+    /// CRC-32 riflesso, quello di zlib: `checksum_crc32r`.
+    fn crc32r(dati: &[u8]) -> u32 {
+        let mut crc: u32 = 0xFFFF_FFFF;
+        for &b in dati {
+            crc ^= b as u32;
+            for _ in 0..8 {
+                crc = if crc & 1 != 0 { (crc >> 1) ^ 0xEDB8_8320 } else { crc >> 1 };
+            }
+        }
+        !crc
+    }
+
+    /// HDLC come lo scrive `hdlc.c`: 0x7E in testa e in coda, 0x7D che
+    /// scappa i due caratteri speciali col bit 0x20 rovesciato.
+    fn hdlc(dati: &[u8]) -> Vec<u8> {
+        let mut fuori = vec![0x7E];
+        for &b in dati {
+            if b == 0x7E || b == 0x7D {
+                fuori.extend_from_slice(&[0x7D, b ^ 0x20]);
+            } else {
+                fuori.push(b);
+            }
+        }
+        fuori.push(0x7E);
+        fuori
+    }
+
+    struct StatoSuunto {
+        /// Le immersioni: il nome del file (il tempo, in esadecimale) e il contenuto.
+        file: Vec<(u32, Vec<u8>)>,
+        in_arrivo: Vec<u8>,
+        dentro_trama: bool,
+        dopo_esc: bool,
+        magia: Option<u32>,
+        aperto: Option<(Vec<u8>, usize)>,
+        cartella_letta: bool,
+        comandi: Vec<u16>,
+        scrittura_piu_lunga: usize,
+    }
+
+    impl StatoSuunto {
+        fn rispondi(&mut self, comando: u16, dati: &[u8]) -> Vec<u8> {
+            match comando {
+                // INIT: la «versione» da 0x30 byte — il seriale in cifre dal
+                // byte 0x10, il firmware in big-endian dal 0x20.
+                0x0000 => {
+                    let mut v = vec![0u8; 0x30];
+                    v[0x10..0x18].copy_from_slice(b"12345678");
+                    v[0x20..0x24].copy_from_slice(&0x0002_0501u32.to_be_bytes());
+                    v
+                }
+                // DIR_OPEN su «0:/dives».
+                0x0810 => {
+                    assert_eq!(&dati[4..], b"0:/dives\0", "la cartella delle immersioni");
+                    self.cartella_letta = false;
+                    vec![0u8; 4]
+                }
+                // READDIR: tutte le voci in una volta, e «ultima».
+                0x0910 => {
+                    let mut v = Vec::new();
+                    v.extend_from_slice(&(self.file.len() as u32).to_le_bytes());
+                    v.extend_from_slice(&1u32.to_le_bytes());
+                    if !self.cartella_letta {
+                        for (tempo, _) in &self.file {
+                            let nome = format!("{tempo:08X}.LOG");
+                            v.extend_from_slice(&1u32.to_le_bytes());
+                            v.extend_from_slice(&(nome.len() as u32).to_le_bytes());
+                            v.extend_from_slice(nome.as_bytes());
+                            v.push(0);
+                        }
+                    }
+                    self.cartella_letta = true;
+                    v
+                }
+                0x0A10 | 0x0510 => vec![0u8; 4],
+                // FILE_OPEN «0:/dives/XXXXXXXX.LOG».
+                0x0010 => {
+                    let nome = String::from_utf8_lossy(&dati[4..dati.len() - 1]).to_string();
+                    let tempo = u32::from_str_radix(nome.trim_start_matches("0:/dives/").trim_end_matches(".LOG"), 16)
+                        .expect("nome del file");
+                    let (_, contenuto) = self.file.iter().find(|(t, _)| *t == tempo).expect("file noto");
+                    self.aperto = Some((contenuto.clone(), 0));
+                    vec![0u8; 4]
+                }
+                // FILE_STAT: la dimensione dal byte 4.
+                0x0710 => {
+                    let (contenuto, _) = self.aperto.as_ref().expect("un file aperto");
+                    [0u32.to_le_bytes(), (contenuto.len() as u32).to_le_bytes()].concat()
+                }
+                // FILE_READ: 1234 (non è una posizione), quanti, i byte.
+                0x0110 => {
+                    let chiesti = u32::from_le_bytes([dati[4], dati[5], dati[6], dati[7]]) as usize;
+                    let (contenuto, dove) = self.aperto.as_mut().expect("un file aperto");
+                    let quanti = chiesti.min(contenuto.len() - *dove);
+                    let mut v = [1234u32.to_le_bytes(), (quanti as u32).to_le_bytes()].concat();
+                    v.extend_from_slice(&contenuto[*dove..*dove + quanti]);
+                    *dove += quanti;
+                    v
+                }
+                altro => panic!("il Suunto finto non conosce il comando {altro:04x}"),
+            }
+        }
+    }
+
+    fn finto_suunto(file: Vec<(u32, Vec<u8>)>, misura: usize) -> (FlussoBle, Arc<Mutex<StatoSuunto>>) {
+        let (manda, ricevi) = channel::<Vec<u8>>();
+        let stato = Arc::new(Mutex::new(StatoSuunto {
+            file,
+            in_arrivo: Vec::new(),
+            dentro_trama: false,
+            dopo_esc: false,
+            magia: None,
+            aperto: None,
+            cartella_letta: false,
+            comandi: Vec::new(),
+            scrittura_piu_lunga: 0,
+        }));
+        let dentro = stato.clone();
+        let scrittura: ScritturaBle = Box::new(move |dati: &[u8]| {
+            let mut s = dentro.lock().unwrap();
+            s.scrittura_piu_lunga = s.scrittura_piu_lunga.max(dati.len());
+            for &b in dati {
+                if b == 0x7E {
+                    if !s.dentro_trama {
+                        s.dentro_trama = true;
+                        continue;
+                    }
+                    s.dentro_trama = false;
+                    let trama = std::mem::take(&mut s.in_arrivo);
+                    // cmd, magia, sequenza, lunghezza, dati, CRC-32.
+                    let (corpo, crc) = trama.split_at(trama.len() - 4);
+                    assert_eq!(u32::from_le_bytes([crc[0], crc[1], crc[2], crc[3]]), crc32r(corpo), "CRC del comando");
+                    let comando = u16::from_le_bytes([corpo[0], corpo[1]]);
+                    let magia = u32::from_le_bytes([corpo[2], corpo[3], corpo[4], corpo[5]]);
+                    let sequenza = u16::from_le_bytes([corpo[6], corpo[7]]);
+                    let lunghezza = u32::from_le_bytes([corpo[8], corpo[9], corpo[10], corpo[11]]) as usize;
+                    assert_eq!(corpo.len(), 12 + lunghezza, "lunghezza dichiarata");
+                    s.comandi.push(comando);
+                    let risposta = s.rispondi(comando, &corpo[12..]);
+                    // La magia: all'INIT la sceglie il computer, e poi risponde
+                    // sempre con quella della domanda più cinque.
+                    let magia_risposta = if comando == 0 {
+                        s.magia = Some(0x4B1D_0000);
+                        0x4B1D_0000
+                    } else {
+                        assert_eq!(Some(magia), s.magia.map(|m| m | 5), "la magia della domanda");
+                        magia + 5
+                    };
+                    let mut r = Vec::new();
+                    r.extend_from_slice(&comando.to_le_bytes());
+                    r.extend_from_slice(&magia_risposta.to_le_bytes());
+                    r.extend_from_slice(&sequenza.to_le_bytes());
+                    r.extend_from_slice(&(risposta.len() as u32).to_le_bytes());
+                    r.extend_from_slice(&risposta);
+                    let crc = crc32r(&r);
+                    r.extend_from_slice(&crc.to_le_bytes());
+                    in_notifiche(&manda, &hdlc(&r), misura);
+                    continue;
+                }
+                if !s.dentro_trama {
+                    continue;
+                }
+                if b == 0x7D {
+                    s.dopo_esc = true;
+                    continue;
+                }
+                let c = if s.dopo_esc { b ^ 0x20 } else { b };
+                s.dopo_esc = false;
+                s.in_arrivo.push(c);
+            }
+            Ok(())
+        });
+        (FlussoBle::nuovo(ricevi, scrittura), stato)
+    }
+
+    #[test]
+    fn suunto_scarica_attraverso_il_nostro_trasporto() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► I SUUNTO: UN FILE SYSTEM, IN HDLC, A PEZZI DA VENTI BYTE. ◄
+         *
+         * EON Steel, EON Core, D5: la seconda marca al mondo. Via BLE
+         * `suunto_eonsteel.c` si mette dietro `dc_hdlc_open(20, 20)` e parla a
+         * un file system — apri la cartella, leggi le voci, apri il file,
+         * chiedine la misura, leggilo a pezzi da 1024 — con un CRC-32 per
+         * trama e un numero «magico» che cambia a ogni domanda. Una lettura
+         * della memoria arriva in una trama sola da più di mille byte: da
+         * cinquanta a sessanta notifiche col telefono più avaro.
+         */
+        let descrittore = trova_descrittore("Suunto", "EON Steel").expect("l'EON Steel deve esserci");
+        let prima: Vec<u8> = (0..2500u32).map(|i| (i * 11 + 7) as u8).collect();
+        let seconda: Vec<u8> = (0..300u32).map(|i| (i * 5 + 0x7E) as u8).collect();
+        for misura in [20usize, 182] {
+            let (flusso, stato) =
+                finto_suunto(vec![(0x5F5E_1000, prima.clone()), (0x5F60_2000, seconda.clone())], misura);
+            let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+            let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+            assert!(esito.guasto.is_none(), "notifiche da {misura}: {:?}", esito.guasto);
+            let dichiarato = esito.dichiarato.expect("l'EON si presenta");
+            assert_eq!(dichiarato.firmware, 0x0002_0501, "notifiche da {misura}");
+            assert_eq!(esito.immersioni.len(), 2, "notifiche da {misura}");
+            // La più recente per prima; in testa il tempo, che è anche l'impronta.
+            assert_eq!(&esito.immersioni[0].dati[..4], &0x5F60_2000u32.to_le_bytes());
+            assert_eq!(&esito.immersioni[0].dati[4..], seconda.as_slice(), "notifiche da {misura}");
+            assert_eq!(&esito.immersioni[1].dati[4..], prima.as_slice(), "notifiche da {misura}");
+            assert_eq!(esito.immersioni[1].impronta, 0x5F5E_1000u32.to_le_bytes().to_vec());
+            let s = stato.lock().unwrap();
+            assert!(s.scrittura_piu_lunga <= 20, "HDLC scrive a pezzi da 20: visto {}", s.scrittura_piu_lunga);
+            assert!(s.comandi.iter().filter(|c| **c == 0x0110).count() >= 4, "la prima si legge in tre pezzi");
+        }
+    }
+
+
+    // ─────────────────── Oceanic e Aqualung (i200C, i300C, i770R, Geo 4.0…)
+
+    /// Il nome Bluetooth, per il `DC_IOCTL_BLE_GET_NAME` della stretta di mano.
+    struct NomeBluetooth(&'static str, Arc<Mutex<usize>>);
+
+    impl AccessoriBle for NomeBluetooth {
+        fn nome(&mut self) -> Option<String> {
+            *self.1.lock().unwrap() += 1;
+            Some(self.0.to_string())
+        }
+        fn leggi_caratteristica(&mut self, _uuid: [u8; 16]) -> Result<Vec<u8>, String> {
+            Err("niente caratteristiche".into())
+        }
+    }
+
+    struct StatoOceanic {
+        memoria: Vec<u8>,
+        /// Il comando in arrivo, pezzo dopo pezzo, e la sua sequenza.
+        in_arrivo: Vec<u8>,
+        comandi: Vec<Vec<u8>>,
+        scrittura_piu_lunga: usize,
+        pacchetti_mandati: usize,
+    }
+
+    fn somma8(dati: &[u8]) -> u8 {
+        dati.iter().fold(0u8, |a, b| a.wrapping_add(*b))
+    }
+
+    fn finto_oceanic(nome: &'static str) -> (FlussoBle, Arc<Mutex<StatoOceanic>>, Arc<Mutex<usize>>) {
+        // La memoria di un i200C appena azzerato: la pagina d'identità con il
+        // modello (0x4749) e il seriale in BCD, i puntatori col registro vuoto
+        // (primo = ultimo), il resto a 0xFF.
+        let mut memoria = vec![0xFFu8; 0x10000];
+        memoria[0..16].copy_from_slice(&[0u8; 16]);
+        memoria[8..10].copy_from_slice(&0x4749u16.to_be_bytes());
+        memoria[10..13].copy_from_slice(&[0x00, 0x00, 0x01]);
+        memoria[0x40..0x50].copy_from_slice(&[0u8; 16]);
+        memoria[0x44..0x46].copy_from_slice(&0x0240u16.to_le_bytes());
+        memoria[0x46..0x48].copy_from_slice(&0x0240u16.to_le_bytes());
+        memoria[0x48..0x4A].copy_from_slice(&0x0A40u16.to_le_bytes());
+        memoria[0x4A..0x4C].copy_from_slice(&0x0A40u16.to_le_bytes());
+        let stato = Arc::new(Mutex::new(StatoOceanic {
+            memoria,
+            in_arrivo: Vec::new(),
+            comandi: Vec::new(),
+            scrittura_piu_lunga: 0,
+            pacchetti_mandati: 0,
+        }));
+        let (manda, ricevi) = channel::<Vec<u8>>();
+        let dentro = stato.clone();
+        let scrittura: ScritturaBle = Box::new(move |dati: &[u8]| {
+            let mut s = dentro.lock().unwrap();
+            s.scrittura_piu_lunga = s.scrittura_piu_lunga.max(dati.len());
+            // CD <d1csssss> <sequenza del comando> <lunghezza> <dati>
+            assert_eq!(dati[0], 0xCD, "inizio del pacchetto: {dati:02x?}");
+            assert_eq!(dati[1] & 0xC0, 0x40, "un comando, non una risposta: {dati:02x?}");
+            let sequenza = dati[2];
+            let lunghezza = dati[3] as usize;
+            assert_eq!(dati.len(), 4 + lunghezza, "lunghezza dichiarata: {dati:02x?}");
+            s.in_arrivo.extend_from_slice(&dati[4..]);
+            if dati[1] & 0x20 != 0 {
+                return Ok(());
+            }
+            let comando = std::mem::take(&mut s.in_arrivo);
+            s.comandi.push(comando.clone());
+            let risposta: Vec<u8> = match comando[0] {
+                // La versione: ACK, sedici byte, somma.
+                0x84 => {
+                    let versione = *b"AQUA200C \0\0 512K";
+                    [&[0x5A][..], &versione, &[somma8(&versione)]].concat()
+                }
+                // La stretta di mano: basta l'ACK.
+                0xE5 => vec![0x5A],
+                // Una pagina da sedici byte.
+                0xB1 => {
+                    let pagina = u16::from_be_bytes([comando[1], comando[2]]) as usize * 16;
+                    let dati = s.memoria[pagina..pagina + 16].to_vec();
+                    [&[0x5A][..], &dati, &[somma8(&dati)]].concat()
+                }
+                // L'uscita, alla chiusura: la libreria aspetta un NAK.
+                0x6A => vec![0xA5],
+                altro => panic!("l'Oceanic finto non conosce il comando {altro:02x}"),
+            };
+            // La risposta a pacchetti da sedici byte di dati, uno per notifica.
+            let pezzi: Vec<&[u8]> = risposta.chunks(16).collect();
+            for (n, pezzo) in pezzi.iter().enumerate() {
+                let altri = if n + 1 < pezzi.len() { 0x20 } else { 0x00 };
+                let mut pacchetto = vec![0xCD, 0xC0 | altri | (n as u8 & 0x1F), sequenza, pezzo.len() as u8];
+                pacchetto.extend_from_slice(pezzo);
+                s.pacchetti_mandati += 1;
+                let _ = manda.send(pacchetto);
+            }
+            Ok(())
+        });
+        let chiesto = Arc::new(Mutex::new(0usize));
+        let flusso = FlussoBle::nuovo(ricevi, scrittura)
+            .con_accessori(Box::new(NomeBluetooth(nome, chiesto.clone())), Box::new(|| Ripiego::Esaurito));
+        (flusso, stato, chiesto)
+    }
+
+    #[test]
+    fn oceanic_si_apre_col_nome_bluetooth_e_legge_la_memoria_a_pacchetti() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► OCEANIC E AQUALUNG: LA PASSWORD È IL NOME. ◄
+         *
+         * Quattordici modelli nel catalogo — i200C, i300C, i770R, Geo 4.0, Pro
+         * Plus X… — e un protocollo BLE con due cose sue: ogni risposta arriva
+         * a pacchetti da venti byte numerati (`CD`, stato con numero di
+         * pacchetto, numero di comando, lunghezza), e dopo la versione la
+         * libreria manda una **stretta di mano fatta con le cifre del nome
+         * Bluetooth** («FQ001124»). Il nome la libreria lo chiede a noi con
+         * `DC_IOCTL_BLE_GET_NAME`: se arrivasse quello sbagliato — il nome GAP
+         * in cache invece di quello annunciato — il computer non aprirebbe.
+         *
+         * Un i200C appena azzerato: versione, stretta di mano, pagina
+         * d'identità, puntatori, il registro da leggere pagina per pagina
+         * (vuoto: tutto 0xFF), l'uscita. Zero immersioni, nessun errore.
+         */
+        let descrittore = trova_descrittore("Aqualung", "i200C").expect("l'i200C deve esserci");
+        let (flusso, stato, chiesto) = finto_oceanic("GI000123");
+        let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+        let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+        assert!(esito.guasto.is_none(), "{:?}", esito.guasto);
+        assert!(esito.immersioni.is_empty());
+        let dichiarato = esito.dichiarato.expect("l'i200C si presenta");
+        assert_eq!(dichiarato.modello, 0x4749);
+        assert!(*chiesto.lock().unwrap() >= 1, "il nome si chiede per la stretta di mano");
+        let s = stato.lock().unwrap();
+        // La stretta di mano: 0xE5, le sei cifre del nome, due zeri, la somma.
+        let stretta = s.comandi.iter().find(|c| c[0] == 0xE5).expect("la stretta di mano");
+        assert_eq!(&stretta[1..9], &[0, 0, 0, 1, 2, 3, 0, 0], "le cifre di «GI000123»");
+        assert_eq!(stretta[9], 6, "la somma delle cifre");
+        assert!(s.scrittura_piu_lunga <= 20, "pacchetti BLE da venti byte: visto {}", s.scrittura_piu_lunga);
+        assert!(s.pacchetti_mandati > s.comandi.len(), "le risposte lunghe attraversano più pacchetti");
+        assert_eq!(s.comandi.last().map(|c| c[0]), Some(0x6A), "e alla fine si esce");
+    }
+
+}
