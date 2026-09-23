@@ -90,5 +90,13 @@ provati, e l’applicazione lo scrive sotto il suo nome.
 
 ### Impronte SHA-256
 
-(Si calcolano sui file allegati a questa release, al passo 6 di
-`docs/RILASCIO.md`: due compilazioni non danno lo stesso byte.)
+Calcolate sui file allegati a questa release, non su una compilazione
+precedente: due compilazioni non danno lo stesso byte.
+
+| Pacchetto | SHA-256 | byte |
+|---|---|---|
+| `MyDiveLog-macOS-arm64.dmg` | `8318f169460d2bcef6d6e9dab1ebf8b0ab34d3216f5fd8aef8faf8fbb01722a7` | 4.540.909 |
+| `MyDiveLog-Windows-setup.exe` | `04b0180090bba9c20ea2d588e3d26e78cbf2f741cd10fe223b63b5d51a380b3a` | 3.269.848 |
+| `MyDiveLog-Windows-portatile.exe` | `283329917dadef66d53bb4f9476da5d68e7f09ed650c56ec9b89452fa1018274` | 7.537.664 |
+| `MyDiveLog-Android-arm64.apk` | `bcbf5fce8bffab01d0d063f644eafdaff9b2d0172cfa870233fcb2bd597b9526` | 11.148.038 |
+| `MyDiveLog-Linux-amd64.deb` | `5dbf5c297da8f7f01c97f5d543ff7b6248b87e9157924daf3a5e4d6e43e1053c` | 3.833.928 |
