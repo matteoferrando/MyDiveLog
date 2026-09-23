@@ -1,11 +1,11 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **23 settembre 2026** — **2 966 prove in 192 file** più
-**163 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
+Aggiornato: **23 settembre 2026** — **2 970 prove in 192 file** più
+**187 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
 
-> ## ► TUTTI I COMPUTER, DALLA 1.8.30: LA LIBRERIA NUOVA, E QUATTRO DIFETTI NOSTRI. ◄
+> ## ► TUTTI I COMPUTER, DALLA 1.8.30: LA LIBRERIA NUOVA, E I DIFETTI NOSTRI TROVATI PER STRADA. ◄
 >
 > La notte fra il 22 e il 23 settembre, su una richiesta sola del proprietario:
 > *far funzionare tutti i computer dalla 1.8.30 in poi*. **Niente di questo è
@@ -18,8 +18,8 @@ a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 > Tablet, OSTC 3, OSTC cR, OSTC Nano** — e correzioni dentro i backend che già
 > usavamo. Le tre che contano di più: l'**i330R** a cui si presenta un codice
 > che non vale più risponde 13 e mostra un PIN nuovo, e la libreria adesso lo
-> chiede da sé invece di fermarsi; l'**Halcyon** con firmware recente manda uno
-> stato da 36 byte che la 0.9.0 rifiutava con «Unexpected packet length»; i
+> chiede da sé invece di fermarsi; l'**Halcyon** col protocollo Bluetooth 1.30
+> manda uno stato da 36 byte che la 0.9.0 rifiutava con «Unexpected packet length»; i
 > **Mares** non si fermano più su un puntatore di fine profilo storto. Il
 > catalogo passa a **115 voci, 116 descrittori BLE, 21 marche** (da 105, 110 e
 > 20). Verificato che il confine C non si è mosso: l'unione dei campioni resta
@@ -71,14 +71,113 @@ a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 > di cui è l'inizio. In più: la regola del numero per l'Halcyon, e i nomi
 > vecchi dei Cressi («GOA_», «CARESIO_») che Subsurface conosce e i filtri no.
 >
-> **Il sito** è rigenerato — 123 modelli, Seac nel nastro, i termini che
-> puntano al tarball nuovo — ma **non pubblicato**: dice cose vere solo per la
-> 1.8.30.
+> **6. La coda dell'i330R, dall'altro lato.** L'ascolto prima di parlare copre
+> la coda che arriva prima del primo comando. Rileggendo, due buchi vicini: una
+> coda che arriva DOPO — più lunga del tetto, o in ritardo — e un pacchetto
+> cominciato nella stessa notifica del precedente, che la seconda lettura
+> consegnava a metà senza aspettare il resto. Adesso un pacchetto Pelagic
+> intero che risponde a un comando diverso dall'ultimo scritto si butta e si
+> conta (`con_filtro_del_comando`: la libreria lo avrebbe rifiutato comunque),
+> e la lunghezza dichiarata si completa anche quando il pacchetto comincia in
+> cassa. Tutte e due viste rosse sul codice di prima.
+>
+> **7. L'ascolto delle notifiche si ritenta, come il collegamento.** Accendere
+> le notifiche vuol dire scrivere sul computer il descrittore che le accende e
+> aspettarne la conferma, e il plugin la aspetta cinque secondi: fino alla
+> 1.8.29 una conferma mancata chiudeva lo scarico alla prima, *«le notifiche
+> non si attivano»*. Subsurface ha visto quella conferma arrivare ben oltre il
+> secondo su Android, o perdersi, e dal ramo principale di `qt-ble.cpp` la
+> ritenta tre volte: adesso anche noi, per i dati e per i crediti degli OSTC,
+> con una riga di diario per tentativo. Non raddoppia niente — il plugin
+> registra chi ascolta solo dopo un'iscrizione riuscita — e una prova lo
+> misura: una notifica arriva una volta sola anche dopo tre iscrizioni.
+> *Nessun diario nostro l'ha ancora mostrato*: è una lezione presa da chi ha
+> più computer in mano di noi, e costa zero quando tutto va.
+>
+> **8. Il sito contava i Garmin fra quelli che si scaricano via Bluetooth.** La
+> pagina iniziale diceva «123 modelli che si scaricano via Bluetooth», e la
+> pagina dei computer e l'aiuto ripetevano il numero: era 115 più gli otto
+> Garmin Descent, che via Bluetooth non si scaricano — la stessa pagina
+> scriveva «Solo dal file» accanto a ciascuno. **Il sito pubblicato oggi dice
+> 113, cioè 105 più gli stessi otto, dal 15 settembre.** La guardia che doveva
+> impedirlo (`sitoMarche.test.ts`) sommava i Garmin anche lei: *una guardia che
+> incolla un numero sbagliato è il modo in cui l'errore resiste alla
+> correzione successiva*. Adesso il numero si conta con `esitoPer`, la
+> funzione che scrive la riga di ogni modello; la pagina dei computer dà i due
+> conti separati (115 via Bluetooth, 8 dal file), l'aiuto dice 358 e 115, e la
+> somma vecchia è vietata per nome. Anche il banner di Play diceva «105 modelli
+> via Bluetooth», scritto a mano: lo script adesso lo conta dal catalogo
+> (`scripts/lib/conta-modelli.mjs`, confrontato con `esitoPer` da una prova).
+> Il PNG caricato su Play resta quello vecchio finché non si rigenera con
+> `npm run play:grafica` e si ricarica.
+>
+> **9. Il banco per famiglia: tutte e sedici.** Di computer subacquei qui ce
+> n'è uno; la metà della domanda «si scarica?» che si può misurare da qui è se
+> il nostro trasporto consegna alla libreria quello che la libreria si aspetta.
+> Tredici computer finti nuovi, che parlano il protocollo come lo scrive il
+> sorgente della libreria, attraverso il `FlussoBle` vero e contro la libreria
+> vera (`trasporto_ldc.rs`, `banco_per_famiglia`): **Perdix 3** (V2, SLIP,
+> immersioni compresse), **Cressi** (versione da tre caratteristiche,
+> pacchetti da 512, «EOT xmodem»), **Seac Tablet** (pacchetti da 244, CRC,
+> risposte da duemila byte), **Suunto EON** (HDLC a pezzi da 20, un file
+> system), **Aqualung i200C** (la stretta di mano col nome Bluetooth),
+> **Ratio iX3M 2021** (firmware vecchio e APOS4), **OSTC 3** (eco, dati,
+> «pronto»), **Halcyon Symbios** (lo stato da 36 byte del Bluetooth 1.30),
+> **Crest CR-4** (un pacchetto intero per lettura), **Divesoft Freedom**
+> (messaggi a più pacchetti in HDLC), **Deepblu Cosmiq+** (righe
+> esadecimali), **McLean Extreme** (una prima risposta che arriva dopo
+> secondi) e **Oceans S1** (righe di testo, poi XMODEM). Con l'Aladin,
+> l'i330R e i Mares che c'erano già: **sedici famiglie su sedici**, con
+> notifiche da 20 byte (l'MTU di partenza) fino a 509. Scaricano tutti, byte
+> per byte; ognuno visto rosso con una mutazione. Il Deepblu è l'unico che
+> diventa rosso se il trasporto incolla due notifiche: è la famiglia che
+> custodisce la regola «una notifica, una lettura» insieme all'Aladin. *Un
+> finto scritto leggendo la libreria non prova che la libreria abbia ragione
+> sul computer: prova che fra lei e noi non si perde niente.*
+>
+> **10. Il McLean Extreme si vedeva rimandare il primo comando.** Trovato dal
+> banco. `mclean_extreme.c` scrive che la prima risposta arriva dopo «about
+> 6-8 seconds», e la libreria la aspetta da sé, con letture da un secondo
+> ripetute quindici volte. Il nostro ripiego sul silenzio, alla prima lettura
+> scaduta senza notifiche, rimandava invece il comando nell'altra modalità di
+> scrittura: su un McLean finto che lavora un comando alla volta, due
+> risposte al firmware, e la seconda letta al posto del numero di serie —
+> *«Unexpected command byte»*. Adesso per chi risponde adagio
+> (`RISPONDONO_ADAGIO`, oggi solo lui) il ripiego si spegne, il diario lo
+> dice, e una prova da capo a fondo col ponte vero vede il firmware scritto
+> una volta sola. Il giro dei metodi fra un tentativo e l'altro resta.
+>
+> **11. La prova del pool SQLx era un'estrazione a sorte.** Nel contenitore
+> di lavoro, una volta su una decina, `begin_e_rollback_sul_pool_…` diventava
+> rossa. Misurato su trecento giri sotto carico: due volte le tre istruzioni
+> erano finite sulla **stessa** connessione e il `ROLLBACK` aveva annullato
+> davvero. Quindi la frase del modulo — SQLx annulla da sé la transazione
+> quando la connessione torna nel pool — non era quello che si misura: dove va
+> ogni istruzione lo decide il pool, di volta in volta. La prova adesso separa
+> le due strade, ognuna con un esito certo, e la frase è corretta in tre posti
+> (`archivio.rs`, `sqlite.ts`, `tutteONessuna.test.ts`).
+>
+> **Il sito** è rigenerato — 115 modelli via Bluetooth più gli 8 dal file,
+> Seac nel nastro, i termini che puntano al tarball nuovo — ma **non
+> pubblicato**: dice cose vere solo per la 1.8.30.
+>
+> **La 1.8.30 è pronta, e non è pubblicata.** Il numero nei quattro file, le
+> note (`docs/NOTE-1.8.30.md`, `docs/RELEASE-v1.8.30.md`) e i testi dei negozi
+> in due lingue (`docs/appstore-1.8.30-*.txt`, `docs/play-1.8.30-*.txt`, i due
+> di Play sotto i 500 caratteri). Il workflow «Windows, Android e Linux» è
+> verde sul commit della libreria nuova, e dentro i binari la tabella dei
+> descrittori è quella nuova — il Raffaello c'è sia nell'eseguibile di Windows
+> sia nella libreria di Android, e i percorsi dei sorgenti compilati dicono
+> `libdivecomputer-0.10.0-devel`. Da fare solo col via del proprietario: la
+> release, i due negozi Apple, Play, il sito, la cask e il PKGBUILD.
 >
 > **Quello che da qui non si può verificare, detto.** Nessuno dei modelli
 > nuovi è stato collegato: sono verdi contro la libreria vera e i finti, non
 > contro un apparecchio. La compilazione della libreria nuova per **Windows e
-> Android** si vede solo nel workflow manuale «Windows, Android e Linux».
+> Android** si vede solo nel workflow manuale «Windows, Android e Linux», che
+> è stato lanciato ed è verde. L'i330R che dopo una caduta non si ricollega
+> (tre «Timeout during execution of Connect», 53 secondi) resta una domanda
+> per chi ce l'ha in mano.
 
 > ## ► L'i330R E LA CODA DI UNA LETTURA RIMASTA A METÀ. ◄
 >
