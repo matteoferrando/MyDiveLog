@@ -16,10 +16,17 @@
 //! Sembra una transazione e non lo è. `tauri-plugin-sql` non tiene una
 //! connessione: tiene un **pool** SQLx, e ogni `execute` ne prende una
 //! qualunque, la usa e la restituisce. `BEGIN` apre una transazione su una
-//! connessione; SQLx, quando quella connessione torna nel pool, **annulla da sé
-//! la transazione rimasta aperta**; gli inserimenti arrivano su una connessione
-//! senza transazione, cioè in auto-commit, e si scrivono uno per uno; `COMMIT`
-//! e `ROLLBACK` non trovano niente da chiudere.
+//! connessione; gli inserimenti arrivano **dove capita** — quasi sempre su
+//! un'altra, senza transazione, cioè in auto-commit, e si scrivono uno per
+//! uno — e `COMMIT` e `ROLLBACK` chiudono quello che trovano sulla connessione
+//! dove capitano loro.
+//!
+//! *(Qui c'era scritto che SQLx annulla da sé la transazione rimasta aperta
+//! quando la connessione torna nel pool. Il 23 settembre 2026 trecento giri
+//! sotto carico hanno detto un'altra cosa: due volte su trecento le tre
+//! istruzioni sono finite sulla stessa connessione e il `ROLLBACK` ha
+//! annullato davvero. Dove va un'istruzione lo decide il pool, di volta in
+//! volta — vedi la prova `begin_e_rollback_sul_pool_valgono_solo_sulla_…`.)*
 //!
 //! La verifica l'ha riprodotto con SQLx 0.8.6, la stessa versione che sta in
 //! `Cargo.lock`:
@@ -227,24 +234,54 @@ mod prove {
 
     /// ► LA MISURA DEL DIFETTO, ed è la prova che giustifica tutto il modulo. ◄
     ///
-    /// Se un giorno questa diventasse rossa vorrebbe dire che SQLx ha cambiato
-    /// comportamento e che `BEGIN` sul pool funziona: allora questo modulo si
-    /// potrebbe togliere. Finché resta verde, toglierlo rimette il difetto.
+    /// ════════════════════════════════════════════════════════════════════════
+    /// ► E FINO AL 23 SETTEMBRE 2026 ERA UNA PROVA CHE A VOLTE DIVENTAVA ROSSA. ◄
+    ///
+    /// La versione di prima faceva `BEGIN`, `INSERT` e `ROLLBACK` sul pool e
+    /// pretendeva che la riga restasse. Nel contenitore di lavoro, con le altre
+    /// prove in parallelo, **una volta su una decina** la riga non restava, e la
+    /// catena diventava rossa per una ragione che col codice non c'entrava. Il
+    /// perché, misurato su trecento giri col processore sotto carico: 298 volte
+    /// l'`INSERT` era finito su **un'altra connessione** (il pool ne aveva
+    /// aperte da due a cinque), e la riga restava; **due volte** tutte e tre le
+    /// istruzioni erano finite sulla **stessa**, e il `ROLLBACK` l'aveva
+    /// annullata davvero. A riposo, duecento giri su duecento sulla strada
+    /// della connessione diversa.
+    ///
+    /// Quindi la frase in testa al modulo — che SQLx annullerebbe da sé la
+    /// transazione quando la connessione torna nel pool — non è quello che si
+    /// misura: si misura che **dove va ogni istruzione lo decide il pool**, di
+    /// volta in volta, e che una transazione copre le istruzioni solo quando
+    /// capita sulla connessione giusta. È peggio di un difetto fisso, ed è
+    /// esattamente il motivo per cui `in_transazione` si tiene la sua
+    /// connessione dall'inizio alla fine.
+    ///
+    /// La prova adesso separa le due strade, e ognuna ha un esito certo: sulla
+    /// stessa connessione la transazione c'è; su due connessioni no.
     #[test]
-    fn begin_e_rollback_sul_pool_non_annullano_niente() {
+    fn begin_e_rollback_sul_pool_valgono_solo_sulla_connessione_dove_capitano() {
         let pool = archivio_di_prova("pool");
         tauri::async_runtime::block_on(async {
-            pool.execute("BEGIN").await.unwrap();
-            pool.execute("INSERT INTO t (id, v) VALUES (1, 'rimasta')").await.unwrap();
-            // Il `ROLLBACK` può anche lamentarsi di non avere niente da annullare:
-            // il punto non è cosa risponde, è cosa resta sul disco.
-            let _ = pool.execute("ROLLBACK").await;
+            // Due connessioni tenute in mano, come il pool potrebbe darle a due
+            // `execute` di fila.
+            let mut una = pool.acquire().await.unwrap();
+            let mut altra = pool.acquire().await.unwrap();
+            una.execute("BEGIN").await.unwrap();
+            altra.execute("INSERT INTO t (id, v) VALUES (1, 'rimasta')").await.unwrap();
+            // Il `ROLLBACK` risponde «fatto»: il punto non è cosa risponde, è
+            // cosa resta sul disco.
+            una.execute("ROLLBACK").await.unwrap();
         });
-        assert_eq!(
-            quante(&pool),
-            1,
-            "se fosse 0 il pool saprebbe fare le transazioni, e questo modulo non servirebbe"
-        );
+        assert_eq!(quante(&pool), 1, "su due connessioni il ROLLBACK non tocca l'INSERT");
+
+        let pool = archivio_di_prova("pool-una");
+        tauri::async_runtime::block_on(async {
+            let mut una = pool.acquire().await.unwrap();
+            una.execute("BEGIN").await.unwrap();
+            una.execute("INSERT INTO t (id, v) VALUES (1, 'annullata')").await.unwrap();
+            una.execute("ROLLBACK").await.unwrap();
+        });
+        assert_eq!(quante(&pool), 0, "sulla stessa connessione la transazione c'è");
     }
 
     /// E la stessa sequenza dentro `in_transazione`: o tutto o niente.

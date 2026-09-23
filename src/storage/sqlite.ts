@@ -327,10 +327,12 @@ export class SqliteStore implements DiveStore {
    * Sembra una transazione e non lo è. `tauri-plugin-sql` non tiene una
    * connessione: tiene un **pool**, e ogni `execute` ne prende una qualunque, la
    * usa e la restituisce. `BEGIN` apriva una transazione su una connessione che
-   * tornava subito nel pool — dove SQLx annulla da sé le transazioni rimaste
-   * aperte — gli inserimenti arrivavano altrove in auto-commit, e `COMMIT` non
-   * trovava niente da chiudere. Riprodotto con SQLx 0.8.6: `BEGIN`, `INSERT`,
-   * `ROLLBACK` rispondono tutti **Ok** e la riga resta.
+   * tornava subito nel pool, gli inserimenti arrivavano dove capitava — quasi
+   * sempre su un'altra connessione, in auto-commit — e `COMMIT` chiudeva quello
+   * che trovava lui. Riprodotto con SQLx 0.8.6: `BEGIN`, `INSERT`, `ROLLBACK`
+   * rispondono tutti **Ok** e la riga resta — quasi sempre: dove va
+   * un'istruzione lo decide il pool, di volta in volta (vedi
+   * `src-tauri/src/archivio.rs`).
    *
    * *«Tutte o nessuna» era scritto qui sopra, e non era vero.* Tre risposte
    * senza errore su un'operazione che non stava succedendo: è la forma di

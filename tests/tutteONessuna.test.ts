@@ -12,9 +12,12 @@
  * Sembra una transazione e non lo è. `tauri-plugin-sql` non tiene una
  * connessione: tiene un **pool** SQLx, e ogni `execute` ne prende una qualunque,
  * la usa e la restituisce. `BEGIN` apriva una transazione su una connessione che
- * tornava subito nel pool — dove SQLx annulla da sé le transazioni rimaste
- * aperte — gli inserimenti arrivavano altrove in auto-commit, e `COMMIT` non
- * trovava niente da chiudere.
+ * tornava subito nel pool, gli inserimenti arrivavano dove capitava — quasi
+ * sempre su un'altra connessione, in auto-commit — e `COMMIT` chiudeva quello
+ * che trovava lui. (Qui c'era scritto che SQLx annulla da sé le transazioni
+ * rimaste aperte: il 23 settembre 2026 una misura sotto carico ha visto le tre
+ * istruzioni finire due volte su trecento sulla stessa connessione. Dove va
+ * un'istruzione lo decide il pool, di volta in volta.)
  *
  * La verifica l'ha riprodotto con SQLx 0.8.6: `BEGIN`, `INSERT`, `ROLLBACK`
  * rispondono tutti **Ok** e la riga resta. *Tre esiti senza errore su
@@ -25,7 +28,8 @@
  * indivisibile parte come una chiamata sola con l'elenco dentro. Che quella
  * chiamata apra davvero una transazione lo provano le prove Rust in
  * `src-tauri/src/archivio.rs`, dove c'è un archivio vero — e fra quelle ce n'è
- * una che misura il difetto: `begin_e_rollback_sul_pool_non_annullano_niente`.
+ * una che misura il difetto:
+ * `begin_e_rollback_sul_pool_valgono_solo_sulla_connessione_dove_capitano`.
  *
  * *Le due metà vanno lette insieme: qui si guarda cosa esce, di là cosa
  * succede.*
