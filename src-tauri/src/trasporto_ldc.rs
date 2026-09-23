@@ -8831,4 +8831,405 @@ mod banco_per_famiglia {
         }
     }
 
+
+    // ─────────────────────────────────────────────────────────── Deepblu Cosmiq+
+
+    /// Una riga Deepblu: `$`, comando, somma e lunghezza in esadecimale, i
+    /// dati in esadecimale, a capo. La somma fa zero su tutto il pacchetto.
+    fn riga_deepblu(comando: u8, dati: &[u8]) -> Vec<u8> {
+        let lunghezza = (2 * dati.len()) as u8;
+        let somma = dati.iter().fold(comando.wrapping_add(lunghezza), |a, b| a.wrapping_add(*b));
+        let grezzo = [&[comando, somma.wrapping_neg(), lunghezza][..], dati].concat();
+        let mut riga = b"$".to_vec();
+        for b in grezzo {
+            riga.extend(format!("{b:02X}").bytes());
+        }
+        riga.push(b'\n');
+        riga
+    }
+
+    #[test]
+    fn deepblu_scarica_righe_esadecimali_attraverso_il_nostro_trasporto() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► DEEPBLU COSMIQ+: RIGHE DI TESTO, SEI BYTE ALLA VOLTA. ◄
+         *
+         * Il protocollo più lento del catalogo: ogni risposta è una riga di
+         * testo esadecimale che finisce con un a capo, e porta al più sei byte
+         * di dati; un'immersione sono centinaia di righe, una per notifica. La
+         * libreria legge a venti byte per volta e ricompone la riga finché non
+         * vede l'a capo: se il trasporto incollasse due notifiche, due righe
+         * diventerebbero una e la somma lo direbbe.
+         */
+        let descrittore = trova_descrittore("Deepblu", "Cosmiq+").expect("il Cosmiq+ deve esserci");
+        let testate: Vec<Vec<u8>> = (0..2u8)
+            .map(|n| {
+                let mut t: Vec<u8> = (0..36u8).map(|i| i.wrapping_mul(9) ^ n).collect();
+                t[6..12].copy_from_slice(&[0xA0 + n; 6]);
+                t
+            })
+            .collect();
+        let profili: Vec<Vec<u8>> = [100usize, 37].iter().map(|&q| (0..q).map(|i| (i * 7) as u8).collect()).collect();
+        let (t, p) = (testate.clone(), profili.clone());
+        let (manda, ricevi) = channel::<Vec<u8>>();
+        let comandi: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
+        let visti = comandi.clone();
+        let scrittura: ScritturaBle = Box::new(move |riga: &[u8]| {
+            assert_eq!((riga[0], riga[riga.len() - 1]), (b'#', b'\n'), "una riga di comando: {riga:02x?}");
+            let esadecimale = std::str::from_utf8(&riga[1..riga.len() - 1]).unwrap();
+            let grezzo: Vec<u8> = (0..esadecimale.len())
+                .step_by(2)
+                .map(|k| u8::from_str_radix(&esadecimale[k..k + 2], 16).unwrap())
+                .collect();
+            assert_eq!(grezzo.iter().fold(0u8, |a, b| a.wrapping_add(*b)), 0, "la somma del comando");
+            let (comando, argomento) = (grezzo[0], grezzo.get(3).copied().unwrap_or(0));
+            visti.lock().unwrap().push(comando);
+            // Ogni risposta, e ogni riga delle risposte lunghe, in una notifica sua.
+            let mut righe: Vec<Vec<u8>> = Vec::new();
+            let a_pezzi = |righe: &mut Vec<Vec<u8>>, risposta: u8, dati: &[u8]| {
+                for pezzo in dati.chunks(6) {
+                    righe.push(riga_deepblu(risposta, pezzo));
+                }
+            };
+            match comando {
+                0x58 => righe.push(riga_deepblu(0x58, &[0x05])),
+                0x5A => righe.push(riga_deepblu(0x5A, &[1, 2, 3, 4, 5, 6])),
+                0x40 => righe.push(riga_deepblu(0x40, &[t.len() as u8])),
+                0x41 => {
+                    righe.push(riga_deepblu(0x41, &[36]));
+                    a_pezzi(&mut righe, 0x42, &t[argomento as usize - 1]);
+                }
+                0x43 => {
+                    let profilo = &p[argomento as usize - 1];
+                    righe.push(riga_deepblu(0x43, &(profilo.len() as u16).to_be_bytes()));
+                    a_pezzi(&mut righe, 0x44, profilo);
+                }
+                altro => panic!("il Cosmiq+ finto non conosce il comando {altro:02x}"),
+            }
+            for r in righe {
+                let _ = manda.send(r);
+            }
+            Ok(())
+        });
+        let collegamento = CollegamentoLdc::apri(Box::new(FlussoBle::nuovo(ricevi, scrittura))).unwrap();
+        let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+        assert!(esito.guasto.is_none(), "{:?}", esito.guasto);
+        assert_eq!(esito.dichiarato.expect("si presenta").firmware, 5);
+        assert_eq!(esito.immersioni.len(), 2);
+        for k in 0..2 {
+            assert_eq!(esito.immersioni[k].dati, [testate[k].clone(), profili[k].clone()].concat(), "immersione {k}");
+            assert_eq!(esito.immersioni[k].impronta, testate[k][6..12].to_vec());
+        }
+        assert_eq!(*comandi.lock().unwrap(), vec![0x58, 0x5A, 0x40, 0x41, 0x41, 0x43, 0x43]);
+    }
+
+
+    // ─────────────────────────────────────────────────────────── McLean Extreme
+
+    /// La «somma» di `mclean_extreme.c`: un passo solo del CRC-CCITT per byte,
+    /// com'è scritta lì.
+    fn somma_mclean(dati: &[u8], partenza: u16) -> u16 {
+        let mut crc = partenza;
+        for &b in dati {
+            crc ^= (b as u16) << 8;
+            crc = if crc & 0x8000 != 0 { (crc << 1) ^ 0x1021 } else { crc << 1 };
+        }
+        crc
+    }
+
+    fn pacchetto_mclean(comando: u8, dati: &[u8]) -> Vec<u8> {
+        let mut p = vec![0x7E, 0x00];
+        p.extend_from_slice(&(dati.len() as u32).to_le_bytes());
+        p.push(comando);
+        p.extend_from_slice(dati);
+        let crc = somma_mclean(&p[1..], 0);
+        p.extend_from_slice(&crc.to_be_bytes());
+        p.extend_from_slice(&[0, 0]);
+        p
+    }
+
+    /// Un McLean Extreme finto: un computer solo, che risponde ai comandi uno
+    /// alla volta, e al firmware dopo `lentezza` — `mclean_extreme.c` scrive
+    /// «about 6-8 seconds, before the STX byte arrives».
+    fn finto_mclean(
+        lentezza: Duration,
+        immersione: Vec<u8>,
+        ripiego_che_rimanda: bool,
+    ) -> (FlussoBle, Arc<Mutex<Vec<u8>>>) {
+        let (manda, ricevi) = channel::<Vec<u8>>();
+        let (al_computer, coda) = channel::<Vec<u8>>();
+        let comandi: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
+        let visti = comandi.clone();
+        // Il computer: una coda sola, un comando dopo l'altro.
+        std::thread::spawn(move || {
+            while let Ok(pacchetto) = coda.recv() {
+                let lunghezza = u32::from_le_bytes([pacchetto[2], pacchetto[3], pacchetto[4], pacchetto[5]]) as usize;
+                let comando = pacchetto[6];
+                let crc = u16::from_be_bytes([pacchetto[7 + lunghezza], pacchetto[8 + lunghezza]]);
+                assert_eq!(crc, somma_mclean(&pacchetto[1..7 + lunghezza], 0), "somma del comando");
+                visti.lock().unwrap().push(comando);
+                let risposte: Vec<Vec<u8>> = match comando {
+                    0xAD => {
+                        std::thread::sleep(lentezza);
+                        vec![pacchetto_mclean(0xAD, &0x0102_0304u32.to_le_bytes())]
+                    }
+                    0x91 => vec![pacchetto_mclean(0x91, b"MCL-000123")],
+                    0xA0 => {
+                        let mut c = vec![0u8; 0x2D + 0x6A];
+                        c[0x19..0x1B].copy_from_slice(&1u16.to_le_bytes());
+                        vec![pacchetto_mclean(0xA0, &c)]
+                    }
+                    // La testata in un pacchetto, i campioni in un altro.
+                    0xA3 => vec![
+                        pacchetto_mclean(0xA3, &immersione[..0x5E]),
+                        pacchetto_mclean(0xA3, &immersione[0x5E..]),
+                    ],
+                    0xAA => Vec::new(),
+                    altro => panic!("il McLean finto non conosce il comando {altro:02x}"),
+                };
+                for r in risposte {
+                    in_notifiche(&manda, &r, 182);
+                }
+            }
+        });
+        let ultimo: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
+        let da_scrivere = ultimo.clone();
+        let verso = al_computer.clone();
+        let scrittura: ScritturaBle = Box::new(move |dati: &[u8]| {
+            *da_scrivere.lock().unwrap() = dati.to_vec();
+            let _ = verso.send(dati.to_vec());
+            Ok(())
+        });
+        // Il ripiego del ponte, quando c'è un'altra modalità: rimanda
+        // l'ultimo comando per intero, e il computer lo riceve un'altra volta.
+        let ripiego: Box<dyn FnMut() -> Ripiego + Send> = if ripiego_che_rimanda {
+            Box::new(move || {
+                let _ = al_computer.send(ultimo.lock().unwrap().clone());
+                Ripiego::Rimandato
+            })
+        } else {
+            Box::new(|| Ripiego::Esaurito)
+        };
+        let accessori = NomeBluetooth("McLean", Arc::new(Mutex::new(0)));
+        let flusso = FlussoBle::nuovo(ricevi, scrittura).con_accessori(Box::new(accessori), ripiego);
+        (flusso, comandi)
+    }
+
+    fn immersione_mclean() -> Vec<u8> {
+        let mut v: Vec<u8> = (0..0x5E + 12 * 4).map(|i| (i * 11) as u8).collect();
+        v[0] = 0; // il formato
+        v[0x5C..0x5E].copy_from_slice(&12u16.to_le_bytes());
+        v
+    }
+
+    #[test]
+    fn mclean_senza_ripiego_aspetta_la_prima_risposta_e_scarica() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► IL McLEAN EXTREME E IL SILENZIO CHE NON VUOL DIRE NIENTE. ◄
+         *
+         * `mclean_extreme.c`: «it takes a relative long time, about 6-8
+         * seconds, before the STX byte arrives». La libreria lo aspetta da sé,
+         * con letture da un secondo ripetute fino a quindici volte, senza
+         * rimandare niente. Il nostro ripiego sul silenzio invece, alla prima
+         * lettura scaduta senza notifiche, rimanda il primo comando
+         * nell'altra modalità di scrittura (`su_silenzio` nel ponte): utile
+         * quando la modalità è sbagliata, dannoso qui.
+         *
+         * Senza ripiego — come il ponte fa per questo computer, vedi
+         * `risponde_adagio` — il finto risponde al firmware dopo due secondi e
+         * mezzo e lo scarico arriva in fondo.
+         */
+        let descrittore = trova_descrittore("McLean", "Extreme").expect("l'Extreme deve esserci");
+        let immersione = immersione_mclean();
+        let (flusso, comandi) = finto_mclean(Duration::from_millis(2500), immersione.clone(), false);
+        let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+        let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+        assert!(esito.guasto.is_none(), "{:?}", esito.guasto);
+        assert_eq!(esito.dichiarato.expect("si presenta").firmware, 0x0102_0304);
+        assert_eq!(esito.immersioni.len(), 1);
+        assert_eq!(esito.immersioni[0].dati, immersione);
+        // La chiusura (0xAA) il finto la registra quando gli arriva, magari
+        // dopo questa riga: si guarda quello che viene prima.
+        assert!(
+            comandi.lock().unwrap().starts_with(&[0xAD, 0x91, 0xA0, 0xA3]),
+            "un firmware solo: {:02x?}",
+            comandi.lock().unwrap()
+        );
+    }
+
+    #[test]
+    fn mclean_col_ripiego_che_rimanda_il_primo_comando_si_desincronizza() {
+        /*
+         * La misura del rischio, che è la ragione di `risponde_adagio`: lo
+         * stesso finto, col ripiego che rimanda il primo comando. Il
+         * computer — che lavora un comando alla volta — riceve il firmware
+         * due volte e risponde due volte; la seconda risposta arriva mentre
+         * la libreria aspetta il numero di serie, e lo scarico si ferma su
+         * «Unexpected command byte».
+         */
+        let descrittore = trova_descrittore("McLean", "Extreme").unwrap();
+        let (flusso, comandi) = finto_mclean(Duration::from_millis(2500), immersione_mclean(), true);
+        let collegamento = CollegamentoLdc::apri(Box::new(flusso)).unwrap();
+        let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+        assert!(esito.guasto.is_some(), "con due firmware in coda lo scarico non può andare liscio");
+        assert!(esito.immersioni.is_empty());
+        assert_eq!(comandi.lock().unwrap().iter().filter(|c| **c == 0xAD).count(), 2, "il firmware rimandato");
+        assert!(
+            collegamento.righe_della_libreria().iter().any(|r| r.contains("Unexpected command byte")),
+            "{:?}",
+            collegamento.righe_della_libreria()
+        );
+    }
+
+
+    // ─────────────────────────────────────────────────────────────── Oceans S1
+
+    /// Il CRC dell'XMODEM-CRC: CCITT con partenza zero.
+    fn crc_xmodem(dati: &[u8]) -> u16 {
+        let mut crc: u16 = 0;
+        for &b in dati {
+            crc ^= (b as u16) << 8;
+            for _ in 0..8 {
+                crc = if crc & 0x8000 != 0 { (crc << 1) ^ 0x1021 } else { crc << 1 };
+            }
+        }
+        crc
+    }
+
+    enum ModoOceans {
+        /// Righe di testo, una per comando.
+        Righe,
+        /// «>xmr» mandato: si aspetta la 'C' che chiede l'XMODEM-CRC.
+        AttesaC(Vec<u8>),
+        /// Blocchi da 512 in corso; il numero del prossimo, e l'EOT già mandato.
+        Blocchi(VecDeque<Vec<u8>>, u8, bool),
+    }
+
+    struct StatoOceans {
+        modo: ModoOceans,
+        riga: Vec<u8>,
+        elenco: String,
+        immersioni: Vec<(u32, String)>,
+        comandi: Vec<String>,
+        misura: usize,
+    }
+
+    impl StatoOceans {
+        /// Una riga di risposta: sempre in una notifica sola, come la manda
+        /// l'S1 e come la libreria la legge — con una lettura. Sono i blocchi
+        /// XMODEM, sotto, a essere spezzati dalla radio.
+        fn manda(&self, manda: &Sender<Vec<u8>>, byte: &[u8]) {
+            let _ = manda.send(byte.to_vec());
+        }
+
+        /// Il prossimo blocco XMODEM, o l'EOT quando non ce ne sono più.
+        fn prossimo_blocco(&mut self, manda: &Sender<Vec<u8>>) {
+            let misura = self.misura;
+            if let ModoOceans::Blocchi(blocchi, numero, eot) = &mut self.modo {
+                match blocchi.pop_front() {
+                    Some(dati) => {
+                        let mut b = vec![0x01, *numero, 0xFF - *numero];
+                        b.extend_from_slice(&dati);
+                        b.extend_from_slice(&crc_xmodem(&dati).to_be_bytes());
+                        *numero = numero.wrapping_add(1);
+                        // Ogni blocco comincia a una notifica nuova.
+                        in_notifiche(manda, &b, misura);
+                    }
+                    None if !*eot => {
+                        *eot = true;
+                        let _ = manda.send(vec![0x04]);
+                    }
+                    None => self.modo = ModoOceans::Righe,
+                }
+            }
+        }
+
+        fn ricevi(&mut self, manda: &Sender<Vec<u8>>, byte: u8) {
+            match &mut self.modo {
+                ModoOceans::AttesaC(testo) if byte == b'C' => {
+                    let mut testo = std::mem::take(testo);
+                    while testo.len() % 512 != 0 {
+                        testo.push(b'\n');
+                    }
+                    let blocchi = testo.chunks(512).map(<[u8]>::to_vec).collect();
+                    self.modo = ModoOceans::Blocchi(blocchi, 1, false);
+                    self.prossimo_blocco(manda);
+                }
+                ModoOceans::Blocchi(..) if byte == 0x06 => self.prossimo_blocco(manda),
+                ModoOceans::Righe if byte == b'\n' => {
+                    let riga = String::from_utf8(std::mem::take(&mut self.riga)).unwrap();
+                    self.comandi.push(riga.clone());
+                    let parole: Vec<&str> = riga.split(' ').collect();
+                    match parole[0] {
+                        "version" => self.manda(manda, b"version>ok 1.1 42a7e564\r\n"),
+                        "dllist" => {
+                            self.manda(manda, b"dllist>xmr\r\n");
+                            self.modo = ModoOceans::AttesaC(self.elenco.clone().into_bytes());
+                        }
+                        "dlget" => {
+                            let numero: u32 = parole[1].parse().unwrap();
+                            let testo = self.immersioni.iter().find(|(n, _)| *n == numero).expect("numero").1.clone();
+                            self.manda(manda, b"dlget>xmr\r\n");
+                            self.modo = ModoOceans::AttesaC(testo.into_bytes());
+                        }
+                        altro => panic!("l'Oceans finto non conosce «{altro}»"),
+                    }
+                }
+                ModoOceans::Righe => self.riga.push(byte),
+                _ => panic!("l'Oceans finto non si aspettava {byte:02x}"),
+            }
+        }
+    }
+
+    #[test]
+    fn oceans_s1_scarica_righe_e_xmodem_attraverso_il_nostro_trasporto() {
+        /*
+         * ════════════════════════════════════════════════════════════════════
+         * ► OCEANS S1: TESTO, POI XMODEM. ◄
+         *
+         * L'ultima famiglia del catalogo, e la più diversa: i comandi sono
+         * righe di testo («version», «dllist», «dlget 2 3»), la risposta è una
+         * riga che deve stare **in una notifica sola** — la libreria la legge
+         * con una lettura, e se il trasporto ne consegnasse mezza la metà dopo
+         * diventerebbe la risposta al comando dopo — e i dati arrivano con
+         * l'XMODEM-CRC: blocchi da 517 byte spezzati dalla radio, una 'C' per
+         * cominciare, un ACK per blocco, un EOT in fondo. Due immersioni, la
+         * più recente per prima, coi blocchi a notifiche da 20 e da 182.
+         */
+        let descrittore = trova_descrittore("Oceans", "S1").expect("l'S1 deve esserci");
+        let elenco = "divelog v1,10s/sample\n dive 1,0,21,1591372057\n enddive 3131,496\n dive 2,0,21,1591372925\n enddive 1535,277\nendlog\n".to_string();
+        let prima = format!("divelog v1,10s/sample\n dive 1,0,21,1591372057\n{}enddive 3131,496\nendlog\n", " 355,14,16384\n".repeat(60));
+        let seconda = format!("divelog v1,10s/sample\n dive 2,0,21,1591372925\n{}enddive 1535,277\nendlog\n", " 227,13,57600\n".repeat(5));
+        for misura in [20usize, 182] {
+            let stato = Arc::new(Mutex::new(StatoOceans {
+                modo: ModoOceans::Righe,
+                riga: Vec::new(),
+                elenco: elenco.clone(),
+                immersioni: vec![(1, prima.clone()), (2, seconda.clone())],
+                comandi: Vec::new(),
+                misura,
+            }));
+            let (manda, ricevi) = channel::<Vec<u8>>();
+            let dentro = stato.clone();
+            let scrittura: ScritturaBle = Box::new(move |dati: &[u8]| {
+                let mut s = dentro.lock().unwrap();
+                for &b in dati {
+                    s.ricevi(&manda, b);
+                }
+                Ok(())
+            });
+            let collegamento = CollegamentoLdc::apri(Box::new(FlussoBle::nuovo(ricevi, scrittura))).unwrap();
+            let esito = collegamento.scarica_tutto(&descrittore, &[], &|_| {});
+            assert!(esito.guasto.is_none(), "notifiche da {misura}: {:?}", esito.guasto);
+            assert_eq!(esito.dichiarato.expect("si presenta").firmware, (1 << 16) | 1);
+            assert_eq!(esito.immersioni.len(), 2, "notifiche da {misura}");
+            // La libreria toglie i riempitivi e lascia un a capo solo.
+            assert_eq!(String::from_utf8_lossy(&esito.immersioni[0].dati), seconda, "notifiche da {misura}");
+            assert_eq!(String::from_utf8_lossy(&esito.immersioni[1].dati), prima, "notifiche da {misura}");
+            assert_eq!(esito.immersioni[1].impronta, 1_591_372_057u64.to_be_bytes().to_vec());
+            assert_eq!(stato.lock().unwrap().comandi, vec!["version", "dllist", "dlget 2 3", "dlget 1 2"]);
+        }
+    }
+
 }

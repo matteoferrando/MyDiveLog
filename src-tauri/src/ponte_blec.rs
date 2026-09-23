@@ -3480,6 +3480,16 @@ rimando le {} scritture fatte finora (n. 1–{numero}, {byte_totali} byte, la pr
                     .into(),
             });
         }
+        let su_silenzio: Box<dyn FnMut() -> Ripiego + Send> = if risponde_adagio(marca, prodotto) {
+            emetti(EventoScarico::Trace {
+                line: "questo computer risponde al primo comando dopo qualche secondo, e la libreria lo \
+aspetta da sé: il primo comando non si rimanda nell'altra modalità"
+                    .into(),
+            });
+            Box::new(|| Ripiego::Esaurito)
+        } else {
+            su_silenzio
+        };
         let mut flusso = FlussoBle::nuovo(entrata, scrittura)
             .con_accessori(accessori, su_silenzio)
             .con_riassemblaggio(come)
@@ -3848,6 +3858,36 @@ la libreria, per questa famiglia, non svuota l'ingresso da sé",
     /// metà dal computer c'è qualunque sia il modo in cui gli si parla.
     pub fn ascolta_prima_di_parlare(marca: &str, prodotto: &str) -> bool {
         famiglia_pelagic(marca, prodotto)
+    }
+
+    /// I computer che rispondono al primo comando dopo più di quanto la
+    /// libreria aspetta in una lettura sola.
+    ///
+    /// ════════════════════════════════════════════════════════════════════════
+    /// ► IL McLEAN EXTREME, E UN SILENZIO CHE NON VUOL DIRE NIENTE. ◄
+    ///
+    /// `mclean_extreme.c`: *«it takes a relative long time, about 6-8 seconds,
+    /// before the STX byte arrives»*. La libreria lo aspetta da sé — letture da
+    /// un secondo, ripetute fino a quindici volte, senza rimandare niente. Il
+    /// nostro ripiego sul silenzio (`su_silenzio`), alla prima lettura scaduta
+    /// senza notifiche, rimanda invece il primo comando nell'altra modalità di
+    /// scrittura: è quello che serve quando la modalità è sbagliata, e qui il
+    /// silenzio è soltanto il computer che lavora. Un computer che fa un comando
+    /// alla volta risponderebbe due volte, e la seconda risposta verrebbe letta
+    /// al posto di quella al comando dopo: `Unexpected command byte`. Misurato
+    /// su un McLean finto contro la libreria vera
+    /// (`mclean_col_ripiego_che_rimanda_il_primo_comando_si_desincronizza`).
+    ///
+    /// Per questi computer il ripiego si spegne. Il giro dei metodi, fra un
+    /// tentativo e l'altro, resta: se la modalità fosse davvero sbagliata, lo
+    /// scarico dopo ne prova un'altra.
+    pub(crate) const RISPONDONO_ADAGIO: [(&str, &str); 1] = [("McLean", "Extreme")];
+
+    /// Se questo computer risponde adagio al primo comando. Vedi `RISPONDONO_ADAGIO`.
+    pub fn risponde_adagio(marca: &str, prodotto: &str) -> bool {
+        RISPONDONO_ADAGIO
+            .iter()
+            .any(|(m, p)| m.eq_ignore_ascii_case(marca) && p.eq_ignore_ascii_case(prodotto))
     }
 
     /// Se uno scarico è in corso. Il plugin ha UN dispositivo collegato e
@@ -6286,6 +6326,90 @@ mod prove {
         assert_eq!(comandi, vec![0xFA, 0xFA, 0x22, 0x97, 0x27], "accesso, risveglio, autenticazione, calibrazione");
     }
 
+    /// Il pacchetto dei McLean: STX, tipo, lunghezza, comando, dati, e la
+    /// «somma» di `mclean_extreme.c` (un passo di CRC-CCITT per byte).
+    fn pacchetto_mclean(comando: u8, dati: &[u8]) -> Vec<u8> {
+        let mut p = vec![0x7E, 0x00];
+        p.extend_from_slice(&(dati.len() as u32).to_le_bytes());
+        p.push(comando);
+        p.extend_from_slice(dati);
+        let mut crc: u16 = 0;
+        for &b in &p[1..] {
+            crc ^= (b as u16) << 8;
+            crc = if crc & 0x8000 != 0 { (crc << 1) ^ 0x1021 } else { crc << 1 };
+        }
+        p.extend_from_slice(&crc.to_be_bytes());
+        p.extend_from_slice(&[0, 0]);
+        p
+    }
+
+    #[test]
+    fn un_mclean_che_risponde_adagio_non_si_vede_rimandare_il_primo_comando() {
+        /*
+         * ► IL PONTE VERO, DA CAPO A FONDO, SU UN COMPUTER LENTO. ◄ La
+         * caratteristica di scrittura accetta tutte e due le modalità, quindi
+         * il ripiego sul silenzio avrebbe un'alternativa da provare; il
+         * computer risponde al firmware dopo due secondi e mezzo, come
+         * `mclean_extreme.c` dice che fa (sei-otto, nel mondo vero). Il ponte
+         * deve riconoscere il McLean, dirlo nel diario, e lasciare che la
+         * libreria aspetti: il firmware si scrive una volta sola, e lo scarico
+         * arriva in fondo. Vedi `RISPONDONO_ADAGIO`.
+         */
+        let antenna = FintaAntenna::con(vec![seriale("49535343-fe7d-4ae5-8fa9-9fafd205e455")]);
+        let (ponte, diario) = apri(&antenna);
+
+        let computer = {
+            let antenna = antenna.clone();
+            std::thread::spawn(move || {
+                let mut risposte = 0;
+                for _ in 0..1500 {
+                    let scritte = antenna.scritte();
+                    while risposte < scritte.len() {
+                        let dati = scritte[risposte].dati.clone();
+                        risposte += 1;
+                        if dati.len() < 7 || dati[0] != 0x7E {
+                            continue;
+                        }
+                        let pacchetti = match dati[6] {
+                            0xAD => {
+                                std::thread::sleep(Duration::from_millis(2500));
+                                vec![pacchetto_mclean(0xAD, &[4, 3, 2, 1])]
+                            }
+                            0x91 => vec![pacchetto_mclean(0x91, b"MCL-000123")],
+                            // Nessuna immersione in memoria.
+                            0xA0 => vec![pacchetto_mclean(0xA0, &[0u8; 0x2D + 0x6A])],
+                            _ => return,
+                        };
+                        for p in pacchetti {
+                            for pezzo in p.chunks(182) {
+                                antenna.notifica(pezzo);
+                            }
+                        }
+                    }
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+            })
+        };
+
+        let righe = Arc::new(Mutex::new(Vec::<String>::new()));
+        let raccolte = righe.clone();
+        let emetti = move |evento: EventoScarico| {
+            if let EventoScarico::Trace { line } = evento {
+                raccolte.lock().unwrap().push(line);
+            }
+        };
+        let esito = scarica_bloccante(&emetti, &|_| {}, ponte, "McLean", "Extreme", &[]);
+        computer.join().unwrap();
+
+        let tutto = format!("{}\n{}", righe.lock().unwrap().join("\n"), diario.testo());
+        assert!(tutto.contains("risponde al primo comando dopo qualche secondo"), "{tutto}");
+        assert!(!tutto.contains("rimando le"), "il primo comando non si rimanda: {tutto}");
+        let firmware = antenna.scritte().iter().filter(|s| s.dati.get(6) == Some(&0xAD)).count();
+        assert_eq!(firmware, 1, "il firmware si chiede una volta sola");
+        let esito = esito.expect("lo scarico deve arrivare in fondo");
+        assert!(esito.guasto.is_none(), "{:?}\n{tutto}", esito.guasto);
+    }
+
     #[test]
     fn il_rinvio_sul_silenzio_funziona_quando_il_computer_risponde_alla_seconda() {
         // Lo stesso, con un computer che alla seconda modalità risponde: la
@@ -6754,6 +6878,26 @@ mod prove {
         assert!(!ascolta_prima_di_parlare("Mares", "Quad Ci"));
         assert!(!ascolta_prima_di_parlare("Shearwater", "Peregrine"));
         assert!(!ascolta_prima_di_parlare("Cressi", "DSX"));
+    }
+
+    #[test]
+    fn il_ripiego_sul_silenzio_si_spegne_solo_per_chi_risponde_adagio() {
+        // Il perché sta in `RISPONDONO_ADAGIO`, e la misura in
+        // `trasporto_ldc::banco_per_famiglia`: col ripiego il McLean finto si
+        // desincronizza, senza arriva in fondo.
+        assert!(risponde_adagio("McLean", "Extreme"));
+        assert!(risponde_adagio("mclean", "EXTREME"));
+        // Il nome è quello della libreria: se cambiasse, l'elenco non
+        // spegnerebbe più niente e nessuno se ne accorgerebbe.
+        for (marca, prodotto) in RISPONDONO_ADAGIO {
+            assert!(
+                crate::trasporto_ldc::trova_descrittore(marca, prodotto).is_some(),
+                "«{marca} {prodotto}» non è più un nome della libreria"
+            );
+        }
+        assert!(!risponde_adagio("Aqualung", "i330R"));
+        assert!(!risponde_adagio("Mares", "Quad Ci"));
+        assert!(!risponde_adagio("Shearwater", "Perdix 3"));
     }
 
     #[test]
