@@ -1,31 +1,34 @@
-Dive computers, one by one: the library that reads them is updated, and the connection has been rechecked family by family.
+Ten new dive computers over Bluetooth, and more robust downloads.
 
-TEN NEW MODELS
+NEW BLUETOOTH COMPUTERS
+• Shearwater Perdix 3
+• Mares Quad 2, Sirius L, Puck Pro EZ and Puck Pro Ultra
+• Cressi Raffaello
+• Seac Tablet
+• Heinrichs Weikamp OSTC 3, OSTC cR and OSTC Nano
 
-Perdix 3, Quad 2, Sirius L, Puck Pro EZ, Puck Pro Ultra, Raffaello, Seac Tablet, OSTC 3, OSTC cR and OSTC Nano connect over Bluetooth. And the library brings fixes for computers that already downloaded: Halcyon with the newest protocol, Mares with a skewed memory pointer.
-
-AQUALUNG i330R
-
-If a download had stopped halfway, on the next connection the computer sent the tail of the old read before answering, and the app took it for the answer. Now it listens before speaking and discards what cannot be an answer. And if the computer was reset or paired with another phone, it asks for the new PIN by itself instead of stopping. It is now among the tested models: 71 dives downloaded from an i330R in everyday use.
-
-DIVES ARE READ WITH THE REAL MODEL
-
-For many computers the model decides how the data is read. Until now the one picked from the list counted; now the one the computer declares when it connects does, and if the pick was wrong the name on the dives is corrected.
-
-THE RIGHT MARES
-
-A device announcing "Mares bluelink pro" chooses among the adapter's models, one with built-in Bluetooth among its own: a Puck Pro Ultra is no longer offered as the earlier-generation Puck Pro, which speaks a different packet shape.
-
-IF A DOWNLOAD IS INTERRUPTED
-
-When one attempt has already saved dives and the next cannot reconnect, the final screen says how many are already in your logbook, instead of "none".
+MORE ROBUST DOWNLOADS
+• The Aqualung i330R joins the field-tested models: 71 dives downloaded from a unit in everyday use.
+• Aqualung i330R: after a download stopped halfway, the next connection no longer mistakes leftovers from the previous read for an answer.
+• Aqualung i330R and Apeks DSX: if the computer no longer accepts the saved code, for example after a reset, the app asks for the new PIN shown on the computer's screen instead of stopping.
+• If a download stops and the next attempt fails, the final screen says how many dives are already saved in your logbook and what to do if the computer has more. It used to say that none had been saved.
+• If the computer is slow to start sending data, the app makes up to three attempts instead of giving up after the first.
+• For many computers the model decides how the data is read: the app now goes by the model the computer reports when it connects, even if a different one was picked from the list, and corrects the name too where possible.
+• Mares: the app tells models with built-in Bluetooth apart from those using the BlueLink Pro adapter and only offers the right kind, since a wrong model could keep the download from starting. The Puck Pro Ultra is no longer mistaken for the Puck Pro.
+• Mares: an out-of-range value in the computer's memory no longer stops the read.
+• Halcyon Symbios: with Bluetooth protocol 1.30 the download no longer stops with "Unexpected packet length".
+• McLean Extreme: the app waits for the first answer, which takes a few seconds, instead of repeating the request.
+• Cressi Goa and Cartesio are recognized even when they advertise an old-style Bluetooth name.
 
 PLANNER
+• On closed circuit, gases can now also be set as "bailout".
+• Under the bailout cylinder's consumption the right gas now appears, no longer the diluent.
+• Damaged saved data, for example from a corrupted backup, no longer crashes the page and is no longer offered as the starting point of a repetitive dive, where it would have underestimated tissue loading.
 
-On closed circuit every gas except the diluent can be declared "bailout". Under the bailout cylinder's consumption the wrong gas name appeared: fixed.
+ALSO
+• On iPhone and Mac, system controls (Cancel, Done, Copy, Paste) and the Bluetooth permission prompt follow the device language, Italian or English.
+• Dive page: vertical speed and the decompression line are correct even when the file's samples are out of time order.
+• The gradient factor slider is larger and easier to use with a finger.
+• Shearwater Cloud import: a truncated file is rejected instead of being read with empty fields.
 
-AND ALSO
-
-The gradient factor slider is finger-sized. On iPhone and Mac the system buttons inside the app follow your language. Vertical speed and the decompression line draw correctly even when the file's samples are out of order.
-
-2,977 automated checks in 194 files, plus 187 on the native engine. None skipped.
+More than 3,000 automated checks, all passing.
