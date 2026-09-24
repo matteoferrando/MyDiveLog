@@ -1,0 +1,31 @@
+I computer subacquei, uno per uno: la libreria che li legge è aggiornata, e il collegamento è stato ricontrollato famiglia per famiglia.
+
+DIECI MODELLI NUOVI
+
+Perdix 3, Quad 2, Sirius L, Puck Pro EZ, Puck Pro Ultra, Raffaello, Seac Tablet, OSTC 3, OSTC cR e OSTC Nano si collegano via Bluetooth. E dentro la libreria ci sono correzioni per computer che già si scaricavano: l'Halcyon col protocollo più recente, i Mares con un puntatore di memoria storto.
+
+AQUALUNG i330R
+
+Se uno scarico si era interrotto a metà, al collegamento dopo il computer mandava la coda della lettura vecchia prima di rispondere, e l'applicazione la scambiava per la risposta. Adesso prima di parlare ascolta, e butta quello che non può essere una risposta. E se il computer è stato azzerato o accoppiato con un altro telefono, chiede il PIN nuovo da solo, invece di fermarsi. Ed è fra i modelli provati: settantuno immersioni scaricate da un i330R in uso.
+
+LE IMMERSIONI SI LEGGONO COL MODELLO VERO
+
+Per molti computer il modello decide come si leggono i dati. Fino a oggi valeva quello scelto dall'elenco; adesso vale quello che il computer dichiara collegandosi, e se la scelta era sbagliata il nome sulle immersioni si corregge.
+
+IL MARES GIUSTO
+
+Chi annuncia «Mares bluelink pro» sceglie fra i Mares dell'adattatore, chi ha il Bluetooth dentro fra i suoi: un Puck Pro Ultra non viene più proposto come il Puck Pro della generazione prima, che parla un’altra forma di pacchetto.
+
+SE LO SCARICO SI INTERROMPE
+
+Quando un tentativo ha già salvato delle immersioni e quello dopo non riesce a ricollegarsi, la schermata finale dice quante sono già nel logbook, invece di «nessuna».
+
+PIANIFICATORE
+
+Col circuito chiuso ogni gas tranne il diluente si può dichiarare «bailout». Sotto il consumo della bombola di bailout compariva il nome del gas sbagliato: corretto.
+
+E ANCORA
+
+Il cursore dei gradient factor è a misura di dito. Su iPhone e Mac i pulsanti del sistema dentro l'app parlano italiano. La velocità verticale e la linea della decompressione si disegnano giuste anche con i campioni del file fuori ordine.
+
+2.977 controlli automatici in 194 file, più 187 sul motore nativo. Nessuno saltato.

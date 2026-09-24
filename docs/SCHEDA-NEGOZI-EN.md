@@ -12,9 +12,10 @@ localization matches a user's language setting, the next most relevant
 localization is used. In other countries or regions, your metadata displays in
 the primary language.»* — cioè, senza inglese, l'italiano a tutti.
 
-**Quando.** Con la 1.8.30. La descrizione e le parole chiave stanno sulla
-**versione**, e la 1.8.29 è in revisione; nome, sottotitolo e indirizzo della
-privacy stanno nelle informazioni dell'app, e conviene compilarli insieme.
+**Quando.** Con la 1.8.31, che nei negozi va al posto della 1.8.30. La
+descrizione e le parole chiave stanno sulla **versione**; nome, sottotitolo e
+indirizzo della privacy stanno nelle informazioni dell'app, e conviene
+compilarli insieme.
 
 ---
 
@@ -28,7 +29,7 @@ privacy stanno nelle informazioni dell'app, e conviene compilarli insieme.
 | Subtitle | `Every computer, one logbook` | 27 / 30 |
 | Privacy Policy URL | `https://mydivelog.site/en/privacy` | — |
 
-**Nella versione 1.8.30, localizzazione inglese**
+**Nella versione 1.8.31, localizzazione inglese**
 
 | Campo | Testo | Caratteri |
 |---|---|---|
@@ -37,7 +38,7 @@ privacy stanno nelle informazioni dell'app, e conviene compilarli insieme.
 | Keywords | nel riquadro qui sotto | 92 / 100 |
 | Support URL | `https://mydivelog.site/en/help` | — |
 | Marketing URL | `https://mydivelog.site/en/` | — |
-| What's New | `docs/appstore-1.8.30-en.txt`, quando esce | — |
+| What's New | `docs/appstore-1.8.31-en.txt` | — |
 
 Promotional Text:
 

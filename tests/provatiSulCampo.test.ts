@@ -86,9 +86,12 @@ describe('l’elenco di quelli provati davvero', () => {
      * ► LA METÀ CHE CONTA DI PIÙ. ◄ Lo STESSO giorno, dallo stesso programma e
      * dalla stessa libreria, un Aqualung i330R si è fermato a metà — e il
      * difetto era nostro. *Un modello provato non è una famiglia provata, e
-     * nemmeno una libreria provata.*
+     * nemmeno una libreria provata.* L'i330R è entrato il 23 settembre, dopo
+     * settantuno immersioni arrivate davvero; i suoi gemelli di famiglia no.
      */
-    expect(provatoViaLdc('Aqualung', 'i330R')).toBe(false);
+    expect(provatoViaLdc('Aqualung', 'i330R'), 'entrato il 23 settembre').toBe(true);
+    expect(provatoViaLdc('Aqualung', 'i330R Console'), 'stessa famiglia non basta').toBe(false);
+    expect(provatoViaLdc('Apeks', 'DSX'), 'stesso protocollo non basta').toBe(false);
     expect(provatoViaLdc('Mares', 'Sirius'), 'stessa marca non basta').toBe(false);
     expect(provatoViaLdc('Mares', 'Quad'), 'un nome che somiglia non basta').toBe(false);
   });

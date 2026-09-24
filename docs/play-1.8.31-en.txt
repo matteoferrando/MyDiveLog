@@ -1,0 +1,9 @@
+Dive computers: updated library and ten new models, including Perdix 3, Quad 2, Sirius L, Puck Pro Ultra, Raffaello and Seac Tablet.
+
+• Aqualung i330R: connects even after an interrupted download, and asks for the PIN by itself when its code is no longer valid.
+
+• Dives are read with the model the computer declares, not the one picked.
+
+• Planner: the "bailout" role on closed circuit.
+
+• If a download is interrupted, the screen says how many dives are already saved.

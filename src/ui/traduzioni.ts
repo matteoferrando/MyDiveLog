@@ -2319,6 +2319,10 @@ export const INGLESE: Record<string, string> = {
   'Quelle più vecchie di così non verranno più scaricate da questo computer. Per ripensarci: togli il segnalibro qui sopra, oppure spunta «Scarica tutto da capo».':
     'Anything older than this will no longer be downloaded from this computer. To change your mind: remove the bookmark above, or tick “Download everything from scratch”.',
   'Considera già prese le più vecchie': 'Treat the older ones as already taken',
+  'Il logbook ha ricevuto e salvato {0} prima che il collegamento si interrompesse.':
+    'The logbook received and saved {0} before the connection dropped.',
+  'Se il computer ne ha altre, spegnilo e riaccendilo, avvicinalo e riprova.':
+    'If the computer has more, turn it off and on again, bring it closer and try again.',
   'Segnalibro messo: dalla prossima volta arrivano solo le immersioni nuove.':
     'Bookmark set: from next time only new dives will come across.',
   'Il trasferimento si è interrotto prima della fine': 'The transfer stopped before the end',

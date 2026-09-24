@@ -1,9 +1,25 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **23 settembre 2026** — **2 972 prove in 193 file** più
+Aggiornato: **24 settembre 2026** — **2 977 prove in 194 file** più
 **187 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
+
+> ## ► LA 1.8.31: LA SCHERMATA DICE QUELLO CHE È ARRIVATO. ◄
+>
+> Il 24 settembre, su una segnalazione del 23: un Aqualung i330R aveva portato
+> **71 immersioni** nel logbook (la 1.8.29, su un iPhone) e chi le aveva
+> scaricate credeva il contrario, perché in cima alla schermata c'era scritto
+> «Non è stata salvata nessuna immersione» — la frase dell'ultimo tentativo,
+> quello che non si era più ricollegato, e non della sessione. Adesso la regola
+> sta in `src/core/ble/immersioniGiaSalvate.ts` e la frase dice *«Il logbook ha
+> ricevuto e salvato 71 immersioni prima che il collegamento si
+> interrompesse»*, col numero delle **salvate** (campo nuovo `salvateQuante`),
+> non delle arrivate. Tre mutazioni, tre rosse. E l'**i330R entra fra i
+> provati**, un modello e non la famiglia: i330R Console e DSX restano fuori.
+> **Nei negozi va la 1.8.31 al posto della 1.8.30**, con una revisione sola.
+> Aperti: perché il trasferimento si è fermato dopo 71 (il diario è chiesto) e
+> il ricollegamento dopo un'interruzione. Note: `docs/NOTE-1.8.31.md`.
 
 > ## ► LA 1.8.30 È PUBBLICATA SU GITHUB E SUL SITO; I NEGOZI ASPETTANO IL CARICAMENTO. ◄
 >

@@ -1,0 +1,31 @@
+Dive computers, one by one: the library that reads them is updated, and the connection has been rechecked family by family.
+
+TEN NEW MODELS
+
+Perdix 3, Quad 2, Sirius L, Puck Pro EZ, Puck Pro Ultra, Raffaello, Seac Tablet, OSTC 3, OSTC cR and OSTC Nano connect over Bluetooth. And the library brings fixes for computers that already downloaded: Halcyon with the newest protocol, Mares with a skewed memory pointer.
+
+AQUALUNG i330R
+
+If a download had stopped halfway, on the next connection the computer sent the tail of the old read before answering, and the app took it for the answer. Now it listens before speaking and discards what cannot be an answer. And if the computer was reset or paired with another phone, it asks for the new PIN by itself instead of stopping. It is now among the tested models: 71 dives downloaded from an i330R in everyday use.
+
+DIVES ARE READ WITH THE REAL MODEL
+
+For many computers the model decides how the data is read. Until now the one picked from the list counted; now the one the computer declares when it connects does, and if the pick was wrong the name on the dives is corrected.
+
+THE RIGHT MARES
+
+A device announcing "Mares bluelink pro" chooses among the adapter's models, one with built-in Bluetooth among its own: a Puck Pro Ultra is no longer offered as the earlier-generation Puck Pro, which speaks a different packet shape.
+
+IF A DOWNLOAD IS INTERRUPTED
+
+When one attempt has already saved dives and the next cannot reconnect, the final screen says how many are already in your logbook, instead of "none".
+
+PLANNER
+
+On closed circuit every gas except the diluent can be declared "bailout". Under the bailout cylinder's consumption the wrong gas name appeared: fixed.
+
+AND ALSO
+
+The gradient factor slider is finger-sized. On iPhone and Mac the system buttons inside the app follow your language. Vertical speed and the decompression line draw correctly even when the file's samples are out of order.
+
+2,977 automated checks in 194 files, plus 187 on the native engine. None skipped.

@@ -49,6 +49,12 @@ export const PROVATI_VIA_LDC: readonly ProvaSulCampo[] = [
     quando: '2026-09-16',
     come: 'segnalazione di chi usa l’applicazione: scarico riuscito',
   },
+  {
+    marca: 'Aqualung',
+    modello: 'i330R',
+    quando: '2026-09-23',
+    come: 'segnalazione di chi usa l’applicazione, con le schermate: 71 immersioni arrivate in archivio',
+  },
 ];
 
 /**

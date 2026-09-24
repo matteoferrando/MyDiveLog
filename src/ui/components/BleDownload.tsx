@@ -54,6 +54,7 @@ import {
   salvaCodiceAccoppiamento,
 } from '../../core/accoppiamento';
 import { decidiComeInsistere } from '../../core/insistenza';
+import { immersioniGiaSalvate } from '../../core/ble/immersioniGiaSalvate';
 import { righeDelloSchermo, tieniSvegliaLoSchermo } from '../../core/schermoSveglio';
 import { dimenticaMetodo, metodoConservato, salvaMetodo } from '../../core/metodo';
 import type { Dive } from '../../core/model';
@@ -190,7 +191,18 @@ type Stato =
  * fa risparmiare tempo e una che cancella delle immersioni. Vedi
  * `ripartiDaQui`.
  */
-type PuntoRaggiunto = { impronta: string; quante: number; salvate: boolean; tutteTradotte: boolean };
+type PuntoRaggiunto = {
+  impronta: string;
+  quante: number;
+  salvate: boolean;
+  /**
+   * Quante ne ha scritte in archivio il tentativo che ne ha scritte di più.
+   * `quante` conta le ARRIVATE, e alla frase in cima alla schermata non basta:
+   * quella promette le salvate. Vedi `immersioniGiaSalvate`.
+   */
+  salvateQuante: number;
+  tutteTradotte: boolean;
+};
 
 /** Byte → base64, senza dipendenze e senza far esplodere lo stack sui blocchi grandi. */
 function byteInBase64(b: Uint8Array): string {
@@ -1613,6 +1625,10 @@ export function BleDownload() {
              * tentativo che ha salvato ha salvato anche lei.
              */
             salvate: (insiste?.raccolto?.salvate ?? false) || salvateInArchivio,
+            salvateQuante: Math.max(
+              salvateInArchivio ? dives.length : 0,
+              insiste?.raccolto?.salvateQuante ?? 0,
+            ),
             /*
              * `tutteTradotte` invece NON si accumula: appartiene al tentativo
              * che ha stabilito `impronta`, perché è una frase su quella
@@ -1776,6 +1792,33 @@ export function BleDownload() {
               modello: `${marca} ${modello}`,
             }
           : undefined;
+
+      /*
+       * ════════════════════════════════════════════════════════════════════
+       * ► LA FRASE IN CIMA RACCONTA LA SESSIONE, NON L'ULTIMO TENTATIVO. ◄
+       *
+       * Il 23 settembre 2026, da chi aveva un Aqualung i330R in mano:
+       * *«nonostante i messaggi di errore ha caricato le immersioni»*. Un
+       * tentativo aveva portato in archivio 71 immersioni ed era caduto;
+       * l'applicazione aveva riprovato da sola, e il tentativo dopo non si era
+       * più collegato. In cima alla schermata: «Non è stata salvata nessuna
+       * immersione» — vero per l'ultimo tentativo, falso per la sessione. Il
+       * riquadro sotto contava 71, perché il punto raggiunto si porta avanti;
+       * la frase in cima no. La regola sta in `immersioniGiaSalvate`.
+       *
+       * Il numero è quello delle SALVATE, non delle arrivate: la frase dice
+       * «ricevuto e salvato», e le due cose col disco pieno si separano.
+       */
+      const giaSalvate = immersioniGiaSalvate({
+        arrivate: dives.length,
+        salvatePrima: insiste?.raccolto?.salvateQuante,
+      });
+      if (giaSalvate !== undefined) {
+        const detta =
+          `${frase(t, 'Il logbook ha ricevuto e salvato {0} prima che il collegamento si interrompesse.', imm(giaSalvate, t))} ` +
+          t('Se il computer ne ha altre, spegnilo e riaccendilo, avvicinalo e riprova.');
+        testo = guasto === undefined ? detta : conDettaglio(detta, guasto);
+      }
 
       setStato({
         fase: 'finito',

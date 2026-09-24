@@ -1,0 +1,9 @@
+Computer subacquei: libreria aggiornata e dieci modelli nuovi, fra cui Perdix 3, Quad 2, Sirius L, Puck Pro Ultra, Raffaello e Seac Tablet.
+
+• Aqualung i330R: si apre anche dopo uno scarico interrotto, e se il codice non vale più chiede il PIN da solo.
+
+• Le immersioni si leggono col modello che il computer dichiara, non con quello scelto.
+
+• Pianificatore: il ruolo «bailout» col circuito chiuso.
+
+• Se lo scarico si interrompe, la schermata dice quante immersioni sono già salvate.
