@@ -5,9 +5,26 @@ Aggiornato: **24 settembre 2026** — **2 977 prove in 194 file** più
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
 
-> ## ► LA 1.8.31: LA SCHERMATA DICE QUELLO CHE È ARRIVATO. ◄
+> ## ► LA 1.8.31 È PUBBLICATA SU GITHUB E SUL SITO; NEI NEGOZI VA LEI, NON LA 1.8.30. ◄
 >
-> Il 24 settembre, su una segnalazione del 23: un Aqualung i330R aveva portato
+> Il 24 settembre, mattina. Release **`v1.8.31`** con **nove allegati contati**,
+> byte giusti sui pulsanti al primo giro, `latest.json` con Mac e Windows
+> firmati; notarizzazione *Accepted*, *Notarized Developer ID*; workflow
+> 35969879568 su `7b97309` verde (`firmati: 1 apk, 1 aab`, Linux senza
+> aggiornatore); sito confrontato col disco; cask e PKGBUILD alla 1.8.31 con
+> l'impronta confermata su due fonti, tap aggiornato subito.
+>
+> **I pacchetti dei negozi, in `../consegna/1.8.31/`**, guardati dentro:
+> `MyDiveLog-1.8.31.ipa` (1.8.31 / build 1.8.31, minimo iOS 15.0),
+> `MyDiveLog-1.8.31-mac-app-store.pkg` (1.8.31 / build 1.8.31, minimo macOS
+> 12.0, profilo che combacia, nessuna quarantena), `MyDiveLog-1.8.31-play.aab`
+> (versionName 1.8.31, versionCode 1008031). I testi:
+> `docs/appstore-1.8.31-{it,en}.txt` (2 172 e 2 029 caratteri) e
+> `docs/play-1.8.31-{it,en}.txt` (485 e 470). La cartella della 1.8.30 non serve
+> più ai negozi; buttarla è una decisione del proprietario. L'App Store
+> dichiara ancora la 1.8.29 per l'iPhone.
+>
+> **Cosa c'è dentro.** Il 24 settembre, su una segnalazione del 23: un Aqualung i330R aveva portato
 > **71 immersioni** nel logbook (la 1.8.29, su un iPhone) e chi le aveva
 > scaricate credeva il contrario, perché in cima alla schermata c'era scritto
 > «Non è stata salvata nessuna immersione» — la frase dell'ultimo tentativo,
