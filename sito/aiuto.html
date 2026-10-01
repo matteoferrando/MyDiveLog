@@ -201,8 +201,13 @@
           </p>
           <h3>Su Mac si può installare con Homebrew?</h3>
           <p>
-            Sì, da un tap nostro:<br /><code>brew tap matteoferrando/mydivelog</code><br />
-            <code>brew install --cask mydivelog</code>
+            Sì, da un tap nostro, con un comando solo:<br />
+            <code>brew install --cask matteoferrando/mydivelog/mydivelog</code><br />
+            Il nome intero dice a Homebrew di fidarsi di questa cask, e solo di questa. Se l’avevi installata
+            prima con <code>brew tap</code>, Homebrew adesso la ignora finché non glielo dici, una volta
+            sola:<br />
+            <code>brew trust --cask matteoferrando/mydivelog/mydivelog</code><br />
+            L’app intanto si aggiorna da sola, come sempre.
           </p>
         </section>
 

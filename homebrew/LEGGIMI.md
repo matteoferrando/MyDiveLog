@@ -2,13 +2,20 @@
 
 Il tap è un repository a parte —
 [`matteoferrando/homebrew-mydivelog`](https://github.com/matteoferrando/homebrew-mydivelog)
-— ma i suoi due file si scrivono **qui**, perché qui c'è il generatore e qui ci
+— ma i suoi tre file si scrivono **qui**, perché qui c'è il generatore e qui ci
 sono le prove che li difendono. Là dentro finiscono copiati.
 
 | File qui | Dove va nel tap |
 |---|---|
 | `mydivelog.rb` | `Casks/mydivelog.rb` |
 | `aggiorna-cask.yml` | `.github/workflows/aggiorna-cask.yml` |
+| `README-del-tap.md` | `README.md` |
+
+Il terzo è la pagina che GitHub mostra a chi apre il tap, e dice come si
+installa: sta qui perché `tests/homebrewFiducia.test.ts` la legga insieme al
+README e al sito. Il 1° ottobre 2026 diceva ancora il tap e il nome corto, che
+Homebrew rifiuta da quando chiede fiducia nei tap che non sono suoi — e nessuna
+prova la vedeva, perché viveva solo là.
 
 ## La cask
 
@@ -44,13 +51,14 @@ Il prezzo, dichiarato: non parte nell'istante in cui esce una release ma al giro
 successivo, al massimo sei ore dopo. Chi installa in quelle sei ore prende la
 versione precedente — che funziona, e che si aggiorna comunque da sola.
 
-## Installare i due file nel tap
+## Installare i tre file nel tap
 
 ```
 cd /percorso/del/tap
 cp /percorso/di/mydivelog/homebrew/mydivelog.rb Casks/mydivelog.rb
 mkdir -p .github/workflows
 cp /percorso/di/mydivelog/homebrew/aggiorna-cask.yml .github/workflows/aggiorna-cask.yml
+cp /percorso/di/mydivelog/homebrew/README-del-tap.md README.md
 git add -A && git commit -m "la cask si aggiorna da sola" && git push
 ```
 

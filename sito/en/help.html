@@ -182,8 +182,12 @@
           </p>
           <h3>Can I install it with Homebrew?</h3>
           <p>
-            Yes, from our own tap:<br /><code>brew tap matteoferrando/mydivelog</code><br />
-            <code>brew install --cask mydivelog</code>
+            Yes, from our own tap, in one command:<br />
+            <code>brew install --cask matteoferrando/mydivelog/mydivelog</code><br />
+            The full name tells Homebrew to trust this cask, and only this one. If you installed it earlier
+            with <code>brew tap</code>, Homebrew now ignores it until you tell it to, once:<br />
+            <code>brew trust --cask matteoferrando/mydivelog/mydivelog</code><br />
+            The app keeps updating itself in the meantime, as always.
           </p>
         </section>
 

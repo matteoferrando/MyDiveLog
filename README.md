@@ -52,12 +52,31 @@ i pulsanti sono anche su [mydivelog.site](https://mydivelog.site).
 
 Non c'è un pacchetto per Mac Intel.
 
-**Su Mac c'è anche Homebrew**, da un tap nostro:
+**Su Mac c'è anche Homebrew**, da un tap nostro, con un comando solo:
 
 ```
-brew tap matteoferrando/mydivelog
-brew install --cask mydivelog
+brew install --cask matteoferrando/mydivelog/mydivelog
 ```
+
+Il nome intero fa tre cose insieme: aggiunge il tap, dà fiducia a **questa** cask
+e a nient'altro del tap, e la installa. Serve così perché Homebrew non carica più
+le cask dei tap che non sono suoi finché qualcuno non le dichiara fidate: le
+istruzioni di prima — il tap, e poi l'installazione col nome corto — si fermano
+con *«Refusing to load cask matteoferrando/mydivelog/mydivelog from untrusted
+tap»*. Chi aveva installato così glielo dice una volta sola:
+
+```
+brew trust --cask matteoferrando/mydivelog/mydivelog
+```
+
+Finché non lo fa, il suo Homebrew ignora la cask; l'app no: si aggiorna da sola,
+e la cask lo dichiara con `auto_updates`. Misurato il 1° ottobre 2026 con Homebrew
+allo stesso commit del Mac di sviluppo (7.0.7), in un contenitore Linux: col nome
+corto il rifiuto; col nome intero *«Trusted cask
+matteoferrando/mydivelog/mydivelog»*, e l'installazione che si ferma solo su
+*«This cask requires macOS»*, dove una cask per Mac deve fermarsi su Linux. Le
+istruzioni restano così — qui, sul sito e nel tap — perché
+[`tests/homebrewFiducia.test.ts`](tests/homebrewFiducia.test.ts) le legge tutte.
 
 Non è in `homebrew-cask` ufficiale, e non per pigrizia: Homebrew chiede una prova
 di interesse pubblico che questo progetto oggi non ha — per una cask proposta dal
