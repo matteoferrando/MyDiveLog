@@ -1,9 +1,52 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **24 settembre 2026** — **2 977 prove in 194 file** più
+Aggiornato: **1° ottobre 2026** — **2 990 prove in 195 file** più
 **187 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
+
+> ## ► HOMEBREW CHIEDE FIDUCIA NEI TAP: LE ISTRUZIONI COL NOME INTERO, PUBBLICATE. ◄
+>
+> Il 1° ottobre, da un `brew upgrade` sul Mac del proprietario (Homebrew
+> 7.0.7): *«Refusing to load cask matteoferrando/mydivelog/mydivelog from
+> untrusted tap matteoferrando/mydivelog»*. Homebrew non carica più le cask dei
+> tap che non sono suoi finché qualcuno non le dichiara fidate, e le istruzioni
+> che davamo in quattro posti — il README, l'aiuto del sito in due lingue, la
+> pagina del tap — erano proprio quelle che si fermano: il tap, poi
+> l'installazione col nome corto. *Nessuna prova le guardava, e la pagina del
+> tap non viveva nemmeno qui.* Sul Mac del proprietario MyDiveLog non è
+> installata con brew: l'errore veniva da `brew cleanup`, per un `.dmg` rimasto
+> in cache da un `brew fetch` di settembre.
+>
+> **Misurato, non letto.** Homebrew clonato allo stesso commit di quel Mac
+> (`d6ca355`), in un contenitore Linux, da capo ogni volta: il tap va, il nome
+> corto subito dopo è il rifiuto; il nome intero in un comando solo aggiunge il
+> tap, scrive *«Trusted cask matteoferrando/mydivelog/mydivelog»* — la fiducia
+> resta, `brew trust` la elenca — e si ferma solo su *«This cask requires
+> macOS»*, dove una cask per Mac deve fermarsi su Linux. `brew info`, `fetch` e
+> `audit` col nome intero caricano la cask anche senza fiducia: i comandi del
+> rilascio e il passo `brew audit` del flusso del tap non cambiano.
+>
+> **Adesso** i quattro posti dicono `brew install --cask
+> matteoferrando/mydivelog/mydivelog`, e a chi aveva installato col tap una
+> riga, una volta: `brew trust --cask matteoferrando/mydivelog/mydivelog`.
+> Finché non la dà, il suo Homebrew ignora la cask; l'app no — si aggiorna da
+> sola. La pagina del tap adesso vive qui (`homebrew/README-del-tap.md`, il
+> terzo file che si copia nel tap) e `tests/homebrewFiducia.test.ts` legge i
+> quattro posti, col nome intero ricavato dalla cask e dal tap: **vista rossa sui
+> testi di prima, dodici prove su tredici**.
+>
+> **Pubblicato col via del proprietario.** Commit `b5de158`, CI «Controlli»
+> verde. Il sito: due file caricati, gli altri 33 già lì; `sito:online` prima
+> diceva le due pagine di aiuto col testo vecchio, dopo *«il sito pubblicato è
+> quello sul disco»*. La pagina del tap: commit `cca650e`, byte per byte uguale
+> al file di qui.
+>
+> *E una rossa che non era nostra:* il primo giro della suite intera ha dato
+> rossa una prova del Uwatec durata 478 secondi. Il registro di alimentazione
+> dice *«Clamshell Sleep»* alle 16:19:08, per 468 secondi — il coperchio chiuso
+> a batteria, contro cui `caffeinate` non può niente. Rifatta a Mac sveglio:
+> **2 990 su 2 990**, e altrettante a UTC+14 e a UTC−11.
 
 > ## ► LA 1.8.31 È PUBBLICATA SU GITHUB E SUL SITO; NEI NEGOZI VA LEI, NON LA 1.8.30. ◄
 >
