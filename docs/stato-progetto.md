@@ -5,7 +5,7 @@ Aggiornato: **2 ottobre 2026** — **3 017 prove in 196 file** più
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
 
-> ## ► LA 1.8.32: GOOGLE PLAY HA VISTO L'ICONA DI TAURI, E AVEVA RAGIONE. ◄
+> ## ► LA 1.8.32 È PUBBLICATA: SU ANDROID L'ICONA DI MYDIVELOG, E UN CONTROLLO CHE LA CERCA NEL PACCHETTO. ◄
 >
 > Il 2 ottobre Play ha rifiutato la 1.8.31, norma *Misleading Claims*:
 > *«Your app's installed icon or name differs from its store listing»*. Come
@@ -33,7 +33,23 @@ a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 > stato usato. **Esce su tutti i canali** per scelta del proprietario — Play,
 > l'APK del sito, GitHub, la cask — e su Mac, Windows, Linux e iPhone non cambia
 > niente. Catena verde: **3 017 prove in 196 file**, **187** Rust, fusi estremi.
-> *Da pubblicare.*
+>
+> **Pubblicata il 2 ottobre**, commit `03ae6b3` e `ca8f7f7`, CI «Controlli»
+> verde. Notarizzazione *Accepted*, staple e validate a posto. Workflow
+> `36997498603` verde nei tre lavori, e nel log di Android il passo nuovo dice
+> ✓ a ogni densità, nell'APK e nell'`.aab`: *«icona nostra: 2 pacchetti, ogni
+> densità, pixel per pixel»*. Release `v1.8.32` con **nove allegati**, tutti
+> `uploaded`; da `releases/latest/download` rispondono 200 coi byte giusti il
+> `.dmg`, il setup, l'APK e il `.deb`, e `latest.json` dice 1.8.32 con Mac e
+> Windows. Cask e PKGBUILD confermati su due fonti; il tap aggiornato dal suo
+> flusso (run `36998687142`), il cui `brew audit` gira già sotto Homebrew 7. Il
+> sito non cambia: `sito:online` dice che il pubblicato è quello sul disco.
+>
+> **Per Play**: `consegna/1.8.32/MyDiveLog-1.8.32-play.aab`, 7 094 480 byte,
+> aperto qui: dichiara 1.8.32 e `1008032`, e l'icona è la nostra. Testi in
+> `docs/play-1.8.32-{it,en}.txt` (482 e 471 caratteri). **Il caricamento lo fa
+> il proprietario.** Per Apple restano i pacchetti della 1.8.31: per iPhone e
+> Mac la 1.8.32 non cambia niente, e `consegna/1.8.31/` resta perché tiene l'`.ipa` e il `.pkg`.
 
 > ## ► HOMEBREW CHIEDE FIDUCIA NEI TAP: LE ISTRUZIONI COL NOME INTERO, PUBBLICATE. ◄
 >
