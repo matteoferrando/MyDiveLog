@@ -5,7 +5,7 @@ Aggiornato: **2 ottobre 2026** — **3 024 prove in 197 file** più
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
 
-> ## ► LA 1.8.33: LE PAGINE DA 16 KB, CHE PLAY HA CHIESTO ALLA 1.8.32. ◄
+> ## ► LA 1.8.33 È PUBBLICATA: LE PAGINE DA 16 KB, CHE PLAY HA CHIESTO ALLA 1.8.32. ◄
 >
 > Poche ore dopo la 1.8.32, caricandone l'`.aab`, Play Console: *«Your app does
 > not support 16 KB memory page sizes»*. Misurato: `libmydivelog_lib.so`, l'unica
@@ -26,8 +26,24 @@ a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 > che avevano lo stesso buco. Sette mutazioni, sette rosse.
 >
 > Numero: l'`.aab` della 1.8.32 è stato caricato su Play, quindi `1008032` è
-> usato; la 1.8.33 è `1008033`. Esce su tutti i canali come la 1.8.32. Catena
-> verde: **3 024 prove in 197 file**, **187** Rust. *Da pubblicare.*
+> usato; la 1.8.33 è `1008033`. Esce su tutti i canali come la 1.8.32, per scelta
+> del proprietario. Catena verde: **3 024 prove in 197 file**, **187** Rust, fusi
+> estremi.
+>
+> **Pubblicata il 2 ottobre**, commit `2238263`. Workflow `37007949328` verde nei
+> tre lavori. Nell'`.aab` e nell'APK, aperti qui: `PT_LOAD` a **0x4000** in tutti e
+> quattro i segmenti, l'APK allineato nello zip, l'icona nostra a ogni densità,
+> 1.8.33 e `1008033`, firmato. La notarizzazione è andata **al terzo tentativo**:
+> le prime due volte `codesign` si è fermato con *«A timestamp was expected but
+> was not found»* — il servizio di marcatura temporale di Apple che non rispondeva
+> in tempo, mentre il Mac passava dalla corrente alla batteria; al terzo
+> *Accepted*, staple e validate a posto. Release `v1.8.33`, **nove allegati**
+> `uploaded`; da `releases/latest/download` 200 coi byte giusti, `latest.json`
+> 1.8.33 con Mac e Windows. Cask e PKGBUILD confermati su due fonti.
+>
+> **Per Play**: `consegna/1.8.33/MyDiveLog-1.8.33-play.aab` (7 094 386 byte) e
+> `note-play-1.8.33.txt`, consegnati al proprietario. **L'`.aab` della 1.8.32 non
+> va usato**: è quello che Play ha fermato per le pagine da 16 KB.
 
 > ## ► LA 1.8.32 È PUBBLICATA: SU ANDROID L'ICONA DI MYDIVELOG, E UN CONTROLLO CHE LA CERCA NEL PACCHETTO. ◄
 >

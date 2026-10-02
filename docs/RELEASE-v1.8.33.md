@@ -34,4 +34,10 @@ nativo. Nessuno saltato.
 Calcolate sui file allegati a questa release, non su una compilazione
 precedente: due compilazioni non danno lo stesso byte.
 
-*Le impronte si aggiungono quando i pacchetti allegati esistono.*
+| Pacchetto | SHA-256 | byte |
+|---|---|---|
+| `MyDiveLog-macOS-arm64.dmg` | `d2aeaf8c06337f82484680d688714ad311f6a4468e84ac15aa2c208a4fd1a1c4` | 4.540.953 |
+| `MyDiveLog-Windows-setup.exe` | `54eaaa826f6b6a79fe7e7b5c4f9dcde0e9140fc07fb007e0f3d04668538717f4` | 3.268.899 |
+| `MyDiveLog-Windows-portatile.exe` | `b49ddfd9bc73d1505258db230e2b0cdddf68521a81f3851e23979041dee85b80` | 7.496.192 |
+| `MyDiveLog-Android-arm64.apk` | `ab741e0120879af88a64ed6bd34a186b5892cd5f06302aa99641f53b2597b555` | 11.044.258 |
+| `MyDiveLog-Linux-amd64.deb` | `54cfc4bca01fd3716824174a47cc1b8e31e54a827de3c78bca53cd847c5bdaa3` | 3.834.048 |
