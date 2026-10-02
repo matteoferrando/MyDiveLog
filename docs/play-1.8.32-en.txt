@@ -1,0 +1,7 @@
+The icon on your phone is now MyDiveLog's own: a dive profile, the same one as in the store listing.
+
+Ten new Bluetooth dive computers: Perdix 3, Quad 2, Sirius L, Puck Pro EZ, Puck Pro Ultra, Raffaello, Seac Tablet, OSTC 3, OSTC cR and OSTC Nano.
+
+• Aqualung i330R: if the saved code is no longer valid, the app asks for the new PIN.
+• If a download is interrupted, the screen says how many dives are already saved.
+• Dives are read with the model the computer declares.

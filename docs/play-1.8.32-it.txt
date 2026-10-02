@@ -1,0 +1,7 @@
+L'icona sul telefono adesso è quella di MyDiveLog: il profilo di un'immersione, la stessa della scheda.
+
+Dieci nuovi computer via Bluetooth: Perdix 3, Quad 2, Sirius L, Puck Pro EZ, Puck Pro Ultra, Raffaello, Seac Tablet, OSTC 3, OSTC cR e OSTC Nano.
+
+• Aqualung i330R: se il codice salvato non vale più, l'app chiede il nuovo PIN.
+• Se uno scarico si interrompe, la schermata dice quante immersioni sono già salvate.
+• Le immersioni si leggono col modello che il computer dichiara.

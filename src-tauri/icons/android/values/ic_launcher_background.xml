@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Scritto da scripts/icone-android.mjs. L'icona adattiva usa l'immagine
+     mipmap/ic_launcher_background, non questo colore. -->
 <resources>
-  <color name="ic_launcher_background">#fff</color>
+  <color name="ic_launcher_background">#123d71</color>
 </resources>

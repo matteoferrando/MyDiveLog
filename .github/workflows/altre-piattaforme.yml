@@ -211,6 +211,17 @@ jobs:
       - name: Prepara il progetto Android
         run: npx tauri android init --ci
 
+      # ► LE NOSTRE ICONE, SOPRA QUELLE DI FABBRICA. ◄ `tauri android init`
+      # genera il progetto con l'icona di Tauri — i due anelli giallo e azzurro
+      # — e fino alla 1.8.31 nessun passo ci copiava sopra le nostre, che
+      # stavano in `src-tauri/icons/android/` e non arrivavano mai nel
+      # pacchetto. Google Play ha rifiutato la 1.8.31 il 2 ottobre 2026 per
+      # questo («l'icona installata è diversa da quella della scheda»), e l'APK
+      # del sito aveva lo stesso difetto. Lo script ricontrolla la copia byte
+      # per byte; quello che arriva nel pacchetto lo guarda un passo più sotto.
+      - name: Le nostre icone nel progetto Android
+        run: node scripts/icone-progetto-android.mjs
+
       # La chiave. Quale dei due modi si usa lo decidono i segreti: vedi il
       # commento in testa al job.
       - name: Chiave di firma
@@ -354,6 +365,18 @@ jobs:
               sys.exit(1)
           print(f'firmati: {apk_trovati} apk, {aab_trovati} aab.')
           PY
+
+      # ► E SI GUARDA DENTRO IL PACCHETTO ANCHE PER L'ICONA. ◄ Copiarla non
+      # basta a sapere che c'è: lo script apre l'APK e l'.aab costruiti e
+      # confronta, pixel per pixel e densità per densità, i due strati
+      # dell'icona adattiva e quella di una volta con `src-tauri/icons/android/`.
+      # Visto rosso sui pacchetti della 1.8.31, che avevano l'icona di Tauri; e
+      # zero pacchetti guardati è un errore, come per la firma.
+      - name: L'icona nel pacchetto è la nostra?
+        run: |
+          set -eu
+          PACCHETTI=$(find src-tauri/gen/android/app/build/outputs \( -name '*.apk' -o -name '*.aab' \) | sort)
+          python3 scripts/icona-nel-pacchetto.py $PACCHETTI
 
       - name: Raccogli
         run: |

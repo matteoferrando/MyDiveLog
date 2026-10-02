@@ -1,9 +1,39 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **1° ottobre 2026** — **2 990 prove in 195 file** più
+Aggiornato: **2 ottobre 2026** — **3 017 prove in 196 file** più
 **187 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
+
+> ## ► LA 1.8.32: GOOGLE PLAY HA VISTO L'ICONA DI TAURI, E AVEVA RAGIONE. ◄
+>
+> Il 2 ottobre Play ha rifiutato la 1.8.31, norma *Misleading Claims*:
+> *«Your app's installed icon or name differs from its store listing»*. Come
+> prova, l'icona della scheda — il nostro profilo — e quella installata: **i due
+> anelli giallo e azzurro di Tauri**. Dentro l'`.aab` della 1.8.31 c'erano
+> quelli, e dentro l'APK del sito pure (cercati per pixel: nomi accorciati). Il
+> workflow rigenera il progetto Android con `tauri android init` e nessun passo ci
+> copiava le nostre icone; `git log -S` dice che quel passo **non c'è mai
+> stato**, dal 25 agosto. *Lo schema della firma che mancava: niente fallisce,
+> tutto è verde, e nessuno guarda dentro il pacchetto.*
+>
+> **Tre pezzi** (`docs/NOTE-1.8.32.md`): `scripts/icone-android.mjs` disegna
+> l'icona adattiva da `icon.svg` — acqua dietro, profilo davanti, rimpiccioliti
+> di 72/108 perché la finestra che Android mostra contenga esattamente l'icona
+> della scheda (le icone di `tauri icon` mettevano l'icona intera davanti su
+> sfondo bianco: col ritaglio del telefono, il profilo tagliato ai lati);
+> `scripts/icone-progetto-android.mjs` le copia fra `init` e la build;
+> `scripts/icona-nel-pacchetto.py` apre i pacchetti costruiti e confronta i
+> pixel. Il suo decodificatore PNG è uguale a Pillow su tutti i **434 PNG** dei
+> pacchetti della 1.8.31; rosso su quei pacchetti, verde sugli stessi con le
+> nostre icone ricodificate, rosso cambiando un pixel. `tests/iconaAndroid.test.ts`,
+> 27 prove, quattro mutazioni e quattro rosse.
+>
+> **Il numero**: Play non accetta due volte un `versionCode`, e `1008031` è
+> stato usato. **Esce su tutti i canali** per scelta del proprietario — Play,
+> l'APK del sito, GitHub, la cask — e su Mac, Windows, Linux e iPhone non cambia
+> niente. Catena verde: **3 017 prove in 196 file**, **187** Rust, fusi estremi.
+> *Da pubblicare.*
 
 > ## ► HOMEBREW CHIEDE FIDUCIA NEI TAP: LE ISTRUZIONI COL NOME INTERO, PUBBLICATE. ◄
 >
