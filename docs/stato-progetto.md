@@ -5,6 +5,19 @@ Aggiornato: **2 ottobre 2026** — **3 024 prove in 197 file** più
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
 
+> ## ► DOVE STANNO I NEGOZI, RIMISURATO IL 2 OTTOBRE. ◄
+>
+> **App Store (iPhone): 1.8.31**, pubblicata il 24 settembre alle 19:31 UTC —
+> `lookup` di Apple con l'anti-cache, vetrina italiana e americana. Per iPhone la
+> 1.8.32 e la 1.8.33 non cambiano niente, quindi lì si resta. **Mac App Store**:
+> non ha un `lookup` che lo distingua, lo dice App Store Connect. **Google Play**:
+> l'`.aab` della 1.8.33 e le note sono nelle mani del proprietario; finché la
+> revisione non risponde, la versione precedente resta quella su Play.
+>
+> GitHub, il sito, la cask e il PKGBUILD dicono **1.8.33**: release con nove
+> allegati, `latest.json` con Mac e Windows, `sito:online` uguale al disco, la
+> cask del tap a 1.8.33, CI verde sull'ultimo commit.
+
 > ## ► LA 1.8.33 È PUBBLICATA: LE PAGINE DA 16 KB, CHE PLAY HA CHIESTO ALLA 1.8.32. ◄
 >
 > Poche ore dopo la 1.8.32, caricandone l'`.aab`, Play Console: *«Your app does
