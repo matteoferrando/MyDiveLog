@@ -6,9 +6,35 @@
 //! `crates.io`.
 
 fn main() {
+    pagine_da_16_kb();
     #[cfg(feature = "computer-esterni")]
     compila_libdivecomputer();
     tauri_build::build()
+}
+
+/// ► LE PAGINE DA 16 KB: GOOGLE PLAY LO PRETENDE. ◄
+///
+/// Il 2 ottobre 2026 Play ha fermato la 1.8.32: *«Your app does not support 16
+/// KB memory page sizes»*. Misurato dentro l'`.aab` e dentro l'APK: i quattro
+/// segmenti `PT_LOAD` di `libmydivelog_lib.so` erano allineati a 4 KB
+/// (`p_align` 0x1000). Play lo chiede, da novembre 2025, a tutte le app che
+/// puntano ad Android 15; e su un telefono che usa pagine da 16 KB una libreria
+/// allineata a 4 KB non si carica come il linker l'ha scritta.
+///
+/// L'NDK 27, quello fissato nel workflow, collega ancora a 4 KB se non glielo si
+/// dice (dal 28 il predefinito è 16 KB). Glielo si dice qui e non con un
+/// `RUSTFLAGS`: Tauri passa a cargo i suoi flag (`-landroid`, `-llog`,
+/// `-lOpenSLES`) attraverso le variabili d'ambiente, e cargo delle sorgenti di
+/// RUSTFLAGS ne usa UNA sola — una nostra rischiava di togliere le sue.
+/// `cargo:rustc-link-arg` arriva al collegamento finale qualunque cosa ci sia in
+/// quelle variabili.
+///
+/// Lo controlla sul pacchetto costruito `scripts/pagine-16k.py`, nel passo «Le
+/// librerie native reggono le pagine da 16 KB?» del workflow.
+fn pagine_da_16_kb() {
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android") {
+        println!("cargo:rustc-link-arg=-Wl,-z,max-page-size=16384");
+    }
 }
 
 /// La versione vendorizzata. Cambiarla qui e mettere il tarball accanto.

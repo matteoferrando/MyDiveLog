@@ -113,7 +113,8 @@ describe('il workflow mette le icone nel progetto e poi le cerca nel pacchetto',
 
   it('copia le icone DOPO aver generato il progetto e PRIMA di costruirlo', () => {
     const genera = wf.indexOf('tauri android init');
-    const icone = wf.indexOf('node scripts/icone-progetto-android.mjs');
+    // La riga `run:` vera: un comando commentato conterrebbe lo stesso testo.
+    const icone = wf.search(/^\s+run: node scripts\/icone-progetto-android\.mjs$/m);
     const costruisce = wf.indexOf('name: Costruisci');
     expect(icone, 'nessun passo copia le icone: torna quella di Tauri').toBeGreaterThan(-1);
     expect(icone, 'copiate prima di init, init le sovrascrive').toBeGreaterThan(genera);
@@ -125,7 +126,9 @@ describe('il workflow mette le icone nel progetto e poi le cerca nel pacchetto',
     const guarda = wf.indexOf("name: L'icona nel pacchetto è la nostra?");
     expect(guarda).toBeGreaterThan(costruisce);
     const passo = wf.slice(guarda, wf.indexOf('\n\n', guarda));
-    expect(passo).toContain('python3 scripts/icona-nel-pacchetto.py');
+    expect(passo, 'il comando non c’è, o è commentato').toMatch(
+      /^\s+python3 scripts\/icona-nel-pacchetto\.py \$PACCHETTI$/m,
+    );
     expect(passo, 'gli intermedi di gradle non sono pacchetti consegnati').toContain(
       'src-tauri/gen/android/app/build/outputs',
     );

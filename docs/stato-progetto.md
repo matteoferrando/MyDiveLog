@@ -1,9 +1,33 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **2 ottobre 2026** — **3 017 prove in 196 file** più
+Aggiornato: **2 ottobre 2026** — **3 024 prove in 197 file** più
 **187 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
+
+> ## ► LA 1.8.33: LE PAGINE DA 16 KB, CHE PLAY HA CHIESTO ALLA 1.8.32. ◄
+>
+> Poche ore dopo la 1.8.32, caricandone l'`.aab`, Play Console: *«Your app does
+> not support 16 KB memory page sizes»*. Misurato: `libmydivelog_lib.so`, l'unica
+> libreria nativa, ha i quattro segmenti `PT_LOAD` a **0x1000** nell'`.aab` e
+> nell'APK (lo zip dell'APK era già allineato: lo fa gradle). L'NDK 27 del
+> workflow collega a 4 KB se non glielo si dice, e Tauri 2.11.4 non glielo dice.
+>
+> **La cura** in `src-tauri/build.rs` (`pagine_da_16_kb`):
+> `cargo:rustc-link-arg=-Wl,-z,max-page-size=16384` per Android — al linker e non
+> con un `RUSTFLAGS`, perché Tauri passa i suoi flag a cargo per variabili
+> d'ambiente e cargo ne usa una sola. **Il controllo**: `scripts/pagine-16k.py`,
+> dopo la build, legge l'ELF di ogni `.so` nell'APK e nell'`.aab`; rosso sui
+> pacchetti della 1.8.32. `tests/pagine16k.test.ts`, 7 prove.
+>
+> *E una guardia verde con la cura spenta:* «`main()` la chiama» cercava il testo
+> della chiamata, che con la chiamata commentata c'è ancora. Adesso si cercano
+> righe che COMINCIANO col comando, anche nelle prove dell'icona della 1.8.32,
+> che avevano lo stesso buco. Sette mutazioni, sette rosse.
+>
+> Numero: l'`.aab` della 1.8.32 è stato caricato su Play, quindi `1008032` è
+> usato; la 1.8.33 è `1008033`. Esce su tutti i canali come la 1.8.32. Catena
+> verde: **3 024 prove in 197 file**, **187** Rust. *Da pubblicare.*
 
 > ## ► LA 1.8.32 È PUBBLICATA: SU ANDROID L'ICONA DI MYDIVELOG, E UN CONTROLLO CHE LA CERCA NEL PACCHETTO. ◄
 >

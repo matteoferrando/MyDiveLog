@@ -378,6 +378,18 @@ jobs:
           PACCHETTI=$(find src-tauri/gen/android/app/build/outputs \( -name '*.apk' -o -name '*.aab' \) | sort)
           python3 scripts/icona-nel-pacchetto.py $PACCHETTI
 
+      # ► E LE PAGINE DA 16 KB. ◄ Google Play ha fermato la 1.8.32 il 2 ottobre
+      # 2026, poche ore dopo l'icona: la libreria nativa aveva i segmenti
+      # allineati a 4 KB, e Play pretende 16 KB dalle app che puntano ad Android
+      # 15. La cura sta in `src-tauri/build.rs` (`pagine_da_16_kb`); qui si apre
+      # il pacchetto e si guarda ogni `.so`, e nell'APK anche dove comincia
+      # dentro lo zip. Visto rosso sui pacchetti della 1.8.32.
+      - name: Le librerie native reggono le pagine da 16 KB?
+        run: |
+          set -eu
+          PACCHETTI=$(find src-tauri/gen/android/app/build/outputs \( -name '*.apk' -o -name '*.aab' \) | sort)
+          python3 scripts/pagine-16k.py $PACCHETTI
+
       - name: Raccogli
         run: |
           set -eu
