@@ -5,6 +5,39 @@ Aggiornato: **2 ottobre 2026** — **3 024 prove in 197 file** più
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
 
+> ## ► MYDIVELOG È SU GOOGLE PLAY, E IL SITO ADESSO LO DICE. ◄
+>
+> Il 12 ottobre, dal proprietario, l'indirizzo della scheda:
+> `play.google.com/store/apps/details?id=it.ferrando.mydivelog`. **Misurato**:
+> scheda pubblica — niente «accesso anticipato» né «test» —, aggiornata il 2
+> ottobre, 5+ download, classificazione 3+. La versione la pagina non la scrive.
+>
+> **La firma, finalmente guardata.** In Play Console — *Protected with Play →
+> Play app signing*, dove adesso sta quella che si chiamava «Integrità dell'app» —
+> la chiave con cui Play firma l'app sui telefoni ha SHA-256 `D9:E0:67:CE…DA:17`
+> (è quella del frammento *Digital Asset Links*), e la chiave di caricamento è la
+> nostra, `69:39:26:8E…B3:11`. **Diverse: la chiave di firma l'ha generata
+> Google**, la strada A di `play-store.md`. La conseguenza era scritta da agosto:
+> chi ha l'APK del sito e passa a Play deve disinstallare, e disinstallare
+> cancella le immersioni dal telefono.
+>
+> **Il sito**: la scheda Android e il pulsante in fondo portano a Play; l'APK
+> resta, in una nota che nella stessa riga dice che le firme sono diverse e il
+> percorso del backup — *Impostazioni → Backup completo e ripristino* — con le
+> parole dell'app. La griglia «Le altre piattaforme» dice Play automatico e l'APK
+> a mano; l'aiuto ha una voce nuova, «Ho l'APK del sito: posso passare a Google
+> Play?»; il README pure, e perde «Non l'ha provato nessuno su un telefono vero»,
+> che con una scheda pubblica e i collaudatori del test chiuso non è più una cosa
+> che si sa. `tests/sitoPlay.test.ts` (11) lega le parole del sito a quelle
+> dell'app — `navigazione.tsx`, `traduzioni.ts`, la carta in `SyncPage.tsx` —:
+> tre mutazioni, tre rosse. Fotografato a 1280 e a 390 pixel: niente che sborda.
+>
+> **E una cosa da correggere su Play, che è del proprietario**: la scheda dice
+> *«Data isn't encrypted»*. L'app parla in rete solo con due indirizzi, tutti e
+> due HTTPS — lo dice la CSP di `tauri.conf.json`, e il guscio Rust non ha nessun
+> client HTTP —, quindi alla domanda sulla crittografia in transito la risposta
+> giusta è sì.
+
 > ## ► DOVE STANNO I NEGOZI, RIMISURATO IL 2 OTTOBRE. ◄
 >
 > **App Store (iPhone): 1.8.31**, pubblicata il 24 settembre alle 19:31 UTC —

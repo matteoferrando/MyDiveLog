@@ -332,14 +332,16 @@
 
               <a
                 class="scheda-piattaforma minore"
-                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
+                href="https://play.google.com/store/apps/details?id=it.ferrando.mydivelog"
+                target="_blank"
+                rel="noopener"
               >
                 <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
                   <rect x="9" y="4" width="14" height="24" rx="3" />
                   <circle cx="16" cy="24" r="1.4" />
                 </svg>
                 <span class="nome">Android</span>
-                <span class="riga">APK</span>
+                <span class="riga">Google Play</span>
               </a>
 
               <a
@@ -358,6 +360,31 @@
                 <span class="riga">.deb package</span>
               </a>
             </div>
+
+            <!--
+              ► L'APK E LA COPIA DI GOOGLE PLAY NON HANNO LA STESSA FIRMA. ◄
+
+              Misurato il 12 ottobre 2026 in Play Console: la chiave con cui Play
+              firma l'app che arriva sui telefoni (SHA-256 D9:E0:67:CE…DA:17) l'ha
+              generata Google, ed è diversa dalla nostra (69:39:26:8E…B3:11), che
+              firma l'APK. Android non aggiorna un'applicazione con un certificato
+              diverso: per passare da un canale all'altro si disinstalla, e
+              disinstallare cancella l'archivio sul telefono, cioè le immersioni.
+              Per questo il backup sta scritto QUI, nella stessa nota del
+              collegamento all'APK, e non in una pagina d'aiuto che si legge dopo.
+              Le parole del percorso sono quelle dell'applicazione: le controlla
+              tests/sitoPlay.test.ts.
+            -->
+            <p class="nota-schede">
+              For Android there is also the
+              <a
+                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
+                ><code>.apk</code> package</a
+              >, to install by hand. It is not signed with the same key as the Google Play copy, so one cannot
+              update the other: if you already have the APK and want to move to Play, first save everything
+              from <b>Settings → Full backup and restore</b>, then uninstall, install from Play and restore.
+              Uninstalling deletes your dives from the phone.
+            </p>
 
             <p class="fiducia">
               <span>Free</span><span>No account</span><span>Open source</span>
@@ -1017,11 +1044,11 @@
             </h3>
             <dl class="dati-piattaforma">
               <dt>Format</dt>
-              <dd><code>.apk</code> package</dd>
+              <dd>From Google Play, or the <code>.apk</code> package</dd>
               <dt>Updates</dt>
-              <dd>By hand: you get the file again from here</dd>
+              <dd>Automatic from Play; the APK by hand, you get the file again from here</dd>
               <dt>The system</dt>
-              <dd>Will ask permission to install from this source</dd>
+              <dd>For the APK it will ask permission to install from this source</dd>
             </dl>
           </div>
           <div class="riquadro">
@@ -1040,7 +1067,7 @@
               <dt>Format</dt>
               <dd><code>.deb</code> package, amd64</dd>
               <dt>Updates</dt>
-              <dd>By hand, as on Android</dd>
+              <dd>By hand: you get the file again from here</dd>
               <dt>The system</dt>
               <dd>
                 Needs <b>WebKitGTK 4.1</b>: available from <b>Ubuntu 24.04</b> and <b>Debian 13</b> onwards.
@@ -1052,9 +1079,11 @@
         </div>
 
         <p class="nota-schede nota-piattaforme">
-          It re-downloads by hand for two different reasons. On Android, an app that updates itself would have
-          to ask for a permission scarier than it is worth; on Linux, automatic updates would only work with a
-          package format other than the <code>.deb</code>, which is what people expect.
+          The APK and the <code>.deb</code> re-download by hand for two different reasons. On Android, an app
+          installed outside Play that updates itself would have to ask for a permission scarier than it is
+          worth: that is why the recommended way is Google Play, which updates it for you. On Linux, automatic
+          updates would only work with a package format other than the <code>.deb</code>, which is what people
+          expect.
         </p>
         <p class="nota-schede nota-piattaforme">
           None of the three is signed by an authority, so the file cannot vouch for itself. Its SHA-256
@@ -1109,7 +1138,9 @@
           >
           <a
             class="pulsante"
-            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
+            href="https://play.google.com/store/apps/details?id=it.ferrando.mydivelog"
+            target="_blank"
+            rel="noopener"
             >Android</a
           >
           <a

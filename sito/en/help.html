@@ -158,8 +158,23 @@
           </p>
           <h3>Android asks permission to install from this source.</h3>
           <p>
-            It is the same question it asks for any app from outside the Play Store. The APK cannot vouch for
-            its own origin: the SHA-256 fingerprint in the release notes can.
+            It happens with the APK, and it is the same question Android asks for any app from outside the
+            Play Store; from
+            <a
+              href="https://play.google.com/store/apps/details?id=it.ferrando.mydivelog"
+              target="_blank"
+              rel="noopener"
+              >Google Play</a
+            >
+            it does not ask. The APK cannot vouch for its own origin: the SHA-256 fingerprint in the release
+            notes can.
+          </p>
+          <h3>I have the APK from the site: can I move to Google Play?</h3>
+          <p>
+            Yes, but not on top of it: the APK and the Play copy have different signatures, and Android does
+            not let one update the other. First save everything from
+            <b>Settings → Full backup and restore</b>, then uninstall the APK, install from Play and restore
+            the backup. Without a backup, uninstalling deletes your dives from the phone.
           </p>
           <h3>The Linux package will not install: <code>libwebkit2gtk-4.1-0</code> is missing.</h3>
           <p>
@@ -336,9 +351,9 @@
           <h3>How does it update?</h3>
           <p>
             <b>Mac and Windows</b> tell you when a new version is out; downloading and installing it is your
-            call, and every update is signed. <b>Android and Linux</b> do not: you get the file again from
-            here. If you installed from the App Store or the Mac App Store, Apple delivers it like any other
-            app.
+            call, and every update is signed. <b>The Android APK and the Linux package</b> do not: you get the
+            file again from here. If you installed from Google Play, Play delivers it; from the App Store or
+            the Mac App Store, Apple does, like any other app.
           </p>
           <h3>I found something wrong.</h3>
           <p>

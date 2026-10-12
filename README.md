@@ -39,7 +39,9 @@ Le schermate sono prodotte dall'applicazione vera con l'archivio dimostrativo
 **iPhone: [sull'App Store](https://apps.apple.com/app/mydivelog/id6804439480)**,
 gratis, da iOS 15.
 
-**macOS, Windows, Android e Linux stanno
+**Android: [su Google Play](https://play.google.com/store/apps/details?id=it.ferrando.mydivelog)**, gratis, e si aggiorna da Play.
+
+**macOS, Windows, l'APK di Android e Linux stanno
 [nelle release](https://github.com/matteoferrando/MyDiveLog/releases/latest)**, e
 i pulsanti sono anche su [mydivelog.site](https://mydivelog.site).
 
@@ -47,7 +49,7 @@ i pulsanti sono anche su [mydivelog.site](https://mydivelog.site).
 |---|---|---|
 | macOS | `MyDiveLog-macOS-arm64.dmg` | firmato Developer ID e **notarizzato**: doppio clic, niente «apri comunque». **Serve un Mac Apple Silicon e macOS 12** — su un Mac Intel installa e non si apre |
 | Windows | `MyDiveLog-Windows-setup.exe`, oppure `MyDiveLog-Windows-portatile.exe` che non installa niente | firmato dal Mac, si aggiorna da solo. **Non l'ha provato nessuno su una macchina vera** |
-| Android | `MyDiveLog-Android-arm64.apk` | **niente aggiornamento automatico**, e la firma non garantisce da chi viene il file: lo garantisce l'impronta SHA-256 pubblicata nelle note della release. **Non l'ha provato nessuno su un telefono vero** |
+| Android | `MyDiveLog-Android-arm64.apk` — oppure [Google Play](https://play.google.com/store/apps/details?id=it.ferrando.mydivelog), che si aggiorna da solo | **niente aggiornamento automatico**, e la firma non garantisce da chi viene il file: lo garantisce l'impronta SHA-256 pubblicata nelle note della release. **Non ha la stessa firma della copia di Play** (quella la genera Google): l'una non aggiorna l'altra, e per passare da un canale all'altro si fa prima un backup — *Impostazioni → Backup completo e ripristino* — poi si disinstalla e si ripristina, perché disinstallare cancella le immersioni dal telefono |
 | Linux | `MyDiveLog-Linux-amd64.deb` | **niente aggiornamento automatico**. Vuole **WebKitGTK 4.1**, che c'è da **Ubuntu 24.04** e da **Debian 13** in su: su una distribuzione più vecchia `dpkg` lo rifiuta dicendo che manca `libwebkit2gtk-4.1-0`, e non è un difetto del pacchetto — quella libreria lì non esiste. È l'unica delle tre non-Apple che qualcuno **ha fatto partire davvero** prima di pubblicarla — e dal 3 settembre 2026 anche l'unica **provata con un computer subacqueo davanti**: su Manjaro si installa, importa e scarica via Bluetooth. **Su Arch, Manjaro e derivate**, che `dpkg` non l'hanno, c'è [`linux/PKGBUILD`](linux/LEGGIMI.md): `makepkg -si` impacchetta lo stesso `.deb` per `pacman`, verificandone l'impronta |
 
 Non c'è un pacchetto per Mac Intel.

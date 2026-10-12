@@ -363,14 +363,16 @@
 
               <a
                 class="scheda-piattaforma minore"
-                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
+                href="https://play.google.com/store/apps/details?id=it.ferrando.mydivelog"
+                target="_blank"
+                rel="noopener"
               >
                 <svg class="disegno" viewBox="0 0 32 32" aria-hidden="true">
                   <rect x="9" y="4" width="14" height="24" rx="3" />
                   <circle cx="16" cy="24" r="1.4" />
                 </svg>
                 <span class="nome">Android</span>
-                <span class="riga">APK</span>
+                <span class="riga">Google Play</span>
               </a>
 
               <a
@@ -389,6 +391,31 @@
                 <span class="riga">Pacchetto .deb</span>
               </a>
             </div>
+
+            <!--
+              ► L'APK E LA COPIA DI GOOGLE PLAY NON HANNO LA STESSA FIRMA. ◄
+
+              Misurato il 12 ottobre 2026 in Play Console: la chiave con cui Play
+              firma l'app che arriva sui telefoni (SHA-256 D9:E0:67:CE…DA:17) l'ha
+              generata Google, ed è diversa dalla nostra (69:39:26:8E…B3:11), che
+              firma l'APK. Android non aggiorna un'applicazione con un certificato
+              diverso: per passare da un canale all'altro si disinstalla, e
+              disinstallare cancella l'archivio sul telefono, cioè le immersioni.
+              Per questo il backup sta scritto QUI, nella stessa nota del
+              collegamento all'APK, e non in una pagina d'aiuto che si legge dopo.
+              Le parole del percorso sono quelle dell'applicazione: le controlla
+              tests/sitoPlay.test.ts.
+            -->
+            <p class="nota-schede">
+              Per Android c’è anche il
+              <a
+                href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
+                >pacchetto <code>.apk</code></a
+              >, da installare a mano. Non ha la stessa firma della copia di Google Play, quindi l’una non
+              aggiorna l’altra: se hai già l’APK e vuoi passare a Play, prima salva tutto da
+              <b>Impostazioni → Backup completo e ripristino</b>, poi disinstalla, installa da Play e
+              ripristina. Disinstallare cancella le immersioni dal telefono.
+            </p>
 
             <p class="fiducia">
               <span>Gratis</span><span>Senza account</span><span>Codice aperto</span>
@@ -1133,7 +1160,7 @@
           orizzontale, e leggerla in orizzontale è tutto il motivo per cui è una
           tabella.
 
-          I due «perché» — perché Android e Linux non si aggiornano da soli —
+          I due «perché» — perché l'APK e Linux non si aggiornano da soli —
           restano, ma sotto e in due righe: sono la risposta a una domanda che
           viene DOPO, e chi non se la fa non deve attraversarla per arrivare al
           resto.
@@ -1167,11 +1194,11 @@
             </h3>
             <dl class="dati-piattaforma">
               <dt>Formato</dt>
-              <dd>Pacchetto <code>.apk</code></dd>
+              <dd>Da Google Play, oppure pacchetto <code>.apk</code></dd>
               <dt>Aggiornamenti</dt>
-              <dd>A mano: il file si riprende da qui</dd>
+              <dd>Da Play automatici; l’APK a mano, il file si riprende da qui</dd>
               <dt>Il sistema</dt>
-              <dd>Chiederà il permesso di installare da questa origine</dd>
+              <dd>Per l’APK chiederà il permesso di installare da questa origine</dd>
             </dl>
           </div>
           <div class="riquadro">
@@ -1190,7 +1217,7 @@
               <dt>Formato</dt>
               <dd>Pacchetto <code>.deb</code>, amd64</dd>
               <dt>Aggiornamenti</dt>
-              <dd>A mano, come su Android</dd>
+              <dd>A mano: il file si riprende da qui</dd>
               <dt>Il sistema</dt>
               <dd>
                 Vuole <b>WebKitGTK 4.1</b>: c’è da <b>Ubuntu 24.04</b> e da <b>Debian 13</b> in su. Su una più
@@ -1201,10 +1228,11 @@
         </div>
 
         <p class="nota-schede nota-piattaforme">
-          Si riscarica a mano per due motivi diversi. Su Android, un’applicazione che si aggiorna da sola
-          dovrebbe chiedere un permesso che spaventa più di quanto serva; su Linux, l’aggiornamento automatico
-          funzionerebbe solo con un formato di pacchetto diverso dal <code>.deb</code>, che è quello che la
-          gente si aspetta.
+          L’APK e il <code>.deb</code> si riscaricano a mano per due motivi diversi. Su Android,
+          un’applicazione installata fuori da Play che si aggiorna da sola dovrebbe chiedere un permesso che
+          spaventa più di quanto serva: per questo la strada consigliata è Google Play, che la aggiorna lui.
+          Su Linux, l’aggiornamento automatico funzionerebbe solo con un formato di pacchetto diverso dal
+          <code>.deb</code>, che è quello che la gente si aspetta.
         </p>
         <p class="nota-schede nota-piattaforme">
           Nessuno dei tre è firmato da un’autorità, quindi il file non racconta la propria origine. Lo fa la
@@ -1268,7 +1296,9 @@
           >
           <a
             class="pulsante"
-            href="https://github.com/matteoferrando/MyDiveLog/releases/latest/download/MyDiveLog-Android-arm64.apk"
+            href="https://play.google.com/store/apps/details?id=it.ferrando.mydivelog"
+            target="_blank"
+            rel="noopener"
             >Android</a
           >
           <a
