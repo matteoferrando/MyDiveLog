@@ -1,6 +1,6 @@
 # MyDiveLog — stato del progetto
 
-Aggiornato: **2 ottobre 2026** — **3 024 prove in 197 file** più
+Aggiornato: **12 ottobre 2026** — **3 035 prove in 198 file** più
 **187 prove Rust**, tipi, lint e formato a **0 errori**, e la suite verde anche
 a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 `server/` e `vite.config.ts`.
@@ -37,6 +37,12 @@ a **UTC+14 e UTC−11**. Il controllo dei tipi copre adesso anche `scripts/`,
 > due HTTPS — lo dice la CSP di `tauri.conf.json`, e il guscio Rust non ha nessun
 > client HTTP —, quindi alla domanda sulla crittografia in transito la risposta
 > giusta è sì.
+>
+> **Pubblicato**: commit `ba2884e`; il sito, con `sito:online` che prima diceva le
+> quattro pagine cambiate col testo vecchio e dopo *«il sito pubblicato è quello sul
+> disco»*. La suite: **3 035 su 3 035**, nessuna saltata — al primo giro senza
+> `npm run build` cinque prove del bilancio del bundle si erano saltate da sole, e
+> col `dist/` rifatto sono passate.
 
 > ## ► DOVE STANNO I NEGOZI, RIMISURATO IL 2 OTTOBRE. ◄
 >
