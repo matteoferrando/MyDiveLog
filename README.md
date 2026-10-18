@@ -914,3 +914,5 @@ L'algoritmo Bühlmann ZH-L16C è di Albert A. Bühlmann; l'interpolazione dei
 gradient factor segue il lavoro di Erik Baker. VPM-B è di David E. Yount,
 Eric B. Maiken e Erik C. Baker. Le tabelle CNS e OTU vengono dal NOAA Diving
 Manual.
+
+MyDiveLog è un progetto di [Matteo Ferrando](https://matteoferrando.com).
